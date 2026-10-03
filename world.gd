@@ -251,7 +251,7 @@ func raw_height(x: float, z: float) -> float:
 	h = lerp(smooth_h, h, smoothstep(3.0, 9.0, rd))
 	# village plat
 	var vd := Vector2(x, z).distance_to(village)
-	h = lerp(0.25, h, smoothstep(20.0, 30.0, vd))
+	h = lerp(0.25, h, smoothstep(34.0, 44.0, vd) if MAP.town.kind == "valdrune" else smoothstep(20.0, 30.0, vd))
 	# lieux aplanis
 	for p in POI_DEFS:
 		var pd := Vector2(x, z).distance_to(p.p)
@@ -317,8 +317,9 @@ func build(id := 1) -> void:
 	_compute_reach()
 	if MAP.town.kind == "valdrune": _village()
 	else: _town(MAP.town)
-	_town_dressing()
-	_ground_decals()
+	if MAP.town.kind != "valdrune":
+		_town_dressing()
+		_ground_decals()
 	_faubourgs()
 	for p in POI_DEFS: _poi(p)
 	_gates()
@@ -551,56 +552,126 @@ func label(txt: String, pos: Vector3, col: Color, size := 48) -> Label3D:
 
 # ——— Le village de Valdrune ———
 func _village() -> void:
+	# Valdrune, construite à la main : place pavée, rue principale nord-sud, maisons à colombages (MegaKit)
 	var V := village
-	var H := "res://assets/hex/"
-	building(H + "building_blacksmith_blue.gltf", V + Vector2(-13, -10), PI * 0.1, 5.0, 6.0)
-	building(H + "building_market_blue.gltf", V + Vector2(13, -10), -PI * 0.1, 5.0, 7.0)
-	building(H + "building_tavern_blue.gltf", V + Vector2(-15, 8), PI * 0.5, 5.0, 6.5)
-	building(H + "building_church_blue.gltf", V + Vector2(15, 10), -PI * 0.5, 5.0, 6.5)
-	building(H + "building_home_A_blue.gltf", V + Vector2(-26, -2), PI * 0.3, 4.6, 5.0)
-	building(H + "building_home_B_blue.gltf", V + Vector2(26, -1), -PI * 0.3, 4.6, 5.0)
-	building(H + "building_home_A_blue.gltf", V + Vector2(-20, 22), PI * 0.7, 4.6, 5.0)
-	building(H + "building_home_B_blue.gltf", V + Vector2(-8, 28), -PI * 0.2, 4.6, 5.0)   # (avant : posée sur le ponton du port)
-	building(H + "building_well_blue.gltf", V + Vector2(0, 0), 0.0, 3.0, 2.2)
-	# Hôtel des ventes
-	building(H + "building_barracks_blue.gltf", V + Vector2(-25, -17), PI * 0.25, 5.0, 6.5)
-	label("HÔTEL DES VENTES", Vector3(V.x - 25, 8.0, V.y - 17), Color("#ffd27a"), 60)
-	for q in [V + Vector2(-20, -12), V + Vector2(-29, -11)]: place("res://assets/dungeon/banner_patternA_red.gltf", Vector3(q.x, 0, q.y), PI * 0.25, 1.0)
-	forge_pos = Vector3(V.x - 9, 0, V.y - 7); shop_pos = Vector3(V.x + 9, 0, V.y - 7)
-	place("res://assets/dungeon/table_medium_decorated_A.gltf", forge_pos + Vector3(-1.6, 0, -0.6), 0.2, 0.9); blocker(forge_pos + Vector3(-1.6, 0, -0.6), 0.8)
-	place(H + "weaponrack.gltf", forge_pos + Vector3(-3.4, 0, 0.4), 0.4, 6.0)
-	place("res://assets/dungeon/barrel_large.gltf", shop_pos + Vector3(2.4, 0, -0.6), 0.0, 0.6); blocker(shop_pos + Vector3(2.4, 0, -0.6), 0.6)
-	place("res://assets/dungeon/crates_stacked.gltf", shop_pos + Vector3(3.6, 0, 1.0), 0.4, 0.6); blocker(shop_pos + Vector3(3.6, 0, 1.0), 0.8)
-	place(H + "sack.gltf", shop_pos + Vector3(-2.0, 0, -0.8), 0.0, 6.0)
-	# lanternes le long des chemins
-	for p in [V + Vector2(-4, -14), V + Vector2(4, -14), V + Vector2(-4, 14), V + Vector2(4, 14), V + Vector2(-3, -26), V + Vector2(3, -26)]:
-		place("res://assets/halloween/lantern_standing.gltf", Vector3(p.x, 0, p.y), 0.0, 1.6); blocker(Vector3(p.x, 0, p.y), 0.3)
-		_light(Vector3(p.x, height(p.x, p.y) + 2.5, p.y), Color("#ffbf66"), 2.0, 2.5)
-	# champs clôturés
+	var DG := "res://assets/dungeon/"; var H := "res://assets/hex/"
+	var P := func(x: float, z: float) -> Vector3: return Vector3(V.x + x, 0, V.y + z)
+	# pavés : place + rue principale
+	for x in range(-9, 11, 2):
+		for z in range(-11, 11, 2): _pave(V + Vector2(x, z))
+	for z in range(-35, -11, 2):
+		for x in [-1, 1]: _pave(V + Vector2(x, z))
+	for z in range(11, 33, 2):
+		for x in [-1, 1]: _pave(V + Vector2(x, z))
+	# rangée nord, façades vers la place (et vers la caméra)
+	house(V + Vector2(-13, -16), 0.0, 6, 2, "plaster", true)    # hôtel des ventes
+	house(V + Vector2(-5.5, -16), 0.0, 4, 1, "brick", true)
+	house(V + Vector2(5.5, -16), 0.0, 4, 2, "plaster", true)
+	house(V + Vector2(13, -16), 0.0, 6, 2, "brick", true)       # auberge
+	# côtés de la place
+	house(V + Vector2(-16, 3), PI * 0.5, 4, 1, "brick", true)   # forge (porte vers l'est)
+	house(V + Vector2(16, 3), -PI * 0.5, 4, 1, "plaster", true) # échoppe (porte vers l'ouest)
+	# sud de la place
+	house(V + Vector2(-11, 18), PI, 4, 2, "plaster", false)
+	house(V + Vector2(11, 18), PI, 6, 1, "brick", false)
+	# le long de la rue, vers le nord
+	house(V + Vector2(-7, -29), PI * 0.5, 4, 2, "plaster", true)
+	house(V + Vector2(7, -29), -PI * 0.5, 4, 1, "brick", true)
+	building(H + "building_well_blue.gltf", V, 0.0, 3.0, 2.2)
+	label("HÔTEL DES VENTES", P.call(-13, -8).lerp(P.call(-13, -8), 0) + Vector3(0, 9.5, 0), Color("#ffd27a"), 54)
+	label("VALDRUNE", P.call(0, -22) + Vector3(0, 10.5, 0), Color("#ffe2a0"), 90)
+	# forge et marché
+	forge_pos = P.call(-10.5, 2.0); shop_pos = P.call(10.5, 2.0)
+	place(DG + "table_medium_decorated_A.gltf", forge_pos + Vector3(-1.2, 0, 1.6), PI * 0.5, 0.9); blocker(forge_pos + Vector3(-1.2, 0, 1.6), 0.8)
+	place(H + "weaponrack.gltf", forge_pos + Vector3(-1.4, 0, -1.6), PI * 0.5, 5.0)
+	place(_V + "Prop_Wagon.gltf", shop_pos + Vector3(1.4, 0, 2.4), -PI * 0.5, 1.0); blocker(shop_pos + Vector3(1.4, 0, 2.4), 1.2)
+	for q in [Vector3(1.6, 0, -1.6), Vector3(2.6, 0, -0.6)]: place(_V + "Prop_Crate.gltf", shop_pos + q, 0.3, 1.0)
+	# étals sur la moitié sud de la place
+	for k in 2:
+		var sx := -5.0 if k == 0 else 5.0
+		place(DG + "table_medium_decorated_A.gltf", P.call(sx, 7.0), 0.0, 0.85); blocker(P.call(sx, 7.0), 0.9)
+		place(DG + "barrel_large.gltf", P.call(sx + (1.6 if k == 0 else -1.6), 7.6), 0.0, 0.55)
+		place(_V + "Prop_Crate.gltf", P.call(sx + (-1.4 if k == 0 else 1.4), 7.3), 0.6, 0.9)
+	# lanternes aux coins de la place
+	for q: Vector2 in [Vector2(-9.5, -10.5), Vector2(9.5, -10.5), Vector2(-9.5, 10.5), Vector2(9.5, 10.5), Vector2(-2.6, -24), Vector2(2.6, -24)]:
+		place("res://assets/halloween/lantern_standing.gltf", P.call(q.x, q.y), 0.0, 1.6); blocker(P.call(q.x, q.y), 0.3)
+		_light(P.call(q.x, q.y) + Vector3(0, height(V.x + q.x, V.y + q.y) + 2.5, 0), Color("#ffbf66"), 2.0, 2.5)
+	# quelques arbres d'ornement et des massifs fleuris
+	var FL := [Color("#f08cd8"), Color("#f7e06a"), Color("#c090d8"), Color("#ffffff")]
+	var rr := RandomNumberGenerator.new(); rr.seed = 31
+	for q: Vector2 in [Vector2(-13, 9), Vector2(13, 9), Vector2(-21, -6), Vector2(21, -6)]:
+		place("res://assets/forest/Tree_1_A_Color1.gltf", P.call(q.x, q.y), rr.randf() * TAU, 0.6); blocker(P.call(q.x, q.y), 0.5)
+		for k in 7:
+			var fc: Color = FL[rr.randi() % FL.size()]; fc.a = 0.98
+			var fq := q + Vector2(rr.randf_range(-1.8, 1.8), rr.randf_range(-1.8, 1.8))
+			_mm("res://assets/forest/Bush_1_A_Color1.gltf", P.call(fq.x, fq.y), rr.randf_range(0.5, 0.8), rr.randf() * TAU, fc)
+	# champs du fermier (sans clôture)
 	house_spots.append([V + Vector2(-32, 20), 11.0])
 	for row in 4:
 		for k in 7:
 			_mm("res://assets/forest/Grass_2_D_Color1.gltf", Vector3(V.x - 40 + k * 2.4, 0, V.y + 16 + row * 2.6), 1.3, 0.0)
-	for p in [V + Vector2(-6, -18), V + Vector2(6, -18)]:
-		place("res://assets/dungeon/banner_patternB_blue.gltf", Vector3(p.x, 0, p.y), 0.0, 1.0)
-	label("VALDRUNE", Vector3(V.x, 7.0, V.y - 18), Color("#ffe2a0"), 90)
-	# zone sûre
-	npc_spots.append({"id": "brokk", "model": "Barbarian", "name": "Brokk", "role": "Armurier · forge", "pos": forge_pos + Vector3(0.6, 0, 1.2), "act": "forge"})
-	npc_spots.append({"id": "mara", "model": "Rogue", "name": "Mara", "role": "Marchande", "pos": shop_pos + Vector3(-0.6, 0, 1.2), "act": "shop"})
-	npc_spots.append({"id": "corvin", "model": "Rogue", "name": "Corvin", "role": "Hôtel des ventes", "pos": Vector3(V.x - 21, 0, V.y - 13), "act": "auction"})
-	npc_spots.append({"id": "aldric", "model": "Mage", "name": "Aldric", "role": "Ancien du village", "pos": Vector3(V.x + 3.5, 0, V.y + 3.0), "act": "quest"})
-	npc_spots.append({"id": "hilda", "model": "Rogue", "name": "Hilda", "role": "Aubergiste", "pos": Vector3(V.x - 11, 0, V.y + 8), "act": "talk"})
-	npc_spots.append({"id": "gael", "model": "Knight", "name": "Sire Gaël", "role": "Garde", "pos": Vector3(V.x + 3, 0, V.y - 24), "act": "talk"})
-	npc_spots.append({"id": "lina", "model": "Ranger", "name": "Lina", "role": "Villageoise", "pos": Vector3(V.x - 6, 0, V.y + 4), "act": "talk", "path": [V + Vector2(-6, 4), V + Vector2(-6, -6), V + Vector2(6, -6), V + Vector2(6, 6)]})
-	npc_spots.append({"id": "pip", "model": "Rogue", "name": "Pip", "role": "Gamin du village", "pos": Vector3(V.x + 5, 0, V.y + 16), "act": "talk", "scale": 0.75, "path": [V + Vector2(5, 16), V + Vector2(-8, 18), V + Vector2(-2, 26)]})
-	npc_spots.append({"id": "bram", "model": "Barbarian", "name": "Bram", "role": "Fermier", "pos": Vector3(V.x - 32, 0, V.y + 20), "act": "talk", "path": [V + Vector2(-38, 18), V + Vector2(-26, 18), V + Vector2(-26, 24), V + Vector2(-38, 24)]})
-	npc_spots.append({"id": "bjorn", "model": "Barbarian", "name": "Bjorn", "role": "Haches · bûcheron", "pos": Vector3(V.x - 8, 0, V.y + 16), "act": "tools", "tool": "hache"})
-	npc_spots.append({"id": "gorm", "model": "Knight", "name": "Gorm", "role": "Pioches · mineur", "pos": Vector3(V.x + 8, 0, V.y + 16), "act": "tools", "tool": "pioche"})
-	npc_spots.append({"id": "sylve", "model": "Ranger", "name": "Sylve", "role": "Faucilles · herboriste", "pos": Vector3(V.x + 9, 0, V.y + 2), "act": "tools", "tool": "faucille"})
-	for q in [V + Vector2(-10.5, 17.5)]: place("res://assets/hex/resource_lumber.gltf", Vector3(q.x, 0, q.y), 0.3, 3.0)
-	for q in [V + Vector2(10.5, 17.5)]: place("res://assets/forest/Rock_1_J_Color1.gltf", Vector3(q.x, 0, q.y), 0.3, 0.45)
-	npc_spots.append({"id": "rhea", "model": "Knight", "name": "Rhéa", "role": "Capitaine des mercenaires", "pos": Vector3(V.x - 19, 0, V.y + 13), "act": "mercs"})
-	npc_spots.append({"id": "passeur_1", "model": "Ranger", "name": "Fenn", "role": "Passeur · voyages rapides", "pos": Vector3(V.x - 5, 0, V.y - 22), "act": "travel"})
+	# portes de la ville, gardées
+	for gz in [-36.0, 33.0]:
+		for sd in [-3.6, 3.6]:
+			place(DG + "pillar_decorated.gltf", P.call(sd, gz), 0.0, 1.1); blocker(P.call(sd, gz), 0.6)
+			place(DG + "banner_patternB_blue.gltf", P.call(sd, gz + 0.7), PI * 0.5, 1.2)
+			_light(P.call(sd, gz) + Vector3(0, height(V.x + sd, V.y + gz) + 3.0, 0), Color("#ffbf66"), 1.8, 2.2)
+		for k in 2:
+			var gx := -2.0 if k == 0 else 2.0
+			npc_spots.append({"id": "garde_v_%d" % int(gz + 50 + k), "model": "Knight", "name": GUARD_NAMES[(k + int(gz > 0) * 2) % GUARD_NAMES.size()], "role": "Garde de la ville", "pos": P.call(gx, gz + (-1.0 if gz < 0 else 1.0)), "act": "guard", "yaw": PI if gz < 0 else 0.0})
+	# habitants, chacun à sa place
+	npc_spots.append({"id": "brokk", "model": "Barbarian", "name": "Brokk", "role": "Armurier · forge", "pos": forge_pos + Vector3(0.8, 0, 0), "act": "forge", "yaw": PI * 0.5})
+	npc_spots.append({"id": "mara", "model": "Rogue", "name": "Mara", "role": "Marchande", "pos": shop_pos + Vector3(-0.8, 0, 0), "act": "shop", "yaw": -PI * 0.5})
+	npc_spots.append({"id": "corvin", "model": "Rogue", "name": "Corvin", "role": "Hôtel des ventes", "pos": P.call(-13, -10.2), "act": "auction", "yaw": 0.0})
+	npc_spots.append({"id": "hilda", "model": "Rogue", "name": "Hilda", "role": "Aubergiste", "pos": P.call(13, -10.2), "act": "talk", "yaw": 0.0})
+	npc_spots.append({"id": "aldric", "model": "Mage", "name": "Aldric", "role": "Ancien du village", "pos": P.call(2.6, 2.4), "act": "quest", "yaw": 0.0})
+	npc_spots.append({"id": "gael", "model": "Knight", "name": "Sire Gaël", "role": "Garde", "pos": P.call(3, -32), "act": "talk", "yaw": PI})
+	npc_spots.append({"id": "lina", "model": "Ranger", "name": "Lina", "role": "Villageoise", "pos": P.call(-6, 4), "act": "talk", "path": [V + Vector2(-6, 4), V + Vector2(-6, -7), V + Vector2(6, -7), V + Vector2(6, 4)]})
+	npc_spots.append({"id": "pip", "model": "Rogue", "name": "Pip", "role": "Gamin du village", "pos": P.call(0, 16), "act": "talk", "scale": 0.75, "path": [V + Vector2(0, 16), V + Vector2(-4, 24), V + Vector2(4, 24)]})
+	npc_spots.append({"id": "bram", "model": "Barbarian", "name": "Bram", "role": "Fermier", "pos": P.call(-32, 20), "act": "talk", "path": [V + Vector2(-38, 18), V + Vector2(-26, 18), V + Vector2(-26, 24), V + Vector2(-38, 24)]})
+	npc_spots.append({"id": "bjorn", "model": "Barbarian", "name": "Bjorn", "role": "Haches · bûcheron", "pos": P.call(-5.5, -10.2), "act": "tools", "tool": "hache", "yaw": 0.0})
+	npc_spots.append({"id": "gorm", "model": "Knight", "name": "Gorm", "role": "Pioches · mineur", "pos": P.call(5.5, -10.2), "act": "tools", "tool": "pioche", "yaw": 0.0})
+	npc_spots.append({"id": "sylve", "model": "Ranger", "name": "Sylve", "role": "Faucilles · herboriste", "pos": P.call(-5, 8.6), "act": "tools", "tool": "faucille", "yaw": 0.0})
+	npc_spots.append({"id": "rhea", "model": "Knight", "name": "Rhéa", "role": "Capitaine des mercenaires", "pos": P.call(5, 8.6), "act": "mercs", "yaw": 0.0})
+	npc_spots.append({"id": "passeur_1", "model": "Ranger", "name": "Fenn", "role": "Passeur · voyages rapides", "pos": P.call(-4.5, -24), "act": "travel", "yaw": PI * 0.5})
+
+# ——— Maisons à colombages (MegaKit) : murs de 2 m, toit en tuiles, pignons, cheminée ———
+const _V := "res://assets/village/"
+func _pave(q: Vector2) -> void:
+	_mm_xf(_V + "Floor_Brick.gltf", Transform3D(Basis(Vector3.UP, PI * 0.5 * (int(q.x + q.y) % 4)), Vector3(q.x, height(q.x, q.y) + 0.03, q.y)), Color(0.66, 0.62, 0.56))
+
+func house(c: Vector2, rot: float, w: int, floors: int, style: String, door := true) -> void:
+	var D := 8.0; var W := float(w)
+	var y0 := height(c.x, c.y) - 0.05
+	var B := Basis(Vector3.UP, rot)
+	var X := func(lx: float, ly: float, lz: float, r: float) -> Transform3D:
+		return Transform3D(B * Basis(Vector3.UP, r), Vector3(c.x, y0, c.y) + B * Vector3(lx, ly, lz))
+	var wall := "Wall_Plaster" if style == "plaster" else "Wall_UnevenBrick"
+	for f in floors:
+		var y := f * 3.12
+		# façade (+Z) : porte au rez-de-chaussée, fenêtres au-dessus
+		for i in int(W / 2):
+			var lx := -W / 2 + 1 + i * 2
+			var kind := "_Window_Wide_Round"
+			if f == 0 and door and i == int(W / 4): kind = "_Door_Round"
+			elif f == 0 and i % 2 == 1: kind = "_Straight"
+			_mm_xf(_V + wall + kind + ".gltf", X.call(lx, y, D / 2, 0.0))
+			_mm_xf(_V + wall + ("_Straight" if i % 2 == 0 else "_Window_Wide_Round") + ".gltf", X.call(lx, y, -D / 2, PI))
+		for i in int(D / 2):
+			var lz := -D / 2 + 1 + i * 2
+			var k2 := "_Window_Wide_Round" if (i + f) % 2 == 1 else "_Straight"
+			_mm_xf(_V + wall + k2 + ".gltf", X.call(W / 2, y, lz, PI * 0.5))
+			_mm_xf(_V + wall + k2 + ".gltf", X.call(-W / 2, y, lz, -PI * 0.5))
+		for cx in [-W / 2, W / 2]:
+			for cz in [-D / 2, D / 2]: _mm_xf(_V + "Corner_Exterior_Wood.gltf", X.call(cx, y, cz, 0.0))
+	var ry := floors * 3.12
+	_mm_xf(_V + "Roof_RoundTiles_%dx8.gltf" % w, X.call(0, ry, 0, 0.0))
+	_mm_xf(_V + "Roof_Front_Brick%d.gltf" % w, X.call(0, ry, D / 2, 0.0))
+	_mm_xf(_V + "Roof_Front_Brick%d.gltf" % w, X.call(0, ry, -D / 2, PI))
+	_mm_xf(_V + "Prop_Chimney.gltf", X.call(W / 2 - 0.9, ry + 0.6, -D / 4, 0.0))
+	box_blocker(Vector3(c.x, 0, c.y), Vector3(W + 0.4, 6, D + 0.4) if abs(sin(rot)) < 0.5 else Vector3(D + 0.4, 6, W + 0.4), 0.0)
+	house_spots.append([c, max(W, D) * 0.6])
+	if smoke_n < 9: _smoke(Vector3(c.x, y0, c.y) + B * Vector3(W / 2 - 0.9, ry + 3.9, -D / 4))
 
 # ——— Lieux ———
 func _poi(p: Dictionary) -> void:
@@ -1657,6 +1728,7 @@ func _faubourgs() -> void:
 	var r := RandomNumberGenerator.new(); r.seed = 4400 + map_id
 	var V := village
 	var made: Array = []
+	if MAP.town.kind == "valdrune": _pen_near_town(r); return   # Valdrune est construite à la main
 	for rd in roads:
 		for i in rd.size() - 1:
 			var a: Vector2 = rd[i]; var b: Vector2 = rd[i + 1]; var L := a.distance_to(b)
@@ -1805,7 +1877,7 @@ const CLIFF_PAL := {"canyon": "Red", "desert": "Red", "ash": "Grey"}
 func _clear_k(x: float, z: float) -> float:
 	# 0 = interdit (ville, lieux, eau, passages), 1 = libre
 	var q := Vector2(x, z)
-	var k: float = smoothstep(40.0, 48.0, q.distance_to(village))
+	var k: float = smoothstep(46.0, 54.0, q.distance_to(village))
 	if k <= 0.0: return 0.0
 	for pd in POI_DEFS:
 		k = min(k, smoothstep(pd.r + 6.0, pd.r + 12.0, q.distance_to(pd.p)))
