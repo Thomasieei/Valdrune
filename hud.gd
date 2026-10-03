@@ -147,7 +147,11 @@ func setup(m: Node) -> void:
 	red = ColorRect.new(); red.color = Color(0.8, 0, 0, 0.0); red.set_anchors_preset(Control.PRESET_FULL_RECT); red.mouse_filter = Control.MOUSE_FILTER_IGNORE; root.add_child(red)
 	fps_lbl = _label("", 12, Color(0.8, 1, 0.8, 0.6)); root.add_child(fps_lbl)
 	for n in ["main", "dodge", "s0", "s1", "s2", "s3", "potion", "mount", "bag", "menu", "zoom", "shop", "ile", "map"]: buttons[n] = {"rect": Rect2(), "held": false}
+	auto_btn = Button.new(); auto_btn.focus_mode = Control.FOCUS_NONE; auto_btn.custom_minimum_size = Vector2(96, 52)
+	auto_btn.add_theme_font_override("font", f_title); auto_btn.add_theme_font_size_override("font_size", 19)
+	auto_btn.pressed.connect(func(): main.toggle_auto()); root.add_child(auto_btn)
 	get_viewport().size_changed.connect(_layout); _layout()
+	refresh_auto()
 
 func build_map(img: Image) -> void:
 	map_tex = ImageTexture.create_from_image(img); minimap.texture = map_tex
@@ -197,6 +201,7 @@ func _layout() -> void:
 	icons.bag.position = buttons.bag.rect.position + Vector2(1, 1)
 	icons.attack.position = mc - Vector2(48, 48)
 	hint_lbl.position = Vector2(s.x - 560 - 40, mc.y - 220)
+	if auto_btn: auto_btn.position = Vector2(s.x - 274, 330)
 
 func _input(ev: InputEvent) -> void:
 	if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed): drag_guard = false
@@ -255,7 +260,7 @@ func move_vec() -> Vector2:
 	if k.length() > 0: v = k.normalized()
 	return v
 
-func main_held() -> bool: return buttons.main.held or Input.is_key_pressed(KEY_SPACE)
+func main_held() -> bool: return buttons.main.held or Input.is_key_pressed(KEY_SPACE) or main.auto_hold
 
 # ——— Dessin regroupé : cercles et anneaux en textures, textes à la fin → très peu d'appels de dessin ———
 var TX_DISC: ImageTexture
@@ -1447,6 +1452,7 @@ const OFFERS := [
 	{"id": "res3", "tab": "ressources", "name": "Pack d'artisan T3", "desc": "120 bois, minerai et fibre T3", "icon": "res_ore_3", "col": "#33c4dc", "val": 32000},
 	{"id": "res4", "tab": "ressources", "name": "Pack de maître T4", "desc": "120 bois, minerai et fibre T4", "icon": "res_ore_4", "col": "#4d78ff", "val": 400000},
 	{"id": "res5", "tab": "ressources", "name": "Pack légendaire T5", "desc": "120 bois, minerai et fibre T5", "icon": "res_ore_5", "col": "#ff3d3d", "val": 5000000, "hot": true},
+	{"id": "auto", "tab": "boosts", "name": "Écuyer automatique", "desc": "Ton héros récolte et chasse tout seul (bouton AUTO à droite)", "icon": "it_hunt", "col": "#7dff8a", "val": 4000000, "hot": true},
 	{"id": "leg", "tab": "boosts", "name": "Coffre légendaire", "desc": "Un butin légendaire T5 à ouvrir", "icon": "it_chest_open", "col": "#ffb02e", "val": 3000000, "hot": true},
 	{"id": "enchant", "tab": "boosts", "name": "Parchemin d'enchantement", "desc": "+1 enchantement sur toutes les pièces portées", "icon": "art_rage", "col": "#e7a8ff", "val": 2000000},
 	{"id": "metier", "tab": "boosts", "name": "Parchemin d'artisan", "desc": "+5 niveaux à tous les métiers", "icon": "pioche", "col": "#9dffb0", "val": 500000},
@@ -1741,3 +1747,13 @@ func show_title() -> void:
 func _start() -> void:
 	title.queue_free(); panel_open = false
 	main.on_start()
+
+var auto_btn: Button
+func refresh_auto() -> void:
+	if auto_btn == null: return
+	auto_btn.visible = bool(Game.S.get("auto_owned", false))
+	var on: bool = main.auto_on
+	auto_btn.text = "AUTO ●" if on else "AUTO"
+	var st := flat(Color("#2f7a3a") if on else Color(0.05, 0.07, 0.1, 0.8), 26, Color("#7dff8a") if on else Color(0.95, 0.78, 0.45, 0.6), 2, Vector4(10, 4, 10, 4))
+	for k in ["normal", "hover", "pressed"]: auto_btn.add_theme_stylebox_override(k, st)
+	auto_btn.add_theme_color_override("font_color", Color.WHITE if on else GOLD)

@@ -314,6 +314,7 @@ func _process(dt: float) -> void:
 	var P := player
 	Game.listener = P.global_position
 	P.input_vec = hud.move_vec() if (not hud.panel_open or hud.cur_panel == "bag") else Vector2.ZERO
+	if auto_on: _auto(dt)
 	if has_meta("force") and get_meta("force") != Vector2.ZERO: P.input_vec = get_meta("force")
 	_context(dt)
 	var o0 := Time.get_ticks_usec()
@@ -1468,6 +1469,9 @@ func shop_claim(id: String) -> void:
 				var w := Game.wxp(Game.S.get("weapon_kind", "epee")); w.lvl = min(Game.WXP_MAX, int(w.lvl) + 5); w.xp = 0
 				msg = "+5 niveaux de maîtrise"; player.level_glow(Color(1.0, 0.55, 0.25))
 			"potions": Game.S.potions += 25; msg = "+25 potions"
+			"auto":
+				Game.S["auto_owned"] = true; msg = "Écuyer automatique : touche AUTO pour lancer la chasse"
+				hud.refresh_auto()
 			"sac":
 				if int(Game.S.get("bag_bonus", 0)) >= 24: hud.toast("Ton sac est déjà au maximum", Color("#ffb07a")); return
 				Game.S.bag_bonus = int(Game.S.get("bag_bonus", 0)) + 8; msg = "Sac : %d cases" % Game.bag_size()
@@ -1804,3 +1808,79 @@ func _find_cliff_view() -> Vector3:
 		if not w.walkable(p.x, p.z + 3.0) or w.river_dist(p.x, p.z) < 8.0: continue
 		return Vector3(p.x, w.height(p.x, p.z) + 0.5, p.z)
 	return player.global_position
+
+
+# ================= ÉCUYER AUTOMATIQUE =================
+# Le héros choisit la cible la plus proche qu'il peut gérer (ressource de son niveau ou monstre de son tier),
+# s'en approche, récolte ou frappe, boit une potion quand il faut, ramasse son butin. Toucher le joystick reprend la main.
+var auto_on := false
+var auto_hold := false
+var auto_tgt = null
+var auto_kind := ""
+var auto_t := 0.0
+var auto_best_d := 1e9
+var auto_stuck := 0.0
+var auto_ban := {}
+func toggle_auto() -> void:
+	if not bool(Game.S.get("auto_owned", false)): return
+	auto_on = not auto_on; auto_hold = false; auto_tgt = null
+	hud.toast("Chasse automatique : %s" % ("ACTIVÉE" if auto_on else "arrêtée"), Color("#7dff8a") if auto_on else Hud.SOFT)
+	hud.refresh_auto()
+
+func _auto_can_gather(nd: Dictionary) -> bool:
+	var tool: String = Game.TOOL_OF[nd.type]
+	return nd.charges > 0 and (Game.S.gear[tool] >= nd.tier or nd.tier == 1) and Game.prof(tool).lvl >= Game.PROF_REQ[nd.tier]
+
+func _auto(dt: float) -> void:
+	var P := player
+	auto_hold = false
+	if P.dead or hud.panel_open or in_instance(): return
+	if hud.move_vec().length() > 0.2: auto_tgt = null; return   # le joueur reprend la main
+	var pp := P.global_position
+	var wt := int(Game.S.gear.epee)
+	# soins
+	if P.hp < P.max_hp * 0.45 and Game.S.potions > 0 and P.potion_cd <= 0.0: P.drink()
+	if P.hp < P.max_hp * 0.25 and Game.S.potions <= 0:
+		auto_on = false; hud.refresh_auto(); hud.toast("Plus de potions : chasse automatique en pause", Color("#ff9a8a")); return
+	# butin à soi tout proche : on le ramasse
+	if not loot_sel.is_empty() and Vector2(loot_sel.pos.x - pp.x, loot_sel.pos.z - pp.z).length() < 2.5:
+		take_all(loot_sel); return
+	# un monstre nous attaque : on se défend
+	var threat := _nearest_enemy(pp, 7.0, true)
+	if threat is Enemy and not threat.group_boss:
+		auto_tgt = threat; auto_kind = "enemy"
+	auto_t -= dt
+	var valid: bool = auto_tgt != null and ((auto_kind == "enemy" and is_instance_valid(auto_tgt) and not auto_tgt.dead) or (auto_kind == "node" and auto_tgt.charges > 0))
+	if not valid or auto_t <= 0.0:
+		auto_t = 0.6
+		if not valid: auto_tgt = null
+		var best = null; var bk := ""; var bd := 40.0
+		for e in enemies:
+			if e.dead or not (e is Enemy) or e.group_boss or e.kind == "boss" or auto_ban.has(e.get_instance_id()): continue
+			if int(e.tier) > max(1, wt): continue
+			var d := pp.distance_to(e.global_position)
+			if d < bd and world.reachable(e.global_position.x, e.global_position.z): bd = d; best = e; bk = "enemy"
+		for nd in world.nodes:
+			if not _auto_can_gather(nd) or auto_ban.has(str(nd.pos)): continue
+			var d2: float = pp.distance_to(nd.pos)
+			if d2 < bd - 3.0 and world.tier_at(nd.pos) <= max(1, wt) + 1: bd = d2; best = nd; bk = "node"
+		if best != null and (auto_tgt == null or bk != auto_kind or not is_same(best, auto_tgt)):
+			auto_tgt = best; auto_kind = bk; auto_best_d = 1e9; auto_stuck = 0.0
+	if auto_tgt == null: return
+	var tp: Vector3 = auto_tgt.global_position if auto_kind == "enemy" else auto_tgt.pos
+	var to := Vector3(tp.x - pp.x, 0, tp.z - pp.z); var d := to.length()
+	var reach: float = 2.0 if auto_kind == "node" else float(Game.wkind().get("range", Player.REACH)) + (auto_tgt.radius if auto_kind == "enemy" else 0.0) - 0.3
+	if d > reach:
+		P.input_vec = Vector2(to.x, to.z).normalized()
+		# coincé (falaise, obstacle) : on abandonne cette cible un moment
+		if d < auto_best_d - 0.3: auto_best_d = d; auto_stuck = 0.0
+		else:
+			auto_stuck += dt
+			if auto_stuck > 3.5:
+				auto_ban[auto_tgt.get_instance_id() if auto_kind == "enemy" else str(auto_tgt.pos)] = true; auto_tgt = null
+	else:
+		auto_hold = true
+		if auto_kind == "enemy":
+			# compétences dès qu'elles sont prêtes
+			for i in 4:
+				if P.skill_cd[i] <= 0.0 and Game.S.gear.epee >= Player.skills()[i].req: P.use_skill(i); break
