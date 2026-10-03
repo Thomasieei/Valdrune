@@ -136,7 +136,7 @@ func _new_goal() -> void:
 	var R: Dictionary = World.REGIONS[region]
 	for k in 30:
 		var p := Vector3(clamp(R.c.x + randf_range(-60, 60), -100.0, 100.0), 0, clamp(R.c.y + randf_range(-60, 60), -100.0, 100.0))
-		if main.world.region_at(p.x, p.z) == region and main.world.walkable(p.x, p.z): goal = p; return
+		if main.world.region_at(p.x, p.z) == region and main.world.walkable(p.x, p.z) and main.world.reachable(p.x, p.z): goal = p; return
 	goal = Vector3(R.c.x, 0, R.c.y)
 
 func dmg() -> float: return Game.weapon_dmg(tier) * 0.9

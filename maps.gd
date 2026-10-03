@@ -143,6 +143,7 @@ static func _m3() -> Dictionary:
 static func _m4() -> Dictionary:
 	return {
 		"id": 4, "terrain": "Rivières & volcans",
+		"volcano": {"pos": Vector2(74, -56), "r": 44.0, "h": 24.0, "name": "Mont Brasier"},
 		"town": {"pos": Vector2(0, 80), "name": "FORT-GRIS", "kind": "town", "tint": Color(0.78, 0.8, 0.9)},
 		"regions": [{},
 			{"name": "Marais de Grisaille", "tier": 4, "c": Vector2(0, 46), "bias": 14.0, "style": "swamp", "g0": "#5d6b4c", "g1": "#76805c", "sky": "#8d9a8a"},

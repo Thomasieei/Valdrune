@@ -9,6 +9,7 @@ const TYPES := {
 }
 const NAMES := ["Aron", "Bertille", "Cassian", "Doria", "Elric", "Faustine", "Gauvain", "Isaure", "Jory", "Maëlle", "Néris", "Oswin"]
 
+var stuck_t := 0.0
 var main: Node
 var type := "guerrier"
 var def: Dictionary
@@ -120,7 +121,13 @@ func _physics_process(dt: float) -> void:
 		if to2.length() > 0.7: want = to2.normalized() * min(P.speed() * 1.15, to2.length() * 4.0 + 2.0)
 	velocity.x = want.x; velocity.z = want.z
 	var nx := global_position + Vector3(velocity.x, 0, velocity.z) * 0.12
-	if not main.world.walkable(nx.x, nx.z): velocity.x = 0.0; velocity.z = 0.0
+	if not main.world.walkable(nx.x, nx.z):
+		velocity.x = 0.0; velocity.z = 0.0
+		# bloqué par une falaise alors que le héros s'éloigne : il le rejoint
+		stuck_t += dt
+		if stuck_t > 2.5 and global_position.distance_to(P.global_position) > 7.0:
+			stuck_t = 0.0; global_position = P.global_position + Vector3(sin(slot * 2.1) * 1.8, 0.0, cos(slot * 2.1) * 1.8)
+	else: stuck_t = 0.0
 	# déplacement « collé au sol » sans moteur physique (bien moins coûteux sur mobile)
 	global_position.x += velocity.x * dt; global_position.z += velocity.z * dt
 	global_position.y = main.world.ground_y(global_position.x, global_position.z)

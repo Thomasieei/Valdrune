@@ -282,7 +282,7 @@ func _env() -> void:
 	e.fog_enabled = true; e.fog_light_color = Color("#c9dde6"); e.fog_density = 0.0028; e.fog_sky_affect = 0.0
 	we.environment = e; add_child(we); env = e; sky_mat = sm
 	sun = DirectionalLight3D.new(); sun.rotation_degrees = Vector3(-52, -38, 0); sun.light_energy = 0.95; sun.light_color = Color("#fff1d8")
-	sun.shadow_enabled = true; sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL; sun.directional_shadow_max_distance = 30.0
+	sun.shadow_enabled = true; sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL; sun.directional_shadow_max_distance = 30.0; sun.shadow_opacity = 0.55
 	sun.shadow_bias = 0.06; add_child(sun)
 
 # Particules d'ambiance qui suivent le héros (pollen, lucioles, braises… selon la région)
@@ -1793,3 +1793,14 @@ func pen_collect() -> void:
 	I.pen_t = now
 	hud.celebrate("NAISSANCE !", "%s — se revend très cher" % baby.nm, "it_trophy"); Game.play("level")
 	Game.save(); hud.show_pen()
+
+# (tests) un point devant une falaise, pour les captures
+func _find_cliff_view() -> Vector3:
+	var w: World = world
+	for tries in 4000:
+		var p := Vector3(randf_range(-90, 90), 0, randf_range(-90, 90))
+		if not w.walkable(p.x, p.z) or w.road_dist(p.x, p.z) < 3.0: continue
+		if w.height(p.x, p.z - 6.0) - w.height(p.x, p.z) < 3.0: continue
+		if not w.walkable(p.x, p.z + 3.0) or w.river_dist(p.x, p.z) < 8.0: continue
+		return Vector3(p.x, w.height(p.x, p.z) + 0.5, p.z)
+	return player.global_position

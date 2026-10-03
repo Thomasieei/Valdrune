@@ -3,3 +3,7 @@
 *.keystore
 *.bak
 !apk/*.apk
+# Packs dont la licence interdit la redistribution brute (gardés hors du dépôt public)
+assets/crystal/
+assets/relief/*.dae
+assets/relief/*.dae.import
