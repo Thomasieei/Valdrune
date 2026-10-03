@@ -251,7 +251,7 @@ func raw_height(x: float, z: float) -> float:
 	h = lerp(smooth_h, h, smoothstep(3.0, 9.0, rd))
 	# village plat
 	var vd := Vector2(x, z).distance_to(village)
-	h = lerp(0.25, h, smoothstep(34.0, 44.0, vd) if MAP.town.kind == "valdrune" else smoothstep(20.0, 30.0, vd))
+	h = lerp(0.25, h, smoothstep(34.0, 44.0, vd))
 	# lieux aplanis
 	for p in POI_DEFS:
 		var pd := Vector2(x, z).distance_to(p.p)
@@ -317,9 +317,7 @@ func build(id := 1) -> void:
 	_compute_reach()
 	if MAP.town.kind == "valdrune": _village()
 	else: _town(MAP.town)
-	if MAP.town.kind != "valdrune":
-		_town_dressing()
-		_ground_decals()
+
 	_faubourgs()
 	for p in POI_DEFS: _poi(p)
 	_gates()
@@ -556,6 +554,31 @@ func _village() -> void:
 	var V := village
 	var DG := "res://assets/dungeon/"; var H := "res://assets/hex/"
 	var P := func(x: float, z: float) -> Vector3: return Vector3(V.x + x, 0, V.y + z)
+	_town_core(V, "VALDRUNE")
+	# champs du fermier (sans clôture)
+	house_spots.append([V + Vector2(-32, 20), 11.0])
+	for row in 4:
+		for k in 7:
+			_mm("res://assets/forest/Grass_2_D_Color1.gltf", Vector3(V.x - 40 + k * 2.4, 0, V.y + 16 + row * 2.6), 1.3, 0.0)
+	# habitants, chacun à sa place
+	npc_spots.append({"id": "brokk", "model": "Barbarian", "name": "Brokk", "role": "Armurier · forge", "pos": forge_pos + Vector3(0.8, 0, 0), "act": "forge", "yaw": PI * 0.5})
+	npc_spots.append({"id": "mara", "model": "Rogue", "name": "Mara", "role": "Marchande", "pos": shop_pos + Vector3(-0.8, 0, 0), "act": "shop", "yaw": -PI * 0.5})
+	npc_spots.append({"id": "corvin", "model": "Rogue", "name": "Corvin", "role": "Hôtel des ventes", "pos": P.call(-13, -10.2), "act": "auction", "yaw": 0.0})
+	npc_spots.append({"id": "hilda", "model": "Rogue", "name": "Hilda", "role": "Aubergiste", "pos": P.call(13, -10.2), "act": "talk", "yaw": 0.0})
+	npc_spots.append({"id": "aldric", "model": "Mage", "name": "Aldric", "role": "Ancien du village", "pos": P.call(2.6, 2.4), "act": "quest", "yaw": 0.0})
+	npc_spots.append({"id": "gael", "model": "Knight", "name": "Sire Gaël", "role": "Garde", "pos": P.call(3, -32), "act": "talk", "yaw": PI})
+	npc_spots.append({"id": "lina", "model": "Ranger", "name": "Lina", "role": "Villageoise", "pos": P.call(-6, 4), "act": "talk", "path": [V + Vector2(-6, 4), V + Vector2(-6, -7), V + Vector2(6, -7), V + Vector2(6, 4)]})
+	npc_spots.append({"id": "pip", "model": "Rogue", "name": "Pip", "role": "Gamin du village", "pos": P.call(0, 16), "act": "talk", "scale": 0.75, "path": [V + Vector2(0, 16), V + Vector2(-4, 24), V + Vector2(4, 24)]})
+	npc_spots.append({"id": "bram", "model": "Barbarian", "name": "Bram", "role": "Fermier", "pos": P.call(-32, 20), "act": "talk", "path": [V + Vector2(-38, 18), V + Vector2(-26, 18), V + Vector2(-26, 24), V + Vector2(-38, 24)]})
+	npc_spots.append({"id": "bjorn", "model": "Barbarian", "name": "Bjorn", "role": "Haches · bûcheron", "pos": P.call(-5.5, -10.2), "act": "tools", "tool": "hache", "yaw": 0.0})
+	npc_spots.append({"id": "gorm", "model": "Knight", "name": "Gorm", "role": "Pioches · mineur", "pos": P.call(5.5, -10.2), "act": "tools", "tool": "pioche", "yaw": 0.0})
+	npc_spots.append({"id": "sylve", "model": "Ranger", "name": "Sylve", "role": "Faucilles · herboriste", "pos": P.call(-5, 8.6), "act": "tools", "tool": "faucille", "yaw": 0.0})
+	npc_spots.append({"id": "rhea", "model": "Knight", "name": "Rhéa", "role": "Capitaine des mercenaires", "pos": P.call(5, 8.6), "act": "mercs", "yaw": 0.0})
+	npc_spots.append({"id": "passeur_1", "model": "Ranger", "name": "Fenn", "role": "Passeur · voyages rapides", "pos": P.call(-4.5, -24), "act": "travel", "yaw": PI * 0.5})
+
+func _town_core(V: Vector2, tname: String) -> void:
+	var DG := "res://assets/dungeon/"; var H := "res://assets/hex/"
+	var P := func(x: float, z: float) -> Vector3: return Vector3(V.x + x, 0, V.y + z)
 	# pavés : place + rue principale
 	for x in range(-9, 11, 2):
 		for z in range(-11, 11, 2): _pave(V + Vector2(x, z))
@@ -579,7 +602,7 @@ func _village() -> void:
 	house(V + Vector2(7, -29), -PI * 0.5, 4, 1, "brick", true)
 	building(H + "building_well_blue.gltf", V, 0.0, 3.0, 2.2)
 	label("HÔTEL DES VENTES", P.call(-13, -8).lerp(P.call(-13, -8), 0) + Vector3(0, 9.5, 0), Color("#ffd27a"), 54)
-	label("VALDRUNE", P.call(0, -22) + Vector3(0, 10.5, 0), Color("#ffe2a0"), 90)
+	label(tname, P.call(0, -22) + Vector3(0, 10.5, 0), Color("#ffe2a0"), 90)
 	# forge et marché
 	forge_pos = P.call(-10.5, 2.0); shop_pos = P.call(10.5, 2.0)
 	place(DG + "table_medium_decorated_A.gltf", forge_pos + Vector3(-1.2, 0, 1.6), PI * 0.5, 0.9); blocker(forge_pos + Vector3(-1.2, 0, 1.6), 0.8)
@@ -605,11 +628,6 @@ func _village() -> void:
 			var fc: Color = FL[rr.randi() % FL.size()]; fc.a = 0.98
 			var fq := q + Vector2(rr.randf_range(-1.8, 1.8), rr.randf_range(-1.8, 1.8))
 			_mm("res://assets/forest/Bush_1_A_Color1.gltf", P.call(fq.x, fq.y), rr.randf_range(0.5, 0.8), rr.randf() * TAU, fc)
-	# champs du fermier (sans clôture)
-	house_spots.append([V + Vector2(-32, 20), 11.0])
-	for row in 4:
-		for k in 7:
-			_mm("res://assets/forest/Grass_2_D_Color1.gltf", Vector3(V.x - 40 + k * 2.4, 0, V.y + 16 + row * 2.6), 1.3, 0.0)
 	# portes de la ville, gardées
 	for gz in [-36.0, 33.0]:
 		for sd in [-3.6, 3.6]:
@@ -619,21 +637,6 @@ func _village() -> void:
 		for k in 2:
 			var gx := -2.0 if k == 0 else 2.0
 			npc_spots.append({"id": "garde_v_%d" % int(gz + 50 + k), "model": "Knight", "name": GUARD_NAMES[(k + int(gz > 0) * 2) % GUARD_NAMES.size()], "role": "Garde de la ville", "pos": P.call(gx, gz + (-1.0 if gz < 0 else 1.0)), "act": "guard", "yaw": PI if gz < 0 else 0.0})
-	# habitants, chacun à sa place
-	npc_spots.append({"id": "brokk", "model": "Barbarian", "name": "Brokk", "role": "Armurier · forge", "pos": forge_pos + Vector3(0.8, 0, 0), "act": "forge", "yaw": PI * 0.5})
-	npc_spots.append({"id": "mara", "model": "Rogue", "name": "Mara", "role": "Marchande", "pos": shop_pos + Vector3(-0.8, 0, 0), "act": "shop", "yaw": -PI * 0.5})
-	npc_spots.append({"id": "corvin", "model": "Rogue", "name": "Corvin", "role": "Hôtel des ventes", "pos": P.call(-13, -10.2), "act": "auction", "yaw": 0.0})
-	npc_spots.append({"id": "hilda", "model": "Rogue", "name": "Hilda", "role": "Aubergiste", "pos": P.call(13, -10.2), "act": "talk", "yaw": 0.0})
-	npc_spots.append({"id": "aldric", "model": "Mage", "name": "Aldric", "role": "Ancien du village", "pos": P.call(2.6, 2.4), "act": "quest", "yaw": 0.0})
-	npc_spots.append({"id": "gael", "model": "Knight", "name": "Sire Gaël", "role": "Garde", "pos": P.call(3, -32), "act": "talk", "yaw": PI})
-	npc_spots.append({"id": "lina", "model": "Ranger", "name": "Lina", "role": "Villageoise", "pos": P.call(-6, 4), "act": "talk", "path": [V + Vector2(-6, 4), V + Vector2(-6, -7), V + Vector2(6, -7), V + Vector2(6, 4)]})
-	npc_spots.append({"id": "pip", "model": "Rogue", "name": "Pip", "role": "Gamin du village", "pos": P.call(0, 16), "act": "talk", "scale": 0.75, "path": [V + Vector2(0, 16), V + Vector2(-4, 24), V + Vector2(4, 24)]})
-	npc_spots.append({"id": "bram", "model": "Barbarian", "name": "Bram", "role": "Fermier", "pos": P.call(-32, 20), "act": "talk", "path": [V + Vector2(-38, 18), V + Vector2(-26, 18), V + Vector2(-26, 24), V + Vector2(-38, 24)]})
-	npc_spots.append({"id": "bjorn", "model": "Barbarian", "name": "Bjorn", "role": "Haches · bûcheron", "pos": P.call(-5.5, -10.2), "act": "tools", "tool": "hache", "yaw": 0.0})
-	npc_spots.append({"id": "gorm", "model": "Knight", "name": "Gorm", "role": "Pioches · mineur", "pos": P.call(5.5, -10.2), "act": "tools", "tool": "pioche", "yaw": 0.0})
-	npc_spots.append({"id": "sylve", "model": "Ranger", "name": "Sylve", "role": "Faucilles · herboriste", "pos": P.call(-5, 8.6), "act": "tools", "tool": "faucille", "yaw": 0.0})
-	npc_spots.append({"id": "rhea", "model": "Knight", "name": "Rhéa", "role": "Capitaine des mercenaires", "pos": P.call(5, 8.6), "act": "mercs", "yaw": 0.0})
-	npc_spots.append({"id": "passeur_1", "model": "Ranger", "name": "Fenn", "role": "Passeur · voyages rapides", "pos": P.call(-4.5, -24), "act": "travel", "yaw": PI * 0.5})
 
 # ——— Maisons à colombages (MegaKit) : murs de 2 m, toit en tuiles, pignons, cheminée ———
 const _V := "res://assets/village/"
@@ -656,12 +659,15 @@ func house(c: Vector2, rot: float, w: int, floors: int, style: String, door := t
 			if f == 0 and door and i == int(W / 4): kind = "_Door_Round"
 			elif f == 0 and i % 2 == 1: kind = "_Straight"
 			_mm_xf(_V + wall + kind + ".gltf", X.call(lx, y, D / 2, 0.0))
+			if kind == "_Window_Wide_Round": _mm_xf(_V + "Window_Wide_Round1.gltf", X.call(lx, y, D / 2, 0.0))
 			_mm_xf(_V + wall + ("_Straight" if i % 2 == 0 else "_Window_Wide_Round") + ".gltf", X.call(lx, y, -D / 2, PI))
 		for i in int(D / 2):
 			var lz := -D / 2 + 1 + i * 2
 			var k2 := "_Window_Wide_Round" if (i + f) % 2 == 1 else "_Straight"
 			_mm_xf(_V + wall + k2 + ".gltf", X.call(W / 2, y, lz, PI * 0.5))
 			_mm_xf(_V + wall + k2 + ".gltf", X.call(-W / 2, y, lz, -PI * 0.5))
+			if k2 == "_Window_Wide_Round":
+				_mm_xf(_V + "Window_Wide_Round1.gltf", X.call(W / 2, y, lz, PI * 0.5)); _mm_xf(_V + "Window_Wide_Round1.gltf", X.call(-W / 2, y, lz, -PI * 0.5))
 		for cx in [-W / 2, W / 2]:
 			for cz in [-D / 2, D / 2]: _mm_xf(_V + "Corner_Exterior_Wood.gltf", X.call(cx, y, cz, 0.0))
 	var ry := floors * 3.12
@@ -876,56 +882,25 @@ func _plan_town_slots() -> void:
 		foot_paths.append([q + to_c * 2.6, V - to_c * 8.5])
 
 func _town(T: Dictionary) -> void:
-	var V: Vector2 = T.pos; var H := "res://assets/hex/"; var mid := map_id
-	label(T.name, Vector3(V.x, height(V.x, V.y) + 8.0, V.y - 4.0), Color("#ffe2a0"), 90)
-	building(H + "building_well_blue.gltf", V, 0.0, 3.0, 2.2)
-	_tint_last(T.tint)
-	# emplacements autour de la place, loin des routes (calculés avant le terrain)
-	var slots: Array = town_slots
-	var shops := [
-		["building_blacksmith_blue.gltf", "forge", "Armurier · forge", "Barbarian", 6.0],
-		["building_market_blue.gltf", "shop", "Marchande", "Rogue", 7.0],
-		["building_barracks_blue.gltf", "auction", "Hôtel des ventes", "Rogue", 6.5],
-		["building_tavern_blue.gltf", "mercs", "Capitaine des mercenaires", "Knight", 6.5],
-		["building_home_A_blue.gltf", "tools3", "Outilleur · haches, pioches, faucilles", "Barbarian", 5.0],
-		["building_church_blue.gltf", "quest", "Chef de la ville", "Mage", 6.5],
-		["building_home_B_blue.gltf", "travel", "Passeur · voyages rapides", "Ranger", 5.0],
-		["building_home_A_blue.gltf", "", "", "", 5.0],
-		["building_home_B_blue.gltf", "", "", "", 5.0],
-		["building_tower_A_blue.gltf", "", "", "", 3.6],
-	]
+	var V: Vector2 = T.pos; var mid := map_id
+	_town_core(V, T.name)
+	var P := func(x: float, z: float) -> Vector3: return Vector3(V.x + x, 0, V.y + z)
 	var names := {2: ["Hrolf", "Brisa", "Tancrède", "Solène", "Odo", "Maître Elwin", "Fenn"], 3: ["Kadir", "Samira", "Yazid", "Nour", "Faris", "Sage Imran", "Leïla"], 4: ["Gunnar", "Morwen", "Aldo", "Ivra", "Baldr", "Doyenne Sigrid", "Corbin"]}
 	var nm: Array = names.get(mid, names[2])
-	for i in min(shops.size(), slots.size()):
-		var sh: Array = shops[i]; var q: Vector2 = slots[i]
-		var to_c := (V - q).normalized()
-		building(H + sh[0], q, atan2(to_c.x, to_c.y), 4.8, sh[4])
-		_tint_last(T.tint)
-		if sh[1] == "": continue
-		var np: Vector2 = q + to_c * 5.2
-		var d := {"id": "%s_%d" % [sh[1], mid], "model": sh[3], "name": nm[i], "role": sh[2], "pos": Vector3(np.x, 0, np.y), "act": sh[1]}
-		npc_spots.append(d)
-		if sh[1] == "auction": label("HÔTEL DES VENTES", Vector3(q.x, height(q.x, q.y) + 7.5, q.y), Color("#ffd27a"), 54)
-		if sh[1] == "forge":
-			forge_pos = Vector3(np.x, 0, np.y)
-			place("res://assets/hex/weaponrack.gltf", Vector3(np.x + to_c.y * 2.2, 0, np.y - to_c.x * 2.2), 0.4, 5.0)
-	# étals de marché sur la place : tentes, caisses, tonneaux, fanions
-	for i in 3:
-		var a := TAU * i / 3.0 + 1.1
-		var q := V + Vector2(cos(a), sin(a)) * 6.0
-		if road_dist(q.x, q.y) < 1.2: q = V + Vector2(cos(a + 0.5), sin(a + 0.5)) * 6.0
-		place(H + "tent.gltf", Vector3(q.x, 0, q.y), a + PI, 3.4); _tint_last(T.tint); blocker(Vector3(q.x, 0, q.y), 1.0)
-		var side := Vector2(-sin(a), cos(a))
-		var c1 := q + side * 1.8; var c2 := q - side * 1.8
-		place(H + ["crate_A_big.gltf", "barrel.gltf", "sack.gltf"][i], Vector3(c1.x, 0, c1.y), a, 4.0)
-		place(H + ["crate_open.gltf", "crate_long_A.gltf", "barrel.gltf"][i], Vector3(c2.x, 0, c2.y), a + 0.5, 4.0)
-	# lanternes autour de la place
-	for i in 6:
-		var a := TAU * i / 6.0 + 0.5
-		var q := V + Vector2(cos(a), sin(a)) * 9.0
-		if road_dist(q.x, q.y) < 2.5: continue
-		place("res://assets/halloween/lantern_standing.gltf", Vector3(q.x, 0, q.y), 0.0, 1.6); blocker(Vector3(q.x, 0, q.y), 0.3)
-		_light(Vector3(q.x, height(q.x, q.y) + 2.5, q.y), Color("#ffbf66"), 2.0, 2.5)
+	var spots := [
+		["forge", "Armurier · forge", "Barbarian", forge_pos + Vector3(0.8, 0, 0) - Vector3(V.x, 0, V.y), PI * 0.5],
+		["shop", "Marchande", "Rogue", shop_pos + Vector3(-0.8, 0, 0) - Vector3(V.x, 0, V.y), -PI * 0.5],
+		["auction", "Hôtel des ventes", "Rogue", Vector3(-13, 0, -10.2), 0.0],
+		["mercs", "Capitaine des mercenaires", "Knight", Vector3(13, 0, -10.2), 0.0],
+		["tools3", "Outilleur · haches, pioches, faucilles", "Barbarian", Vector3(-5.5, 0, -10.2), 0.0],
+		["quest", "Chef de la ville", "Mage", Vector3(2.6, 0, 2.4), 0.0],
+		["travel", "Passeur · voyages rapides", "Ranger", Vector3(-4.5, 0, -24), PI * 0.5],
+	]
+	for i in spots.size():
+		var sp: Array = spots[i]
+		var o: Vector3 = sp[3]
+		npc_spots.append({"id": "%s_%d" % [sp[0], mid], "model": sp[2], "name": nm[i], "role": sp[1], "pos": P.call(o.x, o.z), "act": sp[0], "yaw": sp[4]})
+	npc_spots.append({"id": "villageois_%d_c" % mid, "model": "Ranger", "name": VILLAGER_NAMES[mid % VILLAGER_NAMES.size()], "role": "Villageoise", "pos": P.call(-6, 4), "act": "villager", "path": [V + Vector2(-6, 4), V + Vector2(-6, -7), V + Vector2(6, -7), V + Vector2(6, 4)]})
 
 var _last_placed: Node3D
 func _tint_last(c: Color) -> void:
@@ -1728,7 +1703,7 @@ func _faubourgs() -> void:
 	var r := RandomNumberGenerator.new(); r.seed = 4400 + map_id
 	var V := village
 	var made: Array = []
-	if MAP.town.kind == "valdrune": _pen_near_town(r); return   # Valdrune est construite à la main
+	_pen_near_town(r); return   # les villes sont construites à la main (plus de maisons KayKit autour)
 	for rd in roads:
 		for i in rd.size() - 1:
 			var a: Vector2 = rd[i]; var b: Vector2 = rd[i + 1]; var L := a.distance_to(b)
