@@ -120,6 +120,8 @@ const ACT_LINES := {
 	"mercs": ["Seul, on meurt vite. Avec ma compagnie, tu formes un vrai groupe de 4."],
 	"tools3": ["Haches, pioches, faucilles : j'ai tout, du commun au légendaire. Encore faut-il avoir le niveau pour s'en servir."],
 	"travel": ["Je connais toutes les routes du royaume."],
+	"villager": ["Belle journée pour flâner, pas vrai ?", "Mon voisin jure avoir vu un loup géant près du moulin.", "Les nuits sont dangereuses : les monstres deviennent plus forts… mais on dit que leur butin aussi.",
+		"Tu cherches du travail ? Le chef de la ville a toujours une tâche pour les aventuriers.", "Ne t'approche pas des terres rouges sans bon équipement. Là-bas, on perd tout.", "Ma fille veut devenir aventurière. Je préférerais qu'elle fasse du pain."],
 }
 
 func next_line() -> String:

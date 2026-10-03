@@ -200,10 +200,14 @@ func _layout() -> void:
 
 func _input(ev: InputEvent) -> void:
 	if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed): drag_guard = false
-	if panel_open: return
+	if panel_open and cur_panel != "bag": return
 	if ev is InputEventScreenTouch:
 		var p: Vector2 = ev.position
 		if ev.pressed:
+			if panel_open:   # inventaire ouvert : seul le joystick (moitié gauche, hors fiche) reste actif
+				if p.x < vs().x * 0.3 and not bag_card_rect.has_point(p) and joy.id == -1:
+					joy.id = ev.index; joy.base = p; joy.pos = p; joy.vec = Vector2.ZERO; touches[ev.index] = "joy"
+				return
 			for n in buttons:
 				var r: Rect2 = buttons[n].rect
 				if r.size.x > 0 and p.distance_to(r.get_center()) < r.size.x * 0.5 + 10:
@@ -607,6 +611,7 @@ var last_build: Callable
 var last_w := 860.0
 var last_h := -1.0
 func refresh_panel() -> void:
+	if cur_panel == "bag": show_bag(); return
 	if panel_open and panel and is_instance_valid(panel) and last_build.is_valid() and cur_panel != "": open_panel(panel_title, last_build, last_w, last_h)
 
 func open_panel(title_txt: String, build: Callable, w := 860.0, h := -1.0) -> void:
@@ -658,14 +663,16 @@ func _x_close() -> void:
 	close_panel()
 
 func close_panel() -> void:
-	if cur_scroll and is_instance_valid(cur_scroll): scroll_mem[panel_title] = cur_scroll.scroll_vertical
+	if cur_scroll and is_instance_valid(cur_scroll):
+		scroll_mem[panel_title] = cur_scroll.scroll_vertical
+		if cur_panel == "bag": bag_scroll = cur_scroll.scroll_vertical
 	cur_scroll = null
 	cur_panel = ""
 	if panel and is_instance_valid(panel): panel.queue_free()
 	for d in panel_extra:
 		if is_instance_valid(d): d.queue_free()
 	panel_extra.clear()
-	panel = null; panel_open = false
+	panel = null; panel_open = false; bag_card_rect = Rect2()
 
 func tier_tag(t: int) -> String:
 	if t <= 0: return "[color=#8a9298]aucun[/color]"
@@ -896,79 +903,225 @@ func entry_tex(e: Dictionary) -> Texture2D:
 func entry_name(e: Dictionary) -> String:
 	return Game.res_name(e.res, e.tier) if e.has("res") else Game.item_name(e)
 
+# ——— Inventaire façon Albion : parchemin à droite, poupée d'équipement, sac en grille ———
+# Le monde reste visible à gauche (on peut même bouger), la fiche d'un objet s'ouvre à côté.
+const PARCH := Color("#e8d4a8")
+const INK := Color("#3a2614")
+const INK_SOFT := Color("#76593a")
+const ROMAN := ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII"]
+const DOLL := [["artefact", "casque", "cape"], ["epee", "armure", "bouclier"], ["potion", "bottes", "monture"]]
+const BAG_W := 456.0
+var bag_scroll := 0
+var bag_card_rect := Rect2()
+
+func _parch_box() -> StyleBoxFlat:
+	var st := flat(PARCH, 18, Color("#7a5530"), 4, Vector4(14, 10, 14, 12), 18)
+	st.shadow_color = Color(0, 0, 0, 0.55); st.border_blend = true
+	return st
+
+# Case d'objet style Albion : fond sombre, halo du tier, chiffre romain en pastille, quantité en bas
+func aslot(tx: Texture2D, tier: int, count: int, selected: bool, cb: Callable, size := 70.0, ench := 0, ghost: Texture2D = null, it := {}) -> Button:
+	var b := Button.new(); b.custom_minimum_size = Vector2(size, size); b.focus_mode = Control.FOCUS_NONE
+	var full := tier > 0 and tx != null
+	var col: Color = Game.TIER_COL[clamp(tier, 0, Game.TIER_COL.size() - 1)] if tier > 0 else Color("#a88b5e")
+	var st := flat(Color("#2c2620") if full else Color("#d6c095"), 10, col.lerp(Color(0.1, 0.08, 0.05), 0.15) if full else Color("#b0956a"), 3, Vector4(0, 0, 0, 0))
+	if not full: st.shadow_color = Color(0.35, 0.25, 0.12, 0.35); st.shadow_size = 2; st.shadow_offset = Vector2(0, -1)
+	if ench > 0 and full: st.border_color = Color("#c98bff")
+	if selected: st.border_color = Color("#ffe08a"); st.border_width_left = 4; st.border_width_right = 4; st.border_width_top = 4; st.border_width_bottom = 4
+	for k in ["normal", "hover", "pressed", "disabled"]: b.add_theme_stylebox_override(k, st)
+	if full:
+		var gl := TextureRect.new(); gl.texture = glow_tex(); gl.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; gl.stretch_mode = TextureRect.STRETCH_SCALE
+		gl.position = Vector2(4, 4); gl.size = Vector2(size - 8, size - 8); gl.modulate = Color(col.r, col.g, col.b, 0.6); gl.mouse_filter = Control.MOUSE_FILTER_IGNORE; b.add_child(gl)
+		var tr := TextureRect.new(); tr.texture = tx; tr.material = icon_mat(); tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tr.position = Vector2(6, 6); tr.size = Vector2(size - 12, size - 12); tr.mouse_filter = Control.MOUSE_FILTER_IGNORE; b.add_child(tr)
+		# pastille du tier en chiffres romains
+		var pill := Panel.new(); var ps := flat(Color(0.08, 0.1, 0.14, 0.92), 11, col, 2, Vector4(0, 0, 0, 0)); pill.add_theme_stylebox_override("panel", ps)
+		pill.position = Vector2(3, 3); pill.size = Vector2(26 if tier < 4 else 30, 20); pill.mouse_filter = Control.MOUSE_FILTER_IGNORE; b.add_child(pill)
+		var tl := _label(ROMAN[clamp(tier, 0, 8)], 13, Color.WHITE); tl.add_theme_font_override("font", f_title); tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		tl.size = pill.size; tl.position = Vector2(0, -1); pill.add_child(tl)
+		if ench > 0:
+			var el := _label("+%d" % ench, 14, Color("#e7a8ff")); el.add_theme_font_override("font", f_title); el.add_theme_constant_override("outline_size", 5); el.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+			el.position = Vector2(size - 26, 1); b.add_child(el)
+		if count > 1:
+			var cl := _label(Game.fmt(count) if count >= 10000 else str(count), 14, Color.WHITE); cl.add_theme_constant_override("outline_size", 5); cl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.95))
+			cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT; cl.size = Vector2(size - 8, 18); cl.position = Vector2(0, size - 21); b.add_child(cl)
+		if not it.is_empty(): _lvl_tag(b, it, size)
+	elif ghost:
+		var gh := TextureRect.new(); gh.texture = ghost; gh.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; gh.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		gh.position = Vector2(12, 12); gh.size = Vector2(size - 24, size - 24); gh.modulate = Color(0.42, 0.31, 0.17, 0.32); gh.mouse_filter = Control.MOUSE_FILTER_IGNORE; b.add_child(gh)
+	if cb.is_valid(): b.pressed.connect(cb)
+	return b
+
+func _ghost(slot: String) -> Texture2D:
+	match slot:
+		"potion": return main.icons.get_icon("potion")
+		"artefact": return load("res://ui/art_rage.png")
+		"bottes": return main.icons.get_icon("bottes_greves")
+		"monture": return main.icons.get_icon("mount_ane")
+		"casque", "cape": return main.icons.get_icon("%s_%s" % [slot, Game.GEAR_KINDS[slot].keys()[0]])
+	return main.icons.item_icon({"slot": slot, "tier": 2, "kind": {"epee": "epee", "armure": "plate"}.get(slot, "")})
+
+func _ink(t: String, size: int, c := INK, title := false) -> Label:
+	var l := _label(t, size, c)
+	if title: l.add_theme_font_override("font", f_title)
+	l.add_theme_constant_override("outline_size", 0)
+	return l
+
+func bag_value() -> int:
+	var v := 0
+	for it in Game.S.items: v += Game.item_price(it)
+	for k in Game.RES_KEYS:
+		for t in range(1, Game.MAX_TIER + 1): v += Game.S.inv[k][t] * Game.res_price(t)
+	return v
+
+const SORT_ORDER := ["epee", "bouclier", "casque", "armure", "cape", "bottes", "artefact", "monture", "hache", "pioche", "faucille", "junk"]
+func sort_bag() -> void:
+	Game.S.items.sort_custom(func(a, b):
+		var ia := SORT_ORDER.find(a.slot); var ib := SORT_ORDER.find(b.slot)
+		if ia != ib: return ia < ib
+		if int(a.tier) != int(b.tier): return int(a.tier) > int(b.tier)
+		return int(a.get("ench", 0)) > int(b.get("ench", 0)))
+	bag_sel = -1; Game.play("pickup", -6.0); Game.save(); show_bag()
+
 func show_bag() -> void:
-	open_panel("Sac", func(body: VBoxContainer):
-		cur_panel = "bag"
-		var entries := bag_entries()
-		if bag_sel >= entries.size(): bag_sel = -1
-		# argent, puissance & place
-		var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 10); body.add_child(top)
-		var ci := TextureRect.new(); ci.texture = T("it_coins"); ci.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; ci.custom_minimum_size = Vector2(34, 34); top.add_child(ci)
-		var sl := _label("%s argent" % Game.fmt(Game.S.silver), 24, GOLD); sl.add_theme_font_override("font", f_title); top.add_child(sl)
-		var pw := _label("     Puissance %d" % Game.power(), 22, Color("#c9a8ff")); pw.add_theme_font_override("font", f_title); top.add_child(pw)
-		var sp := Control.new(); sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL; top.add_child(sp)
-		top.add_child(_label("Potions ×%d     Sac %d / %d" % [Game.S.potions, entries.size(), Game.bag_size()], 18, SOFT))
-		var cols := HBoxContainer.new(); cols.add_theme_constant_override("separation", 16); body.add_child(cols)
-		var left := VBoxContainer.new(); left.add_theme_constant_override("separation", 6); cols.add_child(left)
-		# équipement porté (touchable : fiche + déséquiper)
-		left.add_child(_label("ÉQUIPÉ", 15, GOLD))
-		for row_slots in [["epee", "bouclier", "casque", "armure", "cape", "bottes", "artefact"], ["monture", "hache", "pioche", "faucille"]]:
-			var eq := HBoxContainer.new(); eq.add_theme_constant_override("separation", 6); left.add_child(eq)
-			for slot in row_slots:
-				var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 1)
-				var it := Game.equipped_item(slot)
-				var sb := slot_box(main.icons.item_icon(it), it.tier, 1, eq_sel == slot, func(): eq_sel = slot; bag_sel = -1; show_bag(), 64, int(it.get("ench", 0)))
-				_lvl_tag(sb, it, 64); v.add_child(sb)
-				var nl := _label(Game.SLOT_NAME[slot], 12, Color("#a8b4bc")); nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; v.add_child(nl)
-				eq.add_child(v)
-		# résumé des statistiques du héros
-		var st: Dictionary = Game.stats(); var P: Player = main.player
-		left.add_child(rich("Vie [b]%d[/b]   ·   Dégâts [b]%d[/b]   ·   Armure [b]%d[/b] [color=#a8b4bc](−%d %% de dégâts reçus)[/color]\nVitesse [b]%+d %%[/b]   ·   Critique [b]%d %%[/b]   ·   Recharge [b]−%d %%[/b]%s" % [int(P.max_hp), int(P.dmg()), int(st.arm), int(st.red * 100), int(round(st.spd * 100)), int(round(st.crit * 100)), int(round((st.cd + Game.wkind().cd) * 100)), ("   ·   Vol de vie [b]%d %%[/b]" % int(round(st.steal * 100))) if st.steal > 0 else ""], 15))
-		# grille du sac
-		left.add_child(_label("SAC", 15, GOLD))
-		var g := GridContainer.new(); g.columns = 8; g.add_theme_constant_override("h_separation", 6); g.add_theme_constant_override("v_separation", 6); left.add_child(g)
-		for i in Game.bag_size():
-			if i < entries.size():
-				var e: Dictionary = entries[i]
-				var bb := slot_box(entry_tex(e), e.tier, e.get("qty", 1), i == bag_sel, func(): bag_sel = i; eq_sel = ""; show_bag(), 64, int(e.get("ench", 0)))
-				_lvl_tag(bb, e, 64); g.add_child(bb)
-			else: g.add_child(slot_box(null, 0, 0, false, Callable(), 64))
-		# fiche de l'objet à droite
-		var card := PanelContainer.new(); card.add_theme_stylebox_override("panel", flat(Color(1, 1, 1, 0.05), 16, Color(0.95, 0.78, 0.45, 0.35), 1, Vector4(16, 12, 16, 12)))
-		card.custom_minimum_size = Vector2(380, 0); card.size_flags_horizontal = Control.SIZE_EXPAND_FILL; cols.add_child(card)
-		var cv := VBoxContainer.new(); cv.add_theme_constant_override("separation", 8); card.add_child(cv)
-		var sel = null; var equipped := false
-		if eq_sel != "": sel = Game.equipped_item(eq_sel); equipped = true
-		elif bag_sel >= 0: sel = entries[bag_sel]
-		if sel == null:
-			cv.add_child(rich("[b]Touche un objet[/b]\n[color=#a8b4bc]Sa fiche s'affiche ici : ce qu'il fait, la comparaison avec ce que tu portes, et les boutons pour l'équiper, le retirer ou le vendre.[/color]", 17))
-			var nd := 0
-			for po in main.world.pois:
-				if Game.S.disc.has(po.id): nd += 1
-			cv.add_child(rich("[color=#8a9298]Sur cette carte : lieux découverts %d / %d · coffres cachés %d / %d · monstres vaincus %d[/color]" % [nd, main.world.pois.size(), main._hidden_found(), main.world.hidden_chests.size(), Game.S.stats.kills], 15))
-		elif equipped and int(sel.tier) <= 0:
-			cv.add_child(rich("[b]%s[/b] — emplacement vide\n[color=#a8b4bc]Équipe un objet depuis ton sac, ou fabrique-le à la forge.%s[/color]" % [Game.SLOT_NAME[eq_sel], " Les artefacts se gagnent en duel, en donjon et sur les boss de groupe." if eq_sel == "artefact" else ""], 17))
+	var keep: int = bag_scroll
+	if cur_panel == "bag" and cur_scroll and is_instance_valid(cur_scroll): keep = cur_scroll.scroll_vertical
+	close_panel()
+	cur_panel = "bag"; panel_open = true; panel_title = "Sac"
+	for n in buttons: buttons[n].held = false
+	joy.id = -1; joy.vec = Vector2.ZERO; touches.clear()
+	var entries := bag_entries()
+	if bag_sel >= entries.size(): bag_sel = -1
+	var s := vs()
+	var pc := PanelContainer.new(); pc.add_theme_stylebox_override("panel", _parch_box())
+	pc.position = Vector2(s.x - BAG_W - 8, 6); pc.custom_minimum_size = Vector2(BAG_W, s.y - 12); pc.size = pc.custom_minimum_size
+	root.add_child(pc); panel = pc
+	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 6); pc.add_child(vb)
+	# — en-tête : portrait, nom, puissance, fermer —
+	var hd := HBoxContainer.new(); hd.add_theme_constant_override("separation", 10); vb.add_child(hd)
+	var pf := PanelContainer.new(); pf.add_theme_stylebox_override("panel", flat(Color("#2c2620"), 30, Color("#c79a4a"), 3, Vector4(4, 4, 4, 4)))
+	pf.custom_minimum_size = Vector2(60, 60); hd.add_child(pf)
+	var pt := TextureRect.new(); pt.texture = main.icons.get_icon("hero_head"); pt.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; pt.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED; pt.material = icon_mat(); pf.add_child(pt)
+	var nv := VBoxContainer.new(); nv.add_theme_constant_override("separation", -4); nv.size_flags_horizontal = Control.SIZE_EXPAND_FILL; hd.add_child(nv)
+	nv.add_child(_ink("%s :" % str(Game.S.get("pname", "Aventurier")), 15, INK_SOFT))
+	var tr := HBoxContainer.new(); tr.add_theme_constant_override("separation", 10); nv.add_child(tr)
+	tr.add_child(_ink("Inventaire", 30, INK, true))
+	var ip := _ink("PI %d" % Game.power(), 17, Color("#5a3d8a"), true); ip.size_flags_vertical = Control.SIZE_SHRINK_END; tr.add_child(ip)
+	var x := Button.new(); x.text = "✕"; x.custom_minimum_size = Vector2(52, 52); x.focus_mode = Control.FOCUS_NONE
+	x.add_theme_font_override("font", ThemeDB.fallback_font); x.add_theme_font_size_override("font_size", 24); x.add_theme_color_override("font_color", Color("#ffe08a"))
+	var xs := flat(Color("#3a2c1c"), 26, Color("#c79a4a"), 3, Vector4(0, 0, 0, 0))
+	for k in ["normal", "hover", "pressed"]: x.add_theme_stylebox_override(k, xs)
+	x.pressed.connect(close_panel); hd.add_child(x)
+	# — poupée d'équipement 3×3 + outils et caractéristiques à droite —
+	var mid := HBoxContainer.new(); mid.add_theme_constant_override("separation", 14); vb.add_child(mid)
+	var dg := GridContainer.new(); dg.columns = 3; dg.add_theme_constant_override("h_separation", 8); dg.add_theme_constant_override("v_separation", 8); mid.add_child(dg)
+	for rw in DOLL:
+		for slot in rw:
+			if slot == "potion":
+				var np: int = Game.S.potions
+				dg.add_child(aslot(main.icons.get_icon("potion") if np > 0 else null, 1 if np > 0 else 0, np, eq_sel == "potion", func(): eq_sel = "potion"; bag_sel = -1; show_bag(), 68, 0, _ghost("potion")))
+				continue
+			var it := Game.equipped_item(slot)
+			var tx: Texture2D = main.icons.item_icon(it)
+			dg.add_child(aslot(tx, int(it.tier), 1, eq_sel == slot, func(): eq_sel = slot; bag_sel = -1; show_bag(), 68, int(it.get("ench", 0)), _ghost(slot), it))
+	var side := VBoxContainer.new(); side.add_theme_constant_override("separation", 4); side.size_flags_horizontal = Control.SIZE_EXPAND_FILL; mid.add_child(side)
+	side.add_child(_ink("OUTILS", 13, INK_SOFT, true))
+	var th := HBoxContainer.new(); th.add_theme_constant_override("separation", 6); side.add_child(th)
+	for slot in ["hache", "pioche", "faucille"]:
+		var it := Game.equipped_item(slot)
+		th.add_child(aslot(main.icons.item_icon(it), int(it.tier), 1, eq_sel == slot, func(): eq_sel = slot; bag_sel = -1; show_bag(), 54, 0, _ghost(slot), it))
+	var st: Dictionary = Game.stats(); var P: Player = main.player
+	var sr := RichTextLabel.new(); sr.bbcode_enabled = true; sr.fit_content = true; sr.scroll_active = false; sr.custom_minimum_size = Vector2(170, 0)
+	sr.add_theme_font_size_override("normal_font_size", 14); sr.add_theme_font_size_override("bold_font_size", 15); sr.add_theme_color_override("default_color", INK)
+	sr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sr.text = "Vie [b]%d[/b]\nDégâts [b]%d[/b]\nArmure [b]%d[/b] [color=#76593a](−%d %%)[/color]\nVitesse [b]%+d %%[/b]\nCritique [b]%d %%[/b]\nRecharge [b]−%d %%[/b]%s" % [int(P.max_hp), int(P.dmg()), int(st.arm), int(st.red * 100), int(round(st.spd * 100)), int(round(st.crit * 100)), int(round((st.cd + Game.wkind().cd) * 100)), ("\nVol de vie [b]%d %%[/b]" % int(round(st.steal * 100))) if st.steal > 0 else ""]
+	side.add_child(sr)
+	# — argent et remplissage du sac —
+	var mh := HBoxContainer.new(); mh.add_theme_constant_override("separation", 8); vb.add_child(mh)
+	var ci := TextureRect.new(); ci.texture = T("it_coins"); ci.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; ci.custom_minimum_size = Vector2(28, 28); mh.add_child(ci)
+	mh.add_child(_ink(Game.fmt(Game.S.silver), 20, INK, true))
+	var sp := Control.new(); sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL; mh.add_child(sp)
+	var used := entries.size(); var cap := Game.bag_size(); var fr: float = clamp(float(used) / max(1, cap), 0.0, 1.0)
+	var wb := VBoxContainer.new(); wb.add_theme_constant_override("separation", 1); mh.add_child(wb)
+	var wl := _ink("Sac %d / %d · %d %%" % [used, cap, int(fr * 100)], 13, Color("#a0301c") if fr >= 0.95 else INK_SOFT); wl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT; wb.add_child(wl)
+	var bar := ColorRect.new(); bar.color = Color("#b49a6c"); bar.custom_minimum_size = Vector2(150, 7); wb.add_child(bar)
+	var fill := ColorRect.new(); fill.color = Color("#d0402a") if fr >= 0.95 else (Color("#d9a43a") if fr > 0.75 else Color("#4f9a3c")); fill.size = Vector2(150 * fr, 7); bar.add_child(fill)
+	# — grille du sac —
+	var sc := ScrollContainer.new(); sc.size_flags_vertical = Control.SIZE_EXPAND_FILL; sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.scroll_deadzone = 10; sc.scroll_started.connect(func(): drag_guard = true); vb.add_child(sc); cur_scroll = sc
+	var g := GridContainer.new(); g.columns = 5; g.add_theme_constant_override("h_separation", 7); g.add_theme_constant_override("v_separation", 7); sc.add_child(g)
+	for i in max(cap, used):
+		if i < used:
+			var e: Dictionary = entries[i]
+			g.add_child(aslot(entry_tex(e), e.tier, e.get("qty", 1), i == bag_sel, func(): bag_sel = i; eq_sel = ""; show_bag(), 78, int(e.get("ench", 0)), null, e))
+		else: g.add_child(aslot(null, 0, 0, false, Callable(), 78))
+	_touch_scroll(g)
+	sc.scroll_vertical = keep
+	(func(): if is_instance_valid(sc): sc.scroll_vertical = keep).call_deferred()
+	# — bas : trier, vendre le bric-à-brac, estimation —
+	var bt := HBoxContainer.new(); bt.add_theme_constant_override("separation", 8); vb.add_child(bt)
+	bt.add_child(_parch_btn("Trier", sort_bag))
+	var nj: int = Game.S.items.filter(func(q): return q.slot == "junk").size()
+	if nj > 0: bt.add_child(_parch_btn("Vendre bric-à-brac (%d)" % nj, func(): main.sell_junk(-1); show_bag()))
+	var sp2 := Control.new(); sp2.size_flags_horizontal = Control.SIZE_EXPAND_FILL; bt.add_child(sp2)
+	var ev := _ink("Estimation : %s" % Game.fmt(bag_value()), 13, INK_SOFT); ev.size_flags_vertical = Control.SIZE_SHRINK_CENTER; bt.add_child(ev)
+	_bag_card(entries, pc.position.x)
+
+func _parch_btn(t: String, cb: Callable) -> Button:
+	var b := Button.new(); b.text = t; b.focus_mode = Control.FOCUS_NONE; b.custom_minimum_size = Vector2(0, 42)
+	b.add_theme_font_override("font", f_title); b.add_theme_font_size_override("font_size", 16); b.add_theme_color_override("font_color", Color("#ffe6a8"))
+	var st := flat(Color("#4a3520"), 21, Color("#c79a4a"), 2, Vector4(16, 4, 16, 4))
+	for k in ["normal", "hover", "pressed"]: b.add_theme_stylebox_override(k, st)
+	b.pressed.connect(cb); return b
+
+# Fiche de l'objet touché, posée à gauche du parchemin (le jeu reste visible derrière)
+func _bag_card(entries: Array, px: float) -> void:
+	bag_card_rect = Rect2()
+	var sel = null; var equipped := false
+	if eq_sel == "potion":
+		sel = {"potion": true}
+	elif eq_sel != "": sel = Game.equipped_item(eq_sel); equipped = true
+	elif bag_sel >= 0 and bag_sel < entries.size(): sel = entries[bag_sel]
+	if sel == null: return
+	var W := 420.0
+	var card := PanelContainer.new(); card.add_theme_stylebox_override("panel", flat(Color(0.07, 0.07, 0.08, 0.95), 16, Color("#c79a4a"), 2, Vector4(16, 12, 16, 14), 14))
+	card.position = Vector2(px - W - 10, 10); card.custom_minimum_size = Vector2(W, 0); root.add_child(card); panel_extra.append(card)
+	var cv := VBoxContainer.new(); cv.add_theme_constant_override("separation", 8); cv.custom_minimum_size = Vector2(W - 32, 0); card.add_child(cv)
+	var close := func(): eq_sel = ""; bag_sel = -1; show_bag()
+	if sel.has("potion"):
+		var hh := HBoxContainer.new(); hh.add_theme_constant_override("separation", 12); cv.add_child(hh)
+		hh.add_child(aslot(main.icons.get_icon("potion"), 1, Game.S.potions, true, Callable(), 80))
+		hh.add_child(rich("[b]Potion de soin[/b]\n[color=#a8b4bc]×%d dans ta ceinture[/color]" % Game.S.potions, 18))
+		cv.add_child(rich("Rend [b]45 %[/b] de la vie. Bouton vert en bas à droite pendant le combat (8 s de recharge).\n[color=#a8b4bc]Achète-en chez la marchande de chaque ville.[/color]", 16))
+		cv.add_child(big_button("Fermer", true, close))
+	elif equipped and int(sel.tier) <= 0:
+		cv.add_child(rich("[b]%s[/b] — emplacement vide\n[color=#a8b4bc]Touche un objet de ton sac pour l'équiper, ou fabrique-le à la forge.%s[/color]" % [Game.SLOT_NAME[eq_sel], " Les artefacts se gagnent en duel, en donjon et sur les boss de groupe." if eq_sel == "artefact" else ""], 17))
+		cv.add_child(big_button("Fermer", true, close))
+	else:
+		var e: Dictionary = sel
+		var hh := HBoxContainer.new(); hh.add_theme_constant_override("separation", 12); cv.add_child(hh)
+		hh.add_child(aslot(entry_tex(e), e.tier, e.get("qty", 1), true, Callable(), 84, int(e.get("ench", 0)), null, e))
+		var col: Color = Game.TIER_COL[e.tier]
+		var sub: String = "Ressource" if e.has("res") else Game.SLOT_NAME[e.slot]
+		var nm := rich("[b][color=#%s]%s[/color][/b]\n%s · [color=#%s]Tier %s[/color]%s" % [col.to_html(false), entry_name(e), sub, col.to_html(false), ROMAN[clamp(int(e.tier), 0, 8)], "  · [color=#9dffb0]porté[/color]" if equipped else ""], 18)
+		nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER; nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL; hh.add_child(nm)
+		cv.add_child(rich(item_info(e, equipped), 16))
+		var bh := HFlowContainer.new(); bh.add_theme_constant_override("h_separation", 8); bh.add_theme_constant_override("v_separation", 8); cv.add_child(bh)
+		if equipped:
+			var ub := big_button("Déséquiper", true, func(): _unequip(eq_sel), GOLD, true); ub.custom_minimum_size = Vector2(160, 48); bh.add_child(ub)
 		else:
-			var e: Dictionary = sel
-			var hh := HBoxContainer.new(); hh.add_theme_constant_override("separation", 12); cv.add_child(hh)
-			hh.add_child(slot_box(entry_tex(e), e.tier, e.get("qty", 1), true, Callable(), 84, int(e.get("ench", 0))))
-			var col: Color = Game.TIER_COL[e.tier]
-			var sub: String = "Ressource" if e.has("res") else Game.SLOT_NAME[e.slot]
-			var nm := rich("[b][color=#%s]%s[/color][/b]\n%s · [color=#%s]Tier %d[/color]%s" % [col.to_html(false), entry_name(e), sub, col.to_html(false), e.tier, "  · [color=#9dffb0]porté[/color]" if equipped else ""], 18)
-			nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER; hh.add_child(nm)
-			cv.add_child(rich(item_info(e, equipped), 17))
-			var bh := HFlowContainer.new(); bh.add_theme_constant_override("h_separation", 8); bh.add_theme_constant_override("v_separation", 8); cv.add_child(bh)
-			if equipped:
-				var ub := big_button("Déséquiper", true, func(): _unequip(eq_sel), GOLD, true); ub.custom_minimum_size = Vector2(170, 50); bh.add_child(ub)
-			else:
-				if not e.has("res") and not e.get("bebe", false) and e.slot != "junk":
-					var why: String = Game.equip_block(e)
-					if why != "": cv.add_child(rich("[color=#ff8a7a]Verrouillé : %s[/color]" % why, 16))
-					var b1 := big_button("Équiper", why == "", func(): bag_sel = -1; eq_sel = e.slot; main.equip_from_bag(e.idx), GOLD, true); b1.custom_minimum_size = Vector2(150, 50); bh.add_child(b1)
-				if not e.has("res") and e.slot == "junk":
-					var bj := big_button("Vendre · %s" % Game.fmt(Game.junk_price(e)), true, func(): bag_sel = -1; main.sell_junk(e.idx), GOLD, true); bj.custom_minimum_size = Vector2(170, 50); bh.add_child(bj)
-				var b2 := big_button("Vendre (hôtel)", true, func(): ah_tab = "sell"; ah_sel = e; ah_price = main.real_price(_lot(e)); show_auction("sell")); b2.custom_minimum_size = Vector2(170, 50); bh.add_child(b2)
-	, 1200)
+			if not e.has("res") and not e.get("bebe", false) and e.slot != "junk":
+				var why: String = Game.equip_block(e)
+				if why != "": cv.add_child(rich("[color=#ff8a7a]Verrouillé : %s[/color]" % why, 15))
+				var b1 := big_button("Équiper", why == "", func(): bag_sel = -1; eq_sel = ""; main.equip_from_bag(e.idx), GOLD, true); b1.custom_minimum_size = Vector2(140, 48); bh.add_child(b1)
+			if not e.has("res") and e.slot == "junk":
+				var bj := big_button("Vendre · %s" % Game.fmt(Game.junk_price(e)), true, func(): bag_sel = -1; main.sell_junk(e.idx); show_bag(), GOLD, true); bj.custom_minimum_size = Vector2(160, 48); bh.add_child(bj)
+			var b2 := big_button("Hôtel des ventes", true, func(): ah_tab = "sell"; ah_sel = e; ah_price = main.real_price(_lot(e)); show_auction("sell")); b2.custom_minimum_size = Vector2(160, 48); bh.add_child(b2)
+		var bx := big_button("✕", true, close); bx.custom_minimum_size = Vector2(52, 48); bx.add_theme_font_override("font", ThemeDB.fallback_font); bh.add_child(bx)
+	card.reset_size()
+	bag_card_rect = Rect2(card.position, card.size)
+	(func():
+		if is_instance_valid(card): card.reset_size(); bag_card_rect = Rect2(card.position, card.size)).call_deferred()
 
 # petit « Nv 3 » en bas à gauche des objets qui ont pris des niveaux
 func _lvl_tag(b: Control, it: Dictionary, size: float) -> void:

@@ -42,7 +42,7 @@ static func attach(ch: Dictionary, bone: String, path: String, scale := 1.0) -> 
 
 # Greffe une pièce d'un autre personnage KayKit (même squelette) : casque, cape, jambes…
 static var _src := {}
-static func graft(ch: Dictionary, model: String, mesh_name: String, tint: Color) -> void:
+static func graft(ch: Dictionary, model: String, mesh_name: String, tint: Color, cloth := Color(0, 0, 0, 0)) -> void:
 	var skel: Skeleton3D = ch.skel
 	if skel == null: return
 	if not _src.has(model):
@@ -54,6 +54,11 @@ static func graft(ch: Dictionary, model: String, mesh_name: String, tint: Color)
 	if e == null: return
 	var mi := MeshInstance3D.new(); mi.name = mesh_name; mi.mesh = e[0]; mi.skin = e[1]; mi.set_meta("grafted", true)
 	skel.add_child(mi); mi.skeleton = NodePath("..")
+	if cloth.a > 0.0:
+		for i in mi.mesh.get_surface_count():
+			var src = mi.mesh.surface_get_material(i)
+			if src is StandardMaterial3D: mi.set_surface_override_material(i, naked_mat(src, cloth))
+		return
 	if tint != Color(1, 1, 1):
 		for i in mi.mesh.get_surface_count():
 			var src = mi.mesh.surface_get_material(i)
@@ -78,3 +83,29 @@ static func meshes(n: Node, out: Array = []) -> Array:
 	if n is MeshInstance3D and n.name != "Blob": out.append(n)
 	for c in n.get_children(): meshes(c, out)
 	return out
+
+# Corps « nu » : on garde la peau de la texture KayKit, tout le reste (sangles, fourrure, bottes)
+# devient un simple linge uni → le héros sans équipement est en sous-vêtements.
+static var _naked_sh: Shader
+static var _naked_cache := {}
+static func naked_mat(src: StandardMaterial3D, cloth: Color) -> ShaderMaterial:
+	var key := str(src.get_instance_id()) + cloth.to_html()
+	if _naked_cache.has(key): return _naked_cache[key]
+	if _naked_sh == null:
+		_naked_sh = Shader.new(); _naked_sh.code = """shader_type spatial;
+uniform sampler2D tex : source_color, filter_linear_mipmap;
+uniform vec3 cloth : source_color;
+uniform vec3 skin : source_color;
+void fragment() {
+	vec3 c = texture(tex, UV).rgb;
+	float lum = dot(c, vec3(0.3, 0.59, 0.11));
+	// peau : rouge > vert > bleu, assez clair, teinte chaude modérée
+	float sk = step(c.b + 0.06, c.g) * step(c.g + 0.04, c.r) * step(0.5, c.r) * step(c.r - c.b, 0.45) * step(0.18, c.r - c.b);
+	vec3 linge = cloth * (0.75 + 0.45 * clamp(lum * 1.6, 0.0, 1.0));
+	ALBEDO = mix(linge, c, sk);
+	ROUGHNESS = 0.9;
+}"""
+	var m := ShaderMaterial.new(); m.shader = _naked_sh
+	m.set_shader_parameter("tex", src.albedo_texture); m.set_shader_parameter("cloth", Color(cloth.r, cloth.g, cloth.b))
+	_naked_cache[key] = m
+	return m

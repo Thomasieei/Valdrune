@@ -313,11 +313,12 @@ func _make_guide() -> void:
 func _process(dt: float) -> void:
 	var P := player
 	Game.listener = P.global_position
-	P.input_vec = hud.move_vec() if not hud.panel_open else Vector2.ZERO
+	P.input_vec = hud.move_vec() if (not hud.panel_open or hud.cur_panel == "bag") else Vector2.ZERO
 	if has_meta("force") and get_meta("force") != Vector2.ZERO: P.input_vec = get_meta("force")
 	_context(dt)
 	var o0 := Time.get_ticks_usec()
 	world.update_nodes(dt)
+	world.update_life(dt, P.global_position)
 	if not in_instance(): world.update_occlusion(player.global_position, dt)
 	if shot_mode and Time.get_ticks_usec() - o0 > 3000: print("OCC ", (Time.get_ticks_usec() - o0) / 1000.0)
 	t_spawn -= dt
@@ -971,6 +972,9 @@ func _cam_update(dt: float, snap := false) -> void:
 	var P := player
 	var target := P.global_position + Vector3(P.velocity.x, 0, P.velocity.z) * 0.12
 	var off := Vector3(0, 14.5, 6.4) * cam_zoom * user_zoom   # un peu plus plongeante : moins d'obstacles devant le héros
+	# inventaire ouvert : le héros glisse vers la gauche de l'écran pour rester visible à côté du parchemin
+	bag_shift = lerp(bag_shift, 5.2 * cam_zoom * user_zoom if hud.cur_panel == "bag" else 0.0, 1.0 if snap else 1.0 - exp(-dt * 6.0))
+	target.x += bag_shift
 	if boss_ref and is_instance_valid(boss_ref) and not boss_ref.dead: off *= 1.25
 	_update_fade(off.length())
 	var want := target + off
@@ -982,6 +986,7 @@ func _cam_update(dt: float, snap := false) -> void:
 
 # ——— Vision : tout ce qui passe entre la caméra et le héros devient transparent ———
 var user_zoom := 1.0
+var bag_shift := 0.0
 var fade_mats: Array = []
 var fade_seen := {}
 var fade_d := -1.0

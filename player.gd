@@ -85,32 +85,39 @@ func refresh_gear() -> void:
 	hp = max_hp * ratio if hp > 0 else max_hp
 	# tenue : plastron (corps), bottes (jambes), casque et cape sont de vraies pièces visibles, teintées selon leur tier
 	var bk: String = Game.kind_of("bottes"); var hk: String = Game.kind_of("casque"); var ck: String = Game.kind_of("cape")
-	var key := "%s_%d|%s_%d|%s_%d|%s_%d" % [K.model, Game.S.gear.armure, bk, Game.S.gear.get("bottes", 0), hk, Game.S.gear.get("casque", 0), ck, Game.S.gear.get("cape", 0)]
+	var key := "%s_%d|%s_%d|%s_%d|%s_%d" % [K.model, int(Game.S.gear.armure), bk, int(Game.S.gear.get("bottes", 0)), hk, int(Game.S.gear.get("casque", 0)), ck, int(Game.S.gear.get("cape", 0))]
 	if key != body_key:
 		body_key = key
 		var old_rot := 0.0
 		if ch.has("root") and is_instance_valid(ch.root): old_rot = ch.root.rotation.y; ch.root.queue_free()
-		ch = Chars.make("res://assets/heroes/%s.glb" % K.model); add_child(ch.root); ap = ch.ap; ch.root.rotation.y = old_rot
+		# squelette KayKit « nu » : on ne garde que la tête du héros, chaque pièce portée est greffée à part
+		ch = Chars.make("res://assets/heroes/Knight.glb"); add_child(ch.root); ap = ch.ap; ch.root.rotation.y = old_rot
 		var bl = ch.root.find_child("Blob", false, false)
 		if bl: bl.visible = false
-		# on retire les accessoires d'origine du modèle : seules les pièces équipées s'affichent
 		for mi in Chars.meshes(ch.root):
-			for part in ["Helmet", "HelmetVisor", "BearHat", "Hat", "Cape", "Quiver", "LegLeft", "LegRight"]:
-				if mi.name.ends_with("_" + part): mi.queue_free(); break
-		var pieces: Array = []   # [modèle, noms, tier]
-		var bt := int(Game.S.gear.get("bottes", 0))
-		var bm: String = Game.gear_def("bottes", bk).model if bt > 0 else K.model
-		pieces.append([bm, [bm + "_LegLeft", bm + "_LegRight"], max(bt, 1) if bt > 0 else 0])
-		if int(Game.S.gear.get("casque", 0)) > 0: var H := Game.gear_def("casque", hk); pieces.append([H.model, H.parts, int(Game.S.gear.casque)])
-		if int(Game.S.gear.get("cape", 0)) > 0: var C := Game.gear_def("cape", ck); pieces.append([C.model, C.parts, int(Game.S.gear.cape)])
-		for pc in pieces:
-			for nm in pc[1]: Chars.graft(ch, pc[0], nm, _tier_tint(int(pc[2])))
+			if mi.name != "Knight_Head": mi.get_parent().remove_child(mi); mi.free()
+		var at := int(Game.S.gear.armure); var bt := int(Game.S.gear.get("bottes", 0))
+		# torse + bras : plastron porté, sinon torse nu (peau + linge)
+		for part in ["Body", "ArmLeft", "ArmRight"]:
+			if at > 0: Chars.graft(ch, K.model, "%s_%s" % [K.model, part], _tier_tint(at))
+			else: Chars.graft(ch, "Barbarian", "Barbarian_" + part, Color(1, 1, 1), NAKED_CLOTH)
+		# jambes : bottes portées, sinon braies de lin et pieds nus
+		var bm: String = Game.gear_def("bottes", bk).model
+		for part in ["LegLeft", "LegRight"]:
+			if bt > 0: Chars.graft(ch, bm, "%s_%s" % [bm, part], _tier_tint(bt))
+			else: Chars.graft(ch, "Barbarian", "Barbarian_" + part, Color(1, 1, 1), NAKED_LEGS)
+		if int(Game.S.gear.get("casque", 0)) > 0:
+			var H := Game.gear_def("casque", hk)
+			for nm in H.parts: Chars.graft(ch, H.model, nm, _tier_tint(int(Game.S.gear.casque)))
+		if int(Game.S.gear.get("cape", 0)) > 0:
+			var C := Game.gear_def("cape", ck)
+			for nm in C.parts: Chars.graft(ch, C.model, nm, _tier_tint(int(Game.S.gear.cape)))
 		var tint := _tier_tint(int(Game.S.gear.armure))
 		for mi in Chars.meshes(ch.root):
 			if mi.is_queued_for_deletion(): continue
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 			mi.material_overlay = flash_mat
-			if mi.has_meta("grafted"): continue
+			if mi.has_meta("grafted") or mi.name == "Knight_Head": continue
 			if tint != Color(1, 1, 1):
 				for i in mi.mesh.get_surface_count():
 					var src = mi.mesh.surface_get_material(i)
@@ -121,6 +128,8 @@ func refresh_gear() -> void:
 	set_offhand(Game.shield_model(Game.S.gear.get("bouclier", 1)))
 	if main.hud: main.hud.refresh_skills()
 
+const NAKED_CLOTH := Color("#d8c7a2")
+const NAKED_LEGS := Color("#a8875c")
 static func _tier_tint(t: int) -> Color: return Color(1, 1, 1).lerp(Game.TIER_COL[clamp(t, 0, 5)], 0.0 if t <= 1 else 0.28)
 
 func weapon_path() -> String: return Game.weapon_model(Game.S.get("weapon_kind", "epee"), Game.S.gear.epee)

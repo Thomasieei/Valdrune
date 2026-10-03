@@ -28,29 +28,34 @@ func setup(m: Node) -> void:
 		for wk in Game.WEAPON_KINDS: queue.append({"key": "arme_%s_%d" % [wk, t], "kind": "model", "path": Game.weapon_model(wk, t), "rot": Vector3(0, 0, 0.75), "tier": t})
 		queue.append({"key": "bouclier_%d" % t, "kind": "model", "path": Game.shield_model(t), "rot": Vector3(0, -0.35, 0), "tier": t})
 	for tool in ["hache", "pioche", "faucille"]: queue.append({"key": tool, "kind": "model", "path": Game.TOOL_MODEL[tool], "rot": Vector3(0, 0, 0.6)})
-	for k in Game.ARMOR_KINDS: queue.append({"key": "armure_" + k, "kind": "char", "model": Game.ARMOR_KINDS[k].model})
+	# plastrons et bottes : la pièce seule (torse + bras / jambes), comme dans l'inventaire d'Albion
+	for k in Game.ARMOR_KINDS:
+		var am: String = Game.ARMOR_KINDS[k].model
+		queue.append({"key": "armure_" + k, "kind": "piece", "model": am, "parts": [am + "_Body", am + "_ArmLeft", am + "_ArmRight"]})
+	for k in Game.GEAR_KINDS.bottes:
+		var bm: String = Game.GEAR_KINDS.bottes[k].model
+		queue.append({"key": "bottes_" + k, "kind": "piece", "model": bm, "parts": [bm + "_LegLeft", bm + "_LegRight"]})
+	queue.push_front({"key": "hero_head", "kind": "piece", "model": "Knight", "parts": ["Knight_Head"]})
+	for cm in ["Knight", "Ranger", "Mage"]: queue.append({"key": "char_" + cm, "kind": "char", "model": cm})
 	queue.push_front({"key": "potion", "kind": "model", "path": "res://assets/dungeon/bottle_C_green.gltf", "rot": Vector3(0, 0.4, 0)})
 	queue.append({"key": "char_Rogue", "kind": "char", "model": "Rogue"})
 	queue.append({"key": "char_Barbarian", "kind": "char", "model": "Barbarian"})
 	for mk in Game.MOUNTS: queue.append({"key": "mount_" + mk, "kind": "animal", "model": Game.MOUNTS[mk].model, "tint": Game.MOUNTS[mk].get("tint", Color(1, 1, 1))})
 	for sl in ["casque", "cape"]:
 		for k in Game.GEAR_KINDS[sl]: queue.append({"key": "%s_%s" % [sl, k], "kind": "piece", "model": Game.GEAR_KINDS[sl][k].model, "parts": Game.GEAR_KINDS[sl][k].parts})
-	for k in ["barbare", "voleur"]: queue.append({"key": "armure_" + k, "kind": "char", "model": Game.ARMOR_KINDS[k].model})
 	for jk in Game.JUNK: queue.append({"key": "junk_" + jk, "kind": "model", "path": Game.JUNK[jk].model, "rot": Vector3(0.35, 0.5, 0), "tint": Game.JUNK[jk].get("tint", Color(1, 1, 1))})
 	# les miniatures déjà faites (changement de carte) sont gardées en mémoire
 	tex = Game.icon_cache
 	queue = queue.filter(func(j): return not tex.has(j.key))
+	# d'abord ce qu'on voit tout de suite (sac, butin, poupée), ensuite le reste
+	var first := queue.filter(func(j): return j.key == "potion" or j.key == "hero_head" or j.key.begins_with("junk_") or j.key.begins_with("armure_") or j.key.begins_with("bottes_") or j.key.ends_with("_1") or j.key in ["hache", "pioche", "faucille"])
+	queue = first + queue.filter(func(j): return not (j in first))
 	_next()
 
 func get_icon(key: String) -> Texture2D:
 	return tex.get(key, null)
 
-func char_icon(model: String) -> Texture2D:
-	match model:
-		"Knight": return get_icon("armure_plate")
-		"Ranger": return get_icon("armure_cuir")
-		"Mage": return get_icon("armure_tissu")
-	return get_icon("char_" + model)
+func char_icon(model: String) -> Texture2D: return get_icon("char_" + model)
 
 func item_icon(it: Dictionary) -> Texture2D:
 	if int(it.get("tier", 1)) <= 0: return null
@@ -61,7 +66,9 @@ func item_icon(it: Dictionary) -> Texture2D:
 		"bouclier": return get_icon("bouclier_%d" % int(it.tier))
 		"armure": return get_icon("armure_" + it.get("kind", "plate"))
 		"casque", "cape": return get_icon("%s_%s" % [it.slot, it.get("kind", Game.GEAR_KINDS[it.slot].keys()[0])])
-		"bottes": return load("res://ui/boots_%d.png" % clamp(int(it.tier), 1, 5))
+		"bottes":
+			var bt = get_icon("bottes_" + str(it.get("kind", "greves")))
+			return bt if bt else load("res://ui/boots_%d.png" % clamp(int(it.tier), 1, 5))
 		"junk": return get_icon("junk_" + it.get("kind", "os"))
 		_: return get_icon(it.slot)
 
