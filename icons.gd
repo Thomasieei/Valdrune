@@ -46,6 +46,11 @@ func setup(m: Node) -> void:
 	for jk in Game.JUNK: queue.append({"key": "junk_" + jk, "kind": "model", "path": Game.JUNK[jk].model, "rot": Vector3(0.35, 0.5, 0), "tint": Game.JUNK[jk].get("tint", Color(1, 1, 1))})
 	# les miniatures déjà faites (changement de carte) sont gardées en mémoire
 	tex = Game.icon_cache
+	# ressources : icônes dessinées à la main (plus lisibles que des miniatures 3D)
+	for k in Game.RES_KEYS:
+		for t in range(1, 6):
+			var pth := "res://ui/res/res_%s_%d.png" % [k, t]
+			if ResourceLoader.exists(pth): tex["res_%s_%d" % [k, t]] = load(pth)
 	queue = queue.filter(func(j): return not tex.has(j.key))
 	# d'abord ce qu'on voit tout de suite (sac, butin, poupée), ensuite le reste
 	var first := queue.filter(func(j): return j.key == "potion" or j.key == "hero_head" or j.key.begins_with("junk_") or j.key.begins_with("armure_") or j.key.begins_with("bottes_") or j.key.ends_with("_1") or j.key in ["hache", "pioche", "faucille"])

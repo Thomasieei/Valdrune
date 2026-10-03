@@ -67,12 +67,14 @@ func setup(m: Node, d: Dictionary) -> void:
 	ch = Chars.make("res://assets/heroes/%s.glb" % d.model); add_child(ch.root); ap = ch.ap
 	ch.root.scale = Vector3.ONE * d.get("scale", 1.0)
 	for pr in PROPS.get(id, []): Chars.attach(ch, pr[0], Game.W % pr[1], 1.0)
+	if d.act == "guard":
+		Chars.attach(ch, "handslot.r", Game.W % "halberd", 1.0); Chars.attach(ch, "handslot.l", Game.W % "shield_square", 1.0)
 	if act == "duel":
 		Chars.attach(ch, "handslot.r", Game.weapon_model(d.wkind, d.tier), 1.0)
 		if d.model in ["Knight", "Barbarian"] and d.wkind != "baton": Chars.attach(ch, "handslot.l", Game.shield_model(d.tier), 1.0)
 	home = d.pos; home.y = main.world.height(home.x, home.z); position = home
 	for p in d.get("path", []): path.append(Vector3(p.x, 0, p.y))
-	yaw = randf() * TAU
+	yaw = float(d.get("yaw", randf() * TAU))
 	var l := Label3D.new(); l.text = nm; l.font_size = 50; l.outline_size = 12; l.modulate = Color("#fff4d6"); l.outline_modulate = Color(0, 0, 0, 0.75)
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED; l.pixel_size = 0.0065; l.position.y = 2.55 * d.get("scale", 1.0); l.no_depth_test = true; add_child(l)
 	var r := Label3D.new(); r.text = role; r.font_size = 34; r.outline_size = 9; r.modulate = Color("#c9e6ff"); r.outline_modulate = Color(0, 0, 0, 0.7)
@@ -97,6 +99,8 @@ func _process(dt: float) -> void:
 	if far: return
 	if d.length() < 4.0:
 		yaw = lerp_angle(yaw, atan2(d.x, d.y), 1.0 - exp(-dt * 6.0)); _play("Idle_A")
+	elif act == "guard":
+		yaw = lerp_angle(yaw, float(data.yaw), 1.0 - exp(-dt * 3.0)); _play("Idle_A")
 	elif not path.is_empty():
 		if wait > 0.0: wait -= dt; _play("Idle_B")
 		else:
@@ -120,6 +124,7 @@ const ACT_LINES := {
 	"mercs": ["Seul, on meurt vite. Avec ma compagnie, tu formes un vrai groupe de 4."],
 	"tools3": ["Haches, pioches, faucilles : j'ai tout, du commun au légendaire. Encore faut-il avoir le niveau pour s'en servir."],
 	"travel": ["Je connais toutes les routes du royaume."],
+	"guard": ["Halte ! … Ah, un aventurier. Passe, la ville est sûre.", "Personne n'entre armé de mauvaises intentions. Pas sous ma garde.", "Les routes sont calmes de jour. La nuit, c'est une autre histoire.", "Si tu croises des joueurs hostiles, reviens en ville : ici, on ne se bat pas."],
 	"villager": ["Belle journée pour flâner, pas vrai ?", "Mon voisin jure avoir vu un loup géant près du moulin.", "Les nuits sont dangereuses : les monstres deviennent plus forts… mais on dit que leur butin aussi.",
 		"Tu cherches du travail ? Le chef de la ville a toujours une tâche pour les aventuriers.", "Ne t'approche pas des terres rouges sans bon équipement. Là-bas, on perd tout.", "Ma fille veut devenir aventurière. Je préférerais qu'elle fasse du pain."],
 }

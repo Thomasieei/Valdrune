@@ -58,10 +58,14 @@ func setup_map(id: int) -> void:
 	_make_roads()
 	_plan_hamlets()
 	_plan_paths()
+	dirt_spots = []; foot_paths = []
 	if MAP.town.kind == "valdrune":
 		for off in [Vector2(-13, -10), Vector2(13, -10), Vector2(-15, 8), Vector2(15, 10), Vector2(-25, -17), Vector2(-26, -2), Vector2(26, -1)]:
 			var q: Vector2 = village + off
-			roads.append([village + off.normalized() * 5.0, q - off.normalized() * 4.0])
+			foot_paths.append([village + off.normalized() * 8.5, q - off.normalized() * 3.2])
+		# emplacements des PNJ (cercles de terre)
+		for o in [Vector2(-8.4, -5.8), Vector2(8.4, -5.8), Vector2(-21, -13), Vector2(3.5, 3.0), Vector2(-11, 8), Vector2(-8, 16), Vector2(8, 16), Vector2(9, 2), Vector2(-19, 13), Vector2(-5, -22), Vector2(3, -24)]:
+			dirt_spots.append([village + o, 2.2])
 	else: _plan_town_slots()
 	_plan_ramps()
 
@@ -313,6 +317,8 @@ func build(id := 1) -> void:
 	_compute_reach()
 	if MAP.town.kind == "valdrune": _village()
 	else: _town(MAP.town)
+	_town_dressing()
+	_ground_decals()
 	_faubourgs()
 	for p in POI_DEFS: _poi(p)
 	_gates()
@@ -326,6 +332,7 @@ func build(id := 1) -> void:
 	_hidden_chests()
 	if BAY != null: _harbor()
 	for path in mm_lists: _multi(path, mm_lists[path])
+	_build_cliffs()
 	_cull(self)
 
 # Rien d'inutile à l'écran : chaque objet disparaît au-delà de ce que la caméra peut voir
@@ -367,6 +374,7 @@ func _ground_color(x: float, z: float, h: float, sl: float) -> Color:
 	if rd < 3.0: c = c.lerp(Color("#a8916a"), (1.0 - smoothstep(1.6, 3.0, rd)) * 0.95)
 	var vd := Vector2(x, z).distance_to(village)
 	if vd < 11.0: c = c.lerp(Color("#a8916a"), 1.0 - smoothstep(8.0, 11.0, vd))
+
 	if h < WATER_Y + 0.6: c = c.lerp(Color("#c9b98a") if A.style != "swamp" else Color("#6a6a4a"), clamp((WATER_Y + 0.6 - h) * 1.2, 0.0, 0.8))   # berges
 	return c
 
@@ -390,7 +398,6 @@ func _terrain() -> void:
 			var k := [j * N + i, j * N + i + 1, (j + 1) * N + i, (j + 1) * N + i + 1]
 			for id in [k[0], k[1], k[2], k[1], k[3], k[2]]:
 				st.set_color(cols[id]); st.add_vertex(Vector3(-HALF + (id % N) * CELL, hs[id], -HALF + (id / N) * CELL))
-	st.generate_normals()
 	var mi := MeshInstance3D.new(); mi.mesh = st.commit()
 	mi.material_override = ground_mat(); add_child(mi)
 	var body := StaticBody3D.new(); var cs := CollisionShape3D.new(); var hm := HeightMapShape3D.new()
@@ -779,6 +786,8 @@ func _signpost(p: Vector2, toward: Vector2, txt: String, col: Color) -> void:
 # ——— Ville générique (cartes 2 à 4) : place centrale, bâtiments en cercle, chaque PNJ devant SA boutique ———
 # Allées de la ville (calculées avant le terrain, pour qu'elles soient dessinées au sol)
 var town_slots: Array = []
+var dirt_spots: Array = []    # [centre, rayon] : cercles de terre sous les PNJ
+var foot_paths: Array = []    # [a, b] : sentiers des villes
 func _plan_town_slots() -> void:
 	var V: Vector2 = MAP.town.pos
 	town_slots = []
@@ -788,9 +797,12 @@ func _plan_town_slots() -> void:
 			var q: Vector2 = V + Vector2(cos(a), sin(a)) * ring[0]
 			if road_dist(q.x, q.y) < 7.0 or raw_height(q.x, q.y) < WATER_Y + 0.6: continue
 			town_slots.append(q)
-	for i in min(7, town_slots.size()):
+	for i in min(10, town_slots.size()):
 		var q: Vector2 = town_slots[i]
-		roads.append([V + (q - V).normalized() * 5.0, q + (V - q).normalized() * 4.0])
+		var to_c := (V - q).normalized()
+		var np: Vector2 = q + to_c * 5.2
+		if i < 7: dirt_spots.append([np, 2.2])
+		foot_paths.append([q + to_c * 2.6, V - to_c * 8.5])
 
 func _town(T: Dictionary) -> void:
 	var V: Vector2 = T.pos; var H := "res://assets/hex/"; var mid := map_id
@@ -1301,34 +1313,34 @@ func _decor() -> void:
 			"meadow":
 				if roll < 0.12: _mm(F + ["Grass_1_A_Color1.gltf", "Grass_2_B_Color1.gltf", "Grass_1_C_Color1.gltf"][rng.randi() % 3], p, rng.randf_range(1.2, 1.8), rng.randf() * TAU)
 				elif roll < 0.16: _mm(F + ["Bush_1_A_Color1.gltf", "Bush_2_A_Color1.gltf", "Bush_3_A_Color1.gltf"][rng.randi() % 3], p, rng.randf_range(1.0, 1.6), rng.randf() * TAU)
-				elif roll < (0.185 if top else 0.168): _mm(crystal(CR[rng.randi() % CR.size()]), p, rng.randf_range(0.6, 1.3), rng.randf() * TAU)
+				elif roll < (0.185 if top else 0.168): _mm(CR[rng.randi() % CR.size()], p, rng.randf_range(0.6, 1.3), rng.randf() * TAU)
 			"forest":
 				if roll < 0.3: _mm(F + ["Grass_2_A_Color1.gltf", "Bush_1_E_Color1.gltf", "Grass_1_D_Color1.gltf", "Bush_2_D_Color1.gltf"][rng.randi() % 4], p, rng.randf_range(1.0, 1.7), rng.randf() * TAU)
-				elif roll < 0.312: _mm(crystal(CR[rng.randi() % CR.size()]), p, rng.randf_range(0.6, 1.2), rng.randf() * TAU)
+				elif roll < 0.312: _mm(CR[rng.randi() % CR.size()], p, rng.randf_range(0.6, 1.2), rng.randf() * TAU)
 			"hills":
-				if sl > 2.4 and roll < 0.25: _mm(crystal(CR[rng.randi() % CR.size()]), p, rng.randf_range(0.8, 1.5), rng.randf() * TAU, Color("#f0e0c0"))
+				if sl > 2.4 and roll < 0.25: _mm(CR[rng.randi() % CR.size()], p, rng.randf_range(0.8, 1.5), rng.randf() * TAU, Color("#f0e0c0"))
 				elif roll < 0.2: _mm(F + ["Grass_1_B_Color1.gltf", "Grass_2_C_Color1.gltf"][rng.randi() % 2], p, rng.randf_range(1.0, 1.5), rng.randf() * TAU, Color("#f0d890"))
-				elif roll < 0.215: _mm(crystal(CR[rng.randi() % CR.size()]), p, rng.randf_range(0.6, 1.2), rng.randf() * TAU, Color("#f0e0c0"))
+				elif roll < 0.215: _mm(CR[rng.randi() % CR.size()], p, rng.randf_range(0.6, 1.2), rng.randf() * TAU, Color("#f0e0c0"))
 			"swamp":
 				if roll < 0.3: _mm(F + ["Grass_2_D_Color1.gltf", "Grass_1_D_Color1.gltf", "Bush_4_D_Color1.gltf"][rng.randi() % 3], p, rng.randf_range(1.2, 1.9), rng.randf() * TAU, Color("#a8b090"))
 				elif roll < 0.315: _mm("res://assets/halloween/gravestone.gltf", p, 1.1, rng.randf() * TAU)
-				elif roll < 0.33: _mm(crystal(CR[rng.randi() % CR.size()]), p, rng.randf_range(0.7, 1.3), rng.randf() * TAU)
+				elif roll < 0.33: _mm(CR[rng.randi() % CR.size()], p, rng.randf_range(0.7, 1.3), rng.randf() * TAU)
 				elif roll < 0.334: _mm(crystal(["PROP_18_DarkCursedCrystal", "PROP_09_FloatingMagicCrystal", "PROP_06_CrystalSpikes"][rng.randi() % 3]), p, rng.randf_range(0.7, 1.1), rng.randf() * TAU)
 			"ash":
-				if sl > 2.4 and roll < 0.35: _mm(crystal(CR[rng.randi() % CR.size()]), p, rng.randf_range(1.0, 1.8), rng.randf() * TAU)
+				if sl > 2.4 and roll < 0.35: _mm(CR[rng.randi() % CR.size()], p, rng.randf_range(1.0, 1.8), rng.randf() * TAU)
 				elif roll < 0.06: _mm(["res://assets/halloween/bone_A.gltf", "res://assets/halloween/skull.gltf", "res://assets/halloween/ribcage.gltf"][rng.randi() % 3], p, 1.2, rng.randf() * TAU)
 				elif roll < 0.1: _ember(p)
-				elif roll < 0.13: _mm(crystal(CR[rng.randi() % CR.size()]), p, rng.randf_range(0.8, 1.6), rng.randf() * TAU)
+				elif roll < 0.13: _mm(CR[rng.randi() % CR.size()], p, rng.randf_range(0.8, 1.6), rng.randf() * TAU)
 				elif roll < 0.136: _mm(crystal(["PROP_20_EmberCrystalFormation", "PROP_03_LargeCrystalCluster"][rng.randi() % 2]), p, rng.randf_range(0.8, 1.2), rng.randf() * TAU, Color("#ffb080"))
 			"desert":
-				if sl > 2.0 and roll < 0.3: _mm(crystal(CR[rng.randi() % CR.size()]), p, rng.randf_range(0.8, 1.4), rng.randf() * TAU, Color("#f2d49a"))
+				if sl > 2.0 and roll < 0.3: _mm(CR[rng.randi() % CR.size()], p, rng.randf_range(0.8, 1.4), rng.randf() * TAU, Color("#f2d49a"))
 				elif roll < 0.07: _mm(F + ["Grass_1_B_Color1.gltf", "Grass_2_C_Color1.gltf", "Bush_4_D_Color1.gltf"][rng.randi() % 3], p, rng.randf_range(0.9, 1.4), rng.randf() * TAU, Color("#e6cf8a"))
 				elif roll < 0.08: _mm(["res://assets/halloween/bone_A.gltf", "res://assets/halloween/skull.gltf", "res://assets/halloween/ribcage.gltf"][rng.randi() % 3], p, 1.3, rng.randf() * TAU)
-				elif roll < 0.1: _mm(crystal(CR[rng.randi() % CR.size()]), p, rng.randf_range(0.7, 1.3), rng.randf() * TAU, Color("#f0d29a"))
+				elif roll < 0.1: _mm(CR[rng.randi() % CR.size()], p, rng.randf_range(0.7, 1.3), rng.randf() * TAU, Color("#f0d29a"))
 			"canyon":
-				if sl > 2.2 and roll < 0.4: _mm(crystal(CR[rng.randi() % CR.size()]), p, rng.randf_range(1.0, 1.9), rng.randf() * TAU, Color("#d07a55"))
+				if sl > 2.2 and roll < 0.4: _mm(CR[rng.randi() % CR.size()], p, rng.randf_range(1.0, 1.9), rng.randf() * TAU, Color("#d07a55"))
 				elif roll < 0.09: _mm(F + ["Grass_1_B_Color1.gltf", "Bush_4_D_Color1.gltf"][rng.randi() % 2], p, rng.randf_range(0.9, 1.4), rng.randf() * TAU, Color("#a85a30"))
-				elif roll < 0.11: _mm(crystal(CR[rng.randi() % CR.size()]), p, rng.randf_range(0.7, 1.3), rng.randf() * TAU, Color("#c87a50"))
+				elif roll < 0.11: _mm(CR[rng.randi() % CR.size()], p, rng.randf_range(0.7, 1.3), rng.randf() * TAU, Color("#c87a50"))
 	# massifs de fleurs (couleurs de la palette Simple Polygon)
 	var FL := [Color("#f08cd8"), Color("#f7e06a"), Color("#c090d8"), Color("#ffffff"), Color("#ff8a7a")]
 	for i in 160:
@@ -1892,14 +1904,16 @@ var _rock_tint := {}
 const ROCK_TINT := {"canyon": Color(0.95, 0.62, 0.48), "desert": Color(1.0, 0.82, 0.62), "ash": Color(0.62, 0.55, 0.55), "swamp": Color(0.78, 0.82, 0.76), "hills": Color(1.0, 0.95, 0.85)}
 
 const CLIFFS := ["res://assets/relief/clifftile_straight_1.dae", "res://assets/relief/clifftile_straight_2.dae", "res://assets/relief/clifftile_straight_3.dae"]
+const KR := "res://assets/forest/"
+const CR_ := "res://assets/crystal/"
 const ROCK_SET := {
-	"meadow": ["ROCK_Slate_01_LargeBoulder", "ROCK_Slate_02_MediumRock", "ROCK_Slate_04_TallSpire", "ROCK_Slate_05_RubbleCluster"],
-	"forest": ["ROCK_Slate_01_LargeBoulder", "ROCK_Slate_02_MediumRock", "ROCK_Slate_05_RubbleCluster", "ROCK_Ancient_01_LargeMegalith"],
-	"hills": ["ROCK_Slate_01_LargeBoulder", "ROCK_Slate_04_TallSpire", "ROCK_Slate_03_FlatPlatform", "ROCK_Slate_02_MediumRock"],
-	"desert": ["ROCK_Ancient_01_LargeMegalith", "ROCK_Ancient_02_RuinedPillar", "ROCK_Slate_02_MediumRock", "ROCK_Ancient_05_CarvedRubble"],
-	"canyon": ["ROCK_Volcanic_01_LargeCrag", "ROCK_Volcanic_02_MediumBlock", "ROCK_Volcanic_04_BasaltPillar", "ROCK_Volcanic_05_DebrisCluster"],
-	"swamp": ["ROCK_Corrupted_01_LargeMass", "ROCK_Corrupted_02_MediumHorn", "ROCK_Corrupted_04_TwistedPinnacle", "ROCK_Corrupted_05_VoidFragments"],
-	"ash": ["ROCK_Volcanic_01_LargeCrag", "ROCK_Volcanic_04_BasaltPillar", "ROCK_Volcanic_02_MediumBlock", "ROCK_Corrupted_04_TwistedPinnacle"],
+	"meadow": [KR + "Rock_1_A_Color1.gltf", KR + "Rock_1_E_Color1.gltf", KR + "Rock_3_A_Color1.gltf", KR + "Rock_1_N_Color1.gltf"],
+	"forest": [KR + "Rock_1_A_Color1.gltf", KR + "Rock_3_K_Color1.gltf", KR + "Rock_1_E_Color1.gltf", KR + "Rock_3_M_Color1.gltf"],
+	"hills": [KR + "Rock_3_A_Color1.gltf", KR + "Rock_3_M_Color1.gltf", KR + "Rock_1_E_Color1.gltf", KR + "Rock_3_K_Color1.gltf"],
+	"desert": [CR_ + "ROCK_Ancient_02_RuinedPillar.glb", KR + "Rock_3_A_Color1.gltf", KR + "Rock_1_E_Color1.gltf", CR_ + "ROCK_Ancient_05_CarvedRubble.glb"],
+	"canyon": [CR_ + "ROCK_Volcanic_01_LargeCrag.glb", CR_ + "ROCK_Volcanic_04_BasaltPillar.glb", KR + "Rock_3_M_Color1.gltf", CR_ + "ROCK_Volcanic_05_DebrisCluster.glb"],
+	"swamp": [CR_ + "ROCK_Corrupted_02_MediumHorn.glb", CR_ + "ROCK_Corrupted_04_TwistedPinnacle.glb", KR + "Rock_1_N_Color1.gltf", CR_ + "ROCK_Corrupted_05_VoidFragments.glb"],
+	"ash": [CR_ + "ROCK_Volcanic_01_LargeCrag.glb", CR_ + "ROCK_Volcanic_04_BasaltPillar.glb", CR_ + "ROCK_Volcanic_02_MediumBlock.glb", CR_ + "ROCK_Corrupted_04_TwistedPinnacle.glb"],
 }
 static func crystal(nm: String) -> String: return "res://assets/crystal/%s.glb" % nm
 
@@ -1977,14 +1991,18 @@ func _cliff_level(r: RandomNumberGenerator, lv: int) -> void:
 		var bas := Basis(Vector3(tan.x, 0, tan.y) * sxz, Vector3(0, sy, 0), Vector3(out.x, 0, out.y) * sxz)
 		# tuile : origine au bout gauche, face avant vers +Z à ~z=+3,5 → on la centre sur le contour
 		var o3 := Vector3(q.x, bot - 1.8, q.y) - bas * Vector3(10.0, 0, 3.0)
-		_mm_xf(CLIFFS[r.randi() % CLIFFS.size()], Transform3D(bas, o3), grass)
+		var tq := q - out * 2.5
+		var top_col := _ground_color(tq.x, tq.y, top, 0.5)
+		var ck: String = CLIFFS[r.randi() % CLIFFS.size()] + "|" + str(reg.style) + "|" + str(int(floor((q.x + HALF) / 64.0))) + "," + str(int(floor((q.y + HALF) / 64.0)))
+		if not cliff_lists.has(ck): cliff_lists[ck] = []
+		cliff_lists[ck].append([Transform3D(bas, o3), top_col])
 		nc += 1
 		cliff_dbg.append([Vector3(q.x, bot, q.y), out, drop])
 		# rochers au pied, pour casser les raccords
 		if r.randf() < 0.45:
 			var rs: Array = ROCK_SET.get(reg.style, ROCK_SET.meadow)
 			var rp := q + out * r.randf_range(1.2, 2.4) + tan * r.randf_range(-2.5, 2.5)
-			_mm(crystal(rs[r.randi() % rs.size()]), Vector3(rp.x, 0, rp.y), r.randf_range(0.8, 1.5), r.randf() * TAU)
+			_mm(rs[r.randi() % rs.size()], Vector3(rp.x, 0, rp.y), r.randf_range(0.8, 1.5), r.randf() * TAU)
 	cliff_count += nc
 var cliff_count := 0
 var cliff_dbg: Array = []
@@ -2120,3 +2138,176 @@ func reachable(x: float, z: float) -> bool:
 	var i := int(round((x + HALF) / CELL)); var j := int(round((z + HALF) / CELL))
 	if i < 0 or j < 0 or i >= N or j >= N: return false
 	return reach[j * N + i] == 1
+
+
+# Falaises : un seul maillage par type de tuile, le dessus prend exactement la couleur du sol à cet endroit
+var cliff_lists := {}
+static var _cliff_sh: Shader
+var _cliff_style_mats := {}
+func _cliff_style_mat(style: String) -> ShaderMaterial:
+	if _cliff_style_mats.has(style): return _cliff_style_mats[style]
+	if _cliff_sh == null:
+		_cliff_sh = Shader.new(); _cliff_sh.code = """shader_type spatial;
+uniform sampler2D pal : source_color, filter_nearest;
+uniform sampler2D gmask : filter_nearest;
+uniform vec3 rock_tint = vec3(1.0);
+varying vec3 gcol;
+void vertex() { gcol = INSTANCE_CUSTOM.rgb; }
+vec3 lin(vec3 c) { return mix(pow((c + 0.055) / 1.055, vec3(2.4)), c / 12.92, lessThan(c, vec3(0.04045))); }
+void fragment() {
+	vec3 p = texture(pal, UV).rgb;
+	float g = texture(gmask, UV).r;
+	ALBEDO = mix(p * rock_tint, lin(gcol), g);
+	ROUGHNESS = 1.0;
+}"""
+	var palname: String = CLIFF_PAL.get(style, "Grey")
+	var img: Image = (load("res://assets/relief/Colorscheme %s.png" % palname) as Texture2D).get_image()
+	img = img.duplicate(); if img.is_compressed(): img.decompress()
+	img.convert(Image.FORMAT_RGBA8)
+	var mk := Image.create(img.get_width(), img.get_height(), false, Image.FORMAT_L8)
+	for yy in img.get_height():
+		for xx in img.get_width():
+			var c := img.get_pixel(xx, yy)
+			if c.g > c.r + 0.03 and c.g > c.b + 0.15: mk.set_pixel(xx, yy, Color(1, 1, 1))
+	var m := ShaderMaterial.new(); m.shader = _cliff_sh
+	m.set_shader_parameter("pal", ImageTexture.create_from_image(img)); m.set_shader_parameter("gmask", ImageTexture.create_from_image(mk))
+	var rt: Color = ROCK_TINT.get(style, Color(1, 1, 1))
+	m.set_shader_parameter("rock_tint", Vector3(rt.r, rt.g, rt.b))
+	_cliff_style_mats[style] = m
+	return m
+
+func _build_cliffs() -> void:
+	for key in cliff_lists:
+		var parts: PackedStringArray = key.split("|")
+		var items: Array = cliff_lists[key]
+		var sc: Node3D = load(parts[0]).instantiate()
+		var meshes: Array = []
+		_collect(sc, Transform3D.IDENTITY, meshes)
+		for m in meshes:
+			var mm := MultiMesh.new(); mm.transform_format = MultiMesh.TRANSFORM_3D; mm.use_custom_data = true; mm.mesh = m[0]; mm.instance_count = items.size()
+			for i in items.size():
+				mm.set_instance_transform(i, items[i][0] * m[1])
+				var c: Color = items[i][1]
+				mm.set_instance_custom_data(i, Color(c.r, c.g, c.b, 1.0))
+			var mmi := MultiMeshInstance3D.new(); mmi.multimesh = mm; mmi.material_override = _cliff_style_mat(parts[1])
+			mmi.visibility_range_end = 110.0; mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			add_child(mmi)
+		sc.free()
+
+
+# ——— Villes : portes gardées sur chaque route, petits arbres et massifs autour de la place ———
+const GUARD_NAMES := ["Garde Aubin", "Garde Mathis", "Garde Ysolde", "Garde Bertrand", "Garde Elise", "Garde Roland", "Garde Clovis", "Garde Maëlle", "Garde Tristan", "Garde Agnès"]
+func _town_dressing() -> void:
+	var V := village; var H := "res://assets/hex/"; var F := "res://assets/forest/"
+	var r := RandomNumberGenerator.new(); r.seed = 5150 + map_id
+	var tint: Color = MAP.town.get("tint", Color(1, 1, 1))
+	# portes : là où chaque route sort de la ville
+	var gates_done: Array = []; var gi := 0
+	for rd in roads:
+		if rd.size() < 2 or (rd[0] as Vector2).distance_to(V) > 6.0: continue
+		var R := 31.0
+		var gp := Vector2.INF; var dir := Vector2.ZERO
+		for i in rd.size() - 1:
+			var a: Vector2 = rd[i]; var b: Vector2 = rd[i + 1]
+			if a.distance_to(V) <= R and b.distance_to(V) > R:
+				var t := 0.0
+				for k in 40:
+					t = k / 40.0
+					if a.lerp(b, t).distance_to(V) > R: break
+				gp = a.lerp(b, t); dir = (b - a).normalized(); break
+		if gp == Vector2.INF: continue
+		var dup := false
+		for g in gates_done:
+			if gp.distance_to(g) < 9.0: dup = true
+		if dup or not walkable(gp.x, gp.y) or river_dist(gp.x, gp.y) < RIVER_W + 2.0: continue
+		gates_done.append(gp)
+		var side := Vector2(-dir.y, dir.x)
+		var rot := atan2(side.x, side.y)
+		for sd in [-3.4, 3.4]:
+			var q: Vector2 = gp + side * sd
+			place("res://assets/dungeon/pillar_decorated.gltf", Vector3(q.x, 0, q.y), rot, 1.0); blocker(Vector3(q.x, 0, q.y), 0.6)
+			_tint_last(tint)
+			var bq: Vector2 = q - dir * 0.6
+			place("res://assets/dungeon/banner_patternB_blue.gltf", Vector3(bq.x, 0, bq.y), rot + PI * 0.5, 1.1)
+			_light(Vector3(q.x, height(q.x, q.y) + 2.9, q.y), Color("#ffbf66"), 1.8, 2.2)
+		for k in 2:
+			var sd2 := -2.0 if k == 0 else 2.0
+			var gq: Vector2 = gp + side * sd2 + dir * 0.8
+			npc_spots.append({"id": "garde_%d_%d" % [map_id, gi], "model": "Knight", "name": GUARD_NAMES[(gi + map_id * 3) % GUARD_NAMES.size()], "role": "Garde de la ville", "pos": Vector3(gq.x, 0, gq.y), "act": "guard", "yaw": atan2(dir.x, dir.y)})
+			gi += 1
+	# petits arbres d'ornement et massifs de fleurs entre les étals, autour de la place
+	var FL := [Color("#f08cd8"), Color("#f7e06a"), Color("#c090d8"), Color("#ffffff")]
+	for i in 12:
+		var a := TAU * i / 12.0 + 0.13
+		var q := V + Vector2(cos(a), sin(a)) * 12.5
+		var ok := road_dist(q.x, q.y) > 2.5
+		for ds in dirt_spots:
+			if q.distance_to(ds[0]) < 3.6: ok = false
+		for fp in foot_paths:
+			if seg_dist(q, fp[0], fp[1]) < 2.2: ok = false
+		if not ok or not walkable(q.x, q.y): continue
+		if i % 2 == 0:
+			place(F + ["Tree_1_A_Color1.gltf", "Tree_2_A_Color1.gltf", "Tree_1_C_Color1.gltf"][r.randi() % 3], Vector3(q.x, 0, q.y), r.randf() * TAU, r.randf_range(0.5, 0.62)); blocker(Vector3(q.x, 0, q.y), 0.5)
+			house_spots.append([q, 1.5])
+		var fc: Color = FL[r.randi() % FL.size()]; fc.a = 0.98
+		for k in 6:
+			var fq := q + Vector2(r.randf_range(-1.6, 1.6), r.randf_range(-1.6, 1.6))
+			_mm(F + ("Bush_1_A_Color1.gltf" if k % 2 else "Grass_1_C_Color1.gltf"), Vector3(fq.x, 0, fq.y), r.randf_range(0.55, 0.85), r.randf() * TAU, fc)
+	# un banc de caisses et des tonneaux près du puits
+	for k in 3:
+		var a := TAU * k / 3.0 + 0.6
+		var q := V + Vector2(cos(a), sin(a)) * 3.2
+		place(H + ["barrel.gltf", "crate_A_big.gltf", "sack.gltf"][k], Vector3(q.x, 0, q.y), a, 3.6)
+
+
+# Cercles de terre et sentiers : un maillage plaqué au sol (net, contrairement à la couleur du terrain)
+func _ground_decals() -> void:
+	var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var rn := RandomNumberGenerator.new(); rn.seed = 99 + map_id
+	var dirt := Color("#8a6a45"); var path := Color("#a08660"); var stone := Color("#a8a29a")
+	st.set_normal(Vector3.UP)
+	var Y := func(q: Vector2) -> Vector3: return Vector3(q.x, height(q.x, q.y) + 0.05, q.y)
+	# disques : centre plein, bord qui s'estompe
+	for ds in dirt_spots:
+		var c: Vector2 = ds[0]; var r: float = ds[1]
+		var n := 28
+		for i in n:
+			var a0 := TAU * i / n; var a1 := TAU * (i + 1) / n
+			var p0 := c + Vector2(cos(a0), sin(a0)) * r; var p1 := c + Vector2(cos(a1), sin(a1)) * r
+			var o0 := c + Vector2(cos(a0), sin(a0)) * (r + 0.5); var o1 := c + Vector2(cos(a1), sin(a1)) * (r + 0.5)
+			var cc := dirt.lightened(rn.randf() * 0.06)
+			st.set_color(cc); st.add_vertex(Y.call(c)); st.set_color(cc); st.add_vertex(Y.call(p0)); st.set_color(cc); st.add_vertex(Y.call(p1))
+			var t := Color(dirt.r, dirt.g, dirt.b, 0.0)
+			st.set_color(cc); st.add_vertex(Y.call(p0)); st.set_color(t); st.add_vertex(Y.call(o0)); st.set_color(cc); st.add_vertex(Y.call(p1))
+			st.set_color(cc); st.add_vertex(Y.call(p1)); st.set_color(t); st.add_vertex(Y.call(o0)); st.set_color(t); st.add_vertex(Y.call(o1))
+		# petites pierres en couronne
+		for k in 9:
+			var a := TAU * k / 9.0 + rn.randf() * 0.3
+			var q := c + Vector2(cos(a), sin(a)) * (r + 0.15)
+			_mm("res://assets/forest/Rock_1_A_Color1.gltf", Vector3(q.x, 0, q.y), rn.randf_range(0.16, 0.24), rn.randf() * TAU)
+	# sentiers : bande de 1,3 m, bords fondus
+	for fp in foot_paths:
+		var a: Vector2 = fp[0]; var b: Vector2 = fp[1]
+		var L := a.distance_to(b)
+		if L < 0.5: continue
+		var dir := (b - a) / L; var nr := Vector2(-dir.y, dir.x)
+		var steps := int(L / 1.0) + 1
+		for i in steps:
+			var t0 := float(i) / steps; var t1 := float(i + 1) / steps
+			var m0 := a.lerp(b, t0); var m1 := a.lerp(b, t1)
+			var w := 0.7
+			var cc := path.lightened(rn.randf() * 0.07)
+			# centre (même sens d'enroulement que les disques, sinon la face est vue de dos et paraît noire)
+			for tri in [[m0 - nr * w, m0 + nr * w, m1 + nr * w], [m0 - nr * w, m1 + nr * w, m1 - nr * w]]:
+				var A: Vector2 = tri[0]; var B: Vector2 = tri[1]; var C: Vector2 = tri[2]
+				if (B - A).cross(C - A) < 0.0: var tmp := B; B = C; C = tmp
+				st.set_color(cc); st.add_vertex(Y.call(A)); st.set_color(cc); st.add_vertex(Y.call(B)); st.set_color(cc); st.add_vertex(Y.call(C))
+			# pavés de pierre çà et là
+			if rn.randf() < 0.35:
+				var q := m0 + nr * rn.randf_range(-0.4, 0.4)
+				_mm("res://assets/forest/Rock_1_A_Color1.gltf", Vector3(q.x, -0.06, q.y), rn.randf_range(0.12, 0.18), rn.randf() * TAU, stone)
+	if dirt_spots.is_empty() and foot_paths.is_empty(): return
+	var mi := MeshInstance3D.new(); mi.mesh = st.commit()
+	var m := StandardMaterial3D.new(); m.vertex_color_use_as_albedo = true; m.vertex_color_is_srgb = true; m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED; m.roughness = 1.0; m.render_priority = -1
+	mi.material_override = m; mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; add_child(mi)
