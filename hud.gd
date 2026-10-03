@@ -1159,7 +1159,9 @@ func item_info(e: Dictionary, equipped: bool) -> String:
 		"epee":
 			lines.append("Dégâts par coup : [b]%d[/b]%s" % [int(v), _diff(v, cv) if cmp else ""])
 			lines.append("[color=#a8b4bc]%s[/color]" % Game.WEAPON_KINDS[e.get("kind", "epee")].desc)
-			for sk in Player.skills():
+			var wk: String = e.get("kind", "epee")
+			if Game.ranged(wk): lines.append("[color=#ffd27a]Arme à distance : portée %d m[/color]" % int(Game.WEAPON_KINDS[wk].range))
+			for sk in Player.SKILL_SETS.get(wk, Player.SKILL_SETS.epee):
 				if sk.req == t: lines.append("[color=#9fe4ff]Débloque : %s[/color]" % sk.name)
 		"armure":
 			lines.append("Vie : [b]%d[/b]%s" % [int(v), _diff(v, cv) if cmp else ""])

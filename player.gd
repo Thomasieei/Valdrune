@@ -37,6 +37,24 @@ const SKILL_SETS := {
 		{"name": "Tourbillon sanglant", "icon": "sk_whirlwind_red", "cd": 8.0, "req": 3, "fn": "blood_spin", "desc": "Long tourbillon : 5 frappes autour de toi"},
 		{"name": "Rage", "icon": "sk_augmentation_orange", "cd": 18.0, "req": 4, "fn": "rage", "desc": "+40 % de dégâts et coups plus rapides pendant 6 s"},
 	],
+	"arc": [
+		{"name": "Volée", "icon": "sk_prismatic_knives_green", "cd": 6.0, "req": 1, "fn": "volley", "desc": "5 flèches en éventail"},
+		{"name": "Flèche perçante", "icon": "sk_knife_impact_orange", "cd": 6.0, "req": 2, "fn": "pierce_shot", "desc": "Une flèche qui traverse toute une ligne d'ennemis"},
+		{"name": "Pluie de flèches", "icon": "sk_shells_purple", "cd": 9.0, "req": 3, "fn": "arrow_rain", "desc": "Une averse de flèches sur la zone ciblée"},
+		{"name": "Repli", "icon": "sk_lightning_dash_purple", "cd": 12.0, "req": 4, "fn": "retreat", "desc": "Bond en arrière, puis tirs très rapides pendant 4 s"},
+	],
+	"arbalete": [
+		{"name": "Carreau explosif", "icon": "sk_grenade_red", "cd": 5.0, "req": 1, "fn": "boom_bolt", "desc": "Le carreau explose en zone à l'impact"},
+		{"name": "Rafale", "icon": "sk_knife_reload_green", "cd": 7.0, "req": 2, "fn": "burst_fire", "desc": "4 carreaux tirés coup sur coup"},
+		{"name": "Carreau gelé", "icon": "sk_ice_blade_cyan", "cd": 8.0, "req": 3, "fn": "frost_bolt", "desc": "Transperce et ralentit tous les ennemis touchés"},
+		{"name": "Tir dévastateur", "icon": "sk_volt_cyan", "cd": 14.0, "req": 4, "fn": "heavy_shot", "desc": "Une seconde de visée, puis un tir énorme qui repousse tout"},
+	],
+	"grimoire": [
+		{"name": "Orbe arcanique", "icon": "sk_arcane_pink", "cd": 4.5, "req": 1, "fn": "arcane_orb", "desc": "Un gros orbe lent qui explose en zone"},
+		{"name": "Malédiction", "icon": "sk_spell_break_black", "cd": 7.0, "req": 2, "fn": "curse", "desc": "Maudit une zone : dégâts pendant 4 s"},
+		{"name": "Drain de vie", "icon": "sk_beam_pink", "cd": 8.0, "req": 3, "fn": "life_drain", "desc": "Aspire la vie d'un ennemi et te soigne"},
+		{"name": "Météore", "icon": "sk_fire_ball_purple", "cd": 14.0, "req": 4, "fn": "meteor", "desc": "Un météore s'écrase sur la zone après un court délai"},
+	],
 	"baton": [
 		{"name": "Boule de feu", "icon": "sk_fire_ball_red", "cd": 4.5, "req": 1, "fn": "fireball", "desc": "Projectile qui explose en zone"},
 		{"name": "Pic de glace", "icon": "sk_ice_strike_white", "cd": 6.0, "req": 2, "fn": "ice_strike", "desc": "Gèle une zone : dégâts et ennemis ralentis"},
@@ -125,7 +143,8 @@ func refresh_gear() -> void:
 						var m: StandardMaterial3D = src.duplicate(); m.albedo_color = tint; mi.set_surface_override_material(i, m)
 		hand_path = ""; hand = null; off_path = ""; offhand = null; cur_anim = ""; play("Idle_A")
 	set_hand(weapon_path())
-	set_offhand(Game.shield_model(Game.S.gear.get("bouclier", 1)))
+	var two: bool = Game.wkind().get("two", false)
+	set_offhand("" if two else Game.shield_model(Game.S.gear.get("bouclier", 1)))
 	if main.hud: main.hud.refresh_skills()
 
 const NAKED_CLOTH := Color("#d8c7a2")
@@ -168,6 +187,7 @@ func sdmg() -> float: return dmg() / Game.wkind().dmg * Game.wkind().skill * (1.
 func speed() -> float: return SPEED * max(0.7, 1.0 + Game.stats().spd + Game.art_bonus("vent")) * ((1.0 + Game.mount_bonus("speed")) if mounted else 1.0)
 
 func _physics_process(dt: float) -> void:
+	if rapid_t > 0.0: rapid_t -= dt
 	if hitstop > 0.0:
 		hitstop -= dt; ap.speed_scale = 0.0
 		if hitstop <= 0.0: ap.speed_scale = 1.0 if lock <= 0.0 else 2.2
@@ -241,6 +261,7 @@ func attack(target: Node3D) -> void:
 	cast_t = 0.0
 	if swing_cd > 0.0 or dead or dodge_t > 0.0 or spin_t > 0.0: return
 	set_hand(weapon_path())
+	if Game.ranged(Game.S.get("weapon_kind", "epee")): _shoot(target); return
 	if target: face(target.global_position); ch.root.rotation.y = yaw
 	combo = (combo % 3) + 1; combo_t = 1.1
 	var heavy := combo == 3
@@ -267,6 +288,149 @@ func attack(target: Node3D) -> void:
 			main.shake(0.22 if heavy else 0.12)
 			Game.play("hit", -2.0, 0.85 if heavy else 1.0)
 	)
+
+# ——— Armes à distance ———
+var rapid_t := 0.0
+func _shoot(target: Node3D) -> void:
+	var W := Game.wkind()
+	var dir := Vector3(sin(yaw), 0, cos(yaw))
+	if target:
+		dir = target.global_position - global_position; dir.y = 0; dir = dir.normalized()
+	yaw = atan2(dir.x, dir.z); ch.root.rotation.y = yaw
+	combo = (combo % 3) + 1; combo_t = 1.3
+	var heavy := combo == 3
+	swing_cd = 0.5 / W.rate * (0.7 if rage_t > 0.0 else 1.0) * (0.55 if rapid_t > 0.0 else 1.0)
+	lock = 0.22; move_lock = 0.1
+	var book: bool = W.proj == "orb"
+	play("Use_Item" if book else "Throw", 2.6, 0.05, true)
+	Game.play("swing", -8.0, 1.6 if W.proj == "arrow" else (1.0 if W.proj == "bolt" else 0.7))
+	var dm := dmg() * (1.5 if heavy else 1.0)
+	get_tree().create_timer(0.1).timeout.connect(func():
+		if dead: return
+		var sh := Shot.new(); main.add_child(sh)
+		sh.launch(main, self, global_position + Vector3(0, 1.15, 0) + dir * 0.7, dir, dm, W.proj, {"range": float(W.range) + 2.0, "pierce": W.proj == "bolt" and heavy}))
+
+func _ranged_dir(r: float) -> Vector3:
+	var dir := _aim(r); yaw = atan2(dir.x, dir.z); ch.root.rotation.y = yaw
+	lock = 0.28; move_lock = 0.14
+	return dir
+
+func _fire(dir: Vector3, dm: float, kind: String, opts := {}) -> void:
+	var sh := Shot.new(); main.add_child(sh)
+	sh.launch(main, self, global_position + Vector3(0, 1.15, 0) + dir * 0.7, dir, dm, kind, opts)
+
+func volley() -> void:
+	var dir := _ranged_dir(15.0); play("Throw", 2.2, 0.04, true); Game.play("swing", -3.0, 1.7)
+	for k in 5:
+		var a := (k - 2) * 0.2
+		_fire(dir.rotated(Vector3.UP, a), sdmg() * 0.95, "arrow", {"range": 16.0})
+
+func pierce_shot() -> void:
+	var dir := _ranged_dir(18.0); play("Throw", 1.8, 0.04, true); Game.play("swing", 0.0, 1.9)
+	_fire(dir, sdmg() * 2.4, "arrow", {"range": 22.0, "pierce": true, "speed": 36.0, "glow": Color(1.0, 0.7, 0.3), "push": 3.0})
+
+func arrow_rain() -> void:
+	var e = main._nearest_enemy(global_position, 15.0)
+	var c: Vector3 = e.global_position if e else global_position + Vector3(sin(yaw), 0, cos(yaw)) * 7.0
+	_ranged_dir(15.0); play("Use_Item", 1.8, 0.04, true); Game.play("swing", -2.0, 1.5)
+	Fx.disc(main, Vector3(c.x, main.world.height(c.x, c.z), c.z), 3.4, Color(0.75, 0.55, 1.0, 0.45), 1.3)
+	for k in 5:
+		get_tree().create_timer(0.35 + k * 0.22).timeout.connect(func():
+			for j in 4:
+				var q := c + Vector3(randf_range(-2.6, 2.6), 0, randf_range(-2.6, 2.6))
+				Fx.burst(main, q + Vector3(0, 0.3, 0), Color(0.85, 0.75, 1.0), 5, 3.0, 0.18, 0.3, 6.0)
+			if _hit_circle(c, 3.4, sdmg() * 0.5, 0.8) > 0: Game.play("hit", -6.0, 1.4))
+
+func retreat() -> void:
+	var back := -_aim(10.0); var tgt := global_position + back * 5.0
+	if not main.world.walkable(tgt.x, tgt.z): tgt = global_position + back * 2.0
+	invuln = 0.5; lock = 0.4; move_lock = 0.4; play("Jump_Full_Short", 1.8, 0.04, true); Game.play("dodge", -2.0, 1.2)
+	var tw := create_tween(); tw.tween_property(self, "global_position", Vector3(tgt.x, main.world.height(tgt.x, tgt.z) + 0.2, tgt.z), 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	rapid_t = 4.0
+	Fx.burst(main, global_position + Vector3(0, 0.4, 0), Color(0.7, 0.6, 1.0), 18, 4.0, 0.3, 0.5, 0.0)
+	main.hud.toast("Tirs rapides pendant 4 s !", Color("#c9a8ff"))
+
+func boom_bolt() -> void:
+	var dir := _ranged_dir(14.0); play("Throw", 2.0, 0.04, true); Game.play("swing", -1.0, 0.9)
+	_fire(dir, sdmg() * 1.9, "bolt", {"range": 15.0, "boom": 2.6, "glow": Color(1.0, 0.5, 0.2)})
+
+func burst_fire() -> void:
+	_ranged_dir(14.0)
+	for k in 4:
+		get_tree().create_timer(k * 0.13).timeout.connect(func():
+			if dead: return
+			var dir := _aim(14.0); yaw = atan2(dir.x, dir.z); ch.root.rotation.y = yaw
+			play("Throw", 3.0, 0.02, true); Game.play("swing", -5.0, 1.1)
+			_fire(dir, sdmg() * 0.8, "bolt", {"range": 15.0}))
+
+func frost_bolt() -> void:
+	var dir := _ranged_dir(14.0); play("Throw", 2.0, 0.04, true); Game.play("craft", -6.0, 1.7)
+	_fire(dir, sdmg() * 1.6, "bolt", {"range": 18.0, "pierce": true, "slow": 3.0, "glow": Color(0.6, 0.9, 1.0)})
+
+func heavy_shot() -> void:
+	var dir := _ranged_dir(16.0); lock = 0.75; move_lock = 0.75
+	play("Use_Item", 1.0, 0.04, true); Game.play("craft", -4.0, 0.7)
+	Fx.burst(main, global_position + Vector3(0, 1.1, 0) + dir * 0.6, Color(0.6, 0.95, 1.0), 20, 1.5, 0.25, 0.5, -1.0)
+	get_tree().create_timer(0.55).timeout.connect(func():
+		if dead: return
+		var d2 := _aim(16.0); yaw = atan2(d2.x, d2.z); ch.root.rotation.y = yaw
+		play("Throw", 2.0, 0.02, true); Game.play("hit", 0.0, 0.5); main.shake(0.3)
+		_fire(d2, sdmg() * 4.0, "bolt", {"range": 22.0, "pierce": true, "speed": 40.0, "push": 8.0, "glow": Color(0.6, 0.95, 1.0), "big": true}))
+
+func arcane_orb() -> void:
+	var dir := _ranged_dir(15.0); play("Use_Item", 2.0, 0.04, true); Game.play("roar", -14.0, 2.2)
+	_fire(dir, sdmg() * 2.0, "orb", {"range": 16.0, "boom": 3.0, "speed": 11.0, "big": true})
+
+func curse() -> void:
+	var e = main._nearest_enemy(global_position, 14.0)
+	var c: Vector3 = e.global_position if e else global_position + Vector3(sin(yaw), 0, cos(yaw)) * 6.0
+	_ranged_dir(14.0); play("Use_Item", 1.6, 0.04, true); Game.play("roar", -12.0, 0.6)
+	Fx.disc(main, Vector3(c.x, main.world.height(c.x, c.z), c.z), 3.2, Color(0.35, 0.1, 0.45, 0.6), 4.0, false)
+	for en in main.enemies.duplicate():
+		if en.dead: continue
+		if Vector2(en.global_position.x - c.x, en.global_position.z - c.z).length() < 3.2 + en.radius:
+			if en.has_method("bleed"): en.bleed(sdmg() * 0.55, 4.0, self)
+			else: en.take_hit(sdmg() * 1.6, self, 0.5)
+	Fx.burst(main, c + Vector3(0, 0.4, 0), Color(0.55, 0.2, 0.75), 30, 3.0, 0.35, 0.9, -2.0)
+
+func life_drain() -> void:
+	var e = main._nearest_enemy(global_position, 12.0)
+	_ranged_dir(12.0); play("Use_Item", 1.2, 0.04, true); lock = 1.0; move_lock = 0.6
+	if e == null: return
+	Game.play("craft", -8.0, 0.6)
+	for k in 5:
+		get_tree().create_timer(0.1 + k * 0.2).timeout.connect(func():
+			if dead or e == null or not is_instance_valid(e) or e.dead: return
+			var a := global_position + Vector3(0, 1.2, 0); var b: Vector3 = e.global_position + Vector3(0, 1.0, 0)
+			_beam(a, b, Color(1.0, 0.35, 0.6))
+			var amount := sdmg() * 0.65
+			e.take_hit(amount, self, 0.2)
+			hp = min(max_hp, hp + amount * 0.5)
+			Fx.burst(main, global_position + Vector3(0, 1.0, 0), Color(0.6, 1.0, 0.6), 4, 1.5, 0.2, 0.4, -2.0))
+
+func _beam(a: Vector3, b: Vector3, col: Color) -> void:
+	var mi := MeshInstance3D.new(); var im := ImmediateMesh.new(); mi.mesh = im
+	var m := StandardMaterial3D.new(); m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; m.albedo_color = col; m.no_depth_test = true
+	im.surface_begin(Mesh.PRIMITIVE_LINE_STRIP, m)
+	for k in 7:
+		var p := a.lerp(b, k / 6.0) + Vector3(0, sin(k * 1.3 + Time.get_ticks_msec() * 0.02) * 0.12, 0)
+		im.surface_add_vertex(p)
+	im.surface_end(); main.add_child(mi)
+	var tw := mi.create_tween(); tw.tween_interval(0.18); tw.tween_callback(mi.queue_free)
+
+func meteor() -> void:
+	var e = main._nearest_enemy(global_position, 15.0)
+	var c: Vector3 = e.global_position if e else global_position + Vector3(sin(yaw), 0, cos(yaw)) * 7.0
+	c.y = main.world.height(c.x, c.z)
+	_ranged_dir(15.0); play("Use_Item", 1.3, 0.04, true); Game.play("roar", -10.0, 1.6)
+	Fx.disc(main, c, 4.5, Color(1.0, 0.35, 0.9, 0.5), 0.85)
+	var orb := Shot.new(); main.add_child(orb)
+	orb.launch(main, self, c + Vector3(-3.0, 14.0, 2.0), (Vector3(3.0, -14.0, -2.0)).normalized(), 0.0, "orb", {"range": 14.5, "speed": 17.0, "big": true, "fx_only": true})
+	get_tree().create_timer(0.85).timeout.connect(func():
+		_hit_circle(c, 4.5, sdmg() * 3.2, 6.0); main.shake(0.45); hitstop = 0.08
+		Fx.burst(main, c + Vector3(0, 0.6, 0), Color(1.0, 0.45, 0.9), 50, 9.0, 0.5, 0.7)
+		Fx.disc(main, c, 4.5, Color(1.0, 0.5, 0.95, 0.6), 0.35, false)
+		Game.play("hit", 0.0, 0.5); Game.play("roar", -12.0, 2.4))
 
 func dodge() -> void:
 	if dodge_cd > 0.0 or dead: return
@@ -572,6 +736,69 @@ func gather(nd: Dictionary) -> void:
 
 
 # ——— Boule de feu ———
+# Projectile des armes à distance : flèche, carreau ou orbe magique
+class Shot extends Node3D:
+	var main: Node
+	var owner_p: Node3D
+	var dir := Vector3.ZERO
+	var dmg := 0.0
+	var dist := 0.0
+	var kind := "arrow"
+	var o := {}
+	var hit_list: Array = []
+	const MODELS := {"arrow": "res://assets/weapons/arrow_bow.gltf", "bolt": "res://assets/weapons/arrow_crossbow.gltf"}
+	static var _orb_mat: StandardMaterial3D
+	func launch(m: Node, who: Node3D, p: Vector3, d: Vector3, damage: float, k: String, opts := {}) -> void:
+		main = m; owner_p = who; dir = d.normalized(); dmg = damage; kind = k; o = opts
+		global_position = p
+		var big: bool = o.get("big", false)
+		if kind == "orb":
+			if _orb_mat == null:
+				_orb_mat = StandardMaterial3D.new(); _orb_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; _orb_mat.albedo_color = Color(0.95, 0.55, 1.0)
+			var mi := MeshInstance3D.new(); var sm := SphereMesh.new(); sm.radius = 0.36 if big else 0.2; sm.height = sm.radius * 2.0; sm.radial_segments = 10; sm.rings = 6; mi.mesh = sm; mi.material_override = _orb_mat; add_child(mi)
+			var gl := Sprite3D.new(); gl.texture = Fx.soft_tex(); gl.billboard = BaseMaterial3D.BILLBOARD_ENABLED; gl.pixel_size = 0.04 if big else 0.022; gl.modulate = Color(0.9, 0.4, 1.0, 0.8); gl.shaded = false; add_child(gl)
+			var tr := CPUParticles3D.new(); tr.amount = 18 if big else 10; tr.lifetime = 0.35; tr.local_coords = false; tr.spread = 180.0
+			tr.initial_velocity_min = 0.2; tr.initial_velocity_max = 0.8; tr.gravity = Vector3.ZERO; tr.scale_amount_min = 0.25; tr.scale_amount_max = 0.5 if big else 0.35
+			var q := QuadMesh.new(); q.material = Fx.add_mat(); tr.mesh = q
+			var g := Gradient.new(); g.set_color(0, Color(1, 0.6, 1, 0.9)); g.set_color(1, Color(0.5, 0.1, 0.9, 0)); tr.color_ramp = g; add_child(tr)
+		else:
+			var mdl: Node3D = load(MODELS[kind]).instantiate(); add_child(mdl)
+			mdl.scale = Vector3.ONE * (1.6 if big else 1.25)
+			look_at(global_position + dir, Vector3.UP); rotate_object_local(Vector3.UP, PI)
+			for mi in mdl.find_children("*", "MeshInstance3D", true, false): (mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			if o.has("glow"):
+				var gc: Color = o.glow
+				var gl := Sprite3D.new(); gl.texture = Fx.soft_tex(); gl.billboard = BaseMaterial3D.BILLBOARD_ENABLED; gl.pixel_size = 0.03 if big else 0.018; gl.modulate = Color(gc.r, gc.g, gc.b, 0.85); gl.shaded = false; add_child(gl)
+	func _physics_process(dt: float) -> void:
+		var step: float = float(o.get("speed", 26.0 if kind != "orb" else 16.0)) * dt
+		global_position += dir * step; dist += step
+		if dist > float(o.get("range", 15.0)): _end(); return
+		# murs du donjon : le tir s'arrête
+		if main.has_method("in_instance") and main.in_instance() and main.dungeon and not main.dungeon.walkable(global_position.x, global_position.z): _end(); return
+		if o.get("fx_only", false): return
+		for e in main.enemies.duplicate():
+			if e.dead or e in hit_list: continue
+			var to: Vector3 = e.global_position - global_position; to.y = 0
+			if to.length() < 0.7 + e.radius:
+				if o.has("boom"): _end(); return
+				hit_list.append(e)
+				e.take_hit(dmg * randf_range(0.93, 1.07), owner_p, float(o.get("push", 1.2)))
+				if o.has("slow") and e.has_method("slow"): e.slow(float(o.slow))
+				Fx.burst(main, global_position, Color(1, 0.9, 0.7) if kind != "orb" else Color(0.9, 0.5, 1.0), 6, 3.0, 0.2, 0.3, 4.0)
+				Game.play("hit", -7.0, 1.3 if kind == "arrow" else 0.95)
+				if not o.get("pierce", false): queue_free(); return
+	func _end() -> void:
+		if o.has("boom") and not o.get("fx_only", false):
+			var c := global_position; var r: float = o.boom
+			for e in main.enemies.duplicate():
+				if not e.dead and Vector2(e.global_position.x - c.x, e.global_position.z - c.z).length() < r + e.radius:
+					e.take_hit(dmg * randf_range(0.92, 1.08), owner_p, 3.5)
+			var col := Color(1.0, 0.55, 0.2) if kind != "orb" else Color(0.95, 0.45, 1.0)
+			Fx.burst(main, c, col, 26, 6.5, 0.5, 0.55, 3.0)
+			Fx.disc(main, Vector3(c.x, main.world.height(c.x, c.z), c.z), r, Color(col.r, col.g, col.b, 0.55), 0.35, false)
+			main.shake(0.2); Game.play("hit", -1.0, 0.7)
+		queue_free()
+
 class Fireball extends Node3D:
 	var main: Node
 	var dir := Vector3.ZERO

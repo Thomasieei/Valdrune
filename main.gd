@@ -477,8 +477,10 @@ func _context(_dt: float) -> void:
 				if Game.prof(tl).lvl < Game.PROF_REQ[nd.tier]: hud.toast("Métier trop faible : %s niveau %d requis pour le T%d" % [Game.TOOL_NAME[tl], Game.PROF_REQ[nd.tier], nd.tier], Color("#ff9a8a"))
 				else: hud.toast("Il te faut une %s T%d : va voir %s au village" % [Game.TOOL_NAME[tl], nd.tier, Game.VENDOR_NAME[tl]], Color("#ff9a8a"))
 			"attack":
-				var e = _nearest_enemy(pp, 8.0)
-				if e and pp.distance_to(e.global_position) > Player.REACH + e.radius - 0.2 and P.move_lock <= 0.0 and hud.move_vec().length() < 0.1:
+				var wk: Dictionary = Game.wkind()
+				var reach: float = float(wk.get("range", Player.REACH))
+				var e = _nearest_enemy(pp, max(8.0, reach + 3.0))
+				if e and pp.distance_to(e.global_position) > reach + e.radius - 0.2 and P.move_lock <= 0.0 and hud.move_vec().length() < 0.1:
 					# s'approcher tout seul de la cible
 					var d: Vector3 = e.global_position - pp; d.y = 0
 					P.input_vec = Vector2(d.x, d.z).normalized()

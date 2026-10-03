@@ -25,7 +25,12 @@ const WEAPON_KINDS := {
 	"epee": {"name": "Épée", "dmg": 1.0, "rate": 1.0, "skill": 1.0, "cd": 0.0, "desc": "Équilibrée", "models": ["", "sword_A", "sword_B", "sword_C", "sword_D", "sword_E"]},
 	"hache": {"name": "Hache de guerre", "dmg": 1.28, "rate": 0.82, "skill": 1.0, "cd": 0.0, "desc": "+28 % dégâts · coups plus lents", "models": ["", "axe_1handed", "axe_A", "axe_C", "axe_2handed", "halberd"]},
 	"baton": {"name": "Bâton de mage", "dmg": 0.8, "rate": 1.0, "skill": 1.4, "cd": 0.2, "desc": "Sorts +40 % dégâts · recharge −20 %", "models": ["", "staff_A", "wand_A", "staff", "staff_B", "staff_B"]},
+	# armes à distance : on tire de loin (portée en mètres), avec de vrais projectiles
+	"arc": {"name": "Arc", "dmg": 0.8, "rate": 1.1, "skill": 1.1, "cd": 0.05, "range": 14.0, "proj": "arrow", "two": true, "desc": "Tir à 14 m · tire vite · recharge −5 %", "models": ["", "bow", "bow", "bow_withString", "bow_withString", "bow_withString"]},
+	"arbalete": {"name": "Arbalète", "dmg": 1.3, "rate": 0.68, "skill": 1.15, "cd": 0.0, "range": 12.0, "proj": "bolt", "desc": "Tir lourd à 12 m · carreaux qui transpercent", "models": ["", "crossbow_1handed", "crossbow_1handed", "crossbow_1handed", "crossbow_2handed", "crossbow_2handed"]},
+	"grimoire": {"name": "Grimoire", "dmg": 0.75, "rate": 0.95, "skill": 1.5, "cd": 0.15, "range": 13.0, "proj": "orb", "desc": "Orbes magiques à 13 m · sorts +50 % · recharge −15 %", "models": ["", "spellbook_closed", "spellbook_closed", "spellbook_open", "spellbook_open", "spellbook_open"]},
 }
+static func ranged(kind: String) -> bool: return WEAPON_KINDS.get(kind, {}).has("range")
 const SHIELD_MODEL := ["", "shield_A", "shield_round", "shield_square", "shield_C", "shield_spikes_color"]
 static func weapon_model(kind: String, t: int) -> String: return "" if t <= 0 else W % WEAPON_KINDS[kind].models[clamp(t, 1, 5)]
 static func shield_model(t: int) -> String: return "" if t <= 0 else W % SHIELD_MODEL[clamp(t, 1, 5)]
@@ -411,6 +416,9 @@ const CRAFTS := [
 	{"id": "epee", "slot": "epee", "kind": "epee", "cost": {"ore": 6, "wood": 3}},
 	{"id": "hache_g", "slot": "epee", "kind": "hache", "cost": {"ore": 5, "wood": 4}},
 	{"id": "baton", "slot": "epee", "kind": "baton", "cost": {"wood": 6, "fiber": 3}},
+	{"id": "arc", "slot": "epee", "kind": "arc", "cost": {"wood": 6, "fiber": 3}},
+	{"id": "arbalete", "slot": "epee", "kind": "arbalete", "cost": {"wood": 5, "ore": 4}},
+	{"id": "grimoire", "slot": "epee", "kind": "grimoire", "cost": {"fiber": 6, "wood": 3}},
 	{"id": "bouclier", "slot": "bouclier", "kind": "", "cost": {"ore": 5, "wood": 4}},
 	{"id": "heaume", "slot": "casque", "kind": "heaume", "cost": {"ore": 4, "fiber": 2}},
 	{"id": "ours", "slot": "casque", "kind": "ours", "cost": {"fiber": 4, "wood": 2}},
