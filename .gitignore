@@ -2,3 +2,4 @@
 *.apk
 *.keystore
 *.bak
+!apk/*.apk
