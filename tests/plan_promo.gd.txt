@@ -1,0 +1,225 @@
+extends RefCounted
+# Plans de tournage de la vidéo promo (rendus avec --write-movie à 30 i/s)
+var m
+
+func run_id() -> int:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("run="): return int(a.substr(4))
+	return 1
+
+func mark(name: String) -> void: print("SHOT_START ", name, " ", Engine.get_frames_drawn())
+
+# —— outils caméra ——
+func path_cam(a: Vector3, b: Vector3, la: Vector3, lb: Vector3, dur: float) -> Callable:
+	var st := {"t": 0.0}
+	return func(dt: float):
+		st.t += dt
+		var k: float = smoothstep(0.0, 1.0, clamp(st.t / dur, 0.0, 1.0))
+		m.cam.global_position = a.lerp(b, k); m.cam.look_at(la.lerp(lb, k), Vector3.UP)
+
+func follow_cam(off0: Vector3, off1: Vector3, dur: float, look_up := 1.0) -> Callable:
+	var st := {"t": 0.0, "p": Vector3.INF}
+	return func(dt: float):
+		st.t += dt
+		var k: float = smoothstep(0.0, 1.0, clamp(st.t / dur, 0.0, 1.0))
+		var tp: Vector3 = m.player.global_position
+		st.p = tp if st.p == Vector3.INF else st.p.lerp(tp, 1.0 - exp(-dt * 6.0))
+		m.cam.global_position = st.p + off0.lerp(off1, k); m.cam.look_at(st.p + Vector3(0, look_up, 0), Vector3.UP)
+
+func orbit_cam(c: Vector3, r: float, h: float, a0: float, a1: float, dur: float, look_h := 1.0) -> Callable:
+	var st := {"t": 0.0}
+	return func(dt: float):
+		st.t += dt
+		var a: float = lerp(a0, a1, clamp(st.t / dur, 0.0, 1.0))
+		m.cam.global_position = c + Vector3(cos(a) * r, h, sin(a) * r); m.cam.look_at(c + Vector3(0, look_h, 0), Vector3.UP)
+
+func nocull(n: Node) -> void:
+	if n is GeometryInstance3D: (n as GeometryInstance3D).visibility_range_end = 0.0
+	for c in n.get_children(): nocull(c)
+
+func cinema(on: bool) -> void:
+	m.hud.visible = not on
+	for t in m.hud.toasts.get_children(): t.queue_free()
+
+func gear() -> void:
+	Game.S.tips["start"] = 1
+	Game.S.gear = {"hache": 5, "pioche": 5, "faucille": 5, "epee": 5, "armure": 5, "bottes": 5, "bouclier": 5, "artefact": 5, "monture": 5}
+	Game.S.weapon_kind = "epee"; Game.S.armor_kind = "plate"; Game.S.mount_kind = "pegase"; Game.S.artefact_kind = "rage"
+	Game.S.ench = {"epee": 4, "armure": 3, "bouclier": 3, "bottes": 2}
+	Game.S.wxp["epee"] = {"lvl": 30, "xp": 0}
+	Game.S.silver = 48500000; Game.S.potions = 12
+	m.player.refresh_gear(); m.player.hp = m.player.max_hp
+
+func setup_common() -> void:
+	m.hud.close_panel(); gear()
+	m.cam.far = 420.0; m.sun.directional_shadow_max_distance = 90.0
+	nocull(m.world)
+	m.arrow.scale = Vector3.ONE * 0.001; m.beacon.scale = Vector3.ONE * 0.001
+	m.next_boss_at = 99999.0
+	m.hud.fps_lbl.visible = false
+
+func put(p: Vector3) -> void:
+	m.player.global_position = Vector3(p.x, m.world.height(p.x, p.z) + 0.4, p.z); m.player.velocity = Vector3.ZERO
+
+func plan(main) -> Array:
+	m = main
+	match run_id():
+		2: return plan2()
+		3: return plan3()
+		4: return plan4()
+		5: return plan5()
+	return plan1()
+
+# ————— Carte 1 : Valdrune, combat, butin, Pégase, tour, île —————
+func plan1() -> Array:
+	var V: Vector2 = Vector2(0, 80)
+	return [{"t": 0.05, "call": func():
+			setup_common(); cinema(true); put(Vector3(0, 0, 70))
+			m.cine = path_cam(Vector3(70, 46, 160), Vector3(26, 24, 112), Vector3(0, 0, 70), Vector3(0, 2, 76), 6.5)
+			mark("aerial1")},
+		{"t": 6.5, "call": func():
+			put(Vector3(-2, 0, 64)); m.player.yaw = PI
+			m.set_meta("force", Vector2(0.05, -1.0))
+			m.cine = follow_cam(Vector3(-5.5, 2.4, -5.0), Vector3(-6.5, 3.2, 3.5), 5.0, 1.2)
+			mark("walk")},
+		{"t": 11.5, "call": func():
+			m.set_meta("force", Vector2.ZERO)
+			put(Vector3(-30, 0, 46)); cinema(false); m.cine = Callable(); m.cam_zoom = 0.9
+			var sp := {"members": []}
+			for i in 5:
+				var k: String = ["warrior", "minion", "rogue", "minion", "warrior"][i]
+				var e: Enemy = m._spawn_enemy(k, 3, m.player.global_position + World.polar(i * 1.25, 4.0), sp, false)
+				e.state = "chase"
+			mark("fight")},
+		{"t": 12.0, "call": func(): m.player.use_skill(1)},
+		{"t": 12.7, "call": func(): m.player.attack(m._nearest_enemy(m.player.global_position, 9.0))},
+		{"t": 13.1, "call": func(): m.player.attack(m._nearest_enemy(m.player.global_position, 9.0))},
+		{"t": 13.5, "call": func(): m.player.attack(m._nearest_enemy(m.player.global_position, 9.0))},
+		{"t": 14.0, "call": func(): m.player.use_skill(2)},
+		{"t": 14.6, "call": func(): m.player.use_skill(0)},
+		{"t": 15.2, "call": func(): m.player.attack(m._nearest_enemy(m.player.global_position, 9.0))},
+		{"t": 15.6, "call": func(): m.player.attack(m._nearest_enemy(m.player.global_position, 9.0))},
+		{"t": 16.0, "call": func():
+			for e in m.enemies:
+				if not e.dead and e.global_position.distance_to(m.player.global_position) < 15.0: e.take_hit(99999, m.player, 4.0)},
+		{"t": 17.2, "call": func():
+			for l in m.loots.duplicate():
+				if is_instance_valid(l.node): l.node.queue_free()
+			m.loots.clear()
+			var loot := [{"item": {"slot": "epee", "tier": 5, "kind": "hache", "ench": 3}}, {"silver": 1840000}, {"item": {"slot": "artefact", "tier": 5, "kind": "fortune"}},
+				{"item": {"slot": "monture", "tier": 5, "kind": "roi_cerf"}}, {"potion": 2}, {"res": "ore", "tier": 5, "qty": 14}, {"item": {"slot": "junk", "tier": 5, "kind": "pieces"}}, {"item": {"slot": "armure", "tier": 5, "kind": "tissu", "ench": 2}}]
+			m.drop_loot(m.player.global_position + Vector3(1.5, 0, 0), "boss", 5, loot)
+			mark("loot")},
+		{"t": 18.0, "call": func(): m.open_bag(m.loots[0])},
+		{"t": 20.4, "call": func(): m.hud._take_all(m.hud.loot_cur)},
+		{"t": 21.0, "call": func():
+			m.hud.close_panel(); cinema(true)
+			put(Vector3(-14, 0, 30)); m.player._mount()
+			m.set_meta("force", Vector2(0.55, -0.85).normalized())
+			m.cine = follow_cam(Vector3(7.0, 2.6, 2.0), Vector3(5.0, 5.5, 8.0), 6.0, 1.6)
+			mark("pegase")},
+		{"t": 27.0, "call": func():
+			m.set_meta("force", Vector2.ZERO); m.player.dismount()
+			m.enter_tower(30); cinema(true)
+			m.tower.chests[0].rarity = 3
+			if m.tower.chests.size() > 1: m.tower.chests[1].rarity = 2
+			if m.tower.chests.size() > 2: m.tower.chests[2].rarity = 1
+			for e in m.enemies.duplicate():
+				if not e.dead and e != m.tower.boss: e.take_hit(99999999, m.player, 0)
+			m.tower.boss.take_hit(99999999, m.player, 0)
+			m.cine = orbit_cam(Tower.ORIGIN + Vector3(0, 0, -6), 13.0, 7.0, PI * 0.35, PI * 0.65, 6.0, 1.5)
+			mark("tower")},
+		{"t": 33.5, "call": func():
+			m._do_exit_tower(true)
+			Game.S.island.owned = true; Game.S.island.lvl = 5; Game.S.island.raid_day = Game.day_index(); Game.S.island.raids = []
+			m.go_island(); cinema(true)
+			m.cine = orbit_cam(Island.ORIGIN, 34.0, 22.0, PI * 0.3, PI * 0.75, 6.0, 0.0)
+			mark("island")},
+		{"t": 39.5, "call": func(): mark("end"); Game.reset_save()},
+		{"t": 39.7, "call": func(): pass}]
+
+# ————— Carte 2 : falaises + JcJ —————
+func plan2() -> Array:
+	return [{"t": 0.05, "call": func():
+			setup_common(); cinema(true); put(Vector3(30, 0, -40))
+			m.cine = path_cam(Vector3(-40, 50, 60), Vector3(10, 30, 0), Vector3(20, 0, -40), Vector3(40, 3, -50), 6.0)
+			mark("aerial2")},
+		{"t": 6.0, "call": func():
+			put(Vector3(46, 0, -30)); cinema(false); m.cine = Callable(); m.cam_zoom = 0.85
+			for b in m.bots:
+				if b.global_position.distance_to(m.player.global_position) < 40.0: b.global_position += Vector3(80, 0, 80)
+			var b: Bot = m.bots[0]; b.hostile = true; b.tier = 5
+			b.global_position = m.player.global_position + Vector3(8.5, 0.5, -1.0)
+			b._start_pvp(); b.skill_cd = 0.0; m.hud.pvp_alert(b)
+			mark("pvp")},
+		{"t": 8.6, "call": func(): m.player.dodge()},
+		{"t": 9.3, "call": func(): m.player.attack(m.bots[0])},
+		{"t": 9.7, "call": func(): m.player.attack(m.bots[0])},
+		{"t": 10.1, "call": func(): m.player.use_skill(1)},
+		{"t": 10.8, "call": func(): m.player.attack(m.bots[0])},
+		{"t": 11.3, "call": func(): m.player.use_skill(2)},
+		{"t": 12.0, "call": func(): m.player.attack(m.bots[0])},
+		{"t": 12.4, "call": func(): m.player.attack(m.bots[0])},
+		{"t": 13.0, "call": func(): m.bots[0].take_hit(9999999, m.player, 0)},
+		{"t": 15.0, "call": func(): mark("end"); Game.reset_save()},
+		{"t": 15.2, "call": func(): pass}]
+
+# ————— Carte 3 : désert, canyon + donjon —————
+func plan3() -> Array:
+	return [{"t": 0.05, "call": func():
+			setup_common(); cinema(true); put(Vector3(-64, 0, 6))
+			m.cine = path_cam(Vector3(-110, 40, 60), Vector3(-30, 34, 30), Vector3(-64, 0, 0), Vector3(20, 0, -30), 6.0)
+			mark("aerial3")},
+		{"t": 6.0, "call": func():
+			m.enter_dungeon({"pos": m.player.global_position, "tier": 4, "node": Node3D.new(), "expires": 99999.0, "seed": 777})
+			cinema(false); m.cine = Callable(); m.cam_zoom = 0.9
+			var r: Dictionary = m.dungeon.rooms[1]
+			put(r.center + Vector3(0, 0, 5))
+			for e in m.enemies:
+				if e.camp.get("dungeon", false) and e.global_position.distance_to(m.player.global_position) < 12.0: e.state = "chase"; e.hp = e.max_hp * 0.25
+			mark("dungeon")},
+		{"t": 6.8, "call": func(): m.player.use_skill(1)},
+		{"t": 7.5, "call": func(): m.player.attack(m._nearest_enemy(m.player.global_position, 9.0))},
+		{"t": 7.9, "call": func(): m.player.attack(m._nearest_enemy(m.player.global_position, 9.0))},
+		{"t": 8.4, "call": func(): m.player.use_skill(2)},
+		{"t": 9.0, "call": func(): m.player.attack(m._nearest_enemy(m.player.global_position, 9.0))},
+		{"t": 9.4, "call": func(): m.player.attack(m._nearest_enemy(m.player.global_position, 9.0))},
+		{"t": 9.9, "call": func(): m.player.use_skill(0)},
+		{"t": 10.5, "call": func(): m.player.attack(m._nearest_enemy(m.player.global_position, 9.0))},
+		{"t": 12.0, "call": func(): mark("end"); Game.reset_save()},
+		{"t": 12.2, "call": func(): pass}]
+
+# ————— Carte 4 : marais aux rivières, cendres + Seigneur d'Os —————
+func plan4() -> Array:
+	return [{"t": 0.05, "call": func():
+			setup_common(); cinema(true); put(Vector3(0, 0, 60))
+			m.cine = path_cam(Vector3(60, 38, 110), Vector3(-10, 30, 40), Vector3(0, 0, 40), Vector3(0, 0, -40), 6.0)
+			mark("aerial4")},
+		{"t": 6.0, "call": func():
+			put(m.world.boss_pos + Vector3(0, 0, 8)); cinema(false); m.cine = Callable(); m.cam_zoom = 1.15
+			for i in 3:
+				var d := {"type": ["guerrier", "rodeuse", "clerc"][i], "tier": 5, "name": Ally.NAMES[i]}
+				Game.S.mercs.append(d); m._spawn_merc(d, i)
+			m._update_spawns()
+			for e in m.enemies:
+				if e.kind == "boss": e.aggro(); e.hp = e.max_hp * 0.45
+			mark("boss")},
+		{"t": 6.8, "call": func(): m.player.use_skill(1)},
+		{"t": 7.6, "call": func(): m.player.attack(m._nearest_enemy(m.player.global_position, 12.0))},
+		{"t": 8.0, "call": func(): m.player.attack(m._nearest_enemy(m.player.global_position, 12.0))},
+		{"t": 8.5, "call": func(): m.player.use_skill(2)},
+		{"t": 9.2, "call": func(): m.player.dodge()},
+		{"t": 9.8, "call": func(): m.player.use_skill(0)},
+		{"t": 10.5, "call": func(): m.player.attack(m._nearest_enemy(m.player.global_position, 12.0))},
+		{"t": 11.0, "call": func(): m.player.attack(m._nearest_enemy(m.player.global_position, 12.0))},
+		{"t": 13.0, "call": func(): mark("end"); Game.reset_save()},
+		{"t": 13.2, "call": func(): pass}]
+
+# ————— Carte 1 : plan aérien d'ouverture (refait, caméra dans les limites) —————
+func plan5() -> Array:
+	return [{"t": 0.05, "call": func():
+			setup_common(); cinema(true); put(Vector3(0, 0, 70))
+			m.cine = path_cam(Vector3(44, 44, 104), Vector3(22, 24, 98), Vector3(-10, 0, 50), Vector3(0, 2, 68), 7.0)
+			mark("aerial1")},
+		{"t": 7.2, "call": func(): mark("end"); Game.reset_save()},
+		{"t": 7.4, "call": func(): pass}]
