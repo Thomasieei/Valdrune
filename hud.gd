@@ -1122,11 +1122,12 @@ func show_bag() -> void:
 	(func(): if is_instance_valid(sc): sc.scroll_vertical = keep).call_deferred()
 	# — bas : trier, vendre le bric-à-brac, estimation —
 	var bt := HBoxContainer.new(); bt.add_theme_constant_override("separation", 8); vb.add_child(bt)
+	bt.add_child(_parch_btn("Équiper au mieux", func(): main.equip_best()))
+	var ql: Array = main.quick_sell_list()
+	var qv := 0
+	for i in ql: qv += main.quick_price(Game.S.items[i])
+	bt.add_child(_parch_btn(("Vente rapide (%d · %s)" % [ql.size(), Game.fmt(qv)]) if ql.size() > 0 else "Vente rapide", func(): main.quick_sell()))
 	bt.add_child(_parch_btn("Trier", sort_bag))
-	var nj: int = Game.S.items.filter(func(q): return q.slot == "junk").size()
-	if nj > 0: bt.add_child(_parch_btn("Vendre bric-à-brac (%d)" % nj, func(): main.sell_junk(-1); show_bag()))
-	var sp2 := Control.new(); sp2.size_flags_horizontal = Control.SIZE_EXPAND_FILL; bt.add_child(sp2)
-	var ev := _ink("Estimation : %s" % Game.fmt(bag_value()), 13, INK_SOFT); ev.size_flags_vertical = Control.SIZE_SHRINK_CENTER; bt.add_child(ev)
 	_bag_card(entries, pc.position.x)
 
 func _parch_btn(t: String, cb: Callable) -> Button:

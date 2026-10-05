@@ -864,6 +864,63 @@ func buy_potion() -> void:
 	if Game.S.silver < 40: return
 	Game.S.silver -= 40; Game.S.potions += 1; Game.play("coin"); Game.save(); hud.show_shop()
 
+# ——— Équiper au mieux : pour chaque emplacement, la meilleure pièce du sac que tu as le droit de porter ———
+func item_score(it: Dictionary) -> float:
+	var t := int(it.get("tier", 0))
+	if t <= 0: return -1.0
+	var sc: float = t * 100.0 * Game.ench_mult(int(it.get("ench", 0))) + int(it.get("lvl", 0)) * 4.0 + it.get("bx", {}).size() * 6.0
+	if it.slot in Game.TOOL_SLOTS: sc += int(it.get("q", 0)) * 30.0
+	if it.slot == "monture": sc += float(Game.MOUNTS.get(it.get("kind", ""), {}).get("speed", 0.0)) * 50.0
+	if it.slot == "epee" and str(it.get("kind", "epee")) == str(Game.S.get("weapon_kind", "epee")): sc += 1.0   # à égalité, on garde son style d'arme
+	return sc
+
+func equip_best() -> void:
+	var p0 := Game.power(); var n := 0; var names: Array = []
+	var slots: Array = Game.COMBAT_SLOTS + Game.TOOL_SLOTS + ["monture"]
+	for slot in slots:
+		var cur := item_score(Game.equipped_item(slot)) if int(Game.S.gear.get(slot, 0)) > 0 else -1.0
+		var bi := -1; var bs := cur
+		for i in Game.S.items.size():
+			var it: Dictionary = Game.S.items[i]
+			if it.slot != slot or it.get("bebe", false) or Game.equip_block(it) != "": continue
+			var sc := item_score(it)
+			if sc > bs + 0.5: bs = sc; bi = i
+		if bi >= 0:
+			names.append(Game.item_name(Game.S.items[bi])); Game.equip(bi); n += 1
+	if n == 0:
+		hud.toast("Tu portes déjà le meilleur équipement autorisé", Color("#c8d0d8")); return
+	player.refresh_gear(); Game.play("craft", -4.0, 1.2); player.level_glow(Color(0.7, 0.5, 1.0))
+	hud.toast("%d pièce%s équipée%s · PI %d → %d" % [n, "s" if n > 1 else "", "s" if n > 1 else "", p0, Game.power()], Color("#c8a8ff"), true)
+	Game.save(); update_goal()
+	if hud.cur_panel == "bag": hud.show_bag()
+
+# ——— Vente rapide : bric-à-brac + pièces moins bonnes que celles portées (40 % de leur valeur, tout de suite) ———
+func quick_sell_list() -> Array:
+	var out: Array = []
+	for i in Game.S.items.size():
+		var it: Dictionary = Game.S.items[i]
+		if it.slot == "junk": out.append(i); continue
+		if str(it.get("nm", "")) != "" or it.get("bebe", false) or it.get("lock", false): continue
+		if not (it.slot in Game.COMBAT_SLOTS or it.slot in Game.TOOL_SLOTS or it.slot == "monture"): continue
+		if int(Game.S.gear.get(it.slot, 0)) <= 0: continue
+		# même emplacement, pas mieux que ce que tu portes → inutile
+		if item_score(it) <= item_score(Game.equipped_item(it.slot)): out.append(i)
+	return out
+static func quick_price(it: Dictionary) -> int:
+	return Game.junk_price(it) if it.slot == "junk" else int(Game.item_price(it) * 0.4) + 1
+func quick_sell() -> void:
+	var idx := quick_sell_list()
+	if idx.is_empty(): hud.toast("Rien d'inutile à vendre", Color("#c8d0d8")); return
+	var gain := 0
+	idx.reverse()
+	for i in idx:
+		gain += quick_price(Game.S.items[i]); Game.S.items.remove_at(i)
+	gain = gain_silver(gain)
+	Game.play("coin"); Game.play("coin", -4.0, 1.3)
+	hud.toast("Vente rapide : %d objet%s · +%s argent" % [idx.size(), "s" if idx.size() > 1 else "", Game.fmt(gain)], Color("#ffe39a"), true)
+	Game.save()
+	if hud.cur_panel == "bag": hud.show_bag()
+
 # Bric-à-brac : vendu sur-le-champ à la marchande (-1 = tout)
 func sell_junk(idx: int) -> void:
 	var gain := 0
