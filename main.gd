@@ -1898,13 +1898,25 @@ var auto_side := 1.0
 var auto_side_t := 0.0
 func toggle_auto() -> void:
 	if not bool(Game.S.get("auto_owned", false)): return
+	auto_ban.clear(); auto_path = []
 	auto_on = not auto_on; auto_hold = false; auto_tgt = null
 	hud.toast("Chasse automatique : %s" % ("ACTIVÉE" if auto_on else "arrêtée"), Color("#7dff8a") if auto_on else Hud.SOFT)
 	hud.refresh_auto()
 
+func auto_cfg() -> Dictionary:
+	if typeof(Game.S.get("auto_cfg")) != TYPE_DICTIONARY:
+		Game.S["auto_cfg"] = {"fight": true, "gather": true, "wood": true, "ore": true, "fiber": true, "tiers": [1, 2, 3, 4, 5]}
+	return Game.S.auto_cfg
+
 func _auto_can_gather(nd: Dictionary) -> bool:
 	var tool: String = Game.TOOL_OF[nd.type]
+	var C := auto_cfg()
+	if not bool(C.get("gather", true)) or not bool(C.get(nd.type, true)): return false
+	if not (int(nd.tier) in C.get("tiers", [1, 2, 3, 4, 5]) or float(nd.tier) in C.get("tiers", [])): return false
 	return nd.charges > 0 and (Game.S.gear[tool] >= nd.tier or nd.tier == 1) and Game.prof(tool).lvl >= Game.PROF_REQ[nd.tier]
+
+var auto_path: Array = []
+var auto_repath := 0.0
 
 func _auto(dt: float) -> void:
 	var P := player
@@ -1930,24 +1942,36 @@ func _auto(dt: float) -> void:
 		auto_t = 0.6
 		if not valid: auto_tgt = null
 		var best = null; var bk := ""; var bd := 40.0
-		for e in enemies:
-			if e.dead or not (e is Enemy) or e.group_boss or e.kind == "boss" or auto_ban.has(e.get_instance_id()): continue
-			if int(e.tier) > max(1, wt): continue
-			var d := pp.distance_to(e.global_position) + (20.0 if _auto_line_blocked(pp, e.global_position) else 0.0)
-			if d < bd and world.reachable(e.global_position.x, e.global_position.z): bd = d; best = e; bk = "enemy"
-		for nd in world.nodes:
-			if not _auto_can_gather(nd) or auto_ban.has(str(nd.pos)): continue
-			var d2: float = pp.distance_to(nd.pos) + (20.0 if _auto_line_blocked(pp, nd.pos) else 0.0)
-			if not world.reachable(nd.pos.x + 1.2, nd.pos.z) and not world.reachable(nd.pos.x - 1.2, nd.pos.z) and not world.reachable(nd.pos.x, nd.pos.z + 1.2): continue
-			if d2 < bd - 3.0 and world.tier_at(nd.pos) <= max(1, wt) + 1: bd = d2; best = nd; bk = "node"
+		for pass_i in 2:
+			if best != null: break
+			if pass_i == 1: bd = 160.0   # rien autour : on va plus loin (par les ponts s'il le faut)
+			for e in enemies:
+				if e.dead or not (e is Enemy) or e.group_boss or e.kind == "boss" or auto_ban.has(e.get_instance_id()): continue
+				if int(e.tier) > max(1, wt) or not bool(auto_cfg().get("fight", true)): continue
+				var d := pp.distance_to(e.global_position) + (20.0 if pass_i == 0 and _auto_line_blocked(pp, e.global_position) else 0.0)
+				if d < bd and world.reachable(e.global_position.x, e.global_position.z): bd = d; best = e; bk = "enemy"
+			for nd in world.nodes:
+				if not _auto_can_gather(nd) or auto_ban.has(str(nd.pos)): continue
+				var d2: float = pp.distance_to(nd.pos) + (20.0 if pass_i == 0 and _auto_line_blocked(pp, nd.pos) else 0.0)
+				if not world.reachable(nd.pos.x + 1.2, nd.pos.z) and not world.reachable(nd.pos.x - 1.2, nd.pos.z) and not world.reachable(nd.pos.x, nd.pos.z + 1.2): continue
+				if d2 < bd - 3.0 and world.tier_at(nd.pos) <= max(1, wt) + 1: bd = d2; best = nd; bk = "node"
 		if best != null and (auto_tgt == null or bk != auto_kind or not is_same(best, auto_tgt)):
-			auto_tgt = best; auto_kind = bk; auto_best_d = 1e9; auto_stuck = 0.0
+			auto_tgt = best; auto_kind = bk; auto_best_d = 1e9; auto_stuck = 0.0; auto_path = []; auto_repath = 0.0
 	if auto_tgt == null: return
 	var tp: Vector3 = auto_tgt.global_position if auto_kind == "enemy" else auto_tgt.pos
 	var to := Vector3(tp.x - pp.x, 0, tp.z - pp.z); var d := to.length()
 	var reach: float = 2.0 if auto_kind == "node" else float(Game.wkind().get("range", Player.REACH)) + (auto_tgt.radius if auto_kind == "enemy" else 0.0) - 0.3
 	if d > reach:
-		var dir := Vector2(to.x, to.z).normalized()
+		# itinéraire : on contourne rivières (par les ponts), falaises et maisons
+		auto_repath -= dt
+		if auto_repath <= 0.0:
+			auto_repath = 2.5
+			auto_path = world.find_path(Vector2(pp.x, pp.z), Vector2(tp.x, tp.z))
+			if auto_path.is_empty():
+				auto_ban[auto_tgt.get_instance_id() if auto_kind == "enemy" else str(auto_tgt.pos)] = true; auto_tgt = null; return
+		while auto_path.size() > 1 and Vector2(pp.x, pp.z).distance_to(auto_path[0]) < 1.3: auto_path.pop_front()
+		var wp: Vector2 = auto_path[0] if not auto_path.is_empty() else Vector2(tp.x, tp.z)
+		var dir := (wp - Vector2(pp.x, pp.z)).normalized()
 		# contournement : si le chemin droit est bloqué juste devant, on glisse sur le côté le plus libre
 		var ahead := Vector2(pp.x, pp.z) + dir * 1.6
 		if not world.walkable(ahead.x, ahead.y) or world.near_house(ahead, 0.0) or auto_side_t > 0.0:
@@ -1968,7 +1992,8 @@ func _auto(dt: float) -> void:
 		if d < auto_best_d - 0.3: auto_best_d = d; auto_stuck = 0.0
 		else:
 			auto_stuck += dt
-			if auto_stuck > 3.0:
+			if auto_stuck > 1.5 and auto_repath > 0.5: auto_repath = 0.0
+			if auto_stuck > 5.0:
 				auto_ban[auto_tgt.get_instance_id() if auto_kind == "enemy" else str(auto_tgt.pos)] = true; auto_tgt = null
 	else:
 		auto_hold = true

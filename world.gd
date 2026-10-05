@@ -345,6 +345,7 @@ func build(id := 1) -> void:
 	for path in mm_lists: _multi(path, mm_lists[path])
 	_build_cliffs()
 	_cull(self)
+	_build_pass()
 
 # Rien d'inutile à l'écran : chaque objet disparaît au-delà de ce que la caméra peut voir
 func _cull(n: Node) -> void:
@@ -3040,3 +3041,114 @@ func _ground_decals() -> void:
 	var m := StandardMaterial3D.new(); m.vertex_color_use_as_albedo = true; m.vertex_color_is_srgb = true; m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.cull_mode = BaseMaterial3D.CULL_DISABLED; m.roughness = 1.0; m.render_priority = -1
 	mi.material_override = m; mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; add_child(mi)
+
+
+# ================= CHEMINS (A*) pour la chasse automatique et les compagnons =================
+# Grille de 2 m : praticable = sol marchable (ponts compris), hors maisons. On contourne rivières, falaises et bâtiments.
+var pass_grid := PackedByteArray()
+func _build_pass() -> void:
+	pass_grid.resize(N * N); pass_grid.fill(0)
+	for j in N:
+		for i in N:
+			var x := -HALF + i * CELL; var z := -HALF + j * CELL
+			if abs(x) > 110.0 or abs(z) > 110.0: continue
+			if walkable(x, z) and not near_house(Vector2(x, z), 0.2): pass_grid[j * N + i] = 1
+	# les ponts : on force tout le tablier praticable
+	for b in bridges:
+		if b.prof.is_empty(): continue
+		var L: float = (b.a as Vector2).distance_to(b.b)
+		for k in int(L) + 1:
+			var q: Vector2 = (b.a as Vector2).lerp(b.b, k / max(1.0, L))
+			var ci := int(round((q.x + HALF) / CELL)); var cj := int(round((q.y + HALF) / CELL))
+			if ci >= 0 and cj >= 0 and ci < N and cj < N: pass_grid[cj * N + ci] = 1
+
+func _cell(p: Vector2) -> int:
+	var i: int = clamp(int(round((p.x + HALF) / CELL)), 0, N - 1); var j: int = clamp(int(round((p.y + HALF) / CELL)), 0, N - 1)
+	return j * N + i
+func _cpos(k: int) -> Vector2: return Vector2(-HALF + (k % N) * CELL, -HALF + (k / N) * CELL)
+
+func _near_pass(k: int) -> int:
+	if pass_grid[k] == 1: return k
+	var i := k % N; var j := k / N
+	for r in range(1, 4):
+		for dj in range(-r, r + 1):
+			for di in range(-r, r + 1):
+				var ii := i + di; var jj := j + dj
+				if ii < 0 or jj < 0 or ii >= N or jj >= N: continue
+				if pass_grid[jj * N + ii] == 1: return jj * N + ii
+	return -1
+
+func line_free(a: Vector2, b: Vector2) -> bool:
+	var n := int(a.distance_to(b) / 0.9) + 1
+	for t in n + 1:
+		var q := a.lerp(b, float(t) / n)
+		if pass_grid[_cell(q)] == 0: return false
+	return true
+
+func find_path(a: Vector2, b: Vector2, max_iter := 9000) -> Array:
+	if pass_grid.is_empty(): return [b]
+	var s := _near_pass(_cell(a)); var g := _near_pass(_cell(b))
+	if s < 0 or g < 0: return []
+	if s == g or line_free(a, b): return [b]
+	var INF := 1e20
+	var gs := PackedFloat32Array(); gs.resize(N * N); gs.fill(INF)
+	var came := PackedInt32Array(); came.resize(N * N); came.fill(-1)
+	var closed := PackedByteArray(); closed.resize(N * N); closed.fill(0)
+	var hk: Array = []; var hf: Array = []   # tas binaire
+	var gi := g % N; var gj := g / N
+	var h := func(k: int) -> float:
+		var dx: float = abs(k % N - gi); var dz: float = abs(k / N - gj)
+		return (dx + dz) + (1.4142 - 2.0) * min(dx, dz)
+	gs[s] = 0.0; hk.append(s); hf.append(h.call(s))
+	var it := 0
+	while not hk.is_empty() and it < max_iter:
+		it += 1
+		# pop
+		var k: int = hk[0]; var last := hk.size() - 1
+		hk[0] = hk[last]; hf[0] = hf[last]; hk.resize(last); hf.resize(last)
+		var p := 0
+		while true:
+			var l := p * 2 + 1; var r := l + 1; var m := p
+			if l < hk.size() and float(hf[l]) < float(hf[m]): m = l
+			if r < hk.size() and float(hf[r]) < float(hf[m]): m = r
+			if m == p: break
+			var tk = hk[p]; hk[p] = hk[m]; hk[m] = tk
+			var tf = hf[p]; hf[p] = hf[m]; hf[m] = tf
+			p = m
+		if closed[k] == 1: continue
+		closed[k] = 1
+		if k == g: break
+		var ci := k % N; var cj := k / N
+		for d in [[1, 0, 1.0], [-1, 0, 1.0], [0, 1, 1.0], [0, -1, 1.0], [1, 1, 1.4142], [1, -1, 1.4142], [-1, 1, 1.4142], [-1, -1, 1.4142]]:
+			var ii: int = ci + d[0]; var jj: int = cj + d[1]
+			if ii < 0 or jj < 0 or ii >= N or jj >= N: continue
+			var kk := jj * N + ii
+			if pass_grid[kk] == 0 or closed[kk] == 1: continue
+			if d[0] != 0 and d[1] != 0 and (pass_grid[cj * N + ii] == 0 or pass_grid[jj * N + ci] == 0): continue
+			var ng: float = gs[k] + float(d[2])
+			if ng < gs[kk]:
+				gs[kk] = ng; came[kk] = k
+				# push
+				hk.append(kk); hf.append(ng + h.call(kk))
+				var c := hk.size() - 1
+				while c > 0:
+					var pp := (c - 1) / 2
+					if float(hf[pp]) <= float(hf[c]): break
+					var tk2 = hk[pp]; hk[pp] = hk[c]; hk[c] = tk2
+					var tf2 = hf[pp]; hf[pp] = hf[c]; hf[c] = tf2
+					c = pp
+	if came[g] == -1: return []
+	var cells: Array = []
+	var c2 := g
+	while c2 != -1 and c2 != s: cells.append(c2); c2 = came[c2]
+	cells.reverse()
+	# on lisse : on garde seulement les points nécessaires (ligne de vue)
+	var pts: Array = []
+	var cur := a
+	var i := 0
+	while i < cells.size():
+		var j := cells.size() - 1
+		while j > i and not line_free(cur, _cpos(cells[j])): j -= 1
+		cur = _cpos(cells[j]); pts.append(cur); i = j + 1
+	pts[pts.size() - 1] = b
+	return pts

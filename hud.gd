@@ -149,7 +149,7 @@ func setup(m: Node) -> void:
 	for n in ["main", "dodge", "s0", "s1", "s2", "s3", "potion", "mount", "bag", "menu", "zoom", "shop", "ile", "map"]: buttons[n] = {"rect": Rect2(), "held": false}
 	auto_btn = Button.new(); auto_btn.focus_mode = Control.FOCUS_NONE; auto_btn.custom_minimum_size = Vector2(96, 52)
 	auto_btn.add_theme_font_override("font", f_title); auto_btn.add_theme_font_size_override("font_size", 19)
-	auto_btn.pressed.connect(func(): main.toggle_auto()); root.add_child(auto_btn)
+	auto_btn.pressed.connect(func(): show_auto()); root.add_child(auto_btn)
 	chat_box = Button.new(); chat_box.focus_mode = Control.FOCUS_NONE; chat_box.custom_minimum_size = Vector2(380, 104); chat_box.size = Vector2(380, 104)
 	var cst := flat(Color(0.03, 0.05, 0.08, 0.5), 12, Color(0.6, 0.8, 1.0, 0.18), 1, Vector4(10, 6, 10, 6))
 	for k in ["normal", "hover", "pressed"]: chat_box.add_theme_stylebox_override(k, cst)
@@ -1786,6 +1786,34 @@ func _start() -> void:
 	main.on_start()
 
 var auto_btn: Button
+# réglages de la chasse automatique : quoi récolter, quels tiers, combattre ou non
+func show_auto() -> void:
+	var C: Dictionary = main.auto_cfg()
+	open_panel("Chasse automatique", func(body: Control):
+		body.add_child(rich("Choisis ce que ton héros fait tout seul. Il passe par les ponts et contourne falaises et maisons.", 17))
+		var r1 := HFlowContainer.new(); r1.add_theme_constant_override("h_separation", 8); r1.add_theme_constant_override("v_separation", 8); body.add_child(r1)
+		for k in [["fight", "Combattre les monstres"], ["gather", "Récolter"]]:
+			_chip(r1, ("✔ " if C.get(k[0], true) else "✘ ") + k[1], bool(C.get(k[0], true)), func(): C[k[0]] = not bool(C.get(k[0], true)); Game.save(); show_auto())
+		body.add_child(rich("[b]Ressources[/b]", 18))
+		var r2 := HFlowContainer.new(); r2.add_theme_constant_override("h_separation", 8); r2.add_theme_constant_override("v_separation", 8); body.add_child(r2)
+		for k in [["wood", "Bois"], ["ore", "Minerai"], ["fiber", "Fibre"]]:
+			_chip(r2, ("✔ " if C.get(k[0], true) else "✘ ") + k[1], bool(C.get(k[0], true)), func(): C[k[0]] = not bool(C.get(k[0], true)); Game.save(); show_auto())
+		body.add_child(rich("[b]Tiers à récolter[/b] [color=#a8b4bc](touche pour cocher / décocher)[/color]", 18))
+		var r3 := HFlowContainer.new(); r3.add_theme_constant_override("h_separation", 8); r3.add_theme_constant_override("v_separation", 8); body.add_child(r3)
+		var tiers: Array = C.get("tiers", [1, 2, 3, 4, 5])
+		for t in range(1, 6):
+			var on: bool = t in tiers or float(t) in tiers
+			_chip(r3, ("✔ T%d" if on else "T%d") % t, on, func():
+				var arr: Array = []
+				for x in tiers: arr.append(int(x))
+				if t in arr: arr.erase(t)
+				else: arr.append(t)
+				arr.sort(); C["tiers"] = arr; Game.save(); show_auto())
+		var on2: bool = main.auto_on
+		var bb := big_button("ARRÊTER" if on2 else "DÉMARRER", true, func(): close_panel(); main.toggle_auto(), Color("#ff9a8a") if on2 else Color("#9be86a"), true)
+		bb.custom_minimum_size = Vector2(260, 60); body.add_child(bb)
+		, 760)
+
 func refresh_auto() -> void:
 	if auto_btn == null: return
 	auto_btn.visible = bool(Game.S.get("auto_owned", false))
