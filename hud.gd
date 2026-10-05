@@ -213,6 +213,7 @@ func _layout() -> void:
 	_place_chat()
 
 func _input(ev: InputEvent) -> void:
+	if main.builder and main.builder.active: return
 	if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed): drag_guard = false
 	if panel_open and cur_panel != "bag": return
 	if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT and not panel_open and not DisplayServer.is_touchscreen_available():
@@ -1394,6 +1395,7 @@ func show_menu() -> void:
 		var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 10); body.add_child(h)
 		h.add_child(big_button("Son : " + ("oui" if AudioServer.get_bus_volume_db(0) > -50 else "non"), true, func(): _toggle_sound()))
 		h.add_child(big_button("Retour au village", true, func(): _to_camp()))
+		h.add_child(big_button("Mode Construction", true, func(): main.builder.start(), Color("#9be86a"), true))
 		h.add_child(big_button("Effacer la partie", true, func(): _wipe(), Color("#ff9a8a")))
 		body.add_child(rich("[color=#7a848a]Graphismes : KayKit · Fantasy UI · icônes Viktor Hahn, frosty_rabbid, CraftPix, Cursed Loot.[/color]", 14))
 	)

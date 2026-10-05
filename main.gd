@@ -84,6 +84,7 @@ func _ready() -> void:
 	_make_ambient()
 	_spawn_saved_mercs()
 	social = Social.new(); add_child(social); social.setup(self)
+	builder = Builder.new(); add_child(builder); builder.setup(self)
 	_spawn_bots()
 	player.refresh_name()
 	next_boss_at = 240.0
@@ -536,6 +537,7 @@ func on_gather_hit(nd: Dictionary) -> void:
 	update_goal(); Game.save()
 
 var social: Social
+var builder: Builder
 var crop_sel := {}
 # toucher un joueur à l'écran ouvre sa fiche
 func try_pick_player(sp: Vector2) -> bool:
@@ -1038,6 +1040,12 @@ func shake(a: float) -> void: shake_amt = max(shake_amt, a)
 
 func _cam_update(dt: float, snap := false) -> void:
 	var P := player
+	if builder and builder.active:
+		var ct: Array = builder.cam_target()
+		var w: Vector3 = ct[0] + ct[1]
+		cam.global_position = w if snap else cam.global_position.lerp(w, 1.0 - exp(-dt * 10.0))
+		cam.look_at(cam.global_position - ct[1] + Vector3(0, 1.0, 0))
+		return
 	var target := P.global_position + Vector3(P.velocity.x, 0, P.velocity.z) * 0.12
 	var off := Vector3(0, 14.5, 6.4) * cam_zoom * user_zoom   # un peu plus plongeante : moins d'obstacles devant le héros
 	# inventaire ouvert : le héros glisse vers la gauche de l'écran pour rester visible à côté du parchemin

@@ -517,7 +517,7 @@ func drink() -> void:
 
 var last_attacker: Node3D
 func hurt(amount: float, from: Node3D) -> void:
-	if dead or invuln > 0.0: return
+	if dead or invuln > 0.0 or (main.builder and main.builder.active): return
 	last_attacker = from
 	amount *= 1.0 - Game.stats().red   # armure de tout l'équipement
 	if cast_t > 0.0: cast_t = 0.0; main.hud.toast("Invocation interrompue !", Color("#ff9a8a"))

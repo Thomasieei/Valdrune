@@ -78,7 +78,18 @@ func item_icon(it: Dictionary) -> Texture2D:
 		"junk": return get_icon("junk_" + it.get("kind", "os"))
 		_: return get_icon(it.slot)
 
+var _build_cbs: Array = []
+func request_build(paths: Array, cb: Callable) -> void:
+	for pth in paths:
+		var key := "cat:" + str(pth)
+		if not tex.has(key) and not queue.any(func(j): return j.key == key): queue.push_front({"key": key, "kind": "build", "path": pth})
+	_build_cbs.append(cb)
+	if not busy: _next()
+
 func _next() -> void:
+	if queue.is_empty() or (not _build_cbs.is_empty() and not queue.any(func(j): return j.kind == "build")):
+		var cbs := _build_cbs.duplicate(); _build_cbs.clear()
+		for c in cbs: (c as Callable).call()
 	if queue.is_empty():
 		busy = false
 		vp.render_target_update_mode = SubViewport.UPDATE_DISABLED   # plus rien à dessiner : on coupe ce rendu en plus
@@ -107,6 +118,8 @@ func _next() -> void:
 		"model":
 			node = load(job.path).instantiate(); node.rotation = job.rot
 			if job.get("tint", Color(1, 1, 1)) != Color(1, 1, 1): _tint_mul(node, job.tint)
+		"build":
+			node = Builder.make(main, job.path)
 		"food":
 			node = Crops.food_model(job.k, 1.0); node.rotation = Vector3(0.25, 0.6, 0.0)
 		"animal":
