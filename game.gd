@@ -201,6 +201,107 @@ func power() -> int:
 	return int(p)
 static func power_needed(t: int) -> int: return 360 * t
 
+# ================= PROGRESSION : couronnes, premium, boosts, quotidien, classement =================
+static func now() -> int: return int(Time.get_unix_time_from_system())
+func crowns() -> int: return int(S.get("crowns", 0))
+func add_crowns(n: int) -> void: S["crowns"] = crowns() + n; save()
+func spend_crowns(n: int) -> bool:
+	if crowns() < n: return false
+	S["crowns"] = crowns() - n; save(); return true
+func premium_left() -> int: return max(0, int(S.get("premium_until", 0)) - now())
+func is_premium() -> bool: return premium_left() > 0
+func boost_left() -> int: return max(0, int(S.get("boost_until", 0)) - now())
+func add_time(key: String, sec: int) -> void: S[key] = max(int(S.get(key, 0)), now()) + sec; save()
+# multiplicateurs : Premium +50 % XP et argent, boost +100 % XP
+func xp_mult() -> float: return 1.0 + (0.5 if is_premium() else 0.0) + (1.0 if boost_left() > 0 else 0.0)
+func silver_mult() -> float: return 1.0 + (0.5 if is_premium() else 0.0)
+static func dur_txt(sec: int) -> String:
+	if sec >= 86400: return "%d j %d h" % [sec / 86400, (sec % 86400) / 3600]
+	if sec >= 3600: return "%d h %02d" % [sec / 3600, (sec % 3600) / 60]
+	return "%d min" % max(1, sec / 60)
+
+# connexion quotidienne : 7 jours, la récompense grossit, le 7e jour est énorme
+const LOGIN_REWARDS := [
+	{"silver": 500, "txt": "500 argent"}, {"potions": 5, "txt": "5 potions"}, {"crowns": 20, "txt": "20 couronnes"},
+	{"silver": 3000, "txt": "3 000 argent"}, {"boost": 3600, "txt": "Boost XP ×2 · 1 h"}, {"crowns": 40, "txt": "40 couronnes"},
+	{"crowns": 100, "premium": 86400, "txt": "100 couronnes + 1 jour Premium"}]
+func login_state() -> Dictionary:
+	if typeof(S.get("login")) != TYPE_DICTIONARY: S["login"] = {"day": -1, "streak": 0, "claimed": -1}
+	return S.login
+func login_can_claim() -> bool: return int(login_state().claimed) != day_index()
+func login_next_index() -> int:
+	var L := login_state()
+	var cont: bool = int(L.claimed) == day_index() - 1
+	return (int(L.streak) % 7) if cont else 0
+func login_claim() -> Dictionary:
+	var L := login_state()
+	if not login_can_claim(): return {}
+	var i := login_next_index()
+	L.streak = i + 1; L.claimed = day_index()
+	var r: Dictionary = LOGIN_REWARDS[i]
+	grant(r)
+	return r
+func grant(r: Dictionary) -> void:
+	if r.has("silver"): S.silver += int(r.silver)
+	if r.has("potions"): S.potions += int(r.potions)
+	if r.has("crowns"): S["crowns"] = crowns() + int(r.crowns)
+	if r.has("boost"): add_time("boost_until", int(r.boost))
+	if r.has("premium"): add_time("premium_until", int(r.premium))
+	save()
+
+# quêtes du jour : 3 objectifs tirés chaque jour
+const DQ_POOL := [
+	{"id": "kill", "txt": "Tue %d monstres", "n": [25, 40, 60]},
+	{"id": "gather", "txt": "Récolte %d ressources", "n": [60, 100, 160]},
+	{"id": "elite", "txt": "Tue %d monstres d'élite", "n": [3, 5, 8]},
+	{"id": "dungeon", "txt": "Termine %d donjon", "n": [1, 1, 2]},
+	{"id": "food", "txt": "Cueille %d fruits ou légumes", "n": [10, 20, 30]},
+	{"id": "silver", "txt": "Gagne %d argent", "n": [2000, 6000, 15000]}]
+func daily_quests() -> Array:
+	if typeof(S.get("dq")) != TYPE_DICTIONARY or int(S.dq.get("day", -1)) != day_index():
+		var rng := RandomNumberGenerator.new(); rng.seed = day_index() * 7919
+		var pool := DQ_POOL.duplicate(); var list: Array = []
+		var lvl: int = clamp(gear_level() - 1, 0, 2)
+		for k in 3:
+			var q: Dictionary = pool.pop_at(rng.randi() % pool.size())
+			list.append({"id": q.id, "txt": q.txt % q.n[lvl], "goal": q.n[lvl], "n": 0, "claimed": false, "crowns": 10 + 5 * k, "silver": int(money(gear_level()) * 400)})
+		S["dq"] = {"day": day_index(), "list": list, "bonus": false}
+	return S.dq.list
+func dq_progress(id: String, n := 1) -> String:
+	var done := ""
+	for q in daily_quests():
+		if q.id == id and int(q.n) < int(q.goal):
+			q.n = min(int(q.goal), int(q.n) + n)
+			if int(q.n) >= int(q.goal): done = q.txt
+	return done
+func dq_ready() -> int:
+	var c := 0
+	for q in daily_quests():
+		if int(q.n) >= int(q.goal) and not q.claimed: c += 1
+	return c
+
+# classement de puissance : 100 aventuriers qui progressent aussi chaque jour
+const RANK_NAMES := ["Kaelith", "Morvane", "Thorgal", "Ysolde", "Brennic", "Aldwen", "Sorcha", "Varek", "Lunessa", "Grimbald", "Elowen", "Draven", "Isolde", "Ragnar", "Seraphe", "Corwin", "Mirelle", "Tybalt", "Nyssa", "Haldor",
+	"Fenric", "Aurelie", "Bastien", "Celestin", "Doriane", "Eldric", "Faelan", "Gwenaël", "Hugon", "Ilyana", "Jorund", "Kassia", "Leofric", "Maelis", "Norrin", "Oriane", "Perceval", "Quintus", "Rozenn", "Sigurd"]
+func ranking() -> Array:
+	var rng := RandomNumberGenerator.new(); rng.seed = 424242
+	var days: int = max(0, day_index() - int(S.get("rank_day0", day_index())))
+	if not S.has("rank_day0"): S["rank_day0"] = day_index()
+	var out: Array = []
+	for i in 100:
+		var base: float = 9000.0 * pow(0.965, i) + rng.randf_range(-60, 60)
+		var p: int = int(base * (1.0 + 0.012 * days))
+		var nm: String = RANK_NAMES[i % RANK_NAMES.size()] + ("" if i < RANK_NAMES.size() else str(rng.randi_range(2, 99)))
+		out.append({"nm": nm, "pwr": max(200, p), "me": false, "guild": ["Lames d'Argent", "Ordre du Cerf", "Les Corbeaux", "Couronne Noire", ""][rng.randi() % 5]})
+	out.append({"nm": "Toi", "pwr": power(), "me": true, "guild": str(S.guild.get("name", ""))})
+	out.sort_custom(func(a, b): return a.pwr > b.pwr)
+	return out
+func my_rank() -> int:
+	var r := ranking()
+	for i in r.size():
+		if r[i].me: return i + 1
+	return r.size()
+
 static func item_name(it: Dictionary) -> String:
 	var base := ""
 	match it.slot:
@@ -388,7 +489,7 @@ func gather_time(tool: String, t: int) -> float:
 # ajoute de l'XP ; renvoie le nombre de niveaux gagnés
 func add_prof_xp(tool: String, xp: int) -> int:
 	var p := prof(tool); var ups := 0
-	p.xp = int(p.xp) + xp
+	p.xp = int(p.xp) + int(xp * xp_mult())
 	while int(p.lvl) < PROF_MAX and int(p.xp) >= prof_need(int(p.lvl)):
 		p.xp = int(p.xp) - prof_need(int(p.lvl)); p.lvl = int(p.lvl) + 1; ups += 1
 	return ups
@@ -402,7 +503,7 @@ func wxp(kind: String) -> Dictionary:
 func weapon_bonus() -> float: return 0.005 * (int(wxp(S.get("weapon_kind", "epee")).lvl) - 1)
 func add_weapon_xp(kind: String, xp: int) -> int:
 	var w := wxp(kind); var ups := 0
-	w.xp = int(w.xp) + xp
+	w.xp = int(w.xp) + int(xp * xp_mult())
 	while int(w.lvl) < WXP_MAX and int(w.xp) >= weapon_need(int(w.lvl)):
 		w.xp = int(w.xp) - weapon_need(int(w.lvl)); w.lvl = int(w.lvl) + 1; ups += 1
 	return ups
@@ -526,7 +627,6 @@ func unlock_note(slot: String, t: int) -> void:
 # raison du blocage (vide = autorisé)
 func equip_block(it: Dictionary) -> String:
 	if not it.slot in UNLOCK_SLOTS: return ""
-	if str(it.get("nm", "")) != "": return ""        # objets légendaires de la boutique
 	var t := int(it.tier)
 	if t > unlocked(it.slot) + 1: return "Porte d'abord %s T%d pour débloquer le T%d" % [SLOT_ART[it.slot], t - 1, t]
 	if it.slot == "epee":

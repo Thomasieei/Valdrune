@@ -92,6 +92,7 @@ func setup(m: Node) -> void:
 	play("Idle_A")
 
 	floor_snap_length = 0.6
+	floor_max_angle = deg_to_rad(68.0)     # les collines se gravissent (les vraies falaises restent bloquées par la grille)
 
 var body_key := ""
 func refresh_gear() -> void:
@@ -237,6 +238,7 @@ func _physics_process(dt: float) -> void:
 	velocity.x = lerp(velocity.x, want.x, k); velocity.z = lerp(velocity.z, want.z, k)
 	_block_water(dt)
 	move_and_slide()
+	_climb_assist(want, dt)
 	if spin_t <= 0.0:
 		ch.root.rotation.y = lerp_angle(ch.root.rotation.y, yaw, 1.0 - exp(-dt * 20.0))
 	if mounted:
@@ -846,6 +848,26 @@ class Fireball extends Node3D:
 		main.shake(0.25); Game.play("hit", 0.0, 0.6); Game.play("roar", -14.0, 2.5)
 		queue_free()
 
+
+# Pente trop raide pour la physique mais praticable : on aide le héros à monter (comme sur Albion, on ne reste jamais coincé)
+var climb_t := 0.0
+func _climb_assist(want: Vector3, dt: float) -> void:
+	var p := global_position
+	if p.x > 300.0 or want.length() < 1.0 or dead: climb_t = 0.0; return
+	var got := Vector2(get_real_velocity().x, get_real_velocity().z).length()
+	if got > want.length() * 0.55: climb_t = 0.0; return
+	climb_t += dt
+	if climb_t < 0.12: return
+	var w: World = main.world
+	var d := Vector3(want.x, 0, want.z).normalized()
+	for r: float in [0.7, 1.1]:
+		var q := p + d * r
+		if not w.walkable(q.x, q.z): return
+		var gy: float = w.ground_y(q.x, q.z)
+		if gy - p.y < 2.2 and gy - p.y > -0.3:
+			global_position = Vector3(p.x + d.x * min(r, want.length() * dt * 1.2 + 0.05), max(p.y, w.ground_y(p.x + d.x * 0.3, p.z + d.z * 0.3)) + 0.05, p.z + d.z * min(r, want.length() * dt * 1.2 + 0.05))
+			global_position.y = max(global_position.y, w.ground_y(global_position.x, global_position.z) + 0.02)
+			return
 
 # L'eau profonde arrête le héros (on glisse le long de la berge)
 var water_t := 0.0

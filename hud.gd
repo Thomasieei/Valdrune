@@ -146,7 +146,7 @@ func setup(m: Node) -> void:
 	overlay = Control.new(); overlay.set_anchors_preset(Control.PRESET_FULL_RECT); overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE; overlay.draw.connect(_draw_over); root.add_child(overlay)
 	red = ColorRect.new(); red.color = Color(0.8, 0, 0, 0.0); red.set_anchors_preset(Control.PRESET_FULL_RECT); red.mouse_filter = Control.MOUSE_FILTER_IGNORE; root.add_child(red)
 	fps_lbl = _label("", 12, Color(0.8, 1, 0.8, 0.6)); root.add_child(fps_lbl)
-	for n in ["main", "dodge", "s0", "s1", "s2", "s3", "potion", "mount", "bag", "menu", "zoom", "shop", "ile", "map"]: buttons[n] = {"rect": Rect2(), "held": false}
+	for n in ["main", "dodge", "s0", "s1", "s2", "s3", "potion", "mount", "bag", "menu", "zoom", "shop", "ile", "map", "daily", "rank"]: buttons[n] = {"rect": Rect2(), "held": false}
 	auto_btn = Button.new(); auto_btn.focus_mode = Control.FOCUS_NONE; auto_btn.custom_minimum_size = Vector2(96, 52)
 	auto_btn.add_theme_font_override("font", f_title); auto_btn.add_theme_font_size_override("font_size", 19)
 	auto_btn.pressed.connect(func(): show_auto()); root.add_child(auto_btn)
@@ -206,6 +206,8 @@ func _layout() -> void:
 	buttons.zoom.rect = Rect2(Vector2(s.x - 252, 140), Vector2(52, 52))
 	buttons.shop.rect = Rect2(Vector2(s.x - 252, 200), Vector2(52, 52))
 	buttons.ile.rect = Rect2(Vector2(s.x - 252, 268), Vector2(52, 52))
+	buttons.daily.rect = Rect2(Vector2(s.x - 316, 140), Vector2(52, 52))
+	buttons.rank.rect = Rect2(Vector2(s.x - 316, 200), Vector2(52, 52))
 	icons.bag.position = buttons.bag.rect.position + Vector2(1, 1)
 	icons.attack.position = mc - Vector2(48, 48)
 	hint_lbl.position = Vector2(s.x - 560 - 40, mc.y - 220)
@@ -262,6 +264,8 @@ func _press(n: String) -> void:
 		"menu": show_menu()
 		"zoom": main.cycle_zoom()
 		"shop": show_boutique()
+		"daily": show_daily()
+		"rank": show_ranking()
 		"ile":
 			if Game.S.island.owned:
 				if main.island: main.leave_island()
@@ -338,6 +342,16 @@ func _draw_under() -> void:
 	_glass(c, shc, 26, Color(1.0, 0.7, 0.2, pulse))
 	_texq(T("it_chest_open"), Rect2(shc - Vector2(19, 21), Vector2(38, 38)))
 	_text(c, "BOUTIQUE", shc + Vector2(0, 40), 11, Color("#ffcf5a"), true, f_title)
+	var dc: Vector2 = buttons.daily.rect.get_center()
+	var nd: int = Game.dq_ready() + (1 if Game.login_can_claim() else 0)
+	_glass(c, dc, 26, Color(1.0, 0.85, 0.3, pulse) if nd > 0 else Color(0.95, 0.78, 0.45, 0.5))
+	_texq(T("it_quest"), Rect2(dc - Vector2(18, 20), Vector2(36, 36)))
+	_text(c, "QUOTIDIEN", dc + Vector2(0, 40), 11, Color("#ffcf5a"), true, f_title)
+	if nd > 0: _disc(dc + Vector2(19, -19), 10, Color("#ff3b2f")); _text(c, str(nd), dc + Vector2(19, -14), 13, Color.WHITE, true, f_title)
+	var rc: Vector2 = buttons.rank.rect.get_center()
+	_glass(c, rc, 26, Color(0.95, 0.78, 0.45, 0.5))
+	_texq(T("it_trophy"), Rect2(rc - Vector2(18, 20), Vector2(36, 36)))
+	_text(c, "#%d" % rank_cache, rc + Vector2(0, 40), 12, Color("#ffe39a"), true, f_title)
 	if Game.S.island.owned:
 		var ic2: Vector2 = buttons.ile.rect.get_center()
 		var danger: bool = main.raid_active()
@@ -361,7 +375,21 @@ func _draw_under() -> void:
 	if P.shield_hp > 0.0: c.draw_style_box(flat(Color(0.6, 0.9, 1.0, 0.55), 9), Rect2(bar.position, Vector2(max(18.0, bar.size.x * clamp(P.shield_hp / P.max_hp, 0.0, 1.0)), bar.size.y)))
 	_text(c, "%d / %d" % [int(max(0, P.hp)), int(P.max_hp)], bar.get_center() + Vector2(0, 6), 15, Color.WHITE, true)
 	_texq(T("it_coins"), Rect2(88, 48, 26, 26))
-	_text(c, Game.fmt(Game.S.silver), Vector2(120, 68), 21, GOLD, false, f_title)
+	var stxt := Game.fmt(Game.S.silver)
+	_text(c, stxt, Vector2(120, 68), 21, GOLD, false, f_title)
+	var cx: float = 128.0 + f_title.get_string_size(stxt, HORIZONTAL_ALIGNMENT_LEFT, -1, 21).x
+	_texq(T("crown"), Rect2(cx, 47, 28, 28))
+	_text(c, str(Game.crowns()), Vector2(cx + 32, 68), 21, Color("#ffe39a"), false, f_title)
+	# puissance (PI) à côté de la barre de vie : le chiffre que tout le monde veut voir monter
+	var pw := Game.power()
+	if pw != pi_last:
+		if pi_last > 0 and pw > pi_last: pi_flash = 2.0
+		pi_last = pw; rank_cache = Game.my_rank()
+	pi_flash = max(0.0, pi_flash - get_process_delta_time())
+	var pic := Color("#c8a8ff").lerp(Color("#7dff8a"), clamp(pi_flash, 0.0, 1.0))
+	_text(c, "PI %d" % pw, Vector2(326, 38), 18 + int(pi_flash * 3.0), pic, false, f_title)
+	if Game.is_premium(): _text(c, "PREMIUM", Vector2(326, 60), 12, Color("#ffcf5a"), false, f_title)
+	if Game.boost_left() > 0: _text(c, "XP ×2", Vector2(396 if Game.is_premium() else 326, 60), 12, Color("#7dff8a"), false, f_title)
 	_disc(minimap.position + minimap.size * 0.5, 92, Color(0.04, 0.06, 0.09, 0.6))
 	_flush(c); batch_text = false
 
@@ -1504,6 +1532,97 @@ func _guide_town(body: VBoxContainer) -> void:
 		leg += "[color=%s][b]%d[/b][/color]  [b]%s[/b] — %s : %s\n" % [NPC_COL.get(n.act, "#ffffff"), i + 1, n.nm, n.role, NPC_DO[n.act]]
 	body.add_child(rich(leg, 16))
 
+var pi_last := 0
+var pi_flash := 0.0
+var rank_cache := 0
+
+# ——— Après une défaite : ce qui t'a manqué, et comment devenir plus fort ———
+func show_defeat(who: String, need: int) -> void:
+	var me := Game.power()
+	open_panel("Défaite", func(body: VBoxContainer):
+		body.add_child(rich("[center][font_size=24][b]%s était trop fort pour toi.[/b][/font_size]\nTa puissance : [color=#c8a8ff][b]%d[/b][/color]   ·   puissance conseillée : [color=#ff9a8a][b]%d[/b][/color]\n[font_size=22]Il te manquait [color=#ff9a8a][b]%d de puissance[/b][/color].[/font_size][/center]" % [who, me, need, need - me], 18))
+		var tips := "[b]Pour devenir plus fort :[/b]\n• Monte ta [b]maîtrise d'arme et d'armure[/b] pour pouvoir porter le tier suivant.\n• Fabrique un meilleur équipement à la [color=#ff8a4a]forge[/color] et fais-le [color=#e7a8ff]enchanter[/color].\n• Équipe un [b]artefact[/b] (duels, donjons, boss de groupe)."
+		if not Game.is_premium(): tips += "\n• [color=#ffcf5a]Premium[/color] : +50 %% d'expérience et d'argent — tu progresses bien plus vite."
+		body.add_child(rich(tips, 17))
+		var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 10); h.alignment = BoxContainer.ALIGNMENT_CENTER; body.add_child(h)
+		h.add_child(big_button("Ma progression", true, func(): show_guide("tiers")))
+		h.add_child(big_button("Classement", true, func(): show_ranking()))
+		h.add_child(big_button("Devenir plus fort", true, func(): show_boutique("premium"), GOLD, true))
+	, 760, 470)
+
+# ——— Quotidien : connexion 7 jours + 3 quêtes du jour ———
+func show_daily() -> void:
+	open_panel("Quotidien", func(body: VBoxContainer):
+		cur_panel = "daily"
+		body.add_child(rich("[b][color=#ffd27a]Connexion quotidienne[/color][/b]  [color=#a8b4bc]reviens chaque jour : le 7e jour est énorme. Rater un jour remet la série à zéro.[/color]", 17))
+		var row7 := HBoxContainer.new(); row7.add_theme_constant_override("separation", 8); body.add_child(row7)
+		var nxt := Game.login_next_index(); var can := Game.login_can_claim()
+		var done_n: int = nxt if can else int(Game.login_state().streak)
+		for i in 7:
+			var r: Dictionary = Game.LOGIN_REWARDS[i]
+			var got: bool = i < done_n
+			var today: bool = can and i == nxt
+			var pc := PanelContainer.new(); pc.custom_minimum_size = Vector2(104, 112)
+			pc.add_theme_stylebox_override("panel", flat(Color(0.2, 0.5, 0.25, 0.85) if got else (Color(0.4, 0.3, 0.08, 0.95) if today else Color(1, 1, 1, 0.06)), 12, Color("#ffcf5a") if today else Color(1, 1, 1, 0.15), 2 if today else 1, Vector4(6, 6, 6, 6)))
+			pc.add_child(rich("[center][b]Jour %d[/b]\n%s\n%s[/center]" % [i + 1, ("[img=30x30]res://ui/crown.png[/img]" if r.has("crowns") else "[img=30x30]res://ui/it_coins.png[/img]"), ("[color=#7dff8a]✔[/color]" if got else "[font_size=12]%s[/font_size]" % r.txt)], 14))
+			row7.add_child(pc)
+		var claim := func() -> void:
+			var r := Game.login_claim()
+			if not r.is_empty(): celebrate("CONNEXION · JOUR %d" % int(Game.login_state().streak), r.txt, "it_chest_open"); Game.play("coin")
+			show_daily()
+		var cb := big_button("Récupérer le jour %d" % (nxt + 1) if can else "Reviens demain !", can, claim, GOLD, can)
+		body.add_child(cb)
+		body.add_child(rich("\n[b][color=#ffd27a]Quêtes du jour[/color][/b]  [color=#a8b4bc]nouvelles quêtes chaque jour à minuit[/color]", 17))
+		for i in Game.daily_quests().size():
+			var q: Dictionary = Game.daily_quests()[i]
+			var full: bool = int(q.n) >= int(q.goal)
+			var left := rich("[b]%s[/b]   [color=%s]%s / %s[/color]\n[color=#a8b4bc]Récompense : [img=20x20]res://ui/crown.png[/img] %d couronnes + %s argent[/color]" % [q.txt, "#7dff8a" if full else "#ffd27a", Game.fmt(int(q.n)), Game.fmt(int(q.goal)), int(q.crowns), Game.fmt(int(q.silver))], 17)
+			var take := func() -> void:
+				q.claimed = true; Game.grant({"crowns": int(q.crowns), "silver": int(q.silver)})
+				celebrate("QUÊTE DU JOUR", "+%d couronnes · +%s argent" % [int(q.crowns), Game.fmt(int(q.silver))], "it_quest"); Game.play("coin")
+				show_daily()
+			var bt := big_button("Reçu ✔" if q.claimed else ("Récupérer" if full else "En cours"), full and not q.claimed, take, GOLD, full and not q.claimed)
+			row(body, left, bt)
+		var allc := Game.daily_quests().all(func(x): return x.claimed)
+		var bonus_done: bool = Game.S.dq.get("bonus", false)
+		var bonus := func() -> void:
+			Game.S.dq.bonus = true; Game.grant({"crowns": 30}); celebrate("JOURNÉE COMPLÈTE !", "+30 couronnes", "it_trophy"); show_daily()
+		var bb := big_button("Bonus des 3 quêtes : 30 couronnes" if not bonus_done else "Bonus reçu ✔", allc and not bonus_done, bonus, GOLD, allc and not bonus_done)
+		body.add_child(bb)
+	, 900)
+
+# ——— Classement de puissance ———
+func show_ranking() -> void:
+	open_panel("Classement de puissance", func(body: VBoxContainer):
+		var R := Game.ranking()
+		var me := 0
+		for i in R.size():
+			if R[i].me: me = i
+		rank_cache = me + 1
+		var head := "Tu es [b][color=#ffe39a]#%d[/color][/b] sur %d avec [b][color=#c8a8ff]%d de puissance[/color][/b]." % [me + 1, R.size(), Game.power()]
+		if me > 0: head += "\nIl te manque [b][color=#ff9a8a]%d[/color][/b] pour dépasser [b]%s[/b] (#%d)." % [int(R[me - 1].pwr) - Game.power() + 1, R[me - 1].nm, me]
+		head += "\n[color=#a8b4bc]Les autres aventuriers progressent chaque jour : si tu t'arrêtes, tu recules. La puissance monte avec le tier, l'enchantement et l'artefact de chaque pièce portée.[/color]"
+		body.add_child(rich(head, 17))
+		var rows: Array = []
+		for i in min(10, R.size()): rows.append(i)
+		for i in range(max(0, me - 3), min(R.size(), me + 4)):
+			if not i in rows: rows.append(i)
+		var last := -1
+		var t := "[table=4]"
+		for i in rows:
+			if last >= 0 and i > last + 1: t += "[cell][color=#6a7480]…[/color][/cell][cell][/cell][cell][/cell][cell][/cell]"
+			var r: Dictionary = R[i]
+			var col := "#ffe39a" if r.me else ("#ffcf5a" if i < 3 else "#e8e2d0")
+			var medal: String = "★" if i < 3 else ""
+			t += "[cell][color=%s][b]#%d[/b] %s   [/color][/cell][cell][color=%s]%s%s   [/color][/cell][cell][color=#8a949c]%s   [/color][/cell][cell][color=#c8a8ff][b]%d[/b][/color][/cell]" % [col, i + 1, medal, col, "► " if r.me else "", r.nm, r.guild, int(r.pwr)]
+			last = i
+		t += "[/table]"
+		body.add_child(rich(t, 17))
+		var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 10); body.add_child(h)
+		h.add_child(big_button("Devenir plus fort (Guide)", true, func(): show_guide("tiers")))
+		h.add_child(big_button("Boutique", true, func(): show_boutique("premium"), GOLD, true))
+	, 860)
+
 func _toggle_sound() -> void:
 	AudioServer.set_bus_volume_db(0, -80.0 if AudioServer.get_bus_volume_db(0) > -50 else 0.0); show_menu()
 func _to_camp() -> void:
@@ -1566,43 +1685,65 @@ func _draw_bigmap(c: Control, sz: float) -> void:
 	if tg != null: c.draw_arc((Vector2(tg.x, tg.z) + Vector2(128, 128)) * k, 9, 0, TAU, 24, Color("#ffd24a"), 3)
 
 # ——— Boutique royale (gratuite pour l'instant) ———
-const SHOP_TABS := [["une", "★ À la une"], ["montures", "Montures"], ["armes", "Armes"], ["equip", "Équipements"], ["argent", "Argent"], ["ressources", "Ressources"], ["boosts", "Boosts"]]
-# id, onglet, nom, description, icône, couleur, valeur affichée (barrée), mise en avant
+const SHOP_TABS := [["une", "★ À la une"], ["couronnes", "Couronnes"], ["premium", "Premium & boosts"], ["montures", "Montures"], ["armes", "Armes"], ["equip", "Équipements"], ["ressources", "Ressources"], ["argent", "Argent"]]
+# id, onglet, nom, description, icône, couleur, prix en couronnes (cr) ou en euros (eur, achat simulé), mise en avant
 const OFFERS := [
-	{"id": "pegase", "tab": "montures", "name": "Pégase d'Azur", "desc": "+170 % vitesse · +30 % dégâts · +30 % vie", "icon": "mount_pegase", "col": "#5fb0ff", "val": 25000000, "hot": true},
-	{"id": "m_roi_cerf", "tab": "montures", "name": "Roi-Cerf doré", "desc": "Monture T5 : +120 % vitesse, dégâts et vie", "icon": "mount_roi_cerf", "col": "#ffb02e", "val": 11000000},
-	{"id": "m_taureau", "tab": "montures", "name": "Taureau cuirassé", "desc": "Monture T5 : +100 % vitesse, +12 % dégâts, +15 % vie", "icon": "mount_taureau", "col": "#ff6a5a", "val": 10000000},
-	{"id": "m_loup", "tab": "montures", "name": "Loup de guerre", "desc": "Monture T4 : rapide, +8 % de vie", "icon": "mount_loup", "col": "#4d78ff", "val": 720000},
-	{"id": "m_cheval", "tab": "montures", "name": "Cheval de selle", "desc": "Monture T2 : +75 % de vitesse", "icon": "mount_cheval", "col": "#62d24e", "val": 2800},
-	{"id": "lame", "tab": "armes", "name": "Lame de l'Aube +5", "desc": "Épée T5 enchantée au maximum", "icon": "arme_epee_5", "col": "#ffb02e", "val": 9000000, "hot": true},
-	{"id": "fendeuse", "tab": "armes", "name": "Fendeuse du Néant +5", "desc": "Hache T5 +5 : +28 % de dégâts bruts", "icon": "arme_hache_5", "col": "#ff6a5a", "val": 9000000},
-	{"id": "sceptre", "tab": "armes", "name": "Sceptre Astral +5", "desc": "Bâton T5 +5 : sorts dévastateurs", "icon": "arme_baton_5", "col": "#c77dff", "val": 9000000},
-	{"id": "titan", "tab": "armes", "name": "Rempart du Titan +5", "desc": "Bouclier T5 +5 : −20 % de dégâts reçus", "icon": "bouclier_5", "col": "#9fd4ff", "val": 6000000},
-	{"id": "set_plate", "tab": "equip", "name": "Plates du Dragon +5", "desc": "Armure de plates T5 +5", "icon": "armure_plate", "col": "#ff3d3d", "val": 7500000},
-	{"id": "set_cuir", "tab": "equip", "name": "Cuir de l'Ombre +5", "desc": "Veste de cuir T5 +5 : vitesse", "icon": "armure_cuir", "col": "#4fe36a", "val": 7500000},
-	{"id": "set_tissu", "tab": "equip", "name": "Robe Céleste +5", "desc": "Robe de mage T5 +5 : recharges rapides", "icon": "armure_tissu", "col": "#b45cff", "val": 7500000},
-	{"id": "bottes", "tab": "equip", "name": "Bottes de Vent +5", "desc": "Bottes T5 +5 : la vitesse ultime", "icon": "boots_5", "col": "#7fe8ff", "val": 4800000},
-	{"id": "art_rage", "tab": "equip", "name": "Idole de rage +3", "desc": "Artefact T5 : +30 % de dégâts", "icon": "art_rage", "col": "#ff7a4a", "val": 6000000},
-	{"id": "art_vie", "tab": "equip", "name": "Calice de vie +3", "desc": "Artefact T5 : +40 % de vie", "icon": "art_vie", "col": "#7dff8a", "val": 6000000},
-	{"id": "art_fortune", "tab": "equip", "name": "Anneau de fortune +3", "desc": "Artefact T5 : +50 % d'argent gagné", "icon": "art_fortune", "col": "#ffd24a", "val": 6000000},
-	{"id": "or1", "tab": "argent", "name": "Bourse d'argent", "desc": "100 000 argent", "icon": "it_coins", "col": "#ffd86b", "val": 100000},
-	{"id": "or2", "tab": "argent", "name": "Coffre d'argent", "desc": "2 000 000 argent", "icon": "it_coins", "col": "#7fc8ff", "val": 2000000},
-	{"id": "or3", "tab": "argent", "name": "Trésor royal", "desc": "50 000 000 argent", "icon": "it_chest_open", "col": "#e58bff", "val": 50000000, "hot": true},
-	{"id": "or4", "tab": "argent", "name": "Fortune du roi", "desc": "500 000 000 argent", "icon": "it_trophy", "col": "#ff9a3c", "val": 500000000},
-	{"id": "res2", "tab": "ressources", "name": "Pack d'apprenti T2", "desc": "120 bois, minerai et fibre T2", "icon": "res_ore_2", "col": "#62d24e", "val": 4300},
-	{"id": "res3", "tab": "ressources", "name": "Pack d'artisan T3", "desc": "120 bois, minerai et fibre T3", "icon": "res_ore_3", "col": "#33c4dc", "val": 32000},
-	{"id": "res4", "tab": "ressources", "name": "Pack de maître T4", "desc": "120 bois, minerai et fibre T4", "icon": "res_ore_4", "col": "#4d78ff", "val": 400000},
-	{"id": "res5", "tab": "ressources", "name": "Pack légendaire T5", "desc": "120 bois, minerai et fibre T5", "icon": "res_ore_5", "col": "#ff3d3d", "val": 5000000, "hot": true},
-	{"id": "auto", "tab": "boosts", "name": "Écuyer automatique", "desc": "Ton héros récolte et chasse tout seul (bouton AUTO à droite)", "icon": "it_hunt", "col": "#7dff8a", "val": 4000000, "hot": true},
-	{"id": "leg", "tab": "boosts", "name": "Coffre légendaire", "desc": "Un butin légendaire T5 à ouvrir", "icon": "it_chest_open", "col": "#ffb02e", "val": 3000000, "hot": true},
-	{"id": "enchant", "tab": "boosts", "name": "Parchemin d'enchantement", "desc": "+1 enchantement sur toutes les pièces portées", "icon": "art_rage", "col": "#e7a8ff", "val": 2000000},
-	{"id": "metier", "tab": "boosts", "name": "Parchemin d'artisan", "desc": "+5 niveaux à tous les métiers", "icon": "pioche", "col": "#9dffb0", "val": 500000},
-	{"id": "maitrise", "tab": "boosts", "name": "Parchemin de guerre", "desc": "+5 niveaux de maîtrise d'arme", "icon": "it_trophy", "col": "#ffb07a", "val": 500000},
-	{"id": "potions", "tab": "boosts", "name": "Caisse de potions", "desc": "25 potions de soin", "icon": "potion", "col": "#7dff8a", "val": 1000},
-	{"id": "sac", "tab": "boosts", "name": "Sac agrandi", "desc": "+8 cases (jusqu'à +24)", "icon": "it_loot_rare", "col": "#e9dcc0", "val": 250000},
-	{"id": "garde", "tab": "boosts", "name": "Garde d'élite", "desc": "3 mercenaires T5 rejoignent ton groupe", "icon": "char_Knight", "col": "#9fd4ff", "val": 7500000},
+	{"id": "pack_debut", "tab": "couronnes", "name": "Pack du débutant", "desc": "300 couronnes + Cheval de selle + 3 jours Premium · une seule fois", "icon": "mount_cheval", "col": "#ffcf5a", "eur": "0,99 €", "hot": true, "once": true},
+	{"id": "c1", "tab": "couronnes", "name": "Poignée de couronnes", "desc": "120 couronnes", "icon": "crown", "col": "#ffd86b", "eur": "0,99 €", "gives": 120},
+	{"id": "c2", "tab": "couronnes", "name": "Bourse de couronnes", "desc": "650 couronnes (+8 % offert)", "icon": "crown", "col": "#7fc8ff", "eur": "4,99 €", "gives": 650},
+	{"id": "c3", "tab": "couronnes", "name": "Coffret de couronnes", "desc": "1 400 couronnes (+17 % offert)", "icon": "crown", "col": "#62d24e", "eur": "9,99 €", "gives": 1400, "hot": true},
+	{"id": "c4", "tab": "couronnes", "name": "Coffre de couronnes", "desc": "3 000 couronnes (+25 % offert)", "icon": "crown", "col": "#c77dff", "eur": "19,99 €", "gives": 3000},
+	{"id": "c5", "tab": "couronnes", "name": "Trésor du roi", "desc": "8 000 couronnes (+33 % offert)", "icon": "crown", "col": "#ff9a3c", "eur": "49,99 €", "gives": 8000},
+	{"id": "premium30", "tab": "premium", "name": "Premium · 30 jours", "desc": "+50 % d'expérience partout, +50 % d'argent, nom doré", "icon": "it_trophy", "col": "#ffcf5a", "cr": 450, "hot": true},
+	{"id": "premium7", "tab": "premium", "name": "Premium · 7 jours", "desc": "+50 % d'expérience partout, +50 % d'argent", "icon": "it_trophy", "col": "#ffe39a", "cr": 150},
+	{"id": "boost1", "tab": "premium", "name": "Boost d'expérience · 1 h", "desc": "Expérience ×2 (armes, armure, métiers) — cumulable avec Premium", "icon": "it_seal", "col": "#7dff8a", "cr": 40},
+	{"id": "boost24", "tab": "premium", "name": "Boost d'expérience · 24 h", "desc": "Expérience ×2 pendant une journée entière", "icon": "it_seal", "col": "#4fe36a", "cr": 250},
+	{"id": "maitrise", "tab": "premium", "name": "Parchemin de guerre", "desc": "+3 niveaux de maîtrise d'arme ET d'armure", "icon": "it_trophy", "col": "#ffb07a", "cr": 180, "hot": true},
+	{"id": "metier", "tab": "premium", "name": "Parchemin d'artisan", "desc": "+3 niveaux à tous les métiers", "icon": "pioche", "col": "#9dffb0", "cr": 150},
+	{"id": "enchant", "tab": "premium", "name": "Parchemin d'enchantement", "desc": "+1 enchantement sur toutes les pièces portées", "icon": "art_rage", "col": "#e7a8ff", "cr": 220},
+	{"id": "auto", "tab": "premium", "name": "Écuyer automatique", "desc": "Ton héros récolte et chasse tout seul (bouton AUTO)", "icon": "it_hunt", "col": "#7dff8a", "cr": 600},
+	{"id": "sac", "tab": "premium", "name": "Sac agrandi", "desc": "+8 cases (jusqu'à +24)", "icon": "it_loot_rare", "col": "#e9dcc0", "cr": 120},
+	{"id": "potions", "tab": "premium", "name": "Caisse de potions", "desc": "25 potions de soin", "icon": "potion", "col": "#7dff8a", "cr": 30},
+	{"id": "leg", "tab": "premium", "name": "Coffre légendaire", "desc": "Un butin légendaire T5 à ouvrir", "icon": "it_chest_open", "col": "#ffb02e", "cr": 350},
+	{"id": "garde", "tab": "premium", "name": "Garde d'élite", "desc": "3 mercenaires T5 rejoignent ton groupe", "icon": "char_Knight", "col": "#9fd4ff", "cr": 400},
+	{"id": "pegase", "tab": "montures", "name": "Pégase d'Azur", "desc": "+170 % vitesse · +30 % dégâts · +30 % vie", "icon": "mount_pegase", "col": "#5fb0ff", "cr": 4000, "hot": true},
+	{"id": "m_roi_cerf", "tab": "montures", "name": "Roi-Cerf doré", "desc": "Monture T5 : +120 % vitesse, +15 % dégâts", "icon": "mount_roi_cerf", "col": "#ffb02e", "cr": 2600},
+	{"id": "m_taureau", "tab": "montures", "name": "Taureau cuirassé", "desc": "Monture T5 : +100 % vitesse, +12 % dégâts, +15 % vie", "icon": "mount_taureau", "col": "#ff6a5a", "cr": 2200},
+	{"id": "m_loup", "tab": "montures", "name": "Loup de guerre", "desc": "Monture T4 : rapide, +8 % de vie", "icon": "mount_loup", "col": "#4d78ff", "cr": 900},
+	{"id": "m_cheval", "tab": "montures", "name": "Cheval de selle", "desc": "Monture T2 : +75 % de vitesse", "icon": "mount_cheval", "col": "#62d24e", "cr": 150},
+	{"id": "lame", "tab": "armes", "name": "Lame de l'Aube +5", "desc": "Épée T5 enchantée au maximum · maîtrise niv 14", "icon": "arme_epee_5", "col": "#ffb02e", "cr": 2400, "hot": true},
+	{"id": "fendeuse", "tab": "armes", "name": "Fendeuse du Néant +5", "desc": "Hache T5 +5 · maîtrise niv 14", "icon": "arme_hache_5", "col": "#ff6a5a", "cr": 2400},
+	{"id": "sceptre", "tab": "armes", "name": "Sceptre Astral +5", "desc": "Bâton T5 +5 · maîtrise niv 14", "icon": "arme_baton_5", "col": "#c77dff", "cr": 2400},
+	{"id": "titan", "tab": "armes", "name": "Rempart du Titan +5", "desc": "Bouclier T5 +5 · armure niv 14", "icon": "bouclier_5", "col": "#9fd4ff", "cr": 1600},
+	{"id": "set_plate", "tab": "equip", "name": "Plates du Dragon +5", "desc": "Armure de plates T5 +5 · armure niv 14", "icon": "armure_plate", "col": "#ff3d3d", "cr": 2000},
+	{"id": "set_cuir", "tab": "equip", "name": "Cuir de l'Ombre +5", "desc": "Veste de cuir T5 +5 · armure niv 14", "icon": "armure_cuir", "col": "#4fe36a", "cr": 2000},
+	{"id": "set_tissu", "tab": "equip", "name": "Robe Céleste +5", "desc": "Robe de mage T5 +5 · armure niv 14", "icon": "armure_tissu", "col": "#b45cff", "cr": 2000},
+	{"id": "bottes", "tab": "equip", "name": "Bottes de Vent +5", "desc": "Bottes T5 +5 · armure niv 14", "icon": "boots_5", "col": "#7fe8ff", "cr": 1300},
+	{"id": "art_rage", "tab": "equip", "name": "Idole de rage +3", "desc": "Artefact T5 : +30 % de dégâts", "icon": "art_rage", "col": "#ff7a4a", "cr": 1500},
+	{"id": "art_vie", "tab": "equip", "name": "Calice de vie +3", "desc": "Artefact T5 : +40 % de vie", "icon": "art_vie", "col": "#7dff8a", "cr": 1500},
+	{"id": "art_fortune", "tab": "equip", "name": "Anneau de fortune +3", "desc": "Artefact T5 : +50 % d'argent gagné", "icon": "art_fortune", "col": "#ffd24a", "cr": 1500},
+	{"id": "res2", "tab": "ressources", "name": "Pack d'apprenti T2", "desc": "120 bois, minerai et fibre T2", "icon": "res_ore_2", "col": "#62d24e", "cr": 60},
+	{"id": "res3", "tab": "ressources", "name": "Pack d'artisan T3", "desc": "120 bois, minerai et fibre T3", "icon": "res_ore_3", "col": "#33c4dc", "cr": 200},
+	{"id": "res4", "tab": "ressources", "name": "Pack de maître T4", "desc": "120 bois, minerai et fibre T4", "icon": "res_ore_4", "col": "#4d78ff", "cr": 700},
+	{"id": "res5", "tab": "ressources", "name": "Pack légendaire T5", "desc": "120 bois, minerai et fibre T5", "icon": "res_ore_5", "col": "#ff3d3d", "cr": 2000},
+	{"id": "or1", "tab": "argent", "name": "Bourse d'argent", "desc": "100 000 argent", "icon": "it_coins", "col": "#ffd86b", "cr": 80},
+	{"id": "or2", "tab": "argent", "name": "Coffre d'argent", "desc": "2 000 000 argent", "icon": "it_coins", "col": "#7fc8ff", "cr": 600},
+	{"id": "or3", "tab": "argent", "name": "Trésor royal", "desc": "50 000 000 argent", "icon": "it_chest_open", "col": "#e58bff", "cr": 6000},
 ]
 var shop_tab := "une"
+func offer(id: String) -> Dictionary:
+	for o in OFFERS:
+		if o.id == id: return o
+	return {}
+# confirmation d'un achat en euros (SIMULÉ : aucun paiement réel)
+func confirm_purchase(o: Dictionary) -> void:
+	open_panel("Confirmer l'achat", func(body: VBoxContainer):
+		body.add_child(rich("[center][font_size=26][b]%s[/b][/font_size]\n%s\n\n[font_size=30][color=#7dff8a][b]%s[/b][/color][/font_size][/center]" % [o.name, o.desc, o.eur], 19))
+		body.add_child(rich("[center][color=#ffb07a]Version de test : l'achat est simulé, rien n'est débité.[/color][/center]", 15))
+		var h := HBoxContainer.new(); h.alignment = BoxContainer.ALIGNMENT_CENTER; h.add_theme_constant_override("separation", 16); body.add_child(h)
+		h.add_child(big_button("Annuler", true, func(): show_boutique()))
+		h.add_child(big_button("Acheter · %s" % o.eur, true, func(): main.real_buy(o.id), GOLD, true))
+	, 620, 380)
 func _offer_tex(o: Dictionary) -> Texture2D:
 	var k: String = o.icon
 	if k == "char_Knight": return main.icons.char_icon("Knight")
@@ -1627,8 +1768,13 @@ func _offer_card(o: Dictionary, big: bool) -> PanelContainer:
 		tag.add_child(_label("POPULAIRE", 12, Color.WHITE)); info.add_child(tag)
 	var nm := _label(o.name, 22 if big else 18, col.lightened(0.25)); nm.add_theme_font_override("font", f_title); info.add_child(nm)
 	info.add_child(rich("[color=#c8ccd2]%s[/color]" % o.desc, 15))
-	var pr := rich("[s][color=#8a8f98]valeur %s[/color][/s]   [b][color=#7dff8a]GRATUIT[/color][/b]" % Game.fmt(o.val), 15); info.add_child(pr)
-	var b := big_button("Obtenir", true, func(): main.shop_claim(o.id), GOLD, true)
+	var bought: bool = o.get("once", false) and Game.S.get(o.id, false)
+	var txt := ""
+	if o.has("eur"): txt = "Déjà acheté" if bought else o.eur
+	else: txt = "%s  %d" % ["♛", int(o.cr)]
+	var ok: bool = not bought and (o.has("eur") or Game.crowns() >= int(o.cr))
+	var b := big_button(txt if o.has("eur") else "Acheter · %d couronnes" % int(o.cr), not bought, func(): main.shop_claim(o.id), GOLD, ok)
+	if not o.has("eur") and not ok: b.add_theme_color_override("font_color", Color("#ff9a8a"))
 	b.custom_minimum_size = Vector2(0, 46); b.add_theme_font_size_override("font_size", 19); v.add_child(b)
 	return card
 
@@ -1637,7 +1783,9 @@ func show_boutique(tab := "") -> void:
 	open_panel("Boutique royale", func(body: VBoxContainer):
 		cur_panel = "boutique"
 		var ban := PanelContainer.new(); ban.add_theme_stylebox_override("panel", flat(Color(0.32, 0.16, 0.04, 0.96), 14, Color("#ffcf5a"), 2, Vector4(16, 8, 16, 8))); body.add_child(ban)
-		ban.add_child(rich("[center][b][color=#ffe39a]✦ OFFRES DE LANCEMENT ✦[/color][/b]   ·   [color=#fff4d6]tout est [b][color=#7dff8a]GRATUIT[/color][/b] pour l'instant[/color]   ·   [color=#ffd86b]ta bourse : %s[/color][/center]" % Game.fmt(Game.S.silver), 18))
+		var prem := ("[color=#ffcf5a]Premium : %s[/color]" % Game.dur_txt(Game.premium_left())) if Game.is_premium() else "[color=#a8b4bc]Premium inactif[/color]"
+		var bst := ("   ·   [color=#7dff8a]Boost XP ×2 : %s[/color]" % Game.dur_txt(Game.boost_left())) if Game.boost_left() > 0 else ""
+		ban.add_child(rich("[center][img=28x28]res://ui/crown.png[/img] [b][color=#ffe39a]%d couronnes[/color][/b]   ·   [color=#ffd86b]argent : %s[/color]   ·   %s%s[/center]" % [Game.crowns(), Game.fmt(Game.S.silver), prem, bst], 18))
 		var tabs := HFlowContainer.new(); tabs.add_theme_constant_override("h_separation", 6); tabs.add_theme_constant_override("v_separation", 6); body.add_child(tabs)
 		for t in SHOP_TABS: _chip(tabs, t[1], shop_tab == t[0], func(): show_boutique(t[0]))
 		var list: Array = []
@@ -1645,6 +1793,8 @@ func show_boutique(tab := "") -> void:
 			if (shop_tab == "une" and o.get("hot", false)) or o.tab == shop_tab: list.append(o)
 		var grid := GridContainer.new(); grid.columns = 2 if shop_tab == "une" else 3; grid.add_theme_constant_override("h_separation", 12); grid.add_theme_constant_override("v_separation", 12); body.add_child(grid)
 		for o in list: grid.add_child(_offer_card(o, shop_tab == "une"))
+		if shop_tab in ["couronnes", "une"]:
+			body.add_child(rich("[color=#8a949c]Les couronnes se gagnent aussi en jouant : connexion quotidienne, quêtes du jour, classement. Achats en euros : [b]simulés[/b] dans cette version de test (aucun paiement réel) — le vrai paiement passera par Google Play.[/color]", 14))
 	, 1220)
 
 # ——— Enchantement (Ysaline) ———

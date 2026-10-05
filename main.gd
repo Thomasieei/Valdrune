@@ -267,6 +267,8 @@ func _talk_travel(n: Npc) -> void:
 	hud.show_dialog(n, line, acts)
 
 func on_start() -> void:
+	if Game.S.tips.has("start") and Game.login_can_claim():
+		get_tree().create_timer(1.5).timeout.connect(func(): if not hud.panel_open: hud.show_daily())
 	if not Game.S.tips.has("start"):
 		Game.S.tips["start"] = 1; Game.save()
 		get_tree().create_timer(1.2).timeout.connect(func(): if not hud.panel_open: hud.show_guide("debut"))
@@ -516,7 +518,7 @@ func on_gather_hit(nd: Dictionary) -> void:
 	var tool: String = Game.TOOL_OF[nd.type]
 	var lvl: int = Game.prof(tool).lvl
 	var n := 1 + (1 if randf() < 0.03 + 0.01 * lvl + Game.TOOL_Q[Game.toolq(tool)].bonus else 0)
-	Game.S.inv[nd.type][nd.tier] += n; Game.S.stats.gathered += n
+	Game.S.inv[nd.type][nd.tier] += n; Game.S.stats.gathered += n; _dq("gather", n)
 	# XP de métier : plus le tier est haut, plus ça rapporte
 	var xp: int = [0, 8, 14, 24, 40, 65][nd.tier]
 	var ups := Game.add_prof_xp(tool, xp)
@@ -561,7 +563,7 @@ func pick_crop(c: Dictionary) -> void:
 	Fx.number(self, c.pos + Vector3(0, 1.8, 0), "+%d %s" % [n, Game.food_name(c.kind)], Color("#b8f58a"), false)
 	Fx.burst(self, c.pos + Vector3(0, 0.8, 0), Color("#9be86a"), 10, 3.0, 0.2, 0.45)
 	Game.play("pickup", -4.0)
-	Game.S.stats.gathered += n
+	Game.S.stats.gathered += n; _dq("food", n)
 	if not Game.S.tips.has("food"):
 		Game.S.tips["food"] = 1; hud.toast("Ouvre ton sac pour manger (ça soigne) ou vendre ce que tu cueilles", Color("#d8ffb0"), true)
 	Game.save()
@@ -587,8 +589,15 @@ func sell_food(key: String, all := false) -> void:
 	if Game.S.food[key] <= 0: Game.S.food.erase(key)
 	hud.toast("Vendu : %s ×%d · +%s argent" % [Game.food_name(parts[0]), q, Game.fmt(got)], Color("#ffd86b")); Game.play("coin", -6.0); Game.save()
 
+# quêtes du jour : progression + annonce quand un objectif est rempli
+func _dq(id: String, n := 1) -> void:
+	var done := Game.dq_progress(id, n)
+	if done != "" and hud:
+		hud.toast("Quête du jour accomplie : %s — va chercher ta récompense (QUOTIDIEN)" % done, Color("#ffe39a"), true); Game.play("level", -6.0, 1.2)
+
 func gain_silver(n: int) -> int:
-	n = int(n * (1.0 + Game.art_bonus("fortune") + (social.guild_bonus() if social else 0.0))); Game.S.silver += n; return n
+	n = int(n * (Game.silver_mult() + Game.art_bonus("fortune") + (social.guild_bonus() if social else 0.0))); Game.S.silver += n
+	_dq("silver", n); return n
 
 # XP d'arme : chaque monstre tué près du héros fait progresser l'arme portée
 func _weapon_xp(tier: int, mult: float) -> void:
@@ -627,7 +636,8 @@ func on_enemy_death(e: Enemy) -> void:
 		for sp in world.spawns:
 			if e in sp.members and sp.members.all(func(m): return not is_instance_valid(m) or m.dead): sp.dead_at = Time.get_ticks_msec() / 1000.0
 		return
-	Game.S.stats.kills += 1
+	Game.S.stats.kills += 1; _dq("kill")
+	if e.elite or e.is_boss: _dq("elite")
 	if e.global_position.distance_to(player.global_position) < 30.0 and not player.dead: _weapon_xp(e.tier, 10.0 if e.is_boss else (3.0 if e.elite else 1.0))
 	if e.global_position.distance_to(player.global_position) < 30.0 and not player.dead: _gear_xp(e.tier, 10.0 if e.is_boss else (3.0 if e.elite else 1.0))
 	if not e.is_boss and e.duel_info.is_empty():
@@ -653,7 +663,7 @@ func on_enemy_death(e: Enemy) -> void:
 	if dungeon and e == dungeon.boss and randf() < 0.03: _rare_mount("Le gardien du donjon")
 	if dungeon and e == dungeon.boss:
 		hud.celebrate("GARDIEN VAINCU !", "Ouvre le coffre doré — le portail de sortie est ouvert", "it_key"); Game.play("level")
-		dungeon.open_exit()
+		dungeon.open_exit(); _dq("dungeon")
 	for sp in world.spawns:
 		if e in sp.members and sp.members.all(func(m): return not is_instance_valid(m) or m.dead): sp.dead_at = Time.get_ticks_msec() / 1000.0
 	Game.save()
@@ -676,6 +686,11 @@ func boss_summon(b: Enemy) -> void:
 
 func on_player_death() -> void:
 	var killer = player.last_attacker
+	var need := 0; var who := ""
+	if killer is Bot and is_instance_valid(killer): need = int(killer.pwr); who = killer.nm
+	elif killer is Enemy and is_instance_valid(killer):
+		need = int(Game.power_needed(killer.tier) * (1.6 if killer.is_boss else (1.2 if killer.elite else 1.0))); who = str(killer.def.get("name", "ce monstre"))
+	if need > Game.power(): get_tree().create_timer(3.4).timeout.connect(func(): if not hud.panel_open: hud.show_defeat(who, need))
 	if killer is Bot and is_instance_valid(killer) and world.map_id >= 2 and not in_instance(): _robbed_by(killer)
 	else: hud.toast("Tu es tombé… retour au camp. Tes ressources sont sauves.", Color("#ff8a7a"), true)
 	if duel_enemy: hud.toast("Duel perdu ! %s t'attend pour une revanche." % duel_enemy.def.name, Color("#ffb07a"))
@@ -1502,6 +1517,38 @@ func _chest_emptied(c: Dictionary) -> void:
 
 # ================= BOUTIQUE =================
 func shop_claim(id: String) -> void:
+	var o: Dictionary = hud.offer(id)
+	if o.is_empty(): return
+	if o.has("eur"): hud.confirm_purchase(o); return
+	var cost := int(o.get("cr", 0))
+	if Game.crowns() < cost:
+		hud.toast("Il te manque %d couronnes" % (cost - Game.crowns()), Color("#ffb07a"), true); hud.show_boutique("couronnes"); return
+	Game.spend_crowns(cost)
+	var msg := _shop_effect(id)
+	if msg == "": Game.add_crowns(cost); return
+	if msg == "-": return
+	Game.play("coin"); Game.play("level", -6.0)
+	hud.celebrate("BOUTIQUE", msg, "it_chest_open")
+	player.refresh_gear(); Game.save(); update_goal()
+	if hud.cur_panel == "boutique": hud.show_boutique()
+
+# achat en argent réel — SIMULÉ pour l'instant (le vrai paiement passera par Google Play)
+func real_buy(id: String) -> void:
+	var msg := ""
+	match id:
+		"pack_debut":
+			Game.S["pack_debut"] = true; Game.add_crowns(300); Game.add_time("premium_until", 3 * 86400)
+			_give({"slot": "monture", "tier": 2, "kind": "cheval"})
+			msg = "+300 couronnes · Cheval de selle · 3 jours Premium"
+		_:
+			var o: Dictionary = hud.offer(id)
+			var n := int(o.get("gives", 0)); Game.add_crowns(n); msg = "+%d couronnes" % n
+	Game.play("coin"); Game.play("level", -4.0)
+	hud.celebrate("MERCI !", msg, "it_chest_open")
+	player.refresh_gear(); Game.save()
+	hud.show_boutique()
+
+func _shop_effect(id: String) -> String:
 	var msg := ""
 	var named := {
 		"lame": {"slot": "epee", "tier": 5, "kind": "epee", "ench": 5, "nm": "Lame de l'Aube"},
@@ -1531,7 +1578,7 @@ func shop_claim(id: String) -> void:
 			"leg":
 				var tw := Tower.new(); tw.floor_n = 30; tw.tier = 5; tw.rng.randomize()
 				var c := {"rarity": 3, "loot": tw._make_loot(3), "pos": player.global_position, "opened": false}
-				tw.free(); hud.show_loot(c); Game.play("level"); return
+				tw.free(); hud.show_loot(c); Game.play("level"); return "-"
 			"res2", "res3", "res4", "res5":
 				var t := int(id.substr(3))
 				for k in Game.RES_KEYS: Game.S.inv[k][t] += 120
@@ -1544,17 +1591,22 @@ func shop_claim(id: String) -> void:
 				player.level_glow(Color(0.75, 0.4, 1.0))
 			"metier":
 				for tl in ["hache", "pioche", "faucille"]:
-					var p := Game.prof(tl); p.lvl = min(Game.PROF_MAX, int(p.lvl) + 5); p.xp = 0
-				msg = "+5 niveaux à tous les métiers"; player.level_glow()
+					var p := Game.prof(tl); p.lvl = min(Game.PROF_MAX, int(p.lvl) + 3); p.xp = 0
+				msg = "+3 niveaux à tous les métiers"; player.level_glow()
 			"maitrise":
-				var w := Game.wxp(Game.S.get("weapon_kind", "epee")); w.lvl = min(Game.WXP_MAX, int(w.lvl) + 5); w.xp = 0
-				msg = "+5 niveaux de maîtrise"; player.level_glow(Color(1.0, 0.55, 0.25))
+				for wk2 in [Game.S.get("weapon_kind", "epee"), "armure"]:
+					var w := Game.wxp(wk2); w.lvl = min(Game.WXP_MAX, int(w.lvl) + 3); w.xp = 0
+				msg = "+3 niveaux de maîtrise d'arme et d'armure"; player.level_glow(Color(1.0, 0.55, 0.25))
+			"premium30", "premium7":
+				Game.add_time("premium_until", (30 if id == "premium30" else 7) * 86400); msg = "Premium actif : %s" % Game.dur_txt(Game.premium_left())
+			"boost1", "boost24":
+				Game.add_time("boost_until", 3600 if id == "boost1" else 86400); msg = "Boost XP ×2 : %s" % Game.dur_txt(Game.boost_left())
 			"potions": Game.S.potions += 25; msg = "+25 potions"
 			"auto":
 				Game.S["auto_owned"] = true; msg = "Écuyer automatique : touche AUTO pour lancer la chasse"
 				hud.refresh_auto()
 			"sac":
-				if int(Game.S.get("bag_bonus", 0)) >= 24: hud.toast("Ton sac est déjà au maximum", Color("#ffb07a")); return
+				if int(Game.S.get("bag_bonus", 0)) >= 24: hud.toast("Ton sac est déjà au maximum", Color("#ffb07a")); return ""
 				Game.S.bag_bonus = int(Game.S.get("bag_bonus", 0)) + 8; msg = "Sac : %d cases" % Game.bag_size()
 			"garde":
 				var n2 := 0
@@ -1563,11 +1615,7 @@ func shop_claim(id: String) -> void:
 					var d := {"type": ty, "tier": 5, "name": Ally.NAMES[randi() % Ally.NAMES.size()]}
 					Game.S.mercs.append(d); _spawn_merc(d, Game.S.mercs.size() - 1); n2 += 1
 				msg = "%d mercenaire(s) T5 rejoignent ton groupe" % n2 if n2 > 0 else "Ton groupe est déjà complet"
-	if msg == "": return
-	Game.play("coin"); Game.play("level", -6.0)
-	hud.celebrate("BOUTIQUE", msg, "it_chest_open")
-	player.refresh_gear(); Game.save(); update_goal()
-	if hud.cur_panel == "boutique": hud.show_boutique()
+	return msg
 
 func _give(it: Dictionary) -> String:
 	if Game.add_item(it): return "%s ajouté à ton sac" % Game.item_name(it)

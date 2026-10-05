@@ -166,6 +166,24 @@ func say(t: String) -> void:
 	bubble.text = "« %s »" % t; bubble.visible = true
 	get_tree().create_timer(4.5).timeout.connect(func(): if is_instance_valid(bubble): bubble.visible = false)
 
+# déplacement intelligent : ligne droite si libre, sinon chemin A* (ponts, rampes, contournement des falaises)
+var route: Array = []
+var route_t := 0.0
+var blk_t := 0.0
+func _steer(tgt: Vector3, dt: float) -> Vector3:
+	var W = main.world
+	var a := Vector2(global_position.x, global_position.z); var b := Vector2(tgt.x, tgt.z)
+	if global_position.x > 300.0 or W.pass_grid.is_empty(): return (Vector3(b.x - a.x, 0, b.y - a.y)).normalized()
+	route_t -= dt
+	if route.is_empty() and a.distance_to(b) < 6.0 and W.line_free(a, b): return Vector3(b.x - a.x, 0, b.y - a.y).normalized()
+	if route_t <= 0.0 or route.is_empty() or (route[route.size() - 1] as Vector2).distance_to(b) > 4.0:
+		route_t = 2.0 + randf()
+		route = W.find_path(a, b, 4000)
+		if route.is_empty(): route = [b]
+	while route.size() > 1 and a.distance_to(route[0]) < 1.2: route.pop_front()
+	var wp: Vector2 = route[0]
+	return Vector3(wp.x - a.x, 0, wp.y - a.y).normalized()
+
 func _new_goal() -> void:
 	var R: Dictionary = World.REGIONS[region]
 	for k in 30:
@@ -242,7 +260,10 @@ func _physics_process(dt: float) -> void:
 		if mode == "pvp": _end_pvp()
 		var to := goal - global_position; to.y = 0
 		if to.length() < 2.0: _new_goal()
-		else: global_position += to.normalized() * 3.0 * dt
+		else:
+			var nq: Vector3 = global_position + to.normalized() * 3.0 * dt
+			if global_position.x > 300.0 or main.world.walkable(nq.x, nq.z): global_position = nq
+			else: _new_goal()
 		global_position.y = main.world.ground_y(global_position.x, global_position.z) + 0.1 if global_position.x < 300 else global_position.y
 		return
 	visible = true; ap.active = true
@@ -272,7 +293,7 @@ func _physics_process(dt: float) -> void:
 			if prey == null or not is_instance_valid(prey) or prey.dead: mode = "walk"; prey = null
 			else:
 				var to: Vector3 = prey.global_position - global_position; to.y = 0; face = to
-				if to.length() > 2.0 + prey.radius: want = to.normalized() * 5.2
+				if to.length() > 2.0 + prey.radius: want = _steer(prey.global_position, dt) * 5.2
 				elif atk_cd <= 0.0:
 					atk_cd = 0.95; _play("Throw", 2.0, true)
 					var e = prey
@@ -281,7 +302,7 @@ func _physics_process(dt: float) -> void:
 			if node_t.is_empty() or node_t.charges <= 0: mode = "walk"; node_t = {}
 			else:
 				var to: Vector3 = node_t.pos - global_position; to.y = 0; face = to
-				if to.length() > 1.9: want = to.normalized() * 4.2
+				if to.length() > 1.9: want = _steer(node_t.pos, dt) * 4.2
 				else:
 					act_t -= dt
 					if act_t <= 0.0:
@@ -293,18 +314,21 @@ func _physics_process(dt: float) -> void:
 				var off := Vector3(cos(get_instance_id() % 7), 0, sin(get_instance_id() % 7)) * 2.6
 				goal = P.global_position + off; goal.y = 0
 				var tp: Vector3 = goal - global_position; tp.y = 0
-				want = tp.normalized() * clamp(tp.length() * 2.0, 0.0, 6.5) if tp.length() > 1.2 else Vector3.ZERO
+				want = _steer(goal, dt) * clamp(tp.length() * 2.0, 0.0, 6.5) if tp.length() > 1.2 else Vector3.ZERO
 				face = want if want.length() > 0.1 else (P.global_position - global_position)
 			else:
 				var to: Vector3 = goal - global_position; to.y = 0
 				if to.length() < 1.5: _new_goal()
-				else: want = to.normalized() * 3.6
+				else: want = _steer(goal, dt) * 3.6
 			face = want
 	velocity.x = want.x; velocity.z = want.z
 	var nx := global_position + Vector3(velocity.x, 0, velocity.z) * 0.15
 	if not main.world.walkable(nx.x, nx.z):
 		velocity.x = 0.0; velocity.z = 0.0
-		if mode == "walk": _new_goal()
+		route = []; route_t = 0.0
+		blk_t += dt
+		if blk_t > 1.5 and mode == "walk": _new_goal(); blk_t = 0.0
+	else: blk_t = 0.0
 	global_position.x += velocity.x * dt; global_position.z += velocity.z * dt
 	global_position.y = main.world.ground_y(global_position.x, global_position.z)
 	if face.length() > 0.1: rotation.y = lerp_angle(rotation.y, atan2(face.x, face.z), 1.0 - exp(-dt * 10.0))
