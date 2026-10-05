@@ -1988,6 +1988,8 @@ var placed_grid := {}       # modèles posés (murs, bâtiments…) qu'on peut m
 var occ_active := {}
 var occ_tick := 0.0
 var hidden_placed := {}
+# caméra haute façon Albion : le décor reste visible ; seules les maisons qui cacheraient vraiment le héros s'effacent
+const HIDE_DECOR := false
 func update_occlusion(pp: Vector3, dt: float) -> void:
 	var want := {}
 	var cx := int(floor(pp.x / 8.0)); var cz := int(floor(pp.z / 8.0))
@@ -1996,7 +1998,7 @@ func update_occlusion(pp: Vector3, dt: float) -> void:
 			for rec in occ_grid.get(Vector2i(cx + dx, cz + dz), []):
 				var d: Vector3 = rec.pos - pp
 				# couloir vers la caméra (+z) ou tout près du héros
-				if (abs(d.x) < 3.2 and d.z > -1.2 and d.z < 9.0) or Vector2(d.x, d.z).length() < 2.6: want[rec] = true
+				if HIDE_DECOR and ((abs(d.x) < 3.2 and d.z > -1.2 and d.z < 9.0) or Vector2(d.x, d.z).length() < 2.6): want[rec] = true
 	for rec in want:
 		if not occ_active.has(rec): occ_active[rec] = 1.0
 	for rec in occ_active.keys():
@@ -2022,7 +2024,7 @@ func update_occlusion(pp: Vector3, dt: float) -> void:
 	# maisons entre la caméra et le héros : elles s'effacent (on voit toujours son personnage dans les rues)
 	for hz in houses:
 		var dd: Vector2 = hz.c - Vector2(pp.x, pp.z)
-		var hide: bool = abs(dd.x) < float(hz.hx) + 1.2 and dd.y > -float(hz.hz) + 0.5 and dd.y < float(hz.hz) + 10.0
+		var hide: bool = abs(dd.x) < float(hz.hx) + 0.6 and dd.y > -float(hz.hz) + 1.0 and dd.y < float(hz.hz) + 5.0
 		if hide != hz.hid:
 			hz.hid = hide
 			for pc in hz.pieces:
@@ -2035,7 +2037,7 @@ func update_occlusion(pp: Vector3, dt: float) -> void:
 			for o in placed_grid.get(Vector2i(cx + dx, cz + dz), []):
 				if not is_instance_valid(o): continue
 				var d3: Vector3 = o.position - pp
-				var hide3: bool = abs(d3.x) < 4.5 and d3.z > 0.5 and d3.z < 10.0
+				var hide3: bool = HIDE_DECOR and abs(d3.x) < 4.5 and d3.z > 0.5 and d3.z < 10.0
 				if o.visible == hide3: o.visible = not hide3
 				if hide3: hidden_placed[o] = true
 	for o in hidden_placed.keys():

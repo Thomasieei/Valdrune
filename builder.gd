@@ -442,4 +442,4 @@ func _unhandled_input(ev: InputEvent) -> void:
 
 # ——— caméra du mode construction ———
 func cam_target() -> Array:
-	return [focus, Vector3(0, 14.5, 6.4) * zoom]
+	return [focus, Vector3(0, 21.0, 8.5) * zoom]

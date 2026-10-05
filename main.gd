@@ -1047,7 +1047,7 @@ func _cam_update(dt: float, snap := false) -> void:
 		cam.look_at(cam.global_position - ct[1] + Vector3(0, 1.0, 0))
 		return
 	var target := P.global_position + Vector3(P.velocity.x, 0, P.velocity.z) * 0.12
-	var off := Vector3(0, 14.5, 6.4) * cam_zoom * user_zoom   # un peu plus plongeante : moins d'obstacles devant le héros
+	var off := Vector3(0, 21.0, 8.5) * cam_zoom * user_zoom   # un peu plus plongeante : moins d'obstacles devant le héros
 	# inventaire ouvert : le héros glisse vers la gauche de l'écran pour rester visible à côté du parchemin
 	bag_shift = lerp(bag_shift, 5.2 * cam_zoom * user_zoom if hud.cur_panel == "bag" else 0.0, 1.0 if snap else 1.0 - exp(-dt * 6.0))
 	target.x += bag_shift
