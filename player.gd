@@ -723,6 +723,21 @@ func level_glow(col := Color(1.0, 0.85, 0.35)) -> void:
 	Fx.burst(main, global_position + Vector3(0, 1.0, 0), col, 36, 6.0, 0.4, 1.0, -3.0)
 	Fx.disc(main, global_position, 3.0, Color(col.r, col.g, col.b, 0.5), 0.6, false)
 
+var guild_lbl: Label3D
+func refresh_name() -> void:
+	if guild_lbl == null:
+		guild_lbl = Label3D.new(); guild_lbl.font_size = 34; guild_lbl.outline_size = 12; guild_lbl.modulate = Color("#9fe0ff"); guild_lbl.outline_modulate = Color(0, 0, 0, 0.8)
+		guild_lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED; guild_lbl.pixel_size = 0.0065; guild_lbl.position.y = 2.6; guild_lbl.no_depth_test = true; add_child(guild_lbl)
+	var S: Dictionary = Game.S.get("guild", {})
+	guild_lbl.text = "[%s] %s" % [S.tag, str(Game.S.get("pname", "Aventurier"))] if S.has("tag") else ""
+	guild_lbl.visible = guild_lbl.text != ""
+
+func play_pick() -> void:
+	if dead: return
+	if mounted: dismount()
+	lock = 0.35; move_lock = 0.35
+	play("PickUp", 1.6, 0.06, true)
+
 # ——— Récolte ———
 func gather(nd: Dictionary) -> void:
 	if gather_cd > 0.0 or dead: return

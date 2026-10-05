@@ -112,6 +112,10 @@ func setup(m: Node, k: String, t: int, pos: Vector3, c: Dictionary, is_elite := 
 	if group_boss: is_boss = true; leash = 18.0; def.speed = 4.2; def.aggro = 7.0
 	if def.get("duel", false): duel_info = extra; leash = 32.0
 	if elite: def.hp *= 2.6; def.dmg *= 1.3; def.scale = def.get("scale", 1.0) * 1.28; def.name = "Élite · " + def.name
+	if def.get("chief", false):
+		# chef de guerre : un vrai boss de région, gros, lent à tomber, qui tape fort
+		elite = false; is_boss = true; leash = 22.0
+		def.hp *= 9.0; def.dmg *= 1.6; def.scale = def.get("scale", 1.0) * 1.75; def.name = "Chef de guerre · " + def.name
 	max_hp = Game.mob_hp(t) * def.hp; hp = max_hp
 	var sc: float = def.get("scale", 1.0)
 	var el: float = 1.28 if elite else 1.0

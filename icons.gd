@@ -44,6 +44,7 @@ func setup(m: Node) -> void:
 	for sl in ["casque", "cape"]:
 		for k in Game.GEAR_KINDS[sl]: queue.append({"key": "%s_%s" % [sl, k], "kind": "piece", "model": Game.GEAR_KINDS[sl][k].model, "parts": Game.GEAR_KINDS[sl][k].parts})
 	for jk in Game.JUNK: queue.append({"key": "junk_" + jk, "kind": "model", "path": Game.JUNK[jk].model, "rot": Vector3(0.35, 0.5, 0), "tint": Game.JUNK[jk].get("tint", Color(1, 1, 1))})
+	for fk in Game.FOOD: queue.append({"key": "food_" + fk, "kind": "food", "k": fk})
 	# les miniatures déjà faites (changement de carte) sont gardées en mémoire
 	tex = Game.icon_cache
 	# ressources : icônes dessinées à la main (plus lisibles que des miniatures 3D)
@@ -106,6 +107,8 @@ func _next() -> void:
 		"model":
 			node = load(job.path).instantiate(); node.rotation = job.rot
 			if job.get("tint", Color(1, 1, 1)) != Color(1, 1, 1): _tint_mul(node, job.tint)
+		"food":
+			node = Crops.food_model(job.k, 1.0); node.rotation = Vector3(0.25, 0.6, 0.0)
 		"animal":
 			node = load("res://assets/animals/%s.glb" % job.model).instantiate()
 			var aap: AnimationPlayer = node.find_child("AnimationPlayer", true, false)

@@ -61,6 +61,8 @@ var talk_i := 0
 var marker: Label3D
 var data: Dictionary
 var hidden := false
+var indoor := false
+var door_idx: Array = []
 
 func setup(m: Node, d: Dictionary) -> void:
 	main = m; id = d.id; nm = d.name; role = d.role; act = d.act; data = d
@@ -74,6 +76,8 @@ func setup(m: Node, d: Dictionary) -> void:
 		if d.model in ["Knight", "Barbarian"] and d.wkind != "baton": Chars.attach(ch, "handslot.l", Game.shield_model(d.tier), 1.0)
 	home = d.pos; home.y = main.world.height(home.x, home.z); position = home
 	for p in d.get("path", []): path.append(Vector3(p.x, 0, p.y))
+	door_idx = d.get("doors", [])
+	pi = int(d.get("start", 0)) % max(1, path.size())
 	yaw = float(d.get("yaw", randf() * TAU))
 	var l := Label3D.new(); l.text = nm; l.font_size = 50; l.outline_size = 12; l.modulate = Color("#fff4d6"); l.outline_modulate = Color(0, 0, 0, 0.75)
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED; l.pixel_size = 0.0065; l.position.y = 2.55 * d.get("scale", 1.0); l.no_depth_test = true; add_child(l)
@@ -97,6 +101,12 @@ func _process(dt: float) -> void:
 	var far := d.length() > 45.0
 	if ap.active == far: ap.active = not far   # loin : animation coupée (gros gain sur mobile)
 	if far: return
+	if indoor:
+		wait -= dt
+		if wait <= 0.0:
+			indoor = false; ch.root.visible = true; _labels(true)
+			pi = (pi + 1) % path.size()
+		return
 	if d.length() < 4.0:
 		yaw = lerp_angle(yaw, atan2(d.x, d.y), 1.0 - exp(-dt * 6.0)); _play("Idle_A")
 	elif act == "guard":
@@ -105,12 +115,21 @@ func _process(dt: float) -> void:
 		if wait > 0.0: wait -= dt; _play("Idle_B")
 		else:
 			var t: Vector3 = path[pi]; var to := Vector2(t.x - position.x, t.z - position.z)
-			if to.length() < 0.4: pi = (pi + 1) % path.size(); wait = randf_range(1.5, 4.0)
+			if to.length() < 0.4:
+				if pi in door_idx:
+					# il rentre chez lui un moment
+					indoor = true; wait = randf_range(6.0, 16.0); ch.root.visible = false; _labels(false)
+					return
+				pi = (pi + 1) % path.size(); wait = randf_range(1.0, 3.5) if not door_idx.is_empty() else randf_range(1.5, 4.0)
 			else:
 				var v := to.normalized() * 1.5 * dt
 				position.x += v.x; position.z += v.y; position.y = main.world.height(position.x, position.z)
 				yaw = lerp_angle(yaw, atan2(to.x, to.y), 1.0 - exp(-dt * 6.0)); _play("Walking_A", 0.9)
 	ch.root.rotation.y = yaw
+
+func _labels(on: bool) -> void:
+	for c in get_children():
+		if c is Label3D: c.visible = on
 
 func hide_for_duel(on: bool) -> void:
 	hidden = on; visible = not on
@@ -125,6 +144,8 @@ const ACT_LINES := {
 	"tools3": ["Haches, pioches, faucilles : j'ai tout, du commun au légendaire. Encore faut-il avoir le niveau pour s'en servir."],
 	"travel": ["Je connais toutes les routes du royaume."],
 	"guard": ["Halte ! … Ah, un aventurier. Passe, la ville est sûre.", "Personne n'entre armé de mauvaises intentions. Pas sous ma garde.", "Les routes sont calmes de jour. La nuit, c'est une autre histoire.", "Si tu croises des joueurs hostiles, reviens en ville : ici, on ne se bat pas."],
+	"farmer": ["Sers-toi dans le potager si tu veux, ça repousse vite. Mais laisse-en un peu pour les autres !", "Un légume frais, ça remet d'aplomb mieux qu'une potion. Mange-en depuis ton sac.",
+		"Les bêtes sont nerveuses ce soir… les loups rôdent près des champs.", "Ce que tu cueilles se revend bien chez la marchande, surtout les fruits des régions lointaines."],
 	"villager": ["Belle journée pour flâner, pas vrai ?", "Mon voisin jure avoir vu un loup géant près du moulin.", "Les nuits sont dangereuses : les monstres deviennent plus forts… mais on dit que leur butin aussi.",
 		"Tu cherches du travail ? Le chef de la ville a toujours une tâche pour les aventuriers.", "Ne t'approche pas des terres rouges sans bon équipement. Là-bas, on perd tout.", "Ma fille veut devenir aventurière. Je préférerais qu'elle fasse du pain."],
 }

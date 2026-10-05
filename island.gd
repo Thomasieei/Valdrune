@@ -88,20 +88,29 @@ void fragment(){
 	spots.append({"pos": O + Vector3(-3, 0, -6.5), "kind": "house"})
 	main.world._light(chest_pos + Vector3(0, 1.4, 0), Color("#ffd24a"), 2.0, 3.0)
 	# ressources travaillées par les ouvriers (décor)
-	for i in 7: _place(F + ["Tree_1_A_Color1.gltf", "Tree_2_A_Color1.gltf", "Tree_3_A_Color1.gltf"][i % 3], O + Vector3(-24 + i * 2.7, 0, -14 + (i % 2) * 3.0), i, 1.2)
-	for i in 4: _place(F + "Rock_3_E_Color1.gltf", O + Vector3(18 + (i % 2) * 3.0, 0, -6 + i * 2.6), i, 1.0)
-	for i in 6: _place(F + "Bush_2_B_Color1.gltf", O + Vector3(-22 + (i % 3) * 2.5, 0, 4 + int(i / 3) * 2.5), i, 1.4)
-	_place(H + "resource_lumber.gltf", O + Vector3(-14, 0, -8), 0.3, 4.0)
-	_place(H + "resource_stone.gltf", O + Vector3(15, 0, -2), 0.3, 4.0)
+	var trees: Array = []; var rocks: Array = []; var bushes: Array = []
+	for i in 7: trees.append(_place(F + ["Tree_1_A_Color1.gltf", "Tree_2_A_Color1.gltf", "Tree_3_A_Color1.gltf"][i % 3], O + Vector3(-24 + i * 2.7, 0, -14 + (i % 2) * 3.0), i, 1.2))
+	for i in 4: rocks.append(_place(F + "Rock_3_E_Color1.gltf", O + Vector3(18 + (i % 2) * 3.0, 0, -6 + i * 2.6), i, 1.0))
+	for i in 6: bushes.append(_place(F + "Bush_2_B_Color1.gltf", O + Vector3(-22 + (i % 3) * 2.5, 0, 4 + int(i / 3) * 2.5), i, 1.4))
+	_place(H + "resource_lumber.gltf", chest_pos + Vector3(-2.6, 0, 0.6), 0.3, 3.0)
+	_place(H + "resource_stone.gltf", chest_pos + Vector3(2.6, 0, 0.6), 0.3, 3.0)
 	_place(H + "wheelbarrow.gltf", O + Vector3(2, 0, -9), 0.6, 4.0)
-	_place(H + "sack.gltf", O + Vector3(1.5, 0, -6.5), 0.0, 4.0)
-	# 3 ouvriers animés
-	for w in [[Vector3(-20, 0, -11), "Throw"], [Vector3(16, 0, -3), "Throw"], [Vector3(-19, 0, 6.5), "PickUp"]]:
-		var ch := Chars.make("res://assets/heroes/%s.glb" % ["Barbarian", "Knight", "Ranger"][workers.size()]); ch.root.position = O + w[0]; add_child(ch.root)
-		Chars.attach(ch, "handslot.r", [Game.TOOL_MODEL.hache, Game.TOOL_MODEL.pioche, Game.TOOL_MODEL.faucille][workers.size()])
-		ch.ap.play(w[1]); ch.ap.get_animation(w[1]).loop_mode = Animation.LOOP_NONE
-		workers.append({"ch": ch, "anim": w[1], "t": randf() * 2.0})
-		var l := Label3D.new(); l.text = "Ouvrier"; l.font_size = 34; l.outline_size = 10; l.billboard = BaseMaterial3D.BILLBOARD_ENABLED; l.pixel_size = 0.0065; l.position = O + w[0] + Vector3(0, 2.4, 0); l.modulate = Color("#c9e6ff"); add_child(l)
+	_place(H + "sack.gltf", chest_pos + Vector3(0.4, 0, 1.9), 0.0, 3.0)
+	# 3 ouvriers qui travaillent pour de vrai : ils vont à la ressource, frappent, rapportent au coffre
+	var defs := [["Barbarian", "hache", trees, "Throw", H + "resource_lumber.gltf", "bois", Vector3(-1.9, 0, 1.4)],
+		["Knight", "pioche", rocks, "Throw", H + "resource_stone.gltf", "pierre", Vector3(1.9, 0, 1.4)],
+		["Ranger", "faucille", bushes, "PickUp", H + "sack.gltf", "fibre", Vector3(0.0, 0, 2.0)]]
+	for d in defs:
+		var ch := Chars.make("res://assets/heroes/%s.glb" % d[0]); add_child(ch.root)
+		var tgts: Array = d[2]
+		var start: Node3D = tgts[workers.size() % tgts.size()]
+		ch.root.position = start.position + Vector3(1.3, 0, 0.6)
+		Chars.attach(ch, "handslot.r", Game.TOOL_MODEL[d[1]])
+		for an in ["Throw", "PickUp"]:
+			if ch.ap.has_animation(an): ch.ap.get_animation(an).loop_mode = Animation.LOOP_NONE
+		var carry: Node3D = load(d[4]).instantiate(); carry.scale = Vector3.ONE * (1.4 if d[5] != "fibre" else 1.6); carry.position = Vector3(0, 2.05, 0); carry.visible = false; ch.root.add_child(carry)
+		var l := Label3D.new(); l.text = "Ouvrier · " + d[5]; l.font_size = 32; l.outline_size = 10; l.billboard = BaseMaterial3D.BILLBOARD_ENABLED; l.pixel_size = 0.0065; l.position = Vector3(0, 2.75, 0); l.modulate = Color("#c9e6ff"); l.no_depth_test = true; ch.root.add_child(l)
+		workers.append({"ch": ch, "anim": d[3], "targets": tgts, "tgt": start, "state": "work", "t": randf_range(0.2, 1.5), "hits": 0, "carry": carry, "drop": chest_pos + d[6], "what": d[5]})
 	# champs (4 parcelles) clôturés
 	for i in 4:
 		var p := O + Vector3(4 + (i % 2) * 7.0, 0, 6 + int(i / 2) * 7.0)
@@ -210,9 +219,50 @@ func refresh() -> void:
 		add_child(mdl); pen_animals.append(mdl)
 
 func _process(dt: float) -> void:
-	for w in workers:
-		w.t -= dt
-		if w.t <= 0.0: w.t = 2.2; w.ch.ap.play(w.anim, 0.1); w.ch.ap.seek(0.0, true)
+	for w in workers: _work(w, dt)
+
+# cycle d'un ouvrier : marcher → frapper 4 fois → porter au coffre → déposer → recommencer ailleurs
+func _work(w: Dictionary, dt: float) -> void:
+	var ch: Dictionary = w.ch; var root: Node3D = ch.root; var ap: AnimationPlayer = ch.ap
+	match w.state:
+		"go", "carry":
+			var goal: Vector3 = (w.tgt as Node3D).position if w.state == "go" else w.drop
+			var to := Vector2(goal.x - root.position.x, goal.z - root.position.z)
+			var stop := 1.35 if w.state == "go" else 0.25
+			if to.length() <= stop:
+				if w.state == "go": w.state = "work"; w.hits = 0; w.t = 0.0
+				else: w.state = "drop"; w.t = 0.9; ap.play("PickUp", 0.15); ap.speed_scale = 1.4
+			else:
+				var v := to.normalized() * 2.3 * dt
+				root.position.x += v.x; root.position.z += v.y
+				root.rotation.y = lerp_angle(root.rotation.y, atan2(to.x, to.y), 1.0 - exp(-dt * 8.0))
+				if ap.current_animation != "Walking_A": ap.play("Walking_A", 0.2)
+				ap.speed_scale = 1.0 if w.state == "go" else 0.8
+		"work":
+			var tp: Vector3 = (w.tgt as Node3D).position
+			root.rotation.y = lerp_angle(root.rotation.y, atan2(tp.x - root.position.x, tp.z - root.position.z), 1.0 - exp(-dt * 8.0))
+			w.t -= dt
+			if w.t <= 0.0:
+				if w.hits >= 4:
+					w.state = "carry"; (w.carry as Node3D).visible = true; return
+				w.hits += 1; w.t = 1.15
+				ap.play(w.anim, 0.1); ap.seek(0.0, true); ap.speed_scale = 1.3
+				# l'arbre / la pierre / le buisson tremble sous le coup
+				var tg: Node3D = w.tgt
+				get_tree().create_timer(0.35).timeout.connect(func():
+					if not is_instance_valid(tg): return
+					var r0 := tg.rotation; var tw := tg.create_tween()
+					tw.tween_property(tg, "rotation", r0 + Vector3(0.06, 0, 0.04), 0.07); tw.tween_property(tg, "rotation", r0, 0.18)
+					if main.player and main.player.global_position.distance_to(tg.position) < 22.0:
+						Fx.burst(self, tg.position + Vector3(0, 1.0, 0), Color("#c99a56") if w.what == "bois" else (Color("#b8b8b8") if w.what == "pierre" else Color("#e8f5a0")), 6, 3.0, 0.15, 0.35))
+		"drop":
+			w.t -= dt
+			if w.t <= 0.0:
+				(w.carry as Node3D).visible = false
+				if main.player and main.player.global_position.distance_to(root.position) < 24.0:
+					Fx.number(self, chest_pos + Vector3(0, 2.0, 0), "+1 " + str(w.what), Color("#c9e6ff"), false)
+				var tg2: Array = w.targets
+				w.tgt = tg2[randi() % tg2.size()]; w.state = "go"
 
 func near(pp: Vector3) -> Dictionary:
 	var best := {}; var bd := 2.8

@@ -18,6 +18,9 @@ var warp := FastNoiseLite.new()
 var rng := RandomNumberGenerator.new()
 var proto := {}
 var nodes: Array = []
+var crops: Crops
+var chiefs: Array = []
+var groves: Array = []         # [centre, style] des bosquets : on les habille de sous-bois
 var spawns: Array = []
 var pois: Array = []           # lieux à découvrir
 var hidden_chests: Array = []
@@ -58,7 +61,7 @@ func setup_map(id: int) -> void:
 	_make_roads()
 	_plan_hamlets()
 	_plan_paths()
-	dirt_spots = []; foot_paths = []
+	dirt_spots = []; foot_paths = []; doors = []
 	if MAP.town.kind == "valdrune":
 		for off in [Vector2(-13, -10), Vector2(13, -10), Vector2(-15, 8), Vector2(15, 10), Vector2(-25, -17), Vector2(-26, -2), Vector2(26, -1)]:
 			var q: Vector2 = village + off
@@ -325,7 +328,9 @@ func build(id := 1) -> void:
 	_road_props()
 	_cliffs()
 	_volcano_fx()
+	crops = Crops.new(); add_child(crops); crops.setup(self); _farms()
 	_resources()
+	crops.build_wild()
 	_duelists()
 	_decor()
 	_monster_camps()
@@ -592,6 +597,35 @@ var _tang := 0.0
 var _tmir := 1.0
 var _roof_tint := Color(1, 1, 1)
 var _wall_force := ""
+var doors: Array = []          # [porte, devant la porte] des maisons : les habitants y entrent et en sortent
+const RESIDENT_NAMES := ["Odile", "Gaspard", "Mahaut", "Thibault", "Ermengarde", "Lucien", "Bertille", "Aymeric", "Clothilde", "Firmin", "Jehanne", "Anselme"]
+const RESIDENT_ROLES := ["Habitante", "Habitant", "Boulangère", "Tisserand", "Lavandière", "Charpentier", "Couturière", "Porteur d'eau"]
+func _line_free(a: Vector2, b: Vector2) -> bool:
+	var n := int(a.distance_to(b) / 1.0)
+	for k in range(1, n):
+		var q := a.lerp(b, float(k) / n)
+		if near_house(q, -0.4) or not walkable(q.x, q.y): return false
+	return true
+
+# Des habitants qui vivent vraiment : ils sortent de chez eux, traversent la place, entrent chez le voisin…
+func _residents(V: Vector2, n: int) -> void:
+	var ok: Array = []
+	for d in doors:
+		if (d[1] as Vector2).distance_to(V) < 34.0: ok.append(d)
+	if ok.size() < 2: return
+	var r := RandomNumberGenerator.new(); r.seed = 77 + map_id
+	var made := 0
+	for tries in 40:
+		if made >= n: break
+		var a: Array = ok[r.randi() % ok.size()]; var b: Array = ok[r.randi() % ok.size()]
+		if a == b: continue
+		var mid := V + Vector2(r.randf_range(-6, 6), r.randf_range(-6, 6))
+		if not (_line_free(a[1], mid) and _line_free(mid, b[1])): continue
+		var path := [a[0], a[1], mid, b[1], b[0], b[1], mid, a[1]]
+		var i := made + map_id * 3
+		npc_spots.append({"id": "habitant_%d_%d" % [map_id, made], "model": ["Rogue", "Ranger", "Barbarian", "Mage", "Knight"][i % 5], "name": RESIDENT_NAMES[i % RESIDENT_NAMES.size()],
+			"role": RESIDENT_ROLES[i % RESIDENT_ROLES.size()], "pos": Vector3(a[1].x, 0, a[1].y), "act": "villager", "path": path, "doors": [0, 4], "start": 1 + (made % 3)})
+		made += 1
 const TOWN_STYLE := {
 	1: {"mir": 1.0, "roof": Color(1, 1, 1), "pave": Color(0.66, 0.62, 0.56), "wall": "", "tree": "res://assets/forest/Tree_1_A_Color1.gltf", "banner": "banner_patternB_blue"},
 	2: {"mir": -1.0, "roof": Color(0.72, 0.48, 0.42), "pave": Color(0.55, 0.52, 0.48), "wall": "brick", "tree": "res://assets/forest/Tree_4_B_Color1.gltf", "banner": "banner_patternA_red"},
@@ -618,10 +652,21 @@ func _town_core(V: Vector2, tname: String) -> void:
 	# pavés : place + rue principale
 	for x in range(-9, 11, 2):
 		for z in range(-11, 11, 2): _pave(tp(x, z), pave)
+	# rues en pavés irréguliers, bordées de pierres de trottoir
 	for z in range(-35, -11, 2):
-		for x in [-1, 1]: _pave(tp(x, z), pave)
+		for x in [-1, 1]: _pave(tp(x, z), pave.lightened(0.05), "Floor_UnevenBrick")
 	for z in range(11, 33, 2):
-		for x in [-1, 1]: _pave(tp(x, z), pave)
+		for x in [-1, 1]: _pave(tp(x, z), pave.lightened(0.05), "Floor_UnevenBrick")
+	var curb := func(x: float, z: float, r: float) -> void:
+		var q := tp(x, z); _mm_xf(_V + "Prop_ExteriorBorder_Straight1.gltf", Transform3D(Basis(Vector3.UP, trot(r)), Vector3(q.x, height(q.x, q.y) + 0.02, q.y)))
+	for z in range(-35, -12, 2):
+		curb.call(2.0, z, PI * 0.5); curb.call(-2.0, z, -PI * 0.5)
+	for z in range(11, 33, 2):
+		curb.call(2.0, z, PI * 0.5); curb.call(-2.0, z, -PI * 0.5)
+	for x in range(-9, 11, 2):
+		if abs(x) > 2: curb.call(x, -12.0, PI); curb.call(x, 10.0, 0.0)
+	for z in range(-11, 10, 2):
+		curb.call(10.0, z, PI * 0.5); curb.call(-10.0, z, -PI * 0.5)
 	# rangée nord, façades vers la place
 	house(tp(-13, -16), trot(0.0), 6, 2, "plaster", true)    # hôtel des ventes
 	house(tp(-5.5, -16), trot(0.0), 4, 1, "brick", true)
@@ -680,11 +725,12 @@ func _town_core(V: Vector2, tname: String) -> void:
 		for k in 2:
 			var gx := -2.0 if k == 0 else 2.0
 			npc_spots.append({"id": "garde_v_%d_%d" % [map_id, int(gz + 50 + k)], "model": "Knight", "name": GUARD_NAMES[(k + int(gz > 0) * 2 + map_id) % GUARD_NAMES.size()], "role": "Garde de la ville", "pos": tp3(gx, gz + (-1.0 if gz < 0 else 1.0)), "act": "guard", "yaw": trot(PI if gz < 0 else 0.0)})
+	_residents(V, 6)
 
 # ——— Maisons à colombages (MegaKit) : murs de 2 m, toit en tuiles, pignons, cheminée ———
 const _V := "res://assets/village/"
-func _pave(q: Vector2, col := Color(0.66, 0.62, 0.56)) -> void:
-	_mm_xf(_V + "Floor_Brick.gltf", Transform3D(Basis(Vector3.UP, _tang + PI * 0.5 * (int(q.x + q.y) % 4)), Vector3(q.x, height(q.x, q.y) + 0.03, q.y)), col)
+func _pave(q: Vector2, col := Color(0.66, 0.62, 0.56), tile := "Floor_Brick") -> void:
+	_mm_xf(_V + tile + ".gltf", Transform3D(Basis(Vector3.UP, _tang + PI * 0.5 * (int(q.x + q.y) % 4)), Vector3(q.x, height(q.x, q.y) + 0.03, q.y)), col)
 
 func house(c: Vector2, rot: float, w: int, floors: int, style: String, door := true) -> void:
 	var D := 8.0; var W := float(w)
@@ -694,34 +740,75 @@ func house(c: Vector2, rot: float, w: int, floors: int, style: String, door := t
 	var X := func(lx: float, ly: float, lz: float, r: float) -> Transform3D:
 		return Transform3D(B * Basis(Vector3.UP, r), Vector3(c.x, y0, c.y) + B * Vector3(lx, ly, lz))
 	if _wall_force != "": style = _wall_force
-	var wall := "Wall_Plaster" if style == "plaster" else "Wall_UnevenBrick"
+	# chaque maison a son caractère : soubassement en pierre, colombages, volets, balcon, lierre…
+	var hr := RandomNumberGenerator.new(); hr.seed = int(c.x * 73.1 + c.y * 91.7) + map_id
+	var stone_base := floors >= 2 or hr.randf() < 0.35
+	var thin := hr.randf() < 0.4
+	var shutters := hr.randf() < 0.7
+	var grid_k := hr.randf_range(0.3, 0.8)
+	var VINES := ["Prop_Vine1", "Prop_Vine2", "Prop_Vine4", "Prop_Vine5", "Prop_Vine6", "Prop_Vine9"]
+	var vine_k := hr.randf_range(0.04, 0.22)
+	var piece := func(f: int, kind: String) -> String:
+		var wl := "Wall_Plaster" if style == "plaster" else "Wall_UnevenBrick"
+		if f == 0 and stone_base: wl = "Wall_UnevenBrick"
+		elif f >= 1: wl = "Wall_Plaster"
+		if kind == "_Window" : return wl + ("_Window_Thin_Round" if thin else "_Window_Wide_Round")
+		if kind == "_Straight" and wl == "Wall_Plaster" and f >= 1 and hr.randf() < grid_k: return "Wall_Plaster_WoodGrid"
+		return wl + kind
+	var window := func(xf: Transform3D) -> void:
+		_mm_xf(_V + ("Window_Thin_Round1.gltf" if thin else "Window_Wide_Round1.gltf"), xf)
+		if shutters: _mm_xf(_V + ("WindowShutters_Thin_Round_Open.gltf" if thin else ("WindowShutters_Wide_Round_Open.gltf" if hr.randf() < 0.75 else "WindowShutters_Wide_Round_Closed.gltf")), xf)
+	var vine := func(xf: Transform3D, y: float) -> void:
+		if hr.randf() < vine_k: _mm_xf(_V + VINES[hr.randi() % VINES.size()] + ".gltf", xf.translated_local(Vector3(hr.randf_range(-0.4, 0.4), y, 0.12)))
 	for f in floors:
 		var y := f * 3.12
 		# façade (+Z) : porte au rez-de-chaussée, fenêtres au-dessus
 		for i in int(W / 2):
 			var lx := -W / 2 + 1 + i * 2
-			var kind := "_Window_Wide_Round"
+			var kind := "_Window"
 			if f == 0 and door and i == int(W / 4): kind = "_Door_Round"
 			elif f == 0 and i % 2 == 1: kind = "_Straight"
-			_mm_xf(_V + wall + kind + ".gltf", X.call(lx, y, D / 2, 0.0))
-			if kind == "_Window_Wide_Round": _mm_xf(_V + "Window_Wide_Round1.gltf", X.call(lx, y, D / 2, 0.0))
-			_mm_xf(_V + wall + ("_Straight" if i % 2 == 0 else "_Window_Wide_Round") + ".gltf", X.call(lx, y, -D / 2, PI))
+			var xf: Transform3D = X.call(lx, y, D / 2, 0.0)
+			_mm_xf(_V + piece.call(f, kind) + ".gltf", xf)
+			if kind == "_Window": window.call(xf)
+			if kind == "_Door_Round":
+				_mm_xf(_V + ("DoorFrame_Round_Brick.gltf" if f == 0 and stone_base else "DoorFrame_Round_WoodDark.gltf"), xf)
+				_mm_xf(_V + ("Door_1_Round.gltf" if hr.randf() < 0.5 else "Door_2_Round.gltf"), X.call(lx - 0.51, y, D / 2 - 0.12, 0.0))
+			else: vine.call(xf, 2.9)
+			var bk: String = piece.call(f, "_Straight" if i % 2 == 0 else "_Window")
+			var bxf: Transform3D = X.call(lx, y, -D / 2, PI)
+			_mm_xf(_V + bk + ".gltf", bxf)
+			if bk.contains("Window"): window.call(bxf)
 		for i in int(D / 2):
 			var lz := -D / 2 + 1 + i * 2
-			var k2 := "_Window_Wide_Round" if (i + f) % 2 == 1 else "_Straight"
-			_mm_xf(_V + wall + k2 + ".gltf", X.call(W / 2, y, lz, PI * 0.5))
-			_mm_xf(_V + wall + k2 + ".gltf", X.call(-W / 2, y, lz, -PI * 0.5))
-			if k2 == "_Window_Wide_Round":
-				_mm_xf(_V + "Window_Wide_Round1.gltf", X.call(W / 2, y, lz, PI * 0.5)); _mm_xf(_V + "Window_Wide_Round1.gltf", X.call(-W / 2, y, lz, -PI * 0.5))
+			var k2 := "_Window" if (i + f) % 2 == 1 else "_Straight"
+			for sd: float in [1.0, -1.0]:
+				var sxf: Transform3D = X.call(sd * W / 2, y, lz, sd * PI * 0.5)
+				_mm_xf(_V + piece.call(f, k2) + ".gltf", sxf)
+				if k2 == "_Window": window.call(sxf)
+				else: vine.call(sxf, 2.9)
 		for cx in [-W / 2, W / 2]:
-			for cz in [-D / 2, D / 2]: _mm_xf(_V + "Corner_Exterior_Wood.gltf", X.call(cx, y, cz, 0.0))
+			for cz in [-D / 2, D / 2]: _mm_xf(_V + ("Corner_Exterior_Brick.gltf" if f == 0 and stone_base else "Corner_Exterior_Wood.gltf"), X.call(cx, y, cz, 0.0))
+	# balcon en bois sur la façade de l'étage
+	if floors >= 2 and hr.randf() < 0.55:
+		for i in int(W / 2):
+			if i == int(W / 4) and W <= 4: continue
+			var lx := -W / 2 + 1 + i * 2
+			_mm_xf(_V + "Balcony_Simple_Straight.gltf" if hr.randf() < 0.6 else _V + "Balcony_Cross_Straight.gltf", X.call(lx, 3.12, D / 2, 0.0))
+			_mm_xf(_V + "Floor_WoodDark.gltf", X.call(lx, 3.12, D / 2 + 0.5, 0.0).scaled_local(Vector3(1, 1, 0.5)))
+			_mm_xf(_V + "Prop_Support.gltf", X.call(lx - 0.9, 0.2, D / 2, 0.0))
 	var ry := floors * 3.12
 	_mm_xf(_V + "Roof_RoundTiles_%dx8.gltf" % w, X.call(0, ry, 0, 0.0), _roof_tint)
 	_mm_xf(_V + "Roof_Front_Brick%d.gltf" % w, X.call(0, ry, D / 2, 0.0))
 	_mm_xf(_V + "Roof_Front_Brick%d.gltf" % w, X.call(0, ry, -D / 2, PI))
-	_mm_xf(_V + "Prop_Chimney.gltf", X.call(W / 2 - 0.9, ry + 0.6, -D / 4, 0.0))
+	_mm_xf(_V + ("Prop_Chimney.gltf" if hr.randf() < 0.5 else "Prop_Chimney2.gltf"), X.call(W / 2 - 0.9, ry + 0.6, -D / 4, 0.0))
 	box_blocker(Vector3(c.x, 0, c.y), Vector3(W + 0.4, 6, D + 0.4) if abs(sin(rot)) < 0.5 else Vector3(D + 0.4, 6, W + 0.4), 0.0)
 	house_spots.append([c, max(W, D) * 0.6])
+	if door:
+		var ldx := -W / 2 + 1 + int(W / 4) * 2
+		var dp: Vector3 = Vector3(c.x, 0, c.y) + B * Vector3(ldx, 0, D / 2 + 0.35)
+		var op: Vector3 = Vector3(c.x, 0, c.y) + B * Vector3(ldx, 0, D / 2 + 2.6)
+		doors.append([Vector2(dp.x, dp.z), Vector2(op.x, op.z)])
 	if smoke_n < 9: _smoke(Vector3(c.x, y0, c.y) + B * Vector3(W / 2 - 0.9, ry + 3.9, -D / 4))
 
 # ——— Lieux ———
@@ -1166,7 +1253,7 @@ func _resources() -> void:
 	for reg in range(1, REGIONS.size()):
 		var R: Dictionary = REGIONS[reg]; var t: int = R.tier
 		# bois : tous les arbres de la carte sont récoltables, regroupés en bosquets
-		var want_w: int = {"forest": 62, "meadow": 32, "hills": 26, "swamp": 22, "ash": 14, "desert": 10, "canyon": 12}.get(R.style, 24)
+		var want_w: int = {"forest": 84, "meadow": 46, "hills": 36, "swamp": 30, "ash": 18, "desert": 14, "canyon": 16}.get(R.style, 30)
 		var placed := 0; var tries := 0
 		while placed < want_w and tries < 3000:
 			tries += 1
@@ -1175,13 +1262,15 @@ func _resources() -> void:
 			if Vector2(c.x, c.z).distance_to(village) < 30.0: continue
 			if R.style in ["forest", "meadow"] and biome.get_noise_2d(c.x, c.z) < -0.15: continue
 			var n := rng.randi_range(3, 6 if R.style == "forest" else 4)
+			var got := 0
 			for k in n:
 				if placed >= want_w: break
 				var p := c + Vector3(rng.randf_range(-6, 6), 0, rng.randf_range(-6, 6))
 				if region_at(p.x, p.z) != reg or not _free_spot(p, 1.0, false) or _near_node_grid(p, 3.0): continue
-				_add_node("wood", t, p); placed += 1
+				_add_node("wood", t, p); placed += 1; got += 1
+			if got >= 2: groves.append([c, R.style])
 		for k in ["ore", "fiber"]:
-			var want := 16; placed = 0; tries = 0
+			var want := 16 if k == "ore" else 22; placed = 0; tries = 0
 			while placed < want and tries < 4000:
 				tries += 1
 				var p := Vector3(rng.randf_range(-100, 100), 0, rng.randf_range(-100, 100))
@@ -1190,6 +1279,10 @@ func _resources() -> void:
 				if Vector2(p.x, p.z).distance_to(village) < 26.0: continue
 				var b := biome.get_noise_2d(p.x, p.z)
 				if k == "fiber" and b > 0.1: continue
+				# le lin aime le bord des ruisseaux : la moitié pousse le long de l'eau quand il y en a
+				if k == "fiber" and not RIVERS.is_empty() and placed % 2 == 0:
+					var rdv := river_dist(p.x, p.z)
+					if rdv < RIVER_W + 1.8 or rdv > RIVER_W + 7.0: continue
 				# le minerai aime le pied des falaises et les hauteurs
 				if k == "ore" and plateau(p.x, p.z) < 0.5 and not _near_cliff(p, 7.0) and rng.randf() < 0.7: continue
 				if _near_node_grid(p, 3.6): continue
@@ -1446,6 +1539,42 @@ func _decor() -> void:
 			var q := c + Vector3(rng.randf_range(-2.2, 2.2), 0, rng.randf_range(-2.2, 2.2))
 			if not walkable(q.x, q.z): continue
 			_mm("res://assets/forest/Bush_1_A_Color1.gltf" if k % 3 else "res://assets/forest/Grass_1_C_Color1.gltf", q, rng.randf_range(0.55, 0.9), rng.randf() * TAU, fc)
+	# sous-bois des bosquets : fougères, buissons, pierres moussues, souches, champignons et fleurs
+	for gv in groves:
+		var c: Vector3 = gv[0]; var st2: String = gv[1]
+		if not st2 in ["meadow", "forest", "hills", "swamp"]: continue
+		var tint := Color(1, 1, 1) if st2 != "swamp" else Color("#a8b090")
+		for k in 16:
+			var q := c + Vector3(rng.randf_range(-7, 7), 0, rng.randf_range(-7, 7))
+			if not walkable(q.x, q.z) or road_dist(q.x, q.z) < 2.6 or near_house(Vector2(q.x, q.z), 0.3) or _near_node_grid(q, 1.1): continue
+			var roll2 := rng.randf()
+			if roll2 < 0.45: _mm(F + ["Bush_1_E_Color1.gltf", "Bush_2_A_Color1.gltf", "Bush_4_A_Color1.gltf", "Bush_1_C_Color1.gltf"][rng.randi() % 4], q, rng.randf_range(0.9, 1.5), rng.randf() * TAU, tint)
+			elif roll2 < 0.75: _mm(F + ["Grass_2_A_Color1.gltf", "Grass_1_D_Color1.gltf", "Grass_2_D_Color1.gltf"][rng.randi() % 3], q, rng.randf_range(1.2, 1.9), rng.randf() * TAU, tint)
+			elif roll2 < 0.88: _mm(F + ["Rock_1_A_Color1.gltf", "Rock_1_E_Color1.gltf", "Rock_3_A_Color1.gltf"][rng.randi() % 3], q, rng.randf_range(0.35, 0.7), rng.randf() * TAU, Color("#b8c4a8"))
+			else:
+				var fc2: Color = [Color("#f08cd8"), Color("#f7e06a"), Color("#ffffff")][rng.randi() % 3]; fc2.a = 0.98
+				_mm(F + "Bush_1_A_Color1.gltf", q, rng.randf_range(0.55, 0.8), rng.randf() * TAU, fc2)
+		# une souche ou un tronc couché par bosquet
+		var lq := c + Vector3(rng.randf_range(-4, 4), 0, rng.randf_range(-4, 4))
+		if walkable(lq.x, lq.z) and not _near_node_grid(lq, 2.0) and road_dist(lq.x, lq.z) > 3.0:
+			place("res://assets/hex/resource_lumber.gltf", lq, rng.randf() * TAU, 2.2)
+	# berges des ruisseaux : roseaux serrés, joncs fleuris, galets
+	for RV in RIVERS:
+		for i in RV.size() - 1:
+			var a0: Vector2 = RV[i]; var a1: Vector2 = RV[i + 1]
+			var L := a0.distance_to(a1); var dir: Vector2 = (a1 - a0) / maxf(0.01, L); var nr := Vector2(-dir.y, dir.x)
+			var nstep := int(L / 1.1)
+			for k in nstep:
+				for sd: float in [-1.0, 1.0]:
+					var q: Vector2 = a0 + dir * (k * 1.1 + rng.randf_range(-0.4, 0.4)) + nr * sd * (RIVER_W + rng.randf_range(0.4, 2.6))
+					var hq := height(q.x, q.y)
+					if hq < WATER_Y + 0.05 or road_dist(q.x, q.y) < 3.2 or on_bridge(q.x, q.y) or near_house(q, 0.2): continue
+					var rr := rng.randf()
+					if rr < 0.55: _mm(F + ["Grass_2_A_Color1.gltf", "Grass_2_B_Color1.gltf"][rng.randi() % 2], Vector3(q.x, 0, q.y), rng.randf_range(1.3, 2.1), rng.randf() * TAU, Color("#c8e090"))
+					elif rr < 0.68:
+						var fl: Color = [Color("#9fb8ff"), Color("#ffffff"), Color("#f7e06a")][rng.randi() % 3]; fl.a = 0.98
+						_mm(F + "Bush_1_A_Color1.gltf", Vector3(q.x, 0, q.y), rng.randf_range(0.5, 0.75), rng.randf() * TAU, fl)
+					elif rr < 0.76: _mm(F + "Rock_1_A_Color1.gltf", Vector3(q.x, 0, q.y), rng.randf_range(0.25, 0.5), rng.randf() * TAU, Color("#c8c8c0"))
 	# roseaux au bord de l'eau
 	for i in 1500:
 		var p := Vector3(rng.randf_range(-118, 118), 0, rng.randf_range(-118, 118))
@@ -1470,7 +1599,7 @@ func _monster_camps() -> void:
 			_camp(Vector3(q.p.x, 0, q.p.y), t, KINDS_BY_T[t] + ([KINDS_BY_T[t][0]] if t >= 2 else []), true)
 	for reg in range(1, REGIONS.size()):
 		var R: Dictionary = REGIONS[reg]; var placed := 0; var tries := 0
-		var want := 6 if R.tier > 1 else 4
+		var want := 9 if R.tier > 1 else 6
 		while placed < want and tries < 1500:
 			tries += 1
 			var p := Vector3(rng.randf_range(-100, 100), 0, rng.randf_range(-100, 100))
@@ -1478,19 +1607,51 @@ func _monster_camps() -> void:
 			if _near_duel(p, 20.0) or Vector2(p.x, p.z).distance_to(village) < 40.0: continue
 			var ok := true
 			for sp in spawns:
-				if sp.pos.distance_to(p) < 18.0: ok = false; break
+				if sp.pos.distance_to(p) < 15.0: ok = false; break
 			if not ok: continue
 			_camp(p, R.tier, KINDS_BY_T[R.tier], false); placed += 1
 	for q in POI_DEFS:
 		if q.kind == "lair":
 			boss_pos = Vector3(q.p.x, 0, q.p.y)
 			spawns.append({"pos": boss_pos, "tier": 5, "kinds": ["boss"], "members": [], "dead_at": -999.0, "boss": true})
+	# faune paisible : cerfs, chevaux sauvages et ânes qui broutent librement
+	var fauna := {"meadow": ["horse", "horse", "donkey"], "forest": ["stag", "stag", "fox"], "hills": ["stag", "horse"], "desert": ["donkey", "donkey"], "canyon": ["bull", "donkey"], "swamp": ["stag", "fox"], "ash": ["bull", "stag"]}
+	for reg in range(1, REGIONS.size()):
+		var ks2: Array = fauna.get(REGIONS[reg].get("style", "meadow"), ["stag"])
+		var n2 := 0
+		for tries in 600:
+			if n2 >= 3: break
+			var p := Vector3(rng.randf_range(-95, 95), 0, rng.randf_range(-95, 95))
+			if region_at(p.x, p.z) != reg or not _free_spot(p, 4.0) or slope(p.x, p.z) > 1.3: continue
+			if spawns.any(func(sp): return sp.pos.distance_to(p) < 14.0): continue
+			_pen(Vector2(p.x, p.z), 9.0, ks2, rng, false); n2 += 1
+	# un chef de guerre par région : grand camp, escorte, gros butin
+	for reg in range(1, REGIONS.size()):
+		var R: Dictionary = REGIONS[reg]
+		for tries in 1500:
+			var p := Vector3(rng.randf_range(-95, 95), 0, rng.randf_range(-95, 95))
+			if region_at(p.x, p.z) != reg or not _free_spot(p, 5.0) or slope(p.x, p.z) > 1.2: continue
+			if Vector2(p.x, p.z).distance_to(village) < 55.0 or _near_duel(p, 24.0): continue
+			if spawns.any(func(sp): return sp.pos.distance_to(p) < 20.0): continue
+			var ks: Array = KINDS_BY_T[R.tier]
+			var sp := {"pos": p, "tier": R.tier, "kinds": [ks[0]] + ks + [ks[ks.size() - 1]], "members": [], "dead_at": -999.0, "chief": true}
+			spawns.append(sp); chiefs.append(p)
+			# son campement : bannières, braseros, ossements
+			for k in 4:
+				var a := k * TAU / 4.0 + 0.4
+				var q := p + Vector3(cos(a) * 6.5, 0, sin(a) * 6.5)
+				place("res://assets/dungeon/" + ["banner_patternA_red.gltf", "pillar_decorated.gltf", "banner_patternC_red.gltf", "pillar_decorated.gltf"][k], q, a + PI * 0.5, 1.4 if k % 2 == 0 else 0.9)
+			_light(p + Vector3(0, height(p.x, p.z) + 2.0, 0), Color("#ff7a30"), 2.2, 9.0)
+			for k in 5:
+				var q2 := p + Vector3(rng.randf_range(-5, 5), 0, rng.randf_range(-5, 5))
+				_mm("res://assets/halloween/" + ["bone_A.gltf", "skull.gltf", "ribcage.gltf"][k % 3], q2, rng.randf_range(0.8, 1.2), rng.randf() * TAU)
+			break
 	# meutes d'animaux sauvages
 	var packs := {1: [["renard", "renard"], ["renard"], ["cerf"]], 2: [["loup", "loup", "loup"], ["cerf", "cerf"], ["renard", "renard"]], 3: [["taureau", "taureau"], ["loup", "loup"], ["cerf", "taureau"]],
 		4: [["loup", "loup", "loup"], ["taureau", "loup"]], 5: [["loup", "loup", "taureau"], ["taureau", "taureau"]]}
 	for reg in range(1, REGIONS.size()):
 		var R: Dictionary = REGIONS[reg]; var placed := 0; var tries := 0
-		while placed < 5 and tries < 1500:
+		while placed < 8 and tries < 1500:
 			tries += 1
 			var p := Vector3(rng.randf_range(-100, 100), 0, rng.randf_range(-100, 100))
 			if region_at(p.x, p.z) != reg or not _free_spot(p, 3.0) or slope(p.x, p.z) > 1.6: continue
@@ -1498,7 +1659,7 @@ func _monster_camps() -> void:
 			if _near_duel(p, 20.0): continue
 			var ok := true
 			for sp in spawns:
-				if sp.pos.distance_to(p) < 16.0: ok = false; break
+				if sp.pos.distance_to(p) < 13.0: ok = false; break
 			if not ok: continue
 			var opts: Array = packs[R.tier]
 			spawns.append({"pos": p, "tier": R.tier, "kinds": opts[placed % opts.size()], "members": [], "dead_at": -999.0, "animal": true})
@@ -1804,6 +1965,105 @@ func _faubourgs() -> void:
 	# un enclos avec des bêtes et un moulin à la sortie de la ville
 	_pen_near_town(r)
 
+# ——— Fermes : une par région, avec son potager à cueillir, sa grange, ses bêtes et son fermier ———
+const FARMER_NAMES := ["Mathurin", "Berthe", "Colas", "Perrine", "Guillot", "Margot", "Enguerrand", "Toinette"]
+var farms: Array = []
+func _farms() -> void:
+	var r := RandomNumberGenerator.new(); r.seed = 1312 + map_id * 7
+	var H := "res://assets/hex/"
+	for reg in range(1, REGIONS.size()):
+		var R: Dictionary = REGIONS[reg]
+		var veg: Array = Game.FOOD_BY_STYLE.get(R.get("style", "meadow"), Game.FOOD_BY_STYLE.meadow)[1]
+		for tries in 1500:
+			var q := Vector2(r.randf_range(-92, 92), r.randf_range(-92, 92))
+			if region_at(q.x, q.y) != reg or q.distance_to(village) < 40.0: continue
+			var rd := road_dist(q.x, q.y)
+			if rd < 12.0 or rd > (26.0 if tries < 700 else 40.0): continue
+			if not _house_ok(q, 13.0): continue
+			var flat := true
+			for k in 8:
+				var e := q + Vector2(cos(k * TAU / 8.0), sin(k * TAU / 8.0)) * 11.0
+				if not walkable(e.x, e.y) or abs(height(e.x, e.y) - height(q.x, q.y)) > (1.6 if tries < 700 else 2.4) or river_dist(e.x, e.y) < RIVER_W + 2.0: flat = false
+			if not flat: continue
+			# la ferme tourne le dos à la route : le potager est côté route, la maison derrière
+			var to_road := _road_dir(q)
+			var fr := atan2(to_road.x, to_road.y)
+			var fp := func(lx: float, lz: float) -> Vector2: return q + Vector2(lx, lz).rotated(-fr)
+			var fp3 := func(lx: float, lz: float) -> Vector3: var w: Vector2 = fp.call(lx, lz); return Vector3(w.x, 0, w.y)
+			house_spots.append([q, 12.0])
+			house(fp.call(-3.0, -8.5), fr, 6, 1, "plaster" if reg % 2 == 0 else "brick", true)
+			building(H + "building_well_blue.gltf", fp.call(6.5, -7.5), fr, 2.6, 2.2)
+			# potager : 3 rangées de 6 buttes, deux légumes par ferme
+			var k1: String = veg[r.randi() % veg.size()]; var k2: String = veg[r.randi() % veg.size()]
+			_field_mesh(fp, fr, 18.0, 4)
+			for row in 4:
+				for col in 6:
+					var w: Vector2 = fp.call(-7.0 + col * 2.8, -1.4 + row * 2.0)
+					crops.add_crop(k1 if row % 2 == 0 else k2, R.tier, Vector3(w.x, 0, w.y), "rang", fr)
+			# meules, brouette, caisses de légumes, barriques
+			place(H + "building_grain.gltf", fp3.call(9.5, 0.0), r.randf() * TAU, 1.6)
+			place(H + "building_grain.gltf", fp3.call(9.0, 3.2), r.randf() * TAU, 1.3)
+			place(H + "wheelbarrow.gltf", fp3.call(-9.0, 2.5), fr + 0.8, 3.6)
+			place(H + "sack.gltf", fp3.call(-8.6, 4.0), 0.3, 3.2)
+			for i in 3:
+				var cq: Vector3 = fp3.call(-9.2 + i * 1.3, -3.2)
+				var crate: Node3D = load("res://assets/food/crate.glb").instantiate(); crate.scale = Vector3.ONE * 1.7
+				for mi in crate.find_children("*", "MeshInstance3D", true, false): (mi as MeshInstance3D).material_override = Crops.pix_mat()
+				crate.position = Vector3(cq.x, height(cq.x, cq.z), cq.z); crate.rotation.y = fr + r.randf_range(-0.2, 0.2); add_child(crate)
+				for j in 3:
+					var v := Crops.food_model([k1, k2][j % 2], 0.32)
+					v.position = Vector3(cq.x + r.randf_range(-0.3, 0.3), height(cq.x, cq.z) + 0.85, cq.z + r.randf_range(-0.3, 0.3)); v.rotation.y = r.randf() * TAU; add_child(v)
+				blocker(cq, 0.6)
+			var bq: Vector3 = fp3.call(-5.5, -3.4)
+			var barrel: Node3D = load("res://assets/food/barrel.glb").instantiate(); barrel.scale = Vector3.ONE * 1.8
+			for mi in barrel.find_children("*", "MeshInstance3D", true, false): (mi as MeshInstance3D).material_override = Crops.pix_mat()
+			barrel.position = Vector3(bq.x, height(bq.x, bq.z), bq.z); add_child(barrel); blocker(bq, 0.6)
+			# bêtes de la ferme
+			_pen(fp.call(0.0, -15.5) if _house_ok(fp.call(0.0, -15.5), 5.0) else fp.call(14.0, -4.0), 4.5, ["bull", "donkey"] if map_id != 3 else ["donkey"], r)
+			# le fermier fait le tour de ses rangs
+			var fi := reg + map_id * 2
+			npc_spots.append({"id": "fermier_%d_%d" % [map_id, reg], "model": ["Barbarian", "Ranger", "Rogue"][fi % 3], "name": FARMER_NAMES[fi % FARMER_NAMES.size()],
+				"role": "Fermier" if fi % 2 == 0 else "Fermière", "pos": fp3.call(-7.5, 5.5), "act": "farmer",
+				"path": [fp.call(-7.8, 5.6), fp.call(7.8, 5.6), fp.call(7.8, -2.4), fp.call(-7.8, -2.4)]})
+			farms.append({"pos": q, "name": "Ferme de " + FARMER_NAMES[fi % FARMER_NAMES.size()], "region": reg})
+			label("FERME DE %s" % FARMER_NAMES[fi % FARMER_NAMES.size()].to_upper(), Vector3(q.x, height(q.x, q.y) + 6.5, q.y), Color("#ffe2a0"), 40).visibility_range_end = 40.0
+			break
+
+# champ labouré : un fond de terre + des sillons bombés qui suivent le relief (un seul maillage)
+func _field_mesh(fp: Callable, fr: float, L: float, rows: int) -> void:
+	var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var base := Color("#5a3b22"); var ridge := Color("#7a5434")
+	var Y := func(lx: float, lz: float, up: float) -> Vector3:
+		var w: Vector2 = fp.call(lx, lz); return Vector3(w.x, height(w.x, w.y) + up, w.y)
+	var quad := func(a: Vector3, b: Vector3, c: Vector3, d: Vector3, col: Color) -> void:
+		for v in [a, b, c, a, c, d]: st.set_color(col); st.add_vertex(v)
+	var z0 := -2.6; var z1 := -2.6 + rows * 2.0
+	var nx := int(L / 1.0)
+	for i in nx:
+		var x0 := -L / 2 + i * 1.0; var x1 := x0 + 1.0
+		quad.call(Y.call(x0, z0 - 0.3, 0.03), Y.call(x1, z0 - 0.3, 0.03), Y.call(x1, z1 + 0.3, 0.03), Y.call(x0, z1 + 0.3, 0.03), base.lightened(randf() * 0.04))
+		for r in rows:
+			var zc := -1.4 + r * 2.0
+			var c := ridge.lightened(randf() * 0.06)
+			# sillon : deux pentes + un dessus
+			quad.call(Y.call(x0, zc - 0.75, 0.04), Y.call(x1, zc - 0.75, 0.04), Y.call(x1, zc - 0.35, 0.2), Y.call(x0, zc - 0.35, 0.2), c.darkened(0.12))
+			quad.call(Y.call(x0, zc - 0.35, 0.2), Y.call(x1, zc - 0.35, 0.2), Y.call(x1, zc + 0.35, 0.2), Y.call(x0, zc + 0.35, 0.2), c)
+			quad.call(Y.call(x0, zc + 0.35, 0.2), Y.call(x1, zc + 0.35, 0.2), Y.call(x1, zc + 0.75, 0.04), Y.call(x0, zc + 0.75, 0.04), c.darkened(0.06))
+	st.generate_normals()
+	var mi := MeshInstance3D.new(); mi.mesh = st.commit()
+	var m := StandardMaterial3D.new(); m.vertex_color_use_as_albedo = true; m.roughness = 1.0; m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mi.material_override = m; mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; add_child(mi)
+
+func _road_dir(q: Vector2) -> Vector2:
+	var best := Vector2(0, 1); var bd := 1e9
+	for rd in roads:
+		for i in rd.size() - 1:
+			var a: Vector2 = rd[i]; var b: Vector2 = rd[i + 1]
+			var ab := b - a; var t: float = clamp((q - a).dot(ab) / max(0.001, ab.length_squared()), 0.0, 1.0)
+			var c := a + ab * t
+			if q.distance_to(c) < bd: bd = q.distance_to(c); best = (c - q).normalized()
+	return best
+
 func _pen_near_town(r: RandomNumberGenerator) -> void:
 	var H := "res://assets/hex/"
 	for tries in 60:
@@ -1827,11 +2087,12 @@ func _spin_windmill() -> void:
 			return
 
 # Enclos rond de piquets avec quelques bêtes qui broutent et se déplacent tranquillement
-func _pen(c: Vector2, rad: float, kinds: Array, r: RandomNumberGenerator) -> void:
+func _pen(c: Vector2, rad: float, kinds: Array, r: RandomNumberGenerator, props := true) -> void:
 	var seg := 2.1; var nseg := int(round(rad * 2.0 / seg))
 	var half := nseg * seg * 0.5
-	place("res://assets/hex/bucket_water.gltf", Vector3(c.x - half + 1.0, 0, c.y - half + 1.0), 0.0, 4.0)
-	place("res://assets/hex/building_grain.gltf", Vector3(c.x + half + 2.6, 0, c.y - half + 1.0), r.randf() * TAU, 2.2)
+	if props:
+		place("res://assets/hex/bucket_water.gltf", Vector3(c.x - half + 1.0, 0, c.y - half + 1.0), 0.0, 4.0)
+		place("res://assets/hex/building_grain.gltf", Vector3(c.x + half + 2.6, 0, c.y - half + 1.0), r.randf() * TAU, 2.2)
 	for k in kinds:
 		var mdl: Node3D = load("res://assets/animals/%s.glb" % k).instantiate()
 		var sc: float = {"bull": 0.5, "horse": 0.52, "donkey": 0.5}.get(k, 0.5)
@@ -1883,6 +2144,7 @@ func update_life(dt: float, pp: Vector3) -> void:
 			if h.wait <= 0.0:
 				var c: Vector2 = h.pen
 				h.tgt = c + Vector2(randf_range(-1, 1), randf_range(-1, 1)).limit_length(1.0) * float(h.r)
+				if not walkable(h.tgt.x, h.tgt.y) or near_house(h.tgt, 0.0): h.wait = 1.0; continue
 				h.walk = true
 				if ap and ap.has_animation("Walk"): ap.play("Walk", 0.3)
 

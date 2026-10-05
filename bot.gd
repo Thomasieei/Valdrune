@@ -64,6 +64,38 @@ var strafe := 1.0
 var strafe_t := 0.0
 var charge_w := 0.0
 var line_tele: MeshInstance3D
+var wk := "epee"
+var model := "Knight"
+var guild := ""
+var party := false
+var duel := false
+var pwr := 0
+var kills := 0
+
+func display_name() -> String: return guild + nm
+func set_guild(tag: String) -> void:
+	guild = ("[%s] " % tag) if tag != "" else ""
+	name_lbl.text = guild + nm
+
+func join_party() -> void:
+	party = true; hostile = false
+	if mode == "pvp": _end_pvp()
+	mode = "walk"; _style(); tag_lbl.text = "GROUPE · T%d" % tier; tag_lbl.modulate = Color("#7dffb0")
+	ring.material_override = _ring_mat(Color(0.3, 1.0, 0.55, 0.7))
+func leave_party() -> void:
+	party = false; mode = "walk"; prey = null; _style(); _new_goal()
+
+func start_duel() -> void:
+	duel = true; hp = max_hp; _start_pvp()
+	tag_lbl.text = "DUEL · T%d" % tier
+# en duel, personne ne meurt : on s'arrête à 1 PV
+func _hit_player(P: Player, amount: float) -> void:
+	if duel and amount >= P.hp - 0.5:
+		P.hp = 1.0; _finish_duel(false); return
+	P.hurt(amount, self)
+func _finish_duel(won: bool) -> void:
+	duel = false; hp = max_hp; _end_pvp()
+	main.social.duel_end(self, won)
 
 static var ring_mats := {}
 static func _ring_mat(col: Color) -> StandardMaterial3D:
@@ -77,9 +109,10 @@ func setup(m: Node, n: String, t: int, reg: int, host: bool) -> void:
 	def = {"name": nm}
 	max_hp = Game.armor_hp(t) * 2.6; hp = max_hp   # un vrai joueur encaisse : les combats JcJ durent un peu plus
 	collision_layer = 0; collision_mask = 0
-	var model: String = MODELS[randi() % MODELS.size()]
+	model = MODELS[randi() % MODELS.size()]
 	ch = Chars.make("res://assets/heroes/%s.glb" % model); add_child(ch.root); ap = ch.ap
-	var wk: String = ["epee", "hache", "baton"][randi() % 3] if model != "Mage" else "baton"
+	wk = ["epee", "hache", "baton"][randi() % 3] if model != "Mage" else "baton"
+	pwr = int(Game.power_needed(t) * randf_range(0.85, 1.35)); kills = randi_range(20, 400) * t
 	Chars.attach(ch, "handslot.r", Game.weapon_model(wk, t))
 	if wk != "baton" and randf() < 0.6: Chars.attach(ch, "handslot.l", Game.shield_model(t))
 	var tint: Color = Color(1, 1, 1).lerp(Game.TIER_COL[t], 0.0 if t <= 1 else 0.26)
@@ -91,7 +124,8 @@ func setup(m: Node, n: String, t: int, reg: int, host: bool) -> void:
 				var src = mi.mesh.surface_get_material(k)
 				if src is StandardMaterial3D:
 					var mt: StandardMaterial3D = src.duplicate(); mt.albedo_color = tint; mi.set_surface_override_material(k, mt)
-	var guild: String = GUILDS[randi() % GUILDS.size()]
+	guild = GUILDS[randi() % GUILDS.size()]
+	if main.social and main.social.in_guild() and nm in Game.S.guild.members: guild = "[%s] " % Game.S.guild.tag
 	# Un JOUEUR se reconnaît d'un coup d'œil : nom blanc cerclé de couleur, mention « Joueur », anneau au sol
 	# (bleu = pacifique, rouge = JcJ). Les monstres, eux, ont un nom de la couleur du tier et pas d'anneau.
 	name_lbl = Label3D.new(); name_lbl.text = "%s%s" % [guild, nm]; name_lbl.font_size = 38; name_lbl.outline_size = 14
@@ -155,6 +189,8 @@ func take_hit(amount: float, from: Node3D, _push: float) -> void:
 	hp -= amount
 	flash_mat.albedo_color.a = 0.8; create_tween().tween_property(flash_mat, "albedo_color:a", 0.0, 0.2)
 	Fx.number(main, global_position + Vector3(0, 2.2, 0), str(int(amount)), Color.WHITE)
+	if party and from == main.player: hp = max(hp, 1.0); return   # pas de tir ami
+	if duel and hp <= 0.0: _finish_duel(true); return
 	if from == main.player and mode != "pvp": _start_pvp()
 	if hp <= 0.0: _die(from)
 func hurt(amount: float, from: Node3D) -> void: take_hit(amount, from, 0.0)
@@ -171,6 +207,7 @@ func _end_pvp() -> void:
 	if main.pvp_target == self: main.pvp_target = null
 
 func _die(killer: Node3D) -> void:
+	if party: party = false
 	dead = true; mode = "dead"; state = "dead"; _cancel_tele()
 	_play("Death_A", 1.0, true); bubble.visible = false
 	main.enemies.erase(self)
@@ -196,6 +233,9 @@ func _physics_process(dt: float) -> void:
 		return
 	var P: Player = main.player
 	var dp: float = global_position.distance_to(P.global_position)
+	if party and not main.in_instance() and dp > 30.0:
+		var bp: Vector3 = P.global_position + Vector3(randf_range(-3, 3), 0, randf_range(-3, 3))
+		global_position = Vector3(bp.x, main.world.ground_y(bp.x, bp.z) + 0.1, bp.z); dp = 3.0
 	if main.in_instance() or dp > 90.0:
 		# loin du héros : simulation légère, invisible, animation coupée
 		visible = false; ap.active = false
@@ -216,14 +256,16 @@ func _physics_process(dt: float) -> void:
 	var want := Vector3.ZERO
 	var face := Vector3.ZERO
 	# agression JcJ : seulement sur les cartes T2 et plus, jamais en ville
-	if hostile and mode != "pvp" and not P.dead and dp < 15.0 and think <= 0.0:
+	if hostile and not party and mode != "pvp" and not P.dead and dp < 15.0 and think <= 0.0:
 		if main.world.map_id >= 2 and not main.world.in_town(P.global_position) and main.pvp_target == null and randf() < 0.35:
 			_start_pvp(); say(["ton stuff est à moi", "dommage pour toi", "gg ez", "file tout"][randi() % 4])
 			main.hud.pvp_alert(self)
 	if think <= 0.0 and mode != "pvp": think = 1.0; _choose()
 	match mode:
 		"pvp":
-			if P.dead or dp > 34.0: _end_pvp()
+			if P.dead or dp > 34.0:
+				if duel: _finish_duel(false)
+				else: _end_pvp()
 			else: want = _pvp(P, dt)
 			face = P.global_position - global_position; face.y = 0
 		"hunt":
@@ -247,9 +289,16 @@ func _physics_process(dt: float) -> void:
 						main.world.harvest(node_t); hits += 1
 						if hits >= 3: hits = 0; mode = "walk"; node_t = {}
 		_:
-			var to: Vector3 = goal - global_position; to.y = 0
-			if to.length() < 1.5: _new_goal()
-			else: want = to.normalized() * 3.6
+			if party:
+				var off := Vector3(cos(get_instance_id() % 7), 0, sin(get_instance_id() % 7)) * 2.6
+				goal = P.global_position + off; goal.y = 0
+				var tp: Vector3 = goal - global_position; tp.y = 0
+				want = tp.normalized() * clamp(tp.length() * 2.0, 0.0, 6.5) if tp.length() > 1.2 else Vector3.ZERO
+				face = want if want.length() > 0.1 else (P.global_position - global_position)
+			else:
+				var to: Vector3 = goal - global_position; to.y = 0
+				if to.length() < 1.5: _new_goal()
+				else: want = to.normalized() * 3.6
 			face = want
 	velocity.x = want.x; velocity.z = want.z
 	var nx := global_position + Vector3(velocity.x, 0, velocity.z) * 0.15
@@ -265,6 +314,19 @@ func _physics_process(dt: float) -> void:
 	else: _play("Idle_A")
 
 func _choose() -> void:
+	if party:
+		# membre du groupe : il tape ce que tu combats, sinon il te suit
+		var P: Player = main.player
+		if mode == "hunt" and prey and is_instance_valid(prey) and not prey.dead: return
+		var best: Node3D = null; var bd := 14.0
+		for e in main.enemies:
+			if e is Bot or e.dead or e.duel_info.size() > 0: continue
+			var d: float = e.global_position.distance_to(P.global_position)
+			if d < bd and (e.state != "idle" or d < 6.0): bd = d; best = e
+		if best: prey = best; mode = "hunt"; return
+		mode = "walk"; var off := Vector3(cos(get_instance_id() % 7), 0, sin(get_instance_id() % 7)) * 2.6
+		goal = P.global_position + off; goal.y = 0
+		return
 	if mode in ["hunt", "gather"]: return
 	var roll := randf()
 	if roll < 0.45:
@@ -290,7 +352,7 @@ func _pvp(P: Player, dt: float) -> Vector3:
 	if dash_t > 0.0:
 		dash_t -= dt
 		if dash_dmg and not dash_hit and d < 1.4:
-			dash_hit = true; P.hurt(Game.mob_dmg(tier) * 1.9 * randf_range(0.9, 1.1), self); main.shake(0.2)
+			dash_hit = true; _hit_player(P, Game.mob_dmg(tier) * 1.9 * randf_range(0.9, 1.1)); main.shake(0.2)
 			Fx.burst(main, P.global_position + Vector3(0, 1.0, 0), Color(1, 0.5, 0.3), 16, 5.0, 0.3, 0.4)
 		return dash_dir * (17.0 if dash_dmg else 11.0)
 	if charge_w > 0.0:
@@ -348,4 +410,4 @@ func _strike(P: Player) -> void:
 	_cancel_tele(); atk_cd = 0.9
 	var d: float = Vector2(P.global_position.x - tele_pos.x, P.global_position.z - tele_pos.z).length()
 	Fx.burst(main, tele_pos + Vector3(0, 0.3, 0), Color(1, 0.6, 0.4), 12, 4.0, 0.35, 0.4)
-	if d < r + 0.35: P.hurt(Game.mob_dmg(tier) * (1.35 if not heavy else 2.2) * randf_range(0.9, 1.1), self)
+	if d < r + 0.35: _hit_player(P, Game.mob_dmg(tier) * (1.35 if not heavy else 2.2) * randf_range(0.9, 1.1))

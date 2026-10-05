@@ -294,6 +294,60 @@ static func roll_loot(src: String, t: int, family := "skel") -> Array:
 	if src == "group": out.append({"item": random_artefact(min(MAX_TIER, t + (1 if randf() < 0.3 else 0)))})
 	return out
 
+# ——— Cueillette : fruits et légumes (pack Low Poly Food) ———
+# "plant" : buisson (fruits accrochés), potager (légumes dans une butte de terre), sol (champignons, courges)
+const FOOD := {
+	"pomme": {"name": "Pomme", "m": "apple", "plant": "buisson", "heal": 1.0},
+	"fraise": {"name": "Fraise", "m": "strawberry", "plant": "buisson", "heal": 0.8},
+	"cerise": {"name": "Cerises", "m": "cherryPair", "plant": "buisson", "heal": 0.9},
+	"poire": {"name": "Poire", "m": "pear", "plant": "buisson", "heal": 1.0},
+	"peche": {"name": "Pêche", "m": "peach", "plant": "buisson", "heal": 1.1},
+	"orange": {"name": "Orange", "m": "orange", "plant": "buisson", "heal": 1.1},
+	"citron": {"name": "Citron", "m": "lemon", "plant": "buisson", "heal": 0.9},
+	"figue": {"name": "Figue", "m": "fig", "plant": "buisson", "heal": 1.1},
+	"coco": {"name": "Noix de coco", "m": "coconut", "plant": "sol", "heal": 1.4},
+	"mangue": {"name": "Mangue", "m": "mango", "plant": "buisson", "heal": 1.2},
+	"kiwi": {"name": "Kiwi", "m": "kiwi", "plant": "buisson", "heal": 1.0},
+	"banane": {"name": "Bananes", "m": "bananaBunch", "plant": "buisson", "heal": 1.3},
+	"carotte": {"name": "Carotte", "m": "carrotWithStem", "plant": "potager", "heal": 1.0},
+	"chou": {"name": "Chou", "m": "cabbage", "plant": "potager", "heal": 1.2},
+	"tomate": {"name": "Tomate", "m": "tomatoWithStem", "plant": "potager", "heal": 0.9},
+	"mais": {"name": "Maïs", "m": "cornWithLeafs", "plant": "potager", "heal": 1.1},
+	"citrouille": {"name": "Citrouille", "m": "pumpkin", "plant": "sol", "heal": 1.5},
+	"pasteque": {"name": "Pastèque", "m": "watermelon", "plant": "sol", "heal": 1.6},
+	"melon": {"name": "Melon", "m": "melon", "plant": "sol", "heal": 1.4},
+	"betterave": {"name": "Betterave", "m": "beetroot", "plant": "potager", "heal": 1.0},
+	"oignon": {"name": "Oignon", "m": "onionRed", "plant": "potager", "heal": 0.9},
+	"ail": {"name": "Ail", "m": "garlicBulb", "plant": "potager", "heal": 0.8},
+	"aubergine": {"name": "Aubergine", "m": "eggplantWithStem", "plant": "potager", "heal": 1.1},
+	"poivron": {"name": "Poivron", "m": "bellpepper", "plant": "potager", "heal": 1.0},
+	"choufleur": {"name": "Chou-fleur", "m": "cauliflowerWithLeafs", "plant": "potager", "heal": 1.2},
+	"brocoli": {"name": "Brocoli", "m": "broccoli", "plant": "potager", "heal": 1.0},
+	"patate": {"name": "Pomme de terre", "m": "potato", "plant": "potager", "heal": 1.1},
+	"salade": {"name": "Salade", "m": "lettuce", "plant": "potager", "heal": 0.8},
+	"cepe": {"name": "Cèpe", "m": "mushroom01", "plant": "sol", "heal": 1.0},
+	"girolle": {"name": "Girolle", "m": "mushroom02", "plant": "sol", "heal": 1.0},
+	"amanite": {"name": "Champignon des marais", "m": "mushroom03", "plant": "sol", "heal": 1.2},
+	"morille": {"name": "Morille noire", "m": "mushroom04", "plant": "sol", "heal": 1.3},
+}
+# ce qui pousse dans chaque type de région : [sauvage (buissons, sol)], [potagers des fermes]
+const FOOD_BY_STYLE := {
+	"meadow": [["pomme", "fraise", "cepe"], ["carotte", "chou", "tomate", "mais", "salade", "patate"]],
+	"forest": [["cerise", "poire", "cepe", "girolle"], ["citrouille", "betterave", "chou", "carotte"]],
+	"hills": [["poire", "peche", "pomme", "girolle"], ["mais", "oignon", "ail", "patate"]],
+	"desert": [["figue", "coco", "citron", "mangue"], ["pasteque", "melon", "poivron", "oignon"]],
+	"canyon": [["orange", "citron", "figue", "banane"], ["poivron", "ail", "melon", "tomate"]],
+	"swamp": [["kiwi", "amanite", "morille"], ["aubergine", "choufleur", "brocoli", "oignon"]],
+	"ash": [["morille", "amanite", "figue"], ["ail", "betterave", "choufleur", "patate"]],
+}
+static func food_key(k: String, t: int) -> String: return "%s:%d" % [k, t]
+static func food_heal(k: String, t: int) -> float: return (0.07 + 0.025 * t) * float(FOOD[k].heal)   # part de la vie rendue
+static func food_price(k: String, t: int) -> int: return int(money(t) * 1.2 * float(FOOD[k].heal)) + 1
+static func food_name(k: String, _t := 1) -> String: return FOOD[k].name
+func add_food(k: String, t: int, n: int) -> void:
+	if typeof(S.get("food")) != TYPE_DICTIONARY: S["food"] = {}
+	var key := food_key(k, t); S.food[key] = int(S.food.get(key, 0)) + n
+
 static func res_name(k: String, t: int) -> String: return "%s (%s)" % [RES[k].tiers[t], RES[k].name]
 
 # ——— Économie : chaque tier vaut beaucoup plus que le précédent ———
@@ -542,7 +596,7 @@ func default_state() -> Dictionary:
 	return {"v": 2, "silver": 60, "potions": 3, "inv": inv,
 		"gear": {"hache": 1, "pioche": 1, "faucille": 1, "epee": 1, "armure": 1, "bottes": 1, "bouclier": 1, "artefact": 0, "monture": 0, "casque": 0, "cape": 0},
 		"stats": {"kills": 0, "gathered": 0, "boss": 0}, "tips": {}, "disc": {}, "chests": {}, "met": {},
-		"armor_kind": "plate", "weapon_kind": "epee", "artefact_kind": "", "mercs": [], "duels": {}, "prof": {}, "wxp": {}, "toolq": {}, "island": new_island(), "uniq": {}, "bag_bonus": 0, "mount_kind": "", "ench": {}, "tower": {"best": 0}, "items": [], "ah": {"stock": [], "stock_at": 0, "listings": []}, "unlock": {}, "map": 1, "gk": {"bottes": "greves"}, "eqx": {}}
+		"armor_kind": "plate", "weapon_kind": "epee", "artefact_kind": "", "mercs": [], "duels": {}, "prof": {}, "wxp": {}, "toolq": {}, "island": new_island(), "uniq": {}, "bag_bonus": 0, "mount_kind": "", "ench": {}, "tower": {"best": 0}, "items": [], "ah": {"stock": [], "stock_at": 0, "listings": []}, "unlock": {}, "map": 1, "gk": {"bottes": "greves"}, "eqx": {}, "food": {}, "guild": {}, "friends": [], "duel_wins": 0}
 
 func _ready() -> void:
 	S = default_state()
@@ -590,6 +644,10 @@ func _ready() -> void:
 			S["map"] = clamp(int(S.get("map", 1)), 1, 4)
 			if typeof(S.get("gk")) != TYPE_DICTIONARY: S["gk"] = {"bottes": {"plate": "greves", "cuir": "cuir", "tissu": "sandales"}.get(S.get("armor_kind", "plate"), "greves")}
 			if typeof(S.get("eqx")) != TYPE_DICTIONARY: S["eqx"] = {}
+			for key3 in ["food", "guild"]:
+				if typeof(S.get(key3)) != TYPE_DICTIONARY: S[key3] = {}
+			for k4 in S.food: S.food[k4] = int(S.food[k4])
+			if typeof(S.get("friends")) != TYPE_ARRAY: S["friends"] = []
 			for sl in ["casque", "cape"]:
 				if not S.gear.has(sl): S.gear[sl] = 0
 			if not ARMOR_KINDS.has(S.get("armor_kind", "plate")): S["armor_kind"] = "plate"

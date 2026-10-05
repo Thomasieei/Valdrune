@@ -150,6 +150,14 @@ func setup(m: Node) -> void:
 	auto_btn = Button.new(); auto_btn.focus_mode = Control.FOCUS_NONE; auto_btn.custom_minimum_size = Vector2(96, 52)
 	auto_btn.add_theme_font_override("font", f_title); auto_btn.add_theme_font_size_override("font_size", 19)
 	auto_btn.pressed.connect(func(): main.toggle_auto()); root.add_child(auto_btn)
+	chat_box = Button.new(); chat_box.focus_mode = Control.FOCUS_NONE; chat_box.custom_minimum_size = Vector2(380, 104); chat_box.size = Vector2(380, 104)
+	var cst := flat(Color(0.03, 0.05, 0.08, 0.5), 12, Color(0.6, 0.8, 1.0, 0.18), 1, Vector4(10, 6, 10, 6))
+	for k in ["normal", "hover", "pressed"]: chat_box.add_theme_stylebox_override(k, cst)
+	chat_lbl = RichTextLabel.new(); chat_lbl.bbcode_enabled = true; chat_lbl.scroll_active = false; chat_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chat_lbl.position = Vector2(10, 5); chat_lbl.size = Vector2(362, 96); chat_lbl.add_theme_font_size_override("normal_font_size", 14); chat_lbl.add_theme_font_size_override("bold_font_size", 14)
+	chat_lbl.add_theme_constant_override("outline_size", 4); chat_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	chat_box.add_child(chat_lbl); chat_box.pressed.connect(func(): show_chat()); root.add_child(chat_box)
+	quest_box = gp
 	get_viewport().size_changed.connect(_layout); _layout()
 	refresh_auto()
 
@@ -202,10 +210,13 @@ func _layout() -> void:
 	icons.attack.position = mc - Vector2(48, 48)
 	hint_lbl.position = Vector2(s.x - 560 - 40, mc.y - 220)
 	if auto_btn: auto_btn.position = Vector2(s.x - 380, 20)
+	_place_chat()
 
 func _input(ev: InputEvent) -> void:
 	if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed): drag_guard = false
 	if panel_open and cur_panel != "bag": return
+	if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT and not panel_open and not DisplayServer.is_touchscreen_available():
+		if not chat_box.get_global_rect().has_point(ev.position): main.try_pick_player(ev.position)
 	if ev is InputEventScreenTouch:
 		var p: Vector2 = ev.position
 		if ev.pressed:
@@ -217,10 +228,16 @@ func _input(ev: InputEvent) -> void:
 				var r: Rect2 = buttons[n].rect
 				if r.size.x > 0 and p.distance_to(r.get_center()) < r.size.x * 0.5 + 10:
 					touches[ev.index] = n; buttons[n].held = true; _press(n); get_viewport().set_input_as_handled(); return
+			tap_from = p; tap_t = Time.get_ticks_msec()
 			if p.x < vs().x * 0.5 and joy.id == -1:
 				joy.id = ev.index; joy.base = p; joy.pos = p; joy.vec = Vector2.ZERO; touches[ev.index] = "joy"
+			elif not chat_box.get_global_rect().has_point(p): touches[ev.index] = "tap"
 		else:
 			var role = touches.get(ev.index, "")
+			var quick: bool = Time.get_ticks_msec() - tap_t < 350 and p.distance_to(tap_from) < 18.0
+			if role == "tap" and quick: main.try_pick_player(p)
+			if role == "joy" and quick and not chat_box.get_global_rect().has_point(p): main.try_pick_player(p)
+			if role == "tap": touches.erase(ev.index); return
 			if role == "joy": joy.id = -1; joy.vec = Vector2.ZERO
 			elif role != "": buttons[role].held = false
 			touches.erase(ev.index)
@@ -892,7 +909,7 @@ func glow_tex() -> Texture2D:
 
 func res_tex(k: String, t: int) -> Texture2D: return main.icons.get_icon("res_%s_%d" % [k, t])
 
-func bag_entries() -> Array:
+func bag_entries(with_food := true) -> Array:
 	var out := []
 	for i in Game.S.items.size():
 		var it: Dictionary = Game.S.items[i].duplicate(); it["idx"] = i; out.append(it)
@@ -900,12 +917,19 @@ func bag_entries() -> Array:
 		for t in range(1, Game.MAX_TIER + 1):
 			var n: int = Game.S.inv[k][t]
 			if n > 0: out.append({"res": k, "tier": t, "qty": n})
+	if with_food:
+		var keys: Array = Game.S.get("food", {}).keys(); keys.sort()
+		for key in keys:
+			var pr: PackedStringArray = str(key).split(":")
+			if Game.FOOD.has(pr[0]) and int(Game.S.food[key]) > 0: out.append({"food": pr[0], "fkey": key, "tier": int(pr[1]), "qty": int(Game.S.food[key])})
 	return out
 
 func entry_tex(e: Dictionary) -> Texture2D:
+	if e.has("food"): return main.icons.get_icon("food_" + e.food)
 	return res_tex(e.res, e.tier) if e.has("res") else main.icons.item_icon(e)
 
 func entry_name(e: Dictionary) -> String:
+	if e.has("food"): return Game.food_name(e.food)
 	return Game.res_name(e.res, e.tier) if e.has("res") else Game.item_name(e)
 
 # ——— Inventaire façon Albion : parchemin à droite, poupée d'équipement, sac en grille ———
@@ -975,6 +999,9 @@ func _ink(t: String, size: int, c := INK, title := false) -> Label:
 func bag_value() -> int:
 	var v := 0
 	for it in Game.S.items: v += Game.item_price(it)
+	for key in Game.S.get("food", {}):
+		var pr: PackedStringArray = str(key).split(":")
+		if Game.FOOD.has(pr[0]): v += Game.food_price(pr[0], int(pr[1])) * int(Game.S.food[key])
 	for k in Game.RES_KEYS:
 		for t in range(1, Game.MAX_TIER + 1): v += Game.S.inv[k][t] * Game.res_price(t)
 	return v
@@ -1107,12 +1134,18 @@ func _bag_card(entries: Array, px: float) -> void:
 		var hh := HBoxContainer.new(); hh.add_theme_constant_override("separation", 12); cv.add_child(hh)
 		hh.add_child(aslot(entry_tex(e), e.tier, e.get("qty", 1), true, Callable(), 84, int(e.get("ench", 0)), null, e))
 		var col: Color = Game.TIER_COL[e.tier]
-		var sub: String = "Ressource" if e.has("res") else Game.SLOT_NAME[e.slot]
+		var sub: String = "Ressource" if e.has("res") else ("Nourriture" if e.has("food") else Game.SLOT_NAME[e.slot])
 		var nm := rich("[b][color=#%s]%s[/color][/b]\n%s · [color=#%s]Tier %s[/color]%s" % [col.to_html(false), entry_name(e), sub, col.to_html(false), ROMAN[clamp(int(e.tier), 0, 8)], "  · [color=#9dffb0]porté[/color]" if equipped else ""], 18)
 		nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER; nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL; hh.add_child(nm)
 		cv.add_child(rich(item_info(e, equipped), 16))
 		var bh := HFlowContainer.new(); bh.add_theme_constant_override("h_separation", 8); bh.add_theme_constant_override("v_separation", 8); cv.add_child(bh)
-		if equipped:
+		if e.has("food"):
+			var fk: String = e.fkey
+			var be := big_button("Manger", true, func(): main.eat_food(fk); show_bag(), Color("#8fe06a"), true); be.custom_minimum_size = Vector2(130, 48); bh.add_child(be)
+			var bs := big_button("Vendre 1 · %s" % Game.fmt(Game.food_price(e.food, e.tier)), true, func(): main.sell_food(fk); show_bag(), GOLD); bs.custom_minimum_size = Vector2(150, 48); bh.add_child(bs)
+			if int(e.qty) > 1:
+				var ba := big_button("Tout vendre", true, func(): bag_sel = -1; main.sell_food(fk, true); show_bag(), GOLD); ba.custom_minimum_size = Vector2(130, 48); bh.add_child(ba)
+		elif equipped:
 			var ub := big_button("Déséquiper", true, func(): _unequip(eq_sel), GOLD, true); ub.custom_minimum_size = Vector2(160, 48); bh.add_child(ub)
 		else:
 			if not e.has("res") and not e.get("bebe", false) and e.slot != "junk":
@@ -1155,6 +1188,8 @@ func _diff(v: float, cur: float, unit := "") -> String:
 	return "  [color=%s](%s%d%s)[/color]" % ["#8dffa0" if d > 0 else "#ff8a7a", "+" if d > 0 else "", int(round(d)), unit]
 
 func item_info(e: Dictionary, equipped: bool) -> String:
+	if e.has("food"):
+		return "×%d dans ton sac · se vend [color=#ffd86b]%s[/color] l'unité\nManger : rend [b]%d %%[/b] de ta vie. Cueilli à la main dans les buissons, les sous-bois et les potagers des fermes — ça repousse." % [e.qty, Game.fmt(Game.food_price(e.food, e.tier)), int(round(Game.food_heal(e.food, e.tier) * 100))]
 	if e.has("res"):
 		return "×%d en stock · valeur ≈ [color=#ffd86b]%s[/color] argent l'unité\nSert à la forge (Brokk) pour fabriquer les objets T%d." % [e.qty, Game.fmt(Game.res_price(e.tier)), e.tier]
 	var t := int(e.tier); var lines := []
@@ -1291,7 +1326,7 @@ func show_auction(tab := "", cat := "") -> void:
 				if n == 0: body.add_child(rich("[color=#8a9298]Rien dans cette catégorie pour l'instant. Le stock se renouvelle toutes les 5 minutes.[/color]", 16))
 			"sell":
 				if ah_sel != null: _sell_editor(body)
-				var entries := bag_entries(); var n2 := 0
+				var entries := bag_entries(false); var n2 := 0
 				for e in entries:
 					if ah_cat != "all" and cat_of(e) != ah_cat: continue
 					if ah_tier > 0 and int(e.tier) != ah_tier: continue
@@ -1757,3 +1792,154 @@ func refresh_auto() -> void:
 	var st := flat(Color("#2f7a3a") if on else Color(0.05, 0.07, 0.1, 0.8), 26, Color("#7dff8a") if on else Color(0.95, 0.78, 0.45, 0.6), 2, Vector4(10, 4, 10, 4))
 	for k in ["normal", "hover", "pressed"]: auto_btn.add_theme_stylebox_override(k, st)
 	auto_btn.add_theme_color_override("font_color", Color.WHITE if on else GOLD)
+
+
+# ================= SOCIAL : chat, fiche joueur, guilde =================
+var chat_box: Button
+var chat_lbl: RichTextLabel
+var quest_box: Control
+var tap_from := Vector2.ZERO
+var tap_t := 0
+var chat_tab := "monde"
+var chat_to := ""
+const CH_COL := {"monde": "#e8e2d0", "guilde": "#7dffb0", "prive": "#ff9be0", "systeme": "#ffd27a"}
+
+func _place_chat() -> void:
+	if chat_box == null: return
+	var y := 92.0 + (quest_box.size.y if quest_box else 90.0) + 8.0
+	chat_box.position = Vector2(12, y)
+
+func _fmt_line(l: Dictionary) -> String:
+	var c: String = CH_COL.get(l.ch, "#ffffff")
+	match l.ch:
+		"systeme": return "[color=%s]%s[/color]" % [c, l.text]
+		"prive":
+			if l.from == "Toi": return "[color=%s][b]→ %s[/b] : %s[/color]" % [c, l.to, l.text]
+			return "[color=%s][b]%s[/b] te chuchote : %s[/color]" % [c, l.from, l.text]
+		"guilde": return "[color=%s][Guilde] [b]%s[/b] : %s[/color]" % [c, l.from, l.text]
+	return "[color=#9fd4ff][b]%s[/b][/color] [color=%s]%s[/color]" % [l.from, c, l.text]
+
+func refresh_chat() -> void:
+	if chat_lbl == null or main.social == null: return
+	var L: Array = main.social.lines
+	var out := []
+	for i in range(max(0, L.size() - 4), L.size()): out.append(_fmt_line(L[i]))
+	chat_lbl.text = "\n".join(out)
+	_place_chat()
+	if cur_panel == "chat" and panel_open: _refresh_chat_panel()
+
+var chat_log_lbl: RichTextLabel
+var chat_scroll: ScrollContainer
+func _refresh_chat_panel() -> void:
+	if chat_log_lbl == null or not is_instance_valid(chat_log_lbl): return
+	var L: Array = main.social.lines
+	var out := []
+	for l in L:
+		var ok: bool = l.ch == "systeme" or (chat_tab == "monde" and l.ch in ["monde", "guilde", "prive"]) or l.ch == chat_tab
+		if chat_tab == "prive" and chat_to != "" and l.ch == "prive" and not (l.from.ends_with(chat_to) or l.to == chat_to or l.to.ends_with(chat_to)): ok = false
+		if ok: out.append(_fmt_line(l))
+	chat_log_lbl.text = "\n".join(out.slice(max(0, out.size() - 40)))
+	(func(): if is_instance_valid(chat_scroll): chat_scroll.scroll_vertical = 1000000).call_deferred()
+
+func show_chat(tab := "", to := "") -> void:
+	if tab != "": chat_tab = tab
+	if to != "": chat_to = to
+	main.social.unread = 0
+	var S: Social = main.social
+	open_panel("Discussion", func(body: Control):
+		var tb := HBoxContainer.new(); tb.add_theme_constant_override("separation", 8); body.add_child(tb)
+		for t in [["monde", "Monde"], ["guilde", "Guilde"], ["prive", "Privé"], ["amis", "Amis & groupe"]]:
+			_tab_btn(tb, t[1], chat_tab == t[0], func(): chat_tab = t[0]; show_chat())
+		if chat_tab == "guilde" and not S.in_guild():
+			_guild_create(body); return
+		if chat_tab == "amis":
+			_friends_tab(body); return
+		if chat_tab == "guilde":
+			var g: Dictionary = Game.S.guild
+			body.add_child(rich("[b][color=#7dffb0]%s [%s][/color][/b] · %d membre(s) · bonus d'argent [b]+%d %%[/b]" % [g.name, g.tag, g.members.size() + 1, int(S.guild_bonus() * 100)], 18))
+			var mf := HFlowContainer.new(); mf.add_theme_constant_override("h_separation", 6); mf.add_theme_constant_override("v_separation", 6); body.add_child(mf)
+			for n in g.members:
+				var on := S.bot_by_name(n) != null
+				_chip(mf, ("● " if on else "○ ") + n, false, func(): show_member(n))
+			var lv := big_button("Quitter la guilde", true, func(): S.leave_guild(); show_chat("monde"), Color("#ff9a8a")); lv.custom_minimum_size = Vector2(200, 44); body.add_child(lv)
+		if chat_tab == "prive":
+			var pf := HFlowContainer.new(); pf.add_theme_constant_override("h_separation", 6); pf.add_theme_constant_override("v_separation", 6); body.add_child(pf)
+			pf.add_child(_label("À :", 16, SOFT))
+			for b in S.alive_bots():
+				_chip(pf, b.nm, chat_to == b.nm, func(): chat_to = b.nm; show_chat())
+		chat_scroll = ScrollContainer.new(); chat_scroll.custom_minimum_size = Vector2(0, 230); chat_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; body.add_child(chat_scroll)
+		chat_log_lbl = rich("", 17); chat_scroll.add_child(chat_log_lbl)
+		_refresh_chat_panel()
+		var ih := HBoxContainer.new(); ih.add_theme_constant_override("separation", 8); body.add_child(ih)
+		var le := LineEdit.new(); le.placeholder_text = {"monde": "Écrire à tout le monde…", "guilde": "Écrire à la guilde…", "prive": "Chuchoter à %s…" % chat_to if chat_to != "" else "Choisis un joueur ci-dessus"}.get(chat_tab, "")
+		le.size_flags_horizontal = Control.SIZE_EXPAND_FILL; le.custom_minimum_size = Vector2(0, 50); le.add_theme_font_size_override("font_size", 19); le.max_length = 120
+		ih.add_child(le)
+		var send := func():
+			S.say(chat_tab, le.text, chat_to); le.text = ""
+		le.text_submitted.connect(func(_t): send.call())
+		var bs := big_button("Envoyer", true, send, GOLD, true); bs.custom_minimum_size = Vector2(140, 50); ih.add_child(bs)
+		var qf := HFlowContainer.new(); qf.add_theme_constant_override("h_separation", 6); qf.add_theme_constant_override("v_separation", 6); body.add_child(qf)
+		for q in ["slt !", "gg", "qq1 donjon ?", "merci", "on farm ensemble ?", "vends du bois", "lol"]:
+			_chip(qf, q, false, func(): S.say(chat_tab, q, chat_to))
+		, 900)
+	cur_panel = "chat"
+
+func _guild_create(body: Control) -> void:
+	body.add_child(rich("[b]Fonder une guilde[/b]\nUne guilde, c'est ta bande : un canal de discussion à part, un blason au-dessus de ta tête et [b]+1 %% d'argent gagné par membre[/b] (jusqu'à +10 %%). Invite des joueurs depuis leur fiche (touche-les à l'écran).\nCoût : [color=#ffd86b]%s[/color] argent." % Game.fmt(Social.GUILD_COST), 17))
+	var nm := LineEdit.new(); nm.placeholder_text = "Nom de la guilde (ex : Les Loups du Var)"; nm.custom_minimum_size = Vector2(0, 50); nm.max_length = 22; nm.add_theme_font_size_override("font_size", 19); body.add_child(nm)
+	var tg := LineEdit.new(); tg.placeholder_text = "Blason, 2 à 4 lettres (ex : LDV)"; tg.custom_minimum_size = Vector2(0, 50); tg.max_length = 4; tg.add_theme_font_size_override("font_size", 19); body.add_child(tg)
+	var err := rich("", 16); body.add_child(err)
+	body.add_child(big_button("Fonder la guilde", true, func():
+		var e: String = main.social.create_guild(nm.text, tg.text)
+		if e != "": err.text = "[color=#ff8a7a]%s[/color]" % e; Game.play("error")
+		else: Game.play("level"); show_chat("guilde"), GOLD, true))
+
+func _friends_tab(body: Control) -> void:
+	var S: Social = main.social
+	body.add_child(rich("[b]Ton groupe[/b] (%d / %d)" % [S.party.size(), Social.GROUP_MAX], 18))
+	if S.party.is_empty(): body.add_child(rich("[color=#a8b4bc]Personne pour l'instant : touche un joueur et invite-le. Il te suivra et combattra avec toi.[/color]", 16))
+	for b in S.party:
+		var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 8); body.add_child(hb)
+		hb.add_child(rich("[color=#7dffb0]%s[/color] · T%d · PI %d" % [b.display_name(), b.tier, b.pwr], 17))
+		var bb := big_button("Renvoyer", true, func(): S.leave_group(b); show_chat("amis")); bb.custom_minimum_size = Vector2(140, 44); hb.add_child(bb)
+	body.add_child(rich("[b]Amis[/b]", 18))
+	if Game.S.friends.is_empty(): body.add_child(rich("[color=#a8b4bc]Ajoute des amis depuis leur fiche pour les retrouver ici.[/color]", 16))
+	var ff := HFlowContainer.new(); ff.add_theme_constant_override("h_separation", 6); ff.add_theme_constant_override("v_separation", 6); body.add_child(ff)
+	for n in Game.S.friends:
+		var on := S.bot_by_name(n) != null
+		_chip(ff, ("● " if on else "○ ") + str(n), false, func(): show_member(n))
+	body.add_child(rich("[color=#a8b4bc]● connecté sur cette carte · ○ ailleurs dans le royaume[/color]", 14))
+
+func show_member(n: String) -> void:
+	var b: Bot = main.social.bot_by_name(n)
+	if b: show_player_card(b)
+	else: toast("%s n'est pas sur cette carte en ce moment" % n, Color("#a8b4bc"))
+
+func show_player_card(b: Bot) -> void:
+	var S: Social = main.social
+	open_panel("Joueur", func(body: Control):
+		var hh := HBoxContainer.new(); hh.add_theme_constant_override("separation", 14); body.add_child(hh)
+		var pf := PanelContainer.new(); pf.add_theme_stylebox_override("panel", flat(Color("#2c2620"), 16, Game.TIER_COL[b.tier], 3, Vector4(4, 4, 4, 4))); pf.custom_minimum_size = Vector2(110, 130); hh.add_child(pf)
+		var pt := TextureRect.new(); pt.texture = main.icons.char_icon(b.model); pt.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; pt.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED; pf.add_child(pt)
+		var col := "#ff8a5a" if b.hostile else ("#7dffb0" if b.party else "#9fd4ff")
+		var state := "Joueur JcJ — peut t'attaquer hors des villes" if b.hostile else ("Dans ton groupe" if b.party else "Joueur pacifique")
+		var info := rich("[b][font_size=26]%s[/font_size][/b]\n[color=%s]%s[/color]\n%s · [color=#%s]Tier %d[/color] · Puissance [b]%d[/b]%s" % [b.display_name(), col, state, {"epee": "Épéiste", "hache": "Hache", "baton": "Mage"}[b.wk], Game.TIER_COL[b.tier].to_html(false), b.tier, b.pwr, "  · [color=#ffd27a]★ Ami[/color]" if S.is_friend(b.nm) else ""], 18)
+		info.size_flags_vertical = Control.SIZE_SHRINK_CENTER; hh.add_child(info)
+		var you := Game.power()
+		var cmp := "[color=#7dffb0]plus faible que toi[/color]" if b.pwr < you * 0.9 else ("[color=#ff8a7a]plus fort que toi[/color]" if b.pwr > you * 1.1 else "[color=#ffd27a]à ta hauteur[/color]")
+		body.add_child(rich("Vie [b]%d[/b] · Dégâts [b]%d[/b] · Armure [b]−%d %%[/b] · Monstres tués [b]%d[/b]\nTa puissance : %d → ce joueur est %s." % [int(b.max_hp), int(b.dmg()), int(b.armor_red() * 100), b.kills, you, cmp], 17))
+		var bf := HFlowContainer.new(); bf.add_theme_constant_override("h_separation", 8); bf.add_theme_constant_override("v_separation", 8); body.add_child(bf)
+		var add := func(t: String, cb: Callable, hl := false) -> void:
+			var bt := big_button(t, true, cb, GOLD, hl); bt.custom_minimum_size = Vector2(196, 52); bf.add_child(bt)
+		add.call("Chuchoter", func(): show_chat("prive", b.nm), true)
+		if b.party: add.call("Renvoyer du groupe", func(): S.leave_group(b); close_panel())
+		else: add.call("Inviter au groupe", func(): S.invite_group(b); close_panel())
+		add.call("Défier en duel", func(): close_panel(); S.ask_duel(b))
+		add.call("Retirer des amis" if S.is_friend(b.nm) else "Ajouter en ami", func(): S.toggle_friend(b.nm); show_player_card(b))
+		if S.in_guild():
+			if b.nm in Game.S.guild.members: add.call("Exclure de la guilde", func(): S.kick_guild(b.nm); show_player_card(b))
+			else: add.call("Inviter dans ma guilde", func(): S.invite_guild(b); close_panel())
+		else: add.call("Fonder une guilde…", func(): show_chat("guilde"))
+		body.add_child(rich("[color=#a8b4bc]Les duels sont amicaux : on s'arrête à 1 PV, rien n'est volé. Le gagnant empoche une prime.[/color]", 14))
+		, 760)
+	cur_panel = "player"

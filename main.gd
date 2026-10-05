@@ -83,7 +83,9 @@ func _ready() -> void:
 	_make_guide()
 	_make_ambient()
 	_spawn_saved_mercs()
+	social = Social.new(); add_child(social); social.setup(self)
 	_spawn_bots()
+	player.refresh_name()
 	next_boss_at = 240.0
 	update_goal()
 	_cam_update(1.0, true)
@@ -320,6 +322,8 @@ func _process(dt: float) -> void:
 	_context(dt)
 	var o0 := Time.get_ticks_usec()
 	world.update_nodes(dt)
+	if world.crops: world.crops.update(dt)
+	if social: social.update(dt)
 	world.update_life(dt, P.global_position)
 	if not in_instance(): world.update_occlusion(player.global_position, dt)
 	if shot_mode and Time.get_ticks_usec() - o0 > 3000: print("OCC ", (Time.get_ticks_usec() - o0) / 1000.0)
@@ -332,7 +336,7 @@ func _process(dt: float) -> void:
 	_update_loot(dt)
 	if not spawn_q.is_empty():
 		var q: Array = spawn_q.pop_front()
-		if not in_instance(): _spawn_enemy(q[0], q[1], q[2], q[3])
+		if not in_instance(): _spawn_enemy(q[0], q[1], q[2], q[3], q.size() < 5, q[4] if q.size() >= 5 else {})
 	elif not free_q.is_empty():
 		var fe = free_q.pop_front()
 		if is_instance_valid(fe): fe.queue_free()
@@ -378,6 +382,7 @@ func _context(_dt: float) -> void:
 		if sp.has("chest") and sp.chest_ready and Vector2(pp.x - sp.pos.x, pp.z - sp.pos.z).length() < 2.8: chest_sp = sp
 	var threat := _nearest_enemy(pp, 7.0, true)
 	var nd: Dictionary = world.nearest_node(pp, 2.4) if threat == null and (not in_instance() or island != null) else {}
+	crop_sel = world.crops.nearest(pp, 2.2) if threat == null and not in_instance() and world.crops else {}
 	entry_sel = {}
 	var near_tower := not in_instance() and Vector2(world.tower_portal.x - pp.x, world.tower_portal.z - pp.z).length() < 3.0
 	gate_sel = {}
@@ -425,6 +430,9 @@ func _context(_dt: float) -> void:
 		var guarded: bool = chest_sp.members.any(func(m): return is_instance_valid(m) and not m.dead)
 		hud.set_main("chest" if not guarded else "guarded", "OUVRIR" if not guarded else "GARDÉ", Game.TIER_COL[chest_sp.tier] if not guarded else Color("#ff7a6a"), "lock")
 		hud.hint_lbl.text = "[right]Coffre %s[/right]" % ("de la zone T%d" % chest_sp.tier if not guarded else "gardé : élimine les squelettes du camp")
+	elif not crop_sel.is_empty():
+		hud.set_main("pick", "CUEILLIR", Color("#9be86a"), "gift")
+		hud.hint_lbl.text = "[right]%s · [color=#%s]T%d[/color] · se mange ou se vend[/right]" % [Game.food_name(crop_sel.kind), Game.TIER_COL[crop_sel.tier].to_html(false), crop_sel.tier]
 	elif not nd.is_empty():
 		var tool: String = Game.TOOL_OF[nd.type]
 		var lv_ok: bool = Game.prof(tool).lvl >= Game.PROF_REQ[nd.tier]
@@ -469,6 +477,8 @@ func _context(_dt: float) -> void:
 			"dchest":
 				hud.buttons.main.held = false; open_dungeon_chest()
 			"gather": P.gather(nd)
+			"pick":
+				hud.buttons.main.held = false; pick_crop(crop_sel)
 			"chest":
 				hud.buttons.main.held = false; open_chest(chest_sp)
 			"guarded":
@@ -525,8 +535,57 @@ func on_gather_hit(nd: Dictionary) -> void:
 	if nd.charges <= 0: hud.toast("Ressource épuisée — elle repoussera", Color(0.75, 0.75, 0.75))
 	update_goal(); Game.save()
 
+var social: Social
+var crop_sel := {}
+# toucher un joueur à l'écran ouvre sa fiche
+func try_pick_player(sp: Vector2) -> bool:
+	if cam == null or in_instance(): return false
+	var best: Bot = null; var bd := 70.0
+	for b in bots:
+		if not is_instance_valid(b) or b.dead or not b.visible: continue
+		var wp: Vector3 = b.global_position + Vector3(0, 1.2, 0)
+		if cam.is_position_behind(wp): continue
+		var d := cam.unproject_position(wp).distance_to(sp)
+		if d < bd: bd = d; best = b
+	if best: hud.show_player_card(best); return true
+	return false
+
+func pick_crop(c: Dictionary) -> void:
+	if c.is_empty() or not c.ready: return
+	var n: int = world.crops.pick(c)
+	Game.add_food(c.kind, c.tier, n)
+	player.play_pick()
+	Fx.number(self, c.pos + Vector3(0, 1.8, 0), "+%d %s" % [n, Game.food_name(c.kind)], Color("#b8f58a"), false)
+	Fx.burst(self, c.pos + Vector3(0, 0.8, 0), Color("#9be86a"), 10, 3.0, 0.2, 0.45)
+	Game.play("pickup", -4.0)
+	Game.S.stats.gathered += n
+	if not Game.S.tips.has("food"):
+		Game.S.tips["food"] = 1; hud.toast("Ouvre ton sac pour manger (ça soigne) ou vendre ce que tu cueilles", Color("#d8ffb0"), true)
+	Game.save()
+
+func eat_food(key: String) -> void:
+	var n: int = int(Game.S.food.get(key, 0))
+	if n <= 0: return
+	var parts := key.split(":"); var k: String = parts[0]; var t := int(parts[1])
+	if player.hp >= player.max_hp - 0.5: hud.toast("Tu n'as pas faim : ta vie est déjà pleine", Color("#d8d8d8")); return
+	Game.S.food[key] = n - 1
+	if Game.S.food[key] <= 0: Game.S.food.erase(key)
+	var h: float = player.max_hp * Game.food_heal(k, t)
+	player.hp = min(player.max_hp, player.hp + h)
+	Fx.number(self, player.global_position + Vector3(0, 2.4, 0), "+%d" % int(h), Color("#7dff8a"), false)
+	Game.play("pickup", -6.0, 1.3); Game.save()
+
+func sell_food(key: String, all := false) -> void:
+	var n: int = int(Game.S.food.get(key, 0))
+	if n <= 0: return
+	var parts := key.split(":"); var q: int = n if all else 1
+	var got := gain_silver(Game.food_price(parts[0], int(parts[1])) * q)
+	Game.S.food[key] = n - q
+	if Game.S.food[key] <= 0: Game.S.food.erase(key)
+	hud.toast("Vendu : %s ×%d · +%s argent" % [Game.food_name(parts[0]), q, Game.fmt(got)], Color("#ffd86b")); Game.play("coin", -6.0); Game.save()
+
 func gain_silver(n: int) -> int:
-	n = int(n * (1.0 + Game.art_bonus("fortune"))); Game.S.silver += n; return n
+	n = int(n * (1.0 + Game.art_bonus("fortune") + (social.guild_bonus() if social else 0.0))); Game.S.silver += n; return n
 
 # XP d'arme : chaque monstre tué près du héros fait progresser l'arme portée
 func _weapon_xp(tier: int, mult: float) -> void:
@@ -573,6 +632,9 @@ func on_enemy_death(e: Enemy) -> void:
 	if e.kind == "boss" and not e.camp.get("dungeon", false):
 		Game.S.stats.boss += 1; hud.celebrate("LE SEIGNEUR D'OS EST VAINCU !", "Ramasse son trésor — Valdrune est sauvée", "it_trophy"); Game.play("level")
 		boss_ref = null
+	if e.def.get("chief", false):
+		hud.celebrate("CHEF DE GUERRE VAINCU !", "Son trésor est à toi — il reviendra dans quelques minutes", "it_trophy"); Game.play("level")
+		if randf() < 0.04: _rare_mount("Le chef de guerre")
 	if island and e.camp.has("bandit_group"): _bandit_down(e)
 	if tower and e == tower.boss:
 		if tower.floor_n >= 10 and randf() < 0.05: _rare_mount("Le gardien de la tour")
@@ -592,6 +654,7 @@ func on_boss_aggro(b: Enemy) -> void:
 	elif b.camp.get("dungeon", false): hud.toast("Le gardien passe à l'attaque !", Color("#8fd0ff"), true)
 	elif b.kind == "boss": hud.toast("Le Seigneur d'Os se réveille !", Color("#ff6a5a"), true)
 	elif b.group_boss: hud.toast("%s vous a repérés !" % b.def.name, Color("#d58bff"), true)
+	elif b.def.get("chief", false): hud.toast("%s te défie !" % b.def.name, Color("#ff9a3a"), true)
 	Game.play("roar")
 
 func boss_summon(b: Enemy) -> void:
@@ -635,7 +698,8 @@ func _update_spawns() -> void:
 			sp.dead_at = now
 			for i in sp.kinds.size():
 				var p: Vector3 = sp.pos + World.polar(TAU * i / sp.kinds.size() + 0.5, 2.2 if sp.kinds.size() > 1 else 0.0)
-				spawn_q.append([sp.kinds[i], sp.tier, p, sp])
+				if sp.get("chief", false) and i == 0: spawn_q.append([sp.kinds[i], sp.tier, sp.pos, sp, {"chief": true}])
+				else: spawn_q.append([sp.kinds[i], sp.tier, p, sp])
 		elif d > 62.0 and not alive.is_empty() and alive.all(func(m): return m.state == "idle"):
 			for m in alive: enemies.erase(m); free_q.append(m)
 			sp.members.clear(); sp.dead_at = -999.0
@@ -1545,11 +1609,11 @@ func enchant(slot: String) -> void:
 func _spawn_bots() -> void:
 	var names := Bot.NAMES.duplicate(); names.shuffle()
 	# 8 joueurs par carte : moitié dans chaque zone ; hostiles possibles dès la carte T2-T3
-	for i in 8:
+	for i in 12:
 		var b := Bot.new(); add_child(b)
 		var reg: int = 1 + (i % (World.REGIONS.size() - 1))
 		var t: int = World.REGIONS[reg].tier
-		b.setup(self, names[i], t, reg, world.map_id >= 2 and randf() < 0.5)
+		b.setup(self, names[i % names.size()], t, reg, world.map_id >= 2 and randf() < (0.6 if reg > 1 else 0.4))
 		var p := b.goal
 		b.position = p + Vector3(0, world.height(p.x, p.z) + 0.5, 0); b._new_goal()
 		bots.append(b)
