@@ -645,6 +645,7 @@ func _pave(q: Vector2) -> void:
 
 func house(c: Vector2, rot: float, w: int, floors: int, style: String, door := true) -> void:
 	var D := 8.0; var W := float(w)
+	if road_dist(c.x, c.y) < 4.5 and c.distance_to(village) > 12.0: return
 	var y0 := height(c.x, c.y) - 0.05
 	var B := Basis(Vector3.UP, rot)
 	var X := func(lx: float, ly: float, lz: float, r: float) -> Transform3D:

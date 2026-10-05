@@ -201,7 +201,7 @@ func _layout() -> void:
 	icons.bag.position = buttons.bag.rect.position + Vector2(1, 1)
 	icons.attack.position = mc - Vector2(48, 48)
 	hint_lbl.position = Vector2(s.x - 560 - 40, mc.y - 220)
-	if auto_btn: auto_btn.position = Vector2(s.x - 274, 330)
+	if auto_btn: auto_btn.position = Vector2(s.x - 380, 20)
 
 func _input(ev: InputEvent) -> void:
 	if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed): drag_guard = false

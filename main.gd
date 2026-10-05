@@ -315,6 +315,7 @@ func _process(dt: float) -> void:
 	Game.listener = P.global_position
 	P.input_vec = hud.move_vec() if (not hud.panel_open or hud.cur_panel == "bag") else Vector2.ZERO
 	if auto_on: _auto(dt)
+	_unstick(P)
 	if has_meta("force") and get_meta("force") != Vector2.ZERO: P.input_vec = get_meta("force")
 	_context(dt)
 	var o0 := Time.get_ticks_usec()
@@ -395,7 +396,7 @@ func _context(_dt: float) -> void:
 	gather_node = nd
 	if interact == "npc": hud.set_main("talk", "PARLER", Color("#9fe0ff"), "talk"); hud.hint_lbl.text = "[right]%s · %s[/right]" % [talk_npc.nm, talk_npc.role]
 	elif not isl_sel.is_empty():
-		var lab: Dictionary = {"chest": ["OUVRIR", "Coffre de l'île"], "house": ["LOGIS", "Logis des ouvriers"], "field": ["CHAMP", "Parcelle cultivable"], "pen": ["ENCLOS", "Enclos d'élevage"], "boat": ["QUITTER", "Rentrer au port"]}[isl_sel.kind]
+		var lab: Array = {"chest": ["OUVRIR", "Coffre de l'île"], "house": ["LOGIS", "Logis des ouvriers"], "field": ["CHAMP", "Parcelle cultivable"], "pen": ["ENCLOS", "Enclos d'élevage"], "boat": ["QUITTER", "Rentrer au port"]}[isl_sel.kind]
 		hud.set_main("isl_" + isl_sel.kind, lab[0], Color("#ffd27a"), "chest"); hud.hint_lbl.text = "[right]%s[/right]" % lab[1]
 	elif not gate_sel.is_empty():
 		hud.set_main("gate", "VOYAGER", Color("#ffd27a"), "lock"); hud.hint_lbl.text = "[right]%s[/right]" % Maps.label(gate_sel.to)
@@ -1821,6 +1822,8 @@ var auto_t := 0.0
 var auto_best_d := 1e9
 var auto_stuck := 0.0
 var auto_ban := {}
+var auto_side := 1.0
+var auto_side_t := 0.0
 func toggle_auto() -> void:
 	if not bool(Game.S.get("auto_owned", false)): return
 	auto_on = not auto_on; auto_hold = false; auto_tgt = null
@@ -1858,11 +1861,12 @@ func _auto(dt: float) -> void:
 		for e in enemies:
 			if e.dead or not (e is Enemy) or e.group_boss or e.kind == "boss" or auto_ban.has(e.get_instance_id()): continue
 			if int(e.tier) > max(1, wt): continue
-			var d := pp.distance_to(e.global_position)
+			var d := pp.distance_to(e.global_position) + (20.0 if _auto_line_blocked(pp, e.global_position) else 0.0)
 			if d < bd and world.reachable(e.global_position.x, e.global_position.z): bd = d; best = e; bk = "enemy"
 		for nd in world.nodes:
 			if not _auto_can_gather(nd) or auto_ban.has(str(nd.pos)): continue
-			var d2: float = pp.distance_to(nd.pos)
+			var d2: float = pp.distance_to(nd.pos) + (20.0 if _auto_line_blocked(pp, nd.pos) else 0.0)
+			if not world.reachable(nd.pos.x + 1.2, nd.pos.z) and not world.reachable(nd.pos.x - 1.2, nd.pos.z) and not world.reachable(nd.pos.x, nd.pos.z + 1.2): continue
 			if d2 < bd - 3.0 and world.tier_at(nd.pos) <= max(1, wt) + 1: bd = d2; best = nd; bk = "node"
 		if best != null and (auto_tgt == null or bk != auto_kind or not is_same(best, auto_tgt)):
 			auto_tgt = best; auto_kind = bk; auto_best_d = 1e9; auto_stuck = 0.0
@@ -1871,12 +1875,28 @@ func _auto(dt: float) -> void:
 	var to := Vector3(tp.x - pp.x, 0, tp.z - pp.z); var d := to.length()
 	var reach: float = 2.0 if auto_kind == "node" else float(Game.wkind().get("range", Player.REACH)) + (auto_tgt.radius if auto_kind == "enemy" else 0.0) - 0.3
 	if d > reach:
-		P.input_vec = Vector2(to.x, to.z).normalized()
-		# coincé (falaise, obstacle) : on abandonne cette cible un moment
+		var dir := Vector2(to.x, to.z).normalized()
+		# contournement : si le chemin droit est bloqué juste devant, on glisse sur le côté le plus libre
+		var ahead := Vector2(pp.x, pp.z) + dir * 1.6
+		if not world.walkable(ahead.x, ahead.y) or world.near_house(ahead, 0.0) or auto_side_t > 0.0:
+			if auto_side_t <= 0.0:
+				var best_s := 0.0; var best_sc := -1.0
+				for sd in [1.0, -1.0]:
+					var side := dir.rotated(sd * 1.1)
+					var sc := 0.0
+					for k in range(1, 5):
+						var q := Vector2(pp.x, pp.z) + side * (k * 1.2)
+						if world.walkable(q.x, q.y) and not world.near_house(q, 0.0): sc += 1.0
+					if sc > best_sc: best_sc = sc; best_s = sd
+				auto_side = best_s; auto_side_t = 0.9
+			auto_side_t -= dt
+			dir = dir.rotated(auto_side * 1.1)
+		P.input_vec = dir
+		# coincé malgré tout : on abandonne cette cible un moment
 		if d < auto_best_d - 0.3: auto_best_d = d; auto_stuck = 0.0
 		else:
 			auto_stuck += dt
-			if auto_stuck > 3.5:
+			if auto_stuck > 3.0:
 				auto_ban[auto_tgt.get_instance_id() if auto_kind == "enemy" else str(auto_tgt.pos)] = true; auto_tgt = null
 	else:
 		auto_hold = true
@@ -1884,3 +1904,33 @@ func _auto(dt: float) -> void:
 			# compétences dès qu'elles sont prêtes
 			for i in 4:
 				if P.skill_cd[i] <= 0.0 and Game.S.gear.epee >= Player.skills()[i].req: P.use_skill(i); break
+
+
+# Filet de sécurité : si le héros passe sous le sol (téléportation dans un bâtiment, chute…), on le remet dessus
+func _unstick(P: Player) -> void:
+	var p := P.global_position
+	if island:
+		if p.y < -4.0 or not island.walkable(p.x, p.z) and p.y < -1.0: P.global_position = island.spawn_pos + Vector3(0, 0.5, 0); P.velocity = Vector3.ZERO
+		return
+	if in_instance():
+		if p.y < -6.0 and dungeon: P.global_position = dungeon.exit_pos + Vector3(0, 0.6, 0); P.velocity = Vector3.ZERO
+		return
+	var h := world.ground_y(p.x, p.z)
+	if p.y < h - 1.2:
+		var q := p
+		if not world.walkable(q.x, q.z) or world.near_house(Vector2(q.x, q.z), 0.0):
+			# on cherche le sol libre le plus proche
+			for r in [2.0, 4.0, 6.0, 9.0, 12.0]:
+				var found := false
+				for k in 12:
+					var c := Vector3(p.x + cos(k * TAU / 12.0) * r, 0, p.z + sin(k * TAU / 12.0) * r)
+					if world.walkable(c.x, c.z) and not world.near_house(Vector2(c.x, c.z), 0.0): q = c; found = true; break
+				if found: break
+		P.global_position = Vector3(q.x, world.ground_y(q.x, q.z) + 0.6, q.z); P.velocity = Vector3.ZERO
+
+func _auto_line_blocked(a: Vector3, b: Vector3) -> bool:
+	var n := int(a.distance_to(b) / 2.0)
+	for k in range(1, n):
+		var q := a.lerp(b, float(k) / n)
+		if not world.walkable(q.x, q.z) or world.near_house(Vector2(q.x, q.z), 0.0): return true
+	return false
