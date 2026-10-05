@@ -44,7 +44,13 @@ var BAY = null
 var POI_DEFS: Array = []
 var gates: Array = []          # passages vers les autres cartes {pos: Vector3, to, dir, arrive}
 const RIVER_W := 4.2
-func in_town(p: Vector3) -> bool: return Vector2(p.x, p.z).distance_to(village) < 32.0
+func in_town(p: Vector3) -> bool: return town.town_dist(p.x, p.z) < 9.0 if town else Vector2(p.x, p.z).distance_to(village) < 32.0
+func _town_home_at(p: Vector3) -> bool:
+	if town == null: return false
+	for h in town.homes:
+		if town._inside(Vector2(p.x, p.z), h, 0.6): return true
+	return false
+func near_town(p: Vector3, m: float) -> bool: return town != null and town.town_dist(p.x, p.z) < m
 
 func setup_map(id: int) -> void:
 	map_id = id; MAP = Maps.def(id)
@@ -56,20 +62,14 @@ func setup_map(id: int) -> void:
 	noise2.seed = 77 + id * 31; noise2.frequency = 0.05
 	warp.seed = 5 + id * 13; warp.frequency = 0.012
 	pnoise.seed = 4100 + id * 57; pnoise.frequency = 0.016; pnoise.fractal_octaves = 2
+	cnoise.seed = 8800 + id * 19; cnoise.frequency = 0.011; cnoise.fractal_octaves = 1
 	volcano = MAP.get("volcano", {})
 	if not volcano.is_empty() and vol_img == null: vol_img = load("res://assets/relief/volcano_h.res")
 	_make_roads()
 	_plan_hamlets()
 	_plan_paths()
 	dirt_spots = []; foot_paths = []; doors = []
-	if MAP.town.kind == "valdrune":
-		for off in [Vector2(-13, -10), Vector2(13, -10), Vector2(-15, 8), Vector2(15, 10), Vector2(-25, -17), Vector2(-26, -2), Vector2(26, -1)]:
-			var q: Vector2 = village + off
-			foot_paths.append([village + off.normalized() * 8.5, q - off.normalized() * 3.2])
-		# emplacements des PNJ (cercles de terre)
-		for o in [Vector2(-8.4, -5.8), Vector2(8.4, -5.8), Vector2(-21, -13), Vector2(3.5, 3.0), Vector2(-11, 8), Vector2(-8, 16), Vector2(8, 16), Vector2(9, 2), Vector2(-19, 13), Vector2(-5, -22), Vector2(3, -24)]:
-			dirt_spots.append([village + o, 2.2])
-	else: _plan_town_slots()
+	town = TownGen.new(); town.plan(self)
 	_plan_ramps()
 
 # ——— Un monde moins vide : fermes isolées, chemins vers chaque lieu, allées dans les villes ———
@@ -252,9 +252,12 @@ func raw_height(x: float, z: float) -> float:
 	var bb: float = 1.4 if REGIONS[w[1]].style in ["hills", "ash", "canyon"] else 0.0
 	var smooth_h: float = (noise.get_noise_2d(x, z) * 0.5 + 0.5) * 1.5 + 0.2 + lerp(bb, ba, w[2])
 	h = lerp(smooth_h, h, smoothstep(3.0, 9.0, rd))
-	# village plat
+	# le bourg : terrain doux (légères pentes), place bien plate
 	var vd := Vector2(x, z).distance_to(village)
-	h = lerp(0.25, h, smoothstep(34.0, 44.0, vd))
+	var td: float = town.town_dist(x, z) if town else vd
+	if td < 26.0:
+		var gentle: float = 0.25 + (noise.get_noise_2d(x * 0.7, z * 0.7) * 0.5 + 0.5) * 1.6 * smoothstep(TownGen.PLAZA_R + 2.0, TownGen.PLAZA_R + 20.0, vd)
+		h = lerp(gentle, h, smoothstep(8.0, 26.0, td))
 	# lieux aplanis
 	for p in POI_DEFS:
 		var pd := Vector2(x, z).distance_to(p.p)
@@ -314,11 +317,13 @@ func slope(x: float, z: float) -> float:
 # ================= CONSTRUCTION =================
 func build(id := 1) -> void:
 	setup_map(id)
-	_terrain()
+	_heights()
 	_water()
 	_bridges()
 	_compute_blocked()
 	_compute_reach()
+	_fix_reach()
+	_terrain()
 	if MAP.town.kind == "valdrune": _village()
 	else: _town(MAP.town)
 
@@ -326,6 +331,7 @@ func build(id := 1) -> void:
 	for p in POI_DEFS: _poi(p)
 	_gates()
 	_road_props()
+	_road_strips()
 	_cliffs()
 	_volcano_fx()
 	crops = Crops.new(); add_child(crops); crops.setup(self); _farms()
@@ -376,14 +382,13 @@ func _ground_color(x: float, z: float, h: float, sl: float) -> Color:
 		if vk > 0.78: c = c.lerp(Color("#ff5a1a"), clamp((vk - 0.78) * 6.0, 0.0, 1.0))   # lave du cratère
 	var rd := road_dist(x, z)
 	for rp in ramps: rd = min(rd, seg_dist(Vector2(x, z), rp.a, rp.b) + 0.4)
-	if rd < 3.0: c = c.lerp(Color("#a8916a"), (1.0 - smoothstep(1.6, 3.0, rd)) * 0.95)
-	var vd := Vector2(x, z).distance_to(village)
-	if vd < 11.0: c = c.lerp(Color("#a8916a"), 1.0 - smoothstep(8.0, 11.0, vd))
+	for cv in carved: rd = min(rd, seg_dist(Vector2(x, z), cv[0], cv[1]) + 0.6)
+	if rd < 3.4: c = c.lerp(Color("#8a7454"), (1.0 - smoothstep(1.4, 3.4, rd)) * 0.35)
 
 	if h < WATER_Y + 0.6: c = c.lerp(Color("#c9b98a") if A.style != "swamp" else Color("#6a6a4a"), clamp((WATER_Y + 0.6 - h) * 1.2, 0.0, 0.8))   # berges
 	return c
 
-func _terrain() -> void:
+func _heights() -> void:
 	N = int(HALF * 2.0 / CELL) + 1
 	hs.resize(N * N); pgrid.resize(N * N)
 	for j in N:
@@ -391,6 +396,8 @@ func _terrain() -> void:
 			_last_clear = -1.0
 			hs[j * N + i] = raw_height(-HALF + i * CELL, -HALF + j * CELL)
 			pgrid[j * N + i] = _last_pk
+
+func _terrain() -> void:
 	var cols := PackedColorArray(); cols.resize(N * N)
 	for j in N:
 		for i in N:
@@ -481,7 +488,7 @@ func _bridge(a: Vector2, b: Vector2) -> void:
 	for ob in bridges:
 		if ((ob.a + ob.b) * 0.5).distance_to((a + b) * 0.5) < 10.0: return   # pas deux ponts au même endroit
 	# Tablier en rampe : il part du sol de chaque berge (aucune marche à franchir) et passe au-dessus de l'eau
-	var ha := raw_height(a.x, a.y) - 0.05; var hb := raw_height(b.x, b.y) - 0.05
+	var ha := height(a.x, a.y) - 0.05; var hb := height(b.x, b.y) - 0.05
 	var len := a.distance_to(b); var dir := (b - a) / len; var right := Vector3(dir.y, 0, -dir.x)
 	var n := int(len / 0.8) + 1
 	var prof := []
@@ -565,31 +572,44 @@ func label(txt: String, pos: Vector3, col: Color, size := 48) -> Label3D:
 
 # ——— Le village de Valdrune ———
 func _village() -> void:
-	# Valdrune, construite à la main : place pavée, rue principale nord-sud, maisons à colombages (MegaKit)
+	# Valdrune : un vrai bourg qui s'étire le long des routes, ruelles, jardins, et chacun à sa place
 	var V := village
-	var DG := "res://assets/dungeon/"; var H := "res://assets/hex/"
-	var P := func(x: float, z: float) -> Vector3: return tp3(x, z)
-	_town_core(V, "VALDRUNE")
-	# champs du fermier (sans clôture)
-	house_spots.append([V + Vector2(-32, 20), 11.0])
-	for row in 4:
-		for k in 7:
-			_mm("res://assets/forest/Grass_2_D_Color1.gltf", Vector3(V.x - 40 + k * 2.4, 0, V.y + 16 + row * 2.6), 1.3, 0.0)
-	# habitants, chacun à sa place
-	npc_spots.append({"id": "brokk", "model": "Barbarian", "name": "Brokk", "role": "Armurier · forge", "pos": forge_pos + Vector3(0.8, 0, 0), "act": "forge", "yaw": PI * 0.5})
-	npc_spots.append({"id": "mara", "model": "Rogue", "name": "Mara", "role": "Marchande", "pos": shop_pos + Vector3(-0.8, 0, 0), "act": "shop", "yaw": -PI * 0.5})
-	npc_spots.append({"id": "corvin", "model": "Rogue", "name": "Corvin", "role": "Hôtel des ventes", "pos": P.call(-13, -10.2), "act": "auction", "yaw": 0.0})
-	npc_spots.append({"id": "hilda", "model": "Rogue", "name": "Hilda", "role": "Aubergiste", "pos": P.call(13, -10.2), "act": "talk", "yaw": 0.0})
-	npc_spots.append({"id": "aldric", "model": "Mage", "name": "Aldric", "role": "Ancien du village", "pos": P.call(2.6, 2.4), "act": "quest", "yaw": 0.0})
-	npc_spots.append({"id": "gael", "model": "Knight", "name": "Sire Gaël", "role": "Garde", "pos": P.call(3, -32), "act": "talk", "yaw": PI})
-	npc_spots.append({"id": "lina", "model": "Ranger", "name": "Lina", "role": "Villageoise", "pos": P.call(-6, 4), "act": "talk", "path": [V + Vector2(-6, 4), V + Vector2(-6, -7), V + Vector2(6, -7), V + Vector2(6, 4)]})
-	npc_spots.append({"id": "pip", "model": "Rogue", "name": "Pip", "role": "Gamin du village", "pos": P.call(0, 16), "act": "talk", "scale": 0.75, "path": [V + Vector2(0, 16), V + Vector2(-4, 24), V + Vector2(4, 24)]})
-	npc_spots.append({"id": "bram", "model": "Barbarian", "name": "Bram", "role": "Fermier", "pos": P.call(-32, 20), "act": "talk", "path": [V + Vector2(-38, 18), V + Vector2(-26, 18), V + Vector2(-26, 24), V + Vector2(-38, 24)]})
-	npc_spots.append({"id": "bjorn", "model": "Barbarian", "name": "Bjorn", "role": "Haches · bûcheron", "pos": P.call(-5.5, -10.2), "act": "tools", "tool": "hache", "yaw": 0.0})
-	npc_spots.append({"id": "gorm", "model": "Knight", "name": "Gorm", "role": "Pioches · mineur", "pos": P.call(5.5, -10.2), "act": "tools", "tool": "pioche", "yaw": 0.0})
-	npc_spots.append({"id": "sylve", "model": "Ranger", "name": "Sylve", "role": "Faucilles · herboriste", "pos": P.call(-5, 8.6), "act": "tools", "tool": "faucille", "yaw": 0.0})
-	npc_spots.append({"id": "rhea", "model": "Knight", "name": "Rhéa", "role": "Capitaine des mercenaires", "pos": P.call(5, 8.6), "act": "mercs", "yaw": 0.0})
-	npc_spots.append({"id": "passeur_1", "model": "Ranger", "name": "Fenn", "role": "Passeur · voyages rapides", "pos": P.call(-4.5, -24), "act": "travel", "yaw": PI * 0.5})
+	_town_build("VALDRUNE")
+	var T: TownGen = town
+	var sl: Array
+	npc_spots.append({"id": "aldric", "model": "Mage", "name": "Aldric", "role": "Ancien du village", "pos": Vector3(V.x + 2.6, 0, V.y + 2.4), "act": "quest", "yaw": 0.0})
+	T.npc_used.append(V + Vector2(2.6, 2.4))
+	sl = T.plaza_slot(0.4); _stall(sl, "shop"); shop_pos = sl[0]
+	npc_spots.append({"id": "mara", "model": "Rogue", "name": "Mara", "role": "Marchande", "pos": sl[0], "act": "shop", "yaw": sl[1]})
+	sl = T.plaza_slot(2.0); _stall(sl, "hache")
+	npc_spots.append({"id": "bjorn", "model": "Barbarian", "name": "Bjorn", "role": "Haches · bûcheron", "pos": sl[0], "act": "tools", "tool": "hache", "yaw": sl[1]})
+	sl = T.plaza_slot(3.3); _stall(sl, "pioche")
+	npc_spots.append({"id": "gorm", "model": "Knight", "name": "Gorm", "role": "Pioches · mineur", "pos": sl[0], "act": "tools", "tool": "pioche", "yaw": sl[1]})
+	sl = T.plaza_slot(4.6); _stall(sl, "faucille")
+	npc_spots.append({"id": "sylve", "model": "Ranger", "name": "Sylve", "role": "Faucilles · herboriste", "pos": sl[0], "act": "tools", "tool": "faucille", "yaw": sl[1]})
+	sl = T.door_slot(11.0, 22.0)
+	npc_spots.append({"id": "corvin", "model": "Rogue", "name": "Corvin", "role": "Hôtel des ventes", "pos": sl[0], "act": "auction", "yaw": sl[1]})
+	label("HÔTEL DES VENTES", sl[0] + Vector3(0, height(sl[0].x, sl[0].z) + 7.5, 0), Color("#ffd27a"), 48)
+	sl = T.door_slot(18.0, 34.0)
+	npc_spots.append({"id": "hilda", "model": "Rogue", "name": "Hilda", "role": "Aubergiste", "pos": sl[0], "act": "talk", "yaw": sl[1]})
+	label("AUBERGE", sl[0] + Vector3(0, height(sl[0].x, sl[0].z) + 7.0, 0), Color("#ffd27a"), 44)
+	sl = T.door_slot(16.0, 32.0); _forge(sl); forge_pos = sl[0]
+	npc_spots.append({"id": "brokk", "model": "Barbarian", "name": "Brokk", "role": "Armurier · forge", "pos": sl[0], "act": "forge", "yaw": sl[1]})
+	sl = T.door_slot(28.0, 60.0)
+	npc_spots.append({"id": "rhea", "model": "Knight", "name": "Rhéa", "role": "Capitaine des mercenaires", "pos": sl[0], "act": "mercs", "yaw": sl[1]})
+	sl = _entrance_slot(0)
+	npc_spots.append({"id": "passeur_1", "model": "Ranger", "name": "Fenn", "role": "Passeur · voyages rapides", "pos": sl[0], "act": "travel", "yaw": sl[1]})
+	sl = _entrance_slot(1)
+	npc_spots.append({"id": "gael", "model": "Knight", "name": "Sire Gaël", "role": "Garde", "pos": sl[0], "act": "talk", "yaw": sl[1]})
+	var lw: Array = T.street_walk(0, 12.0, 40.0)
+	npc_spots.append({"id": "lina", "model": "Ranger", "name": "Lina", "role": "Villageoise", "pos": Vector3(lw[0].x, 0, lw[0].y), "act": "talk", "path": lw})
+	var pp: Array = []
+	for k in 8: pp.append(V + Vector2(cos(k * TAU / 8.0), sin(k * TAU / 8.0)) * 5.5)
+	npc_spots.append({"id": "pip", "model": "Rogue", "name": "Pip", "role": "Gamin du village", "pos": Vector3(pp[0].x, 0, pp[0].y), "act": "talk", "scale": 0.75, "path": pp})
+	var bw: Array = T.street_walk(T.streets.size() - 1, 3.0, 20.0)
+	npc_spots.append({"id": "bram", "model": "Barbarian", "name": "Bram", "role": "Fermier", "pos": Vector3(bw[0].x, 0, bw[0].y), "act": "talk", "path": bw})
+	T.market(3)
+	T.residents(6)
 
 # Repère de la ville : la rue principale suit la vraie route, plan miroir et teintes selon la carte
 var _tV := Vector2.ZERO
@@ -649,39 +669,43 @@ func _town_core(V: Vector2, tname: String) -> void:
 			var d: Vector2 = ((rd[1] as Vector2) - V).normalized()
 			if -d.y > best: best = -d.y; _tang = atan2(-d.x, -d.y)
 	var pave: Color = ST.pave
-	# pavés : place + rue principale
-	for x in range(-9, 11, 2):
-		for z in range(-11, 11, 2): _pave(tp(x, z), pave)
-	# rues en pavés irréguliers, bordées de pierres de trottoir
-	for z in range(-35, -11, 2):
-		for x in [-1, 1]: _pave(tp(x, z), pave.lightened(0.05), "Floor_UnevenBrick")
-	for z in range(11, 33, 2):
-		for x in [-1, 1]: _pave(tp(x, z), pave.lightened(0.05), "Floor_UnevenBrick")
+	# pavés : grande place (avec ses trottoirs jusqu'aux façades) + rue principale
+	for x in range(-11, 13, 2):
+		for z in range(-11, 13, 2): _pave(tp(x, z), pave if abs(x) < 10 and abs(z) < 11 else pave.lightened(0.05), "Floor_Brick" if abs(x) < 10 and z < 11 else "Floor_UnevenBrick")
+	for z in range(-37, -11, 2):
+		for x in [-3, -1, 1, 3]: _pave(tp(x, z), pave.lightened(0.05), "Floor_UnevenBrick")
+	for z in range(13, 35, 2):
+		for x in [-3, -1, 1, 3]: _pave(tp(x, z), pave.lightened(0.05), "Floor_UnevenBrick")
 	var curb := func(x: float, z: float, r: float) -> void:
 		var q := tp(x, z); _mm_xf(_V + "Prop_ExteriorBorder_Straight1.gltf", Transform3D(Basis(Vector3.UP, trot(r)), Vector3(q.x, height(q.x, q.y) + 0.02, q.y)))
-	for z in range(-35, -12, 2):
-		curb.call(2.0, z, PI * 0.5); curb.call(-2.0, z, -PI * 0.5)
-	for z in range(11, 33, 2):
-		curb.call(2.0, z, PI * 0.5); curb.call(-2.0, z, -PI * 0.5)
+	# bordures de la place
 	for x in range(-9, 11, 2):
-		if abs(x) > 2: curb.call(x, -12.0, PI); curb.call(x, 10.0, 0.0)
+		if abs(x) > 2: curb.call(x, -12.0, 0.0); curb.call(x, 10.0, PI)
 	for z in range(-11, 10, 2):
-		curb.call(10.0, z, PI * 0.5); curb.call(-10.0, z, -PI * 0.5)
-	# rangée nord, façades vers la place
-	house(tp(-13, -16), trot(0.0), 6, 2, "plaster", true)    # hôtel des ventes
-	house(tp(-5.5, -16), trot(0.0), 4, 1, "brick", true)
-	house(tp(5.5, -16), trot(0.0), 4, 2, "plaster", true)
-	house(tp(13, -16), trot(0.0), 6, 2, "brick", true)       # auberge
-	house(tp(-16, 3), trot(PI * 0.5), 4, 1, "brick", true)   # forge
-	house(tp(16, 3), trot(-PI * 0.5), 4, 1, "plaster", true) # échoppe
-	house(tp(-11, 18), trot(PI), 4, 2, "plaster", false)
-	house(tp(11, 18), trot(PI), 6, 1, "brick", false)
-	house(tp(-7, -29), trot(PI * 0.5), 4, 2, "plaster", true)
-	house(tp(7, -29), trot(-PI * 0.5), 4, 1, "brick", true)
-	if map_id != 1:
-		# un peu plus de maisons hors de Valdrune, pour que chaque ville ait sa silhouette
-		house(tp(-20, -12), trot(PI * 0.5), 4, 2, "brick", true)
-		house(tp(21, 14), trot(-PI * 0.5), 4, 1, "plaster", true)
+		curb.call(10.0, z, -PI * 0.5); curb.call(-10.0, z, PI * 0.5)
+	# — la ville : des rangées de maisons serrées autour de la place et le long de la rue, comme un vrai bourg —
+	var R := RandomNumberGenerator.new(); R.seed = 5150 + map_id
+	var styles := ["plaster", "brick"]
+	var hs := func(x: float, z: float, r: float, w: int, fl: int, door := true) -> void:
+		house(tp(x, z), trot(r), w, fl, styles[R.randi() % 2], door)
+	# rangée nord (façades vers la place)
+	hs.call(-14.0, -16.0, 0.0, 6, 2); hs.call(-7.0, -16.0, 0.0, 6, 3); hs.call(7.0, -16.0, 0.0, 6, 2); hs.call(14.0, -16.0, 0.0, 6, 3)
+	# rangées ouest et est
+	for z in [-9.0, -3.0, 3.0, 9.0]:
+		hs.call(-16.6, z, PI * 0.5, 6, 1 + R.randi() % 3)
+		hs.call(16.6, z, -PI * 0.5, 6, 1 + R.randi() % 3)
+	# rangée sud
+	hs.call(-14.0, 16.2, PI, 6, 2); hs.call(-7.0, 16.2, PI, 6, 1 + R.randi() % 2); hs.call(7.0, 16.2, PI, 6, 2); hs.call(14.0, 16.2, PI, 6, 1 + R.randi() % 3)
+	# la grand-rue jusqu'aux portes, maisons des deux côtés
+	for z in [-24.0, -31.0, 21.0, 28.0]:
+		hs.call(-7.6, z, PI * 0.5, 6, 1 + R.randi() % 3)
+		hs.call(7.6, z, -PI * 0.5, 6, 1 + R.randi() % 3)
+	# maisons des faubourgs, tournées vers la grand-rue
+	for q: Vector3 in [Vector3(-26, -26, PI * 0.5), Vector3(26, -26, -PI * 0.5), Vector3(-26, 26, PI * 0.5), Vector3(26, 26, -PI * 0.5)]:
+		var w := tp(q.x, q.y)
+		if _house_ok(w, 5.0): hs.call(q.x, q.y, q.z, 4 if R.randf() < 0.5 else 6, 1 + R.randi() % 2)
+	_town_gardens(R, ST)
+	_town_wall(V)
 	building(H + "building_well_blue.gltf", V, 0.0, 3.0, 2.2)
 	label("HÔTEL DES VENTES", tp3(-13, -8) + Vector3(0, 9.5, 0), Color("#ffd27a"), 54)
 	label(tname, tp3(0, -22) + Vector3(0, 10.5, 0), Color("#ffe2a0"), 90)
@@ -708,13 +732,11 @@ func _town_core(V: Vector2, tname: String) -> void:
 	if map_id == 3: FL = [Color("#ffb070"), Color("#f7e06a"), Color("#ffffff")]
 	if map_id == 4: FL = [Color("#9a7ac0"), Color("#c0c0d0"), Color("#7a9a8a")]
 	var rr := RandomNumberGenerator.new(); rr.seed = 31 + map_id
-	for q: Vector2 in [Vector2(-13, 9), Vector2(13, 9), Vector2(-21, -6), Vector2(21, -6)]:
-		var w := tp3(q.x, q.y)
-		place(ST.tree, w, rr.randf() * TAU, 0.6 if map_id <= 2 else 0.8); blocker(w, 0.5)
-		for k in 7:
+	for q: Vector2 in [Vector2(-8.3, -9.3), Vector2(8.3, -9.3), Vector2(-8.3, 8.8), Vector2(8.3, 8.8)]:
+		for k in 6:
 			var fc: Color = FL[rr.randi() % FL.size()]; fc.a = 0.98
-			var fq := q + Vector2(rr.randf_range(-1.8, 1.8), rr.randf_range(-1.8, 1.8))
-			_mm("res://assets/forest/Bush_1_A_Color1.gltf", tp3(fq.x, fq.y), rr.randf_range(0.5, 0.8), rr.randf() * TAU, fc)
+			var fq := q + Vector2(rr.randf_range(-0.9, 0.9), rr.randf_range(-0.9, 0.9))
+			_mm("res://assets/forest/Bush_1_A_Color1.gltf", tp3(fq.x, fq.y), rr.randf_range(0.5, 0.75), rr.randf() * TAU, fc)
 	# portes de la ville, gardées
 	for gz in [-36.0, 33.0]:
 		for sd in [-3.6, 3.6]:
@@ -727,6 +749,58 @@ func _town_core(V: Vector2, tname: String) -> void:
 			npc_spots.append({"id": "garde_v_%d_%d" % [map_id, int(gz + 50 + k)], "model": "Knight", "name": GUARD_NAMES[(k + int(gz > 0) * 2 + map_id) % GUARD_NAMES.size()], "role": "Garde de la ville", "pos": tp3(gx, gz + (-1.0 if gz < 0 else 1.0)), "act": "guard", "yaw": trot(PI if gz < 0 else 0.0)})
 	_residents(V, 6)
 
+# jardins derrière les maisons : arbres fruitiers, potagers, meules, tonneaux, fleurs
+func _town_gardens(R: RandomNumberGenerator, ST: Dictionary) -> void:
+	var H := "res://assets/hex/"
+	var zones := [Rect2(-30, -12, 8, 24), Rect2(22, -12, 8, 24), Rect2(-21, -32, 9, 10), Rect2(12, -32, 9, 10), Rect2(-21, 22, 9, 10), Rect2(12, 22, 9, 10)]
+	var veg := ["chou", "carotte", "citrouille", "salade"] if map_id != 3 else ["pasteque", "melon", "poivron"]
+	for z: Rect2 in zones:
+		for k in 9:
+			var lx := R.randf_range(z.position.x, z.end.x); var lz := R.randf_range(z.position.y, z.end.y)
+			var q := tp(lx, lz)
+			if not walkable(q.x, q.y) or near_house(q, 0.6) or road_dist(q.x, q.y) < 3.0: continue
+			var roll := R.randf()
+			var w := Vector3(q.x, 0, q.y)
+			if roll < 0.3:
+				place(ST.tree, w, R.randf() * TAU, R.randf_range(0.6, 0.85)); blocker(w, 0.5); house_spots.append([q, 1.4])
+			elif roll < 0.5:
+				for j in 4:
+					var v := Crops.food_model(veg[R.randi() % veg.size()], 0.5)
+					v.position = Vector3(q.x + j * 0.7, height(q.x + j * 0.7, q.y) + 0.05, q.y); v.rotation.y = R.randf() * TAU; add_child(v)
+			elif roll < 0.62: place(H + "building_grain.gltf", w, R.randf() * TAU, 1.2); blocker(w, 0.9)
+			elif roll < 0.74: place(H + ["barrel.gltf", "crate_A_big.gltf", "sack.gltf"][R.randi() % 3], w, R.randf() * TAU, 3.4); blocker(w, 0.5)
+			else:
+				for j in 5:
+					var fc: Color = [Color("#f08cd8"), Color("#f7e06a"), Color("#ffffff"), Color("#ff8a7a")][R.randi() % 4]; fc.a = 0.98
+					_mm("res://assets/forest/Bush_1_A_Color1.gltf", w + Vector3(R.randf_range(-1, 1), 0, R.randf_range(-1, 1)), R.randf_range(0.55, 0.8), R.randf() * TAU, fc)
+
+# rempart de pierre basse autour du bourg, ouvert là où passent les routes
+func _town_wall(V: Vector2) -> void:
+	var segs: Array = []
+	for x in range(-31, 33, 2): segs.append([x, -38.0, 0.0]); segs.append([x, 36.0, PI])
+	for z in range(-37, 37, 2): segs.append([-32.0, z, PI * 0.5]); segs.append([32.0, z, -PI * 0.5])
+	var kept := 0
+	for sg in segs:
+		var q := tp(float(sg[0]), float(sg[1]))
+		if abs(q.x) > 104 or abs(q.y) > 104: continue
+		if road_dist(q.x, q.y) < 4.5 or river_dist(q.x, q.y) < RIVER_W + 1.5 or not walkable(q.x, q.y) or raw_height(q.x, q.y) < WATER_Y + 0.5: continue
+		if near_house(q, 0.4) or slope(q.x, q.y) > 1.6: continue
+		var far := false
+		for g in MAP.gates:
+			if q.distance_to(g.pos) < 12.0: far = true
+		for pd in POI_DEFS:
+			if q.distance_to(pd.p) < pd.r + 2.0: far = true
+		if far: continue
+		var r := trot(float(sg[2]))
+		var y := height(q.x, q.y) - 0.1
+		_mm_xf(_V + "Wall_UnevenBrick_Straight.gltf", Transform3D(Basis(Vector3.UP, r).scaled(Vector3(1.0, 0.5, 1.0)), Vector3(q.x, y, q.y)))
+		_mm_xf(_V + "Prop_ExteriorBorder_Straight1.gltf", Transform3D(Basis(Vector3.UP, r + PI), Vector3(q.x, y + 1.56, q.y) + Basis(Vector3.UP, r) * Vector3(0, 0, 0.35)))
+		box_blocker(Vector3(q.x, 0, q.y), Vector3(2.05, 1.8, 0.5), r)
+		var cell_i := int(round((q.x + HALF) / CELL)); var cell_j := int(round((q.y + HALF) / CELL))
+		if cell_i >= 0 and cell_j >= 0 and cell_i < N and cell_j < N: blocked[cell_j * N + cell_i] = 1
+		kept += 1
+		if int(sg[0] + sg[1]) % 8 == 0: place("res://assets/dungeon/pillar.gltf", Vector3(q.x, 0, q.y), r, 0.75)
+
 # ——— Maisons à colombages (MegaKit) : murs de 2 m, toit en tuiles, pignons, cheminée ———
 const _V := "res://assets/village/"
 func _pave(q: Vector2, col := Color(0.66, 0.62, 0.56), tile := "Floor_Brick") -> void:
@@ -735,11 +809,20 @@ func _pave(q: Vector2, col := Color(0.66, 0.62, 0.56), tile := "Floor_Brick") ->
 func house(c: Vector2, rot: float, w: int, floors: int, style: String, door := true) -> void:
 	var D := 8.0; var W := float(w)
 	if road_dist(c.x, c.y) < 4.5 and c.distance_to(village) > 12.0: return
-	var y0 := height(c.x, c.y) - 0.05
 	var B := Basis(Vector3.UP, rot)
+	# sur une pente : le rez-de-chaussée se cale sur le point le plus haut, un soubassement de pierre comble le reste
+	var hmin := 1e9; var hmax := -1e9
+	for sx: float in [-0.5, 0.0, 0.5]:
+		for sz: float in [-0.5, 0.0, 0.5]:
+			var cq: Vector3 = Vector3(c.x, 0, c.y) + B * Vector3(sx * W, 0, sz * D)
+			var hh := height(cq.x, cq.z); hmin = min(hmin, hh); hmax = max(hmax, hh)
+	var y0 := hmax - 0.05
+	var found := hmax - hmin > 0.15
 	var X := func(lx: float, ly: float, lz: float, r: float) -> Transform3D:
 		return Transform3D(B * Basis(Vector3.UP, r), Vector3(c.x, y0, c.y) + B * Vector3(lx, ly, lz))
 	if _wall_force != "": style = _wall_force
+	_cur_house = {"c": c, "hx": abs(W * 0.5 * cos(rot)) + abs(D * 0.5 * sin(rot)), "hz": abs(W * 0.5 * sin(rot)) + abs(D * 0.5 * cos(rot)), "pieces": [], "hid": false}
+	houses.append(_cur_house)
 	# chaque maison a son caractère : soubassement en pierre, colombages, volets, balcon, lierre…
 	var hr := RandomNumberGenerator.new(); hr.seed = int(c.x * 73.1 + c.y * 91.7) + map_id
 	var stone_base := floors >= 2 or hr.randf() < 0.35
@@ -760,6 +843,19 @@ func house(c: Vector2, rot: float, w: int, floors: int, style: String, door := t
 		if shutters: _mm_xf(_V + ("WindowShutters_Thin_Round_Open.gltf" if thin else ("WindowShutters_Wide_Round_Open.gltf" if hr.randf() < 0.75 else "WindowShutters_Wide_Round_Closed.gltf")), xf)
 	var vine := func(xf: Transform3D, y: float) -> void:
 		if hr.randf() < vine_k: _mm_xf(_V + VINES[hr.randi() % VINES.size()] + ".gltf", xf.translated_local(Vector3(hr.randf_range(-0.4, 0.4), y, 0.12)))
+	if found:
+		for i in int(W / 2):
+			var lx := -W / 2 + 1 + i * 2
+			_mm_xf(_V + "Wall_UnevenBrick_Straight.gltf", X.call(lx, -3.12, D / 2, 0.0)); _mm_xf(_V + "Wall_UnevenBrick_Straight.gltf", X.call(lx, -3.12, -D / 2, PI))
+		for i in int(D / 2):
+			var lz := -D / 2 + 1 + i * 2
+			_mm_xf(_V + "Wall_UnevenBrick_Straight.gltf", X.call(W / 2, -3.12, lz, PI * 0.5)); _mm_xf(_V + "Wall_UnevenBrick_Straight.gltf", X.call(-W / 2, -3.12, lz, -PI * 0.5))
+		for cx in [-W / 2, W / 2]:
+			for cz in [-D / 2, D / 2]: _mm_xf(_V + "Corner_Exterior_Brick.gltf", X.call(cx, -3.12, cz, 0.0))
+		# marches devant la porte
+		if door and hmax - height(c.x + B.z.x * (D / 2 + 1.0), c.y + B.z.z * (D / 2 + 1.0)) > 0.35:
+			var ldx2 := -W / 2 + 1 + int(W / 4) * 2
+			_mm_xf(_V + "Stairs_Exterior_Straight.gltf", X.call(ldx2, -1.0, D / 2 + 1.0, 0.0))
 	for f in floors:
 		var y := f * 3.12
 		# façade (+Z) : porte au rez-de-chaussée, fenêtres au-dessus
@@ -802,6 +898,7 @@ func house(c: Vector2, rot: float, w: int, floors: int, style: String, door := t
 	_mm_xf(_V + "Roof_Front_Brick%d.gltf" % w, X.call(0, ry, D / 2, 0.0))
 	_mm_xf(_V + "Roof_Front_Brick%d.gltf" % w, X.call(0, ry, -D / 2, PI))
 	_mm_xf(_V + ("Prop_Chimney.gltf" if hr.randf() < 0.5 else "Prop_Chimney2.gltf"), X.call(W / 2 - 0.9, ry + 0.6, -D / 4, 0.0))
+	_cur_house = null
 	box_blocker(Vector3(c.x, 0, c.y), Vector3(W + 0.4, 6, D + 0.4) if abs(sin(rot)) < 0.5 else Vector3(D + 0.4, 6, W + 0.4), 0.0)
 	house_spots.append([c, max(W, D) * 0.6])
 	if door:
@@ -934,6 +1031,62 @@ func _poi(p: Dictionary) -> void:
 	pois.append({"id": p.id, "name": p.name, "pos": Vector3(P.x, y, P.y), "r": p.r + 6.0, "region": region_at(P.x, P.y)})
 
 # Lanternes et clôtures le long des routes autour de la ville : on sent qu'on approche d'un lieu habité
+# Chemins de terre : un ruban plaqué au relief, bords fondus (fini les marches d'escalier de la couleur du sol)
+func _road_strips() -> void:
+	var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var rn := RandomNumberGenerator.new(); rn.seed = 4321 + map_id
+	var base := Color("#8c7150")
+	var A: Dictionary = REGIONS[1]
+	if A.style in ["desert", "canyon"]: base = Color("#c9a36e")
+	elif A.style in ["swamp", "ash"]: base = Color("#6e5a44")
+	var offs := [-2.3, -1.45, -0.5, 0.5, 1.45, 2.3]
+	var alph := [0.0, 0.85, 1.0, 1.0, 0.85, 0.0]
+	var lines: Array = []
+	for rd in roads: lines.append(rd)
+	for cv in carved: lines.append([cv[0], cv[1]])
+	for rp in ramps: lines.append([rp.a, rp.b])
+	for rd in lines:
+		var pts: Array = []
+		for i in rd.size() - 1:
+			var a: Vector2 = rd[i]; var b: Vector2 = rd[i + 1]
+			var n := int(a.distance_to(b) / 1.0) + 1
+			for k in n: pts.append(a.lerp(b, float(k) / n))
+		pts.append(rd[rd.size() - 1])
+		var prev: Array = []
+		for i in pts.size():
+			var p: Vector2 = pts[i]
+			var skip: bool = on_bridge(p.x, p.y) or height(p.x, p.y) < WATER_Y + 0.1 or (town != null and town.town_dist(p.x, p.y) < 0.2) or abs(p.x) > 112 or abs(p.y) > 112
+			if skip: prev = []; continue
+			var a2: Vector2 = pts[max(0, i - 1)]; var b2: Vector2 = pts[min(pts.size() - 1, i + 1)]
+			var tg := (b2 - a2).normalized(); var nr := Vector2(-tg.y, tg.x)
+			var row: Array = []
+			var wob := 1.0 + noise2.get_noise_2d(p.x * 3.0, p.y * 3.0) * 0.18
+			for k in offs.size():
+				var q: Vector2 = p + nr * float(offs[k]) * wob
+				var c := _road_col(q).lightened(rn.randf() * 0.08).darkened(rn.randf() * 0.06); c.a = alph[k]
+				row.append([Vector3(q.x, height(q.x, q.y) + 0.05, q.y), c])
+			if not prev.is_empty():
+				for k in offs.size() - 1:
+					_ctri(st, prev[k], prev[k + 1], row[k + 1]); _ctri(st, prev[k], row[k + 1], row[k])
+			prev = row
+	var mi := MeshInstance3D.new(); mi.mesh = st.commit()
+	var m := StandardMaterial3D.new(); m.vertex_color_use_as_albedo = true; m.vertex_color_is_srgb = true; m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.roughness = 1.0; m.render_priority = -1
+	mi.material_override = m; mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; add_child(mi)
+
+func _road_col(q: Vector2) -> Color:
+	var w := region_weights(q.x, q.y)
+	var RC := {"desert": Color("#c9a36e"), "canyon": Color("#b8805a"), "swamp": Color("#6e5a44"), "ash": Color("#5e4a42"), "hills": Color("#a68a5c")}
+	var ca: Color = RC.get(REGIONS[w[0]].style, Color("#8c7150")); var cb: Color = RC.get(REGIONS[w[1]].style, Color("#8c7150"))
+	return cb.lerp(ca, w[2])
+
+func _ctri(st: SurfaceTool, A: Array, B: Array, C: Array) -> void:
+	var a: Vector3 = A[0]; var b: Vector3 = B[0]; var c: Vector3 = C[0]
+	if Vector2(b.x - a.x, b.z - a.z).cross(Vector2(c.x - a.x, c.z - a.z)) < 0.0:
+		var t := B; B = C; C = t
+	for v in [A, B, C]:
+		st.set_normal(Vector3.UP); st.set_color(v[1]); st.add_vertex(v[0])
+
 func _road_props() -> void:
 	var nl := 0
 	for rd in roads:
@@ -1013,26 +1166,75 @@ func _plan_town_slots() -> void:
 		if i < 7: dirt_spots.append([np, 2.2])
 		foot_paths.append([q + to_c * 2.6, V - to_c * 8.5])
 
-func _town(T: Dictionary) -> void:
-	var V: Vector2 = T.pos; var mid := map_id
-	_town_core(V, T.name)
-	var P := func(x: float, z: float) -> Vector3: return tp3(x, z)
+func _town(TD: Dictionary) -> void:
+	var V: Vector2 = TD.pos; var mid := map_id
+	_town_build(TD.name)
+	var T: TownGen = town
 	var names := {2: ["Hrolf", "Brisa", "Tancrède", "Solène", "Odo", "Maître Elwin", "Fenn"], 3: ["Kadir", "Samira", "Yazid", "Nour", "Faris", "Sage Imran", "Leïla"], 4: ["Gunnar", "Morwen", "Aldo", "Ivra", "Baldr", "Doyenne Sigrid", "Corbin"]}
 	var nm: Array = names.get(mid, names[2])
-	var spots := [
-		["forge", "Armurier · forge", "Barbarian", Vector3(-9.7, 0, 2.0), PI * 0.5],
-		["shop", "Marchande", "Rogue", Vector3(9.7, 0, 2.0), -PI * 0.5],
-		["auction", "Hôtel des ventes", "Rogue", Vector3(-13, 0, -10.2), 0.0],
-		["mercs", "Capitaine des mercenaires", "Knight", Vector3(13, 0, -10.2), 0.0],
-		["tools3", "Outilleur · haches, pioches, faucilles", "Barbarian", Vector3(-5.5, 0, -10.2), 0.0],
-		["quest", "Chef de la ville", "Mage", Vector3(2.6, 0, 2.4), 0.0],
-		["travel", "Passeur · voyages rapides", "Ranger", Vector3(-4.5, 0, -24), PI * 0.5],
-	]
-	for i in spots.size():
-		var sp: Array = spots[i]
-		var o: Vector3 = sp[3]
-		npc_spots.append({"id": "%s_%d" % [sp[0], mid], "model": sp[2], "name": nm[i], "role": sp[1], "pos": P.call(o.x, o.z), "act": sp[0], "yaw": trot(sp[4])})
-	npc_spots.append({"id": "villageois_%d_c" % mid, "model": "Ranger", "name": VILLAGER_NAMES[mid % VILLAGER_NAMES.size()], "role": "Villageoise", "pos": P.call(-6, 4), "act": "villager", "path": [tp(-6, 4), tp(-6, -7), tp(6, -7), tp(6, 4)]})
+	var sl: Array
+	sl = T.door_slot(16.0, 32.0); _forge(sl); forge_pos = sl[0]
+	npc_spots.append({"id": "forge_%d" % mid, "model": "Barbarian", "name": nm[0], "role": "Armurier · forge", "pos": sl[0], "act": "forge", "yaw": sl[1]})
+	sl = T.plaza_slot(0.5); _stall(sl, "shop"); shop_pos = sl[0]
+	npc_spots.append({"id": "shop_%d" % mid, "model": "Rogue", "name": nm[1], "role": "Marchande", "pos": sl[0], "act": "shop", "yaw": sl[1]})
+	sl = T.door_slot(11.0, 22.0)
+	npc_spots.append({"id": "auction_%d" % mid, "model": "Rogue", "name": nm[2], "role": "Hôtel des ventes", "pos": sl[0], "act": "auction", "yaw": sl[1]})
+	label("HÔTEL DES VENTES", sl[0] + Vector3(0, height(sl[0].x, sl[0].z) + 7.5, 0), Color("#ffd27a"), 48)
+	sl = T.door_slot(28.0, 60.0)
+	npc_spots.append({"id": "mercs_%d" % mid, "model": "Knight", "name": nm[3], "role": "Capitaine des mercenaires", "pos": sl[0], "act": "mercs", "yaw": sl[1]})
+	sl = T.plaza_slot(2.4); _stall(sl, "hache")
+	npc_spots.append({"id": "tools3_%d" % mid, "model": "Barbarian", "name": nm[4], "role": "Outilleur · haches, pioches, faucilles", "pos": sl[0], "act": "tools3", "yaw": sl[1]})
+	npc_spots.append({"id": "quest_%d" % mid, "model": "Mage", "name": nm[5], "role": "Chef de la ville", "pos": Vector3(V.x + 2.6, 0, V.y + 2.4), "act": "quest", "yaw": 0.0})
+	T.npc_used.append(V + Vector2(2.6, 2.4))
+	sl = _entrance_slot(0)
+	npc_spots.append({"id": "travel_%d" % mid, "model": "Ranger", "name": nm[6], "role": "Passeur · voyages rapides", "pos": sl[0], "act": "travel", "yaw": sl[1]})
+	var lw: Array = T.street_walk(0, 12.0, 40.0)
+	npc_spots.append({"id": "villageois_%d_c" % mid, "model": "Ranger", "name": VILLAGER_NAMES[mid % VILLAGER_NAMES.size()], "role": "Villageoise", "pos": Vector3(lw[0].x, 0, lw[0].y), "act": "villager", "path": lw})
+	T.market(2)
+	T.residents(6)
+
+var town: TownGen
+func _town_build(tname: String) -> void:
+	var ST: Dictionary = TOWN_STYLE.get(map_id, TOWN_STYLE[1])
+	_roof_tint = ST.roof; _wall_force = ST.wall
+	town.build(ST, tname)
+
+# étal de marché devant un marchand de la place
+func _stall(sl: Array, kind: String) -> void:
+	var DG := "res://assets/dungeon/"; var H := "res://assets/hex/"
+	var p: Vector3 = sl[0]; var yaw: float = sl[1]
+	var f := Vector3(sin(yaw), 0, cos(yaw)); var sd := Vector3(cos(yaw), 0, -sin(yaw))
+	var t: Vector3 = p + f * 1.3
+	place(DG + "table_medium_decorated_A.gltf", t, yaw, 0.85); blocker(t, 0.9)
+	place(H + ["barrel.gltf", "crate_A_big.gltf", "sack.gltf"][hash(kind) % 3], p + sd * 1.5 - f * 0.3, yaw, 3.0)
+	if kind in ["hache", "pioche", "faucille"]: place(H + "weaponrack.gltf", p - sd * 1.4 - f * 0.2, yaw, 4.2)
+	else: place(_V + "Prop_Crate.gltf", p - sd * 1.5, yaw + 0.3, 0.9)
+
+func _forge(sl: Array) -> void:
+	var DG := "res://assets/dungeon/"; var H := "res://assets/hex/"
+	var p: Vector3 = sl[0]; var yaw: float = sl[1]
+	var f := Vector3(sin(yaw), 0, cos(yaw)); var sd := Vector3(cos(yaw), 0, -sin(yaw))
+	place(DG + "table_medium_decorated_A.gltf", p + sd * 1.7, yaw + PI * 0.5, 0.9); blocker(p + sd * 1.7, 0.8)
+	place(H + "weaponrack.gltf", p - sd * 1.6, yaw, 5.0)
+	place(DG + "barrel_large.gltf", p + sd * 1.8 + f * 1.2, 0.0, 0.5)
+	_light(p + sd * 1.7 + Vector3(0, height(p.x, p.z) + 1.4, 0), Color("#ff9a40"), 2.2, 2.6)
+	label("FORGE", p + Vector3(0, height(p.x, p.z) + 7.0, 0), Color("#ffb070"), 44)
+
+# juste à l'intérieur d'une entrée de la ville, sur le côté de la rue
+func _entrance_slot(i: int) -> Array:
+	var T: TownGen = town
+	if T.entrances.is_empty(): return T.plaza_slot(1.0)
+	var e: Dictionary = T.entrances[i % T.entrances.size()]
+	var st: Dictionary = e.st
+	var q := Vector2.ZERO; var tg := Vector2.UP
+	for back: float in [11.0, 15.0, 19.0, 8.0, 23.0]:
+		var pa: Array = T.point_at(st, max(PLAZA_GAP, float(st.len) - back))
+		tg = pa[1]
+		q = (pa[0] as Vector2) + Vector2(-tg.y, tg.x) * (float(st.half) - 0.7) * (1.0 if i % 2 == 0 else -1.0)
+		if T._free_npc(q, 5.0): break
+	T.npc_used.append(q)
+	return [Vector3(q.x, 0, q.y), atan2(-tg.x, -tg.y)]
+const PLAZA_GAP := 12.0
 
 var _last_placed: Node3D
 func _tint_last(c: Color) -> void:
@@ -1243,7 +1445,10 @@ func _free_spot(p: Vector3, r: float, keep_village := true) -> bool:
 		if Vector2(p.x - g.pos.x, p.z - g.pos.z).length() < 10.0 + r: return false
 	if not walkable(p.x, p.z) or height(p.x, p.z) < WATER_Y + 0.5: return false
 	if road_dist(p.x, p.z) < 3.0 + r: return false
-	if keep_village and Vector2(p.x, p.z).distance_to(village) < 34.0: return false
+	for b in bridges:
+		var bd: Vector2 = (b.b - b.a).normalized()
+		if seg_dist(Vector2(p.x, p.z), b.a - bd * 4.0, b.b + bd * 4.0) < 3.0 + r: return false
+	if keep_village and (Vector2(p.x, p.z).distance_to(village) < 34.0 or near_town(p, 12.0)): return false
 	for q in POI_DEFS:
 		if Vector2(p.x, p.z).distance_to(q.p) < q.r + 3.0 + r: return false
 	return true
@@ -1259,7 +1464,7 @@ func _resources() -> void:
 			tries += 1
 			var c := Vector3(rng.randf_range(-100, 100), 0, rng.randf_range(-100, 100))
 			if region_at(c.x, c.z) != reg or not _free_spot(c, 2.0, false): continue
-			if Vector2(c.x, c.z).distance_to(village) < 30.0: continue
+			if Vector2(c.x, c.z).distance_to(village) < 30.0 or near_town(c, 10.0): continue
 			if R.style in ["forest", "meadow"] and biome.get_noise_2d(c.x, c.z) < -0.15: continue
 			var n := rng.randi_range(3, 6 if R.style == "forest" else 4)
 			var got := 0
@@ -1276,7 +1481,7 @@ func _resources() -> void:
 				var p := Vector3(rng.randf_range(-100, 100), 0, rng.randf_range(-100, 100))
 				if region_at(p.x, p.z) != reg: continue
 				if not _free_spot(p, 1.0, false): continue
-				if Vector2(p.x, p.z).distance_to(village) < 26.0: continue
+				if Vector2(p.x, p.z).distance_to(village) < 26.0 or near_town(p, 8.0): continue
 				var b := biome.get_noise_2d(p.x, p.z)
 				if k == "fiber" and b > 0.1: continue
 				# le lin aime le bord des ruisseaux : la moitié pousse le long de l'eau quand il y en a
@@ -1422,6 +1627,8 @@ func _multi(key: String, xforms: Array) -> void:
 		var mm := MultiMesh.new(); mm.transform_format = MultiMesh.TRANSFORM_3D; mm.mesh = m[0]; mm.instance_count = xforms.size()
 		for i in xforms.size(): mm.set_instance_transform(i, xforms[i] * m[1])
 		for rec in recs: rec.mms.append([mm, m[1]])
+		if not mm_by_key.has(key): mm_by_key[key] = []
+		mm_by_key[key].append([mm, m[1]])
 		var mmi := MultiMeshInstance3D.new(); mmi.multimesh = mm
 		mmi.visibility_range_end = 95.0
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -1467,14 +1674,25 @@ func _collect(n: Node, xf: Transform3D, out: Array) -> void:
 func _decor() -> void:
 	var F := "res://assets/forest/"
 	var biome := FastNoiseLite.new(); biome.seed = 909; biome.frequency = 0.035
-	for i in 9000:
+	for i in 14000:
 		var p := Vector3(rng.randf_range(-118, 118), 0, rng.randf_range(-118, 118))
 		var h := height(p.x, p.z)
 		if h < WATER_Y + 0.35 or not walkable(p.x, p.z): continue
 		var rd := road_dist(p.x, p.z)
 		if rd < 2.6: continue
 		var vd := Vector2(p.x, p.z).distance_to(village)
-		if vd < 32.0: continue
+		if vd < TownGen.PLAZA_R + 3.0: continue
+		var tdd: float = town.town_dist(p.x, p.z) if town else 99.0
+		if tdd < 14.0:
+			# dans le bourg : seulement quelques touffes d'herbe dans les jardins
+			if tdd > 1.2 and not near_house(Vector2(p.x, p.z), 0.5) and not _town_home_at(p) and rng.randf() < 0.4:
+				var rr2 := rng.randf()
+				if rr2 < 0.75: _mm("res://assets/forest/" + ["Grass_1_C_Color1.gltf", "Grass_2_B_Color1.gltf", "Grass_1_A_Color1.gltf"][rng.randi() % 3], p, rng.randf_range(0.8, 1.3), rng.randf() * TAU)
+				elif rr2 < 0.9:
+					var fc3: Color = [Color("#f08cd8"), Color("#f7e06a"), Color("#ffffff")][rng.randi() % 3]; fc3.a = 0.98
+					_mm("res://assets/forest/Bush_1_A_Color1.gltf", p, rng.randf_range(0.5, 0.7), rng.randf() * TAU, fc3)
+				else: _mm("res://assets/forest/Rock_1_A_Color1.gltf", p, rng.randf_range(0.2, 0.35), rng.randf() * TAU, Color("#c8c4bc"))
+			continue
 		var near_poi := false
 		for g in gates:
 			if Vector2(p.x - g.pos.x, p.z - g.pos.z).length() < 9.0: near_poi = true
@@ -1484,6 +1702,9 @@ func _decor() -> void:
 			if Vector2(p.x, p.z).distance_to(q.p) < q.r + 2.0: near_poi = true; break
 		if near_poi: continue
 		if near_house(Vector2(p.x, p.z), 0.5): continue
+		# la végétation pousse en massifs : des coins touffus, des prés dégagés (fini les confettis)
+		var vg := noise2.get_noise_2d(p.x * 0.42 + 500.0, p.z * 0.42)
+		if rng.randf() > 0.18 + 0.95 * smoothstep(-0.2, 0.35, vg): continue
 		var near_node := _near_node_grid(p, 2.4)
 		# bas-côtés fleuris le long des chemins
 		if rd > 3.0 and rd < 4.8 and rng.randf() < 0.22 and REGIONS[region_at(p.x, p.z)].style in ["meadow", "forest", "hills"]:
@@ -1491,6 +1712,7 @@ func _decor() -> void:
 			continue
 		var reg := region_at(p.x, p.z); var b := biome.get_noise_2d(p.x, p.z); var sl := slope(p.x, p.z)
 		var roll := rng.randf(); var edge: bool = max(abs(p.x), abs(p.z)) > 104.0
+		if REGIONS[region_at(p.x, p.z)].style in ["desert", "canyon", "ash"]: roll *= 0.4   # terres arides : plus de pierres, d'herbes sèches, d'os
 		var CR: Array = ROCK_SET.get(REGIONS[reg].style, ROCK_SET.meadow)
 		var top := plateau(p.x, p.z) > 0.9
 		match REGIONS[reg].style:
@@ -1525,13 +1747,29 @@ func _decor() -> void:
 				if sl > 2.2 and roll < 0.4: _mm(CR[rng.randi() % CR.size()], p, rng.randf_range(1.0, 1.9), rng.randf() * TAU, Color("#d07a55"))
 				elif roll < 0.09: _mm(F + ["Grass_1_B_Color1.gltf", "Bush_4_D_Color1.gltf"][rng.randi() % 2], p, rng.randf_range(0.9, 1.4), rng.randf() * TAU, Color("#a85a30"))
 				elif roll < 0.11: _mm(CR[rng.randi() % CR.size()], p, rng.randf_range(0.7, 1.3), rng.randf() * TAU, Color("#c87a50"))
+	_clusters()
+	# tapis d'herbe : des milliers de touffes, groupées en prairies (plus de sol nu et plat)
+	var GR := {"meadow": ["Grass_1_A_Color1.gltf", "Grass_1_C_Color1.gltf", "Grass_2_B_Color1.gltf"], "forest": ["Grass_2_A_Color1.gltf", "Grass_1_D_Color1.gltf", "Grass_2_D_Color1.gltf"],
+		"hills": ["Grass_1_B_Color1.gltf", "Grass_2_C_Color1.gltf"], "swamp": ["Grass_2_D_Color1.gltf", "Grass_1_D_Color1.gltf"]}
+	var GT := {"hills": Color("#f0d890"), "swamp": Color("#a8b090")}
+	for i in 14000:
+		var p := Vector3(rng.randf_range(-106, 106), 0, rng.randf_range(-106, 106))
+		var vg2 := noise2.get_noise_2d(p.x * 0.6 - 200.0, p.z * 0.6)
+		if rng.randf() > smoothstep(-0.15, 0.4, vg2): continue
+		var sty: String = REGIONS[region_at(p.x, p.z)].style
+		if not GR.has(sty): continue
+		if height(p.x, p.z) < WATER_Y + 0.4 or not walkable(p.x, p.z) or road_dist(p.x, p.z) < 2.6: continue
+		if town != null and town.town_dist(p.x, p.z) < 6.0: continue
+		if near_house(Vector2(p.x, p.z), 0.4) or _near_node_grid(p, 1.0): continue
+		var arr: Array = GR[sty]
+		_mm(F + arr[rng.randi() % arr.size()], p, rng.randf_range(0.7, 1.25), rng.randf() * TAU, GT.get(sty, Color(1, 1, 1)))
 	# massifs de fleurs (couleurs de la palette Simple Polygon)
 	var FL := [Color("#f08cd8"), Color("#f7e06a"), Color("#c090d8"), Color("#ffffff"), Color("#ff8a7a")]
 	for i in 160:
 		var c := Vector3(rng.randf_range(-100, 100), 0, rng.randf_range(-100, 100))
 		var st: String = REGIONS[region_at(c.x, c.z)].style
 		if not st in ["meadow", "forest", "hills", "swamp"] or not walkable(c.x, c.z) or road_dist(c.x, c.z) < 3.0 or near_house(Vector2(c.x, c.z), 1.0): continue
-		if Vector2(c.x, c.z).distance_to(village) < 26.0: continue
+		if Vector2(c.x, c.z).distance_to(village) < 26.0 or near_town(c, 3.0): continue
 		var fc: Color = FL[rng.randi() % FL.size()]
 		if st == "swamp": fc = fc.darkened(0.25)
 		fc.a = 0.98
@@ -1581,6 +1819,41 @@ func _decor() -> void:
 		var h := height(p.x, p.z)
 		if h > WATER_Y + 0.2 and h < WATER_Y + 0.9 and road_dist(p.x, p.z) > 3.0: _mm(F + "Grass_2_A_Color1.gltf", p, rng.randf_range(1.2, 1.8), rng.randf() * TAU, Color("#c8d890"))
 
+# Coins remarquables : affleurements rocheux, ruines, bois morts… regroupés, pour que chaque recoin ait quelque chose à voir
+func _clusters() -> void:
+	var F := "res://assets/forest/"; var HW := "res://assets/halloween/"; var DG := "res://assets/dungeon/"
+	for reg in range(1, REGIONS.size()):
+		var sty: String = REGIONS[reg].style
+		var CR: Array = ROCK_SET.get(sty, ROCK_SET.meadow)
+		var tint: Color = {"desert": Color("#f2d49a"), "canyon": Color("#d07a55"), "hills": Color("#f0e0c0")}.get(sty, Color(1, 1, 1))
+		var n := 0
+		for tries in 900:
+			if n >= (30 if sty in ["desert", "canyon", "ash"] else 18): break
+			var c := Vector3(rng.randf_range(-98, 98), 0, rng.randf_range(-98, 98))
+			if region_at(c.x, c.z) != reg or not _free_spot(c, 3.5) or slope(c.x, c.z) > 1.6: continue
+			if _near_node_grid(c, 4.0) or near_decor(c, 5.0): continue
+			n += 1
+			var k := rng.randi() % 3
+			# rochers (toujours)
+			for j in rng.randi_range(2, 4):
+				var q := c + Vector3(rng.randf_range(-2.5, 2.5), 0, rng.randf_range(-2.5, 2.5))
+				_mm(CR[rng.randi() % CR.size()], q, rng.randf_range(0.6, 1.5) * (1.6 if j == 0 else 1.0), rng.randf() * TAU, tint)
+			match sty:
+				"meadow", "forest", "hills":
+					for j in 6:
+						var q := c + Vector3(rng.randf_range(-3.5, 3.5), 0, rng.randf_range(-3.5, 3.5))
+						_mm(F + ["Bush_1_E_Color1.gltf", "Grass_2_A_Color1.gltf", "Bush_4_A_Color1.gltf", "Grass_1_D_Color1.gltf"][rng.randi() % 4], q, rng.randf_range(0.9, 1.5), rng.randf() * TAU, Color("#f0d890") if sty == "hills" else Color(1, 1, 1))
+					if k == 0: place("res://assets/hex/resource_lumber.gltf", c + Vector3(rng.randf_range(-3, 3), 0, rng.randf_range(-3, 3)), rng.randf() * TAU, 2.0)
+				"desert", "canyon":
+					if k == 0:
+						for j in 3: place(DG + ["column.gltf", "rubble_large.gltf", "rubble_half.gltf"][j], c + Vector3(rng.randf_range(-3.5, 3.5), 0, rng.randf_range(-3.5, 3.5)), rng.randf() * TAU, rng.randf_range(0.9, 1.3))
+					elif k == 1: place(HW + "tree_dead_medium.gltf", c + Vector3(2, 0, 1), rng.randf() * TAU, 1.6)
+					for j in 4: _mm(HW + ["bone_A.gltf", "skull.gltf", "ribcage.gltf"][rng.randi() % 3] if j == 0 else F + "Grass_2_C_Color1.gltf", c + Vector3(rng.randf_range(-3, 3), 0, rng.randf_range(-3, 3)), rng.randf_range(0.9, 1.3), rng.randf() * TAU, Color("#e6cf8a") if j > 0 else Color(1, 1, 1))
+				"swamp", "ash":
+					place(HW + ("tree_dead_large.gltf" if k == 0 else "tree_dead_medium.gltf"), c + Vector3(rng.randf_range(-2, 2), 0, rng.randf_range(-2, 2)), rng.randf() * TAU, rng.randf_range(1.3, 1.8))
+					for j in 5: _mm(F + ["Grass_2_D_Color1.gltf", "Grass_1_D_Color1.gltf"][j % 2], c + Vector3(rng.randf_range(-3, 3), 0, rng.randf_range(-3, 3)), rng.randf_range(1.0, 1.6), rng.randf() * TAU, Color("#a8b090") if sty == "swamp" else Color("#8a7a70"))
+					if sty == "ash" and k == 1: _ember(c + Vector3(1.5, 0, -1.0))
+
 var ember_count := 0
 func _ember(p: Vector3) -> void:
 	if ember_count > 40: return
@@ -1604,7 +1877,7 @@ func _monster_camps() -> void:
 			tries += 1
 			var p := Vector3(rng.randf_range(-100, 100), 0, rng.randf_range(-100, 100))
 			if region_at(p.x, p.z) != reg or not _free_spot(p, 3.0) or slope(p.x, p.z) > 1.4: continue
-			if _near_duel(p, 20.0) or Vector2(p.x, p.z).distance_to(village) < 40.0: continue
+			if _near_duel(p, 20.0) or Vector2(p.x, p.z).distance_to(village) < 40.0 or near_town(p, 22.0): continue
 			var ok := true
 			for sp in spawns:
 				if sp.pos.distance_to(p) < 15.0: ok = false; break
@@ -1631,7 +1904,7 @@ func _monster_camps() -> void:
 		for tries in 1500:
 			var p := Vector3(rng.randf_range(-95, 95), 0, rng.randf_range(-95, 95))
 			if region_at(p.x, p.z) != reg or not _free_spot(p, 5.0) or slope(p.x, p.z) > 1.2: continue
-			if Vector2(p.x, p.z).distance_to(village) < 55.0 or _near_duel(p, 24.0): continue
+			if Vector2(p.x, p.z).distance_to(village) < 55.0 or near_town(p, 30.0) or _near_duel(p, 24.0): continue
 			if spawns.any(func(sp): return sp.pos.distance_to(p) < 20.0): continue
 			var ks: Array = KINDS_BY_T[R.tier]
 			var sp := {"pos": p, "tier": R.tier, "kinds": [ks[0]] + ks + [ks[ks.size() - 1]], "members": [], "dead_at": -999.0, "chief": true}
@@ -1655,7 +1928,7 @@ func _monster_camps() -> void:
 			tries += 1
 			var p := Vector3(rng.randf_range(-100, 100), 0, rng.randf_range(-100, 100))
 			if region_at(p.x, p.z) != reg or not _free_spot(p, 3.0) or slope(p.x, p.z) > 1.6: continue
-			if Vector2(p.x, p.z).distance_to(village) < 40.0: continue
+			if Vector2(p.x, p.z).distance_to(village) < 40.0 or near_town(p, 18.0): continue
 			if _near_duel(p, 20.0): continue
 			var ok := true
 			for sp in spawns:
@@ -1745,6 +2018,16 @@ func update_occlusion(pp: Vector3, dt: float) -> void:
 	occ_tick -= dt
 	if occ_tick > 0.0: return
 	occ_tick = 0.12
+	# maisons entre la caméra et le héros : elles s'effacent (on voit toujours son personnage dans les rues)
+	for hz in houses:
+		var dd: Vector2 = hz.c - Vector2(pp.x, pp.z)
+		var hide: bool = abs(dd.x) < float(hz.hx) + 1.2 and dd.y > -float(hz.hz) + 0.5 and dd.y < float(hz.hz) + 10.0
+		if hide != hz.hid:
+			hz.hid = hide
+			for pc in hz.pieces:
+				for pair in mm_by_key.get(pc[0], []):
+					var xf: Transform3D = pc[2]
+					(pair[0] as MultiMesh).set_instance_transform(pc[1], Transform3D(Basis().scaled(Vector3.ONE * 0.0001), xf.origin) if hide else xf * pair[1])
 	# murs, bâtiments, décors posés : masqués s'ils sont entre la caméra et le héros
 	for dx in range(-2, 3):
 		for dz in range(-1, 3):
@@ -1976,7 +2259,7 @@ func _farms() -> void:
 		var veg: Array = Game.FOOD_BY_STYLE.get(R.get("style", "meadow"), Game.FOOD_BY_STYLE.meadow)[1]
 		for tries in 1500:
 			var q := Vector2(r.randf_range(-92, 92), r.randf_range(-92, 92))
-			if region_at(q.x, q.y) != reg or q.distance_to(village) < 40.0: continue
+			if region_at(q.x, q.y) != reg or q.distance_to(village) < 40.0 or near_town(Vector3(q.x, 0, q.y), 16.0): continue
 			var rd := road_dist(q.x, q.y)
 			if rd < 12.0 or rd > (26.0 if tries < 700 else 40.0): continue
 			if not _house_ok(q, 13.0): continue
@@ -2069,7 +2352,7 @@ func _pen_near_town(r: RandomNumberGenerator) -> void:
 	for tries in 60:
 		var a := r.randf() * TAU; var d := r.randf_range(38.0, 58.0)
 		var q := village + Vector2(cos(a), sin(a)) * d
-		if not _house_ok(q, 8.0): continue
+		if not _house_ok(q, 8.0) or near_town(Vector3(q.x, 0, q.y), 7.0): continue
 		house_spots.append([q, 9.0])
 		_pen(q, 6.0, ["bull", "horse", "donkey"] if map_id != 3 else ["donkey", "donkey"], r)
 		var mq := q + Vector2(cos(a), sin(a)) * 11.0
@@ -2159,7 +2442,7 @@ const CLIFF_PAL := {"canyon": "Red", "desert": "Red", "ash": "Grey"}
 func _clear_k(x: float, z: float) -> float:
 	# 0 = interdit (ville, lieux, eau, passages), 1 = libre
 	var q := Vector2(x, z)
-	var k: float = smoothstep(46.0, 54.0, q.distance_to(village))
+	var k: float = smoothstep(18.0, 30.0, town.town_dist(x, z)) if town else smoothstep(46.0, 54.0, q.distance_to(village))
 	if k <= 0.0: return 0.0
 	for pd in POI_DEFS:
 		k = min(k, smoothstep(pd.r + 6.0, pd.r + 12.0, q.distance_to(pd.p)))
@@ -2170,6 +2453,9 @@ func _clear_k(x: float, z: float) -> float:
 	if not volcano.is_empty(): k = min(k, smoothstep(float(volcano.r) * 0.95, float(volcano.r) * 1.15, q.distance_to(volcano.pos)))
 	return k
 
+var cnoise := FastNoiseLite.new()
+func cliff_k(x: float, z: float) -> float:
+	return smoothstep(0.12, 0.32, cnoise.get_noise_2d(x, z))
 var _last_pk := 0.0
 var _last_clear := -1.0
 func plateau(x: float, z: float, lv := 1) -> float:
@@ -2183,7 +2469,9 @@ func _plateau_w(x: float, z: float, w: Array, lv: int, clear := -1.0) -> float:
 		if not PLATEAU_2.has(a): return 0.0
 		t += float(PLATEAU_2[a])
 	var n := pnoise.get_noise_2d(x, z)
-	var k := smoothstep(t, t + 0.022, n)
+	# falaises seulement par endroits : ailleurs, le bord du plateau est une pente douce qu'on peut gravir
+	var wdt: float = lerp(0.15, 0.022, cliff_k(x, z))
+	var k := smoothstep(t + 0.011 - wdt * 0.5, t + 0.011 + wdt * 0.5, n)
 	if k <= 0.0: return 0.0
 	if clear < 0.0: clear = _clear_k(x, z); _last_clear = clear
 	return k * clear
@@ -2271,10 +2559,14 @@ const ROCK_SET := {
 }
 static func crystal(nm: String) -> String: return "res://assets/crystal/%s.glb" % nm
 
+var _cur_house = null
+var houses: Array = []        # {c, r, pieces: [[clé, index, xf]], hid}
+var mm_by_key := {}
 func _mm_xf(path: String, xf: Transform3D, col := Color(1, 1, 1)) -> void:
 	var key := path + "|" + col.to_html() + "|" + str(int(floor((xf.origin.x + HALF) / 64.0))) + "," + str(int(floor((xf.origin.z + HALF) / 64.0)))
 	if not mm_lists.has(key): mm_lists[key] = []
 	mm_lists[key].append(xf)
+	if _cur_house != null: _cur_house.pieces.append([key, mm_lists[key].size() - 1, xf])
 
 # Habillage des falaises : on suit le contour des plateaux et de la chaîne de bord, une tuile tous les ~5,5 m
 func _cliffs() -> void:
@@ -2325,7 +2617,7 @@ func _cliff_level(r: RandomNumberGenerator, lv: int) -> void:
 		grid[gk].append(q); kept.append(q)
 	var nc := 0
 	for q: Vector2 in kept:
-		if road_dist(q.x, q.y) < 6.5 or _near_ramp(q, 5.5): continue
+		if road_dist(q.x, q.y) < 6.5 or _near_ramp(q, 5.5) or cliff_k(q.x, q.y) < 0.55 or _near_carved(q, 5.0): continue
 		# normale vers l'extérieur (le plateau monte vers l'intérieur)
 		var e := 1.2
 		var gx: float = _field(q.x + e, q.y, lv) - _field(q.x - e, q.y, lv)
@@ -2400,6 +2692,10 @@ func _ramp_f(q: Vector2, rp: Dictionary) -> float:
 	var tt: float = (q - rp.a).dot(ab) / ab.length_squared()
 	if tt >= 1.0: return 1.0
 	return lerp(1.0, clamp(tt, 0.0, 1.0), w)
+func _near_carved(q: Vector2, r: float) -> bool:
+	for cv in carved:
+		if seg_dist(q, cv[0], cv[1]) < r: return true
+	return false
 func _near_ramp(q: Vector2, r: float) -> bool:
 	for rp in ramps:
 		if seg_dist(q, rp.a, rp.b) < r: return true
@@ -2473,6 +2769,85 @@ func _ramp_ground_ok(q: Vector2) -> bool:
 	return true
 
 var reach := PackedByteArray()
+# Tout ce qui est praticable doit être atteignable : îlots coupés par une rivière → un pont ;
+# plateaux cernés de falaises → on taille une rampe dans le relief.
+var carved: Array = []       # [a, b] rampes taillées (pas de falaise dessus, couleur de chemin)
+func _fix_reach() -> void:
+	for it in 14:
+		var comp := _largest_unreached()
+		if comp.size() < 30: return
+		# chemin le plus court vers une case atteinte (BFS sur toute la grille, sans franchir le bord du monde)
+		var par := {}; var q: Array = []
+		for k in comp: par[k] = -1; q.append(k)
+		var hit := -1; var qi := 0
+		while qi < q.size():
+			var k: int = q[qi]; qi += 1
+			if reach[k] == 1: hit = k; break
+			var i := k % N; var j := k / N
+			for d in [[1, 0], [-1, 0], [0, 1], [0, -1]]:
+				var ii: int = i + d[0]; var jj: int = j + d[1]
+				if ii < 6 or jj < 6 or ii >= N - 6 or jj >= N - 6: continue
+				var kk := jj * N + ii
+				if par.has(kk): continue
+				var x := -HALF + ii * CELL; var z := -HALF + jj * CELL
+				if max(abs(x), abs(z)) > 100.0: continue
+				par[kk] = k; q.append(kk)
+		if hit < 0: return
+		var path: Array = []
+		var c := hit
+		while c != -1: path.append(c); c = par[c]
+		path.reverse()   # de l'îlot vers la zone atteinte
+		var pts: Array = []
+		for k in path: pts.append(Vector2(-HALF + (k % N) * CELL, -HALF + (k / N) * CELL))
+		var wet: Array = []
+		for i in pts.size():
+			if hs[path[i]] < WATER_Y + 0.2: wet.append(i)
+		# rampe : on lisse la hauteur le long du chemin (3 cases de large) et on débloque
+		var dry: Array = []
+		for i in pts.size():
+			if not (i in wet): dry.append(i)
+		if dry.size() >= 2:
+			var h0: float = hs[path[dry[0]]]; var h1: float = hs[path[dry[dry.size() - 1]]]
+			for n in dry.size():
+				var i: int = dry[n]; var t: float = float(n) / float(max(1, dry.size() - 1))
+				var hh: float = lerp(h0, h1, t)
+				var ci: int = int(path[i]) % N; var cj: int = int(path[i]) / N
+				for dx in range(-1, 2):
+					for dz in range(-1, 2):
+						var kk: int = (cj + dz) * N + (ci + dx)
+						if kk < 0 or kk >= N * N or hs[kk] < WATER_Y + 0.2: continue
+						hs[kk] = lerp(hs[kk], hh, 1.0 if dx == 0 and dz == 0 else 0.7)
+						blocked[kk] = 0
+			carved.append([pts[dry[0]], pts[dry[dry.size() - 1]]])
+		if not wet.is_empty():
+			var i0: int = max(0, int(wet[0]) - 2); var i1: int = min(pts.size() - 1, int(wet[wet.size() - 1]) + 2)
+			var a: Vector2 = pts[i0]; var b: Vector2 = pts[i1]
+			var dir := (b - a).normalized()
+			_bridge(a - dir * 1.0, b + dir * 1.0)
+		_compute_reach()
+
+func _largest_unreached() -> Array:
+	var seen := PackedByteArray(); seen.resize(N * N); seen.fill(0)
+	var best: Array = []
+	for j in range(6, N - 6):
+		for i in range(6, N - 6):
+			var k := j * N + i
+			if seen[k] == 1 or reach[k] == 1 or blocked[k] == 1 or hs[k] < WATER_Y + 0.2: continue
+			var x := -HALF + i * CELL; var z := -HALF + j * CELL
+			if max(abs(x), abs(z)) > 100.0: continue
+			var comp: Array = []; var st: Array = [k]; seen[k] = 1
+			while not st.is_empty():
+				var c: int = st.pop_back(); comp.append(c)
+				var ci := c % N; var cj := c / N
+				for d in [[1, 0], [-1, 0], [0, 1], [0, -1]]:
+					var ii: int = ci + d[0]; var jj: int = cj + d[1]
+					if ii < 6 or jj < 6 or ii >= N - 6 or jj >= N - 6: continue
+					var kk := jj * N + ii
+					if seen[kk] == 1 or reach[kk] == 1 or blocked[kk] == 1 or hs[kk] < WATER_Y + 0.2: continue
+					seen[kk] = 1; st.append(kk)
+			if comp.size() > best.size(): best = comp
+	return best
+
 func _compute_reach() -> void:
 	reach.resize(N * N); reach.fill(0)
 	var si := int(round((village.x + HALF) / CELL)); var sj := int(round((village.y + HALF) / CELL))

@@ -61,6 +61,8 @@ func add_crop(k: String, t: int, p: Vector3, plant := "", rot := 0.0) -> Diction
 		"buisson":
 			var bush: Node3D = load("res://assets/forest/" + ["Bush_2_A_Color1.gltf", "Bush_1_E_Color1.gltf", "Bush_2_D_Color1.gltf"][rng.randi() % 3]).instantiate()
 			bush.scale = Vector3.ONE * rng.randf_range(1.15, 1.4); root.add_child(bush)
+			var sty: String = World.REGIONS[world.region_at(p.x, p.z)].get("style", "meadow")
+			if sty in ["desert", "canyon", "ash"]: world._tint_mul_n(bush, Color(0.95, 0.85, 0.55))
 			var fs: float = 0.26 if k in ["cerise", "fraise", "citron", "kiwi", "figue"] else 0.32
 			for i in 6:
 				var a := i * TAU / 6.0 + rng.randf() * 0.6
@@ -91,7 +93,7 @@ func add_crop(k: String, t: int, p: Vector3, plant := "", rot := 0.0) -> Diction
 			var fs: float = 0.38 if k in ["cepe", "girolle", "amanite", "morille"] else 0.62
 			for i in n:
 				var f := food_model(k, fs * rng.randf_range(0.85, 1.15))
-				f.position = Vector3(rng.randf_range(-0.5, 0.5), 0.0, rng.randf_range(-0.5, 0.5))
+				f.position = Vector3(rng.randf_range(-0.5, 0.5), fs * 0.15, rng.randf_range(-0.5, 0.5))
 				f.rotation.y = rng.randf() * TAU
 				root.add_child(f); parts.append(f)
 			var tuft: Node3D = load("res://assets/forest/Grass_1_C_Color1.gltf").instantiate(); tuft.scale = Vector3.ONE * 0.9; root.add_child(tuft)

@@ -23,7 +23,7 @@ static func def(id: int) -> Dictionary:
 static func _m1() -> Dictionary:
 	return {
 		"id": 1, "terrain": "Prairies & rivière",
-		"town": {"pos": Vector2(0, 80), "name": "VALDRUNE", "kind": "valdrune", "tint": Color(1, 1, 1)},
+		"town": {"pos": Vector2(0, 66), "name": "VALDRUNE", "kind": "valdrune", "tint": Color(1, 1, 1)},
 		"regions": [{},
 			{"name": "Val de Valdrune", "tier": 1, "c": Vector2(0, 62), "bias": 26.0, "style": "meadow", "g0": "#5c9c40", "g1": "#7db04c", "sky": "#a9c9d8"},
 			{"name": "Lisière de Chênevert", "tier": 2, "c": Vector2(0, -70), "bias": 0.0, "style": "forest", "g0": "#356f2d", "g1": "#4c8838", "sky": "#8fb3a4"},
