@@ -4,10 +4,11 @@ class_name TownGen
 # les maisons s'alignent le long des rues (portes côté rue), une place irrégulière au centre,
 # jardins, arbres, lanternes, et chaque habitant a SON coin (pas tous au même endroit).
 
-const PLAZA_R := 8.5
+const PLAZA_R := 10.0
 const MAIN_HALF := 2.6
 const LANE_HALF := 1.7
 const MAX_LEN := 58.0
+const PLOT_D := 11.0
 
 var W: Node
 var V := Vector2.ZERO
@@ -244,7 +245,7 @@ func _dirt_mat() -> StandardMaterial3D:
 func _plaza(ST: Dictionary, tname: String) -> void:
 	var sf := SurfaceTool.new(); sf.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var segs := 48; var rings := 5
-	var rad := func(a: float) -> float: return PLAZA_R + 1.0 + sin(a * 3.0 + 1.3) * 0.9 + sin(a * 5.0) * 0.5
+	var rad := func(a: float) -> float: return PLAZA_R + 1.2     # place bien ronde
 	var P := func(a: float, f: float) -> Vector3:
 		var q: Vector2 = V + Vector2(cos(a), sin(a)) * rad.call(a) * f
 		return Vector3(q.x, W.height(q.x, q.y) + 0.07, q.y)
@@ -264,8 +265,26 @@ func _plaza(ST: Dictionary, tname: String) -> void:
 		var q: Vector2 = V + Vector2(cos(a), sin(a)) * (rad.call(a) + 0.35)
 		if _on_street(q, 0.6): continue
 		W._mm("res://assets/forest/Rock_1_A_Color1.gltf", Vector3(q.x, 0, q.y), R.randf_range(0.18, 0.26), R.randf() * TAU, Color("#c8c4bc"))
-	W.building("res://assets/hex/building_well_blue.gltf", V, 0.0, 3.0, 2.2)
-	W.house_spots.append([V, 2.0])
+	# anneaux de pavés sombres (motif de la place ronde)
+	var sr := SurfaceTool.new(); sr.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for band: Vector2 in [Vector2(3.3, 3.9), Vector2(PLAZA_R - 0.3, PLAZA_R + 0.3)]:
+		for i in 64:
+			var a0 := TAU * i / 64; var a1 := TAU * (i + 1) / 64
+			var vs: Array = []
+			for pr: Vector2 in [Vector2(a0, band.x), Vector2(a1, band.x), Vector2(a1, band.y), Vector2(a0, band.y)]:
+				var q: Vector2 = V + Vector2(cos(pr.x), sin(pr.x)) * pr.y
+				vs.append([Vector3(q.x, W.height(q.x, q.y) + 0.09, q.y), q * 0.5])
+			_tri(sr, vs[0], vs[1], vs[2]); _tri(sr, vs[0], vs[2], vs[3])
+	var ri := MeshInstance3D.new(); ri.mesh = sr.commit()
+	ri.material_override = _tex_mat("res://assets/village/T_Brick_BaseColor.png", Color(ST.pave).darkened(0.35), 1.0)
+	ri.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; W.add_child(ri)
+	_fountain()
+	W.house_spots.append([V, 2.6])
+	# bancs autour de la fontaine
+	for k in 4:
+		var ab := TAU * k / 4.0 + PI * 0.25
+		var bq: Vector2 = V + Vector2(cos(ab), sin(ab)) * 4.6
+		_bench(bq, atan2(V.x - bq.x, V.y - bq.y))
 	# arbres et massifs au bord de la place (entre les débouchés des rues)
 	var FL := [Color("#f08cd8"), Color("#f7e06a"), Color("#c090d8"), Color("#ffffff")]
 	for i in 7:
@@ -278,11 +297,6 @@ func _plaza(ST: Dictionary, tname: String) -> void:
 		for k in 6:
 			var fc: Color = FL[R.randi() % FL.size()]; fc.a = 0.98
 			W._mm("res://assets/forest/Bush_1_A_Color1.gltf", w3 + Vector3(R.randf_range(-1.1, 1.1), 0, R.randf_range(-1.1, 1.1)), R.randf_range(0.5, 0.75), R.randf() * TAU, fc)
-	# tonneaux et caisses autour du puits
-	for k in 3:
-		var a2 := TAU * k / 3.0 + 0.6
-		var q2 := V + Vector2(cos(a2), sin(a2)) * 3.0
-		W.place("res://assets/hex/" + ["barrel.gltf", "crate_A_big.gltf", "sack.gltf"][k], Vector3(q2.x, 0, q2.y), a2, 3.2)
 	W.label(tname, Vector3(V.x, W.height(V.x, V.y) + 11.0, V.y), Color("#ffe2a0"), 90)
 
 func _on_street(q: Vector2, margin: float) -> bool:
@@ -307,7 +321,7 @@ func _inside(p: Vector2, h: Dictionary, m: float) -> bool:
 	var rot: float = h.rot
 	var ax := Vector2(cos(rot), -sin(rot)); var az := Vector2(sin(rot), cos(rot))
 	var d := p - (h.c as Vector2)
-	return abs(d.dot(ax)) < float(h.w) * 0.5 + m and abs(d.dot(az)) < float(h.d) * 0.5 + m
+	return abs(d.dot(ax)) < float(h.get("pw", h.w)) * 0.5 + m and abs(d.dot(az)) < float(h.get("pd", h.d)) * 0.5 + m
 
 var why := {}
 func _no(k: String) -> bool:
@@ -324,11 +338,11 @@ func _fp_ok(c: Vector2, rot: float, w: float, d: float) -> bool:
 		for o in homes:
 			if _inside(p, o, 0.3): return _no("home")
 		if W.near_house(p, 0.2): return _no("near_house")
-	if hmax - hmin > 1.8: return _no("slope")
+	if hmax - hmin > (2.8 if d > 9.0 else 1.8): return _no("slope")
 	# et dans l'autre sens (une petite maison ne doit pas tomber dans une grande)
 	var me := {"c": c, "rot": rot, "w": w, "d": d}
 	for o in homes:
-		for p: Vector2 in _corners(o.c, o.rot, o.w, o.d, 0.0):
+		for p: Vector2 in _corners(o.c, o.rot, o.get("pw", o.w), o.get("pd", o.d), 0.0):
 			if _inside(p, me, 0.3): return false
 	return true
 
@@ -354,15 +368,15 @@ func _place_houses() -> void:
 			var s := PLAZA_R + 2.0 if st.main else 2.5
 			while s < float(st.len) - 2.0:
 				var w: int = [4, 6, 6][R.randi() % 3] if st.main else [4, 4, 6][R.randi() % 3]
-				var pa: Array = point_at(st, s + w * 0.5); var p: Vector2 = pa[0]; var tg: Vector2 = pa[1]
+				var pw: float = w + 2.0
+				var pa: Array = point_at(st, s + pw * 0.5); var p: Vector2 = pa[0]; var tg: Vector2 = pa[1]
 				var nr := Vector2(-tg.y, tg.x) * side
-				var c: Vector2 = p + nr * (float(st.half) + 0.9 + 4.0)
+				# chaque maison a sa parcelle : cour devant, jardin derrière, murets ou haies autour
+				var c: Vector2 = p + nr * (float(st.half) + 1.0 + PLOT_D * 0.5)
 				var rot := atan2(-nr.x, -nr.y)
-				if _fp_ok(c, rot, w, 8.0):
-					_add_home(c, rot, w, si, s + w * 0.5, side, false)
-					var gap := R.randf_range(0.5, 1.6)
-					if R.randf() < 0.18: gap = R.randf_range(3.5, 6.0)     # un jardin, une venelle
-					s += w + gap
+				if _fp_ok(c, rot, pw, PLOT_D):
+					_add_home(c, rot, w, si, s + pw * 0.5, side, false, true)
+					s += pw + R.randf_range(0.6, 2.4)
 				else: s += 1.0
 
 # maisons de seconde ligne : un peu en retrait, chacune avec un accès dégagé vers la rue la plus proche
@@ -381,9 +395,9 @@ func _infill(n: int) -> void:
 		var to := (best - q).normalized()
 		var rot := atan2(to.x, to.y)
 		var w: int = 4 if R.randf() < 0.6 else 6
-		if not _fp_ok(q, rot, w, 8.0): continue
+		if not _fp_ok(q, rot, w + 2.0, PLOT_D): continue
 		# l'accès à la rue ne doit pas traverser une maison
-		var front: Vector2 = q + to * 4.6
+		var front: Vector2 = q + to * (PLOT_D * 0.5 + 0.6)
 		var ok := true
 		for t in 6:
 			var pp: Vector2 = front.lerp(best, t / 5.0)
@@ -391,22 +405,105 @@ func _infill(n: int) -> void:
 				if _inside(pp, h, 0.3): ok = false; break
 			if not ok: break
 		if not ok: continue
-		_add_home(q, rot, w, -1, 0.0, 0.0, false)
+		_add_home(q, rot, w, -1, 0.0, 0.0, false, true)
+		homes[homes.size() - 1]["path_to"] = best
 		made += 1
 
-func _add_home(c: Vector2, rot: float, w: int, si: int, s: float, side: float, plaza: bool) -> void:
+func _add_home(c: Vector2, rot: float, w: int, si: int, s: float, side: float, plaza: bool, plot := false, kind := "house") -> void:
 	var az := Vector2(sin(rot), cos(rot))
 	var ldx := -w * 0.5 + 1 + int(w / 4) * 2
 	var ax := Vector2(cos(rot), -sin(rot))
-	var door: Vector2 = c + az * (4.0 + 0.35) + ax * ldx
-	var out: Vector2 = c + az * (4.0 + 1.9) + ax * ldx
-	homes.append({"c": c, "rot": rot, "w": w, "d": 8.0, "street": si, "s": s, "side": side, "door": door, "out": out, "plaza": plaza, "used": false,
-		"fl": 1 + (R.randi() % 3 if plaza or (si >= 0 and streets[si].main and s < 30.0) else R.randi() % 2)})
+	var hc: Vector2 = c - az * ((PLOT_D - 8.0) * 0.5) if plot else c    # dans sa parcelle, la maison recule : grande cour devant
+	var door: Vector2 = hc + az * (4.0 + 0.35) + ax * ldx
+	var out: Vector2 = hc + az * (4.0 + 1.9) + ax * ldx
+	var hm := {"c": c, "rot": rot, "w": w, "d": 8.0, "street": si, "s": s, "side": side, "door": door, "out": out, "plaza": plaza, "used": false, "kind": kind,
+		"fl": 1 + (R.randi() % 3 if plaza or (si >= 0 and streets[si].main and s < 30.0) else R.randi() % 2)}
+	hm["hc"] = hc
+	if plot: hm["pw"] = w + 2.0; hm["pd"] = PLOT_D; hm["plot"] = true
+	homes.append(hm)
 
 func _build_houses() -> void:
 	_infill(10)
+	_assign_services()
+	var paths: Array = []
 	for h in homes:
-		W.house(h.c, h.rot, h.w, h.fl, "plaster" if R.randf() < 0.55 else "brick", true)
+		W.house(h.hc, h.rot, h.w, h.fl, "plaster" if R.randf() < 0.55 else "brick", true)
+		if h.get("plot", false): paths.append(_build_plot(h))
+	# allées de terre : de la porte jusqu'à la rue
+	var sf := SurfaceTool.new(); sf.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for pr in paths:
+		var a: Vector2 = pr[0]; var b: Vector2 = pr[1]
+		var L := a.distance_to(b)
+		if L < 0.5: continue
+		var dir := (b - a) / L; var nr := Vector2(-dir.y, dir.x) * 0.65
+		var n := int(L / 1.0) + 1
+		for k in n:
+			var p0 := a.lerp(b, float(k) / n); var p1 := a.lerp(b, float(k + 1) / n)
+			var vs: Array = []
+			for q: Vector2 in [p0 - nr, p0 + nr, p1 + nr, p1 - nr]: vs.append([Vector3(q.x, W.height(q.x, q.y) + 0.05, q.y), q * 0.5])
+			_tri(sf, vs[0], vs[1], vs[2]); _tri(sf, vs[0], vs[2], vs[3])
+	var mi := MeshInstance3D.new(); mi.mesh = sf.commit(); mi.material_override = _dirt_mat()
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; W.add_child(mi)
+
+# parcelle : muret de pierres sèches ou haie, ouverte devant la porte, et une cour vivante
+func _build_plot(h: Dictionary) -> Array:
+	var rot: float = h.rot; var c: Vector2 = h.c
+	var ax := Vector2(cos(rot), -sin(rot)); var az := Vector2(sin(rot), cos(rot))
+	var hx: float = float(h.pw) * 0.5; var hz: float = float(h.pd) * 0.5
+	var ldx: float = -float(h.w) * 0.5 + 1 + int(h.w / 4) * 2
+	var hedge: bool = R.randf() < 0.45 and h.kind == "house"
+	var hedge_col := Color(1, 1, 1) if W.map_id != 3 else Color(0.9, 0.85, 0.55)
+	var piece := func(lx: float, lz: float, side_rot: float) -> void:
+		var q: Vector2 = c + ax * lx + az * lz
+		if _on_street(q, 0.2): return
+		var r := rot + side_rot
+		if hedge:
+			for k in 2:
+				var hq: Vector2 = q + Vector2(cos(r), -sin(r)) * (-0.5 + k)
+				W._mm("res://assets/forest/Bush_1_E_Color1.gltf", Vector3(hq.x, 0, hq.y), R.randf_range(0.75, 0.95), R.randf() * TAU, hedge_col)
+		else:
+			var y: float = W.height(q.x, q.y) - 0.08
+			W._mm_xf(World._V + "Wall_UnevenBrick_Straight.gltf", Transform3D(Basis(Vector3.UP, r).scaled(Vector3(1.0, 0.24, 0.8)), Vector3(q.x, y, q.y)))
+		W.box_blocker(Vector3(q.x, 0, q.y), Vector3(2.0, 0.9, 0.45), r)
+		W.plot_walls.append([q - Vector2(cos(r), -sin(r)), q + Vector2(cos(r), -sin(r))])
+	# côtés et fond
+	var nx := int(round(hx * 2.0 / 2.0)); var nz := int(round(hz * 2.0 / 2.0))
+	for i in nx:
+		var lx := -hx + 1.0 + i * 2.0
+		piece.call(lx, -hz, PI)
+		if abs(lx - ldx) > 1.9: piece.call(lx, hz, 0.0)      # devant : on laisse le passage vers la porte
+	for i in nz:
+		var lz := -hz + 1.0 + i * 2.0
+		piece.call(hx, lz, PI * 0.5); piece.call(-hx, lz, -PI * 0.5)
+	if h.kind != "house":
+		_service_yard(h, c, ax, az, hx, hz, ldx)
+		var gate0: Vector2 = c + ax * ldx + az * hz
+		return [h.out, gate0 + az * 0.8]
+	# la cour : meule, bûches, brouette, potager, arbre fruitier…
+	var spots: Array = [Vector2(-hx + 1.0, hz - 1.2), Vector2(hx - 1.0, hz - 1.2), Vector2(-hx + 1.0, hz - 2.4), Vector2(hx - 1.0, hz - 2.4)]
+	spots.shuffle()
+	var veg := ["chou", "carotte", "citrouille", "salade"] if W.map_id != 3 else ["pasteque", "melon", "poivron"]
+	for k in R.randi_range(2, 3):
+		var lq: Vector2 = spots[k]
+		if abs(lq.x - ldx) < 1.6 and lq.y > 0: continue
+		var q: Vector2 = c + ax * lq.x + az * lq.y
+		var w3 := Vector3(q.x, 0, q.y)
+		match R.randi() % 5:
+			0: W.place("res://assets/hex/building_grain.gltf", w3, R.randf() * TAU, 0.9)
+			1: W.place("res://assets/hex/resource_lumber.gltf", w3, rot + PI * 0.5, 1.8)
+			2: W.place("res://assets/hex/wheelbarrow.gltf", w3, R.randf() * TAU, 2.6)
+			3:
+				for j in 4:
+					var v := Crops.food_model(veg[R.randi() % veg.size()], 0.45)
+					var vq: Vector2 = q + ax * ((j % 2) * 0.7 - 0.35) + az * (int(j / 2) * 0.7 - 0.35)
+					v.position = Vector3(vq.x, W.height(vq.x, vq.y) + 0.05, vq.y); v.rotation.y = R.randf() * TAU; W.add_child(v)
+			4: W.place(World.TOWN_STYLE.get(W.map_id, World.TOWN_STYLE[1]).tree, w3, R.randf() * TAU, R.randf_range(0.5, 0.65))
+	# allée : porte → portail → bord de la rue
+	var gate: Vector2 = c + ax * ldx + az * hz
+	var road_pt: Vector2 = gate + az * 0.8
+	if h.has("path_to"): road_pt = h.path_to
+	return [h.out, road_pt]
+
 
 # ——— entrées de la ville : piliers, bannières, lanternes, gardes ———
 func _entrances(ST: Dictionary) -> void:
@@ -608,7 +705,7 @@ func market(n: int) -> void:
 	var made := 0
 	for k in 24:
 		if made >= n: break
-		var a := R.randf() * TAU
+		var a := TAU * float(k * 7 % 24) / 24.0 + 0.13    # répartis en couronne
 		var q: Vector2 = V + Vector2(cos(a), sin(a)) * (PLAZA_R - 2.6)
 		if street_opening(a) or not _free_npc(q, 4.2) or q.distance_to(V) < 3.5: continue
 		npc_used.append(q)
@@ -616,6 +713,7 @@ func market(n: int) -> void:
 		var f := Vector3(to_c.x, 0, to_c.y); var sd := Vector3(cos(yaw), 0, -sin(yaw))
 		var p3 := Vector3(q.x, 0, q.y)
 		W.place("res://assets/dungeon/table_medium_decorated_A.gltf", p3, yaw, 0.85); W.blocker(p3, 0.9)
+		awning(q - to_c * 0.3, yaw, 3.6, 2.6, [Color("#b0352a"), Color("#2f6fb0"), Color("#3c7a3a")][made % 3], Color("#f0e6d0"))
 		for j in 2:
 			var cq: Vector3 = p3 + sd * (1.5 if j == 0 else -1.5) - f * 0.3
 			var crate: Node3D = load("res://assets/food/crate.glb").instantiate(); crate.scale = Vector3.ONE * 1.5
@@ -635,3 +733,149 @@ func market(n: int) -> void:
 		if street_opening(a2) or not _free_npc(q2, 3.5): continue
 		W.place(World._V + "Prop_Wagon.gltf", Vector3(q2.x, 0, q2.y), a2 + PI * 0.5, 0.9); W.blocker(Vector3(q2.x, 0, q2.y), 1.1)
 		npc_used.append(q2); break
+
+
+# ================= LIEUX DE SERVICE : chacun a SON endroit, reconnaissable de loin =================
+func _assign_services() -> void:
+	var taken: Array = []
+	var pick := func(kind: String, cond: Callable, score: Callable) -> void:
+		var best = null; var bs := 1e9
+		for h in homes:
+			if h in taken or not cond.call(h): continue
+			var sc: float = score.call(h)
+			if sc < bs: bs = sc; best = h
+		if best != null: best.kind = kind; taken.append(best)
+	var dist := func(h) -> float: return (h.c as Vector2).distance_to(V)
+	# hôtel des ventes : la plus grande maison de la place
+	pick.call("auction", func(h): return h.plaza, func(h): return -float(h.w) * 10.0 + dist.call(h))
+	# forge : une parcelle sur une grande rue, pas trop loin
+	pick.call("forge", func(h): return h.get("plot", false) and h.street >= 0 and streets[h.street].main, func(h): return abs(dist.call(h) - 22.0))
+	var fs: int = -1
+	for h in taken:
+		if h.kind == "forge": fs = h.street
+	# auberge : sur une autre rue
+	pick.call("inn", func(h): return h.get("plot", false) and h.street != fs and h.street >= 0, func(h): return abs(dist.call(h) - 20.0) - float(h.w))
+	# mercenaires : au bout du bourg, près d'une sortie
+	pick.call("mercs", func(h): return h.get("plot", false) and h.street >= 0 and streets[h.street].main, func(h): return -dist.call(h))
+	for h in homes:
+		if h.kind == "inn": h.fl = 3; h.w = max(int(h.w), 6)
+		if h.kind == "auction": h.fl = 3
+
+func service(kind: String) -> Dictionary:
+	for h in homes:
+		if h.kind == kind: return h
+	return {}
+
+# place du PNJ devant son lieu (dans la cour, face à la rue)
+func service_slot(kind: String) -> Array:
+	var h := service(kind)
+	if h.is_empty(): return door_slot(12.0, 40.0)
+	h.used = true
+	var fwd: Vector2 = ((h.out as Vector2) - (h.door as Vector2)).normalized()
+	var ax := Vector2(cos(h.rot), -sin(h.rot))
+	var q: Vector2 = (h.out as Vector2) + fwd * 0.6 + ax * (1.6 if kind == "forge" else 0.0)
+	npc_used.append(q)
+	return [Vector3(q.x, 0, q.y), atan2(fwd.x, fwd.y), h]
+
+func _service_yard(h: Dictionary, c: Vector2, ax: Vector2, az: Vector2, hx: float, hz: float, ldx: float) -> void:
+	var at := func(lx: float, lz: float) -> Vector3:
+		var q: Vector2 = c + ax * lx + az * lz; return Vector3(q.x, 0, q.y)
+	var rot: float = h.rot
+	var DG := "res://assets/dungeon/"; var H := "res://assets/hex/"
+	var side: float = 1.0 if ldx <= 0.0 else -1.0       # le côté libre de la cour (loin de l'allée)
+	match h.kind:
+		"forge":
+			# atelier en plein air : four de briques qui rougeoie, enclume, râtelier, auvent de cuir
+			var fp: Vector3 = at.call(side * (hx - 1.0), hz - 1.5)
+			W.place(World._V + "Prop_Chimney.gltf", fp, rot, 1.25); W.blocker(fp, 0.9)
+			W._light(fp + Vector3(0, W.height(fp.x, fp.z) + 0.9, 0), Color("#ff7a20"), 3.0, 3.2)
+			W._smoke(fp + Vector3(0, W.height(fp.x, fp.z) + 3.4, 0))
+			var an: Vector3 = at.call(side * (hx - 2.9), hz - 1.4)
+			_anvil(an, rot); W.blocker(an, 0.5)
+			W.place(H + "weaponrack.gltf", at.call(-side * (hx - 0.9), hz - 1.6), rot, 4.4)
+			W.place(DG + "barrel_large.gltf", at.call(side * (hx - 0.8), hz - 2.7), 0.0, 0.45)
+			awning(c + ax * side * (hx - 2.0) + az * (hz - 1.5), rot, 3.8, 2.6, Color("#6b4a32"), Color("#8a6040"))
+			W.label("FORGE", at.call(0, 0) + Vector3(0, W.height(c.x, c.y) + 8.5, 0), Color("#ffb070"), 52)
+		"inn":
+			# terrasse : tables, tonneaux, lanternes sous un auvent rayé
+			for k in 2:
+				var tq: Vector3 = at.call(side * (hx - 1.3 - k * 2.2), hz - 1.5)
+				W.place(DG + "table_medium_decorated_A.gltf", tq, rot, 0.8); W.blocker(tq, 0.8)
+				W.place(H + "barrel.gltf", tq + Vector3(0.9, 0, 0.9).rotated(Vector3.UP, rot), rot, 2.4)
+			awning(c + ax * side * (hx - 2.4) + az * (hz - 1.5), rot, 4.6, 2.6, Color("#b0352a"), Color("#f0e6d0"))
+			for k in 2:
+				var lq: Vector3 = at.call(ldx + (1.4 if k == 0 else -1.4), hz - 0.6)
+				W.place("res://assets/halloween/lantern_standing.gltf", lq, 0.0, 1.4); W.blocker(lq, 0.25)
+				W._light(lq + Vector3(0, W.height(lq.x, lq.z) + 2.2, 0), Color("#ffbf66"), 2.0, 2.4)
+			W.label("AUBERGE", at.call(0, 0) + Vector3(0, W.height(c.x, c.y) + 12.5, 0), Color("#ffd27a"), 52)
+		"mercs":
+			# camp d'entraînement : tente, râteliers, bannière
+			W.place(H + "tent.gltf", at.call(side * (hx - 1.6), hz - 1.6), rot + PI, 2.6); W.blocker(at.call(side * (hx - 1.6), hz - 1.6), 1.0)
+			W.place(H + "weaponrack.gltf", at.call(-side * (hx - 0.9), hz - 1.4), rot, 4.4)
+			W.place(DG + "banner_patternA_red.gltf", at.call(ldx + 1.5, hz - 0.5), rot, 1.2)
+			W.place(DG + "crates_stacked.gltf", at.call(-side * (hx - 0.9), hz - 2.6), rot, 0.8)
+			W.label("MERCENAIRES", at.call(0, 0) + Vector3(0, W.height(c.x, c.y) + 8.5, 0), Color("#ffb07a"), 46)
+
+# enclume : socle, table et bigorne
+func _anvil(p: Vector3, rot: float) -> void:
+	var m := StandardMaterial3D.new(); m.albedo_color = Color("#3a3d44"); m.metallic = 0.7; m.roughness = 0.45
+	var root := Node3D.new(); root.position = Vector3(p.x, W.height(p.x, p.z), p.z); root.rotation.y = rot; W.add_child(root)
+	var parts := [[Vector3(0.45, 0.5, 0.45), Vector3(0, 0.25, 0)], [Vector3(0.95, 0.2, 0.38), Vector3(0, 0.6, 0)], [Vector3(0.3, 0.12, 0.3), Vector3(0, 0.75, 0)]]
+	for pt in parts:
+		var mi := MeshInstance3D.new(); var bm := BoxMesh.new(); bm.size = pt[0]; mi.mesh = bm; mi.position = pt[1]; mi.material_override = m; root.add_child(mi)
+	var horn := MeshInstance3D.new(); var cm := CylinderMesh.new(); cm.top_radius = 0.0; cm.bottom_radius = 0.1; cm.height = 0.4; horn.mesh = cm
+	horn.rotation.z = -PI * 0.5; horn.position = Vector3(0.65, 0.62, 0); horn.material_override = m; root.add_child(horn)
+	var stump: Node3D = load("res://assets/hex/resource_lumber.gltf").instantiate(); stump.scale = Vector3.ONE * 0.8; stump.position = Vector3(-0.9, 0, 0.3); root.add_child(stump)
+
+# fontaine ronde au centre de la place : bassin, eau, colonne et vasque
+func _fountain() -> void:
+	var stone := StandardMaterial3D.new(); stone.albedo_texture = load("res://assets/village/T_UnevenBrick_BaseColor.png")
+	stone.albedo_color = Color("#d8d2c4"); stone.roughness = 0.95; stone.uv1_scale = Vector3(2.0, 0.6, 1.0)
+	var water := StandardMaterial3D.new(); water.albedo_color = Color(0.25, 0.6, 0.85, 0.85); water.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	water.roughness = 0.08; water.metallic = 0.2; water.emission_enabled = true; water.emission = Color(0.08, 0.22, 0.32)
+	var y0: float = W.height(V.x, V.y)
+	var root := Node3D.new(); root.position = Vector3(V.x, y0, V.y); W.add_child(root)
+	var cyl := func(rt: float, rb: float, h: float, y: float, m: Material) -> void:
+		var mi := MeshInstance3D.new(); var cm := CylinderMesh.new(); cm.top_radius = rt; cm.bottom_radius = rb; cm.height = h; cm.radial_segments = 32
+		mi.mesh = cm; mi.position = Vector3(0, y, 0); mi.material_override = m; root.add_child(mi)
+	cyl.call(2.6, 2.75, 0.3, 0.05, stone)      # marche
+	cyl.call(2.25, 2.3, 0.7, 0.45, stone)      # bassin
+	cyl.call(2.05, 2.05, 0.06, 0.78, water)    # eau
+	cyl.call(0.32, 0.42, 1.7, 1.2, stone)      # colonne
+	cyl.call(0.95, 0.35, 0.3, 2.1, stone)      # vasque
+	cyl.call(0.85, 0.85, 0.05, 2.24, water)
+	cyl.call(0.12, 0.2, 0.6, 2.5, stone)
+	var sp := GPUParticles3D.new(); sp.amount = 40; sp.lifetime = 0.9; sp.position = Vector3(0, 2.8, 0)
+	var pm := ParticleProcessMaterial.new(); pm.direction = Vector3(0, 1, 0); pm.spread = 35.0; pm.initial_velocity_min = 1.6; pm.initial_velocity_max = 2.2
+	pm.gravity = Vector3(0, -6, 0); pm.scale_min = 0.6; pm.scale_max = 1.0; sp.process_material = pm
+	var dm := SphereMesh.new(); dm.radius = 0.05; dm.height = 0.1; var dmat := StandardMaterial3D.new(); dmat.albedo_color = Color(0.75, 0.9, 1.0); dmat.emission_enabled = true; dmat.emission = Color(0.3, 0.5, 0.6)
+	dm.material = dmat; sp.draw_pass_1 = dm; root.add_child(sp)
+	W.blocker(Vector3(V.x, 0, V.y), 2.6)
+
+# banc de bois sur pieds de pierre
+func _bench(q: Vector2, rot: float) -> void:
+	var root := Node3D.new(); root.position = Vector3(q.x, W.height(q.x, q.y), q.y); root.rotation.y = rot; W.add_child(root)
+	var wood := StandardMaterial3D.new(); wood.albedo_color = Color("#7a5232"); wood.roughness = 0.9
+	var st := StandardMaterial3D.new(); st.albedo_color = Color("#a8a296")
+	for pt in [[Vector3(1.8, 0.1, 0.5), Vector3(0, 0.48, 0), wood], [Vector3(0.25, 0.45, 0.45), Vector3(-0.7, 0.22, 0), st], [Vector3(0.25, 0.45, 0.45), Vector3(0.7, 0.22, 0), st]]:
+		var mi := MeshInstance3D.new(); var bm := BoxMesh.new(); bm.size = pt[0]; mi.mesh = bm; mi.position = pt[1]; mi.material_override = pt[2]; root.add_child(mi)
+	W.box_blocker(Vector3(q.x, 0, q.y), Vector3(1.8, 0.6, 0.5), rot)
+	npc_used.append(q)
+
+# auvent : 4 poteaux et une toile rayée légèrement inclinée
+static var _awn_mats := {}
+func awning(c: Vector2, rot: float, w: float, d: float, c1: Color, c2: Color, h := 2.4) -> void:
+	var root := Node3D.new(); root.position = Vector3(c.x, W.height(c.x, c.y), c.y); root.rotation.y = rot; W.add_child(root)
+	var wood := StandardMaterial3D.new(); wood.albedo_color = Color("#4a3322")
+	for sx: float in [-1.0, 1.0]:
+		for sz: float in [-1.0, 1.0]:
+			var post := MeshInstance3D.new(); var cm := CylinderMesh.new(); cm.top_radius = 0.07; cm.bottom_radius = 0.08; cm.height = h + (0.3 if sz < 0 else 0.0)
+			post.mesh = cm; post.position = Vector3(sx * (w * 0.5 - 0.15), cm.height * 0.5, sz * (d * 0.5 - 0.15)); post.material_override = wood; root.add_child(post)
+	var n := 6
+	for i in n:
+		var col: Color = c1 if i % 2 == 0 else c2
+		var key := col.to_html()
+		if not _awn_mats.has(key):
+			var mm := StandardMaterial3D.new(); mm.albedo_color = col; mm.roughness = 0.9; mm.cull_mode = BaseMaterial3D.CULL_DISABLED; _awn_mats[key] = mm
+		var st := MeshInstance3D.new(); var bm := BoxMesh.new(); bm.size = Vector3(w / n, 0.05, d + 0.3); st.mesh = bm
+		st.position = Vector3(-w * 0.5 + (i + 0.5) * w / n, h + 0.15, 0); st.rotation.x = -0.14; st.material_override = _awn_mats[key]; root.add_child(st)

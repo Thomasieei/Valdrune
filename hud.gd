@@ -150,14 +150,14 @@ func setup(m: Node) -> void:
 	auto_btn = Button.new(); auto_btn.focus_mode = Control.FOCUS_NONE; auto_btn.custom_minimum_size = Vector2(96, 52)
 	auto_btn.add_theme_font_override("font", f_title); auto_btn.add_theme_font_size_override("font_size", 19)
 	auto_btn.pressed.connect(func(): show_auto()); root.add_child(auto_btn)
-	chat_box = Button.new(); chat_box.focus_mode = Control.FOCUS_NONE; chat_box.custom_minimum_size = Vector2(380, 104); chat_box.size = Vector2(380, 104)
+	chat_box = Button.new(); chat_box.focus_mode = Control.FOCUS_NONE; chat_box.custom_minimum_size = Vector2(360, 72); chat_box.size = Vector2(360, 72)
 	var cst := flat(Color(0.03, 0.05, 0.08, 0.5), 12, Color(0.6, 0.8, 1.0, 0.18), 1, Vector4(10, 6, 10, 6))
 	for k in ["normal", "hover", "pressed"]: chat_box.add_theme_stylebox_override(k, cst)
 	chat_lbl = RichTextLabel.new(); chat_lbl.bbcode_enabled = true; chat_lbl.scroll_active = false; chat_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	chat_lbl.position = Vector2(10, 5); chat_lbl.size = Vector2(362, 96); chat_lbl.add_theme_font_size_override("normal_font_size", 14); chat_lbl.add_theme_font_size_override("bold_font_size", 14)
+	chat_lbl.position = Vector2(10, 4); chat_lbl.size = Vector2(342, 66); chat_lbl.add_theme_font_size_override("normal_font_size", 13); chat_lbl.add_theme_font_size_override("bold_font_size", 13)
 	chat_lbl.add_theme_constant_override("outline_size", 4); chat_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
 	chat_box.add_child(chat_lbl); chat_box.pressed.connect(func(): show_chat()); root.add_child(chat_box)
-	quest_box = gp
+	quest_box = gp; gp.resized.connect(_place_chat)
 	get_viewport().size_changed.connect(_layout); _layout()
 	refresh_auto()
 
@@ -583,7 +583,7 @@ func _xp_show(tex_: Texture2D, title_txt: String, lvl: int, cur: int, need: int,
 	if prof_box == null:
 		prof_box = PanelContainer.new(); prof_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		prof_box.add_theme_stylebox_override("panel", flat(Color(0.05, 0.07, 0.1, 0.72), 14, Color(0.95, 0.78, 0.45, 0.35), 1, Vector4(10, 6, 12, 8)))
-		prof_box.position = Vector2(12, 222); prof_box.custom_minimum_size = Vector2(300, 0); root.add_child(prof_box)
+		prof_box.custom_minimum_size = Vector2(300, 0); root.add_child(prof_box)
 		var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 10); h.mouse_filter = Control.MOUSE_FILTER_IGNORE; prof_box.add_child(h)
 		prof_ic = TextureRect.new(); prof_ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; prof_ic.custom_minimum_size = Vector2(44, 44); prof_ic.mouse_filter = Control.MOUSE_FILTER_IGNORE; h.add_child(prof_ic)
 		var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 4); v.size_flags_horizontal = Control.SIZE_EXPAND_FILL; v.mouse_filter = Control.MOUSE_FILTER_IGNORE; h.add_child(v)
@@ -595,6 +595,7 @@ func _xp_show(tex_: Texture2D, title_txt: String, lvl: int, cur: int, need: int,
 	prof_lbl.text = "[b]%s niv %d[/b]   [color=#9dffb0]+%d xp[/color]   [color=#a8b4bc]%s[/color]%s" % [title_txt, lvl, xp, "max" if maxed else "%d / %d" % [cur, need], extra]
 	var w: float = 230.0 * (1.0 if maxed else clamp(float(cur) / need, 0.0, 1.0))
 	create_tween().tween_property(prof_fill, "size:x", w, 0.25)
+	prof_box.position = Vector2(vs().x * 0.5 - 200, vs().y - 112)   # en bas au centre : plus rien ne se chevauche à gauche
 	prof_box.visible = true; prof_box.modulate.a = 1.0
 	if prof_tw: prof_tw.kill()
 	prof_tw = prof_box.create_tween(); prof_tw.tween_interval(10.0); prof_tw.tween_property(prof_box, "modulate:a", 0.0, 0.8)
@@ -1395,10 +1396,113 @@ func show_menu() -> void:
 		var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 10); body.add_child(h)
 		h.add_child(big_button("Son : " + ("oui" if AudioServer.get_bus_volume_db(0) > -50 else "non"), true, func(): _toggle_sound()))
 		h.add_child(big_button("Retour au village", true, func(): _to_camp()))
-		h.add_child(big_button("Mode Construction", true, func(): main.builder.start(), Color("#9be86a"), true))
+		h.add_child(big_button("Guide du joueur", true, func(): show_guide(), GOLD, true))
 		h.add_child(big_button("Effacer la partie", true, func(): _wipe(), Color("#ff9a8a")))
 		body.add_child(rich("[color=#7a848a]Graphismes : KayKit · Fantasy UI · icônes Viktor Hahn, frosty_rabbid, CraftPix, Cursed Loot.[/color]", 14))
 	)
+
+# ——— Guide du joueur : tout ce qu'il faut savoir, et le plan de la ville ———
+var guide_tab := "debut"
+const GUIDE_TABS := [["debut", "Bien débuter"], ["tiers", "Tiers & expérience"], ["ville", "Plan de la ville"], ["combat", "Combat & groupe"]]
+const NPC_COL := {"shop": "#ffd24a", "tools": "#9be86a", "forge": "#ff8a4a", "auction": "#6ab8ff", "mercs": "#5dff7a", "travel": "#c58bff", "quest": "#ffe9a8", "talk": "#d0d8e0", "enchant": "#e08bff"}
+const NPC_DO := {"shop": "potions, nourriture, revente", "tools": "vend les outils (hache, pioche, faucille)", "forge": "armes et armures : achat et fabrication", "auction": "acheter / vendre aux autres joueurs",
+	"mercs": "engage des mercenaires pour les boss", "travel": "voyages rapides vers les autres régions", "quest": "quêtes et conseils", "enchant": "enchantement +1 à +5"}
+
+func show_guide(tab := "") -> void:
+	if tab != "": guide_tab = tab
+	open_panel("Guide du joueur", func(body: VBoxContainer):
+		var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 8); body.add_child(h)
+		for t in GUIDE_TABS:
+			var b := big_button(t[1], true, func(): show_guide(t[0]), GOLD, guide_tab == t[0]); b.custom_minimum_size = Vector2(150, 48); h.add_child(b)
+		match guide_tab:
+			"debut": body.add_child(rich(_guide_debut(), 17))
+			"tiers": body.add_child(rich(_guide_tiers(), 17))
+			"ville": _guide_town(body)
+			"combat": body.add_child(rich(_guide_combat(), 17))
+	, 900)
+
+func _guide_debut() -> String:
+	return "[b][color=#ffd27a]Le but[/color][/b]\nRécolte des ressources, fabrique-toi un meilleur équipement, monte en tier (T1 → T5) et va affronter des monstres, des boss et des donjons de plus en plus durs.\n\n" + \
+		"[b][color=#ffd27a]Tes 5 premières minutes[/color][/b]\n" + \
+		"1. Parle à [color=#ffe9a8]Aldric[/color] (le « ! » doré, près de la fontaine) : il te donne ta première quête.\n" + \
+		"2. Récolte du [b]bois[/b], du [b]minerai[/b] et de la [b]fibre[/b] autour de la ville avec le gros bouton.\n" + \
+		"3. Va à la [color=#ff8a4a]FORGE[/color] voir Brokk : il fabrique armes et armures avec tes ressources.\n" + \
+		"4. Combats les monstres de ton tier pour gagner de l'[b]expérience d'arme et d'armure[/b].\n" + \
+		"5. Vends ce dont tu n'as pas besoin à [color=#6ab8ff]l'Hôtel des ventes[/color] (sur la place).\n\n" + \
+		"[b][color=#ffd27a]Les commandes[/color][/b]\n• Pouce à gauche : bouger. • Gros bouton : attaquer, récolter, parler, ouvrir.\n• Touche la mini-carte : carte du monde. • AUTO : le héros joue seul (réglable : quoi récolter, quels tiers).\n• Le bandeau en haut te dit toujours quoi faire ensuite (cercle doré sur la carte)."
+
+func _guide_tiers() -> String:
+	var t := "[b][color=#ffd27a]Comment marchent les tiers ?[/color][/b]\nChaque objet a un tier ([color=#%s]T1[/color] à [color=#%s]T5[/color]). Plus le tier est haut, plus il est fort — mais [b]il faut de l'expérience pour le porter[/b], pas seulement l'avoir dans le sac :\n" % [Game.TIER_COL[1].to_html(false), Game.TIER_COL[5].to_html(false)]
+	t += "• [b]Arme[/b] : maîtrise de l'arme (monte en tuant des monstres avec elle).\n• [b]Casque, plastron, cape, bottes, bouclier[/b] : maîtrise d'armure (monte à chaque combat).\n• [b]Outils[/b] : niveau du métier (bûcheron, mineur, herboriste) en récoltant.\n• Et il faut avoir porté le tier d'avant (T2 avant T3…).\n\n"
+	t += "[b][color=#ffd27a]Ta progression[/color][/b]\n[table=6][cell][b]Maîtrise[/b]   [/cell][cell][b]Niveau[/b]   [/cell]"
+	for ti in range(2, 6): t += "[cell]%s   [/cell]" % tier_tag(ti)
+	var wk: String = Game.S.get("weapon_kind", "epee")
+	var rows := [[Game.WEAPON_KINDS[wk].name, int(Game.wxp(wk).lvl), Game.WREQ], ["Armure", int(Game.wxp("armure").lvl), Game.WREQ]]
+	for tl in Game.TOOL_SLOTS: rows.append([Game.PROF_TITLE[tl], int(Game.prof(tl).lvl), Game.PROF_REQ])
+	for r in rows:
+		t += "[cell]%s[/cell][cell]%d[/cell]" % [r[0], r[1]]
+		for ti in range(2, 6):
+			var need: int = r[2][ti]
+			t += "[cell]%s[/cell]" % (("[color=#7dff8a]✔ %d[/color]" % need) if r[1] >= need else ("[color=#ff9a8a]niv %d[/color]" % need))
+	t += "[/table]\n\n[color=#a8b4bc]Astuce : combattre des monstres de ton tier ou au-dessus donne beaucoup plus d'expérience. Les objets portés gagnent aussi des niveaux (+5 % par niveau).[/color]"
+	return t
+
+func _guide_combat() -> String:
+	return "[b][color=#ffd27a]Combat[/color][/b]\n• Esquive les [color=#ff7a6a]cercles rouges[/color] au sol : ce sont les attaques qui arrivent.\n• Tes compétences se débloquent avec le tier de ton arme (voir Menu).\n• Les potions se boivent automatiquement quand ta vie est basse.\n\n" + \
+		"[b][color=#ffd27a]Où aller ?[/color][/b]\n• Les régions ont un tier : n'y va pas trop tôt (le nom de la région l'indique sur la carte).\n• [color=#c58bff]Portails violets[/color] : donjons aléatoires, le meilleur butin.\n• [color=#ff8a4a]VS[/color] : duellistes. [color=#d58bff]Boss de groupe[/color] : il faut être 4 — engage des mercenaires chez Rhéa.\n\n" + \
+		"[b][color=#ffd27a]Joueurs, guilde, duels[/color][/b]\n• Touche un joueur pour voir sa fiche : chuchoter, inviter en groupe, défier en duel.\n• Le chat (en bas à droite) a les canaux Monde, Guilde, Groupe et messages privés."
+
+func _guide_town(body: VBoxContainer) -> void:
+	var T = main.world.town
+	if T == null:
+		body.add_child(rich("Pas de ville sur cette carte.", 17)); return
+	body.add_child(rich("[color=#a8b4bc]Chaque personnage a SON endroit. Le point blanc, c'est toi.[/color]", 15))
+	var sz := 520.0
+	var holder := Control.new(); holder.custom_minimum_size = Vector2(sz, sz); holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER; body.add_child(holder)
+	var bb: Rect2 = T.bbox.grow(-14.0)
+	var side: float = max(bb.size.x, bb.size.y)
+	var org: Vector2 = bb.get_center() - Vector2(side, side) * 0.5
+	var k: float = sz / side
+	var P := func(q: Vector2) -> Vector2: return (q - org) * k
+	var lst: Array = []
+	var seen := {}
+	for n in main.npcs:
+		if not NPC_DO.has(n.act) or n.hidden or seen.has(n.nm): continue
+		var q0: Vector2 = P.call(Vector2(n.home.x, n.home.z))
+		if q0.x < 0 or q0.y < 0 or q0.x > sz or q0.y > sz: continue
+		seen[n.nm] = 1; lst.append(n)
+	var cv := Control.new(); cv.size = Vector2(sz, sz); cv.clip_contents = true; holder.add_child(cv)
+	cv.draw.connect(func():
+		cv.draw_rect(Rect2(Vector2.ZERO, Vector2(sz, sz)), Color("#3d5a32"))
+		for st in T.streets:
+			var pts := PackedVector2Array()
+			for q: Vector2 in st.pts: pts.append(P.call(q))
+			cv.draw_polyline(pts, Color("#b8a888") if st.main else Color("#8a7458"), max(3.0, float(st.half) * 2.0 * k), true)
+		cv.draw_circle(P.call(T.V), (TownGen.PLAZA_R + 1.2) * k, Color("#c8bca4"))
+		cv.draw_circle(P.call(T.V), 2.6 * k, Color("#5aa8e0"))
+		for hm in T.homes:
+			var c: Vector2 = hm.get("hc", hm.c); var ax := Vector2(cos(hm.rot), -sin(hm.rot)); var az := Vector2(sin(hm.rot), cos(hm.rot))
+			if hm.get("plot", false):
+				var pc: Vector2 = hm.c; var pw: float = float(hm.pw) * 0.5; var pd: float = float(hm.pd) * 0.5
+				cv.draw_polyline(PackedVector2Array([P.call(pc - ax * pw - az * pd), P.call(pc + ax * pw - az * pd), P.call(pc + ax * pw + az * pd), P.call(pc - ax * pw + az * pd), P.call(pc - ax * pw - az * pd)]), Color(0.75, 0.72, 0.6, 0.6), 1.5)
+			var hw: float = float(hm.w) * 0.5
+			var col := Color("#b85a3c") if hm.kind == "house" else Color("#e0a040")
+			cv.draw_colored_polygon(PackedVector2Array([P.call(c - ax * hw - az * 4.0), P.call(c + ax * hw - az * 4.0), P.call(c + ax * hw + az * 4.0), P.call(c - ax * hw + az * 4.0)]), col)
+			if hm.kind != "house":
+				_text(cv, {"forge": "FORGE", "inn": "AUBERGE", "mercs": "MERCENAIRES", "auction": "VENTES"}.get(hm.kind, ""), P.call(c) + Vector2(0, 5), 12, Color("#fff4d8"), true, f_title)
+		for i in lst.size():
+			var n = lst[i]
+			var q: Vector2 = P.call(Vector2(n.home.x, n.home.z))
+			var nc := Color(NPC_COL.get(n.act, "#ffffff"))
+			cv.draw_circle(q, 10, Color(0, 0, 0, 0.75)); cv.draw_circle(q, 8, nc)
+			_text(cv, str(i + 1), q + Vector2(0, 5), 13, Color(0.05, 0.05, 0.08), true, f_title)
+		var pp: Vector2 = P.call(Vector2(main.player.global_position.x, main.player.global_position.z))
+		cv.draw_circle(pp, 6, Color.WHITE); cv.draw_arc(pp, 9, 0, TAU, 20, Color(0, 0, 0, 0.7), 2))
+	var leg := "[b]Qui fait quoi[/b]\n"
+	for i in lst.size():
+		var n = lst[i]
+		leg += "[color=%s][b]%d[/b][/color]  [b]%s[/b] — %s : %s\n" % [NPC_COL.get(n.act, "#ffffff"), i + 1, n.nm, n.role, NPC_DO[n.act]]
+	body.add_child(rich(leg, 16))
 
 func _toggle_sound() -> void:
 	AudioServer.set_bus_volume_db(0, -80.0 if AudioServer.get_bus_volume_db(0) > -50 else 0.0); show_menu()
@@ -1836,7 +1940,7 @@ const CH_COL := {"monde": "#e8e2d0", "guilde": "#7dffb0", "prive": "#ff9be0", "s
 
 func _place_chat() -> void:
 	if chat_box == null: return
-	var y := 92.0 + (quest_box.size.y if quest_box else 90.0) + 8.0
+	var y := (quest_box.position.y + quest_box.size.y + 8.0) if quest_box and quest_box.visible else 100.0
 	chat_box.position = Vector2(12, y)
 
 func _fmt_line(l: Dictionary) -> String:
@@ -1853,7 +1957,7 @@ func refresh_chat() -> void:
 	if chat_lbl == null or main.social == null: return
 	var L: Array = main.social.lines
 	var out := []
-	for i in range(max(0, L.size() - 4), L.size()): out.append(_fmt_line(L[i]))
+	for i in range(max(0, L.size() - 3), L.size()): out.append(_fmt_line(L[i]))
 	chat_lbl.text = "\n".join(out)
 	_place_chat()
 	if cur_panel == "chat" and panel_open: _refresh_chat_panel()

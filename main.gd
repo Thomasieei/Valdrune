@@ -269,6 +269,7 @@ func _talk_travel(n: Npc) -> void:
 func on_start() -> void:
 	if not Game.S.tips.has("start"):
 		Game.S.tips["start"] = 1; Game.save()
+		get_tree().create_timer(1.2).timeout.connect(func(): if not hud.panel_open: hud.show_guide("debut"))
 		hud.toast("Bienvenue à Valdrune ! Va parler à Aldric, l'Ancien ( ! doré).", Color("#ffd27a"), true)
 		get_tree().create_timer(4.5).timeout.connect(func(): hud.toast("Pouce à gauche pour bouger · gros bouton : parler, frapper, récolter"))
 		get_tree().create_timer(9.0).timeout.connect(func(): hud.toast("Touche la mini-carte pour voir la carte du monde"))
@@ -599,6 +600,13 @@ func _weapon_xp(tier: int, mult: float) -> void:
 		var lvl: int = Game.wxp(kind).lvl
 		player.level_glow(Color(1.0, 0.55, 0.25)); Game.play("level", -2.0, 0.9)
 		hud.celebrate("%s NIVEAU %d !" % [Game.WEAPON_KINDS[kind].name.to_upper(), lvl], "Maîtrise : +%.1f %% de dégâts" % (Game.weapon_bonus() * 100.0), "it_trophy")
+	# maîtrise d'armure : progresse en combattant, débloque les armures des tiers supérieurs
+	if Game.add_weapon_xp("armure", int(xp * 0.8)) > 0:
+		var al: int = Game.wxp("armure").lvl
+		var nt := 0
+		for t in range(1, 6):
+			if Game.WREQ[t] == al: nt = t
+		hud.celebrate("ARMURE NIVEAU %d !" % al, ("Tu peux maintenant porter les armures T%d" % nt) if nt > 0 else "Ta maîtrise d'armure progresse", "it_trophy")
 
 # L'équipement porté gagne de l'expérience à chaque victoire et monte de niveau (+5 % par niveau, max 10)
 func _gear_xp(tier: int, mult: float) -> void:

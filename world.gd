@@ -20,6 +20,7 @@ var proto := {}
 var nodes: Array = []
 var crops: Crops
 var chiefs: Array = []
+var plot_walls: Array = []      # murets / haies des parcelles (pour les itinéraires)
 var groves: Array = []         # [centre, style] des bosquets : on les habille de sous-bois
 var spawns: Array = []
 var pois: Array = []           # lieux à découvrir
@@ -68,7 +69,7 @@ func setup_map(id: int) -> void:
 	_make_roads()
 	_plan_hamlets()
 	_plan_paths()
-	dirt_spots = []; foot_paths = []; doors = []
+	dirt_spots = []; foot_paths = []; doors = []; plot_walls = []
 	town = TownGen.new(); town.plan(self)
 	_plan_ramps()
 
@@ -588,15 +589,14 @@ func _village() -> void:
 	npc_spots.append({"id": "gorm", "model": "Knight", "name": "Gorm", "role": "Pioches · mineur", "pos": sl[0], "act": "tools", "tool": "pioche", "yaw": sl[1]})
 	sl = T.plaza_slot(4.6); _stall(sl, "faucille")
 	npc_spots.append({"id": "sylve", "model": "Ranger", "name": "Sylve", "role": "Faucilles · herboriste", "pos": sl[0], "act": "tools", "tool": "faucille", "yaw": sl[1]})
-	sl = T.door_slot(11.0, 22.0)
+	sl = T.service_slot("auction")
 	npc_spots.append({"id": "corvin", "model": "Rogue", "name": "Corvin", "role": "Hôtel des ventes", "pos": sl[0], "act": "auction", "yaw": sl[1]})
 	label("HÔTEL DES VENTES", sl[0] + Vector3(0, height(sl[0].x, sl[0].z) + 7.5, 0), Color("#ffd27a"), 48)
-	sl = T.door_slot(18.0, 34.0)
+	sl = T.service_slot("inn")
 	npc_spots.append({"id": "hilda", "model": "Rogue", "name": "Hilda", "role": "Aubergiste", "pos": sl[0], "act": "talk", "yaw": sl[1]})
-	label("AUBERGE", sl[0] + Vector3(0, height(sl[0].x, sl[0].z) + 7.0, 0), Color("#ffd27a"), 44)
-	sl = T.door_slot(16.0, 32.0); _forge(sl); forge_pos = sl[0]
+	sl = T.service_slot("forge"); forge_pos = sl[0]
 	npc_spots.append({"id": "brokk", "model": "Barbarian", "name": "Brokk", "role": "Armurier · forge", "pos": sl[0], "act": "forge", "yaw": sl[1]})
-	sl = T.door_slot(28.0, 60.0)
+	sl = T.service_slot("mercs")
 	npc_spots.append({"id": "rhea", "model": "Knight", "name": "Rhéa", "role": "Capitaine des mercenaires", "pos": sl[0], "act": "mercs", "yaw": sl[1]})
 	sl = _entrance_slot(0)
 	npc_spots.append({"id": "passeur_1", "model": "Ranger", "name": "Fenn", "role": "Passeur · voyages rapides", "pos": sl[0], "act": "travel", "yaw": sl[1]})
@@ -1174,14 +1174,14 @@ func _town(TD: Dictionary) -> void:
 	var names := {2: ["Hrolf", "Brisa", "Tancrède", "Solène", "Odo", "Maître Elwin", "Fenn"], 3: ["Kadir", "Samira", "Yazid", "Nour", "Faris", "Sage Imran", "Leïla"], 4: ["Gunnar", "Morwen", "Aldo", "Ivra", "Baldr", "Doyenne Sigrid", "Corbin"]}
 	var nm: Array = names.get(mid, names[2])
 	var sl: Array
-	sl = T.door_slot(16.0, 32.0); _forge(sl); forge_pos = sl[0]
+	sl = T.service_slot("forge"); forge_pos = sl[0]
 	npc_spots.append({"id": "forge_%d" % mid, "model": "Barbarian", "name": nm[0], "role": "Armurier · forge", "pos": sl[0], "act": "forge", "yaw": sl[1]})
 	sl = T.plaza_slot(0.5); _stall(sl, "shop"); shop_pos = sl[0]
 	npc_spots.append({"id": "shop_%d" % mid, "model": "Rogue", "name": nm[1], "role": "Marchande", "pos": sl[0], "act": "shop", "yaw": sl[1]})
-	sl = T.door_slot(11.0, 22.0)
+	sl = T.service_slot("auction")
 	npc_spots.append({"id": "auction_%d" % mid, "model": "Rogue", "name": nm[2], "role": "Hôtel des ventes", "pos": sl[0], "act": "auction", "yaw": sl[1]})
 	label("HÔTEL DES VENTES", sl[0] + Vector3(0, height(sl[0].x, sl[0].z) + 7.5, 0), Color("#ffd27a"), 48)
-	sl = T.door_slot(28.0, 60.0)
+	sl = T.service_slot("mercs")
 	npc_spots.append({"id": "mercs_%d" % mid, "model": "Knight", "name": nm[3], "role": "Capitaine des mercenaires", "pos": sl[0], "act": "mercs", "yaw": sl[1]})
 	sl = T.plaza_slot(2.4); _stall(sl, "hache")
 	npc_spots.append({"id": "tools3_%d" % mid, "model": "Barbarian", "name": nm[4], "role": "Outilleur · haches, pioches, faucilles", "pos": sl[0], "act": "tools3", "yaw": sl[1]})
@@ -1207,6 +1207,9 @@ func _stall(sl: Array, kind: String) -> void:
 	var f := Vector3(sin(yaw), 0, cos(yaw)); var sd := Vector3(cos(yaw), 0, -sin(yaw))
 	var t: Vector3 = p + f * 1.3
 	place(DG + "table_medium_decorated_A.gltf", t, yaw, 0.85); blocker(t, 0.9)
+	var cols := {"shop": [Color("#2f6fb0"), Color("#f0e6d0")], "hache": [Color("#3c7a3a"), Color("#e8d8a0")], "pioche": [Color("#8a4a2a"), Color("#e8d8a0")], "faucille": [Color("#a0702a"), Color("#f0e6d0")]}
+	var cc: Array = cols.get(kind, [Color("#b0352a"), Color("#f0e6d0")])
+	town.awning(Vector2(p.x, p.z) + Vector2(f.x, f.z) * 0.6, yaw, 3.6, 2.6, cc[0], cc[1])
 	place(H + ["barrel.gltf", "crate_A_big.gltf", "sack.gltf"][hash(kind) % 3], p + sd * 1.5 - f * 0.3, yaw, 3.0)
 	if kind in ["hache", "pioche", "faucille"]: place(H + "weaponrack.gltf", p - sd * 1.4 - f * 0.2, yaw, 4.2)
 	else: place(_V + "Prop_Crate.gltf", p - sd * 1.5, yaw + 0.3, 0.9)
@@ -3055,6 +3058,12 @@ func _build_pass() -> void:
 			var x := -HALF + i * CELL; var z := -HALF + j * CELL
 			if abs(x) > 110.0 or abs(z) > 110.0: continue
 			if walkable(x, z) and not near_house(Vector2(x, z), 0.2): pass_grid[j * N + i] = 1
+	for sg in plot_walls:
+		var a0: Vector2 = sg[0]; var b0: Vector2 = sg[1]
+		for k in 5:
+			var q: Vector2 = a0.lerp(b0, k / 4.0)
+			var ci := int(round((q.x + HALF) / CELL)); var cj := int(round((q.y + HALF) / CELL))
+			if ci >= 0 and cj >= 0 and ci < N and cj < N and _cpos(cj * N + ci).distance_to(q) < 0.9: pass_grid[cj * N + ci] = 0
 	# les ponts : on force tout le tablier praticable
 	for b in bridges:
 		if b.prof.is_empty(): continue

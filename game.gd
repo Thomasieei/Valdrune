@@ -517,7 +517,7 @@ func bag_used() -> int:
 # ——— Paliers : on débloque les tiers un par un (porter le T2 ouvre le T3…) ———
 const UNLOCK_SLOTS := ["epee", "bouclier", "casque", "armure", "cape", "bottes"]
 const SLOT_ART := {"epee": "une arme", "bouclier": "un bouclier", "casque": "un casque", "armure": "un plastron", "cape": "une cape", "bottes": "des bottes"}
-const WREQ := [0, 1, 3, 6, 9, 12]       # maîtrise d'arme requise pour porter chaque tier
+const WREQ := [0, 1, 2, 5, 9, 14]       # maîtrise (arme ou armure) requise pour porter chaque tier
 func unlocked(slot: String) -> int:
 	if not S.has("unlock"): S["unlock"] = {}
 	return max(int(S.unlock.get(slot, 1)), 1)
@@ -532,6 +532,9 @@ func equip_block(it: Dictionary) -> String:
 	if it.slot == "epee":
 		var k: String = it.get("kind", "epee")
 		if int(wxp(k).lvl) < WREQ[clamp(t, 1, 5)]: return "Maîtrise %s niveau %d requise (tu es niveau %d)" % [WEAPON_KINDS[k].name.to_lower(), WREQ[t], int(wxp(k).lvl)]
+	else:
+		var al := int(wxp("armure").lvl)
+		if al < WREQ[clamp(t, 1, 5)]: return "Maîtrise d'armure niveau %d requise (tu es niveau %d) — combats pour progresser" % [WREQ[t], al]
 	return ""
 
 func add_item(it: Dictionary) -> bool:
