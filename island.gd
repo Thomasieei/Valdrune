@@ -108,17 +108,25 @@ void fragment(){
 		var crop := _place(H + "building_grain.gltf", p, 0.0, 2.6)
 		fields.append(crop)
 		spots.append({"pos": p, "kind": "field", "i": i})
-	for k in 6: _place(H + "fence_wood_straight.gltf", O + Vector3(1.5 + k * 2.3, 0, 2.2), PI / 2, 2.0)
+	for k in 5: _place(F + "Bush_1_A_Color1.gltf", O + Vector3(1.0 + k * 3.2, 0, 2.0), k * 1.3, 2.2)
 	_place("res://assets/halloween/pumpkin_orange.gltf", O + Vector3(17, 0, 7), 0.4, 1.4)
 	_place("res://assets/halloween/pumpkin_yellow_small.gltf", O + Vector3(17.5, 0, 9), 0.8, 1.4)
 	main.world.label("CHAMPS", O + Vector3(7.5, 3.0, 9.5), Color("#e9ffb0"), 46)
 	# enclos d'élevage
 	var pc2 := O + Vector3(-14, 0, 17)
+	# haie basse de buissons plutôt qu'une clôture
 	for k in 5:
-		_place(H + "fence_wood_straight.gltf", pc2 + Vector3(-5.5 + k * 2.3, 0, -4.5), PI / 2, 2.0)
-		_place(H + "fence_wood_straight.gltf", pc2 + Vector3(-5.5 + k * 2.3, 0, 4.5), PI / 2, 2.0)
-	for k in 4:
-		_place(H + "fence_wood_straight.gltf", pc2 + Vector3(-6.6, 0, -3.4 + k * 2.3), 0.0, 2.0)
+		_place(F + "Bush_1_A_Color1.gltf", pc2 + Vector3(-5.5 + k * 2.6, 0, -4.5), k * 0.9, 2.4)
+		_place(F + "Bush_1_A_Color1.gltf", pc2 + Vector3(-5.5 + k * 2.6, 0, 4.5), k * 1.7, 2.4)
+	for k in 3:
+		_place(F + "Bush_1_A_Color1.gltf", pc2 + Vector3(-6.6, 0, -2.4 + k * 2.4), k * 2.1, 2.4)
+	_place("res://assets/hex/bucket_water.gltf", pc2 + Vector3(-4.5, 0, -3.0), 0.0, 4.0)
+	_place(H + "building_grain.gltf", pc2 + Vector3(4.0, 0, -3.2), 0.7, 2.0)
+	for an in [["horse", Vector3(-1.5, 0, 0.5), 0.8], ["donkey", Vector3(2.0, 0, 1.8), 2.4]]:
+		if ResourceLoader.exists("res://assets/animals/%s.glb" % an[0]):
+			var mdl: Node3D = _place("res://assets/animals/%s.glb" % an[0], pc2 + an[1], an[2], 0.5)
+			var ap: AnimationPlayer = mdl.find_child("AnimationPlayer", true, false)
+			if ap and ap.has_animation("Idle"): ap.get_animation("Idle").loop_mode = Animation.LOOP_LINEAR; ap.play("Idle")
 	main.world.label("ENCLOS D'ÉLEVAGE", pc2 + Vector3(0, 3.2, -4.5), Color("#ffd8a8"), 46)
 	spots.append({"pos": pc2 + Vector3(6.5, 0, 0), "kind": "pen"})
 	_res_nodes()

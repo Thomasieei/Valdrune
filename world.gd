@@ -299,6 +299,7 @@ func ground_y(x: float, z: float) -> float:
 
 func walkable(x: float, z: float) -> bool:
 	if x > 300.0: return dungeon != null and dungeon.walkable(x, z)
+	if on_bridge(x, z): return true
 	if not blocked.is_empty():
 		var i := int(round((x + HALF) / CELL)); var j := int(round((z + HALF) / CELL))
 		if i < 0 or j < 0 or i >= N or j >= N or blocked[j * N + i] == 1: return false
@@ -490,14 +491,23 @@ func _bridge(a: Vector2, b: Vector2) -> void:
 	for k in n:
 		var p0: Vector3 = prof[k]; var p1: Vector3 = prof[k + 1]
 		var q := [p0 - right * 2.0, p0 + right * 2.0, p1 - right * 2.0, p1 + right * 2.0]
-		for v in [q[0], q[2], q[1], q[1], q[2], q[3]]: st.add_vertex(v); faces.append(v)
+		for v in [q[0], q[2], q[1], q[1], q[2], q[3]]: faces.append(v)
+		# planche (90 % de la longueur, le reste = joint sombre)
+		var pc := Color("#a8743f").lerp(Color("#7a4f2b"), fmod(float(k * 7919 % 13) / 13.0, 1.0) * 0.7)
+		var m0: Vector3 = p0.lerp(p1, 0.06); var m1: Vector3 = p0.lerp(p1, 0.94)
+		var pq := [m0 - right * 2.0, m0 + right * 2.0, m1 - right * 2.0, m1 + right * 2.0]
+		st.set_color(pc)
+		for v in [pq[0], pq[2], pq[1], pq[1], pq[2], pq[3]]: st.add_vertex(v + Vector3(0, 0.02, 0))
+		st.set_color(Color("#3a2414"))
+		for v in [q[0], q[2], q[1], q[1], q[2], q[3]]: st.add_vertex(v)
+		st.set_color(Color("#5c3a20"))
 		# épaisseur (côtés)
 		for sd in [-2.0, 2.0]:
 			var e0: Vector3 = p0 + right * sd; var e1: Vector3 = p1 + right * sd
 			for v in [e0, e1, e0 - Vector3(0, 0.3, 0), e1, e1 - Vector3(0, 0.3, 0), e0 - Vector3(0, 0.3, 0)]: st.add_vertex(v)
 	st.generate_normals()
 	var deck := MeshInstance3D.new(); deck.mesh = st.commit()
-	var wood := StandardMaterial3D.new(); wood.albedo_color = Color("#9a6a40"); wood.roughness = 0.9; wood.cull_mode = BaseMaterial3D.CULL_DISABLED; deck.material_override = wood
+	var wood := StandardMaterial3D.new(); wood.vertex_color_use_as_albedo = true; wood.roughness = 0.9; wood.cull_mode = BaseMaterial3D.CULL_DISABLED; deck.material_override = wood
 	add_child(deck)
 	var body := StaticBody3D.new(); var cs := CollisionShape3D.new(); var shape := ConcavePolygonShape3D.new(); shape.set_faces(faces); shape.backface_collision = true
 	cs.shape = shape; body.add_child(cs); add_child(body)
@@ -509,7 +519,7 @@ func _bridge(a: Vector2, b: Vector2) -> void:
 		for k in n + 1:
 			var p: Vector3 = prof[k] + right * sd
 			if k % 3 == 0 or k == n:
-				var pb := BoxMesh.new(); pb.size = Vector3(0.18, 0.95, 0.18)
+				var pb := BoxMesh.new(); pb.size = Vector3(0.24, 1.05, 0.24)
 				rst.append_from(pb, 0, Transform3D(Basis(), p + Vector3(0, 0.45, 0)))
 			if k < n:
 				var p1: Vector3 = prof[k + 1] + right * sd
