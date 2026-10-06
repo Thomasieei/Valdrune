@@ -80,7 +80,7 @@ func _reroute_roads() -> void:
 		order.sort_custom(func(a1, b1): return (a1 as Vector2).distance_to(c) < (b1 as Vector2).distance_to(c))
 		for g: Vector2 in order:
 			if not W._crosses_water(c, g): return g
-		return c
+		return order[0]      # sinon la porte la plus proche : un pont sera construit sur la traversée
 	var out: Array = []
 	for rd in W.roads:
 		var pts: Array = rd
@@ -110,6 +110,7 @@ func _reroute_roads() -> void:
 		if cur.size() >= 2: out.append(cur)
 	W.roads = out
 	W._seg_n = -1
+	if OS.get_cmdline_user_args().has("shot"): print("REROUTE Rt ", Rt, " gates ", gates, " roads ", out.size())
 
 func _circle_cross(a: Vector2, b: Vector2, r: float) -> Vector2:
 	var lo := 0.0; var hi := 1.0
@@ -391,14 +392,14 @@ func _place_houses() -> void:
 	var a := 0.0
 	while a < TAU - 0.05:
 		var w: int = 6
-		var rp := PLAZA_R + 1.6 + 4.0
+		var rp := PLAZA_R + 1.6 + 5.6
 		var am := a + (w * 0.5 + 0.4) / rp
 		var c: Vector2 = V + Vector2(cos(am), sin(am)) * rp
 		var to_c := (V - c).normalized()
 		var rot := atan2(to_c.x, to_c.y)
 		if _fp_ok(c, rot, w, 8.0):
 			_add_home(c, rot, w, -1, 0.0, 0.0, true)
-			a += (w + 1.0) / rp
+			a += (w + 0.6) / rp
 		else: a += 0.06
 	# 2) le long des rues, des deux côtés
 	for si in streets.size():

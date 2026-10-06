@@ -82,15 +82,15 @@ func setup(m: Node, d: Dictionary) -> void:
 	pi = int(d.get("start", 0)) % max(1, path.size())
 	yaw = float(d.get("yaw", randf() * TAU))
 	# noms façon Albion : les PNJ utiles ressortent (or, plus gros), les habitants restent discrets
-	var key_npc: bool = act in ["quest", "auction", "mercs", "enchant", "tools", "forge", "harbor", "tools3", "travel", "shop"]
+	var key_npc: bool = act in ["quest", "auction", "mercs", "enchant", "tools", "forge", "harbor", "tools3", "travel", "shop", "tannery", "sawmill"]
 	var sc: float = d.get("scale", 1.0)
 	var l := Label3D.new(); l.text = nm; l.font = NAME_FONT; l.font_size = 58 if key_npc else 44; l.outline_size = 14 if key_npc else 10
 	l.modulate = Color("#ffd98a") if key_npc else Color("#f2ece0"); l.outline_modulate = Color(0.08, 0.05, 0.02, 0.9)
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED; l.pixel_size = 0.0085 if key_npc else 0.0065; l.position.y = 2.62 * sc; l.no_depth_test = true; l.render_priority = 4; add_child(l)
 	var r := Label3D.new(); r.text = role; r.font_size = 36 if key_npc else 28; r.outline_size = 9; r.modulate = Color("#f4e6c4") if key_npc else Color("#bfc8cf"); r.outline_modulate = Color(0, 0, 0, 0.75)
 	r.billboard = BaseMaterial3D.BILLBOARD_ENABLED; r.pixel_size = 0.0075 if key_npc else 0.0065; r.position.y = 2.3 * sc; r.no_depth_test = true; r.render_priority = 4; add_child(r)
-	if act in ["quest", "auction", "duel", "mercs", "enchant", "tools", "forge", "harbor", "tools3", "travel", "shop"]:
-		marker = Label3D.new(); marker.text = {"quest": "!", "auction": "$", "duel": "VS", "mercs": "+", "enchant": "+5", "tools": "★", "forge": "★", "harbor": "ÎLES", "tools3": "★", "travel": "»", "shop": "$"}[act]; marker.font_size = 90 if act != "duel" else 70; marker.outline_size = 16
+	if act in ["quest", "auction", "duel", "mercs", "enchant", "tools", "forge", "harbor", "tools3", "travel", "shop", "tannery", "sawmill"]:
+		marker = Label3D.new(); marker.text = {"quest": "!", "auction": "$", "duel": "VS", "mercs": "+", "enchant": "+5", "tools": "★", "forge": "★", "harbor": "ÎLES", "tools3": "★", "travel": "»", "shop": "$", "tannery": "★", "sawmill": "★"}[act]; marker.font_size = 90 if act != "duel" else 70; marker.outline_size = 16
 		marker.modulate = {"duel": Color("#ff7a4a"), "enchant": Color("#d58bff")}.get(act, Color("#ffd24a")); marker.outline_modulate = Color(0.3, 0.15, 0, 0.9); marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED; marker.pixel_size = 0.008; marker.position.y = 3.55 * d.get("scale", 1.0); marker.no_depth_test = true; add_child(marker)
 	var b := StaticBody3D.new(); var cs := CollisionShape3D.new(); var cy := CylinderShape3D.new(); cy.radius = 0.4; cy.height = 2.0; cs.shape = cy; cs.position.y = 1.0; b.add_child(cs); add_child(b)
 	_play("Idle_A")

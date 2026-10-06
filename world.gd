@@ -68,11 +68,64 @@ func setup_map(id: int) -> void:
 	volcano = MAP.get("volcano", {})
 	if not volcano.is_empty() and vol_img == null: vol_img = load("res://assets/relief/volcano_h.res")
 	_make_roads()
+	_clear_town_area()
 	_plan_hamlets()
 	_plan_paths()
 	dirt_spots = []; foot_paths = []; doors = []; plot_walls = []; solids = []
 	town = TownGen.new(); town.plan(self)
 	_plan_ramps()
+
+# ——— La capitale a besoin de place : les lieux trop proches du centre sont repoussés hors des murs ———
+const CORE_R := 62.0
+func _clear_town_core() -> void:
+	for pd in POI_DEFS:
+		if str(pd.get("kind", "")) == "enchant": continue          # lui entre dans la ville (TownGen)
+		var p0: Vector2 = pd.p
+		var d0 := p0.distance_to(village)
+		if d0 >= CORE_R: continue
+		var dir0 := (p0 - village).normalized() if d0 > 1.0 else Vector2.RIGHT
+		var placed := false
+		for rot_k in [0.0, 0.25, -0.25, 0.5, -0.5, 0.8, -0.8]:
+			var dir := dir0.rotated(rot_k)
+			for dist in [CORE_R + float(pd.r) + 2.0, CORE_R + float(pd.r) + 10.0, CORE_R + float(pd.r) + 18.0]:
+				var q: Vector2 = village + dir * dist
+				if abs(q.x) > 100.0 or abs(q.y) > 100.0: continue
+				if raw_height(q.x, q.y) < WATER_Y + 1.0 or river_dist(q.x, q.y) < RIVER_W + float(pd.r) + 4.0: continue
+				var clash := false
+				for lk in LAKES:
+					if q.distance_to(lk[0]) < lk[1] + float(pd.r) + 4.0: clash = true
+				for o in POI_DEFS:
+					if o != pd and q.distance_to(o.p) < float(o.r) + float(pd.r) + 10.0: clash = true
+				for g in MAP.gates:
+					if q.distance_to(g.pos) < 16.0: clash = true
+				if clash: continue
+				pd.p = q; placed = true; break
+			if placed: break
+
+# ——— La capitale a besoin de place : les lieux trop proches du centre sont repoussés plus loin ———
+const TOWN_CLEAR := 64.0
+func _clear_town_area() -> void:
+	for pd in POI_DEFS:
+		if str(pd.get("kind", "")) == "enchant": continue     # le sanctuaire entre dans la ville (voir TownGen)
+		var p: Vector2 = pd.p; var r: float = float(pd.r)
+		var need: float = TOWN_CLEAR + r + 4.0
+		if p.distance_to(village) >= need: continue
+		var a0: float = atan2(p.y - village.y, p.x - village.x)
+		var done := false
+		for dd in [0.0, 6.0, 12.0, 20.0]:
+			for k in 13:
+				var a: float = a0 + (k / 2) * 0.28 * (1.0 if k % 2 == 0 else -1.0)
+				var q: Vector2 = village + Vector2(cos(a), sin(a)) * (need + dd)
+				if abs(q.x) > 96.0 - r or abs(q.y) > 96.0 - r: continue
+				if river_dist(q.x, q.y) < RIVER_W + r + 4.0 or raw_height(q.x, q.y) < WATER_Y + 1.0: continue
+				var clash := false
+				for o in POI_DEFS:
+					if o != pd and (o.p as Vector2).distance_to(q) < float(o.r) + r + 8.0: clash = true; break
+				for g in MAP.gates:
+					if q.distance_to(g.pos) < 24.0: clash = true
+				if clash: continue
+				pd.p = q; done = true; break
+			if done: break
 
 # ——— Un monde moins vide : fermes isolées, chemins vers chaque lieu, allées dans les villes ———
 const HAMLET_NAMES := ["Ferme des Tilleuls", "Ferme Brunel", "Les Trois Meules", "Mas du Ruisseau", "Ferme Haute", "Le Vieux Moulin", "Ferme des Corbeaux", "Bergerie du Col"]
@@ -83,7 +136,7 @@ func _plan_hamlets() -> void:
 		tries += 1
 		var p := Vector2(r.randf_range(-92, 92), r.randf_range(-92, 92))
 		var dv := p.distance_to(village)
-		if dv < 40.0 or dv > 95.0: continue
+		if dv < 64.0 or dv > 95.0: continue
 		if region_at(p.x, p.y) != 1 and REGIONS[region_at(p.x, p.y)].tier > REGIONS[1].tier: continue
 		if raw_height(p.x, p.y) < WATER_Y + 0.8 or river_dist(p.x, p.y) < 14.0: continue
 		var ok := true
@@ -1300,7 +1353,7 @@ func _artisans(mid: int) -> void:
 		if T.service(kind).is_empty(): continue
 		var w: Array = who[kind]
 		var sl: Array = T.service_slot(kind)
-		npc_spots.append({"id": "%s_%d" % [w[0], mid], "model": w[1], "name": (w[2] as Array)[(mid - 1) % 4], "role": w[3], "pos": sl[0], "act": "talk", "yaw": sl[1]})
+		npc_spots.append({"id": "%s_%d" % [w[0], mid], "model": w[1], "name": (w[2] as Array)[(mid - 1) % 4], "role": w[3], "pos": sl[0], "act": kind, "yaw": sl[1]})
 
 var town: TownGen
 func _town_build(tname: String) -> void:

@@ -344,9 +344,12 @@ func _flush(c: CanvasItem) -> void:
 	for d in q_txt: c.draw_string(d[0], d[1], d[2], HORIZONTAL_ALIGNMENT_LEFT, -1, d[3], d[4])
 	q_disc.clear(); q_ring.clear(); q_tex.clear(); q_txt.clear()
 
+# boutons ronds façon Albion : médaillon de fer cerclé d'or (comme les en-têtes des fenêtres)
 func _glass(c: CanvasItem, ctr: Vector2, r: float, ring: Color, held := false) -> void:
-	_disc(ctr, r, Color(0.04, 0.06, 0.09, 0.55 if not held else 0.78))
-	_ringq(ctr, r, ring)
+	_disc(ctr, r * 0.9, Color(0.05, 0.05, 0.06, 0.55 if not held else 0.8))
+	var k: float = r * 1.12
+	_texq(T("medal_ring"), Rect2(ctr - Vector2(k, k), Vector2(k, k) * 2.0), Color(1, 1, 1, 0.95) if not held else Color(1.25, 1.15, 0.9, 1.0))
+	if ring.a > 0.62: _ringq(ctr, r * 1.2, Color(ring.r, ring.g, ring.b, ring.a * 0.8))
 
 func _draw_under() -> void:
 	var c := root
@@ -926,6 +929,65 @@ func show_armurier(tab := "") -> void:
 				var bh := HBoxContainer.new(); v.add_child(bh)
 				var pr := _ah_price(price, ""); pr.size_flags_horizontal = Control.SIZE_EXPAND_FILL; bh.add_child(pr)
 				var b2 := big_button("Acheter", Game.S.silver >= price, func(): main.buy_gear(it), GOLD, true); b2.custom_minimum_size = Vector2(130, 44); b2.add_theme_font_size_override("font_size", 17); bh.add_child(b2)
+	, 470)
+
+# ——— Tannerie (fenêtre sur le côté, comme la forge) ———
+func _artisan_name(act: String, fallback: String) -> String:
+	var tn = main.get("talk_npc")
+	if tn != null and is_instance_valid(tn) and tn.act == act: return tn.nm
+	return fallback
+func show_tannery() -> void:
+	next_side = "left"
+	var who := _artisan_name("tannery", "Garrick")
+	open_panel("Tannerie de " + who, func(body: VBoxContainer):
+		cur_panel = "tannery"
+		_workshop_head(body, "Barbarian", "Atelier du tanneur", who, {"hostile": "Pas de peaux, pas d'affaires.", "mefiant": "Montre ce que t'as dépecé.", "neutre": "Belles peaux ? Je prends.", "amical": "Toujours un plaisir, chasseur !", "heros": "Pour toi, le meilleur prix du royaume."})
+		var hides: int = int(Game.S.get("hides", 0)); var kn: int = int(Game.S.get("knife", 0))
+		body.add_child(_ink("Tes peaux", 22, INK, true))
+		var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 12); body.add_child(h)
+		h.add_child(aslot(T("it_hunt"), 1, hides, false, Callable(), 72))
+		var v := VBoxContainer.new(); v.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(v)
+		v.add_child(rich("[b]%d peau%s[/b]  ·  %s argent pièce" % [hides, "x" if hides > 1 else "", Game.fmt(main.HIDE_PRICE)], 17))
+		var bh := HBoxContainer.new(); bh.add_theme_constant_override("separation", 8); v.add_child(bh)
+		var b1 := big_button("Vendre 5", hides >= 5, func(): main.sell_hides(5)); b1.custom_minimum_size = Vector2(120, 44); bh.add_child(b1)
+		var b2 := big_button("Tout vendre", hides > 0, func(): main.sell_hides(hides), GOLD, true); b2.custom_minimum_size = Vector2(140, 44); bh.add_child(b2)
+		body.add_child(_ink("Ton couteau à dépecer", 22, INK, true))
+		if kn <= 0:
+			body.add_child(rich("[color=#a0301c]Tu n'as pas encore de couteau.[/color] Brokk, l'armurier, t'en donnera un si tu l'aides avec les loups.", 16))
+		else:
+			body.add_child(rich("Couteau [b]T%d[/b] — %d %% de chance d'une peau en plus sur chaque bête." % [kn, (kn - 1) * 25], 16))
+			if kn < 5:
+				var c: Array = main.knife_cost(kn)
+				var ok: bool = Game.S.silver >= c[0] and hides >= c[1]
+				var uh := HBoxContainer.new(); uh.add_theme_constant_override("separation", 10); body.add_child(uh)
+				var r := rich("Passer au [b]T%d[/b] : %s argent + %d peaux" % [kn + 1, Game.fmt(c[0]), c[1]], 16); r.size_flags_vertical = Control.SIZE_SHRINK_CENTER; uh.add_child(r)
+				var ub := big_button("Améliorer", ok, func(): main.upgrade_knife(), GOLD, true); ub.custom_minimum_size = Vector2(140, 44); uh.add_child(ub)
+			else: body.add_child(rich("[color=#2f6a2a]Ton couteau est au maximum.[/color]", 16))
+	, 470)
+
+# ——— Scierie ———
+func show_sawmill() -> void:
+	next_side = "left"
+	var who := _artisan_name("sawmill", "Aubin")
+	open_panel("Scierie de " + who, func(body: VBoxContainer):
+		cur_panel = "sawmill"
+		_workshop_head(body, "Ranger", "Atelier du scieur", who, {"hostile": "Pose ton bois et file.", "mefiant": "C'est du bois sec, au moins ?", "neutre": "Du bon bois ? Je le paie mieux que la marchande.", "amical": "Ah, mon bûcheron préféré !", "heros": "Tout le bois de la ville passe par toi, maintenant."})
+		body.add_child(rich("Le scieur rachète ton bois [b]25 % plus cher[/b] que la marchande.", 16))
+		var any := false
+		for t in range(1, 6):
+			var n: int = int(Game.S.inv.wood[t])
+			if n <= 0: continue
+			any = true
+			var p := PanelContainer.new(); p.set_meta("keep", true)
+			var rs := flat(Color(0, 0, 0, 0), 0, Color("#bfa071"), 0, Vector4(4, 8, 4, 8)); rs.border_width_bottom = 1
+			p.add_theme_stylebox_override("panel", rs); body.add_child(p)
+			var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 12); p.add_child(h)
+			h.add_child(aslot(res_tex("wood", t), t, n, false, Callable(), 64))
+			var v := VBoxContainer.new(); v.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(v)
+			v.add_child(_ink(Game.res_name("wood", t), 17, INK, true))
+			v.add_child(rich("%s argent la bûche" % Game.fmt(int(Game.res_price(t) * 1.25)), 15))
+			var b := big_button("Vendre ×%d" % min(n, 10), true, func(): main.sell_wood_mill(t, min(n, 10)), GOLD, true); b.custom_minimum_size = Vector2(130, 44); b.size_flags_vertical = Control.SIZE_SHRINK_CENTER; h.add_child(b)
+		if not any: body.add_child(rich("[color=#8a9298]Tu n'as pas de bois. Va couper des arbres avec ta hache.[/color]", 16))
 	, 470)
 
 # en-tête d'atelier : portrait de l'artisan, son métier, et ce qu'il te dit (selon ta réputation)
@@ -2530,16 +2592,16 @@ func show_dialog(npc: Npc, text: String, actions: Array) -> void:
 	joy.id = -1; joy.vec = Vector2.ZERO; touches.clear()
 	var s := vs(); var w: float = min(820.0, s.x - 80)
 	# bulle façon manga : cadre blanc épais, nom en cartouche, visage d'humeur
-	var pc := PanelContainer.new(); pc.add_theme_stylebox_override("panel", flat(Color(0.05, 0.06, 0.09, 0.95), 10, Color(1, 1, 1, 0.95), 4, Vector4(26, 14, 26, 16), 14))
+	var pc := PanelContainer.new(); pc.add_theme_stylebox_override("panel", flat(Color("#fffcf2"), 14, Color("#15110c"), 5, Vector4(26, 14, 26, 16), 12))
 	pc.custom_minimum_size = Vector2(w, 0); root.add_child(pc); panel = pc
 	var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 8); pc.add_child(v)
 	var hdr := HBoxContainer.new(); hdr.add_theme_constant_override("separation", 10); v.add_child(hdr)
 	var mood: String = main.npc_mood(npc) if main.has_method("npc_mood") else "neutre"
 	var fi := TextureRect.new(); fi.texture = T("mood_" + mood); fi.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; fi.custom_minimum_size = Vector2(40, 40); fi.size_flags_vertical = Control.SIZE_SHRINK_CENTER; hdr.add_child(fi)
-	var tag := PanelContainer.new(); tag.add_theme_stylebox_override("panel", flat(Color(1, 1, 1, 0.96), 6, Color(0, 0, 0, 0), 0, Vector4(12, 2, 12, 4)))
-	var nl := _label(npc.nm, 24, Color("#141018")); nl.add_theme_font_override("font", f_title); tag.add_child(nl); hdr.add_child(tag)
-	hdr.add_child(_label(npc.role, 16, Color("#a8c8e0")))
-	var tx := rich(text, 19); tx.custom_minimum_size = Vector2(w - 60, 0); v.add_child(tx)
+	var tag := PanelContainer.new(); tag.add_theme_stylebox_override("panel", flat(Color("#15110c"), 6, Color(0, 0, 0, 0), 0, Vector4(12, 2, 12, 4)))
+	var nl := _label(npc.nm, 24, Color("#fff3d6")); nl.add_theme_font_override("font", f_title); nl.add_theme_constant_override("outline_size", 0); tag.add_child(nl); hdr.add_child(tag)
+	hdr.add_child(_ink(npc.role, 16, INK_SOFT, true))
+	var tx := rich(ink_bb(text), 19); tx.add_theme_color_override("default_color", INK); tx.custom_minimum_size = Vector2(w - 60, 0); v.add_child(tx)
 	var h := HBoxContainer.new(); h.alignment = BoxContainer.ALIGNMENT_END; h.add_theme_constant_override("separation", 10); v.add_child(h)
 	for a in actions: h.add_child(big_button(a[0], true, a[1], GOLD, a.size() > 2))
 	pc.position = Vector2((s.x - w) * 0.5, s.y)

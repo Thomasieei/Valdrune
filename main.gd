@@ -673,8 +673,10 @@ func on_enemy_death(e: Enemy) -> void:
 		if e.has_meta("secret"): vq.event("secret"); hud.celebrate("LE GARDIEN OUBLIÉ EST TOMBÉ", "Retourne voir l'Ancien", "it_trophy")
 	# dépeçage : avec le couteau, les bêtes laissent leur peau
 	if e.animal and int(Game.S.get("knife", 0)) >= 1 and not e.group_boss:
-		Game.S["hides"] = int(Game.S.get("hides", 0)) + 1
-		Fx.number(self, e.global_position + Vector3(0, 2.0, 0), "+1 peau", Color("#d8b088"), false)
+		var kn: int = int(Game.S.get("knife", 1))
+		var nh: int = 1 + (1 if randf() < (kn - 1) * 0.25 else 0)
+		Game.S["hides"] = int(Game.S.get("hides", 0)) + nh
+		Fx.number(self, e.global_position + Vector3(0, 2.0, 0), "+%d peau%s" % [nh, "x" if nh > 1 else ""], Color("#d8b088"), false)
 	if e.elite or e.is_boss: _dq("elite")
 	if e.global_position.distance_to(player.global_position) < 30.0 and not player.dead: _weapon_xp(e.tier, 10.0 if e.is_boss else (3.0 if e.elite else 1.0))
 	if e.global_position.distance_to(player.global_position) < 30.0 and not player.dead: _gear_xp(e.tier, 10.0 if e.is_boss else (3.0 if e.elite else 1.0))
@@ -1029,6 +1031,28 @@ func sell_junk(idx: int) -> void:
 	if hud.cur_panel == "bag": hud.show_bag()
 	elif hud.cur_panel == "shop": hud.show_shop()
 
+# ——— Tannerie : vendre ses peaux, améliorer son couteau ———
+const HIDE_PRICE := 18
+func knife_cost(k: int) -> Array: return [600 * k * k, 6 * k]     # argent, peaux
+func sell_hides(n: int) -> void:
+	n = min(n, int(Game.S.get("hides", 0))); if n <= 0: return
+	Game.S.hides = int(Game.S.hides) - n
+	var g := gain_silver(n * HIDE_PRICE)
+	Game.play("coin"); hud.toast("%d peau%s vendue%s · +%s argent" % [n, "x" if n > 1 else "", "s" if n > 1 else "", Game.fmt(g)], Color("#ffe39a")); Game.save(); hud.show_tannery()
+func upgrade_knife() -> void:
+	var k: int = int(Game.S.get("knife", 0))
+	if k <= 0 or k >= 5: return
+	var c := knife_cost(k)
+	if Game.S.silver < c[0] or int(Game.S.get("hides", 0)) < c[1]: Game.play("error"); hud.toast("Il te manque de l'argent ou des peaux", Color("#ff9a8a")); return
+	Game.S.silver -= c[0]; Game.S.hides = int(Game.S.hides) - c[1]; Game.S.knife = k + 1
+	Game.play("level"); hud.celebrate("COUTEAU T%d" % (k + 1), "Tes bêtes laissent plus souvent une peau en plus", "it_hunt"); Game.save(); hud.show_tannery()
+# ——— Scierie : le scieur rachète le bois plus cher que la marchande (+25 %) ———
+func sell_wood_mill(t: int, n: int) -> void:
+	n = min(n, int(Game.S.inv.wood[t])); if n <= 0: return
+	Game.S.inv.wood[t] -= n
+	var g := gain_silver(int(n * Game.res_price(t) * 1.25))
+	Game.play("coin"); hud.toast("%d bûche%s vendue%s au scieur · +%s argent" % [n, "s" if n > 1 else "", "s" if n > 1 else "", Game.fmt(g)], Color("#ffe39a")); Game.save(); hud.show_sawmill()
+
 func sell(k: String, t: int, n: int) -> void:
 	n = min(n, Game.S.inv[k][t]); if n <= 0: return
 	Game.S.inv[k][t] -= n; Game.S.silver += n * Game.res_price(t); Game.play("coin"); Game.save(); hud.show_shop()
@@ -1296,6 +1320,8 @@ func talk(n: Npc) -> void:
 			acts.append(["Voir les îles", func(): hud.show_harbor(), true])
 		"shop": acts.append(["Voir les articles", func(): hud.show_shop(line), true])
 		"auction": acts.append(["Ouvrir l'hôtel des ventes", func(): hud.show_auction(), true])
+		"tannery": acts.append(["Ouvrir la tannerie", func(): hud.show_tannery(), true])
+		"sawmill": acts.append(["Ouvrir la scierie", func(): hud.show_sawmill(), true])
 		"mercs":
 			acts.append(["Expéditions", func(): hud.show_expedition(), true])
 			acts.append(["Engager des mercenaires", func(): hud.show_mercs(), true])
@@ -1488,7 +1514,7 @@ func _cam_update(dt: float, snap := false) -> void:
 	# zoom proche : la caméra s'incline (plus de profondeur) ; zoom large : vue plongeante façon Albion
 	# caméra inclinée (~50°) : on voit les façades, les PNJ et l'horizon, pas seulement le dessus des têtes
 	var kz: float = max(0.0, 1.0 - user_zoom_s) / 0.25
-	var off := Vector3(0, 18.0 - kz * 2.0, 12.0 + kz * 1.5) * zz
+	var off := Vector3(0, 19.0 - kz * 2.0, 11.0 + kz * 1.5) * zz
 	# inventaire ouvert : le héros glisse vers la gauche de l'écran pour rester visible à côté du parchemin
 	bag_shift = lerp(bag_shift, 5.2 * cam_zoom * user_zoom if hud.cur_panel == "bag" else 0.0, 1.0 if snap else 1.0 - exp(-dt * 6.0))
 	target.x += bag_shift
