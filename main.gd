@@ -899,9 +899,54 @@ func ah_check() -> void:
 				Game.S.items.append(it)
 			hud.toast("Invendu : %s — rendu dans ton sac (prix trop élevé ?)" % nm, Color("#ffb59a"))
 		L.erase(l)
+	if _orders_tick(): changed = true
 	if changed:
 		Game.save()
 		if hud.panel_open and hud.cur_panel == "auction": hud.show_auction(hud.ah_tab)
+
+# ——— Ordres d'achat (ressources) ———
+func ah_orders() -> Array:
+	if typeof(Game.S.ah.get("orders")) != TYPE_ARRAY: Game.S.ah["orders"] = []
+	return Game.S.ah.orders
+func order_rate(unit: int, avg: int) -> float:
+	# probabilité par seconde qu'un récolteur te livre un paquet
+	var r: float = float(unit) / max(1.0, float(avg))
+	return clamp(0.012 + 0.06 * (r - 0.85), 0.0015, 0.05)
+func order_speed_txt(unit: int, avg: int) -> String:
+	var r := order_rate(unit, avg)
+	if r >= 0.03: return "livraison rapide"
+	if r >= 0.015: return "livraison normale"
+	if r >= 0.006: return "livraison lente"
+	return "très lent — peu de vendeurs à ce prix"
+func ah_order(k: String, t: int, q: int, unit: int) -> void:
+	var cost := unit * q
+	if Game.S.silver < cost: Game.play("error"); hud.toast("Pas assez d'argent pour réserver %s" % Game.fmt(cost), Color("#ff9a8a")); return
+	if ah_orders().size() >= 8: Game.play("error"); hud.toast("8 ordres maximum en même temps", Color("#ff9a8a")); return
+	Game.S.silver -= cost
+	ah_orders().append({"res": k, "tier": t, "qty": q, "got": 0, "unit": unit})
+	Game.crumb("ordre d'achat %s T%d x%d" % [k, t, q])
+	Game.play("coin", -4.0); hud.toast("Ordre placé : %s ×%d — %s réservés" % [Game.res_name(k, t), q, Game.fmt(cost)], Color("#ffe39a")); Game.save()
+	hud.show_auction("orders")
+func ah_order_cancel(i: int) -> void:
+	var O := ah_orders()
+	if i < 0 or i >= O.size(): return
+	var o: Dictionary = O[i]
+	var back := int(o.unit) * (int(o.qty) - int(o.got))
+	Game.S.silver += back; O.remove_at(i)
+	Game.play("coin", -6.0); hud.toast("Ordre annulé : %s remboursés" % Game.fmt(back), Color("#cfe8ff")); Game.save()
+	hud.show_auction("orders")
+func _orders_tick() -> bool:
+	var O := ah_orders()
+	var changed := false
+	for o in O.duplicate():
+		if randf() >= order_rate(int(o.unit), Game.res_price(int(o.tier))): continue
+		var n: int = min(int(o.qty) - int(o.got), randi_range(2, 6))
+		o.got = int(o.got) + n; Game.S.inv[o.res][int(o.tier)] += n; changed = true
+		var nm: String = Game.res_name(o.res, int(o.tier))
+		if int(o.got) >= int(o.qty):
+			O.erase(o); hud.celebrate("ORDRE REMPLI", "%s ×%d livrés dans ton sac" % [nm, int(o.qty)], "it_coins"); Game.play("coin")
+		else: hud.toast("%s ×%d livrés (%d/%d)" % [nm, n, int(o.got), int(o.qty)], Color("#cfe8ff"))
+	return changed
 
 func buy_potion() -> void:
 	var pp := int(40 * Game.price_mult())
@@ -1315,7 +1360,7 @@ func _update_moods(dt: float) -> void:
 	var pp := player.global_position
 	for n in npcs:
 		if not is_instance_valid(n) or n.act == "duel": continue
-		var face: Sprite3D = n.get_meta("face", null)
+		var face: Sprite3D = n.get_meta("face") if n.has_meta("face") else null
 		if face == null:
 			face = Sprite3D.new(); face.billboard = BaseMaterial3D.BILLBOARD_ENABLED; face.pixel_size = 0.0062; face.no_depth_test = true; face.render_priority = 5
 			face.position = Vector3(0, 2.55 * float(n.data.get("scale", 1.0)), 0); n.add_child(face); n.set_meta("face", face)

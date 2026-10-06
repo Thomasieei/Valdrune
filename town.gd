@@ -190,6 +190,7 @@ func build(ST: Dictionary, tname: String) -> void:
 	_place_houses()
 	_build_houses()
 	_entrances(ST)
+	_ramparts(ST)
 	_lanterns()
 	_edge_stones()
 	_greenery(ST)
@@ -757,6 +758,9 @@ func _assign_services() -> void:
 	pick.call("inn", func(h): return h.get("plot", false) and h.street != fs and h.street >= 0, func(h): return abs(dist.call(h) - 20.0) - float(h.w))
 	# mercenaires : au bout du bourg, près d'une sortie
 	pick.call("mercs", func(h): return h.get("plot", false) and h.street >= 0 and streets[h.street].main, func(h): return -dist.call(h))
+	# métiers : tannerie et scierie, chacune avec son artisan devant
+	pick.call("tannery", func(h): return h.get("plot", false) and h.street >= 0, func(h): return abs(dist.call(h) - 26.0) + R.randf() * 4.0)
+	pick.call("sawmill", func(h): return h.get("plot", false) and h.street >= 0, func(h): return abs(dist.call(h) - 30.0) + R.randf() * 4.0)
 	for h in homes:
 		if h.kind == "inn": h.fl = 3; h.w = max(int(h.w), 6)
 		if h.kind == "auction": h.fl = 3
@@ -815,6 +819,189 @@ func _service_yard(h: Dictionary, c: Vector2, ax: Vector2, az: Vector2, hx: floa
 			W.place(DG + "banner_patternA_red.gltf", at.call(ldx + 1.5, hz - 0.5), rot, 1.2)
 			W.place(DG + "crates_stacked.gltf", at.call(-side * (hx - 0.9), hz - 2.6), rot, 0.8)
 			W.label("MERCENAIRES", at.call(0, 0) + Vector3(0, W.height(c.x, c.y) + 8.5, 0), Color("#ffb07a"), 46)
+
+		"tannery":
+			# séchoirs à peaux, cuves de tannage, ballots de cuir
+			for k in 2:
+				var rq: Vector3 = at.call(side * (hx - 1.4 - k * 2.6), hz - 1.6)
+				_hide_rack(rq, rot); W.box_blocker(rq, Vector3(2.0, 1.8, 0.4), rot)
+			for k in 2:
+				var tq: Vector3 = at.call(-side * (hx - 1.0), hz - 1.4 - k * 1.3)
+				W.place(DG + "barrel_large.gltf", tq, 0.0, 0.5); W.blocker(tq, 0.5)
+			W.place(H + "sack.gltf", at.call(side * (hx - 1.0), hz - 3.2), rot, 2.8)
+			W.label("TANNERIE", at.call(0, 0) + Vector3(0, W.height(c.x, c.y) + 8.5, 0), Color("#e0b07a"), 46)
+		"sawmill":
+			# grumes empilées, chevalet de sciage, copeaux
+			for k in 2:
+				var lq: Vector3 = at.call(side * (hx - 1.6 - k * 2.4), hz - 1.8)
+				W.place(H + "resource_lumber.gltf", lq, rot + k * 0.4, 1.6); W.blocker(lq, 0.9)
+			var sq: Vector3 = at.call(-side * (hx - 1.4), hz - 1.6)
+			_sawhorse(sq, rot); W.box_blocker(sq, Vector3(2.2, 1.0, 0.7), rot)
+			W.place(DG + "crates_stacked.gltf", at.call(-side * (hx - 0.9), hz - 3.0), rot, 0.7)
+			W.label("SCIERIE", at.call(0, 0) + Vector3(0, W.height(c.x, c.y) + 8.5, 0), Color("#b8e07a"), 46)
+
+# séchoir : deux poteaux, une perche, des peaux tendues
+func _hide_rack(p: Vector3, rot: float) -> void:
+	var root := Node3D.new(); root.position = Vector3(p.x, W.height(p.x, p.z), p.z); root.rotation.y = rot; W.add_child(root)
+	var wood := StandardMaterial3D.new(); wood.albedo_color = Color("#5a3d26"); wood.roughness = 0.95
+	var hmat := StandardMaterial3D.new(); hmat.albedo_color = Color("#a8743e"); hmat.roughness = 1.0; hmat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	for sx: float in [-1.0, 1.0]:
+		var po := MeshInstance3D.new(); var cm := CylinderMesh.new(); cm.top_radius = 0.06; cm.bottom_radius = 0.08; cm.height = 1.9
+		po.mesh = cm; po.position = Vector3(sx * 0.95, 0.95, 0); po.material_override = wood; root.add_child(po)
+	var bar := MeshInstance3D.new(); var bc := CylinderMesh.new(); bc.top_radius = 0.05; bc.bottom_radius = 0.05; bc.height = 2.0
+	bar.mesh = bc; bar.rotation.z = PI * 0.5; bar.position = Vector3(0, 1.8, 0); bar.material_override = wood; root.add_child(bar)
+	for k in 3:
+		var hm := MeshInstance3D.new(); var pm := PlaneMesh.new(); pm.size = Vector2(0.5, 1.0); hm.mesh = pm
+		hm.rotation.x = PI * 0.5; hm.position = Vector3(-0.6 + k * 0.6, 1.25, 0.02 * (k - 1)); hm.scale = Vector3(1.0 + 0.15 * (k % 2), 1, 1)
+		var m2: StandardMaterial3D = hmat.duplicate(); m2.albedo_color = hmat.albedo_color.darkened(0.12 * k); hm.material_override = m2; root.add_child(hm)
+
+# chevalet de sciage avec une bûche et une scie
+func _sawhorse(p: Vector3, rot: float) -> void:
+	var root := Node3D.new(); root.position = Vector3(p.x, W.height(p.x, p.z), p.z); root.rotation.y = rot; W.add_child(root)
+	var wood := StandardMaterial3D.new(); wood.albedo_color = Color("#6a4a2e"); wood.roughness = 0.95
+	var bark := StandardMaterial3D.new(); bark.albedo_color = Color("#8a6440"); bark.roughness = 1.0
+	var steel := StandardMaterial3D.new(); steel.albedo_color = Color("#b8bcc4"); steel.metallic = 0.8; steel.roughness = 0.35
+	for sx: float in [-0.8, 0.8]:
+		for sz: float in [-1.0, 1.0]:
+			var leg := MeshInstance3D.new(); var bm := BoxMesh.new(); bm.size = Vector3(0.08, 0.9, 0.08); leg.mesh = bm
+			leg.position = Vector3(sx, 0.42, sz * 0.18); leg.rotation.x = sz * 0.35; leg.material_override = wood; root.add_child(leg)
+	var lg := MeshInstance3D.new(); var lc := CylinderMesh.new(); lc.top_radius = 0.22; lc.bottom_radius = 0.24; lc.height = 2.3
+	lg.mesh = lc; lg.rotation.z = PI * 0.5; lg.position = Vector3(0, 1.0, 0); lg.material_override = bark; root.add_child(lg)
+	var saw := MeshInstance3D.new(); var sb := BoxMesh.new(); sb.size = Vector3(0.03, 0.25, 0.9); saw.mesh = sb
+	saw.position = Vector3(0.3, 1.2, 0); saw.rotation.x = 0.3; saw.material_override = steel; root.add_child(saw)
+
+# ================= REMPARTS : une enceinte de pierre autour du bourg, des tours aux portes =================
+const WALL_H := 2.7
+const WALL_T := 0.9
+func _ramparts(ST: Dictionary) -> void:
+	# 1) rayon de l'enceinte dans chaque direction : au-delà des maisons et des rues
+	var N := 180
+	var raw: Array = []; raw.resize(N); raw.fill(PLAZA_R + 16.0)
+	var put := func(q: Vector2, m: float) -> void:
+		var d := q - V
+		var i := int(round(fposmod(atan2(d.y, d.x), TAU) / TAU * N)) % N
+		var r := d.length() + m
+		for k in range(-1, 2):
+			var j := (i + k + N) % N
+			raw[j] = max(float(raw[j]), r)
+	for h in homes:
+		for q: Vector2 in _corners(h.c, h.rot, float(h.get("pw", h.w)), float(h.get("pd", h.d)), 0.0): put.call(q, 3.5)
+	for st in streets:
+		for q: Vector2 in st.pts: put.call(q, float(st.half) + 3.0)
+	for e in entrances: put.call(e.p, 0.4)
+	# lissage : enceinte arrondie, sans pics
+	var rr: Array = []; rr.resize(N)
+	for i in N:
+		var mx := 0.0
+		for k in range(-6, 7): mx = max(mx, float(raw[(i + k + N) % N]))
+		rr[i] = mx
+	var sm: Array = []; sm.resize(N)
+	for i in N:
+		var t := 0.0
+		for k in range(-5, 6): t += float(rr[(i + k + N) % N])
+		sm[i] = max(t / 11.0, float(raw[i]))
+	# 2) le tracé, tous les 2 m
+	var ring: Array = []
+	for i in N:
+		var a := TAU * i / N
+		ring.append(V + Vector2(cos(a), sin(a)) * float(sm[i]))
+	ring.append(ring[0])
+	var pts: Array = _resample(ring, 2.0)
+	# 3) où peut-on bâtir ? (pas sur l'eau, les rues, les routes, devant les portes)
+	var ok: Array = []
+	for q: Vector2 in pts:
+		var good: bool = W.walkable(q.x, q.y) and W.height(q.x, q.y) > World.WATER_Y + 0.25 and not W.on_bridge(q.x, q.y)
+		good = good and not _on_street(q, 1.4) and W.road_dist(q.x, q.y) > 4.0 and not W.near_house(q, 0.8) and W.slope(q.x, q.y) < 1.2
+		if good:
+			for e in entrances:
+				if W.seg_dist(q, e.p - (e.dir as Vector2) * 3.0, e.p + (e.dir as Vector2) * 40.0) < float(e.st.half) + 2.2: good = false; break
+		if good:
+			for h in homes:
+				if _inside(q, h, 0.8): good = false; break
+		ok.append(good)
+	# 4) on retire les bouts de mur trop courts (moins de 3 pierres)
+	var n := pts.size()
+	var i0 := 0
+	while i0 < n:
+		if not ok[i0]: i0 += 1; continue
+		var i1 := i0
+		while i1 < n and ok[i1]: i1 += 1
+		if i1 - i0 < 5:
+			for k in range(i0, i1): ok[k] = false
+		i0 = i1
+	# 5) maçonnerie : blocs + créneaux en MultiMesh, tours aux extrémités et régulièrement
+	var tint: Color = {1: Color("#d4cfc4"), 2: Color("#b8b8a8"), 3: Color("#e2c99c"), 4: Color("#8c8c94")}.get(int(W.map_id), Color("#d4cfc4"))
+	var mat := StandardMaterial3D.new(); mat.albedo_texture = load("res://assets/village/T_UnevenBrick_BaseColor.png"); mat.albedo_color = tint; mat.roughness = 0.95
+	mat.uv1_triplanar = true; mat.uv1_world_triplanar = true; mat.uv1_scale = Vector3(0.45, 0.45, 0.45); mat.texture_repeat = true
+	var cap := StandardMaterial3D.new(); cap.albedo_texture = mat.albedo_texture; cap.albedo_color = tint.darkened(0.15); cap.roughness = 0.95
+	cap.uv1_triplanar = true; cap.uv1_world_triplanar = true; cap.uv1_scale = Vector3(0.9, 0.9, 0.9); cap.texture_repeat = true
+	var blocks: Array = []; var merlons: Array = []; var towers: Array = []
+	var run := 0
+	# hauteur du chemin de ronde lissée (sinon le haut du mur fait des marches)
+	var gy: Array = []
+	for q: Vector2 in pts: gy.append(W.height(q.x, q.y))
+	var ty: Array = []
+	for k in n:
+		var t := 0.0; var c2 := 0
+		for j in range(max(0, k - 2), min(n, k + 3)): t += float(gy[j]); c2 += 1
+		ty.append(t / c2)
+	for k in n:
+		if not ok[k]: run = 0; continue
+		var q: Vector2 = pts[k]
+		var nx: Vector2 = pts[min(k + 1, n - 1)]; var pv: Vector2 = pts[max(k - 1, 0)]
+		var tg := (nx - pv).normalized()
+		var rot := atan2(tg.x, tg.y) + PI * 0.5
+		var y: float = max(float(ty[k]), float(gy[k]) - 0.3)
+		# le mur suit le sol : on l'enfonce un peu du côté le plus bas
+		var y0: float = min(float(gy[k]), min(W.height(q.x + tg.x, q.y + tg.y), W.height(q.x - tg.x, q.y - tg.y))) - 0.6
+		var hh: float = y + WALL_H - y0
+		blocks.append(Transform3D(Basis(Vector3.UP, rot).scaled(Vector3(2.15, hh, WALL_T)), Vector3(q.x, y0 + hh * 0.5, q.y)))
+		var ax := Vector3(cos(rot), 0, -sin(rot))
+		for m: float in [-0.55, 0.55]:
+			var mp: Vector3 = Vector3(q.x, y + WALL_H + 0.25, q.y) + ax * m
+			merlons.append(Transform3D(Basis(Vector3.UP, rot).scaled(Vector3(0.6, 0.5, WALL_T + 0.06)), mp))
+		W.box_blocker(Vector3(q.x, 0, q.y), Vector3(2.1, WALL_H + 0.4, WALL_T + 0.1), rot)
+		W.house_spots.append([q, 1.1])
+		var first: bool = k == 0 or not ok[k - 1]
+		var last: bool = k == n - 1 or not ok[k + 1]
+		if first or last or run % 12 == 6: towers.append(q)
+		run += 1
+	for pair in [[blocks, mat], [merlons, cap]]:
+		var arr: Array = pair[0]
+		if arr.is_empty(): continue
+		var mm := MultiMesh.new(); mm.transform_format = MultiMesh.TRANSFORM_3D; var bm := BoxMesh.new(); mm.mesh = bm
+		mm.instance_count = arr.size()
+		for j in arr.size(): mm.set_instance_transform(j, arr[j])
+		var mi := MultiMeshInstance3D.new(); mi.multimesh = mm; mi.material_override = pair[1]
+		mi.visibility_range_end = 140.0; W.add_child(mi)
+	var roof_col: Color = {1: Color("#3d5f9a"), 2: Color("#8a3a2e"), 3: Color("#b0603a"), 4: Color("#4a4a5a")}.get(int(W.map_id), Color("#3d5f9a"))
+	for q: Vector2 in towers: _tower(q, mat, cap, roof_col, ST)
+	wall_pts = []
+	for k in n:
+		if ok[k]: wall_pts.append(pts[k])
+
+var wall_pts: Array = []
+# tour ronde : fût de pierre, couronne crénelée, toit conique et bannière
+func _tower(q: Vector2, mat: Material, cap: Material, roof_col: Color, ST: Dictionary) -> void:
+	var y: float = W.height(q.x, q.y)
+	var root := Node3D.new(); root.position = Vector3(q.x, y, q.y); W.add_child(root)
+	var cyl := func(rt: float, rb: float, h: float, yy: float, m: Material, segs := 16) -> void:
+		var mi := MeshInstance3D.new(); var cm := CylinderMesh.new(); cm.top_radius = rt; cm.bottom_radius = rb; cm.height = h; cm.radial_segments = segs
+		mi.mesh = cm; mi.position = Vector3(0, yy, 0); mi.material_override = m; root.add_child(mi)
+	cyl.call(1.45, 1.6, 5.2, 1.9, mat)            # fût (enfoncé de 0,7 m)
+	cyl.call(1.75, 1.5, 0.45, 4.7, cap)           # mâchicoulis
+	for k in 8:
+		var a := TAU * k / 8.0
+		var mi := MeshInstance3D.new(); var bm := BoxMesh.new(); bm.size = Vector3(0.55, 0.55, 0.35); mi.mesh = bm
+		mi.position = Vector3(cos(a) * 1.55, 5.2, sin(a) * 1.55); mi.rotation.y = -a + PI * 0.5; mi.material_override = cap; root.add_child(mi)
+	var rm := StandardMaterial3D.new(); rm.albedo_color = roof_col; rm.roughness = 0.8
+	cyl.call(0.0, 1.85, 2.4, 6.4, rm, 12)          # toit conique
+	var fl := MeshInstance3D.new(); var pm := BoxMesh.new(); pm.size = Vector3(0.04, 0.5, 0.75); fl.mesh = pm
+	var fm := StandardMaterial3D.new(); fm.albedo_color = roof_col.lightened(0.25); fl.material_override = fm; fl.position = Vector3(0, 8.0, 0.38); root.add_child(fl)
+	var pole := MeshInstance3D.new(); var pc := CylinderMesh.new(); pc.top_radius = 0.03; pc.bottom_radius = 0.03; pc.height = 1.2; pole.mesh = pc
+	pole.position = Vector3(0, 7.9, 0); root.add_child(pole)
+	W.blocker(Vector3(q.x, 0, q.y), 1.55, 5.0)
+	W.house_spots.append([q, 2.0])
 
 # enclume : socle, table et bigorne
 func _anvil(p: Vector3, rot: float) -> void:

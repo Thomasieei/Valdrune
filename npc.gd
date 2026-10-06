@@ -15,6 +15,8 @@ const LINES := {
 		"Esquive les cercles rouges au sol. Toujours."],
 	"lina": ["Il fait bon vivre à Valdrune… tant qu'on ne s'aventure pas trop loin.", "Tu as vu le moulin au sud ? Mon père y travaillait."],
 	"pip": ["Tu veux faire la course ? … Ah non, t'as une armure, c'est pas juste !", "Un jour je serai chevalier comme Sire Gaël !"],
+	"tanneur": ["Une peau mal dépecée, c'est de l'argent jeté. Trouve-toi un bon couteau, et rapporte les peaux à Brokk.", "L'odeur ? On s'y fait… au bout de vingt ans.", "Le cuir de loup est souple : parfait pour les vestes des rôdeurs."],
+	"scieur": ["Le chêne, ça se mérite : il pousse loin dans les forêts T3.", "Chaque planche de la ville est passée sous ma scie. Les remparts aussi, pour les échafaudages !", "Une bonne hache te fera gagner des heures. Va voir l'artisan sur la place."],
 	"bram": ["Les champs sont beaux cette année. Les squelettes du vieux sanctuaire, à l'ouest, me font peur par contre.", "Le coton pousse bien dans les prés autour du village."],
 	"ysaline": ["Ysaline, enchanteresse. Je peux graver la magie dans ton équipement : jusqu'à cinq fois par pièce. Mais la magie se paie… très cher."],
 	"bjorn": ["Une bonne hache, c'est la moitié du travail. L'autre moitié, c'est l'expérience : plus tu coupes, plus tu deviens rapide… et plus tu pourras t'attaquer à des bois rares."],
@@ -152,6 +154,6 @@ const ACT_LINES := {
 
 func next_line() -> String:
 	if id == "aldric" or act == "quest": return main.quest_line()
-	var arr: Array = LINES.get(id, ACT_LINES.get(act, ["…"]))
+	var arr: Array = LINES.get(id, LINES.get(id.get_slice("_", 0), ACT_LINES.get(act, ["…"])))
 	var t: String = arr[talk_i % arr.size()]; talk_i += 1
 	return t

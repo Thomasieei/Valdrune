@@ -647,6 +647,7 @@ func _village() -> void:
 	npc_spots.append({"id": "pip", "model": "Rogue", "name": "Pip", "role": "Gamin du village", "pos": Vector3(pp[0].x, 0, pp[0].y), "act": "talk", "scale": 0.75, "path": pp})
 	var bw: Array = T.street_walk(T.streets.size() - 1, 3.0, 20.0)
 	npc_spots.append({"id": "bram", "model": "Barbarian", "name": "Bram", "role": "Fermier", "pos": Vector3(bw[0].x, 0, bw[0].y), "act": "talk", "path": bw})
+	_artisans(1)
 	T.market(3)
 	T.residents(6)
 
@@ -1282,8 +1283,19 @@ func _town(TD: Dictionary) -> void:
 	npc_spots.append({"id": "travel_%d" % mid, "model": "Ranger", "name": nm[6], "role": "Passeur · voyages rapides", "pos": sl[0], "act": "travel", "yaw": sl[1]})
 	var lw: Array = T.street_walk(0, 12.0, 40.0)
 	npc_spots.append({"id": "villageois_%d_c" % mid, "model": "Ranger", "name": VILLAGER_NAMES[mid % VILLAGER_NAMES.size()], "role": "Villageoise", "pos": Vector3(lw[0].x, 0, lw[0].y), "act": "villager", "path": lw})
+	_artisans(mid)
 	T.market(2)
 	T.residents(6)
+
+# artisans devant leur atelier (tannerie, scierie)
+func _artisans(mid: int) -> void:
+	var T: TownGen = town
+	var who := {"tannery": ["tanneur", "Barbarian", ["Garrick", "Odile", "Hamid", "Torvald"], "Tanneur"], "sawmill": ["scieur", "Ranger", ["Aubin", "Elsa", "Rashid", "Ylva"], "Scieur de long"]}
+	for kind in who:
+		if T.service(kind).is_empty(): continue
+		var w: Array = who[kind]
+		var sl: Array = T.service_slot(kind)
+		npc_spots.append({"id": "%s_%d" % [w[0], mid], "model": w[1], "name": (w[2] as Array)[(mid - 1) % 4], "role": w[3], "pos": sl[0], "act": "talk", "yaw": sl[1]})
 
 var town: TownGen
 func _town_build(tname: String) -> void:
@@ -2342,7 +2354,17 @@ func map_image() -> Image:
 			if road_dist(x, z) < 2.2: c = Color("#d8c39a")
 			if Vector2(x, z).distance_to(village) < 12.0: c = Color("#c9a978")
 			if h < WATER_Y: c = Color("#4f93b8")
+			if town != null and town.town_dist(x, z) < 0.5: c = Color("#cdb48a")
 			img.set_pixel(i, j, c)
+	# le bourg vu du ciel : toits et remparts
+	if town != null:
+		var px := func(p: Vector2, col: Color, r: int) -> void:
+			var ci := int((p.x + HALF) / (HALF * 2.0) * R); var cj := int((p.y + HALF) / (HALF * 2.0) * R)
+			for dj in range(-r, r + 1):
+				for di in range(-r, r + 1):
+					if ci + di >= 0 and ci + di < R and cj + dj >= 0 and cj + dj < R: img.set_pixel(ci + di, cj + dj, col)
+		for hm in town.homes: px.call(hm.hc, Color("#b4553c"), 1)
+		for q: Vector2 in town.wall_pts: px.call(q, Color("#5e5850"), 0)
 	return img
 
 

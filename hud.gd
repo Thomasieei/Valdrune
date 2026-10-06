@@ -1369,9 +1369,10 @@ func show_auction(tab := "", cat := "") -> void:
 		_tab_btn(tabs, "Acheter", ah_tab == "buy", func(): ah_sel = null; show_auction("buy"))
 		_tab_btn(tabs, "Vendre", ah_tab == "sell", func(): ah_sel = null; show_auction("sell"))
 		_tab_btn(tabs, "Mes ventes (%d)" % Game.S.ah.listings.size(), ah_tab == "mine", func(): show_auction("mine"))
+		_tab_btn(tabs, "Ordres d'achat (%d)" % main.ah_orders().size(), ah_tab == "orders", func(): show_auction("orders"))
 		var sp := Control.new(); sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL; tabs.add_child(sp)
 		tabs.add_child(_price_box(Game.S.silver))
-		if ah_tab != "mine":
+		if ah_tab == "buy" or ah_tab == "sell":
 			var cats := HFlowContainer.new(); cats.add_theme_constant_override("h_separation", 6); body.add_child(cats)
 			for c in AH_CATS: _chip(cats, c[1], ah_cat == c[0], func(): show_auction("", c[0]))
 			var tiers := HBoxContainer.new(); tiers.add_theme_constant_override("separation", 6); body.add_child(tiers)
@@ -1387,7 +1388,7 @@ func show_auction(tab := "", cat := "") -> void:
 					if ah_tier > 0 and int(e.tier) != ah_tier: continue
 					n += 1
 					var b := big_button("Acheter", Game.S.silver >= e.price, func(): main.ah_buy(i), GOLD, true); b.custom_minimum_size = Vector2(130, 46)
-					_ah_row(body, entry_tex(e), e, _price_box(e.price, b), (("   ·   [color=#9fd4ff]vendu par %s[/color]" % e.seller) if e.has("seller") else "") + (("\n[color=#ff8a7a]Verrouillé pour toi : %s[/color]" % Game.equip_block(e)) if not e.has("res") and Game.equip_block(e) != "" else ""))
+					_ah_row(body, entry_tex(e), e, _price_box(e.price, b), "   ·   " + avg_tag(e.price, main.real_price(e)) + (("\n[color=#9fd4ff]vendu par %s[/color]" % e.seller) if e.has("seller") else "") + (("\n[color=#ff8a7a]Verrouillé pour toi : %s[/color]" % Game.equip_block(e)) if not e.has("res") and Game.equip_block(e) != "" else ""))
 				if n == 0: body.add_child(rich("[color=#8a9298]Rien dans cette catégorie pour l'instant. Le stock se renouvelle toutes les 5 minutes.[/color]", 16))
 			"sell":
 				if ah_sel != null: _sell_editor(body)
@@ -1406,6 +1407,7 @@ func show_auction(tab := "", cat := "") -> void:
 					var left: int = int(max(0.0, float(l.end) - main.now_s()))
 					var ch := int(main.sell_chance(int(l.price), int(l.real)) * 100)
 					_ah_row(body, entry_tex(l), l, _price_box(int(l.price)), "   ·   résultat dans %d s   ·   chance de vente %d %%" % [left, ch])
+			"orders": _orders_tab(body)
 	, 880)
 
 # « À la une » : l'objet le plus cher du moment, en grand
@@ -1425,6 +1427,45 @@ func _vitrine(body: Control) -> void:
 	var i: int = Game.S.ah.stock.find(best)
 	var b := big_button("Acheter", Game.S.silver >= best.price, func(): main.ah_buy(i), GOLD, true); b.custom_minimum_size = Vector2(140, 52); b.size_flags_vertical = Control.SIZE_SHRINK_CENTER; h.add_child(b)
 
+# étiquette « par rapport au prix moyen », comme sur Albion
+static func avg_tag(price: int, real: int) -> String:
+	var d := int(round((float(price) / max(1.0, float(real)) - 1.0) * 100.0))
+	if abs(d) <= 2: return "[color=#d8dde0]≈ prix moyen[/color]"
+	if d < 0: return "[color=#7dff8a]−%d %% sous la moyenne[/color]" % -d
+	return "[color=#ff8a7a]+%d %% au-dessus[/color]" % d
+
+# ——— Ordres d'achat : tu fixes ton prix, l'argent est réservé, les vendeurs viennent à toi ———
+var ord_tier := 0
+var ord_mult := 1.0
+func _orders_tab(body: Control) -> void:
+	var orders: Array = main.ah_orders()
+	body.add_child(rich("[color=#a8b4bc]Place un ordre : l'argent est [b]réservé[/b] tout de suite. Les récolteurs te vendent leurs ressources au fil du temps — plus ton prix est haut, plus ça part vite. Annule quand tu veux : ce qui n'est pas livré t'est remboursé.[/color]", 15))
+	if not orders.is_empty():
+		body.add_child(_label("MES ORDRES", 15, Color("#ffb04a")))
+		for i in orders.size():
+			var o: Dictionary = orders[i]
+			var e := {"res": o.res, "tier": int(o.tier), "qty": int(o.qty) - int(o.got)}
+			var cb := big_button("Annuler", true, func(): main.ah_order_cancel(i), Color("#ff9a8a")); cb.custom_minimum_size = Vector2(120, 44)
+			_ah_row(body, entry_tex(e), e, _price_box(int(o.unit) * (int(o.qty) - int(o.got)), cb), "   ·   livré [b]%d / %d[/b]   ·   %s / unité   ·   %s" % [int(o.got), int(o.qty), Game.fmt(int(o.unit)), avg_tag(int(o.unit), Game.res_price(int(o.tier)))])
+	var t: int = ord_tier if ord_tier > 0 else clamp(Game.gear_level(), 1, 5)
+	body.add_child(_label("NOUVEL ORDRE", 15, Color("#ffb04a")))
+	var th := HBoxContainer.new(); th.add_theme_constant_override("separation", 6); body.add_child(th)
+	th.add_child(_label("Tier :", 15, SOFT))
+	for tt in range(1, 6):
+		_chip(th, "T%d" % tt, tt == t, func(): ord_tier = tt; show_auction("orders"))
+	var mh := HBoxContainer.new(); mh.add_theme_constant_override("separation", 6); body.add_child(mh)
+	mh.add_child(_label("Ton prix :", 15, SOFT))
+	for m in [[0.8, "−20 %"], [0.9, "−10 %"], [1.0, "moyen"], [1.15, "+15 %"], [1.3, "+30 %"]]:
+		_chip(mh, m[1], is_equal_approx(ord_mult, m[0]), func(): ord_mult = m[0]; show_auction("orders"))
+	for k in Game.RES_KEYS:
+		var avg: int = Game.res_price(t)
+		var unit: int = max(1, int(round(avg * ord_mult)))
+		var e := {"res": k, "tier": t, "qty": 10}
+		var bx := HBoxContainer.new(); bx.add_theme_constant_override("separation", 6)
+		for q in [10, 50]:
+			var b := big_button("×%d" % q, Game.S.silver >= unit * q, func(): main.ah_order(k, t, q, unit), GOLD, q == 10); b.custom_minimum_size = Vector2(84, 44); bx.add_child(b)
+		_ah_row(body, entry_tex(e), e, bx, "   ·   moyenne [color=#ffd86b]%s[/color] / unité   ·   ton offre [b]%s[/b]  %s   ·   [color=#a8b4bc]%s[/color]" % [Game.fmt(avg), Game.fmt(unit), avg_tag(unit, avg), main.order_speed_txt(unit, avg)])
+
 func _do_list() -> void:
 	var lot: Dictionary = ah_sel.duplicate()
 	if lot.has("res"): lot.qty = min(10, lot.qty)
@@ -1439,7 +1480,7 @@ func _sell_editor(body: Control) -> void:
 	var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 8); p.add_child(v)
 	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 12); v.add_child(h)
 	h.add_child(slot_box(entry_tex(e), e.tier, e.get("qty", 1), true, Callable(), 64))
-	h.add_child(rich("[b]%s[/b]  [color=#%s]T%d[/color]\nPrix du marché : [color=#ffd86b]%s[/color]   ·   [color=#%s]Chance de vente : %d %%[/color]" % [entry_name(e), Game.TIER_COL[e.tier].to_html(false), e.tier, Game.fmt(real), col.to_html(false), ch], 18))
+	h.add_child(rich("[b]%s[/b]  [color=#%s]T%d[/color]\nPrix moyen : [color=#ffd86b]%s[/color]   ·   ton prix : %s   ·   [color=#%s]Chance de vente : %d %%[/color]" % [entry_name(e), Game.TIER_COL[e.tier].to_html(false), e.tier, Game.fmt(real), avg_tag(ah_price, real), col.to_html(false), ch], 18))
 	var h2 := HBoxContainer.new(); h2.add_theme_constant_override("separation", 8); v.add_child(h2)
 	for d in [[-0.25, "−25 %"], [-0.1, "−10 %"], [0.1, "+10 %"], [0.25, "+25 %"]]:
 		var b := Button.new(); b.text = d[1]; b.custom_minimum_size = Vector2(90, 46); b.add_theme_font_size_override("font_size", 17)
@@ -1731,14 +1772,105 @@ func _to_camp() -> void:
 func _wipe() -> void:
 	Game.reset_save(); get_tree().reload_current_scene()
 
-func show_map() -> void:
-	var s := vs(); var sz: float = min(s.y - 130, 540.0)
+var map_tab := "region"
+func show_map(tab := "") -> void:
+	if tab != "": map_tab = tab
+	if map_tab == "monde" and not map_dungeon: _show_world_map(); return
+	var s := vs(); var sz: float = min(s.y - 170, 500.0)
 	open_panel(("Carte de la tour" if main.tower else "Carte du donjon") if map_dungeon else Maps.label(main.world.map_id), func(body: VBoxContainer):
+		if not map_dungeon:
+			var tb := HBoxContainer.new(); tb.add_theme_constant_override("separation", 8); tb.alignment = BoxContainer.ALIGNMENT_CENTER; body.add_child(tb)
+			_chip(tb, "Région", true, func(): show_map("region")); _chip(tb, "Royaume", false, func(): show_map("monde"))
 		var holder := Control.new(); holder.custom_minimum_size = Vector2(sz, sz); holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER; body.add_child(holder)
 		var tr := TextureRect.new(); tr.texture = map_tex; tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; tr.size = Vector2(sz, sz); holder.add_child(tr)
 		var marks := Control.new(); marks.size = Vector2(sz, sz); holder.add_child(marks)
 		marks.draw.connect(func(): _draw_bigmap(marks, sz))
 	, sz + 70, sz + 110)
+
+# ——— Carte du royaume (façon Albion) : les 4 terres, leurs villes, leurs routes ———
+const KINGDOMS := {1: {"g": Vector2(0, 1), "col": Color("#86b85a"), "col2": Color("#a6c86a")}, 2: {"g": Vector2(0, 0), "col": Color("#4f8a46"), "col2": Color("#6aa055")},
+	3: {"g": Vector2(1, 0), "col": Color("#d2ad72"), "col2": Color("#e2c28a")}, 4: {"g": Vector2(1, -1), "col": Color("#8c8a92"), "col2": Color("#d8dce6")}}
+const KTOWN := {1: ["Valdrune", Vector2(0, 66)], 2: ["Chênevert", Vector2(-10, 70)], 3: ["Ksar d'Ambre", Vector2(-64, 0)], 4: ["Fort-Gris", Vector2(0, 80)]}
+var world_tex: Texture2D
+func _kingdom_at(u: float, v: float, nz: FastNoiseLite) -> Array:
+	# coordonnées monde-carte : chaque royaume occupe une case de 1×1, centrée en (g + 0.5)
+	var best := 0; var bd := 99.0
+	for id in KINGDOMS:
+		var g: Vector2 = KINGDOMS[id].g
+		var d := Vector2(u - (g.x + 0.5), v - (g.y + 0.5))
+		var e: float = lerp(d.length(), max(abs(d.x), abs(d.y)), 0.45) + nz.get_noise_2d(u * 22.0, v * 22.0) * 0.11 + nz.get_noise_2d(u * 70.0, v * 70.0) * 0.03
+		if e < bd: bd = e; best = id
+	return [best, bd]
+func _world_tex() -> Texture2D:
+	if world_tex: return world_tex
+	var R := 220; var img := Image.create(R, R, false, Image.FORMAT_RGB8)
+	var nz := FastNoiseLite.new(); nz.seed = 31; nz.frequency = 0.05
+	var nz2 := FastNoiseLite.new(); nz2.seed = 77; nz2.frequency = 0.02
+	for j in R:
+		for i in R:
+			# l'image couvre x ∈ [-0.35, 2.35], y ∈ [-1.35, 2.35]
+			var u: float = lerp(-0.35, 2.35, float(i) / R); var v: float = lerp(-1.35, 2.35, float(j) / R)
+			var k := _kingdom_at(u, v, nz)
+			var coast: float = float(k[1])
+			var col: Color
+			if coast > 0.47:
+				var deep: float = clamp((coast - 0.47) * 4.0, 0.0, 1.0)
+				col = Color("#3f7fae").lerp(Color("#1c3d66"), deep)
+				col = col.lightened(nz2.get_noise_2d(i * 3.0, j * 3.0) * 0.05)
+			else:
+				var K: Dictionary = KINGDOMS[k[0]]
+				var t: float = nz2.get_noise_2d(i * 2.0, j * 2.0) * 0.5 + 0.5
+				col = (K.col as Color).lerp(K.col2, t)
+				if k[0] == 4 and v < -0.6: col = col.lerp(Color("#eef2f8"), clamp((-0.6 - v) * 2.5, 0.0, 0.8))   # neiges du nord
+				col = col.darkened(nz.get_noise_2d(i * 4.0, j * 4.0) * 0.12)
+				if coast > 0.43: col = col.lerp(Color("#e8d8a8"), 0.6)   # plages
+			img.set_pixel(i, j, col)
+	world_tex = ImageTexture.create_from_image(img)
+	return world_tex
+func _show_world_map() -> void:
+	var s := vs(); var sz: float = min(s.y - 170, 500.0)
+	open_panel("Le Royaume", func(body: VBoxContainer):
+		var tb := HBoxContainer.new(); tb.add_theme_constant_override("separation", 8); tb.alignment = BoxContainer.ALIGNMENT_CENTER; body.add_child(tb)
+		_chip(tb, "Région", false, func(): show_map("region")); _chip(tb, "Royaume", true, func(): show_map("monde"))
+		var holder := Control.new(); holder.custom_minimum_size = Vector2(sz, sz); holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER; body.add_child(holder)
+		var tr := TextureRect.new(); tr.texture = _world_tex(); tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; tr.size = Vector2(sz, sz); tr.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR; holder.add_child(tr)
+		var marks := Control.new(); marks.size = Vector2(sz, sz); holder.add_child(marks)
+		marks.draw.connect(func(): _draw_world(marks, sz))
+		body.add_child(rich("[center][color=#a8b4bc]Chaque terre a ses tiers, sa ville et sa réputation. On voyage par les passages aux bords des cartes, ou avec le passeur de la ville.[/color][/center]", 14))
+	, sz + 70, sz + 150)
+func _wm(u: float, v: float, sz: float) -> Vector2: return Vector2((u + 0.35) / 2.7, (v + 1.35) / 3.7) * sz
+func _draw_world(c: Control, sz: float) -> void:
+	var cur: int = main.world.map_id
+	# routes entre les terres (les passages)
+	for pr in [[1, 2], [2, 3], [3, 4]]:
+		var a: Vector2 = KINGDOMS[pr[0]].g + Vector2(0.5, 0.5); var b: Vector2 = KINGDOMS[pr[1]].g + Vector2(0.5, 0.5)
+		var pa := _wm(a.x, a.y, sz); var pb := _wm(b.x, b.y, sz)
+		var n := 14
+		for k in n:
+			if k % 2 == 0: c.draw_line(pa.lerp(pb, float(k) / n), pa.lerp(pb, float(k + 1) / n), Color(0.45, 0.3, 0.15, 0.85), 3.0, true)
+	for id in KINGDOMS:
+		var g: Vector2 = KINGDOMS[id].g
+		var ctr := _wm(g.x + 0.5, g.y + 0.5, sz)
+		var tier: Array = Maps.TIERS[id]
+		var nm: String = Maps.NAMES[id]
+		var top := ctr + Vector2(0, -sz * 0.105)
+		_text(c, nm.to_upper(), top, 16, Color("#fff4d8"), true, f_title)
+		_text(c, "T%d – T%d" % [tier[0], tier[1]], top + Vector2(0, 17), 13, Game.TIER_COL[tier[1]].lightened(0.25), true, f_title)
+		# ville
+		var tp: Vector2 = KTOWN[id][1]
+		var tq := _wm(g.x + (tp.x + 128.0) / 256.0, g.y + (tp.y + 128.0) / 256.0, sz)
+		c.draw_rect(Rect2(tq - Vector2(7, 7), Vector2(14, 14)), Color("#fff4d8")); c.draw_rect(Rect2(tq - Vector2(7, 7), Vector2(14, 14)), Color("#3a2410"), false, 2.0)
+		_text(c, KTOWN[id][0], tq + Vector2(0, 22), 12, Color("#ffe9b8"), true, f_title)
+		# réputation de cette terre
+		var lv: Array = Game.rep_level(Game.rep(id))
+		c.draw_texture_rect(T("mood_" + str(lv[2])), Rect2(top + Vector2(-46, 24), Vector2(18, 18)), false)
+		_text(c, "%s %+d" % [lv[1], Game.rep(id)], top + Vector2(8, 38), 12, Color(str(lv[3])), true, f_title)
+		if id == cur:
+			c.draw_arc(ctr, sz * 0.19, 0, TAU, 48, Color(1, 0.85, 0.3, 0.9), 3.0, true)
+			var pp: Vector3 = main.player.global_position
+			var me := _wm(g.x + (pp.x + 128.0) / 256.0, g.y + (pp.z + 128.0) / 256.0, sz)
+			c.draw_circle(me, 7, Color.WHITE); c.draw_arc(me, 10, 0, TAU, 20, Color(0, 0, 0, 0.7), 2)
+			_text(c, "Toi", me + Vector2(0, -12), 12, Color.WHITE, true, f_title)
 
 func _draw_bigmap(c: Control, sz: float) -> void:
 	if map_dungeon:
