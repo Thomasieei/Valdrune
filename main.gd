@@ -1299,6 +1299,10 @@ func update_goal() -> void:
 	elif Game.S.gear.epee < L:
 		txt = "[b]Équipe-toi : arme %s[/b]\n[color=#b8c0c8]L'armurier de la ville vend et fabrique les armes avec ton bois, ton minerai et ta fibre.[/color]" % hud.tier_tag(nxt)
 		tgt = _brokk_pos()
+	elif int(Game.S.gear.get("armure", 1)) < L and Game.equip_block({"slot": "armure", "tier": int(Game.S.gear.get("armure", 1)) + 1}) == "":
+		var na: int = int(Game.S.gear.get("armure", 1)) + 1
+		txt = "[b]Équipe-toi : armure %s[/b]\n[color=#b8c0c8]L'armure te fait tenir face aux monstres plus forts. Forge ou hôtel des ventes.[/color]" % hud.tier_tag(na)
+		tgt = _brokk_pos()
 	elif best_tool != "":
 		var tl: String = best_tool; var t: int = S.gear[tl]; var nt := t + 1
 		var k: String = {"hache": "wood", "pioche": "ore", "faucille": "fiber"}[tl]
@@ -1311,7 +1315,21 @@ func update_goal() -> void:
 			txt = "[b]Achète une %s %s[/b]\n[color=#b8c0c8]Chez %s, au village — à partir de %s argent (%s / %s)[/color]" % [Game.TOOL_NAME[tl], hud.tier_tag(nt), Game.VENDOR_NAME[tl], Game.fmt(price), Game.fmt(S.silver), Game.fmt(price)]
 			tgt = _npc_pos(Game.VENDOR_OF[tl])
 			if S.silver < price:
-				txt += "\n[color=#ffd27a]Vends tes ressources au marché ou à l'hôtel des ventes pour réunir la somme.[/color]"
+				var worth := 0; var wood_worth := 0
+				for rk in Game.RES_KEYS:
+					for ti in range(1, 6):
+						var v: int = int(S.inv[rk][ti]) * Game.res_price(ti)
+						worth += v
+						if rk == "wood": wood_worth += int(v * 0.25)
+				worth += int(S.get("hides", 0)) * HIDE_PRICE
+				if worth + wood_worth + S.silver >= price:
+					txt += "\n[color=#7dff8a]Tes ressources valent ~%s : vends-les (Scierie = bois +25 %%, Tannerie = peaux, Marché = le reste).[/color]" % Game.fmt(worth + wood_worth)
+					var mill = null
+					for n in npcs:
+						if n.act == "sawmill": mill = n.position
+					tgt = mill if (mill != null and int(S.inv.wood[1]) + int(S.inv.wood[2]) > 0) else _npc_pos("mara")
+				else:
+					txt += "\n[color=#ffd27a]Il te manque %s : récolte encore, puis vends au Marché ou à l'hôtel des ventes.[/color]" % Game.fmt(price - S.silver - worth - wood_worth)
 	elif S.stats.boss == 0 and L >= 4:
 		txt = "[b]Dernière épreuve[/b]\nTerrasse le [color=#ff6a5a]Seigneur d'Os[/color] dans son antre — Pics de Cendre (carte T4-T5), tout au nord."
 		tgt = world.boss_pos if world.map_id == 4 else _gate_toward(4)
@@ -1319,11 +1337,22 @@ func update_goal() -> void:
 		var nm2 := Maps.for_tier(L + 1)
 		txt = "[b]En route vers %s[/b]\n[color=#b8c0c8]Tu es prêt pour la carte T%d-T%d : suis la flèche jusqu'au passage.[/color]" % [Maps.NAMES[nm2], Maps.TIERS[nm2][0], Maps.TIERS[nm2][1]]
 		tgt = _gate_toward(nm2)
+	elif world.map_id >= 2:
+		txt = "[b]JcJ : la zone rouge[/b]\n[color=#b8c0c8]Régions T3+ : tout rapporte ×1,5, mais si tu meurs tu perds ton équipement. Duels contre les joueurs « VS ».[/color]"
 	else:
 		txt = "[b]Valdrune est sauvée ![/b]\nTour Infinie, donjons, duels : deviens le plus riche du royaume."
+	var stage := 0
+	if txt.begins_with("[b]Achète"): stage = 1
+	elif txt.begins_with("[b]Équipe") or txt.begins_with("[b]Maîtrise"): stage = 2
+	elif txt.begins_with("[b]JcJ") or txt.begins_with("[b]En route") or txt.begins_with("[b]Dernière"): stage = 3
+	var steps := ["Métiers", "Outils", "Équipement", "JcJ"]
+	var ribbon: Array = []
+	for i in steps.size():
+		ribbon.append(("[color=#ffd27a][b]%s[/b][/color]" if i == stage else ("[color=#7dff8a]%s[/color]" if i < stage else "[color=#7a8288]%s[/color]")) % steps[i])
+	txt = "[font_size=12]%s[/font_size]\n%s" % [" › ".join(ribbon), txt]
 	if txt != goal_text:
 		goal_text = txt; hud.goal_lbl.text = txt
-		var key := "buy" if txt.begins_with("[b]Achète") else "x"
+		var key := "buy" if txt.contains("[b]Achète") else "x"
 		if key == "buy" and last_goal_key != "buy" and last_goal_key != "": hud.celebrate("NIVEAU ATTEINT !", "Tu peux acheter un outil du tier suivant", "it_quest"); Game.play("level", -4.0)
 		last_goal_key = key
 	goal_target = tgt
@@ -1331,7 +1360,7 @@ func update_goal() -> void:
 # Aldric résume la quête en mots simples
 func quest_line() -> String:
 	var plain := goal_text.replace("[b]", "").replace("[/b]", "").replace("\n", " — ")
-	var rx := RegEx.new(); rx.compile("\\[/?color[^\\]]*\\]"); plain = rx.sub(plain, "", true)
+	var rx := RegEx.new(); rx.compile("\\[/?(color|font_size|b)[^\\]]*\\]"); plain = rx.sub(plain, "", true)
 	if Game.gear_level() <= 1 and Game.S.stats.gathered == 0:
 		return "Bienvenue, jeune aventurier. Valdrune a besoin de toi. Commence par récolter des ressources autour du village, puis va voir Brokk à la forge pour de meilleurs outils. Chaque nouvel outil t'ouvre une région plus lointaine… et plus dangereuse.\n\n[color=#ffd27a]%s[/color]" % plain
 	return "Ta prochaine tâche : [color=#ffd27a]%s[/color]\n\nSuis la flèche dorée, elle te guidera." % plain
