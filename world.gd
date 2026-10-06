@@ -1273,7 +1273,7 @@ func _gates() -> void:
 		gl.no_depth_test = true; gl.outline_modulate = Color(0.1, 0.06, 0.0, 0.95)
 		gates.append({"pos": Vector3(P.x, y, P.y), "to": g.to, "dir": g.dir, "arrive": g.arrive})
 		# panneau indicateur à la sortie de la ville, sur la route du passage
-		var sp := village + (P - village).normalized() * 22.0
+		var sp := village + (P - village).normalized() * 56.0     # à la sortie de la ville, plus au milieu des rues
 		# jamais au milieu d'une rue : on le pousse sur le bas-côté
 		var pdir := (P - village).normalized(); var perp := Vector2(-pdir.y, pdir.x)
 		for k in 12:
@@ -1292,8 +1292,8 @@ func _signpost(p: Vector2, toward: Vector2, txt: String, col: Color) -> void:
 	var board := MeshInstance3D.new(); var bm := BoxMesh.new(); bm.size = Vector3(1.9, 0.42, 0.08); board.mesh = bm
 	var bw := StandardMaterial3D.new(); bw.albedo_color = Color("#a8763e"); board.material_override = bw; board.position.y = 2.25
 	var d := toward - p; board.rotation.y = atan2(d.x, d.y) - PI * 0.5; root.add_child(board)
-	var l := Label3D.new(); l.text = txt; l.font_size = 56; l.outline_size = 14; l.modulate = col.lightened(0.3); l.outline_modulate = Color(0.15, 0.08, 0.02, 0.95)
-	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED; l.pixel_size = 0.009; l.position.y = 2.9; l.no_depth_test = true; root.add_child(l)
+	var l := Label3D.new(); l.text = txt; l.font_size = 42; l.outline_size = 12; l.modulate = col.lightened(0.3); l.outline_modulate = Color(0.15, 0.08, 0.02, 0.95)
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED; l.pixel_size = 0.009; l.position.y = 2.9; root.add_child(l)
 	blocker(Vector3(p.x, 0, p.y), 0.25)
 
 # ——— Ville générique (cartes 2 à 4) : place centrale, bâtiments en cercle, chaque PNJ devant SA boutique ———

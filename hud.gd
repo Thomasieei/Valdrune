@@ -646,6 +646,9 @@ func _mini_tail(c: CanvasItem, ctr: Vector2, P: Player) -> void:
 	_disc(region_lbl.position + Vector2(10, 12), 5, region_dot)
 
 func update(_dt: float) -> void:
+	# sécurité : une fenêtre « fantôme » (fermée mais toujours marquée ouverte) bloquait toutes les actions
+	if panel_open and (panel == null or not is_instance_valid(panel) or not panel.is_inside_tree()) and not (title and is_instance_valid(title)):
+		panel_open = false; cur_panel = ""; Game.crumb("fenêtre fantôme refermée")
 	fps_lbl.text = "%d FPS" % Engine.get_frames_per_second()
 	root.queue_redraw(); overlay.queue_redraw()
 
@@ -914,9 +917,8 @@ func show_armurier(tab := "") -> void:
 			h.add_child(aslot(main.icons.item_icon(it), t, 1, false, Callable(), 74, 0, null, it))
 			var v := VBoxContainer.new(); v.size_flags_horizontal = Control.SIZE_EXPAND_FILL; v.add_theme_constant_override("separation", 4); h.add_child(v)
 			v.add_child(_ink(Game.item_name(it), 18, INK, true))
-			if t > Game.unlocked(c.slot) + 1:
-				v.add_child(rich("[color=#a0301c]Porte d'abord %s T%d[/color]" % [Game.SLOT_ART[c.slot], t - 1], 15))
-				continue
+			var why: String = Game.equip_block(it)
+			if why != "": v.add_child(rich("[color=#a0301c]Pour l'équiper : %s[/color]" % why, 14))
 			if arm_tab == "craft":
 				var cost := Game.craft_cost(c, t)
 				var mh := HBoxContainer.new(); mh.add_theme_constant_override("separation", 8); v.add_child(mh)
@@ -1684,8 +1686,21 @@ func show_auction(tab := "", cat := "") -> void:
 			"orders": _orders_tab(body)
 	, min(AH_W, vs().x - 40))
 
+var ah_kind := ""
+func _ah_kinds() -> Dictionary:
+	match ah_cat:
+		"arme": return Game.WEAPON_KINDS
+		"veste": return Game.ARMOR_KINDS
+		"casque": return Game.GEAR_KINDS.get("casque", {})
+		"cape": return Game.GEAR_KINDS.get("cape", {})
+		"chaussures": return Game.GEAR_KINDS.get("bottes", {})
+	return {}
 func _ah_match(e: Dictionary) -> bool:
 	if ah_cat != "all" and cat_of(e) != ah_cat: return false
+	if ah_kind != "" and not e.has("res"):
+		var kd: Dictionary = _ah_kinds()
+		var ek: String = str(e.get("kind", kd.keys()[0] if not kd.is_empty() else ""))
+		if ek != ah_kind: return false
 	if ah_tier > 0 and int(e.tier) != ah_tier: return false
 	if ah_query != "" and not entry_name(e).to_lower().contains(ah_query.to_lower()): return false
 	return true
@@ -1693,17 +1708,24 @@ func _ah_match(e: Dictionary) -> bool:
 # barre de filtres : recherche, catégorie, niveau, remise à zéro (comme Albion)
 func _ah_filters(body: Control) -> void:
 	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 8); body.add_child(h)
-	var le := LineEdit.new(); le.placeholder_text = "Recherche…"; le.text = ah_query; le.custom_minimum_size = Vector2(250, 48); le.add_theme_font_size_override("font_size", 19)
+	var le := LineEdit.new(); le.placeholder_text = "Recherche…"; le.text = ah_query; le.custom_minimum_size = Vector2(180, 48); le.add_theme_font_size_override("font_size", 19)
 	le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	le.text_submitted.connect(func(t: String): ah_query = t.strip_edges(); show_auction()); h.add_child(le)
 	var go := big_button("Chercher", true, func(): ah_query = le.text.strip_edges(); show_auction()); go.custom_minimum_size = Vector2(120, 48); h.add_child(go)
 	var oc := _parch_option(AH_CATS.map(func(c): return c[1]), AH_CATS.map(func(c): return c[0]).find(ah_cat))
-	oc.item_selected.connect(func(i: int): ah_cat = AH_CATS[i][0]; show_auction()); h.add_child(oc)
+	oc.item_selected.connect(func(i: int): ah_cat = AH_CATS[i][0]; ah_kind = ""; show_auction()); h.add_child(oc)
+	# type précis (épée, hache, arc… / plaque, cuir, tissu…) dans la catégorie choisie
+	var kd: Dictionary = _ah_kinds()
+	if not kd.is_empty():
+		var names: Array = ["Tous les types"]; var keys: Array = [""]
+		for k in kd: names.append(str(kd[k].name)); keys.append(k)
+		var ok := _parch_option(names, max(0, keys.find(ah_kind)))
+		ok.item_selected.connect(func(i: int): ah_kind = keys[i]; show_auction()); h.add_child(ok)
 	var tiers := ["Tous niveaux"]
 	for t in range(1, 6): tiers.append("Tier %s" % ROMAN[t])
 	var ot := _parch_option(tiers, ah_tier)
 	ot.item_selected.connect(func(i: int): ah_tier = i; show_auction()); h.add_child(ot)
-	var rs := big_button("↺", true, func(): ah_query = ""; ah_cat = "all"; ah_tier = 0; show_auction()); rs.custom_minimum_size = Vector2(52, 48)
+	var rs := big_button("↺", true, func(): ah_query = ""; ah_cat = "all"; ah_tier = 0; ah_kind = ""; show_auction()); rs.custom_minimum_size = Vector2(52, 48)
 	rs.add_theme_font_override("font", ThemeDB.fallback_font); h.add_child(rs)
 
 func _parch_option(items: Array, sel: int) -> OptionButton:

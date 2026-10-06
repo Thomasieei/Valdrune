@@ -828,6 +828,15 @@ func ah_refresh_stock(force := false) -> void:
 	var donkey := {"slot": "monture", "tier": 1, "kind": "ane"}; donkey["price"] = int(Game.item_price(donkey) * randf_range(0.95, 1.2)); ah.stock.append(donkey)
 	for k in 3:
 		var mo := Game.random_mount(5); mo["price"] = int(Game.item_price(mo) * randf_range(0.95, 1.4)); mo["seller"] = Bot.NAMES[randi() % Bot.NAMES.size()]; ah.stock.append(mo)
+	# chaque type d'arme et d'armure est toujours disponible (à ton tier et au suivant) : on trouve ce qu'on cherche
+	for t3 in [clamp(lvl, 1, 5), clamp(lvl + 1, 1, 5)]:
+		for wk in Game.WEAPON_KINDS:
+			var wi := Game.roll_bx({"slot": "epee", "tier": t3, "kind": wk}); wi["price"] = int(Game.item_price(wi) * randf_range(0.95, 1.3))
+			if randf() < 0.5: wi["seller"] = Bot.NAMES[randi() % Bot.NAMES.size()]
+			ah.stock.append(wi)
+		for ak in Game.ARMOR_KINDS:
+			var ai := Game.roll_bx({"slot": "armure", "tier": t3, "kind": ak}); ai["price"] = int(Game.item_price(ai) * randf_range(0.95, 1.3))
+			ah.stock.append(ai)
 	# beaucoup de choix, tous les tiers (même ceux qu'on ne peut pas encore porter)
 	for i in 44:
 		var t: int = clamp(lvl + randi_range(-1, 1) + (1 if randf() < 0.25 else 0), 1, Game.MAX_TIER) if randf() < 0.45 else randi_range(1, 5)
@@ -1389,9 +1398,9 @@ func _update_moods(dt: float) -> void:
 		var face: Sprite3D = n.get_meta("face") if n.has_meta("face") else null
 		if face == null:
 			face = Sprite3D.new(); face.billboard = BaseMaterial3D.BILLBOARD_ENABLED; face.pixel_size = 0.0042; face.no_depth_test = true; face.render_priority = 5
-			face.position = Vector3(0, 3.02 * float(n.data.get("scale", 1.0)), 0); n.add_child(face); n.set_meta("face", face)
+			face.position = Vector3(-(n.nm.length() * (0.135 if n.marker else 0.085) + 0.3), 2.66 * float(n.data.get("scale", 1.0)), 0); n.add_child(face); n.set_meta("face", face)
 			var ql := Label3D.new(); ql.font_size = 110; ql.outline_size = 18; ql.billboard = BaseMaterial3D.BILLBOARD_ENABLED; ql.pixel_size = 0.008; ql.no_depth_test = true
-			ql.position = Vector3(0.55, 3.55 * float(n.data.get("scale", 1.0)), 0); n.add_child(ql); n.set_meta("qmark", ql)
+			ql.position = Vector3(0, 3.65 * float(n.data.get("scale", 1.0)), 0); n.add_child(ql); n.set_meta("qmark", ql)
 		var m := npc_mood(n)
 		var near: bool = n.global_position.distance_to(pp) < 26.0
 		face.visible = near and not n.hidden
@@ -1402,7 +1411,7 @@ func _update_moods(dt: float) -> void:
 		ql2.text = {"offer": "!", "ready": "?", "locked": "…"}.get(qs, "")
 		ql2.modulate = {"offer": Color("#ffd24a"), "ready": Color("#7dff8a"), "locked": Color(0.7, 0.7, 0.72)}.get(qs, Color.WHITE)
 		ql2.outline_modulate = Color(0.15, 0.08, 0, 0.95)
-		if n.marker and is_instance_valid(n.marker): n.marker.visible = not ql2.visible and not n.hidden
+		if n.marker and is_instance_valid(n.marker): n.marker.visible = not n.hidden
 		# un habitant hostile te le fait savoir quand tu passes près de lui
 		if m == "hostile" and n.global_position.distance_to(pp) < 5.0 and float(n.get_meta("emo_t", 0.0)) < Time.get_ticks_msec() / 1000.0:
 			n.set_meta("emo_t", Time.get_ticks_msec() / 1000.0 + 25.0); emote(n, "anger")
@@ -2190,7 +2199,6 @@ func buy_tool(tool: String, t: int, q: int) -> void:
 func craft_gear(ci: int, t: int) -> void:
 	Game.crumb("forge pièce %d T%d" % [ci, t])
 	var c: Dictionary = Game.CRAFTS[ci]
-	if t > Game.unlocked(c.slot) + 1: Game.play("error"); hud.toast("Tier verrouillé : porte d'abord le T%d" % (t - 1), Color("#ff9a8a")); return
 	var cost := Game.craft_cost(c, t)
 	if not Game.has_cost(cost): Game.play("error"); return
 	if Game.bag_used() >= Game.bag_size(): hud.toast("Sac plein", Color("#ff9a8a")); Game.play("error"); return
@@ -2203,7 +2211,6 @@ func craft_gear(ci: int, t: int) -> void:
 	Game.save(); update_goal(); hud.show_armurier("craft")
 
 func buy_gear(it: Dictionary) -> void:
-	if int(it.tier) > Game.unlocked(it.slot) + 1: Game.play("error"); hud.toast("Tier verrouillé : porte d'abord le T%d" % (int(it.tier) - 1), Color("#ff9a8a")); return
 	var price := int(Game.item_price(it) * 1.3 * Game.price_mult())
 	if Game.S.silver < price: Game.play("error"); hud.toast("Il te manque %s argent" % Game.fmt(price - Game.S.silver), Color("#ff9a8a")); return
 	if not Game.add_item(Game.roll_bx(it.duplicate())): hud.toast("Sac plein", Color("#ff9a8a")); Game.play("error"); return

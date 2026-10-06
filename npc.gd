@@ -87,12 +87,23 @@ func setup(m: Node, d: Dictionary) -> void:
 	var l := Label3D.new(); l.text = nm; l.font = NAME_FONT; l.font_size = 58 if key_npc else 44; l.outline_size = 14 if key_npc else 10
 	l.modulate = Color("#ffd98a") if key_npc else Color("#f2ece0"); l.outline_modulate = Color(0.08, 0.05, 0.02, 0.9)
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED; l.pixel_size = 0.0085 if key_npc else 0.0065; l.position.y = 2.62 * sc; l.no_depth_test = true; l.render_priority = 4; add_child(l)
-	var r := Label3D.new(); r.text = role; r.font_size = 36 if key_npc else 28; r.outline_size = 9; r.modulate = Color("#f4e6c4") if key_npc else Color("#bfc8cf"); r.outline_modulate = Color(0, 0, 0, 0.75)
+	var r := Label3D.new(); r.text = SERVICE_DO.get(act, role) if key_npc else role; r.font_size = 36 if key_npc else 28; r.outline_size = 9; r.modulate = Color("#f4e6c4") if key_npc else Color("#bfc8cf"); r.outline_modulate = Color(0, 0, 0, 0.75)
 	r.billboard = BaseMaterial3D.BILLBOARD_ENABLED; r.pixel_size = 0.0075 if key_npc else 0.0065; r.position.y = 2.3 * sc; r.no_depth_test = true; r.render_priority = 4; add_child(r)
 	if act in ["quest", "auction", "duel", "mercs", "enchant", "tools", "forge", "harbor", "tools3", "travel", "shop", "tannery", "sawmill"]:
-		marker = Label3D.new(); marker.text = {"quest": "!", "auction": "$", "duel": "VS", "mercs": "+", "enchant": "+5", "tools": "★", "forge": "★", "harbor": "ÎLES", "tools3": "★", "travel": "»", "shop": "$", "tannery": "★", "sawmill": "★"}[act]; marker.font_size = 90 if act != "duel" else 70; marker.outline_size = 16
-		marker.modulate = {"duel": Color("#ff7a4a"), "enchant": Color("#d58bff")}.get(act, Color("#ffd24a")); marker.outline_modulate = Color(0.3, 0.15, 0, 0.9); marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED; marker.pixel_size = 0.008; marker.position.y = 3.55 * d.get("scale", 1.0); marker.no_depth_test = true; add_child(marker)
-	var b := StaticBody3D.new(); var cs := CollisionShape3D.new(); var cy := CylinderShape3D.new(); cy.radius = 0.4; cy.height = 2.0; cs.shape = cy; cs.position.y = 1.0; b.add_child(cs); add_child(b)
+		# au-dessus de la tête : le NOM DU SERVICE en clair (et plus un symbole qu'on ne comprend pas)
+		marker = Label3D.new(); marker.text = SERVICE.get(act, "")
+		marker.font = NAME_FONT; marker.font_size = 64; marker.outline_size = 16
+		marker.modulate = SERVICE_COL.get(act, Color("#ffd24a")); marker.outline_modulate = Color(0.12, 0.06, 0.0, 0.95)
+		marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED; marker.pixel_size = 0.0085; marker.position.y = 3.45 * sc; marker.no_depth_test = true; marker.render_priority = 4; add_child(marker)
+		# halo au sol, couleur du service : on repère les PNJ utiles de loin
+		if act != "duel":
+			var ring := MeshInstance3D.new(); var cm := CylinderMesh.new(); cm.top_radius = 0.95; cm.bottom_radius = 0.95; cm.height = 0.02; cm.radial_segments = 32; ring.mesh = cm
+			var rm := StandardMaterial3D.new(); rm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; rm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			var rc: Color = SERVICE_COL.get(act, Color("#ffd24a")); rm.albedo_color = Color(rc.r, rc.g, rc.b, 0.32); ring.material_override = rm
+			ring.position.y = 0.06; ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; add_child(ring)
+	var b := StaticBody3D.new(); var cs := CollisionShape3D.new(); var cy := CylinderShape3D.new(); cy.radius = 0.4; cy.height = 2.0; cs.shape = cy; cs.position.y = 1.0; b.add_child(cs)
+	b.collision_layer = 0; b.collision_mask = 0      # les PNJ ne bloquent plus le passage (le héros et la chasse auto restaient coincés contre eux)
+	add_child(b)
 	_play("Idle_A")
 
 func _play(n: String, sp := 1.0) -> void:
@@ -103,7 +114,7 @@ func _process(dt: float) -> void:
 	if hidden: return
 	var P: Node3D = main.player
 	var d := Vector2(P.global_position.x - position.x, P.global_position.z - position.z)
-	if marker: marker.position.y = 3.15 * data.get("scale", 1.0) + sin(Time.get_ticks_msec() * 0.004) * 0.12
+	if marker: marker.position.y = 3.05 * data.get("scale", 1.0) + sin(Time.get_ticks_msec() * 0.003) * 0.06
 	var far := d.length() > 45.0
 	if ap.active == far: ap.active = not far   # loin : animation coupée (gros gain sur mobile)
 	if far: return
@@ -157,6 +168,15 @@ const ACT_LINES := {
 }
 
 static var NAME_FONT: Font = load("res://ui/serif_bold.ttf")
+const SERVICE := {"quest": "QUÊTES", "auction": "HÔTEL DES VENTES", "duel": "DUEL", "mercs": "MERCENAIRES", "enchant": "ENCHANTEMENTS", "tools": "OUTILS",
+	"tools3": "OUTILS", "forge": "FORGE", "harbor": "ÎLES", "travel": "VOYAGES", "shop": "MARCHÉ", "tannery": "TANNERIE", "sawmill": "SCIERIE"}
+const SERVICE_COL := {"quest": Color("#ffe27a"), "auction": Color("#7fc8ff"), "duel": Color("#ff7a4a"), "mercs": Color("#7dff8a"), "enchant": Color("#d58bff"),
+	"tools": Color("#b6f27a"), "tools3": Color("#b6f27a"), "forge": Color("#ffa060"), "harbor": Color("#7fe8ff"), "travel": Color("#c9a0ff"), "shop": Color("#ffd24a"),
+	"tannery": Color("#e0b07a"), "sawmill": Color("#b8e07a")}
+# ce que fait le PNJ, en une ligne (sous son nom)
+const SERVICE_DO := {"quest": "Quêtes et conseils", "auction": "Acheter · vendre aux joueurs", "mercs": "Mercenaires · expéditions", "enchant": "Améliorer son équipement",
+	"tools": "Vend des outils de récolte", "tools3": "Haches · pioches · faucilles", "forge": "Armes et armures : acheter, fabriquer", "harbor": "Acheter une île",
+	"travel": "Voyage rapide vers les autres villes", "shop": "Potions, nourriture · revente", "tannery": "Vendre ses peaux · couteau", "sawmill": "Rachète le bois plus cher"}
 func next_line() -> String:
 	if id == "aldric" or act == "quest": return main.quest_line()
 	var arr: Array = LINES.get(id, LINES.get(id.get_slice("_", 0), ACT_LINES.get(act, ["…"])))

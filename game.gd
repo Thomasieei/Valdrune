@@ -677,7 +677,7 @@ func unlock_note(slot: String, t: int) -> void:
 func equip_block(it: Dictionary) -> String:
 	if not it.slot in UNLOCK_SLOTS: return ""
 	var t := int(it.tier)
-	if t > unlocked(it.slot) + 1: return "Porte d'abord %s T%d pour débloquer le T%d" % [SLOT_ART[it.slot], t - 1, t]
+	# une seule règle, simple : le niveau de maîtrise (plus besoin d'avoir porté le tier d'avant)
 	if it.slot == "epee":
 		var k: String = it.get("kind", "epee")
 		if int(wxp(k).lvl) < WREQ[clamp(t, 1, 5)]: return "Maîtrise %s niveau %d requise (tu es niveau %d)" % [WEAPON_KINDS[k].name.to_lower(), WREQ[t], int(wxp(k).lvl)]
@@ -846,7 +846,7 @@ func _notification(what: int) -> void:
 # ================= JOURNAL DE BORD (pour retrouver ce qui a fait planter le jeu) =================
 const FLAG_PATH := "user://en_cours.flag"
 const CRUMB_PATH := "user://journal.txt"
-const VERSION := "8.1"
+const VERSION := "8.2"
 var crumbs: Array = []
 var crashed_last := false
 var last_crumbs := ""
