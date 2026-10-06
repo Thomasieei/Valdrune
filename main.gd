@@ -529,6 +529,7 @@ func on_gather_hit(nd: Dictionary) -> void:
 	Game.S.inv[nd.type][nd.tier] += n; Game.S.stats.gathered += n; _dq("gather", n)
 	# XP de métier : plus le tier est haut, plus ça rapporte
 	var xp: int = [0, 8, 14, 24, 40, 65][nd.tier]
+	if nd.tier < int(Game.S.gear.get(tool, 1)): xp = max(1, int(xp * 0.35))   # récolter sous son tier rapporte peu
 	var ups := Game.add_prof_xp(tool, xp)
 	hud.prof_gain(tool, xp)
 	if ups > 0:
@@ -611,6 +612,8 @@ func gain_silver(n: int) -> int:
 func _weapon_xp(tier: int, mult: float) -> void:
 	var kind: String = Game.S.get("weapon_kind", "epee")
 	var xp := int([0, 6, 10, 16, 26, 40][clamp(tier, 1, 5)] * mult)
+	# les monstres plus faibles que ton arme ne t'apprennent presque plus rien : il faut aller au danger
+	if tier < int(Game.S.gear.get("epee", 1)): xp = max(1, int(xp * 0.35))
 	var ups := Game.add_weapon_xp(kind, xp)
 	hud.weapon_gain(kind, xp)
 	if ups > 0:

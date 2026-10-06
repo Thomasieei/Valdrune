@@ -1473,7 +1473,7 @@ func _guide_tiers() -> String:
 		for ti in range(2, 6):
 			var need: int = r[2][ti]
 			t += "[cell]%s[/cell]" % (("[color=#7dff8a]✔ %d[/color]" % need) if r[1] >= need else ("[color=#ff9a8a]niv %d[/color]" % need))
-	t += "[/table]\n\n[color=#a8b4bc]Astuce : combattre des monstres de ton tier ou au-dessus donne beaucoup plus d'expérience. Les objets portés gagnent aussi des niveaux (+5 % par niveau).[/color]"
+	t += "[/table]\n\n[color=#a8b4bc]Monter est [b]long[/b] : compte quelques heures pour le T3, une quinzaine pour le T4 et des dizaines pour le T5. Les monstres et ressources [b]en dessous de ton tier ne rapportent que 35 %[/b] de l'expérience : il faut aller là où c'est dangereux. Premium (+50 %) et boosts (×2) accélèrent tout. Les objets portés gagnent aussi des niveaux (+5 % par niveau).[/color]"
 	return t
 
 func _guide_combat() -> String:
@@ -1712,14 +1712,14 @@ const OFFERS := [
 	{"id": "m_taureau", "tab": "montures", "name": "Taureau cuirassé", "desc": "Monture T5 : +100 % vitesse, +12 % dégâts, +15 % vie", "icon": "mount_taureau", "col": "#ff6a5a", "cr": 2200},
 	{"id": "m_loup", "tab": "montures", "name": "Loup de guerre", "desc": "Monture T4 : rapide, +8 % de vie", "icon": "mount_loup", "col": "#4d78ff", "cr": 900},
 	{"id": "m_cheval", "tab": "montures", "name": "Cheval de selle", "desc": "Monture T2 : +75 % de vitesse", "icon": "mount_cheval", "col": "#62d24e", "cr": 150},
-	{"id": "lame", "tab": "armes", "name": "Lame de l'Aube +5", "desc": "Épée T5 enchantée au maximum · maîtrise niv 14", "icon": "arme_epee_5", "col": "#ffb02e", "cr": 2400, "hot": true},
-	{"id": "fendeuse", "tab": "armes", "name": "Fendeuse du Néant +5", "desc": "Hache T5 +5 · maîtrise niv 14", "icon": "arme_hache_5", "col": "#ff6a5a", "cr": 2400},
-	{"id": "sceptre", "tab": "armes", "name": "Sceptre Astral +5", "desc": "Bâton T5 +5 · maîtrise niv 14", "icon": "arme_baton_5", "col": "#c77dff", "cr": 2400},
-	{"id": "titan", "tab": "armes", "name": "Rempart du Titan +5", "desc": "Bouclier T5 +5 · armure niv 14", "icon": "bouclier_5", "col": "#9fd4ff", "cr": 1600},
-	{"id": "set_plate", "tab": "equip", "name": "Plates du Dragon +5", "desc": "Armure de plates T5 +5 · armure niv 14", "icon": "armure_plate", "col": "#ff3d3d", "cr": 2000},
-	{"id": "set_cuir", "tab": "equip", "name": "Cuir de l'Ombre +5", "desc": "Veste de cuir T5 +5 · armure niv 14", "icon": "armure_cuir", "col": "#4fe36a", "cr": 2000},
-	{"id": "set_tissu", "tab": "equip", "name": "Robe Céleste +5", "desc": "Robe de mage T5 +5 · armure niv 14", "icon": "armure_tissu", "col": "#b45cff", "cr": 2000},
-	{"id": "bottes", "tab": "equip", "name": "Bottes de Vent +5", "desc": "Bottes T5 +5 · armure niv 14", "icon": "boots_5", "col": "#7fe8ff", "cr": 1300},
+	{"id": "lame", "tab": "armes", "name": "Lame de l'Aube +5", "desc": "Épée T5 enchantée au maximum · maîtrise niv 24", "icon": "arme_epee_5", "col": "#ffb02e", "cr": 2400, "hot": true},
+	{"id": "fendeuse", "tab": "armes", "name": "Fendeuse du Néant +5", "desc": "Hache T5 +5 · maîtrise niv 24", "icon": "arme_hache_5", "col": "#ff6a5a", "cr": 2400},
+	{"id": "sceptre", "tab": "armes", "name": "Sceptre Astral +5", "desc": "Bâton T5 +5 · maîtrise niv 24", "icon": "arme_baton_5", "col": "#c77dff", "cr": 2400},
+	{"id": "titan", "tab": "armes", "name": "Rempart du Titan +5", "desc": "Bouclier T5 +5 · armure niv 24", "icon": "bouclier_5", "col": "#9fd4ff", "cr": 1600},
+	{"id": "set_plate", "tab": "equip", "name": "Plates du Dragon +5", "desc": "Armure de plates T5 +5 · armure niv 24", "icon": "armure_plate", "col": "#ff3d3d", "cr": 2000},
+	{"id": "set_cuir", "tab": "equip", "name": "Cuir de l'Ombre +5", "desc": "Veste de cuir T5 +5 · armure niv 24", "icon": "armure_cuir", "col": "#4fe36a", "cr": 2000},
+	{"id": "set_tissu", "tab": "equip", "name": "Robe Céleste +5", "desc": "Robe de mage T5 +5 · armure niv 24", "icon": "armure_tissu", "col": "#b45cff", "cr": 2000},
+	{"id": "bottes", "tab": "equip", "name": "Bottes de Vent +5", "desc": "Bottes T5 +5 · armure niv 24", "icon": "boots_5", "col": "#7fe8ff", "cr": 1300},
 	{"id": "art_rage", "tab": "equip", "name": "Idole de rage +3", "desc": "Artefact T5 : +30 % de dégâts", "icon": "art_rage", "col": "#ff7a4a", "cr": 1500},
 	{"id": "art_vie", "tab": "equip", "name": "Calice de vie +3", "desc": "Artefact T5 : +40 % de vie", "icon": "art_vie", "col": "#7dff8a", "cr": 1500},
 	{"id": "art_fortune", "tab": "equip", "name": "Anneau de fortune +3", "desc": "Artefact T5 : +50 % d'argent gagné", "icon": "art_fortune", "col": "#ffd24a", "cr": 1500},

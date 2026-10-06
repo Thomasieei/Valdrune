@@ -477,9 +477,9 @@ static func fmt(n: float) -> String:
 
 # ——— Métiers de récolte : niveaux, XP ———
 const PROF_OF := {"wood": "hache", "ore": "pioche", "fiber": "faucille"}
-const PROF_REQ := [0, 1, 5, 11, 18, 25]          # niveau de métier requis pour récolter chaque tier
+const PROF_REQ := [0, 1, 6, 13, 21, 29]          # niveau de métier requis pour récolter chaque tier
 const PROF_MAX := 40
-static func prof_need(lvl: int) -> int: return int(100 * pow(1.28, lvl - 1))
+static func prof_need(lvl: int) -> int: return int(130 * pow(1.29, lvl - 1))   # lent : ~2 h pour le T3, ~12 h pour le T4, ~60 h pour le T5
 func prof(tool: String) -> Dictionary:
 	if not S.prof.has(tool): S.prof[tool] = {"lvl": 1, "xp": 0}
 	return S.prof[tool]
@@ -496,7 +496,7 @@ func add_prof_xp(tool: String, xp: int) -> int:
 
 # ——— Maîtrise d'arme : XP en tuant des monstres, +0,5 % de dégâts par niveau ———
 const WXP_MAX := 50
-static func weapon_need(lvl: int) -> int: return int(80 * pow(1.3, lvl - 1))
+static func weapon_need(lvl: int) -> int: return int(120 * pow(1.3, lvl - 1))   # lent : ~3 h pour le T3, ~14 h pour le T4, ~70 h pour le T5
 func wxp(kind: String) -> Dictionary:
 	if not S.wxp.has(kind): S.wxp[kind] = {"lvl": 1, "xp": 0}
 	return S.wxp[kind]
@@ -618,7 +618,7 @@ func bag_used() -> int:
 # ——— Paliers : on débloque les tiers un par un (porter le T2 ouvre le T3…) ———
 const UNLOCK_SLOTS := ["epee", "bouclier", "casque", "armure", "cape", "bottes"]
 const SLOT_ART := {"epee": "une arme", "bouclier": "un bouclier", "casque": "un casque", "armure": "un plastron", "cape": "une cape", "bottes": "des bottes"}
-const WREQ := [0, 1, 2, 5, 9, 14]       # maîtrise (arme ou armure) requise pour porter chaque tier
+const WREQ := [0, 1, 4, 10, 17, 24]       # maîtrise (arme ou armure) requise pour porter chaque tier
 func unlocked(slot: String) -> int:
 	if not S.has("unlock"): S["unlock"] = {}
 	return max(int(S.unlock.get(slot, 1)), 1)
