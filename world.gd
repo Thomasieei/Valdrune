@@ -404,6 +404,27 @@ func _heights() -> void:
 			_last_clear = -1.0
 			hs[j * N + i] = raw_height(-HALF + i * CELL, -HALF + j * CELL)
 			pgrid[j * N + i] = _last_pk
+	_soften_slopes()
+
+# collines gravissables : hors falaises visibles, bordure et volcan, aucune marche de plus de 1,9 m entre deux cases (2 m)
+func _soften_slopes() -> void:
+	var free := PackedByteArray(); free.resize(N * N)
+	for j in N:
+		for i in N:
+			var x := -HALF + i * CELL; var z := -HALF + j * CELL
+			free[j * N + i] = 1 if (cliff_k(x, z) < 0.45 and border_k(x, z) < 0.05 and volcano_k(x, z) < 0.3) else 0
+	var MAXD := 1.9
+	for it in 8:
+		var changed := 0
+		for j in range(1, N - 1):
+			for i in range(1, N - 1):
+				var k := j * N + i
+				if free[k] == 0: continue
+				var h: float = hs[k]
+				var lo: float = min(min(hs[k - 1], hs[k + 1]), min(hs[k - N], hs[k + N]))
+				if h - lo > MAXD:
+					hs[k] = lo + MAXD; changed += 1
+		if changed == 0: break
 
 func _terrain() -> void:
 	var cols := PackedColorArray(); cols.resize(N * N)
@@ -2718,7 +2739,7 @@ func _clear_k(x: float, z: float) -> float:
 
 var cnoise := FastNoiseLite.new()
 func cliff_k(x: float, z: float) -> float:
-	return smoothstep(0.12, 0.32, cnoise.get_noise_2d(x, z))
+	return smoothstep(0.3, 0.46, cnoise.get_noise_2d(x, z))   # falaises rares : presque partout, on peut gravir les collines
 var _last_pk := 0.0
 var _last_clear := -1.0
 func plateau(x: float, z: float, lv := 1) -> float:
@@ -2733,7 +2754,7 @@ func _plateau_w(x: float, z: float, w: Array, lv: int, clear := -1.0) -> float:
 		t += float(PLATEAU_2[a])
 	var n := pnoise.get_noise_2d(x, z)
 	# falaises seulement par endroits : ailleurs, le bord du plateau est une pente douce qu'on peut gravir
-	var wdt: float = lerp(0.15, 0.022, cliff_k(x, z))
+	var wdt: float = lerp(0.22, 0.022, cliff_k(x, z))
 	var k := smoothstep(t + 0.011 - wdt * 0.5, t + 0.011 + wdt * 0.5, n)
 	if k <= 0.0: return 0.0
 	if clear < 0.0: clear = _clear_k(x, z); _last_clear = clear
@@ -2781,7 +2802,9 @@ func _compute_blocked() -> void:
 			if i < N - 1: sl = max(sl, abs(hh - hs[j * N + i + 1]))
 			if j > 0: sl = max(sl, abs(hh - hs[(j - 1) * N + i]))
 			if j < N - 1: sl = max(sl, abs(hh - hs[(j + 1) * N + i]))
-			var blk := sl > 2.2 and road_dist(x, z) > 4.5 and not _near_ramp(Vector2(x, z), 2.6)
+			# seules les vraies falaises (visibles) bloquent ; ailleurs une pente raide se gravit
+			var lim: float = 2.2 if cliff_k(x, z) >= 0.45 else 3.6
+			var blk := sl > lim and road_dist(x, z) > 4.5 and not _near_ramp(Vector2(x, z), 2.6)
 			if border_k(x, z) > 0.45 and road_dist(x, z) > 5.0: blk = true
 			if volcano_k(x, z) > 0.55: blk = true
 			if blk: blocked[j * N + i] = 1

@@ -4,7 +4,7 @@ Jeu mobile Android (Godot 4.3) façon Albion Online, assets KayKit.
 
 ## Télécharger
 
-**Version actuelle : 7.4**
+**Version actuelle : 7.5**
 
 👉 [Télécharger Valdrune.apk](https://github.com/Thomasieei/Valdrune/raw/main/apk/Valdrune.apk)
 

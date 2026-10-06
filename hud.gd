@@ -127,12 +127,12 @@ func setup(m: Node) -> void:
 	root.draw.connect(_draw_under)
 	icons.portrait = icon_rect("sk_dual_swords", Vector2(64, 64), 1.15)
 	var gp := PanelContainer.new(); gp.add_theme_stylebox_override("panel", flat(Color(0.05, 0.07, 0.1, 0.62), 14, Color(0.95, 0.78, 0.45, 0.25), 1, Vector4(14, 8, 14, 10)))
-	gp.position = Vector2(12, 92); gp.custom_minimum_size = Vector2(380, 0); gp.mouse_filter = Control.MOUSE_FILTER_IGNORE; root.add_child(gp)
+	gp.position = Vector2(12, 92); gp.custom_minimum_size = Vector2(300, 0); gp.mouse_filter = Control.MOUSE_FILTER_IGNORE; root.add_child(gp)
 	var qv := VBoxContainer.new(); qv.add_theme_constant_override("separation", 2); gp.add_child(qv)
-	var qh := _label("QUÊTE", 14, GOLD); qh.add_theme_font_override("font", f_title); qv.add_child(qh)
+	var qh := _label("OBJECTIF", 11, Color(0.95, 0.78, 0.45, 0.8)); qh.add_theme_font_override("font", f_title); qv.add_child(qh)
 	goal_lbl = RichTextLabel.new(); goal_lbl.bbcode_enabled = true; goal_lbl.fit_content = true; goal_lbl.scroll_active = false
-	goal_lbl.add_theme_font_size_override("normal_font_size", 17); goal_lbl.add_theme_font_size_override("bold_font_size", 18)
-	goal_lbl.custom_minimum_size = Vector2(352, 0); goal_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE; qv.add_child(goal_lbl)
+	goal_lbl.add_theme_font_size_override("normal_font_size", 14); goal_lbl.add_theme_font_size_override("bold_font_size", 15)
+	goal_lbl.custom_minimum_size = Vector2(276, 0); goal_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE; qv.add_child(goal_lbl)
 	hint_lbl = RichTextLabel.new(); hint_lbl.bbcode_enabled = true; hint_lbl.fit_content = true; hint_lbl.scroll_active = false
 	hint_lbl.add_theme_font_size_override("normal_font_size", 18); hint_lbl.add_theme_constant_override("outline_size", 6); hint_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 	hint_lbl.custom_minimum_size = Vector2(520, 0); hint_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE; root.add_child(hint_lbl)
@@ -142,19 +142,19 @@ func setup(m: Node) -> void:
 	region_lbl = _label("", 15, SOFT); region_lbl.add_theme_font_override("font", f_title); region_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; region_lbl.size = Vector2(220, 22); root.add_child(region_lbl)
 	for i in 4: icons["s%d" % i] = icon_rect(Player.skills()[i].icon, Vector2(70, 70), 1.12)
 	icons.attack = icon_rect("sk_sword_bash_orange", Vector2(96, 96), 1.1)
-	icons.bag = icon_rect("it_loot_common", Vector2(50, 50), 0.9)
+	icons.bag = icon_rect("it_loot_common", Vector2(38, 38), 0.9)
 	overlay = Control.new(); overlay.set_anchors_preset(Control.PRESET_FULL_RECT); overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE; overlay.draw.connect(_draw_over); root.add_child(overlay)
 	red = ColorRect.new(); red.color = Color(0.8, 0, 0, 0.0); red.set_anchors_preset(Control.PRESET_FULL_RECT); red.mouse_filter = Control.MOUSE_FILTER_IGNORE; root.add_child(red)
 	fps_lbl = _label("", 12, Color(0.8, 1, 0.8, 0.6)); root.add_child(fps_lbl)
 	for n in ["main", "dodge", "s0", "s1", "s2", "s3", "potion", "mount", "bag", "menu", "zoom", "shop", "ile", "map", "daily", "rank"]: buttons[n] = {"rect": Rect2(), "held": false}
-	auto_btn = Button.new(); auto_btn.focus_mode = Control.FOCUS_NONE; auto_btn.custom_minimum_size = Vector2(96, 52)
-	auto_btn.add_theme_font_override("font", f_title); auto_btn.add_theme_font_size_override("font_size", 19)
+	auto_btn = Button.new(); auto_btn.focus_mode = Control.FOCUS_NONE; auto_btn.custom_minimum_size = Vector2(92, 44)
+	auto_btn.add_theme_font_override("font", f_title); auto_btn.add_theme_font_size_override("font_size", 16)
 	auto_btn.pressed.connect(func(): show_auto()); root.add_child(auto_btn)
-	chat_box = Button.new(); chat_box.focus_mode = Control.FOCUS_NONE; chat_box.custom_minimum_size = Vector2(360, 72); chat_box.size = Vector2(360, 72)
+	chat_box = Button.new(); chat_box.focus_mode = Control.FOCUS_NONE; chat_box.custom_minimum_size = Vector2(300, 30); chat_box.size = Vector2(300, 30)
 	var cst := flat(Color(0.03, 0.05, 0.08, 0.5), 12, Color(0.6, 0.8, 1.0, 0.18), 1, Vector4(10, 6, 10, 6))
 	for k in ["normal", "hover", "pressed"]: chat_box.add_theme_stylebox_override(k, cst)
 	chat_lbl = RichTextLabel.new(); chat_lbl.bbcode_enabled = true; chat_lbl.scroll_active = false; chat_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	chat_lbl.position = Vector2(10, 4); chat_lbl.size = Vector2(342, 66); chat_lbl.add_theme_font_size_override("normal_font_size", 13); chat_lbl.add_theme_font_size_override("bold_font_size", 13)
+	chat_lbl.position = Vector2(10, 5); chat_lbl.size = Vector2(282, 22); chat_lbl.clip_contents = true; chat_lbl.autowrap_mode = TextServer.AUTOWRAP_OFF; chat_lbl.add_theme_font_size_override("normal_font_size", 12); chat_lbl.add_theme_font_size_override("bold_font_size", 12)
 	chat_lbl.add_theme_constant_override("outline_size", 4); chat_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
 	chat_box.add_child(chat_lbl); chat_box.pressed.connect(func(): show_chat()); root.add_child(chat_box)
 	quest_box = gp; gp.resized.connect(_place_chat)
@@ -201,17 +201,18 @@ func _layout() -> void:
 	buttons.dodge.rect = Rect2(mc + Vector2(-158, 52) - Vector2(34, 34), Vector2(68, 68))
 	buttons.potion.rect = Rect2(mc + Vector2(-248, 58) - Vector2(30, 30), Vector2(60, 60))
 	buttons.mount.rect = Rect2(mc + Vector2(-248, -28) - Vector2(30, 30), Vector2(60, 60))
-	buttons.bag.rect = Rect2(Vector2(s.x - 252, 20), Vector2(52, 52))
-	buttons.menu.rect = Rect2(Vector2(s.x - 252, 80), Vector2(52, 52))
-	buttons.zoom.rect = Rect2(Vector2(s.x - 252, 140), Vector2(52, 52))
-	buttons.shop.rect = Rect2(Vector2(s.x - 252, 200), Vector2(52, 52))
-	buttons.ile.rect = Rect2(Vector2(s.x - 252, 268), Vector2(52, 52))
-	buttons.daily.rect = Rect2(Vector2(s.x - 316, 140), Vector2(52, 52))
-	buttons.rank.rect = Rect2(Vector2(s.x - 316, 200), Vector2(52, 52))
-	icons.bag.position = buttons.bag.rect.position + Vector2(1, 1)
+	# une seule rangée d'icônes discrètes en haut à droite (comme Albion)
+	var row := ["menu", "bag", "shop", "daily", "rank", "ile", "zoom"]
+	var xi := 0
+	for nm in row:
+		if nm == "ile" and not Game.S.island.owned: continue
+		if nm in ["daily", "rank"] and main.tuto_i() < 9: buttons[nm].rect = Rect2(); continue
+		buttons[nm].rect = Rect2(Vector2(s.x - 246 - xi * 50, 8), Vector2(44, 44)); xi += 1
+	row_end_x = s.x - 246 - xi * 50
+	icons.bag.position = buttons.bag.rect.position + Vector2(3, 3)
 	icons.attack.position = mc - Vector2(48, 48)
 	hint_lbl.position = Vector2(s.x - 560 - 40, mc.y - 220)
-	if auto_btn: auto_btn.position = Vector2(s.x - 380, 20)
+	if auto_btn: auto_btn.position = Vector2(row_end_x - 50, 8)
 	_place_chat()
 
 var pinch := {}
@@ -353,32 +354,30 @@ func _draw_under() -> void:
 	_glass(c, buttons.potion.rect.get_center(), 30, Color(0.5, 1.0, 0.6, 0.6), buttons.potion.held)
 	_glass(c, buttons.mount.rect.get_center(), 30, Color(0.95, 0.78, 0.45, 0.6) if not P.mounted else Color(0.6, 0.9, 1.0, 0.9), buttons.mount.held)
 	var bag_hint: bool = main.tuto_active() and main.TUTO[main.tuto_i()].k == "equip"
-	_glass(c, buttons.bag.rect.get_center(), 26 if not bag_hint else 30, Color(1.0, 0.85, 0.3, 0.6 + 0.4 * sin(Time.get_ticks_msec() * 0.008)) if bag_hint else Color(0.95, 0.78, 0.45, 0.5))
-	_glass(c, buttons.menu.rect.get_center(), 26, Color(0.95, 0.78, 0.45, 0.5))
+	_glass(c, buttons.bag.rect.get_center(), 22 if not bag_hint else 26, Color(1.0, 0.85, 0.3, 0.6 + 0.4 * sin(Time.get_ticks_msec() * 0.008)) if bag_hint else Color(0.95, 0.78, 0.45, 0.5))
+	_glass(c, buttons.menu.rect.get_center(), 22, Color(0.95, 0.78, 0.45, 0.5))
 	var shc: Vector2 = buttons.shop.rect.get_center()
 	var pulse := 0.6 + 0.4 * sin(Time.get_ticks_msec() * 0.004)
-	_glass(c, shc, 26, Color(1.0, 0.7, 0.2, pulse))
-	_texq(T("it_chest_open"), Rect2(shc - Vector2(19, 21), Vector2(38, 38)))
-	_text(c, "BOUTIQUE", shc + Vector2(0, 40), 11, Color("#ffcf5a"), true, f_title)
+	_glass(c, shc, 22, Color(1.0, 0.7, 0.2, pulse))
+	_texq(T("crown"), Rect2(shc - Vector2(15, 16), Vector2(30, 30)))
 	# pendant l'introduction, on n'affiche QUOTIDIEN et CLASSEMENT qu'au bon moment (moins de boutons d'un coup)
 	var hide_dr: bool = main.tuto_i() < 9
-	if hide_dr: buttons.daily.rect = Rect2(); buttons.rank.rect = Rect2()
-	elif buttons.daily.rect.size.x == 0: _layout()
+	if hide_dr != (buttons.daily.rect.size.x == 0) or (Game.S.island.owned != (buttons.ile.rect.size.x > 0)): _layout()
 	if not hide_dr: _draw_daily_rank(c, pulse)
 
 	if Game.S.island.owned:
 		var ic2: Vector2 = buttons.ile.rect.get_center()
 		var danger: bool = main.raid_active()
 		var pz := 0.6 + 0.4 * sin(Time.get_ticks_msec() * (0.012 if danger else 0.003))
-		_glass(c, ic2, 26, Color(1.0, 0.25, 0.2, pz) if danger else Color(0.4, 0.8, 1.0, 0.7))
-		_texq(T("it_treasure_map"), Rect2(ic2 - Vector2(18, 20), Vector2(36, 36)))
-		_text(c, "RAID !" if danger else ("RETOUR" if main.island else "MON ÎLE"), ic2 + Vector2(0, 40), 11, Color("#ff7a6a") if danger else Color("#9fd4ff"), true, f_title)
+		_glass(c, ic2, 22, Color(1.0, 0.25, 0.2, pz) if danger else Color(0.4, 0.8, 1.0, 0.7))
+		_texq(T("it_treasure_map"), Rect2(ic2 - Vector2(15, 16), Vector2(30, 30)))
+		if danger: _text(c, "RAID !", ic2 + Vector2(0, 36), 11, Color("#ff7a6a"), true, f_title)
 	if main.island and main.island.raid_on:
 		var gtxt := "Bandits : %d / 10 groupes" % main.island.groups_cleared()
 		c.draw_style_box(flat(Color(0.25, 0.03, 0.03, 0.85), 12, Color("#ff5a4a"), 2), Rect2(12, 300, 260, 42))
 		_text(c, gtxt, Vector2(142, 328), 19, Color("#ffd2c8"), true, f_title)
 	var zc: Vector2 = buttons.zoom.rect.get_center()
-	_glass(c, zc, 26, Color(0.95, 0.78, 0.45, 0.5))
+	_glass(c, zc, 22, Color(0.95, 0.78, 0.45, 0.5))
 	_ringq(zc + Vector2(-3, -3), 10, SOFT); c.draw_line(zc + Vector2(4, 4), zc + Vector2(11, 11), SOFT, 3.0, true)
 	_text(c, "%.1f" % main.user_zoom, zc + Vector2(-3, 1), 10, GOLD)
 	_disc(Vector2(46, 46), 35, Color(0.04, 0.06, 0.09, 0.6))
@@ -425,6 +424,7 @@ func _draw_under() -> void:
 	_flush(c); batch_text = false
 
 var batch_text := false
+var row_end_x := 900.0
 func _text(c: CanvasItem, t: String, pos: Vector2, size: int, col: Color, center := true, font: Font = null) -> void:
 	var f: Font = font if font else ThemeDB.fallback_font
 	var w := f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
@@ -2212,7 +2212,7 @@ func refresh_chat() -> void:
 	if chat_lbl == null or main.social == null: return
 	var L: Array = main.social.lines
 	var out := []
-	for i in range(max(0, L.size() - 3), L.size()): out.append(_fmt_line(L[i]))
+	for i in range(max(0, L.size() - 1), L.size()): out.append("[img=14x14]res://ui/it_quest.png[/img] " + _fmt_line(L[i]))
 	chat_lbl.text = "\n".join(out)
 	_place_chat()
 	if cur_panel == "chat" and panel_open: _refresh_chat_panel()
@@ -2336,11 +2336,10 @@ func show_player_card(b: Bot) -> void:
 func _draw_daily_rank(c: CanvasItem, pulse: float) -> void:
 	var dc: Vector2 = buttons.daily.rect.get_center()
 	var nd: int = Game.dq_ready() + (1 if Game.login_can_claim() else 0) + (1 if Game.exped_ready() else 0)
-	_glass(c, dc, 26, Color(1.0, 0.85, 0.3, pulse) if nd > 0 else Color(0.95, 0.78, 0.45, 0.5))
-	_texq(T("it_quest"), Rect2(dc - Vector2(18, 20), Vector2(36, 36)))
-	_text(c, "QUOTIDIEN", dc + Vector2(0, 40), 11, Color("#ffcf5a"), true, f_title)
+	_glass(c, dc, 22, Color(1.0, 0.85, 0.3, pulse) if nd > 0 else Color(0.95, 0.78, 0.45, 0.5))
+	_texq(T("it_quest"), Rect2(dc - Vector2(15, 16), Vector2(30, 30)))
 	if nd > 0: _disc(dc + Vector2(19, -19), 10, Color("#ff3b2f")); _text(c, str(nd), dc + Vector2(19, -14), 13, Color.WHITE, true, f_title)
 	var rc: Vector2 = buttons.rank.rect.get_center()
-	_glass(c, rc, 26, Color(0.95, 0.78, 0.45, 0.5))
-	_texq(T("it_trophy"), Rect2(rc - Vector2(18, 20), Vector2(36, 36)))
-	_text(c, "#%d" % rank_cache, rc + Vector2(0, 40), 12, Color("#ffe39a"), true, f_title)
+	_glass(c, rc, 22, Color(0.95, 0.78, 0.45, 0.5))
+	_texq(T("it_trophy"), Rect2(rc - Vector2(15, 16), Vector2(30, 30)))
+	_text(c, "#%d" % rank_cache, rc + Vector2(0, 34), 11, Color("#ffe39a"), true, f_title)
