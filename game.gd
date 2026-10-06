@@ -702,6 +702,7 @@ func default_state() -> Dictionary:
 		"armor_kind": "plate", "weapon_kind": "epee", "artefact_kind": "", "mercs": [], "duels": {}, "prof": {}, "wxp": {}, "toolq": {}, "island": new_island(), "uniq": {}, "bag_bonus": 0, "mount_kind": "", "ench": {}, "tower": {"best": 0}, "items": [], "ah": {"stock": [], "stock_at": 0, "listings": []}, "unlock": {}, "map": 1, "gk": {"bottes": "greves"}, "eqx": {}, "food": {}, "guild": {}, "friends": [], "duel_wins": 0}
 
 func _ready() -> void:
+	_journal_start()
 	S = default_state()
 	if FileAccess.file_exists(SAVE_PATH):
 		var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
@@ -769,14 +770,82 @@ func save_now() -> void:
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f: f.store_string(JSON.stringify(S))
 
+var _crumb_t := 0.0
+var fps_acc := 0.0
+var fps_n := 0
+var fps_min := 999.0
 func _process(dt: float) -> void:
 	if _dirty:
 		_save_t += dt
 		if _save_t > 12.0: save_now()
+	# mesure des performances (pour le rapport)
+	var f := Engine.get_frames_per_second()
+	fps_acc += f; fps_n += 1
+	if fps_n > 120: fps_min = min(fps_min, f)
+	_crumb_t += dt
+	if _crumb_t > 10.0: _crumb_t = 0.0; _write_crumbs()
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_WM_GO_BACK_REQUEST or what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_PREDELETE:
 		if _dirty: save_now()
+		crumb("(application en pause / fermée)"); _write_crumbs()
+		if what != NOTIFICATION_APPLICATION_FOCUS_OUT: DirAccess.remove_absolute(ProjectSettings.globalize_path(FLAG_PATH))
+	elif what == NOTIFICATION_APPLICATION_RESUMED or what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		_set_flag()
+
+# ================= JOURNAL DE BORD (pour retrouver ce qui a fait planter le jeu) =================
+const FLAG_PATH := "user://en_cours.flag"
+const CRUMB_PATH := "user://journal.txt"
+const VERSION := "6.8"
+var crumbs: Array = []
+var crashed_last := false
+var last_crumbs := ""
+func crumb(t: String) -> void:
+	var tm := Time.get_time_dict_from_system()
+	crumbs.append("%02d:%02d:%02d %s" % [tm.hour, tm.minute, tm.second, t])
+	if crumbs.size() > 40: crumbs.pop_front()
+func _write_crumbs() -> void:
+	var f := FileAccess.open(CRUMB_PATH, FileAccess.WRITE)
+	if f: f.store_string("\n".join(crumbs) + "\nFPS moyen %d · min %d · mémoire %d Mo" % [int(fps_acc / max(1, fps_n)), int(fps_min if fps_min < 999 else 0), int(OS.get_static_memory_usage() / 1048576)])
+func _set_flag() -> void:
+	var f := FileAccess.open(FLAG_PATH, FileAccess.WRITE)
+	if f: f.store_string(str(Time.get_unix_time_from_system()))
+func _journal_start() -> void:
+	crashed_last = FileAccess.file_exists(FLAG_PATH) and not OS.has_feature("editor")
+	if FileAccess.file_exists(CRUMB_PATH):
+		var f := FileAccess.open(CRUMB_PATH, FileAccess.READ)
+		if f: last_crumbs = f.get_as_text()
+	_set_flag(); crumb("démarrage v%s" % VERSION)
+# erreurs du moteur relevées dans les journaux (session actuelle et précédente)
+func engine_errors(max_lines := 30) -> String:
+	var out: Array = []
+	var d := DirAccess.open("user://logs")
+	if d == null: return "(journal moteur indisponible)"
+	var files: Array = []
+	for fn in d.get_files():
+		if fn.ends_with(".log"): files.append(fn)
+	files.sort()
+	for fn in files.slice(max(0, files.size() - 2)):
+		var f := FileAccess.open("user://logs/" + fn, FileAccess.READ)
+		if f == null: continue
+		var lines := f.get_as_text().split("\n")
+		for i in lines.size():
+			var l: String = lines[i]
+			if "SCRIPT ERROR" in l or "ERROR:" in l:
+				var full: String = l.strip_edges() + ((" | " + lines[i + 1].strip_edges()) if i + 1 < lines.size() else "")
+				var low := full.to_lower()
+				if "alsa" in low or "audio" in low or "v-sync" in low or "tests/plan" in low or "pagedallocator" in low: continue
+				out.append(full)
+	if out.is_empty(): return "(aucune erreur enregistrée)"
+	return "\n".join(out.slice(max(0, out.size() - max_lines)))
+func bug_report() -> String:
+	var t := "VALDRUNE v%s — rapport\nAppareil : %s · %s · écran %s\nGraphismes : %s · carte %d · PI %d\n" % [VERSION, OS.get_model_name(), OS.get_name(), str(DisplayServer.screen_get_size()), ["rapide", "équilibré", "beau"][gfx()], int(S.get("map", 1)), power()]
+	t += "FPS moyen %d · min %d · mémoire %d Mo\n" % [int(fps_acc / max(1, fps_n)), int(fps_min if fps_min < 999 else 0), int(OS.get_static_memory_usage() / 1048576)]
+	if crashed_last: t += "\n== Dernière partie (fermée brutalement) ==\n" + last_crumbs + "\n"
+	t += "\n== Cette partie ==\n" + "\n".join(crumbs) + "\n\n== Erreurs ==\n" + engine_errors()
+	return t
+# qualité graphique : 0 rapide, 1 équilibré, 2 beau
+func gfx() -> int: return clamp(int(S.get("gfx", 1)), 0, 2)
 
 func reset_save() -> void:
 	S = default_state(); save_now()

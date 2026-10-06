@@ -358,7 +358,7 @@ func _cull(n: Node) -> void:
 			if g is MeshInstance3D and (g as MeshInstance3D).mesh:
 				var sz: Vector3 = (g as MeshInstance3D).mesh.get_aabb().size * g.global_transform.basis.get_scale()
 				big = max(sz.x, sz.z) > 60.0
-			if not big: g.visibility_range_end = 40.0 if (g is Label3D or g is Sprite3D) else 66.0    # assez loin pour ne rien voir apparaître au bord de l'écran
+			if not big: g.visibility_range_end = 40.0 if (g is Label3D or g is Sprite3D) else [52.0, 60.0, 66.0][Game.gfx()]    # assez loin pour ne rien voir apparaître au bord de l'écran
 		if g is Label3D or g is Sprite3D: g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		elif g is MeshInstance3D and (g as MeshInstance3D).mesh:
 			# seuls les grands bâtiments gardent une vraie ombre
@@ -1769,7 +1769,9 @@ func _decor() -> void:
 		if town != null and town.town_dist(p.x, p.z) < 6.0: continue
 		if near_house(Vector2(p.x, p.z), 0.4) or _near_node_grid(p, 1.0): continue
 		var arr: Array = GR[sty]
-		_mm(F + arr[rng.randi() % arr.size()], p, rng.randf_range(0.7, 1.25), rng.randf() * TAU, GT.get(sty, Color(1, 1, 1)))
+		var gpath: String = F + arr[rng.randi() % arr.size()]; var gs := rng.randf_range(0.7, 1.25); var gr := rng.randf() * TAU
+		if i % 10 >= [4, 7, 10][Game.gfx()]: continue      # moins d'herbe en qualité « rapide » / « équilibré »
+		_mm(gpath, p, gs, gr, GT.get(sty, Color(1, 1, 1)))
 	# massifs de fleurs (couleurs de la palette Simple Polygon)
 	var FL := [Color("#f08cd8"), Color("#f7e06a"), Color("#c090d8"), Color("#ffffff"), Color("#ff8a7a")]
 	for i in 160:
@@ -1996,6 +1998,13 @@ var occ_tick := 0.0
 var hidden_placed := {}
 # caméra haute façon Albion : le décor reste visible ; seules les maisons qui cacheraient vraiment le héros s'effacent
 const HIDE_DECOR := false
+# une maison est-elle entre la caméra (au sud, en hauteur) et ce point ?
+func house_hides(pp: Vector3) -> bool:
+	for hz in houses:
+		var dd: Vector2 = hz.c - Vector2(pp.x, pp.z)
+		if abs(dd.x) < float(hz.hx) + 0.4 and dd.y > -float(hz.hz) + 0.5 and dd.y < float(hz.hz) + 6.0: return true
+	return false
+
 func update_occlusion(pp: Vector3, dt: float) -> void:
 	var want := {}
 	var cx := int(floor(pp.x / 8.0)); var cz := int(floor(pp.z / 8.0))

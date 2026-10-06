@@ -170,6 +170,7 @@ func toggle_friend(n: String) -> void:
 
 # ——— duel amical ———
 func ask_duel(b: Bot) -> void:
+	Game.crumb("défie %s" % b.nm)
 	if main.world.in_town(main.player.global_position): post("systeme", "", "", "Pas de duel en ville : sortez un peu des murs."); return
 	if b.mode == "pvp" or main.pvp_target != null: post("systeme", "", "", "Un combat est déjà en cours."); return
 	if b.duel or duel_wait: post("systeme", "", "", "Un défi est déjà en attente."); return

@@ -214,7 +214,13 @@ func _layout() -> void:
 	if auto_btn: auto_btn.position = Vector2(s.x - 380, 20)
 	_place_chat()
 
+var pinch := {}
+var pinch_d0 := 0.0
+var pinch_z0 := 1.0
 func _input(ev: InputEvent) -> void:
+	# molette de la souris : zoom
+	if ev is InputEventMouseButton and ev.pressed and not panel_open and (ev.button_index == MOUSE_BUTTON_WHEEL_UP or ev.button_index == MOUSE_BUTTON_WHEEL_DOWN):
+		main.user_zoom = clamp(main.user_zoom * (0.92 if ev.button_index == MOUSE_BUTTON_WHEEL_UP else 1.08), 0.75, 1.6)
 	if main.builder and main.builder.active: return
 	if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed): drag_guard = false
 	if panel_open and cur_panel != "bag": return
@@ -234,17 +240,28 @@ func _input(ev: InputEvent) -> void:
 			tap_from = p; tap_t = Time.get_ticks_msec()
 			if p.x < vs().x * 0.5 and joy.id == -1:
 				joy.id = ev.index; joy.base = p; joy.pos = p; joy.vec = Vector2.ZERO; touches[ev.index] = "joy"
-			elif not chat_box.get_global_rect().has_point(p): touches[ev.index] = "tap"
+			elif not chat_box.get_global_rect().has_point(p):
+				touches[ev.index] = "tap"; pinch[ev.index] = p
+				if pinch.size() == 2: pinch_d0 = 0.0
 		else:
 			var role = touches.get(ev.index, "")
 			var quick: bool = Time.get_ticks_msec() - tap_t < 350 and p.distance_to(tap_from) < 18.0
 			if role == "tap" and quick: main.try_pick_player(p)
 			if role == "joy" and quick and not chat_box.get_global_rect().has_point(p): main.try_pick_player(p)
-			if role == "tap": touches.erase(ev.index); return
+			if role == "tap": touches.erase(ev.index); pinch.erase(ev.index); pinch_d0 = 0.0; return
 			if role == "joy": joy.id = -1; joy.vec = Vector2.ZERO
 			elif role != "": buttons[role].held = false
 			touches.erase(ev.index)
 	elif ev is InputEventScreenDrag:
+		# deux doigts sur la droite de l'écran : pincer pour zoomer
+		if pinch.has(ev.index):
+			pinch[ev.index] = ev.position
+			if pinch.size() == 2:
+				var ks: Array = pinch.keys()
+				var d: float = (pinch[ks[0]] as Vector2).distance_to(pinch[ks[1]])
+				if pinch_d0 <= 0.0: pinch_d0 = d; pinch_z0 = main.user_zoom
+				elif d > 10.0: main.user_zoom = clamp(pinch_z0 * pinch_d0 / d, 0.75, 1.6)
+				tap_t = 0
 		if ev.index == joy.id:
 			joy.pos = ev.position
 			var d: Vector2 = joy.pos - joy.base; var r := 64.0
@@ -366,7 +383,7 @@ func _draw_under() -> void:
 	var zc: Vector2 = buttons.zoom.rect.get_center()
 	_glass(c, zc, 26, Color(0.95, 0.78, 0.45, 0.5))
 	_ringq(zc + Vector2(-3, -3), 10, SOFT); c.draw_line(zc + Vector2(4, 4), zc + Vector2(11, 11), SOFT, 3.0, true)
-	_text(c, {1.0: "1x", 1.3: "−", 0.8: "+"}.get(main.user_zoom, ""), zc + Vector2(-3, 1), 11, GOLD)
+	_text(c, "%.1f" % main.user_zoom, zc + Vector2(-3, 1), 10, GOLD)
 	_disc(Vector2(46, 46), 35, Color(0.04, 0.06, 0.09, 0.6))
 	var bar := Rect2(86, 22, 230, 20)
 	c.draw_style_box(flat(Color(0.03, 0.04, 0.06, 0.7), 10), bar.grow(3))
@@ -667,6 +684,7 @@ func refresh_panel() -> void:
 	if panel_open and panel and is_instance_valid(panel) and last_build.is_valid() and cur_panel != "": open_panel(panel_title, last_build, last_w, last_h)
 
 func open_panel(title_txt: String, build: Callable, w := 860.0, h := -1.0) -> void:
+	Game.crumb("écran : " + title_txt)
 	close_panel()
 	last_build = build; last_w = w; last_h = h
 	panel_open = true
@@ -1046,6 +1064,7 @@ func sort_bag() -> void:
 	bag_sel = -1; Game.play("pickup", -6.0); Game.save(); show_bag()
 
 func show_bag() -> void:
+	if cur_panel != "bag": Game.crumb("sac")
 	var keep: int = bag_scroll
 	if cur_panel == "bag" and cur_scroll and is_instance_valid(cur_scroll): keep = cur_scroll.scroll_vertical
 	close_panel()
@@ -1427,6 +1446,13 @@ func show_menu() -> void:
 		h.add_child(big_button("Retour au village", true, func(): _to_camp()))
 		h.add_child(big_button("Guide du joueur", true, func(): show_guide(), GOLD, true))
 		h.add_child(big_button("Effacer la partie", true, func(): _wipe(), Color("#ff9a8a")))
+		var h2 := HBoxContainer.new(); h2.add_theme_constant_override("separation", 10); body.add_child(h2)
+		var gfx_cb := func() -> void:
+			Game.S["gfx"] = (Game.gfx() + 2) % 3; Game.save(); main.apply_gfx()
+			toast("Graphismes : %s (l'herbe change au prochain chargement de carte)" % ["Rapide", "Équilibré", "Beau"][Game.gfx()], Color("#cfe8ff")); show_menu()
+		h2.add_child(big_button("Graphismes : " + ["Rapide", "Équilibré", "Beau"][Game.gfx()], true, gfx_cb))
+		h2.add_child(big_button("Signaler un bug", true, func(): show_report()))
+		h2.add_child(big_button("Images/s : " + ("oui" if fps_lbl.visible else "non"), true, func(): fps_lbl.visible = not fps_lbl.visible; Game.S["show_fps"] = fps_lbl.visible; show_menu()))
 		body.add_child(rich("[color=#7a848a]Graphismes : KayKit · Fantasy UI · icônes Viktor Hahn, frosty_rabbid, CraftPix, Cursed Loot.[/color]", 14))
 	)
 
@@ -1536,6 +1562,19 @@ func _guide_town(body: VBoxContainer) -> void:
 var pi_last := 0
 var pi_flash := 0.0
 var rank_cache := 0
+
+# ——— Rapport de bug : ce qui s'est passé juste avant, à copier et m'envoyer ———
+func show_report(after_crash := false) -> void:
+	var rep_txt := Game.bug_report()
+	open_panel("Signaler un bug", func(body: VBoxContainer):
+		if after_crash: body.add_child(rich("[color=#ffb07a][b]Le jeu s'est fermé brutalement la dernière fois.[/b][/color] Copie ce rapport et envoie-le : il dit ce que tu faisais juste avant.", 17))
+		else: body.add_child(rich("Copie ce rapport et envoie-le avec une phrase sur ce qui s'est passé.", 17))
+		var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 10); body.add_child(h)
+		h.add_child(big_button("Copier le rapport", true, func(): DisplayServer.clipboard_set(rep_txt); toast("Rapport copié — colle-le dans ton message", Color("#7dff8a"), true), GOLD, true))
+		h.add_child(big_button("Fermer", true, func(): close_panel()))
+		var t := rich("[color=#a8b4bc][font_size=13]%s[/font_size][/color]" % rep_txt.replace("[", "(").replace("]", ")"), 13)
+		body.add_child(t)
+	, 900)
 
 # ——— Après une défaite : ce qui t'a manqué, et comment devenir plus fort ———
 func show_defeat(who: String, need: int) -> void:

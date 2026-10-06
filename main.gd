@@ -238,6 +238,7 @@ func _warmup() -> void:
 # ——— Voyage entre les cartes ———
 var gate_sel := {}
 func travel_to(id: int, arrive: Vector2) -> void:
+	Game.crumb("voyage vers la carte %d" % id)
 	if in_instance(): hud.toast("Termine d'abord ce donjon / cette tour / ton île", Color("#ffb07a")); return
 	hud.close_panel()
 	Game.S.map = id; Game.S["arrive"] = [arrive.x, arrive.y]
@@ -267,6 +268,10 @@ func _talk_travel(n: Npc) -> void:
 	hud.show_dialog(n, line, acts)
 
 func on_start() -> void:
+	apply_gfx()
+	if Game.crashed_last:
+		Game.crashed_last = false
+		get_tree().create_timer(2.0).timeout.connect(func(): if not hud.panel_open: hud.show_report(true))
 	if Game.S.tips.has("start") and Game.login_can_claim():
 		get_tree().create_timer(1.5).timeout.connect(func(): if not hud.panel_open: hud.show_daily())
 	if not Game.S.tips.has("start"):
@@ -696,6 +701,7 @@ func boss_summon(b: Enemy) -> void:
 		var e := _spawn_enemy("minion" if i < 2 else "warrior", 5, p, sp); e.state = "chase"
 
 func on_player_death() -> void:
+	Game.crumb("mort du héros")
 	var killer = player.last_attacker
 	var need := 0; var who := ""
 	if killer is Bot and is_instance_valid(killer): need = int(killer.pwr); who = killer.nm
@@ -812,6 +818,7 @@ func ah_refresh_stock(force := false) -> void:
 		ah.stock.append(e)
 
 func ah_buy(i: int) -> void:
+	Game.crumb("hôtel des ventes : achat")
 	var e: Dictionary = Game.S.ah.stock[i]
 	if Game.S.silver < e.price: Game.play("error"); hud.toast("Pas assez d'argent", Color("#ff9a8a")); return
 	if e.has("res"):
@@ -887,6 +894,7 @@ func item_score(it: Dictionary) -> float:
 	return sc
 
 func equip_best() -> void:
+	Game.crumb("équiper au mieux")
 	var p0 := Game.power(); var n := 0; var names: Array = []
 	var slots: Array = Game.COMBAT_SLOTS + Game.TOOL_SLOTS + ["monture"]
 	var order: Array = []
@@ -924,6 +932,7 @@ func quick_sell_list() -> Array:
 static func quick_price(it: Dictionary) -> int:
 	return Game.junk_price(it) if it.slot == "junk" else int(Game.item_price(it) * 0.4) + 1
 func quick_sell() -> void:
+	Game.crumb("vente rapide")
 	var idx := quick_sell_list()
 	if idx.is_empty(): hud.toast("Rien d'inutile à vendre", Color("#c8d0d8")); return
 	var gain := 0
@@ -1141,12 +1150,27 @@ func _cam_update(dt: float, snap := false) -> void:
 		cam.global_position = w if snap else cam.global_position.lerp(w, 1.0 - exp(-dt * 10.0))
 		cam.look_at(cam.global_position - ct[1] + Vector3(0, 1.0, 0))
 		return
-	var target := P.global_position + Vector3(P.velocity.x, 0, P.velocity.z) * 0.12
-	var off := Vector3(0, 21.0, 8.5) * cam_zoom * user_zoom   # un peu plus plongeante : moins d'obstacles devant le héros
+	# anticipation : la caméra regarde un peu devant le héros quand il court
+	var hv := Vector3(P.velocity.x, 0, P.velocity.z)
+	var want_look: Vector3 = hv.normalized() * min(2.4, hv.length() * 0.35) if hv.length() > 0.5 else Vector3.ZERO
+	cam_look = want_look if snap else cam_look.lerp(want_look, 1.0 - exp(-dt * 2.5))
+	var target := P.global_position + cam_look
+	# combat : on recule un peu pour voir les cercles rouges ; boss : encore plus
+	var fight := 0
+	if not snap and Engine.get_process_frames() % 10 == 0:
+		for e in enemies:
+			if is_instance_valid(e) and not e.dead and e.state in ["chase", "windup", "recover"] and e.global_position.distance_to(P.global_position) < 16.0: fight += 1
+		cam_fight_n = fight
+	var want_extra: float = 1.25 if (boss_ref and is_instance_valid(boss_ref) and not boss_ref.dead) else (1.12 if cam_fight_n >= 2 else 1.0)
+	cam_extra = want_extra if snap else lerp(cam_extra, want_extra, 1.0 - exp(-dt * 1.5))
+	user_zoom_s = user_zoom if snap else lerp(user_zoom_s, user_zoom, 1.0 - exp(-dt * 8.0))
+	var zz: float = cam_zoom * user_zoom_s * cam_extra
+	# zoom proche : la caméra s'incline (plus de profondeur) ; zoom large : vue plongeante façon Albion
+	var back: float = 8.5 + max(0.0, 1.0 - user_zoom_s) / 0.25 * 2.5
+	var off := Vector3(0, 21.0, back) * zz
 	# inventaire ouvert : le héros glisse vers la gauche de l'écran pour rester visible à côté du parchemin
 	bag_shift = lerp(bag_shift, 5.2 * cam_zoom * user_zoom if hud.cur_panel == "bag" else 0.0, 1.0 if snap else 1.0 - exp(-dt * 6.0))
 	target.x += bag_shift
-	if boss_ref and is_instance_valid(boss_ref) and not boss_ref.dead: off *= 1.25
 	_update_fade(off.length())
 	var want := target + off
 	cam.global_position = want if snap else cam.global_position.lerp(want, 1.0 - exp(-dt * 8.0))
@@ -1194,9 +1218,21 @@ func _update_fade(d: float) -> void:
 		m.distance_fade_min_distance = d * 0.6
 		m.distance_fade_max_distance = d * 0.82
 
+# qualité graphique : ombres, résolution 3D (l'herbe est réglée à la création de la carte)
+func apply_gfx() -> void:
+	var g := Game.gfx()
+	if sun: sun.shadow_enabled = g >= 1; sun.directional_shadow_max_distance = 30.0 if g == 2 else 24.0
+	get_viewport().scaling_3d_scale = [0.72, 0.88, 1.0][g]
+	Engine.max_fps = 60
+	if hud and hud.fps_lbl: hud.fps_lbl.visible = bool(Game.S.get("show_fps", false))
+
+var cam_look := Vector3.ZERO
+var cam_extra := 1.0
+var cam_fight_n := 0
+var user_zoom_s := 1.0
 func cycle_zoom() -> void:
-	user_zoom = {1.0: 1.3, 1.3: 0.8, 0.8: 1.0}.get(user_zoom, 1.0)
-	hud.toast("Zoom caméra : %s" % {1.0: "normal", 1.3: "large", 0.8: "proche"}[user_zoom], Color("#cfe8ff"))
+	user_zoom = 1.3 if user_zoom < 1.15 and user_zoom > 0.9 else (0.8 if user_zoom >= 1.15 else 1.0)
+	hud.toast("Zoom : %s · astuce : pince l'écran avec deux doigts pour zoomer" % {1.0: "normal", 1.3: "large", 0.8: "proche"}.get(user_zoom, ""), Color("#cfe8ff"))
 
 # ——— Mode test (captures automatiques) ———
 var shot_i := 0
@@ -1326,6 +1362,7 @@ func _remove_entry(en: Dictionary) -> void:
 	dungeon_entries.erase(en)
 
 func enter_dungeon(en: Dictionary) -> void:
+	Game.crumb("entre dans un donjon T%d" % int(en.get("tier", 0)))
 	if in_instance(): return
 	if Game.power() < Game.power_needed(en.tier) * 0.7:
 		hud.toast("Attention : ce donjon est très dangereux pour ton équipement (puissance %d / %d conseillée)" % [Game.power(), Game.power_needed(en.tier)], Color("#ff9a7a"), true)
@@ -1342,6 +1379,7 @@ func enter_dungeon(en: Dictionary) -> void:
 	Game.play("roar", -10.0, 0.6)
 
 func exit_dungeon(cleared: bool) -> void:
+	Game.crumb("sort du donjon")
 	if dungeon == null: return
 	var en := dungeon.entry
 	for e in enemies.duplicate():
@@ -1474,6 +1512,7 @@ func _talk_duel(n: Npc) -> void:
 	hud.show_dialog(n, line, acts)
 
 func start_duel(n: Npc) -> void:
+	Game.crumb("duel PNJ contre %s" % n.nm)
 	hud.close_panel()
 	if duel_enemy != null and is_instance_valid(duel_enemy) and not duel_enemy.dead: hud.toast("Un duel est déjà en cours", Color("#ffb07a")); return
 	if duel_npc != null and is_instance_valid(duel_npc): duel_npc.hide_for_duel(false)
@@ -1513,6 +1552,7 @@ func duel_reset(e: Enemy) -> void:
 
 # ================= TOUR INFINIE =================
 func enter_tower(n: int) -> void:
+	Game.crumb("tour, étage %d" % n)
 	if dungeon: return
 	if tower == null:
 		tower_back = player.global_position
@@ -1594,6 +1634,7 @@ func _chest_emptied(c: Dictionary) -> void:
 
 # ================= BOUTIQUE =================
 func shop_claim(id: String) -> void:
+	Game.crumb("boutique : %s" % id)
 	var o: Dictionary = hud.offer(id)
 	if o.is_empty(): return
 	if o.has("eur"): hud.confirm_purchase(o); return
@@ -1713,6 +1754,7 @@ func buy_tool(tool: String, t: int, q: int) -> void:
 	Game.save(); update_goal(); hud.show_tools(tool)
 
 func craft_gear(ci: int, t: int) -> void:
+	Game.crumb("forge pièce %d T%d" % [ci, t])
 	var c: Dictionary = Game.CRAFTS[ci]
 	if t > Game.unlocked(c.slot) + 1: Game.play("error"); hud.toast("Tier verrouillé : porte d'abord le T%d" % (t - 1), Color("#ff9a8a")); return
 	var cost := Game.craft_cost(c, t)
@@ -1865,6 +1907,7 @@ func raid_active() -> bool:
 	return false
 
 func go_island() -> void:
+	Game.crumb("va sur son île")
 	if not Game.S.island.owned: return
 	if dungeon or tower: hud.toast("Termine d'abord ce donjon / cette tour", Color("#ffb07a")); return
 	if island: return
@@ -1886,6 +1929,7 @@ func go_island() -> void:
 	hud.toast("Ressources sauvages de l'île : T%d — elles changent dans %d min" % [int(R0.tier), int(Island.period_left() / 60.0) + 1], Game.TIER_COL[int(R0.tier)], true)
 
 func leave_island(to_back := true) -> void:
+	Game.crumb("quitte son île")
 	if island == null: return
 	if island.raid_on and to_back:
 		hud.confirm("Raid en cours", "Si tu pars et que le temps s'écoule, les bandits videront ton coffre. Partir quand même ?", func(): _do_leave_island()); return
@@ -2030,6 +2074,7 @@ var auto_ban := {}
 var auto_side := 1.0
 var auto_side_t := 0.0
 func toggle_auto() -> void:
+	Game.crumb("bascule AUTO")
 	if not bool(Game.S.get("auto_owned", false)): return
 	auto_ban.clear(); auto_path = []
 	auto_on = not auto_on; auto_hold = false; auto_tgt = null

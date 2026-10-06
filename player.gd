@@ -88,6 +88,11 @@ func setup(m: Node) -> void:
 	main = m
 	var col := CollisionShape3D.new(); var cap := CapsuleShape3D.new(); cap.radius = 0.42; cap.height = 1.8; col.shape = cap; col.position.y = 0.9; add_child(col)
 	flash_mat = StandardMaterial3D.new(); flash_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; flash_mat.albedo_color = Color(1, 0.3, 0.25, 0.0); flash_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	# silhouette dorée visible à travers les toits et les arbres (comme sur Albion) : on ne perd jamais son héros
+	var gs := Shader.new()
+	gs.code = "shader_type spatial;\nrender_mode unshaded, depth_test_disabled, cull_back, blend_mix;\nuniform float k = 0.0;\nvoid fragment() {\n\tfloat rim = 1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0);\n\tALBEDO = mix(vec3(1.0, 0.78, 0.3), vec3(1.0, 0.95, 0.7), rim);\n\tALPHA = k * (0.38 + 0.6 * rim * rim);\n}\n"
+	ghost = ShaderMaterial.new(); ghost.shader = gs; ghost.render_priority = 10
+	flash_mat.next_pass = ghost
 	refresh_gear(); hp = max_hp
 	play("Idle_A")
 
@@ -239,6 +244,7 @@ func _physics_process(dt: float) -> void:
 	_block_water(dt)
 	move_and_slide()
 	_climb_assist(want, dt)
+	_ghost_update(dt)
 	if spin_t <= 0.0:
 		ch.root.rotation.y = lerp_angle(ch.root.rotation.y, yaw, 1.0 - exp(-dt * 20.0))
 	if mounted:
@@ -851,6 +857,20 @@ class Fireball extends Node3D:
 
 # Pente trop raide pour la physique mais praticable : on aide le héros à monter (comme sur Albion, on ne reste jamais coincé)
 var climb_t := 0.0
+# silhouette : n'apparaît que quand une maison cache le héros
+var ghost: ShaderMaterial
+var ghost_k := 0.0
+var ghost_t := 0.0
+var ghost_on := false
+func _ghost_update(dt: float) -> void:
+	if ghost == null: return
+	ghost_t -= dt
+	if ghost_t <= 0.0:
+		ghost_t = 0.15
+		ghost_on = global_position.x < 300.0 and main.world.house_hides(global_position)
+	var nk: float = move_toward(ghost_k, 1.0 if ghost_on else 0.0, dt * 4.0)
+	if nk != ghost_k: ghost_k = nk; ghost.set_shader_parameter("k", ghost_k)
+
 func _climb_assist(want: Vector3, dt: float) -> void:
 	var p := global_position
 	if p.x > 300.0 or want.length() < 1.0 or dead: climb_t = 0.0; return
