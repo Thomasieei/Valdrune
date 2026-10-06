@@ -1463,7 +1463,7 @@ func show_menu() -> void:
 		h2.add_child(big_button("Graphismes : " + ["Rapide", "Équilibré", "Beau"][Game.gfx()], true, gfx_cb))
 		h2.add_child(big_button("Signaler un bug", true, func(): show_report()))
 		h2.add_child(big_button("Images/s : " + ("oui" if fps_lbl.visible else "non"), true, func(): fps_lbl.visible = not fps_lbl.visible; Game.S["show_fps"] = fps_lbl.visible; show_menu()))
-		body.add_child(rich("[color=#7a848a]Graphismes : KayKit · Fantasy UI · icônes Viktor Hahn, frosty_rabbid, CraftPix, Cursed Loot.[/color]", 14))
+		body.add_child(rich("[color=#7a848a]Graphismes : KayKit · Quaternius (Stylized Nature MegaKit, CC0) · Fantasy UI · icônes Viktor Hahn, frosty_rabbid, CraftPix, Cursed Loot.[/color]", 14))
 	)
 
 # ——— Guide du joueur : tout ce qu'il faut savoir, et le plan de la ville ———

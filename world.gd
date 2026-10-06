@@ -559,6 +559,8 @@ func _bridge(a: Vector2, b: Vector2) -> void:
 	var rails := MeshInstance3D.new(); rails.mesh = rst.commit(); rails.material_override = dm; add_child(rails)
 
 func place(path: String, pos: Vector3, rot := 0.0, sc := 1.0, ground := true) -> Node3D:
+	if "/Tree_" in path:
+		var q := qremap(path, qhash(pos)); path = q[0]; sc *= float(q[1])
 	if not proto.has(path): proto[path] = load(path)
 	var o: Node3D = proto[path].instantiate()
 	if ground: pos.y = height(pos.x, pos.z) - 0.05
@@ -1590,7 +1592,9 @@ func _add_node(k: String, t: int, p: Vector3, parent: Node = null) -> Dictionary
 	if k == "ore" and t in [3, 4]: sc = 1.45
 	if k == "wood" and t == 5: sc = 1.2
 	var mpath: String = NODE_MODEL[k][t]
-	if k == "wood": mpath = TREE_VARIANTS[t][rng.randi() % TREE_VARIANTS[t].size()]; sc *= rng.randf_range(0.85, 1.15)
+	if k == "wood":
+		mpath = TREE_VARIANTS[t][rng.randi() % TREE_VARIANTS[t].size()]; sc *= rng.randf_range(0.85, 1.15)
+		var qq := qremap(mpath, qhash(p)); mpath = qq[0]; sc *= float(qq[1])
 	if k == "ore" and t >= 4: mpath = crystal("PROP_11_CrystalRock" if t == 4 else "PROP_18_DarkCursedCrystal"); sc = 1.0
 	var model: Node3D = load(mpath).instantiate(); model.scale = Vector3.ONE * sc * (1.0 + 0.04 * t); model.rotation.y = rng.randf() * TAU
 	root.add_child(model)
@@ -1664,7 +1668,23 @@ func near_decor(p: Vector3, r: float) -> bool:
 				if Vector2(q.x - p.x, q.z - p.z).length() < r + q.y: return true
 	return false
 
+# arbres et herbes du pack Quaternius (plus détaillés) à la place des modèles KayKit
+const QN := "res://assets/qnature/"
+static func qremap(path: String, h: int) -> Array:
+	if not "assets/forest/" in path: return [path, 1.0]
+	var f := path.get_file()
+	if f.begins_with("Tree_1_") or f.begins_with("Tree_2_A") or f.begins_with("Tree_2_C"): return [QN + "CommonTree_%d.gltf" % (h % 5 + 1), 0.72]
+	if f.begins_with("Tree_4_") or f.begins_with("Tree_2_D"): return [QN + "Pine_%d.gltf" % (h % 5 + 1), 0.72]
+	if f.begins_with("Tree_3_") or f.begins_with("Tree_2_B"): return [QN + "TwistedTree_%d.gltf" % (h % 5 + 1), 0.7]
+	if f.begins_with("Tree_Bare_"): return [QN + "DeadTree_%d.gltf" % (h % 2 + 1), 0.42]
+	if f.begins_with("Bush_1_E") or f.begins_with("Bush_2_") or f.begins_with("Bush_3_") or f.begins_with("Bush_4_A") or f.begins_with("Bush_4_D"): return [QN + ["Bush_Common_Flowers.gltf", "Fern_1.gltf", "Bush_Common_Flowers.gltf", "Fern_1.gltf"][h % 4], 0.55]
+	if f.begins_with("Grass_1_") or f.begins_with("Grass_2_"): return [QN + ["Grass_Common_Short.gltf", "Grass_Wispy_Short.gltf", "Grass_Common_Short.gltf", "Grass_Wispy_Tall.gltf"][h % 4], 0.5]
+	return [path, 1.0]
+static func qhash(p: Vector3) -> int: return abs(int(p.x * 7.13) * 73856093 ^ int(p.z * 5.31) * 19349663)
+
 func _mm(path: String, p: Vector3, s: float, rot: float, col := Color(1, 1, 1)) -> void:
+	if col.a >= 0.99:
+		var q := qremap(path, qhash(p)); path = q[0]; s *= float(q[1])
 	if "Tree" in path or "tree_" in path or "Rock" in path:
 		if _near_duel(p, 10.0): return
 		var gk := Vector2i(int(floor(p.x / 8.0)), int(floor(p.z / 8.0)))
@@ -1938,8 +1958,24 @@ func _arid_dress() -> void:
 	for ri in range(1, REGIONS.size()):
 		var R: Dictionary = REGIONS[ri]
 		var sty: String = R.style
-		if not sty in ["desert", "canyon", "ash"]: continue
 		var c: Vector2 = R.c
+		if sty in ["meadow", "forest", "hills"]:
+			# prairies : fleurs, trèfles, champignons et cailloux du pack Quaternius, par petits massifs
+			for i in 90:
+				var pc := Vector3(c.x + r.randf_range(-55, 55), 0, c.y + r.randf_range(-55, 55))
+				if region_at(pc.x, pc.z) != ri or not _free_spot(pc, 0.5, true) or _near_node_grid(pc, 2.0): continue
+				var kind := r.randi() % 6
+				for k in r.randi_range(2, 5):
+					var q := pc + Vector3(r.randf_range(-1.8, 1.8), 0, r.randf_range(-1.8, 1.8))
+					if not walkable(q.x, q.z) or road_dist(q.x, q.z) < 2.6: continue
+					match kind:
+						0, 1: _mm(QN + ["Flower_3_Group.gltf", "Flower_4_Group.gltf", "Flower_3_Single.gltf", "Flower_4_Single.gltf"][r.randi() % 4], q, r.randf_range(0.32, 0.45), r.randf() * TAU)
+						2: _mm(QN + ["Clover_1.gltf", "Clover_2.gltf"][r.randi() % 2], q, r.randf_range(0.5, 0.7), r.randf() * TAU)
+						3: _mm(QN + ["Pebble_Round_1.gltf", "Pebble_Round_3.gltf", "Pebble_Square_2.gltf", "Pebble_Round_5.gltf"][r.randi() % 4], q, r.randf_range(0.8, 1.4), r.randf() * TAU)
+						4: if sty == "forest": _mm(QN + ["Mushroom_Common.gltf", "Mushroom_Laetiporus.gltf"][r.randi() % 2], q, r.randf_range(0.6, 0.9), r.randf() * TAU)
+						5: _mm(QN + ["Plant_1.gltf", "Plant_7.gltf", "Fern_1.gltf"][r.randi() % 3], q, r.randf_range(0.4, 0.6), r.randf() * TAU)
+			continue
+		if not sty in ["desert", "canyon", "ash"]: continue
 		var spot := func(rad: float, extra: float) -> Vector3:
 			for k in 30:
 				var p := Vector3(c.x + r.randf_range(-rad, rad), 0, c.y + r.randf_range(-rad, rad))
@@ -2303,11 +2339,12 @@ static func wind_mat(src: StandardMaterial3D, col: Color, amp: float) -> ShaderM
 	if _wind_cache.has(key): return _wind_cache[key]
 	if _wind_sh == null:
 		_wind_sh = Shader.new(); _wind_sh.code = """shader_type spatial;
-render_mode cull_back;
+render_mode cull_disabled;
 uniform sampler2D tex : source_color, filter_linear_mipmap;
 uniform vec4 tint : source_color = vec4(1.0);
 uniform float amp = 0.01;
 uniform float repl = 0.0;
+uniform float cut = 0.0;
 void vertex() {
 	vec3 o = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	float h = max(VERTEX.y, 0.0);
@@ -2320,11 +2357,14 @@ void vertex() {
 void fragment() {
 	vec4 c = texture(tex, UV);
 	ALBEDO = mix(c.rgb * tint.rgb, tint.rgb * (0.6 + 0.8 * dot(c.rgb, vec3(0.33))), repl);
+	ALPHA = c.a;
+	ALPHA_SCISSOR_THRESHOLD = cut;
 	ROUGHNESS = 1.0;
 }"""
 	var m := ShaderMaterial.new(); m.shader = _wind_sh
 	m.set_shader_parameter("tex", src.albedo_texture); m.set_shader_parameter("tint", Color(col.r, col.g, col.b) * src.albedo_color); m.set_shader_parameter("amp", amp)
 	m.set_shader_parameter("repl", 1.0 if col.a < 0.99 else 0.0)   # fleurs : couleur franche au lieu d'une teinte
+	if src.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED: m.set_shader_parameter("cut", max(0.35, src.alpha_scissor_threshold))
 	_wind_cache[key] = m
 	return m
 
