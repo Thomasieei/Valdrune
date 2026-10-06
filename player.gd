@@ -78,6 +78,10 @@ var shield_t := 0.0
 var shield_mesh: MeshInstance3D
 var potion_cd := 0.0
 var gather_cd := 0.0
+var gather_total := 1.0
+var gather_vis := 0.0          # la barre et le cercle de récolte restent visibles un instant
+var gather_nd := {}
+var gather_ring: MeshInstance3D
 var spin_t := 0.0
 var hitstop := 0.0
 var cur_anim := ""
@@ -201,6 +205,12 @@ func _physics_process(dt: float) -> void:
 	for v in ["lock", "move_lock", "swing_cd", "dodge_cd", "invuln", "potion_cd", "gather_cd", "combo_t"]:
 		set(v, max(0.0, get(v) - dt))
 	for i in 4: skill_cd[i] = max(0.0, skill_cd[i] - dt)
+	if gather_vis > 0.0:
+		gather_vis = max(0.0, gather_vis - dt)
+		if gather_ring:
+			var gm := gather_ring.material_override as StandardMaterial3D
+			gm.albedo_color.a = clamp(gather_vis / 0.6, 0.0, 1.0) * 0.75
+			gather_ring.visible = gather_vis > 0.0
 	if rage_t > 0.0:
 		rage_t -= dt
 		if rage_t <= 0.0: flash_mat.albedo_color = Color(1, 0.3, 0.25, 0.0)
@@ -746,6 +756,16 @@ func play_pick() -> void:
 	lock = 0.35; move_lock = 0.35
 	play("PickUp", 1.6, 0.06, true)
 
+# grand cercle blanc au sol pendant la récolte (comme Albion)
+func _gather_ring_on() -> void:
+	if gather_ring == null:
+		gather_ring = MeshInstance3D.new()
+		var tm := TorusMesh.new(); tm.inner_radius = 3.55; tm.outer_radius = 3.7; tm.rings = 64; tm.ring_segments = 4; gather_ring.mesh = tm
+		var m := StandardMaterial3D.new(); m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.albedo_color = Color(1, 1, 1, 0.75); gather_ring.material_override = m; gather_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		gather_ring.scale = Vector3(1, 0.15, 1); gather_ring.position.y = 0.12; add_child(gather_ring)
+	gather_ring.visible = true
+
 # ——— Récolte ———
 func gather(nd: Dictionary) -> void:
 	if gather_cd > 0.0 or dead: return
@@ -753,7 +773,9 @@ func gather(nd: Dictionary) -> void:
 	var tool: String = Game.TOOL_OF[nd.type]
 	set_hand(Game.TOOL_MODEL[tool])
 	face(nd.pos); ch.root.rotation.y = yaw
-	gather_cd = Game.gather_time(tool, nd.tier); lock = min(0.55, gather_cd * 0.6); move_lock = 0.3
+	gather_cd = Game.gather_time(tool, nd.tier); gather_total = max(0.05, gather_cd); gather_vis = gather_cd + 1.4; gather_nd = nd
+	_gather_ring_on()
+	lock = min(0.55, gather_cd * 0.6); move_lock = 0.3
 	play("Throw" if nd.type != "fiber" else "PickUp", clamp(1.3 / gather_cd * 1.2, 1.0, 2.4), 0.06, true)
 	get_tree().create_timer(0.32).timeout.connect(func(): main.on_gather_hit(nd))
 

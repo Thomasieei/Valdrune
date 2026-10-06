@@ -440,6 +440,26 @@ func _draw_under() -> void:
 		_text(c, "%s %+d" % [lv[1], Game.rep()], rp + Vector2(6, 0), 13, Color(str(lv[3])), true, f_title)
 	_flush(c); batch_text = false
 
+# barre de récolte à côté du héros : icône de l'outil, progression verte, charges restantes
+func _gather_bar(c: CanvasItem, P: Player) -> void:
+	if P.gather_vis <= 0.0 or P.gather_nd.is_empty() or panel_open: return
+	var cam: Camera3D = main.cam
+	if cam == null or cam.is_position_behind(P.global_position): return
+	var sp: Vector2 = cam.unproject_position(P.global_position + Vector3(0, 1.2, 0)) + Vector2(-80, 46)
+	var f: float = clamp(1.0 - P.gather_cd / P.gather_total, 0.0, 1.0)
+	var a: float = clamp(P.gather_vis / 0.6, 0.0, 1.0)
+	var tool: String = Game.TOOL_OF.get(str(P.gather_nd.get("type", "wood")), "hache")
+	var ic: Vector2 = sp + Vector2(0, 7)
+	c.draw_style_box(flat(Color(0.12, 0.14, 0.17, 0.9 * a), 6, Color(0.75, 0.8, 0.85, 0.9 * a), 2), Rect2(ic - Vector2(20, 20), Vector2(40, 40)))
+	var tt: Texture2D = main.icons.get_icon(tool)
+	if tt: c.draw_texture_rect(tt, Rect2(ic - Vector2(16, 16), Vector2(32, 32)), false, Color(1, 1, 1, a))
+	var bar := Rect2(sp + Vector2(26, 2), Vector2(130, 10))
+	c.draw_rect(bar.grow(2), Color(0.05, 0.05, 0.06, 0.85 * a))
+	c.draw_rect(Rect2(bar.position, Vector2(bar.size.x * f, bar.size.y)), Color(0.35, 0.85, 0.3, a))
+	c.draw_rect(Rect2(bar.position, Vector2(bar.size.x * f, 3)), Color(0.75, 1.0, 0.6, 0.6 * a))
+	var ch: int = int(P.gather_nd.get("charges", 0)); var mx: int = int(P.gather_nd.get("max", ch))
+	_text(c, "%d / %d" % [ch, mx], bar.position + Vector2(bar.size.x + 26, 11), 14, Color(1, 1, 1, a), true, f_title)
+
 var batch_text := false
 var row_end_x := 900.0
 const ROW_LBL := {"menu": "Menu", "bag": "Sac", "shop": "Boutique", "daily": "Quêtes", "rank": "Rang", "ile": "Mon île", "zoom": "Vue"}
@@ -462,6 +482,7 @@ func _pie(c: CanvasItem, ctr: Vector2, r: float, frac: float) -> void:
 func _draw_over() -> void:
 	var c := overlay; var P: Player = main.player
 	batch_text = true
+	_gather_bar(c, P)
 	icons.attack.visible = main_mode == "attack"
 	if main_mode != "attack":
 		_text(c, main_text, mc + Vector2(0, 8), 24 if main_text.length() < 8 else 19, main_col.lightened(0.25), true, f_title)
@@ -733,14 +754,18 @@ func open_panel(title_txt: String, build: Callable, w := 860.0, h := -1.0) -> vo
 		var dim := ColorRect.new(); dim.color = Color(0, 0, 0, 0.45); dim.set_anchors_preset(Control.PRESET_FULL_RECT); root.add_child(dim); panel_extra.append(dim)
 	var s := vs(); var hh: float = s.y - 60 if h < 0 else h
 	if side != "": hh = s.y - 12
-	var pc := PanelContainer.new(); pc.add_theme_stylebox_override("panel", _parch_box())
+	var pc := PanelContainer.new(); pc.add_theme_stylebox_override("panel", _frame_box())
 	pc.position = Vector2((s.x - w) * 0.5, (s.y - hh) * 0.5) if side == "" else Vector2(8, 6); pc.custom_minimum_size = Vector2(w, hh); pc.size = pc.custom_minimum_size; root.add_child(pc); panel = pc
-	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 8); pc.add_child(vb)
-	var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 12); vb.add_child(top)
-	var tl := _ink(title_txt, 32, INK, true); tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL; tl.size_flags_vertical = Control.SIZE_SHRINK_CENTER; top.add_child(tl)
+	var outer := VBoxContainer.new(); outer.add_theme_constant_override("separation", 6); pc.add_child(outer)
+	# en-tête sur le bois : médaillon, titre crème, fermer
+	var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 12); outer.add_child(top)
+	top.add_child(_medallion(_panel_icon(title_txt), 64))
+	var tl := _label(title_txt, 30, Color("#f6e3b4")); tl.add_theme_font_override("font", f_title); tl.add_theme_color_override("font_outline_color", Color(0.1, 0.06, 0.03, 0.9)); tl.add_theme_constant_override("outline_size", 6)
+	tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL; tl.size_flags_vertical = Control.SIZE_SHRINK_CENTER; tl.clip_text = true; top.add_child(tl)
 	top.add_child(_close_btn(_x_close))
-	var sep := TextureRect.new(); sep.texture = T("orn_line"); sep.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; sep.stretch_mode = TextureRect.STRETCH_SCALE
-	sep.custom_minimum_size = Vector2(0, 14); sep.modulate = Color("#7a5530"); vb.add_child(sep)
+	# le contenu sur le parchemin
+	var pp := PanelContainer.new(); pp.add_theme_stylebox_override("panel", _parch_tex()); pp.size_flags_vertical = Control.SIZE_EXPAND_FILL; outer.add_child(pp)
+	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 8); pp.add_child(vb)
 	var sc := ScrollContainer.new(); sc.size_flags_vertical = Control.SIZE_EXPAND_FILL; sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; vb.add_child(sc)
 	sc.scroll_deadzone = 10; sc.scroll_started.connect(func(): drag_guard = true)
 	var body := VBoxContainer.new(); body.size_flags_horizontal = Control.SIZE_EXPAND_FILL; body.add_theme_constant_override("separation", 10); sc.add_child(body)
@@ -1064,6 +1089,40 @@ const BAG_W := 456.0
 var bag_scroll := 0
 var bag_card_rect := Rect2()
 
+# cadre de bois aux coins de fer (texture 9 parties)
+var _frame_sb: StyleBoxTexture
+func _frame_box() -> StyleBoxTexture:
+	if _frame_sb: return _frame_sb
+	var st := StyleBoxTexture.new(); st.texture = T("frame_wood")
+	for sd in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]: st.set_texture_margin(sd, 30); st.set_content_margin(sd, 24)
+	st.set_content_margin(SIDE_TOP, 16); st.set_content_margin(SIDE_BOTTOM, 22)
+	_frame_sb = st; return st
+var _parch_sb: StyleBoxTexture
+func _parch_tex() -> StyleBoxTexture:
+	if _parch_sb: return _parch_sb
+	var st := StyleBoxTexture.new(); st.texture = T("parch")
+	for sd in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]: st.set_texture_margin(sd, 28); st.set_content_margin(sd, 16)
+	_parch_sb = st; return st
+# médaillon rond cerclé de fer et d'or, avec l'icône de l'écran
+func _medallion(tx: Texture2D, size: float) -> Control:
+	var c := Control.new(); c.custom_minimum_size = Vector2(size, size); c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bg := TextureRect.new(); bg.texture = T("medal"); bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; bg.size = Vector2(size, size); bg.mouse_filter = Control.MOUSE_FILTER_IGNORE; c.add_child(bg)
+	if tx:
+		var ic := TextureRect.new(); ic.texture = tx; ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		ic.position = Vector2(size * 0.2, size * 0.2); ic.size = Vector2(size * 0.6, size * 0.6); ic.mouse_filter = Control.MOUSE_FILTER_IGNORE; c.add_child(ic)
+	return c
+const PANEL_ICONS := [["ventes", "it_coins"], ["Forge", "it_chest_open"], ["Quotidien", "it_quest"], ["Classement", "it_trophy"], ["Boutique", "crown"], ["Carte", "it_treasure_map"], ["Royaume", "it_treasure_map"],
+	["Menu", "ic_gear"], ["Coffre", "it_chest_open"], ["COFFRE", "it_chest_open"], ["Expédition", "it_hunt"], ["Guide", "it_seal"], ["Chasse", "it_hunt"], ["Marché", "it_coins"], ["île", "it_treasure_map"], ["Île", "it_treasure_map"],
+	["Enchant", "it_seal"], ["Compagnie", "it_hunt"], ["Discussion", "it_quest"], ["Défaite", "it_seal"], ["achat", "crown"]]
+func _panel_icon(title_txt: String) -> Texture2D:
+	for pi in PANEL_ICONS:
+		if title_txt.contains(pi[0]): return T(pi[1])
+	var tn = main.get("talk_npc")
+	if tn != null and is_instance_valid(tn):
+		var ci: Texture2D = main.icons.char_icon(tn.data.get("model", "Knight"))
+		if ci: return ci
+	return T("it_seal")
+
 # bouton fermer : disque doré, croix sombre (comme Albion)
 func _close_btn(cb: Callable) -> Button:
 	var x := Button.new(); x.text = "✕"; x.custom_minimum_size = Vector2(56, 56); x.focus_mode = Control.FOCUS_NONE
@@ -1215,7 +1274,7 @@ func show_bag() -> void:
 	var entries := bag_entries()
 	if bag_sel >= entries.size(): bag_sel = -1
 	var s := vs()
-	var pc := PanelContainer.new(); pc.add_theme_stylebox_override("panel", _parch_box())
+	var pc := PanelContainer.new(); pc.add_theme_stylebox_override("panel", _parch_tex())
 	pc.position = Vector2(s.x - BAG_W - 8, 6); pc.custom_minimum_size = Vector2(BAG_W, s.y - 12); pc.size = pc.custom_minimum_size
 	root.add_child(pc); panel = pc
 	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 6); pc.add_child(vb)

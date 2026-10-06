@@ -1302,6 +1302,28 @@ func _town_build(tname: String) -> void:
 	var ST: Dictionary = TOWN_STYLE.get(map_id, TOWN_STYLE[1])
 	_roof_tint = ST.roof; _wall_force = ST.wall
 	town.build(ST, tname)
+	_pave_town(ST)
+
+# masque des pavés : tout le cœur du bourg (rues, abords des maisons, place) devient pavé
+func _pave_town(ST: Dictionary) -> void:
+	var R := 128
+	var img := Image.create(R, R, false, Image.FORMAT_L8)
+	var bb: Rect2 = town.bbox.grow(10.0)
+	for j in R:
+		var z := -HALF + (j + 0.5) * (HALF * 2.0 / R)
+		if z < bb.position.y or z > bb.end.y: continue
+		for i in R:
+			var x := -HALF + (i + 0.5) * (HALF * 2.0 / R)
+			if x < bb.position.x or x > bb.end.x: continue
+			var td: float = town.town_dist(x, z)
+			if td > 9.0 or height(x, z) < WATER_Y + 0.2: continue
+			img.set_pixel(i, j, Color(1.0 - smoothstep(3.0, 7.0, td), 0, 0))
+	var m := ground_mat()
+	m.set_shader_parameter("pave_mask", ImageTexture.create_from_image(img))
+	m.set_shader_parameter("pave_tex", load("res://assets/village/T_UnevenBrick_BaseColor.png"))
+	var pc: Color = Color(ST.pave).lightened(0.25)
+	m.set_shader_parameter("pave_col", Vector3(pc.r, pc.g, pc.b))
+	m.set_shader_parameter("pave_on", 1.0)
 
 # étal de marché devant un marchand de la place
 func _stall(sl: Array, kind: String) -> void:
@@ -1810,7 +1832,7 @@ func _decor() -> void:
 		var tdd: float = town.town_dist(p.x, p.z) if town else 99.0
 		if tdd < 14.0:
 			# dans le bourg : seulement quelques touffes d'herbe dans les jardins
-			if tdd > 1.2 and not near_house(Vector2(p.x, p.z), 0.5) and not _town_home_at(p) and rng.randf() < 0.4:
+			if tdd > 6.5 and not near_house(Vector2(p.x, p.z), 0.5) and not _town_home_at(p) and rng.randf() < 0.4:
 				var rr2 := rng.randf()
 				if rr2 < 0.75: _mm("res://assets/forest/" + ["Grass_1_C_Color1.gltf", "Grass_2_B_Color1.gltf", "Grass_1_A_Color1.gltf"][rng.randi() % 3], p, rng.randf_range(0.8, 1.3), rng.randf() * TAU)
 				elif rr2 < 0.9:
@@ -2425,6 +2447,10 @@ void vertex() { wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
 vec3 lin(vec3 c) { return mix(pow((c + 0.055) / 1.055, vec3(2.4)), c / 12.92, lessThan(c, vec3(0.04045))); }
 uniform sampler2D detail : filter_linear_mipmap, repeat_enable;
 uniform sampler2D grass_tex : filter_linear_mipmap, repeat_enable;
+uniform sampler2D pave_mask : filter_linear;
+uniform sampler2D pave_tex : source_color, filter_linear_mipmap, repeat_enable;
+uniform vec3 pave_col = vec3(1.0);
+uniform float pave_on = 0.0;
 void fragment() {
 	vec3 c = lin(COLOR.rgb);
 	// herbe peinte : brins clairs et sombres, seulement là où le sol est vert
@@ -2445,6 +2471,13 @@ void fragment() {
 	// mouchetures (cailloux clairs, creux sombres)
 	c = mix(c, c * 1.35, smoothstep(0.78, 0.86, d3) * 0.5);
 	c = mix(c, c * 0.72, smoothstep(0.25, 0.17, d3) * 0.45);
+	// le bourg est pavé (bord irrégulier, comme dans les villes d'Albion)
+	if (pave_on > 0.5) {
+		float pm = texture(pave_mask, (wp.xz + 128.0) / 256.0).r;
+		pm = smoothstep(0.42, 0.62, pm + (d2 - 0.5) * 0.4 + (d3 - 0.5) * 0.15);
+		vec3 cob = texture(pave_tex, wp.xz * 0.5).rgb * pave_col * (1.0 + lum * 0.6);
+		c = mix(c, cob, pm);
+	}
 	// pentes : roche striée
 	vec3 wn = (INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz;
 	float rk = smoothstep(0.86, 0.66, wn.y);

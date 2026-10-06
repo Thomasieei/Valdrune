@@ -1363,9 +1363,9 @@ func _update_moods(dt: float) -> void:
 		var face: Sprite3D = n.get_meta("face") if n.has_meta("face") else null
 		if face == null:
 			face = Sprite3D.new(); face.billboard = BaseMaterial3D.BILLBOARD_ENABLED; face.pixel_size = 0.0062; face.no_depth_test = true; face.render_priority = 5
-			face.position = Vector3(0, 2.55 * float(n.data.get("scale", 1.0)), 0); n.add_child(face); n.set_meta("face", face)
+			face.position = Vector3(0, 3.02 * float(n.data.get("scale", 1.0)), 0); n.add_child(face); n.set_meta("face", face)
 			var ql := Label3D.new(); ql.font_size = 110; ql.outline_size = 18; ql.billboard = BaseMaterial3D.BILLBOARD_ENABLED; ql.pixel_size = 0.008; ql.no_depth_test = true
-			ql.position = Vector3(0, 3.55 * float(n.data.get("scale", 1.0)), 0); n.add_child(ql); n.set_meta("qmark", ql)
+			ql.position = Vector3(0.55, 3.55 * float(n.data.get("scale", 1.0)), 0); n.add_child(ql); n.set_meta("qmark", ql)
 		var m := npc_mood(n)
 		var near: bool = n.global_position.distance_to(pp) < 26.0
 		face.visible = near and not n.hidden
