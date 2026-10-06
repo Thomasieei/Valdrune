@@ -276,6 +276,28 @@ func exped_collect() -> Dictionary:
 	S["exped"] = {}; save()
 	return {"loot": loot, "crowns": crowns_won, "label": e.label}
 
+# ================= RÉPUTATION : chaque royaume (carte) a son opinion de toi =================
+# −100 … +100 · on arrive en étranger mal vu, il faut gagner la confiance des habitants
+const REP_LV := [[-100, "Hostile", "hostile", "#ff5a4a"], [-40, "Méfiant", "mefiant", "#ff9a3a"], [0, "Neutre", "neutre", "#ffd24a"], [30, "Amical", "amical", "#7dff8a"], [70, "Héros", "heros", "#ffcf3a"]]
+func rep(map := -1) -> int:
+	if typeof(S.get("rep")) != TYPE_DICTIONARY: S["rep"] = {}
+	var k := str(map if map > 0 else int(S.get("map", 1)))
+	if not S.rep.has(k): S.rep[k] = -45 if not S.has("rep_old") else -20
+	return int(S.rep[k])
+func rep_level(v := 99999) -> Array:
+	if v == 99999: v = rep()
+	var out: Array = REP_LV[0]
+	for l in REP_LV:
+		if v >= int(l[0]): out = l
+	return out
+func rep_add(n: int, map := -1) -> Array:
+	var before: Array = rep_level(rep(map))
+	var k := str(map if map > 0 else int(S.get("map", 1)))
+	S.rep[k] = clamp(rep(map) + n, -100, 100); save()
+	var after: Array = rep_level(rep(map))
+	return [before, after]
+func price_mult() -> float: return {"hostile": 1.3, "mefiant": 1.15, "neutre": 1.0, "amical": 0.92, "heros": 0.85}[rep_level()[2]]
+
 # quêtes du jour : 3 objectifs tirés chaque jour
 const DQ_POOL := [
 	{"id": "kill", "txt": "Tue %d monstres", "n": [25, 40, 60]},
@@ -736,6 +758,7 @@ func _ready() -> void:
 		var d = JSON.parse_string(f.get_as_text())
 		if typeof(d) == TYPE_DICTIONARY and d.get("v", 0) == 2:
 			for k in d: S[k] = d[k]
+			if not d.has("rep"): S["rep_old"] = true
 			# JSON → entiers
 			for k in RES_KEYS:
 				var arr: Array = S.inv.get(k, [0, 0, 0, 0, 0, 0])
@@ -823,7 +846,7 @@ func _notification(what: int) -> void:
 # ================= JOURNAL DE BORD (pour retrouver ce qui a fait planter le jeu) =================
 const FLAG_PATH := "user://en_cours.flag"
 const CRUMB_PATH := "user://journal.txt"
-const VERSION := "7.3"
+const VERSION := "7.4"
 var crumbs: Array = []
 var crashed_last := false
 var last_crumbs := ""

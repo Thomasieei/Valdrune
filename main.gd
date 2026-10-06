@@ -84,6 +84,7 @@ func _ready() -> void:
 	_make_ambient()
 	_spawn_saved_mercs()
 	social = Social.new(); add_child(social); social.setup(self)
+	vq = VQuests.new(self)
 	builder = Builder.new(); add_child(builder); builder.setup(self)
 	_spawn_bots()
 	player.refresh_name()
@@ -358,7 +359,7 @@ func _process(dt: float) -> void:
 		var fe = free_q.pop_front()
 		if is_instance_valid(fe): fe.queue_free()
 	t_disc -= dt
-	if t_disc <= 0.0: t_disc = 0.4; _check_world()
+	if t_disc <= 0.0: t_disc = 0.4; _check_world(); _arrival_check()
 	t_ah -= dt
 	if t_ah <= 0.0: t_ah = 1.0; ah_check()
 	t_events -= dt
@@ -371,6 +372,7 @@ func _process(dt: float) -> void:
 	_guide(dt)
 	ambient.global_position = player.global_position + Vector3(0, 2.0, 3.0)
 	_arid_fx()
+	_update_moods(dt)
 	ambient.color = AMB_COL[World.REGIONS[max(1, cur_region)].tier] if not in_instance() else Color(0.6, 0.8, 1.0, 0.6)
 	if not in_instance() and night > 0.3: ambient.color = Color(0.75, 1.0, 0.35, 0.9 * night)   # lucioles la nuit
 	if cine.is_valid(): cine.call(dt)   # caméra de cinéma (vidéo promo)
@@ -535,6 +537,7 @@ func on_gather_hit(nd: Dictionary) -> void:
 	var n := 1 + (1 if randf() < 0.03 + 0.01 * lvl + Game.TOOL_Q[Game.toolq(tool)].bonus else 0)
 	if event_on("recolte"): n *= 2
 	Game.S.inv[nd.type][nd.tier] += n; Game.S.stats.gathered += n; _dq("gather", n); tuto_event(nd.type, n)
+	if vq: vq.event("gather", n)
 	# XP de métier : plus le tier est haut, plus ça rapporte
 	var xp: int = [0, 8, 14, 24, 40, 65][nd.tier]
 	if nd.tier < int(Game.S.gear.get(tool, 1)): xp = max(1, int(xp * 0.35))   # récolter sous son tier rapporte peu
@@ -558,6 +561,7 @@ func on_gather_hit(nd: Dictionary) -> void:
 	update_goal(); Game.save()
 
 var social: Social
+var vq: VQuests
 var builder: Builder
 var crop_sel := {}
 # toucher un joueur à l'écran ouvre sa fiche
@@ -582,6 +586,7 @@ func pick_crop(c: Dictionary) -> void:
 	Fx.burst(self, c.pos + Vector3(0, 0.8, 0), Color("#9be86a"), 10, 3.0, 0.2, 0.45)
 	Game.play("pickup", -4.0)
 	Game.S.stats.gathered += n; _dq("food", n); tuto_event("food", 1)
+	if vq: vq.event("food", n)
 	if not Game.S.tips.has("food"):
 		Game.S.tips["food"] = 1; hud.toast("Ouvre ton sac pour manger (ça soigne) ou vendre ce que tu cueilles", Color("#d8ffb0"), true)
 	Game.save()
@@ -659,6 +664,17 @@ func on_enemy_death(e: Enemy) -> void:
 			if e in sp.members and sp.members.all(func(m): return not is_instance_valid(m) or m.dead): sp.dead_at = Time.get_ticks_msec() / 1000.0
 		return
 	Game.S.stats.kills += 1; _dq("kill"); tuto_event("kill")
+	if vq:
+		if str(e.kind) == "loup": vq.event("kill_loup")
+		if world.town != null and world.town.town_dist(e.global_position.x, e.global_position.z) < 45.0:
+			vq.event("kill_near")
+			if randf() < 0.3: _rep_gain(1, "")
+		if e.elite or e.is_boss: vq.event("elite")
+		if e.has_meta("secret"): vq.event("secret"); hud.celebrate("LE GARDIEN OUBLIÉ EST TOMBÉ", "Retourne voir l'Ancien", "it_trophy")
+	# dépeçage : avec le couteau, les bêtes laissent leur peau
+	if e.animal and int(Game.S.get("knife", 0)) >= 1 and not e.group_boss:
+		Game.S["hides"] = int(Game.S.get("hides", 0)) + 1
+		Fx.number(self, e.global_position + Vector3(0, 2.0, 0), "+1 peau", Color("#d8b088"), false)
 	if e.elite or e.is_boss: _dq("elite")
 	if e.global_position.distance_to(player.global_position) < 30.0 and not player.dead: _weapon_xp(e.tier, 10.0 if e.is_boss else (3.0 if e.elite else 1.0))
 	if e.global_position.distance_to(player.global_position) < 30.0 and not player.dead: _gear_xp(e.tier, 10.0 if e.is_boss else (3.0 if e.elite else 1.0))
@@ -888,8 +904,9 @@ func ah_check() -> void:
 		if hud.panel_open and hud.cur_panel == "auction": hud.show_auction(hud.ah_tab)
 
 func buy_potion() -> void:
-	if Game.S.silver < 40: return
-	Game.S.silver -= 40; Game.S.potions += 1; Game.play("coin"); Game.save(); hud.show_shop()
+	var pp := int(40 * Game.price_mult())
+	if Game.S.silver < pp: return
+	Game.S.silver -= pp; Game.S.potions += 1; Game.play("coin"); Game.save(); hud.show_shop()
 
 # ——— Équiper au mieux : pour chaque emplacement, la meilleure pièce du sac que tu as le droit de porter ———
 func item_score(it: Dictionary) -> float:
@@ -1040,6 +1057,7 @@ func _tuto_next() -> void:
 	if st.r.has("crowns"): rt.append("+%d couronnes" % st.r.crowns)
 	if st.r.has("boost"): rt.append("Boost XP ×2 · 30 min")
 	Game.S.tuto = tuto_i() + 1; Game.S.tuto_n = 0
+	Game.rep_add(3)
 	Game.play("level", -3.0, 1.1)
 	if not tuto_active():
 		Game.grant({"crowns": 50})
@@ -1077,6 +1095,31 @@ func _tuto_target():
 			return best2
 	return null
 
+func _vq_hint(g: String) -> String:
+	return {"kill_loup": "[color=#b8c0c8]Les loups rôdent dans les bois autour du village.[/color]", "give_hides": "[color=#b8c0c8]Tue des bêtes (loups, cerfs, sangliers…) : avec ton couteau, elles laissent leur peau.[/color]",
+		"give_ore": "[color=#b8c0c8]Mine des rochers, puis rapporte le minerai.[/color]", "give_wood": "[color=#b8c0c8]Coupe des arbres, puis rapporte le bois.[/color]", "food": "[color=#b8c0c8]Les buissons et potagers colorés se cueillent.[/color]",
+		"kill_near": "[color=#b8c0c8]Combats autour du village.[/color]", "elite": "[color=#b8c0c8]Les élites ont un nom doré.[/color]", "gather": "[color=#b8c0c8]Bois, minerai ou fibre : tout compte.[/color]",
+		"poi": "[color=#b8c0c8]Explore : les lieux se découvrent en s'en approchant.[/color]", "secret": "[color=#ffcf3a]Le Gardien Oublié t'attend. Prépare-toi.[/color]"}.get(g, "")
+func _vq_target(ch: String, g: String, done: bool):
+	if done:
+		for n in npcs:
+			if is_instance_valid(n) and VQuests.chain_of(n.act) == ch: return n.position
+		return null
+	match g:
+		"kill_loup", "give_hides":
+			var best = null; var bd := 1e9
+			for e in enemies:
+				if is_instance_valid(e) and not e.dead and e is Enemy and e.animal and (g == "give_hides" or str(e.kind) == "loup"):
+					var d: float = e.global_position.distance_to(player.global_position)
+					if d < bd: bd = d; best = e.global_position
+			return best
+		"give_wood": return _nearest_node("wood", 1)
+		"give_ore": return _nearest_node("ore", 1)
+		"secret":
+			var sp = Game.S.get("secret_pos", null)
+			return Vector3(float(sp[0]), 0, float(sp[1])) if sp is Array else null
+	return null
+
 # Progression : les MÉTIERS ouvrent les tiers (XP), les marchands vendent les outils, Brokk fabrique l'équipement
 func update_goal() -> void:
 	# tombe en zone rouge : priorité absolue tant qu'il reste du temps
@@ -1099,6 +1142,15 @@ func update_goal() -> void:
 		if t2 != goal_text: goal_text = t2; hud.goal_lbl.text = t2
 		goal_target = _tuto_target()
 		return
+	if vq:
+		var aq: Array = vq.active()
+		if not aq.is_empty():
+			var ch: String = aq[0]; var q: Dictionary = aq[1]
+			var done: bool = vq.is_complete(ch)
+			var tq := "[b]Quête : %s[/b]  [color=#ffd27a](%s)[/color]\n%s" % [q.title, vq.progress_text(ch), ("[color=#7dff8a]Accomplie ! Retourne voir %s.[/color]" % VQuests.ROLE_NAME.get(ch, "l'habitant")) if done else _vq_hint(str(q.goal))]
+			if tq != goal_text: goal_text = tq; hud.goal_lbl.text = tq
+			goal_target = _vq_target(ch, str(q.goal), done)
+			return
 	var S := Game.S
 	var txt := ""; var tgt = null
 	# 1) outil le plus en retard
@@ -1161,9 +1213,23 @@ func talk(n: Npc) -> void:
 	if n == null: return
 	if n.id == "aldric": tuto_event("talk_aldric")
 	if n.act == "forge": tuto_event("talk_forge")
+	# quête de l'habitant : rendre, proposer, ou refuser si on ne t'aime pas encore
+	var ch := VQuests.chain_of(n.act)
+	if ch != "" and vq:
+		var qs := vq.npc_state(n.act)
+		var q: Dictionary = vq.cur(ch)
+		if qs == "ready": vq.turn_in(ch, n); return
+		if qs == "offer" and not n.get_meta("skip_q", false):
+			var mood: String = Game.rep_level()[2]
+			var pre: String = {"hostile": "[color=#ff8a7a]« Qu'est-ce que tu veux, l'étranger ? »[/color]\n", "mefiant": "[color=#ffb07a]« …Toi. Bon. Écoute. »[/color]\n"}.get(mood, "")
+			hud.show_dialog(n, "%s[b][color=#ffd27a]%s[/color][/b]\n%s" % [pre, q.title, q.ask], [
+				["Accepter", func(): vq.accept(ch); hud.close_panel(); hud.toast("Quête acceptée : %s" % q.title, Color("#ffd27a"), true), true],
+				["Pas maintenant", func(): n.set_meta("skip_q", true); talk(n); n.set_meta("skip_q", false)]])
+			return
 	Game.play("pickup", -8.0, 0.8)
 	var first: bool = not Game.S.met.has(n.id)
 	var line := n.next_line()
+	line = mood_line(n, line)
 	if n.act == "duel": line = ""
 	if first and n.act == "talk":
 		Game.S.met[n.id] = 1; Game.S.silver += 15; line += "\n\n[color=#ffd86b]+15 argent (nouvelle rencontre)[/color]"; Game.save()
@@ -1188,12 +1254,109 @@ func talk(n: Npc) -> void:
 		"mercs":
 			acts.append(["Expéditions", func(): hud.show_expedition(), true])
 			acts.append(["Engager des mercenaires", func(): hud.show_mercs(), true])
-		"enchant": acts.append(["Enchanter mon équipement", func(): hud.show_enchant(), true])
+		"enchant":
+			if Game.rep() < 30:
+				line = "[color=#d58bff]« Ma magie ne se grave pas pour un inconnu. »[/color]\nGagne la confiance de ce royaume (rang [color=#7dff8a]Amical[/color]) et je t'ouvrirai mes secrets.\n[color=#a8b4bc]Réputation actuelle : %s (%d)[/color]" % [Game.rep_level()[1], Game.rep()]
+			else: acts.append(["Enchanter mon équipement", func(): hud.show_enchant(), true])
 		"duel":
 			_talk_duel(n); return
 	acts.append(["Au revoir", func(): hud.close_panel()])
 	if n.act in ["talk", "quest"] and n.id != "aldric": acts.insert(0, ["Encore", func(): talk(n)])
 	hud.show_dialog(n, line, acts)
+
+# ================= RÉPUTATION & HUMEURS =================
+const HOSTILE_LINES := ["Encore un vagabond… Passe ton chemin.", "On n'aime pas les étrangers, ici.", "Tu crois qu'on va te faire confiance comme ça ?", "Garde tes distances, l'étranger.", "Hmpf.", "Les derniers aventuriers ont pillé nos greniers. Alors non, on ne t'aime pas."]
+const WARY_LINES := ["…Tu es encore là, toi ?", "On verra ce que tu vaux.", "Paraît que t'as aidé quelqu'un. Mouais.", "Ne fais pas de bêtises dans mon village."]
+const FRIEND_LINES := ["Ah, te voilà ! Ça fait plaisir.", "Tout le village parle de toi !", "Merci pour tout ce que tu fais pour nous.", "Repasse quand tu veux, l'ami !"]
+const HERO_LINES := ["C'est un honneur de te parler !", "Les enfants jouent à être toi, tu sais ?", "Le héros du royaume ! Prends ce que tu veux, c'est cadeau… enfin presque."]
+func npc_mood(n: Npc) -> String:
+	var v := Game.rep()
+	if n.id == "pip": v += 25          # les enfants s'attachent vite
+	elif n.id in ["gael", "rhea"] or n.act == "mercs": v -= 10   # la garde est plus dure à convaincre
+	return str(Game.rep_level(v)[2])
+func mood_line(n: Npc, line: String) -> String:
+	var m := npc_mood(n)
+	if n.act in ["talk", "quest"] and n.id != "aldric":
+		match m:
+			"hostile": return "[color=#ff8a7a]« %s »[/color]" % HOSTILE_LINES[randi() % HOSTILE_LINES.size()]
+			"mefiant": return "[color=#ffb07a]« %s »[/color]\n%s" % [WARY_LINES[randi() % WARY_LINES.size()], line]
+			"amical": return "[color=#9dffb0]« %s »[/color]\n%s" % [FRIEND_LINES[randi() % FRIEND_LINES.size()], line]
+			"heros": return "[color=#ffe08a]« %s »[/color]\n%s" % [HERO_LINES[randi() % HERO_LINES.size()], line]
+	elif m == "hostile" and n.act in ["forge", "shop", "tools", "tools3"]:
+		return "[color=#ff8a7a]« Je te vends, mais au prix des étrangers. +30 %%. »[/color]\n" + line
+	elif m == "heros" and n.act in ["forge", "shop", "tools", "tools3"]:
+		return "[color=#ffe08a]« Pour toi, prix d'ami : −15 %%. »[/color]\n" + line
+	return line
+func _rep_gain(n: int, why: String) -> void:
+	var lv: Array = Game.rep_add(n)
+	if why != "": hud.toast("+%d réputation · %s" % [n, why], Color("#9dffb0"))
+	rep_feedback(lv)
+func rep_feedback(lv: Array) -> void:
+	if lv.is_empty() or lv[0][2] == lv[1][2]: return
+	var up: bool = int(lv[1][0]) > int(lv[0][0])
+	var msg: String = {"mefiant": "Les habitants te tolèrent… à peine.", "neutre": "On ne te regarde plus de travers.", "amical": "Le royaume t'apprécie : Ysaline accepte d'enchanter ton équipement, les prix baissent !", "heros": "TU ES UN HÉROS ! L'Ancien a une quête secrète pour toi.", "hostile": "Le royaume te déteste."}[lv[1][2]]
+	hud.celebrate(("RÉPUTATION : %s" if up else "RÉPUTATION EN BAISSE : %s") % str(lv[1][1]).to_upper(), msg, "it_trophy"); Game.play("level" if up else "error")
+	for n in npcs:
+		if is_instance_valid(n) and not n.hidden and n.global_position.distance_to(player.global_position) < 25.0: emote(n, "heart" if up else "anger")
+# petite bulle au-dessus d'un habitant (colère, cœur)
+func emote(n: Npc, kind: String) -> void:
+	if n == null or not is_instance_valid(n): return
+	var sp := Sprite3D.new(); sp.texture = hud.T("emote_" + kind); sp.billboard = BaseMaterial3D.BILLBOARD_ENABLED; sp.no_depth_test = true; sp.pixel_size = 0.006; sp.render_priority = 6
+	sp.position = Vector3(0.6, 3.0 * float(n.data.get("scale", 1.0)), 0); n.add_child(sp)
+	sp.scale = Vector3.ONE * 0.2
+	var tw := sp.create_tween(); tw.tween_property(sp, "scale", Vector3.ONE * 1.15, 0.18).set_trans(Tween.TRANS_BACK); tw.tween_property(sp, "scale", Vector3.ONE, 0.1)
+	tw.tween_interval(1.3); tw.tween_property(sp, "modulate:a", 0.0, 0.4); tw.tween_callback(sp.queue_free)
+# visages d'humeur et marqueurs de quête au-dessus des habitants
+var mood_t := 0.0
+func _update_moods(dt: float) -> void:
+	mood_t -= dt
+	if mood_t > 0.0 or vq == null: return
+	mood_t = 0.5
+	var pp := player.global_position
+	for n in npcs:
+		if not is_instance_valid(n) or n.act == "duel": continue
+		var face: Sprite3D = n.get_meta("face", null)
+		if face == null:
+			face = Sprite3D.new(); face.billboard = BaseMaterial3D.BILLBOARD_ENABLED; face.pixel_size = 0.0062; face.no_depth_test = true; face.render_priority = 5
+			face.position = Vector3(0, 2.55 * float(n.data.get("scale", 1.0)), 0); n.add_child(face); n.set_meta("face", face)
+			var ql := Label3D.new(); ql.font_size = 110; ql.outline_size = 18; ql.billboard = BaseMaterial3D.BILLBOARD_ENABLED; ql.pixel_size = 0.008; ql.no_depth_test = true
+			ql.position = Vector3(0, 3.55 * float(n.data.get("scale", 1.0)), 0); n.add_child(ql); n.set_meta("qmark", ql)
+		var m := npc_mood(n)
+		var near: bool = n.global_position.distance_to(pp) < 26.0
+		face.visible = near and not n.hidden
+		face.texture = hud.T("mood_" + m)
+		var ql2: Label3D = n.get_meta("qmark")
+		var qs := vq.npc_state(n.act)
+		ql2.visible = not n.hidden and qs in ["offer", "ready", "locked"]
+		ql2.text = {"offer": "!", "ready": "?", "locked": "…"}.get(qs, "")
+		ql2.modulate = {"offer": Color("#ffd24a"), "ready": Color("#7dff8a"), "locked": Color(0.7, 0.7, 0.72)}.get(qs, Color.WHITE)
+		ql2.outline_modulate = Color(0.15, 0.08, 0, 0.95)
+		if n.marker and is_instance_valid(n.marker): n.marker.visible = not ql2.visible and not n.hidden
+		# un habitant hostile te le fait savoir quand tu passes près de lui
+		if m == "hostile" and n.global_position.distance_to(pp) < 5.0 and float(n.get_meta("emo_t", 0.0)) < Time.get_ticks_msec() / 1000.0:
+			n.set_meta("emo_t", Time.get_ticks_msec() / 1000.0 + 25.0); emote(n, "anger")
+# première arrivée dans une ville : on te regarde de travers
+func _arrival_check() -> void:
+	if in_instance() or not world.in_town(player.global_position): return
+	var k := "arr_%d" % world.map_id
+	if Game.S.tips.has(k): return
+	Game.S.tips[k] = 1; Game.save()
+	var lv: Array = Game.rep_level()
+	if lv[2] in ["hostile", "mefiant"]:
+		hud.celebrate("ON TE REGARDE DE TRAVERS…", "Ici, personne ne te connaît. Aide les habitants (« ! » jaune) pour gagner leur confiance.", "it_seal")
+		for n in npcs:
+			if is_instance_valid(n) and n.global_position.distance_to(player.global_position) < 30.0 and randf() < 0.6: emote(n, "anger")
+		if social: social.post("systeme", "", "", "Réputation dans ce royaume : %s. Les prix sont plus chers et Ysaline refuse d'enchanter pour toi." % lv[1])
+# quête secrète : le Gardien Oublié apparaît loin du village
+func spawn_secret_boss() -> void:
+	var reg := World.REGIONS.size() - 1
+	var p := _random_spot(reg)
+	if p == Vector3.INF: p = Vector3(world.village.x + 40, 0, world.village.y - 40)
+	var t: int = clamp(int(World.REGIONS[reg].tier) + 1, 2, 5)
+	var e := _spawn_enemy("warrior", t, p, {"pos": p, "members": []}, false)
+	e.max_hp *= 9.0; e.hp = e.max_hp; e.def = e.def.duplicate(); e.def["name"] = "Gardien Oublié"; e.def.dmg *= 1.6; e.scale *= 1.6; e.set_meta("secret", true)
+	Game.S["secret_pos"] = [p.x, p.z]
+	hud.toast("Le Gardien Oublié s'est réveillé — suis la flèche dorée", Color("#ffcf3a"), true)
 
 # ——— Régions, découvertes ———
 func _check_world() -> void:
@@ -1218,6 +1381,7 @@ func _check_world() -> void:
 			var reward: int = int(5 * Game.money(World.REGIONS[poi.region].tier)) + 20
 			Game.S.silver += reward
 			hud.celebrate("LIEU DÉCOUVERT", "%s  · +%s argent" % [poi.name, Game.fmt(reward)], "it_treasure_map")
+			if vq: vq.event("poi")
 			Game.play("level", -6.0); Game.save()
 
 func open_hidden(hc: Dictionary) -> void:
@@ -1497,6 +1661,7 @@ func _event_tick() -> void:
 		drop_loot(ev_horde_pos, "boss", t, Game.roll_loot("group", t, "man"))
 		Game.grant({"crowns": 15})
 		hud.celebrate("HORDE REPOUSSÉE !", "Le coffre de la horde t'attend · +15 couronnes", "it_chest_open"); Game.play("level")
+		_rep_gain(10, "le royaume a vu ton courage")
 		ev_horde = []; ev_horde_pos = Vector3.INF
 func _spawn_horde() -> void:
 	var wt: int = clamp(int(Game.S.gear.get("epee", 1)), 1, 5)
@@ -1939,7 +2104,7 @@ func _give(it: Dictionary) -> String:
 # ================= OUTILS & ARTISANAT =================
 func buy_tool(tool: String, t: int, q: int) -> void:
 	if Game.prof(tool).lvl < Game.PROF_REQ[t]: Game.play("error"); hud.toast("Niveau de %s trop bas" % Game.PROF_TITLE[tool].to_lower(), Color("#ff9a8a")); return
-	var price := Game.tool_price(t, q)
+	var price := int(Game.tool_price(t, q) * Game.price_mult())
 	if Game.S.silver < price: Game.play("error"); hud.toast("Il te manque %s argent" % Game.fmt(price - Game.S.silver), Color("#ff9a8a")); return
 	Game.S.silver -= price
 	var old := Game.equipped_item(tool)
@@ -1967,7 +2132,7 @@ func craft_gear(ci: int, t: int) -> void:
 
 func buy_gear(it: Dictionary) -> void:
 	if int(it.tier) > Game.unlocked(it.slot) + 1: Game.play("error"); hud.toast("Tier verrouillé : porte d'abord le T%d" % (int(it.tier) - 1), Color("#ff9a8a")); return
-	var price := int(Game.item_price(it) * 1.3)
+	var price := int(Game.item_price(it) * 1.3 * Game.price_mult())
 	if Game.S.silver < price: Game.play("error"); hud.toast("Il te manque %s argent" % Game.fmt(price - Game.S.silver), Color("#ff9a8a")); return
 	if not Game.add_item(Game.roll_bx(it.duplicate())): hud.toast("Sac plein", Color("#ff9a8a")); Game.play("error"); return
 	Game.S.silver -= price; Game.play("coin")

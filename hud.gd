@@ -417,6 +417,11 @@ func _draw_under() -> void:
 			_text(c, "★ %s · %s" % [E.name, Game.dur_txt(ev.left)], ep, 13, Color(E.col), true, f_title)
 		else:
 			_text(c, "%s dans %s" % [main.WORLD_EVENTS[ev.next].name, Game.dur_txt(ev.next_in)], ep, 11, Color(0.8, 0.82, 0.86, 0.75), true)
+		# réputation dans ce royaume
+		var lv: Array = Game.rep_level()
+		var rp := Vector2(vs().x - 96, 248)
+		_texq(T("mood_" + str(lv[2])), Rect2(rp + Vector2(-78, -15), Vector2(20, 20)))
+		_text(c, "%s %+d" % [lv[1], Game.rep()], rp + Vector2(6, 0), 13, Color(str(lv[3])), true, f_title)
 	_flush(c); batch_text = false
 
 var batch_text := false
@@ -1494,6 +1499,7 @@ func _guide_debut() -> String:
 		"3. Va à la [color=#ff8a4a]FORGE[/color] voir Brokk : il fabrique armes et armures avec tes ressources.\n" + \
 		"4. Combats les monstres de ton tier pour gagner de l'[b]expérience d'arme et d'armure[/b].\n" + \
 		"5. Vends ce dont tu n'as pas besoin à [color=#6ab8ff]l'Hôtel des ventes[/color] (sur la place).\n\n" + \
+		"[b][color=#ffd27a]La réputation[/color][/b]\nÀ ton arrivée, les habitants te détestent (visage [color=#ff5a4a]rouge[/color] au-dessus de leur tête). Aide-les (« [color=#ffd24a]![/color] » jaune = quête, « [color=#7dff8a]?[/color] » vert = à rendre) pour passer à [color=#ff9a3a]Méfiant[/color], [color=#ffd24a]Neutre[/color], [color=#7dff8a]Amical[/color] puis [color=#ffcf3a]Héros[/color]. Plus ils t'aiment, moins c'est cher — et Amical ouvre l'enchantement, Héros la quête secrète.\n\n" + \
 		"[b][color=#ffd27a]Les commandes[/color][/b]\n• Pouce à gauche : bouger. • Gros bouton : attaquer, récolter, parler, ouvrir.\n• Touche la mini-carte : carte du monde. • AUTO : le héros joue seul (réglable : quoi récolter, quels tiers).\n• Le bandeau en haut te dit toujours quoi faire ensuite (cercle doré sur la carte)."
 
 func _guide_tiers() -> String:
@@ -1633,6 +1639,7 @@ func show_daily() -> void:
 			var left := rich("[b]%s[/b]   [color=%s]%s / %s[/color]\n[color=#a8b4bc]Récompense : [img=20x20]res://ui/crown.png[/img] %d couronnes + %s argent[/color]" % [q.txt, "#7dff8a" if full else "#ffd27a", Game.fmt(int(q.n)), Game.fmt(int(q.goal)), int(q.crowns), Game.fmt(int(q.silver))], 17)
 			var take := func() -> void:
 				q.claimed = true; Game.grant({"crowns": int(q.crowns), "silver": int(q.silver)})
+				Game.rep_add(3)
 				celebrate("QUÊTE DU JOUR", "+%d couronnes · +%s argent" % [int(q.crowns), Game.fmt(int(q.silver))], "it_quest"); Game.play("coin")
 				show_daily()
 			var bt := big_button("Reçu ✔" if q.claimed else ("Récupérer" if full else "En cours"), full and not q.claimed, take, GOLD, full and not q.claimed)
@@ -1643,6 +1650,16 @@ func show_daily() -> void:
 			Game.S.dq.bonus = true; Game.grant({"crowns": 30}); celebrate("JOURNÉE COMPLÈTE !", "+30 couronnes", "it_trophy"); show_daily()
 		var bb := big_button("Bonus des 3 quêtes : 30 couronnes" if not bonus_done else "Bonus reçu ✔", allc and not bonus_done, bonus, GOLD, allc and not bonus_done)
 		body.add_child(bb)
+		if main.vq:
+			var jt := "\n[b][color=#ffd27a]Quêtes des habitants[/color][/b]  [color=#a8b4bc]réputation : %s (%+d)[/color]\n" % [Game.rep_level()[1], Game.rep()]
+			for ch in VQuests.Q:
+				var q: Dictionary = main.vq.cur(ch)
+				if q.is_empty(): jt += "[color=#7dff8a]✔[/color] %s : toutes les quêtes faites\n" % VQuests.ROLE_NAME[ch]; continue
+				var stt: Dictionary = main.vq.state(ch)
+				if stt.on: jt += "• [b]%s[/b] (%s) — %s\n" % [q.title, VQuests.ROLE_NAME[ch], main.vq.progress_text(ch)]
+				elif Game.rep() < int(q.need): jt += "[color=#8a949c]• %s : réservé aux %s[/color]\n" % [VQuests.ROLE_NAME[ch], "héros" if int(q.need) >= 70 else "habitants mieux disposés"]
+				else: jt += "[color=#ffd27a]• %s a une quête pour toi (« ! »)[/color]\n" % VQuests.ROLE_NAME[ch]
+			body.add_child(rich(jt, 16))
 		var el := Game.exped_left()
 		var etxt := "Expédition : aucune en cours — envoie tes mercenaires (même jeu fermé)" if el < 0 else ("Expédition : [color=#7dff8a]revenue ! Butin à récupérer[/color]" if el == 0 else "Expédition : retour dans %s" % Game.dur_txt(el))
 		body.add_child(rich("\n[b][color=#ffd27a]Expéditions[/color][/b]  " + etxt, 17))
@@ -2089,12 +2106,16 @@ func show_dialog(npc: Npc, text: String, actions: Array) -> void:
 	for n in buttons: buttons[n].held = false
 	joy.id = -1; joy.vec = Vector2.ZERO; touches.clear()
 	var s := vs(); var w: float = min(820.0, s.x - 80)
-	var pc := PanelContainer.new(); pc.add_theme_stylebox_override("panel", flat(Color(0.06, 0.08, 0.12, 0.92), 22, Color(0.95, 0.78, 0.45, 0.45), 2, Vector4(26, 14, 26, 16), 12))
+	# bulle façon manga : cadre blanc épais, nom en cartouche, visage d'humeur
+	var pc := PanelContainer.new(); pc.add_theme_stylebox_override("panel", flat(Color(0.05, 0.06, 0.09, 0.95), 10, Color(1, 1, 1, 0.95), 4, Vector4(26, 14, 26, 16), 14))
 	pc.custom_minimum_size = Vector2(w, 0); root.add_child(pc); panel = pc
 	var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 8); pc.add_child(v)
-	var hdr := HBoxContainer.new(); v.add_child(hdr)
-	var nl := _label(npc.nm, 26, GOLD); nl.add_theme_font_override("font", f_title); hdr.add_child(nl)
-	hdr.add_child(_label("  ·  " + npc.role, 17, Color("#a8c8e0")))
+	var hdr := HBoxContainer.new(); hdr.add_theme_constant_override("separation", 10); v.add_child(hdr)
+	var mood: String = main.npc_mood(npc) if main.has_method("npc_mood") else "neutre"
+	var fi := TextureRect.new(); fi.texture = T("mood_" + mood); fi.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; fi.custom_minimum_size = Vector2(40, 40); fi.size_flags_vertical = Control.SIZE_SHRINK_CENTER; hdr.add_child(fi)
+	var tag := PanelContainer.new(); tag.add_theme_stylebox_override("panel", flat(Color(1, 1, 1, 0.96), 6, Color(0, 0, 0, 0), 0, Vector4(12, 2, 12, 4)))
+	var nl := _label(npc.nm, 24, Color("#141018")); nl.add_theme_font_override("font", f_title); tag.add_child(nl); hdr.add_child(tag)
+	hdr.add_child(_label(npc.role, 16, Color("#a8c8e0")))
 	var tx := rich(text, 19); tx.custom_minimum_size = Vector2(w - 60, 0); v.add_child(tx)
 	var h := HBoxContainer.new(); h.alignment = BoxContainer.ALIGNMENT_END; h.add_theme_constant_override("separation", 10); v.add_child(h)
 	for a in actions: h.add_child(big_button(a[0], true, a[1], GOLD, a.size() > 2))
