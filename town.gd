@@ -467,7 +467,17 @@ func _build_houses() -> void:
 	var paths: Array = []
 	var hi := 0
 	for h in homes:
+		if str(h.kind).begins_with("site_"):
+			var bid: String = str(h.kind).substr(5)
+			var pr: float = Game.build_prog(W.map_id, bid)
+			if pr >= 1.0 or Game.build_state(W.map_id, bid).get("done", false):
+				W.house(h.hc, h.rot, h.w, 3, "brick", true); h.fl = 3
+				W.label(str(Game.BUILDS[bid].name).to_upper(), Vector3(h.hc.x, W.height(h.hc.x, h.hc.y) + 12.0, h.hc.y), Color("#ffe9b8"), 46)
+			else: _construction(h, bid, pr)
+			paths.append(_build_plot(h)); hi += 1
+			continue
 		W.house(h.hc, h.rot, h.w, h.fl, "brick" if hi % 3 == 0 else "plaster", true); hi += 1
+		if h.plaza and h.kind in ["shop", "tools", "auction"]: _shop_front(h)
 		if h.get("plot", false): paths.append(_build_plot(h))
 	# allées de terre : de la porte jusqu'à la rue
 	var sf := SurfaceTool.new(); sf.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -781,6 +791,12 @@ func _assign_services() -> void:
 	for h in homes:
 		if h.plaza and (best == null or dist.call(h) < dist.call(best)): best = h
 	if best != null: take.call(best, "auction")
+	# boutiques de la place : la marchande et l'atelier des outils, chacun dans sa maison (fini les tentes)
+	var plaza_left: Array = homes.filter(func(h): return h.plaza and not h in taken)
+	if best != null:
+		plaza_left.sort_custom(func(a1, b1): return (a1.c as Vector2).distance_to(best.c) > (b1.c as Vector2).distance_to(best.c))
+	for k in ["shop", "tools"]:
+		if not plaza_left.is_empty(): take.call(plaza_left.pop_front(), k)
 	# rue des artisans : la plus longue grande rue ; forge, scierie et tannerie côte à côte
 	var bl := 0.0
 	for si in streets.size():
@@ -805,6 +821,14 @@ func _assign_services() -> void:
 		if h.street == artisan_si and streets.size() > 1: continue
 		if far == null or dist.call(h) > dist.call(far): far = h
 	if far != null: take.call(far, "mercs")
+	# chantiers : deux parcelles où la ville grandit (banque, écurie), plutôt vers le milieu des rues
+	var cand2: Array = homes.filter(func(h): return h.get("plot", false) and not h in taken and h.street >= 0)
+	cand2.sort_custom(func(a1, b1): return abs(dist.call(a1) - 30.0) < abs(dist.call(b1) - 30.0))
+	var used_st: Array = []
+	for bid in Game.BUILDS:
+		for h in cand2:
+			if h in taken or (h.street in used_st and cand2.size() > 3): continue
+			take.call(h, "site_" + bid); used_st.append(h.street); break
 	for h in homes:
 		if h.kind == "inn": h.fl = 3; h.w = max(int(h.w), 6)
 		if h.kind == "auction": h.fl = 3
@@ -829,6 +853,30 @@ func _street_signs() -> void:
 		W.blocker(Vector3(q.x, 0, q.y), 0.2)
 		var l: Label3D = W.label(nm, Vector3(q.x, y + 3.1, q.y), Color("#ffe9b8"), 36)
 		l.pixel_size = 0.0075
+
+# plusieurs marchands devant la même boutique (les 3 vendeurs d'outils côte à côte)
+func service_slot_n(kind: String, i: int, n: int) -> Array:
+	var h := service(kind)
+	if h.is_empty(): return plaza_slot(1.0 + i * 1.3)
+	h.used = true
+	var fwd: Vector2 = ((h.out as Vector2) - (h.door as Vector2)).normalized()
+	var ax := Vector2(cos(h.rot), -sin(h.rot))
+	var q: Vector2 = (h.out as Vector2) + fwd * 1.2 + ax * (float(i) - (n - 1) * 0.5) * 1.9
+	npc_used.append(q)
+	return [Vector3(q.x, 0, q.y), atan2(fwd.x, fwd.y), h]
+
+# devanture : auvent coloré au-dessus de la porte, tonneaux et caisses de part et d'autre
+func _shop_front(h: Dictionary) -> void:
+	var rot: float = h.rot
+	var ax := Vector2(cos(rot), -sin(rot)); var az := Vector2(sin(rot), cos(rot))
+	var door: Vector2 = h.door
+	var cols := {"shop": [Color("#2f6fb0"), Color("#f0e6d0")], "tools": [Color("#3c7a3a"), Color("#e8d8a0")], "auction": [Color("#7a2a6a"), Color("#f0d890")]}
+	var cc: Array = cols.get(h.kind, [Color("#b0352a"), Color("#f0e6d0")])
+	awning(door + az * 1.3, rot, 4.4, 2.2, cc[0], cc[1], 2.7)
+	var H := "res://assets/hex/"
+	for sd: float in [-1.0, 1.0]:
+		var q: Vector2 = door + az * 0.9 + ax * sd * 2.6
+		W.place(H + ("barrel.gltf" if sd < 0 else "crate_A_big.gltf"), Vector3(q.x, 0, q.y), rot, 3.0); W.blocker(Vector3(q.x, 0, q.y), 0.45)
 
 func service(kind: String) -> Dictionary:
 	for h in homes:
@@ -959,6 +1007,38 @@ func _hearth(p: Vector3, rot: float) -> void:
 	var c2 := MeshInstance3D.new(); var em := CylinderMesh.new(); em.top_radius = 0.45; em.bottom_radius = 0.45; em.height = 0.06; em.radial_segments = 10; c2.mesh = em; c2.position = Vector3(0, 0.81, 0); c2.material_override = coal; root.add_child(c2)
 	W._light(Vector3(p.x, y + 1.3, p.z), Color("#ff7a20"), 3.0, 3.4)
 	W._smoke(Vector3(p.x, y + 1.0, p.z))
+
+# chantier : fondations qui montent avec l'avancement, échafaudage, bois et pierres empilés
+func _construction(h: Dictionary, bid: String, pr: float) -> void:
+	var rot: float = h.rot; var c: Vector2 = h.hc
+	var root := Node3D.new(); root.position = Vector3(c.x, W.height(c.x, c.y), c.y); root.rotation.y = rot; W.add_child(root)
+	var stone := StandardMaterial3D.new(); stone.albedo_texture = load("res://assets/village/T_UnevenBrick_BaseColor.png"); stone.albedo_color = Color("#cfc6b6"); stone.uv1_triplanar = true; stone.uv1_scale = Vector3(0.6, 0.6, 0.6)
+	var wood := StandardMaterial3D.new(); wood.albedo_texture = load("res://assets/village/T_WoodTrim_BaseColor.png"); wood.albedo_color = Color("#b08a64"); wood.uv1_triplanar = true; wood.uv1_scale = Vector3(0.8, 0.8, 0.8)
+	var w: float = float(h.w); var d := 8.0
+	var wh: float = 0.4 + 3.2 * pr                     # les murs montent avec le chantier
+	var box := func(sz: Vector3, pos: Vector3, m: Material) -> void:
+		var mi := MeshInstance3D.new(); var bm := BoxMesh.new(); bm.size = sz; mi.mesh = bm; mi.position = pos; mi.material_override = m; root.add_child(mi)
+	box.call(Vector3(w, wh, 0.5), Vector3(0, wh * 0.5, -d * 0.5 + 0.25), stone)
+	box.call(Vector3(0.5, wh, d), Vector3(-w * 0.5 + 0.25, wh * 0.5, 0), stone)
+	box.call(Vector3(0.5, wh, d), Vector3(w * 0.5 - 0.25, wh * 0.5, 0), stone)
+	box.call(Vector3(w * 0.35, wh, 0.5), Vector3(-w * 0.325, wh * 0.5, d * 0.5 - 0.25), stone)
+	box.call(Vector3(w * 0.35, wh, 0.5), Vector3(w * 0.325, wh * 0.5, d * 0.5 - 0.25), stone)
+	# échafaudage
+	for sx: float in [-1.0, 1.0]:
+		for sz: float in [-1.0, 1.0]:
+			box.call(Vector3(0.16, 5.2, 0.16), Vector3(sx * (w * 0.5 + 0.35), 2.6, sz * (d * 0.5 + 0.35)), wood)
+	for yy: float in [1.8, 3.6]:
+		box.call(Vector3(w + 0.9, 0.12, 0.5), Vector3(0, yy, -(d * 0.5 + 0.35)), wood)
+		box.call(Vector3(w + 0.9, 0.12, 0.5), Vector3(0, yy, d * 0.5 + 0.35), wood)
+	W.box_blocker(Vector3(c.x, 0, c.y), Vector3(w + 0.6, 3.0, d + 0.6), rot)
+	W.house_spots.append([c, 4.5])
+	# matériaux devant
+	var az := Vector2(sin(rot), cos(rot)); var ax := Vector2(cos(rot), -sin(rot))
+	var q1: Vector2 = c + az * (d * 0.5 + 2.2) + ax * 2.2
+	W.place("res://assets/hex/resource_lumber.gltf", Vector3(q1.x, 0, q1.y), rot, 1.6); W.blocker(Vector3(q1.x, 0, q1.y), 0.8)
+	var q2: Vector2 = c + az * (d * 0.5 + 2.2) - ax * 2.2
+	W._mm("res://assets/forest/Rock_1_A_Color1.gltf", Vector3(q2.x, 0, q2.y), 0.6, rot, Color("#c8c4bc"))
+	W.label("CHANTIER : %s\n%d %%" % [str(Game.BUILDS[bid].name), int(pr * 100)], Vector3(c.x, W.height(c.x, c.y) + 7.0, c.y), Color("#ffd27a"), 40)
 
 # séchoir : deux poteaux, une perche, des peaux tendues
 func _hide_rack(p: Vector3, rot: float) -> void:

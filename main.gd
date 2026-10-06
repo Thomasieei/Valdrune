@@ -78,6 +78,7 @@ func _ready() -> void:
 	for d in world.npc_spots:
 		var n := Npc.new(); add_child(n); n.setup(self, d); npcs.append(n)
 	cam = Camera3D.new(); cam.fov = 48.0; cam.far = 170.0; add_child(cam)
+	_perf_pass.call_deferred()
 	hud = Hud.new(); add_child(hud); hud.setup(self)
 	hud.build_map(world.map_image())
 	_make_guide()
@@ -828,8 +829,11 @@ func ah_refresh_stock(force := false) -> void:
 		ah.stock.append(hi)
 	# montures : toujours un âne abordable, et quelques bêtes plus rares
 	var donkey := {"slot": "monture", "tier": 1, "kind": "ane"}; donkey["price"] = int(Game.item_price(donkey) * randf_range(0.95, 1.2)); ah.stock.append(donkey)
-	for k in 3:
-		var mo := Game.random_mount(5); mo["price"] = int(Game.item_price(mo) * randf_range(0.95, 1.4)); mo["seller"] = Bot.NAMES[randi() % Bot.NAMES.size()]; ah.stock.append(mo)
+	# une monture de chaque sorte, de l'âne (T1) au taureau cuirassé (T5) : on voit la progression
+	for mk in Game.MOUNTS:
+		if mk == "ane" or Game.MOUNTS[mk].get("shop", false): continue
+		var mo := {"slot": "monture", "tier": int(Game.MOUNTS[mk].tier), "kind": mk}
+		mo["price"] = int(Game.item_price(mo) * randf_range(0.95, 1.3)); mo["seller"] = Bot.NAMES[randi() % Bot.NAMES.size()]; ah.stock.append(mo)
 	# chaque type d'arme et d'armure est toujours disponible (à ton tier et au suivant) : on trouve ce qu'on cherche
 	for t3 in [clamp(lvl, 1, 5), clamp(lvl + 1, 1, 5)]:
 		for wk in Game.WEAPON_KINDS:
@@ -1057,6 +1061,24 @@ func upgrade_knife() -> void:
 	if Game.S.silver < c[0] or int(Game.S.get("hides", 0)) < c[1]: Game.play("error"); hud.toast("Il te manque de l'argent ou des peaux", Color("#ff9a8a")); return
 	Game.S.silver -= c[0]; Game.S.hides = int(Game.S.hides) - c[1]; Game.S.knife = k + 1
 	Game.play("level"); hud.celebrate("COUTEAU T%d" % (k + 1), "Tes bêtes laissent plus souvent une peau en plus", "it_hunt"); Game.save(); hud.show_tannery()
+# ——— Chantiers : on apporte des ressources, la ville bâtit ———
+func build_give(id: String, k: String, n: int) -> void:
+	var c: Array = Game.BUILDS[id].cost[k]
+	var t: int = int(c[0])
+	var st := Game.build_state(world.map_id, id)
+	var left: int = int(c[1]) - int(st.g.get(k, 0))
+	n = min(n, min(left, int(Game.S.inv[k][t])))
+	if n <= 0: Game.play("error"); hud.toast("Il te faut du %s" % Game.res_name(k, t), Color("#ff9a8a")); return
+	Game.S.inv[k][t] -= n; st.g[k] = int(st.g.get(k, 0)) + n
+	Game.play("craft", -4.0); _rep_gain(1, "")
+	if Game.build_prog(world.map_id, id) >= 1.0:
+		st["done"] = true; Game.save_now()
+		hud.celebrate("%s CONSTRUITE !" % str(Game.BUILDS[id].name).to_upper(), str(Game.BUILDS[id].perk), "it_trophy"); Game.play("level")
+		hud.close_panel()
+		get_tree().create_timer(3.0).timeout.connect(func(): get_tree().reload_current_scene())
+		return
+	Game.save(); hud.show_build(id)
+
 # ——— Scierie : le scieur rachète le bois plus cher que la marchande (+25 %) ———
 func sell_wood_mill(t: int, n: int) -> void:
 	n = min(n, int(Game.S.inv.wood[t])); if n <= 0: return
@@ -1332,6 +1354,7 @@ func talk(n: Npc) -> void:
 		"shop": acts.append(["Voir les articles", func(): hud.show_shop(line), true])
 		"auction": acts.append(["Ouvrir l'hôtel des ventes", func(): hud.show_auction(), true])
 		"tannery": acts.append(["Ouvrir la tannerie", func(): hud.show_tannery(), true])
+		"build": acts.append(["Voir le chantier", func(): hud.show_build(str(n.data.get("site", "banque"))), true])
 		"sawmill": acts.append(["Ouvrir la scierie", func(): hud.show_sawmill(), true])
 		"mercs":
 			acts.append(["Expéditions", func(): hud.show_expedition(), true])
@@ -1577,6 +1600,29 @@ func _update_fade(d: float) -> void:
 		m.distance_fade_max_distance = d * 0.82
 
 # qualité graphique : ombres, résolution 3D (l'herbe est réglée à la création de la carte)
+# ——— Fluidité sur téléphone : rien n'est dessiné au-delà de ce que la caméra peut voir,
+# les petits objets ne projettent plus d'ombre, les textes 3D lointains sont cachés ———
+func _perf_pass() -> void:
+	var far: float = [40.0, 50.0, 60.0][Game.gfx()]
+	var stack: Array = [world]
+	for n in npcs: stack.append(n)
+	var n_set := 0
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for ch in n.get_children(): stack.append(ch)
+		if n is Label3D:
+			var l := n as Label3D
+			if l.visibility_range_end <= 0.0: l.visibility_range_end = 34.0 if l.font_size < 60 else 52.0
+			continue
+		if not (n is GeometryInstance3D): continue
+		var g := n as GeometryInstance3D
+		var sz := 0.0
+		if g is VisualInstance3D: sz = (g as VisualInstance3D).get_aabb().size.length() * max(0.01, g.global_transform.basis.get_scale().x)
+		if sz > 45.0: continue                                 # terrain, eau, grands décors : toujours visibles
+		if g.visibility_range_end <= 0.0: g.visibility_range_end = far; g.visibility_range_end_margin = 4.0; n_set += 1
+		if sz < 2.2 and not (g is MultiMeshInstance3D): g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	Game.crumb("perf : %d objets limités" % n_set)
+
 func apply_gfx() -> void:
 	var g := Game.gfx()
 	if sun: sun.shadow_enabled = g >= 1; sun.directional_shadow_max_distance = 30.0 if g == 2 else 24.0

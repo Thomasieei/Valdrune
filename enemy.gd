@@ -152,7 +152,8 @@ func setup(m: Node, k: String, t: int, pos: Vector3, c: Dictionary, is_elite := 
 	var bar_h: float = body_h + 0.2
 	bar_root = Node3D.new(); bar_root.position.y = bar_h; add_child(bar_root)
 	name_lbl = Label3D.new(); name_lbl.text = "%s T%d" % [def.name, t] + ("  · GROUPE 4+" if group_boss else ""); name_lbl.font_size = 40 if not big else 56; name_lbl.outline_size = 12
-	name_lbl.modulate = colr if not elite else Color("#ffc940")
+	# code couleur clair : monstres en ROUGE (élites en or, boss de groupe en violet) · joueurs en bleu · PNJ en or pâle
+	name_lbl.modulate = Color("#ff7a68") if not elite else Color("#ffc940")
 	if group_boss: name_lbl.modulate = Color("#d58bff")
 	name_lbl.outline_modulate = Color(0, 0, 0, 0.9)
 	name_lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED; name_lbl.pixel_size = 0.007; name_lbl.position.y = 0.3; name_lbl.no_depth_test = true; name_lbl.render_priority = 5; bar_root.add_child(name_lbl)

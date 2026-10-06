@@ -180,7 +180,7 @@ func stats() -> Dictionary:
 	_st = st
 	return st
 const BAG_SIZE := 24
-func bag_size() -> int: return BAG_SIZE + int(S.get("bag_bonus", 0))
+func bag_size() -> int: return BAG_SIZE + int(S.get("bag_bonus", 0)) + (8 if build_done_any("banque") else 0)
 # Artefacts : uniquement gagnés en duel, en donjon ou sur les boss de groupe
 const ARTEFACTS := {
 	"rage": {"name": "Idole de rage", "icon": "art_rage", "desc": "+%d %% de dégâts", "per": 6},
@@ -568,7 +568,39 @@ const MOUNTS := {
 	"roi_cerf": {"name": "Roi-Cerf doré", "tier": 5, "model": "stag", "scale": 0.72, "speed": 1.2, "dmg": 0.15, "hp": 0.12, "seat": 1.65, "tint": Color(1.6, 1.35, 0.7)},
 }
 func mount() -> Dictionary: return MOUNTS.get(S.get("mount_kind", ""), {}) if S.gear.get("monture", 0) > 0 else {}
-func mount_bonus(k: String) -> float: return float(mount().get(k, 0.0))
+func mount_bonus(k: String) -> float:
+	var b := float(mount().get(k, 0.0))
+	if k == "speed" and not mount().is_empty() and build_done_any("ecurie"): b += 0.1
+	return b
+
+# ——— Chantiers : la ville grandit. Les habitants bâtissent doucement, les joueurs accélèrent en apportant des ressources ———
+const BUILDS := {
+	"banque": {"name": "Banque royale", "perk": "+8 cases dans ton sac (dans tout le royaume)", "cost": {"wood": [2, 120], "ore": [2, 120], "fiber": [1, 80]}},
+	"ecurie": {"name": "Écurie", "perk": "+10 % de vitesse sur toutes tes montures", "cost": {"wood": [1, 150], "fiber": [2, 100], "ore": [1, 60]}},
+}
+const BUILD_HOURLY := 0.004     # les habitants avancent seuls d'environ 0,4 % par heure (jusqu'à 60 %)
+func _bkey(map: int, id: String) -> String: return "%d_%s" % [map, id]
+func build_state(map: int, id: String) -> Dictionary:
+	if typeof(S.get("builds")) != TYPE_DICTIONARY: S["builds"] = {}
+	var k := _bkey(map, id)
+	if not S.builds.has(k): S.builds[k] = {"g": {}, "town": 0.0, "t": Time.get_unix_time_from_system()}
+	var st: Dictionary = S.builds[k]
+	var now := Time.get_unix_time_from_system()
+	var dt_h: float = max(0.0, now - float(st.get("t", now))) / 3600.0
+	st.town = min(0.6, float(st.get("town", 0.0)) + dt_h * BUILD_HOURLY); st.t = now
+	return st
+func build_prog(map: int, id: String) -> float:
+	var st := build_state(map, id)
+	if st.get("done", false): return 1.0
+	var c: Dictionary = BUILDS[id].cost
+	var sum := 0.0
+	for r in c: sum += min(1.0, float(st.g.get(r, 0)) / float(c[r][1]))
+	return clamp(sum / c.size() + float(st.town) * 0.5, 0.0, 1.0)      # dons des joueurs + travail des habitants (jusqu'à 30 %)
+func build_done_any(id: String) -> bool:
+	if typeof(S.get("builds")) != TYPE_DICTIONARY: return false
+	for k in S.builds:
+		if str(k).ends_with("_" + id) and S.builds[k].get("done", false): return true
+	return false
 static func mount_desc(kind: String) -> String:
 	var M: Dictionary = MOUNTS[kind]; var parts := ["+%d %% de vitesse montée" % int(M.speed * 100)]
 	if M.dmg > 0: parts.append("+%d %% de dégâts" % int(M.dmg * 100))
@@ -849,7 +881,7 @@ func _notification(what: int) -> void:
 # ================= JOURNAL DE BORD (pour retrouver ce qui a fait planter le jeu) =================
 const FLAG_PATH := "user://en_cours.flag"
 const CRUMB_PATH := "user://journal.txt"
-const VERSION := "8.3"
+const VERSION := "8.4"
 var crumbs: Array = []
 var crashed_last := false
 var last_crumbs := ""

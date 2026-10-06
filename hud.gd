@@ -967,6 +967,32 @@ func show_tannery() -> void:
 			else: body.add_child(rich("[color=#2f6a2a]Ton couteau est au maximum.[/color]", 16))
 	, 470)
 
+# ——— Chantier de la ville ———
+func show_build(id: String) -> void:
+	next_side = "left"
+	var B: Dictionary = Game.BUILDS[id]
+	open_panel(str(B.name), func(body: VBoxContainer):
+		cur_panel = "build"
+		_workshop_head(body, "Barbarian", "Maître d'œuvre", _artisan_name("build", "Odon"), {"hostile": "Si tu veux aider, pose tes pierres et va-t'en.", "mefiant": "Chaque bûche compte, même la tienne.", "neutre": "La ville grandit avec ceux qui la bâtissent.", "amical": "Avec toi, on finira avant l'hiver !", "heros": "On gravera ton nom sur la première pierre."})
+		var pr: float = Game.build_prog(main.world.map_id, id)
+		body.add_child(_ink("Avancement : %d %%" % int(pr * 100), 22, INK, true))
+		var bar := ColorRect.new(); bar.color = Color("#b49a6c"); bar.custom_minimum_size = Vector2(0, 14); body.add_child(bar)
+		var fill := ColorRect.new(); fill.color = Color("#d9a43a"); fill.size = Vector2(410 * pr, 14); bar.add_child(fill)
+		body.add_child(rich("Une fois bâtie : [b]%s[/b]\n[color=#76593a]Les habitants avancent un peu chaque heure ; tes dons font le reste.[/color]" % B.perk, 16))
+		var st: Dictionary = Game.build_state(main.world.map_id, id)
+		for k in B.cost:
+			var t: int = int(B.cost[k][0]); var need: int = int(B.cost[k][1]); var got: int = int(st.g.get(k, 0)); var have: int = int(Game.S.inv[k][t])
+			var p := PanelContainer.new(); p.set_meta("keep", true)
+			var rs := flat(Color(0, 0, 0, 0), 0, Color("#bfa071"), 0, Vector4(4, 8, 4, 8)); rs.border_width_bottom = 1
+			p.add_theme_stylebox_override("panel", rs); body.add_child(p)
+			var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 10); p.add_child(h)
+			h.add_child(aslot(res_tex(k, t), t, have, false, Callable(), 60))
+			var v := VBoxContainer.new(); v.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(v)
+			v.add_child(_ink(Game.res_name(k, t), 16, INK, true))
+			v.add_child(rich("apporté [b]%d / %d[/b] · tu en as %d" % [min(got, need), need, have], 14))
+			var b := big_button("Donner 10", have > 0 and got < need, func(): main.build_give(id, k, 10), GOLD, true); b.custom_minimum_size = Vector2(118, 42); b.add_theme_font_size_override("font_size", 16); b.size_flags_vertical = Control.SIZE_SHRINK_CENTER; h.add_child(b)
+	, 470)
+
 # ——— Scierie ———
 func show_sawmill() -> void:
 	next_side = "left"
@@ -1648,7 +1674,11 @@ func show_auction(tab := "", cat := "") -> void:
 				body.add_child(_ink("Acheter", 26, INK, true))
 				_ah_head(body, ["Objet", "Prix", ""])
 				var n := 0
-				for i in Game.S.ah.stock.size():
+				# rangé par tier puis par prix : on lit la liste du moins cher au plus fort
+				var order: Array = range(Game.S.ah.stock.size())
+				var stk: Array = Game.S.ah.stock
+				order.sort_custom(func(a1, b1): return int(stk[a1].tier) * 10000000000 + int(stk[a1].price) < int(stk[b1].tier) * 10000000000 + int(stk[b1].price))
+				for i in order:
 					var e: Dictionary = Game.S.ah.stock[i]
 					if not _ah_match(e): continue
 					var why: String = Game.equip_block(e) if not e.has("res") else ""
@@ -1789,7 +1819,7 @@ func _ah_sell_footer(vb: Control) -> void:
 func _vitrine(body: Control) -> void:
 	var best = null
 	for e in Game.S.ah.stock:
-		if e.has("res"): continue
+		if e.has("res") or not _ah_match(e): continue      # « À la une » respecte les filtres choisis
 		if best == null or e.price > best.price: best = e
 	if best == null: return
 	var p := PanelContainer.new(); p.add_theme_stylebox_override("panel", flat(Color(0.18, 0.12, 0.05, 0.9), 16, money_col(best.price), 2, Vector4(14, 10, 16, 10))); body.add_child(p)

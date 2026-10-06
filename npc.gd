@@ -82,14 +82,14 @@ func setup(m: Node, d: Dictionary) -> void:
 	pi = int(d.get("start", 0)) % max(1, path.size())
 	yaw = float(d.get("yaw", randf() * TAU))
 	# noms façon Albion : les PNJ utiles ressortent (or, plus gros), les habitants restent discrets
-	var key_npc: bool = act in ["quest", "auction", "mercs", "enchant", "tools", "forge", "harbor", "tools3", "travel", "shop", "tannery", "sawmill"]
+	var key_npc: bool = act in ["quest", "auction", "mercs", "enchant", "tools", "forge", "harbor", "tools3", "travel", "shop", "tannery", "sawmill", "build"]
 	var sc: float = d.get("scale", 1.0)
 	var l := Label3D.new(); l.text = nm; l.font = NAME_FONT; l.font_size = 58 if key_npc else 44; l.outline_size = 14 if key_npc else 10
 	l.modulate = Color("#ffd98a") if key_npc else Color("#f2ece0"); l.outline_modulate = Color(0.08, 0.05, 0.02, 0.9)
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED; l.pixel_size = 0.0085 if key_npc else 0.0065; l.position.y = 2.62 * sc; l.no_depth_test = true; l.render_priority = 4; add_child(l)
 	var r := Label3D.new(); r.text = SERVICE_DO.get(act, role) if key_npc else role; r.font_size = 36 if key_npc else 28; r.outline_size = 9; r.modulate = Color("#f4e6c4") if key_npc else Color("#bfc8cf"); r.outline_modulate = Color(0, 0, 0, 0.75)
 	r.billboard = BaseMaterial3D.BILLBOARD_ENABLED; r.pixel_size = 0.0075 if key_npc else 0.0065; r.position.y = 2.3 * sc; r.no_depth_test = true; r.render_priority = 4; add_child(r)
-	if act in ["quest", "auction", "duel", "mercs", "enchant", "tools", "forge", "harbor", "tools3", "travel", "shop", "tannery", "sawmill"]:
+	if act in ["quest", "auction", "duel", "mercs", "enchant", "tools", "forge", "harbor", "tools3", "travel", "shop", "tannery", "sawmill", "build"]:
 		# au-dessus de la tête : le NOM DU SERVICE en clair (et plus un symbole qu'on ne comprend pas)
 		marker = Label3D.new(); marker.text = SERVICE.get(act, "")
 		marker.font = NAME_FONT; marker.font_size = 64; marker.outline_size = 16
@@ -169,14 +169,14 @@ const ACT_LINES := {
 
 static var NAME_FONT: Font = load("res://ui/serif_bold.ttf")
 const SERVICE := {"quest": "QUÊTES", "auction": "HÔTEL DES VENTES", "duel": "DUEL", "mercs": "MERCENAIRES", "enchant": "ENCHANTEMENTS", "tools": "OUTILS",
-	"tools3": "OUTILS", "forge": "FORGE", "harbor": "ÎLES", "travel": "VOYAGES", "shop": "MARCHÉ", "tannery": "TANNERIE", "sawmill": "SCIERIE"}
+	"tools3": "OUTILS", "forge": "FORGE", "harbor": "ÎLES", "travel": "VOYAGES", "shop": "MARCHÉ", "tannery": "TANNERIE", "sawmill": "SCIERIE", "build": "CHANTIER"}
 const SERVICE_COL := {"quest": Color("#ffe27a"), "auction": Color("#7fc8ff"), "duel": Color("#ff7a4a"), "mercs": Color("#7dff8a"), "enchant": Color("#d58bff"),
 	"tools": Color("#b6f27a"), "tools3": Color("#b6f27a"), "forge": Color("#ffa060"), "harbor": Color("#7fe8ff"), "travel": Color("#c9a0ff"), "shop": Color("#ffd24a"),
-	"tannery": Color("#e0b07a"), "sawmill": Color("#b8e07a")}
+	"tannery": Color("#e0b07a"), "sawmill": Color("#b8e07a"), "build": Color("#ffb84a")}
 # ce que fait le PNJ, en une ligne (sous son nom)
 const SERVICE_DO := {"quest": "Quêtes et conseils", "auction": "Acheter · vendre aux joueurs", "mercs": "Mercenaires · expéditions", "enchant": "Améliorer son équipement",
 	"tools": "Vend des outils de récolte", "tools3": "Haches · pioches · faucilles", "forge": "Armes et armures : acheter, fabriquer", "harbor": "Acheter une île",
-	"travel": "Voyage rapide vers les autres villes", "shop": "Potions, nourriture · revente", "tannery": "Vendre ses peaux · couteau", "sawmill": "Rachète le bois plus cher"}
+	"travel": "Voyage rapide vers les autres villes", "shop": "Potions, nourriture · revente", "tannery": "Vendre ses peaux · couteau", "sawmill": "Rachète le bois plus cher", "build": "Apporte des ressources : la ville grandit"}
 func next_line() -> String:
 	if id == "aldric" or act == "quest": return main.quest_line()
 	var arr: Array = LINES.get(id, LINES.get(id.get_slice("_", 0), ACT_LINES.get(act, ["…"])))

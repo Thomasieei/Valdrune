@@ -672,13 +672,14 @@ func _village() -> void:
 	var sl: Array
 	npc_spots.append({"id": "aldric", "model": "Mage", "name": "Aldric", "role": "Ancien du village", "pos": Vector3(V.x + 2.6, 0, V.y + 2.4), "act": "quest", "yaw": 0.0})
 	T.npc_used.append(V + Vector2(2.6, 2.4))
-	sl = T.plaza_slot(0.4); _stall(sl, "shop"); shop_pos = sl[0]
+	# chaque marchand devant SA boutique sur la place (auvent coloré, nom au-dessus)
+	sl = T.service_slot_n("shop", 0, 1); shop_pos = sl[0]
 	npc_spots.append({"id": "mara", "model": "Rogue", "name": "Mara", "role": "Marchande", "pos": sl[0], "act": "shop", "yaw": sl[1]})
-	sl = T.plaza_slot(2.0); _stall(sl, "hache")
+	sl = T.service_slot_n("tools", 0, 3)
 	npc_spots.append({"id": "bjorn", "model": "Barbarian", "name": "Bjorn", "role": "Haches · bûcheron", "pos": sl[0], "act": "tools", "tool": "hache", "yaw": sl[1]})
-	sl = T.plaza_slot(3.3); _stall(sl, "pioche")
+	sl = T.service_slot_n("tools", 1, 3)
 	npc_spots.append({"id": "gorm", "model": "Knight", "name": "Gorm", "role": "Pioches · mineur", "pos": sl[0], "act": "tools", "tool": "pioche", "yaw": sl[1]})
-	sl = T.plaza_slot(4.6); _stall(sl, "faucille")
+	sl = T.service_slot_n("tools", 2, 3)
 	npc_spots.append({"id": "sylve", "model": "Ranger", "name": "Sylve", "role": "Faucilles · herboriste", "pos": sl[0], "act": "tools", "tool": "faucille", "yaw": sl[1]})
 	sl = T.service_slot("auction")
 	npc_spots.append({"id": "corvin", "model": "Rogue", "name": "Corvin", "role": "Hôtel des ventes", "pos": sl[0], "act": "auction", "yaw": sl[1]})
@@ -1326,14 +1327,14 @@ func _town(TD: Dictionary) -> void:
 	var sl: Array
 	sl = T.service_slot("forge"); forge_pos = sl[0]
 	npc_spots.append({"id": "forge_%d" % mid, "model": "Barbarian", "name": nm[0], "role": "Armurier · forge", "pos": sl[0], "act": "forge", "yaw": sl[1]})
-	sl = T.plaza_slot(0.5); _stall(sl, "shop"); shop_pos = sl[0]
+	sl = T.service_slot_n("shop", 0, 1); shop_pos = sl[0]
 	npc_spots.append({"id": "shop_%d" % mid, "model": "Rogue", "name": nm[1], "role": "Marchande", "pos": sl[0], "act": "shop", "yaw": sl[1]})
 	sl = T.service_slot("auction")
 	npc_spots.append({"id": "auction_%d" % mid, "model": "Rogue", "name": nm[2], "role": "Hôtel des ventes", "pos": sl[0], "act": "auction", "yaw": sl[1]})
 	label("HÔTEL DES VENTES", sl[0] + Vector3(0, height(sl[0].x, sl[0].z) + 7.5, 0), Color("#ffd27a"), 48)
 	sl = T.service_slot("mercs")
 	npc_spots.append({"id": "mercs_%d" % mid, "model": "Knight", "name": nm[3], "role": "Capitaine des mercenaires", "pos": sl[0], "act": "mercs", "yaw": sl[1]})
-	sl = T.plaza_slot(2.4); _stall(sl, "hache")
+	sl = T.service_slot_n("tools", 0, 1)
 	npc_spots.append({"id": "tools3_%d" % mid, "model": "Barbarian", "name": nm[4], "role": "Outilleur · haches, pioches, faucilles", "pos": sl[0], "act": "tools3", "yaw": sl[1]})
 	npc_spots.append({"id": "quest_%d" % mid, "model": "Mage", "name": nm[5], "role": "Chef de la ville", "pos": Vector3(V.x + 2.6, 0, V.y + 2.4), "act": "quest", "yaw": 0.0})
 	T.npc_used.append(V + Vector2(2.6, 2.4))
@@ -1345,9 +1346,17 @@ func _town(TD: Dictionary) -> void:
 	T.market(2)
 	T.residents(6)
 
-# artisans devant leur atelier (tannerie, scierie)
+# artisans devant leur atelier (tannerie, scierie) + maîtres d'œuvre des chantiers
 func _artisans(mid: int) -> void:
 	var T: TownGen = town
+	var foremen := ["Maître Odon", "Maîtresse Ysolde", "Maître Bastien", "Maîtresse Aude"]
+	var fi := 0
+	for bid in Game.BUILDS:
+		var hh: Dictionary = T.service("site_" + bid)
+		if hh.is_empty() or Game.build_state(map_id, bid).get("done", false): continue
+		var sl0: Array = T.service_slot("site_" + bid)
+		npc_spots.append({"id": "chantier_%s_%d" % [bid, mid], "model": "Barbarian", "name": foremen[(fi + mid) % foremen.size()], "role": "Maître d'œuvre", "pos": sl0[0], "act": "build", "site": bid, "yaw": sl0[1]})
+		fi += 1
 	var who := {"tannery": ["tanneur", "Barbarian", ["Garrick", "Odile", "Hamid", "Torvald"], "Tanneur"], "sawmill": ["scieur", "Ranger", ["Aubin", "Elsa", "Rashid", "Ylva"], "Scieur de long"]}
 	for kind in who:
 		if T.service(kind).is_empty(): continue
