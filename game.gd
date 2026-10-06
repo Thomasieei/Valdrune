@@ -836,6 +836,9 @@ func _process(dt: float) -> void:
 	if _crumb_t > 10.0: _crumb_t = 0.0; _write_crumbs()
 
 func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		var mn = get_tree().current_scene if is_inside_tree() else null
+		if mn and mn.get("net") and mn.net.online: mn.net.push_save()
 	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_WM_GO_BACK_REQUEST or what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_PREDELETE:
 		if _dirty: save_now()
 		crumb("(application en pause / fermée)"); _write_crumbs()
@@ -846,7 +849,7 @@ func _notification(what: int) -> void:
 # ================= JOURNAL DE BORD (pour retrouver ce qui a fait planter le jeu) =================
 const FLAG_PATH := "user://en_cours.flag"
 const CRUMB_PATH := "user://journal.txt"
-const VERSION := "8.2"
+const VERSION := "8.3"
 var crumbs: Array = []
 var crashed_last := false
 var last_crumbs := ""

@@ -84,6 +84,7 @@ func _ready() -> void:
 	_make_ambient()
 	_spawn_saved_mercs()
 	social = Social.new(); add_child(social); social.setup(self)
+	if not shot_mode: net = Net.new(); add_child(net); net.setup(self)
 	vq = VQuests.new(self)
 	builder = Builder.new(); add_child(builder); builder.setup(self)
 	_spawn_bots()
@@ -561,6 +562,7 @@ func on_gather_hit(nd: Dictionary) -> void:
 	update_goal(); Game.save()
 
 var social: Social
+var net: Net
 var vq: VQuests
 var builder: Builder
 var crop_sel := {}

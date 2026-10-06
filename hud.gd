@@ -1884,6 +1884,8 @@ func show_menu() -> void:
 		h2.add_child(big_button("Graphismes : " + ["Rapide", "Équilibré", "Beau"][Game.gfx()], true, gfx_cb))
 		h2.add_child(big_button("Signaler un bug", true, func(): show_report()))
 		h2.add_child(big_button("Images/s : " + ("oui" if fps_lbl.visible else "non"), true, func(): fps_lbl.visible = not fps_lbl.visible; Game.S["show_fps"] = fps_lbl.visible; show_menu()))
+		var nt = main.get("net")
+		body.add_child(rich("[b]Serveur :[/b] %s%s" % [nt.status if nt else "désactivé", ("   ·   ton nom en ligne : [b]%s[/b]" % nt.pname()) if nt and nt.online else ""], 16))
 		body.add_child(rich("[color=#7a848a]Graphismes : KayKit · Quaternius (Stylized Nature MegaKit, CC0) · Fantasy UI · icônes Viktor Hahn, frosty_rabbid, CraftPix, Cursed Loot.[/color]", 14))
 	)
 

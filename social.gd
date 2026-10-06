@@ -74,6 +74,7 @@ func say(ch: String, text: String, to := "") -> void:
 	if ch == "guilde" and not in_guild(): post("systeme", "", "", "Tu n'as pas de guilde : crée-la depuis l'onglet Guilde."); return
 	if ch == "prive" and to == "": post("systeme", "", "", "À qui ? Écris « /w Nom message » ou ouvre la fiche d'un joueur."); return
 	post(ch, "Toi", to, text)
+	if ch == "monde" and main.net and main.net.online: main.net.send_chat(text, "monde")
 	var low := text.to_lower()
 	var hello := low.begins_with("slt") or low.begins_with("salut") or low.begins_with("yo") or low.begins_with("bonjour") or low.begins_with("cc")
 	match ch:
