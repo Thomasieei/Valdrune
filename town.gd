@@ -190,7 +190,7 @@ func build(ST: Dictionary, tname: String) -> void:
 	_place_houses()
 	_build_houses()
 	_entrances(ST)
-	_ramparts(ST)
+	_gate_towers(ST)
 	_lanterns()
 	_edge_stones()
 	_greenery(ST)
@@ -1037,6 +1037,20 @@ func _ramparts(ST: Dictionary) -> void:
 		if ok[k]: wall_pts.append(pts[k])
 
 var wall_pts: Array = []
+# entrées de la ville : deux tours de garde de part et d'autre de chaque grande rue (plus sobre qu'une enceinte trouée)
+func _gate_towers(ST: Dictionary) -> void:
+	var tint: Color = {1: Color("#d4cfc4"), 2: Color("#b8b8a8"), 3: Color("#e2c99c"), 4: Color("#8c8c94")}.get(int(W.map_id), Color("#d4cfc4"))
+	var mat := StandardMaterial3D.new(); mat.albedo_texture = load("res://assets/village/T_UnevenBrick_BaseColor.png"); mat.albedo_color = tint; mat.roughness = 0.95
+	mat.uv1_triplanar = true; mat.uv1_world_triplanar = true; mat.uv1_scale = Vector3(0.45, 0.45, 0.45)
+	var cap := mat.duplicate(); cap.albedo_color = tint.darkened(0.15)
+	var roof_col: Color = {1: Color("#3d5f9a"), 2: Color("#8a3a2e"), 3: Color("#b0603a"), 4: Color("#4a4a5a")}.get(int(W.map_id), Color("#3d5f9a"))
+	for e in entrances:
+		if float(e.st.len) < 30.0: continue
+		var tg: Vector2 = e.dir; var nr := Vector2(-tg.y, tg.x)
+		for sd: float in [-1.0, 1.0]:
+			var q: Vector2 = (e.p as Vector2) + nr * sd * (float(e.st.half) + 4.6) + tg * 1.0
+			if _bad(q) or not W.walkable(q.x, q.y) or W.road_dist(q.x, q.y) < 2.5: continue
+			_tower(q, mat, cap, roof_col, ST)
 # tour ronde : fût de pierre, couronne crénelée, toit conique et bannière
 func _tower(q: Vector2, mat: Material, cap: Material, roof_col: Color, ST: Dictionary) -> void:
 	var y: float = W.height(q.x, q.y)

@@ -1197,35 +1197,51 @@ func _parch_box() -> StyleBoxFlat:
 	return st
 
 # Case d'objet style Albion : fond sombre, halo du tier, chiffre romain en pastille, quantité en bas
+# Case d'objet façon Albion : fond teinté par le tier, cadre de métal biseauté, petit chiffre romain,
+# quantité dans une pastille ronde. Tout reste fin et lisible, même petit.
+const SLOT_BG := [Color("#3a3530"), Color("#4a4640"), Color("#2f5a2a"), Color("#1f5266"), Color("#283f86"), Color("#7a1f1c")]
 func aslot(tx: Texture2D, tier: int, count: int, selected: bool, cb: Callable, size := 70.0, ench := 0, ghost: Texture2D = null, it := {}) -> Button:
 	var b := Button.new(); b.custom_minimum_size = Vector2(size, size); b.focus_mode = Control.FOCUS_NONE
 	var full := tier > 0 and tx != null
-	var col: Color = Game.TIER_COL[clamp(tier, 0, Game.TIER_COL.size() - 1)] if tier > 0 else Color("#a88b5e")
-	var st := flat(Color("#2c2620") if full else Color("#d6c095"), 10, col.lerp(Color(0.1, 0.08, 0.05), 0.15) if full else Color("#b0956a"), 3, Vector4(0, 0, 0, 0))
-	if not full: st.shadow_color = Color(0.35, 0.25, 0.12, 0.35); st.shadow_size = 2; st.shadow_offset = Vector2(0, -1)
-	if ench > 0 and full: st.border_color = Color("#c98bff")
-	if selected: st.border_color = Color("#ffe08a"); st.border_width_left = 4; st.border_width_right = 4; st.border_width_top = 4; st.border_width_bottom = 4
+	var tcol: Color = Game.TIER_COL[clamp(tier, 0, Game.TIER_COL.size() - 1)]
+	var bg: Color = SLOT_BG[clamp(tier, 0, 5)] if full else Color("#d3bd92")
+	var st := flat(bg, 7, Color(0, 0, 0, 0), 0, Vector4(0, 0, 0, 0))
+	if not full: st.border_color = Color("#b39a6c"); st.set_border_width_all(2)
 	for k in ["normal", "hover", "pressed", "disabled"]: b.add_theme_stylebox_override(k, st)
+	var add := func(n: Control) -> void: n.mouse_filter = Control.MOUSE_FILTER_IGNORE; b.add_child(n)
 	if full:
 		var gl := TextureRect.new(); gl.texture = glow_tex(); gl.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; gl.stretch_mode = TextureRect.STRETCH_SCALE
-		gl.position = Vector2(4, 4); gl.size = Vector2(size - 8, size - 8); gl.modulate = Color(col.r, col.g, col.b, 0.6); gl.mouse_filter = Control.MOUSE_FILTER_IGNORE; b.add_child(gl)
+		gl.position = Vector2(2, 2); gl.size = Vector2(size - 4, size - 4); gl.modulate = Color(tcol.r, tcol.g, tcol.b, 0.45); add.call(gl)
+		var vg := TextureRect.new(); vg.texture = T("slot_vig"); vg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; vg.stretch_mode = TextureRect.STRETCH_SCALE
+		vg.size = Vector2(size, size); add.call(vg)
 		var tr := TextureRect.new(); tr.texture = tx; tr.material = icon_mat(); tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		tr.position = Vector2(6, 6); tr.size = Vector2(size - 12, size - 12); tr.mouse_filter = Control.MOUSE_FILTER_IGNORE; b.add_child(tr)
-		# pastille du tier en chiffres romains
-		var pill := Panel.new(); var ps := flat(Color(0.08, 0.1, 0.14, 0.92), 11, col, 2, Vector4(0, 0, 0, 0)); pill.add_theme_stylebox_override("panel", ps)
-		pill.position = Vector2(3, 3); pill.size = Vector2(26 if tier < 4 else 30, 20); pill.mouse_filter = Control.MOUSE_FILTER_IGNORE; b.add_child(pill)
-		var tl := _label(ROMAN[clamp(tier, 0, 8)], 13, Color.WHITE); tl.add_theme_font_override("font", f_title); tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		tl.size = pill.size; tl.position = Vector2(0, -1); pill.add_child(tl)
-		if ench > 0:
-			var el := _label("+%d" % ench, 14, Color("#e7a8ff")); el.add_theme_font_override("font", f_title); el.add_theme_constant_override("outline_size", 5); el.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
-			el.position = Vector2(size - 26, 1); b.add_child(el)
-		if count > 1:
-			var cl := _label(Game.fmt(count) if count >= 10000 else str(count), 14, Color.WHITE); cl.add_theme_constant_override("outline_size", 5); cl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.95))
-			cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT; cl.size = Vector2(size - 8, 18); cl.position = Vector2(0, size - 21); b.add_child(cl)
-		if not it.is_empty(): _lvl_tag(b, it, size)
+		var pad: float = size * 0.09
+		tr.position = Vector2(pad, pad); tr.size = Vector2(size - pad * 2, size - pad * 2); add.call(tr)
 	elif ghost:
 		var gh := TextureRect.new(); gh.texture = ghost; gh.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; gh.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		gh.position = Vector2(12, 12); gh.size = Vector2(size - 24, size - 24); gh.modulate = Color(0.42, 0.31, 0.17, 0.32); gh.mouse_filter = Control.MOUSE_FILTER_IGNORE; b.add_child(gh)
+		gh.position = Vector2(size * 0.18, size * 0.18); gh.size = Vector2(size * 0.64, size * 0.64); gh.modulate = Color(0.42, 0.31, 0.17, 0.3); add.call(gh)
+	# cadre de métal (doré si sélectionné, violet si enchanté)
+	if full or selected:
+		var fr := NinePatchRect.new(); fr.texture = T("slot_frame"); fr.patch_margin_left = 8; fr.patch_margin_top = 8; fr.patch_margin_right = 8; fr.patch_margin_bottom = 8
+		fr.size = Vector2(size, size)
+		if selected: fr.modulate = Color(1.6, 1.3, 0.55)
+		elif ench > 0: fr.modulate = Color(1.25, 0.85, 1.5)
+		add.call(fr)
+	if full:
+		var fs: int = clamp(int(size * 0.17), 11, 15)
+		var tl := _label(ROMAN[clamp(tier, 0, 8)], fs, tcol.lightened(0.35)); tl.add_theme_font_override("font", f_title)
+		tl.add_theme_constant_override("outline_size", 4); tl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.95)); tl.position = Vector2(size * 0.09, size * 0.03); add.call(tl)
+		if ench > 0:
+			var el := _label("+%d" % ench, fs, Color("#e7b8ff")); el.add_theme_font_override("font", f_title); el.add_theme_constant_override("outline_size", 4); el.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.95))
+			el.position = Vector2(size - fs * 2.0 - 4, size * 0.03); add.call(el)
+		if count > 1:
+			var txt: String = Game.fmt(count) if count >= 1000 else str(count)
+			var cw: float = max(18.0, 8.0 + txt.length() * fs * 0.6)
+			var cp := Panel.new(); cp.add_theme_stylebox_override("panel", flat(Color(0.06, 0.06, 0.07, 0.88), 9, Color(0.75, 0.78, 0.82, 0.7), 1, Vector4(0, 0, 0, 0)))
+			cp.size = Vector2(cw, 18); cp.position = Vector2(size - cw - 4, size - 22); add.call(cp)
+			var cl := _label(txt, fs - 1, Color.WHITE); cl.add_theme_constant_override("outline_size", 0); cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			cl.size = Vector2(cw, 18); cl.position = Vector2(0, -1); cp.add_child(cl)
+		if not it.is_empty(): _lvl_tag(b, it, size)
 	if cb.is_valid(): b.pressed.connect(cb)
 	return b
 
@@ -1334,8 +1350,8 @@ func show_bag() -> void:
 	for i in max(cap, used):
 		if i < used:
 			var e: Dictionary = entries[i]
-			g.add_child(aslot(entry_tex(e), e.tier, e.get("qty", 1), i == bag_sel, func(): bag_sel = i; eq_sel = ""; show_bag(), 78, int(e.get("ench", 0)), null, e))
-		else: g.add_child(aslot(null, 0, 0, false, Callable(), 78))
+			g.add_child(aslot(entry_tex(e), e.tier, e.get("qty", 1), i == bag_sel, func(): bag_sel = i; eq_sel = ""; show_bag(), 72, int(e.get("ench", 0)), null, e))
+		else: g.add_child(aslot(null, 0, 0, false, Callable(), 72))
 	_touch_scroll(g)
 	sc.scroll_vertical = keep
 	(func(): if is_instance_valid(sc): sc.scroll_vertical = keep).call_deferred()
@@ -1415,7 +1431,7 @@ func _bag_card(entries: Array, px: float) -> void:
 func _lvl_tag(b: Control, it: Dictionary, size: float) -> void:
 	var l := int(it.get("lvl", 0))
 	if l <= 0: return
-	var t := _label("Nv%d" % l, 13, Color("#9fe4ff")); t.add_theme_font_override("font", f_title); t.position = Vector2(5, size - 20); b.add_child(t)
+	var t := _label("Nv%d" % l, 11, Color("#9fe4ff")); t.add_theme_font_override("font", f_title); t.add_theme_constant_override("outline_size", 4); t.position = Vector2(size * 0.09, size - 18); t.mouse_filter = Control.MOUSE_FILTER_IGNORE; b.add_child(t)
 
 func _unequip(slot: String) -> void:
 	if not Game.unequip(slot):

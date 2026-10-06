@@ -1362,7 +1362,7 @@ func _update_moods(dt: float) -> void:
 		if not is_instance_valid(n) or n.act == "duel": continue
 		var face: Sprite3D = n.get_meta("face") if n.has_meta("face") else null
 		if face == null:
-			face = Sprite3D.new(); face.billboard = BaseMaterial3D.BILLBOARD_ENABLED; face.pixel_size = 0.0062; face.no_depth_test = true; face.render_priority = 5
+			face = Sprite3D.new(); face.billboard = BaseMaterial3D.BILLBOARD_ENABLED; face.pixel_size = 0.0042; face.no_depth_test = true; face.render_priority = 5
 			face.position = Vector3(0, 3.02 * float(n.data.get("scale", 1.0)), 0); n.add_child(face); n.set_meta("face", face)
 			var ql := Label3D.new(); ql.font_size = 110; ql.outline_size = 18; ql.billboard = BaseMaterial3D.BILLBOARD_ENABLED; ql.pixel_size = 0.008; ql.no_depth_test = true
 			ql.position = Vector3(0.55, 3.55 * float(n.data.get("scale", 1.0)), 0); n.add_child(ql); n.set_meta("qmark", ql)
@@ -1486,8 +1486,9 @@ func _cam_update(dt: float, snap := false) -> void:
 	user_zoom_s = user_zoom if snap else lerp(user_zoom_s, user_zoom, 1.0 - exp(-dt * 8.0))
 	var zz: float = cam_zoom * user_zoom_s * cam_extra
 	# zoom proche : la caméra s'incline (plus de profondeur) ; zoom large : vue plongeante façon Albion
-	var back: float = 8.5 + max(0.0, 1.0 - user_zoom_s) / 0.25 * 2.5
-	var off := Vector3(0, 21.0, back) * zz
+	# caméra inclinée (~50°) : on voit les façades, les PNJ et l'horizon, pas seulement le dessus des têtes
+	var kz: float = max(0.0, 1.0 - user_zoom_s) / 0.25
+	var off := Vector3(0, 18.0 - kz * 2.0, 12.0 + kz * 1.5) * zz
 	# inventaire ouvert : le héros glisse vers la gauche de l'écran pour rester visible à côté du parchemin
 	bag_shift = lerp(bag_shift, 5.2 * cam_zoom * user_zoom if hud.cur_panel == "bag" else 0.0, 1.0 if snap else 1.0 - exp(-dt * 6.0))
 	target.x += bag_shift

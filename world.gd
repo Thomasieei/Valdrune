@@ -1302,7 +1302,6 @@ func _town_build(tname: String) -> void:
 	var ST: Dictionary = TOWN_STYLE.get(map_id, TOWN_STYLE[1])
 	_roof_tint = ST.roof; _wall_force = ST.wall
 	town.build(ST, tname)
-	_pave_town(ST)
 
 # masque des pavés : tout le cœur du bourg (rues, abords des maisons, place) devient pavé
 func _pave_town(ST: Dictionary) -> void:
