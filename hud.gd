@@ -60,22 +60,32 @@ func flat(bg: Color, r := 16, border := Color(0, 0, 0, 0), bw := 0, pad := Vecto
 	s.anti_aliasing = true
 	return s
 
+# bouton façon Albion : pilule de bois sombre cerclée d'or, léger relief
+func _wood_btn(bg: Color) -> StyleBoxFlat:
+	var st := flat(bg, 24, Color("#c79a4a"), 3, Vector4(22, 10, 22, 12))
+	st.shadow_color = Color(0.2, 0.12, 0.05, 0.45); st.shadow_size = 3; st.shadow_offset = Vector2(0, 2)
+	return st
+func _red_btn() -> StyleBoxFlat:
+	var st := flat(Color("#9a2a1c"), 24, Color("#f0c060"), 3, Vector4(22, 10, 22, 12))
+	st.shadow_color = Color(0.2, 0.05, 0.02, 0.5); st.shadow_size = 3; st.shadow_offset = Vector2(0, 2)
+	return st
+
 func _make_theme() -> void:
 	f_title = load("res://ui/serif_bold.ttf")
 	theme_ui = Theme.new()
 	var bpad := Vector4(22, 10, 22, 12)
-	theme_ui.set_stylebox("normal", "Button", flat(Color("#2c5f66"), 14, Color(0.95, 0.78, 0.45, 0.55), 2, bpad))
-	theme_ui.set_stylebox("hover", "Button", flat(Color("#367480"), 14, Color(0.95, 0.78, 0.45, 0.7), 2, bpad))
-	theme_ui.set_stylebox("pressed", "Button", flat(Color("#3f8a5c"), 14, Color(0.95, 0.85, 0.5, 0.9), 2, bpad))
-	theme_ui.set_stylebox("disabled", "Button", flat(Color(0.22, 0.24, 0.26, 0.85), 14, Color(1, 1, 1, 0.12), 2, bpad))
+	theme_ui.set_stylebox("normal", "Button", _wood_btn(Color("#3e2d1e")))
+	theme_ui.set_stylebox("hover", "Button", _wood_btn(Color("#4d3926")))
+	theme_ui.set_stylebox("pressed", "Button", _wood_btn(Color("#2c2015")))
+	theme_ui.set_stylebox("disabled", "Button", flat(Color("#bfa97c"), 24, Color("#9a8158"), 2, bpad))
 	theme_ui.set_stylebox("focus", "Button", StyleBoxEmpty.new())
 	theme_ui.set_font("font", "Button", f_title); theme_ui.set_font_size("font_size", "Button", 21)
 	theme_ui.set_color("font_color", "Button", Color("#ffe6a8")); theme_ui.set_color("font_hover_color", "Button", Color("#fff2c8"))
-	theme_ui.set_color("font_pressed_color", "Button", Color.WHITE); theme_ui.set_color("font_disabled_color", "Button", Color(0.62, 0.62, 0.6))
-	theme_ui.set_stylebox("scroll", "VScrollBar", flat(Color(1, 1, 1, 0.06), 6, Color(0, 0, 0, 0), 0, Vector4(3, 3, 3, 3)))
-	theme_ui.set_stylebox("grabber", "VScrollBar", flat(Color(0.95, 0.78, 0.45, 0.55), 6, Color(0, 0, 0, 0), 0, Vector4(5, 12, 5, 12)))
-	theme_ui.set_stylebox("grabber_highlight", "VScrollBar", flat(Color(0.95, 0.78, 0.45, 0.8), 6, Color(0, 0, 0, 0), 0, Vector4(5, 12, 5, 12)))
-	theme_ui.set_stylebox("grabber_pressed", "VScrollBar", flat(Color(1, 0.85, 0.5, 0.95), 6, Color(0, 0, 0, 0), 0, Vector4(5, 12, 5, 12)))
+	theme_ui.set_color("font_pressed_color", "Button", Color.WHITE); theme_ui.set_color("font_disabled_color", "Button", Color("#7a6648"))
+	theme_ui.set_stylebox("scroll", "VScrollBar", flat(Color(0.35, 0.24, 0.12, 0.18), 6, Color(0, 0, 0, 0), 0, Vector4(4, 4, 4, 4)))
+	theme_ui.set_stylebox("grabber", "VScrollBar", flat(Color("#7a5530"), 7, Color(0, 0, 0, 0), 0, Vector4(6, 14, 6, 14)))
+	theme_ui.set_stylebox("grabber_highlight", "VScrollBar", flat(Color("#946a3e"), 7, Color(0, 0, 0, 0), 0, Vector4(6, 14, 6, 14)))
+	theme_ui.set_stylebox("grabber_pressed", "VScrollBar", flat(Color("#b07e48"), 7, Color(0, 0, 0, 0), 0, Vector4(6, 14, 6, 14)))
 	theme_ui.set_constant("icon_max_width", "Button", 40)
 	theme_ui.set_font("bold_font", "RichTextLabel", f_title)
 	theme_ui.set_color("default_color", "RichTextLabel", SOFT)
@@ -142,7 +152,7 @@ func setup(m: Node) -> void:
 	region_lbl = _label("", 15, SOFT); region_lbl.add_theme_font_override("font", f_title); region_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; region_lbl.size = Vector2(220, 22); root.add_child(region_lbl)
 	for i in 4: icons["s%d" % i] = icon_rect(Player.skills()[i].icon, Vector2(70, 70), 1.12)
 	icons.attack = icon_rect("sk_sword_bash_orange", Vector2(96, 96), 1.1)
-	icons.bag = icon_rect("it_loot_common", Vector2(38, 38), 0.9)
+	icons.bag = icon_rect("it_loot_common", Vector2(42, 42), 0.9)
 	overlay = Control.new(); overlay.set_anchors_preset(Control.PRESET_FULL_RECT); overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE; overlay.draw.connect(_draw_over); root.add_child(overlay)
 	red = ColorRect.new(); red.color = Color(0.8, 0, 0, 0.0); red.set_anchors_preset(Control.PRESET_FULL_RECT); red.mouse_filter = Control.MOUSE_FILTER_IGNORE; root.add_child(red)
 	fps_lbl = _label("", 12, Color(0.8, 1, 0.8, 0.6)); root.add_child(fps_lbl)
@@ -189,7 +199,7 @@ func _layout() -> void:
 	minimap.position = Vector2(s.x - 192, 14)
 	region_lbl.position = Vector2(s.x - 214, 194)
 	buttons.map.rect = Rect2(minimap.position, minimap.size)
-	toasts.position = Vector2((s.x - 560) * 0.5, 64)
+	toasts.position = Vector2((s.x - 560) * 0.5, 94)
 	fps_lbl.position = Vector2(s.x * 0.5 - 30, s.y - 18)
 	mc = Vector2(s.x - 112, s.y - 112)
 	buttons.main.rect = Rect2(mc - Vector2(72, 72), Vector2(144, 144))
@@ -207,12 +217,12 @@ func _layout() -> void:
 	for nm in row:
 		if nm == "ile" and not Game.S.island.owned: continue
 		if nm in ["daily", "rank"] and main.tuto_i() < 9: buttons[nm].rect = Rect2(); continue
-		buttons[nm].rect = Rect2(Vector2(s.x - 246 - xi * 50, 8), Vector2(44, 44)); xi += 1
-	row_end_x = s.x - 246 - xi * 50
-	icons.bag.position = buttons.bag.rect.position + Vector2(3, 3)
+		buttons[nm].rect = Rect2(Vector2(s.x - 258 - xi * 64, 8), Vector2(52, 52)); xi += 1
+	row_end_x = s.x - 258 - xi * 64
+	icons.bag.position = buttons.bag.rect.position + Vector2(5, 5)
 	icons.attack.position = mc - Vector2(48, 48)
 	hint_lbl.position = Vector2(s.x - 560 - 40, mc.y - 220)
-	if auto_btn: auto_btn.position = Vector2(row_end_x - 50, 8)
+	if auto_btn: auto_btn.position = Vector2(row_end_x - 40, 12)
 	_place_chat()
 
 var pinch := {}
@@ -354,12 +364,12 @@ func _draw_under() -> void:
 	_glass(c, buttons.potion.rect.get_center(), 30, Color(0.5, 1.0, 0.6, 0.6), buttons.potion.held)
 	_glass(c, buttons.mount.rect.get_center(), 30, Color(0.95, 0.78, 0.45, 0.6) if not P.mounted else Color(0.6, 0.9, 1.0, 0.9), buttons.mount.held)
 	var bag_hint: bool = main.tuto_active() and main.TUTO[main.tuto_i()].k == "equip"
-	_glass(c, buttons.bag.rect.get_center(), 22 if not bag_hint else 26, Color(1.0, 0.85, 0.3, 0.6 + 0.4 * sin(Time.get_ticks_msec() * 0.008)) if bag_hint else Color(0.95, 0.78, 0.45, 0.5))
-	_glass(c, buttons.menu.rect.get_center(), 22, Color(0.95, 0.78, 0.45, 0.5))
+	_glass(c, buttons.bag.rect.get_center(), 26 if not bag_hint else 30, Color(1.0, 0.85, 0.3, 0.6 + 0.4 * sin(Time.get_ticks_msec() * 0.008)) if bag_hint else Color(0.95, 0.78, 0.45, 0.5))
+	_glass(c, buttons.menu.rect.get_center(), 26, Color(0.95, 0.78, 0.45, 0.6))
 	var shc: Vector2 = buttons.shop.rect.get_center()
 	var pulse := 0.6 + 0.4 * sin(Time.get_ticks_msec() * 0.004)
-	_glass(c, shc, 22, Color(1.0, 0.7, 0.2, pulse))
-	_texq(T("crown"), Rect2(shc - Vector2(15, 16), Vector2(30, 30)))
+	_glass(c, shc, 26, Color(1.0, 0.7, 0.2, pulse))
+	_texq(T("crown"), Rect2(shc - Vector2(18, 19), Vector2(36, 36)))
 	# pendant l'introduction, on n'affiche QUOTIDIEN et CLASSEMENT qu'au bon moment (moins de boutons d'un coup)
 	var hide_dr: bool = main.tuto_i() < 9
 	if hide_dr != (buttons.daily.rect.size.x == 0) or (Game.S.island.owned != (buttons.ile.rect.size.x > 0)): _layout()
@@ -369,17 +379,24 @@ func _draw_under() -> void:
 		var ic2: Vector2 = buttons.ile.rect.get_center()
 		var danger: bool = main.raid_active()
 		var pz := 0.6 + 0.4 * sin(Time.get_ticks_msec() * (0.012 if danger else 0.003))
-		_glass(c, ic2, 22, Color(1.0, 0.25, 0.2, pz) if danger else Color(0.4, 0.8, 1.0, 0.7))
-		_texq(T("it_treasure_map"), Rect2(ic2 - Vector2(15, 16), Vector2(30, 30)))
-		if danger: _text(c, "RAID !", ic2 + Vector2(0, 36), 11, Color("#ff7a6a"), true, f_title)
+		_glass(c, ic2, 26, Color(1.0, 0.25, 0.2, pz) if danger else Color(0.4, 0.8, 1.0, 0.7))
+		_texq(T("it_treasure_map"), Rect2(ic2 - Vector2(18, 19), Vector2(36, 36)))
 	if main.island and main.island.raid_on:
 		var gtxt := "Bandits : %d / 10 groupes" % main.island.groups_cleared()
 		c.draw_style_box(flat(Color(0.25, 0.03, 0.03, 0.85), 12, Color("#ff5a4a"), 2), Rect2(12, 300, 260, 42))
 		_text(c, gtxt, Vector2(142, 328), 19, Color("#ffd2c8"), true, f_title)
 	var zc: Vector2 = buttons.zoom.rect.get_center()
-	_glass(c, zc, 22, Color(0.95, 0.78, 0.45, 0.5))
+	_glass(c, zc, 26, Color(0.95, 0.78, 0.45, 0.6))
 	_ringq(zc + Vector2(-3, -3), 10, SOFT); c.draw_line(zc + Vector2(4, 4), zc + Vector2(11, 11), SOFT, 3.0, true)
 	_text(c, "%.1f" % main.user_zoom, zc + Vector2(-3, 1), 10, GOLD)
+	# une étiquette claire sous chaque icône du haut : on sait toujours où cliquer
+	for nm in ROW_LBL:
+		var rr: Rect2 = buttons[nm].rect
+		if rr.size.x <= 0: continue
+		var lt: String = ROW_LBL[nm]
+		if nm == "rank": lt = "Rang #%d" % rank_cache
+		if nm == "ile" and main.raid_active(): lt = "RAID !"
+		_text(c, lt, rr.get_center() + Vector2(0, 44), 13, Color("#ff7a6a") if lt == "RAID !" else Color("#ffe6a8"), true, f_title)
 	_disc(Vector2(46, 46), 35, Color(0.04, 0.06, 0.09, 0.6))
 	var bar := Rect2(86, 22, 230, 20)
 	c.draw_style_box(flat(Color(0.03, 0.04, 0.06, 0.7), 10), bar.grow(3))
@@ -425,6 +442,7 @@ func _draw_under() -> void:
 
 var batch_text := false
 var row_end_x := 900.0
+const ROW_LBL := {"menu": "Menu", "bag": "Sac", "shop": "Boutique", "daily": "Quêtes", "rank": "Rang", "ile": "Mon île", "zoom": "Vue"}
 func _text(c: CanvasItem, t: String, pos: Vector2, size: int, col: Color, center := true, font: Font = null) -> void:
 	var f: Font = font if font else ThemeDB.fallback_font
 	var w := f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
@@ -696,30 +714,46 @@ var last_w := 860.0
 var last_h := -1.0
 func refresh_panel() -> void:
 	if cur_panel == "bag": show_bag(); return
-	if panel_open and panel and is_instance_valid(panel) and last_build.is_valid() and cur_panel != "": open_panel(panel_title, last_build, last_w, last_h)
+	if panel_open and panel and is_instance_valid(panel) and last_build.is_valid() and cur_panel != "":
+		next_footer = last_footer; next_side = last_side; open_panel(panel_title, last_build, last_w, last_h)
 
+var next_footer := Callable()
+var last_footer := Callable()
+var next_side := ""      # "left" : fenêtre posée sur le côté, le jeu reste visible (atelier façon Albion)
+var last_side := ""
 func open_panel(title_txt: String, build: Callable, w := 860.0, h := -1.0) -> void:
 	Game.crumb("écran : " + title_txt)
 	close_panel()
 	last_build = build; last_w = w; last_h = h
+	var side: String = next_side; next_side = ""; last_side = side
 	panel_open = true
 	for n in buttons: buttons[n].held = false
 	joy.id = -1; joy.vec = Vector2.ZERO; touches.clear()
-	var dim := ColorRect.new(); dim.color = Color(0, 0, 0, 0.45); dim.set_anchors_preset(Control.PRESET_FULL_RECT); root.add_child(dim); panel_extra.append(dim)
+	if side == "":
+		var dim := ColorRect.new(); dim.color = Color(0, 0, 0, 0.45); dim.set_anchors_preset(Control.PRESET_FULL_RECT); root.add_child(dim); panel_extra.append(dim)
 	var s := vs(); var hh: float = s.y - 60 if h < 0 else h
-	var pc := PanelContainer.new(); pc.add_theme_stylebox_override("panel", flat(Color(0.06, 0.08, 0.12, 0.94), 22, Color(0.95, 0.78, 0.45, 0.45), 2, Vector4(26, 16, 26, 18), 14))
-	pc.position = Vector2((s.x - w) * 0.5, (s.y - hh) * 0.5); pc.custom_minimum_size = Vector2(w, hh); pc.size = pc.custom_minimum_size; root.add_child(pc); panel = pc
-	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 10); pc.add_child(vb)
-	var top := HBoxContainer.new(); vb.add_child(top)
-	var tl := _label(title_txt, 30, GOLD); tl.add_theme_font_override("font", f_title); tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL; top.add_child(tl)
-	var x := Button.new(); x.text = "✕"; x.custom_minimum_size = Vector2(54, 50); x.add_theme_font_override("font", ThemeDB.fallback_font); x.add_theme_font_size_override("font_size", 24); x.pressed.connect(_x_close); top.add_child(x)
-	var sep := ColorRect.new(); sep.color = Color(0.95, 0.78, 0.45, 0.3); sep.custom_minimum_size = Vector2(0, 2); vb.add_child(sep)
+	if side != "": hh = s.y - 12
+	var pc := PanelContainer.new(); pc.add_theme_stylebox_override("panel", _parch_box())
+	pc.position = Vector2((s.x - w) * 0.5, (s.y - hh) * 0.5) if side == "" else Vector2(8, 6); pc.custom_minimum_size = Vector2(w, hh); pc.size = pc.custom_minimum_size; root.add_child(pc); panel = pc
+	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 8); pc.add_child(vb)
+	var top := HBoxContainer.new(); top.add_theme_constant_override("separation", 12); vb.add_child(top)
+	var tl := _ink(title_txt, 32, INK, true); tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL; tl.size_flags_vertical = Control.SIZE_SHRINK_CENTER; top.add_child(tl)
+	top.add_child(_close_btn(_x_close))
+	var sep := TextureRect.new(); sep.texture = T("orn_line"); sep.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; sep.stretch_mode = TextureRect.STRETCH_SCALE
+	sep.custom_minimum_size = Vector2(0, 14); sep.modulate = Color("#7a5530"); vb.add_child(sep)
 	var sc := ScrollContainer.new(); sc.size_flags_vertical = Control.SIZE_EXPAND_FILL; sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; vb.add_child(sc)
 	sc.scroll_deadzone = 10; sc.scroll_started.connect(func(): drag_guard = true)
 	var body := VBoxContainer.new(); body.size_flags_horizontal = Control.SIZE_EXPAND_FILL; body.add_theme_constant_override("separation", 10); sc.add_child(body)
 	var keep: int = scroll_mem.get(title_txt, 0) if title_txt == panel_title else 0
 	panel_title = title_txt; cur_scroll = sc
 	build.call(body)
+	last_footer = next_footer
+	if next_footer.is_valid():
+		var ft: Callable = next_footer; next_footer = Callable()
+		var fs := TextureRect.new(); fs.texture = T("orn_line"); fs.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; fs.stretch_mode = TextureRect.STRETCH_SCALE
+		fs.custom_minimum_size = Vector2(0, 12); fs.modulate = Color("#7a5530"); vb.add_child(fs)
+		var fb := VBoxContainer.new(); vb.add_child(fb); ft.call(fb); _inkify(fb); _touch_scroll(fb)
+	_inkify(body)
 	_touch_scroll(body)
 	sc.scroll_vertical = keep
 	if keep > 0: (func(): if is_instance_valid(sc): sc.scroll_vertical = keep).call_deferred()
@@ -772,8 +806,9 @@ func rich(t: String, size := 19) -> RichTextLabel:
 
 func big_button(t: String, enabled: bool, cb: Callable, col := GOLD, highlight := false) -> Button:
 	var b := Button.new(); b.text = t; b.disabled = not enabled; b.custom_minimum_size = Vector2(190, 54)
-	if enabled and highlight: b.add_theme_stylebox_override("normal", flat(Color("#3f8a5c"), 14, Color(0.95, 0.85, 0.5, 0.8), 2, Vector4(22, 10, 22, 12)))
-	if col != GOLD: b.add_theme_color_override("font_color", col)
+	if enabled and highlight:
+		b.add_theme_stylebox_override("normal", _red_btn()); b.add_theme_stylebox_override("hover", _red_btn())
+	if col != GOLD and not (enabled and highlight): b.add_theme_color_override("font_color", col)
 	b.pressed.connect(cb); return b
 
 func row(parent: Control, left: Control, right: Control) -> void:
@@ -818,53 +853,74 @@ func show_tools(tool: String) -> void:
 func hud_tier(t: int) -> String: return "[color=#%s]%s T%d[/color]" % [Game.TIER_COL[t].to_html(false), ["", "Novice", "Apprenti", "Compagnon", "Adepte", "Expert"][t], t]
 
 # ——— Brokk : boutique d'armes + artisanat ———
-var arm_tab := "buy"
+var arm_tab := "craft"
 var arm_tier := 1
 func show_armurier(tab := "") -> void:
 	if tab != "": arm_tab = tab
-	open_panel("Brokk — armurier & forge", func(body: VBoxContainer):
+	next_side = "left"
+	var smith := "Brokk"
+	var tn = main.get("talk_npc")
+	if tn != null and is_instance_valid(tn) and tn.act == "forge": smith = tn.nm
+	open_panel("Forge de " + smith, func(body: VBoxContainer):
 		cur_panel = "armurier"
+		_workshop_head(body, "Barbarian", "Atelier de l'armurier", smith, {"hostile": "Fais vite, étranger. J'ai du travail.", "mefiant": "Hmm. Tu veux quoi ?", "neutre": "Qu'est-ce que je te forge aujourd'hui ?", "amical": "Ah, te voilà ! L'enclume est chaude.", "heros": "Pour toi, mon meilleur acier. Toujours."})
 		var tabs := HBoxContainer.new(); tabs.add_theme_constant_override("separation", 8); body.add_child(tabs)
-		_tab_btn(tabs, "Acheter", arm_tab == "buy", func(): show_armurier("buy"))
 		_tab_btn(tabs, "Fabriquer", arm_tab == "craft", func(): show_armurier("craft"))
-		var sp := Control.new(); sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL; tabs.add_child(sp)
-		tabs.add_child(_price_box(Game.S.silver))
+		_tab_btn(tabs, "Acheter", arm_tab == "buy", func(): show_armurier("buy"))
 		var tiers := HBoxContainer.new(); tiers.add_theme_constant_override("separation", 6); body.add_child(tiers)
-		tiers.add_child(_label("Tier :", 15, SOFT))
-		for t in range(1, 6):
-			var b := Button.new(); b.text = "T%d" % t; b.custom_minimum_size = Vector2(62, 38); b.add_theme_font_size_override("font_size", 17)
-			var on := arm_tier == t; var col: Color = Game.TIER_COL[t]
-			var st := flat(Color(col.r, col.g, col.b, 0.85) if on else Color(1, 1, 1, 0.06), 18, Color(col.r, col.g, col.b, 0.8), 2, Vector4(10, 3, 10, 5))
-			b.add_theme_stylebox_override("normal", st); b.add_theme_stylebox_override("hover", st); b.add_theme_color_override("font_color", Color("#15100a") if on else col)
-			b.pressed.connect(func(): arm_tier = t; show_armurier()); tiers.add_child(b)
+		for tt in range(1, 6):
+			var b := Button.new(); b.text = ROMAN[tt]; b.custom_minimum_size = Vector2(62, 42); b.add_theme_font_size_override("font_size", 19)
+			var on := arm_tier == tt; var col: Color = Game.TIER_COL[tt]
+			var st := flat(col.darkened(0.15) if on else Color("#f2e3c0"), 21, col.darkened(0.3), 3 if on else 2, Vector4(10, 3, 10, 5))
+			b.add_theme_stylebox_override("normal", st); b.add_theme_stylebox_override("hover", st); b.add_theme_color_override("font_color", Color.WHITE if on else ink_col(col))
+			b.set_meta("keep", true); b.pressed.connect(func(): arm_tier = tt; show_armurier()); tiers.add_child(b)
 		var t: int = arm_tier
-		if arm_tab == "craft":
-			body.add_child(rich("[color=#a8b4bc]Bois + minerai → armes et boucliers · fibre → robes et vestes. Les objets fabriqués vont dans ton sac : équipe-les… ou revends-les à l'hôtel des ventes. Plus le tier est haut, plus ils valent cher.[/color]", 15))
-		var grid := GridContainer.new(); grid.columns = 2; grid.add_theme_constant_override("h_separation", 10); grid.add_theme_constant_override("v_separation", 10); body.add_child(grid)
+		body.add_child(_ink("Armes et armures — Tier %s" % ROMAN[t], 22, INK, true))
 		for ci in Game.CRAFTS.size():
 			var c: Dictionary = Game.CRAFTS[ci]
 			var it := Game.craft_item(c, t)
-			var card := PanelContainer.new(); card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			card.add_theme_stylebox_override("panel", flat(Color(1, 1, 1, 0.045), 14, Color(Game.TIER_COL[t].r, Game.TIER_COL[t].g, Game.TIER_COL[t].b, 0.4), 1, Vector4(10, 8, 10, 8)))
-			var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 10); card.add_child(h)
-			h.add_child(slot_box(main.icons.item_icon(it), t, 1, false, Callable(), 70))
-			var v := VBoxContainer.new(); v.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(v)
-			v.add_child(rich("[b][color=#%s]%s[/color][/b]  [color=#a8b4bc]valeur %s[/color]" % [Game.TIER_COL[t].to_html(false), Game.item_name(it), Game.fmt(Game.item_price(it))], 17))
+			var p := PanelContainer.new(); p.set_meta("keep", true)
+			var rs := flat(Color(0, 0, 0, 0), 0, Color("#bfa071"), 0, Vector4(4, 8, 4, 8)); rs.border_width_bottom = 1
+			p.add_theme_stylebox_override("panel", rs); body.add_child(p)
+			var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 12); p.add_child(h)
+			h.add_child(aslot(main.icons.item_icon(it), t, 1, false, Callable(), 74, 0, null, it))
+			var v := VBoxContainer.new(); v.size_flags_horizontal = Control.SIZE_EXPAND_FILL; v.add_theme_constant_override("separation", 4); h.add_child(v)
+			v.add_child(_ink(Game.item_name(it), 18, INK, true))
 			if t > Game.unlocked(c.slot) + 1:
-				v.add_child(rich("[color=#ff8a7a]Verrouillé : porte d'abord %s T%d[/color]" % [Game.SLOT_ART[c.slot], t - 1], 15))
-				var lb := big_button("Tier verrouillé", false, func(): Game.play("error")); lb.custom_minimum_size = Vector2(0, 42); v.add_child(lb)
-			elif arm_tab == "craft":
-				var cost := Game.craft_cost(c, t); var parts := []
-				for k in cost:
-					var have: int = Game.S.inv[k][t]
-					parts.append("%s [color=%s]%d/%d[/color]" % [res_text(k, t), "#8dffa0" if have >= cost[k][1] else "#ff8a7a", have, cost[k][1]])
-				v.add_child(rich("  ".join(parts), 15))
-				var b := big_button("Fabriquer", Game.has_cost(cost), func(): main.craft_gear(ci, t), GOLD, true); b.custom_minimum_size = Vector2(0, 42); v.add_child(b)
+				v.add_child(rich("[color=#a0301c]Porte d'abord %s T%d[/color]" % [Game.SLOT_ART[c.slot], t - 1], 15))
+				continue
+			if arm_tab == "craft":
+				var cost := Game.craft_cost(c, t)
+				var mh := HBoxContainer.new(); mh.add_theme_constant_override("separation", 8); v.add_child(mh)
+				for k in cost: mh.add_child(_mat_chip(res_tex(k, t), int(Game.S.inv[k][t]), int(cost[k][1])))
+				var sp2 := Control.new(); sp2.size_flags_horizontal = Control.SIZE_EXPAND_FILL; mh.add_child(sp2)
+				var ok: bool = Game.has_cost(cost)
+				var b := big_button("Fabriquer", ok, func(): main.craft_gear(ci, t), GOLD, true); b.custom_minimum_size = Vector2(130, 44); b.add_theme_font_size_override("font_size", 17); mh.add_child(b)
 			else:
 				var price := int(Game.item_price(it) * 1.3)
-				var b2 := big_button("Acheter · %s" % Game.fmt(price), Game.S.silver >= price, func(): main.buy_gear(it), GOLD, true); b2.custom_minimum_size = Vector2(0, 42); v.add_child(b2)
-			grid.add_child(card)
-	, 1100)
+				var bh := HBoxContainer.new(); v.add_child(bh)
+				var pr := _ah_price(price, ""); pr.size_flags_horizontal = Control.SIZE_EXPAND_FILL; bh.add_child(pr)
+				var b2 := big_button("Acheter", Game.S.silver >= price, func(): main.buy_gear(it), GOLD, true); b2.custom_minimum_size = Vector2(130, 44); b2.add_theme_font_size_override("font_size", 17); bh.add_child(b2)
+	, 470)
+
+# en-tête d'atelier : portrait de l'artisan, son métier, et ce qu'il te dit (selon ta réputation)
+func _workshop_head(body: Control, model: String, what: String, who: String, lines: Dictionary) -> void:
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 12); body.add_child(h)
+	var pf := PanelContainer.new(); pf.add_theme_stylebox_override("panel", flat(Color("#2c2620"), 36, Color("#c79a4a"), 3, Vector4(4, 4, 4, 4))); pf.custom_minimum_size = Vector2(76, 76)
+	var pt := TextureRect.new(); pt.texture = main.icons.char_icon(model); pt.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; pt.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED; pf.add_child(pt); h.add_child(pf)
+	var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 2); v.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(v)
+	v.add_child(_ink(what, 14, INK_SOFT, true))
+	v.add_child(_ink("Tenu par " + who, 18, INK, true))
+	var lv: Array = Game.rep_level()
+	var bub := PanelContainer.new(); bub.add_theme_stylebox_override("panel", flat(Color("#fbf3e0"), 10, Color("#bfa071"), 1, Vector4(10, 5, 10, 6))); bub.set_meta("keep", true)
+	var bt := rich("[i]« %s »[/i]" % str(lines.get(str(lv[2]), lines.get("neutre", "…"))), 15); bub.add_child(bt); v.add_child(bub)
+
+# matériau : petite icône + « possédé / requis » (rouge s'il en manque)
+func _mat_chip(tx: Texture2D, have: int, need: int) -> Control:
+	var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 0)
+	var ic := TextureRect.new(); ic.texture = tx; ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED; ic.custom_minimum_size = Vector2(36, 36); v.add_child(ic)
+	var l := _ink("%d/%d" % [have, need], 13, Color("#2f6a2a") if have >= need else Color("#a0301c"), true); l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; v.add_child(l)
+	return v
 
 # Miniature de l'objet tel qu'il sortira de la forge
 func _forge_icon(item: String, t: int, kind: String) -> Texture2D:
@@ -915,6 +971,8 @@ func show_shop(greet := "") -> void:
 
 # ——— Cases d'inventaire ———
 func slot_box(tx: Texture2D, tier: int, count: int, selected: bool, cb: Callable, size := 74.0, ench := 0, beige := false) -> Button:
+	return aslot(tx, tier, count, selected, cb, size, ench)
+func _old_slot_box(tx: Texture2D, tier: int, count: int, selected: bool, cb: Callable, size := 74.0, ench := 0, beige := false) -> Button:
 	var b := Button.new(); b.custom_minimum_size = Vector2(size, size); b.focus_mode = Control.FOCUS_NONE
 	var col: Color = Game.TIER_COL[tier] if tier > 0 else Color(1, 1, 1, 0.12)
 	var bg := Color(0.03, 0.04, 0.05, 0.95).lerp(Color(col.r, col.g, col.b, 0.95), 0.16 if tier > 0 else 0.0)
@@ -1005,6 +1063,74 @@ const DOLL := [["artefact", "casque", "cape"], ["epee", "armure", "bouclier"], [
 const BAG_W := 456.0
 var bag_scroll := 0
 var bag_card_rect := Rect2()
+
+# bouton fermer : disque doré, croix sombre (comme Albion)
+func _close_btn(cb: Callable) -> Button:
+	var x := Button.new(); x.text = "✕"; x.custom_minimum_size = Vector2(56, 56); x.focus_mode = Control.FOCUS_NONE
+	x.add_theme_font_override("font", ThemeDB.fallback_font); x.add_theme_font_size_override("font_size", 26)
+	x.add_theme_color_override("font_color", Color("#3a2410")); x.add_theme_color_override("font_hover_color", Color("#1a1008")); x.add_theme_color_override("font_pressed_color", Color("#1a1008"))
+	var xs := flat(Color("#f2c24a"), 28, Color("#5a3a18"), 4, Vector4(0, 0, 0, 0)); xs.shadow_color = Color(0, 0, 0, 0.35); xs.shadow_size = 3
+	for k in ["normal", "hover", "pressed"]: x.add_theme_stylebox_override(k, xs)
+	x.pressed.connect(cb); return x
+
+# ——— Encrage : les écrans écrits pour un fond sombre deviennent lisibles sur parchemin ———
+static func ink_col(c: Color) -> Color:
+	if c.get_luminance() < 0.42: return c
+	if c.s < 0.18: return INK if c.v > 0.9 else INK_SOFT
+	return Color.from_hsv(c.h, clamp(c.s * 1.05 + 0.2, 0.0, 1.0), 0.40 if c.h > 0.08 and c.h < 0.2 else 0.46)
+static var _rx_col: RegEx
+static func ink_bb(t: String) -> String:
+	if _rx_col == null: _rx_col = RegEx.create_from_string("\\[color=(#?[0-9a-fA-F]{3,8})\\]")
+	var out := ""; var last := 0
+	for m in _rx_col.search_all(t):
+		var c := Color.from_string(m.get_string(1), Color.WHITE)
+		out += t.substr(last, m.get_start() - last) + "[color=#%s]" % ink_col(c).to_html(false)
+		last = m.get_end()
+	return out + t.substr(last)
+func _inkify(n: Node) -> void:
+	if n.has_meta("keep"):
+		if n is PanelContainer:
+			for ch in n.get_children(): _inkify(ch)
+		return
+	if n is Button:
+		var b := n as Button
+		if b.has_theme_stylebox_override("normal"):
+			var st = b.get_theme_stylebox("normal")
+			if st is StyleBoxFlat:
+				var bg: Color = (st as StyleBoxFlat).bg_color
+				if bg.a >= 0.6 and bg.get_luminance() < 0.42: return     # case d'objet, bouton sombre : déjà lisible
+				if bg.a < 0.5:
+					var ns: StyleBoxFlat = (st as StyleBoxFlat).duplicate(); ns.bg_color = Color("#d9c193"); ns.border_color = Color("#9a7748"); ns.set_border_width_all(2)
+					for k in ["normal", "hover"]: b.add_theme_stylebox_override(k, ns)
+					if b.has_theme_color_override("font_color"): b.add_theme_color_override("font_color", ink_col(b.get_theme_color("font_color")))
+					else: b.add_theme_color_override("font_color", INK)
+		return
+	if n is PanelContainer or n is Panel:
+		var c := n as Control
+		if c.has_theme_stylebox_override("panel"):
+			var st = c.get_theme_stylebox("panel")
+			if st is StyleBoxFlat:
+				var bg: Color = (st as StyleBoxFlat).bg_color
+				if bg.a >= 0.6 and bg.get_luminance() < 0.42: return     # carte sombre (vitrine…) : on n'y touche pas
+				var ns: StyleBoxFlat = (st as StyleBoxFlat).duplicate()
+				var tint := Color(bg.r, bg.g, bg.b)
+				ns.bg_color = Color("#dfc99c").lerp(tint, 0.18 if tint.s > 0.25 else 0.0)
+				var bc: Color = (st as StyleBoxFlat).border_color
+				ns.border_color = Color("#a8875a") if bc.s < 0.25 else Color(ink_col(bc), 0.85)
+				if ns.border_width_left < 1: ns.set_border_width_all(1)
+				c.add_theme_stylebox_override("panel", ns)
+	elif n is RichTextLabel:
+		var r := n as RichTextLabel
+		r.add_theme_color_override("default_color", INK); r.add_theme_constant_override("outline_size", 0)
+		if r.bbcode_enabled: r.text = ink_bb(r.text)
+	elif n is Label:
+		var l := n as Label
+		l.add_theme_color_override("font_color", ink_col(l.get_theme_color("font_color"))); l.add_theme_constant_override("outline_size", 0)
+	elif n is LineEdit:
+		var le := n as LineEdit
+		le.add_theme_stylebox_override("normal", flat(Color("#f4e8cc"), 10, Color("#9a7748"), 2, Vector4(12, 8, 12, 8)))
+		le.add_theme_color_override("font_color", INK); le.add_theme_color_override("font_placeholder_color", INK_SOFT)
+	for ch in n.get_children(): _inkify(ch)
 
 func _parch_box() -> StyleBoxFlat:
 	var st := flat(PARCH, 18, Color("#7a5530"), 4, Vector4(14, 10, 14, 12), 18)
@@ -1319,7 +1445,8 @@ static func cat_of(e: Dictionary) -> String:
 
 func _tab_btn(parent: Control, txt: String, on: bool, cb: Callable) -> void:
 	var b := Button.new(); b.text = txt; b.custom_minimum_size = Vector2(150, 46); b.add_theme_font_size_override("font_size", 19)
-	if on: b.add_theme_stylebox_override("normal", flat(Color("#3f8a5c"), 12, Color(0.95, 0.85, 0.5, 0.9), 2, Vector4(16, 6, 16, 8)))
+	if on:
+		b.add_theme_stylebox_override("normal", _red_btn()); b.add_theme_stylebox_override("hover", _red_btn())
 	b.pressed.connect(cb); parent.add_child(b)
 
 func _chip(parent: Control, txt: String, on: bool, cb: Callable) -> void:
@@ -1359,10 +1486,13 @@ func _price_box(price: int, btn: Button = null) -> HBoxContainer:
 	if btn: h.add_child(btn)
 	return h
 
+var ah_query := ""
+const AH_W := 1010.0
 func show_auction(tab := "", cat := "") -> void:
 	if tab != "": ah_tab = tab
 	if cat != "": ah_cat = cat
 	main.ah_refresh_stock()
+	if ah_tab == "sell": next_footer = _ah_sell_footer
 	open_panel("Hôtel des ventes", func(body: VBoxContainer):
 		cur_panel = "auction"
 		var tabs := HBoxContainer.new(); tabs.add_theme_constant_override("separation", 8); body.add_child(tabs)
@@ -1372,43 +1502,129 @@ func show_auction(tab := "", cat := "") -> void:
 		_tab_btn(tabs, "Ordres d'achat (%d)" % main.ah_orders().size(), ah_tab == "orders", func(): show_auction("orders"))
 		var sp := Control.new(); sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL; tabs.add_child(sp)
 		tabs.add_child(_price_box(Game.S.silver))
-		if ah_tab == "buy" or ah_tab == "sell":
-			var cats := HFlowContainer.new(); cats.add_theme_constant_override("h_separation", 6); body.add_child(cats)
-			for c in AH_CATS: _chip(cats, c[1], ah_cat == c[0], func(): show_auction("", c[0]))
-			var tiers := HBoxContainer.new(); tiers.add_theme_constant_override("separation", 6); body.add_child(tiers)
-			tiers.add_child(_label("Tier :", 15, SOFT))
-			for t in range(0, 6): _tier_chip(tiers, t)
+		if ah_tab == "buy" or ah_tab == "sell": _ah_filters(body)
 		match ah_tab:
 			"buy":
 				_vitrine(body)
+				body.add_child(_ink("Acheter", 26, INK, true))
+				_ah_head(body, ["Objet", "Prix", ""])
 				var n := 0
 				for i in Game.S.ah.stock.size():
 					var e: Dictionary = Game.S.ah.stock[i]
-					if ah_cat != "all" and cat_of(e) != ah_cat: continue
-					if ah_tier > 0 and int(e.tier) != ah_tier: continue
+					if not _ah_match(e): continue
+					var why: String = Game.equip_block(e) if not e.has("res") else ""
+					var sub := "[color=#%s]Tier %s[/color]" % [Game.TIER_COL[e.tier].to_html(false), ROMAN[clamp(int(e.tier), 0, 8)]]
+					if e.has("seller"): sub += "  ·  [color=#2f5f8a]%s[/color]" % e.seller
+					if why != "": sub += "\n[color=#a0301c]Verrouillé pour toi[/color]"
+					var b := big_button("Acheter", Game.S.silver >= e.price, func(): main.ah_buy(i), GOLD, true); b.custom_minimum_size = Vector2(150, 50)
+					_ah_trow(body, e, sub, _ah_price(int(e.price), avg_tag(e.price, main.real_price(e))), b, n)
 					n += 1
-					var b := big_button("Acheter", Game.S.silver >= e.price, func(): main.ah_buy(i), GOLD, true); b.custom_minimum_size = Vector2(130, 46)
-					_ah_row(body, entry_tex(e), e, _price_box(e.price, b), "   ·   " + avg_tag(e.price, main.real_price(e)) + (("\n[color=#9fd4ff]vendu par %s[/color]" % e.seller) if e.has("seller") else "") + (("\n[color=#ff8a7a]Verrouillé pour toi : %s[/color]" % Game.equip_block(e)) if not e.has("res") and Game.equip_block(e) != "" else ""))
-				if n == 0: body.add_child(rich("[color=#8a9298]Rien dans cette catégorie pour l'instant. Le stock se renouvelle toutes les 5 minutes.[/color]", 16))
+				if n == 0: body.add_child(rich("[color=#8a9298]Rien ne correspond. Le stock se renouvelle toutes les 5 minutes.[/color]", 16))
 			"sell":
 				if ah_sel != null: _sell_editor(body)
+				body.add_child(_ink("Vendre depuis l'inventaire", 26, INK, true))
+				_ah_head(body, ["Objet", "Estimation", ""])
 				var entries := bag_entries(false); var n2 := 0
 				for e in entries:
-					if ah_cat != "all" and cat_of(e) != ah_cat: continue
-					if ah_tier > 0 and int(e.tier) != ah_tier: continue
-					n2 += 1
+					if not _ah_match(e): continue
 					var lot := _lot(e)
-					var b := big_button("Vendre", true, func(): ah_sel = e; ah_price = main.real_price(lot); show_auction("sell")); b.custom_minimum_size = Vector2(120, 46)
-					_ah_row(body, entry_tex(lot), lot, _price_box(main.real_price(lot), b), "   ·   prix du marché" + (" (lot de %d)" % lot.qty if lot.has("res") else ""))
-				if n2 == 0: body.add_child(rich("[color=#8a9298]Rien à vendre dans cette catégorie.[/color]", 16))
+					var b := big_button("Vendre", true, func(): ah_sel = e; ah_price = main.real_price(lot); show_auction("sell"), GOLD, true); b.custom_minimum_size = Vector2(150, 50)
+					var sub := "[color=#%s]Tier %s[/color]%s" % [Game.TIER_COL[e.tier].to_html(false), ROMAN[clamp(int(e.tier), 0, 8)], ("  ·  lot de %d" % lot.qty) if lot.has("res") else ""]
+					_ah_trow(body, lot, sub, _ah_price(main.real_price(lot), ""), b, n2)
+					n2 += 1
+				if n2 == 0: body.add_child(rich("[color=#8a9298]Rien à vendre ici.[/color]", 16))
 			"mine":
+				body.add_child(_ink("Mes ventes en cours", 26, INK, true))
 				if Game.S.ah.listings.is_empty(): body.add_child(rich("[color=#8a9298]Aucune vente en cours. Va dans « Vendre » pour mettre un objet en vente.[/color]", 16))
+				else: _ah_head(body, ["Objet", "Ton prix", "Résultat"])
+				var k := 0
 				for l in Game.S.ah.listings:
 					var left: int = int(max(0.0, float(l.end) - main.now_s()))
 					var ch := int(main.sell_chance(int(l.price), int(l.real)) * 100)
-					_ah_row(body, entry_tex(l), l, _price_box(int(l.price)), "   ·   résultat dans %d s   ·   chance de vente %d %%" % [left, ch])
+					var st := rich("[center]dans [b]%d s[/b]\n[color=#76593a]chance %d %%[/color][/center]" % [left, ch], 16); st.custom_minimum_size = Vector2(150, 0)
+					_ah_trow(body, l, "[color=#%s]Tier %s[/color]" % [Game.TIER_COL[l.tier].to_html(false), ROMAN[clamp(int(l.tier), 0, 8)]], _ah_price(int(l.price), avg_tag(int(l.price), int(l.real))), st, k)
+					k += 1
 			"orders": _orders_tab(body)
-	, 880)
+	, min(AH_W, vs().x - 40))
+
+func _ah_match(e: Dictionary) -> bool:
+	if ah_cat != "all" and cat_of(e) != ah_cat: return false
+	if ah_tier > 0 and int(e.tier) != ah_tier: return false
+	if ah_query != "" and not entry_name(e).to_lower().contains(ah_query.to_lower()): return false
+	return true
+
+# barre de filtres : recherche, catégorie, niveau, remise à zéro (comme Albion)
+func _ah_filters(body: Control) -> void:
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 8); body.add_child(h)
+	var le := LineEdit.new(); le.placeholder_text = "Recherche…"; le.text = ah_query; le.custom_minimum_size = Vector2(250, 48); le.add_theme_font_size_override("font_size", 19)
+	le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	le.text_submitted.connect(func(t: String): ah_query = t.strip_edges(); show_auction()); h.add_child(le)
+	var go := big_button("Chercher", true, func(): ah_query = le.text.strip_edges(); show_auction()); go.custom_minimum_size = Vector2(120, 48); h.add_child(go)
+	var oc := _parch_option(AH_CATS.map(func(c): return c[1]), AH_CATS.map(func(c): return c[0]).find(ah_cat))
+	oc.item_selected.connect(func(i: int): ah_cat = AH_CATS[i][0]; show_auction()); h.add_child(oc)
+	var tiers := ["Tous niveaux"]
+	for t in range(1, 6): tiers.append("Tier %s" % ROMAN[t])
+	var ot := _parch_option(tiers, ah_tier)
+	ot.item_selected.connect(func(i: int): ah_tier = i; show_auction()); h.add_child(ot)
+	var rs := big_button("↺", true, func(): ah_query = ""; ah_cat = "all"; ah_tier = 0; show_auction()); rs.custom_minimum_size = Vector2(52, 48)
+	rs.add_theme_font_override("font", ThemeDB.fallback_font); h.add_child(rs)
+
+func _parch_option(items: Array, sel: int) -> OptionButton:
+	var o := OptionButton.new(); o.custom_minimum_size = Vector2(170, 48); o.focus_mode = Control.FOCUS_NONE
+	for it in items: o.add_item(str(it))
+	o.select(max(0, sel))
+	var st := flat(Color("#f2e3c0"), 24, Color("#9a7748"), 2, Vector4(18, 6, 34, 8))
+	for k in ["normal", "hover", "pressed"]: o.add_theme_stylebox_override(k, st)
+	o.add_theme_color_override("font_color", INK); o.add_theme_color_override("font_hover_color", INK); o.add_theme_color_override("font_pressed_color", INK)
+	o.add_theme_font_override("font", f_title); o.add_theme_font_size_override("font_size", 18)
+	var pm := o.get_popup(); pm.add_theme_font_size_override("font_size", 22)
+	pm.add_theme_stylebox_override("panel", flat(Color("#efe0bd"), 12, Color("#7a5530"), 3, Vector4(8, 8, 8, 8)))
+	pm.add_theme_color_override("font_color", INK); pm.add_theme_color_override("font_hover_color", Color("#fff2c8"))
+	pm.add_theme_stylebox_override("hover", flat(Color("#7a5530"), 8))
+	o.set_meta("keep", true)
+	return o
+
+# en-tête des colonnes : pastilles sombres
+func _ah_head(body: Control, cols: Array) -> void:
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 6); body.add_child(h)
+	var ws := [0.0, 210.0, 170.0]
+	for i in cols.size():
+		var p := PanelContainer.new(); p.add_theme_stylebox_override("panel", flat(Color("#33414d"), 8, Color("#c9a45c"), 2, Vector4(12, 3, 12, 4)))
+		if i == 0: p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		else: p.custom_minimum_size = Vector2(ws[i], 0)
+		var l := _label(str(cols[i]), 15, Color("#f4ead6")); l.add_theme_constant_override("outline_size", 0); p.add_child(l); h.add_child(p)
+
+# une ligne du tableau : case + nom | prix | action ; lignes alternées, filet entre elles
+func _ah_trow(body: Control, e: Dictionary, sub: String, mid: Control, act: Control, idx: int) -> void:
+	var p := PanelContainer.new(); p.set_meta("keep", true)
+	var st := flat(Color("#ead9b2") if idx % 2 == 0 else Color("#e2cfa5"), 6, Color(0, 0, 0, 0), 0, Vector4(8, 6, 8, 6))
+	st.border_color = Color("#bfa071"); st.border_width_bottom = 1
+	p.add_theme_stylebox_override("panel", st); body.add_child(p)
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 14); p.add_child(h)
+	h.add_child(aslot(entry_tex(e), int(e.tier), int(e.get("qty", 1)), false, Callable(), 72, int(e.get("ench", 0)), null, e))
+	var nm := rich("[b]%s[/b]\n%s" % [entry_name(e), sub], 18); nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER; h.add_child(nm)
+	mid.custom_minimum_size.x = 210; mid.size_flags_vertical = Control.SIZE_SHRINK_CENTER; h.add_child(mid)
+	var ac := CenterContainer.new(); ac.custom_minimum_size = Vector2(170, 0); ac.add_child(act); h.add_child(ac)
+
+func _ah_price(price: int, tag: String) -> Control:
+	var v := VBoxContainer.new(); v.add_theme_constant_override("separation", 0); v.alignment = BoxContainer.ALIGNMENT_CENTER
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 6); v.add_child(h)
+	var ci := TextureRect.new(); ci.texture = T("it_coins"); ci.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; ci.custom_minimum_size = Vector2(24, 24); h.add_child(ci)
+	h.add_child(_ink(Game.fmt(price), 21, INK, true))
+	if tag != "": v.add_child(rich(tag, 13))
+	return v
+
+# pied de page de la vente : valeur totale + vente rapide
+func _ah_sell_footer(vb: Control) -> void:
+	var ql: Array = main.quick_sell_list()
+	var qv := 0
+	for i in ql: qv += main.quick_price(Game.S.items[i])
+	var tot := 0
+	for e in bag_entries(false): tot += main.real_price(_lot(e))
+	var f := HBoxContainer.new(); f.add_theme_constant_override("separation", 12); vb.add_child(f)
+	var r := rich("[b]Valeur de vente totale estimée :[/b] %s\n[b]Vente rapide (objets inutiles) :[/b] %d · %s" % [Game.fmt(tot), ql.size(), Game.fmt(qv)], 17)
+	r.size_flags_vertical = Control.SIZE_SHRINK_CENTER; f.add_child(r)
+	var b := big_button("Vente rapide", ql.size() > 0, func(): main.quick_sell(); show_auction("sell"), GOLD, true); b.custom_minimum_size = Vector2(190, 52); f.add_child(b)
 
 # « À la une » : l'objet le plus cher du moment, en grand
 func _vitrine(body: Control) -> void:
@@ -2468,10 +2684,9 @@ func show_player_card(b: Bot) -> void:
 func _draw_daily_rank(c: CanvasItem, pulse: float) -> void:
 	var dc: Vector2 = buttons.daily.rect.get_center()
 	var nd: int = Game.dq_ready() + (1 if Game.login_can_claim() else 0) + (1 if Game.exped_ready() else 0)
-	_glass(c, dc, 22, Color(1.0, 0.85, 0.3, pulse) if nd > 0 else Color(0.95, 0.78, 0.45, 0.5))
-	_texq(T("it_quest"), Rect2(dc - Vector2(15, 16), Vector2(30, 30)))
-	if nd > 0: _disc(dc + Vector2(19, -19), 10, Color("#ff3b2f")); _text(c, str(nd), dc + Vector2(19, -14), 13, Color.WHITE, true, f_title)
+	_glass(c, dc, 26, Color(1.0, 0.85, 0.3, pulse) if nd > 0 else Color(0.95, 0.78, 0.45, 0.6))
+	_texq(T("it_quest"), Rect2(dc - Vector2(18, 19), Vector2(36, 36)))
+	if nd > 0: _disc(dc + Vector2(22, -22), 11, Color("#ff3b2f")); _text(c, str(nd), dc + Vector2(22, -17), 14, Color.WHITE, true, f_title)
 	var rc: Vector2 = buttons.rank.rect.get_center()
-	_glass(c, rc, 22, Color(0.95, 0.78, 0.45, 0.5))
-	_texq(T("it_trophy"), Rect2(rc - Vector2(15, 16), Vector2(30, 30)))
-	_text(c, "#%d" % rank_cache, rc + Vector2(0, 34), 11, Color("#ffe39a"), true, f_title)
+	_glass(c, rc, 26, Color(0.95, 0.78, 0.45, 0.6))
+	_texq(T("it_trophy"), Rect2(rc - Vector2(18, 19), Vector2(36, 36)))

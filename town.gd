@@ -295,7 +295,7 @@ func _plaza(ST: Dictionary, tname: String) -> void:
 		var w3 := Vector3(q.x, 0, q.y)
 		if i % 2 == 0:
 			W.place(ST.tree, w3, R.randf() * TAU, 0.55 if W.map_id <= 2 else 0.75); W.blocker(w3, 0.45); npc_used.append(q)
-		for k in 6:
+		for k in 3:
 			var fc: Color = FL[R.randi() % FL.size()]; fc.a = 0.98
 			W._mm("res://assets/forest/Bush_1_A_Color1.gltf", w3 + Vector3(R.randf_range(-1.1, 1.1), 0, R.randf_range(-1.1, 1.1)), R.randf_range(0.5, 0.75), R.randf() * TAU, fc)
 	W.label(tname, Vector3(V.x, W.height(V.x, V.y) + 11.0, V.y), Color("#ffe2a0"), 90)
@@ -538,6 +538,7 @@ func _entrances(ST: Dictionary) -> void:
 
 func _edge_stones() -> void:
 	for st in streets:
+		if not st.main: continue      # ruelles : pas de bordures (plus sobre)
 		var s := 1.0
 		var hw: float = float(st.half) + (0.45 if st.main else 0.25)
 		while s < float(st.len):
@@ -550,7 +551,7 @@ func _edge_stones() -> void:
 					if _inside(q, h, 0.1) or q.distance_to(h.out) < 1.1: hit = true; break
 				if hit: continue
 				W._mm("res://assets/forest/Rock_1_A_Color1.gltf", Vector3(q.x, 0, q.y), R.randf_range(0.3, 0.42) if st.main else R.randf_range(0.22, 0.32), R.randf() * TAU, Color("#c8c4bc"))
-			s += R.randf_range(1.2, 2.2) if st.main else R.randf_range(2.0, 3.5)
+			s += R.randf_range(2.2, 3.4)
 
 func _lanterns() -> void:
 	var n := 0
@@ -580,8 +581,8 @@ func _greenery(ST: Dictionary) -> void:
 		var roll := R.randf()
 		var sidep: Vector2 = (h.door as Vector2) + az * 0.6 + ax * (1.3 if R.randf() < 0.5 else -1.3)
 		if _on_street(sidep, 0.2): continue
-		if roll < 0.3: W.place("res://assets/hex/" + ["barrel.gltf", "crate_A_big.gltf", "sack.gltf"][R.randi() % 3], Vector3(sidep.x, 0, sidep.y), R.randf() * TAU, 3.0)
-		elif roll < 0.6:
+		if roll < 0.12: W.place("res://assets/hex/" + ["barrel.gltf", "crate_A_big.gltf", "sack.gltf"][R.randi() % 3], Vector3(sidep.x, 0, sidep.y), R.randf() * TAU, 3.0)
+		elif roll < 0.3:
 			for k in 4:
 				var fc: Color = FL[R.randi() % FL.size()]; fc.a = 0.98
 				W._mm(F + "Bush_1_A_Color1.gltf", Vector3(sidep.x + R.randf_range(-0.5, 0.5), 0, sidep.y + R.randf_range(-0.4, 0.4)), R.randf_range(0.5, 0.7), R.randf() * TAU, fc)
@@ -589,7 +590,7 @@ func _greenery(ST: Dictionary) -> void:
 	var veg := ["chou", "carotte", "citrouille", "salade", "tomate"] if W.map_id != 3 else ["pasteque", "melon", "poivron"]
 	var placed := 0
 	for i in 900:
-		if placed > 46: break
+		if placed > 22: break
 		var q := Vector2(R.randf_range(bbox.position.x, bbox.end.x), R.randf_range(bbox.position.y, bbox.end.y))
 		var td := town_dist(q.x, q.y)
 		if td < 1.2 or td > 16.0: continue
@@ -789,16 +790,19 @@ func _service_yard(h: Dictionary, c: Vector2, ax: Vector2, az: Vector2, hx: floa
 	var side: float = 1.0 if ldx <= 0.0 else -1.0       # le côté libre de la cour (loin de l'allée)
 	match h.kind:
 		"forge":
-			# atelier en plein air : four de briques qui rougeoie, enclume, râtelier, auvent de cuir
-			var fp: Vector3 = at.call(side * (hx - 1.0), hz - 1.5)
-			W.place(World._V + "Prop_Chimney.gltf", fp, rot, 1.25); W.blocker(fp, 0.9)
-			W._light(fp + Vector3(0, W.height(fp.x, fp.z) + 0.9, 0), Color("#ff7a20"), 3.0, 3.2)
-			W._smoke(fp + Vector3(0, W.height(fp.x, fp.z) + 3.4, 0))
-			var an: Vector3 = at.call(side * (hx - 2.9), hz - 1.4)
-			_anvil(an, rot); W.blocker(an, 0.5)
-			W.place(H + "weaponrack.gltf", at.call(-side * (hx - 0.9), hz - 1.6), rot, 4.4)
-			W.place(DG + "barrel_large.gltf", at.call(side * (hx - 0.8), hz - 2.7), 0.0, 0.45)
-			awning(c + ax * side * (hx - 2.0) + az * (hz - 1.5), rot, 3.8, 2.6, Color("#6b4a32"), Color("#8a6040"))
+			# atelier ouvert façon Albion : dallage de pierres, charpente au toit de tuiles, foyer rougeoyant, enclume
+			var sw: float = clamp(hx - abs(ldx) - 1.2, 2.6, 4.4)
+			var lx0: float = side * (hx - 0.3 - sw * 0.5)
+			var lz0: float = hz - 1.55
+			var yc: Vector2 = c + ax * lx0 + az * lz0
+			_flagstones(yc, sw * 0.5 + 0.5, 1.9, rot)
+			_shelter(yc, rot, sw, 2.7)
+			var fp: Vector3 = at.call(lx0 + side * (sw * 0.5 - 0.7), lz0 - 0.6)
+			_hearth(fp, rot); W.blocker(fp, 0.6)
+			var an: Vector3 = at.call(lx0 - side * 0.5, lz0 + 0.2)
+			_anvil(an, rot); W.blocker(an, 0.45)
+			W.place(DG + "barrel_large.gltf", at.call(lx0 - side * (sw * 0.5 - 0.4), lz0 - 0.7), 0.0, 0.42)
+			W.place(H + "weaponrack.gltf", at.call(-side * (hx - 0.9), hz - 1.6), rot, 4.2)
 			W.label("FORGE", at.call(0, 0) + Vector3(0, W.height(c.x, c.y) + 8.5, 0), Color("#ffb070"), 52)
 		"inn":
 			# terrasse : tables, tonneaux, lanternes sous un auvent rayé
@@ -839,6 +843,58 @@ func _service_yard(h: Dictionary, c: Vector2, ax: Vector2, az: Vector2, hx: floa
 			_sawhorse(sq, rot); W.box_blocker(sq, Vector3(2.2, 1.0, 0.7), rot)
 			W.place(DG + "crates_stacked.gltf", at.call(-side * (hx - 0.9), hz - 3.0), rot, 0.7)
 			W.label("SCIERIE", at.call(0, 0) + Vector3(0, W.height(c.x, c.y) + 8.5, 0), Color("#b8e07a"), 46)
+
+# dallage irrégulier (MultiMesh : très léger)
+func _flagstones(c: Vector2, rx: float, rz: float, rot: float) -> void:
+	var ax := Vector2(cos(rot), -sin(rot)); var az := Vector2(sin(rot), cos(rot))
+	var cm := CylinderMesh.new(); cm.top_radius = 0.5; cm.bottom_radius = 0.52; cm.height = 0.1; cm.radial_segments = 7; cm.rings = 1
+	var mm := MultiMesh.new(); mm.transform_format = MultiMesh.TRANSFORM_3D; mm.use_colors = true; mm.mesh = cm
+	var pts: Array = []
+	var x := -rx
+	while x <= rx:
+		var z := -rz
+		while z <= rz:
+			pts.append(Vector2(x + R.randf_range(-0.15, 0.15), z + R.randf_range(-0.15, 0.15))); z += 0.95
+		x += 0.95
+	mm.instance_count = pts.size()
+	for i in pts.size():
+		var l: Vector2 = pts[i]; var q: Vector2 = c + ax * l.x + az * l.y
+		var sc := R.randf_range(0.8, 1.0)
+		mm.set_instance_transform(i, Transform3D(Basis(Vector3.UP, R.randf() * TAU).scaled(Vector3(sc, 1.0, sc * R.randf_range(0.8, 1.0))), Vector3(q.x, W.height(q.x, q.y) + 0.04, q.y)))
+		mm.set_instance_color(i, Color("#b9ad98").darkened(R.randf_range(0.0, 0.22)))
+	var mat := StandardMaterial3D.new(); mat.vertex_color_use_as_albedo = true; mat.roughness = 0.95
+	var mi := MultiMeshInstance3D.new(); mi.multimesh = mm; mi.material_override = mat; mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; W.add_child(mi)
+
+# charpente ouverte : 4 poteaux, sablières, toit de tuiles en appentis
+func _shelter(c: Vector2, rot: float, w: float, d: float, h := 2.9) -> void:
+	var root := Node3D.new(); root.position = Vector3(c.x, W.height(c.x, c.y), c.y); root.rotation.y = rot; W.add_child(root)
+	var wood := StandardMaterial3D.new(); wood.albedo_texture = load("res://assets/village/T_WoodTrim_BaseColor.png"); wood.albedo_color = Color("#a07a58"); wood.roughness = 0.9
+	wood.uv1_triplanar = true; wood.uv1_scale = Vector3(0.8, 0.8, 0.8)
+	var tile := StandardMaterial3D.new(); tile.albedo_texture = load("res://assets/village/T_RoundTiles_BaseColor.png"); tile.albedo_color = Color(W._roof_tint) if W.get("_roof_tint") != null else Color.WHITE; tile.roughness = 0.85
+	tile.uv1_triplanar = true; tile.uv1_scale = Vector3(0.5, 0.5, 0.5); tile.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var box := func(sz: Vector3, pos: Vector3, m: Material, rx := 0.0) -> void:
+		var mi := MeshInstance3D.new(); var bm := BoxMesh.new(); bm.size = sz; mi.mesh = bm; mi.position = pos; mi.rotation.x = rx; mi.material_override = m; root.add_child(mi)
+	for sx: float in [-1.0, 1.0]:
+		for sz: float in [-1.0, 1.0]:
+			var ph: float = h + (0.45 if sz < 0 else 0.0)
+			box.call(Vector3(0.24, ph, 0.24), Vector3(sx * (w * 0.5 - 0.15), ph * 0.5, sz * (d * 0.5 - 0.15)), wood)
+			var pq := c + Vector2(cos(rot), -sin(rot)) * sx * (w * 0.5 - 0.15) + Vector2(sin(rot), cos(rot)) * sz * (d * 0.5 - 0.15)
+			W.blocker(Vector3(pq.x, 0, pq.y), 0.2)
+	box.call(Vector3(w, 0.2, 0.22), Vector3(0, h + 0.45, -(d * 0.5 - 0.15)), wood)
+	box.call(Vector3(w, 0.2, 0.22), Vector3(0, h, d * 0.5 - 0.15), wood)
+	var slope := atan2(0.45, d)
+	box.call(Vector3(w + 0.7, 0.14, d + 0.8), Vector3(0, h + 0.33, 0), tile, slope)
+
+# foyer de forge : socle de pierre, braises qui rougeoient, fumée
+func _hearth(p: Vector3, rot: float) -> void:
+	var y: float = W.height(p.x, p.z)
+	var root := Node3D.new(); root.position = Vector3(p.x, y, p.z); root.rotation.y = rot; W.add_child(root)
+	var stone := StandardMaterial3D.new(); stone.albedo_texture = load("res://assets/village/T_UnevenBrick_BaseColor.png"); stone.albedo_color = Color("#9a8c7c"); stone.uv1_triplanar = true; stone.uv1_scale = Vector3(0.9, 0.9, 0.9)
+	var coal := StandardMaterial3D.new(); coal.albedo_color = Color("#ff7a20"); coal.emission_enabled = true; coal.emission = Color("#ff5a10"); coal.emission_energy_multiplier = 2.5
+	var c1 := MeshInstance3D.new(); var cm := CylinderMesh.new(); cm.top_radius = 0.6; cm.bottom_radius = 0.7; cm.height = 0.8; cm.radial_segments = 10; c1.mesh = cm; c1.position = Vector3(0, 0.4, 0); c1.material_override = stone; root.add_child(c1)
+	var c2 := MeshInstance3D.new(); var em := CylinderMesh.new(); em.top_radius = 0.45; em.bottom_radius = 0.45; em.height = 0.06; em.radial_segments = 10; c2.mesh = em; c2.position = Vector3(0, 0.81, 0); c2.material_override = coal; root.add_child(c2)
+	W._light(Vector3(p.x, y + 1.3, p.z), Color("#ff7a20"), 3.0, 3.4)
+	W._smoke(Vector3(p.x, y + 1.0, p.z))
 
 # séchoir : deux poteaux, une perche, des peaux tendues
 func _hide_rack(p: Vector3, rot: float) -> void:
