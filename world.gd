@@ -1221,6 +1221,11 @@ func _gates() -> void:
 		gates.append({"pos": Vector3(P.x, y, P.y), "to": g.to, "dir": g.dir, "arrive": g.arrive})
 		# panneau indicateur à la sortie de la ville, sur la route du passage
 		var sp := village + (P - village).normalized() * 22.0
+		# jamais au milieu d'une rue : on le pousse sur le bas-côté
+		var pdir := (P - village).normalized(); var perp := Vector2(-pdir.y, pdir.x)
+		for k in 12:
+			if town == null or not town._on_street(sp, 0.9): break
+			sp += perp * 0.8
 		_signpost(sp, P, "%s → %s (T%d-T%d)" % [g.dir, Maps.NAMES[g.to], Maps.TIERS[g.to][0], Maps.TIERS[g.to][1]], col)
 
 func _signpost(p: Vector2, toward: Vector2, txt: String, col: Color) -> void:

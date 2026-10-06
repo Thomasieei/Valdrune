@@ -5,7 +5,7 @@ class_name TownGen
 # jardins, arbres, lanternes, et chaque habitant a SON coin (pas tous au même endroit).
 
 const PLAZA_R := 10.0
-const MAIN_HALF := 2.6
+const MAIN_HALF := 2.8
 const LANE_HALF := 1.7
 const MAX_LEN := 58.0
 const PLOT_D := 11.0
@@ -23,65 +23,102 @@ var bbox := Rect2()
 func plan(world: Node) -> void:
 	W = world; V = W.village; R.seed = 7000 + W.map_id * 13
 	streets = []
-	var dirs: Array = []
-	for rd in W.roads:
-		var pts: Array = rd
-		if pts.size() < 2: continue
-		# point de la route le plus proche du centre
-		var best_i := -1; var best_t := 0.0; var bd := 1e9
-		for i in pts.size() - 1:
-			var a: Vector2 = pts[i]; var b: Vector2 = pts[i + 1]; var ab := b - a
-			var t: float = clamp((V - a).dot(ab) / max(0.0001, ab.length_squared()), 0.0, 1.0)
-			var d := V.distance_to(a + ab * t)
-			if d < bd: bd = d; best_i = i; best_t = t
-		if bd > 5.0: continue
-		var a0: Vector2 = pts[best_i]; var b0: Vector2 = pts[best_i + 1]
-		var cp: Vector2 = a0.lerp(b0, best_t)
-		var fwd: Array = [V, cp]; for k in range(best_i + 1, pts.size()): fwd.append(pts[k])
-		var bwd: Array = [V, cp]; for k in range(best_i, -1, -1): bwd.append(pts[k])
-		for cand in [fwd, bwd]: _try_main(_clean(cand), dirs)
-	# routes qui bifurquent d'une grande rue : elles deviennent aussi des rues du bourg
-	for rd in W.roads:
-		var pts2: Array = rd
-		for vi in pts2.size():
-			var vtx: Vector2 = pts2[vi]
-			var dv := vtx.distance_to(V)
-			if dv < PLAZA_R + 4.0 or dv > 42.0: continue
-			var on_main := false
-			for st in streets:
-				if W.poly_dist(vtx, st.pts) < 1.5: on_main = true; break
-			if not on_main: continue
-			for dir_i: int in [1, -1]:
-				var path: Array = [vtx]
-				var k: int = vi + dir_i
-				while k >= 0 and k < pts2.size(): path.append(pts2[k]); k += dir_i
-				if path.size() < 2: continue
-				var rs := _resample(_clean(path), 2.0)
-				if rs.size() < 4: continue
-				# la branche doit s'écarter des rues existantes
-				var away := true
-				for st in streets:
-					if W.poly_dist(rs[3], st.pts) < 4.0: away = false; break
-				if not away: continue
-				var out: Array = []; var L := 0.0
-				for i in rs.size():
-					if i > 0: L += (rs[i - 1] as Vector2).distance_to(rs[i])
-					if L > MAX_LEN - dv * 0.5 or (i > 1 and _bad(rs[i])): break
-					out.append(rs[i])
-				if out.size() >= 6: _add_street(out, MAIN_HALF, true)
-	# ruelles qui partent des grandes rues
-	var mains := streets.duplicate()
-	var side := 1.0
-	for st in mains:
-		for s0: float in [17.0, 27.0, 38.0, 49.0]:
-			if s0 > float(st.len) - 8.0: continue
-			side = -side
-			_try_lane(st, s0, side)
-	# boîte englobante (accélère town_dist)
+	# Ville dessinée : une place centrale, et jusqu'à 4 grandes rues droites en croix, alignées sur la route principale.
+	# Les routes du monde s'arrêtent aux portes de la ville (au bout des grandes rues) au lieu de la traverser.
+	var ang := _main_axis()
+	# le sanctuaire d'enchantement entre dans la ville : un quartier à lui, entre deux grandes rues
+	for pd in W.POI_DEFS:
+		if str(pd.get("kind", "")) != "enchant" or (pd.p as Vector2).distance_to(V) > AVE_LEN + 14.0: continue
+		for k2 in 8:
+			var q: Vector2 = V + Vector2(cos(ang + PI * 0.25 + k2 * PI * 0.5), sin(ang + PI * 0.25 + k2 * PI * 0.5)) * 42.0
+			if W.raw_height(q.x, q.y) > World.WATER_Y + 1.0 and W.river_dist(q.x, q.y) > World.RIVER_W + 8.0:
+				pd.p = q; break
+	for k in 4:
+		var d := Vector2(cos(ang + k * PI * 0.5), sin(ang + k * PI * 0.5))
+		var L := PLAZA_R
+		while L < AVE_LEN:
+			var q: Vector2 = V + d * (L + 2.0)
+			if _bad(q, 2.0) or W.raw_height(q.x, q.y) < World.WATER_Y + 0.9: break
+			L += 2.0
+		if L < PLAZA_R + 16.0: continue
+		var pts: Array = []
+		var t := 0.0
+		while t <= L + 0.01: pts.append(V + d * t); t += 2.0
+		_add_street(pts, MAIN_HALF, true)
 	bbox = Rect2(V - Vector2(PLAZA_R, PLAZA_R), Vector2(PLAZA_R, PLAZA_R) * 2.0)
 	for st in streets:
 		for p: Vector2 in st.pts: bbox = bbox.expand(p)
 	bbox = bbox.grow(30.0)
+	_reroute_roads()
+
+const AVE_LEN := 48.0
+# l'axe de la ville suit la route qui part le plus loin du centre
+func _main_axis() -> float:
+	var best := 0.0; var ang := -PI * 0.5
+	for rd in W.roads:
+		var pts: Array = rd
+		var near := false
+		for p: Vector2 in pts:
+			if p.distance_to(V) < 8.0: near = true; break
+		if not near: continue
+		for p: Vector2 in pts:
+			var dv := p.distance_to(V)
+			if dv > 24.0 and dv < 44.0 and dv > best:
+				best = dv; ang = atan2(p.y - V.y, p.x - V.x)
+	return ang
+
+# les routes s'arrêtent aux portes : on coupe ce qui traverse la ville et on rejoint la porte la plus proche
+func _reroute_roads() -> void:
+	if streets.is_empty(): return
+	var gates: Array = []
+	var Rt := PLAZA_R
+	for st in streets:
+		gates.append(st.pts[st.pts.size() - 1]); Rt = max(Rt, float(st.len))
+	Rt += 3.0
+	var link := func(c: Vector2) -> Vector2:
+		var order := gates.duplicate()
+		order.sort_custom(func(a1, b1): return (a1 as Vector2).distance_to(c) < (b1 as Vector2).distance_to(c))
+		for g: Vector2 in order:
+			if not W._crosses_water(c, g): return g
+		return c
+	var out: Array = []
+	for rd in W.roads:
+		var pts: Array = rd
+		var inside_any := false
+		for p: Vector2 in pts:
+			if p.distance_to(V) <= Rt: inside_any = true; break
+		if not inside_any: out.append(pts); continue
+		var cur: Array = []
+		for i in pts.size():
+			var p: Vector2 = pts[i]
+			var ins := p.distance_to(V) <= Rt
+			if i > 0:
+				var pv: Vector2 = pts[i - 1]
+				var was := pv.distance_to(V) <= Rt
+				if was != ins:
+					var c := _circle_cross(pv, p, Rt)
+					var g: Vector2 = link.call(c)
+					if ins:
+						cur.append(c)
+						if g != c: cur.append(g)
+						if cur.size() >= 2: out.append(cur)
+						cur = []
+					else:
+						if g != c: cur.append(g)
+						cur.append(c)
+			if not ins: cur.append(p)
+		if cur.size() >= 2: out.append(cur)
+	W.roads = out
+	W._seg_n = -1
+
+func _circle_cross(a: Vector2, b: Vector2, r: float) -> Vector2:
+	var lo := 0.0; var hi := 1.0
+	var a_in := a.distance_to(V) <= r
+	for k in 20:
+		var m := (lo + hi) * 0.5
+		if (a.lerp(b, m).distance_to(V) <= r) == a_in: lo = m
+		else: hi = m
+	return a.lerp(b, (lo + hi) * 0.5)
 
 func _clean(a: Array) -> Array:
 	var out: Array = []
@@ -191,6 +228,7 @@ func build(ST: Dictionary, tname: String) -> void:
 	_build_houses()
 	_entrances(ST)
 	_gate_towers(ST)
+	_street_signs()
 	_lanterns()
 	_edge_stones()
 	_greenery(ST)
@@ -352,7 +390,7 @@ func _place_houses() -> void:
 	# 1) autour de la place, entre les débouchés des rues, façades vers le centre
 	var a := 0.0
 	while a < TAU - 0.05:
-		var w: int = 6 if R.randf() < 0.6 else 4
+		var w: int = 6
 		var rp := PLAZA_R + 1.6 + 4.0
 		var am := a + (w * 0.5 + 0.4) / rp
 		var c: Vector2 = V + Vector2(cos(am), sin(am)) * rp
@@ -360,15 +398,15 @@ func _place_houses() -> void:
 		var rot := atan2(to_c.x, to_c.y)
 		if _fp_ok(c, rot, w, 8.0):
 			_add_home(c, rot, w, -1, 0.0, 0.0, true)
-			a += (w + R.randf_range(0.6, 1.4)) / rp
+			a += (w + 1.0) / rp
 		else: a += 0.06
 	# 2) le long des rues, des deux côtés
 	for si in streets.size():
 		var st: Dictionary = streets[si]
 		for side: float in [-1.0, 1.0]:
-			var s := PLAZA_R + 2.0 if st.main else 2.5
+			var s := PLAZA_R + 7.0 if st.main else 2.5
 			while s < float(st.len) - 2.0:
-				var w: int = [4, 6, 6][R.randi() % 3] if st.main else [4, 4, 6][R.randi() % 3]
+				var w: int = 6
 				var pw: float = w + 2.0
 				var pa: Array = point_at(st, s + pw * 0.5); var p: Vector2 = pa[0]; var tg: Vector2 = pa[1]
 				var nr := Vector2(-tg.y, tg.x) * side
@@ -377,7 +415,7 @@ func _place_houses() -> void:
 				var rot := atan2(-nr.x, -nr.y)
 				if _fp_ok(c, rot, pw, PLOT_D):
 					_add_home(c, rot, w, si, s + pw * 0.5, side, false, true)
-					s += pw + R.randf_range(0.6, 2.4)
+					s += pw + 1.0
 				else: s += 1.0
 
 # maisons de seconde ligne : un peu en retrait, chacune avec un accès dégagé vers la rue la plus proche
@@ -418,17 +456,17 @@ func _add_home(c: Vector2, rot: float, w: int, si: int, s: float, side: float, p
 	var door: Vector2 = hc + az * (4.0 + 0.35) + ax * ldx
 	var out: Vector2 = hc + az * (4.0 + 1.9) + ax * ldx
 	var hm := {"c": c, "rot": rot, "w": w, "d": 8.0, "street": si, "s": s, "side": side, "door": door, "out": out, "plaza": plaza, "used": false, "kind": kind,
-		"fl": 1 + (R.randi() % 3 if plaza or (si >= 0 and streets[si].main and s < 30.0) else R.randi() % 2)}
+		"fl": (3 if homes.size() % 2 == 0 else 2) if plaza else (2 if s < 32.0 else 1 + homes.size() % 2)}
 	hm["hc"] = hc
 	if plot: hm["pw"] = w + 2.0; hm["pd"] = PLOT_D; hm["plot"] = true
 	homes.append(hm)
 
 func _build_houses() -> void:
-	_infill(10)
 	_assign_services()
 	var paths: Array = []
+	var hi := 0
 	for h in homes:
-		W.house(h.hc, h.rot, h.w, h.fl, "plaster" if R.randf() < 0.55 else "brick", true)
+		W.house(h.hc, h.rot, h.w, h.fl, "brick" if hi % 3 == 0 else "plaster", true); hi += 1
 		if h.get("plot", false): paths.append(_build_plot(h))
 	# allées de terre : de la porte jusqu'à la rue
 	var sf := SurfaceTool.new(); sf.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -452,7 +490,7 @@ func _build_plot(h: Dictionary) -> Array:
 	var ax := Vector2(cos(rot), -sin(rot)); var az := Vector2(sin(rot), cos(rot))
 	var hx: float = float(h.pw) * 0.5; var hz: float = float(h.pd) * 0.5
 	var ldx: float = -float(h.w) * 0.5 + 1 + int(h.w / 4) * 2
-	var hedge: bool = R.randf() < 0.45 and h.kind == "house"
+	var hedge := false
 	var hedge_col := Color(1, 1, 1) if W.map_id != 3 else Color(0.9, 0.85, 0.55)
 	var piece := func(lx: float, lz: float, side_rot: float) -> void:
 		var q: Vector2 = c + ax * lx + az * lz
@@ -480,25 +518,17 @@ func _build_plot(h: Dictionary) -> Array:
 		_service_yard(h, c, ax, az, hx, hz, ldx)
 		var gate0: Vector2 = c + ax * ldx + az * hz
 		return [h.out, gate0 + az * 0.8]
-	# la cour : meule, bûches, brouette, potager, arbre fruitier…
-	var spots: Array = [Vector2(-hx + 1.0, hz - 1.2), Vector2(hx - 1.0, hz - 1.2), Vector2(-hx + 1.0, hz - 2.4), Vector2(hx - 1.0, hz - 2.4)]
-	spots.shuffle()
-	var veg := ["chou", "carotte", "citrouille", "salade"] if W.map_id != 3 else ["pasteque", "melon", "poivron"]
-	for k in R.randi_range(2, 3):
-		var lq: Vector2 = spots[k]
-		if abs(lq.x - ldx) < 1.6 and lq.y > 0: continue
-		var q: Vector2 = c + ax * lq.x + az * lq.y
-		var w3 := Vector3(q.x, 0, q.y)
-		match R.randi() % 5:
-			0: W.place("res://assets/hex/building_grain.gltf", w3, R.randf() * TAU, 0.9)
-			1: W.place("res://assets/hex/resource_lumber.gltf", w3, rot + PI * 0.5, 1.8)
-			2: W.place("res://assets/hex/wheelbarrow.gltf", w3, R.randf() * TAU, 2.6)
-			3:
-				for j in 4:
-					var v := Crops.food_model(veg[R.randi() % veg.size()], 0.45)
-					var vq: Vector2 = q + ax * ((j % 2) * 0.7 - 0.35) + az * (int(j / 2) * 0.7 - 0.35)
-					v.position = Vector3(vq.x, W.height(vq.x, vq.y) + 0.05, vq.y); v.rotation.y = R.randf() * TAU; W.add_child(v)
-			4: W.place(World.TOWN_STYLE.get(W.map_id, World.TOWN_STYLE[1]).tree, w3, R.randf() * TAU, R.randf_range(0.5, 0.65))
+	# la cour : sobre — deux bacs à fleurs de part et d'autre de l'allée, ou un arbre, selon la maison
+	var FLW := [Color("#f08cd8"), Color("#f7e06a"), Color("#ffffff")] if W.map_id != 3 else [Color("#ffb070"), Color("#f7e06a")]
+	if int(abs(c.x * 3.0 + c.y * 7.0)) % 3 == 0:
+		var tq: Vector2 = c + ax * (hx - 1.3) * (1.0 if ldx < 0 else -1.0) + az * (hz - 1.4)
+		W.place(World.TOWN_STYLE.get(W.map_id, World.TOWN_STYLE[1]).tree, Vector3(tq.x, 0, tq.y), rot, 0.55); W.blocker(Vector3(tq.x, 0, tq.y), 0.4)
+	else:
+		for sd: float in [-1.0, 1.0]:
+			var fq: Vector2 = c + ax * (ldx + sd * 1.3) + az * (hz - 0.8)
+			for k in 2:
+				var fc: Color = FLW[(k + int(sd)) % FLW.size()]; fc.a = 0.98
+				W._mm("res://assets/forest/Bush_1_A_Color1.gltf", Vector3(fq.x + k * 0.35 - 0.15, 0, fq.y), 0.5, rot, fc)
 	# allée : porte → portail → bord de la rue
 	var gate: Vector2 = c + ax * ldx + az * hz
 	var road_pt: Vector2 = gate + az * 0.8
@@ -590,7 +620,7 @@ func _greenery(ST: Dictionary) -> void:
 	var veg := ["chou", "carotte", "citrouille", "salade", "tomate"] if W.map_id != 3 else ["pasteque", "melon", "poivron"]
 	var placed := 0
 	for i in 900:
-		if placed > 22: break
+		if placed > 14: break
 		var q := Vector2(R.randf_range(bbox.position.x, bbox.end.x), R.randf_range(bbox.position.y, bbox.end.y))
 		var td := town_dist(q.x, q.y)
 		if td < 1.2 or td > 16.0: continue
@@ -605,6 +635,8 @@ func _greenery(ST: Dictionary) -> void:
 		if hit or W.near_house(q, 0.8): continue
 		var w3 := Vector3(q.x, 0, q.y)
 		var roll := R.randf()
+		if td < 7.0: continue
+		if roll >= 0.45: continue
 		if roll < 0.45:
 			W.place(ST.tree, w3, R.randf() * TAU, R.randf_range(0.6, 0.9) if W.map_id <= 2 else R.randf_range(0.8, 1.0)); W.blocker(w3, 0.5); W.house_spots.append([q, 1.6])
 			for k in 3: W._mm(F + ["Grass_1_C_Color1.gltf", "Bush_1_E_Color1.gltf"][k % 2], w3 + Vector3(R.randf_range(-1.4, 1.4), 0, R.randf_range(-1.4, 1.4)), R.randf_range(0.7, 1.1), R.randf() * TAU)
@@ -738,33 +770,64 @@ func market(n: int) -> void:
 
 
 # ================= LIEUX DE SERVICE : chacun a SON endroit, reconnaissable de loin =================
+var artisan_si := -1
 func _assign_services() -> void:
 	var taken: Array = []
-	var pick := func(kind: String, cond: Callable, score: Callable) -> void:
-		var best = null; var bs := 1e9
-		for h in homes:
-			if h in taken or not cond.call(h): continue
-			var sc: float = score.call(h)
-			if sc < bs: bs = sc; best = h
-		if best != null: best.kind = kind; taken.append(best)
 	var dist := func(h) -> float: return (h.c as Vector2).distance_to(V)
+	var take := func(h: Dictionary, kind: String) -> void: h.kind = kind; taken.append(h)
 	# hôtel des ventes : la plus grande maison de la place
-	pick.call("auction", func(h): return h.plaza, func(h): return -float(h.w) * 10.0 + dist.call(h))
-	# forge : une parcelle sur une grande rue, pas trop loin
-	pick.call("forge", func(h): return h.get("plot", false) and h.street >= 0 and streets[h.street].main, func(h): return abs(dist.call(h) - 22.0))
-	var fs: int = -1
-	for h in taken:
-		if h.kind == "forge": fs = h.street
-	# auberge : sur une autre rue
-	pick.call("inn", func(h): return h.get("plot", false) and h.street != fs and h.street >= 0, func(h): return abs(dist.call(h) - 20.0) - float(h.w))
-	# mercenaires : au bout du bourg, près d'une sortie
-	pick.call("mercs", func(h): return h.get("plot", false) and h.street >= 0 and streets[h.street].main, func(h): return -dist.call(h))
-	# métiers : tannerie et scierie, chacune avec son artisan devant
-	pick.call("tannery", func(h): return h.get("plot", false) and h.street >= 0, func(h): return abs(dist.call(h) - 26.0) + R.randf() * 4.0)
-	pick.call("sawmill", func(h): return h.get("plot", false) and h.street >= 0, func(h): return abs(dist.call(h) - 30.0) + R.randf() * 4.0)
+	var best = null
+	for h in homes:
+		if h.plaza and (best == null or dist.call(h) < dist.call(best)): best = h
+	if best != null: take.call(best, "auction")
+	# rue des artisans : la plus longue grande rue ; forge, scierie et tannerie côte à côte
+	var bl := 0.0
+	for si in streets.size():
+		if streets[si].main and float(streets[si].len) > bl: bl = float(streets[si].len); artisan_si = si
+	var by_s := func(a1, b1) -> bool: return float(a1.s) < float(b1.s)
+	for side: float in [1.0, -1.0]:
+		var row: Array = homes.filter(func(h): return h.get("plot", false) and h.street == artisan_si and float(h.side) == side and not h in taken)
+		row.sort_custom(by_s)
+		var kinds := ["forge", "sawmill", "tannery"] if side > 0.0 else ["inn"]
+		for k in kinds:
+			if service(k).is_empty() and not row.is_empty(): take.call(row.pop_front(), k)
+	# ce qui manque encore (petites villes) : n'importe quelle parcelle, la plus proche de la place
+	for k in ["forge", "inn", "sawmill", "tannery"]:
+		if not service(k).is_empty(): continue
+		var cand: Array = homes.filter(func(h): return h.get("plot", false) and not h in taken)
+		cand.sort_custom(func(a1, b1): return dist.call(a1) < dist.call(b1))
+		if not cand.is_empty(): take.call(cand[0], k)
+	# mercenaires : au bout d'une autre grande rue, près d'une porte
+	var far = null
+	for h in homes:
+		if h in taken or not h.get("plot", false) or h.street < 0: continue
+		if h.street == artisan_si and streets.size() > 1: continue
+		if far == null or dist.call(h) > dist.call(far): far = h
+	if far != null: take.call(far, "mercs")
 	for h in homes:
 		if h.kind == "inn": h.fl = 3; h.w = max(int(h.w), 6)
 		if h.kind == "auction": h.fl = 3
+
+# noms des rues : on sait toujours où on est
+const STREET_NAMES := ["Grand-Rue", "Rue du Marché", "Rue des Gardes", "Rue du Moulin"]
+func _street_signs() -> void:
+	var k := 0
+	for si in streets.size():
+		var st: Dictionary = streets[si]
+		if not st.main: continue
+		var nm: String = "Rue des Artisans" if si == artisan_si else STREET_NAMES[k % STREET_NAMES.size()]
+		if si != artisan_si: k += 1
+		var pa: Array = point_at(st, PLAZA_R + 5.0); var p: Vector2 = pa[0]; var tg: Vector2 = pa[1]
+		var q: Vector2 = p + Vector2(-tg.y, tg.x) * (float(st.half) + 0.6)
+		var y: float = W.height(q.x, q.y)
+		# poteau et planche
+		var root := Node3D.new(); root.position = Vector3(q.x, y, q.y); root.rotation.y = atan2(tg.x, tg.y); W.add_child(root)
+		var wood := StandardMaterial3D.new(); wood.albedo_color = Color("#5a3d26")
+		var po := MeshInstance3D.new(); var cm := CylinderMesh.new(); cm.top_radius = 0.07; cm.bottom_radius = 0.09; cm.height = 2.6; po.mesh = cm; po.position.y = 1.3; po.material_override = wood; root.add_child(po)
+		var pl := MeshInstance3D.new(); var bm := BoxMesh.new(); bm.size = Vector3(1.6, 0.42, 0.08); pl.mesh = bm; pl.position = Vector3(0, 2.35, 0); pl.material_override = wood; root.add_child(pl)
+		W.blocker(Vector3(q.x, 0, q.y), 0.2)
+		var l: Label3D = W.label(nm, Vector3(q.x, y + 3.1, q.y), Color("#ffe9b8"), 36)
+		l.pixel_size = 0.0075
 
 func service(kind: String) -> Dictionary:
 	for h in homes:
