@@ -21,6 +21,7 @@ var nodes: Array = []
 var crops: Crops
 var chiefs: Array = []
 var plot_walls: Array = []      # murets / haies des parcelles (pour les itinéraires)
+var solids: Array = []          # tous les obstacles physiques posés (fontaine, étals, piliers…) : les itinéraires les évitent
 var groves: Array = []         # [centre, style] des bosquets : on les habille de sous-bois
 var spawns: Array = []
 var pois: Array = []           # lieux à découvrir
@@ -69,7 +70,7 @@ func setup_map(id: int) -> void:
 	_make_roads()
 	_plan_hamlets()
 	_plan_paths()
-	dirt_spots = []; foot_paths = []; doors = []; plot_walls = []
+	dirt_spots = []; foot_paths = []; doors = []; plot_walls = []; solids = []
 	town = TownGen.new(); town.plan(self)
 	_plan_ramps()
 
@@ -357,7 +358,7 @@ func _cull(n: Node) -> void:
 			if g is MeshInstance3D and (g as MeshInstance3D).mesh:
 				var sz: Vector3 = (g as MeshInstance3D).mesh.get_aabb().size * g.global_transform.basis.get_scale()
 				big = max(sz.x, sz.z) > 60.0
-			if not big: g.visibility_range_end = 30.0 if (g is Label3D or g is Sprite3D) else 48.0
+			if not big: g.visibility_range_end = 40.0 if (g is Label3D or g is Sprite3D) else 66.0    # assez loin pour ne rien voir apparaître au bord de l'écran
 		if g is Label3D or g is Sprite3D: g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		elif g is MeshInstance3D and (g as MeshInstance3D).mesh:
 			# seuls les grands bâtiments gardent une vraie ombre
@@ -559,11 +560,13 @@ func place(path: String, pos: Vector3, rot := 0.0, sc := 1.0, ground := true) ->
 func blocker(pos: Vector3, radius: float, h := 3.0) -> StaticBody3D:
 	var b := StaticBody3D.new(); var c := CollisionShape3D.new(); var cy := CylinderShape3D.new(); cy.radius = radius; cy.height = h
 	c.shape = cy; b.add_child(c); b.position = Vector3(pos.x, height(pos.x, pos.z) + h * 0.5, pos.z); add_child(b)
+	solids.append([Vector2(pos.x, pos.z), radius, radius, 0.0])
 	return b
 
 func box_blocker(pos: Vector3, size: Vector3, rot := 0.0) -> void:
 	var b := StaticBody3D.new(); var c := CollisionShape3D.new(); var bx := BoxShape3D.new(); bx.size = size
 	c.shape = bx; b.add_child(c); b.position = Vector3(pos.x, height(pos.x, pos.z) + size.y * 0.5, pos.z); b.rotation.y = rot; add_child(b)
+	solids.append([Vector2(pos.x, pos.z), size.x * 0.5, size.z * 0.5, rot])
 
 func building(path: String, p: Vector2, rot: float, sc: float, foot: float) -> void:
 	place(path, Vector3(p.x, 0, p.y), rot, sc); box_blocker(Vector3(p.x, 0, p.y), Vector3(foot, 5, foot), rot)
@@ -2027,7 +2030,7 @@ func update_occlusion(pp: Vector3, dt: float) -> void:
 	# maisons entre la caméra et le héros : elles s'effacent (on voit toujours son personnage dans les rues)
 	for hz in houses:
 		var dd: Vector2 = hz.c - Vector2(pp.x, pp.z)
-		var hide: bool = abs(dd.x) < float(hz.hx) + 0.6 and dd.y > -float(hz.hz) + 1.0 and dd.y < float(hz.hz) + 5.0
+		var hide: bool = HIDE_DECOR and abs(dd.x) < float(hz.hx) + 0.6 and dd.y > -float(hz.hz) + 1.0 and dd.y < float(hz.hz) + 5.0
 		if hide != hz.hid:
 			hz.hid = hide
 			for pc in hz.pieces:
@@ -2050,8 +2053,8 @@ func update_occlusion(pp: Vector3, dt: float) -> void:
 	for nd in nodes:
 		if nd.type != "wood" or not is_instance_valid(nd.model): continue
 		var d2: Vector3 = nd.pos - pp
-		var hide: bool = abs(d2.x) < 2.6 and d2.z > 0.8 and d2.z < 8.0
-		nd.root.visible = not hide or nd.charges <= 0
+		var hide: bool = HIDE_DECOR and abs(d2.x) < 2.6 and d2.z > 0.8 and d2.z < 8.0
+		if nd.root.visible == hide: nd.root.visible = not hide
 
 # ——— Récolte ———
 func nearest_node(p: Vector3, rmax := 2.6) -> Dictionary:
@@ -3064,6 +3067,17 @@ func _build_pass() -> void:
 			var q: Vector2 = a0.lerp(b0, k / 4.0)
 			var ci := int(round((q.x + HALF) / CELL)); var cj := int(round((q.y + HALF) / CELL))
 			if ci >= 0 and cj >= 0 and ci < N and cj < N and _cpos(cj * N + ci).distance_to(q) < 0.9: pass_grid[cj * N + ci] = 0
+	# obstacles physiques (fontaine, étals, bancs, piliers…) : une case est fermée si son centre est dedans (+ marge du corps)
+	for so in solids:
+		var c0: Vector2 = so[0]; var hx: float = float(so[1]) + 0.55; var hz: float = float(so[2]) + 0.55; var r0: float = so[3]
+		var ax := Vector2(cos(r0), -sin(r0)); var az := Vector2(sin(r0), cos(r0))
+		var ext: float = max(hx, hz) + CELL
+		var i0 := int(floor((c0.x - ext + HALF) / CELL)); var i1 := int(ceil((c0.x + ext + HALF) / CELL))
+		var j0 := int(floor((c0.y - ext + HALF) / CELL)); var j1 := int(ceil((c0.y + ext + HALF) / CELL))
+		for jj in range(max(0, j0), min(N, j1 + 1)):
+			for ii in range(max(0, i0), min(N, i1 + 1)):
+				var d: Vector2 = _cpos(jj * N + ii) - c0
+				if abs(d.dot(ax)) < hx and abs(d.dot(az)) < hz: pass_grid[jj * N + ii] = 0
 	# les ponts : on force tout le tablier praticable
 	for b in bridges:
 		if b.prof.is_empty(): continue

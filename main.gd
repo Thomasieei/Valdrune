@@ -330,6 +330,14 @@ func _process(dt: float) -> void:
 	if social: social.update(dt)
 	world.update_life(dt, P.global_position)
 	if not in_instance(): world.update_occlusion(player.global_position, dt)
+	# duel PNJ : si le héros s'éloigne trop, le duel est abandonné (le duelliste revient à sa place)
+	if duel_enemy != null:
+		if not is_instance_valid(duel_enemy):
+			duel_enemy = null
+			if duel_npc != null and is_instance_valid(duel_npc): duel_npc.hide_for_duel(false)
+			duel_npc = null
+		elif not duel_enemy.dead and duel_enemy.global_position.distance_to(player.global_position) > 28.0:
+			hud.toast("Duel abandonné : tu t'es trop éloigné", Color("#ffb07a")); duel_reset(duel_enemy)
 	if shot_mode and Time.get_ticks_usec() - o0 > 3000: print("OCC ", (Time.get_ticks_usec() - o0) / 1000.0)
 	t_spawn -= dt
 	if t_spawn <= 0.0:
@@ -693,7 +701,8 @@ func on_player_death() -> void:
 	if need > Game.power(): get_tree().create_timer(3.4).timeout.connect(func(): if not hud.panel_open: hud.show_defeat(who, need))
 	if killer is Bot and is_instance_valid(killer) and world.map_id >= 2 and not in_instance(): _robbed_by(killer)
 	else: hud.toast("Tu es tombé… retour au camp. Tes ressources sont sauves.", Color("#ff8a7a"), true)
-	if duel_enemy: hud.toast("Duel perdu ! %s t'attend pour une revanche." % duel_enemy.def.name, Color("#ffb07a"))
+	if duel_enemy != null and is_instance_valid(duel_enemy):
+		hud.toast("Duel perdu ! %s t'attend pour une revanche." % duel_enemy.def.name, Color("#ffb07a")); duel_reset(duel_enemy)
 	get_tree().create_timer(2.6).timeout.connect(func():
 		if dungeon: exit_dungeon(false)
 		if tower: exit_tower(false)
@@ -877,7 +886,9 @@ func item_score(it: Dictionary) -> float:
 func equip_best() -> void:
 	var p0 := Game.power(); var n := 0; var names: Array = []
 	var slots: Array = Game.COMBAT_SLOTS + Game.TOOL_SLOTS + ["monture"]
-	for slot in slots:
+	var order: Array = []
+	for pass_i in 6: order += slots     # porter un T2 débloque le T3 : on repasse tant que ça s'améliore
+	for slot in order:
 		var cur := item_score(Game.equipped_item(slot)) if int(Game.S.gear.get(slot, 0)) > 0 else -1.0
 		var bi := -1; var bs := cur
 		for i in Game.S.items.size():
@@ -886,7 +897,8 @@ func equip_best() -> void:
 			var sc := item_score(it)
 			if sc > bs + 0.5: bs = sc; bi = i
 		if bi >= 0:
-			names.append(Game.item_name(Game.S.items[bi])); Game.equip(bi); n += 1
+			if not slot in names: names.append(slot); n += 1
+			Game.equip(bi)
 	if n == 0:
 		hud.toast("Tu portes déjà le meilleur équipement autorisé", Color("#c8d0d8")); return
 	player.refresh_gear(); Game.play("craft", -4.0, 1.2); player.level_glow(Color(0.7, 0.5, 1.0))
@@ -1147,6 +1159,7 @@ var fade_mats: Array = []
 var fade_seen := {}
 var fade_d := -1.0
 func fade_register(n: Node) -> void:
+	return    # plus de transparence près de la caméra : la caméra est assez haute, rien ne doit disparaître
 	return   # (remplacé par la disparition des arbres : le tramage coûtait trop cher sur mobile)
 	if n is MeshInstance3D:
 		var mi := n as MeshInstance3D
@@ -1459,7 +1472,9 @@ func _talk_duel(n: Npc) -> void:
 
 func start_duel(n: Npc) -> void:
 	hud.close_panel()
-	if duel_enemy: return
+	if duel_enemy != null and is_instance_valid(duel_enemy) and not duel_enemy.dead: hud.toast("Un duel est déjà en cours", Color("#ffb07a")); return
+	if duel_npc != null and is_instance_valid(duel_npc): duel_npc.hide_for_duel(false)
+	duel_enemy = null; duel_npc = null
 	var t: int = n.data.tier
 	var hero := "res://assets/heroes/%s.glb" % n.data.model
 	var extra := {"model": hero, "weapon": Game.weapon_model(n.data.wkind, t), "name": n.nm, "id": n.id}
@@ -1486,7 +1501,9 @@ func _duel_won(e: Enemy) -> void:
 
 func duel_reset(e: Enemy) -> void:
 	if e != duel_enemy: return
-	enemies.erase(e); e.queue_free(); duel_enemy = null
+	enemies.erase(e)
+	if is_instance_valid(e): e.queue_free()
+	duel_enemy = null
 	if duel_npc: duel_npc.hide_for_duel(false); duel_npc = null
 	hud.toast("Le duel est terminé (abandon ou défaite).", Color("#ffb07a"))
 

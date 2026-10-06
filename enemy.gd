@@ -323,6 +323,7 @@ func _physics_process(dt: float) -> void:
 					rotation.y = lerp_angle(rotation.y, atan2(to.x, to.z), 1.0 - exp(-dt * 10.0))
 				if def.get("ranged", false) and dist < 4.5: want = -to.normalized() * def.speed * 0.8
 			"return":
+				if duel_info.size() > 0: main.duel_reset(self); return     # duel fini (fuite, mort) : on ne le fait pas marcher jusqu'à chez lui
 				want = (home - global_position); want.y = 0
 				if not _sees(home):
 					# en donjon : il reste là où il est plutôt que de foncer dans un mur

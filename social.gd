@@ -172,20 +172,29 @@ func toggle_friend(n: String) -> void:
 func ask_duel(b: Bot) -> void:
 	if main.world.in_town(main.player.global_position): post("systeme", "", "", "Pas de duel en ville : sortez un peu des murs."); return
 	if b.mode == "pvp" or main.pvp_target != null: post("systeme", "", "", "Un combat est déjà en cours."); return
+	if b.duel or duel_wait: post("systeme", "", "", "Un défi est déjà en attente."); return
 	post("systeme", "", "", "Défi lancé à %s…" % b.nm)
-	var ok := randf() < 0.75
+	main.hud.toast("Défi envoyé à %s… il répond dans un instant" % b.nm, Color("#ffd27a"))
+	var ok := randf() < (0.9 if b.party else 0.75)
+	duel_wait = true
 	_later(randf_range(1.5, 3.0), func():
+		duel_wait = false
 		if not is_instance_valid(b) or b.dead: return
-		if not ok: post("prive", b.display_name(), "Toi", ["pas maintenant", "t'es trop fort pour moi mdr", "flemme"][randi() % 3]); return
+		if not ok:
+			var no: String = ["pas maintenant", "t'es trop fort pour moi mdr", "flemme"][randi() % 3]
+			post("prive", b.display_name(), "Toi", no); main.hud.toast("%s refuse le duel : « %s »" % [b.nm, no], Color("#ffb07a")); return
 		post("prive", b.display_name(), "Toi", ["ok, prépare-toi", "chiche", "tu vas pleurer", "go !"][randi() % 4])
 		main.hud.celebrate("DUEL !", "%s accepte · premier à terre perd — rien n'est volé" % b.nm, "it_seal")
 		_later(2.0, func():
 			if is_instance_valid(b) and not b.dead: b.start_duel()))
 
-func duel_end(b: Bot, won: bool) -> void:
+var duel_wait := false
+func duel_end(b: Bot, won: bool, why := "") -> void:
 	var P: Player = main.player
 	P.hp = P.max_hp
-	if won:
+	if why == "temps": main.hud.celebrate("ÉGALITÉ", "Temps écoulé contre %s · personne ne gagne" % b.nm, "it_seal")
+	elif why == "fuite": main.hud.celebrate("DUEL ABANDONNÉ", "Tu t'es trop éloigné de %s" % b.nm, "it_seal")
+	elif won:
 		Game.S.duel_wins = int(Game.S.get("duel_wins", 0)) + 1
 		var gain: int = main.gain_silver(int(Game.money(b.tier) * 40.0))
 		main.hud.celebrate("DUEL GAGNÉ !", "Contre %s · +%s argent · %d victoire(s)" % [b.nm, Game.fmt(gain), Game.S.duel_wins], "it_trophy")

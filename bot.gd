@@ -85,17 +85,23 @@ func join_party() -> void:
 func leave_party() -> void:
 	party = false; mode = "walk"; prey = null; _style(); _new_goal()
 
+var duel_t := 0.0
+var was_party := false
 func start_duel() -> void:
-	duel = true; hp = max_hp; _start_pvp()
+	was_party = party
+	if party: party = false     # un équipier peut être défié : il quitte le groupe le temps du duel
+	duel = true; duel_t = 75.0; hp = max_hp; _start_pvp()
 	tag_lbl.text = "DUEL · T%d" % tier
 # en duel, personne ne meurt : on s'arrête à 1 PV
 func _hit_player(P: Player, amount: float) -> void:
 	if duel and amount >= P.hp - 0.5:
 		P.hp = 1.0; _finish_duel(false); return
 	P.hurt(amount, self)
-func _finish_duel(won: bool) -> void:
+func _finish_duel(won: bool, why := "") -> void:
+	if not duel: return
 	duel = false; hp = max_hp; _end_pvp()
-	main.social.duel_end(self, won)
+	if was_party: was_party = false; join_party()
+	main.social.duel_end(self, won, why)
 
 static var ring_mats := {}
 static func _ring_mat(col: Color) -> StandardMaterial3D:
@@ -284,8 +290,10 @@ func _physics_process(dt: float) -> void:
 	if think <= 0.0 and mode != "pvp": think = 1.0; _choose()
 	match mode:
 		"pvp":
-			if P.dead or dp > 34.0:
-				if duel: _finish_duel(false)
+			if duel: duel_t -= dt
+			if duel and duel_t <= 0.0: _finish_duel(false, "temps")
+			elif P.dead or dp > 34.0:
+				if duel: _finish_duel(false, "fuite" if not P.dead else "")
 				else: _end_pvp()
 			else: want = _pvp(P, dt)
 			face = P.global_position - global_position; face.y = 0
