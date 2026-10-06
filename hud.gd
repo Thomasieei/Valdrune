@@ -352,23 +352,20 @@ func _draw_under() -> void:
 	_glass(c, buttons.dodge.rect.get_center(), 34, Color(0.6, 0.85, 1.0, 0.6), buttons.dodge.held)
 	_glass(c, buttons.potion.rect.get_center(), 30, Color(0.5, 1.0, 0.6, 0.6), buttons.potion.held)
 	_glass(c, buttons.mount.rect.get_center(), 30, Color(0.95, 0.78, 0.45, 0.6) if not P.mounted else Color(0.6, 0.9, 1.0, 0.9), buttons.mount.held)
-	_glass(c, buttons.bag.rect.get_center(), 26, Color(0.95, 0.78, 0.45, 0.5))
+	var bag_hint: bool = main.tuto_active() and main.TUTO[main.tuto_i()].k == "equip"
+	_glass(c, buttons.bag.rect.get_center(), 26 if not bag_hint else 30, Color(1.0, 0.85, 0.3, 0.6 + 0.4 * sin(Time.get_ticks_msec() * 0.008)) if bag_hint else Color(0.95, 0.78, 0.45, 0.5))
 	_glass(c, buttons.menu.rect.get_center(), 26, Color(0.95, 0.78, 0.45, 0.5))
 	var shc: Vector2 = buttons.shop.rect.get_center()
 	var pulse := 0.6 + 0.4 * sin(Time.get_ticks_msec() * 0.004)
 	_glass(c, shc, 26, Color(1.0, 0.7, 0.2, pulse))
 	_texq(T("it_chest_open"), Rect2(shc - Vector2(19, 21), Vector2(38, 38)))
 	_text(c, "BOUTIQUE", shc + Vector2(0, 40), 11, Color("#ffcf5a"), true, f_title)
-	var dc: Vector2 = buttons.daily.rect.get_center()
-	var nd: int = Game.dq_ready() + (1 if Game.login_can_claim() else 0)
-	_glass(c, dc, 26, Color(1.0, 0.85, 0.3, pulse) if nd > 0 else Color(0.95, 0.78, 0.45, 0.5))
-	_texq(T("it_quest"), Rect2(dc - Vector2(18, 20), Vector2(36, 36)))
-	_text(c, "QUOTIDIEN", dc + Vector2(0, 40), 11, Color("#ffcf5a"), true, f_title)
-	if nd > 0: _disc(dc + Vector2(19, -19), 10, Color("#ff3b2f")); _text(c, str(nd), dc + Vector2(19, -14), 13, Color.WHITE, true, f_title)
-	var rc: Vector2 = buttons.rank.rect.get_center()
-	_glass(c, rc, 26, Color(0.95, 0.78, 0.45, 0.5))
-	_texq(T("it_trophy"), Rect2(rc - Vector2(18, 20), Vector2(36, 36)))
-	_text(c, "#%d" % rank_cache, rc + Vector2(0, 40), 12, Color("#ffe39a"), true, f_title)
+	# pendant l'introduction, on n'affiche QUOTIDIEN et CLASSEMENT qu'au bon moment (moins de boutons d'un coup)
+	var hide_dr: bool = main.tuto_i() < 9
+	if hide_dr: buttons.daily.rect = Rect2(); buttons.rank.rect = Rect2()
+	elif buttons.daily.rect.size.x == 0: _layout()
+	if not hide_dr: _draw_daily_rank(c, pulse)
+
 	if Game.S.island.owned:
 		var ic2: Vector2 = buttons.ile.rect.get_center()
 		var danger: bool = main.raid_active()
@@ -1608,6 +1605,7 @@ func show_daily() -> void:
 			row7.add_child(pc)
 		var claim := func() -> void:
 			var r := Game.login_claim()
+			main.tuto_event("daily")
 			if not r.is_empty(): celebrate("CONNEXION · JOUR %d" % int(Game.login_state().streak), r.txt, "it_chest_open"); Game.play("coin")
 			show_daily()
 		var cb := big_button("Récupérer le jour %d" % (nxt + 1) if can else "Reviens demain !", can, claim, GOLD, can)
@@ -2267,3 +2265,15 @@ func show_player_card(b: Bot) -> void:
 		body.add_child(rich("[color=#a8b4bc]Les duels sont amicaux : on s'arrête à 1 PV, rien n'est volé. Le gagnant empoche une prime.[/color]", 14))
 		, 760)
 	cur_panel = "player"
+
+func _draw_daily_rank(c: CanvasItem, pulse: float) -> void:
+	var dc: Vector2 = buttons.daily.rect.get_center()
+	var nd: int = Game.dq_ready() + (1 if Game.login_can_claim() else 0)
+	_glass(c, dc, 26, Color(1.0, 0.85, 0.3, pulse) if nd > 0 else Color(0.95, 0.78, 0.45, 0.5))
+	_texq(T("it_quest"), Rect2(dc - Vector2(18, 20), Vector2(36, 36)))
+	_text(c, "QUOTIDIEN", dc + Vector2(0, 40), 11, Color("#ffcf5a"), true, f_title)
+	if nd > 0: _disc(dc + Vector2(19, -19), 10, Color("#ff3b2f")); _text(c, str(nd), dc + Vector2(19, -14), 13, Color.WHITE, true, f_title)
+	var rc: Vector2 = buttons.rank.rect.get_center()
+	_glass(c, rc, 26, Color(0.95, 0.78, 0.45, 0.5))
+	_texq(T("it_trophy"), Rect2(rc - Vector2(18, 20), Vector2(36, 36)))
+	_text(c, "#%d" % rank_cache, rc + Vector2(0, 40), 12, Color("#ffe39a"), true, f_title)

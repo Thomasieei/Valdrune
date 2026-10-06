@@ -192,6 +192,7 @@ func ask_duel(b: Bot) -> void:
 var duel_wait := false
 func duel_end(b: Bot, won: bool, why := "") -> void:
 	var P: Player = main.player
+	if why == "": main.tuto_event("duel")
 	P.hp = P.max_hp
 	if why == "temps": main.hud.celebrate("ÉGALITÉ", "Temps écoulé contre %s · personne ne gagne" % b.nm, "it_seal")
 	elif why == "fuite": main.hud.celebrate("DUEL ABANDONNÉ", "Tu t'es trop éloigné de %s" % b.nm, "it_seal")

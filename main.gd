@@ -272,7 +272,7 @@ func on_start() -> void:
 	if Game.crashed_last:
 		Game.crashed_last = false
 		get_tree().create_timer(2.0).timeout.connect(func(): if not hud.panel_open: hud.show_report(true))
-	if Game.S.tips.has("start") and Game.login_can_claim():
+	if Game.S.tips.has("start") and Game.login_can_claim() and tuto_i() >= 9:
 		get_tree().create_timer(1.5).timeout.connect(func(): if not hud.panel_open: hud.show_daily())
 	if not Game.S.tips.has("start"):
 		Game.S.tips["start"] = 1; Game.save()
@@ -531,7 +531,7 @@ func on_gather_hit(nd: Dictionary) -> void:
 	var tool: String = Game.TOOL_OF[nd.type]
 	var lvl: int = Game.prof(tool).lvl
 	var n := 1 + (1 if randf() < 0.03 + 0.01 * lvl + Game.TOOL_Q[Game.toolq(tool)].bonus else 0)
-	Game.S.inv[nd.type][nd.tier] += n; Game.S.stats.gathered += n; _dq("gather", n)
+	Game.S.inv[nd.type][nd.tier] += n; Game.S.stats.gathered += n; _dq("gather", n); tuto_event(nd.type, n)
 	# XP de métier : plus le tier est haut, plus ça rapporte
 	var xp: int = [0, 8, 14, 24, 40, 65][nd.tier]
 	if nd.tier < int(Game.S.gear.get(tool, 1)): xp = max(1, int(xp * 0.35))   # récolter sous son tier rapporte peu
@@ -577,7 +577,7 @@ func pick_crop(c: Dictionary) -> void:
 	Fx.number(self, c.pos + Vector3(0, 1.8, 0), "+%d %s" % [n, Game.food_name(c.kind)], Color("#b8f58a"), false)
 	Fx.burst(self, c.pos + Vector3(0, 0.8, 0), Color("#9be86a"), 10, 3.0, 0.2, 0.45)
 	Game.play("pickup", -4.0)
-	Game.S.stats.gathered += n; _dq("food", n)
+	Game.S.stats.gathered += n; _dq("food", n); tuto_event("food", 1)
 	if not Game.S.tips.has("food"):
 		Game.S.tips["food"] = 1; hud.toast("Ouvre ton sac pour manger (ça soigne) ou vendre ce que tu cueilles", Color("#d8ffb0"), true)
 	Game.save()
@@ -623,6 +623,7 @@ func _weapon_xp(tier: int, mult: float) -> void:
 	hud.weapon_gain(kind, xp)
 	if ups > 0:
 		var lvl: int = Game.wxp(kind).lvl
+		tuto_event("wlvl", lvl)
 		player.level_glow(Color(1.0, 0.55, 0.25)); Game.play("level", -2.0, 0.9)
 		hud.celebrate("%s NIVEAU %d !" % [Game.WEAPON_KINDS[kind].name.to_upper(), lvl], "Maîtrise : +%.1f %% de dégâts" % (Game.weapon_bonus() * 100.0), "it_trophy")
 	# maîtrise d'armure : progresse en combattant, débloque les armures des tiers supérieurs
@@ -652,7 +653,7 @@ func on_enemy_death(e: Enemy) -> void:
 		for sp in world.spawns:
 			if e in sp.members and sp.members.all(func(m): return not is_instance_valid(m) or m.dead): sp.dead_at = Time.get_ticks_msec() / 1000.0
 		return
-	Game.S.stats.kills += 1; _dq("kill")
+	Game.S.stats.kills += 1; _dq("kill"); tuto_event("kill")
 	if e.elite or e.is_boss: _dq("elite")
 	if e.global_position.distance_to(player.global_position) < 30.0 and not player.dead: _weapon_xp(e.tier, 10.0 if e.is_boss else (3.0 if e.elite else 1.0))
 	if e.global_position.distance_to(player.global_position) < 30.0 and not player.dead: _gear_xp(e.tier, 10.0 if e.is_boss else (3.0 if e.elite else 1.0))
@@ -711,7 +712,7 @@ func on_player_death() -> void:
 	if killer is Bot and is_instance_valid(killer) and world.map_id >= 2 and not in_instance(): _robbed_by(killer)
 	else: hud.toast("Tu es tombé… retour au camp. Tes ressources sont sauves.", Color("#ff8a7a"), true)
 	if duel_enemy != null and is_instance_valid(duel_enemy):
-		hud.toast("Duel perdu ! %s t'attend pour une revanche." % duel_enemy.def.name, Color("#ffb07a")); duel_reset(duel_enemy)
+		hud.toast("Duel perdu ! %s t'attend pour une revanche." % duel_enemy.def.name, Color("#ffb07a")); duel_reset(duel_enemy); tuto_event("duel")
 	get_tree().create_timer(2.6).timeout.connect(func():
 		if dungeon: exit_dungeon(false)
 		if tower: exit_tower(false)
@@ -894,6 +895,7 @@ func item_score(it: Dictionary) -> float:
 	return sc
 
 func equip_best() -> void:
+	tuto_event("equip")
 	Game.crumb("équiper au mieux")
 	var p0 := Game.power(); var n := 0; var names: Array = []
 	var slots: Array = Game.COMBAT_SLOTS + Game.TOOL_SLOTS + ["monture"]
@@ -992,8 +994,95 @@ func _npc_pos(id: String):
 		if n.id == id: return n.position
 	return null
 
+# ================= CHAPITRE 1 : la première heure, guidée pas à pas =================
+const TUTO := [
+	{"k": "talk_aldric", "n": 1, "txt": "Parle à Aldric, l'Ancien (le « ! » doré près de la fontaine)", "r": {"silver": 50}},
+	{"k": "wood", "n": 5, "txt": "Coupe du bois : 5 bûches", "r": {"potions": 2}},
+	{"k": "ore", "n": 5, "txt": "Mine 5 minerais", "r": {"silver": 80}},
+	{"k": "fiber", "n": 5, "txt": "Récolte 5 fibres", "r": {"silver": 80}},
+	{"k": "kill", "n": 3, "txt": "Tue 3 monstres (gros bouton ATTAQUE)", "r": {"silver": 100, "potions": 1}},
+	{"k": "food", "n": 1, "txt": "Cueille un fruit ou un légume (buissons colorés)", "r": {"silver": 60}},
+	{"k": "equip", "n": 1, "txt": "Ouvre ton SAC et touche « Équiper au mieux »", "r": {"silver": 60}, "give": [{"slot": "casque", "tier": 1}, {"slot": "cape", "tier": 1}]},
+	{"k": "talk_forge", "n": 1, "txt": "Va voir Brokk à la FORGE", "r": {"silver": 150}},
+	{"k": "wlvl", "n": 2, "txt": "Monte ta maîtrise d'arme au niveau 2", "r": {"boost": 1800}},
+	{"k": "daily", "n": 1, "txt": "Récupère ta récompense QUOTIDIEN", "r": {"crowns": 20}},
+	{"k": "duel", "n": 1, "txt": "Fais un duel (un « VS » ou un joueur, hors de la ville)", "r": {"silver": 250}},
+	{"k": "dungeon", "n": 1, "txt": "Entre dans un donjon (portail violet)", "r": {"crowns": 30}},
+]
+func tuto_i() -> int:
+	if not Game.S.has("tuto"):
+		# anciens joueurs déjà avancés : on ne leur impose pas l'introduction
+		Game.S["tuto"] = 99 if (Game.gear_level() >= 2 or int(Game.S.stats.kills) > 40) else 0
+		Game.S["tuto_n"] = 0
+	return int(Game.S.tuto)
+func tuto_active() -> bool: return tuto_i() < TUTO.size()
+func tuto_event(k: String, n := 1) -> void:
+	if not tuto_active(): return
+	var st: Dictionary = TUTO[tuto_i()]
+	if st.k != k: return
+	if k == "wlvl": Game.S.tuto_n = n
+	else: Game.S.tuto_n = int(Game.S.tuto_n) + n
+	if int(Game.S.tuto_n) >= int(st.n): _tuto_next()
+	else: update_goal()
+func _tuto_next() -> void:
+	var st: Dictionary = TUTO[tuto_i()]
+	Game.grant(st.r)
+	var rt := []
+	if st.r.has("silver"): rt.append("+%d argent" % st.r.silver)
+	if st.r.has("potions"): rt.append("+%d potions" % st.r.potions)
+	if st.r.has("crowns"): rt.append("+%d couronnes" % st.r.crowns)
+	if st.r.has("boost"): rt.append("Boost XP ×2 · 30 min")
+	Game.S.tuto = tuto_i() + 1; Game.S.tuto_n = 0
+	Game.play("level", -3.0, 1.1)
+	if not tuto_active():
+		Game.grant({"crowns": 50})
+		hud.celebrate("CHAPITRE 1 TERMINÉ !", "+50 couronnes · le royaume s'ouvre à toi", "it_trophy")
+	else:
+		hud.celebrate("ÉTAPE %d / %d RÉUSSIE" % [tuto_i(), TUTO.size()], " · ".join(rt), "it_quest")
+		var nx: Dictionary = TUTO[tuto_i()]
+		for it in nx.get("give", []): Game.add_item(it.duplicate())
+		if nx.k == "wlvl" and int(Game.wxp(Game.S.get("weapon_kind", "epee")).lvl) >= 2: _tuto_next(); return
+	Game.save(); update_goal()
+func _tuto_target():
+	var st: Dictionary = TUTO[tuto_i()]
+	match st.k:
+		"talk_aldric": return _npc_pos("aldric")
+		"wood", "ore", "fiber": return _nearest_node(st.k, 1)
+		"kill", "wlvl":
+			var e = _nearest_enemy(player.global_position, 80.0, false)
+			return e.global_position if e else null
+		"food":
+			var best = null; var bd := 1e9
+			for c in world.crops.crops if world.crops else []:
+				if not c.ready: continue
+				var d: float = (c.pos as Vector3).distance_to(player.global_position)
+				if d < bd: bd = d; best = c.pos
+			return best
+		"talk_forge": return _brokk_pos()
+		"duel":
+			for n in npcs:
+				if n.act == "duel" and not n.hidden: return n.position
+		"dungeon":
+			var best2 = null; var bd2 := 1e9
+			for en in dungeon_entries:
+				var d2: float = (en.pos as Vector3).distance_to(player.global_position)
+				if d2 < bd2: bd2 = d2; best2 = en.pos
+			return best2
+	return null
+
 # Progression : les MÉTIERS ouvrent les tiers (XP), les marchands vendent les outils, Brokk fabrique l'équipement
 func update_goal() -> void:
+	if tuto_active():
+		var st: Dictionary = TUTO[tuto_i()]
+		if st.k == "wlvl" and int(Game.wxp(Game.S.get("weapon_kind", "epee")).lvl) >= int(st.n): _tuto_next(); return
+		var prog := ""
+		if int(st.n) > 1:
+			var cur: int = int(Game.wxp(Game.S.get("weapon_kind", "epee")).lvl) if st.k == "wlvl" else int(Game.S.tuto_n)
+			prog = "  [color=#ffd27a](%d / %d)[/color]" % [cur, int(st.n)]
+		var t2 := "[b]Chapitre 1 · étape %d / %d[/b]\n%s%s" % [tuto_i() + 1, TUTO.size(), st.txt, prog]
+		if t2 != goal_text: goal_text = t2; hud.goal_lbl.text = t2
+		goal_target = _tuto_target()
+		return
 	var S := Game.S
 	var txt := ""; var tgt = null
 	# 1) outil le plus en retard
@@ -1054,6 +1143,8 @@ func quest_line() -> String:
 # ——— Dialogues ———
 func talk(n: Npc) -> void:
 	if n == null: return
+	if n.id == "aldric": tuto_event("talk_aldric")
+	if n.act == "forge": tuto_event("talk_forge")
 	Game.play("pickup", -8.0, 0.8)
 	var first: bool = not Game.S.met.has(n.id)
 	var line := n.next_line()
@@ -1362,6 +1453,7 @@ func _remove_entry(en: Dictionary) -> void:
 	dungeon_entries.erase(en)
 
 func enter_dungeon(en: Dictionary) -> void:
+	tuto_event("dungeon")
 	Game.crumb("entre dans un donjon T%d" % int(en.get("tier", 0)))
 	if in_instance(): return
 	if Game.power() < Game.power_needed(en.tier) * 0.7:
@@ -1531,6 +1623,7 @@ func start_duel(n: Npc) -> void:
 		if is_instance_valid(de) and not de.dead and de.state == "wait": de.state = "chase")
 
 func _duel_won(e: Enemy) -> void:
+	tuto_event("duel")
 	var t := e.tier
 	var loot := [{"silver": int(duel_reward(t) * randf_range(0.9, 1.2))}, {"item": Game.random_artefact(t)}]
 	if randf() < 0.3: loot.append({"item": Game.random_junk(t, Game.JUNK_MAN)})
