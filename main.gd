@@ -40,7 +40,11 @@ var island_back := Vector3.ZERO
 var isl_sel := {}
 var tower_back := Vector3.ZERO
 var tower_sel := {}
-func in_instance() -> bool: return dungeon != null or tower != null or island != null
+func in_instance() -> bool: return dungeon != null or tower != null or island != null or interior != null
+var interior: Interior
+var interior_back := Vector3.ZERO
+var door_sel := {}
+var thief_guards := 0
 var dungeon_entries: Array = []   # portails de donjon dans le monde
 var duel_enemy: Enemy
 var duel_npc: Npc
@@ -422,7 +426,23 @@ func _context(_dt: float) -> void:
 	var d_chest := dungeon != null and not dungeon.chest_open and dungeon.chest != null and Vector2(dungeon.chest_pos.x - pp.x, dungeon.chest_pos.z - pp.z).length() < 2.8
 	var d_exit := dungeon != null and dungeon.exit_open and Vector2(dungeon.exit_pos.x - pp.x, dungeon.exit_pos.z - pp.z).length() < 2.2
 	gather_node = nd
-	if interact == "npc": hud.set_main("talk", "PARLER", Color("#9fe0ff"), "talk"); hud.hint_lbl.text = "[right]%s · %s[/right]" % [talk_npc.nm, talk_npc.role]
+	# portes des maisons (dehors) · coffre et sortie (dedans)
+	door_sel = {}
+	var in_chest := false; var in_exit := false
+	if interior:
+		in_chest = Vector2(interior.chest_pos.x - pp.x, interior.chest_pos.z - pp.z).length() < 1.7
+		in_exit = Vector2(interior.exit_pos.x - pp.x, interior.exit_pos.z - pp.z).length() < 1.4
+	elif not in_instance() and world.town and threat == null:
+		for h in world.town.homes:
+			if h.kind != "house": continue
+			if Vector2((h.door as Vector2).x - pp.x, (h.door as Vector2).y - pp.z).length() < 1.8: door_sel = h; break
+	if interact == "npc" and not in_chest: hud.set_main("talk", "PARLER", Color("#9fe0ff"), "talk"); hud.hint_lbl.text = "[right]%s · %s[/right]" % [talk_npc.nm, talk_npc.role]
+	elif in_chest:
+		var robbed: bool = _house_robbed(interior.hid)
+		hud.set_main("steal", "VOLER" if not robbed else "VIDE", Color("#ff9a5a") if not robbed else Color("#9a9a9a"), "chest")
+		hud.hint_lbl.text = "[right]%s[/right]" % ("Le coffre de l'habitant… s'il te voit, il appelle la garde !" if not robbed else "Déjà fouillé · repasse plus tard")
+	elif in_exit: hud.set_main("hexit", "SORTIR", Color("#bfe8ff"), "lock"); hud.hint_lbl.text = "[right]Retour dans la rue[/right]"
+	elif not door_sel.is_empty(): hud.set_main("door", "ENTRER", Color("#ffd27a"), "lock"); hud.hint_lbl.text = "[right]Entrer dans la maison[/right]"
 	elif not isl_sel.is_empty():
 		var lab: Array = {"chest": ["OUVRIR", "Coffre de l'île"], "house": ["LOGIS", "Logis des ouvriers"], "field": ["CHAMP", "Parcelle cultivable"], "pen": ["ENCLOS", "Enclos d'élevage"], "boat": ["QUITTER", "Rentrer au port"]}[isl_sel.kind]
 		hud.set_main("isl_" + isl_sel.kind, lab[0], Color("#ffd27a"), "chest"); hud.hint_lbl.text = "[right]%s[/right]" % lab[1]
@@ -479,6 +499,12 @@ func _context(_dt: float) -> void:
 				hud.buttons.main.held = false; enter_tower(1)
 			"gate":
 				hud.buttons.main.held = false; _ask_gate(gate_sel)
+			"door":
+				hud.buttons.main.held = false; enter_house(door_sel)
+			"hexit":
+				hud.buttons.main.held = false; exit_house()
+			"steal":
+				hud.buttons.main.held = false; steal_chest()
 			"isl_chest":
 				hud.buttons.main.held = false; hud.show_island_chest()
 			"isl_house":
@@ -1882,6 +1908,63 @@ func exit_dungeon(cleared: bool) -> void:
 		_teleport_group(dungeon_back)
 		hud.toast("Donjon terminé ! Un nouveau portail s'ouvrira ailleurs.", Color("#c58bff"), true)
 	cur_region = 0
+
+# ——— Maisons : entrer, voler… et en payer le prix ———
+func enter_house(h: Dictionary) -> void:
+	if h.is_empty() or in_instance(): return
+	var key := "%d_%d" % [world.map_id, world.town.homes.find(h)]
+	Game.crumb("entre dans la maison " + key)
+	interior_back = Vector3((h.out as Vector2).x, 0, (h.out as Vector2).y)
+	interior = Interior.new(); add_child(interior); world.dungeon = interior
+	interior.build(self, h, key, hash(key) + int(Time.get_unix_time_from_system() / 3600.0))
+	_teleport_group(interior.spawn_pos)
+	Game.play("pickup", -6.0, 0.7)
+	hud.toast("Chez l'habitant%s" % (" — il est là !" if interior.owner_home else " — personne…"), Color("#ffe39a"))
+
+func exit_house() -> void:
+	if interior == null: return
+	interior.cleanup(); world.dungeon = null
+	for e in enemies.duplicate():
+		if is_instance_valid(e) and e.global_position.x > 300.0: enemies.erase(e); e.queue_free()
+	interior.queue_free(); interior = null
+	_teleport_group(interior_back)
+	if thief_guards > 0:
+		var t: int = clamp(Game.gear_level(), 1, 5)
+		var sp := {"pos": interior_back, "members": []}
+		for k in thief_guards:
+			_spawn_enemy("garde", t, interior_back + World.polar(k * 2.4 + 0.5, 4.5), sp, false)
+		hud.toast("LA GARDE T'ATTEND À LA SORTIE !", Color("#ff7a6a"), true); Game.play("roar", -8.0, 1.2)
+		thief_guards = 0
+
+func _house_robbed(key: String) -> bool:
+	if typeof(Game.S.get("robbed")) != TYPE_DICTIONARY: Game.S["robbed"] = {}
+	return Time.get_unix_time_from_system() - float(Game.S.robbed.get(key, 0)) < 6.0 * 3600.0
+
+func steal_chest() -> void:
+	if interior == null or _house_robbed(interior.hid): Game.play("error"); return
+	Game.S.robbed[interior.hid] = Time.get_unix_time_from_system()
+	var t: int = clamp(Game.gear_level(), 1, 5)
+	var silver := gain_silver(int(Game.money(t) * randf_range(6.0, 14.0)) + 20)
+	var got := ["+%s argent" % Game.fmt(silver)]
+	if randf() < 0.3:
+		var it := Game.random_item(max(1, t - 1 + (1 if randf() < 0.3 else 0)))
+		if Game.add_item(it): got.append(Game.item_name(it))
+	if randf() < 0.5: Game.S.potions += 1; got.append("+1 potion")
+	var tw := interior.chest.create_tween(); tw.tween_property(interior.chest, "scale", interior.chest.scale * 1.15, 0.1); tw.tween_property(interior.chest, "scale", interior.chest.scale, 0.15)
+	Game.play("coin")
+	var caught := randf() < (0.25 + (0.4 if interior.owner_home else 0.0))
+	if caught:
+		var lv: Array = Game.rep_add(-10)
+		hud.celebrate("AU VOLEUR !", "Tu as été vu · réputation −10 · la garde arrive", "it_seal")
+		thief_guards = 2
+		if interior.owner_npc and is_instance_valid(interior.owner_npc):
+			var op: Vector3 = interior.owner_npc.global_position
+			interior.cleanup(); interior.owner_npc = null
+			_spawn_enemy("villageois", t, op, {"pos": op, "members": []}, false)
+		rep_feedback(lv)
+	else:
+		hud.celebrate("BUTIN DISCRET", " · ".join(got), "it_coins")
+	Game.save()
 
 func _teleport_group(p: Vector3) -> void:
 	player.global_position = p + Vector3(0, world.height(p.x, p.z) + 0.4, 0); player.velocity = Vector3.ZERO

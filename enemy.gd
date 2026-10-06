@@ -23,6 +23,9 @@ const KINDS := {
 	"roi_cerf": {"animal": true, "model": AN + "stag.glb", "name": "Roi-Cerf", "hp": 60.0, "dmg": 2.5, "speed": 5.0, "range": 3.6, "wind": 0.9, "cd": 1.6, "atk": "Attack_Headbutt", "scale": 1.15, "rad": 1.7, "h": 5.6, "group": true, "tint": Color(0.85, 0.8, 0.55), "aggro": 14.0},
 	# ——— Bandits (raids sur l'île) ———
 	"bandit": {"model": "res://assets/heroes/Rogue.glb", "name": "Bandit", "hp": 1.8, "dmg": 1.25, "speed": 4.6, "range": 2.1, "wind": 0.5, "cd": 1.2, "aggro": 12.0},
+	# ——— Gens de la ville (quand on vole chez eux) ———
+	"garde": {"model": "res://assets/heroes/Knight.glb", "name": "Garde de la ville", "hp": 2.4, "dmg": 1.3, "speed": 5.2, "range": 2.2, "wind": 0.5, "cd": 1.3, "aggro": 30.0},
+	"villageois": {"model": "res://assets/heroes/Rogue.glb", "name": "Habitant furieux", "hp": 1.1, "dmg": 0.8, "speed": 4.6, "range": 1.9, "wind": 0.5, "cd": 1.2, "aggro": 14.0},
 	# ——— Duelliste (humain) ———
 	"duel": {"model": "res://assets/heroes/Knight.glb", "name": "Duelliste", "hp": 7.0, "dmg": 1.55, "speed": 5.0, "range": 2.2, "wind": 0.42, "cd": 0.95, "duel": true},
 }
