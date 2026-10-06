@@ -411,13 +411,20 @@ func _terrain() -> void:
 		for i in N:
 			var x := -HALF + i * CELL; var z := -HALF + j * CELL
 			cols[j * N + i] = _ground_color(x, z, hs[j * N + i], slope(x, z))
+	# normales lissées (différences centrées) : collines douces au lieu de facettes
+	var nrm := PackedVector3Array(); nrm.resize(N * N)
+	for j in N:
+		for i in N:
+			var hl: float = hs[j * N + max(i - 1, 0)]; var hr: float = hs[j * N + min(i + 1, N - 1)]
+			var hd: float = hs[max(j - 1, 0) * N + i]; var hu: float = hs[min(j + 1, N - 1) * N + i]
+			nrm[j * N + i] = Vector3(hl - hr, 2.0 * CELL, hd - hu).normalized()
 	var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for j in N - 1:
 		for i in N - 1:
 			var x0 := -HALF + i * CELL; var z0 := -HALF + j * CELL
 			var k := [j * N + i, j * N + i + 1, (j + 1) * N + i, (j + 1) * N + i + 1]
 			for id in [k[0], k[1], k[2], k[1], k[3], k[2]]:
-				st.set_color(cols[id]); st.add_vertex(Vector3(-HALF + (id % N) * CELL, hs[id], -HALF + (id / N) * CELL))
+				st.set_color(cols[id]); st.set_normal(nrm[id]); st.add_vertex(Vector3(-HALF + (id % N) * CELL, hs[id], -HALF + (id / N) * CELL))
 	var mi := MeshInstance3D.new(); mi.mesh = st.commit()
 	mi.material_override = ground_mat(); add_child(mi)
 	var body := StaticBody3D.new(); var cs := CollisionShape3D.new(); var hm := HeightMapShape3D.new()
@@ -827,6 +834,7 @@ func house(c: Vector2, rot: float, w: int, floors: int, style: String, door := t
 			var hh := height(cq.x, cq.z); hmin = min(hmin, hh); hmax = max(hmax, hh)
 	var y0 := hmax - 0.05
 	var found := hmax - hmin > 0.15
+	_ao_skirt(c, rot, W + 2.6, D + 2.6, hmin)
 	var X := func(lx: float, ly: float, lz: float, r: float) -> Transform3D:
 		return Transform3D(B * Basis(Vector3.UP, r), Vector3(c.x, y0, c.y) + B * Vector3(lx, ly, lz))
 	if _wall_force != "": style = _wall_force
@@ -1073,15 +1081,65 @@ func _road_strips() -> void:
 			for k in offs.size():
 				var q: Vector2 = p + nr * float(offs[k]) * wob
 				var c := _road_col(q).lightened(rn.randf() * 0.08).darkened(rn.randf() * 0.06); c.a = alph[k]
-				row.append([Vector3(q.x, height(q.x, q.y) + 0.05, q.y), c])
+				row.append([Vector3(q.x, height(q.x, q.y) + 0.05, q.y), c, Vector2(float(offs[k]) / 2.3, 0.0)])
 			if not prev.is_empty():
 				for k in offs.size() - 1:
 					_ctri(st, prev[k], prev[k + 1], row[k + 1]); _ctri(st, prev[k], row[k + 1], row[k])
 			prev = row
 	var mi := MeshInstance3D.new(); mi.mesh = st.commit()
-	var m := StandardMaterial3D.new(); m.vertex_color_use_as_albedo = true; m.vertex_color_is_srgb = true; m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.roughness = 1.0; m.render_priority = -1
+	var m := ShaderMaterial.new(); m.shader = _road_shader(); m.render_priority = -1
+	m.set_shader_parameter("detail", (ground_mat() as ShaderMaterial).get_shader_parameter("detail"))
 	mi.material_override = m; mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; add_child(mi)
+
+# ombre de contact au pied des bâtiments : ils sont « posés » sur le sol au lieu de flotter
+var _ao_tex: Texture2D
+var _ao_mat: StandardMaterial3D
+func _ao_skirt(c: Vector2, rot: float, w: float, d: float, y: float) -> void:
+	if _ao_mat == null:
+		var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+		for j in 64:
+			for i in 64:
+				var ex: float = min(i, 63 - i) / 16.0; var ez: float = min(j, 63 - j) / 16.0
+				var a: float = clamp(min(ex, ez), 0.0, 1.0)
+				img.set_pixel(i, j, Color(0, 0, 0, a * a * 0.55))
+		_ao_tex = ImageTexture.create_from_image(img)
+		_ao_mat = StandardMaterial3D.new(); _ao_mat.albedo_texture = _ao_tex; _ao_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_ao_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; _ao_mat.render_priority = 1; _ao_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var mi := MeshInstance3D.new(); var pm := PlaneMesh.new(); pm.size = Vector2(w, d); mi.mesh = pm; mi.material_override = _ao_mat
+	mi.position = Vector3(c.x, max(y, height(c.x, c.y)) + 0.08, c.y); mi.rotation.y = rot; mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+
+# chemin de terre : ornières, cailloux, bords irréguliers qui se fondent dans l'herbe
+func _road_shader() -> Shader:
+	var sh := Shader.new(); sh.code = """shader_type spatial;
+render_mode blend_mix, depth_draw_never, cull_disabled;
+uniform sampler2D detail : filter_linear_mipmap, repeat_enable;
+varying vec3 wp;
+void vertex() { wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+vec3 lin(vec3 c) { return mix(pow((c + 0.055) / 1.055, vec3(2.4)), c / 12.92, lessThan(c, vec3(0.04045))); }
+void fragment() {
+	vec3 c = lin(COLOR.rgb);
+	float u = UV.x;                       // -1 bord gauche … +1 bord droit
+	float a = COLOR.a;
+	float n1 = texture(detail, wp.xz * 0.35).r;
+	float n2 = texture(detail, wp.xz * 0.9 + vec2(0.3, 0.6)).r;
+	// bords déchiquetés : l'herbe mord sur le chemin
+	float edge = smoothstep(0.15, 0.55, a + (n1 - 0.5) * 0.7);
+	// ornières des charrettes
+	float rut = smoothstep(0.16, 0.0, abs(abs(u) - 0.42));
+	c *= 1.0 - rut * 0.18;
+	// terre tassée au milieu, plus claire
+	c *= 1.0 + smoothstep(0.35, 0.0, abs(u)) * 0.08;
+	// cailloux
+	float peb = smoothstep(0.74, 0.8, n2);
+	c = mix(c, c * 1.45 + vec3(0.03), peb * 0.7);
+	c = mix(c, c * 0.7, smoothstep(0.3, 0.22, n2) * 0.4);
+	c *= (0.92 + n1 * 0.16) * 1.22;
+	ALBEDO = c;
+	ALPHA = edge;
+	ROUGHNESS = 1.0;
+}"""
+	return sh
 
 func _road_col(q: Vector2) -> Color:
 	var w := region_weights(q.x, q.y)
@@ -1094,7 +1152,9 @@ func _ctri(st: SurfaceTool, A: Array, B: Array, C: Array) -> void:
 	if Vector2(b.x - a.x, b.z - a.z).cross(Vector2(c.x - a.x, c.z - a.z)) < 0.0:
 		var t := B; B = C; C = t
 	for v in [A, B, C]:
-		st.set_normal(Vector3.UP); st.set_color(v[1]); st.add_vertex(v[0])
+		st.set_normal(Vector3.UP); st.set_color(v[1])
+		if v.size() > 2: st.set_uv(v[2])
+		st.add_vertex(v[0])
 
 func _road_props() -> void:
 	var nl := 0
@@ -2280,8 +2340,33 @@ uniform float cloud_k = 0.22;
 varying vec3 wp;
 void vertex() { wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
 vec3 lin(vec3 c) { return mix(pow((c + 0.055) / 1.055, vec3(2.4)), c / 12.92, lessThan(c, vec3(0.04045))); }
+uniform sampler2D detail : filter_linear_mipmap, repeat_enable;
+uniform sampler2D grass_tex : filter_linear_mipmap, repeat_enable;
 void fragment() {
 	vec3 c = lin(COLOR.rgb);
+	// herbe peinte : brins clairs et sombres, seulement là où le sol est vert
+	float green = smoothstep(0.02, 0.12, COLOR.g - max(COLOR.r, COLOR.b));
+	float g1 = texture(grass_tex, wp.xz * 0.42).r;
+	float g2 = texture(grass_tex, wp.xz * 0.17 + vec2(0.37, 0.61)).r;
+	c *= 1.0 + ((g1 - 0.5) * 0.55 + (g2 - 0.5) * 0.3) * green;
+	// détail du sol : touffes, terre, petites taches (texture de bruit à plusieurs échelles)
+	float d1 = texture(detail, wp.xz * 0.045).r;
+	float d2 = texture(detail, wp.xz * 0.16 + vec2(0.4, 0.7)).r;
+	float d3 = texture(detail, wp.xz * vec2(0.42, 0.5) + vec2(0.13, 0.29)).r;
+	float lum = (d1 - 0.5) * 0.30 + (d2 - 0.5) * 0.24 + (d3 - 0.5) * 0.22;
+	c *= 1.0 + lum;
+	// nuances : zones plus jaunes / plus fraîches
+	float hue = texture(detail, wp.xz * 0.012 + vec2(0.71, 0.11)).r - 0.5;
+	c = mix(c, c * vec3(1.12, 1.04, 0.78), clamp(hue * 1.4, 0.0, 1.0) * 0.5);
+	c = mix(c, c * vec3(0.86, 1.02, 1.06), clamp(-hue * 1.4, 0.0, 1.0) * 0.4);
+	// mouchetures (cailloux clairs, creux sombres)
+	c = mix(c, c * 1.35, smoothstep(0.78, 0.86, d3) * 0.5);
+	c = mix(c, c * 0.72, smoothstep(0.25, 0.17, d3) * 0.45);
+	// pentes : roche striée
+	vec3 wn = (INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz;
+	float rk = smoothstep(0.86, 0.66, wn.y);
+	vec3 rock = vec3(0.32, 0.29, 0.26) * (0.85 + 0.3 * texture(detail, vec2(wp.x * 0.08 + wp.z * 0.08, wp.y * 0.9)).r);
+	c = mix(c, mix(c, rock, 0.55), rk);
 	vec2 uv = wp.xz * 0.006 + vec2(TIME * 0.0016, TIME * 0.0009);
 	float n = texture(clouds, uv).r * 0.65 + texture(clouds, uv * 2.3 + vec2(0.31, 0.17)).r * 0.35;
 	float sh = smoothstep(0.5, 0.68, n);
@@ -2291,6 +2376,10 @@ void fragment() {
 	var nz := FastNoiseLite.new(); nz.seed = 4242; nz.frequency = 0.012; nz.fractal_octaves = 3
 	var nt := NoiseTexture2D.new(); nt.width = 256; nt.height = 256; nt.seamless = true; nt.noise = nz; nt.generate_mipmaps = true
 	_ground_m = ShaderMaterial.new(); _ground_m.shader = _ground_sh; _ground_m.set_shader_parameter("clouds", nt)
+	var dz := FastNoiseLite.new(); dz.seed = 77; dz.frequency = 0.06; dz.fractal_octaves = 4; dz.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	var dt2 := NoiseTexture2D.new(); dt2.width = 256; dt2.height = 256; dt2.seamless = true; dt2.noise = dz; dt2.generate_mipmaps = true; dt2.normalize = true
+	_ground_m.set_shader_parameter("detail", dt2)
+	_ground_m.set_shader_parameter("grass_tex", load("res://ui/grass_detail.png"))
 	return _ground_m
 
 # ——— Faubourgs : des maisons de toutes les couleurs le long des routes qui quittent la ville ———

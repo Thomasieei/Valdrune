@@ -823,7 +823,7 @@ func _notification(what: int) -> void:
 # ================= JOURNAL DE BORD (pour retrouver ce qui a fait planter le jeu) =================
 const FLAG_PATH := "user://en_cours.flag"
 const CRUMB_PATH := "user://journal.txt"
-const VERSION := "7.1"
+const VERSION := "7.2"
 var crumbs: Array = []
 var crashed_last := false
 var last_crumbs := ""

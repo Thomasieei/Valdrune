@@ -135,12 +135,12 @@ func _sky_update(dt: float) -> void:
 	var gray: float = rain_k * 0.45
 	var day_col := Color("#fff1d8").lerp(Color("#ff9a5a"), dusk * 0.8)
 	sun.light_color = Color(0.62, 0.72, 1.0).lerp(day_col, day)
-	sun.light_energy = lerp(0.3, 0.95, day) * (1.0 - gray * 0.55)
+	sun.light_energy = lerp(0.3, 1.08, day) * (1.0 - gray * 0.55)
 	sun.rotation_degrees = Vector3(lerp(-30.0, -52.0, day), -38.0 + (ph - 0.3) * 40.0, 0)
 	env.ambient_light_color = Color(0.4, 0.48, 0.78).lerp(Color("#a9b8cc"), day).lerp(Color(0.6, 0.62, 0.68), gray)
 	env.ambient_light_energy = lerp(0.42, 0.38, day)
-	env.adjustment_brightness = lerp(0.78, 0.9, day) - gray * 0.08
-	env.adjustment_saturation = lerp(0.85, 1.08, day) - gray * 0.25
+	env.adjustment_brightness = lerp(0.8, 0.96, day) - gray * 0.08
+	env.adjustment_saturation = lerp(0.85, 1.14, day) - gray * 0.25
 	env.fog_density = 0.0028 + gray * 0.006 + night * 0.0015
 	sky_tint = Color(0.32, 0.38, 0.62).lerp(Color(1, 1, 1), day).lerp(Color(1.1, 0.8, 0.65), dusk * 0.6).lerp(Color(0.62, 0.66, 0.72), gray)
 	# zones T3 et plus (hors ville) : ciel et brume rougeoyants — ici, on peut perdre son équipement
