@@ -249,6 +249,33 @@ func grant(r: Dictionary) -> void:
 	if r.has("premium"): add_time("premium_until", int(r.premium))
 	save()
 
+# EXPÉDITIONS : tes mercenaires partent en mission, même quand le jeu est fermé
+const EXPED := [[3600, "1 heure"], [4 * 3600, "4 heures"], [8 * 3600, "8 heures"], [12 * 3600, "12 heures"]]
+func exped() -> Dictionary: return S.get("exped", {}) if typeof(S.get("exped", {})) == TYPE_DICTIONARY else {}
+func exped_left() -> int:
+	var e := exped()
+	if e.is_empty(): return -1
+	return max(0, int(e.start) + int(e.dur) - now())
+func exped_ready() -> bool: return exped_left() == 0
+func exped_start(i: int) -> void:
+	S["exped"] = {"start": now(), "dur": int(EXPED[i][0]), "tier": clamp(int(S.gear.get("epee", 1)), 1, 5), "label": EXPED[i][1]}; save()
+func exped_collect() -> Dictionary:
+	var e := exped()
+	if e.is_empty() or not exped_ready(): return {}
+	var h: float = float(e.dur) / 3600.0; var t: int = int(e.tier)
+	var mult: float = silver_mult()
+	var loot: Array = [{"silver": int(money(t) * 140.0 * h * mult)}]
+	for k in RES_KEYS: loot.append({"res": k, "tier": t, "qty": int(8 * h * mult) + 2})
+	var rng := RandomNumberGenerator.new(); rng.randomize()
+	for k in int(h / 2.0) + 1:
+		if rng.randf() < 0.55: loot.append({"item": random_item(t)})
+	if rng.randf() < 0.08 * h: loot.append({"item": random_artefact(t)})
+	loot.append({"potion": int(h) + 1})
+	var crowns_won := int(2 * h)
+	S["crowns"] = crowns() + crowns_won
+	S["exped"] = {}; save()
+	return {"loot": loot, "crowns": crowns_won, "label": e.label}
+
 # quêtes du jour : 3 objectifs tirés chaque jour
 const DQ_POOL := [
 	{"id": "kill", "txt": "Tue %d monstres", "n": [25, 40, 60]},
@@ -796,7 +823,7 @@ func _notification(what: int) -> void:
 # ================= JOURNAL DE BORD (pour retrouver ce qui a fait planter le jeu) =================
 const FLAG_PATH := "user://en_cours.flag"
 const CRUMB_PATH := "user://journal.txt"
-const VERSION := "6.9"
+const VERSION := "7.0"
 var crumbs: Array = []
 var crashed_last := false
 var last_crumbs := ""

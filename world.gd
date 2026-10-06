@@ -1998,6 +1998,12 @@ var occ_tick := 0.0
 var hidden_placed := {}
 # caméra haute façon Albion : le décor reste visible ; seules les maisons qui cacheraient vraiment le héros s'effacent
 const HIDE_DECOR := false
+# ZONE ROUGE : régions T3+ des cartes 2 à 4 — on y perd son équipement à la mort, mais tout rapporte ×1,5
+func is_red(x: float, z: float) -> bool:
+	if map_id < 2 or x > 300.0: return false
+	if town != null and town.town_dist(x, z) < 20.0: return false
+	return int(REGIONS[region_at(x, z)].tier) >= 3
+
 # une maison est-elle entre la caméra (au sud, en hauteur) et ce point ?
 func house_hides(pp: Vector3) -> bool:
 	for hz in houses:

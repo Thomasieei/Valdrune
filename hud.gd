@@ -402,9 +402,21 @@ func _draw_under() -> void:
 	pi_flash = max(0.0, pi_flash - get_process_delta_time())
 	var pic := Color("#c8a8ff").lerp(Color("#7dff8a"), clamp(pi_flash, 0.0, 1.0))
 	_text(c, "PI %d" % pw, Vector2(326, 38), 18 + int(pi_flash * 3.0), pic, false, f_title)
+	if main.red_mult() > 1.0:
+		var rp := 0.6 + 0.4 * sin(Time.get_ticks_msec() * 0.006)
+		_text(c, "ZONE ROUGE", Vector2(420, 38), 15, Color(1.0, 0.3, 0.25, rp), false, f_title)
 	if Game.is_premium(): _text(c, "PREMIUM", Vector2(326, 60), 12, Color("#ffcf5a"), false, f_title)
 	if Game.boost_left() > 0: _text(c, "XP ×2", Vector2(396 if Game.is_premium() else 326, 60), 12, Color("#7dff8a"), false, f_title)
 	_disc(minimap.position + minimap.size * 0.5, 92, Color(0.04, 0.06, 0.09, 0.6))
+	# événement du monde : en cours (couleur) ou prochain (gris)
+	if not main.in_instance():
+		var ev: Dictionary = main.world_event()
+		var ep := Vector2(vs().x - 96, 226)
+		if ev.active:
+			var E: Dictionary = main.WORLD_EVENTS[ev.key]
+			_text(c, "★ %s · %s" % [E.name, Game.dur_txt(ev.left)], ep, 13, Color(E.col), true, f_title)
+		else:
+			_text(c, "%s dans %s" % [main.WORLD_EVENTS[ev.next].name, Game.dur_txt(ev.next_in)], ep, 11, Color(0.8, 0.82, 0.86, 0.75), true)
 	_flush(c); batch_text = false
 
 var batch_text := false
@@ -661,6 +673,7 @@ func celebrate(title_txt: String, sub: String, icon := "it_quest") -> void:
 
 var banner_node: Control
 func region_banner(name: String, tier: int, sub := "") -> void:
+	if panel_open: return
 	if banner_node and is_instance_valid(banner_node): banner_node.queue_free()
 	var col: Color = Game.TIER_COL[tier]
 	var v := VBoxContainer.new(); v.mouse_filter = Control.MOUSE_FILTER_IGNORE; v.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1502,6 +1515,9 @@ func _guide_tiers() -> String:
 func _guide_combat() -> String:
 	return "[b][color=#ffd27a]Combat[/color][/b]\n• Esquive les [color=#ff7a6a]cercles rouges[/color] au sol : ce sont les attaques qui arrivent.\n• Tes compétences se débloquent avec le tier de ton arme (voir Menu).\n• Les potions se boivent automatiquement quand ta vie est basse.\n\n" + \
 		"[b][color=#ffd27a]Où aller ?[/color][/b]\n• Les régions ont un tier : n'y va pas trop tôt (le nom de la région l'indique sur la carte).\n• [color=#c58bff]Portails violets[/color] : donjons aléatoires, le meilleur butin.\n• [color=#ff8a4a]VS[/color] : duellistes. [color=#d58bff]Boss de groupe[/color] : il faut être 4 — engage des mercenaires chez Rhéa.\n\n" + \
+		"[b][color=#ff6a5a]Zones rouges[/color][/b] (régions T3+ des cartes 2 à 4) : XP et argent ×1,5, mais si tu meurs ton équipement reste sur ta tombe — 5 minutes pour revenir le chercher.\n" + \
+		"[b][color=#ffd27a]Événements[/color][/b] : toutes les 30 min (à l'heure pile et à la demie) — Pluie d'or, Vent du savoir, Grande récolte ou La Horde. Le prochain est affiché sous la mini-carte.\n" + \
+		"[b][color=#9fe0ff]Expéditions[/color][/b] : chez Rhéa (camp des mercenaires) ou dans QUOTIDIEN — tes hommes rapportent du butin même jeu fermé.\n\n" + \
 		"[b][color=#ffd27a]Joueurs, guilde, duels[/color][/b]\n• Touche un joueur pour voir sa fiche : chuchoter, inviter en groupe, défier en duel.\n• Le chat (en bas à droite) a les canaux Monde, Guilde, Groupe et messages privés."
 
 func _guide_town(body: VBoxContainer) -> void:
@@ -1627,7 +1643,37 @@ func show_daily() -> void:
 			Game.S.dq.bonus = true; Game.grant({"crowns": 30}); celebrate("JOURNÉE COMPLÈTE !", "+30 couronnes", "it_trophy"); show_daily()
 		var bb := big_button("Bonus des 3 quêtes : 30 couronnes" if not bonus_done else "Bonus reçu ✔", allc and not bonus_done, bonus, GOLD, allc and not bonus_done)
 		body.add_child(bb)
+		var el := Game.exped_left()
+		var etxt := "Expédition : aucune en cours — envoie tes mercenaires (même jeu fermé)" if el < 0 else ("Expédition : [color=#7dff8a]revenue ! Butin à récupérer[/color]" if el == 0 else "Expédition : retour dans %s" % Game.dur_txt(el))
+		body.add_child(rich("\n[b][color=#ffd27a]Expéditions[/color][/b]  " + etxt, 17))
+		body.add_child(big_button("Ouvrir les expéditions", true, func(): show_expedition(), GOLD, el <= 0))
 	, 900)
+
+# ——— Expéditions : ça tourne même téléphone éteint ———
+func show_expedition() -> void:
+	open_panel("Expéditions", func(body: VBoxContainer):
+		body.add_child(rich("[i][color=#d8c8a8]« Mes hommes partent en mission pour toi. Plus ils restent longtemps, plus ils rapportent — même pendant que tu dors. » — Rhéa[/color][/i]", 17))
+		var left := Game.exped_left()
+		if left < 0:
+			body.add_child(rich("Choisis la durée. Le butin dépend du tier de ton arme ([b]T%d[/b]) : argent, ressources, objets, potions, couronnes.%s" % [clamp(int(Game.S.gear.get("epee", 1)), 1, 5), " [color=#ffcf5a]Premium : +50 %.[/color]" if Game.is_premium() else ""], 17))
+			var g := GridContainer.new(); g.columns = 2; g.add_theme_constant_override("h_separation", 12); g.add_theme_constant_override("v_separation", 10); body.add_child(g)
+			for i in Game.EXPED.size():
+				var b := big_button("Partir %s" % Game.EXPED[i][1], true, func(): Game.exped_start(i); Game.play("level", -6.0); toast("Expédition partie : retour dans %s" % Game.EXPED[i][1], Color("#9fe0ff"), true); show_expedition(), GOLD, i == 1)
+				b.custom_minimum_size = Vector2(300, 56); g.add_child(b)
+		elif left > 0:
+			var e := Game.exped()
+			body.add_child(rich("[center][font_size=24]Expédition de [b]%s[/b] en cours (T%d)[/font_size]\nRetour dans [b][color=#9fe0ff]%s[/color][/b][/center]" % [e.label, int(e.tier), Game.dur_txt(left)], 18))
+			var bar := ProgressBar.new(); bar.custom_minimum_size = Vector2(0, 22); bar.max_value = float(e.dur); bar.value = float(e.dur) - left; bar.show_percentage = false; body.add_child(bar)
+			body.add_child(rich("[color=#a8b4bc]Tu peux fermer le jeu : le temps continue de compter.[/color]", 15))
+		else:
+			body.add_child(rich("[center][font_size=26][b][color=#7dff8a]L'expédition est revenue ![/color][/b][/font_size][/center]", 18))
+			var open_cb := func() -> void:
+				var r := Game.exped_collect()
+				if r.is_empty(): return
+				close_panel(); toast("+%d couronnes rapportées par l'expédition" % r.crowns, Color("#ffe39a"), true)
+				show_loot({"title": "Retour d'expédition (%s)" % r.label, "rarity": 2, "loot": r.loot, "pos": main.player.global_position, "opened": false})
+			body.add_child(big_button("Ouvrir le butin", true, open_cb, GOLD, true))
+	, 760)
 
 # ——— Classement de puissance ———
 func show_ranking() -> void:
@@ -2268,7 +2314,7 @@ func show_player_card(b: Bot) -> void:
 
 func _draw_daily_rank(c: CanvasItem, pulse: float) -> void:
 	var dc: Vector2 = buttons.daily.rect.get_center()
-	var nd: int = Game.dq_ready() + (1 if Game.login_can_claim() else 0)
+	var nd: int = Game.dq_ready() + (1 if Game.login_can_claim() else 0) + (1 if Game.exped_ready() else 0)
 	_glass(c, dc, 26, Color(1.0, 0.85, 0.3, pulse) if nd > 0 else Color(0.95, 0.78, 0.45, 0.5))
 	_texq(T("it_quest"), Rect2(dc - Vector2(18, 20), Vector2(36, 36)))
 	_text(c, "QUOTIDIEN", dc + Vector2(0, 40), 11, Color("#ffcf5a"), true, f_title)

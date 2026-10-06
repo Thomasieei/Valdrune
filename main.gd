@@ -365,6 +365,7 @@ func _process(dt: float) -> void:
 	if t_events <= 0.0: t_events = 2.0; _update_events()
 	var rc := Color(World.REGIONS[max(1, cur_region)].sky) if not in_instance() else (Color(0.08, 0.07, 0.09) if dungeon else Color(0.1, 0.16, 0.3))
 	if not in_instance(): rc = rc * sky_tint
+	if red_mult() > 1.0: rc = rc.lerp(Color(0.75, 0.22, 0.15), 0.35)
 	env.fog_light_color = env.fog_light_color.lerp(rc, min(1.0, dt * 1.5))
 	_sky_update(dt)
 	_guide(dt)
@@ -531,10 +532,12 @@ func on_gather_hit(nd: Dictionary) -> void:
 	var tool: String = Game.TOOL_OF[nd.type]
 	var lvl: int = Game.prof(tool).lvl
 	var n := 1 + (1 if randf() < 0.03 + 0.01 * lvl + Game.TOOL_Q[Game.toolq(tool)].bonus else 0)
+	if event_on("recolte"): n *= 2
 	Game.S.inv[nd.type][nd.tier] += n; Game.S.stats.gathered += n; _dq("gather", n); tuto_event(nd.type, n)
 	# XP de métier : plus le tier est haut, plus ça rapporte
 	var xp: int = [0, 8, 14, 24, 40, 65][nd.tier]
 	if nd.tier < int(Game.S.gear.get(tool, 1)): xp = max(1, int(xp * 0.35))   # récolter sous son tier rapporte peu
+	xp = int(xp * red_mult() * (2.0 if event_on("savoir") else 1.0))
 	var ups := Game.add_prof_xp(tool, xp)
 	hud.prof_gain(tool, xp)
 	if ups > 0:
@@ -610,7 +613,7 @@ func _dq(id: String, n := 1) -> void:
 		hud.toast("Quête du jour accomplie : %s — va chercher ta récompense (QUOTIDIEN)" % done, Color("#ffe39a"), true); Game.play("level", -6.0, 1.2)
 
 func gain_silver(n: int) -> int:
-	n = int(n * (Game.silver_mult() + Game.art_bonus("fortune") + (social.guild_bonus() if social else 0.0))); Game.S.silver += n
+	n = int(n * (Game.silver_mult() + Game.art_bonus("fortune") + (social.guild_bonus() if social else 0.0)) * red_mult() * (2.0 if event_on("or") else 1.0)); Game.S.silver += n
 	_dq("silver", n); return n
 
 # XP d'arme : chaque monstre tué près du héros fait progresser l'arme portée
@@ -619,6 +622,7 @@ func _weapon_xp(tier: int, mult: float) -> void:
 	var xp := int([0, 6, 10, 16, 26, 40][clamp(tier, 1, 5)] * mult)
 	# les monstres plus faibles que ton arme ne t'apprennent presque plus rien : il faut aller au danger
 	if tier < int(Game.S.gear.get("epee", 1)): xp = max(1, int(xp * 0.35))
+	xp = int(xp * red_mult() * (2.0 if event_on("savoir") else 1.0))
 	var ups := Game.add_weapon_xp(kind, xp)
 	hud.weapon_gain(kind, xp)
 	if ups > 0:
@@ -709,7 +713,9 @@ func on_player_death() -> void:
 	elif killer is Enemy and is_instance_valid(killer):
 		need = int(Game.power_needed(killer.tier) * (1.6 if killer.is_boss else (1.2 if killer.elite else 1.0))); who = str(killer.def.get("name", "ce monstre"))
 	if need > Game.power(): get_tree().create_timer(3.4).timeout.connect(func(): if not hud.panel_open: hud.show_defeat(who, need))
-	if killer is Bot and is_instance_valid(killer) and world.map_id >= 2 and not in_instance(): _robbed_by(killer)
+	var red: bool = not in_instance() and duel_enemy == null and not (killer is Bot and is_instance_valid(killer) and killer.duel) and world.is_red(player.global_position.x, player.global_position.z)
+	if red: _red_death()
+	elif killer is Bot and is_instance_valid(killer) and world.map_id >= 2 and not in_instance(): _robbed_by(killer)
 	else: hud.toast("Tu es tombé… retour au camp. Tes ressources sont sauves.", Color("#ff8a7a"), true)
 	if duel_enemy != null and is_instance_valid(duel_enemy):
 		hud.toast("Duel perdu ! %s t'attend pour une revanche." % duel_enemy.def.name, Color("#ffb07a")); duel_reset(duel_enemy); tuto_event("duel")
@@ -1072,6 +1078,15 @@ func _tuto_target():
 
 # Progression : les MÉTIERS ouvrent les tiers (XP), les marchands vendent les outils, Brokk fabrique l'équipement
 func update_goal() -> void:
+	# tombe en zone rouge : priorité absolue tant qu'il reste du temps
+	var gv = Game.S.get("grave", null)
+	if gv is Array and gv.size() == 3:
+		var gleft := 300 - int(Time.get_unix_time_from_system() - float(gv[2]))
+		if gleft > 0 and not in_instance():
+			var gt := "[b][color=#ff6a5a]Récupère ta tombe ![/color][/b]\nTon équipement t'attend encore %s — suis la flèche." % Game.dur_txt(gleft)
+			if gt != goal_text: goal_text = gt; hud.goal_lbl.text = gt
+			goal_target = Vector3(float(gv[0]), 0, float(gv[1])); return
+		Game.S.erase("grave")
 	if tuto_active():
 		var st: Dictionary = TUTO[tuto_i()]
 		if st.k == "wlvl" and int(Game.wxp(Game.S.get("weapon_kind", "epee")).lvl) >= int(st.n): _tuto_next(); return
@@ -1169,7 +1184,9 @@ func talk(n: Npc) -> void:
 			acts.append(["Voir les îles", func(): hud.show_harbor(), true])
 		"shop": acts.append(["Voir les articles", func(): hud.show_shop(line), true])
 		"auction": acts.append(["Ouvrir l'hôtel des ventes", func(): hud.show_auction(), true])
-		"mercs": acts.append(["Engager des mercenaires", func(): hud.show_mercs(), true])
+		"mercs":
+			acts.append(["Expéditions", func(): hud.show_expedition(), true])
+			acts.append(["Engager des mercenaires", func(): hud.show_mercs(), true])
 		"enchant": acts.append(["Enchanter mon équipement", func(): hud.show_enchant(), true])
 		"duel":
 			_talk_duel(n); return
@@ -1189,7 +1206,9 @@ func _check_world() -> void:
 		hud.set_region(R.name, R.tier)
 		if not first:
 			hud.region_banner(R.name, R.tier)
-			if R.tier >= 3 and world.map_id >= 2: get_tree().create_timer(1.2).timeout.connect(func(): hud.toast("ZONE ROUGE : des joueurs hostiles peuvent te prendre ton équipement à tout moment.", Color("#ff5a4a"), true))
+			if world.is_red(pp.x, pp.z):
+				get_tree().create_timer(1.4).timeout.connect(func(): hud.region_banner("ZONE ROUGE", 5, "Si tu meurs, ton équipement reste sur ta tombe · XP et argent ×1,5"))
+				Game.play("roar", -10.0, 0.7)
 			if R.tier > Game.S.gear.epee: get_tree().create_timer(2.0).timeout.connect(func(): hud.toast("Ton arme est T%d : les monstres d'ici sont T%d. Prudence !" % [Game.S.gear.epee, R.tier], Color("#ff9a7a")))
 	for poi in world.pois:
 		if Game.S.disc.has(poi.id): continue
@@ -1412,9 +1431,67 @@ func _update_events() -> void:
 	elif now > next_boss_at and not in_instance():
 		_spawn_world_boss()
 	_island_tick()
+	_event_tick()
 	# les faux joueurs mettent des objets en vente
 	t_market -= 2.0
 	if t_market <= 0.0: t_market = randf_range(70.0, 140.0); _bot_listing()
+
+# ================= ÉVÉNEMENTS DU MONDE : toutes les 30 min (à l'heure pile et à la demie), 8 minutes =================
+const WORLD_EVENTS := {
+	"or": {"name": "Pluie d'or", "desc": "Tout l'argent gagné est doublé", "col": "#ffd24a"},
+	"savoir": {"name": "Vent du savoir", "desc": "Toute l'expérience est doublée", "col": "#7dff8a"},
+	"recolte": {"name": "Grande récolte", "desc": "Chaque coup de récolte rapporte le double", "col": "#c8f08a"},
+	"horde": {"name": "La Horde", "desc": "Une horde d'élites attaque — gros coffre pour qui la repousse", "col": "#ff6a5a"},
+}
+const EVENT_LEN := 480
+var ev_slot := -1
+var ev_horde: Array = []
+var ev_horde_pos := Vector3.INF
+func world_event() -> Dictionary:
+	var now := int(Game.local_now())
+	var slot := now / 1800
+	var keys: Array = WORLD_EVENTS.keys()
+	var k: String = keys[(slot * 7 + 3) % keys.size()]
+	var left := EVENT_LEN - (now - slot * 1800)
+	var nxt: String = keys[((slot + 1) * 7 + 3) % keys.size()]
+	return {"slot": slot, "key": k, "active": left > 0, "left": max(0, left), "next_in": (slot + 1) * 1800 - now, "next": nxt}
+func event_on(k: String) -> bool:
+	var ev := world_event()
+	return ev.active and ev.key == k and not in_instance()
+func _event_tick() -> void:
+	var ev := world_event()
+	if ev.active and ev.slot != ev_slot:
+		ev_slot = ev.slot
+		var E: Dictionary = WORLD_EVENTS[ev.key]
+		hud.celebrate("ÉVÉNEMENT : %s" % E.name.to_upper(), "%s · 8 minutes" % E.desc, "it_seal"); Game.play("roar", -6.0, 1.3)
+		if social: social.post("systeme", "", "", "Événement : %s — %s" % [E.name, E.desc])
+		if ev.key == "horde" and not in_instance(): _spawn_horde()
+	# la horde repoussée : coffre
+	if not ev_horde.is_empty() and ev_horde.all(func(e): return not is_instance_valid(e) or e.dead):
+		var t: int = World.REGIONS[world.region_at(ev_horde_pos.x, ev_horde_pos.z)].tier
+		drop_loot(ev_horde_pos, "boss", t, Game.roll_loot("group", t, "man"))
+		Game.grant({"crowns": 15})
+		hud.celebrate("HORDE REPOUSSÉE !", "Le coffre de la horde t'attend · +15 couronnes", "it_chest_open"); Game.play("level")
+		ev_horde = []; ev_horde_pos = Vector3.INF
+func _spawn_horde() -> void:
+	var wt: int = clamp(int(Game.S.gear.get("epee", 1)), 1, 5)
+	var cands: Array = []
+	for sp in world.spawns:
+		if sp.get("boss", false) or sp.get("animal", false) or not sp.has("kinds"): continue
+		if int(sp.tier) <= wt + 1 and Vector2(sp.pos.x, sp.pos.z).distance_to(world.village) > 30.0: cands.append(sp)
+	if cands.is_empty(): return
+	cands.sort_custom(func(a, b): return (a.pos as Vector3).distance_to(player.global_position) < (b.pos as Vector3).distance_to(player.global_position))
+	var sp0: Dictionary = cands[min(2, cands.size() - 1)]
+	var c: Vector3 = sp0.pos
+	var hsp := {"pos": c, "members": []}
+	for i in 6:
+		var p := c + World.polar(TAU * i / 6.0, 3.5)
+		if not world.walkable(p.x, p.z): p = c
+		var e := _spawn_enemy(sp0.kinds[i % sp0.kinds.size()], int(sp0.tier), p, hsp, false)
+		e.elite = true; e.max_hp *= 1.8; e.hp = e.max_hp
+		ev_horde.append(e)
+	ev_horde_pos = c
+	goal_target = c
 
 func _random_spot(reg: int) -> Vector3:
 	for k in 300:
@@ -1719,6 +1796,8 @@ func take_all(c: Dictionary) -> void:
 
 func _chest_emptied(c: Dictionary) -> void:
 	c.opened = true
+	if c.get("grave", false):
+		Game.S.erase("grave"); hud.celebrate("ÉQUIPEMENT RÉCUPÉRÉ", "Tout est dans ton sac — touche « Équiper au mieux »", "it_chest_open")
 	if c.get("bag", false):
 		loots.erase(c)
 		if is_instance_valid(c.node): c.node.queue_free()
@@ -1906,6 +1985,31 @@ func on_bot_death(b: Bot, killer) -> void:
 		drop_loot(b.global_position, "pvp", b.tier, loot)
 		hud.celebrate("%s VAINCU !" % b.nm.to_upper(), "Fouille son sac%s" % back, "it_seal"); Game.play("level", -6.0)
 		Game.save()
+
+# mort en zone rouge : tout l'équipement de combat porté tombe dans ta tombe (5 min pour revenir le chercher)
+func red_mult() -> float: return 1.5 if (not in_instance() and world.is_red(player.global_position.x, player.global_position.z)) else 1.0
+func _red_death() -> void:
+	var lost: Array = []
+	for sl in ["epee", "bouclier", "casque", "armure", "cape", "bottes"]:
+		if int(Game.S.gear.get(sl, 0)) <= 0: continue
+		var it := Game.equipped_item(sl)
+		if int(it.tier) <= 1 and int(it.get("ench", 0)) == 0: continue   # le T1 de base n'est pas perdu
+		lost.append({"item": it})
+		Game.S.gear[sl] = 1 if sl in ["epee", "armure", "bottes"] else 0
+		Game.S.ench[sl] = 0; Game.S.uniq[sl] = ""; Game.S.eqx.erase(sl)
+	Game.stats_dirty(); player.refresh_gear()
+	if lost.is_empty():
+		hud.toast("Zone rouge : tu n'avais rien de valeur sur toi.", Color("#ffb07a"), true); return
+	var gp := player.global_position
+	drop_loot(gp, "boss", 3, lost)
+	var g: Dictionary = loots[loots.size() - 1]
+	g.age = -150.0; g["grave"] = true
+	var l := Label3D.new(); l.text = "TA TOMBE · %d objet%s" % [lost.size(), "s" if lost.size() > 1 else ""]; l.font_size = 40; l.outline_size = 10; l.modulate = Color("#ff6a5a")
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED; l.pixel_size = 0.008; l.position.y = 1.2; l.no_depth_test = true; (g.node as Node3D).add_child(l)
+	Game.S["grave"] = [gp.x, gp.z, Time.get_unix_time_from_system()]
+	hud.toast("ZONE ROUGE : ton équipement (%d objet%s) est resté sur ta tombe. Tu as 5 minutes pour aller le reprendre !" % [lost.size(), "s" if lost.size() > 1 else ""], Color("#ff5a4a"), true)
+	Game.crumb("mort en zone rouge, %d objets perdus" % lost.size())
+	Game.save()
 
 func _robbed_by(b: Bot) -> void:
 	var slots := []
