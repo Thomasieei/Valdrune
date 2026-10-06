@@ -378,6 +378,11 @@ func _ground_color(x: float, z: float, h: float, sl: float) -> Color:
 	var gi := int(round((x + HALF) / CELL)); var gj := int(round((z + HALF) / CELL))
 	if pgrid.size() == N * N and pgrid[clamp(gj, 0, N - 1) * N + clamp(gi, 0, N - 1)] > 0.5: c = c.lerp(Color(c.r * 1.08, c.g * 1.12, c.b * 0.9), 0.6)   # dessus des plateaux, herbe plus vive
 	var rock := {"ash": Color("#4a3a38"), "canyon": Color("#8a3e2a"), "desert": Color("#b8925a")}.get(A.style, Color("#7a7064")) as Color
+	if A.style == "desert":   # rides du sable
+		var rip := sin(x * 0.85 + z * 0.3 + noise2.get_noise_2d(x * 0.25, z * 0.25) * 7.0)
+		c = c.lightened(max(0.0, rip) * 0.06 * w[2]).darkened(max(0.0, -rip) * 0.05 * w[2])
+	elif A.style == "canyon":   # strates de la roche rouge
+		c = c.darkened((sin(h * 2.6) * 0.5 + 0.5) * 0.08 * w[2])
 	if sl > 1.6: c = c.lerp(rock, clamp((sl - 1.6) * 0.4, 0.0, 0.9))   # roche des falaises
 	var vk := volcano_k(x, z)
 	if vk > 0.0:
@@ -1755,6 +1760,7 @@ func _decor() -> void:
 				elif roll < 0.09: _mm(F + ["Grass_1_B_Color1.gltf", "Bush_4_D_Color1.gltf"][rng.randi() % 2], p, rng.randf_range(0.9, 1.4), rng.randf() * TAU, Color("#a85a30"))
 				elif roll < 0.11: _mm(CR[rng.randi() % CR.size()], p, rng.randf_range(0.7, 1.3), rng.randf() * TAU, Color("#c87a50"))
 	_clusters()
+	_arid_dress()
 	# tapis d'herbe : des milliers de touffes, groupées en prairies (plus de sol nu et plat)
 	var GR := {"meadow": ["Grass_1_A_Color1.gltf", "Grass_1_C_Color1.gltf", "Grass_2_B_Color1.gltf"], "forest": ["Grass_2_A_Color1.gltf", "Grass_1_D_Color1.gltf", "Grass_2_D_Color1.gltf"],
 		"hills": ["Grass_1_B_Color1.gltf", "Grass_2_C_Color1.gltf"], "swamp": ["Grass_2_D_Color1.gltf", "Grass_1_D_Color1.gltf"]}
@@ -1864,6 +1870,110 @@ func _clusters() -> void:
 					if sty == "ash" and k == 1: _ember(c + Vector3(1.5, 0, -1.0))
 
 var ember_count := 0
+# ——— Terres arides : cactus, ruines, aiguilles de roche, arbres morts, fissures de lave ———
+func _arid_dress() -> void:
+	var r := RandomNumberGenerator.new(); r.seed = 9100 + map_id * 31
+	var G := "res://assets/gen/"; var HW := "res://assets/halloween/"; var DG := "res://assets/dungeon/"
+	var BONES := [HW + "bone_A.gltf", HW + "skull.gltf", HW + "ribcage.gltf"]
+	for ri in range(1, REGIONS.size()):
+		var R: Dictionary = REGIONS[ri]
+		var sty: String = R.style
+		if not sty in ["desert", "canyon", "ash"]: continue
+		var c: Vector2 = R.c
+		var spot := func(rad: float, extra: float) -> Vector3:
+			for k in 30:
+				var p := Vector3(c.x + r.randf_range(-rad, rad), 0, c.y + r.randf_range(-rad, rad))
+				if region_at(p.x, p.z) != ri or not _free_spot(p, extra, true) or slope(p.x, p.z) > 1.8 or _near_node_grid(p, 2.0) or _near_duel(p, 6.0): continue
+				return p
+			return Vector3.INF
+		match sty:
+			"desert":
+				for i in 70:
+					var p: Vector3 = spot.call(55.0, 0.6)
+					if p == Vector3.INF: continue
+					if i % 3 == 0:
+						for k in r.randi_range(2, 4):
+							var q := p + Vector3(r.randf_range(-1.6, 1.6), 0, r.randf_range(-1.6, 1.6))
+							if walkable(q.x, q.z): _mm(G + "cactus_round.tscn", q, r.randf_range(0.6, 1.1), r.randf() * TAU)
+					else:
+						_mm(G + "cactus.tscn", p, r.randf_range(0.75, 1.25), r.randf() * TAU); blocker(p, 0.45)
+				for i in 30:
+					var p2: Vector3 = spot.call(55.0, 0.3)
+					if p2 != Vector3.INF: _mm(BONES[r.randi() % 3], p2, r.randf_range(1.1, 1.6), r.randf() * TAU)
+				# ruines d'un ancien temple, à moitié ensevelies
+				for site in 3:
+					var p3: Vector3 = spot.call(48.0, 5.0)
+					if p3 == Vector3.INF: continue
+					for k in 7:
+						var a := TAU * k / 7.0 + r.randf_range(-0.2, 0.2)
+						var q := p3 + Vector3(cos(a), 0, sin(a)) * r.randf_range(3.5, 5.0)
+						if not walkable(q.x, q.z): continue
+						var pick: String = [DG + "column.gltf", DG + "pillar.gltf", DG + "rubble_large.gltf", DG + "rubble_half.gltf", DG + "wall_broken.gltf", DG + "pillar_decorated.gltf"][r.randi() % 6]
+						var o := place(pick, q, r.randf() * TAU, r.randf_range(1.4, 2.0))
+						o.position.y -= r.randf_range(0.0, 0.6)
+						_tint_ruin(o, Color("#f0d8a8"))
+						if "column" in pick or "pillar" in pick: blocker(q, 0.7)
+					_mm(BONES[1], p3, 1.6, r.randf() * TAU)
+			"canyon":
+				for i in 26:
+					var p: Vector3 = spot.call(50.0, 1.4)
+					if p == Vector3.INF: continue
+					var rk: String = ["res://assets/forest/Rock_3_A_Color1.gltf", "res://assets/forest/Rock_3_K_Color1.gltf", "res://assets/forest/Rock_3_M_Color1.gltf"][r.randi() % 3]
+					var sc := r.randf_range(1.1, 1.6)
+					_mm_xf(rk, Transform3D(Basis(Vector3.UP, r.randf() * TAU).scaled(Vector3(sc, sc * r.randf_range(2.2, 3.4), sc)), Vector3(p.x, height(p.x, p.z) - 0.2, p.z)), Color("#d4744a"))
+					blocker(p, 1.1 * sc)
+				for i in 28:
+					var p2: Vector3 = spot.call(50.0, 0.6)
+					if p2 == Vector3.INF: continue
+					if i % 2 == 0: _mm(HW + "tree_dead_medium.gltf", p2, r.randf_range(1.0, 1.5), r.randf() * TAU, Color("#a87858"))
+					else: _mm(G + "cactus.tscn", p2, r.randf_range(0.7, 1.0), r.randf() * TAU); blocker(p2, 0.4)
+				for i in 20:
+					var p4: Vector3 = spot.call(50.0, 0.3)
+					if p4 != Vector3.INF: _mm(BONES[r.randi() % 3], p4, r.randf_range(1.1, 1.5), r.randf() * TAU)
+			"ash":
+				for i in 34:
+					var p: Vector3 = spot.call(45.0, 0.6)
+					if p == Vector3.INF: continue
+					_mm(HW + ("tree_dead_large.gltf" if i % 3 == 0 else "tree_dead_medium.gltf"), p, r.randf_range(1.1, 1.7), r.randf() * TAU, Color("#5a4a48"))
+				for i in 16:
+					var p2: Vector3 = spot.call(45.0, 1.0)
+					if p2 == Vector3.INF: continue
+					_mm(crystal("ROCK_Volcanic_04_BasaltPillar"), p2, r.randf_range(1.0, 1.6), r.randf() * TAU); blocker(p2, 0.9)
+				for i in 26:
+					var p3: Vector3 = spot.call(45.0, 0.5)
+					if p3 != Vector3.INF: _lava_crack(p3, r)
+				for i in 16:
+					var p4: Vector3 = spot.call(45.0, 0.3)
+					if p4 != Vector3.INF: _mm(BONES[r.randi() % 3], p4, r.randf_range(1.1, 1.5), r.randf() * TAU)
+
+func _tint_ruin(n: Node, col: Color) -> void:
+	for mi in n.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		for k in m.mesh.get_surface_count():
+			var src = m.mesh.surface_get_material(k)
+			if src is StandardMaterial3D:
+				var mt: StandardMaterial3D = src.duplicate(); mt.albedo_color = col; m.set_surface_override_material(k, mt)
+
+# fissure de lave : un zigzag lumineux au sol
+var _lava_mat: StandardMaterial3D
+func _lava_crack(p: Vector3, r: RandomNumberGenerator) -> void:
+	if _lava_mat == null:
+		_lava_mat = StandardMaterial3D.new(); _lava_mat.albedo_color = Color(1.0, 0.42, 0.1); _lava_mat.emission_enabled = true
+		_lava_mat.emission = Color(1.0, 0.35, 0.05); _lava_mat.emission_energy_multiplier = 2.2; _lava_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; _lava_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var sf := SurfaceTool.new(); sf.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var a := r.randf() * TAU; var q := Vector2(p.x, p.z)
+	var n := r.randi_range(5, 9)
+	for k in n:
+		a += r.randf_range(-0.7, 0.7)
+		var q2 := q + Vector2(cos(a), sin(a)) * r.randf_range(0.8, 1.6)
+		var w: float = 0.16 * (1.0 - float(k) / n) + 0.04
+		var nr := Vector2(-sin(a), cos(a)) * w
+		var v: Array = []
+		for pt: Vector2 in [q - nr, q + nr, q2 + nr * 0.7, q2 - nr * 0.7]: v.append(Vector3(pt.x, height(pt.x, pt.y) + 0.04, pt.y))
+		sf.add_vertex(v[0]); sf.add_vertex(v[1]); sf.add_vertex(v[2]); sf.add_vertex(v[0]); sf.add_vertex(v[2]); sf.add_vertex(v[3])
+		q = q2
+	var mi := MeshInstance3D.new(); mi.mesh = sf.commit(); mi.material_override = _lava_mat; mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; add_child(mi)
+
 func _ember(p: Vector3) -> void:
 	if ember_count > 40: return
 	ember_count += 1
@@ -3075,7 +3185,7 @@ func _build_pass() -> void:
 		for i in N:
 			var x := -HALF + i * CELL; var z := -HALF + j * CELL
 			if abs(x) > 110.0 or abs(z) > 110.0: continue
-			if walkable(x, z) and not near_house(Vector2(x, z), 0.2): pass_grid[j * N + i] = 1
+			if walkable(x, z) and not near_house(Vector2(x, z), 0.7): pass_grid[j * N + i] = 1
 	for sg in plot_walls:
 		var a0: Vector2 = sg[0]; var b0: Vector2 = sg[1]
 		for k in 5:

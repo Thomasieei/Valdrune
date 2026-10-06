@@ -370,6 +370,7 @@ func _process(dt: float) -> void:
 	_sky_update(dt)
 	_guide(dt)
 	ambient.global_position = player.global_position + Vector3(0, 2.0, 3.0)
+	_arid_fx()
 	ambient.color = AMB_COL[World.REGIONS[max(1, cur_region)].tier] if not in_instance() else Color(0.6, 0.8, 1.0, 0.6)
 	if not in_instance() and night > 0.3: ambient.color = Color(0.75, 1.0, 0.35, 0.9 * night)   # lucioles la nuit
 	if cine.is_valid(): cine.call(dt)   # caméra de cinéma (vidéo promo)
@@ -1436,6 +1437,30 @@ func _update_events() -> void:
 	t_market -= 2.0
 	if t_market <= 0.0: t_market = randf_range(70.0, 140.0); _bot_listing()
 
+# ——— ambiance des terres arides : sable qui vole, braises qui montent ———
+var fx_sand: GPUParticles3D
+var fx_ember: GPUParticles3D
+func _mk_fx(col: Color, size: float, vel: Vector3, grav: Vector3, amount: int, emissive: bool) -> GPUParticles3D:
+	var gp := GPUParticles3D.new(); gp.amount = amount; gp.lifetime = 3.5; gp.emitting = false; gp.visibility_aabb = AABB(Vector3(-30, -5, -30), Vector3(60, 20, 60))
+	var pm := ParticleProcessMaterial.new(); pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX; pm.emission_box_extents = Vector3(16, 3, 12)
+	pm.direction = vel.normalized(); pm.spread = 25.0; pm.initial_velocity_min = vel.length() * 0.6; pm.initial_velocity_max = vel.length(); pm.gravity = grav
+	pm.scale_min = 0.6; pm.scale_max = 1.4; gp.process_material = pm
+	var q := QuadMesh.new(); q.size = Vector2(size, size)
+	var m := StandardMaterial3D.new(); m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	m.albedo_texture = Fx.soft_tex(); m.albedo_color = col
+	if emissive: m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	q.material = m; gp.draw_pass_1 = q; add_child(gp)
+	return gp
+func _arid_fx() -> void:
+	if fx_sand == null:
+		fx_sand = _mk_fx(Color(0.95, 0.82, 0.6, 0.35), 0.5, Vector3(5.0, 0.3, 1.0), Vector3(0, -0.2, 0), 70, false)
+		fx_ember = _mk_fx(Color(1.0, 0.5, 0.15, 0.9), 0.18, Vector3(0.3, 1.2, 0.0), Vector3(0, 0.4, 0), 60, true)
+	var sty: String = "" if in_instance() else str(World.REGIONS[max(1, cur_region)].style)
+	fx_sand.emitting = sty in ["desert", "canyon"] and Game.gfx() >= 1
+	fx_ember.emitting = sty == "ash"
+	var c := player.global_position + Vector3(0, 1.5, 0)
+	fx_sand.global_position = c; fx_ember.global_position = c
+
 # ================= ÉVÉNEMENTS DU MONDE : toutes les 30 min (à l'heure pile et à la demie), 8 minutes =================
 const WORLD_EVENTS := {
 	"or": {"name": "Pluie d'or", "desc": "Tout l'argent gagné est doublé", "col": "#ffd24a"},
@@ -2291,6 +2316,9 @@ func _auto_can_gather(nd: Dictionary) -> bool:
 	return nd.charges > 0 and (Game.S.gear[tool] >= nd.tier or nd.tier == 1) and Game.prof(tool).lvl >= Game.PROF_REQ[nd.tier]
 
 var auto_path: Array = []
+var auto_mv_t := 0.0
+var auto_mv_p := Vector3.ZERO
+var auto_jam := 0
 var auto_repath := 0.0
 
 func _auto(dt: float) -> void:
@@ -2349,7 +2377,7 @@ func _auto(dt: float) -> void:
 		var dir := (wp - Vector2(pp.x, pp.z)).normalized()
 		# contournement : si le chemin droit est bloqué juste devant, on glisse sur le côté le plus libre
 		var ahead := Vector2(pp.x, pp.z) + dir * 1.6
-		if not world.walkable(ahead.x, ahead.y) or world.near_house(ahead, 0.0) or auto_side_t > 0.0:
+		if auto_jam > 0 or auto_side_t > 0.0 or not world.walkable(ahead.x, ahead.y):
 			if auto_side_t <= 0.0:
 				var best_s := 0.0; var best_sc := -1.0
 				for sd in [1.0, -1.0]:
@@ -2363,6 +2391,20 @@ func _auto(dt: float) -> void:
 			auto_side_t -= dt
 			dir = dir.rotated(auto_side * 1.1)
 		P.input_vec = dir
+		# vraiment bloqué (muret, clôture, étal…) : on apprend que ce passage est fermé et on recalcule
+		auto_mv_t += dt
+		if auto_mv_t >= 1.2:
+			if Vector2(pp.x - auto_mv_p.x, pp.z - auto_mv_p.z).length() < 0.9:
+				auto_jam += 1
+				var ahead2 := Vector2(pp.x, pp.z) + dir * 1.3
+				for o: Vector2 in [Vector2.ZERO, Vector2(0.9, 0), Vector2(-0.9, 0), Vector2(0, 0.9), Vector2(0, -0.9)]:
+					var ck: int = world._cell(ahead2 + o)
+					if ck != world._cell(Vector2(pp.x, pp.z)): world.pass_grid[ck] = 0
+				auto_repath = 0.0; auto_side_t = 0.0
+				if auto_jam >= 4:
+					auto_ban[auto_tgt.get_instance_id() if auto_kind == "enemy" else str(auto_tgt.pos)] = true; auto_tgt = null; auto_jam = 0; return
+			else: auto_jam = 0
+			auto_mv_t = 0.0; auto_mv_p = pp
 		# coincé malgré tout : on abandonne cette cible un moment
 		if d < auto_best_d - 0.3: auto_best_d = d; auto_stuck = 0.0
 		else:
@@ -2379,6 +2421,7 @@ func _auto(dt: float) -> void:
 
 
 # Filet de sécurité : si le héros passe sous le sol (téléportation dans un bâtiment, chute…), on le remet dessus
+var unstick_n := 0
 func _unstick(P: Player) -> void:
 	var p := P.global_position
 	if island:
@@ -2389,6 +2432,7 @@ func _unstick(P: Player) -> void:
 		return
 	var h := world.ground_y(p.x, p.z)
 	if p.y < h - 1.2:
+		unstick_n += 1
 		var q := p
 		if not world.walkable(q.x, q.z) or world.near_house(Vector2(q.x, q.z), 0.0):
 			# on cherche le sol libre le plus proche
