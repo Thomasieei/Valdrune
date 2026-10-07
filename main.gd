@@ -1674,6 +1674,7 @@ func _perf_pass() -> void:
 			if l.visibility_range_end <= 0.0: l.visibility_range_end = 34.0 if l.font_size < 60 else 52.0
 			continue
 		if not (n is GeometryInstance3D): continue
+		if n.get_parent() and n.get_parent().has_meta("flat"): continue     # routes, places, champs : toujours visibles (et peu coûteux)
 		var g := n as GeometryInstance3D
 		var sz := 0.0
 		if g is VisualInstance3D: sz = (g as VisualInstance3D).get_aabb().size.length() * max(0.01, g.global_transform.basis.get_scale().x)

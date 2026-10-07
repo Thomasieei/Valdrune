@@ -44,8 +44,72 @@ static func make(path: String) -> Node3D:
 		"@well": _well(root)
 		"@path": root = PathTile.new(); (root as PathTile).setup(p[1], float(p[2]))
 		"@plaza": root = PathTile.new(); (root as PathTile).setup("plaza", float(p[1]))
+		"@field": root = FieldTile.new(); (root as FieldTile).setup(p[1], float(p[2]) if p.size() > 2 else 10.0, float(p[3]) if p.size() > 3 else 8.0)
 		"@road": root = RoadTile.new(); (root as RoadTile).setup(p[1], float(p[2]), p[3] if p.size() > 3 else "")
 	return root
+
+# Champ cultivé : terre labourée en sillons + rangées de cultures, qui épousent le terrain
+class FieldTile extends Node3D:
+	var crop := "wheat"
+	var w := 10.0
+	var d := 8.0
+	var soil: MeshInstance3D
+	var plants: Node3D
+	func setup(c: String, ww: float, dd: float) -> void:
+		crop = c; w = ww; d = dd
+		soil = MeshInstance3D.new(); add_child(soil)
+		var m := StandardMaterial3D.new(); m.albedo_color = Color("#7a5634"); m.roughness = 1.0; m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		soil.material_override = m; soil.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		plants = Node3D.new(); add_child(plants)
+		set_meta("aabb", AABB(Vector3(-w * 0.5, 0, -d * 0.5), Vector3(w, 0.6, d))); set_meta("flat", true)
+	func preview() -> void: conform(null)
+	func conform(world: Node) -> void:
+		var gx: Transform3D = global_transform if is_inside_tree() else transform
+		var inv := gx.affine_inverse()
+		var hy := func(lx: float, lz: float) -> float:
+			if world == null: return 0.06
+			var wp := gx * Vector3(lx, 0, lz)
+			return (inv * Vector3(wp.x, world.ground_y(wp.x, wp.z) + 0.06, wp.z)).y
+		var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var nx := int(w); var nz := int(d * 2.0)
+		for i in nx:
+			for j in nz:
+				var x0 := -w * 0.5 + i * w / nx; var x1 := x0 + w / nx; var z0 := -d * 0.5 + j * d / nz; var z1 := z0 + d / nz
+				var ridge := 0.08 if j % 2 == 0 else 0.0
+				var q := [Vector3(x0, hy.call(x0, z0) + ridge, z0), Vector3(x1, hy.call(x1, z0) + ridge, z0), Vector3(x1, hy.call(x1, z1), z1), Vector3(x0, hy.call(x0, z1), z1)]
+				var col := Color("#8a6040") if j % 2 == 0 else Color("#6a4628")
+				for k in [0, 1, 2, 0, 2, 3]:
+					st.set_color(col); st.set_normal(Vector3.UP); st.add_vertex(q[k])
+		soil.mesh = st.commit()
+		(soil.material_override as StandardMaterial3D).vertex_color_use_as_albedo = true
+		for c in plants.get_children(): c.queue_free()
+		var path := "res://assets/qnature/Grass_Wispy_Tall.gltf"
+		var sc := 1.1; var tint := Color("#e8c060")
+		match crop:
+			"cabbage": path = "res://assets/food/cabbage.glb"; sc = 2.4; tint = Color(1, 1, 1)
+			"carrot": path = "res://assets/food/carrotWithStem.glb"; sc = 2.4; tint = Color(1, 1, 1)
+			"corn": path = "res://assets/food/cornWithLeafs.glb"; sc = 3.0; tint = Color(1, 1, 1)
+		var xfs: Array = []
+		var step := 0.7 if crop == "wheat" else 1.1
+		var z := -d * 0.5 + 0.5
+		var rr := RandomNumberGenerator.new(); rr.seed = int(w * 13 + d * 7)
+		while z < d * 0.5 - 0.3:
+			var x := -w * 0.5 + 0.4
+			while x < w * 0.5 - 0.3:
+				xfs.append(Transform3D(Basis(Vector3.UP, rr.randf() * TAU).scaled(Vector3.ONE * sc * rr.randf_range(0.85, 1.15)), Vector3(x + rr.randf_range(-0.1, 0.1), hy.call(x, z) + 0.05, z)))
+				x += step
+			z += 1.0
+		for part in Prefab._parts(path):
+			var mm := MultiMesh.new(); mm.transform_format = MultiMesh.TRANSFORM_3D; mm.mesh = part[0]; mm.instance_count = xfs.size()
+			for i in xfs.size(): mm.set_instance_transform(i, (xfs[i] as Transform3D) * (part[1] as Transform3D))
+			var mmi := MultiMeshInstance3D.new(); mmi.multimesh = mm; mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			if path.contains("/food/"): mmi.material_override = Crops.pix_mat()
+			elif part[2]: mmi.material_override = part[2]
+			if crop == "wheat":
+				var src = mmi.material_override if mmi.material_override else (part[0] as Mesh).surface_get_material(0)
+				if src is StandardMaterial3D:
+					var m2: StandardMaterial3D = src.duplicate(); m2.albedo_color = tint; mmi.material_override = m2
+			plants.add_child(mmi)
 
 # tracé « @road:kind:largeur:x,z;x,z;… » (points relatifs au centre de l'objet)
 static func road_path(kind: String, w: float, pts: Array) -> String:
@@ -64,6 +128,15 @@ class RoadTile extends Node3D:
 		for e in enc.split(";", false):
 			var xy := e.split(",")
 			if xy.size() == 2: pts.append(Vector2(float(xy[0]), float(xy[1])))
+		# segments longs redécoupés : le ruban suit les bosses au lieu de passer sous la colline
+		var dense: Array = []
+		for i in pts.size():
+			if i > 0:
+				var a: Vector2 = pts[i - 1]; var b: Vector2 = pts[i]
+				var n := int(a.distance_to(b) / 1.5)
+				for kk in range(1, n): dense.append(a.lerp(b, float(kk) / n))
+			dense.append(pts[i])
+		pts = dense
 		mi = MeshInstance3D.new(); add_child(mi)
 		var m := StandardMaterial3D.new()
 		m.albedo_texture = load("res://assets/village/T_UnevenBrick_BaseColor.png")

@@ -46,6 +46,7 @@ var BAY = null
 var POI_DEFS: Array = []
 var blank := false            # carte vierge (Valdrune) : collines, falaises et herbe ; le reste se pose avec le Mode Construction
 const BLANK_MAPS := [1]
+const BLANK_LAKES := {1: [[Vector2(-46, 8), 10.0]]}     # le relief garde ses lacs ; le reste se pose en décor
 var gates: Array = []          # passages vers les autres cartes {pos: Vector3, to, dir, arrive}
 const RIVER_W := 4.2
 func in_town(p: Vector3) -> bool: return town.town_dist(p.x, p.z) < 9.0 if town else Vector2(p.x, p.z).distance_to(village) < 32.0
@@ -63,7 +64,7 @@ func setup_map(id: int) -> void:
 	POI_DEFS = POI_DEFS.duplicate(true)
 	blank = id in BLANK_MAPS
 	if blank:
-		ROADS = []; RIVERS = []; LAKES = []; BAY = null; POI_DEFS = []
+		ROADS = []; RIVERS = []; LAKES = BLANK_LAKES.get(id, []).duplicate(true); BAY = null; POI_DEFS = []
 		MAP = MAP.duplicate(true); MAP.duelists = []; MAP.hidden = []
 	rng.seed = 2024 + id * 7
 	noise.seed = 11 + id * 101; noise.frequency = 0.02; noise.fractal_octaves = 3
@@ -390,6 +391,7 @@ func build(id := 1) -> void:
 	if blank:
 		_gates()
 		_cliffs()
+		_blank_forest()
 		_grass_carpet()
 		for path in mm_lists: _multi(path, mm_lists[path])
 		_build_cliffs()
@@ -420,6 +422,21 @@ func build(id := 1) -> void:
 	_cull(self)
 	_build_pass()
 	_index_grass()
+
+# forêts de la carte officielle (des centaines d'arbres : dessinés en masse, pas un objet chacun)
+func _blank_forest() -> void:
+	var f := "res://decor/forest_%d.json" % map_id
+	if not FileAccess.file_exists(f): return
+	var arr = JSON.parse_string(FileAccess.get_file_as_string(f))
+	if not arr is Array: return
+	for t in arr:
+		var p := Vector3(float(t[0]), 0, float(t[1]))
+		var nm := str(t[4])
+		# feuillus du pack d'origine (vert vif) ; les sapins passent par la version Quaternius
+		no_remap = not nm.begins_with("Tree_4")
+		_mm("res://assets/forest/%s_Color1.gltf" % nm, p, float(t[2]), float(t[3]))
+		no_remap = false
+		blocker(p, 0.45 * float(t[2]))
 
 # ——— l'herbe s'efface sous ce que Thomas pose (maisons, chemins, places) ———
 var grass_grid := {}
@@ -1858,8 +1875,9 @@ static func qremap(path: String, h: int) -> Array:
 	return [path, 1.0]
 static func qhash(p: Vector3) -> int: return abs(int(p.x * 7.13) * 73856093 ^ int(p.z * 5.31) * 19349663)
 
+var no_remap := false
 func _mm(path: String, p: Vector3, s: float, rot: float, col := Color(1, 1, 1)) -> void:
-	if col.a >= 0.99:
+	if col.a >= 0.99 and not no_remap:
 		var q := qremap(path, qhash(p)); path = q[0]; s *= float(q[1])
 	if "Tree" in path or "tree_" in path or "Rock" in path:
 		if _near_duel(p, 10.0): return

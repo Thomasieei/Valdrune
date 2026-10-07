@@ -232,14 +232,41 @@ func save() -> void:
 	if typeof(Game.S.get("build")) != TYPE_DICTIONARY: Game.S["build"] = {}
 	Game.S.build[map_key()] = _data(); Game.save()
 
-func load_map() -> void:
-	var saved = Game.S.get("build", {}).get(map_key(), null) if typeof(Game.S.get("build")) == TYPE_DICTIONARY else null
-	if saved is Array: _load_data(saved); return
-	# décor officiel livré avec le jeu (ce que Thomas a construit et envoyé)
+const OFFICIAL_V := {"1": 2}     # version du décor officiel livré avec le jeu
+func _official() -> Array:
 	var f := "res://decor/map_%s.json" % map_key()
 	if FileAccess.file_exists(f):
 		var d = JSON.parse_string(FileAccess.get_file_as_string(f))
-		if d is Array: _load_data(d)
+		if d is Array: return d
+	return []
+
+func load_map() -> void:
+	var k := map_key()
+	if typeof(Game.S.get("build")) != TYPE_DICTIONARY: Game.S["build"] = {}
+	if typeof(Game.S.get("decor_v")) != TYPE_DICTIONARY: Game.S["decor_v"] = {}
+	var ov: int = int(OFFICIAL_V.get(k, 0))
+	var saved = Game.S.build.get(k, null)
+	# nouvelle carte officielle : elle remplace le décor perso, qu'on garde de côté (bouton « Mon ancien décor »)
+	if saved is Array and int(Game.S.decor_v.get(k, 0)) < ov:
+		if not (saved as Array).is_empty():
+			if typeof(Game.S.get("build_backup")) != TYPE_DICTIONARY: Game.S["build_backup"] = {}
+			Game.S.build_backup[k] = saved
+		Game.S.build.erase(k); saved = null
+	Game.S.decor_v[k] = ov
+	if saved is Array: _load_data(saved); return
+	var off := _official()
+	if not off.is_empty(): _load_data(off)
+
+func restore_backup() -> void:
+	var b = Game.S.get("build_backup", {}).get(map_key(), null) if typeof(Game.S.get("build_backup")) == TYPE_DICTIONARY else null
+	if not b is Array: note("Pas d'ancien décor sur cette carte", Color("#a8b4bc")); return
+	_push_undo(); var cur := _data(); _load_data(b); Game.S.build_backup[map_key()] = cur; save()
+	note("Ancien décor remis (« Annuler » ou le même bouton pour revenir)", Color("#9be86a"))
+
+func load_official() -> void:
+	var off := _official()
+	if off.is_empty(): note("Pas de carte officielle ici", Color("#a8b4bc")); return
+	_push_undo(); _load_data(off); save(); note("Carte officielle remise · « Annuler » pour revenir", Color("#9be86a"))
 
 func _push_undo() -> void:
 	undo_stack.append(_data())
@@ -347,6 +374,8 @@ func _build_ui() -> void:
 	bar.add_child(_btn("Annuler", undo))
 	bar.add_child(_btn("Héros", func(): focus = main.player.global_position; focus.y = 0))
 	bar.add_child(_btn("Exporter", export_dialog, Color("#9fd4ff")))
+	bar.add_child(_btn("Décors…", _decor_menu, Color("#9fd4ff")))
+	for bb in bar.get_children(): (bb as Control).custom_minimum_size.x = 112
 	bar.add_child(_btn("Terminer", stop, Color("#ffd27a")))
 	# propriétés de l'objet choisi (à droite)
 	var pp := PanelContainer.new(); pp.add_theme_stylebox_override("panel", H.flat(Color(0.05, 0.07, 0.1, 0.85), 14, Color(0.95, 0.78, 0.45, 0.35), 1, Vector4(12, 8, 12, 8)))
@@ -827,3 +856,13 @@ func gen_build() -> void:
 		if not _spawn(it[0], Vector3(p2.x, 0, p2.y), float(it[2]), 1.0, 0.0, bool(it[3])).is_empty(): n += 1
 	save(); _refresh(); gen_close()
 	note("Village construit : %d objets · « Annuler » pour tout retirer, ou touche une pièce pour la modifier" % n, Color("#9be86a"))
+
+func _decor_menu() -> void:
+	for c in catalog.get_children(): c.queue_free()
+	catalog.visible = true
+	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 12); catalog.add_child(vb)
+	var tl := Label.new(); tl.text = "Décors de cette carte"; tl.add_theme_font_size_override("font_size", 24); tl.add_theme_color_override("font_color", GOLD); vb.add_child(tl)
+	vb.add_child(_btn("Remettre la carte officielle", func(): catalog.visible = false; load_official(), Color("#9be86a"), 420))
+	vb.add_child(_btn("Mon ancien décor (avant la mise à jour)", func(): catalog.visible = false; restore_backup(), GOLD, 420))
+	vb.add_child(_btn("Tout effacer (carte vierge)", func(): catalog.visible = false; _push_undo(); _load_data([]); save(); note("Carte vidée · « Annuler » pour revenir", Color("#ffb07a")), Color("#ff9a8a"), 420))
+	vb.add_child(_btn("Fermer", func(): catalog.visible = false, SOFT, 200))
