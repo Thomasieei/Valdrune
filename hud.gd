@@ -476,6 +476,7 @@ func _text(c: CanvasItem, t: String, pos: Vector2, size: int, col: Color, center
 
 func _pie(c: CanvasItem, ctr: Vector2, r: float, frac: float) -> void:
 	if frac <= 0.0: return
+	frac = min(frac, 0.995)
 	var pts := PackedVector2Array([ctr])
 	for k in 33:
 		var a := -PI / 2 + TAU * frac * float(k) / 32.0
@@ -494,6 +495,14 @@ func _draw_over() -> void:
 	for i in 4:
 		var sk: Dictionary = Player.skills()[i]; var ctr: Vector2 = buttons["s%d" % i].rect.get_center()
 		var unlocked: bool = Game.S.gear.epee >= sk.req
+		if sk.has("pet"):
+			var pp := Game.pet_in_slot(int(sk.pet))
+			var ptx: Texture2D = main.icons.get_icon("pet_" + str(pp.sp)) if not pp.is_empty() else null
+			icons["s%d" % i].texture = ptx if ptx else T(sk.icon)
+			if not pp.is_empty(): _pie_ring(c, ctr, 36, Game.pet_col(pp))
+			else: _text(c, "vide", ctr + Vector2(0, 30), 12, Color("#ffcf9a"))
+			var lt: float = main.pet_time(int(sk.pet))
+			if lt > 0.0: _text(c, "%d s" % ceili(lt), ctr + Vector2(0, -40), 15, Color("#7dff8a"), true, f_title)
 		icons["s%d" % i].material.set_shader_parameter("gray", 0.0 if unlocked else 1.0)
 		if not unlocked:
 			_texq(T("ic_lock"), Rect2(ctr - Vector2(14, 16), Vector2(28, 28)))
@@ -909,6 +918,7 @@ func show_armurier(tab := "") -> void:
 		body.add_child(_ink("Armes et armures — Tier %s" % ROMAN[t], 22, INK, true))
 		for ci in Game.CRAFTS.size():
 			var c: Dictionary = Game.CRAFTS[ci]
+			if c.has("classe") and not Game.class_owned(str(c.classe)): continue
 			var it := Game.craft_item(c, t)
 			var p := PanelContainer.new(); p.set_meta("keep", true)
 			var rs := flat(Color(0, 0, 0, 0), 0, Color("#bfa071"), 0, Vector4(4, 8, 4, 8)); rs.border_width_bottom = 1
@@ -1915,6 +1925,7 @@ func show_menu() -> void:
 		h2.add_child(big_button("Signaler un bug", true, func(): show_report()))
 		var h3 := HBoxContainer.new(); h3.add_theme_constant_override("separation", 10); body.add_child(h3)
 		h3.add_child(big_button("🔨 Mode Construction", true, func(): main.builder.start(), GOLD, true))
+		h3.add_child(big_button("🐺 Ménagerie (%d)" % Game.pets().size(), true, func(): show_pets(), GOLD, true))
 		var bdesc := rich("[color=#7a5a30]Pose maisons, chemins, PNJ, ressources et monstres où tu veux.[/color]", 15); body.add_child(bdesc)
 		body.move_child(h3, 0); body.move_child(bdesc, 1)
 		h2.add_child(big_button("Images/s : " + ("oui" if fps_lbl.visible else "non"), true, func(): fps_lbl.visible = not fps_lbl.visible; Game.S["show_fps"] = fps_lbl.visible; show_menu()))
@@ -2355,6 +2366,7 @@ const OFFERS := [
 	{"id": "m_taureau", "tab": "montures", "name": "Taureau cuirassé", "desc": "Monture T5 : +100 % vitesse, +12 % dégâts, +15 % vie", "icon": "mount_taureau", "col": "#ff6a5a", "cr": 2200},
 	{"id": "m_loup", "tab": "montures", "name": "Loup de guerre", "desc": "Monture T4 : rapide, +8 % de vie", "icon": "mount_loup", "col": "#4d78ff", "cr": 900},
 	{"id": "m_cheval", "tab": "montures", "name": "Cheval de selle", "desc": "Monture T2 : +75 % de vitesse", "icon": "mount_cheval", "col": "#62d24e", "cr": 150},
+	{"id": "classe_dompteur", "tab": "armes", "name": "Classe DOMPTEUR", "desc": "Bâton à distance + 3 familiers à invoquer au combat (40 s, recharge 1 min). Apprivoise loups, cerfs, taureaux… du commun au légendaire. Inclut un Loup peu commun.", "icon": "pet_loup_noir", "col": "#5fe07a", "cr": 800, "hot": true},
 	{"id": "lame", "tab": "armes", "name": "Lame de l'Aube +5", "desc": "Épée T5 enchantée au maximum · maîtrise niv 24", "icon": "arme_epee_5", "col": "#ffb02e", "cr": 2400, "hot": true},
 	{"id": "fendeuse", "tab": "armes", "name": "Fendeuse du Néant +5", "desc": "Hache T5 +5 · maîtrise niv 24", "icon": "arme_hache_5", "col": "#ff6a5a", "cr": 2400},
 	{"id": "sceptre", "tab": "armes", "name": "Sceptre Astral +5", "desc": "Bâton T5 +5 · maîtrise niv 24", "icon": "arme_baton_5", "col": "#c77dff", "cr": 2400},
@@ -2395,6 +2407,72 @@ func _offer_tex(o: Dictionary) -> Texture2D:
 	var t: Texture2D = main.icons.get_icon(k)
 	if t == null and ResourceLoader.exists("res://ui/%s.png" % k): t = T(k)
 	return t
+
+func _pie_ring(c: CanvasItem, ctr: Vector2, r: float, col: Color) -> void:
+	c.draw_arc(ctr, r, 0.0, TAU, 40, Color(col.r, col.g, col.b, 0.9), 3.0, true)
+
+# ——— Ménagerie : les familiers apprivoisés (classe Dompteur) ———
+var pet_pick := -1
+func show_pets() -> void:
+	open_panel("Ménagerie", func(body: VBoxContainer):
+		cur_panel = "pets"
+		var own := Game.class_owned("dompteur")
+		var head := "[b]Tes familiers : %d / %d[/b]   ·   ils surgissent au combat [color=#7dff8a]%d s[/color], puis se reposent [color=#ffd27a]1 min[/color]." % [Game.pets().size(), Game.PET_MAX, int(Game.PET_DUR)]
+		if not own: head += "\n[color=#ffb07a]Il faut la classe [b]Dompteur[/b] (Boutique › Armes) pour les invoquer. Tu peux déjà en apprivoiser en chassant les animaux.[/color]"
+		elif not Game.is_dompteur(): head += "\n[color=#ffb07a]Équipe ton [b]Bâton du Dompteur[/b] pour les invoquer.[/color]"
+		head += "\n[color=#a8b4bc]Où les trouver : renards, loups, cerfs et taureaux sauvages (chance à chaque chasse), donjons (familiers rares de givre, de feu, d'or), grands fauves de groupe (légendaires).[/color]"
+		body.add_child(rich(head, 16))
+		# les 3 emplacements
+		var slots := HBoxContainer.new(); slots.add_theme_constant_override("separation", 12); body.add_child(slots)
+		for i in 3:
+			var p := Game.pet_in_slot(i)
+			var pc := PanelContainer.new(); pc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			var col := Game.pet_col(p) if not p.is_empty() else Color("#6a6a6a")
+			pc.add_theme_stylebox_override("panel", flat(Color(0.06, 0.07, 0.1, 0.95).lerp(col, 0.12), 14, col, 2, Vector4(10, 8, 10, 8))); slots.add_child(pc)
+			var hv := HBoxContainer.new(); hv.add_theme_constant_override("separation", 8); pc.add_child(hv)
+			var tr := TextureRect.new(); tr.custom_minimum_size = Vector2(64, 64); tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			if not p.is_empty(): tr.texture = main.icons.get_icon("pet_" + str(p.sp))
+			hv.add_child(tr)
+			var t := "[b]Familier %s[/b]\n" % ["I", "II", "III"][i]
+			t += ("[color=%s]%s[/color]" % [Game.PET_RAR[int(p.r)].c, Game.pet_name(p)]) if not p.is_empty() else "[color=#8a9298]vide[/color]"
+			t += "\n[color=#a8b4bc]débloqué avec une arme T%d[/color]" % (i + 1)
+			hv.add_child(rich(t, 15))
+		# la collection
+		var list: Array = Game.pets().duplicate()
+		list.sort_custom(func(a, b): return int(a.r) > int(b.r) if int(a.r) != int(b.r) else str(a.sp) < str(b.sp))
+		if list.is_empty(): body.add_child(rich("[color=#8a9298]Aucun familier pour l'instant. Chasse les animaux sauvages autour de Valdrune !", 17))
+		for p in list:
+			var d: Dictionary = Game.PETS[p.sp]
+			var where := ""
+			for i in 3:
+				if str(Game.pet_eq()[i]) == str(p.id): where = "  ·  [color=#7dff8a]emplacement %d[/color]" % (i + 1)
+			var info := rich("[b][color=%s]%s[/color][/b] — %s%s\n[color=#ffd27a]%s[/color] : %s\n[color=#a8b4bc]puissance %d · vie ×%.1f[/color]" % [Game.PET_RAR[int(p.r)].c, Game.pet_name(p), Game.PET_RAR[int(p.r)].n, where, d.skill, d.desc, Game.pet_power(p), float(d.hp)], 15)
+			var btns := HBoxContainer.new(); btns.add_theme_constant_override("separation", 6)
+			for i in 3:
+				var pid: String = str(p.id); var ii := i
+				var b := big_button(["I", "II", "III"][i], true, func(): _pet_equip(ii, pid), GOLD, str(Game.pet_eq()[i]) == pid); b.custom_minimum_size = Vector2(58, 46); btns.add_child(b)
+			var pid2: String = str(p.id)
+			var fr := big_button("Libérer", true, func(): _pet_free(pid2), Color("#ff9a8a")); fr.custom_minimum_size = Vector2(110, 46); btns.add_child(fr)
+			row(body, _with_icon(main.icons.get_icon("pet_" + str(p.sp)), 0, info), btns)
+	, 1040)
+
+func _pet_equip(i: int, pid: String) -> void:
+	var eq: Array = Game.pet_eq()
+	for k in 3:
+		if str(eq[k]) == pid: eq[k] = ""
+	eq[i] = pid; Game.save(); Game.play("click"); show_pets()
+
+func _pet_free(pid: String) -> void:
+	var p := Game.pet_by_id(pid)
+	if p.is_empty(): return
+	Game.pets().erase(p)
+	var eq: Array = Game.pet_eq()
+	for k in 3:
+		if str(eq[k]) == pid: eq[k] = ""
+	gain_free_toast(p); Game.save(); show_pets()
+
+func gain_free_toast(p: Dictionary) -> void:
+	toast("%s retourne dans la nature" % Game.pet_name(p), Color("#c8d8c0"))
 
 func _offer_card(o: Dictionary, big: bool) -> PanelContainer:
 	var col := Color(o.col)

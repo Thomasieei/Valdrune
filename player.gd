@@ -55,6 +55,12 @@ const SKILL_SETS := {
 		{"name": "Drain de vie", "icon": "sk_beam_pink", "cd": 8.0, "req": 3, "fn": "life_drain", "desc": "Aspire la vie d'un ennemi et te soigne"},
 		{"name": "Météore", "icon": "sk_fire_ball_purple", "cd": 14.0, "req": 4, "fn": "meteor", "desc": "Un météore s'écrase sur la zone après un court délai"},
 	],
+	"dompteur": [
+		{"name": "Familier I", "icon": "sk_shells_purple", "cd": 60.0, "req": 1, "fn": "summon0", "desc": "Invoque ton 1er familier pendant 40 s", "pet": 0},
+		{"name": "Familier II", "icon": "sk_shells_purple", "cd": 60.0, "req": 2, "fn": "summon1", "desc": "Invoque ton 2e familier pendant 40 s", "pet": 1},
+		{"name": "Familier III", "icon": "sk_shells_purple", "cd": 60.0, "req": 3, "fn": "summon2", "desc": "Invoque ton 3e familier pendant 40 s", "pet": 2},
+		{"name": "Ronces", "icon": "sk_prismatic_knives_green", "cd": 9.0, "req": 1, "fn": "thorns", "desc": "Des ronces jaillissent sous l'ennemi : dégâts et ralentissement"},
+	],
 	"baton": [
 		{"name": "Boule de feu", "icon": "sk_fire_ball_red", "cd": 4.5, "req": 1, "fn": "fireball", "desc": "Projectile qui explose en zone"},
 		{"name": "Pic de glace", "icon": "sk_ice_strike_white", "cd": 6.0, "req": 2, "fn": "ice_strike", "desc": "Gèle une zone : dégâts et ennemis ralentis"},
@@ -470,6 +476,11 @@ func use_skill(i: int) -> void:
 	if Game.S.gear.epee < sk.req:
 		main.hud.toast("%s : débloquée avec une arme T%d (forge)" % [sk.name, sk.req], Color("#ffb07a")); Game.play("error"); return
 	if skill_cd[i] > 0.0: return
+	if sk.has("pet"):
+		# l'invocation d'un familier : recharge fixe d'une minute (rien ne la réduit)
+		if not main.summon_pet(int(sk.pet)): return
+		skill_cd[i] = Game.PET_CD
+		return
 	skill_cd[i] = sk.cd * max(0.4, 1.0 - Game.stats().cd - Game.wkind().cd)
 	call(sk.fn)
 
@@ -486,6 +497,20 @@ func rush() -> void:
 	play("Throw", 2.0, 0.04, true); Game.play("dodge", -1.0, 1.3)
 	Fx.slash(main, global_position + Vector3(0, 1.0, 0) + rush_dir * 2.5, yaw, Color(0.5, 0.9, 1.0), 2.6)
 	Fx.burst(main, global_position + Vector3(0, 0.6, 0), Color(0.5, 0.9, 1.0), 16, 3.0, 0.35, 0.5, 0.0)
+
+func thorns() -> void:
+	var dir := _ranged_dir(13.0); play("Use_Item", 2.2, 0.04, true); Game.play("craft", -4.0, 0.7)
+	var e = main._nearest_enemy(global_position, 13.0)
+	var c: Vector3 = e.global_position if e else global_position + dir * 6.0
+	c.y = main.world.height(c.x, c.z)
+	Fx.disc(main, c, 3.4, Color(0.35, 0.9, 0.35, 0.6), 0.6, false)
+	for k in 3:
+		get_tree().create_timer(0.15 + k * 0.45).timeout.connect(func():
+			Fx.burst(main, c + Vector3(0, 0.3, 0), Color(0.4, 0.95, 0.4), 16, 4.0, 0.35, 0.5, 2.0)
+			for en in main.enemies.duplicate():
+				if not en.dead and Vector2(en.global_position.x - c.x, en.global_position.z - c.z).length() < 3.4 + en.radius:
+					en.take_hit(sdmg() * 0.7, self, 0.4)
+					if en.has_method("slow"): en.slow(2.0))
 
 func fireball() -> void:
 	var dir := _aim(15.0); yaw = atan2(dir.x, dir.z); ch.root.rotation.y = yaw
@@ -797,7 +822,11 @@ class Shot extends Node3D:
 		main = m; owner_p = who; dir = d.normalized(); dmg = damage; kind = k; o = opts
 		global_position = p
 		var big: bool = o.get("big", false)
-		if kind == "orb":
+		if kind == "spirit":
+			var smat := StandardMaterial3D.new(); smat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; smat.albedo_color = Color(0.55, 1.0, 0.6)
+			var mi2 := MeshInstance3D.new(); var sm2 := SphereMesh.new(); sm2.radius = 0.2; sm2.height = 0.4; sm2.radial_segments = 8; sm2.rings = 5; mi2.mesh = sm2; mi2.material_override = smat; add_child(mi2)
+			var gl2 := Sprite3D.new(); gl2.texture = Fx.soft_tex(); gl2.billboard = BaseMaterial3D.BILLBOARD_ENABLED; gl2.pixel_size = 0.024; gl2.modulate = Color(0.4, 1.0, 0.5, 0.85); gl2.shaded = false; add_child(gl2)
+		elif kind == "orb":
 			if _orb_mat == null:
 				_orb_mat = StandardMaterial3D.new(); _orb_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; _orb_mat.albedo_color = Color(0.95, 0.55, 1.0)
 			var mi := MeshInstance3D.new(); var sm := SphereMesh.new(); sm.radius = 0.36 if big else 0.2; sm.height = sm.radius * 2.0; sm.radial_segments = 10; sm.rings = 6; mi.mesh = sm; mi.material_override = _orb_mat; add_child(mi)
@@ -815,7 +844,7 @@ class Shot extends Node3D:
 				var gc: Color = o.glow
 				var gl := Sprite3D.new(); gl.texture = Fx.soft_tex(); gl.billboard = BaseMaterial3D.BILLBOARD_ENABLED; gl.pixel_size = 0.03 if big else 0.018; gl.modulate = Color(gc.r, gc.g, gc.b, 0.85); gl.shaded = false; add_child(gl)
 	func _physics_process(dt: float) -> void:
-		var step: float = float(o.get("speed", 26.0 if kind != "orb" else 16.0)) * dt
+		var step: float = float(o.get("speed", 26.0 if not kind in ["orb", "spirit"] else 18.0)) * dt
 		global_position += dir * step; dist += step
 		if dist > float(o.get("range", 15.0)): _end(); return
 		# murs du donjon : le tir s'arrête
@@ -829,7 +858,10 @@ class Shot extends Node3D:
 				hit_list.append(e)
 				e.take_hit(dmg * randf_range(0.93, 1.07), owner_p, float(o.get("push", 1.2)))
 				if o.has("slow") and e.has_method("slow"): e.slow(float(o.slow))
-				Fx.burst(main, global_position, Color(1, 0.9, 0.7) if kind != "orb" else Color(0.9, 0.5, 1.0), 6, 3.0, 0.2, 0.3, 4.0)
+				var hc := Color(1, 0.9, 0.7)
+				if kind == "orb": hc = Color(0.9, 0.5, 1.0)
+				elif kind == "spirit": hc = Color(0.45, 1.0, 0.55)
+				Fx.burst(main, global_position, hc, 6, 3.0, 0.2, 0.3, 4.0)
 				Game.play("hit", -7.0, 1.3 if kind == "arrow" else 0.95)
 				if not o.get("pierce", false): queue_free(); return
 	func _end() -> void:

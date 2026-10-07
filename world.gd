@@ -392,6 +392,8 @@ func build(id := 1) -> void:
 		_gates()
 		_cliffs()
 		_blank_forest()
+		_blank_camps()
+		_monster_camps()
 		_grass_carpet()
 		for path in mm_lists: _multi(path, mm_lists[path])
 		_build_cliffs()
@@ -422,6 +424,16 @@ func build(id := 1) -> void:
 	_cull(self)
 	_build_pass()
 	_index_grass()
+
+# les camps du décor officiel sont connus du monde AVANT la faune : les meutes ne s'installent pas dessus
+func _blank_camps() -> void:
+	var f := "res://decor/map_%d.json" % map_id
+	if not FileAccess.file_exists(f): return
+	var arr = JSON.parse_string(FileAccess.get_file_as_string(f))
+	if not arr is Array: return
+	for o in arr:
+		if str(o[0]).begins_with("@camp") or str(o[0]).begins_with("@house") or str(o[0]).begins_with("@shop") or str(o[0]).begins_with("@field"):
+			house_spots.append([Vector2(float(o[1]), float(o[2])), 9.0 if str(o[0]).begins_with("@camp") else 5.0])
 
 # forêts de la carte officielle (des centaines d'arbres : dessinés en masse, pas un objet chacun)
 func _blank_forest() -> void:
@@ -2293,6 +2305,7 @@ func _monster_camps() -> void:
 	for reg in range(1, REGIONS.size()):
 		var R: Dictionary = REGIONS[reg]; var placed := 0; var tries := 0
 		var want := 9 if R.tier > 1 else 6
+		if blank: want = 0          # carte construite : les camps sont dans le décor officiel
 		while placed < want and tries < 1500:
 			tries += 1
 			var p := Vector3(rng.randf_range(-100, 100), 0, rng.randf_range(-100, 100))
@@ -2313,9 +2326,10 @@ func _monster_camps() -> void:
 		var ks2: Array = fauna.get(REGIONS[reg].get("style", "meadow"), ["stag"])
 		var n2 := 0
 		for tries in 600:
-			if n2 >= 3: break
+			if n2 >= (5 if blank else 3): break
 			var p := Vector3(rng.randf_range(-95, 95), 0, rng.randf_range(-95, 95))
 			if region_at(p.x, p.z) != reg or not _free_spot(p, 4.0) or slope(p.x, p.z) > 1.3: continue
+			if blank and Vector2(p.x, p.z).distance_to(village) < 50.0: continue
 			if spawns.any(func(sp): return sp.pos.distance_to(p) < 14.0): continue
 			_pen(Vector2(p.x, p.z), 9.0, ks2, rng, false); n2 += 1
 	# un chef de guerre par région : grand camp, escorte, gros butin
@@ -2324,7 +2338,7 @@ func _monster_camps() -> void:
 		for tries in 1500:
 			var p := Vector3(rng.randf_range(-95, 95), 0, rng.randf_range(-95, 95))
 			if region_at(p.x, p.z) != reg or not _free_spot(p, 5.0) or slope(p.x, p.z) > 1.2: continue
-			if Vector2(p.x, p.z).distance_to(village) < 55.0 or near_town(p, 30.0) or _near_duel(p, 24.0): continue
+			if Vector2(p.x, p.z).distance_to(village) < (62.0 if blank else 55.0) or near_town(p, 30.0) or _near_duel(p, 24.0): continue
 			if spawns.any(func(sp): return sp.pos.distance_to(p) < 20.0): continue
 			var ks: Array = KINDS_BY_T[R.tier]
 			var sp := {"pos": p, "tier": R.tier, "kinds": [ks[0]] + ks + [ks[ks.size() - 1]], "members": [], "dead_at": -999.0, "chief": true}
@@ -2344,11 +2358,11 @@ func _monster_camps() -> void:
 		4: [["loup", "loup", "loup"], ["taureau", "loup"]], 5: [["loup", "loup", "taureau"], ["taureau", "taureau"]]}
 	for reg in range(1, REGIONS.size()):
 		var R: Dictionary = REGIONS[reg]; var placed := 0; var tries := 0
-		while placed < 8 and tries < 1500:
+		while placed < (12 if blank else 8) and tries < 1500:
 			tries += 1
 			var p := Vector3(rng.randf_range(-100, 100), 0, rng.randf_range(-100, 100))
 			if region_at(p.x, p.z) != reg or not _free_spot(p, 3.0) or slope(p.x, p.z) > 1.6: continue
-			if Vector2(p.x, p.z).distance_to(village) < 40.0 or near_town(p, 18.0): continue
+			if Vector2(p.x, p.z).distance_to(village) < (55.0 if blank else 40.0) or near_town(p, 18.0): continue
 			if _near_duel(p, 20.0): continue
 			var ok := true
 			for sp in spawns:

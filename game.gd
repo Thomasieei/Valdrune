@@ -28,8 +28,62 @@ const WEAPON_KINDS := {
 	# armes à distance : on tire de loin (portée en mètres), avec de vrais projectiles
 	"arc": {"name": "Arc", "dmg": 0.8, "rate": 1.1, "skill": 1.1, "cd": 0.05, "range": 14.0, "proj": "arrow", "two": true, "desc": "Tir à 14 m · tire vite · recharge −5 %", "models": ["", "bow", "bow", "bow_withString", "bow_withString", "bow_withString"]},
 	"arbalete": {"name": "Arbalète", "dmg": 1.3, "rate": 0.68, "skill": 1.15, "cd": 0.0, "range": 12.0, "proj": "bolt", "desc": "Tir lourd à 12 m · carreaux qui transpercent", "models": ["", "crossbow_1handed", "crossbow_1handed", "crossbow_1handed", "crossbow_2handed", "crossbow_2handed"]},
+	"dompteur": {"name": "Bâton du Dompteur", "dmg": 0.85, "rate": 1.0, "skill": 1.0, "cd": 0.0, "range": 13.0, "proj": "spirit", "classe": true, "desc": "Esprits sauvages à 13 m · invoque 3 familiers au combat", "models": ["", "staff_A", "staff", "staff_B", "staff_B", "staff_B"]},
 	"grimoire": {"name": "Grimoire", "dmg": 0.75, "rate": 0.95, "skill": 1.5, "cd": 0.15, "range": 13.0, "proj": "orb", "desc": "Orbes magiques à 13 m · sorts +50 % · recharge −15 %", "models": ["", "spellbook_closed", "spellbook_closed", "spellbook_open", "spellbook_open", "spellbook_open"]},
 }
+# ——— Classe Dompteur : familiers (animaux apprivoisés) ———
+const PET_RAR := [
+	{"n": "Commun", "c": "#cfcfcf", "m": 1.0}, {"n": "Peu commun", "c": "#62d24e", "m": 1.3}, {"n": "Rare", "c": "#4d9bff", "m": 1.7},
+	{"n": "Épique", "c": "#c77dff", "m": 2.3}, {"n": "Légendaire", "c": "#ffb02e", "m": 3.2}]
+const PETS := {
+	"renard": {"name": "Renard", "model": "fox", "scale": 0.3, "hp": 0.7, "dmg": 1.1, "cd": 0.8, "speed": 7.5, "skill": "Morsures éclair", "sk": "frenzy", "skcd": 6.0, "desc": "Très rapide : 3 morsures d'affilée toutes les 6 s"},
+	"loup": {"name": "Loup", "model": "wolf", "scale": 0.42, "hp": 1.0, "dmg": 1.0, "cd": 1.0, "speed": 7.0, "skill": "Hurlement", "sk": "howl", "skcd": 10.0, "desc": "Hurle : +25 % de dégâts pour toi pendant 6 s"},
+	"cerf": {"name": "Cerf", "model": "stag", "scale": 0.5, "hp": 1.2, "dmg": 0.7, "cd": 1.4, "speed": 6.5, "skill": "Souffle des bois", "sk": "heal", "skcd": 5.0, "desc": "Soigne le héros (6 % de sa vie) toutes les 5 s"},
+	"taureau": {"name": "Taureau", "model": "bull", "scale": 0.46, "hp": 2.2, "dmg": 1.2, "cd": 1.6, "speed": 6.0, "skill": "Charge", "sk": "charge", "skcd": 8.0, "desc": "Fonce et renverse tout ; les monstres s'acharnent sur lui"},
+	"loup_givre": {"name": "Loup de givre", "model": "wolf", "scale": 0.46, "tint": Color(0.6, 0.85, 1.45), "hp": 1.1, "dmg": 1.15, "cd": 1.0, "speed": 7.0, "skill": "Souffle glacé", "sk": "frost", "skcd": 7.0, "desc": "Gèle une zone : dégâts et monstres ralentis", "rare": true},
+	"renard_feu": {"name": "Renard de feu", "model": "fox", "scale": 0.34, "tint": Color(1.7, 0.7, 0.35), "hp": 0.8, "dmg": 1.3, "cd": 0.8, "speed": 7.5, "skill": "Explosion de flammes", "sk": "fire", "skcd": 6.0, "desc": "Fait exploser les flammes autour de sa cible", "rare": true},
+	"cerf_or": {"name": "Cerf d'or", "model": "stag", "scale": 0.56, "tint": Color(1.45, 1.2, 0.5), "hp": 1.4, "dmg": 0.8, "cd": 1.3, "speed": 6.5, "skill": "Bénédiction", "sk": "bless", "skcd": 7.0, "desc": "Soigne beaucoup et pose un bouclier sur le héros", "rare": true},
+	"loup_noir": {"name": "Loup Noir Ancien", "model": "wolf", "scale": 0.6, "tint": Color(1.7, 1.35, 2.3), "hp": 1.6, "dmg": 1.5, "cd": 1.0, "speed": 7.0, "skill": "Meute fantôme", "sk": "pack", "skcd": 12.0, "desc": "Frappe tous les ennemis autour de lui à répétition", "boss": true},
+	"taureau_guerre": {"name": "Taureau de Guerre", "model": "bull", "scale": 0.6, "tint": Color(0.5, 0.15, 0.12), "hp": 3.0, "dmg": 1.5, "cd": 1.5, "speed": 6.0, "skill": "Séisme", "sk": "quake", "skcd": 10.0, "desc": "Frappe le sol : énorme zone qui repousse tout", "boss": true},
+}
+const PET_DUR := 40.0        # secondes de présence au combat
+const PET_CD := 60.0         # recharge de l'invocation
+const PET_MAX := 40
+const CLASS_PRICE := 800
+func is_dompteur() -> bool: return S.get("weapon_kind", "") == "dompteur"
+func class_owned(k: String) -> bool: return typeof(S.get("classes")) == TYPE_DICTIONARY and S.classes.has(k)
+func pets() -> Array:
+	if typeof(S.get("pets")) != TYPE_ARRAY: S["pets"] = []
+	return S.pets
+func pet_eq() -> Array:
+	if typeof(S.get("pet_eq")) != TYPE_ARRAY or S.pet_eq.size() != 3: S["pet_eq"] = ["", "", ""]
+	return S.pet_eq
+func pet_by_id(id: String) -> Dictionary:
+	for p in pets():
+		if str(p.id) == id: return p
+	return {}
+func pet_in_slot(i: int) -> Dictionary: return pet_by_id(str(pet_eq()[i])) if id_ok(str(pet_eq()[i])) else {}
+static func id_ok(id: String) -> bool: return id != ""
+static func pet_name(p: Dictionary) -> String: return "%s %s" % [PETS[p.sp].name, PET_RAR[int(p.r)].n.to_lower()]
+static func pet_col(p: Dictionary) -> Color: return Color(PET_RAR[int(p.r)].c)
+# puissance : rareté × espèce × l'arme du héros (le familier grandit avec toi)
+func pet_power(p: Dictionary) -> int: return int(100.0 * float(PET_RAR[int(p.r)].m) * float(PETS[p.sp].dmg) * (1.0 + 0.6 * (int(S.gear.get("epee", 1)) - 1)))
+static func roll_rarity(bonus := 0) -> int:
+	var x := randf()
+	var r := 0
+	if x < 0.01: r = 4
+	elif x < 0.06: r = 3
+	elif x < 0.18: r = 2
+	elif x < 0.45: r = 1
+	return clamp(r + bonus, 0, 4)
+func add_pet(sp: String, r: int) -> Dictionary:
+	if pets().size() >= PET_MAX: return {}
+	var p := {"id": "%d%d" % [Time.get_ticks_msec(), randi() % 1000], "sp": sp, "r": r}
+	pets().append(p)
+	for i in 3:
+		if str(pet_eq()[i]) == "": pet_eq()[i] = p.id; break
+	return p
+
 static func ranged(kind: String) -> bool: return WEAPON_KINDS.get(kind, {}).has("range")
 const SHIELD_MODEL := ["", "shield_A", "shield_round", "shield_square", "shield_C", "shield_spikes_color"]
 static func weapon_model(kind: String, t: int) -> String: return "" if t <= 0 else W % WEAPON_KINDS[kind].models[clamp(t, 1, 5)]
@@ -374,7 +428,9 @@ static func random_item(t: int, with_tools := false) -> Dictionary:
 	if with_tools: pool += ["hache", "pioche", "faucille"]
 	var slot: String = pool[randi() % pool.size()]
 	var it := {"slot": slot, "tier": t}
-	if slot == "epee": it["kind"] = WEAPON_KINDS.keys()[randi() % WEAPON_KINDS.size()]
+	if slot == "epee":
+		var wks: Array = WEAPON_KINDS.keys().filter(func(k): return not WEAPON_KINDS[k].get("classe", false))
+		it["kind"] = wks[randi() % wks.size()]
 	elif GEAR_KINDS.has(slot): it["kind"] = GEAR_KINDS[slot].keys()[randi() % GEAR_KINDS[slot].size()]
 	return roll_bx(it)
 
@@ -655,6 +711,7 @@ const CRAFTS := [
 	{"id": "arc", "slot": "epee", "kind": "arc", "cost": {"wood": 6, "fiber": 3}},
 	{"id": "arbalete", "slot": "epee", "kind": "arbalete", "cost": {"wood": 5, "ore": 4}},
 	{"id": "grimoire", "slot": "epee", "kind": "grimoire", "cost": {"fiber": 6, "wood": 3}},
+	{"id": "dompteur", "slot": "epee", "kind": "dompteur", "cost": {"wood": 5, "fiber": 4}, "classe": "dompteur"},
 	{"id": "bouclier", "slot": "bouclier", "kind": "", "cost": {"ore": 5, "wood": 4}},
 	{"id": "heaume", "slot": "casque", "kind": "heaume", "cost": {"ore": 4, "fiber": 2}},
 	{"id": "ours", "slot": "casque", "kind": "ours", "cost": {"fiber": 4, "wood": 2}},
@@ -881,7 +938,7 @@ func _notification(what: int) -> void:
 # ================= JOURNAL DE BORD (pour retrouver ce qui a fait planter le jeu) =================
 const FLAG_PATH := "user://en_cours.flag"
 const CRUMB_PATH := "user://journal.txt"
-const VERSION := "9.0"
+const VERSION := "9.1"
 var crumbs: Array = []
 var crashed_last := false
 var last_crumbs := ""

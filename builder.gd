@@ -232,7 +232,7 @@ func save() -> void:
 	if typeof(Game.S.get("build")) != TYPE_DICTIONARY: Game.S["build"] = {}
 	Game.S.build[map_key()] = _data(); Game.save()
 
-const OFFICIAL_V := {"1": 3}     # version du décor officiel livré avec le jeu
+const OFFICIAL_V := {"1": 4}     # version du décor officiel livré avec le jeu
 func _official() -> Array:
 	var f := "res://decor/map_%s.json" % map_key()
 	if FileAccess.file_exists(f):
@@ -485,6 +485,7 @@ func _cats() -> Array:
 	var b: Array = []; var pa: Array = []; var np: Array = []; var rs: Array = []; var mo: Array = []
 	for e in Prefab.BUILDINGS: b.append(e[0])
 	b.append("res://assets/halloween/lantern_standing.gltf")
+	for e in Prefab.DECORS: b.append(e[0])
 	for e in Prefab.PATHS: pa.append(e[0])
 	for k in NPC_DEFS: np.append("@npc:" + k)
 	for k in ["wood", "ore", "fiber"]:
@@ -502,7 +503,7 @@ func _icon_of(path: String) -> String:
 	if path.begins_with("@npc:"): return "it_quest"
 	if path.begins_with("@res:"): return "it_loot_common"
 	if path.begins_with("@camp:"): return "it_hunt"
-	for arr in [Prefab.BUILDINGS, Prefab.PATHS]:
+	for arr in [Prefab.BUILDINGS, Prefab.PATHS, Prefab.DECORS]:
 		for e in arr:
 			if e[0] == path: return e[2]
 	return "it_seal"

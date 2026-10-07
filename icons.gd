@@ -40,6 +40,7 @@ func setup(m: Node) -> void:
 	queue.push_front({"key": "potion", "kind": "model", "path": "res://assets/dungeon/bottle_C_green.gltf", "rot": Vector3(0, 0.4, 0)})
 	queue.append({"key": "char_Rogue", "kind": "char", "model": "Rogue"})
 	queue.append({"key": "char_Barbarian", "kind": "char", "model": "Barbarian"})
+	for pk in Game.PETS: queue.append({"key": "pet_" + pk, "kind": "animal", "model": Game.PETS[pk].model, "tint": Game.PETS[pk].get("tint", Color(1, 1, 1))})
 	for mk in Game.MOUNTS: queue.append({"key": "mount_" + mk, "kind": "animal", "model": Game.MOUNTS[mk].model, "tint": Game.MOUNTS[mk].get("tint", Color(1, 1, 1))})
 	for sl in ["casque", "cape"]:
 		for k in Game.GEAR_KINDS[sl]: queue.append({"key": "%s_%s" % [sl, k], "kind": "piece", "model": Game.GEAR_KINDS[sl][k].model, "parts": Game.GEAR_KINDS[sl][k].parts})

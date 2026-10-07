@@ -25,7 +25,7 @@ const PATHS := [
 ]
 
 static func title_of(path: String) -> String:
-	for arr in [BUILDINGS, PATHS]:
+	for arr in [BUILDINGS, PATHS, DECORS]:
 		for e in arr:
 			if e[0] == path: return e[1]
 	return path
@@ -42,6 +42,7 @@ static func make(path: String) -> Node3D:
 		"@stall": _stall(root)
 		"@bench": _bench(root)
 		"@well": _well(root)
+		"@decor": _decor(root, p[1] if p.size() > 1 else "tonneaux")
 		"@path": root = PathTile.new(); (root as PathTile).setup(p[1], float(p[2]))
 		"@plaza": root = PathTile.new(); (root as PathTile).setup("plaza", float(p[1]))
 		"@field": root = FieldTile.new(); (root as FieldTile).setup(p[1], float(p[2]) if p.size() > 2 else 10.0, float(p[3]) if p.size() > 3 else 8.0)
@@ -179,6 +180,31 @@ class RoadTile extends Node3D:
 				for k in [0, 2, 1, 0, 3, 2]:
 					st.set_normal(Vector3.UP); st.set_uv(q[k][1]); st.add_vertex(q[k][0])
 		mi.mesh = st.commit()
+
+# ——— petits décors devant les maisons (un seul objet à poser) ———
+const DECORS := [["@decor:tonneaux", "Tonneaux et caisse", "it_seal"], ["@decor:jardin", "Jardinet fleuri", "it_seal"], ["@decor:bois", "Tas de bois", "it_seal"],
+	["@decor:brouette", "Brouette et sacs", "it_seal"], ["@decor:etal", "Caisses de légumes", "it_seal"], ["@decor:seau", "Seau et sacs", "it_seal"]]
+static func _decor(root: Node3D, v: String) -> void:
+	var QN := "res://assets/qnature/"
+	match v:
+		"tonneaux":
+			_model(root, H + "barrel.gltf", Vector3(-0.35, 0, 0), 0.3, 3.9); _model(root, H + "barrel.gltf", Vector3(0.45, 0, 0.25), 1.2, 3.38)
+			_model(root, H + "crate_A_big.gltf", Vector3(0.1, 0, -0.6), 0.2, 3.38)
+		"jardin":
+			for k in 3:
+				_model(root, QN + ["Bush_Common_Flowers.gltf", "Flower_3_Group.gltf", "Flower_4_Group.gltf"][k], Vector3(-0.8 + k * 0.8, 0, 0), k * 1.3, 0.9)
+			_model(root, H + "fence_wood_straight.gltf", Vector3(0, 0, 0.75), 0.0, 2.86)
+		"bois":
+			_model(root, H + "resource_lumber.gltf", Vector3(0, 0, 0), 0.0, 3.38); _model(root, H + "sack.gltf", Vector3(0.9, 0, 0.3), 0.6, 3.12)
+		"brouette":
+			_model(root, H + "wheelbarrow.gltf", Vector3(0, 0, 0), 0.8, 3.38); _model(root, H + "sack.gltf", Vector3(-0.8, 0, -0.2), 0.0, 3.12); _model(root, H + "sack.gltf", Vector3(-0.6, 0, 0.5), 1.4, 2.86)
+		"etal":
+			_model(root, H + "crate_open.gltf", Vector3(-0.4, 0, 0), 0.0, 3.38); _model(root, H + "crate_long_A.gltf", Vector3(0.5, 0, 0.1), 1.57, 3.12)
+			var veg: Node3D = load("res://assets/food/cabbage.glb").instantiate(); veg.position = Vector3(-0.4, 0.45, 0); veg.scale = Vector3.ONE * 2.2; root.add_child(veg)
+			for mi in veg.find_children("*", "MeshInstance3D", true, false): (mi as MeshInstance3D).material_override = Crops.pix_mat()
+		_:
+			_model(root, H + "bucket_water.gltf", Vector3(0, 0, 0), 0.0, 3.38); _model(root, H + "sack.gltf", Vector3(0.7, 0, 0.1), 0.4, 3.12)
+	_info(root, Vector3(2.0, 1.2, 1.6))
 
 # ——— outils ———
 static var _mesh_cache := {}     # chemin → [[mesh, transform local, material]]

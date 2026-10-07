@@ -33,6 +33,7 @@ var cam_zoom := 1.0
 var icons: Icons
 var t_ah := 0.0
 var allies: Array = []
+var pets: Array = []          # familiers invoqués (Dompteur)
 var dungeon: Dungeon
 var tower: Tower
 var island: Island
@@ -684,7 +685,7 @@ func _gear_xp(tier: int, mult: float) -> void:
 
 func on_enemy_death(e: Enemy) -> void:
 	var killer = e.last_from
-	var mine: bool = killer == null or not is_instance_valid(killer) or killer == player or killer is Ally or killer is Player
+	var mine: bool = killer == null or not is_instance_valid(killer) or killer == player or killer is Ally or killer is Player or killer is Pet
 	var fam := "beast" if e.animal else ("man" if e.kind in ["bandit", "duel"] else "skel")
 	if not mine:
 		# tué par un autre joueur : le butin est à lui, pas à toi
@@ -706,6 +707,7 @@ func on_enemy_death(e: Enemy) -> void:
 		var nh: int = 1 + (1 if randf() < (kn - 1) * 0.25 else 0)
 		Game.S["hides"] = int(Game.S.get("hides", 0)) + nh
 		Fx.number(self, e.global_position + Vector3(0, 2.0, 0), "+%d peau%s" % [nh, "x" if nh > 1 else ""], Color("#d8b088"), false)
+	_pet_capture(e)
 	if e.elite or e.is_boss: _dq("elite")
 	if e.global_position.distance_to(player.global_position) < 30.0 and not player.dead: _weapon_xp(e.tier, 10.0 if e.is_boss else (3.0 if e.elite else 1.0))
 	if e.global_position.distance_to(player.global_position) < 30.0 and not player.dead: _gear_xp(e.tier, 10.0 if e.is_boss else (3.0 if e.elite else 1.0))
@@ -736,6 +738,46 @@ func on_enemy_death(e: Enemy) -> void:
 	for sp in world.spawns:
 		if e in sp.members and sp.members.all(func(m): return not is_instance_valid(m) or m.dead): sp.dead_at = Time.get_ticks_msec() / 1000.0
 	Game.save()
+
+# ================= FAMILIERS (classe Dompteur) =================
+const CAPTURE := {"renard": "renard", "loup": "loup", "cerf": "cerf", "taureau": "taureau"}
+func _pet_capture(e: Enemy) -> void:
+	if not CAPTURE.has(e.kind) or e.group_boss or e.def.get("chief", false): return
+	var ch: float = 0.06 if Game.is_dompteur() else 0.03
+	if e.elite: ch *= 3.0
+	if randf() < ch: _give_pet(CAPTURE[e.kind], Game.roll_rarity(1 if e.elite else 0), "Il te suit désormais")
+
+func _give_pet(sp: String, r: int, why: String) -> void:
+	var p := Game.add_pet(sp, r)
+	if p.is_empty(): hud.toast("Ménagerie pleine (%d) : libère un familier pour en apprivoiser d'autres" % Game.PET_MAX, Color("#ffb07a")); return
+	var extra := "" if Game.class_owned("dompteur") else "  ·  à invoquer avec la classe Dompteur (boutique)"
+	hud.celebrate("FAMILIER APPRIVOISÉ : %s" % Game.PETS[sp].name.to_upper(), "%s · %s%s" % [Game.PET_RAR[r].n, why, extra], "it_hunt")
+	Game.play("level"); Game.save()
+
+func summon_pet(i: int) -> bool:
+	if not Game.is_dompteur(): return false
+	if in_instance() and island: return false
+	var p := Game.pet_in_slot(i)
+	if p.is_empty():
+		hud.toast("Aucun familier dans l'emplacement %d : choisis-en un dans la Ménagerie" % (i + 1), Color("#ffb07a")); hud.show_pets(); return false
+	for q in pets:
+		if is_instance_valid(q) and not q.dead and q.slot == i: return false
+	var pt := Pet.new(); add_child(pt)
+	pt.setup(self, p, i)
+	var a := player.yaw + PI * 0.5 + (i - 1) * 0.9
+	var pos := player.global_position + Vector3(sin(a), 0, cos(a)) * 2.0
+	pt.global_position = Vector3(pos.x, world.ground_y(pos.x, pos.z), pos.z)
+	pets.append(pt)
+	Fx.burst(self, pt.global_position + Vector3(0, 0.8, 0), Game.pet_col(p), 30, 5.0, 0.45, 0.8, -1.0)
+	Fx.disc(self, pt.global_position, 2.2, Color(0.5, 1.0, 0.6, 0.5), 0.5, false)
+	Game.play("roar", -6.0, 1.3)
+	hud.toast("%s surgit ! (%d s)" % [Game.pet_name(p), int(Game.PET_DUR)], Game.pet_col(p))
+	return true
+
+func pet_time(i: int) -> float:
+	for q in pets:
+		if is_instance_valid(q) and not q.dead and q.slot == i: return q.life
+	return 0.0
 
 func on_boss_aggro(b: Enemy) -> void:
 	boss_ref = b
@@ -863,6 +905,7 @@ func ah_refresh_stock(force := false) -> void:
 	# chaque type d'arme et d'armure est toujours disponible (à ton tier et au suivant) : on trouve ce qu'on cherche
 	for t3 in [clamp(lvl, 1, 5), clamp(lvl + 1, 1, 5)]:
 		for wk in Game.WEAPON_KINDS:
+			if Game.WEAPON_KINDS[wk].get("classe", false) and not Game.class_owned(wk): continue
 			var wi := Game.roll_bx({"slot": "epee", "tier": t3, "kind": wk}); wi["price"] = int(Game.item_price(wi) * randf_range(0.95, 1.3))
 			if randf() < 0.5: wi["seller"] = Bot.NAMES[randi() % Bot.NAMES.size()]
 			ah.stock.append(wi)
@@ -2018,6 +2061,10 @@ func open_dungeon_chest() -> void:
 	Fx.burst(self, dungeon.chest_pos + Vector3(0, 1.0, 0), Color("#ffd24a"), 40, 7.0, 0.4, 0.9)
 	var loot := Game.roll_loot("dungeon", t, "man")
 	if randf() < 0.3: loot.append({"item": Game.random_artefact(t)})
+	# les donjons cachent des familiers rares (givre, feu, or)
+	if randf() < (0.4 if Game.is_dompteur() else 0.25):
+		var dsp: String = ["loup_givre", "renard_feu", "cerf_or", "loup", "renard", "cerf", "taureau"][randi() % 7]
+		get_tree().create_timer(1.2).timeout.connect(func(): _give_pet(dsp, Game.roll_rarity(1 if dsp in ["loup", "renard", "cerf", "taureau"] else 0), "Trouvé au fond du donjon"))
 	hud.show_loot({"title": "Trésor du donjon T%d" % t, "rarity": 2, "loot": loot, "pos": dungeon.chest_pos, "opened": false})
 	Game.save()
 
@@ -2037,6 +2084,10 @@ func _spawn_world_boss() -> void:
 
 func _group_boss_down(e: Enemy) -> void:
 	Game.S.stats.boss += 1
+	var bsp := {"alpha": "loup_noir", "taureau_guerre": "taureau_guerre", "roi_cerf": "cerf_or"}
+	if bsp.has(e.kind) and randf() < 0.35:
+		var bk: String = bsp[e.kind]
+		get_tree().create_timer(1.5).timeout.connect(func(): _give_pet(bk, max(3, Game.roll_rarity(2)), "Le grand fauve se soumet à toi"))
 	var t := e.tier
 	var loot := Game.roll_loot("group", t, "beast")
 	if randf() < 0.08: loot.append({"item": Game.random_mount(5)})
@@ -2327,6 +2378,16 @@ func _shop_effect(id: String) -> String:
 				Game.add_time("premium_until", (30 if id == "premium30" else 7) * 86400); msg = "Premium actif : %s" % Game.dur_txt(Game.premium_left())
 			"boost1", "boost24":
 				Game.add_time("boost_until", 3600 if id == "boost1" else 86400); msg = "Boost XP ×2 : %s" % Game.dur_txt(Game.boost_left())
+			"classe_dompteur":
+				if Game.class_owned("dompteur"): return ""
+				if typeof(Game.S.get("classes")) != TYPE_DICTIONARY: Game.S["classes"] = {}
+				var it := {"slot": "epee", "tier": 1, "kind": "dompteur", "nm": "Bâton du Dompteur"}
+				if not Game.add_item(it): hud.toast("Sac plein : fais une place pour ton bâton", Color("#ff9a8a")); return ""
+				Game.S.classes["dompteur"] = true
+				Game.equip(Game.S.items.size() - 1)
+				if Game.pets().is_empty(): Game.add_pet("loup", 1)
+				msg = "Classe DOMPTEUR débloquée : bâton équipé + un Loup peu commun pour commencer"
+				player.level_glow(Color(0.4, 1.0, 0.5))
 			"potions": Game.S.potions += 25; msg = "+25 potions"
 			"auto":
 				Game.S["auto_owned"] = true; msg = "Écuyer automatique : touche AUTO pour lancer la chasse"

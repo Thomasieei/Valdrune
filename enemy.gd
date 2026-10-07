@@ -277,6 +277,10 @@ func _pick_target() -> void:
 			if not is_instance_valid(a) or a.dead: continue
 			var d: float = global_position.distance_to(a.global_position) - 1.5   # léger biais vers le héros
 			if d < bd: bd = d; best = a
+		for pt in main.pets:
+			if not is_instance_valid(pt) or pt.dead: continue
+			var dp: float = global_position.distance_to(pt.global_position) - (4.0 if pt.sp in ["taureau", "taureau_guerre"] else 1.0)
+			if dp < bd: bd = dp; best = pt
 		for b in main.bots:
 			if not is_instance_valid(b) or b.dead or not b.visible: continue
 			var d2: float = global_position.distance_to(b.global_position) - 1.0
@@ -410,7 +414,7 @@ func _strike(T) -> void:
 	var dmg_v: float = Game.mob_dmg(tier) * def.dmg
 	# tous ceux qui sont dans le cercle prennent le coup
 	var victims: Array = [main.player]
-	if duel_info.is_empty(): victims += main.allies + main.bots
+	if duel_info.is_empty(): victims += main.allies + main.bots + main.pets
 	for v in victims:
 		if not is_instance_valid(v) or v.dead: continue
 		var d: float = Vector2(v.global_position.x - tele_pos.x, v.global_position.z - tele_pos.z).length()

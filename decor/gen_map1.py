@@ -58,9 +58,21 @@ def house_ok(x,z,rot,w=6.4,dd=8.4,margin=0.8):
         hs.append(hgt(wx,wz))
     if max(hs)-min(hs)>2.4: return False
     return free(x,z,max(w,dd)/2-0.4)
+DECO=['tonneaux','jardin','bois','brouette','etal','seau']
+def porch(x,z,rot,hw):
+    ca,sa=math.cos(rot),math.sin(rot)
+    picks=random.sample(DECO,2)
+    for side,v in zip((-1,1),picks):
+        if random.random()<0.25: continue
+        u=side*(hw/2-0.9); vv=4.6
+        wx=x+u*ca+vv*sa; wz=z-u*sa+vv*ca
+        if walk(wx,wz) and road_dist(wx,wz)>0.1:
+            put('@decor:'+v,wx,wz,rot+random.uniform(-0.3,0.3),False)
 def building(path,x,z,rot,w=6.4,dd=8.4,force=False):
     if not force and not house_ok(x,z,rot,w,dd): return False
-    put(path,x,z,rot,True); occ.append((x,z,max(w,dd)/2-0.2)); return True
+    put(path,x,z,rot,True); occ.append((x,z,max(w,dd)/2-0.2))
+    if path.startswith('@house'): porch(x,z,rot,float(path.split(':')[1]))
+    return True
 def front(x,z,rot,dist): return (x+math.sin(rot)*dist, z+math.cos(rot)*dist)
 def npc(key,x,z,rot):
     put('@npc:'+key,x,z,rot,False); occ.append((x,z,0.8))
