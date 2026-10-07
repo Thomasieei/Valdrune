@@ -22,7 +22,7 @@ var sl_h: HSlider
 var props_box: Control
 var solid_btn: Button
 var catalog: Control
-var cat_id := "arbres"
+var cat_id := "batiments"
 var ring: MeshInstance3D
 var touches := {}
 var drag_obj := false
@@ -78,6 +78,8 @@ static func make(m: Node, path: String) -> Node3D:
 	return n
 
 func _aabb(path: String, n: Node3D) -> AABB:
+	if n.has_meta("aabb"): return n.get_meta("aabb")
+	if path.begins_with("@"): return AABB(Vector3(-0.8, 0, -0.8), Vector3(1.6, 2.2, 1.6))
 	if _sizes.has(path): return _sizes[path]
 	var bb := AABB(); var first := true
 	for mi in n.find_children("*", "MeshInstance3D", true, false):
@@ -89,22 +91,85 @@ func _aabb(path: String, n: Node3D) -> AABB:
 	return bb
 
 func _spawn(path: String, pos: Vector3, rot: float, sc: float, yoff: float, solid: bool) -> Dictionary:
-	if not ResourceLoader.exists(path): return {}
-	var n := make(main, path)
+	var n: Node3D
+	if path.begins_with("@npc:"): n = _make_npc(path, pos, rot)
+	elif path.begins_with("@res:") or path.begins_with("@camp:"): n = Node3D.new()
+	elif path.begins_with("@"): n = Prefab.make(path)
+	else:
+		if not ResourceLoader.exists(path): return {}
+		n = make(main, path)
 	var base_sc: float = n.scale.x
-	main.world.add_child(n)
+	if not n.is_inside_tree(): main.world.add_child(n)
 	var o := {"path": path, "pos": pos, "rot": rot, "sc": sc, "yoff": yoff, "solid": solid, "node": n, "body": null, "base": base_sc}
 	objs.append(o)
 	_apply(o)
 	return o
 
+# ——— PNJ, ressources et camps de monstres posés à la main ———
+const NPC_DEFS := {
+	"quest": ["L'Ancien · quêtes", "Mage", "Aldric"], "shop": ["Marchande", "Rogue", "Mara"], "forge": ["Armurier · forge", "Barbarian", "Brokk"],
+	"tools:hache": ["Haches · bûcheron", "Barbarian", "Bjorn"], "tools:pioche": ["Pioches · mineur", "Knight", "Gorm"], "tools:faucille": ["Faucilles · herboriste", "Ranger", "Sylve"],
+	"auction": ["Hôtel des ventes", "Rogue", "Corvin"], "travel": ["Passeur · voyages rapides", "Ranger", "Fenn"], "mercs": ["Capitaine des mercenaires", "Knight", "Rhéa"],
+	"tannery": ["Tanneur", "Barbarian", "Garrick"], "sawmill": ["Scieur de long", "Ranger", "Aubin"], "guard": ["Garde de la ville", "Knight", "Roland"], "talk": ["Villageois", "Rogue", "Odette"],
+	"enchant": ["Enchanteresse", "Mage", "Ysaline"],
+}
+const NPC_IDS := {"quest": "aldric", "shop": "mara", "enchant": "ysaline"}
+var _npc_n := 0
+func _make_npc(path: String, pos: Vector3, rot: float) -> Node3D:
+	var key := path.substr(5)
+	var d: Array = NPC_DEFS.get(key, NPC_DEFS.talk)
+	var act := key.split(":")[0]
+	_npc_n += 1
+	var data := {"id": NPC_IDS[act] if NPC_IDS.has(act) else "ed_%s_%d" % [key.replace(":", "_"), _npc_n], "model": d[1], "name": d[2], "role": d[0], "pos": pos, "act": act, "yaw": rot}
+	if act == "tools": data["tool"] = key.split(":")[1]
+	var n := Npc.new(); main.world.add_child(n); n.setup(main, data); main.npcs.append(n)
+	return n
+
+func _rebuild_special(o: Dictionary) -> void:
+	var holder: Node3D = o.node
+	for c in holder.get_children(): c.queue_free()
+	if o.has("nd"): main.world.nodes.erase(o.nd); o.erase("nd")
+	if o.has("sp"):
+		for e in o.sp.members:
+			if is_instance_valid(e): main.enemies.erase(e); e.queue_free()
+		main.world.spawns.erase(o.sp); o.erase("sp")
+	var parts: PackedStringArray = str(o.path).split(":")
+	var p: Vector3 = o.pos
+	if parts[0] == "@res":
+		var nd: Dictionary = main.world._add_node(parts[1], int(parts[2]), Vector3(p.x, 0, p.z), holder)
+		o["nd"] = nd
+	else:
+		var t: int = clamp(int(parts[1]), 1, 5)
+		var sp := {"pos": Vector3(p.x, 0, p.z), "tier": t, "kinds": World.KINDS_BY_T[t], "members": [], "dead_at": -999.0}
+		main.world.spawns.append(sp); o["sp"] = sp
+		var fire := Prefab.make("@bench"); holder.add_child(fire); fire.global_position = Vector3(p.x + 2.0, main.world.ground_y(p.x + 2.0, p.z), p.z)
+		var lb := Label3D.new(); lb.text = "Camp T%d" % t; lb.font_size = 40; lb.modulate = Color("#ff7a68"); lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED; lb.pixel_size = 0.008
+		holder.add_child(lb); lb.global_position = Vector3(p.x, main.world.ground_y(p.x, p.z) + 2.5, p.z); lb.visible = active
+		holder.set_meta("label", lb)
+
 func _apply(o: Dictionary) -> void:
 	var n: Node3D = o.node
 	var p: Vector3 = o.pos
 	p.y = main.world.ground_y(p.x, p.z) + float(o.yoff)
-	n.position = p; n.rotation = Vector3(0, o.rot, 0); n.scale = Vector3.ONE * float(o.sc) * float(o.base)
+	var path: String = o.path
 	if o.body and is_instance_valid(o.body): (o.body as Node).queue_free()
 	o.body = null
+	if path.begins_with("@npc:"):
+		n.position = p; n.set("home", p); n.set("yaw", float(o.rot)); return
+	if path.begins_with("@res:") or path.begins_with("@camp:"):
+		n.position = Vector3.ZERO; _rebuild_special(o); return
+	n.position = p; n.rotation = Vector3(0, o.rot, 0); n.scale = Vector3.ONE * float(o.sc) * float(o.base)
+	if n.has_method("conform"): n.conform(main.world)
+	if o.solid and n.has_meta("box"):
+		var bx: Vector3 = n.get_meta("box") * float(o.sc)
+		var bb2 := StaticBody3D.new(); var cs2 := CollisionShape3D.new(); var sh2 := BoxShape3D.new(); sh2.size = Vector3(bx.x, max(2.0, bx.y), bx.z)
+		cs2.shape = sh2; cs2.position.y = sh2.size.y * 0.5; bb2.add_child(cs2); bb2.position = p; bb2.rotation.y = o.rot; main.world.add_child(bb2); o.body = bb2
+		return
+	if o.solid and n.has_meta("radius"):
+		var bb3 := StaticBody3D.new(); var cs3 := CollisionShape3D.new(); var cy3 := CylinderShape3D.new(); cy3.radius = float(n.get_meta("radius")) * float(o.sc); cy3.height = 3.0
+		cs3.shape = cy3; cs3.position.y = 1.5; bb3.add_child(cs3); bb3.position = p; main.world.add_child(bb3); o.body = bb3
+		return
+	if n.has_meta("flat"): return
 	if o.solid:
 		var bb := _aabb(o.path, n)
 		var k: float = float(o.sc) * float(o.base)
@@ -116,6 +181,12 @@ func _apply(o: Dictionary) -> void:
 
 func _remove(i: int) -> void:
 	var o: Dictionary = objs[i]
+	if str(o.path).begins_with("@npc:"): main.npcs.erase(o.node)
+	if o.has("nd"): main.world.nodes.erase(o.nd)
+	if o.has("sp"):
+		for e in o.sp.members:
+			if is_instance_valid(e): main.enemies.erase(e); e.queue_free()
+		main.world.spawns.erase(o.sp)
 	if is_instance_valid(o.node): (o.node as Node).queue_free()
 	if o.body and is_instance_valid(o.body): (o.body as Node).queue_free()
 	objs.remove_at(i)
@@ -124,16 +195,30 @@ func _remove(i: int) -> void:
 func _data() -> Array:
 	var out := []
 	for o in objs:
-		out.append([str(o.path).trim_prefix("res://assets/"), snappedf(o.pos.x, 0.01), snappedf(o.pos.z, 0.01), snappedf(o.rot, 0.01), snappedf(o.sc, 0.01), snappedf(o.yoff, 0.01), 1 if o.solid else 0])
+		out.append([str(o.path) if str(o.path).begins_with("@") else str(o.path).trim_prefix("res://assets/"), snappedf(o.pos.x, 0.01), snappedf(o.pos.z, 0.01), snappedf(o.rot, 0.01), snappedf(o.sc, 0.01), snappedf(o.yoff, 0.01), 1 if o.solid else 0])
 	return out
 
 func _load_data(arr: Array) -> void:
 	for i in range(objs.size() - 1, -1, -1): _remove(i)
 	for e in arr:
 		if typeof(e) != TYPE_ARRAY or e.size() < 7: continue
-		_spawn("res://assets/" + str(e[0]), Vector3(float(e[1]), 0, float(e[2])), float(e[3]), float(e[4]), float(e[5]), int(e[6]) == 1)
+		var pth := str(e[0])
+		_spawn(pth if pth.begins_with("@") else "res://assets/" + pth, Vector3(float(e[1]), 0, float(e[2])), float(e[3]), float(e[4]), float(e[5]), int(e[6]) == 1)
+	_grass_update()
+
+func _grass_update() -> void:
+	var shapes: Array = []
+	for o in objs:
+		var pth := str(o.path)
+		if not pth.begins_with("@") or pth.begins_with("@npc") or pth.begins_with("@res") or pth.begins_with("@camp"): continue
+		var n: Node3D = o.node
+		if not is_instance_valid(n) or not n.has_meta("aabb"): continue
+		var ab: AABB = n.get_meta("aabb"); var k: float = float(o.sc) * float(o.base)
+		shapes.append({"c": Vector2(o.pos.x, o.pos.z) + Vector2(ab.position.x + ab.size.x * 0.5, ab.position.z + ab.size.z * 0.5).rotated(-float(o.rot)) * k, "half": Vector2(ab.size.x, ab.size.z) * 0.5 * k, "rot": float(o.rot), "round": pth.begins_with("@plaza") or n.has_meta("radius")})
+	main.world.grass_mask(shapes)
 
 func save() -> void:
+	_grass_update()
 	if typeof(Game.S.get("build")) != TYPE_DICTIONARY: Game.S["build"] = {}
 	Game.S.build[map_key()] = _data(); Game.save()
 
@@ -294,7 +379,8 @@ func del() -> void:
 func add(path: String) -> void:
 	_push_undo()
 	var p := focus
-	var o := _spawn(path, p, 0.0, 1.0, 0.0, not (path.contains("Grass") or path.contains("/food/") or path.contains("Floor") or path.contains("Bush_1")))
+	var solid := not (path.contains("Grass") or path.contains("/food/") or path.contains("Floor") or path.contains("Bush_1") or path.begins_with("@path") or path.begins_with("@plaza") or path.begins_with("@npc") or path.begins_with("@res") or path.begins_with("@camp"))
+	var o := _spawn(path, p, 0.0, 1.0, 0.0, solid)
 	if not o.is_empty(): select(objs.size() - 1); save()
 
 # ——— catalogue ———
@@ -307,7 +393,7 @@ func show_catalog() -> void:
 	top.add_child(_btn("✕", func(): catalog.visible = false, SOFT, 60))
 	var tabs := HFlowContainer.new(); tabs.add_theme_constant_override("h_separation", 6); tabs.add_theme_constant_override("v_separation", 6); vb.add_child(tabs)
 	var cur: Array = []
-	for c in Catalog.CATS:
+	for c in _cats():
 		var b := _btn(c[1], func(): cat_id = c[0]; show_catalog(), Color("#20180a") if c[0] == cat_id else SOFT, 0)
 		b.custom_minimum_size = Vector2(0, 42)
 		if c[0] == cat_id:
@@ -318,6 +404,20 @@ func show_catalog() -> void:
 	var g := GridContainer.new(); g.columns = 8; g.add_theme_constant_override("h_separation", 8); g.add_theme_constant_override("v_separation", 8); sc.add_child(g)
 	var need: Array = []
 	for path in cur:
+		if str(path).begins_with("@camp"):
+			var tb := Button.new(); tb.custom_minimum_size = Vector2(124, 124); tb.focus_mode = Control.FOCUS_NONE
+			tb.add_theme_stylebox_override("normal", main.hud.flat(Color("#3a2c1c"), 12, Color("#c79a4a"), 2, Vector4(4, 4, 4, 4)))
+			var it := TextureRect.new(); it.texture = main.hud.T(_icon_of(path)); it.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; it.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			it.position = Vector2(32, 8); it.size = Vector2(60, 60); it.mouse_filter = Control.MOUSE_FILTER_IGNORE; tb.add_child(it)
+			var tl2 := Label.new(); tl2.text = _title_of(path); tl2.add_theme_font_size_override("font_size", 13); tl2.add_theme_color_override("font_color", SOFT)
+			tl2.position = Vector2(4, 70); tl2.size = Vector2(116, 50); tl2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; tl2.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; tl2.mouse_filter = Control.MOUSE_FILTER_IGNORE; tb.add_child(tl2)
+			tb.mouse_filter = Control.MOUSE_FILTER_PASS
+			tb.button_down.connect(func(): cat_drag = false)
+			tb.pressed.connect(func():
+				if cat_drag: return
+				catalog.visible = false; add(path))
+			g.add_child(tb)
+			continue
 		var b := Button.new(); b.custom_minimum_size = Vector2(124, 124); b.focus_mode = Control.FOCUS_NONE
 		b.add_theme_stylebox_override("normal", main.hud.flat(Color("#2c2620"), 12, Color("#c79a4a"), 2, Vector4(4, 4, 4, 4)))
 		var key := "cat:" + str(path)
@@ -325,7 +425,7 @@ func show_catalog() -> void:
 		if tx == null: need.append(path)
 		var tr := TextureRect.new(); tr.texture = tx; tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		tr.position = Vector2(6, 4); tr.size = Vector2(112, 92); tr.mouse_filter = Control.MOUSE_FILTER_IGNORE; b.add_child(tr)
-		var l := Label.new(); l.text = str(path).get_file().get_basename().replace("_", " ").replace("Color1", "").left(18); l.add_theme_font_size_override("font_size", 11)
+		var l := Label.new(); l.text = _title_of(path) if str(path).begins_with("@") else str(path).get_file().get_basename().replace("_", " ").replace("Color1", "").left(18); l.add_theme_font_size_override("font_size", 12 if str(path).begins_with("@") else 11)
 		l.add_theme_color_override("font_color", SOFT); l.position = Vector2(4, 100); l.size = Vector2(116, 20); l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; l.clip_text = true; l.mouse_filter = Control.MOUSE_FILTER_IGNORE; b.add_child(l)
 		b.mouse_filter = Control.MOUSE_FILTER_PASS
 		b.button_down.connect(func(): cat_drag = false)
@@ -334,6 +434,32 @@ func show_catalog() -> void:
 			catalog.visible = false; add(path))
 		g.add_child(b)
 	if not need.is_empty(): main.icons.request_build(need, func(): if catalog.visible: show_catalog())
+
+# catégories : bâtiments tout faits, chemins, PNJ, ressources, monstres, puis les pièces détachées
+func _cats() -> Array:
+	var b: Array = []; var pa: Array = []; var np: Array = []; var rs: Array = []; var mo: Array = []
+	for e in Prefab.BUILDINGS: b.append(e[0])
+	b.append("res://assets/halloween/lantern_standing.gltf")
+	for e in Prefab.PATHS: pa.append(e[0])
+	for k in NPC_DEFS: np.append("@npc:" + k)
+	for k in ["wood", "ore", "fiber"]:
+		for t in range(1, 6): rs.append("@res:%s:%d" % [k, t])
+	for t in range(1, 6): mo.append("@camp:%d" % t)
+	return [["batiments", "Bâtiments", b], ["chemins", "Chemins", pa], ["pnj", "PNJ", np], ["ressources", "Ressources", rs], ["monstres", "Monstres", mo]] + Catalog.CATS
+func _title_of(path: String) -> String:
+	if path.begins_with("@npc:"): return str(NPC_DEFS.get(path.substr(5), ["PNJ"])[0])
+	if path.begins_with("@res:"):
+		var p := path.split(":"); return "%s T%s" % [{"wood": "Arbre", "ore": "Minerai", "fiber": "Fibre"}[p[1]], p[2]]
+	if path.begins_with("@camp:"): return "Camp de monstres T" + path.substr(6)
+	return Prefab.title_of(path)
+func _icon_of(path: String) -> String:
+	if path.begins_with("@npc:"): return "it_quest"
+	if path.begins_with("@res:"): return "it_loot_common"
+	if path.begins_with("@camp:"): return "it_hunt"
+	for arr in [Prefab.BUILDINGS, Prefab.PATHS]:
+		for e in arr:
+			if e[0] == path: return e[2]
+	return "it_seal"
 
 # ——— export ———
 func export_dialog() -> void:

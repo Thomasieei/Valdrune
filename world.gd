@@ -44,6 +44,8 @@ var RIVERS: Array = []
 var LAKES: Array = []
 var BAY = null
 var POI_DEFS: Array = []
+var blank := false            # carte vierge (Valdrune) : collines, falaises et herbe ; le reste se pose avec le Mode Construction
+const BLANK_MAPS := [1]
 var gates: Array = []          # passages vers les autres cartes {pos: Vector3, to, dir, arrive}
 const RIVER_W := 4.2
 func in_town(p: Vector3) -> bool: return town.town_dist(p.x, p.z) < 9.0 if town else Vector2(p.x, p.z).distance_to(village) < 32.0
@@ -59,6 +61,10 @@ func setup_map(id: int) -> void:
 	REGIONS = MAP.regions; ROADS = MAP.roads; RIVERS = MAP.rivers; LAKES = MAP.lakes; BAY = MAP.bay; POI_DEFS = MAP.pois
 	village = MAP.town.pos
 	POI_DEFS = POI_DEFS.duplicate(true)
+	blank = id in BLANK_MAPS
+	if blank:
+		ROADS = []; RIVERS = []; LAKES = []; BAY = null; POI_DEFS = []
+		MAP = MAP.duplicate(true); MAP.duelists = []; MAP.hidden = []
 	rng.seed = 2024 + id * 7
 	noise.seed = 11 + id * 101; noise.frequency = 0.02; noise.fractal_octaves = 3
 	noise2.seed = 77 + id * 31; noise2.frequency = 0.05
@@ -68,10 +74,12 @@ func setup_map(id: int) -> void:
 	volcano = MAP.get("volcano", {})
 	if not volcano.is_empty() and vol_img == null: vol_img = load("res://assets/relief/volcano_h.res")
 	_make_roads()
+	dirt_spots = []; foot_paths = []; doors = []; plot_walls = []; solids = []
+	if blank:
+		town = null; _plan_ramps(); return
 	_clear_town_area()
 	_plan_hamlets()
 	_plan_paths()
-	dirt_spots = []; foot_paths = []; doors = []; plot_walls = []; solids = []
 	town = TownGen.new(); town.plan(self)
 	_plan_ramps()
 
@@ -379,6 +387,16 @@ func build(id := 1) -> void:
 	_compute_reach()
 	_fix_reach()
 	_terrain()
+	if blank:
+		_gates()
+		_cliffs()
+		_grass_carpet()
+		for path in mm_lists: _multi(path, mm_lists[path])
+		_build_cliffs()
+		_cull(self)
+		_build_pass()
+		_index_grass()
+		return
 	if MAP.town.kind == "valdrune": _village()
 	else: _town(MAP.town)
 
@@ -401,6 +419,43 @@ func build(id := 1) -> void:
 	_build_cliffs()
 	_cull(self)
 	_build_pass()
+	_index_grass()
+
+# ——— l'herbe s'efface sous ce que Thomas pose (maisons, chemins, places) ———
+var grass_grid := {}
+var grass_hidden: Array = []
+const GG := 4.0
+func _index_grass() -> void:
+	grass_grid = {}
+	for key in mm_by_key:
+		if not ("Grass_" in key or "Bush_1" in key): continue
+		for e in mm_by_key[key]:
+			var mm: MultiMesh = e[0]
+			for i in mm.instance_count:
+				var xf := mm.get_instance_transform(i)
+				var gk := Vector2i(int(floor(xf.origin.x / GG)), int(floor(xf.origin.z / GG)))
+				if not grass_grid.has(gk): grass_grid[gk] = []
+				grass_grid[gk].append([mm, i, xf])
+
+# shapes : [{c: Vector2, half: Vector2, rot: float, round: bool}]
+func grass_mask(shapes: Array) -> void:
+	for h in grass_hidden: (h[0] as MultiMesh).set_instance_transform(h[1], h[2])
+	grass_hidden = []
+	for sh in shapes:
+		var c: Vector2 = sh.c; var hf: Vector2 = sh.half; var rr: float = hf.length() + 0.4
+		for gj in range(int(floor((c.y - rr) / GG)), int(floor((c.y + rr) / GG)) + 1):
+			for gi in range(int(floor((c.x - rr) / GG)), int(floor((c.x + rr) / GG)) + 1):
+				for e in grass_grid.get(Vector2i(gi, gj), []):
+					var xf: Transform3D = e[2]
+					var d := Vector2(xf.origin.x, xf.origin.z) - c
+					var inside := false
+					if sh.round: inside = d.length() < hf.x + 0.3
+					else:
+						var l := d.rotated(float(sh.rot))
+						inside = abs(l.x) < hf.x + 0.3 and abs(l.y) < hf.y + 0.3
+					if inside:
+						grass_hidden.append(e)
+						(e[0] as MultiMesh).set_instance_transform(e[1], Transform3D(Basis().scaled(Vector3(0.001, 0.001, 0.001)), xf.origin - Vector3(0, 5, 0)))
 
 # Rien d'inutile à l'écran : chaque objet disparaît au-delà de ce que la caméra peut voir
 func _cull(n: Node) -> void:
@@ -1280,7 +1335,7 @@ func _gates() -> void:
 		for k in 12:
 			if town == null or not town._on_street(sp, 0.9): break
 			sp += perp * 0.8
-		_signpost(sp, P, "%s → %s (T%d-T%d)" % [g.dir, Maps.NAMES[g.to], Maps.TIERS[g.to][0], Maps.TIERS[g.to][1]], col)
+		if not blank: _signpost(sp, P, "%s → %s (T%d-T%d)" % [g.dir, Maps.NAMES[g.to], Maps.TIERS[g.to][0], Maps.TIERS[g.to][1]], col)
 
 func _signpost(p: Vector2, toward: Vector2, txt: String, col: Color) -> void:
 	for k in 20:
@@ -1884,6 +1939,26 @@ func _collect(n: Node, xf: Transform3D, out: Array) -> void:
 	if n is MeshInstance3D and (n as MeshInstance3D).mesh: out.append([(n as MeshInstance3D).mesh, x])
 	for c in n.get_children(): _collect(c, x, out)
 
+func _grass_carpet() -> void:
+	var F := "res://assets/forest/"
+	# tapis d'herbe : des milliers de touffes, groupées en prairies (plus de sol nu et plat)
+	var GR := {"meadow": ["Grass_1_A_Color1.gltf", "Grass_1_C_Color1.gltf", "Grass_2_B_Color1.gltf"], "forest": ["Grass_2_A_Color1.gltf", "Grass_1_D_Color1.gltf", "Grass_2_D_Color1.gltf"],
+		"hills": ["Grass_1_B_Color1.gltf", "Grass_2_C_Color1.gltf"], "swamp": ["Grass_2_D_Color1.gltf", "Grass_1_D_Color1.gltf"]}
+	var GT := {"hills": Color("#f0d890"), "swamp": Color("#a8b090")}
+	for i in 14000:
+		var p := Vector3(rng.randf_range(-106, 106), 0, rng.randf_range(-106, 106))
+		var vg2 := noise2.get_noise_2d(p.x * 0.6 - 200.0, p.z * 0.6)
+		if rng.randf() > smoothstep(-0.15, 0.4, vg2): continue
+		var sty: String = REGIONS[region_at(p.x, p.z)].style
+		if not GR.has(sty): continue
+		if height(p.x, p.z) < WATER_Y + 0.4 or not walkable(p.x, p.z) or road_dist(p.x, p.z) < 2.6: continue
+		if town != null and town.town_dist(p.x, p.z) < 6.0: continue
+		if near_house(Vector2(p.x, p.z), 0.4) or _near_node_grid(p, 1.0): continue
+		var arr: Array = GR[sty]
+		var gpath: String = F + arr[rng.randi() % arr.size()]; var gs := rng.randf_range(0.7, 1.25); var gr := rng.randf() * TAU
+		if i % 10 >= [4, 7, 10][Game.gfx()]: continue      # moins d'herbe en qualité « rapide » / « équilibré »
+		_mm(gpath, p, gs, gr, GT.get(sty, Color(1, 1, 1)))
+
 func _decor() -> void:
 	var F := "res://assets/forest/"
 	var biome := FastNoiseLite.new(); biome.seed = 909; biome.frequency = 0.035
@@ -1962,23 +2037,7 @@ func _decor() -> void:
 				elif roll < 0.11: _mm(CR[rng.randi() % CR.size()], p, rng.randf_range(0.7, 1.3), rng.randf() * TAU, Color("#c87a50"))
 	_clusters()
 	_arid_dress()
-	# tapis d'herbe : des milliers de touffes, groupées en prairies (plus de sol nu et plat)
-	var GR := {"meadow": ["Grass_1_A_Color1.gltf", "Grass_1_C_Color1.gltf", "Grass_2_B_Color1.gltf"], "forest": ["Grass_2_A_Color1.gltf", "Grass_1_D_Color1.gltf", "Grass_2_D_Color1.gltf"],
-		"hills": ["Grass_1_B_Color1.gltf", "Grass_2_C_Color1.gltf"], "swamp": ["Grass_2_D_Color1.gltf", "Grass_1_D_Color1.gltf"]}
-	var GT := {"hills": Color("#f0d890"), "swamp": Color("#a8b090")}
-	for i in 14000:
-		var p := Vector3(rng.randf_range(-106, 106), 0, rng.randf_range(-106, 106))
-		var vg2 := noise2.get_noise_2d(p.x * 0.6 - 200.0, p.z * 0.6)
-		if rng.randf() > smoothstep(-0.15, 0.4, vg2): continue
-		var sty: String = REGIONS[region_at(p.x, p.z)].style
-		if not GR.has(sty): continue
-		if height(p.x, p.z) < WATER_Y + 0.4 or not walkable(p.x, p.z) or road_dist(p.x, p.z) < 2.6: continue
-		if town != null and town.town_dist(p.x, p.z) < 6.0: continue
-		if near_house(Vector2(p.x, p.z), 0.4) or _near_node_grid(p, 1.0): continue
-		var arr: Array = GR[sty]
-		var gpath: String = F + arr[rng.randi() % arr.size()]; var gs := rng.randf_range(0.7, 1.25); var gr := rng.randf() * TAU
-		if i % 10 >= [4, 7, 10][Game.gfx()]: continue      # moins d'herbe en qualité « rapide » / « équilibré »
-		_mm(gpath, p, gs, gr, GT.get(sty, Color(1, 1, 1)))
+	_grass_carpet()
 	# massifs de fleurs (couleurs de la palette Simple Polygon)
 	var FL := [Color("#f08cd8"), Color("#f7e06a"), Color("#c090d8"), Color("#ffffff"), Color("#ff8a7a")]
 	for i in 160:

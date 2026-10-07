@@ -1259,6 +1259,10 @@ func update_goal() -> void:
 			if gt != goal_text: goal_text = gt; hud.goal_lbl.text = gt
 			goal_target = Vector3(float(gv[0]), 0, float(gv[1])); return
 		Game.S.erase("grave")
+	if world.blank and _npc_pos("aldric") == null:
+		var bt := "[b][color=#ffd27a]Valdrune est une page blanche[/color][/b]\nMENU → « Mode Construction » : pose maisons, chemins, PNJ, ressources et monstres."
+		if bt != goal_text: goal_text = bt; hud.goal_lbl.text = bt
+		goal_target = null; return
 	if tuto_active():
 		var st: Dictionary = TUTO[tuto_i()]
 		if st.k == "wlvl" and int(Game.wxp(Game.S.get("weapon_kind", "epee")).lvl) >= int(st.n): _tuto_next(); return
@@ -2391,6 +2395,7 @@ func enchant(slot: String) -> void:
 
 # ================= FAUX JOUEURS =================
 func _spawn_bots() -> void:
+	if world.blank: return      # carte vierge : personne tant que Thomas n'a rien construit
 	var names := Bot.NAMES.duplicate(); names.shuffle()
 	# 8 joueurs par carte : moitié dans chaque zone ; hostiles possibles dès la carte T2-T3
 	for i in 12:

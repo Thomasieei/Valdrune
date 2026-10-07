@@ -119,7 +119,19 @@ func _next() -> void:
 			node = load(job.path).instantiate(); node.rotation = job.rot
 			if job.get("tint", Color(1, 1, 1)) != Color(1, 1, 1): _tint_mul(node, job.tint)
 		"build":
-			node = Builder.make(main, job.path)
+			var bp: String = job.path
+			if bp.begins_with("@npc:"):
+				var nd: Array = Builder.NPC_DEFS.get(bp.substr(5), ["", "Rogue", ""])
+				var chn := Chars.make("res://assets/heroes/%s.glb" % nd[1]); node = chn.root
+				chn.ap.play("Idle_A"); chn.ap.seek(0.4, true); node.rotation.y = 0.4
+			elif bp.begins_with("@res:"):
+				var rp := bp.split(":")
+				node = load(World.NODE_MODEL[rp[1]][int(rp[2])]).instantiate()
+				if rp[1] != "wood": _tint(node, Color(1, 1, 1).lerp(Game.TIER_COL[int(rp[2])], 0.55))
+			elif bp.begins_with("@"):
+				node = Prefab.make(bp)
+				if node.has_method("preview"): node.preview()
+			else: node = Builder.make(main, job.path)
 		"food":
 			node = Crops.food_model(job.k, 1.0); node.rotation = Vector3(0.25, 0.6, 0.0)
 		"animal":
@@ -173,6 +185,9 @@ func _acc(n: Node, acc: Array) -> void:
 	if n is MeshInstance3D and n.mesh and n.visible:
 		var a: AABB = n.global_transform * n.mesh.get_aabb()
 		acc[0] = a if acc[0] == null else acc[0].merge(a)
+	elif n is MultiMeshInstance3D and n.multimesh and n.multimesh.instance_count > 0:
+		var a2: AABB = n.global_transform * n.multimesh.get_aabb()
+		acc[0] = a2 if acc[0] == null else acc[0].merge(a2)
 	for c in n.get_children(): _acc(c, acc)
 
 func _tint_mul(n: Node, c: Color) -> void:
