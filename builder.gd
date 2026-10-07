@@ -155,7 +155,9 @@ func _apply(o: Dictionary) -> void:
 	if o.body and is_instance_valid(o.body): (o.body as Node).queue_free()
 	o.body = null
 	if path.begins_with("@npc:"):
-		n.position = p; n.set("home", p); n.set("yaw", float(o.rot)); return
+		n.position = p; n.set("home", p); n.set("yaw", float(o.rot))
+		if typeof(n.get("data")) == TYPE_DICTIONARY: n.data["yaw"] = float(o.rot)
+		return
 	if path.begins_with("@res:") or path.begins_with("@camp:"):
 		n.position = Vector3.ZERO; _rebuild_special(o); return
 	n.position = p; n.rotation = Vector3(0, o.rot, 0); n.scale = Vector3.ONE * float(o.sc) * float(o.base)
@@ -213,6 +215,14 @@ func _grass_update() -> void:
 		if not pth.begins_with("@") or pth.begins_with("@npc") or pth.begins_with("@res") or pth.begins_with("@camp"): continue
 		var n: Node3D = o.node
 		if not is_instance_valid(n) or not n.has_meta("aabb"): continue
+		if n.has_meta("road"):
+			var rt = n
+			var gx: Transform3D = n.global_transform
+			for i in rt.pts.size() - 1:
+				var a3 := gx * Vector3(rt.pts[i].x, 0, rt.pts[i].y); var b3 := gx * Vector3(rt.pts[i + 1].x, 0, rt.pts[i + 1].y)
+				var a2 := Vector2(a3.x, a3.z); var b2 := Vector2(b3.x, b3.z)
+				shapes.append({"c": (a2 + b2) * 0.5, "half": Vector2((b2 - a2).length() * 0.5 + 0.5, float(rt.w) * float(o.sc) * 0.5 + 0.2), "rot": -(b2 - a2).angle(), "round": false})
+			continue
 		var ab: AABB = n.get_meta("aabb"); var k: float = float(o.sc) * float(o.base)
 		shapes.append({"c": Vector2(o.pos.x, o.pos.z) + Vector2(ab.position.x + ab.size.x * 0.5, ab.position.z + ab.size.z * 0.5).rotated(-float(o.rot)) * k, "half": Vector2(ab.size.x, ab.size.z) * 0.5 * k, "rot": float(o.rot), "round": pth.begins_with("@plaza") or n.has_meta("radius")})
 	main.world.grass_mask(shapes)
@@ -271,6 +281,7 @@ func start() -> void:
 		note("Glisse pour te déplacer · pince pour zoomer · « + Objet » pour poser · touche un objet pour le choisir", Color("#ffe2a0"), true)
 
 func stop() -> void:
+	draw_stop(); gen_close()
 	active = false; ui.visible = false; main.hud.visible = true; ring.visible = false; catalog.visible = false
 	save(); main._cam_update(1.0, true)
 
@@ -285,7 +296,7 @@ func _refresh() -> void:
 	info.text = "MODE CONSTRUCTION · %d objet(s) sur cette carte" % objs.size()
 	if sel >= 0 and sel < objs.size():
 		var o: Dictionary = objs[sel]
-		info.text += "   ·   choisi : " + str(o.path).get_file().get_basename().replace("_", " ")
+		info.text += "   ·   choisi : " + (_title_of(str(o.path)) if str(o.path).begins_with("@") else str(o.path).get_file().get_basename().replace("_", " "))
 		_syncing = true
 		sl_size.value = o.sc; sl_rot.value = rad_to_deg(wrapf(o.rot, -PI, PI)); sl_h.value = o.yoff
 		_syncing = false
@@ -298,10 +309,11 @@ func _update_ring() -> void:
 	var bb := _aabb(o.path, o.node)
 	var r: float = max(0.6, max(bb.size.x, bb.size.z) * 0.5 * float(o.sc) * float(o.base) + 0.25)
 	ring.visible = true; ring.scale = Vector3(r, 0.05 * r, r)
-	ring.global_position = (o.node as Node3D).global_position + Vector3(0, 0.08, 0)
+	ring.global_position = _anchor(o) + Vector3(0, 0.08, 0)
 
 func _process(_dt: float) -> void:
 	if active and sel >= 0: _update_ring()
+	if active and gen_box and gen_box.visible: _gen_ring_upd()
 
 # ——— interface ———
 func _btn(t: String, cb: Callable, col := GOLD, w := 128.0) -> Button:
@@ -328,6 +340,8 @@ func _build_ui() -> void:
 	ui.add_child(bp)
 	bar = HBoxContainer.new(); bar.add_theme_constant_override("separation", 6); bp.add_child(bar)
 	bar.add_child(_btn("+ Objet", func(): show_catalog(), Color("#9be86a")))
+	bar.add_child(_btn("✏ Tracer", func(): draw_start("pave"), Color("#ffd27a")))
+	bar.add_child(_btn("🏘 Village", func(): gen_open(), Color("#ffd27a")))
 	bar.add_child(_btn("Dupliquer", dup))
 	bar.add_child(_btn("Supprimer", del, Color("#ff9a8a")))
 	bar.add_child(_btn("Annuler", undo))
@@ -353,6 +367,8 @@ func _build_ui() -> void:
 	catalog = PanelContainer.new(); catalog.add_theme_stylebox_override("panel", H.flat(Color(0.05, 0.07, 0.1, 0.96), 18, Color(0.95, 0.78, 0.45, 0.45), 2, Vector4(16, 12, 16, 12)))
 	catalog.set_anchors_preset(Control.PRESET_FULL_RECT); catalog.offset_left = 30; catalog.offset_right = -30; catalog.offset_top = 20; catalog.offset_bottom = -20
 	catalog.visible = false; ui.add_child(catalog)
+	_build_draw_ui()
+	_build_gen_ui()
 
 func _set_prop(k: String, v: float) -> void:
 	if sel < 0 or sel >= objs.size(): return
@@ -451,6 +467,7 @@ func _title_of(path: String) -> String:
 	if path.begins_with("@res:"):
 		var p := path.split(":"); return "%s T%s" % [{"wood": "Arbre", "ore": "Minerai", "fiber": "Fibre"}[p[1]], p[2]]
 	if path.begins_with("@camp:"): return "Camp de monstres T" + path.substr(6)
+	if path.begins_with("@road:"): return "Chemin dessiné (" + ("pavés" if path.split(":")[1] == "pave" else "terre") + ")"
 	return Prefab.title_of(path)
 func _icon_of(path: String) -> String:
 	if path.begins_with("@npc:"): return "it_quest"
@@ -502,6 +519,11 @@ func ground_at(sp: Vector2) -> Vector3:
 		prev = p; t += 0.6
 	return o + d * 40.0
 
+# point d'ancrage réel d'un objet (les ressources et camps ont un support placé à l'origine)
+func _anchor(o: Dictionary) -> Vector3:
+	var p: Vector3 = o.pos
+	return Vector3(p.x, main.world.ground_y(p.x, p.z) + float(o.yoff), p.z)
+
 func pick(sp: Vector2) -> int:
 	var cam: Camera3D = main.cam
 	var best := -1; var bd := 80.0
@@ -510,7 +532,7 @@ func pick(sp: Vector2) -> int:
 		var n: Node3D = o.node
 		var bb := _aabb(o.path, n)
 		var k: float = float(o.sc) * float(o.base)
-		var c: Vector3 = n.global_position + Vector3(0, bb.get_center().y * k, 0)
+		var c: Vector3 = _anchor(o) + Vector3(0, bb.get_center().y * k, 0)
 		if cam.is_position_behind(c): continue
 		var d := cam.unproject_position(c).distance_to(sp)
 		var rad: float = max(40.0, 30.0 * max(bb.size.x, bb.size.z) * k / max(0.5, zoom))
@@ -519,6 +541,7 @@ func pick(sp: Vector2) -> int:
 
 func _unhandled_input(ev: InputEvent) -> void:
 	if not active or catalog.visible: return
+	if draw_kind != "" and _draw_input(ev): get_viewport().set_input_as_handled(); return
 	if ev is InputEventScreenTouch:
 		if ev.pressed:
 			touches[ev.index] = ev.position
@@ -569,3 +592,238 @@ func _unhandled_input(ev: InputEvent) -> void:
 # ——— caméra du mode construction ———
 func cam_target() -> Array:
 	return [focus, Vector3(0, 21.0, 8.5) * zoom]
+
+
+# ================= TRACER UN CHEMIN AU DOIGT =================
+var draw_kind := ""
+var draw_w := 3.0
+var draw_box: Control
+var draw_kind_btns := {}
+var draw_w_btn: Button
+var drawing := false
+var draw_pts: Array = []
+var draw_prev: Node3D
+
+func _build_draw_ui() -> void:
+	var H: Hud = main.hud
+	var bp := PanelContainer.new(); bp.add_theme_stylebox_override("panel", H.flat(Color(0.05, 0.07, 0.1, 0.88), 14, Color(0.95, 0.78, 0.45, 0.5), 2, Vector4(8, 6, 8, 6)))
+	bp.set_anchors_preset(Control.PRESET_CENTER_TOP); bp.grow_horizontal = Control.GROW_DIRECTION_BOTH; bp.position.y = 56
+	ui.add_child(bp); draw_box = bp
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 6); bp.add_child(h)
+	var l := Label.new(); l.text = "✏ Dessine au doigt :"; l.add_theme_font_size_override("font_size", 17); l.add_theme_color_override("font_color", GOLD); h.add_child(l)
+	for kd in [["pave", "Pavés"], ["dirt", "Terre"]]:
+		var b := _btn(kd[1], func(): draw_kind = kd[0]; _draw_sync(), GOLD, 100); h.add_child(b); draw_kind_btns[kd[0]] = b
+	draw_w_btn = _btn("Largeur 3 m", func(): draw_w = [2.0, 3.0, 4.0, 5.0, 6.0][([2.0, 3.0, 4.0, 5.0, 6.0].find(draw_w) + 1) % 5]; _draw_sync(), GOLD, 140); h.add_child(draw_w_btn)
+	h.add_child(_btn("Fini", draw_stop, Color("#9be86a"), 90))
+	bp.visible = false
+
+func _draw_sync() -> void:
+	for k in draw_kind_btns: (draw_kind_btns[k] as Button).modulate = Color(1, 1, 1) if k == draw_kind else Color(0.55, 0.55, 0.55)
+	draw_w_btn.text = "Largeur %d m" % int(draw_w)
+
+func draw_start(kind: String) -> void:
+	gen_close(); select(-1)
+	draw_kind = kind; draw_box.visible = true; _draw_sync()
+	note("Dessine le chemin avec UN doigt · 2 doigts pour bouger la vue · il se lisse et se colle au terrain tout seul", Color("#ffe2a0"))
+
+func draw_stop() -> void:
+	draw_kind = ""; drawing = false; draw_pts = []
+	if draw_box: draw_box.visible = false
+	_clear_preview()
+
+func _clear_preview() -> void:
+	if draw_prev and is_instance_valid(draw_prev): draw_prev.queue_free()
+	draw_prev = null
+
+func _g2(sp: Vector2) -> Vector2:
+	var g := ground_at(sp); return Vector2(g.x, g.z)
+
+func _draw_input(ev: InputEvent) -> bool:
+	if ev is InputEventScreenTouch:
+		if ev.pressed:
+			touches[ev.index] = ev.position
+			if touches.size() == 1:
+				drawing = true; draw_pts = [_g2(ev.position)]; return true
+			# deuxième doigt : on abandonne le trait, la vue reprend la main
+			drawing = false; draw_pts = []; _clear_preview()
+			touches.erase(ev.index)
+			return false
+		touches.erase(ev.index)
+		if drawing:
+			drawing = false; _draw_finish(); return true
+		return false
+	if ev is InputEventScreenDrag and drawing and touches.size() == 1:
+		touches[ev.index] = ev.position
+		var q := _g2(ev.position)
+		if q.distance_to(draw_pts[draw_pts.size() - 1]) > 0.7:
+			draw_pts.append(q)
+			if draw_pts.size() % 3 == 0: _draw_preview()
+		return true
+	return false
+
+func _draw_preview() -> void:
+	_clear_preview()
+	var pts := _smooth(draw_pts)
+	if pts.size() < 2: return
+	var c: Vector2 = pts[0]
+	var rel: Array = []
+	for q: Vector2 in pts: rel.append(q - c)
+	draw_prev = Prefab.make(Prefab.road_path(draw_kind, draw_w, rel)); main.world.add_child(draw_prev)
+	draw_prev.position = Vector3(c.x, main.world.ground_y(c.x, c.y), c.y); draw_prev.conform(main.world)
+
+# l'« IA » du tracé : rééchantillonne, lisse les à-coups du doigt et raccorde aux chemins existants
+static func _resample(pts: Array, step: float) -> Array:
+	if pts.size() < 2: return pts
+	var outp: Array = [pts[0]]; var acc := 0.0
+	for i in range(1, pts.size()):
+		var a: Vector2 = pts[i - 1]; var b: Vector2 = pts[i]; var seg := a.distance_to(b)
+		var t := step - acc
+		while t <= seg:
+			outp.append(a.lerp(b, t / seg)); t += step
+		acc = seg - (t - step)
+	if (outp[outp.size() - 1] as Vector2).distance_to(pts[pts.size() - 1]) > step * 0.4: outp.append(pts[pts.size() - 1])
+	return outp
+
+static func _smooth(raw: Array) -> Array:
+	var pts := _resample(raw, 1.0)
+	for it in 3:
+		if pts.size() < 3: break
+		var np: Array = [pts[0]]
+		for i in pts.size() - 1:
+			var a: Vector2 = pts[i]; var b: Vector2 = pts[i + 1]
+			np.append(a.lerp(b, 0.25)); np.append(a.lerp(b, 0.75))
+		np.append(pts[pts.size() - 1]); pts = np
+	return _resample(pts, 1.2)
+
+func _road_ends() -> Array:
+	var ends: Array = []
+	for o in objs:
+		var n = o.node
+		if is_instance_valid(n) and (n as Node3D).has_meta("road") and n.pts.size() >= 2:
+			var gx: Transform3D = n.global_transform
+			for q: Vector2 in [n.pts[0], n.pts[n.pts.size() - 1]]:
+				var w3 := gx * Vector3(q.x, 0, q.y); ends.append(Vector2(w3.x, w3.z))
+		if is_instance_valid(n) and str(o.path).begins_with("@plaza"):
+			ends.append(Vector2(o.pos.x, o.pos.z))
+	return ends
+
+func _draw_finish() -> void:
+	_clear_preview()
+	if draw_pts.size() < 2: return
+	var raw: Array = draw_pts.duplicate()
+	# raccord : un bout posé près d'un autre chemin s'y accroche
+	var ends := _road_ends()
+	for idx in [0, raw.size() - 1]:
+		var best := 3.0; var snap = null
+		for e: Vector2 in ends:
+			var d: float = (raw[idx] as Vector2).distance_to(e)
+			if d < best: best = d; snap = e
+		if snap != null: raw[idx] = snap
+	var pts := _smooth(raw)
+	var L := 0.0
+	for i in range(1, pts.size()): L += (pts[i] as Vector2).distance_to(pts[i - 1])
+	if L < 2.0: return
+	var c := Vector2.ZERO
+	for q: Vector2 in pts: c += q
+	c /= pts.size()
+	var rel: Array = []
+	for q: Vector2 in pts: rel.append(q - c)
+	_push_undo()
+	_spawn(Prefab.road_path(draw_kind, draw_w, rel), Vector3(c.x, 0, c.y), 0.0, 1.0, 0.0, false)
+	save(); _refresh()
+	note("Chemin posé (%d m) · « Annuler » pour l'effacer" % int(L), Color("#9be86a"))
+
+# ================= GÉNÉRATEUR DE VILLAGE =================
+var gen_box: Control
+var gen_list: VBoxContainer
+var gen_ring: MeshInstance3D
+var gen_p: Dictionary = {}
+
+const GEN_ROWS := [["rayon", "Taille (rayon, m)", 18, 60, 4], ["maisons", "Maisons", 0, 40, 1], ["boutiques", "Boutiques", 0, 6, 1], ["rues", "Rues", 0, 4, 1],
+	["villageois", "Villageois", 0, 12, 1], ["gardes", "Gardes", 0, 6, 1], ["arbres", "Arbres", 0, 80, 5], ["bois", "Arbres à couper", 0, 30, 1],
+	["minerai", "Minerais", 0, 30, 1], ["fibre", "Fibres", 0, 30, 1], ["tier", "Tier ressources / monstres", 1, 5, 1], ["camps", "Camps de monstres", 0, 6, 1]]
+const GEN_SVC := [["quest", "L'Ancien (quêtes)"], ["shop", "Marchande"], ["forge", "Forge"], ["tools", "Vendeurs d'outils"], ["auction", "Hôtel des ventes"],
+	["travel", "Passeur"], ["mercs", "Mercenaires"], ["tannery", "Tanneur"], ["sawmill", "Scieur"], ["enchant", "Enchanteresse"]]
+
+func _build_gen_ui() -> void:
+	var H: Hud = main.hud
+	gen_box = PanelContainer.new(); gen_box.add_theme_stylebox_override("panel", H.flat(Color(0.05, 0.07, 0.1, 0.93), 16, Color(0.95, 0.78, 0.45, 0.5), 2, Vector4(12, 10, 12, 10)))
+	gen_box.set_anchors_preset(Control.PRESET_LEFT_WIDE); gen_box.offset_left = 8; gen_box.offset_top = 8; gen_box.offset_bottom = -8; gen_box.custom_minimum_size = Vector2(430, 0)
+	gen_box.visible = false; ui.add_child(gen_box)
+	var vb := VBoxContainer.new(); vb.add_theme_constant_override("separation", 6); gen_box.add_child(vb)
+	var t := Label.new(); t.text = "🏘 Générer un village"; t.add_theme_font_size_override("font_size", 22); t.add_theme_color_override("font_color", GOLD); vb.add_child(t)
+	var hint := Label.new(); hint.text = "Il se construit dans le cercle doré : glisse la vue pour le placer."; hint.add_theme_font_size_override("font_size", 14)
+	hint.add_theme_color_override("font_color", SOFT); hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART; vb.add_child(hint)
+	var sc := ScrollContainer.new(); sc.size_flags_vertical = Control.SIZE_EXPAND_FILL; sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED; vb.add_child(sc)
+	gen_list = VBoxContainer.new(); gen_list.add_theme_constant_override("separation", 4); gen_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL; sc.add_child(gen_list)
+	var hb := HBoxContainer.new(); hb.add_theme_constant_override("separation", 6); vb.add_child(hb)
+	hb.add_child(_btn("Construire ici", gen_build, Color("#9be86a"), 200))
+	hb.add_child(_btn("Fermer", gen_close, SOFT, 110))
+	gen_ring = MeshInstance3D.new(); var tm := TorusMesh.new(); tm.inner_radius = 0.985; tm.outer_radius = 1.0; tm.rings = 96; tm.ring_segments = 4; gen_ring.mesh = tm
+	var rm := StandardMaterial3D.new(); rm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; rm.albedo_color = Color(1.0, 0.82, 0.3); rm.no_depth_test = true; rm.render_priority = 3
+	gen_ring.material_override = rm; gen_ring.visible = false; gen_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; main.add_child(gen_ring)
+
+func _gen_fill() -> void:
+	for c in gen_list.get_children(): c.queue_free()
+	for r in GEN_ROWS:
+		var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 6); gen_list.add_child(h)
+		var l := Label.new(); l.text = r[1]; l.add_theme_font_size_override("font_size", 16); l.add_theme_color_override("font_color", SOFT); l.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(l)
+		var v := Label.new(); v.text = str(gen_p[r[0]]); v.custom_minimum_size = Vector2(46, 0); v.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		v.add_theme_font_size_override("font_size", 19); v.add_theme_color_override("font_color", GOLD)
+		var key: String = r[0]
+		var mn: int = r[2]; var mx: int = r[3]; var st: int = r[4]
+		var minus := _btn("−", func(): gen_p[key] = clamp(int(gen_p[key]) - st, mn, mx); v.text = str(gen_p[key]); _gen_ring_upd(), SOFT, 52)
+		var plus := _btn("+", func(): gen_p[key] = clamp(int(gen_p[key]) + st, mn, mx); v.text = str(gen_p[key]); _gen_ring_upd(), SOFT, 52)
+		minus.custom_minimum_size.y = 44; plus.custom_minimum_size.y = 44
+		h.add_child(minus); h.add_child(v); h.add_child(plus)
+	var tg := HBoxContainer.new(); tg.add_theme_constant_override("separation", 6); gen_list.add_child(tg)
+	var pv := _btn("", func(): pass, GOLD, 200); pv.custom_minimum_size.y = 44
+	pv.text = "Rues : pavés" if int(gen_p.pave) == 1 else "Rues : terre"
+	pv.pressed.connect(func(): gen_p.pave = 1 - int(gen_p.pave); pv.text = "Rues : pavés" if int(gen_p.pave) == 1 else "Rues : terre")
+	tg.add_child(pv)
+	var dv := _btn("", func(): pass, GOLD, 180); dv.custom_minimum_size.y = 44
+	dv.text = "Décor : oui" if int(gen_p.decor) == 1 else "Décor : non"
+	dv.pressed.connect(func(): gen_p.decor = 1 - int(gen_p.decor); dv.text = "Décor : oui" if int(gen_p.decor) == 1 else "Décor : non")
+	tg.add_child(dv)
+	var sl := Label.new(); sl.text = "PNJ de service (touche pour activer)"; sl.add_theme_font_size_override("font_size", 16); sl.add_theme_color_override("font_color", GOLD); gen_list.add_child(sl)
+	var g := GridContainer.new(); g.columns = 2; g.add_theme_constant_override("h_separation", 6); g.add_theme_constant_override("v_separation", 6); gen_list.add_child(g)
+	for e in GEN_SVC:
+		var key2: String = e[0]
+		var b := _btn(e[1], func(): pass, GOLD, 196); b.custom_minimum_size.y = 44
+		b.modulate = Color(1, 1, 1) if int(gen_p.svc.get(key2, 0)) == 1 else Color(0.5, 0.5, 0.5)
+		b.pressed.connect(func(): gen_p.svc[key2] = 1 - int(gen_p.svc.get(key2, 0)); b.modulate = Color(1, 1, 1) if int(gen_p.svc[key2]) == 1 else Color(0.5, 0.5, 0.5))
+		g.add_child(b)
+
+func gen_open() -> void:
+	draw_stop(); select(-1)
+	if gen_p.is_empty(): gen_p = VillageGen.DEFAULTS.duplicate(true)
+	_gen_fill(); gen_box.visible = true; bar.get_parent().visible = false; _gen_ring_upd()
+
+func gen_close() -> void:
+	if gen_box: gen_box.visible = false
+	if bar: bar.get_parent().visible = true
+	if gen_ring: gen_ring.visible = false
+
+func _gen_center() -> Vector3:
+	# le centre du cercle : ce que la caméra regarde, décalé pour rester visible à droite du panneau
+	var vp := get_viewport().get_visible_rect().size
+	return ground_at(Vector2(vp.x * 0.62, vp.y * 0.5))
+
+func _gen_ring_upd() -> void:
+	if gen_ring == null or not gen_box.visible: return
+	var c := _gen_center(); var r := float(gen_p.rayon)
+	gen_ring.visible = true; gen_ring.scale = Vector3(r, 1.0, r)
+	gen_ring.global_position = Vector3(c.x, main.world.ground_y(c.x, c.z) + 0.3, c.z)
+
+func gen_build() -> void:
+	var c := _gen_center()
+	var vg := VillageGen.new()
+	var items: Array = vg.plan(main.world, Vector2(c.x, c.z), gen_p, int(Time.get_ticks_msec()))
+	if items.is_empty(): note("Impossible ici (eau ou falaise) : déplace le cercle", Color("#ff9a8a")); return
+	_push_undo()
+	var n := 0
+	for it in items:
+		var p2: Vector2 = it[1]
+		if not _spawn(it[0], Vector3(p2.x, 0, p2.y), float(it[2]), 1.0, 0.0, bool(it[3])).is_empty(): n += 1
+	save(); _refresh(); gen_close()
+	note("Village construit : %d objets · « Annuler » pour tout retirer, ou touche une pièce pour la modifier" % n, Color("#9be86a"))

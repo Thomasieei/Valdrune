@@ -44,7 +44,68 @@ static func make(path: String) -> Node3D:
 		"@well": _well(root)
 		"@path": root = PathTile.new(); (root as PathTile).setup(p[1], float(p[2]))
 		"@plaza": root = PathTile.new(); (root as PathTile).setup("plaza", float(p[1]))
+		"@road": root = RoadTile.new(); (root as RoadTile).setup(p[1], float(p[2]), p[3] if p.size() > 3 else "")
 	return root
+
+# tracé « @road:kind:largeur:x,z;x,z;… » (points relatifs au centre de l'objet)
+static func road_path(kind: String, w: float, pts: Array) -> String:
+	var sp: PackedStringArray = []
+	for q: Vector2 in pts: sp.append("%s,%s" % [snappedf(q.x, 0.1), snappedf(q.y, 0.1)])
+	return "@road:%s:%s:%s" % [kind, snappedf(w, 0.1), ";".join(sp)]
+
+# Chemin libre dessiné au doigt : un ruban qui épouse le terrain
+class RoadTile extends Node3D:
+	var kind := "pave"
+	var w := 3.0
+	var pts: Array = []
+	var mi: MeshInstance3D
+	func setup(k: String, width: float, enc: String) -> void:
+		kind = k; w = width
+		for e in enc.split(";", false):
+			var xy := e.split(",")
+			if xy.size() == 2: pts.append(Vector2(float(xy[0]), float(xy[1])))
+		mi = MeshInstance3D.new(); add_child(mi)
+		var m := StandardMaterial3D.new()
+		m.albedo_texture = load("res://assets/village/T_UnevenBrick_BaseColor.png")
+		m.albedo_color = Color(0.82, 0.78, 0.72) if k == "pave" else Color("#a0805a")
+		if k == "dirt": m.uv1_scale = Vector3(0.35, 0.35, 1)
+		m.roughness = 1.0; m.texture_repeat = true; m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		mi.material_override = m; mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var bb := AABB(Vector3.ZERO, Vector3.ZERO); var first := true
+		for q: Vector2 in pts:
+			var a := AABB(Vector3(q.x - w * 0.5, 0, q.y - w * 0.5), Vector3(w, 0.2, w))
+			bb = a if first else bb.merge(a); first = false
+		set_meta("aabb", bb); set_meta("flat", true); set_meta("road", true)
+	func preview() -> void: conform(null)
+	func conform(world: Node) -> void:
+		if pts.size() < 2: return
+		var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var gx: Transform3D = global_transform if is_inside_tree() else transform
+		var inv := gx.affine_inverse()
+		var CROSS := 4
+		var rows: Array = []
+		var L := 0.0
+		for i in pts.size():
+			var a: Vector2 = pts[max(0, i - 1)]; var b: Vector2 = pts[min(pts.size() - 1, i + 1)]
+			var t := (b - a).normalized(); var n := Vector2(-t.y, t.x)
+			if i > 0: L += (pts[i] - pts[i - 1]).length()
+			var ww := w * (1.0 + (0.12 * sin(L * 1.7) + 0.08 * sin(L * 0.6) if kind == "dirt" else 0.0))
+			var row: Array = []
+			for j in CROSS + 1:
+				var f := float(j) / CROSS - 0.5
+				var lp: Vector2 = pts[i] + n * f * ww
+				var v := Vector3(lp.x, 0.07, lp.y)
+				if world != null:
+					var wp := gx * Vector3(lp.x, 0, lp.y)
+					v = inv * Vector3(wp.x, world.ground_y(wp.x, wp.z) + 0.07 + 0.04 * (1.0 - abs(f) * 2.0), wp.z)
+				row.append([v, Vector2(L * 0.5, f * ww * 0.5)])
+			rows.append(row)
+		for i in rows.size() - 1:
+			for j in CROSS:
+				var q := [rows[i][j], rows[i][j + 1], rows[i + 1][j + 1], rows[i + 1][j]]
+				for k in [0, 2, 1, 0, 3, 2]:
+					st.set_normal(Vector3.UP); st.set_uv(q[k][1]); st.add_vertex(q[k][0])
+		mi.mesh = st.commit()
 
 # ——— outils ———
 static var _mesh_cache := {}     # chemin → [[mesh, transform local, material]]
@@ -267,7 +328,7 @@ class PathTile extends Node3D:
 				for r in rings:
 					var f0 := size * float(r) / rings; var f1 := size * float(r + 1) / rings
 					var q := [hpt.call(cos(a0) * f0, sin(a0) * f0), hpt.call(cos(a1) * f0, sin(a1) * f0), hpt.call(cos(a1) * f1, sin(a1) * f1), hpt.call(cos(a0) * f1, sin(a0) * f1)]
-					for k in [0, 1, 2, 0, 2, 3]:
+					for k in [0, 2, 1, 0, 3, 2]:
 						var v: Vector3 = q[k]; st.set_normal(Vector3.UP); st.set_uv(Vector2(v.x, v.z) * 0.5); st.add_vertex(v)
 		else:
 			var w := size; var d := 4.0; var n := int(w); var m := 4
