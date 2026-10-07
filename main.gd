@@ -1247,13 +1247,7 @@ func _tuto_target():
 		"kill", "wlvl":
 			var e = _nearest_enemy(player.global_position, 80.0, false)
 			return e.global_position if e else null
-		"food":
-			var best = null; var bd := 1e9
-			for c in world.crops.crops if world.crops else []:
-				if not c.ready: continue
-				var d: float = (c.pos as Vector3).distance_to(player.global_position)
-				if d < bd: bd = d; best = c.pos
-			return best
+		"food": return _nearest_food()
 		"talk_forge": return _brokk_pos()
 		"duel":
 			for n in npcs:
@@ -1265,6 +1259,14 @@ func _tuto_target():
 				if d2 < bd2: bd2 = d2; best2 = en.pos
 			return best2
 	return null
+
+func _nearest_food():
+	var best = null; var bd := 1e9
+	for c in world.crops.crops if world.crops else []:
+		if not c.ready: continue
+		var d: float = (c.pos as Vector3).distance_to(player.global_position)
+		if d < bd: bd = d; best = c.pos
+	return best
 
 func _vq_hint(g: String) -> String:
 	return {"kill_loup": "[color=#b8c0c8]Les loups rôdent dans les bois autour du village.[/color]", "give_hides": "[color=#b8c0c8]Tue des bêtes (loups, cerfs, sangliers…) : avec ton couteau, elles laissent leur peau.[/color]",
@@ -1286,6 +1288,32 @@ func _vq_target(ch: String, g: String, done: bool):
 			return best
 		"give_wood": return _nearest_node("wood", 1)
 		"give_ore": return _nearest_node("ore", 1)
+		"food": return _nearest_food()
+		"gather":
+			var bn = null; var bdn := 1e9
+			for k in ["wood", "ore", "fiber"]:
+				var q = _nearest_node(k, 1)
+				if q != null and (q as Vector3).distance_to(player.global_position) < bdn: bdn = (q as Vector3).distance_to(player.global_position); bn = q
+			return bn
+		"kill_near":
+			var e = _nearest_enemy(player.global_position, 90.0, false)
+			return e.global_position if e else null
+		"elite":
+			var be = null; var bde := 1e9
+			for e2 in enemies:
+				if is_instance_valid(e2) and not e2.dead and e2 is Enemy and (e2.elite or e2.def.get("chief", false)):
+					var d3: float = e2.global_position.distance_to(player.global_position)
+					if d3 < bde: bde = d3; be = e2.global_position
+			if be != null: return be
+			var e3 = _nearest_enemy(player.global_position, 90.0, false)
+			return e3.global_position if e3 else null
+		"poi":
+			var bp = null; var bdp := 1e9
+			for poi in world.pois:
+				if Game.S.disc.has(poi.id): continue
+				var d4: float = (poi.pos as Vector3).distance_to(player.global_position)
+				if d4 < bdp: bdp = d4; bp = poi.pos
+			return bp
 		"secret":
 			var sp = Game.S.get("secret_pos", null)
 			return Vector3(float(sp[0]), 0, float(sp[1])) if sp is Array else null
@@ -1610,9 +1638,10 @@ func _hidden_found() -> int:
 func _guide(dt: float) -> void:
 	var P := player
 	if goal_target == null or P.dead:
-		arrow.visible = false; beacon.visible = false; return
+		arrow.visible = false; beacon.visible = false; hud.set_goal_dist(-1.0, Vector2.ZERO); return
 	var tg: Vector3 = goal_target
 	var d := Vector2(tg.x - P.global_position.x, tg.z - P.global_position.z)
+	hud.set_goal_dist(d.length(), d)
 	beacon.visible = true; beacon.global_position = Vector3(tg.x, world.height(tg.x, tg.z) + 7.0, tg.z)
 	if d.length() < 3.0: arrow.visible = false; return
 	arrow.visible = true

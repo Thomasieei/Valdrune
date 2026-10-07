@@ -12,6 +12,15 @@ var buttons := {}
 var touches := {}
 var icons := {}
 var goal_lbl: RichTextLabel
+var goal_dist: Label
+const DIR8 := ["→ à l'est", "↘ au sud-est", "↓ au sud", "↙ au sud-ouest", "← à l'ouest", "↖ au nord-ouest", "↑ au nord", "↗ au nord-est"]
+func set_goal_dist(m: float, d: Vector2) -> void:
+	if goal_dist == null: return
+	if m < 0.0: goal_dist.visible = false; return
+	goal_dist.visible = true
+	if m < 4.0: goal_dist.text = "★ C'est ici !"; return
+	var a := int(round(fposmod(d.angle(), TAU) / (TAU / 8.0))) % 8
+	goal_dist.text = "%s · %d m — suis la flèche dorée" % [DIR8[a], int(m)]
 var hint_lbl: RichTextLabel
 var toasts: VBoxContainer
 var red: ColorRect
@@ -143,6 +152,8 @@ func setup(m: Node) -> void:
 	goal_lbl = RichTextLabel.new(); goal_lbl.bbcode_enabled = true; goal_lbl.fit_content = true; goal_lbl.scroll_active = false
 	goal_lbl.add_theme_font_size_override("normal_font_size", 14); goal_lbl.add_theme_font_size_override("bold_font_size", 15)
 	goal_lbl.custom_minimum_size = Vector2(276, 0); goal_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE; qv.add_child(goal_lbl)
+	goal_dist = Label.new(); goal_dist.add_theme_font_size_override("font_size", 15); goal_dist.add_theme_color_override("font_color", Color("#ffd24a"))
+	goal_dist.add_theme_constant_override("outline_size", 6); goal_dist.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8)); goal_dist.mouse_filter = Control.MOUSE_FILTER_IGNORE; qv.add_child(goal_dist)
 	hint_lbl = RichTextLabel.new(); hint_lbl.bbcode_enabled = true; hint_lbl.fit_content = true; hint_lbl.scroll_active = false
 	hint_lbl.add_theme_font_size_override("normal_font_size", 18); hint_lbl.add_theme_constant_override("outline_size", 6); hint_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
 	hint_lbl.custom_minimum_size = Vector2(520, 0); hint_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE; root.add_child(hint_lbl)

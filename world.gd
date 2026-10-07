@@ -394,6 +394,7 @@ func build(id := 1) -> void:
 		_blank_forest()
 		_blank_camps()
 		_monster_camps()
+		crops = Crops.new(); add_child(crops); crops.setup(self); crops.build_wild()
 		_grass_carpet()
 		for path in mm_lists: _multi(path, mm_lists[path])
 		_build_cliffs()
@@ -431,6 +432,22 @@ func _blank_camps() -> void:
 	if not FileAccess.file_exists(f): return
 	var arr = JSON.parse_string(FileAccess.get_file_as_string(f))
 	if not arr is Array: return
+	# lieux à découvrir (quête « Explorateur », mini-carte)
+	var plz6 := 0
+	for o in arr:
+		var pth := str(o[0]); var q := Vector2(float(o[1]), float(o[2]))
+		var nm := ""; var id := ""
+		if "windmill" in pth: nm = "Moulin des Prés"; id = "moulin"
+		elif "building_mine" in pth: nm = "Mine des Collines"; id = "mine"
+		elif pth == "@tower": nm = "Tour de guet"; id = "guet"
+		elif "FloatingMagicCrystal" in pth: nm = "Vieux sanctuaire"; id = "sanctuaire"
+		elif pth == "@plaza:8": nm = "Arène des duellistes"; id = "arene"
+		elif pth == "@plaza:6":
+			plz6 += 1; nm = "Hameau du Moulin" if q.x > 0 else "Ferme des Prés"; id = "hameau%d" % plz6
+		if id != "": pois.append({"id": "v1_" + id, "name": nm, "pos": Vector3(q.x, height(q.x, q.y), q.y), "r": 12.0, "region": region_at(q.x, q.y)})
+	for lk in LAKES: pois.append({"id": "v1_lac", "name": "Lac des Saules", "pos": Vector3(lk[0].x, 0, lk[0].y), "r": float(lk[1]) + 6.0, "region": region_at(lk[0].x, lk[0].y)})
+	pois.append({"id": "v1_bois", "name": "Bois de Chênevert", "pos": Vector3(-60, 0, -62), "r": 16.0, "region": region_at(-60, -62)})
+	pois.append({"id": "v1_sombre", "name": "Forêt Sombre", "pos": Vector3(36, 0, -80), "r": 16.0, "region": region_at(36, -80)})
 	for o in arr:
 		if str(o[0]).begins_with("@camp") or str(o[0]).begins_with("@house") or str(o[0]).begins_with("@shop") or str(o[0]).begins_with("@field"):
 			house_spots.append([Vector2(float(o[1]), float(o[2])), 9.0 if str(o[0]).begins_with("@camp") else 5.0])
@@ -2296,7 +2313,7 @@ func _ember(p: Vector3) -> void:
 
 # ——— Camps de monstres ———
 # Seuls les repaires nommés (sur la carte) gardent un coffre — et il met longtemps à se remplir.
-const KINDS_BY_T := {1: ["minion", "minion"], 2: ["minion", "minion", "rogue"], 3: ["minion", "warrior", "rogue"], 4: ["warrior", "rogue", "mage"], 5: ["warrior", "mage", "rogue", "minion"]}
+const KINDS_BY_T := {1: ["minion", "minion", "archer"], 2: ["minion", "rogue", "archer"], 3: ["minion", "warrior", "rogue", "archer"], 4: ["warrior", "rogue", "mage", "archer"], 5: ["warrior", "mage", "rogue", "archer", "minion"]}
 func _monster_camps() -> void:
 	for q in POI_DEFS:
 		if q.has("chest"):

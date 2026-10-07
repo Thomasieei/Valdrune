@@ -11,6 +11,7 @@ const KINDS := {
 	"warrior": {"model": SK + "Skeleton_Warrior.glb", "name": "Guerrier squelette", "hp": 1.7, "dmg": 1.35, "speed": 3.1, "range": 2.1, "wind": 0.75, "cd": 1.9, "weapon": SK + "Skeleton_Axe.gltf", "shield": SK + "Skeleton_Shield_Small_A.gltf"},
 	"rogue": {"model": SK + "Skeleton_Rogue.glb", "name": "Rôdeur squelette", "hp": 0.85, "dmg": 0.9, "speed": 4.6, "range": 1.8, "wind": 0.45, "cd": 1.1, "weapon": SK + "Skeleton_Blade.gltf"},
 	"mage": {"model": SK + "Skeleton_Mage.glb", "name": "Mage squelette", "hp": 0.8, "dmg": 1.1, "speed": 3.0, "range": 8.0, "wind": 0.8, "cd": 2.2, "weapon": SK + "Skeleton_Staff.gltf", "ranged": true},
+	"archer": {"model": SK + "Skeleton_Rogue.glb", "name": "Archer squelette", "hp": 0.75, "dmg": 1.0, "speed": 3.4, "range": 10.0, "wind": 0.5, "cd": 2.0, "weapon": "res://assets/weapons/crossbow_1handed.gltf", "ranged": true, "shooter": true},
 	"boss": {"model": SK + "Skeleton_Warrior.glb", "name": "Seigneur d'Os", "hp": 14.0, "dmg": 1.7, "speed": 3.4, "range": 3.6, "wind": 0.9, "cd": 1.7, "weapon": SK + "Skeleton_Axe.gltf", "shield": SK + "Skeleton_Shield_Large_A.gltf", "scale": 2.1},
 	# ——— Animaux sauvages ———
 	"renard": {"animal": true, "model": AN + "fox.glb", "name": "Renard", "hp": 0.7, "dmg": 0.8, "speed": 5.2, "range": 1.6, "wind": 0.4, "cd": 1.0, "atk": "Attack", "scale": 0.28, "rad": 0.45, "h": 1.35, "aggro": 7.0},
@@ -73,6 +74,27 @@ var bleed_tick := 0.0
 var bleed_src: Node3D
 var last_from: Node3D            # dernier à l'avoir frappé (le butin revient au tueur)
 var flow_t := 0.0
+# ——— attaques spéciales : tirs à viser, orbes à tête chercheuse, zones au sol, ruées, bonds ———
+const SPECIALS := {
+	"minion": ["lunge"], "warrior": ["slam", "cleave"], "rogue": ["dash", "dash"], "mage": ["bolt", "homing", "zones"], "archer": ["arrow", "volley"],
+	"boss": ["slam", "homing", "zones", "charge"], "renard": ["dash"], "loup": ["pounce", "dash"], "cerf": ["charge"], "taureau": ["charge"],
+	"alpha": ["pounce", "dash", "zones"], "taureau_guerre": ["charge", "slam"], "roi_cerf": ["charge", "zones"],
+	"bandit": ["dash", "lunge"], "garde": ["lunge", "dash"], "villageois": ["lunge"], "duel": ["dash", "lunge"],
+}
+const AGILE := ["rogue", "renard", "loup", "bandit", "duel", "alpha"]
+var sp_kind := ""
+var sp_cd := 2.5
+var sp_dir := Vector3.ZERO
+var sp_from := Vector3.ZERO
+var sp_to := Vector3.ZERO
+var sp_len := 0.0
+var sp_w := 1.4
+var sp_wind := 1.0
+var sp_hit: Array = []
+var dash_t := 0.0
+var tele_nodes: Array = []
+var strafe_cd := 2.0
+var sp_kind_last := ""
 
 func slow(d: float) -> void:
 	slow_t = max(slow_t, d)
@@ -210,7 +232,7 @@ func take_hit(amount: float, from: Node3D, push: float) -> void:
 			immune_toast = 4.0; main.hud.toast("Boss de groupe : il faut être au moins 4 (toi + 3 mercenaires) pour le blesser", Color("#d58bff"), true)
 		if state == "idle": aggro()
 		return
-	if duel_info.size() > 0 and evade_cd <= 0.0 and state != "windup" and randf() < 0.22:
+	if (duel_info.size() > 0 or kind in AGILE) and evade_cd <= 0.0 and state != "windup" and state != "dashing" and randf() < (0.22 if duel_info.size() > 0 else 0.14):
 		# le duelliste esquive parfois
 		evade_cd = 2.2; var away: Vector3 = global_position - from.global_position; away.y = 0
 		knock = away.normalized() * 13.0; Fx.number(main, global_position + Vector3(0, 2.3, 0), "esquive !", Color("#9fe4ff"))
@@ -241,7 +263,7 @@ func take_hit(amount: float, from: Node3D, push: float) -> void:
 	else: knock = dir.normalized() * push * 0.15
 	if state == "idle": aggro()
 	if hp <= 0.0: die(); return
-	if not is_boss and state != "windup":
+	if not is_boss and state != "windup" and state != "dashing":
 		stagger = 0.22; play("Hit_A" if randf() < 0.5 else "Hit_B", 1.6, 0.04, true)
 	elif state == "windup" and not is_boss and push > 4.0 and duel_info.is_empty():
 		# un coup lourd interrompt l'attaque
@@ -266,6 +288,204 @@ func die() -> void:
 func _cancel_tele() -> void:
 	if tele and is_instance_valid(tele): tele.queue_free()
 	tele = null
+	for n in tele_nodes:
+		if is_instance_valid(n): n.queue_free()
+	tele_nodes = []
+	sp_kind = ""
+
+# ——— télégraphes lisibles : le contour montre la zone, le remplissage rouge montre QUAND ça tombe ———
+static var _tmat_cache := {}
+func _tele_mat(a: float) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new(); m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_color = Color(1.0, 0.12, 0.08, a); m.cull_mode = BaseMaterial3D.CULL_DISABLED; m.render_priority = 1; m.no_depth_test = true
+	return m
+func _zone_tele(pos: Vector3, r: float, dur: float) -> void:
+	var y: float = main.world.ground_y(pos.x, pos.z) + 0.09
+	var ring := MeshInstance3D.new(); var tm := TorusMesh.new(); tm.inner_radius = 0.93; tm.outer_radius = 1.0; tm.rings = 40; tm.ring_segments = 3; ring.mesh = tm
+	ring.material_override = _tele_mat(0.85); ring.scale = Vector3(r, 0.02, r); ring.position = Vector3(pos.x, y, pos.z); ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; main.add_child(ring)
+	var base := MeshInstance3D.new(); var cm := CylinderMesh.new(); cm.top_radius = 1.0; cm.bottom_radius = 1.0; cm.height = 0.01; cm.radial_segments = 36; base.mesh = cm
+	base.material_override = _tele_mat(0.16); base.scale = Vector3(r, 1, r); base.position = Vector3(pos.x, y - 0.01, pos.z); base.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; main.add_child(base)
+	var fill := MeshInstance3D.new(); fill.mesh = cm; fill.material_override = _tele_mat(0.42); fill.scale = Vector3(0.05, 1, 0.05); fill.position = Vector3(pos.x, y, pos.z); fill.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; main.add_child(fill)
+	fill.create_tween().tween_property(fill, "scale", Vector3(r, 1, r), dur)
+	tele_nodes += [ring, base, fill]
+func _line_tele(from: Vector3, dir: Vector3, length: float, w: float, dur: float) -> void:
+	var y: float = main.world.ground_y(from.x, from.z) + 0.1
+	var root := Node3D.new(); root.position = Vector3(from.x, y, from.z); root.rotation.y = atan2(dir.x, dir.z); main.add_child(root)
+	var bm := BoxMesh.new(); bm.size = Vector3(1, 0.01, 1)
+	var base := MeshInstance3D.new(); base.mesh = bm; base.material_override = _tele_mat(0.2); base.scale = Vector3(w, 1, length); base.position.z = length * 0.5; root.add_child(base)
+	var fill := MeshInstance3D.new(); fill.mesh = bm; fill.material_override = _tele_mat(0.45); fill.scale = Vector3(w, 1, 0.05); fill.position.z = 0.02; root.add_child(fill)
+	for sd in [-1.0, 1.0]:
+		var edge := MeshInstance3D.new(); edge.mesh = bm; edge.material_override = _tele_mat(0.85); edge.scale = Vector3(0.08, 1, length); edge.position = Vector3(sd * w * 0.5, 0.005, length * 0.5); root.add_child(edge)
+	var tw := fill.create_tween().set_parallel(true)
+	tw.tween_property(fill, "scale:z", length, dur); tw.tween_property(fill, "position:z", length * 0.5, dur)
+	for c in root.get_children(): (c as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	tele_nodes.append(root)
+
+# choisit une attaque spéciale adaptée à la distance (ou rien : attaque normale)
+func _pick_special(T, dist: float) -> String:
+	if sp_cd > 0.0 or not SPECIALS.has(kind) or duel_info.size() > 0 and randf() < 0.5: return ""
+	var opts: Array = []
+	for k in SPECIALS[kind]:
+		match k:
+			"lunge": if dist < 5.5: opts.append(k)
+			"cleave": if dist < 3.5: opts.append(k)
+			"dash": if dist > 3.0 and dist < 10.0: opts.append(k)
+			"charge": if dist > 4.0 and dist < 14.0: opts.append(k)
+			"pounce", "slam": if dist > 2.5 and dist < 11.0: opts.append(k)
+			"bolt", "arrow", "volley": if dist < 15.0: opts.append(k)
+			"homing", "zones": if dist < 14.0: opts.append(k)
+	if opts.is_empty(): return ""
+	return opts[randi() % opts.size()]
+
+func _try_special(T, dist: float) -> bool:
+	var k := _pick_special(T, dist)
+	if k == "": sp_cd = 0.6; return false
+	_start_special(T, k); return true
+
+func _start_special(T, k: String) -> void:
+	state = "windup"; t_state = 0.0; sp_kind = k; sp_hit = []
+	var tp: Vector3 = T.global_position
+	var fwd: Vector3 = tp - global_position; fwd.y = 0; fwd = fwd.normalized()
+	rotation.y = atan2(fwd.x, fwd.z); sp_dir = fwd; sp_from = global_position
+	var sc: float = def.get("scale", 1.0)
+	var big: float = 1.6 if is_boss else 1.0
+	match k:
+		"lunge":
+			sp_wind = 0.55; sp_len = 4.5 * big; sp_w = 1.6 * big; _line_tele(global_position, fwd, sp_len, sp_w, sp_wind)
+		"cleave":
+			sp_wind = 0.85; sp_to = global_position + fwd * 1.4; sp_len = 3.2 * big; _zone_tele(sp_to, sp_len, sp_wind)
+		"dash":
+			# petit pas de côté pour feinter, puis la ruée (ligne rouge)
+			var side := Vector3(-fwd.z, 0, fwd.x) * (1.0 if randf() < 0.5 else -1.0)
+			knock = side * 9.0
+			Fx.number(main, global_position + Vector3(0, body_h + 0.3, 0), "esquive", Color("#9fe4ff"))
+			sp_wind = 0.6; sp_len = min(11.0, global_position.distance_to(tp) + 3.0); sp_w = 1.4 * big
+			sp_from = global_position + side * 1.2
+			_line_tele(sp_from, fwd, sp_len, sp_w, sp_wind)
+		"charge":
+			sp_wind = randf_range(0.9, 1.15); sp_len = min(16.0, global_position.distance_to(tp) + 4.0); sp_w = max(2.2, radius * 2.2) * (1.2 if is_boss else 1.0)
+			_line_tele(global_position, fwd, sp_len, sp_w, sp_wind)
+		"pounce", "slam":
+			sp_wind = randf_range(0.85, 1.15); sp_to = tp; sp_len = (2.2 if k == "pounce" else 2.8) * big + radius * 0.5
+			_zone_tele(sp_to, sp_len, sp_wind)
+		"bolt", "arrow":
+			sp_wind = 0.55 if k == "arrow" else 0.7; sp_len = 16.0; sp_w = 0.9; sp_to = tp
+			_line_tele(global_position + fwd * 0.8, fwd, sp_len, sp_w, sp_wind)
+		"volley":
+			sp_wind = 0.75; sp_len = 14.0; sp_w = 0.8
+			for a in [-0.32, 0.0, 0.32]: _line_tele(global_position + fwd * 0.8, fwd.rotated(Vector3.UP, a), sp_len, sp_w, sp_wind)
+		"homing":
+			sp_wind = 0.6
+			Fx.burst(main, global_position + Vector3(0, body_h * 0.8, 0), Color(0.75, 0.3, 1.0), 16, 2.0, 0.35, 0.6, -1.0)
+		"zones":
+			# 3 zones qui tombent sur le héros et autour : il faut sortir vite
+			sp_wind = randf_range(0.8, 1.2)
+			var pts: Array = [tp]
+			for i in (2 if not is_boss else 4):
+				var a := randf() * TAU; pts.append(tp + Vector3(cos(a), 0, sin(a)) * randf_range(2.5, 4.5))
+			sp_hit = pts
+			for q in pts: _zone_tele(q, 1.9 * big, sp_wind)
+	play("Interact" if not def.get("ranged", false) else "Use_Item", 0.8, 0.08, true)
+	sp_cd = randf_range(3.5, 6.0) * (0.75 if is_boss else 1.0)
+
+func _do_special(T) -> void:
+	var k := sp_kind
+	for n in tele_nodes:
+		if is_instance_valid(n): n.queue_free()
+	tele_nodes = []
+	state = "recover"; t_state = 0.0; atk_cd = def.cd * randf_range(0.7, 1.0)
+	var dm: float = Game.mob_dmg(tier) * def.dmg
+	match k:
+		"lunge", "dash", "charge":
+			sp_kind_last = k; sp_hit = []
+			state = "dashing"; dash_t = sp_len / (14.0 if k != "charge" else 18.0)
+			if k == "dash": global_position = Vector3(sp_from.x, global_position.y, sp_from.z)
+			play("Running_A", 2.0, 0.05, true)
+		"cleave":
+			_hit_circle(sp_to, sp_len, dm * 1.3); Fx.slash(main, global_position + Vector3(0, 1.0, 0), rotation.y, Color(1, 0.5, 0.4), sp_len)
+		"pounce", "slam":
+			# bond sur la zone
+			var tw := create_tween(); var land := Vector3(sp_to.x, main.world.ground_y(sp_to.x, sp_to.z), sp_to.z)
+			if main.in_instance(): land.y = global_position.y
+			tw.tween_property(self, "global_position", land, 0.18)
+			tw.tween_callback(func():
+				if dead: return
+				_hit_circle(sp_to, sp_len, dm * (1.5 if k == "slam" else 1.2))
+				Fx.burst(main, sp_to + Vector3(0, 0.3, 0), Color(0.85, 0.75, 0.6), 26, 6.0, 0.45, 0.5)
+				main.shake(0.25 if is_boss else 0.12))
+		"bolt", "arrow":
+			_shoot(sp_dir, dm * 1.3, k, null)
+		"volley":
+			for a in [-0.32, 0.0, 0.32]: _shoot(sp_dir.rotated(Vector3.UP, a), dm, "arrow", null)
+		"homing":
+			for i in (1 if not is_boss else 3):
+				_shoot(sp_dir.rotated(Vector3.UP, (i - 1) * 0.5), dm * 1.2, "homing", T)
+		"zones":
+			for q in sp_hit: _hit_circle(q, 1.9 * (1.6 if is_boss else 1.0), dm * 1.2)
+	sp_kind = ""
+
+func _victims() -> Array:
+	var v: Array = [main.player]
+	if duel_info.is_empty(): v += main.allies + main.bots + main.pets
+	return v
+
+func _hit_circle(c: Vector3, r: float, dm: float) -> void:
+	Fx.burst(main, c + Vector3(0, 0.3, 0), Color(1, 0.45, 0.3), 18, 5.0, 0.4, 0.45)
+	for v in _victims():
+		if not is_instance_valid(v) or v.dead: continue
+		if Vector2(v.global_position.x - c.x, v.global_position.z - c.z).length() < r + 0.3: v.hurt(dm * randf_range(0.9, 1.1), self)
+
+func _shoot(dir: Vector3, dm: float, k: String, homing_t) -> void:
+	var sh := EShot.new(); main.add_child(sh)
+	sh.launch(main, self, global_position + Vector3(0, 1.1 * def.get("scale", 1.0), 0) + dir * 0.8, dir, dm, k, homing_t)
+	Game.play_at("swing", global_position, -6.0, 1.4, true)
+
+# Projectiles des monstres : tirs droits (à esquiver de côté) ou orbes qui suivent leur cible
+class EShot extends Node3D:
+	var main: Node
+	var src: Node3D
+	var dir := Vector3.ZERO
+	var dmg := 0.0
+	var kind := "bolt"
+	var speed := 20.0
+	var life := 1.0
+	var target
+	func launch(m: Node, s: Node3D, p: Vector3, d: Vector3, dm: float, k: String, t) -> void:
+		main = m; src = s; dir = d.normalized(); dmg = dm; kind = k; target = t
+		global_position = p
+		match k:
+			"arrow": speed = 24.0; life = 0.75
+			"bolt": speed = 17.0; life = 1.0
+			"homing": speed = 6.8; life = 5.0
+		if k == "arrow":
+			var mdl: Node3D = load("res://assets/weapons/arrow_crossbow.gltf").instantiate(); mdl.scale = Vector3.ONE * 1.4; add_child(mdl)
+			look_at(global_position + dir, Vector3.UP); rotate_object_local(Vector3.UP, PI)
+		else:
+			var col := Color(0.8, 0.3, 1.0) if k == "homing" else Color(1.0, 0.35, 0.2)
+			var mi := MeshInstance3D.new(); var sm := SphereMesh.new(); sm.radius = 0.3 if k == "homing" else 0.22; sm.height = sm.radius * 2.0; mi.mesh = sm
+			var mt := StandardMaterial3D.new(); mt.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; mt.albedo_color = col; mi.material_override = mt; add_child(mi)
+			var gl := Sprite3D.new(); gl.texture = Fx.soft_tex(); gl.billboard = BaseMaterial3D.BILLBOARD_ENABLED; gl.pixel_size = 0.035; gl.modulate = Color(col.r, col.g, col.b, 0.8); gl.shaded = false; add_child(gl)
+	func _physics_process(dt: float) -> void:
+		life -= dt
+		if life <= 0.0: _pop(); return
+		if kind == "homing" and target and is_instance_valid(target) and not target.dead:
+			var to: Vector3 = target.global_position + Vector3(0, 1.0, 0) - global_position
+			var want := to.normalized()
+			dir = dir.slerp(want, clamp(dt * 2.4, 0.0, 1.0)).normalized()
+		global_position += dir * speed * dt
+		var gy: float = main.world.ground_y(global_position.x, global_position.z) if not main.in_instance() else 0.0
+		if not main.in_instance(): global_position.y = max(global_position.y, gy + 0.6)
+		elif main.dungeon and not main.dungeon.walkable(global_position.x, global_position.z): _pop(); return
+		var vs: Array = [main.player] + main.allies + main.pets
+		for v in vs:
+			if not is_instance_valid(v) or v.dead: continue
+			var d := Vector2(v.global_position.x - global_position.x, v.global_position.z - global_position.z).length()
+			if d < 0.75:
+				v.hurt(dmg * randf_range(0.9, 1.1), src if is_instance_valid(src) else null)
+				_pop(); return
+	func _pop() -> void:
+		Fx.burst(main, global_position, Color(0.8, 0.35, 1.0) if kind == "homing" else Color(1, 0.6, 0.4), 10, 3.0, 0.25, 0.35, 2.0)
+		queue_free()
 
 # cible : le héros, ou un mercenaire plus proche
 func _pick_target() -> void:
@@ -295,7 +515,7 @@ func _physics_process(dt: float) -> void:
 		velocity.x = 0; velocity.z = 0
 		if main.in_instance(): move_and_slide()
 		return
-	evade_cd -= dt
+	evade_cd -= dt; sp_cd -= dt; strafe_cd -= dt
 	if state != "windup" and (tgt == null or Engine.get_physics_frames() % 15 == 0): _pick_target()
 	var P: Player = main.player
 	var T = tgt if tgt and is_instance_valid(tgt) else P
@@ -323,8 +543,13 @@ func _physics_process(dt: float) -> void:
 				elif not see:
 					# un mur entre nous : on contourne par les salles et les couloirs (pas d'attaque à travers les murs)
 					want = main.world.dungeon.steer(global_position) * def.speed
+				elif see and sp_cd <= 0.0 and atk_cd <= 0.3 and _try_special(T, dist):
+					pass
 				elif dist > def.range * 0.92:
 					want = to.normalized() * def.speed
+					# les bêtes et voleurs agiles zigzaguent en approchant
+					if kind in AGILE and dist < 9.0 and strafe_cd <= 0.0:
+						strafe_cd = randf_range(1.8, 3.2); var sd := Vector3(-to.z, 0, to.x).normalized() * (1.0 if randf() < 0.5 else -1.0); knock = sd * 8.0
 				elif atk_cd <= 0.0:
 					_start_attack(T)
 				else:
@@ -341,8 +566,22 @@ func _physics_process(dt: float) -> void:
 					if duel_info.size() > 0: main.duel_reset(self)
 				want = want.normalized() * def.speed * 1.2
 			"windup":
-				rotation.y = lerp_angle(rotation.y, atan2(to.x, to.z), 1.0 - exp(-dt * (4.0 if not def.get("ranged", false) else 10.0)))
-				if t_state >= def.wind: _strike(T)
+				if sp_kind != "":
+					# une fois la cible verrouillée, la direction ne bouge plus : on peut esquiver
+					if sp_kind in ["homing", "zones"]: rotation.y = lerp_angle(rotation.y, atan2(to.x, to.z), 1.0 - exp(-dt * 8.0))
+					if t_state >= sp_wind: _do_special(T)
+				else:
+					rotation.y = lerp_angle(rotation.y, atan2(to.x, to.z), 1.0 - exp(-dt * (4.0 if not def.get("ranged", false) else 10.0)))
+					if t_state >= def.wind: _strike(T)
+			"dashing":
+				dash_t -= dt
+				want = sp_dir * (14.0 if sp_kind_last != "charge" else 18.0)
+				for v in _victims():
+					if not is_instance_valid(v) or v.dead or v in sp_hit: continue
+					if v.global_position.distance_to(global_position) < radius + sp_w * 0.5 + 0.3:
+						sp_hit.append(v); v.hurt(Game.mob_dmg(tier) * def.dmg * (1.6 if sp_kind_last == "charge" else 1.2), self)
+						if v == main.player: main.shake(0.2)
+				if dash_t <= 0.0: state = "recover"; t_state = 0.0
 			"recover":
 				if t_state > 0.35: state = "chase"
 			"wait":
@@ -376,6 +615,8 @@ func _sees(p: Vector3) -> bool:
 	return inst == null or not inst.has_method("sight") or inst.sight(global_position, p, max(0.45, radius * 0.9))
 
 func _start_attack(T) -> void:
+	if def.get("shooter", false):
+		var keep := sp_cd; _start_special(T, "arrow"); sp_cd = keep; return
 	state = "windup"; t_state = 0.0
 	var fwd: Vector3 = (T.global_position - global_position); fwd.y = 0; fwd = fwd.normalized()
 	rotation.y = atan2(fwd.x, fwd.z)
