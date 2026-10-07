@@ -172,7 +172,7 @@ fd=ImageDraw.Draw(fr)
 fd.rectangle([40,150,S+80,S+190],fill=(235,215,170,255))
 fr.paste(img,(60,170))
 fd.rectangle([60,170,S+60,S+170],outline=(64,42,24,255),width=6)
-fd.text(((S+120)//2,80),"Val de Valdrune — carte construite (v8.9)",font=F(52),fill=(255,226,150,255),anchor='mm',stroke_width=4,stroke_fill=(30,18,8,255))
+fd.text(((S+120)//2,80),"Val de Valdrune — carte construite (v9.0)",font=F(52),fill=(255,226,150,255),anchor='mm',stroke_width=4,stroke_fill=(30,18,8,255))
 # légende
 lx,ly=90,S-330
 fd.rounded_rectangle([lx,ly+170,lx+330,ly+170+250],14,fill=(245,232,200,235),outline=(90,60,30,255),width=3)

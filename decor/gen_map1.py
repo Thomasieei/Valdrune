@@ -92,10 +92,10 @@ plaza_slots=[]
 r=PR+2.6+4.2
 for q in range(4):
     base=math.pi/4+q*math.pi/2
-    for off in (-0.25,0.25):
+    for off in (-0.36,0.0,0.36):
         a=base+off
         if ang_ok(a,r,AVE_W/2+3.6): plaza_slots.append(a)
-services=[('@shop:blue','shop',6.1),('@shop:purple','auction',6.1),('@forge','forge',3.2),('@shop:green','mercs',6.1),('@shop:red','tannery',6.1),('@forge','sawmill',3.2),('HOUSE',None,0),('HOUSE',None,0)]
+services=[('@shop:blue','shop',6.1),('HOUSE',None,0),('@shop:purple','auction',6.1),('@forge','forge',3.2),('HOUSE',None,0),('@shop:green','mercs',6.1),('@shop:red','tannery',6.1),('HOUSE',None,0),('@forge','sawmill',3.2),('HOUSE',None,0),('@shop:blue',None,0),('HOUSE',None,0)]
 for a,(bp,key,fd) in zip(plaza_slots,services):
     x=C[0]+math.cos(a)*r; z=C[1]+math.sin(a)*r; rot=face(x,z,*C)
     w,dd=(5.6,4.4) if bp=='@forge' else (6.4,8.4)
@@ -104,19 +104,23 @@ for a,(bp,key,fd) in zip(plaza_slots,services):
         fx,fz=front(x,z,rot,fd); npc(key,fx,fz,rot)
 # maisons à l'extérieur du boulevard, face au centre
 n_out=0
-for rr in (RING+2.25+1.0+4.2, RING+2.25+1.0+4.2+12.0):
+for rr in (RING+2.25+1.0+4.2,):
     a=0.0; step=8.4/rr
     while a<math.tau:
         if ang_ok(a,rr,AVE_W/2+4.0):
             x=C[0]+math.cos(a)*rr; z=C[1]+math.sin(a)*rr
             if building(random.choice(HOUSES if rr<45 else SMALL),x,z,face(x,z,*C)): n_out+=1
         a+=step
-# entre la place et le boulevard (côté boulevard), petites maisons dos à la place
-for a0 in range(0,360,12):
-    a=math.radians(a0+6); rr=RING-2.25-1.0-4.2
-    if not ang_ok(a,rr,AVE_W/2+3.5): continue
-    x=C[0]+math.cos(a)*rr; z=C[1]+math.sin(a)*rr
-    building(random.choice(SMALL),x,z,face(C[0],C[1],x,z)+math.pi*0+math.atan2(0,1)*0 if False else math.atan2(x-C[0],z-C[1]))
+# le long des avenues, après le boulevard : maisons alignées face à l'avenue
+for k,(dx,dz) in AV.items():
+    L=44 if k in 'NEW' else 34
+    s_=RING+2.25+4.0
+    while s_<L-1:
+        for side in (-1,1):
+            nx,nz=-dz*side,dx*side
+            x=C[0]+dx*s_+nx*(AVE_W/2+1.6+4.2); z=C[1]+dz*s_+nz*(AVE_W/2+1.6+4.2)
+            building(random.choice(HOUSES),x,z,math.atan2(-nx,-nz))
+        s_+=7.2
 # marché : étals des vendeurs d'outils sur la place
 for i,key in enumerate(['tools:hache','tools:pioche','tools:faucille']):
     a=math.radians(200+i*55); x=C[0]+math.cos(a)*9.5; z=C[1]+math.sin(a)*9.5; rot=face(x,z,*C)
@@ -167,7 +171,7 @@ hamlet(-46,40,3,1.2)
 put('res://assets/hex/building_windmill_blue.gltf',76,52,-0.6,True,3.0); occ.append((76,52,4))
 def field_ok(cx,cz,w,hh):
     cs=[(cx+u,cz+v) for u in (-w/2,0,w/2) for v in (-hh/2,0,hh/2)]
-    return all(walk(*c) and road_dist(*c)>1.0 for c in cs) and free(cx,cz,max(w,hh)/2-1) and max(hgt(*c) for c in cs)-min(hgt(*c) for c in cs)<2.6
+    return all(walk(*c) and road_dist(*c)>1.0 for c in cs) and free(cx,cz,max(w,hh)/2+1.5) and max(hgt(*c) for c in cs)-min(hgt(*c) for c in cs)<2.6
 def field(tx,tz,w,hh,rot,crop):
     for tries in range(300):
         rr=tries*0.1; a=random.random()*math.tau
@@ -179,15 +183,24 @@ nf=0
 for f in [(-30,92,12,9,0.1,'wheat'),(-46,80,10,10,-0.2,'cabbage'),(36,92,12,9,-0.1,'wheat'),(50,78,10,9,0.2,'carrot'),(52,24,10,9,0.3,'wheat'),(-60,50,10,8,0.0,'wheat'),(-60,30,9,9,0.2,'cabbage'),(76,64,10,8,0.1,'wheat')]:
     nf+=field(*f)
 print('fields',nf)
-put('res://assets/hex/building_mine_blue.gltf',80,8,-1.2,True,3.0); occ.append((80,8,5))
+def spot(tx,tz,r,flat=1.6,mind=0):
+    for tries in range(600):
+        rr=tries*0.08; a=random.random()*math.tau
+        x=tx+math.cos(a)*rr; z=tz+math.sin(a)*rr
+        if math.hypot(x-C[0],z-C[1])<mind: continue
+        cs=[(x+math.cos(b)*r,z+math.sin(b)*r) for b in [i*math.tau/8 for i in range(8)]]+[(x,z)]
+        if all(walk(*c) for c in cs) and free(x,z,r) and road_dist(x,z)>r+0.5 and max(hgt(*c) for c in cs)-min(hgt(*c) for c in cs)<flat: return x,z
+    return tx,tz
+mx_,mz_=spot(80,8,5,2.5); put('res://assets/hex/building_mine_blue.gltf',mx_,mz_,-1.2,True,3.0); occ.append((mx_,mz_,5))
 put('@tower',86,-22,0.0,True); occ.append((86,-22,3))
 for k in range(6):
     a=k/6*math.tau; put('res://assets/dungeon/pillar_decorated.gltf',-34+math.cos(a)*4,-66+math.sin(a)*4,a,True)
 put('res://assets/crystal/PROP_09_FloatingMagicCrystal.glb',-34,-66,0.0,True); occ.append((-34,-66,6))
-put('@plaza:8',-28,16,0.0,False); occ.append((-28,16,9))
+ax_,az_=spot(-24,10,10.5,1.4,58)
+put('@plaza:8',ax_,az_,0.0,False); occ.append((ax_,az_,10.5))
 for k in range(10):
-    a=k/10*math.tau; put('res://assets/dungeon/pillar.gltf',-28+math.cos(a)*9.5,16+math.sin(a)*9.5,a,True)
-npc('talk',-28,16,0.0)
+    a=k/10*math.tau; put('res://assets/dungeon/pillar.gltf',ax_+math.cos(a)*9.5,az_+math.sin(a)*9.5,a,True)
+npc('talk',ax_,az_,0.0)
 # ================= RESSOURCES ET CAMPS =================
 def scatter(path,cx,cz,n,rad,solid=False,minr=2.6):
     k=0; tries=0
@@ -199,8 +212,19 @@ def scatter(path,cx,cz,n,rad,solid=False,minr=2.6):
 for (x,z,t) in [(-28,-14,1),(-20,30,1),(-56,-50,2),(30,-60,2)]: scatter('@res:wood:%d'%t,x,z,6,7)
 for (x,z,t) in [(72,-6,1),(84,20,1),(-30,-80,2),(84,-40,2)]: scatter('@res:ore:%d'%t,x,z,5,6)
 for (x,z,t) in [(30,22,1),(-70,4,1),(-60,86,1),(-78,-20,2)]: scatter('@res:fiber:%d'%t,x,z,6,7)
-for (x,z,t) in [(44,-30,1),(-76,30,1),(62,-76,2),(-82,-56,2)]:
-    if walk(x,z): put('@camp:%d'%t,x,z,0.0,False); occ.append((x,z,6))
+camps=[]
+for t,(zmin,zmax),want in [(1,(-10,104),9),(2,(-104,-10),9)]:
+    tries=0
+    while sum(1 for c in camps if c[2]==t)<want and tries<4000:
+        tries+=1
+        x=random.uniform(-100,100); z=random.uniform(zmin,zmax)
+        if math.hypot(x-C[0],z-C[1])<52 or not walk(x,z) or not free(x,z,6) or road_dist(x,z)<5: continue
+        if any(math.hypot(x-c[0],z-c[1])<17 for c in camps): continue
+        if math.hypot(x-64,z-40)<22 or math.hypot(x+46,z-40)<22: continue
+        hs=[hgt(x+u,z+v) for u in (-4,0,4) for v in (-4,0,4)]
+        if max(hs)-min(hs)>2.0: continue
+        camps.append((x,z,t)); put('@camp:%d'%t,x,z,0.0,False); occ.append((x,z,6))
+print('camps',len(camps))
 # ================= FORÊTS (arbres « terrain », dessinés en masse par le monde) =================
 TREES=['Tree_1_A','Tree_1_B','Tree_1_C','Tree_2_A','Tree_2_C','Tree_1_A','Tree_4_A','Tree_4_B','Tree_4_A','Tree_1_C']
 forest=[]

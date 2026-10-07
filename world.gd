@@ -429,9 +429,16 @@ func _blank_forest() -> void:
 	if not FileAccess.file_exists(f): return
 	var arr = JSON.parse_string(FileAccess.get_file_as_string(f))
 	if not arr is Array: return
+	var hr := RandomNumberGenerator.new(); hr.seed = 4242
 	for t in arr:
 		var p := Vector3(float(t[0]), 0, float(t[1]))
 		var nm := str(t[4])
+		# près d'un arbre sur deux se coupe (bûcheron) : tier de la région (T1 au sud, T2 au nord)
+		if hr.randf() < 0.5:
+			var tt: int = int(REGIONS[region_at(p.x, p.z)].tier)
+			if Vector2(p.x, p.z).distance_to(village) < 95.0 or hr.randf() < 0.35: tt = 1      # lisière : du T1 pour les débutants
+			_add_node("wood", tt, p)
+			continue
 		# feuillus du pack d'origine (vert vif) ; les sapins passent par la version Quaternius
 		no_remap = not nm.begins_with("Tree_4")
 		_mm("res://assets/forest/%s_Color1.gltf" % nm, p, float(t[2]), float(t[3]))
