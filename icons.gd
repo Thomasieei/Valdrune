@@ -9,6 +9,8 @@ var tex := {}          # clé → Texture2D
 var queue: Array = []
 var busy := false
 var main: Node
+var baking := false        # outil : pré-calcule toutes les miniatures en PNG (ui/gen) pour le jeu
+const GEN := "res://ui/gen/%s.png"
 
 func setup(m: Node) -> void:
 	main = m
@@ -25,7 +27,11 @@ func setup(m: Node) -> void:
 	# file d'attente : ressources, armes, outils, vestes
 	for t in range(1, 6):
 		for k in ["wood", "ore", "fiber"]: queue.append({"key": "res_%s_%d" % [k, t], "kind": "res", "res": k, "tier": t})
-		for wk in Game.WEAPON_KINDS: queue.append({"key": "arme_%s_%d" % [wk, t], "kind": "model", "path": Game.weapon_model(wk, t), "rot": Vector3(0, 0, 0.75), "tier": t})
+		for wk in Game.WEAPON_KINDS:
+			var wj := {"key": "arme_%s_%d" % [wk, t], "kind": "model", "path": Game.weapon_model(wk, t), "rot": Vector3(0, 0, 0.75), "tier": t}
+			if wk == "arc": wj.rot = (Basis(Vector3.BACK, 0.7) * Basis.from_euler(Vector3(0, PI * 0.5, 0.75))).get_euler()        # l'arc est plat : on le montre de face, pas de profil
+			if wk == "dompteur": wj["tint"] = Color(0.75, 1.25, 0.7)   # bâton du dompteur : teinte verte (≠ bâton de mage)
+			queue.append(wj)
 		queue.append({"key": "bouclier_%d" % t, "kind": "model", "path": Game.shield_model(t), "rot": Vector3(0, -0.35, 0), "tier": t})
 	for tool in ["hache", "pioche", "faucille"]: queue.append({"key": tool, "kind": "model", "path": Game.TOOL_MODEL[tool], "rot": Vector3(0, 0, 0.6)})
 	# plastrons et bottes : la pièce seule (torse + bras / jambes), comme dans l'inventaire d'Albion
@@ -53,6 +59,11 @@ func setup(m: Node) -> void:
 		for t in range(1, 6):
 			var pth := "res://ui/res/res_%s_%d.png" % [k, t]
 			if ResourceLoader.exists(pth): tex["res_%s_%d" % [k, t]] = load(pth)
+	if baking: queue.append({"key": "trophy", "kind": "model", "path": "res://assets/dungeon/sword_shield_gold.gltf", "rot": Vector3(0, 0.35, 0)})
+	# miniatures pré-calculées livrées avec le jeu : instantanées, rien à générer au lancement
+	if not baking:
+		for j in queue:
+			if not tex.has(j.key) and ResourceLoader.exists(GEN % j.key): tex[j.key] = load(GEN % j.key)
 	queue = queue.filter(func(j): return not tex.has(j.key))
 	# d'abord ce qu'on voit tout de suite (sac, butin, poupée), ensuite le reste
 	var first := queue.filter(func(j): return j.key == "potion" or j.key == "hero_head" or j.key.begins_with("junk_") or j.key.begins_with("armure_") or j.key.begins_with("bottes_") or j.key.ends_with("_1") or j.key in ["hache", "pioche", "faucille"])
@@ -95,7 +106,8 @@ func _next() -> void:
 		busy = false
 		vp.render_target_update_mode = SubViewport.UPDATE_DISABLED   # plus rien à dessiner : on coupe ce rendu en plus
 		for c in holder.get_children(): c.queue_free()
-		if main.hud: main.hud.refresh_panel()   # les miniatures sont prêtes : on rafraîchit la fenêtre ouverte
+		if main.get("hud"): main.hud.refresh_panel()
+		if baking: print("BAKE done ", tex.size()); get_tree().quit()   # les miniatures sont prêtes : on rafraîchit la fenêtre ouverte
 		return
 	busy = true
 	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
@@ -170,6 +182,7 @@ func _next() -> void:
 	await RenderingServer.frame_post_draw
 	var img := vp.get_texture().get_image()
 	tex[job.key] = ImageTexture.create_from_image(img)
+	if baking and not str(job.key).begins_with("cat:"): img.save_png(ProjectSettings.globalize_path(GEN % job.key)); print("BAKE ", job.key)
 	_next()
 
 var _dm: StandardMaterial3D

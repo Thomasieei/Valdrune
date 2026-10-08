@@ -18,7 +18,7 @@ const RES := {
 const RES_KEYS := ["wood", "ore", "fiber"]
 const TOOL_OF := {"wood": "hache", "ore": "pioche", "fiber": "faucille"}
 const TOOL_NAME := {"hache": "Hache", "pioche": "Pioche", "faucille": "Faucille", "epee": "Arme", "armure": "Armure", "bottes": "Bottes", "bouclier": "Bouclier"}
-const TOOL_MODEL := {"hache": "res://assets/weapons/axe_1handed.gltf", "pioche": "res://assets/weapons/hammer_A.gltf", "faucille": "res://assets/weapons/dagger_A.gltf"}
+const TOOL_MODEL := {"hache": "res://assets/weapons/axe_1handed.gltf", "pioche": "res://assets/tools/pioche.tscn", "faucille": "res://assets/tools/faucille.tscn"}
 const W := "res://assets/weapons/%s.gltf"
 # Familles d'armes : chaque tier a son propre modèle 3D
 const WEAPON_KINDS := {
@@ -938,7 +938,7 @@ func _notification(what: int) -> void:
 # ================= JOURNAL DE BORD (pour retrouver ce qui a fait planter le jeu) =================
 const FLAG_PATH := "user://en_cours.flag"
 const CRUMB_PATH := "user://journal.txt"
-const VERSION := "9.2"
+const VERSION := "9.3"
 var crumbs: Array = []
 var crashed_last := false
 var last_crumbs := ""

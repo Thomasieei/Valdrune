@@ -42,8 +42,8 @@ const PROPS := {
 	"rhea": [["handslot.r", "sword_D"], ["handslot.l", "shield_C"]],
 	"ysaline": [["handslot.r", "staff_B"]],
 	"bjorn": [["handslot.r", "axe_1handed"]],
-	"gorm": [["handslot.r", "hammer_A"]],
-	"sylve": [["handslot.r", "dagger_A"]],
+	"gorm": [["handslot.r", "@pioche"]],
+	"sylve": [["handslot.r", "@faucille"]],
 }
 
 var main: Node
@@ -70,7 +70,7 @@ func setup(m: Node, d: Dictionary) -> void:
 	main = m; id = d.id; nm = d.name; role = d.role; act = d.act; data = d
 	ch = Chars.make("res://assets/heroes/%s.glb" % d.model); add_child(ch.root); ap = ch.ap
 	ch.root.scale = Vector3.ONE * d.get("scale", 1.0)
-	for pr in PROPS.get(id, []): Chars.attach(ch, pr[0], Game.W % pr[1], 1.0)
+	for pr in PROPS.get(id, []): Chars.attach(ch, pr[0], Game.TOOL_MODEL[str(pr[1]).substr(1)] if str(pr[1]).begins_with("@") else Game.W % pr[1], 1.0)
 	if d.act == "guard":
 		Chars.attach(ch, "handslot.r", Game.W % "halberd", 1.0); Chars.attach(ch, "handslot.l", Game.W % "shield_square", 1.0)
 	if act == "duel":

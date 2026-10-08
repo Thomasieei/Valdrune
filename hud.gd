@@ -1313,9 +1313,9 @@ func _parch_box() -> StyleBoxFlat:
 const SLOT_BG := [Color("#3a3530"), Color("#4a4640"), Color("#2f5a2a"), Color("#1f5266"), Color("#283f86"), Color("#7a1f1c")]
 func aslot(tx: Texture2D, tier: int, count: int, selected: bool, cb: Callable, size := 70.0, ench := 0, ghost: Texture2D = null, it := {}) -> Button:
 	var b := Button.new(); b.custom_minimum_size = Vector2(size, size); b.focus_mode = Control.FOCUS_NONE
-	var full := tier > 0 and tx != null
+	var full := tx != null
 	var tcol: Color = Game.TIER_COL[clamp(tier, 0, Game.TIER_COL.size() - 1)]
-	var bg: Color = SLOT_BG[clamp(tier, 0, 5)] if full else Color("#d3bd92")
+	var bg: Color = (SLOT_BG[clamp(tier, 0, 5)] if tier > 0 else Color("#3a3f4a")) if full else Color("#d3bd92")
 	var st := flat(bg, 7, Color(0, 0, 0, 0), 0, Vector4(0, 0, 0, 0))
 	if not full: st.border_color = Color("#b39a6c"); st.set_border_width_all(2)
 	for k in ["normal", "hover", "pressed", "disabled"]: b.add_theme_stylebox_override(k, st)
@@ -1338,7 +1338,7 @@ func aslot(tx: Texture2D, tier: int, count: int, selected: bool, cb: Callable, s
 		if selected: fr.modulate = Color(1.6, 1.3, 0.55)
 		elif ench > 0: fr.modulate = Color(1.25, 0.85, 1.5)
 		add.call(fr)
-	if full:
+	if full and tier > 0:
 		var fs: int = clamp(int(size * 0.17), 11, 15)
 		var tl := _label(ROMAN[clamp(tier, 0, 8)], fs, tcol.lightened(0.35)); tl.add_theme_font_override("font", f_title)
 		tl.add_theme_constant_override("outline_size", 4); tl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.95)); tl.position = Vector2(size * 0.09, size * 0.03); add.call(tl)
@@ -2360,15 +2360,15 @@ const OFFERS := [
 	{"id": "c3", "tab": "couronnes", "name": "Coffret de couronnes", "desc": "1 400 couronnes (+17 % offert)", "icon": "crown", "col": "#62d24e", "eur": "9,99 €", "gives": 1400, "hot": true},
 	{"id": "c4", "tab": "couronnes", "name": "Coffre de couronnes", "desc": "3 000 couronnes (+25 % offert)", "icon": "crown", "col": "#c77dff", "eur": "19,99 €", "gives": 3000},
 	{"id": "c5", "tab": "couronnes", "name": "Trésor du roi", "desc": "8 000 couronnes (+33 % offert)", "icon": "crown", "col": "#ff9a3c", "eur": "49,99 €", "gives": 8000},
-	{"id": "premium30", "tab": "premium", "name": "Premium · 30 jours", "desc": "+50 % d'expérience partout, +50 % d'argent, nom doré", "icon": "it_trophy", "col": "#ffcf5a", "cr": 450, "hot": true},
-	{"id": "premium7", "tab": "premium", "name": "Premium · 7 jours", "desc": "+50 % d'expérience partout, +50 % d'argent", "icon": "it_trophy", "col": "#ffe39a", "cr": 150},
+	{"id": "premium30", "tab": "premium", "name": "Premium · 30 jours", "desc": "+50 % d'expérience partout, +50 % d'argent, nom doré", "icon": "crown", "col": "#ffcf5a", "cr": 450, "hot": true},
+	{"id": "premium7", "tab": "premium", "name": "Premium · 7 jours", "desc": "+50 % d'expérience partout, +50 % d'argent", "icon": "crown", "col": "#ffe39a", "cr": 150},
 	{"id": "boost1", "tab": "premium", "name": "Boost d'expérience · 1 h", "desc": "Expérience ×2 (armes, armure, métiers) — cumulable avec Premium", "icon": "it_seal", "col": "#7dff8a", "cr": 40},
 	{"id": "boost24", "tab": "premium", "name": "Boost d'expérience · 24 h", "desc": "Expérience ×2 pendant une journée entière", "icon": "it_seal", "col": "#4fe36a", "cr": 250},
-	{"id": "maitrise", "tab": "premium", "name": "Parchemin de guerre", "desc": "+3 niveaux de maîtrise d'arme ET d'armure", "icon": "it_trophy", "col": "#ffb07a", "cr": 180, "hot": true},
+	{"id": "maitrise", "tab": "premium", "name": "Parchemin de guerre", "desc": "+3 niveaux de maîtrise d'arme ET d'armure", "icon": "it_treasure_map", "col": "#ffb07a", "cr": 180, "hot": true},
 	{"id": "metier", "tab": "premium", "name": "Parchemin d'artisan", "desc": "+3 niveaux à tous les métiers", "icon": "pioche", "col": "#9dffb0", "cr": 150},
-	{"id": "enchant", "tab": "premium", "name": "Parchemin d'enchantement", "desc": "+1 enchantement sur toutes les pièces portées", "icon": "art_rage", "col": "#e7a8ff", "cr": 220},
-	{"id": "auto", "tab": "premium", "name": "Écuyer automatique", "desc": "Ton héros récolte et chasse tout seul (bouton AUTO)", "icon": "it_hunt", "col": "#7dff8a", "cr": 600},
-	{"id": "sac", "tab": "premium", "name": "Sac agrandi", "desc": "+8 cases (jusqu'à +24)", "icon": "it_loot_rare", "col": "#e9dcc0", "cr": 120},
+	{"id": "enchant", "tab": "premium", "name": "Parchemin d'enchantement", "desc": "+1 enchantement sur toutes les pièces portées", "icon": "it_quest", "col": "#e7a8ff", "cr": 220},
+	{"id": "auto", "tab": "premium", "name": "Écuyer automatique", "desc": "Ton héros récolte et chasse tout seul (bouton AUTO)", "icon": "char_Knight", "col": "#7dff8a", "cr": 600},
+	{"id": "sac", "tab": "premium", "name": "Sac agrandi", "desc": "+8 cases (jusqu'à +24)", "icon": "it_loot_common", "col": "#e9dcc0", "cr": 120},
 	{"id": "potions", "tab": "premium", "name": "Caisse de potions", "desc": "25 potions de soin", "icon": "potion", "col": "#7dff8a", "cr": 30},
 	{"id": "leg", "tab": "premium", "name": "Coffre légendaire", "desc": "Un butin légendaire T5 à ouvrir", "icon": "it_chest_open", "col": "#ffb02e", "cr": 350},
 	{"id": "garde", "tab": "premium", "name": "Garde d'élite", "desc": "3 mercenaires T5 rejoignent ton groupe", "icon": "char_Knight", "col": "#9fd4ff", "cr": 400},
