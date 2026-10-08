@@ -563,6 +563,8 @@ func hurt(amount: float, from: Node3D) -> void:
 	if dead or invuln > 0.0 or (main.builder and main.builder.active): return
 	last_attacker = from
 	amount *= 1.0 - Game.stats().red   # armure de tout l'équipement
+	var ea: int = Game.ev_of(from)
+	if ea >= 0: amount *= Game.dom(ea, Game.eveil())          # domination de l'Éveil (JcJ)
 	if cast_t > 0.0: cast_t = 0.0; main.hud.toast("Invocation interrompue !", Color("#ff9a8a"))
 	if shield_hp > 0.0:
 		var ab: float = min(shield_hp, amount); shield_hp -= ab; amount -= ab
@@ -767,7 +769,28 @@ func level_glow(col := Color(1.0, 0.85, 0.35)) -> void:
 	Fx.disc(main, global_position, 3.0, Color(col.r, col.g, col.b, 0.5), 0.6, false)
 
 var guild_lbl: Label3D
+var name3d: Label3D
+var ev_lbl: Label3D
+var ev_aura: MeshInstance3D
 func refresh_name() -> void:
+	# ton nom en OR au-dessus de ta tête : les joueurs sont en or, les monstres en rouge, les habitants en blanc
+	if name3d == null:
+		name3d = Label3D.new(); name3d.font = Npc.NAME_FONT; name3d.font_size = 54; name3d.outline_size = 14; name3d.modulate = Color("#ffd24a"); name3d.outline_modulate = Color(0.2, 0.1, 0.0, 0.95)
+		name3d.billboard = BaseMaterial3D.BILLBOARD_ENABLED; name3d.pixel_size = 0.0065; name3d.position.y = 3.0; name3d.no_depth_test = true; add_child(name3d)
+		ev_lbl = Label3D.new(); ev_lbl.font_size = 34; ev_lbl.outline_size = 10; ev_lbl.outline_modulate = Color(0, 0, 0, 0.9)
+		ev_lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED; ev_lbl.pixel_size = 0.0065; ev_lbl.position.y = 3.4; ev_lbl.no_depth_test = true; add_child(ev_lbl)
+	name3d.text = str(Game.S.get("pname", "Aventurier"))
+	var ev := Game.eveil()
+	ev_lbl.visible = ev > 0
+	if ev > 0:
+		var ec := Color(Game.EVEIL_COL[ev])
+		ev_lbl.text = "✦ %s ✦" % Game.EVEIL_NAMES[ev]; ev_lbl.modulate = ec
+		if ev_aura == null:
+			ev_aura = MeshInstance3D.new(); var tm := TorusMesh.new(); tm.inner_radius = 0.85; tm.outer_radius = 1.0; tm.rings = 40; tm.ring_segments = 3; ev_aura.mesh = tm
+			var am := StandardMaterial3D.new(); am.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; am.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA; am.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+			ev_aura.material_override = am; ev_aura.scale = Vector3(1.0, 0.05, 1.0); ev_aura.position.y = 0.07; ev_aura.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; add_child(ev_aura)
+			var tw := ev_aura.create_tween().set_loops(); tw.tween_property(ev_aura, "scale", Vector3(1.25, 0.05, 1.25), 0.9).set_trans(Tween.TRANS_SINE); tw.tween_property(ev_aura, "scale", Vector3(1.0, 0.05, 1.0), 0.9).set_trans(Tween.TRANS_SINE)
+		(ev_aura.material_override as StandardMaterial3D).albedo_color = Color(ec.r, ec.g, ec.b, 0.7)
 	if guild_lbl == null:
 		guild_lbl = Label3D.new(); guild_lbl.font_size = 34; guild_lbl.outline_size = 12; guild_lbl.modulate = Color("#9fe0ff"); guild_lbl.outline_modulate = Color(0, 0, 0, 0.8)
 		guild_lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED; guild_lbl.pixel_size = 0.0065; guild_lbl.position.y = 2.6; guild_lbl.no_depth_test = true; add_child(guild_lbl)

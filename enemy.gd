@@ -12,6 +12,7 @@ const KINDS := {
 	"rogue": {"model": SK + "Skeleton_Rogue.glb", "name": "Rôdeur squelette", "hp": 0.85, "dmg": 0.9, "speed": 4.6, "range": 1.8, "wind": 0.45, "cd": 1.1, "weapon": SK + "Skeleton_Blade.gltf"},
 	"mage": {"model": SK + "Skeleton_Mage.glb", "name": "Mage squelette", "hp": 0.8, "dmg": 1.1, "speed": 3.0, "range": 8.0, "wind": 0.8, "cd": 2.2, "weapon": SK + "Skeleton_Staff.gltf", "ranged": true},
 	"archer": {"model": SK + "Skeleton_Rogue.glb", "name": "Archer squelette", "hp": 0.75, "dmg": 1.0, "speed": 3.4, "range": 10.0, "wind": 0.5, "cd": 2.0, "weapon": "res://assets/weapons/crossbow_1handed.gltf", "ranged": true, "shooter": true},
+	"gardien": {"model": SK + "Skeleton_Warrior.glb", "name": "Gardien de l'Éveil", "hp": 16.0, "dmg": 1.45, "speed": 3.8, "range": 3.0, "wind": 0.8, "cd": 1.5, "weapon": SK + "Skeleton_Axe.gltf", "shield": SK + "Skeleton_Shield_Large_A.gltf", "scale": 1.9, "tint": Color(0.75, 0.6, 1.3)},
 	"boss": {"model": SK + "Skeleton_Warrior.glb", "name": "Seigneur d'Os", "hp": 14.0, "dmg": 1.7, "speed": 3.4, "range": 3.6, "wind": 0.9, "cd": 1.7, "weapon": SK + "Skeleton_Axe.gltf", "shield": SK + "Skeleton_Shield_Large_A.gltf", "scale": 2.1},
 	# ——— Animaux sauvages ———
 	"renard": {"animal": true, "model": AN + "fox.glb", "name": "Renard", "hp": 0.7, "dmg": 0.8, "speed": 5.2, "range": 1.6, "wind": 0.4, "cd": 1.0, "atk": "Attack", "scale": 0.28, "rad": 0.45, "h": 1.35, "aggro": 7.0},
@@ -77,7 +78,7 @@ var flow_t := 0.0
 # ——— attaques spéciales : tirs à viser, orbes à tête chercheuse, zones au sol, ruées, bonds ———
 const SPECIALS := {
 	"minion": ["lunge"], "warrior": ["slam", "cleave"], "rogue": ["dash", "dash"], "mage": ["bolt", "homing", "zones"], "archer": ["arrow", "volley"],
-	"boss": ["slam", "homing", "zones", "charge"], "renard": ["dash"], "loup": ["pounce", "dash"], "cerf": ["charge"], "taureau": ["charge"],
+	"boss": ["slam", "homing", "zones", "charge"], "gardien": ["slam", "homing", "zones", "charge", "cleave", "volley"], "renard": ["dash"], "loup": ["pounce", "dash"], "cerf": ["charge"], "taureau": ["charge"],
 	"alpha": ["pounce", "dash", "zones"], "taureau_guerre": ["charge", "slam"], "roi_cerf": ["charge", "zones"],
 	"bandit": ["dash", "lunge"], "garde": ["lunge", "dash"], "villageois": ["lunge"], "duel": ["dash", "lunge"],
 }
@@ -131,7 +132,7 @@ void fragment(){
 	return bar_shader
 
 func setup(m: Node, k: String, t: int, pos: Vector3, c: Dictionary, is_elite := false, extra := {}) -> void:
-	main = m; kind = k; def = KINDS[k].duplicate(); tier = t; home = pos; camp = c; is_boss = k == "boss"; elite = is_elite
+	main = m; kind = k; def = KINDS[k].duplicate(); tier = t; home = pos; camp = c; is_boss = k == "boss" or k == "gardien"; elite = is_elite
 	for key in extra: def[key] = extra[key]
 	animal = def.get("animal", false); group_boss = def.get("group", false)
 	if group_boss: is_boss = true; leash = 18.0; def.speed = 4.2; def.aggro = 7.0
@@ -161,6 +162,7 @@ func setup(m: Node, k: String, t: int, pos: Vector3, c: Dictionary, is_elite := 
 		ch = Chars.make(def.model); ch.root.scale = Vector3.ONE * sc; add_child(ch.root); ap = ch.ap
 		Chars.attach(ch, "handslot.r", def.get("weapon", ""))
 		if def.has("shield"): Chars.attach(ch, "handslot.l", def.shield)
+		if def.has("tint"): _tint_all(ch.root, def.tint)
 	flash_mat = StandardMaterial3D.new(); flash_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; flash_mat.albedo_color = Color(1, 1, 1, 0.0); flash_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	for mi in Chars.meshes(ch.root):
 		mi.material_overlay = flash_mat
@@ -179,7 +181,12 @@ func setup(m: Node, k: String, t: int, pos: Vector3, c: Dictionary, is_elite := 
 	name_lbl = Label3D.new(); name_lbl.text = "%s T%d" % [def.name, t] + ("  · GROUPE 4+" if group_boss else ""); name_lbl.font_size = 40 if not big else 56; name_lbl.outline_size = 12
 	# code couleur clair : monstres en ROUGE (élites en or, boss de groupe en violet) · joueurs en bleu · PNJ en or pâle
 	name_lbl.modulate = Color("#ff7a68") if not elite else Color("#ffc940")
-	if group_boss: name_lbl.modulate = Color("#d58bff")
+	if group_boss or kind == "gardien": name_lbl.modulate = Color("#d58bff")
+	if def.get("player", false):
+		# adversaire de l'arène : un JOUEUR → nom en or, rang et éveil en dessous
+		name_lbl.text = str(def.name); name_lbl.modulate = Color("#ffd24a"); name_lbl.font = Npc.NAME_FONT
+		var sub := Label3D.new(); sub.text = str(def.get("sub", "")); sub.font_size = 30; sub.outline_size = 9; sub.modulate = Color("#ffe9b0"); sub.outline_modulate = Color(0, 0, 0, 0.9)
+		sub.billboard = BaseMaterial3D.BILLBOARD_ENABLED; sub.pixel_size = 0.0065; sub.no_depth_test = true; sub.position.y = 0.62; sub.render_priority = 5; bar_root.add_child(sub)
 	name_lbl.outline_modulate = Color(0, 0, 0, 0.9)
 	name_lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED; name_lbl.pixel_size = 0.007; name_lbl.position.y = 0.3; name_lbl.no_depth_test = true; name_lbl.render_priority = 5; bar_root.add_child(name_lbl)
 	var bar := MeshInstance3D.new(); var q := QuadMesh.new(); q.size = Vector2(1.3, 0.16) * (1.7 if big else 1.0); bar.mesh = q
@@ -239,6 +246,7 @@ func take_hit(amount: float, from: Node3D, push: float) -> void:
 		Fx.burst(main, global_position + Vector3(0, 0.3, 0), Color(0.85, 0.85, 0.9), 10, 3.0, 0.4, 0.4)
 		return
 	var crit_hit := false
+	if (from is Player or from is Pet) and def.has("eveil"): amount *= Game.dom(Game.eveil(), int(def.eveil))
 	if from is Player:
 		# coup critique (×1,6) et vol de vie, selon l'équipement
 		var st: Dictionary = Game.stats()

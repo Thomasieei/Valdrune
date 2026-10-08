@@ -79,6 +79,7 @@ func _process(_dt: float) -> void:
 func _physics_process(dt: float) -> void:
 	if dead: return
 	var P: Player = main.player
+	if main.arena != null: velocity = Vector3.ZERO; _play("Idle_A"); return      # l'arène se joue seul
 	atk_cd -= dt; heal_cd -= dt
 	# soins du clerc
 	if def.get("heal", false) and heal_cd <= 0.0:

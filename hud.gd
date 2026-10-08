@@ -167,7 +167,7 @@ func setup(m: Node) -> void:
 	overlay = Control.new(); overlay.set_anchors_preset(Control.PRESET_FULL_RECT); overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE; overlay.draw.connect(_draw_over); root.add_child(overlay)
 	red = ColorRect.new(); red.color = Color(0.8, 0, 0, 0.0); red.set_anchors_preset(Control.PRESET_FULL_RECT); red.mouse_filter = Control.MOUSE_FILTER_IGNORE; root.add_child(red)
 	fps_lbl = _label("", 12, Color(0.8, 1, 0.8, 0.6)); root.add_child(fps_lbl)
-	for n in ["main", "dodge", "s0", "s1", "s2", "s3", "potion", "mount", "bag", "menu", "zoom", "shop", "ile", "map", "daily", "rank"]: buttons[n] = {"rect": Rect2(), "held": false}
+	for n in ["main", "dodge", "s0", "s1", "s2", "s3", "potion", "mount", "bag", "menu", "zoom", "shop", "ile", "map", "daily", "rank", "arene"]: buttons[n] = {"rect": Rect2(), "held": false}
 	auto_btn = Button.new(); auto_btn.focus_mode = Control.FOCUS_NONE; auto_btn.custom_minimum_size = Vector2(92, 44)
 	auto_btn.add_theme_font_override("font", f_title); auto_btn.add_theme_font_size_override("font_size", 16)
 	auto_btn.pressed.connect(func(): show_auto()); root.add_child(auto_btn)
@@ -223,11 +223,11 @@ func _layout() -> void:
 	buttons.potion.rect = Rect2(mc + Vector2(-248, 58) - Vector2(30, 30), Vector2(60, 60))
 	buttons.mount.rect = Rect2(mc + Vector2(-248, -28) - Vector2(30, 30), Vector2(60, 60))
 	# une seule rangée d'icônes discrètes en haut à droite (comme Albion)
-	var row := ["menu", "bag", "shop", "daily", "rank", "ile", "zoom"]
+	var row := ["menu", "bag", "shop", "daily", "arene", "rank", "ile", "zoom"]
 	var xi := 0
 	for nm in row:
 		if nm == "ile" and not Game.S.island.owned: continue
-		if nm in ["daily", "rank"] and main.tuto_i() < 9: buttons[nm].rect = Rect2(); continue
+		if nm in ["daily", "rank", "arene"] and main.tuto_i() < 9: buttons[nm].rect = Rect2(); continue
 		buttons[nm].rect = Rect2(Vector2(s.x - 258 - xi * 64, 8), Vector2(52, 52)); xi += 1
 	row_end_x = s.x - 258 - xi * 64
 	icons.bag.position = buttons.bag.rect.position + Vector2(5, 5)
@@ -305,6 +305,7 @@ func _press(n: String) -> void:
 		"shop": show_boutique()
 		"daily": show_daily()
 		"rank": show_ranking()
+		"arene": show_arena()
 		"ile":
 			if Game.S.island.owned:
 				if main.island: main.leave_island()
@@ -476,7 +477,7 @@ func _gather_bar(c: CanvasItem, P: Player) -> void:
 
 var batch_text := false
 var row_end_x := 900.0
-const ROW_LBL := {"menu": "Menu", "bag": "Sac", "shop": "Boutique", "daily": "Quêtes", "rank": "Rang", "ile": "Mon île", "zoom": "Vue"}
+const ROW_LBL := {"menu": "Menu", "bag": "Sac", "shop": "Boutique", "daily": "Quêtes", "arene": "Arène", "rank": "Rang", "ile": "Mon île", "zoom": "Vue"}
 func _text(c: CanvasItem, t: String, pos: Vector2, size: int, col: Color, center := true, font: Font = null) -> void:
 	var f: Font = font if font else ThemeDB.fallback_font
 	var w := f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
@@ -1034,7 +1035,7 @@ func show_sawmill() -> void:
 			h.add_child(aslot(res_tex("wood", t), t, n, false, Callable(), 64))
 			var v := VBoxContainer.new(); v.size_flags_horizontal = Control.SIZE_EXPAND_FILL; h.add_child(v)
 			v.add_child(_ink(Game.res_name("wood", t), 17, INK, true))
-			v.add_child(rich("%s argent la bûche" % Game.fmt(int(Game.res_price(t) * 1.25)), 15))
+			v.add_child(rich("%s argent la bûche" % Game.fmt(int(Game.res_price(t) * 0.85)), 15))
 			var b := big_button("Vendre ×%d" % min(n, 10), true, func(): main.sell_wood_mill(t, min(n, 10)), GOLD, true); b.custom_minimum_size = Vector2(130, 44); b.size_flags_vertical = Control.SIZE_SHRINK_CENTER; h.add_child(b)
 		if not any: body.add_child(rich("[color=#8a9298]Tu n'as pas de bois. Va couper des arbres avec ta hache.[/color]", 16))
 	, 470)
@@ -1101,7 +1102,7 @@ func show_shop(greet := "") -> void:
 				var n: int = Game.S.inv[k][t]
 				if n <= 0: continue
 				any = true
-				row(body, _with_icon(res_tex(k, t), t, rich("%s · %s ×%d — %s pièces l'unité" % [res_text(k, t), Game.RES[k].tiers[t], n, Game.fmt(Game.res_price(t))], 19)), big_button("Vendre ×%d" % min(n, 5), true, func(): main.sell(k, t, min(n, 5))))
+				row(body, _with_icon(res_tex(k, t), t, rich("%s · %s ×%d — %s pièces l'unité" % [res_text(k, t), Game.RES[k].tiers[t], n, Game.fmt(Game.npc_buy(t))], 19)), big_button("Vendre ×%d" % min(n, 5), true, func(): main.sell(k, t, min(n, 5))))
 		if not any: body.add_child(rich("[color=#8a9298]Rien à vendre pour l'instant.[/color]", 17))
 	)
 
@@ -1978,7 +1979,7 @@ func _guide_debut() -> String:
 
 func _guide_tiers() -> String:
 	var t := "[b][color=#ffd27a]Comment marchent les tiers ?[/color][/b]\nChaque objet a un tier ([color=#%s]T1[/color] à [color=#%s]T5[/color]). Plus le tier est haut, plus il est fort — mais [b]il faut de l'expérience pour le porter[/b], pas seulement l'avoir dans le sac :\n" % [Game.TIER_COL[1].to_html(false), Game.TIER_COL[5].to_html(false)]
-	t += "• [b]Arme[/b] : maîtrise de l'arme (monte en tuant des monstres avec elle).\n• [b]Casque, plastron, cape, bottes, bouclier[/b] : maîtrise d'armure (monte à chaque combat).\n• [b]Outils[/b] : niveau du métier (bûcheron, mineur, herboriste) en récoltant.\n• Et il faut avoir porté le tier d'avant (T2 avant T3…).\n\n"
+	t += "• [b]Arme[/b] : maîtrise de l'arme (monte en tuant des monstres avec elle).\n• [b]Casque, plastron, cape, bottes, bouclier[/b] : maîtrise d'armure (monte à chaque combat).\n• [b]Outils[/b] : niveau du métier (bûcheron, mineur, herboriste) en récoltant.\n\n"
 	t += "[b][color=#ffd27a]Ta progression[/color][/b]\n[table=6][cell][b]Maîtrise[/b]   [/cell][cell][b]Niveau[/b]   [/cell]"
 	for ti in range(2, 6): t += "[cell]%s   [/cell]" % tier_tag(ti)
 	var wk: String = Game.S.get("weapon_kind", "epee")
@@ -2167,6 +2168,92 @@ func show_expedition() -> void:
 	, 760)
 
 # ——— Classement de puissance ———
+# ——— ARÈNE & ÉVEIL ———
+var arena_tab := "eveil"
+func show_arena(tab := "") -> void:
+	if tab != "": arena_tab = tab
+	open_panel("Arène & Éveil", func(body: VBoxContainer):
+		cur_panel = "arena"
+		var tabs := HFlowContainer.new(); tabs.add_theme_constant_override("h_separation", 6); body.add_child(tabs)
+		_chip(tabs, "✦ Éveil", arena_tab == "eveil", func(): show_arena("eveil"))
+		_chip(tabs, "⚔ Arène classée", arena_tab == "classee", func(): show_arena("classee"))
+		if arena_tab == "eveil": _arena_eveil(body)
+		else: _arena_ranked(body)
+	, 980)
+
+func _arena_eveil(body: VBoxContainer) -> void:
+	var ev := Game.eveil()
+	var cur := "[b]Ton palier : [color=%s]%s[/color][/b]" % [Game.EVEIL_COL[ev] if ev > 0 else "#8a9298", ("%s (%s)" % [Game.EVEIL_NAMES[ev], ["", "I", "II", "III", "IV", "V"][ev]]) if ev > 0 else "aucun"]
+	if ev > 0: cur += "   ·   +%d %% dégâts · +%d %% vie · +%d %% critique" % [18 * ev, 18 * ev, 3 * ev]
+	body.add_child(rich(cur, 19))
+	body.add_child(rich("[color=#a8b4bc]Chaque palier d'Éveil se gagne en battant le [b]Gardien de l'Éveil[/b] dans l'arène. Une fois éveillé, tu [b]DOMINES[/b] les joueurs d'un palier inférieur : par palier d'écart, tu frappes [b]+45 %[/b] plus fort et ils te font [b]45 % de dégâts en moins[/b]. Trois paliers d'écart : ils ne peuvent presque plus rien contre toi. Seul un joueur de ton niveau peut te tenir tête.[/color]", 15))
+	# les 5 paliers
+	var g := GridContainer.new(); g.columns = 5; g.add_theme_constant_override("h_separation", 8); body.add_child(g)
+	for n in range(1, Game.EVEIL_MAX + 1):
+		var col := Color(Game.EVEIL_COL[n]); var got := ev >= n
+		var pc := PanelContainer.new(); pc.custom_minimum_size = Vector2(170, 0)
+		pc.add_theme_stylebox_override("panel", flat(Color(0.07, 0.06, 0.1, 0.95).lerp(col, 0.18 if got else 0.04), 12, col if got or n == ev + 1 else Color(0.4, 0.4, 0.45), 3 if n == ev + 1 else 2, Vector4(8, 8, 8, 8)))
+		g.add_child(pc)
+		pc.add_child(rich("[center][b][color=%s]%s[/color][/b]\n%s\n[color=#c8ccd2]+%d %% dégâts/vie[/color][/center]" % [Game.EVEIL_COL[n], ["", "I", "II", "III", "IV", "V"][n], Game.EVEIL_NAMES[n], 18 * n], 14))
+	if ev >= Game.EVEIL_MAX:
+		body.add_child(rich("[b][color=#ff3d5a]Tu es une LÉGENDE VIVANTE.[/color][/b] Plus rien ne t'arrête.", 18)); return
+	var n2 := ev + 1
+	var t := "[b]Prochain palier : %s — %s[/b]\n" % [["", "I", "II", "III", "IV", "V"][n2], Game.EVEIL_NAMES[n2]]
+	for r in Game.eveil_reqs(n2): t += "%s %s\n" % ["[color=#3fae4a]✔[/color]" if r[1] else "[color=#d0453a]✘[/color]", r[0]]
+	body.add_child(rich(t, 17))
+	var st: int = int(Game.S.get("eveil_stones", 0))
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 10); body.add_child(h)
+	if not Game.eveil_ready():
+		h.add_child(big_button("Devenir plus fort (Guide)", true, func(): show_guide("tiers")))
+		h.add_child(big_button("Boutique", true, func(): show_boutique("premium"), GOLD, true))
+		return
+	var w := Game.eveil_wait()
+	if w <= 0:
+		var b := big_button("⚔ Tenter l'Épreuve (gratuit)", true, func(): main.start_trial(), GOLD, true); b.custom_minimum_size = Vector2(320, 58); h.add_child(b)
+	else:
+		h.add_child(rich("[color=#a8b4bc]Prochaine tentative gratuite dans [b]%s[/b][/color]" % Game.dur_txt(w), 16))
+	if st > 0:
+		h.add_child(big_button("Pierre d'Éveil (×%d) : maintenant, Gardien affaibli" % st, true, func(): main.start_trial(true), Color("#c77dff"), w > 0))
+	else:
+		var b2 := big_button("Pierre d'Éveil · 60 couronnes", true, func(): var ok := Game.crowns() >= 60; main.shop_claim("pierre_eveil"); if ok: show_arena("eveil"), Color("#c77dff"), w > 0); b2.custom_minimum_size = Vector2(300, 58); h.add_child(b2)
+		if w > 0: body.add_child(rich("[color=#c8a8ff]Pas envie d'attendre ? Une Pierre d'Éveil te relance immédiatement, contre un Gardien affaibli (−30 % vie, −25 % dégâts).[/color]", 15))
+
+func _arena_ranked(body: VBoxContainer) -> void:
+	var pv := Game.pvp()
+	var r := Game.rank_of(int(pv.elo)); var rk: Array = Game.RANKS[r]
+	var nxt := "" if r >= Game.RANKS.size() - 1 else "   ·   prochain rang [b]%s[/b] à %d (+%d couronnes)" % [Game.RANKS[r + 1][1], int(Game.RANKS[r + 1][0]), Game.RANK_CROWNS[r + 1]]
+	body.add_child(rich("[b]Rang : [color=%s]%s[/color]  ·  %d points[/b]%s\nVictoires %d · Défaites %d · Gloire %d   ·   combats restants aujourd'hui : [b]%d[/b]" % [rk[2], rk[1], int(pv.elo), nxt, int(pv.w), int(pv.l), int(pv.glory), Game.pvp_left()], 18))
+	body.add_child(rich("[color=#a8b4bc]Un contre un face à un joueur de ton niveau, dans l'arène, 2 minutes. Lis ses attaques (lignes et zones rouges), esquive au bon moment, place tes sorts. Les noms en [color=#c8961a][b]OR[/b][/color] sont des joueurs. Chaque victoire : points, argent et gloire · 1re victoire du jour : +15 couronnes.[/color]", 15))
+	var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 10); body.add_child(h)
+	if Game.pvp_left() > 0:
+		var b := big_button("⚔ Chercher un adversaire", true, func(): close_panel(); toast("Recherche d'un adversaire…", Color("#ffe39a")); get_tree().create_timer(1.6).timeout.connect(func(): main.start_ranked()), GOLD, true)
+		b.custom_minimum_size = Vector2(320, 58); h.add_child(b)
+	else: h.add_child(rich("[color=#d0453a]Plus de combats gratuits aujourd'hui.[/color]", 16))
+	h.add_child(big_button("Billets ×5 · 25 couronnes", true, func(): var ok := Game.crowns() >= 25; main.shop_claim("billets"); if ok: show_arena("classee"), GOLD, Game.pvp_left() <= 0))
+	# classement de la saison
+	var me := int(pv.elo)
+	var rng := RandomNumberGenerator.new(); rng.seed = hash(str(pv.day).substr(0, 7))
+	var L: Array = []
+	for i in 40:
+		var nm: String = Bot.NAMES[i % Bot.NAMES.size()] + ("" if i < Bot.NAMES.size() else str(rng.randi_range(2, 99)))
+		L.append({"nm": nm, "elo": int(2300 - i * 33 - rng.randi_range(0, 25)), "me": false})
+	L.append({"nm": str(Game.S.get("pname", "Toi")), "elo": me, "me": true})
+	L.sort_custom(func(a, b): return int(a.elo) > int(b.elo))
+	var pos := 0
+	for i in L.size():
+		if L[i].me: pos = i
+	var t := "[b]Classement de la saison[/b] — tu es [b]#%d[/b]\n[table=3]" % (pos + 1)
+	var rows: Array = []
+	for i in 5: rows.append(i)
+	for i in range(max(0, pos - 2), min(L.size(), pos + 3)):
+		if not i in rows: rows.append(i)
+	for i in rows:
+		var e: Dictionary = L[i]; var rr: Array = Game.RANKS[Game.rank_of(int(e.elo))]
+		var col := "#b8860b" if not e.me else "#1f6fd0"
+		t += "[cell][b]#%d[/b]   [/cell][cell][color=%s][b]%s%s[/b][/color]   [/cell][cell][color=%s]%s · %d[/color][/cell]" % [i + 1, col, "► " if e.me else "", e.nm, rr[2], rr[1], int(e.elo)]
+	t += "[/table]"
+	body.add_child(rich(t, 16))
+
 func show_ranking() -> void:
 	open_panel("Classement de puissance", func(body: VBoxContainer):
 		var R := Game.ranking()
@@ -2362,6 +2449,9 @@ const OFFERS := [
 	{"id": "c5", "tab": "couronnes", "name": "Trésor du roi", "desc": "8 000 couronnes (+33 % offert)", "icon": "crown", "col": "#ff9a3c", "eur": "49,99 €", "gives": 8000},
 	{"id": "premium30", "tab": "premium", "name": "Premium · 30 jours", "desc": "+50 % d'expérience partout, +50 % d'argent, nom doré", "icon": "crown", "col": "#ffcf5a", "cr": 450, "hot": true},
 	{"id": "premium7", "tab": "premium", "name": "Premium · 7 jours", "desc": "+50 % d'expérience partout, +50 % d'argent", "icon": "crown", "col": "#ffe39a", "cr": 150},
+	{"id": "pierre_eveil", "tab": "premium", "name": "Pierre d'Éveil", "desc": "Retente l'Épreuve d'Éveil TOUT DE SUITE, contre un Gardien affaibli (−30 % vie, −25 % dégâts)", "icon": "it_quest", "col": "#c77dff", "cr": 60, "hot": true},
+	{"id": "pierre_eveil3", "tab": "premium", "name": "Pierres d'Éveil ×3", "desc": "3 tentatives immédiates contre le Gardien affaibli · une pierre offerte", "icon": "it_quest", "col": "#b46bff", "cr": 150},
+	{"id": "billets", "tab": "premium", "name": "Billets d'arène ×5", "desc": "5 combats classés de plus (ils ne se périment pas)", "icon": "sk_dual_swords", "col": "#ffcf3a", "cr": 25},
 	{"id": "boost1", "tab": "premium", "name": "Boost d'expérience · 1 h", "desc": "Expérience ×2 (armes, armure, métiers) — cumulable avec Premium", "icon": "it_seal", "col": "#7dff8a", "cr": 40},
 	{"id": "boost24", "tab": "premium", "name": "Boost d'expérience · 24 h", "desc": "Expérience ×2 pendant une journée entière", "icon": "it_seal", "col": "#4fe36a", "cr": 250},
 	{"id": "maitrise", "tab": "premium", "name": "Parchemin de guerre", "desc": "+3 niveaux de maîtrise d'arme ET d'armure", "icon": "it_treasure_map", "col": "#ffb07a", "cr": 180, "hot": true},
@@ -2373,11 +2463,11 @@ const OFFERS := [
 	{"id": "leg", "tab": "premium", "name": "Coffre légendaire", "desc": "Un butin légendaire T5 à ouvrir", "icon": "it_chest_open", "col": "#ffb02e", "cr": 350},
 	{"id": "garde", "tab": "premium", "name": "Garde d'élite", "desc": "3 mercenaires T5 rejoignent ton groupe", "icon": "char_Knight", "col": "#9fd4ff", "cr": 400},
 	{"id": "pegase", "tab": "montures", "name": "Pégase d'Azur", "desc": "+170 % vitesse · +30 % dégâts · +30 % vie", "icon": "mount_pegase", "col": "#5fb0ff", "cr": 4000, "hot": true},
-	{"id": "m_roi_cerf", "tab": "montures", "name": "Roi-Cerf doré", "desc": "Monture T5 : +120 % vitesse, +15 % dégâts", "icon": "mount_roi_cerf", "col": "#ffb02e", "cr": 2600},
+	{"id": "m_roi_cerf", "tab": "montures", "name": "Roi-Cerf doré", "desc": "Monture T5 : +120 % vitesse, +15 % dégâts, +12 % vie", "icon": "mount_roi_cerf", "col": "#ffb02e", "cr": 2600},
 	{"id": "m_taureau", "tab": "montures", "name": "Taureau cuirassé", "desc": "Monture T5 : +100 % vitesse, +12 % dégâts, +15 % vie", "icon": "mount_taureau", "col": "#ff6a5a", "cr": 2200},
 	{"id": "m_loup", "tab": "montures", "name": "Loup de guerre", "desc": "Monture T4 : rapide, +8 % de vie", "icon": "mount_loup", "col": "#4d78ff", "cr": 900},
 	{"id": "m_cheval", "tab": "montures", "name": "Cheval de selle", "desc": "Monture T2 : +75 % de vitesse", "icon": "mount_cheval", "col": "#62d24e", "cr": 150},
-	{"id": "classe_dompteur", "tab": "armes", "name": "Classe DOMPTEUR", "desc": "Bâton à distance + 3 familiers à invoquer au combat (40 s, recharge 1 min). Apprivoise loups, cerfs, taureaux… du commun au légendaire. Inclut un Loup peu commun.", "icon": "pet_loup_noir", "col": "#5fe07a", "cr": 800, "hot": true},
+	{"id": "classe_dompteur", "tab": "armes", "name": "Classe DOMPTEUR", "desc": "Bâton à distance + 3 familiers à invoquer au combat (40 s, recharge 1 min) : le 1er tout de suite, les 2e et 3e avec le bâton T2 et T3. Apprivoise loups, cerfs, taureaux… du commun au légendaire. Inclut un Loup peu commun.", "icon": "pet_loup_noir", "col": "#5fe07a", "cr": 800, "hot": true},
 	{"id": "lame", "tab": "armes", "name": "Lame de l'Aube +5", "desc": "Épée T5 enchantée au maximum · maîtrise niv 24", "icon": "arme_epee_5", "col": "#ffb02e", "cr": 2400, "hot": true},
 	{"id": "fendeuse", "tab": "armes", "name": "Fendeuse du Néant +5", "desc": "Hache T5 +5 · maîtrise niv 24", "icon": "arme_hache_5", "col": "#ff6a5a", "cr": 2400},
 	{"id": "sceptre", "tab": "armes", "name": "Sceptre Astral +5", "desc": "Bâton T5 +5 · maîtrise niv 24", "icon": "arme_baton_5", "col": "#c77dff", "cr": 2400},
@@ -2386,9 +2476,9 @@ const OFFERS := [
 	{"id": "set_cuir", "tab": "equip", "name": "Cuir de l'Ombre +5", "desc": "Veste de cuir T5 +5 · armure niv 24", "icon": "armure_cuir", "col": "#4fe36a", "cr": 2000},
 	{"id": "set_tissu", "tab": "equip", "name": "Robe Céleste +5", "desc": "Robe de mage T5 +5 · armure niv 24", "icon": "armure_tissu", "col": "#b45cff", "cr": 2000},
 	{"id": "bottes", "tab": "equip", "name": "Bottes de Vent +5", "desc": "Bottes T5 +5 · armure niv 24", "icon": "boots_5", "col": "#7fe8ff", "cr": 1300},
-	{"id": "art_rage", "tab": "equip", "name": "Idole de rage +3", "desc": "Artefact T5 : +30 % de dégâts", "icon": "art_rage", "col": "#ff7a4a", "cr": 1500},
-	{"id": "art_vie", "tab": "equip", "name": "Calice de vie +3", "desc": "Artefact T5 : +40 % de vie", "icon": "art_vie", "col": "#7dff8a", "cr": 1500},
-	{"id": "art_fortune", "tab": "equip", "name": "Anneau de fortune +3", "desc": "Artefact T5 : +50 % d'argent gagné", "icon": "art_fortune", "col": "#ffd24a", "cr": 1500},
+	{"id": "art_rage", "tab": "equip", "name": "Idole de rage +3", "desc": "Artefact T5 : +40 % de dégâts", "icon": "art_rage", "col": "#ff7a4a", "cr": 1500},
+	{"id": "art_vie", "tab": "equip", "name": "Calice de vie +3", "desc": "Artefact T5 : +54 % de vie", "icon": "art_vie", "col": "#7dff8a", "cr": 1500},
+	{"id": "art_fortune", "tab": "equip", "name": "Anneau de fortune +3", "desc": "Artefact T5 : +68 % d'argent gagné", "icon": "art_fortune", "col": "#ffd24a", "cr": 1500},
 	{"id": "res2", "tab": "ressources", "name": "Pack d'apprenti T2", "desc": "120 bois, minerai et fibre T2", "icon": "res_ore_2", "col": "#62d24e", "cr": 60},
 	{"id": "res3", "tab": "ressources", "name": "Pack d'artisan T3", "desc": "120 bois, minerai et fibre T3", "icon": "res_ore_3", "col": "#33c4dc", "cr": 200},
 	{"id": "res4", "tab": "ressources", "name": "Pack de maître T4", "desc": "120 bois, minerai et fibre T4", "icon": "res_ore_4", "col": "#4d78ff", "cr": 700},
@@ -2971,6 +3061,13 @@ func _draw_daily_rank(c: CanvasItem, pulse: float) -> void:
 	_glass(c, dc, 26, Color(1.0, 0.85, 0.3, pulse) if nd > 0 else Color(0.95, 0.78, 0.45, 0.6))
 	_texq(T("it_quest"), Rect2(dc - Vector2(18, 19), Vector2(36, 36)))
 	if nd > 0: _disc(dc + Vector2(22, -22), 11, Color("#ff3b2f")); _text(c, str(nd), dc + Vector2(22, -17), 14, Color.WHITE, true, f_title)
+	if buttons.arene.rect.size.x > 0:
+		var ac: Vector2 = buttons.arene.rect.get_center()
+		var ready: bool = (Game.eveil_ready() and Game.eveil_wait() <= 0) or Game.pvp_left() > 0
+		_glass(c, ac, 26, Color(0.78, 0.5, 1.0, pulse) if Game.eveil_ready() and Game.eveil_wait() <= 0 else Color(0.95, 0.78, 0.45, 0.6))
+		_texq(T("sk_dual_swords"), Rect2(ac - Vector2(19, 19), Vector2(38, 38)))
+		if Game.eveil_ready() and Game.eveil_wait() <= 0: _disc(ac + Vector2(22, -22), 11, Color("#b04dff")); _text(c, "!", ac + Vector2(22, -17), 15, Color.WHITE, true, f_title)
+		elif ready: _disc(ac + Vector2(22, -22), 11, Color("#ff3b2f")); _text(c, str(Game.pvp_left()), ac + Vector2(22, -17), 14, Color.WHITE, true, f_title)
 	var rc: Vector2 = buttons.rank.rect.get_center()
 	_glass(c, rc, 26, Color(0.95, 0.78, 0.45, 0.6))
 	_texq(T("it_trophy"), Rect2(rc - Vector2(18, 19), Vector2(36, 36)))

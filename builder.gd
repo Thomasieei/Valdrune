@@ -232,7 +232,7 @@ func save() -> void:
 	if typeof(Game.S.get("build")) != TYPE_DICTIONARY: Game.S["build"] = {}
 	Game.S.build[map_key()] = _data(); Game.save()
 
-const OFFICIAL_V := {"1": 4}     # version du décor officiel livré avec le jeu
+const OFFICIAL_V := {"1": 5}     # version du décor officiel livré avec le jeu
 func _official() -> Array:
 	var f := "res://decor/map_%s.json" % map_key()
 	if FileAccess.file_exists(f):

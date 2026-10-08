@@ -44,6 +44,7 @@ var RIVERS: Array = []
 var LAKES: Array = []
 var BAY = null
 var POI_DEFS: Array = []
+var blank_arena := Vector2.INF
 var blank := false            # carte vierge (Valdrune) : collines, falaises et herbe ; le reste se pose avec le Mode Construction
 const BLANK_MAPS := [1]
 const BLANK_LAKES := {1: [[Vector2(-46, 8), 10.0]]}     # le relief garde ses lacs ; le reste se pose en décor
@@ -65,7 +66,7 @@ func setup_map(id: int) -> void:
 	blank = id in BLANK_MAPS
 	if blank:
 		ROADS = []; RIVERS = []; LAKES = BLANK_LAKES.get(id, []).duplicate(true); BAY = null; POI_DEFS = []
-		MAP = MAP.duplicate(true); MAP.duelists = []; MAP.hidden = []
+		MAP = MAP.duplicate(true); MAP.hidden = []
 	rng.seed = 2024 + id * 7
 	noise.seed = 11 + id * 101; noise.frequency = 0.02; noise.fractal_octaves = 3
 	noise2.seed = 77 + id * 31; noise2.frequency = 0.05
@@ -393,6 +394,8 @@ func build(id := 1) -> void:
 		_cliffs()
 		_blank_forest()
 		_blank_camps()
+		_blank_sites()
+		_duelists()
 		_monster_camps()
 		crops = Crops.new(); add_child(crops); crops.setup(self); crops.build_wild()
 		_grass_carpet()
@@ -441,7 +444,7 @@ func _blank_camps() -> void:
 		elif "building_mine" in pth: nm = "Mine des Collines"; id = "mine"
 		elif pth == "@tower": nm = "Tour de guet"; id = "guet"
 		elif "FloatingMagicCrystal" in pth: nm = "Vieux sanctuaire"; id = "sanctuaire"
-		elif pth == "@plaza:8": nm = "Arène des duellistes"; id = "arene"
+		elif pth == "@plaza:8": nm = "Arène des duellistes"; id = "arene"; blank_arena = q
 		elif pth == "@plaza:6":
 			plz6 += 1; nm = "Hameau du Moulin" if q.x > 0 else "Ferme des Prés"; id = "hameau%d" % plz6
 		if id != "": pois.append({"id": "v1_" + id, "name": nm, "pos": Vector3(q.x, height(q.x, q.y), q.y), "r": 12.0, "region": region_at(q.x, q.y)})
@@ -451,6 +454,18 @@ func _blank_camps() -> void:
 	for o in arr:
 		if str(o[0]).begins_with("@camp") or str(o[0]).begins_with("@house") or str(o[0]).begins_with("@shop") or str(o[0]).begins_with("@field"):
 			house_spots.append([Vector2(float(o[1]), float(o[2])), 9.0 if str(o[0]).begins_with("@camp") else 5.0])
+
+# lieux construits par le monde lui-même (Tour Infinie…)
+func _blank_sites() -> void:
+	var f := "res://decor/sites_%d.json" % map_id
+	if not FileAccess.file_exists(f): return
+	var d = JSON.parse_string(FileAccess.get_file_as_string(f))
+	if not d is Dictionary: return
+	if d.has("tower_inf"):
+		var q := Vector2(float(d.tower_inf[0]), float(d.tower_inf[1]))
+		var pd := {"id": "tour", "name": "Tour Infinie", "p": q, "r": 9.0, "kind": "tower_inf"}
+		POI_DEFS.append(pd); _poi(pd)
+		house_spots.append([q, 12.0])
 
 # forêts de la carte officielle (des centaines d'arbres : dessinés en masse, pas un objet chacun)
 func _blank_forest() -> void:
@@ -2371,7 +2386,7 @@ func _monster_camps() -> void:
 				_mm("res://assets/halloween/" + ["bone_A.gltf", "skull.gltf", "ribcage.gltf"][k % 3], q2, rng.randf_range(0.8, 1.2), rng.randf() * TAU)
 			break
 	# meutes d'animaux sauvages
-	var packs := {1: [["renard", "renard"], ["renard"], ["cerf"]], 2: [["loup", "loup", "loup"], ["cerf", "cerf"], ["renard", "renard"]], 3: [["taureau", "taureau"], ["loup", "loup"], ["cerf", "taureau"]],
+	var packs := {1: [["renard", "renard"], ["loup", "loup"], ["cerf"], ["loup"]], 2: [["loup", "loup", "loup"], ["cerf", "cerf"], ["renard", "renard"]], 3: [["taureau", "taureau"], ["loup", "loup"], ["cerf", "taureau"]],
 		4: [["loup", "loup", "loup"], ["taureau", "loup"]], 5: [["loup", "loup", "taureau"], ["taureau", "taureau"]]}
 	for reg in range(1, REGIONS.size()):
 		var R: Dictionary = REGIONS[reg]; var placed := 0; var tries := 0
@@ -2408,11 +2423,13 @@ func _duelists() -> void:
 	var arena := village + Vector2(20, 20)
 	for q in POI_DEFS:
 		if q.kind == "arena": arena = q.p
+	var ring_r := 9.5
+	if blank_arena != Vector2.INF: arena = blank_arena; ring_r = 5.0
 	var L: Array = MAP.duelists
 	for i in L.size():
 		var d: Dictionary = L[i]
 		var a := PI * 0.5 + (i - (L.size() - 1) * 0.5) * 1.15
-		var p := Vector3(arena.x + cos(a) * 9.5, 0, arena.y - sin(a) * 9.5)
+		var p := Vector3(arena.x + cos(a) * ring_r, 0, arena.y - sin(a) * ring_r)
 		duel_spots.append(p)
 		# petit cercle de duel au sol
 		_ring(p, 3.2, Color(1.0, 0.55, 0.2, 0.55), 0.08)

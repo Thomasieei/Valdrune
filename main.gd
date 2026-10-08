@@ -41,7 +41,16 @@ var island_back := Vector3.ZERO
 var isl_sel := {}
 var tower_back := Vector3.ZERO
 var tower_sel := {}
-func in_instance() -> bool: return dungeon != null or tower != null or island != null or interior != null
+func in_instance() -> bool: return dungeon != null or tower != null or island != null or interior != null or arena != null
+var arena: Arena
+var arena_mode := ""          # "ranked" ou "trial"
+var arena_foe: Enemy
+var arena_t := 0.0
+var arena_done := false
+var arena_back := Vector3.ZERO
+var arena_info := {}
+var arena_adds := 0
+var arena_hud_t := 0.0
 var interior: Interior
 var interior_back := Vector3.ZERO
 var door_sel := {}
@@ -272,7 +281,7 @@ func _talk_travel(n: Npc) -> void:
 		var T: Dictionary = Maps.def(id).town
 		acts.append(["%s (T%d-T%d)" % [Maps.NAMES[id], Maps.TIERS[id][0], Maps.TIERS[id][1]], func(): travel_to(id, T.pos + Vector2(0, 6)), true])
 	acts.append(["Au revoir", func(): hud.close_panel()])
-	var line := "Je connais tous les chemins du royaume. Je t'emmène dans n'importe quelle ville que tu as déjà visitée — gratuitement, le voyage est un plaisir." if acts.size() > 1 else "Je t'emmènerai dans les autres villes… une fois que tu les auras visitées. Trouve les passages au bord de la carte (regarde les panneaux)."
+	var line := "Je connais tous les chemins du royaume. Je t'emmène dans n'importe quelle ville que tu as déjà visitée — gratuitement, le voyage est un plaisir." if acts.size() > 1 else "Je t'emmènerai dans les autres villes… une fois que tu les auras visitées. Trouve les passages au bord de la carte (ils sont marqués sur ta carte)."
 	hud.show_dialog(n, line, acts)
 
 func on_start() -> void:
@@ -331,6 +340,7 @@ func _make_guide() -> void:
 # ——— Boucle ———
 func _process(dt: float) -> void:
 	var P := player
+	if arena: _arena_tick(dt)
 	Game.listener = P.global_position
 	P.input_vec = hud.move_vec() if (not hud.panel_open or hud.cur_panel == "bag") else Vector2.ZERO
 	if auto_on: _auto(dt)
@@ -684,6 +694,7 @@ func _gear_xp(tier: int, mult: float) -> void:
 	if not ups.is_empty(): player.refresh_gear()
 
 func on_enemy_death(e: Enemy) -> void:
+	if arena and e == arena_foe and not arena_done: _arena_result(true); return
 	var killer = e.last_from
 	var mine: bool = killer == null or not is_instance_valid(killer) or killer == player or killer is Ally or killer is Player or killer is Pet
 	var fam := "beast" if e.animal else ("man" if e.kind in ["bandit", "duel"] else "skel")
@@ -696,7 +707,8 @@ func on_enemy_death(e: Enemy) -> void:
 	Game.S.stats.kills += 1; _dq("kill"); tuto_event("kill")
 	if vq:
 		if str(e.kind) == "loup": vq.event("kill_loup")
-		if world.town != null and world.town.town_dist(e.global_position.x, e.global_position.z) < 45.0:
+		var near_v: bool = world.town.town_dist(e.global_position.x, e.global_position.z) < 45.0 if world.town != null else Vector2(e.global_position.x, e.global_position.z).distance_to(world.village) < 75.0
+		if near_v:
 			vq.event("kill_near")
 			if randf() < 0.3: _rep_gain(1, "")
 		if e.elite or e.is_boss: vq.event("elite")
@@ -738,6 +750,157 @@ func on_enemy_death(e: Enemy) -> void:
 	for sp in world.spawns:
 		if e in sp.members and sp.members.all(func(m): return not is_instance_valid(m) or m.dead): sp.dead_at = Time.get_ticks_msec() / 1000.0
 	Game.save()
+
+# ================= ARÈNE : combats classés et Épreuves d'Éveil =================
+const ARENA_DUR := {"ranked": 120.0, "trial": 150.0}
+func can_enter_arena() -> bool:
+	if in_instance(): hud.toast("Termine d'abord ce que tu fais (donjon, île, tour…)", Color("#ffb07a")); return false
+	if player.dead: return false
+	if duel_enemy != null and is_instance_valid(duel_enemy) and not duel_enemy.dead: hud.toast("Un duel est déjà en cours", Color("#ffb07a")); return false
+	return true
+
+func _arena_open(mode: String) -> void:
+	hud.close_panel()
+	if player.mounted: player.dismount()
+	arena_mode = mode; arena_done = false; arena_adds = 0; arena_t = ARENA_DUR[mode]
+	arena_back = player.global_position
+	for q in pets.duplicate():
+		if is_instance_valid(q): q.vanish()
+	arena = Arena.new(); add_child(arena); arena.build(mode == "trial"); world.dungeon = arena
+	player.global_position = arena.spawn_pos + Vector3(0, 0.4, 0); player.velocity = Vector3.ZERO; player.hp = player.max_hp
+	player.yaw = PI; _cam_update(1.0, true)
+
+func start_ranked() -> void:
+	if not can_enter_arena(): return
+	var pv := Game.pvp()
+	if Game.pvp_left() <= 0:
+		hud.toast("Plus de combats classés aujourd'hui : reviens demain, ou prends 5 billets", Color("#ffb07a"), true); hud.show_arena("classee"); return
+	if int(pv.n) < Game.PVP_FREE: pv.n = int(pv.n) + 1
+	else: pv.bonus = int(pv.bonus) - 1
+	# adversaire : un joueur proche de ton classement
+	var me: int = int(pv.elo)
+	var oe: int = max(800, me + randi_range(-90, 110))
+	var t: int = clamp(int(Game.S.gear.get("epee", 1)) + (1 if oe > me + 60 and randf() < 0.3 else 0), 1, 5)
+	var ev: int = clamp(Game.eveil() + (1 if randf() < 0.2 else 0) - (1 if randf() < 0.25 else 0), 0, Game.EVEIL_MAX)
+	var mdl: String = ["Knight", "Barbarian", "Rogue", "Ranger", "Mage"][randi() % 5]
+	var wk: String = ["epee", "hache", "baton", "arc", "arbalete", "grimoire"][randi() % 6]
+	var nm: String = Bot.NAMES[randi() % Bot.NAMES.size()]
+	if randf() < 0.5: nm += str(randi_range(2, 99))
+	var k: float = clamp(0.8 + float(oe - 1000) / 1500.0, 0.7, 1.5)
+	var rk: Array = Game.RANKS[Game.rank_of(oe)]
+	var sub := "%s · %d" % [rk[1], oe] + ((" · %s" % Game.EVEIL_NAMES[ev]) if ev > 0 else "")
+	arena_info = {"oe": oe, "nm": nm, "t": t}
+	Game.crumb("arène classée contre %s (%d)" % [nm, oe])
+	_arena_open("ranked")
+	var extra := {"model": "res://assets/heroes/%s.glb" % mdl, "weapon": Game.weapon_model(wk, t), "name": nm, "id": "arena", "player": true, "eveil": ev, "sub": sub,
+		"hp": 7.0 * k, "dmg": 1.55 * (0.85 + 0.15 * k)}
+	if Game.ranged(wk): extra["range"] = 9.0; extra["ranged"] = true
+	if mdl in ["Knight", "Barbarian"] and not Game.ranged(wk) and wk != "baton": extra["shield"] = Game.shield_model(t)
+	arena_foe = _spawn_enemy("duel", t, arena.foe_pos, {"members": []}, false, extra)
+	arena_foe.state = "wait"; arena_foe.atk_cd = 0.8; arena_foe.leash = 99.0
+	hud.region_banner("ARÈNE CLASSÉE", t, "%s · %s" % [nm, sub])
+	var f := arena_foe
+	hud.countdown(func(): if is_instance_valid(f) and not f.dead and f.state == "wait": f.state = "chase")
+
+func start_trial(use_stone := false) -> void:
+	if not can_enter_arena(): return
+	var n := Game.eveil() + 1
+	if n > Game.EVEIL_MAX: return
+	if not Game.eveil_ready(): hud.toast("Tu ne remplis pas encore les conditions de l'Éveil", Color("#ffb07a")); return
+	var stone := false
+	if Game.eveil_wait() > 0 or use_stone:
+		if int(Game.S.get("eveil_stones", 0)) <= 0: hud.show_arena("eveil"); return
+		Game.S.eveil_stones = int(Game.S.eveil_stones) - 1; stone = true
+	else: Game.S["eveil_try"] = Game.now()
+	Game.save()
+	arena_info = {"n": n, "stone": stone}
+	Game.crumb("épreuve d'éveil %d" % n)
+	_arena_open("trial")
+	var extra := {"name": "Gardien de l'Éveil %s" % ["", "I", "II", "III", "IV", "V"][n]}
+	if stone: extra["hp"] = 16.0 * 0.7; extra["dmg"] = 1.45 * 0.75
+	arena_foe = _spawn_enemy("gardien", n, arena.foe_pos, {"members": []}, false, extra)
+	arena_foe.state = "wait"; arena_foe.leash = 99.0
+	hud.region_banner("ÉPREUVE D'ÉVEIL %s" % ["", "I", "II", "III", "IV", "V"][n], n, ("Pierre d'Éveil : le Gardien est affaibli · " if stone else "") + "esquive les zones rouges, frappe dans les ouvertures")
+	var f := arena_foe
+	hud.countdown(func(): if is_instance_valid(f) and not f.dead and f.state == "wait": f.state = "chase")
+
+func _arena_tick(dt: float) -> void:
+	if arena_done: return
+	arena_t -= dt; arena_hud_t -= dt
+	if arena_mode == "trial" and is_instance_valid(arena_foe) and not arena_foe.dead:
+		# renforts : deux archers à 66 % et à 33 %
+		var fr: float = arena_foe.hp / arena_foe.max_hp
+		if (fr < 0.66 and arena_adds == 0) or (fr < 0.33 and arena_adds == 1):
+			arena_adds += 1
+			for i in 2:
+				var p: Vector3 = Arena.ORIGIN + World.polar(randf() * TAU, 11.0)
+				var a := _spawn_enemy("archer", int(arena_info.n), p, {"members": []}, false); a.state = "chase"; a.leash = 99.0
+			hud.toast("Le Gardien appelle ses archers !", Color("#d58bff"), true); Game.play("roar", -4.0, 0.8)
+	if arena_hud_t <= 0.0:
+		arena_hud_t = 0.4
+		var fh := 0
+		if is_instance_valid(arena_foe): fh = int(100.0 * max(0.0, arena_foe.hp) / arena_foe.max_hp)
+		var tt := "[b][color=#ffd24a]%s[/color][/b]  ·  [color=%s]%d:%02d[/color]\n%s : [b]%d %%[/b] de vie   ·   toi : [b]%d %%[/b]" % ["ARÈNE CLASSÉE" if arena_mode == "ranked" else "ÉPREUVE D'ÉVEIL", "#ff7a6a" if arena_t < 20.0 else "#ffe9b0", int(max(0.0, arena_t)) / 60, int(max(0.0, arena_t)) % 60, arena_info.get("nm", "Gardien"), fh, int(100.0 * max(0.0, player.hp) / player.max_hp)]
+		goal_text = tt; hud.goal_lbl.text = tt; goal_target = null
+	if arena_t <= 0.0: _arena_result(false, "Temps écoulé")
+
+func _arena_result(won: bool, why := "") -> void:
+	if arena_done: return
+	arena_done = true
+	var msg := ""; var title := ""
+	if arena_mode == "ranked":
+		var pv := Game.pvp()
+		var me: int = int(pv.elo); var oe: int = int(arena_info.oe)
+		var E: float = 1.0 / (1.0 + pow(10.0, float(oe - me) / 400.0))
+		var d: int = int(round(32.0 * ((1.0 if won else 0.0) - E)))
+		if won: d = max(d, 8)
+		else: d = min(d, -6)
+		var old_r := Game.rank_of(me)
+		pv.elo = max(800, me + d)
+		if won:
+			pv.w = int(pv.w) + 1; pv.glory = int(pv.glory) + 10
+			var silver := int(duel_reward(int(arena_info.t)) * 0.6); Game.S.silver += silver; _dq("silver", silver)
+			msg = "%+d points · %d argent · +10 gloire" % [d, silver]
+			if str(pv.get("fw", "")) != str(pv.day): pv.fw = pv.day; Game.add_crowns(15); msg += " · 1re victoire du jour : +15 couronnes"
+			title = "VICTOIRE !"
+			tuto_event("duel")
+		else:
+			pv.l = int(pv.l) + 1
+			title = "DÉFAITE"; msg = "%s · %d points" % [why if why != "" else "Défaite", d]
+		var nr := Game.rank_of(int(pv.elo))
+		if nr > old_r and nr > int(pv.best):
+			pv.best = nr; Game.add_crowns(Game.RANK_CROWNS[nr])
+			get_tree().create_timer(2.5).timeout.connect(func(): hud.celebrate("RANG %s ATTEINT !" % str(Game.RANKS[nr][1]).to_upper(), "+%d couronnes · ton nom brille dans le classement" % Game.RANK_CROWNS[nr], "it_trophy"); Game.play("level"))
+	else:
+		var n: int = int(arena_info.n)
+		if won:
+			Game.S.eveil = n; Game.add_crowns(25 * n); Game.stats_dirty()
+			title = "ÉVEIL %s : %s !" % [["", "I", "II", "III", "IV", "V"][n], str(Game.EVEIL_NAMES[n]).to_upper()]
+			msg = "+18 %% dégâts · +18 %% vie · +3 %% critique · DOMINATION sur les joueurs d'éveil inférieur · +%d couronnes" % (25 * n)
+		else:
+			title = "ÉPREUVE ÉCHOUÉE"
+			msg = "%s · prochaine tentative gratuite dans %s — ou une Pierre d'Éveil pour réessayer tout de suite" % [why if why != "" else "Le Gardien t'a vaincu", Game.dur_txt(Game.eveil_wait())]
+	Game.save()
+	if won: Game.play("level")
+	else: Game.play("error")
+	hud.celebrate(title, msg, "it_trophy" if won else "it_seal")
+	var was_trial_loss := arena_mode == "trial" and not won
+	var no_more := arena_mode == "ranked" and Game.pvp_left() <= 0
+	get_tree().create_timer(3.2).timeout.connect(func():
+		exit_arena()
+		if was_trial_loss or no_more: hud.show_arena("eveil" if was_trial_loss else "classee"))
+
+func exit_arena() -> void:
+	if arena == null: return
+	for e in enemies.duplicate():
+		if is_instance_valid(e) and e.global_position.x > 300.0: enemies.erase(e); e.queue_free()
+	for q in pets.duplicate():
+		if is_instance_valid(q): q.vanish()
+	world.dungeon = null; arena.queue_free(); arena = null; arena_foe = null
+	if player.dead: player.revive(arena_back + Vector3(0, world.height(arena_back.x, arena_back.z) + 0.3, 0))
+	else: _teleport_group(arena_back)
+	player.hp = player.max_hp; player.refresh_name(); player.refresh_gear()
+	update_goal()
 
 # ================= FAMILIERS (classe Dompteur) =================
 const CAPTURE := {"renard": "renard", "loup": "loup", "cerf": "cerf", "taureau": "taureau"}
@@ -797,6 +960,9 @@ func boss_summon(b: Enemy) -> void:
 
 func on_player_death() -> void:
 	Game.crumb("mort du héros")
+	if arena:
+		if not arena_done: _arena_result(false, "Tu es tombé")
+		return
 	var killer = player.last_attacker
 	var need := 0; var who := ""
 	if killer is Bot and is_instance_valid(killer): need = int(killer.pwr); who = killer.nm
@@ -948,6 +1114,7 @@ func real_price(e: Dictionary) -> int:
 
 static func sell_chance(price: int, real: int) -> float:
 	var r: float = float(price) / max(1.0, real)
+	if r > 2.0: return 0.0          # personne n'achète à plus du double de la valeur
 	return clamp(1.6 - 0.9 * r, 0.03, 0.97)
 
 func ah_list(e: Dictionary, price: int) -> void:
@@ -974,7 +1141,7 @@ func ah_check() -> void:
 		var nm: String = Game.res_name(l.res, int(l.tier)) + " ×%d" % int(l.qty) if l.has("res") else Game.item_name(l)
 		if sold:
 			var gain := int(l.price * 0.95)
-			Game.S.silver += gain
+			Game.S.silver += gain; _dq("silver", gain)
 			hud.celebrate("VENDU !", "%s · +%s argent (taxe 5 %%)" % [nm, Game.fmt(gain)], "it_coins"); Game.play("coin")
 		else:
 			if l.has("res"): Game.S.inv[l.res][int(l.tier)] += int(l.qty)
@@ -1110,7 +1277,7 @@ func sell_junk(idx: int) -> void:
 	else:
 		for it in Game.S.items.filter(func(x): return x.slot == "junk"): gain += Game.junk_price(it)
 		Game.S.items = Game.S.items.filter(func(x): return x.slot != "junk")
-	Game.S.silver += gain; Game.play("coin")
+	Game.S.silver += gain; _dq("silver", gain); Game.play("coin")
 	hud.toast("Bric-à-brac vendu : +%s argent" % Game.fmt(gain), Color("#ffe39a")); Game.save()
 	if hud.cur_panel == "bag": hud.show_bag()
 	elif hud.cur_panel == "shop": hud.show_shop()
@@ -1152,12 +1319,12 @@ func build_give(id: String, k: String, n: int) -> void:
 func sell_wood_mill(t: int, n: int) -> void:
 	n = min(n, int(Game.S.inv.wood[t])); if n <= 0: return
 	Game.S.inv.wood[t] -= n
-	var g := gain_silver(int(n * Game.res_price(t) * 1.25))
+	var g := int(n * Game.res_price(t) * 0.85); Game.S.silver += g; _dq("silver", g)
 	Game.play("coin"); hud.toast("%d bûche%s vendue%s au scieur · +%s argent" % [n, "s" if n > 1 else "", "s" if n > 1 else "", Game.fmt(g)], Color("#ffe39a")); Game.save(); hud.show_sawmill()
 
 func sell(k: String, t: int, n: int) -> void:
 	n = min(n, Game.S.inv[k][t]); if n <= 0: return
-	Game.S.inv[k][t] -= n; Game.S.silver += n * Game.res_price(t); Game.play("coin"); Game.save(); hud.show_shop()
+	var g := int(n * Game.npc_buy(t)); Game.S.inv[k][t] -= n; Game.S.silver += g; _dq("silver", g); Game.play("coin"); Game.save(); hud.show_shop()
 
 # ——— Objectif : toujours UNE prochaine étape claire ———
 func _brokk_pos() -> Vector3:
@@ -1321,6 +1488,7 @@ func _vq_target(ch: String, g: String, done: bool):
 
 # Progression : les MÉTIERS ouvrent les tiers (XP), les marchands vendent les outils, Brokk fabrique l'équipement
 func update_goal() -> void:
+	if arena: return              # dans l'arène, le bandeau montre le chrono et les vies
 	# tombe en zone rouge : priorité absolue tant qu'il reste du temps
 	var gv = Game.S.get("grave", null)
 	if gv is Array and gv.size() == 3:
@@ -1337,6 +1505,7 @@ func update_goal() -> void:
 	if tuto_active():
 		var st: Dictionary = TUTO[tuto_i()]
 		if st.k == "wlvl" and int(Game.wxp(Game.S.get("weapon_kind", "epee")).lvl) >= int(st.n): _tuto_next(); return
+		if st.k == "daily" and not Game.login_can_claim(): _tuto_next(); return
 		var prog := ""
 		if int(st.n) > 1:
 			var cur: int = int(Game.wxp(Game.S.get("weapon_kind", "epee")).lvl) if st.k == "wlvl" else int(Game.S.tuto_n)
@@ -1345,6 +1514,10 @@ func update_goal() -> void:
 		if t2 != goal_text: goal_text = t2; hud.goal_lbl.text = t2
 		goal_target = _tuto_target()
 		return
+	if Game.eveil_ready() and Game.eveil_wait() <= 0 and not in_instance():
+		var et := "[b][color=#c77dff]✦ ÉVEIL %s DISPONIBLE ✦[/color][/b]\nBats le Gardien de l'Éveil : +18 %% dégâts, +18 %% vie et la domination sur les joueurs plus faibles. Bouton [b]ARÈNE[/b] en haut." % ["", "I", "II", "III", "IV", "V"][Game.eveil() + 1]
+		if et != goal_text: goal_text = et; hud.goal_lbl.text = et
+		goal_target = null; return
 	if vq:
 		var aq: Array = vq.active()
 		if not aq.is_empty():
@@ -1387,8 +1560,9 @@ func update_goal() -> void:
 			tgt = _nearest_node(k, t)
 		else:
 			var price := Game.tool_price(nt, 0)
-			txt = "[b]Achète une %s %s[/b]\n[color=#b8c0c8]Chez %s, au village — à partir de %s argent (%s / %s)[/color]" % [Game.TOOL_NAME[tl], hud.tier_tag(nt), Game.VENDOR_NAME[tl], Game.fmt(price), Game.fmt(S.silver), Game.fmt(price)]
-			tgt = _npc_pos(Game.VENDOR_OF[tl])
+			var vd := _vendor(tl)
+			txt = "[b]Achète une %s %s[/b]\n[color=#b8c0c8]Chez %s, au village — à partir de %s argent (%s / %s)[/color]" % [Game.TOOL_NAME[tl], hud.tier_tag(nt), vd.nm if vd else Game.VENDOR_NAME[tl], Game.fmt(price), Game.fmt(S.silver), Game.fmt(price)]
+			tgt = vd.position if vd else _npc_pos(Game.VENDOR_OF[tl])
 			if S.silver < price:
 				var worth := 0; var wood_worth := 0
 				for rk in Game.RES_KEYS:
@@ -2344,7 +2518,8 @@ func real_buy(id: String) -> void:
 	match id:
 		"pack_debut":
 			Game.S["pack_debut"] = true; Game.add_crowns(300); Game.add_time("premium_until", 3 * 86400)
-			_give({"slot": "monture", "tier": 2, "kind": "cheval"})
+			if not Game.add_item({"slot": "monture", "tier": 2, "kind": "cheval"}):
+				if int(Game.S.gear.get("monture", 0)) < 2: Game.S.gear["monture"] = 2; Game.set_kind("monture", "cheval")
 			msg = "+300 couronnes · Cheval de selle · 3 jours Premium"
 		_:
 			var o: Dictionary = hud.offer(id)
@@ -2377,9 +2552,9 @@ func _shop_effect(id: String) -> String:
 	if named.has(id): msg = _give(named[id].duplicate())
 	else:
 		match id:
-			"or1": gain_silver(100000); msg = "+100 k argent"
-			"or2": gain_silver(2000000); msg = "+2 M argent"
-			"or3": gain_silver(50000000); msg = "+50 M argent"
+			"or1": Game.S.silver += 100000; msg = "+100 k argent"
+			"or2": Game.S.silver += 2000000; msg = "+2 M argent"
+			"or3": Game.S.silver += 50000000; msg = "+50 M argent"
 			"or4": Game.S.silver += 500000000; msg = "+500 M argent"
 			"leg":
 				var tw := Tower.new(); tw.floor_n = 30; tw.tier = 5; tw.rng.randomize()
@@ -2393,13 +2568,16 @@ func _shop_effect(id: String) -> String:
 				var n := 0
 				for sl in Game.ENCH_SLOTS:
 					if Game.S.gear.get(sl, 0) > 0 and Game.ench(sl) < Game.ENCH_MAX: Game.S.ench[sl] = Game.ench(sl) + 1; n += 1
-				msg = "+1 enchantement sur %d pièce(s)" % n if n > 0 else "Tout est déjà au maximum"
+				if n == 0: hud.toast("Tout est déjà enchanté au maximum", Color("#ffb07a")); return ""
+				msg = "+1 enchantement sur %d pièce(s)" % n
 				player.level_glow(Color(0.75, 0.4, 1.0))
 			"metier":
+				if ["hache", "pioche", "faucille"].all(func(x): return int(Game.prof(x).lvl) >= Game.PROF_MAX): hud.toast("Tes métiers sont déjà au maximum", Color("#ffb07a")); return ""
 				for tl in ["hache", "pioche", "faucille"]:
 					var p := Game.prof(tl); p.lvl = min(Game.PROF_MAX, int(p.lvl) + 3); p.xp = 0
 				msg = "+3 niveaux à tous les métiers"; player.level_glow()
 			"maitrise":
+				if int(Game.wxp(Game.S.get("weapon_kind", "epee")).lvl) >= Game.WXP_MAX and int(Game.wxp("armure").lvl) >= Game.WXP_MAX: hud.toast("Maîtrises déjà au maximum", Color("#ffb07a")); return ""
 				for wk2 in [Game.S.get("weapon_kind", "epee"), "armure"]:
 					var w := Game.wxp(wk2); w.lvl = min(Game.WXP_MAX, int(w.lvl) + 3); w.xp = 0
 				msg = "+3 niveaux de maîtrise d'arme et d'armure"; player.level_glow(Color(1.0, 0.55, 0.25))
@@ -2418,6 +2596,15 @@ func _shop_effect(id: String) -> String:
 				msg = "Classe DOMPTEUR débloquée : bâton équipé + un Loup peu commun pour commencer"
 				player.level_glow(Color(0.4, 1.0, 0.5))
 			"potions": Game.S.potions += 25; msg = "+25 potions"
+			"pierre_eveil":
+				Game.S["eveil_stones"] = int(Game.S.get("eveil_stones", 0)) + 1
+				msg = "Pierre d'Éveil ×1 · tente l'Épreuve tout de suite, le Gardien affaibli"
+			"pierre_eveil3":
+				Game.S["eveil_stones"] = int(Game.S.get("eveil_stones", 0)) + 3
+				msg = "Pierres d'Éveil ×3"
+			"billets":
+				Game.pvp().bonus = int(Game.pvp().bonus) + 5
+				msg = "+5 combats classés"
 			"auto":
 				Game.S["auto_owned"] = true; msg = "Écuyer automatique : touche AUTO pour lancer la chasse"
 				hud.refresh_auto()
@@ -2428,9 +2615,10 @@ func _shop_effect(id: String) -> String:
 				var n2 := 0
 				while Game.S.mercs.size() < 3:
 					var ty: String = ["guerrier", "rodeuse", "clerc"][Game.S.mercs.size()]
-					var d := {"type": ty, "tier": 5, "name": Ally.NAMES[randi() % Ally.NAMES.size()]}
+					var d := {"type": ty, "tier": clamp(int(Game.S.gear.get("epee", 1)) + 1, 1, 5), "name": Ally.NAMES[randi() % Ally.NAMES.size()]}
 					Game.S.mercs.append(d); _spawn_merc(d, Game.S.mercs.size() - 1); n2 += 1
-				msg = "%d mercenaire(s) T5 rejoignent ton groupe" % n2 if n2 > 0 else "Ton groupe est déjà complet"
+				if n2 == 0: hud.toast("Ton groupe est déjà complet", Color("#ffb07a")); return ""
+				msg = "%d mercenaire(s) d'élite (un tier au-dessus de ton arme) rejoignent ton groupe" % n2
 	return msg
 
 func _give(it: Dictionary) -> String:

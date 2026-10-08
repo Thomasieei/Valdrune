@@ -213,6 +213,13 @@ put('@plaza:8',ax_,az_,0.0,False); occ.append((ax_,az_,10.5))
 for k in range(10):
     a=k/10*math.tau; put('res://assets/dungeon/pillar.gltf',ax_+math.cos(a)*9.5,az_+math.sin(a)*9.5,a,True)
 npc('talk',ax_,az_,0.0)
+# ================= SITES SPÉCIAUX (construits par le monde) =================
+tx_,tz_=spot(-62,88,11,2.2,60)
+occ.append((tx_,tz_,13))
+json.dump({"tower_inf":[round(tx_,1),round(tz_,1)]},open('/home/claude/vgodot/decor/sites_1.json','w'))
+print('tower',tx_,tz_)
+# l'enchanteresse, près de la fontaine
+npc('enchant',C[0]-3.4,C[1]+3.4,face(C[0]-3.4,C[1]+3.4,*C)+math.pi)
 # ================= RESSOURCES ET CAMPS =================
 def scatter(path,cx,cz,n,rad,solid=False,minr=2.6):
     k=0; tries=0
@@ -222,7 +229,7 @@ def scatter(path,cx,cz,n,rad,solid=False,minr=2.6):
         if walk(x,z) and free(x,z,minr) and road_dist(x,z)>1.5:
             put(path,x,z,random.random()*math.tau,solid); occ.append((x,z,minr)); k+=1
 for (x,z,t) in [(-28,-14,1),(-20,30,1),(-56,-50,2),(30,-60,2)]: scatter('@res:wood:%d'%t,x,z,6,7)
-for (x,z,t) in [(72,-6,1),(84,20,1),(-30,-80,2),(84,-40,2)]: scatter('@res:ore:%d'%t,x,z,5,6)
+for (x,z,t) in [(72,-6,1),(84,20,1),(-30,-80,2),(84,-40,2),(60,-60,2),(-80,-40,2),(10,-40,2)]: scatter('@res:ore:%d'%t,x,z,5,6)
 for (x,z,t) in [(30,22,1),(-70,4,1),(-60,86,1),(-78,-20,2)]: scatter('@res:fiber:%d'%t,x,z,6,7)
 camps=[]
 for t,(zmin,zmax),want in [(1,(-10,104),9),(2,(-104,-10),9)]:

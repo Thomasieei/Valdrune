@@ -85,7 +85,7 @@ func setup(m: Node, d: Dictionary) -> void:
 	var key_npc: bool = act in ["quest", "auction", "mercs", "enchant", "tools", "forge", "harbor", "tools3", "travel", "shop", "tannery", "sawmill", "build"]
 	var sc: float = d.get("scale", 1.0)
 	var l := Label3D.new(); l.text = nm; l.font = NAME_FONT; l.font_size = 58 if key_npc else 44; l.outline_size = 14 if key_npc else 10
-	l.modulate = Color("#ffd98a") if key_npc else Color("#f2ece0"); l.outline_modulate = Color(0.08, 0.05, 0.02, 0.9)
+	l.modulate = Color("#fff3dc") if key_npc else Color("#f2ece0")      # l'OR est réservé aux joueurs; l.outline_modulate = Color(0.08, 0.05, 0.02, 0.9)
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED; l.pixel_size = 0.0085 if key_npc else 0.0065; l.position.y = 2.62 * sc; l.no_depth_test = true; l.render_priority = 4; add_child(l)
 	var r := Label3D.new(); r.text = SERVICE_DO.get(act, role) if key_npc else role; r.font_size = 36 if key_npc else 28; r.outline_size = 9; r.modulate = Color("#f4e6c4") if key_npc else Color("#bfc8cf"); r.outline_modulate = Color(0, 0, 0, 0.75)
 	r.billboard = BaseMaterial3D.BILLBOARD_ENABLED; r.pixel_size = 0.0075 if key_npc else 0.0065; r.position.y = 2.3 * sc; r.no_depth_test = true; r.render_priority = 4; add_child(r)
@@ -154,7 +154,7 @@ func hide_for_duel(on: bool) -> void:
 	if not on: position.x = home.x; position.z = home.z
 
 const ACT_LINES := {
-	"forge": ["Je vends des armes et des tenues, et je forge avec tes ressources. Mais pas de raccourci : chaque tier se débloque en portant le précédent."],
+	"forge": ["Je vends des armes et des tenues, et je forge avec tes ressources. Chaque tier se débloque avec ta maîtrise : bats-toi avec ton arme pour la faire monter."],
 	"shop": ["Bois, minerai, fibre… j'achète tout. Et ton bric-à-brac aussi, je le reprends sur-le-champ !", "Des potions ? J'en ai toujours pour les téméraires."],
 	"auction": ["L'hôtel des ventes : achète ce que les autres aventuriers revendent… ou vends au prix que tu veux."],
 	"mercs": ["Seul, on meurt vite. Avec ma compagnie, tu formes un vrai groupe de 4."],

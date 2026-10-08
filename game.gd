@@ -50,6 +50,53 @@ const PET_DUR := 40.0        # secondes de présence au combat
 const PET_CD := 60.0         # recharge de l'invocation
 const PET_MAX := 40
 const CLASS_PRICE := 800
+# ================= ÉVEIL : les paliers qui propulsent le héros =================
+# Chaque palier se gagne en battant le Gardien de l'Éveil. Il donne +18 % dégâts, +18 % vie, +3 % critique,
+# et surtout la DOMINATION : face à un joueur d'un palier plus bas, tu frappes bien plus fort et tu encaisses bien moins.
+const EVEIL_MAX := 5
+const EVEIL_NAMES := ["", "Éveillé", "Ascendant", "Transcendant", "Avatar", "Légende vivante"]
+const EVEIL_COL := ["#ffffff", "#7dd8ff", "#7dff8a", "#c77dff", "#ff9a3c", "#ff3d5a"]
+const EVEIL_CD := 1800          # 1 tentative gratuite toutes les 30 min
+func eveil() -> int: return int(S.get("eveil", 0))
+func eveil_reqs(n: int) -> Array:
+	# [texte, rempli ?]
+	return [["Arme T%d ou mieux" % n, int(S.gear.get("epee", 0)) >= n],
+		["Puissance %d (tu as %d)" % [power_needed(n) + 300 * (n - 1), power()], power() >= power_needed(n) + 300 * (n - 1)],
+		["Palier %s obtenu" % ["", "—", "I", "II", "III", "IV"][n], eveil() >= n - 1]]
+func eveil_ready() -> bool:
+	var n := eveil() + 1
+	if n > EVEIL_MAX: return false
+	for r in eveil_reqs(n):
+		if not r[1]: return false
+	return true
+func eveil_wait() -> int: return max(0, EVEIL_CD - (now() - int(S.get("eveil_try", 0))))
+# multiplicateur de domination (dégâts infligés par un éveil a sur un éveil d)
+static func dom(a: int, d: int) -> float: return clamp(1.0 + 0.45 * (a - d), 0.2, 3.0)
+# éveil d'un combattant « joueur » (-1 = monstre : pas de domination)
+func ev_of(n) -> int:
+	if n == null or not is_instance_valid(n): return -1
+	if n is Player: return eveil()
+	if n is Bot: return int(n.eveil)
+	if n is Enemy and n.def.has("eveil"): return int(n.def.eveil)
+	return -1
+
+# ================= ARÈNE CLASSÉE =================
+const RANKS := [[0, "Bronze", "#c98a4a"], [1100, "Argent", "#cfd6de"], [1250, "Or", "#ffcf3a"], [1400, "Platine", "#7fe0d0"], [1600, "Diamant", "#7fb8ff"], [1850, "Champion", "#ff5a7a"]]
+const RANK_CROWNS := [0, 20, 40, 80, 150, 300]
+const PVP_FREE := 8              # combats classés gratuits par jour
+func pvp() -> Dictionary:
+	if typeof(S.get("pvp")) != TYPE_DICTIONARY: S["pvp"] = {"elo": 1000, "w": 0, "l": 0, "glory": 0, "day": "", "n": 0, "bonus": 0, "best": 0, "fw": ""}
+	var d: String = Time.get_date_string_from_system()
+	if S.pvp.day != d: S.pvp.day = d; S.pvp.n = 0
+	return S.pvp
+static func rank_of(elo: int) -> int:
+	var r := 0
+	for i in RANKS.size():
+		if elo >= int(RANKS[i][0]): r = i
+	return r
+func pvp_left() -> int: return max(0, PVP_FREE - int(pvp().n)) + int(pvp().bonus)
+
+static func npc_buy(t: int) -> int: return int(res_price(t) * 0.7)     # la marchande rachète à 70 % (l'hôtel des ventes paie mieux)
 func is_dompteur() -> bool: return S.get("weapon_kind", "") == "dompteur"
 func class_owned(k: String) -> bool: return typeof(S.get("classes")) == TYPE_DICTIONARY and S.classes.has(k)
 func pets() -> Array:
@@ -226,7 +273,9 @@ func stats() -> Dictionary:
 				"vol": st.steal += v / 100.0
 	var bt := int(S.gear.get("bottes", 0))
 	if bt > 0: st.spd += 0.06 * (bt - 1) + 0.025 * ench("bottes")
-	st.hp *= 1.0 + st.vie + art_bonus("vie") + mount_bonus("hp")
+	var ev := eveil()
+	st.dmg += 0.18 * ev; st.crit += 0.03 * ev
+	st.hp *= 1.0 + st.vie + art_bonus("vie") + mount_bonus("hp") + 0.18 * ev
 	st.hp = max(st.hp, 60.0)
 	st.steal += art_bonus("sang") * 0.5
 	st.cd = min(st.cd, 0.6)
@@ -252,8 +301,8 @@ static func random_artefact(t: int) -> Dictionary: return {"slot": "artefact", "
 func power() -> int:
 	var p := 0.0
 	for s in COMBAT_SLOTS: p += S.gear.get(s, 0) * (150.0 if s == "artefact" else 100.0) * ench_mult(ench(s))
-	return int(p)
-static func power_needed(t: int) -> int: return 360 * t
+	return int(p) + 300 * eveil()
+static func power_needed(t: int) -> int: return 560 * t
 
 # ================= PROGRESSION : couronnes, premium, boosts, quotidien, classement =================
 static func now() -> int: return int(Time.get_unix_time_from_system())
@@ -938,7 +987,7 @@ func _notification(what: int) -> void:
 # ================= JOURNAL DE BORD (pour retrouver ce qui a fait planter le jeu) =================
 const FLAG_PATH := "user://en_cours.flag"
 const CRUMB_PATH := "user://journal.txt"
-const VERSION := "9.3"
+const VERSION := "9.4"
 var crumbs: Array = []
 var crashed_last := false
 var last_crumbs := ""

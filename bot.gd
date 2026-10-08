@@ -70,6 +70,7 @@ var guild := ""
 var party := false
 var duel := false
 var pwr := 0
+var eveil := 0
 var kills := 0
 
 func display_name() -> String: return guild + nm
@@ -119,6 +120,8 @@ func setup(m: Node, n: String, t: int, reg: int, host: bool) -> void:
 	ch = Chars.make("res://assets/heroes/%s.glb" % model); add_child(ch.root); ap = ch.ap
 	wk = ["epee", "hache", "baton"][randi() % 3] if model != "Mage" else "baton"
 	pwr = int(Game.power_needed(t) * randf_range(0.85, 1.35)); kills = randi_range(20, 400) * t
+	eveil = clamp(t - 1 - (randi() % 2), 0, 5)
+	pwr += 300 * eveil
 	Chars.attach(ch, "handslot.r", Game.weapon_model(wk, t))
 	if wk != "baton" and randf() < 0.6: Chars.attach(ch, "handslot.l", Game.shield_model(t))
 	var tint: Color = Color(1, 1, 1).lerp(Game.TIER_COL[t], 0.0 if t <= 1 else 0.26)
@@ -155,8 +158,10 @@ func setup(m: Node, n: String, t: int, reg: int, host: bool) -> void:
 func _style() -> void:
 	var fighting := mode == "pvp"
 	var col := Color("#3f9cff") if not hostile and not fighting else (Color("#ff4a3a") if fighting else Color("#ff8a5a"))
-	name_lbl.modulate = Color(1, 1, 1); name_lbl.outline_modulate = Color(col.r * 0.55, col.g * 0.55, col.b * 0.55, 0.95)
-	tag_lbl.text = ("JOUEUR · T%d" % tier) if not hostile and not fighting else (("JcJ · T%d · t'attaque !" % tier) if fighting else ("JOUEUR JcJ · T%d" % tier))
+	name_lbl.modulate = Color("#ffd24a"); name_lbl.outline_modulate = Color(col.r * 0.35, col.g * 0.35, col.b * 0.35, 0.95)
+	name_lbl.font = Npc.NAME_FONT
+	var evt := (" · %s" % Game.EVEIL_NAMES[eveil]) if eveil > 0 else ""
+	tag_lbl.text = ("JOUEUR · T%d%s" % [tier, evt]) if not hostile and not fighting else (("JcJ · T%d%s · t'attaque !" % [tier, evt]) if fighting else ("JOUEUR JcJ · T%d%s" % [tier, evt]))
 	tag_lbl.modulate = col.lightened(0.35)
 	ring.material_override = _ring_mat(Color(col.r, col.g, col.b, 0.85 if fighting else 0.55))
 	if bar: bar.visible = fighting or hp < max_hp
@@ -208,7 +213,7 @@ func take_hit(amount: float, from: Node3D, _push: float) -> void:
 		# JcJ : l'armure du joueur IA et la règle « dégâts JcJ réduits » rendent les combats plus longs
 		var st: Dictionary = Game.stats()
 		if randf() < st.crit: amount *= 1.6
-		amount *= 0.55 * (1.0 - armor_red())
+		amount *= 0.55 * (1.0 - armor_red()) * Game.dom(Game.eveil(), eveil)
 		if st.steal > 0.0: from.hp = min(from.max_hp, from.hp + amount * st.steal)
 	hp -= amount
 	flash_mat.albedo_color.a = 0.8; create_tween().tween_property(flash_mat, "albedo_color:a", 0.0, 0.2)
