@@ -99,6 +99,7 @@ func _physics_process(dt: float) -> void:
 			var d: float = e.global_position.distance_to(P.global_position)
 			if d < bd: bd = d; target = e
 	if main.duel_enemy != null: target = null
+	elif main.selected_enemy != null and is_instance_valid(main.selected_enemy) and not main.selected_enemy.dead and main.selected_enemy.state != "idle" and P.global_position.distance_to(main.selected_enemy.global_position) < 15.0: target = main.selected_enemy
 	if global_position.distance_to(P.global_position) > 32.0 and not P.dead:
 		# resté trop loin (téléportation, donjon…) : il rejoint le héros
 		var sp0 := P.global_position + Vector3(sin(slot * 2.1) * 2.2, 0.0, cos(slot * 2.1) * 2.2); global_position = sp0; velocity = Vector3.ZERO
@@ -109,10 +110,12 @@ func _physics_process(dt: float) -> void:
 		var reach: float = def.range + target.radius
 		if to.length() > reach * 0.9: want = to.normalized() * 6.0
 		elif atk_cd <= 0.0:
-			atk_cd = def.cd * randf_range(0.9, 1.1); _play("Throw", 2.0, true)
+			atk_cd = float(def.cd) * randf_range(0.9, 1.1); _play("Throw", 2.0, true)
 			var e = target
+			var epoch: int = P.action_epoch
 			get_tree().create_timer(0.12).timeout.connect(func():
-				if is_instance_valid(e) and not e.dead and not dead: e.take_hit(dmg() * randf_range(0.9, 1.1), self, 1.5))
+				if epoch != main.player.action_epoch or not is_instance_valid(e) or e.dead or dead: return
+				if global_position.distance_to(e.global_position) <= reach + 1.0: e.take_hit(dmg() * randf_range(0.9, 1.1), self, 1.5))
 		look_at_p = to
 	else:
 		# suit le héros en formation

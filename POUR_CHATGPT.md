@@ -1,78 +1,44 @@
-# Valdrune — notes de passation pour l'intégration Supabase
+# Valdrune 9.6 — jeu corrigé et connexions conservées
 
-This document describes the state of the project at **version 9.4**.
+Les améliorations du jeu sont décrites dans `CHANGELOG_v9.6.md` ; 71 vérifications passent. Ouvrir `project.godot` avec Godot 4.3. La boutique Stripe reste en pause à la demande du propriétaire. Aucun nouveau changement serveur ou tarifaire n’a été effectué pour la version 9.6.
 
-## The project
+## Supabase installé
 
-- Godot **4.3** project, written in GDScript. To open it, use `project.godot`.
-- Android export uses the "Android" preset in `export_presets.cfg`. The keystore and its passwords are **left blank on purpose**, so the owner has to supply their own signing key.
-- The entry scene is `main.tscn`, which uses `main.gd`.
-- The save game is the `Game.S` dictionary in `game.gd`. It is stored locally in `user://valdrune_save.json`.
+Projet existant **Jeu**, référence `xtbolgcxyegdwpvpcupc`, URL `https://xtbolgcxyegdwpvpcupc.supabase.co`. L'application utilise uniquement la clé publique déjà présente ; les clés secrètes restent côté serveur.
 
-## What is already connected to Supabase (`net.gd`)
+- Connexion invitée activée, session renouvelée avec son refresh token.
+- `valdrune_profiles` : pseudo, puissance et carte ; écriture limitée au propriétaire.
+- `valdrune_cloud_saves` : copie privée de `Game.S`, isolée entre utilisateurs.
+- `valdrune_chat` : canaux monde/commerce ; nom fourni par le serveur, limitation de fréquence.
+- `valdrune_wallets`, `valdrune_orders`, `valdrune_spends` : lecture du propriétaire, écritures financières réservées au serveur.
+- Les deux migrations dans `supabase/migrations` sont déjà appliquées. `SUPABASE_SETUP.sql` sert uniquement à initialiser une NOUVELLE base ; ne pas le relancer sur le projet existant.
 
-- **URL and key:** `net.gd` uses the project URL `https://xtbolgcxyegdwpvpcupc.supabase.co` and the **publishable** key only. No secret key appears anywhere in the code, and none should ever be added.
-- **Anonymous guest account:** created automatically on first launch through `POST /auth/v1/signup`. The refresh token is kept in `user://net.json`.
-- **`profiles` table:** name, power (PI) and current map, upserted every 2 minutes.
-- **`saves` table:** a backup copy of `Game.S` as jsonb, upserted every 2 minutes and when the app goes to the background.
-- **`chat` table:** "Monde" chat. The game polls it every 6 s and shows messages in the in-game chat.
-- **Script:** `SUPABASE_SETUP.sql` creates these 3 tables with their RLS policies.
-- **Prerequisite:** in Supabase, enable **Authentication › Anonymous sign-ins**.
-- **No network:** if the network is down, the game keeps running solo. The status is shown in Menu › "Serveur".
+Les comptes et tables des autres jeux n'ont pas été réutilisés. Leur webhook d'origine a été rétabli à son contenu initial.
 
-Note: the shell this project was built from could not reach supabase.co, so **these requests have never been tested against the real server**. They need to be checked on the first real launch.
+## Boutique Stripe : code installé, configuration du bon compte manquante
 
-## What remains to be done (priority order)
+Le compte Stripe connecté **Eclat rouge** (`acct_1U9gLI2a80QQbpq2`) est actif. La clé `STRIPE_SECRET_KEY` déjà présente sur Supabase appartient à un AUTRE compte (`acct_1UBBNn2VlyTa7Chp`), qui ne peut pas encaisser. Elle est conservée pour les autres jeux et n'est plus utilisée par Valdrune.
 
-1. **Run `SUPABASE_SETUP.sql` and turn on anonymous sign-in.** Then check on a phone that Menu › Serveur shows "En ligne".
+Le backend Valdrune refuse une clé associée au mauvais compte. Il attend :
 
-2. **Security of crowns and purchases.**
-   - Today the crowns (`Game.S.crowns`) live in the save file, which the client writes itself. A player can cheat them.
-   - Before any real money is involved:
-     - add a `wallets` table (or a column) that **only an Edge Function** can write;
-     - verify Google Play Billing purchases server-side, using the Google Play Developer API from that Edge Function;
-     - have the client only *read* its balance.
-   - Spending points in the code, to be routed to an RPC or Edge Function:
-     - `main.gd` → `shop_claim()` (crowns);
-     - `real_buy()`: real-money purchases, **simulated** today.
+1. `VALDRUNE_STRIPE_RESTRICTED_KEY` ou `VALDRUNE_STRIPE_SECRET_KEY` dans les secrets Supabase, provenant d'Eclat rouge. Privilégier une clé restreinte permettant de lire le compte, lire/créer/expirer les Checkout Sessions, lire les webhooks et les ressources nécessaires aux prix intégrés. Ne jamais mettre cette clé dans Godot, une sauvegarde ou le ZIP.
+2. Un webhook du compte Eclat rouge vers `https://xtbolgcxyegdwpvpcupc.supabase.co/functions/v1/valdrune-stripe-webhook`, version API `2026-08-26.dahlia`, pour `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `checkout.session.expired`, `charge.refunded`.
+3. Son secret de signature dans `VALDRUNE_STRIPE_WEBHOOK_SECRET`. Une configuration privée déjà réservée au service serveur peut aussi stocker ces secrets sous `valdrune_stripe_api_key` et `valdrune_stripe_webhook_signing_secret`.
 
-3. **Real PvP.**
-   - The ranked arena (`main.gd` → `start_ranked()`) currently pits the player against **simulated** opponents.
-   - The leaderboard (`hud.gd` → `_arena_ranked()`) is also generated locally.
-   - Minimal real version:
-     - a `pvp_ratings` table (user_id, elo, wins, losses, season) that a function writes after each fight;
-     - the leaderboard is read from it;
-     - the opponent stays simulated, but is built from **a real player's profile** (name, éveil, power).
-   - Live PvP between two phones would need real-time networking: Supabase Realtime is too slow for combat, so it would need a dedicated server.
+Ces dernières écritures sont bloquées par les permissions de la connexion Stripe actuelle. Aucun paiement réel n'a été réalisé. Le code ne considère pas la boutique prête tant que cette configuration manque.
 
-4. **Real-player leaderboard.**
-   - `net.gd` → `_fetch_top()` already reads `profiles` sorted by power.
-   - It could replace `Game.ranking()`, which today is generated with bots.
+## Fonctions Edge déployées et fournies
 
-5. **Restoring the save on a new phone.**
-   - The `saves` table exists, but nothing reads it back on startup yet.
-   - Two pieces are needed:
-     - a "Récupérer ma partie" flow, with a real account (email or Google);
-     - a reliable link between the anonymous account and that account (`linkIdentity`).
+- `valdrune-commerce` : authentification, synchronisation du portefeuille, création de Checkout à tarif serveur, achats en couronnes et validation des livraisons.
+- `valdrune-stripe-webhook` : contrôle de signature avant toute attribution ; confirmation des achats et remboursements idempotents.
+- `valdrune-payment-return` : page de retour au jeu, sans logique d'attribution.
 
-## Map of the code (useful files)
+Le catalogue contient les 45 offres originales (6 offres en euros, 39 en couronnes). Les prix et les effets sont conservés. Les couronnes achetées ne sont accordées qu'après confirmation serveur ; ouvrir ou fermer la page de paiement n'accorde rien. Les reçus persistants évitent de redonner le butin après une reconnexion. Un cheval du pack reste en attente si le sac est plein.
 
-| File | Contents |
-|---|---|
-| `game.gd` | Data and rules: items, prices, tiers, Éveil, ranked PvP, familiars (PETS), crowns, save |
-| `main.gd` | Gameplay: combat, loot, quests, shop (`_shop_effect`), arena, familiars, dungeons |
-| `hud.gd` | All the UI (panels, shop `OFFERS`, Arène & Éveil, Ménagerie…) |
-| `net.gd` | Supabase |
-| `world.gd` | Map generation. Map 1 is loaded from `decor/map_1.json` + `forest_1.json` + `sites_1.json` |
-| `builder.gd` / `prefab.gd` / `villagegen.gd` | In-game construction mode (Menu › Mode Construction) |
-| `enemy.gd` | Monsters and their attacks (lines and zones on the ground) |
-| `player.gd` | Hero and spells |
-| `pet.gd` | Tamer's familiars |
-| `arena.gd` | Arena: ranked fights and Awakening trials |
-| `bake.gd` / `bake.tscn` | Tool that regenerates the thumbnails into `ui/gen/` |
+## Limites conservées
 
-## Rules to follow
+La progression et les couronnes gagnées en jeu restent locales afin de préserver le fonctionnement existant hors connexion : cela n'est pas un système anti-triche complet. La copie cloud n'ajoute pas un compte email/Google ni une restauration sur un nouveau téléphone. Ne pas désinstaller l'application ou perdre la session invitée pour un compte contenant des achats sans prévoir une récupération de compte.
 
-- Never put the `service_role` / secret key or the database password in the game.
-- Only the URL and the publishable key may go into `net.gd`.
-- Anything involving money or crowns must be decided **server-side**.
+Les bots, l'arène et les combats simulés restent ceux du projet. Cette connexion ne crée pas des combats réseau en temps réel. Le certificat du premier APK reste manquant. `Valdrune_v9.6_test.apk` est fourni séparément, avec un identifiant distinct qui conserve l’application existante. La nouvelle clé de test est également conservée séparément ; ne pas changer cette clé pour les prochains APK Preview. Le preset Android original garde `com.thomas.valdrune`, le preset Android Preview utilise `com.thomas.valdrune.preview`. Ce test ne reprend pas automatiquement l’ancienne partie.
+
+Voir `VERIFICATION_CONNEXIONS.md` pour les vérifications et les points non testés.

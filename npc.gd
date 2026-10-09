@@ -85,16 +85,19 @@ func setup(m: Node, d: Dictionary) -> void:
 	var key_npc: bool = act in ["quest", "auction", "mercs", "enchant", "tools", "forge", "harbor", "tools3", "travel", "shop", "tannery", "sawmill", "build"]
 	var sc: float = d.get("scale", 1.0)
 	var l := Label3D.new(); l.text = nm; l.font = NAME_FONT; l.font_size = 58 if key_npc else 44; l.outline_size = 14 if key_npc else 10
-	l.modulate = Color("#fff3dc") if key_npc else Color("#f2ece0")      # l'OR est réservé aux joueurs; l.outline_modulate = Color(0.08, 0.05, 0.02, 0.9)
+	l.modulate = Color("#fff3dc") if key_npc else Color("#f2ece0"); l.outline_modulate = Color(0.08, 0.05, 0.02, 0.9)      # l'OR est réservé aux joueurs
+	l.visibility_range_end = 26.0 if key_npc else 14.0
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED; l.pixel_size = 0.0085 if key_npc else 0.0065; l.position.y = 2.62 * sc; l.no_depth_test = true; l.render_priority = 4; add_child(l)
 	var r := Label3D.new(); r.text = SERVICE_DO.get(act, role) if key_npc else role; r.font_size = 36 if key_npc else 28; r.outline_size = 9; r.modulate = Color("#f4e6c4") if key_npc else Color("#bfc8cf"); r.outline_modulate = Color(0, 0, 0, 0.75)
 	r.billboard = BaseMaterial3D.BILLBOARD_ENABLED; r.pixel_size = 0.0075 if key_npc else 0.0065; r.position.y = 2.3 * sc; r.no_depth_test = true; r.render_priority = 4; add_child(r)
+	r.visibility_range_end = 11.0          # la ligne « ce qu'il fait » n'apparaît qu'en s'approchant : la place reste lisible
 	if act in ["quest", "auction", "duel", "mercs", "enchant", "tools", "forge", "harbor", "tools3", "travel", "shop", "tannery", "sawmill", "build"]:
 		# au-dessus de la tête : le NOM DU SERVICE en clair (et plus un symbole qu'on ne comprend pas)
 		marker = Label3D.new(); marker.text = SERVICE.get(act, "")
 		marker.font = NAME_FONT; marker.font_size = 64; marker.outline_size = 16
 		marker.modulate = SERVICE_COL.get(act, Color("#ffd24a")); marker.outline_modulate = Color(0.12, 0.06, 0.0, 0.95)
 		marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED; marker.pixel_size = 0.0085; marker.position.y = 3.45 * sc; marker.no_depth_test = true; marker.render_priority = 4; add_child(marker)
+		marker.visibility_range_end = 45.0
 		# halo au sol, couleur du service : on repère les PNJ utiles de loin
 		if act != "duel":
 			var ring := MeshInstance3D.new(); var cm := CylinderMesh.new(); cm.top_radius = 0.95; cm.bottom_radius = 0.95; cm.height = 0.02; cm.radial_segments = 32; ring.mesh = cm

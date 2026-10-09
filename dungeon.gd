@@ -26,9 +26,12 @@ var rng := RandomNumberGenerator.new()
 var mm := {}               # chemin → [Transform3D]
 var entry: Dictionary
 var cleared_rooms := 0
+var modifier := ""
+const MODIFIERS := ["Meute", "Sentinelles", "Arcanes"]
 
 func build(m: Node, t: int, seed_v: int, e: Dictionary) -> void:
 	main = m; tier = t; entry = e; rng.seed = seed_v
+	modifier = MODIFIERS[rng.randi() % MODIFIERS.size()]
 	var n_rooms := 6 + t + rng.randi_range(0, 2)   # plus de salles à explorer
 	# marche aléatoire sur une grille de salles
 	var slots: Array[Vector2i] = [Vector2i.ZERO]
@@ -154,11 +157,27 @@ func _multi(path: String, xforms: Array) -> void:
 func _deco(path: String, p: Vector3, rot := 0.0, s := 1.0) -> Node3D:
 	var o: Node3D = load(path).instantiate(); o.position = p; o.rotation.y = rot; o.scale = Vector3.ONE * s; add_child(o); return o
 
+func _room_enemy(k: String, p: Vector3, camp: Dictionary, champion := false, guardian := false) -> Enemy:
+	var base: Dictionary = Enemy.KINDS[k]
+	var extra := {"hp": float(base.hp) * 1.4, "dmg": float(base.dmg) * 1.15, "forced_elite": champion}
+	if guardian:
+		extra.hp = 22.0; extra.dmg = 1.9; extra.dungeon_boss = true
+		extra.name = "Gardien des profondeurs"
+		extra.scale = float(base.get("scale", 1.0)) * (1.65 if base.get("animal", false) else 1.0)
+		if base.get("animal", false): extra.rad = float(base.rad) * 1.5; extra.h = float(base.h) * 1.5
+	var e: Enemy = main._spawn_enemy(k, tier, p, camp, false, extra)
+	e.leash = 24.0 if not guardian else 20.0
+	sp_dict.members.append(e)
+	return e
+
 func _populate() -> void:
 	var skel := {1: ["minion", "minion", "rogue"], 2: ["minion", "rogue", "warrior"], 3: ["warrior", "rogue", "minion", "mage"], 4: ["warrior", "mage", "rogue", "warrior"], 5: ["warrior", "mage", "rogue", "warrior", "mage"]}
 	var beasts := {1: ["renard", "renard", "loup"], 2: ["loup", "loup", "cerf"], 3: ["loup", "taureau", "loup"], 4: ["taureau", "loup", "loup", "cerf"], 5: ["taureau", "loup", "taureau", "loup"]}
-	var theme := "beasts" if rng.randf() < 0.35 else "skel"
-	for r in rooms:
+	var theme := "beasts" if modifier == "Meute" else "skel"
+	for ri in rooms.size():
+		var r: Dictionary = rooms[ri]
+		var room_camp := {"members": [], "dungeon": true, "room": ri}
+		r["camp"] = room_camp
 		var c: Vector3 = r.center
 		match r.kind:
 			"start":
@@ -166,25 +185,22 @@ func _populate() -> void:
 				_deco(DG + "pillar_decorated.gltf", c + Vector3(5, 0, -5), 0.0, 0.7)
 				_deco(DG + "banner_patternC_red.gltf", c + Vector3(0, 0, -6.5), 0.0, 1.0)
 			"fight":
-				var kinds: Array = (beasts if theme == "beasts" else skel)[tier]
+				var kinds: Array = (beasts if theme == "beasts" else skel)[tier].duplicate()
+				if modifier == "Arcanes": kinds.append("mage" if ri % 2 == 0 else "archer")
 				for i in kinds.size():
 					var p := c + Vector3(cos(i * 2.2) * 3.0, 0, sin(i * 2.2) * 3.0)
-					var e: Enemy = main._spawn_enemy(kinds[i], tier, p, sp_dict)
-					e.leash = 60.0
+					_room_enemy(kinds[i], p, room_camp, modifier == "Sentinelles" and i == 0)
 				for k in 2:
 					var q := c + Vector3(rng.randf_range(-6, 6), 0, rng.randf_range(-6, 6))
 					_deco(DG + ["barrel_small_stack.gltf", "rubble_half.gltf", "crates_stacked.gltf", "candle_triple.gltf"][rng.randi() % 4], q, rng.randf() * TAU, 0.8)
 				if rng.randf() < 0.4: _deco(DG + "coin_stack_large.gltf", c + Vector3(rng.randf_range(-5, 5), 0, rng.randf_range(-5, 5)), 0.0, 1.2)
 			"boss":
 				# gardien du donjon : élite géante + coffre doré
-				var gk: String = ("taureau" if tier >= 3 else "loup") if theme == "beasts" else "warrior"
-				boss = main._spawn_enemy(gk, tier, c + Vector3(0, 0, -2), sp_dict)
-				boss.leash = 60.0
-				boss.def.hp *= 9.0; boss.max_hp = Game.mob_hp(tier) * boss.def.hp; boss.hp = boss.max_hp
-				boss.def.dmg *= 1.5; boss.is_boss = true; boss.name_lbl.text = "Gardien du donjon · T%d" % tier; boss.name_lbl.modulate = Color("#ffb04a"); boss.name_lbl.font_size = 56
-				boss.ch.root.scale *= 1.6; boss.radius *= 1.5; boss.bar_root.position.y *= 1.5; boss.bar_root.visible = true
+				var gk: String = ("taureau" if tier >= 3 else "loup") if theme == "beasts" else "boss"
+				boss = _room_enemy(gk, c + Vector3(0, 0, -2), room_camp, false, true)
+				boss.name_lbl.text = "Gardien du donjon · T%d" % tier; boss.name_lbl.modulate = Color("#ffb04a"); boss.name_lbl.font_size = 56; boss.bar_root.visible = true
 				var minion: String = "minion" if theme == "skel" else "loup"
-				for i in 2: main._spawn_enemy(minion, tier, c + Vector3(-4 + i * 8, 0, 1), sp_dict)
+				for i in 2: _room_enemy(minion, c + Vector3(-4 + i * 8, 0, 1), room_camp)
 				chest_pos = c + Vector3(0, 0, -6)
 				chest = _deco(DG + "chest_gold.gltf", chest_pos, 0.0, 1.4)
 				_deco(DG + "sword_shield_gold.gltf", c + Vector3(-5, 0, -6.5), 0.4, 1.2)

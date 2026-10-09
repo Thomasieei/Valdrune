@@ -1,0 +1,10 @@
+alter table public.valdrune_profiles add column if not exists power integer not null default 0 check (power >= 0);
+alter table public.valdrune_profiles add column if not exists map integer not null default 1 check (map between 1 and 4);
+alter table public.valdrune_cloud_saves add column if not exists version text;
+alter table public.valdrune_chat add column if not exists channel text not null default 'monde' check (channel in ('monde','commerce'));
+create index if not exists valdrune_profiles_power_idx on public.valdrune_profiles (power desc);
+create index if not exists valdrune_chat_user_time_idx on public.valdrune_chat (user_id,created_at desc);
+grant select,insert,update on public.valdrune_profiles,public.valdrune_cloud_saves to authenticated;
+grant select,insert on public.valdrune_chat to authenticated;
+grant usage,select on sequence public.valdrune_chat_id_seq to authenticated;
+notify pgrst,'reload schema';

@@ -1,0 +1,407 @@
+[
+  {
+    "id": "pack_debut",
+    "name": "Pack du débutant",
+    "kind": "cash",
+    "amount_cents": 99,
+    "currency": "eur",
+    "crowns_reward": 300,
+    "crowns_price": 0
+  },
+  {
+    "id": "c1",
+    "name": "Poignée de couronnes",
+    "kind": "cash",
+    "amount_cents": 99,
+    "currency": "eur",
+    "crowns_reward": 120,
+    "crowns_price": 0
+  },
+  {
+    "id": "c2",
+    "name": "Bourse de couronnes",
+    "kind": "cash",
+    "amount_cents": 499,
+    "currency": "eur",
+    "crowns_reward": 650,
+    "crowns_price": 0
+  },
+  {
+    "id": "c3",
+    "name": "Coffret de couronnes",
+    "kind": "cash",
+    "amount_cents": 999,
+    "currency": "eur",
+    "crowns_reward": 1400,
+    "crowns_price": 0
+  },
+  {
+    "id": "c4",
+    "name": "Coffre de couronnes",
+    "kind": "cash",
+    "amount_cents": 1999,
+    "currency": "eur",
+    "crowns_reward": 3000,
+    "crowns_price": 0
+  },
+  {
+    "id": "c5",
+    "name": "Trésor du roi",
+    "kind": "cash",
+    "amount_cents": 4999,
+    "currency": "eur",
+    "crowns_reward": 8000,
+    "crowns_price": 0
+  },
+  {
+    "id": "premium30",
+    "name": "Premium · 30 jours",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 450
+  },
+  {
+    "id": "premium7",
+    "name": "Premium · 7 jours",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 150
+  },
+  {
+    "id": "pierre_eveil",
+    "name": "Pierre d'Éveil",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 60
+  },
+  {
+    "id": "pierre_eveil3",
+    "name": "Pierres d'Éveil ×3",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 150
+  },
+  {
+    "id": "billets",
+    "name": "Billets d'arène ×5",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 25
+  },
+  {
+    "id": "boost1",
+    "name": "Boost d'expérience · 1 h",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 40
+  },
+  {
+    "id": "boost24",
+    "name": "Boost d'expérience · 24 h",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 250
+  },
+  {
+    "id": "maitrise",
+    "name": "Parchemin de guerre",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 180
+  },
+  {
+    "id": "metier",
+    "name": "Parchemin d'artisan",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 150
+  },
+  {
+    "id": "enchant",
+    "name": "Parchemin d'enchantement",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 220
+  },
+  {
+    "id": "auto",
+    "name": "Écuyer automatique",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 600
+  },
+  {
+    "id": "sac",
+    "name": "Sac agrandi",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 120
+  },
+  {
+    "id": "potions",
+    "name": "Caisse de potions",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 30
+  },
+  {
+    "id": "leg",
+    "name": "Coffre légendaire",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 350
+  },
+  {
+    "id": "garde",
+    "name": "Garde d'élite",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 400
+  },
+  {
+    "id": "pegase",
+    "name": "Pégase d'Azur",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 4000
+  },
+  {
+    "id": "m_roi_cerf",
+    "name": "Roi-Cerf doré",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 2600
+  },
+  {
+    "id": "m_taureau",
+    "name": "Taureau cuirassé",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 2200
+  },
+  {
+    "id": "m_loup",
+    "name": "Loup de guerre",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 900
+  },
+  {
+    "id": "m_cheval",
+    "name": "Cheval de selle",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 150
+  },
+  {
+    "id": "classe_dompteur",
+    "name": "Classe DOMPTEUR",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 800
+  },
+  {
+    "id": "lame",
+    "name": "Lame de l'Aube +5",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 2400
+  },
+  {
+    "id": "fendeuse",
+    "name": "Fendeuse du Néant +5",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 2400
+  },
+  {
+    "id": "sceptre",
+    "name": "Sceptre Astral +5",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 2400
+  },
+  {
+    "id": "titan",
+    "name": "Rempart du Titan +5",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 1600
+  },
+  {
+    "id": "set_plate",
+    "name": "Plates du Dragon +5",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 2000
+  },
+  {
+    "id": "set_cuir",
+    "name": "Cuir de l'Ombre +5",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 2000
+  },
+  {
+    "id": "set_tissu",
+    "name": "Robe Céleste +5",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 2000
+  },
+  {
+    "id": "bottes",
+    "name": "Bottes de Vent +5",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 1300
+  },
+  {
+    "id": "art_rage",
+    "name": "Idole de rage +3",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 1500
+  },
+  {
+    "id": "art_vie",
+    "name": "Calice de vie +3",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 1500
+  },
+  {
+    "id": "art_fortune",
+    "name": "Anneau de fortune +3",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 1500
+  },
+  {
+    "id": "res2",
+    "name": "Pack d'apprenti T2",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 60
+  },
+  {
+    "id": "res3",
+    "name": "Pack d'artisan T3",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 200
+  },
+  {
+    "id": "res4",
+    "name": "Pack de maître T4",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 700
+  },
+  {
+    "id": "res5",
+    "name": "Pack légendaire T5",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 2000
+  },
+  {
+    "id": "or1",
+    "name": "Bourse d'argent",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 80
+  },
+  {
+    "id": "or2",
+    "name": "Coffre d'argent",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 600
+  },
+  {
+    "id": "or3",
+    "name": "Trésor royal",
+    "kind": "crowns",
+    "amount_cents": 0,
+    "currency": "eur",
+    "crowns_reward": 0,
+    "crowns_price": 6000
+  }
+]

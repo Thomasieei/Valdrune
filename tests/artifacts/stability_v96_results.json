@@ -1,0 +1,125 @@
+{
+	"checks": [
+		{
+			"name": "Première sauvegarde complète créée",
+			"passed": true
+		},
+		{
+			"name": "Nouvelle progression sauvegardée sans supprimer la précédente",
+			"passed": true
+		},
+		{
+			"name": "Argent, équipement et ressources conservés après relecture",
+			"passed": true
+		},
+		{
+			"name": "Fichier interrompu : récupération réelle de la copie de secours",
+			"passed": true
+		},
+		{
+			"name": "Écriture complète interrompue avant remplacement : dernière progression récupérée",
+			"passed": true
+		},
+		{
+			"name": "Une écriture temporaire incomplète ne masque pas la bonne copie",
+			"passed": true
+		},
+		{
+			"name": "Une écriture impossible signale l’échec sans annoncer une réussite",
+			"passed": true
+		},
+		{
+			"name": "Une écriture impossible laisse la progression récupérable",
+			"passed": true
+		},
+		{
+			"name": "Ancienne sauvegarde partielle : équipement existant conservé et cases manquantes complétées",
+			"passed": true
+		},
+		{
+			"name": "Inventaire partiel complété sans perdre les ressources existantes",
+			"passed": true
+		},
+		{
+			"name": "Un élément endommagé ne fait pas perdre les objets valides",
+			"passed": true
+		},
+		{
+			"name": "Scénario sans connexion ni compte créé sur le serveur",
+			"passed": true
+		},
+		{
+			"name": "Bouton Jouer présent sur l’écran réel de démarrage",
+			"passed": true
+		},
+		{
+			"name": "Démarrage utilisable sans fenêtre automatique bloquant le joystick",
+			"passed": true
+		},
+		{
+			"name": "Objectif initial et progression de découverte initialisés",
+			"passed": true
+		},
+		{
+			"name": "Le personnage rejoint réellement le sol après une transition",
+			"passed": true
+		},
+		{
+			"name": "Joystick : déplacement réel sur la carte avec collisions actives",
+			"passed": true
+		},
+		{
+			"name": "Après mise en veille : aucun déplacement dû à un doigt resté bloqué",
+			"passed": true
+		},
+		{
+			"name": "Après interruption : attaque, clavier, touches et zoom relâchés",
+			"passed": true
+		},
+		{
+			"name": "Retour Android ferme le menu sans quitter la partie",
+			"passed": true
+		},
+		{
+			"name": "Ouvrir un menu ne conserve aucune commande de déplacement ou d’attaque",
+			"passed": true
+		},
+		{
+			"name": "Un coup reçu referme le menu pour permettre de réagir immédiatement",
+			"passed": true
+		},
+		{
+			"name": "Un dégât sans attaquant valide ne provoque pas d’erreur de combat",
+			"passed": true
+		},
+		{
+			"name": "Combat réel : approche de la cible puis coups qui touchent",
+			"passed": true
+		},
+		{
+			"name": "Combat réel : une cible de premier tier reste jouable avec l’équipement initial",
+			"passed": true
+		},
+		{
+			"name": "Combat continu : les attaques utilisent la cadence prévue sans se figer",
+			"passed": true
+		},
+		{
+			"name": "Donjon en fonctionnement : apparition sur le sol et entrée sans mort immédiate",
+			"passed": true
+		},
+		{
+			"name": "Première salle : survie possible le temps de réagir avec le héros initial",
+			"passed": true
+		},
+		{
+			"name": "Les ennemis du donjon engagent réellement le joueur",
+			"passed": true
+		},
+		{
+			"name": "Retour du donjon : collisions et sol du monde rétablis",
+			"passed": true
+		}
+	],
+	"failed": 0
+}

@@ -8,6 +8,8 @@ var cam: Camera3D
 var sun: DirectionalLight3D
 var enemies: Array = []
 var shake_amt := 0.0
+var streak := 0
+var streak_t := 0.0
 var goal_target = null          # Vector3 ou null
 var goal_text := ""
 var arrow: MeshInstance3D
@@ -71,6 +73,13 @@ var spawn_q: Array = []
 var free_q: Array = []
 var cine: Callable
 var sky_mat: ProceduralSkyMaterial
+var selected_enemy: Node3D
+var target_ring: MeshInstance3D
+var last_safe_pos := Vector3.ZERO
+var has_safe_pos := false
+var fall_time := 0.0
+var transition_grace := 0.0
+var auto_skill_wait := 0.0
 
 func _ready() -> void:
 	shot_mode = "shot" in OS.get_cmdline_user_args()
@@ -99,7 +108,7 @@ func _ready() -> void:
 	_make_ambient()
 	_spawn_saved_mercs()
 	social = Social.new(); add_child(social); social.setup(self)
-	if not shot_mode: net = Net.new(); add_child(net); net.setup(self)
+	if not shot_mode and "offline-test" not in OS.get_cmdline_user_args(): net = Net.new(); add_child(net); net.setup(self)
 	vq = VQuests.new(self)
 	builder = Builder.new(); add_child(builder); builder.setup(self)
 	_spawn_bots()
@@ -286,17 +295,19 @@ func _talk_travel(n: Npc) -> void:
 
 func on_start() -> void:
 	apply_gfx()
+	if Game.save_recovered:
+		Game.save_recovered = false
+		hud.toast("Ta sauvegarde de secours a été récupérée.", Color("#7dff8a"), true)
 	if Game.crashed_last:
 		Game.crashed_last = false
-		get_tree().create_timer(2.0).timeout.connect(func(): if not hud.panel_open: hud.show_report(true))
+		hud.toast("Reprise du jeu · rapport disponible dans Menu.")
 	if Game.S.tips.has("start") and Game.login_can_claim() and tuto_i() >= 9:
-		get_tree().create_timer(1.5).timeout.connect(func(): if not hud.panel_open: hud.show_daily())
+		hud.toast("Ta récompense quotidienne t’attend dans QUOTIDIEN.", Hud.GOLD)
 	if not Game.S.tips.has("start"):
 		Game.S.tips["start"] = 1; Game.save()
-		get_tree().create_timer(1.2).timeout.connect(func(): if not hud.panel_open: hud.show_guide("debut"))
-		hud.toast("Bienvenue à Valdrune ! Va parler à Aldric, l'Ancien ( ! doré).", Color("#ffd27a"), true)
-		get_tree().create_timer(4.5).timeout.connect(func(): hud.toast("Pouce à gauche pour bouger · gros bouton : parler, frapper, récolter"))
-		get_tree().create_timer(9.0).timeout.connect(func(): hud.toast("Touche la mini-carte pour voir la carte du monde"))
+		hud.toast("Bienvenue ! Va parler à Aldric : suis le repère doré.", Hud.GOLD, true)
+		get_tree().create_timer(4.5).timeout.connect(func(): if not hud.panel_open: hud.toast("Pouce à gauche : bouger · touche un ennemi : cibler"))
+		get_tree().create_timer(9.0).timeout.connect(func(): if not hud.panel_open: hud.toast("Mini-carte : te repérer · Menu : guide du joueur"))
 
 func _env() -> void:
 	var we := WorldEnvironment.new(); var e := Environment.new()
@@ -340,11 +351,15 @@ func _make_guide() -> void:
 # ——— Boucle ———
 func _process(dt: float) -> void:
 	var P := player
+	transition_grace = max(0.0, transition_grace - dt)
+	auto_skill_wait = max(0.0, auto_skill_wait - dt)
+	_target_update()
 	if arena: _arena_tick(dt)
+	_wevent_tick(dt)
 	Game.listener = P.global_position
 	P.input_vec = hud.move_vec() if (not hud.panel_open or hud.cur_panel == "bag") else Vector2.ZERO
 	if auto_on: _auto(dt)
-	_unstick(P)
+	_unstick(P, dt)
 	if has_meta("force") and get_meta("force") != Vector2.ZERO: P.input_vec = get_meta("force")
 	_context(dt)
 	var o0 := Time.get_ticks_usec()
@@ -435,6 +450,7 @@ func _context(_dt: float) -> void:
 		for en in dungeon_entries:
 			if Vector2(en.pos.x - pp.x, en.pos.z - pp.z).length() < 2.8: entry_sel = en
 	var d_chest := dungeon != null and not dungeon.chest_open and dungeon.chest != null and Vector2(dungeon.chest_pos.x - pp.x, dungeon.chest_pos.z - pp.z).length() < 2.8
+	var d_retreat := dungeon != null and not dungeon.exit_open and threat == null and Vector2(dungeon.spawn_pos.x - pp.x, dungeon.spawn_pos.z - pp.z).length() < 2.0
 	var d_exit := dungeon != null and dungeon.exit_open and Vector2(dungeon.exit_pos.x - pp.x, dungeon.exit_pos.z - pp.z).length() < 2.2
 	gather_node = nd
 	# portes des maisons (dehors) · coffre et sortie (dedans)
@@ -447,7 +463,10 @@ func _context(_dt: float) -> void:
 		for h in world.town.homes:
 			if h.kind != "house": continue
 			if Vector2((h.door as Vector2).x - pp.x, (h.door as Vector2).y - pp.z).length() < 1.8: door_sel = h; break
-	if interact == "npc" and not in_chest: hud.set_main("talk", "PARLER", Color("#9fe0ff"), "talk"); hud.hint_lbl.text = "[right]%s · %s[/right]" % [talk_npc.nm, talk_npc.role]
+	if is_instance_valid(selected_enemy) and not selected_enemy.dead:
+		hud.set_main("attack", "ATTAQUE", Hud.GOLD, "skull")
+		hud.hint_lbl.text = "[right]Cible verrouillée · maintiens ATTAQUE pour l’engager[/right]"
+	elif interact == "npc" and not in_chest: hud.set_main("talk", "PARLER", Color("#9fe0ff"), "talk"); hud.hint_lbl.text = "[right]%s · %s[/right]" % [talk_npc.nm, talk_npc.role]
 	elif in_chest:
 		var robbed: bool = _house_robbed(interior.hid)
 		hud.set_main("steal", "VOLER" if not robbed else "VIDE", Color("#ff9a5a") if not robbed else Color("#9a9a9a"), "chest")
@@ -472,11 +491,12 @@ func _context(_dt: float) -> void:
 	elif not entry_sel.is_empty():
 		hud.set_main("enter", "ENTRER", Color("#c58bff"), "lock")
 		hud.hint_lbl.text = "[right]Donjon %s · puissance conseillée %d (toi : %d)[/right]" % [hud.tier_tag(entry_sel.tier), Game.power_needed(entry_sel.tier), Game.power()]
+	elif d_retreat: hud.set_main("dretreat", "QUITTER", Color("#bfe8ff"), "lock"); hud.hint_lbl.text = "[right]Retour à l’entrée · le trésor reste scellé[/right]"
 	elif d_exit: hud.set_main("exit", "SORTIR", Color("#7fd0ff"), "lock"); hud.hint_lbl.text = "[right]Portail de sortie[/right]"
 	elif d_chest:
-		var guarded2 := dungeon.boss != null and is_instance_valid(dungeon.boss) and not dungeon.boss.dead
+		var guarded2 := dungeon.alive_count() > 0
 		hud.set_main("dchest" if not guarded2 else "guarded", "OUVRIR" if not guarded2 else "GARDÉ", Color("#ffd24a") if not guarded2 else Color("#ff7a6a"), "chest")
-		hud.hint_lbl.text = "[right]%s[/right]" % ("Trésor du donjon !" if not guarded2 else "Bats le gardien du donjon d'abord")
+		hud.hint_lbl.text = "[right]%s[/right]" % ("Trésor du donjon !" if not guarded2 else "Nettoie le donjon : encore %d ennemis" % dungeon.alive_count())
 	elif not hidden_sel.is_empty(): hud.set_main("hidden", "OUVRIR", Color("#ffd24a"), "chest"); hud.hint_lbl.text = "[right]Coffre caché ![/right]"
 	elif not loot_sel.is_empty() and threat == null:
 		hud.set_main("bag", "FOUILLER", Color("#ffd27a"), "chest"); hud.hint_lbl.text = "[right]%s[/right]" % {"boss": "Butin du boss", "elite": "Butin d'élite", "pvp": "Sac du joueur vaincu"}.get(loot_sel.kind, "Butin au sol")
@@ -532,6 +552,11 @@ func _context(_dt: float) -> void:
 				hud.buttons.main.held = false; tower_next()
 			"texit":
 				hud.buttons.main.held = false; exit_tower()
+			"dretreat":
+				hud.buttons.main.held = false
+				hud.confirm("Quitter le donjon", "Abandonner cette tentative et rentrer dehors ?", func():
+					var back := dungeon_back
+					exit_dungeon(false); _teleport_group(back); hud.close_panel())
 			"exit":
 				hud.buttons.main.held = false; exit_dungeon(true)
 			"dchest":
@@ -551,7 +576,7 @@ func _context(_dt: float) -> void:
 			"attack":
 				var wk: Dictionary = Game.wkind()
 				var reach: float = float(wk.get("range", Player.REACH))
-				var e = _nearest_enemy(pp, max(8.0, reach + 3.0))
+				var e = combat_target(pp, max(8.0, reach + 3.0) if selected_enemy == null else 30.0)
 				if e and pp.distance_to(e.global_position) > reach + e.radius - 0.2 and P.move_lock <= 0.0 and hud.move_vec().length() < 0.1:
 					# s'approcher tout seul de la cible
 					var d: Vector3 = e.global_position - pp; d.y = 0
@@ -566,6 +591,72 @@ func _nearest_enemy(p: Vector3, r: float, only_aggro := false) -> Node3D:
 		var d := p.distance_to(e.global_position)
 		if d < bd: bd = d; best = e
 	return best
+
+func combat_target(p: Vector3, r: float, only_aggro := false) -> Node3D:
+	if selected_enemy and is_instance_valid(selected_enemy) and not selected_enemy.dead:
+		return selected_enemy if p.distance_to(selected_enemy.global_position) <= r else null
+	return _nearest_enemy(p, r, only_aggro)
+
+func select_enemy(e: Node3D) -> void:
+	selected_enemy = e
+	pvp_target = null
+	if e:
+		auto_on = false; auto_hold = false; auto_tgt = null
+		hud.refresh_auto()
+		if not Game.S.tips.has("target95"):
+			Game.S.tips["target95"] = true
+			hud.toast("Cible verrouillée · ◎ change de cible", Hud.GOLD, true)
+	_target_update()
+
+func cycle_target() -> void:
+	var choices: Array = []
+	for e in enemies:
+		if is_instance_valid(e) and not e.dead and e.visible and player.global_position.distance_to(e.global_position) < 24.0 and not cam.is_position_behind(e.global_position): choices.append(e)
+	choices.sort_custom(func(a, b): return player.global_position.distance_to(a.global_position) < player.global_position.distance_to(b.global_position))
+	if choices.is_empty(): select_enemy(null); return
+	var index := choices.find(selected_enemy)
+	select_enemy(choices[(index + 1) % choices.size()])
+
+func _target_update() -> void:
+	if selected_enemy and (not is_instance_valid(selected_enemy) or selected_enemy.dead or player.dead or player.global_position.distance_to(selected_enemy.global_position) > 30.0): selected_enemy = null
+	if selected_enemy == null:
+		if target_ring: target_ring.visible = false
+		return
+	if target_ring == null:
+		target_ring = MeshInstance3D.new(); var ring := TorusMesh.new(); ring.inner_radius = 0.88; ring.outer_radius = 1.0; ring.rings = 32; ring.ring_segments = 6; target_ring.mesh = ring
+		var mat := StandardMaterial3D.new(); mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; mat.albedo_color = Color("#ffd24a"); target_ring.material_override = mat; target_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; add_child(target_ring)
+	target_ring.visible = true
+	target_ring.global_position = selected_enemy.global_position + Vector3(0, 0.10, 0)
+	var r: float = max(1.0, float(selected_enemy.radius) + 0.5)
+	target_ring.scale = Vector3(r, 0.09, r)
+
+func try_pick_enemy(sp: Vector2) -> bool:
+	if cam == null or player.dead: return false
+	var best: Node3D = null; var bd := 60.0
+	for e in enemies:
+		if not is_instance_valid(e) or e.dead or not e.visible or player.global_position.distance_to(e.global_position) > 30.0: continue
+		var base: Vector3 = e.global_position
+		var top: Vector3 = base + Vector3(0, float(e.body_h) * 0.7 if e is Enemy else 1.4, 0)
+		if cam.is_position_behind(top): continue
+		var a := cam.unproject_position(base); var b := cam.unproject_position(top)
+		var d := World.seg_dist(sp, a, b)
+		if d < bd: bd = d; best = e
+	if best: select_enemy(best); return true
+	return false
+
+func safe_skill_destination(from: Vector3, to: Vector3) -> Vector3:
+	var d := to - from; d.y = 0
+	if d.length() > 10.0: d = d.normalized() * 10.0
+	var end := from
+	var n: int = max(1, ceili(d.length() / 0.4))
+	for i in range(1, n + 1):
+		var q := from + d * (float(i) / n)
+		if not world.walkable(q.x, q.z) or (not in_instance() and world.near_house(Vector2(q.x, q.z), 0.5)): break
+		if world.dungeon and world.dungeon.has_method("sight") and not world.dungeon.sight(from, q, 0.5): break
+		var y := world.ground_y(q.x, q.z)
+		if abs(y - end.y) > 1.5: break
+		end = Vector3(q.x, y + 0.2, q.z)
+	return end
 
 func on_gather_hit(nd: Dictionary) -> void:
 	if nd.charges <= 0 or player.dead: return
@@ -606,6 +697,7 @@ var builder: Builder
 var crop_sel := {}
 # toucher un joueur à l'écran ouvre sa fiche
 func try_pick_player(sp: Vector2) -> bool:
+	if try_pick_enemy(sp): return true
 	if cam == null or in_instance(): return false
 	var best: Bot = null; var bd := 70.0
 	for b in bots:
@@ -705,6 +797,7 @@ func on_enemy_death(e: Enemy) -> void:
 			if e in sp.members and sp.members.all(func(m): return not is_instance_valid(m) or m.dead): sp.dead_at = Time.get_ticks_msec() / 1000.0
 		return
 	Game.S.stats.kills += 1; _dq("kill"); tuto_event("kill")
+	_kill_feel(e)
 	if vq:
 		if str(e.kind) == "loup": vq.event("kill_loup")
 		var near_v: bool = world.town.town_dist(e.global_position.x, e.global_position.z) < 45.0 if world.town != null else Vector2(e.global_position.x, e.global_position.z).distance_to(world.village) < 75.0
@@ -745,8 +838,10 @@ func on_enemy_death(e: Enemy) -> void:
 		tower.on_boss_dead(); Game.save()
 	if dungeon and e == dungeon.boss and randf() < 0.03: _rare_mount("Le gardien du donjon")
 	if dungeon and e == dungeon.boss:
-		hud.celebrate("GARDIEN VAINCU !", "Ouvre le coffre doré — le portail de sortie est ouvert", "it_key"); Game.play("level")
+		hud.celebrate("GARDIEN VAINCU !", "Élimine les derniers ennemis pour libérer le trésor", "it_key"); Game.play("level")
+	if dungeon and not dungeon.exit_open and dungeon.alive_count() == 0:
 		dungeon.open_exit(); _dq("dungeon")
+		hud.toast("DONJON NETTOYÉ · le trésor et la sortie sont disponibles !", Color("#ffd24a"), true)
 	for sp in world.spawns:
 		if e in sp.members and sp.members.all(func(m): return not is_instance_valid(m) or m.dead): sp.dead_at = Time.get_ticks_msec() / 1000.0
 	Game.save()
@@ -767,7 +862,7 @@ func _arena_open(mode: String) -> void:
 	for q in pets.duplicate():
 		if is_instance_valid(q): q.vanish()
 	arena = Arena.new(); add_child(arena); arena.build(mode == "trial"); world.dungeon = arena
-	player.global_position = arena.spawn_pos + Vector3(0, 0.4, 0); player.velocity = Vector3.ZERO; player.hp = player.max_hp
+	_teleport_group(arena.spawn_pos); player.hp = player.max_hp
 	player.yaw = PI; _cam_update(1.0, true)
 
 func start_ranked() -> void:
@@ -952,14 +1047,19 @@ func on_boss_aggro(b: Enemy) -> void:
 	Game.play("roar")
 
 func boss_summon(b: Enemy) -> void:
-	hud.toast("Le Seigneur d'Os appelle ses serviteurs !", Color("#ff6a5a"))
+	hud.toast("%s appelle ses serviteurs !" % b.def.name, Color("#ff6a5a"))
 	var sp: Dictionary = b.camp
 	for i in 3:
 		var p := b.global_position + World.polar(TAU * i / 3.0, 4.0)
-		var e := _spawn_enemy("minion" if i < 2 else "warrior", 5, p, sp); e.state = "chase"
+		p = safe_skill_destination(b.global_position, p)
+		var e: Enemy
+		if dungeon and b == dungeon.boss: e = dungeon._room_enemy("minion" if i < 2 else "warrior", p, sp)
+		else: e = _spawn_enemy("minion" if i < 2 else "warrior", b.tier, p, sp)
+		e.state = "chase"
 
 func on_player_death() -> void:
 	Game.crumb("mort du héros")
+	var death_token := player.action_epoch
 	if arena:
 		if not arena_done: _arena_result(false, "Tu es tombé")
 		return
@@ -976,10 +1076,13 @@ func on_player_death() -> void:
 	if duel_enemy != null and is_instance_valid(duel_enemy):
 		hud.toast("Duel perdu ! %s t'attend pour une revanche." % duel_enemy.def.name, Color("#ffb07a")); duel_reset(duel_enemy); tuto_event("duel")
 	get_tree().create_timer(2.6).timeout.connect(func():
+		if not player.dead or player.action_epoch != death_token: return
 		if dungeon: exit_dungeon(false)
 		if tower: exit_tower(false)
 		if island: leave_island(false)
-		player.revive(camp_spawn + Vector3(0, world.height(0, 4.5) + 0.3, 0))
+		if interior: exit_house()
+		_teleport_group(camp_spawn)
+		player.revive(player.global_position)
 		for a in allies:
 			if is_instance_valid(a) and not a.dead: a.global_position = player.global_position + Vector3(randf_range(-2, 2), 0.5, randf_range(-2, 2)); a.hp = a.max_hp
 		for e in enemies:
@@ -987,7 +1090,12 @@ func on_player_death() -> void:
 	)
 
 func teleport_camp() -> void:
-	player.revive(camp_spawn + Vector3(0, world.height(camp_spawn.x, camp_spawn.z) + 0.3, 0)); player.hp = player.max_hp
+	if dungeon: exit_dungeon(false)
+	if tower: _do_exit_tower(false)
+	if island: leave_island(false)
+	if interior: exit_house()
+	if arena: exit_arena()
+	_teleport_group(camp_spawn); player.revive(player.global_position)
 
 # ——— Apparition paresseuse des camps de monstres (performance) ———
 func _update_spawns() -> void:
@@ -1358,17 +1466,17 @@ func _npc_pos(id: String):
 
 # ================= CHAPITRE 1 : la première heure, guidée pas à pas =================
 const TUTO := [
-	{"k": "talk_aldric", "n": 1, "txt": "Parle à Aldric, l'Ancien (le « ! » doré près de la fontaine)", "r": {"silver": 50}},
-	{"k": "wood", "n": 5, "txt": "Coupe du bois : 5 bûches", "r": {"potions": 2}},
-	{"k": "ore", "n": 5, "txt": "Mine 5 minerais", "r": {"silver": 80}},
-	{"k": "fiber", "n": 5, "txt": "Récolte 5 fibres", "r": {"silver": 80}},
-	{"k": "kill", "n": 3, "txt": "Tue 3 monstres (gros bouton ATTAQUE)", "r": {"silver": 100, "potions": 1}},
-	{"k": "food", "n": 1, "txt": "Cueille un fruit ou un légume (buissons colorés)", "r": {"silver": 60}},
-	{"k": "equip", "n": 1, "txt": "Ouvre ton SAC et touche « Équiper au mieux »", "r": {"silver": 60}, "give": [{"slot": "casque", "tier": 1}, {"slot": "cape", "tier": 1}]},
+	{"k": "talk_aldric", "n": 1, "txt": "Parle à Aldric, l'Ancien (le « ! » près de la fontaine)", "r": {"silver": 80}},
+	{"k": "kill", "n": 3, "txt": "Des squelettes attaquent ! Tue-les (gros bouton ATTAQUE, esquive les cercles rouges)", "r": {"silver": 120, "potions": 2}},
+	{"k": "equip", "n": 1, "txt": "Ouvre ton SAC et touche « Équiper au mieux »", "r": {"silver": 60}, "give": [{"slot": "casque", "tier": 1}, {"slot": "cape", "tier": 1}, {"slot": "bottes", "tier": 1}]},
+	{"k": "wood", "n": 5, "txt": "Coupe du bois : 5 bûches (les arbres avec un anneau)", "r": {"potions": 2}},
 	{"k": "talk_forge", "n": 1, "txt": "Va voir Brokk à la FORGE", "r": {"silver": 150}},
-	{"k": "wlvl", "n": 2, "txt": "Monte ta maîtrise d'arme au niveau 2", "r": {"boost": 1800}},
+	{"k": "wlvl", "n": 2, "txt": "Monte ta maîtrise d'arme au niveau 2 (combats)", "r": {"boost": 1800}},
+	{"k": "ore", "n": 5, "txt": "Mine 5 minerais", "r": {"silver": 100}},
+	{"k": "fiber", "n": 5, "txt": "Récolte 5 fibres", "r": {"silver": 80}},
+	{"k": "food", "n": 1, "txt": "Cueille un fruit ou un légume (buissons colorés)", "r": {"silver": 60}},
 	{"k": "daily", "n": 1, "txt": "Récupère ta récompense QUOTIDIEN", "r": {"crowns": 20}},
-	{"k": "duel", "n": 1, "txt": "Fais un duel (un « VS » ou un joueur, hors de la ville)", "r": {"silver": 250}},
+	{"k": "duel", "n": 1, "txt": "Fais un duel (un « VS » dans l'arène, ou l'ARÈNE classée)", "r": {"silver": 250}},
 	{"k": "dungeon", "n": 1, "txt": "Entre dans un donjon (portail violet)", "r": {"crowns": 30}},
 ]
 func tuto_i() -> int:
@@ -1404,8 +1512,109 @@ func _tuto_next() -> void:
 		hud.celebrate("ÉTAPE %d / %d RÉUSSIE" % [tuto_i(), TUTO.size()], " · ".join(rt), "it_quest")
 		var nx: Dictionary = TUTO[tuto_i()]
 		for it in nx.get("give", []): Game.add_item(it.duplicate())
+		if nx.k == "kill": get_tree().create_timer(2.2).timeout.connect(_tuto_ambush)
 		if nx.k == "wlvl" and int(Game.wxp(Game.S.get("weapon_kind", "epee")).lvl) >= 2: _tuto_next(); return
 	Game.save(); update_goal()
+# première vraie scène : une embuscade juste devant le héros (pas besoin de chercher les monstres)
+# ================= ÉVÉNEMENTS DU MONDE : il se passe toujours quelque chose =================
+var wevent := {}
+var wevent_next := 90.0
+const WEVENTS := [
+	{"id": "caravane", "title": "CARAVANE ATTAQUÉE", "txt": "Des bandits pillent une caravane", "kind": "bandit", "n": 3, "prop": "res://assets/village/Prop_Wagon.gltf", "psc": 1.0},
+	{"id": "rituel", "title": "RITUEL NÉCROMANT", "txt": "Des mages squelettes invoquent quelque chose", "kind": "mage", "n": 2, "extra": "warrior", "prop": "res://assets/crystal/PROP_18_DarkCursedCrystal.glb", "psc": 1.4},
+	{"id": "meute", "title": "MEUTE ENRAGÉE", "txt": "Une meute de loups attaque un berger", "kind": "loup", "n": 4, "prop": "res://assets/hex/sack.gltf", "psc": 2.5},
+]
+func _wevent_tick(dt: float) -> void:
+	if in_instance() or player.dead or (builder and builder.active): return
+	if wevent.is_empty():
+		wevent_next -= dt
+		if wevent_next <= 0.0: wevent_next = randf_range(150.0, 240.0); _wevent_start()
+		return
+	wevent.t = float(wevent.t) - dt
+	if not wevent.done:
+		var alive := 0
+		for m in wevent.sp.members:
+			if is_instance_valid(m) and not m.dead: alive += 1
+		if alive == 0 and wevent.sp.members.size() > 0: _wevent_win(); return
+		if float(wevent.t) <= 0.0:
+			hud.toast("%s : trop tard, ils sont partis…" % str(wevent.title).capitalize(), Color("#ffb07a")); _wevent_clear(); return
+	elif float(wevent.t) <= 0.0: _wevent_clear()
+
+func _wevent_start() -> void:
+	var ev: Dictionary = WEVENTS[randi() % WEVENTS.size()]
+	var pp := player.global_position
+	var p := Vector3.INF
+	for tries in 80:
+		var q := pp + World.polar(randf() * TAU, randf_range(30.0, 80.0))
+		if abs(q.x) > 100 or abs(q.z) > 100 or not world.walkable(q.x, q.z) or world.in_town(q): continue
+		if Vector2(q.x, q.z).distance_to(world.village) < 58.0 or world.near_house(Vector2(q.x, q.z), 7.0) or world.slope(q.x, q.z) > 1.4: continue
+		p = Vector3(q.x, world.ground_y(q.x, q.z), q.z); break
+	if p == Vector3.INF: wevent_next = 20.0; return
+	var t: int = clamp(int(World.REGIONS[world.region_at(p.x, p.z)].tier), 1, 5)
+	var sp := {"pos": p, "members": []}
+	var nodes: Array = []
+	var prop: Node3D = world.place(ev.prop, p, randf() * TAU, float(ev.psc)); nodes.append(prop)
+	var lb := Label3D.new(); lb.text = "⚔ %s ⚔" % ev.title; lb.font = Npc.NAME_FONT; lb.font_size = 64; lb.outline_size = 16; lb.modulate = Color("#ff9a3c"); lb.outline_modulate = Color(0.15, 0.05, 0, 0.95)
+	lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED; lb.pixel_size = 0.008; lb.no_depth_test = true; lb.position = p + Vector3(0, 4.0, 0); add_child(lb); nodes.append(lb)
+	var kinds: Array = []
+	for i in int(ev.n): kinds.append(ev.kind)
+	if ev.has("extra"): kinds.append(ev.extra)
+	for i in kinds.size():
+		var q2 := p + World.polar(i * TAU / kinds.size(), 3.5)
+		_spawn_enemy(kinds[i], t, Vector3(q2.x, world.ground_y(q2.x, q2.z), q2.z), sp, i == 0)
+	wevent = {"id": ev.id, "title": ev.title, "pos": p, "t": 180.0, "tier": t, "sp": sp, "nodes": nodes, "done": false}
+	var d := Vector2(p.x - pp.x, p.z - pp.z)
+	var a := int(round(fposmod(d.angle(), TAU) / (TAU / 8.0))) % 8
+	hud.toast("%s · %s %s · %d m — 3 min pour intervenir !" % [ev.title, ev.txt, Hud.DIR8[a].substr(2), int(d.length())], Color("#ff9a3c"), true)
+	Game.play("roar", -8.0, 1.2)
+
+func _wevent_win() -> void:
+	wevent.done = true; wevent.t = 25.0
+	var t: int = int(wevent.tier)
+	var loot := [{"silver": int(Game.money(t) * randf_range(25.0, 40.0))}]
+	if randf() < 0.35: loot.append({"item": Game.random_item(t)})
+	if randf() < 0.2: loot.append({"item": Game.random_artefact(t)})
+	drop_loot(wevent.pos, "elite", t, loot)
+	Game.add_crowns(3)
+	hud.celebrate("%s REPOUSSÉ !" % wevent.title, "Le butin t'attend · +3 couronnes", "it_chest_open"); Game.play("level")
+	if vq: vq.event("elite")
+
+func _wevent_clear() -> void:
+	for n in wevent.get("nodes", []):
+		if is_instance_valid(n): n.queue_free()
+	for m in wevent.get("sp", {}).get("members", []):
+		if is_instance_valid(m) and not m.dead: enemies.erase(m); m.queue_free()
+	wevent = {}
+
+# le « jus » d'une mise à mort : mini ralenti, gerbe, série de victimes enchaînées avec bonus d'argent
+func _kill_feel(e: Enemy) -> void:
+	var now: float = Time.get_ticks_msec() / 1000.0
+	streak = streak + 1 if now - streak_t < 4.0 else 1
+	streak_t = now
+	var big: bool = e.elite or e.is_boss
+	Fx.burst(self, e.global_position + Vector3(0, 1.0, 0), Color(1.0, 0.85, 0.4), 22 if not big else 50, 6.0, 0.35, 0.6, 3.0)
+	if big or streak >= 3:
+		Engine.time_scale = 0.35
+		get_tree().create_timer(0.09 if not big else 0.16, true, false, true).timeout.connect(func(): Engine.time_scale = 1.0)
+		shake(0.25 if not big else 0.45)
+	if streak >= 2:
+		var bonus := int(Game.money(max(1, e.tier)) * 0.5 * streak) + streak
+		Game.S.silver += bonus
+		var lbl: String = ["", "", "DOUBLÉ !", "TRIPLÉ !", "QUADRUPLÉ !", "CARNAGE !", "DÉCHAÎNÉ !"][min(streak, 6)]
+		Fx.number(self, player.global_position + Vector3(0, 3.2, 0), "%s ×%d  +%d" % [lbl, streak, bonus], Color("#ffcf3a") if streak < 5 else Color("#ff5a3a"), true)
+		Game.play("coin", -6.0, 1.0 + 0.08 * streak)
+
+func _tuto_ambush() -> void:
+	if in_instance() or player.dead: return
+	hud.toast("EMBUSCADE ! Des squelettes surgissent !", Color("#ff6a5a"), true); Game.play("roar", -4.0, 1.1); shake(0.3)
+	for i in 3:
+		var a := player.yaw + (i - 1) * 0.8
+		var p := player.global_position + Vector3(sin(a), 0, cos(a)) * 8.0
+		if not world.walkable(p.x, p.z): p = player.global_position + World.polar(randf() * TAU, 6.0)
+		p.y = world.ground_y(p.x, p.z)
+		Fx.burst(self, p + Vector3(0, 0.5, 0), Color(0.6, 0.4, 1.0), 20, 4.0, 0.4, 0.6, -1.0)
+		var e := _spawn_enemy("minion", 1, p, {"members": []}, false); e.state = "chase"
+
 func _tuto_target():
 	var st: Dictionary = TUTO[tuto_i()]
 	match st.k:
@@ -1488,6 +1697,10 @@ func _vq_target(ch: String, g: String, done: bool):
 
 # Progression : les MÉTIERS ouvrent les tiers (XP), les marchands vendent les outils, Brokk fabrique l'équipement
 func update_goal() -> void:
+	if dungeon:
+		var txt := "[b]Donjon T%d · %s[/b]\n%d ennemis restants · élimine chaque groupe et le gardien." % [dungeon.tier, dungeon.modifier, dungeon.alive_count()]
+		if dungeon.exit_open: txt = "[b]? Donjon nettoyé[/b]\nOuvre le trésor doré, puis rejoins le portail de sortie."
+		goal_text = txt; hud.goal_lbl.text = txt; goal_target = null; return
 	if arena: return              # dans l'arène, le bandeau montre le chrono et les vies
 	# tombe en zone rouge : priorité absolue tant qu'il reste du temps
 	var gv = Game.S.get("grave", null)
@@ -1523,7 +1736,7 @@ func update_goal() -> void:
 		if not aq.is_empty():
 			var ch: String = aq[0]; var q: Dictionary = aq[1]
 			var done: bool = vq.is_complete(ch)
-			var tq := "[b]Quête : %s[/b]  [color=#ffd27a](%s)[/color]\n%s" % [q.title, vq.progress_text(ch), ("[color=#7dff8a]Accomplie ! Retourne voir %s.[/color]" % VQuests.ROLE_NAME.get(ch, "l'habitant")) if done else _vq_hint(str(q.goal))]
+			var tq := "[b]%s Quête : %s[/b]  [color=#ffd27a](%s)[/color]\n%s" % ["?" if done else "!", q.title, vq.progress_text(ch), ("[color=#7dff8a]Accomplie ! Retourne voir %s.[/color]" % VQuests.ROLE_NAME.get(ch, "l'habitant")) if done else _vq_hint(str(q.goal))]
 			if tq != goal_text: goal_text = tq; hud.goal_lbl.text = tq
 			goal_target = _vq_target(ch, str(q.goal), done)
 			return
@@ -1729,7 +1942,7 @@ func _update_moods(dt: float) -> void:
 			face = Sprite3D.new(); face.billboard = BaseMaterial3D.BILLBOARD_ENABLED; face.pixel_size = 0.0042; face.no_depth_test = true; face.render_priority = 5
 			face.position = Vector3(-(n.nm.length() * (0.135 if n.marker else 0.085) + 0.3), 2.66 * float(n.data.get("scale", 1.0)), 0); n.add_child(face); n.set_meta("face", face)
 			var ql := Label3D.new(); ql.font_size = 110; ql.outline_size = 18; ql.billboard = BaseMaterial3D.BILLBOARD_ENABLED; ql.pixel_size = 0.008; ql.no_depth_test = true
-			ql.position = Vector3(0, 3.65 * float(n.data.get("scale", 1.0)), 0); n.add_child(ql); n.set_meta("qmark", ql)
+			ql.position = Vector3(0, 4.7 * float(n.data.get("scale", 1.0)), 0); n.add_child(ql); n.set_meta("qmark", ql)
 		var m := npc_mood(n)
 		var near: bool = n.global_position.distance_to(pp) < 26.0
 		face.visible = near and not n.hidden
@@ -2167,7 +2380,7 @@ func enter_dungeon(en: Dictionary) -> void:
 	dungeon = Dungeon.new(); add_child(dungeon); world.dungeon = dungeon
 	dungeon.build(self, en.tier, en.seed, en); fade_register(dungeon)
 	_teleport_group(dungeon.spawn_pos)
-	hud.region_banner("Donjon des profondeurs", en.tier, "Donjon T%d — le gardien et son trésor t'attendent au fond" % en.tier); hud.set_region("Donjon", en.tier)
+	hud.region_banner("Donjon des profondeurs", en.tier, "%s · groupes organisés, gardien à phases, trésor scellé" % dungeon.modifier); hud.set_region("Donjon", en.tier)
 	hud.set_map_mode(dungeon.map_image(), true, Vector2(Dungeon.ORIGIN.x, Dungeon.ORIGIN.z), 0.5, Vector2(26, 26))
 	sun.light_energy = 0.55; env.ambient_light_energy = 0.3
 	Game.play("roar", -10.0, 0.6)
@@ -2247,15 +2460,34 @@ func steal_chest() -> void:
 	Game.save()
 
 func _teleport_group(p: Vector3) -> void:
-	player.global_position = p + Vector3(0, world.height(p.x, p.z) + 0.4, 0); player.velocity = Vector3.ZERO
+	player.reset_actions()
+	for projectile in get_children():
+		if projectile is Player.Shot or projectile is Player.Fireball or projectile is Enemy.EShot: projectile.queue_free()
+	for pet in pets.duplicate():
+		if is_instance_valid(pet): pet.vanish()
+	selected_enemy = null; pvp_target = null; boss_ref = null
+	player.invuln = max(player.invuln, 1.0)
+	for enemy in enemies:
+		if enemy is Enemy and is_instance_valid(enemy) and not enemy.dead:
+			enemy._cancel_tele(); enemy.tgt = null; enemy.knock = Vector3.ZERO
+			if enemy.state in ["windup", "dashing", "recover", "chase"]: enemy.state = "idle"
+	auto_hold = false; auto_tgt = null; auto_path.clear(); auto_jam = 0
+	fall_time = 0.0; transition_grace = 1.0
+	player.global_position = Vector3(p.x, world.ground_y(p.x, p.z) + 0.4, p.z)
+	last_safe_pos = player.global_position; has_safe_pos = true
+	if hud:
+		for button in hud.buttons.values(): button.held = false
+		hud.joy.id = -1; hud.joy.vec = Vector2.ZERO; hud.touches.clear(); hud.touch_starts.clear()
 	var i := 0
 	for a in allies:
 		if is_instance_valid(a) and not a.dead:
-			var q: Vector3 = p + World.polar(i * 2.1, 2.0); a.global_position = q + Vector3(0, world.height(q.x, q.z) + 0.4, 0); i += 1
+			var q := safe_skill_destination(player.global_position, p + World.polar(i * 2.1, 2.0)); a.global_position = q; a.velocity = Vector3.ZERO; a.target = null; i += 1
 	_cam_update(1.0, true)
 
 func open_dungeon_chest() -> void:
 	if dungeon == null or dungeon.chest_open: return
+	if dungeon.alive_count() > 0:
+		hud.toast("Trésor scellé : il reste %d ennemis dans le donjon" % dungeon.alive_count(), Color("#ffb07a")); return
 	dungeon.chest_open = true
 	var t := dungeon.tier
 	var c := dungeon.chest
@@ -2503,7 +2735,12 @@ func shop_claim(id: String) -> void:
 	var cost := int(o.get("cr", 0))
 	if Game.crowns() < cost:
 		hud.toast("Il te manque %d couronnes" % (cost - Game.crowns()), Color("#ffb07a"), true); hud.show_boutique("couronnes"); return
-	Game.spend_crowns(cost)
+	if net and (net.purchase_busy or net.commit_busy or not net.commits.is_empty()): hud.toast("Un achat est déjà en cours", Color("#ffb07a")); return
+	if Game.earned_crowns() < cost:
+		if net: net.buy_with_wallet(id, Game.earned_crowns())
+		else: hud.toast("Connexion au serveur requise", Color("#ffb07a"))
+		return
+	if not Game.spend_crowns(cost): return
 	var msg := _shop_effect(id)
 	if msg == "": Game.add_crowns(cost); return
 	if msg == "-": return
@@ -2512,24 +2749,51 @@ func shop_claim(id: String) -> void:
 	player.refresh_gear(); Game.save(); update_goal()
 	if hud.cur_panel == "boutique": hud.show_boutique()
 
-# achat en argent réel — SIMULÉ pour l'instant (le vrai paiement passera par Google Play)
+# An actual purchase opens Stripe Checkout. Only the signed webhook credits the wallet.
 func real_buy(id: String) -> void:
-	var msg := ""
-	match id:
-		"pack_debut":
-			Game.S["pack_debut"] = true; Game.add_crowns(300); Game.add_time("premium_until", 3 * 86400)
-			if not Game.add_item({"slot": "monture", "tier": 2, "kind": "cheval"}):
-				if int(Game.S.gear.get("monture", 0)) < 2: Game.S.gear["monture"] = 2; Game.set_kind("monture", "cheval")
-			msg = "+300 couronnes · Cheval de selle · 3 jours Premium"
-		_:
-			var o: Dictionary = hud.offer(id)
-			var n := int(o.get("gives", 0)); Game.add_crowns(n); msg = "+%d couronnes" % n
-	Game.play("coin"); Game.play("level", -4.0)
-	hud.celebrate("MERCI !", msg, "it_chest_open")
-	player.refresh_gear(); Game.save()
-	hud.show_boutique()
+	if hud.offer(id).is_empty() or not hud.offer(id).has("eur"): return
+	if net: net.buy_cash(id)
+	else: hud.toast("Connexion au serveur requise", Color("#ffb07a"))
 
-func _shop_effect(id: String) -> String:
+func apply_commerce_delivery(receipt: Dictionary) -> bool:
+	var rid := str(receipt.get("id", ""))
+	if rid == "" or net == null: return false
+	if typeof(Game.S.get("_commerce_receipts")) != TYPE_DICTIONARY: Game.S["_commerce_receipts"] = {}
+	if str(Game.S.get("_commerce_uid", net.uid)) != net.uid: return false
+	Game.S["_commerce_uid"] = net.uid
+	if Game.S._commerce_receipts.has(rid): return true
+	var id := str(receipt.get("offer_id", ""))
+	var msg := ""
+	if receipt.get("kind", "") == "starter" and id == "pack_debut":
+		Game.S["pack_debut"] = true
+		if not Game.add_item({"slot": "monture", "tier": 2, "kind": "cheval"}): return false
+		msg = "300 couronnes créditées · Cheval de selle · 3 jours Premium"
+	elif receipt.get("kind", "") == "spend":
+		var free_part := int(receipt.get("free_part", 0))
+		if not Game.spend_crowns(free_part): return false
+		msg = _shop_effect(id, rid)
+		if msg == "": Game.add_crowns(free_part); return false
+	else: return false
+	# Save the reward and its receipt together before acknowledging the server.
+	Game.S._commerce_receipts[rid] = true
+	Game.save_now()
+	if msg != "-":
+		Game.play("coin"); Game.play("level", -6.0)
+		hud.celebrate("BOUTIQUE", msg, "it_chest_open")
+	player.refresh_gear(); update_goal()
+	if hud.cur_panel == "boutique": hud.show_boutique()
+	return true
+
+var paid_chest_opened := false
+func reopen_paid_chest() -> void:
+	if paid_chest_opened: return
+	var boxes = Game.S.get("_commerce_chests", {})
+	if typeof(boxes) != TYPE_DICTIONARY or boxes.is_empty(): return
+	var rid := str(boxes.keys()[0])
+	var c := {"rarity": 3, "loot": boxes[rid], "pos": player.global_position, "opened": false, "commerce_receipt": rid}
+	paid_chest_opened = true; hud.show_loot(c)
+
+func _shop_effect(id: String, receipt_id := "") -> String:
 	var msg := ""
 	var named := {
 		"lame": {"slot": "epee", "tier": 5, "kind": "epee", "ench": 5, "nm": "Lame de l'Aube"},
@@ -2559,6 +2823,9 @@ func _shop_effect(id: String) -> String:
 			"leg":
 				var tw := Tower.new(); tw.floor_n = 30; tw.tier = 5; tw.rng.randomize()
 				var c := {"rarity": 3, "loot": tw._make_loot(3), "pos": player.global_position, "opened": false}
+				if receipt_id != "":
+					if typeof(Game.S.get("_commerce_chests")) != TYPE_DICTIONARY: Game.S["_commerce_chests"] = {}
+					Game.S._commerce_chests[receipt_id] = c.loot; c["commerce_receipt"] = receipt_id; paid_chest_opened = true
 				tw.free(); hud.show_loot(c); Game.play("level"); return "-"
 			"res2", "res3", "res4", "res5":
 				var t := int(id.substr(3))
@@ -3105,32 +3372,34 @@ func _auto(dt: float) -> void:
 		if auto_kind == "enemy":
 			# compétences dès qu'elles sont prêtes
 			for i in 4:
-				if P.skill_cd[i] <= 0.0 and Game.S.gear.epee >= Player.skills()[i].req: P.use_skill(i); break
+				var sk: Dictionary = Player.skills()[i]
+				if sk.has("pet") and Game.pet_in_slot(int(sk.pet)).is_empty(): continue
+				if auto_skill_wait <= 0.0 and P.skill_global_cd <= 0.0 and P.skill_cd[i] <= 0.0 and Game.S.gear.epee >= Player.skills()[i].req:
+					P.use_skill(i); auto_skill_wait = 2.0; break
 
 
 # Filet de sécurité : si le héros passe sous le sol (téléportation dans un bâtiment, chute…), on le remet dessus
 var unstick_n := 0
-func _unstick(P: Player) -> void:
+func _unstick(P: Player, dt: float) -> void:
+	if P.dead or transition_grace > 0.0: fall_time = 0.0; return
 	var p := P.global_position
-	if island:
-		if p.y < -4.0 or not island.walkable(p.x, p.z) and p.y < -1.0: P.global_position = island.spawn_pos + Vector3(0, 0.5, 0); P.velocity = Vector3.ZERO
-		return
-	if in_instance():
-		if p.y < -6.0 and dungeon: P.global_position = dungeon.exit_pos + Vector3(0, 0.6, 0); P.velocity = Vector3.ZERO
-		return
 	var h := world.ground_y(p.x, p.z)
-	if p.y < h - 1.2:
-		unstick_n += 1
-		var q := p
-		if not world.walkable(q.x, q.z) or world.near_house(Vector2(q.x, q.z), 0.0):
-			# on cherche le sol libre le plus proche
-			for r in [2.0, 4.0, 6.0, 9.0, 12.0]:
-				var found := false
-				for k in 12:
-					var c := Vector3(p.x + cos(k * TAU / 12.0) * r, 0, p.z + sin(k * TAU / 12.0) * r)
-					if world.walkable(c.x, c.z) and not world.near_house(Vector2(c.x, c.z), 0.0): q = c; found = true; break
-				if found: break
-		P.global_position = Vector3(q.x, world.ground_y(q.x, q.z) + 0.6, q.z); P.velocity = Vector3.ZERO
+	# Un personnage sur un vrai sol ne bouge jamais à cause d'une estimation de hauteur.
+	if P.is_on_floor() or p.y >= h - 3.0 or P.velocity.y > -2.0:
+		fall_time = 0.0
+		if P.is_on_floor() and world.walkable(p.x, p.z) and abs(p.y - h) < 1.2:
+			last_safe_pos = p; has_safe_pos = true
+		return
+	fall_time += dt
+	if fall_time < 0.75: return
+	var q := p
+	if world.walkable(p.x, p.z): q.y = h + 0.4
+	elif has_safe_pos: q = last_safe_pos + Vector3(0, 0.3, 0)
+	else: return
+	P.reset_actions(false); P.global_position = q; P.velocity = Vector3.ZERO
+	fall_time = 0.0; transition_grace = 1.0; unstick_n += 1
+	hud.toast("Chute hors du décor : retour au dernier sol sûr", Color("#bfe8ff"))
+	_cam_update(1.0, true)
 
 func _auto_line_blocked(a: Vector3, b: Vector3) -> bool:
 	var n := int(a.distance_to(b) / 2.0)

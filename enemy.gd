@@ -96,6 +96,8 @@ var dash_t := 0.0
 var tele_nodes: Array = []
 var strafe_cd := 2.0
 var sp_kind_last := ""
+var summon_stage := 0
+var enraged := false
 
 func slow(d: float) -> void:
 	slow_t = max(slow_t, d)
@@ -132,9 +134,15 @@ void fragment(){
 	return bar_shader
 
 func setup(m: Node, k: String, t: int, pos: Vector3, c: Dictionary, is_elite := false, extra := {}) -> void:
-	main = m; kind = k; def = KINDS[k].duplicate(); tier = t; home = pos; camp = c; is_boss = k == "boss" or k == "gardien"; elite = is_elite
+	main = m; kind = k; def = KINDS[k].duplicate(); tier = t; home = pos; camp = c; is_boss = k == "boss" or k == "gardien"; elite = is_elite or bool(extra.get("forced_elite", false))
 	for key in extra: def[key] = extra[key]
 	animal = def.get("animal", false); group_boss = def.get("group", false)
+	# tempo : télégraphes lisibles mais combats vifs (les monstres frappent souvent, on doit bouger)
+	def.wind = max(0.6, float(def.wind) * 1.1)
+	def.cd = max(1.25, float(def.cd) * 1.05)
+	if def.get("dungeon_boss", false): is_boss = true
+	if animal and not group_boss:
+		def.scale = float(def.scale) * 1.45; def.rad = float(def.rad) * 1.35; def.h = float(def.h) * 1.45
 	if group_boss: is_boss = true; leash = 18.0; def.speed = 4.2; def.aggro = 7.0
 	if def.get("duel", false): duel_info = extra; leash = 32.0
 	if elite: def.hp *= 2.6; def.dmg *= 1.3; def.scale = def.get("scale", 1.0) * 1.28; def.name = "Élite · " + def.name
@@ -233,19 +241,16 @@ func _process(dt: float) -> void:
 
 func take_hit(amount: float, from: Node3D, push: float) -> void:
 	if dead or state == "wait": return
+	var inst = main.world.dungeon
+	if from and is_instance_valid(from) and inst and inst.has_method("sight") and not inst.sight(from.global_position, global_position, 0.35): return
 	if group_boss and main.group_near(global_position, 26.0) < 4:
 		Fx.number(main, global_position + Vector3(0, body_h + 0.4, 0), "IMMUNISÉ", Color("#d58bff"))
 		if immune_toast <= 0.0:
 			immune_toast = 4.0; main.hud.toast("Boss de groupe : il faut être au moins 4 (toi + 3 mercenaires) pour le blesser", Color("#d58bff"), true)
 		if state == "idle": aggro()
 		return
-	if (duel_info.size() > 0 or kind in AGILE) and evade_cd <= 0.0 and state != "windup" and state != "dashing" and randf() < (0.22 if duel_info.size() > 0 else 0.14):
-		# le duelliste esquive parfois
-		evade_cd = 2.2; var away: Vector3 = global_position - from.global_position; away.y = 0
-		knock = away.normalized() * 13.0; Fx.number(main, global_position + Vector3(0, 2.3, 0), "esquive !", Color("#9fe4ff"))
-		Fx.burst(main, global_position + Vector3(0, 0.3, 0), Color(0.85, 0.85, 0.9), 10, 3.0, 0.4, 0.4)
-		return
 	var crit_hit := false
+	if from is Player and state == "recover": amount *= 1.2
 	if (from is Player or from is Pet) and def.has("eveil"): amount *= Game.dom(Game.eveil(), int(def.eveil))
 	if from is Player:
 		# coup critique (×1,6) et vol de vie, selon l'équipement
@@ -266,7 +271,9 @@ func take_hit(amount: float, from: Node3D, push: float) -> void:
 	elif global_position.distance_to(main.player.global_position) < 16.0:
 		# coups des autres joueurs : petits chiffres gris, discrets
 		Fx.number(main, global_position + Vector3(0, body_h, 0), str(int(amount)), Color(0.72, 0.74, 0.78), false, true)
-	var dir: Vector3 = global_position - from.global_position; dir.y = 0
+	var dir := Vector3.ZERO
+	if is_instance_valid(from): dir = global_position - from.global_position
+	dir.y = 0
 	if not is_boss: knock = dir.normalized() * push
 	else: knock = dir.normalized() * push * 0.15
 	if state == "idle": aggro()
@@ -333,7 +340,11 @@ func _line_tele(from: Vector3, dir: Vector3, length: float, w: float, dur: float
 func _pick_special(T, dist: float) -> String:
 	if sp_cd > 0.0 or not SPECIALS.has(kind) or duel_info.size() > 0 and randf() < 0.5: return ""
 	var opts: Array = []
-	for k in SPECIALS[kind]:
+	var moves: Array = SPECIALS[kind]
+	if def.get("dungeon_boss", false):
+		moves = ["charge", "slam", "zones"] if animal else ["cleave", "slam", "volley", "zones", "charge"]
+		if not enraged: moves = ["charge", "slam"] if animal else ["cleave", "slam", "volley"]
+	for k in moves:
 		match k:
 			"lunge": if dist < 5.5: opts.append(k)
 			"cleave": if dist < 3.5: opts.append(k)
@@ -342,6 +353,7 @@ func _pick_special(T, dist: float) -> String:
 			"pounce", "slam": if dist > 2.5 and dist < 11.0: opts.append(k)
 			"bolt", "arrow", "volley": if dist < 15.0: opts.append(k)
 			"homing", "zones": if dist < 14.0: opts.append(k)
+	if opts.size() > 1: opts.erase(sp_kind_last)
 	if opts.is_empty(): return ""
 	return opts[randi() % opts.size()]
 
@@ -359,45 +371,46 @@ func _start_special(T, k: String) -> void:
 	var big: float = 1.6 if is_boss else 1.0
 	match k:
 		"lunge":
-			sp_wind = 0.55; sp_len = 4.5 * big; sp_w = 1.6 * big; _line_tele(global_position, fwd, sp_len, sp_w, sp_wind)
+			sp_wind = max(0.8, (0.55) * 1.1); sp_len = 4.5 * big; sp_w = 1.6 * big; _line_tele(global_position, fwd, sp_len, sp_w, sp_wind)
 		"cleave":
-			sp_wind = 0.85; sp_to = global_position + fwd * 1.4; sp_len = 3.2 * big; _zone_tele(sp_to, sp_len, sp_wind)
+			sp_wind = max(0.8, (0.85) * 1.1); sp_to = global_position + fwd * 1.4; sp_len = 3.2 * big; _zone_tele(sp_to, sp_len, sp_wind)
 		"dash":
 			# petit pas de côté pour feinter, puis la ruée (ligne rouge)
 			var side := Vector3(-fwd.z, 0, fwd.x) * (1.0 if randf() < 0.5 else -1.0)
 			knock = side * 9.0
 			Fx.number(main, global_position + Vector3(0, body_h + 0.3, 0), "esquive", Color("#9fe4ff"))
-			sp_wind = 0.6; sp_len = min(11.0, global_position.distance_to(tp) + 3.0); sp_w = 1.4 * big
+			sp_wind = max(0.8, (0.6) * 1.1); sp_len = min(11.0, global_position.distance_to(tp) + 3.0); sp_w = 1.4 * big
 			sp_from = global_position + side * 1.2
 			_line_tele(sp_from, fwd, sp_len, sp_w, sp_wind)
 		"charge":
-			sp_wind = randf_range(0.9, 1.15); sp_len = min(16.0, global_position.distance_to(tp) + 4.0); sp_w = max(2.2, radius * 2.2) * (1.2 if is_boss else 1.0)
+			sp_wind = max(0.8, (randf_range(0.9, 1.15)) * 1.1); sp_len = min(16.0, global_position.distance_to(tp) + 4.0); sp_w = max(2.2, radius * 2.2) * (1.2 if is_boss else 1.0)
 			_line_tele(global_position, fwd, sp_len, sp_w, sp_wind)
 		"pounce", "slam":
-			sp_wind = randf_range(0.85, 1.15); sp_to = tp; sp_len = (2.2 if k == "pounce" else 2.8) * big + radius * 0.5
+			sp_wind = max(0.8, (randf_range(0.85, 1.15)) * 1.1); sp_to = tp; sp_len = (2.2 if k == "pounce" else 2.8) * big + radius * 0.5
 			_zone_tele(sp_to, sp_len, sp_wind)
 		"bolt", "arrow":
-			sp_wind = 0.55 if k == "arrow" else 0.7; sp_len = 16.0; sp_w = 0.9; sp_to = tp
+			sp_wind = max(0.8, (0.55 if k == "arrow" else 0.7) * 1.1); sp_len = 16.0; sp_w = 0.9; sp_to = tp
 			_line_tele(global_position + fwd * 0.8, fwd, sp_len, sp_w, sp_wind)
 		"volley":
-			sp_wind = 0.75; sp_len = 14.0; sp_w = 0.8
+			sp_wind = max(0.8, (0.75) * 1.1); sp_len = 14.0; sp_w = 0.8
 			for a in [-0.32, 0.0, 0.32]: _line_tele(global_position + fwd * 0.8, fwd.rotated(Vector3.UP, a), sp_len, sp_w, sp_wind)
 		"homing":
-			sp_wind = 0.6
+			sp_wind = max(0.8, (0.6) * 1.1)
 			Fx.burst(main, global_position + Vector3(0, body_h * 0.8, 0), Color(0.75, 0.3, 1.0), 16, 2.0, 0.35, 0.6, -1.0)
 		"zones":
 			# 3 zones qui tombent sur le héros et autour : il faut sortir vite
-			sp_wind = randf_range(0.8, 1.2)
+			sp_wind = max(0.8, (randf_range(0.8, 1.2)) * 1.1)
 			var pts: Array = [tp]
 			for i in (2 if not is_boss else 4):
 				var a := randf() * TAU; pts.append(tp + Vector3(cos(a), 0, sin(a)) * randf_range(2.5, 4.5))
 			sp_hit = pts
 			for q in pts: _zone_tele(q, 1.9 * big, sp_wind)
 	play("Interact" if not def.get("ranged", false) else "Use_Item", 0.8, 0.08, true)
-	sp_cd = randf_range(3.5, 6.0) * (0.75 if is_boss else 1.0)
+	sp_cd = randf_range(3.8, 6.0) * (0.8 if is_boss else 1.0)
 
 func _do_special(T) -> void:
 	var k := sp_kind
+	sp_kind_last = k
 	for n in tele_nodes:
 		if is_instance_valid(n): n.queue_free()
 	tele_nodes = []
@@ -435,6 +448,7 @@ func _do_special(T) -> void:
 func _victims() -> Array:
 	var v: Array = [main.player]
 	if duel_info.is_empty(): v += main.allies + main.bots + main.pets
+	elif main.arena: v += main.pets
 	return v
 
 func _hit_circle(c: Vector3, r: float, dm: float) -> void:
@@ -450,6 +464,7 @@ func _shoot(dir: Vector3, dm: float, k: String, homing_t) -> void:
 
 # Projectiles des monstres : tirs droits (à esquiver de côté) ou orbes qui suivent leur cible
 class EShot extends Node3D:
+	var encounter_epoch := 0
 	var main: Node
 	var src: Node3D
 	var dir := Vector3.ZERO
@@ -459,6 +474,7 @@ class EShot extends Node3D:
 	var life := 1.0
 	var target
 	func launch(m: Node, s: Node3D, p: Vector3, d: Vector3, dm: float, k: String, t) -> void:
+		encounter_epoch = m.player.action_epoch
 		main = m; src = s; dir = d.normalized(); dmg = dm; kind = k; target = t
 		global_position = p
 		match k:
@@ -474,6 +490,7 @@ class EShot extends Node3D:
 			var mt := StandardMaterial3D.new(); mt.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; mt.albedo_color = col; mi.material_override = mt; add_child(mi)
 			var gl := Sprite3D.new(); gl.texture = Fx.soft_tex(); gl.billboard = BaseMaterial3D.BILLBOARD_ENABLED; gl.pixel_size = 0.035; gl.modulate = Color(col.r, col.g, col.b, 0.8); gl.shaded = false; add_child(gl)
 	func _physics_process(dt: float) -> void:
+		if encounter_epoch != main.player.action_epoch: queue_free(); return
 		life -= dt
 		if life <= 0.0: _pop(); return
 		if kind == "homing" and target and is_instance_valid(target) and not target.dead:
@@ -516,6 +533,8 @@ func _pick_target() -> void:
 	tgt = best
 
 func _physics_process(dt: float) -> void:
+	if main.in_instance() and global_position.x < 300.0:
+		velocity = Vector3.ZERO; return
 	if not main.in_instance(): velocity.y = 0.0
 	elif not is_on_floor(): velocity.y -= 30.0 * dt
 	else: velocity.y = -1.0
@@ -523,6 +542,9 @@ func _physics_process(dt: float) -> void:
 		velocity.x = 0; velocity.z = 0
 		if main.in_instance(): move_and_slide()
 		return
+	if def.get("dungeon_boss", false) and not enraged and hp <= max_hp * 0.5:
+		enraged = true; def.dmg *= 1.15
+		main.hud.toast("Le gardien change de tactique ! Attention aux zones rouges.", Color("#ffb04a"), true)
 	evade_cd -= dt; sp_cd -= dt; strafe_cd -= dt
 	if state != "windup" and (tgt == null or Engine.get_physics_frames() % 15 == 0): _pick_target()
 	var P: Player = main.player
@@ -557,7 +579,7 @@ func _physics_process(dt: float) -> void:
 					want = to.normalized() * def.speed
 					# les bêtes et voleurs agiles zigzaguent en approchant
 					if kind in AGILE and dist < 9.0 and strafe_cd <= 0.0:
-						strafe_cd = randf_range(1.8, 3.2); var sd := Vector3(-to.z, 0, to.x).normalized() * (1.0 if randf() < 0.5 else -1.0); knock = sd * 8.0
+						strafe_cd = randf_range(2.0, 3.4); var sd := Vector3(-to.z, 0, to.x).normalized() * (1.0 if randf() < 0.5 else -1.0); knock = sd * 7.0
 				elif atk_cd <= 0.0:
 					_start_attack(T)
 				else:
@@ -591,7 +613,7 @@ func _physics_process(dt: float) -> void:
 						if v == main.player: main.shake(0.2)
 				if dash_t <= 0.0: state = "recover"; t_state = 0.0
 			"recover":
-				if t_state > 0.35: state = "chase"
+				if t_state > 0.8: state = "chase"
 			"wait":
 				rotation.y = lerp_angle(rotation.y, atan2(to.x, to.z), 1.0 - exp(-dt * 8.0))
 	if want.length() > 0.1:
@@ -664,11 +686,12 @@ func _strike(T) -> void:
 	# tous ceux qui sont dans le cercle prennent le coup
 	var victims: Array = [main.player]
 	if duel_info.is_empty(): victims += main.allies + main.bots + main.pets
+	elif main.arena: victims += main.pets
 	for v in victims:
 		if not is_instance_valid(v) or v.dead: continue
 		var d: float = Vector2(v.global_position.x - tele_pos.x, v.global_position.z - tele_pos.z).length()
 		if d < r + 0.35: v.hurt(dmg_v * randf_range(0.9, 1.1), self)
 	# le Seigneur d'Os invoque des renforts à 60 % et 30 %
-	if kind == "boss" and ((hp < max_hp * 0.6 and phase < 100) or (hp < max_hp * 0.3 and phase < 200)):
-		phase = 100 if hp >= max_hp * 0.3 else 200
+	if kind == "boss" and ((hp < max_hp * 0.6 and summon_stage == 0) or (hp < max_hp * 0.3 and summon_stage == 1)):
+		summon_stage += 1
 		main.boss_summon(self)

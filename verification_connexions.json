@@ -1,0 +1,56 @@
+{
+  "project": "Valdrune",
+  "version": "9.4",
+  "verified_on": "2026-10-08",
+  "supabase_connected": true,
+  "stripe_checkout_ready": false,
+  "stripe_remaining": [
+    "correct merchant API key",
+    "dedicated webhook and signing secret"
+  ],
+  "http_checks": {
+    "passed": 19,
+    "total": 19
+  },
+  "godot_checks": [
+    {
+      "passed": true,
+      "test": "crowns_total"
+    },
+    {
+      "passed": true,
+      "test": "earned_reward_does_not_duplicate_paid_wallet"
+    },
+    {
+      "passed": true,
+      "test": "quest_reward_does_not_duplicate_paid_wallet"
+    },
+    {
+      "passed": true,
+      "test": "local_spend_cannot_debit_paid_wallet"
+    },
+    {
+      "passed": true,
+      "test": "earned_spend_still_works_offline"
+    },
+    {
+      "passed": true,
+      "test": "premium_extension_keeps_paid_days"
+    },
+    {
+      "passed": true,
+      "test": "godot_net_real_profile_save_and_store"
+    }
+  ],
+  "postgres_transaction_assertions": {
+    "passed": 13,
+    "rolled_back": true
+  },
+  "typescript_strict_check": "passed",
+  "asset_references_checked": 775,
+  "missing_development_only": [
+    "tests/plan.gd"
+  ],
+  "real_payment_test": "blocked_configuration",
+  "android_install_test": "not_performed"
+}

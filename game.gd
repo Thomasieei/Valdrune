@@ -306,15 +306,22 @@ static func power_needed(t: int) -> int: return 560 * t
 
 # ================= PROGRESSION : couronnes, premium, boosts, quotidien, classement =================
 static func now() -> int: return int(Time.get_unix_time_from_system())
-func crowns() -> int: return int(S.get("crowns", 0))
-func add_crowns(n: int) -> void: S["crowns"] = crowns() + n; save()
+var paid_crowns := 0         # Cache of the server wallet; never written to Game.S.
+var paid_premium_until := 0
+func earned_crowns() -> int: return maxi(0, int(S.get("crowns", 0)))
+func crowns() -> int: return earned_crowns() + maxi(0, paid_crowns)
+func add_crowns(n: int) -> void: S["crowns"] = earned_crowns() + n; save()
 func spend_crowns(n: int) -> bool:
-	if crowns() < n: return false
-	S["crowns"] = crowns() - n; save(); return true
-func premium_left() -> int: return max(0, int(S.get("premium_until", 0)) - now())
+	# This method only spends earned crowns. Paid crowns go through Net.
+	if n < 0 or earned_crowns() < n: return false
+	S["crowns"] = earned_crowns() - n; save(); return true
+func premium_left() -> int: return max(0, maxi(int(S.get("premium_until", 0)), paid_premium_until) - now())
 func is_premium() -> bool: return premium_left() > 0
 func boost_left() -> int: return max(0, int(S.get("boost_until", 0)) - now())
-func add_time(key: String, sec: int) -> void: S[key] = max(int(S.get(key, 0)), now()) + sec; save()
+func add_time(key: String, sec: int) -> void:
+	var base := int(S.get(key, 0))
+	if key == "premium_until": base = maxi(base, paid_premium_until)
+	S[key] = max(base, now()) + sec; save()
 # multiplicateurs : Premium +50 % XP et argent, boost +100 % XP
 func xp_mult() -> float: return 1.0 + (0.5 if is_premium() else 0.0) + (1.0 if boost_left() > 0 else 0.0)
 func silver_mult() -> float: return 1.0 + (0.5 if is_premium() else 0.0)
@@ -347,7 +354,7 @@ func login_claim() -> Dictionary:
 func grant(r: Dictionary) -> void:
 	if r.has("silver"): S.silver += int(r.silver)
 	if r.has("potions"): S.potions += int(r.potions)
-	if r.has("crowns"): S["crowns"] = crowns() + int(r.crowns)
+	if r.has("crowns"): S["crowns"] = earned_crowns() + int(r.crowns)
 	if r.has("boost"): add_time("boost_until", int(r.boost))
 	if r.has("premium"): add_time("premium_until", int(r.premium))
 	save()
@@ -375,7 +382,7 @@ func exped_collect() -> Dictionary:
 	if rng.randf() < 0.08 * h: loot.append({"item": random_artefact(t)})
 	loot.append({"potion": int(h) + 1})
 	var crowns_won := int(2 * h)
-	S["crowns"] = crowns() + crowns_won
+	S["crowns"] = earned_crowns() + crowns_won
 	S["exped"] = {}; save()
 	return {"loot": loot, "crowns": crowns_won, "label": e.label}
 
@@ -891,58 +898,56 @@ func default_state() -> Dictionary:
 func _ready() -> void:
 	_journal_start()
 	S = default_state()
-	if FileAccess.file_exists(SAVE_PATH):
-		var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
-		var d = JSON.parse_string(f.get_as_text())
-		if typeof(d) == TYPE_DICTIONARY and d.get("v", 0) == 2:
-			for k in d: S[k] = d[k]
-			if not d.has("rep"): S["rep_old"] = true
-			# JSON → entiers
-			for k in RES_KEYS:
-				var arr: Array = S.inv.get(k, [0, 0, 0, 0, 0, 0])
-				for i in arr.size(): arr[i] = int(arr[i])
-				S.inv[k] = arr
-			for k in S.gear: S.gear[k] = int(S.gear[k])
-			if not S.gear.has("bottes"): S.gear["bottes"] = 1
-			if not S.gear.has("bouclier"): S.gear["bouclier"] = 1
-			if not S.gear.has("artefact"): S.gear["artefact"] = 0
-			if typeof(S.get("mercs")) != TYPE_ARRAY: S["mercs"] = []
-			if typeof(S.get("duels")) != TYPE_DICTIONARY: S["duels"] = {}
-			if not S.gear.has("monture"): S.gear["monture"] = 0
-			if not S.has("mount_kind"): S["mount_kind"] = ""
-			for key2 in ["prof", "ench", "wxp", "uniq", "toolq"]:
-				if typeof(S.get(key2)) != TYPE_DICTIONARY: S[key2] = {}
-			if typeof(S.get("tower")) != TYPE_DICTIONARY: S["tower"] = {"best": 0}
-			if typeof(S.get("island")) != TYPE_DICTIONARY: S["island"] = new_island()
-			for k3 in new_island():
-				if not S.island.has(k3): S.island[k3] = new_island()[k3]
-			for k2 in S.ench: S.ench[k2] = int(S.ench[k2])
-			if not S.has("artefact_kind"): S["artefact_kind"] = ""
-			if not WEAPON_KINDS.has(S.get("weapon_kind", "")): S["weapon_kind"] = "epee"
-			for key in ["disc", "chests", "met", "tips"]:
-				if typeof(S.get(key)) != TYPE_DICTIONARY: S[key] = {}
-			if typeof(S.get("items")) != TYPE_ARRAY: S["items"] = []
-			if typeof(S.get("ah")) != TYPE_DICTIONARY: S["ah"] = {"stock": [], "stock_at": 0, "listings": []}
-			if not S.has("armor_kind"): S["armor_kind"] = "plate"
-			for it in S.items:
-				it.tier = int(it.tier)
-				if it.has("q"): it.q = int(it.q)
-				if it.has("ench"): it.ench = int(it.ench)
-			S.silver = int(S.silver); S.potions = int(S.potions)
-			if typeof(S.get("unlock")) != TYPE_DICTIONARY:
-				S["unlock"] = {}
-				for sl in ["epee", "bouclier", "armure", "bottes"]: S.unlock[sl] = max(1, int(S.gear.get(sl, 1)))
-			for sl in S.unlock: S.unlock[sl] = int(S.unlock[sl])
-			S["map"] = clamp(int(S.get("map", 1)), 1, 4)
-			if typeof(S.get("gk")) != TYPE_DICTIONARY: S["gk"] = {"bottes": {"plate": "greves", "cuir": "cuir", "tissu": "sandales"}.get(S.get("armor_kind", "plate"), "greves")}
-			if typeof(S.get("eqx")) != TYPE_DICTIONARY: S["eqx"] = {}
-			for key3 in ["food", "guild"]:
-				if typeof(S.get(key3)) != TYPE_DICTIONARY: S[key3] = {}
-			for k4 in S.food: S.food[k4] = int(S.food[k4])
-			if typeof(S.get("friends")) != TYPE_ARRAY: S["friends"] = []
-			for sl in ["casque", "cape"]:
-				if not S.gear.has(sl): S.gear[sl] = 0
-			if not ARMOR_KINDS.has(S.get("armor_kind", "plate")): S["armor_kind"] = "plate"
+	var d := load_saved_state()
+	if not d.is_empty():
+		for k in d: S[k] = d[k]
+		if not d.has("rep"): S["rep_old"] = true
+		# JSON → entiers
+		for k in RES_KEYS:
+			var arr: Array = S.inv.get(k, [0, 0, 0, 0, 0, 0])
+			for i in arr.size(): arr[i] = int(arr[i])
+			S.inv[k] = arr
+		for k in S.gear: S.gear[k] = int(S.gear[k])
+		if not S.gear.has("bottes"): S.gear["bottes"] = 1
+		if not S.gear.has("bouclier"): S.gear["bouclier"] = 1
+		if not S.gear.has("artefact"): S.gear["artefact"] = 0
+		if typeof(S.get("mercs")) != TYPE_ARRAY: S["mercs"] = []
+		if typeof(S.get("duels")) != TYPE_DICTIONARY: S["duels"] = {}
+		if not S.gear.has("monture"): S.gear["monture"] = 0
+		if not S.has("mount_kind"): S["mount_kind"] = ""
+		for key2 in ["prof", "ench", "wxp", "uniq", "toolq"]:
+			if typeof(S.get(key2)) != TYPE_DICTIONARY: S[key2] = {}
+		if typeof(S.get("tower")) != TYPE_DICTIONARY: S["tower"] = {"best": 0}
+		if typeof(S.get("island")) != TYPE_DICTIONARY: S["island"] = new_island()
+		for k3 in new_island():
+			if not S.island.has(k3): S.island[k3] = new_island()[k3]
+		for k2 in S.ench: S.ench[k2] = int(S.ench[k2])
+		if not S.has("artefact_kind"): S["artefact_kind"] = ""
+		if not WEAPON_KINDS.has(S.get("weapon_kind", "")): S["weapon_kind"] = "epee"
+		for key in ["disc", "chests", "met", "tips"]:
+			if typeof(S.get(key)) != TYPE_DICTIONARY: S[key] = {}
+		if typeof(S.get("items")) != TYPE_ARRAY: S["items"] = []
+		if typeof(S.get("ah")) != TYPE_DICTIONARY: S["ah"] = {"stock": [], "stock_at": 0, "listings": []}
+		if not S.has("armor_kind"): S["armor_kind"] = "plate"
+		for it in S.items:
+			it.tier = int(it.tier)
+			if it.has("q"): it.q = int(it.q)
+			if it.has("ench"): it.ench = int(it.ench)
+		S.silver = int(S.silver); S.potions = int(S.potions)
+		if typeof(S.get("unlock")) != TYPE_DICTIONARY:
+			S["unlock"] = {}
+			for sl in ["epee", "bouclier", "armure", "bottes"]: S.unlock[sl] = max(1, int(S.gear.get(sl, 1)))
+		for sl in S.unlock: S.unlock[sl] = int(S.unlock[sl])
+		S["map"] = clamp(int(S.get("map", 1)), 1, 4)
+		if typeof(S.get("gk")) != TYPE_DICTIONARY: S["gk"] = {"bottes": {"plate": "greves", "cuir": "cuir", "tissu": "sandales"}.get(S.get("armor_kind", "plate"), "greves")}
+		if typeof(S.get("eqx")) != TYPE_DICTIONARY: S["eqx"] = {}
+		for key3 in ["food", "guild"]:
+			if typeof(S.get(key3)) != TYPE_DICTIONARY: S[key3] = {}
+		for k4 in S.food: S.food[k4] = int(S.food[k4])
+		if typeof(S.get("friends")) != TYPE_ARRAY: S["friends"] = []
+		for sl in ["casque", "cape"]:
+			if not S.gear.has(sl): S.gear[sl] = 0
+		if not ARMOR_KINDS.has(S.get("armor_kind", "plate")): S["armor_kind"] = "plate"
 	_init_sfx()
 
 # Sauvegarde différée : écrire le JSON sur disque à chaque action faisait
@@ -953,10 +958,84 @@ var _save_t := 0.0
 func save() -> void:
 	_dirty = true
 
+var save_recovered := false
+
+func _read_save(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path): return {}
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null: return {}
+	var json := JSON.new()
+	if json.parse(f.get_as_text()) != OK: return {}
+	var data = json.data
+	return data if data is Dictionary and data.get("v", 0) == 2 else {}
+
+func _save_int(value, fallback: int) -> int:
+	if typeof(value) in [TYPE_INT, TYPE_FLOAT, TYPE_BOOL]: return int(value)
+	if value is String and value.is_valid_int(): return int(value)
+	return fallback
+
+func _merge_save_defaults(base: Dictionary, data: Dictionary) -> Dictionary:
+	var out := base.duplicate(true)
+	for key in data:
+		var value = data[key]
+		if not base.has(key): out[key] = value; continue
+		var fallback = base[key]
+		if fallback is Dictionary:
+			if value is Dictionary: out[key] = _merge_save_defaults(fallback, value)
+		elif fallback is Array:
+			if value is Array: out[key] = value.duplicate(true)
+		elif typeof(fallback) == TYPE_INT: out[key] = _save_int(value, int(fallback))
+		elif typeof(value) == typeof(fallback): out[key] = value
+	return out
+
+func normalize_saved_state(data: Dictionary) -> Dictionary:
+	var out := _merge_save_defaults(default_state(), data)
+	for key in RES_KEYS:
+		var raw: Array = out.inv[key]
+		var counts: Array = []
+		for i in 6: counts.append(max(0, _save_int(raw[i], 0)) if i < raw.size() else 0)
+		out.inv[key] = counts
+	for key in out.gear: out.gear[key] = clampi(_save_int(out.gear[key], 0), 0, 5)
+	var items: Array = []
+	for item in out.items:
+		if not item is Dictionary or not out.gear.has(str(item.get("slot", ""))): continue
+		var fixed: Dictionary = item.duplicate(true)
+		fixed.tier = clampi(_save_int(item.get("tier", 1), 1), 1, 5)
+		items.append(fixed)
+	out.items = items
+	for key in ["build", "decor_v", "vq", "rep"]:
+		if out.has(key) and not out[key] is Dictionary: out[key] = {}
+	return out
+
+func load_saved_state(path := SAVE_PATH) -> Dictionary:
+	save_recovered = false
+	var data := _read_save(path)
+	if data.is_empty():
+		# The pending file may contain the newest complete write interrupted before rename.
+		for candidate in [path + ".tmp", path + ".bak"]:
+			data = _read_save(candidate)
+			if not data.is_empty(): save_recovered = true; crumb("sauvegarde de secours récupérée"); break
+	return normalize_saved_state(data) if not data.is_empty() else {}
+
+func write_saved_state(path: String, data: Dictionary) -> bool:
+	var pending := path + ".tmp"
+	var text := JSON.stringify(data)
+	var f := FileAccess.open(pending, FileAccess.WRITE)
+	if f == null: return false
+	f.store_string(text); f.flush()
+	var err := f.get_error(); f.close()
+	if err != OK or _read_save(pending).is_empty(): return false
+	# Keep the last valid main file without overwriting a good backup with a damaged file.
+	if not _read_save(path).is_empty():
+		var backup := path + ".bak.tmp"
+		if DirAccess.copy_absolute(path, backup) != OK: return false
+		if DirAccess.rename_absolute(backup, path + ".bak") != OK: return false
+	return DirAccess.rename_absolute(pending, path) == OK
+
 func save_now() -> void:
-	_dirty = false; _save_t = 0.0
-	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if f: f.store_string(JSON.stringify(S))
+	_save_t = 0.0
+	_dirty = not write_saved_state(SAVE_PATH, S)
+	if _dirty: crumb("sauvegarde différée : écriture indisponible")
 
 var _crumb_t := 0.0
 var fps_acc := 0.0
@@ -980,14 +1059,14 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_WM_GO_BACK_REQUEST or what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_PREDELETE:
 		if _dirty: save_now()
 		crumb("(application en pause / fermée)"); _write_crumbs()
-		if what != NOTIFICATION_APPLICATION_FOCUS_OUT: DirAccess.remove_absolute(ProjectSettings.globalize_path(FLAG_PATH))
+		if what not in [NOTIFICATION_APPLICATION_FOCUS_OUT, NOTIFICATION_WM_GO_BACK_REQUEST]: DirAccess.remove_absolute(ProjectSettings.globalize_path(FLAG_PATH))
 	elif what == NOTIFICATION_APPLICATION_RESUMED or what == NOTIFICATION_APPLICATION_FOCUS_IN:
 		_set_flag()
 
 # ================= JOURNAL DE BORD (pour retrouver ce qui a fait planter le jeu) =================
 const FLAG_PATH := "user://en_cours.flag"
 const CRUMB_PATH := "user://journal.txt"
-const VERSION := "9.4"
+const VERSION := "9.7"
 var crumbs: Array = []
 var crashed_last := false
 var last_crumbs := ""

@@ -1,0 +1,169 @@
+{
+	"checks": [
+		{
+			"name": "Vérification isolée des services en ligne",
+			"passed": true
+		},
+		{
+			"name": "Bouton de ciblage disponible sur mobile",
+			"passed": true
+		},
+		{
+			"name": "Carte et ressources du jeu chargées",
+			"passed": true
+		},
+		{
+			"name": "Un appui d’attaque ne déclenche pas un portail",
+			"passed": true
+		},
+		{
+			"name": "Le mode AUTO ne peut pas entrer seul dans un portail",
+			"passed": true
+		},
+		{
+			"name": "La cible choisie prime sur le monstre le plus proche",
+			"passed": true
+		},
+		{
+			"name": "Une cible hors de portée n’est pas remplacée silencieusement",
+			"passed": true
+		},
+		{
+			"name": "Anneau de sélection visible",
+			"passed": true
+		},
+		{
+			"name": "Loup visuellement agrandi",
+			"passed": true
+		},
+		{
+			"name": "Corps et barre de vie adaptés à l’animal agrandi",
+			"passed": true
+		},
+		{
+			"name": "Attaques ennemies annoncées et espacées",
+			"passed": true
+		},
+		{
+			"name": "Un toucher sur l’animal le sélectionne",
+			"passed": true
+		},
+		{
+			"name": "Une cible verrouillée garde la priorité sur les entrées et PNJ",
+			"passed": true
+		},
+		{
+			"name": "Attaque de base ralentit le rythme du combat",
+			"passed": true
+		},
+		{
+			"name": "Un coup différé est annulé lors d’un changement de zone",
+			"passed": true
+		},
+		{
+			"name": "Recharge des sorts allongée et rafale de sorts empêchée",
+			"passed": true
+		},
+		{
+			"name": "Les projectiles disparaissent au changement de zone",
+			"passed": true
+		},
+		{
+			"name": "L’esquive conserve une vraie recharge",
+			"passed": true
+		},
+		{
+			"name": "Un ancien bond ne ramène pas le héros après un TP",
+			"passed": true
+		},
+		{
+			"name": "Une petite différence de hauteur ne provoque aucun TP",
+			"passed": true
+		},
+		{
+			"name": "Une chute brève n’est pas corrigée prématurément",
+			"passed": true
+		},
+		{
+			"name": "Une chute persistante est corrigée verticalement sur le sol proche",
+			"passed": true
+		},
+		{
+			"name": "La berge n’est plus atteinte par un saut automatique",
+			"passed": true
+		},
+		{
+			"name": "Invocation de familier fonctionnelle avant la transition",
+			"passed": true
+		},
+		{
+			"name": "Dompteur réinitialisé à l’entrée du donjon",
+			"passed": true
+		},
+		{
+			"name": "Donjon complet avec une variante de défi",
+			"passed": true
+		},
+		{
+			"name": "Gardien plus résistant et doté de phases",
+			"passed": true
+		},
+		{
+			"name": "Chaque salle réagit avec son propre groupe",
+			"passed": true
+		},
+		{
+			"name": "Le gardien change de tactique à mi-vie",
+			"passed": true
+		},
+		{
+			"name": "Renforts du gardien au bon tier et comptés dans le nettoyage",
+			"passed": true
+		},
+		{
+			"name": "Le trésor reste scellé tant qu’il reste des ennemis",
+			"passed": true
+		},
+		{
+			"name": "Le trésor se libère après nettoyage du donjon",
+			"passed": true
+		},
+		{
+			"name": "Invocations réinitialisées à la sortie de l’arène",
+			"passed": true
+		},
+		{
+			"name": "Invocations disponibles à l’entrée de la tour",
+			"passed": true
+		},
+		{
+			"name": "Invocations réinitialisées entre deux étages",
+			"passed": true
+		},
+		{
+			"name": "PNJ de quête présent",
+			"passed": true
+		},
+		{
+			"name": "Point d’exclamation pour une quête disponible",
+			"passed": true
+		},
+		{
+			"name": "Point d’interrogation quand la récompense est prête",
+			"passed": true
+		},
+		{
+			"name": "Le marqueur ne se superpose plus au nom du service",
+			"passed": true
+		},
+		{
+			"name": "Arbres récoltables dégagés des chemins et services de la carte 1",
+			"passed": true
+		},
+		{
+			"name": "Une ancienne réapparition ne déclenche plus de TP tardif",
+			"passed": true
+		}
+	],
+	"failed": 0
+}

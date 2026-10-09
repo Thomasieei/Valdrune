@@ -23,6 +23,11 @@ var dodge_cd := 0.0
 var dodge_dir := Vector3.ZERO
 var invuln := 0.0
 var skill_cd := [0.0, 0.0, 0.0, 0.0]
+var skill_global_cd := 0.0
+var action_epoch := 0
+var move_tween: Tween
+const SKILL_TEMPO := 1.0
+const DODGE_COOLDOWN := 1.1
 # Chaque famille d'arme a ses 4 sorts (débloqués aux tiers 1, 2, 3, 4)
 const SKILL_SETS := {
 	"epee": [
@@ -208,7 +213,7 @@ func _physics_process(dt: float) -> void:
 		hitstop -= dt; ap.speed_scale = 0.0
 		if hitstop <= 0.0: ap.speed_scale = 1.0 if lock <= 0.0 else 2.2
 		return
-	for v in ["lock", "move_lock", "swing_cd", "dodge_cd", "invuln", "potion_cd", "gather_cd", "combo_t"]:
+	for v in ["lock", "move_lock", "swing_cd", "skill_global_cd", "dodge_cd", "invuln", "potion_cd", "gather_cd", "combo_t"]:
 		set(v, max(0.0, get(v) - dt))
 	for i in 4: skill_cd[i] = max(0.0, skill_cd[i] - dt)
 	if gather_vis > 0.0:
@@ -281,21 +286,23 @@ func face(p: Vector3) -> void:
 
 # ——— Combat ———
 func attack(target: Node3D) -> void:
+	var epoch := action_epoch
 	if mounted: dismount()
 	cast_t = 0.0
-	if swing_cd > 0.0 or dead or dodge_t > 0.0 or spin_t > 0.0: return
+	if swing_cd > 0.0 or dead or dodge_t > 0.0 or spin_t > 0.0 or skill_global_cd > 0.0: return
 	set_hand(weapon_path())
 	if Game.ranged(Game.S.get("weapon_kind", "epee")): _shoot(target); return
 	if target: face(target.global_position); ch.root.rotation.y = yaw
-	combo = (combo % 3) + 1; combo_t = 1.1
+	combo = (combo % 3) + 1; combo_t = 1.4
 	var heavy := combo == 3
-	swing_cd = (0.52 if heavy else 0.36) / Game.wkind().rate * (0.7 if rage_t > 0.0 else 1.0)
-	lock = 0.3; move_lock = 0.16
-	play("Throw", 2.4 if not heavy else 1.9, 0.05, true)
+	swing_cd = max(0.32, (0.6 if heavy else 0.42) / clamp(float(Game.wkind().rate), 0.75, 1.3) * (0.75 if rage_t > 0.0 else 1.0))
+	lock = 0.3; move_lock = 0.12
+	play("Throw", 2.3 if not heavy else 1.8, 0.05, true)
 	Game.play("swing", -6.0, 1.15 if not heavy else 0.85)
 	var fwd := Vector3(sin(yaw), 0, cos(yaw))
 	velocity += fwd * (3.0 if heavy else 1.6)   # petit élan vers l'avant
-	get_tree().create_timer(0.11).timeout.connect(func():
+	get_tree().create_timer(0.12).timeout.connect(func():
+		if epoch != action_epoch or dead: return
 		if dead: return
 		Fx.slash(main, global_position + Vector3(0, 1.05, 0) + fwd * 0.4, yaw, Color(1, 0.92, 0.7) if not heavy else Color(1, 0.7, 0.35), 2.3 if heavy else 1.9, combo == 2)
 		var hit := 0
@@ -316,20 +323,22 @@ func attack(target: Node3D) -> void:
 # ——— Armes à distance ———
 var rapid_t := 0.0
 func _shoot(target: Node3D) -> void:
+	var epoch := action_epoch
 	var W := Game.wkind()
 	var dir := Vector3(sin(yaw), 0, cos(yaw))
 	if target:
 		dir = target.global_position - global_position; dir.y = 0; dir = dir.normalized()
 	yaw = atan2(dir.x, dir.z); ch.root.rotation.y = yaw
-	combo = (combo % 3) + 1; combo_t = 1.3
+	combo = (combo % 3) + 1; combo_t = 1.4
 	var heavy := combo == 3
-	swing_cd = 0.5 / W.rate * (0.7 if rage_t > 0.0 else 1.0) * (0.55 if rapid_t > 0.0 else 1.0)
-	lock = 0.22; move_lock = 0.1
+	swing_cd = max(0.36, 0.55 / clamp(float(W.rate), 0.75, 1.3) * (0.75 if rage_t > 0.0 else 1.0) * (0.6 if rapid_t > 0.0 else 1.0))
+	lock = 0.24; move_lock = 0.1
 	var book: bool = W.proj == "orb"
-	play("Use_Item" if book else "Throw", 2.6, 0.05, true)
+	play("Use_Item" if book else "Throw", 2.4, 0.05, true)
 	Game.play("swing", -8.0, 1.6 if W.proj == "arrow" else (1.0 if W.proj == "bolt" else 0.7))
 	var dm := dmg() * (1.5 if heavy else 1.0)
-	get_tree().create_timer(0.1).timeout.connect(func():
+	get_tree().create_timer(0.11).timeout.connect(func():
+		if epoch != action_epoch or dead: return
 		if dead: return
 		var sh := Shot.new(); main.add_child(sh)
 		sh.launch(main, self, global_position + Vector3(0, 1.15, 0) + dir * 0.7, dir, dm, W.proj, {"range": float(W.range) + 2.0, "pierce": W.proj == "bolt" and heavy}))
@@ -354,12 +363,14 @@ func pierce_shot() -> void:
 	_fire(dir, sdmg() * 2.4, "arrow", {"range": 22.0, "pierce": true, "speed": 36.0, "glow": Color(1.0, 0.7, 0.3), "push": 3.0})
 
 func arrow_rain() -> void:
-	var e = main._nearest_enemy(global_position, 15.0)
+	var epoch := action_epoch
+	var e = main.combat_target(global_position, 15.0)
 	var c: Vector3 = e.global_position if e else global_position + Vector3(sin(yaw), 0, cos(yaw)) * 7.0
 	_ranged_dir(15.0); play("Use_Item", 1.8, 0.04, true); Game.play("swing", -2.0, 1.5)
 	Fx.disc(main, Vector3(c.x, main.world.height(c.x, c.z), c.z), 3.4, Color(0.75, 0.55, 1.0, 0.45), 1.3)
 	for k in 5:
 		get_tree().create_timer(0.35 + k * 0.22).timeout.connect(func():
+			if epoch != action_epoch or dead: return
 			for j in 4:
 				var q := c + Vector3(randf_range(-2.6, 2.6), 0, randf_range(-2.6, 2.6))
 				Fx.burst(main, q + Vector3(0, 0.3, 0), Color(0.85, 0.75, 1.0), 5, 3.0, 0.18, 0.3, 6.0)
@@ -369,7 +380,8 @@ func retreat() -> void:
 	var back := -_aim(10.0); var tgt := global_position + back * 5.0
 	if not main.world.walkable(tgt.x, tgt.z): tgt = global_position + back * 2.0
 	invuln = 0.5; lock = 0.4; move_lock = 0.4; play("Jump_Full_Short", 1.8, 0.04, true); Game.play("dodge", -2.0, 1.2)
-	var tw := create_tween(); tw.tween_property(self, "global_position", Vector3(tgt.x, main.world.height(tgt.x, tgt.z) + 0.2, tgt.z), 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tgt = main.safe_skill_destination(global_position, tgt)
+	move_tween = create_tween(); move_tween.tween_property(self, "global_position", tgt, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	rapid_t = 4.0
 	Fx.burst(main, global_position + Vector3(0, 0.4, 0), Color(0.7, 0.6, 1.0), 18, 4.0, 0.3, 0.5, 0.0)
 	main.hud.toast("Tirs rapides pendant 4 s !", Color("#c9a8ff"))
@@ -379,9 +391,11 @@ func boom_bolt() -> void:
 	_fire(dir, sdmg() * 1.9, "bolt", {"range": 15.0, "boom": 2.6, "glow": Color(1.0, 0.5, 0.2)})
 
 func burst_fire() -> void:
+	var epoch := action_epoch
 	_ranged_dir(14.0)
 	for k in 4:
 		get_tree().create_timer(k * 0.13).timeout.connect(func():
+			if epoch != action_epoch or dead: return
 			if dead: return
 			var dir := _aim(14.0); yaw = atan2(dir.x, dir.z); ch.root.rotation.y = yaw
 			play("Throw", 3.0, 0.02, true); Game.play("swing", -5.0, 1.1)
@@ -392,10 +406,12 @@ func frost_bolt() -> void:
 	_fire(dir, sdmg() * 1.6, "bolt", {"range": 18.0, "pierce": true, "slow": 3.0, "glow": Color(0.6, 0.9, 1.0)})
 
 func heavy_shot() -> void:
+	var epoch := action_epoch
 	var dir := _ranged_dir(16.0); lock = 0.75; move_lock = 0.75
 	play("Use_Item", 1.0, 0.04, true); Game.play("craft", -4.0, 0.7)
 	Fx.burst(main, global_position + Vector3(0, 1.1, 0) + dir * 0.6, Color(0.6, 0.95, 1.0), 20, 1.5, 0.25, 0.5, -1.0)
 	get_tree().create_timer(0.55).timeout.connect(func():
+		if epoch != action_epoch or dead: return
 		if dead: return
 		var d2 := _aim(16.0); yaw = atan2(d2.x, d2.z); ch.root.rotation.y = yaw
 		play("Throw", 2.0, 0.02, true); Game.play("hit", 0.0, 0.5); main.shake(0.3)
@@ -406,7 +422,7 @@ func arcane_orb() -> void:
 	_fire(dir, sdmg() * 2.0, "orb", {"range": 16.0, "boom": 3.0, "speed": 11.0, "big": true})
 
 func curse() -> void:
-	var e = main._nearest_enemy(global_position, 14.0)
+	var e = main.combat_target(global_position, 14.0)
 	var c: Vector3 = e.global_position if e else global_position + Vector3(sin(yaw), 0, cos(yaw)) * 6.0
 	_ranged_dir(14.0); play("Use_Item", 1.6, 0.04, true); Game.play("roar", -12.0, 0.6)
 	Fx.disc(main, Vector3(c.x, main.world.height(c.x, c.z), c.z), 3.2, Color(0.35, 0.1, 0.45, 0.6), 4.0, false)
@@ -418,12 +434,14 @@ func curse() -> void:
 	Fx.burst(main, c + Vector3(0, 0.4, 0), Color(0.55, 0.2, 0.75), 30, 3.0, 0.35, 0.9, -2.0)
 
 func life_drain() -> void:
-	var e = main._nearest_enemy(global_position, 12.0)
+	var epoch := action_epoch
+	var e = main.combat_target(global_position, 12.0)
 	_ranged_dir(12.0); play("Use_Item", 1.2, 0.04, true); lock = 1.0; move_lock = 0.6
 	if e == null: return
 	Game.play("craft", -8.0, 0.6)
 	for k in 5:
 		get_tree().create_timer(0.1 + k * 0.2).timeout.connect(func():
+			if epoch != action_epoch or dead: return
 			if dead or e == null or not is_instance_valid(e) or e.dead: return
 			var a := global_position + Vector3(0, 1.2, 0); var b: Vector3 = e.global_position + Vector3(0, 1.0, 0)
 			_beam(a, b, Color(1.0, 0.35, 0.6))
@@ -443,7 +461,8 @@ func _beam(a: Vector3, b: Vector3, col: Color) -> void:
 	var tw := mi.create_tween(); tw.tween_interval(0.18); tw.tween_callback(mi.queue_free)
 
 func meteor() -> void:
-	var e = main._nearest_enemy(global_position, 15.0)
+	var epoch := action_epoch
+	var e = main.combat_target(global_position, 15.0)
 	var c: Vector3 = e.global_position if e else global_position + Vector3(sin(yaw), 0, cos(yaw)) * 7.0
 	c.y = main.world.height(c.x, c.z)
 	_ranged_dir(15.0); play("Use_Item", 1.3, 0.04, true); Game.play("roar", -10.0, 1.6)
@@ -451,6 +470,7 @@ func meteor() -> void:
 	var orb := Shot.new(); main.add_child(orb)
 	orb.launch(main, self, c + Vector3(-3.0, 14.0, 2.0), (Vector3(3.0, -14.0, -2.0)).normalized(), 0.0, "orb", {"range": 14.5, "speed": 17.0, "big": true, "fx_only": true})
 	get_tree().create_timer(0.85).timeout.connect(func():
+		if epoch != action_epoch or dead: return
 		_hit_circle(c, 4.5, sdmg() * 3.2, 6.0); main.shake(0.45); hitstop = 0.08
 		Fx.burst(main, c + Vector3(0, 0.6, 0), Color(1.0, 0.45, 0.9), 50, 9.0, 0.5, 0.7)
 		Fx.disc(main, c, 4.5, Color(1.0, 0.5, 0.95, 0.6), 0.35, false)
@@ -463,13 +483,13 @@ func dodge() -> void:
 	var mv := Vector3(input_vec.x, 0, input_vec.y)
 	dodge_dir = mv.normalized() if mv.length() > 0.1 else Vector3(sin(yaw), 0, cos(yaw))
 	yaw = atan2(dodge_dir.x, dodge_dir.z)
-	dodge_t = 0.28 + 0.02 * (Game.S.gear.get("bottes", 1) - 1); dodge_cd = 1.0; invuln = 0.38; lock = 0.0; move_lock = 0.0
+	dodge_t = 0.28 + 0.02 * (Game.S.gear.get("bottes", 1) - 1); dodge_cd = DODGE_COOLDOWN; invuln = 0.38; lock = 0.0; move_lock = 0.0
 	play("Jump_Full_Short", 2.2, 0.05, true)
 	Game.play("dodge", -4.0)
 	Fx.burst(main, global_position + Vector3(0, 0.2, 0), Color(0.85, 0.8, 0.7, 0.8), 10, 2.5, 0.5, 0.45, 2.0)
 
 func use_skill(i: int) -> void:
-	if dead: return
+	if dead or i < 0 or i >= skills().size() or skill_global_cd > 0.0 or dodge_t > 0.0: return
 	if mounted: dismount()
 	cast_t = 0.0
 	var sk: Dictionary = skills()[i]
@@ -480,12 +500,36 @@ func use_skill(i: int) -> void:
 		# l'invocation d'un familier : recharge fixe d'une minute (rien ne la réduit)
 		if not main.summon_pet(int(sk.pet)): return
 		skill_cd[i] = Game.PET_CD
+		skill_global_cd = 0.3
 		return
-	skill_cd[i] = sk.cd * max(0.4, 1.0 - Game.stats().cd - Game.wkind().cd)
+	skill_cd[i] = skill_cooldown(i)
+	skill_global_cd = 0.4
+	swing_cd = max(swing_cd, 0.25)
 	call(sk.fn)
 
+func skill_cooldown(i: int) -> float:
+	var sk: Dictionary = skills()[i]
+	if sk.has("pet"): return Game.PET_CD
+	return float(sk.cd) * SKILL_TEMPO * max(0.75, 1.0 - float(Game.stats().cd) - float(Game.wkind().cd))
+
+# Annule aussi les déplacements différés : un ancien bond ne doit jamais ramener le héros après un TP.
+func reset_actions(reset_pets := true) -> void:
+	action_epoch += 1
+	if move_tween and move_tween.is_valid(): move_tween.kill()
+	move_tween = null
+	for key in ["lock", "move_lock", "swing_cd", "skill_global_cd", "combo_t", "dodge_t", "cast_t", "rush_t", "spin_t", "hitstop", "water_t", "climb_t", "gather_cd", "gather_vis", "rage_t", "rapid_t"]: set(key, 0.0)
+	combo = 0; velocity = Vector3.ZERO; input_vec = Vector2.ZERO
+	rush_hit.clear(); gather_nd.clear()
+	if gather_ring: gather_ring.visible = false
+	if reset_pets:
+		for i in skills().size():
+			if skills()[i].has("pet"): skill_cd[i] = 0.0
+	_shield_off()
+	if mounted: dismount()
+	if not dead: play("Idle_A", 1.0, 0.0, true)
+
 func _aim(r: float) -> Vector3:
-	var e = main._nearest_enemy(global_position, r)
+	var e = main.combat_target(global_position, r)
 	if e: var d: Vector3 = e.global_position - global_position; d.y = 0; return d.normalized()
 	var mv := Vector3(input_vec.x, 0, input_vec.y)
 	if mv.length() > 0.1: return mv.normalized()
@@ -499,13 +543,15 @@ func rush() -> void:
 	Fx.burst(main, global_position + Vector3(0, 0.6, 0), Color(0.5, 0.9, 1.0), 16, 3.0, 0.35, 0.5, 0.0)
 
 func thorns() -> void:
+	var epoch := action_epoch
 	var dir := _ranged_dir(13.0); play("Use_Item", 2.2, 0.04, true); Game.play("craft", -4.0, 0.7)
-	var e = main._nearest_enemy(global_position, 13.0)
+	var e = main.combat_target(global_position, 13.0)
 	var c: Vector3 = e.global_position if e else global_position + dir * 6.0
 	c.y = main.world.height(c.x, c.z)
 	Fx.disc(main, c, 3.4, Color(0.35, 0.9, 0.35, 0.6), 0.6, false)
 	for k in 3:
 		get_tree().create_timer(0.15 + k * 0.45).timeout.connect(func():
+			if epoch != action_epoch or dead: return
 			Fx.burst(main, c + Vector3(0, 0.3, 0), Color(0.4, 0.95, 0.4), 16, 4.0, 0.35, 0.5, 2.0)
 			for en in main.enemies.duplicate():
 				if not en.dead and Vector2(en.global_position.x - c.x, en.global_position.z - c.z).length() < 3.4 + en.radius:
@@ -533,12 +579,14 @@ func _shield_off() -> void:
 	if shield_mesh: shield_mesh.visible = false
 
 func spin() -> void:
+	var epoch := action_epoch
 	spin_t = 0.55; lock = 0.55
 	play("Idle_B", 1.0, 0.05)
 	Game.play("swing", 0.0, 0.7)
 	Fx.disc(main, global_position, 3.6, Color(1, 0.85, 0.5, 0.55), 0.35, false)
 	for i in 3:
 		get_tree().create_timer(0.08 + i * 0.16).timeout.connect(func():
+			if epoch != action_epoch or dead: return
 			Fx.slash(main, global_position + Vector3(0, 1.0, 0), yaw + i * 2.1, Color(1, 0.8, 0.45), 2.8, i % 2 == 0)
 			var hit := false
 			for e in main.enemies:
@@ -571,6 +619,9 @@ func hurt(amount: float, from: Node3D) -> void:
 		Fx.number(main, global_position + Vector3(0, 2.3, 0), "absorbé", Color("#9fe4ff"))
 		if shield_hp <= 0.0: _shield_off()
 		if amount <= 0.0: return
+	if main.hud.panel_open and main.hud.cur_panel != "bag" and not is_instance_valid(main.hud.title):
+		main.hud.close_panel()
+		main.hud.toast("Attaque ennemie · reprends le combat", Color("#ff9a8a"))
 	hp -= amount
 	flash_mat.albedo_color.a = 0.6
 	create_tween().tween_property(flash_mat, "albedo_color:a", 0.0, 0.25)
@@ -590,6 +641,7 @@ func die() -> void:
 	main.on_player_death()
 
 func revive(pos: Vector3) -> void:
+	reset_actions()
 	dead = false; hp = max_hp; global_position = pos; velocity = Vector3.ZERO; lock = 0; play("Idle_A", 1.0, 0.0, true)
 
 # ——— Sorts de l'épée / de la hache / du bâton ———
@@ -602,12 +654,14 @@ func _hit_circle(c: Vector3, r: float, amount: float, push := 3.0) -> int:
 	return n
 
 func wind_slicer() -> void:
+	var epoch := action_epoch
 	var dir := _aim(14.0); yaw = atan2(dir.x, dir.z); ch.root.rotation.y = yaw
 	lock = 0.3; move_lock = 0.15; play("Throw", 2.2, 0.04, true); Game.play("swing", -1.0, 1.4)
 	var start := global_position + Vector3(0, 1.0, 0)
 	var hit := []
 	for k in 8:
 		get_tree().create_timer(k * 0.04).timeout.connect(func():
+			if epoch != action_epoch or dead: return
 			var p: Vector3 = start + dir * (1.5 + k * 1.6)
 			Fx.slash(main, p, yaw, Color(0.6, 1.0, 0.7), 1.6, k % 2 == 0)
 			for e in main.enemies.duplicate():
@@ -616,23 +670,26 @@ func wind_slicer() -> void:
 					hit.append(e); e.take_hit(sdmg() * 1.7, self, 3.0))
 
 func leap() -> void:
-	var e = main._nearest_enemy(global_position, 10.0)
+	var e = main.combat_target(global_position, 10.0)
 	var tgt: Vector3 = e.global_position if e else global_position + Vector3(sin(yaw), 0, cos(yaw)) * 5.0
 	var to := tgt - global_position; to.y = 0
 	if to.length() > 1.2: tgt = global_position + to - to.normalized() * 1.2
 	yaw = atan2(to.x, to.z); ch.root.rotation.y = yaw
 	invuln = 0.5; lock = 0.55; move_lock = 0.55; play("Jump_Full_Short", 1.6, 0.04, true); Game.play("dodge", -2.0, 0.8)
-	var tw := create_tween(); tw.tween_property(self, "global_position", Vector3(tgt.x, main.world.height(tgt.x, tgt.z) + 0.2, tgt.z), 0.4).set_trans(Tween.TRANS_QUAD)
-	tw.tween_callback(func():
+	tgt = main.safe_skill_destination(global_position, tgt)
+	move_tween = create_tween(); move_tween.tween_property(self, "global_position", tgt, 0.4).set_trans(Tween.TRANS_QUAD)
+	move_tween.tween_callback(func():
 		var c := global_position
 		_hit_circle(c, 3.5, sdmg() * 2.0, 4.5); main.shake(0.35); hitstop = 0.08
 		Fx.disc(main, c, 3.5, Color(0.8, 0.6, 0.35, 0.6), 0.3, false); Fx.burst(main, c + Vector3(0, 0.3, 0), Color(0.75, 0.6, 0.45), 26, 6.0, 0.4, 0.6)
 		Game.play("hit", 0.0, 0.6))
 
 func rend() -> void:
+	var epoch := action_epoch
 	var dir := _aim(4.0); yaw = atan2(dir.x, dir.z); ch.root.rotation.y = yaw
 	lock = 0.4; move_lock = 0.25; play("Throw", 1.6, 0.04, true); Game.play("swing", 0.0, 0.7)
 	get_tree().create_timer(0.15).timeout.connect(func():
+		if epoch != action_epoch or dead: return
 		Fx.slash(main, global_position + Vector3(0, 1.0, 0) + dir * 0.5, yaw, Color(1, 0.35, 0.25), 2.6, true)
 		for e in main.enemies.duplicate():
 			if e.dead: continue
@@ -643,11 +700,13 @@ func rend() -> void:
 		hitstop = 0.07; main.shake(0.2))
 
 func blood_spin() -> void:
+	var epoch := action_epoch
 	spin_t = 1.0; lock = 1.0
 	play("Idle_B", 1.0, 0.05); Game.play("swing", 0.0, 0.6)
 	Fx.disc(main, global_position, 3.8, Color(1, 0.3, 0.25, 0.55), 0.4, false)
 	for i in 5:
 		get_tree().create_timer(0.08 + i * 0.18).timeout.connect(func():
+			if epoch != action_epoch or dead: return
 			Fx.slash(main, global_position + Vector3(0, 1.0, 0), yaw + i * 1.3, Color(1, 0.3, 0.25), 3.0, i % 2 == 0)
 			if _hit_circle(global_position, 3.8, sdmg() * 0.75, 3.0) > 0: hitstop = 0.03; main.shake(0.12); Game.play("hit", -3.0, 1.1))
 
@@ -657,11 +716,13 @@ func rage() -> void:
 	main.hud.toast("RAGE ! +40 % de dégâts pendant 6 s", Color("#ff7a5a"))
 
 func ice_strike() -> void:
-	var e = main._nearest_enemy(global_position, 13.0)
+	var epoch := action_epoch
+	var e = main.combat_target(global_position, 13.0)
 	var c: Vector3 = e.global_position if e else global_position + Vector3(sin(yaw), 0, cos(yaw)) * 5.0
 	lock = 0.3; move_lock = 0.15; play("Use_Item", 1.8, 0.04, true); Game.play("craft", -6.0, 1.6)
 	Fx.disc(main, c, 3.0, Color(0.6, 0.9, 1.0, 0.45), 0.45)
 	get_tree().create_timer(0.45).timeout.connect(func():
+		if epoch != action_epoch or dead: return
 		for en in main.enemies.duplicate():
 			if en.dead: continue
 			if Vector2(en.global_position.x - c.x, en.global_position.z - c.z).length() < 3.0 + en.radius:
@@ -670,7 +731,7 @@ func ice_strike() -> void:
 		Fx.burst(main, c + Vector3(0, 0.5, 0), Color(0.75, 0.95, 1.0), 30, 6.0, 0.4, 0.7); main.shake(0.15))
 
 func chain_lightning() -> void:
-	var first = main._nearest_enemy(global_position, 12.0)
+	var first = main.combat_target(global_position, 12.0)
 	lock = 0.3; move_lock = 0.15; play("Use_Item", 2.0, 0.04, true); Game.play("mine", -2.0, 1.8)
 	if first == null: return
 	var from := global_position + Vector3(0, 1.2, 0); var hit := []; var cur = first; var amount := sdmg() * 1.8
@@ -699,9 +760,11 @@ func _bolt(a: Vector3, b: Vector3) -> void:
 	Fx.burst(main, b, Color(0.8, 0.6, 1.0), 10, 4.0, 0.25, 0.3)
 
 func nova() -> void:
+	var epoch := action_epoch
 	lock = 0.5; move_lock = 0.4; play("Use_Item", 1.4, 0.04, true); Game.play("roar", -8.0, 1.8)
 	Fx.disc(main, global_position, 5.5, Color(1.0, 0.45, 0.9, 0.5), 0.35)
 	get_tree().create_timer(0.35).timeout.connect(func():
+		if epoch != action_epoch or dead: return
 		_hit_circle(global_position, 5.5, sdmg() * 2.6, 7.0); main.shake(0.4); hitstop = 0.08
 		Fx.burst(main, global_position + Vector3(0, 0.8, 0), Color(1.0, 0.5, 0.95), 50, 9.0, 0.45, 0.7))
 
@@ -816,6 +879,7 @@ func _gather_ring_on() -> void:
 
 # ——— Récolte ———
 func gather(nd: Dictionary) -> void:
+	var epoch := action_epoch
 	if gather_cd > 0.0 or dead: return
 	if mounted: dismount()
 	var tool: String = Game.TOOL_OF[nd.type]
@@ -825,12 +889,14 @@ func gather(nd: Dictionary) -> void:
 	_gather_ring_on()
 	lock = min(0.55, gather_cd * 0.6); move_lock = 0.3
 	play("Throw" if nd.type != "fiber" else "PickUp", clamp(1.3 / gather_cd * 1.2, 1.0, 2.4), 0.06, true)
-	get_tree().create_timer(0.32).timeout.connect(func(): main.on_gather_hit(nd))
+	get_tree().create_timer(0.32).timeout.connect(func():
+		if epoch == action_epoch and not dead: main.on_gather_hit(nd))
 
 
 # ——— Boule de feu ———
 # Projectile des armes à distance : flèche, carreau ou orbe magique
 class Shot extends Node3D:
+	var encounter_epoch := 0
 	var main: Node
 	var owner_p: Node3D
 	var dir := Vector3.ZERO
@@ -842,6 +908,7 @@ class Shot extends Node3D:
 	const MODELS := {"arrow": "res://assets/weapons/arrow_bow.gltf", "bolt": "res://assets/weapons/arrow_crossbow.gltf"}
 	static var _orb_mat: StandardMaterial3D
 	func launch(m: Node, who: Node3D, p: Vector3, d: Vector3, damage: float, k: String, opts := {}) -> void:
+		encounter_epoch = m.player.action_epoch
 		main = m; owner_p = who; dir = d.normalized(); dmg = damage; kind = k; o = opts
 		global_position = p
 		var big: bool = o.get("big", false)
@@ -867,6 +934,7 @@ class Shot extends Node3D:
 				var gc: Color = o.glow
 				var gl := Sprite3D.new(); gl.texture = Fx.soft_tex(); gl.billboard = BaseMaterial3D.BILLBOARD_ENABLED; gl.pixel_size = 0.03 if big else 0.018; gl.modulate = Color(gc.r, gc.g, gc.b, 0.85); gl.shaded = false; add_child(gl)
 	func _physics_process(dt: float) -> void:
+		if encounter_epoch != main.player.action_epoch: queue_free(); return
 		var step: float = float(o.get("speed", 26.0 if not kind in ["orb", "spirit"] else 18.0)) * dt
 		global_position += dir * step; dist += step
 		if dist > float(o.get("range", 15.0)): _end(); return
@@ -900,12 +968,14 @@ class Shot extends Node3D:
 		queue_free()
 
 class Fireball extends Node3D:
+	var encounter_epoch := 0
 	var main: Node
 	var dir := Vector3.ZERO
 	var dmg := 0.0
 	var dist := 0.0
 	var trail: CPUParticles3D
 	func launch(m: Node, p: Vector3, d: Vector3, damage: float) -> void:
+		encounter_epoch = m.player.action_epoch
 		main = m; dir = d; dmg = damage; global_position = p
 		var mi := MeshInstance3D.new(); var sm := SphereMesh.new(); sm.radius = 0.32; sm.height = 0.64; mi.mesh = sm
 		var mat := StandardMaterial3D.new(); mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED; mat.albedo_color = Color(1.0, 0.75, 0.3); mi.material_override = mat; add_child(mi)
@@ -916,6 +986,7 @@ class Fireball extends Node3D:
 		var g := Gradient.new(); g.set_color(0, Color(1, 0.7, 0.2, 1)); g.set_color(1, Color(1, 0.15, 0.0, 0)); trail.color_ramp = g
 		add_child(trail)
 	func _physics_process(dt: float) -> void:
+		if encounter_epoch != main.player.action_epoch: queue_free(); return
 		var step := 19.0 * dt; global_position += dir * step; dist += step
 		var hit := dist > 15.0
 		for e in main.enemies:
@@ -954,16 +1025,16 @@ func _climb_assist(want: Vector3, dt: float) -> void:
 	var got := Vector2(get_real_velocity().x, get_real_velocity().z).length()
 	if got > want.length() * 0.55: climb_t = 0.0; return
 	climb_t += dt
-	if climb_t < 0.12: return
+	if climb_t < 0.25: return
 	var w: World = main.world
 	var d := Vector3(want.x, 0, want.z).normalized()
-	for r: float in [0.7, 1.1]:
+	for r: float in [0.2, 0.35]:
 		var q := p + d * r
 		if not w.walkable(q.x, q.z): return
 		var gy: float = w.ground_y(q.x, q.z)
-		if gy - p.y < 2.2 and gy - p.y > -0.3:
-			global_position = Vector3(p.x + d.x * min(r, want.length() * dt * 1.2 + 0.05), max(p.y, w.ground_y(p.x + d.x * 0.3, p.z + d.z * 0.3)) + 0.05, p.z + d.z * min(r, want.length() * dt * 1.2 + 0.05))
-			global_position.y = max(global_position.y, w.ground_y(global_position.x, global_position.z) + 0.02)
+		if gy - p.y < 0.4 and gy - p.y > 0.02 and not test_move(global_transform.translated(Vector3.UP * 0.4), d * r):
+			global_position.y = gy + 0.03
+			climb_t = 0.0
 			return
 
 # L'eau profonde arrête le héros (on glisse le long de la berge)
@@ -971,26 +1042,12 @@ var water_t := 0.0
 func _block_water(dt: float) -> void:
 	var w: World = main.world; var p := global_position; var look := 0.45
 	if not w.walkable(p.x, p.z):
-		# tombé à l'eau : on nage vers la berge la plus proche et on remonte tout seul
+		# Aucun saut automatique vers une berge : retour à pied vers le dernier sol sûr.
 		water_t += dt
-		var best := Vector3.ZERO; var bd := 99.0
-		for i in 16:
-			var a := TAU * i / 16.0
-			for r in [1.0, 2.0, 3.5, 5.0, 7.0]:
-				if w.walkable(p.x + cos(a) * r, p.z + sin(a) * r):
-					if r < bd: bd = r; best = Vector3(cos(a), 0, sin(a))
-					break
-		if best != Vector3.ZERO:
-			var inp := Vector3(velocity.x, 0, velocity.z)
-			# on garde la direction du joueur si elle va vers la terre, sinon on aide
-			var dirv := best if inp.length() < 0.5 or inp.normalized().dot(best) < 0.3 else inp.normalized()
-			var sp: float = max(4.5, inp.length())
-			velocity.x = dirv.x * sp; velocity.z = dirv.z * sp
-			if bd <= 2.0 or is_on_wall() or water_t > 0.6:
-				# la berge est trop raide : on grimpe dessus
-				var tgt: Vector3 = p + best * min(bd + 0.6, 2.4)
-				if w.walkable(tgt.x, tgt.z) and (is_on_wall() or water_t > 1.2):
-					global_position = Vector3(tgt.x, w.height(tgt.x, tgt.z) + 0.25, tgt.z); velocity = Vector3.ZERO; water_t = 0.0
+		if not main.in_instance() and w.height(p.x, p.z) < World.WATER_Y + 0.15 and input_vec.length() < 0.1 and main.has_safe_pos:
+			var back: Vector3 = main.last_safe_pos - p; back.y = 0
+			if back.length() > 0.2:
+				back = back.normalized() * 3.0; velocity.x = back.x; velocity.z = back.z
 		return
 	water_t = 0.0
 	if w.walkable(p.x + velocity.x * dt + sign(velocity.x) * look, p.z + velocity.z * dt + sign(velocity.z) * look): return

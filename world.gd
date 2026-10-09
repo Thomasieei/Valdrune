@@ -468,14 +468,50 @@ func _blank_sites() -> void:
 		house_spots.append([q, 12.0])
 
 # forêts de la carte officielle (des centaines d'arbres : dessinés en masse, pas un objet chacun)
+func _forest_clear_spans() -> Array:
+	var builds = Game.S.get("build", {})
+	var data = builds.get(str(map_id), null) if builds is Dictionary else null
+	if not data is Array or int(Game.S.get("decor_v", {}).get(str(map_id), 0)) < int(Builder.OFFICIAL_V.get(str(map_id), 0)):
+		var file := "res://decor/map_%d.json" % map_id
+		data = JSON.parse_string(FileAccess.get_file_as_string(file)) if FileAccess.file_exists(file) else []
+	var spans: Array = []
+	if not data is Array: return spans
+	for obj in data:
+		if not obj is Array or obj.size() < 7: continue
+		var tag := str(obj[0]); var parts := tag.split(":")
+		var base := Vector2(float(obj[1]), float(obj[2])); var rot := float(obj[3]); var sc := float(obj[4])
+		if tag.begins_with("@road:") and parts.size() >= 4:
+			var pts: Array[Vector2] = []
+			for text in parts[3].split(";"):
+				var xy := text.split(",")
+				if xy.size() == 2: pts.append(base + Vector2(float(xy[0]), float(xy[1])).rotated(-rot) * sc)
+			for i in pts.size() - 1: spans.append([pts[i], pts[i + 1], float(parts[2]) * sc * 0.5 + 2.0])
+		elif tag.begins_with("@path:") and parts.size() >= 3:
+			var dir: Vector2 = Vector2.RIGHT.rotated(-rot) * max(0.0, float(parts[2]) * 0.5 - 1.0) * sc
+			spans.append([base - dir, base + dir, 2.0 * sc + 2.0])
+		elif tag.begins_with("@plaza:") and parts.size() >= 2: spans.append([base, base, float(parts[1]) * sc * 0.5 + 2.0])
+		elif tag.begins_with("@npc:"): spans.append([base, base, 3.5])
+	return spans
+
 func _blank_forest() -> void:
 	var f := "res://decor/forest_%d.json" % map_id
 	if not FileAccess.file_exists(f): return
 	var arr = JSON.parse_string(FileAccess.get_file_as_string(f))
 	if not arr is Array: return
 	var hr := RandomNumberGenerator.new(); hr.seed = 4242
+	var clear_spans := _forest_clear_spans()
+	var accepted: Array[Vector2] = []
 	for t in arr:
 		var p := Vector3(float(t[0]), 0, float(t[1]))
+		var point := Vector2(p.x, p.z)
+		var clear := true
+		for span in clear_spans:
+			if seg_dist(point, span[0], span[1]) < float(span[2]): clear = false; break
+		if not clear or not walkable(p.x, p.z): continue
+		for previous in accepted:
+			if previous.distance_squared_to(point) < 3.6 * 3.6: clear = false; break
+		if not clear: continue
+		accepted.append(point)
 		var nm := str(t[4])
 		# près d'un arbre sur deux se coupe (bûcheron) : tier de la région (T1 au sud, T2 au nord)
 		if hr.randf() < 0.5:
@@ -1776,7 +1812,7 @@ func _resources() -> void:
 	for reg in range(1, REGIONS.size()):
 		var R: Dictionary = REGIONS[reg]; var t: int = R.tier
 		# bois : tous les arbres de la carte sont récoltables, regroupés en bosquets
-		var want_w: int = {"forest": 84, "meadow": 46, "hills": 36, "swamp": 30, "ash": 18, "desert": 14, "canyon": 16}.get(R.style, 30)
+		var want_w: int = {"forest": 58, "meadow": 34, "hills": 30, "swamp": 26, "ash": 18, "desert": 14, "canyon": 16}.get(R.style, 30)
 		var placed := 0; var tries := 0
 		while placed < want_w and tries < 3000:
 			tries += 1
@@ -1789,7 +1825,7 @@ func _resources() -> void:
 			for k in n:
 				if placed >= want_w: break
 				var p := c + Vector3(rng.randf_range(-6, 6), 0, rng.randf_range(-6, 6))
-				if region_at(p.x, p.z) != reg or not _free_spot(p, 1.0, false) or _near_node_grid(p, 3.0): continue
+				if region_at(p.x, p.z) != reg or not _free_spot(p, 2.0, false) or _near_node_grid(p, 5.0): continue
 				_add_node("wood", t, p); placed += 1; got += 1
 			if got >= 2: groves.append([c, R.style])
 		for k in ["ore", "fiber"]:

@@ -1,0 +1,11 @@
+project_id = "xtbolgcxyegdwpvpcupc"
+
+[functions.valdrune-commerce]
+verify_jwt = true
+
+[functions.valdrune-payment-return]
+verify_jwt = false
+
+[functions.valdrune-stripe-webhook]
+# The handler validates Stripe-Signature before any financial action.
+verify_jwt = false

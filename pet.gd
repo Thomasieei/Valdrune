@@ -104,11 +104,7 @@ func _physics_process(dt: float) -> void:
 	life -= dt; atk_cd -= dt; sk_cd -= dt
 	if life <= 0.0 or P.dead or main.in_instance() != _in_inst: vanish(); return
 	if target == null or not is_instance_valid(target) or target.dead or Engine.get_physics_frames() % 15 == slot:
-		target = null; var bd := 15.0
-		for e in main.enemies:
-			if e.dead: continue
-			var d: float = e.global_position.distance_to(P.global_position)
-			if d < bd: bd = d; target = e
+		target = main.combat_target(P.global_position, 15.0, true)
 	var want := Vector3.ZERO; var face := Vector3.ZERO
 	var spd: float = float(def.speed)
 	if charge_t > 0.0:
@@ -123,14 +119,14 @@ func _physics_process(dt: float) -> void:
 		var to: Vector3 = target.global_position - global_position; to.y = 0
 		var reach: float = radius + target.radius + 0.7
 		face = to
-		if sk_cd <= 0.0: sk_cd = float(def.skcd); _skill(to)
+		if sk_cd <= 0.0 and to.length() < reach + 2.5: sk_cd = float(def.skcd); _skill(to)
 		if to.length() > reach: want = to.normalized() * spd
 		elif atk_cd <= 0.0:
 			atk_cd = float(def.cd) * randf_range(0.9, 1.1)
-			_play(ATK.get(def.model, "Attack"), 1.6, true)
+			_play(ATK.get(def.model, "Attack"), 1.1, true)
 			var e = target
 			get_tree().create_timer(0.18).timeout.connect(func():
-				if is_instance_valid(e) and not e.dead and not dead: e.take_hit(dmg() * randf_range(0.9, 1.1), self, 1.2))
+				if is_instance_valid(e) and not e.dead and not dead and global_position.distance_to(e.global_position) < reach + 1.0: e.take_hit(dmg() * randf_range(0.9, 1.1), self, 1.2))
 	else:
 		# suit le héros
 		var ang: float = P.yaw + PI + (slot - 1) * 0.8

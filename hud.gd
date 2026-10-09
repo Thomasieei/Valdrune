@@ -10,6 +10,7 @@ var overlay: Control
 var joy := {"id": -1, "base": Vector2.ZERO, "pos": Vector2.ZERO, "vec": Vector2.ZERO}
 var buttons := {}
 var touches := {}
+var touch_starts := {}
 var icons := {}
 var goal_lbl: RichTextLabel
 var goal_dist: Label
@@ -32,6 +33,7 @@ var panel: Control
 var panel_open := false
 var panel_extra: Array = []
 var main_mode := "attack"
+var keyboard_main_mode := ""
 var main_col := GOLD
 var main_text := "ATTAQUE"
 var main_icon := "skull"
@@ -167,7 +169,7 @@ func setup(m: Node) -> void:
 	overlay = Control.new(); overlay.set_anchors_preset(Control.PRESET_FULL_RECT); overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE; overlay.draw.connect(_draw_over); root.add_child(overlay)
 	red = ColorRect.new(); red.color = Color(0.8, 0, 0, 0.0); red.set_anchors_preset(Control.PRESET_FULL_RECT); red.mouse_filter = Control.MOUSE_FILTER_IGNORE; root.add_child(red)
 	fps_lbl = _label("", 12, Color(0.8, 1, 0.8, 0.6)); root.add_child(fps_lbl)
-	for n in ["main", "dodge", "s0", "s1", "s2", "s3", "potion", "mount", "bag", "menu", "zoom", "shop", "ile", "map", "daily", "rank", "arene"]: buttons[n] = {"rect": Rect2(), "held": false}
+	for n in ["main", "dodge", "target", "s0", "s1", "s2", "s3", "potion", "mount", "bag", "menu", "zoom", "shop", "ile", "map", "daily", "rank", "arene"]: buttons[n] = {"rect": Rect2(), "held": false}
 	auto_btn = Button.new(); auto_btn.focus_mode = Control.FOCUS_NONE; auto_btn.custom_minimum_size = Vector2(92, 44)
 	auto_btn.add_theme_font_override("font", f_title); auto_btn.add_theme_font_size_override("font_size", 16)
 	auto_btn.pressed.connect(func(): show_auto()); root.add_child(auto_btn)
@@ -210,7 +212,7 @@ func _layout() -> void:
 	minimap.position = Vector2(s.x - 192, 14)
 	region_lbl.position = Vector2(s.x - 214, 194)
 	buttons.map.rect = Rect2(minimap.position, minimap.size)
-	toasts.position = Vector2((s.x - 560) * 0.5, 94)
+	toasts.position = Vector2((s.x - 560) * 0.5, 112)
 	fps_lbl.position = Vector2(s.x * 0.5 - 30, s.y - 18)
 	mc = Vector2(s.x - 112, s.y - 112)
 	buttons.main.rect = Rect2(mc - Vector2(72, 72), Vector2(144, 144))
@@ -222,6 +224,7 @@ func _layout() -> void:
 	buttons.dodge.rect = Rect2(mc + Vector2(-158, 52) - Vector2(34, 34), Vector2(68, 68))
 	buttons.potion.rect = Rect2(mc + Vector2(-248, 58) - Vector2(30, 30), Vector2(60, 60))
 	buttons.mount.rect = Rect2(mc + Vector2(-248, -28) - Vector2(30, 30), Vector2(60, 60))
+	buttons.target.rect = Rect2(mc + Vector2(-248, -118) - Vector2(30, 30), Vector2(60, 60))
 	# une seule rangée d'icônes discrètes en haut à droite (comme Albion)
 	var row := ["menu", "bag", "shop", "daily", "arene", "rank", "ile", "zoom"]
 	var xi := 0
@@ -240,6 +243,12 @@ var pinch := {}
 var pinch_d0 := 0.0
 var pinch_z0 := 1.0
 func _input(ev: InputEvent) -> void:
+	if ev is InputEventKey and ev.keycode == KEY_SPACE:
+		if ev.pressed and not ev.echo and not panel_open: keyboard_main_mode = main_mode
+		elif not ev.pressed: keyboard_main_mode = ""
+	if ev is InputEventKey and ev.pressed and not ev.echo and not panel_open:
+		if ev.keycode == KEY_TAB: main.cycle_target(); get_viewport().set_input_as_handled(); return
+		if ev.keycode == KEY_ESCAPE and main.selected_enemy != null: main.select_enemy(null); return
 	# molette de la souris : zoom
 	if ev is InputEventMouseButton and ev.pressed and not panel_open and (ev.button_index == MOUSE_BUTTON_WHEEL_UP or ev.button_index == MOUSE_BUTTON_WHEEL_DOWN):
 		main.user_zoom = clamp(main.user_zoom * (0.92 if ev.button_index == MOUSE_BUTTON_WHEEL_UP else 1.08), 0.75, 1.6)
@@ -247,10 +256,12 @@ func _input(ev: InputEvent) -> void:
 	if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed): drag_guard = false
 	if panel_open and cur_panel != "bag": return
 	if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT and not panel_open and not DisplayServer.is_touchscreen_available():
-		if not chat_box.get_global_rect().has_point(ev.position): main.try_pick_player(ev.position)
+		if _world_tap(ev.position): main.try_pick_player(ev.position)
 	if ev is InputEventScreenTouch:
 		var p: Vector2 = ev.position
 		if ev.pressed:
+			touch_starts[ev.index] = {"pos": p, "time": Time.get_ticks_msec(), "dragged": false}
+			if not panel_open and (chat_box.get_global_rect().has_point(p) or auto_btn.get_global_rect().has_point(p) or quest_box.get_global_rect().has_point(p)): return
 			if panel_open:   # inventaire ouvert : seul le joystick (moitié gauche, hors fiche) reste actif
 				if p.x < vs().x * 0.3 and not bag_card_rect.has_point(p) and joy.id == -1:
 					joy.id = ev.index; joy.base = p; joy.pos = p; joy.vec = Vector2.ZERO; touches[ev.index] = "joy"
@@ -267,20 +278,26 @@ func _input(ev: InputEvent) -> void:
 				if pinch.size() == 2: pinch_d0 = 0.0
 		else:
 			var role = touches.get(ev.index, "")
-			var quick: bool = Time.get_ticks_msec() - tap_t < 350 and p.distance_to(tap_from) < 18.0
-			if role == "tap" and quick: main.try_pick_player(p)
-			if role == "joy" and quick and not chat_box.get_global_rect().has_point(p): main.try_pick_player(p)
+			var start: Dictionary = touch_starts.get(ev.index, {})
+			touch_starts.erase(ev.index)
+			var quick: bool = not start.is_empty() and not start.dragged and Time.get_ticks_msec() - int(start.time) < 350 and p.distance_to(start.pos) < 18.0
+			if role == "target" and not start.is_empty() and Time.get_ticks_msec() - int(start.time) >= 500: main.select_enemy(null)
+			if role == "tap" and quick and _world_tap(p): main.try_pick_player(p)
+			if role == "joy" and quick and _world_tap(p): main.try_pick_player(p)
 			if role == "tap": touches.erase(ev.index); pinch.erase(ev.index); pinch_d0 = 0.0; return
 			if role == "joy": joy.id = -1; joy.vec = Vector2.ZERO
 			elif role != "": buttons[role].held = false
 			touches.erase(ev.index)
 	elif ev is InputEventScreenDrag:
+		if touch_starts.has(ev.index) and ev.position.distance_to(touch_starts[ev.index].pos) > 18.0: touch_starts[ev.index].dragged = true
 		# deux doigts sur la droite de l'écran : pincer pour zoomer
 		if pinch.has(ev.index):
 			pinch[ev.index] = ev.position
 			if pinch.size() == 2:
 				var ks: Array = pinch.keys()
 				var d: float = (pinch[ks[0]] as Vector2).distance_to(pinch[ks[1]])
+				for touch in pinch.keys():
+					if touch_starts.has(touch): touch_starts[touch].dragged = true
 				if pinch_d0 <= 0.0: pinch_d0 = d; pinch_z0 = main.user_zoom
 				elif d > 10.0: main.user_zoom = clamp(pinch_z0 * pinch_d0 / d, 0.75, 1.6)
 				tap_t = 0
@@ -292,6 +309,7 @@ func _input(ev: InputEvent) -> void:
 
 func _press(n: String) -> void:
 	match n:
+		"target": main.cycle_target()
 		"dodge": main.player.dodge()
 		"s0": main.player.use_skill(0)
 		"s1": main.player.use_skill(1)
@@ -322,7 +340,37 @@ func move_vec() -> Vector2:
 	if k.length() > 0: v = k.normalized()
 	return v
 
-func main_held() -> bool: return buttons.main.held or Input.is_key_pressed(KEY_SPACE) or main.auto_hold
+func reset_controls() -> void:
+	for button in buttons.values(): button.held = false
+	keyboard_main_mode = ""
+	joy.id = -1; joy.vec = Vector2.ZERO
+	touches.clear(); touch_starts.clear(); pinch.clear(); pinch_d0 = 0.0
+	if main:
+		main.auto_hold = false
+		if main.player:
+			main.player.input_vec = Vector2.ZERO
+			main.player.velocity.x = 0.0; main.player.velocity.z = 0.0
+
+func _notification(what: int) -> void:
+	if not is_instance_valid(main) or root == null: return
+	if what in [NOTIFICATION_APPLICATION_PAUSED, NOTIFICATION_APPLICATION_FOCUS_OUT]: reset_controls()
+	elif what == NOTIFICATION_WM_GO_BACK_REQUEST: handle_back()
+
+func handle_back() -> void:
+	reset_controls()
+	if is_instance_valid(title): return
+	if panel_open: close_panel()
+	elif main.selected_enemy != null: main.select_enemy(null)
+	else: show_menu()
+
+func main_held() -> bool: return buttons.main.held or (Input.is_key_pressed(KEY_SPACE) and keyboard_main_mode == main_mode) or (main.auto_hold and main_mode in ["attack", "gather", "pick"])
+
+func _world_tap(p: Vector2) -> bool:
+	if chat_box.get_global_rect().has_point(p) or quest_box.get_global_rect().has_point(p) or auto_btn.get_global_rect().has_point(p): return false
+	if main.selected_enemy != null and Rect2(vs().x * 0.5 - 190, 10, 380, 90).has_point(p): return false
+	for button in buttons.values():
+		if button.rect.has_point(p): return false
+	return true
 
 # ——— Dessin regroupé : cercles et anneaux en textures, textes à la fin → très peu d'appels de dessin ———
 var TX_DISC: ImageTexture
@@ -522,11 +570,15 @@ func _draw_over() -> void:
 		else:
 			var cd: float = P.skill_cd[i]
 			if cd > 0.0:
-				_pie(c, ctr, 34, cd / sk.cd)
+				_pie(c, ctr, 34, cd / P.skill_cooldown(i))
 				_text(c, str(ceili(cd)), ctr + Vector2(0, 10), 26, Color.WHITE, true, f_title)
 	var dc: Vector2 = buttons.dodge.rect.get_center()
 	_texq(T("ic_ffwd"), Rect2(dc - Vector2(18, 18), Vector2(36, 36)), Color(0.75, 0.92, 1.0))
-	_pie(c, dc, 32, P.dodge_cd / 1.0)
+	_pie(c, dc, 32, P.dodge_cd / Player.DODGE_COOLDOWN)
+	var tc: Vector2 = buttons.target.rect.get_center()
+	_glass(c, tc, 30, GOLD if main.selected_enemy != null else Color("#bfe8ff"), buttons.target.held)
+	_text(c, "◎", tc + Vector2(0, 9), 31, GOLD if main.selected_enemy != null else Color("#bfe8ff"))
+	_text(c, "CIBLE", tc + Vector2(0, 44), 11, GOLD, true, f_title)
 	var pc: Vector2 = buttons.potion.rect.get_center()
 	_texq(T("ic_plus"), Rect2(pc - Vector2(15, 15), Vector2(30, 30)), Color(0.6, 1.0, 0.65))
 	_pie(c, pc, 28, P.potion_cd / 8.0)
@@ -554,10 +606,11 @@ var _sb_tf: StyleBoxFlat
 var _sb_tb: StyleBoxFlat
 var _sb_tfill: StyleBoxFlat
 func _target_frame(c: CanvasItem) -> void:
-	var tg = null
+	var tg = main.selected_enemy
+	if tg != null and (not is_instance_valid(tg) or tg.dead): tg = null
 	var pt = main.pvp_target
-	if pt != null and is_instance_valid(pt) and not pt.dead: tg = pt
-	else:
+	if tg == null and pt != null and is_instance_valid(pt) and not pt.dead: tg = pt
+	if tg == null:
 		var b = main.boss_ref
 		if b != null and is_instance_valid(b) and not b.dead and b.state != "idle": tg = b
 	if tg == null: return
@@ -567,9 +620,9 @@ func _target_frame(c: CanvasItem) -> void:
 	var is_pl: bool = tg is Bot
 	var w := 380.0; var x := vs().x * 0.5 - w * 0.5; var y := 10.0
 	_sb_tf.border_color = Color("#ff4a3a") if is_pl else Color("#d58bff")
-	c.draw_style_box(_sb_tf, Rect2(x, y, w, 62))
+	c.draw_style_box(_sb_tf, Rect2(x, y, w, 90))
 	var nm: String = (tg.nm if is_pl else tg.def.name)
-	var sub: String = ("JOUEUR JcJ · T%d" % tg.tier) if is_pl else ("Boss · T%d" % tg.tier)
+	var sub: String = ("JOUEUR JcJ · T%d" % tg.tier) if is_pl else (("Boss · T%d" if tg.is_boss else "Cible · T%d") % tg.tier)
 	_text(c, nm, Vector2(x + 14, y + 24), 20, Color.WHITE, false, f_title)
 	_text(c, sub, Vector2(x + w - 14 - sub.length() * 8.0, y + 24), 14, Color("#ff9a8a") if is_pl else Color("#e3b8ff"), false)
 	var bar := Rect2(x + 12, y + 36, w - 24, 16)
@@ -578,6 +631,14 @@ func _target_frame(c: CanvasItem) -> void:
 	_sb_tfill.bg_color = Color("#e8452f") if is_pl else Color("#b04dff")
 	if r > 0.01: c.draw_style_box(_sb_tfill, Rect2(bar.position, Vector2(max(12.0, bar.size.x * r), bar.size.y)))
 	_text(c, "%d / %d" % [int(tg.hp), int(tg.max_hp)], bar.get_center() + Vector2(0, 6), 13, Color.WHITE, true)
+	if tg is Enemy:
+		var state_text := "Cible verrouillée · %d m" % int(main.player.global_position.distance_to(tg.global_position))
+		var state_col := Color("#ffe09a")
+		if tg.state == "windup":
+			var dur: float = tg.sp_wind if tg.sp_kind != "" else float(tg.def.wind)
+			state_text = "ATTAQUE DANS %.1f s · esquive !" % max(0.0, dur - tg.t_state); state_col = Color("#ff9a8a")
+		elif tg.state == "recover": state_text = "OUVERTURE · riposte +20 %"; state_col = Color("#7dff8a")
+		_text(c, state_text, Vector2(x + w * 0.5, y + 79), 14, state_col, true)
 
 # écran de chargement (changement de carte)
 func loading(txt: String) -> void:
@@ -639,6 +700,10 @@ func _minimap_marks(c: CanvasItem) -> void:
 	for en in main.dungeon_entries:
 		var qe: Vector2 = ctr + (Vector2(en.pos.x, en.pos.z) - pp) * k
 		if qe.distance_to(ctr) < R: _disc(qe, 5.0, Color("#b46bff")); _ringq(qe, 6.5, Color.WHITE)
+	if not main.wevent.is_empty() and not main.wevent.done:
+		var qw: Vector2 = ctr + (Vector2(main.wevent.pos.x, main.wevent.pos.z) - pp) * k
+		if qw.distance_to(ctr) > R - 8: qw = ctr + (qw - ctr).normalized() * (R - 8)
+		_disc(qw, 6.5, Color("#ff9a3c")); _ringq(qw, 9.0, Color(1, 1, 1, 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.008)))
 	var wb = main.world_boss
 	if wb and is_instance_valid(wb) and not wb.dead:
 		var qb: Vector2 = ctr + (Vector2(wb.global_position.x, wb.global_position.z) - pp) * k
@@ -674,6 +739,8 @@ func update(_dt: float) -> void:
 	root.queue_redraw(); overlay.queue_redraw()
 
 func set_main(mode: String, txt: String, col: Color, icon := "skull") -> void:
+	if mode != main_mode:
+		buttons.main.held = false; keyboard_main_mode = ""
 	main_mode = mode; main_text = txt; main_col = col; main_icon = icon
 
 func set_region(name: String, tier: int) -> void:
@@ -681,8 +748,9 @@ func set_region(name: String, tier: int) -> void:
 
 func toast(t: String, col := SOFT, big := false) -> void:
 	var p := PanelContainer.new(); p.add_theme_stylebox_override("panel", flat(Color(0.05, 0.07, 0.1, 0.7), 20, Color(1, 1, 1, 0.08), 1, Vector4(18, 6, 18, 8)))
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE; p.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE; p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var l := _label(t, 19 if big else 16, col); l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	if big: l.add_theme_font_override("font", f_title)
 	p.add_child(l); toasts.add_child(p)
 	while toasts.get_child_count() > 3: toasts.get_child(0).free()
@@ -775,8 +843,7 @@ func open_panel(title_txt: String, build: Callable, w := 860.0, h := -1.0) -> vo
 	last_build = build; last_w = w; last_h = h
 	var side: String = next_side; next_side = ""; last_side = side
 	panel_open = true
-	for n in buttons: buttons[n].held = false
-	joy.id = -1; joy.vec = Vector2.ZERO; touches.clear()
+	reset_controls()
 	if side == "":
 		var dim := ColorRect.new(); dim.color = Color(0, 0, 0, 0.45); dim.set_anchors_preset(Control.PRESET_FULL_RECT); root.add_child(dim); panel_extra.append(dim)
 	var s := vs(); var hh: float = s.y - 60 if h < 0 else h
@@ -834,6 +901,7 @@ func _x_close() -> void:
 	close_panel()
 
 func close_panel() -> void:
+	reset_controls()
 	if cur_scroll and is_instance_valid(cur_scroll):
 		scroll_mem[panel_title] = cur_scroll.scroll_vertical
 		if cur_panel == "bag": bag_scroll = cur_scroll.scroll_vertical
@@ -1398,7 +1466,7 @@ func show_bag() -> void:
 	close_panel()
 	cur_panel = "bag"; panel_open = true; panel_title = "Sac"
 	for n in buttons: buttons[n].held = false
-	joy.id = -1; joy.vec = Vector2.ZERO; touches.clear()
+	joy.id = -1; joy.vec = Vector2.ZERO; touches.clear(); touch_starts.clear()
 	var entries := bag_entries()
 	if bag_sel >= entries.size(): bag_sel = -1
 	var s := vs()
@@ -1923,7 +1991,7 @@ func show_menu() -> void:
 		var sk_txt := "[b]Compétences[/b] [color=#a8b4bc](débloquées en améliorant ton arme)[/color]\n"
 		for sk in Player.skills(): sk_txt += "[img=30x30]res://ui/%s.png[/img] [b]%s[/b] — Arme T%d — %s\n" % [sk.icon, sk.name, sk.req, sk.desc]
 		body.add_child(rich(sk_txt, 17))
-		body.add_child(rich("[b]Conseils[/b]\n• Pose ton pouce n'importe où à gauche pour bouger. Glisse le doigt pour faire défiler les menus.\n• Gros bouton : attaque, récolte, parle, ouvre — selon ce qui est près de toi.\n• Esquive les cercles rouges au sol. Touche la mini-carte pour voir la carte du monde.\n• [color=#c58bff]Portails violets[/color] : donjons aléatoires, le meilleur butin du jeu.\n• [color=#ff8a4a]VS[/color] : duellistes — gagne pour obtenir des artefacts.\n• [color=#d58bff]Boss de groupe[/color] : il faut être 4 — engage des mercenaires chez Rhéa (auberge).", 17))
+		body.add_child(rich("[b]Conseils[/b]\n• Pose ton pouce n'importe où à gauche pour bouger. Glisse le doigt pour faire défiler les menus.\n• Gros bouton : attaque, récolte, parle, ouvre — selon ce qui est près de toi.\n• Touche un ennemi pour le verrouiller ; bouton CIBLE pour changer (appui long : libérer). Tes familiers suivent ta cible.\n• Esquive les cercles rouges au sol et riposte pendant la récupération : +20 % de dégâts. Touche la mini-carte pour voir la carte du monde.\n• [color=#c58bff]Portails violets[/color] : donjons aléatoires, le meilleur butin du jeu.\n• [color=#ff8a4a]VS[/color] : duellistes — gagne pour obtenir des artefacts.\n• [color=#d58bff]Boss de groupe[/color] : il faut être 4 — engage des mercenaires chez Rhéa (auberge).", 17))
 		var h := HBoxContainer.new(); h.add_theme_constant_override("separation", 10); body.add_child(h)
 		h.add_child(big_button("Son : " + ("oui" if AudioServer.get_bus_volume_db(0) > -50 else "non"), true, func(): _toggle_sound()))
 		h.add_child(big_button("Retour au village", true, func(): _to_camp()))
@@ -1994,7 +2062,7 @@ func _guide_tiers() -> String:
 	return t
 
 func _guide_combat() -> String:
-	return "[b][color=#ffd27a]Combat[/color][/b]\n• Esquive les [color=#ff7a6a]cercles rouges[/color] au sol : ce sont les attaques qui arrivent.\n• Tes compétences se débloquent avec le tier de ton arme (voir Menu).\n• Les potions se boivent automatiquement quand ta vie est basse.\n\n" + \
+	return "[b][color=#ffd27a]Combat[/color][/b]\n• Touche un ennemi pour le cibler ; ◎ change de cible, un appui long la libère.\n• Esquive les [color=#ff7a6a]cercles rouges[/color] au sol : ce sont les attaques qui arrivent.\n• Tes compétences ont une recharge plus longue et un délai commun : choisis le bon moment. Frapper pendant la récupération ennemie donne +20 % de dégâts. Les familiers sont réinitialisés à chaque changement de zone.\n• Les potions se boivent automatiquement quand ta vie est basse.\n\n" + \
 		"[b][color=#ffd27a]Où aller ?[/color][/b]\n• Les régions ont un tier : n'y va pas trop tôt (le nom de la région l'indique sur la carte).\n• [color=#c58bff]Portails violets[/color] : donjons aléatoires, le meilleur butin.\n• [color=#ff8a4a]VS[/color] : duellistes. [color=#d58bff]Boss de groupe[/color] : il faut être 4 — engage des mercenaires chez Rhéa.\n\n" + \
 		"[b][color=#ff6a5a]Zones rouges[/color][/b] (régions T3+ des cartes 2 à 4) : XP et argent ×1,5, mais si tu meurs ton équipement reste sur ta tombe — 5 minutes pour revenir le chercher.\n" + \
 		"[b][color=#ffd27a]Événements[/color][/b] : toutes les 30 min (à l'heure pile et à la demie) — Pluie d'or, Vent du savoir, Grande récolte ou La Horde. Le prochain est affiché sous la mini-carte.\n" + \
@@ -2437,9 +2505,9 @@ func _draw_bigmap(c: Control, sz: float) -> void:
 	var tg = main.goal_target
 	if tg != null: c.draw_arc((Vector2(tg.x, tg.z) + Vector2(128, 128)) * k, 9, 0, TAU, 24, Color("#ffd24a"), 3)
 
-# ——— Boutique royale (gratuite pour l'instant) ———
+# ——— Boutique royale ———
 const SHOP_TABS := [["une", "★ À la une"], ["couronnes", "Couronnes"], ["premium", "Premium & boosts"], ["montures", "Montures"], ["armes", "Armes"], ["equip", "Équipements"], ["ressources", "Ressources"], ["argent", "Argent"]]
-# id, onglet, nom, description, icône, couleur, prix en couronnes (cr) ou en euros (eur, achat simulé), mise en avant
+# id, onglet, nom, description, icône, couleur, prix en couronnes (cr) ou en euros (eur), mise en avant
 const OFFERS := [
 	{"id": "pack_debut", "tab": "couronnes", "name": "Pack du débutant", "desc": "300 couronnes + Cheval de selle + 3 jours Premium · une seule fois", "icon": "mount_cheval", "col": "#ffcf5a", "eur": "0,99 €", "hot": true, "once": true},
 	{"id": "c1", "tab": "couronnes", "name": "Poignée de couronnes", "desc": "120 couronnes", "icon": "crown", "col": "#ffd86b", "eur": "0,99 €", "gives": 120},
@@ -2492,11 +2560,11 @@ func offer(id: String) -> Dictionary:
 	for o in OFFERS:
 		if o.id == id: return o
 	return {}
-# confirmation d'un achat en euros (SIMULÉ : aucun paiement réel)
+# Confirmation before opening the secure Stripe payment page.
 func confirm_purchase(o: Dictionary) -> void:
 	open_panel("Confirmer l'achat", func(body: VBoxContainer):
 		body.add_child(rich("[center][font_size=26][b]%s[/b][/font_size]\n%s\n\n[font_size=30][color=#7dff8a][b]%s[/b][/color][/font_size][/center]" % [o.name, o.desc, o.eur], 19))
-		body.add_child(rich("[center][color=#ffb07a]Version de test : l'achat est simulé, rien n'est débité.[/color][/center]", 15))
+		body.add_child(rich("[center][color=#ffb07a]Paiement sécurisé sur Stripe. Les récompenses sont ajoutées après confirmation du paiement.[/color][/center]", 15))
 		var h := HBoxContainer.new(); h.alignment = BoxContainer.ALIGNMENT_CENTER; h.add_theme_constant_override("separation", 16); body.add_child(h)
 		h.add_child(big_button("Annuler", true, func(): show_boutique()))
 		h.add_child(big_button("Acheter · %s" % o.eur, true, func(): main.real_buy(o.id), GOLD, true))
@@ -2617,7 +2685,7 @@ func show_boutique(tab := "") -> void:
 		var grid := GridContainer.new(); grid.columns = 2 if shop_tab == "une" else 3; grid.add_theme_constant_override("h_separation", 12); grid.add_theme_constant_override("v_separation", 12); body.add_child(grid)
 		for o in list: grid.add_child(_offer_card(o, shop_tab == "une"))
 		if shop_tab in ["couronnes", "une"]:
-			body.add_child(rich("[color=#8a949c]Les couronnes se gagnent aussi en jouant : connexion quotidienne, quêtes du jour, classement. Achats en euros : [b]simulés[/b] dans cette version de test (aucun paiement réel) — le vrai paiement passera par Google Play.[/color]", 14))
+			body.add_child(rich("[color=#8a949c]Les couronnes se gagnent aussi en jouant : connexion quotidienne, quêtes du jour, classement. Achats en euros : paiement sécurisé sur [b]Stripe[/b], crédité après confirmation du serveur.[/color]", 14))
 	, 1220)
 
 # ——— Enchantement (Ysaline) ———
@@ -2826,7 +2894,7 @@ func countdown(done: Callable) -> void:
 func show_dialog(npc: Npc, text: String, actions: Array) -> void:
 	close_panel(); panel_open = true
 	for n in buttons: buttons[n].held = false
-	joy.id = -1; joy.vec = Vector2.ZERO; touches.clear()
+	joy.id = -1; joy.vec = Vector2.ZERO; touches.clear(); touch_starts.clear()
 	var s := vs(); var w: float = min(820.0, s.x - 80)
 	# bulle façon manga : cadre blanc épais, nom en cartouche, visage d'humeur
 	var pc := PanelContainer.new(); pc.add_theme_stylebox_override("panel", flat(Color("#fffcf2"), 14, Color("#15110c"), 5, Vector4(26, 14, 26, 16), 12))
@@ -2863,7 +2931,9 @@ func show_title() -> void:
 	var c := CenterContainer.new(); c.add_child(b); v.add_child(c)
 
 func _start() -> void:
-	title.queue_free(); panel_open = false
+	if not is_instance_valid(title): return
+	var old_title := title; title = null; old_title.queue_free(); panel_open = false
+	reset_controls()
 	main.on_start()
 
 var auto_btn: Button
@@ -2934,8 +3004,8 @@ func refresh_chat() -> void:
 	if chat_lbl == null or main.social == null: return
 	var L: Array = main.social.lines
 	var out := []
-	for i in range(max(0, L.size() - 1), L.size()): out.append("[img=14x14]res://ui/it_quest.png[/img] " + _fmt_line(L[i]))
-	chat_lbl.text = "\n".join(out)
+	for i in range(max(0, L.size() - 1), L.size()): out.append("[b]CHAT[/b] · " + _fmt_line(L[i]))
+	chat_lbl.text = "\n".join(out) if not out.is_empty() else "[b]CHAT[/b] · touche ici pour discuter"
 	_place_chat()
 	if cur_panel == "chat" and panel_open: _refresh_chat_panel()
 
