@@ -1,4 +1,4 @@
-import { TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, COFFRES, tf, NIVEAU_REQUIS, VARIANTES, PRIX_TROPHEES } from './data.js';
+import { TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, COFFRES, tf, NIVEAU_REQUIS, VARIANTES, PRIX_TROPHEES, PARCHEMINS, COULEURS_PARCH } from './data.js';
 
 // maîtrise courante du joueur (niveaux par arme / pièce d'armure)
 export const ETAT = { maitrise: null };
@@ -16,6 +16,7 @@ export function creerArmure(slot, tier, qualite = 0) {
 export function creerButin(bid, n = 1) {
   return { id: ++uid, cat: 'butin', type: bid, tier: 0, q: 0, n };
 }
+export function creerParchemin(id, n = 1) { return { id: ++uid, cat: 'parchemin', type: id, tier: 0, q: 0, n }; }
 export function creerPotion(n = 1) { return { id: ++uid, cat: 'potion', type: 'soin', tier: 0, q: 0, n }; }
 
 export function nomObjet(it) {
@@ -25,16 +26,19 @@ export function nomObjet(it) {
   if (it.cat === 'armure') return ARMURES[it.type].noms[it.tier] + suf + en;
   if (it.cat === 'butin') return BUTINS.find(b => b.id === it.type).nom;
   if (it.cat === 'potion') return 'Potion de soin';
+  if (it.cat === 'parchemin') { const p = PARCHEMINS[it.type]; return `Parchemin de ${COULEURS_PARCH[p.couleur].nom} +${Math.round(p.bonus * 100)} %`; }
   return '?';
 }
 export function couleurObjet(it) {
   if (it.cat === 'butin') return BUTINS.find(b => b.id === it.type).color;
   if (it.cat === 'potion') return '#ff5a6a';
+  if (it.cat === 'parchemin') return COULEURS_PARCH[PARCHEMINS[it.type].couleur].c2;
   return TIERS[it.tier].color;
 }
 export function categorieLabel(it) {
   if (it.cat === 'arme') return ARMES[it.type].label + (ARMES[it.type].rare ? (it.beta ? ' · ✦ Bêta' : ' · ✦ Classe rare (0,1 %)') : '');
   if (it.cat === 'armure') return ARMURES[it.type].label;
+  if (it.cat === 'parchemin') return 'Parchemin · Brèche uniquement';
   if (it.cat === 'butin') return it.type === 'rune' ? 'Matériau d’enchantement' : 'Butin sans valeur';
   return 'Consommable';
 }
@@ -45,6 +49,7 @@ export function puissanceObjet(it) {
 export function valeurObjet(it) {
   if (it.cat === 'butin') return BUTINS.find(b => b.id === it.type).valeur;
   if (it.cat === 'potion') return 60;
+  if (it.cat === 'parchemin') return PARCHEMINS[it.type].prix;
   const base = it.cat === 'arme' ? 180 : 120;
   return Math.round(base * Math.pow(2.6, it.tier - 1) * QUALITES[it.q].mult * (it.arene ? 1.2 : 1) * Math.pow(1.6, it.ench || 0) * (ARMES[it.type] && ARMES[it.type].rare ? 3 : 1));
 }

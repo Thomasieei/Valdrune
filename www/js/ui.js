@@ -1,7 +1,7 @@
 // ===== Interface : icônes, HUD, inventaire, marché, dialogues =====
 import { THREE, G, projeter } from './engine.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, MODES, COFFRES, MAITRISES, NIVEAU_REQUIS, VARIANTES, EMOTES, TRAITS, RANGS, PTS_RANG, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT } from './data.js';
+import { TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, MODES, COFFRES, MAITRISES, NIVEAU_REQUIS, VARIANTES, EMOTES, TRAITS, RANGS, PTS_RANG, PARCHEMINS, COULEURS_PARCH, BOUTIQUE_PARCH_GRATUITE, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT } from './data.js';
 import { nomObjet, couleurObjet, statsObjet, sortsObjet, puissanceObjet, valeurObjet, prixVente, categorieLabel, statsHeros, stockMarchand, stockArene, prixTrophees, niveauRequis, peutPorter, niveauDe, xpPour, bonusMaitrise, tierMaxPour, coutEnchant } from './items.js';
 
 const $ = (s) => document.querySelector(s);
@@ -96,6 +96,7 @@ function materielTier(m, tier) {
 export function iconeObjet(it) {
   const cle = it.cat + '_' + it.type + '_' + it.tier;
   if (icoCache[cle]) return icoCache[cle];
+  if (it.cat === 'parchemin') return (icoCache[cle] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgParchemin(it.type)));
   if (it.cat === 'butin' || it.cat === 'potion') return (icoCache[cle] = icone2D(it));
   if (!icoR) initIcones();
   const grp = new THREE.Group();
@@ -493,6 +494,7 @@ UI.fiche = (it, contexte) => {
   const ok = peutPorter(it);
   if (contexte === 'sac' && slot) boutons.push(`<button class="btn or" data-a="equiper" ${ok ? '' : 'disabled'}>Équiper</button>`);
   if (contexte === 'sac' && it.cat === 'potion') boutons.push(`<button class="btn or" data-a="ranger">Ranger dans la ceinture</button>`);
+  if (contexte === 'sac' && it.cat === 'parchemin') boutons.push(`<button class="btn or" data-a="parch">Lire le parchemin (30 min)</button>`);
   if (contexte === 'equipe') boutons.push(`<button class="btn gris" data-a="retirer">Retirer</button>`);
   if (contexte === 'vente') boutons.push(`<button class="btn" data-a="vendre">Vendre ${fmt(prixVente(it))}</button>`);
   if (contexte === 'achat') boutons.push(`<button class="btn" data-a="acheter">Acheter ${fmt(valeurObjet(it))}</button>`);
@@ -501,7 +503,7 @@ UI.fiche = (it, contexte) => {
   const vInfo = it.arene ? `<p class="varArene" style="--vc:${VARIANTES[it.arene].couleur}"><b>Objet d’arène · ${VARIANTES[it.arene].style}.</b> ${VARIANTES[it.arene].texte} +10 % contre les joueurs.</p>` : '';
   const etoiles = slot ? `<div class="etoiles">${[1, 2, 3, 4].map(k => `<span class="${(it.q || 0) >= k ? 'on' : ''}">★</span>`).join('')}</div>` : '';
   const ench = slot ? `<div class="enchF" title="Enchantement">${Array.from({ length: 6 }, (_, k) => `<i class="${(it.ench || 0) > k ? 'on' : ''}"></i>`).join('')}<small>${it.ench ? `+${it.ench} · équivaut à un T${(it.tier + it.ench / 2).toString().replace('.', ',')}` : 'Non enchanté'}</small></div>` : '';
-  const desc = it.cat === 'potion' ? 'Rend 40 % de tes PV en 1 s. Se boit avec le bouton potion.' : it.cat === 'butin' ? (it.type === 'rune' ? 'Sert à graver un enchantement chez Ysolde, la graveuse de runes, sur la Place. Jusqu’à +6 par objet : deux enchantements valent un tier.' : 'Ne sert à rien, sauf à être vendu au marchand.') : '';
+  const desc = it.cat === 'parchemin' ? (() => { const p = PARCHEMINS[it.type], C = COULEURS_PARCH[p.couleur]; return `<b>+${Math.round(p.bonus * 100)} % ${C.texte}</b> pendant 30 minutes de jeu dans la Brèche Écarlate. Le temps ne s’écoule que dans la Brèche, et se met en pause si tu envahis ou pendant le combat contre des envahisseurs. Tu peux cumuler des couleurs différentes ; deux parchemins de la même couleur additionnent leur durée.`; })() : it.cat === 'potion' ? 'Rend 40 % de tes PV en 1 s. Se boit avec le bouton potion.' : it.cat === 'butin' ? (it.type === 'rune' ? 'Sert à graver un enchantement chez Ysolde, la graveuse de runes, sur la Place. Jusqu’à +6 par objet : deux enchantements valent un tier.' : 'Ne sert à rien, sauf à être vendu au marchand.') : '';
   $('#fiche').innerHTML = `<div class="carteObjet riche" style="--tc:${tc}"><button class="fermer" data-x aria-label="Fermer">×</button>
     <div class="bandeau"><span>${t ? `TIER ${t.roman} · ${t.nom.toUpperCase()}` : categorieLabel(it).toUpperCase()}</span>${slot ? `<span class="qual" style="color:${q.color}">${q.nom}</span>` : ''}</div>
     <div class="corpsF">
@@ -532,6 +534,7 @@ UI.fiche = (it, contexte) => {
     if (a === 'acheter') api.acheter(it);
     if (a === 'acheterArene') api.acheterArene(it);
     if (a === 'ranger') api.rangerPotion(it.id);
+    if (a === 'parch') api.utiliserParchemin(it.id);
     if (!$('#inv').hidden) UI.rendreInventaire();
     if (!$('#marche').hidden) UI.rendreMarche();
   });
@@ -585,7 +588,7 @@ UI.dialogueMarchand = () => {
   const d = $('#dialogue');
   d.innerHTML = `<div class="boiteDial bois"><button class="fermer" data-x aria-label="Fermer">×</button><div class="visage"><canvas id="visageCv" width="128" height="128"></canvas></div>
   <div><h3>Borin, marchand de la Place</h3><p>Bienvenue, voyageur. Le bronze et l'azur, je les ai. Le reste, faudra aller le chercher de l'autre côté de la Brèche… et revenir vivant pour me le revendre.</p>
-  <div class="choix"><button class="btn or" data-c="achat">Acheter</button><button class="btn" data-c="vente">Vendre</button><button class="btn gris" data-c="infos">Parle-moi des tiers</button><button class="btn gris" data-x2>Au revoir</button></div></div></div>`;
+  <div class="choix"><button class="btn or" data-c="achat">Acheter</button><button class="btn" data-c="vente">Vendre</button><button class="btn violet" data-c="parch">Parchemins</button><button class="btn gris" data-c="infos">Parle-moi des tiers</button><button class="btn gris" data-x2>Au revoir</button></div></div></div>`;
   d.hidden = false; bustePersonnage('Barbarian', $('#visageCv'), '#8a5a2a');
   api.son('bookOpen', 0.5);
   const fermer = () => { d.hidden = true; };
@@ -595,6 +598,7 @@ UI.dialogueMarchand = () => {
       d.querySelector('p').innerHTML = 'Du <b style="color:#c9c1b4">T1 Rouillé</b> au <b style="color:#fff0b0">T8 Céleste</b> : rouillé, bronze, <b style="color:#6be27a">sylvestre</b>, <b style="color:#7ab0ff">azur</b>, <b style="color:#ff7a5a">braise</b>, <b style="color:#ffb84a">solaire</b>, <b style="color:#c88aff">abyssal</b>, céleste. Chaque tier frappe environ 40 % plus fort que le précédent. La qualité, de Normal à Chef-d’œuvre, ajoute jusqu’à 40 %.';
       return;
     }
+    if (b.dataset.c === 'parch') { fermer(); UI.boutiqueParchemins(); return; }
     fermer(); ongletM = b.dataset.c; UI.ouvrirMarche();
   });
 };
@@ -1093,4 +1097,47 @@ UI.butinPillage = (b) => {
       ${b.argent ? `<div class="tuileP or"><span class="piece" style="width:7vh;height:7vh"></span><b>+${fmt(b.argent)}</b><small>${fmt(b.reste)} revendus sur place</small></div>` : ''}
     </div><button class="btn or" data-ok>Emporter le butin</button></div>`;
   d.hidden = false; d.querySelector('[data-ok]').onclick = () => (d.hidden = true);
+};
+
+// ---------------- Parchemins ----------------
+const SYMB = {
+  botte: '<path d="M34 30 h16 v26 l20 8 c6 2 8 6 8 10 v4 H30 v-8 l4 -4 z" fill="#fff" stroke="#0006" stroke-width="2"/><path d="M30 78 h48" stroke="#0006" stroke-width="3"/><path d="M14 46 h12 M10 56 h14 M14 66 h10" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".85"/>',
+  fleches: '<path d="M50 26 L70 46 H58 V54 H42 V46 H30 Z" fill="#fff" stroke="#0006" stroke-width="2"/><path d="M50 50 L70 70 H58 V80 H42 V70 H30 Z" fill="#fff" stroke="#0006" stroke-width="2" opacity=".85"/>',
+  billet: '<rect x="22" y="38" width="56" height="30" rx="4" fill="#fff" stroke="#0006" stroke-width="2"/><circle cx="50" cy="53" r="8" fill="none" stroke="#2a7a2a" stroke-width="3"/><path d="M50 47 v12 M47 50 h5 a2 2 0 0 1 0 4 h-4 a2 2 0 0 0 0 4 h5" stroke="#2a7a2a" stroke-width="2" fill="none"/><rect x="26" y="42" width="6" height="22" fill="#9ad89a"/><rect x="68" y="42" width="6" height="22" fill="#9ad89a"/>',
+  coffre: '<path d="M26 46 h48 v26 h-48 z" fill="#fff" stroke="#0006" stroke-width="2"/><path d="M26 46 c0 -14 48 -14 48 0" fill="#fff" stroke="#0006" stroke-width="2"/><rect x="45" y="50" width="10" height="10" rx="2" fill="#ffd27a" stroke="#0006"/><path d="M38 30 l3 6 M62 30 l-3 6 M50 26 v7" stroke="#fff" stroke-width="3" stroke-linecap="round"/>',
+};
+export function svgParchemin(id, taille = null) {
+  const p = PARCHEMINS[id], C = COULEURS_PARCH[p.couleur]; const g = 'p' + id;
+  const s = taille ? `style="width:${taille};height:${taille}"` : 'width="128" height="128"';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" ${s}><defs><linearGradient id="${g}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${C.c1}"/><stop offset=".55" stop-color="${C.c2}"/><stop offset="1" stop-color="${C.c3}"/></linearGradient></defs>
+    <rect x="16" y="14" width="68" height="72" rx="4" fill="url(#${g})" stroke="${C.c3}" stroke-width="3"/>
+    <rect x="10" y="8" width="80" height="12" rx="6" fill="${C.c1}" stroke="${C.c3}" stroke-width="3"/><rect x="10" y="80" width="80" height="12" rx="6" fill="${C.c1}" stroke="${C.c3}" stroke-width="3"/>
+    <circle cx="10" cy="14" r="5" fill="${C.c2}" stroke="${C.c3}" stroke-width="2"/><circle cx="90" cy="14" r="5" fill="${C.c2}" stroke="${C.c3}" stroke-width="2"/><circle cx="10" cy="86" r="5" fill="${C.c2}" stroke="${C.c3}" stroke-width="2"/><circle cx="90" cy="86" r="5" fill="${C.c2}" stroke="${C.c3}" stroke-width="2"/>
+    <g transform="translate(0 -4)">${SYMB[C.symbole]}</g>
+    ${p.bonus >= 0.5 ? `<path d="M74 22 l3 6 6 1 -4.5 4 1 6 -5.5 -3 -5.5 3 1 -6 -4.5 -4 6 -1z" fill="#ffe27a" stroke="#6a4a00" stroke-width="1.2"/>` : ''}
+    <text x="50" y="78" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="15" fill="#fff" stroke="${C.c3}" stroke-width="3" paint-order="stroke">+${Math.round(p.bonus * 100)}%</text></svg>`;
+}
+UI.boutiqueParchemins = () => {
+  const j = api.etat(); const d = $('#portailMenu');
+  const actifs = api.parchemins();
+  const cartes = Object.entries(COULEURS_PARCH).map(([c, C]) => `<div class="colParch" style="--c1:${C.c1};--c2:${C.c2};--c3:${C.c3}"><h4>${C.nom}</h4><small>${C.texte}</small>
+    ${['20', '50'].map(b => { const id = c + b, p = PARCHEMINS[id]; const nb = j.sac.filter(i => i.cat === 'parchemin' && i.type === id).reduce((a, i) => a + (i.n || 1), 0);
+      return `<div class="carteParch ${b === '50' ? 'fort' : ''}">${svgParchemin(id, '11vh')}<b>+${b} %</b><span class="dur">30 min</span>${nb ? `<em>${nb} dans le sac</em>` : ''}
+      <button class="btn" data-p="${id}">${BOUTIQUE_PARCH_GRATUITE ? `<s>${fmt(p.prix)}</s> Gratuit` : fmt(p.prix)}</button></div>`; }).join('')}</div>`).join('');
+  d.innerHTML = `<div class="cadreP parch"><button class="fermer" data-x aria-label="Fermer">×</button>
+    <h2>Parchemins de la Brèche</h2><div class="sous">Lis-les depuis ton sac. Ils ne s’écoulent que dans la Brèche Écarlate et se mettent en pause pendant une invasion. Combine les couleurs ; une même couleur additionne la durée.${BOUTIQUE_PARCH_GRATUITE ? ' <b class="beta">Accès bêta : gratuit</b>' : ''}</div>
+    ${actifs.length ? `<div class="actifsP">${actifs.map(a => `<span style="--c2:${COULEURS_PARCH[a.couleur].c2}">${COULEURS_PARCH[a.couleur].nom} +${Math.round(a.bonus * 100)} % · ${Math.ceil(a.reste / 60)} min${a.pause ? ' · en pause' : ''}</span>`).join('')}</div>` : ''}
+    <div class="grilleParch">${cartes}</div></div>`;
+  d.hidden = false; d.onclick = (e) => { if (e.target === d) d.hidden = true; };
+  d.querySelector('[data-x]').onclick = () => (d.hidden = true);
+  d.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { if (api.acheterParchemin(b.dataset.p, 1)) { UI.toast('Parchemin ajouté au sac'); UI.boutiqueParchemins(); } });
+};
+let parchCache = '';
+UI.majParchemins = (liste) => {
+  let el = document.getElementById('parchHud');
+  if (!liste.length) { if (el) el.remove(); parchCache = ''; return; }
+  if (!el) { el = document.createElement('div'); el.id = 'parchHud'; $('#jeu').appendChild(el); }
+  const html = liste.map(p => { const C = COULEURS_PARCH[p.couleur]; const m = Math.floor(p.reste / 60), s = Math.floor(p.reste % 60);
+    return `<div class="pH ${p.pause ? 'pause' : ''}" style="--c2:${C.c2}" title="${C.nom}">${svgParchemin(p.couleur + (p.bonus >= 0.5 ? '50' : '20'), '4.4vh')}<span>${p.pause ? '⏸' : `${m}:${String(s).padStart(2, '0')}`}</span></div>`; }).join('');
+  if (html !== parchCache) { el.innerHTML = html; parchCache = html; }
 };

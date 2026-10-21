@@ -260,3 +260,19 @@ export const RANGS = [
 export const PTS_RANG = 100, GAIN_RANG = 20, PERTE_RANG = 15;
 // boss errant ultra rare de la Brèche
 export const BOSS_ERRANT = { id: 'devoreur', nom: 'Nyx’Ahrûn', titre: 'le Dévoreur d’Étoiles', model: 'Dragon_Evolved', arme: null, scale: 1.0, hauteur: 6.4, rayon: 3.0, hpMult: 54, dmgMult: 4.2, couleur: '#c06aff', teinte: '#3a0a6a', errant: true };
+
+// ---- Parchemins (Brèche uniquement, en pause pendant une invasion) ----
+export const COULEURS_PARCH = {
+  vert: { nom: 'Célérité', effet: 'vitesse', c1: '#b8ff9a', c2: '#2a9a3a', c3: '#0a3a14', symbole: 'botte', texte: 'de vitesse de déplacement' },
+  violet: { nom: 'Savoir', effet: 'xp', c1: '#f0c8ff', c2: '#9a3aff', c3: '#2a0650', symbole: 'fleches', texte: 'd’expérience' },
+  orange: { nom: 'Fortune', effet: 'argent', c1: '#ffe0a0', c2: '#ff8a1a', c3: '#5a2600', symbole: 'billet', texte: 'd’argent' },
+  bleu: { nom: 'Trésor', effet: 'drop', c1: '#c8f0ff', c2: '#2a8aff', c3: '#062a5a', symbole: 'coffre', texte: 'd’objets dans les coffres' },
+};
+export const PARCHEMINS = {
+  vert20: { couleur: 'vert', bonus: 0.2, prix: 4000 }, vert50: { couleur: 'vert', bonus: 0.5, prix: 18000 },
+  violet20: { couleur: 'violet', bonus: 0.2, prix: 6000 }, violet50: { couleur: 'violet', bonus: 0.5, prix: 26000 },
+  orange20: { couleur: 'orange', bonus: 0.2, prix: 6000 }, orange50: { couleur: 'orange', bonus: 0.5, prix: 26000 },
+  bleu20: { couleur: 'bleu', bonus: 0.2, prix: 8000 }, bleu50: { couleur: 'bleu', bonus: 0.5, prix: 34000 },
+};
+export const DUREE_PARCH = 30 * 60;
+export const BOUTIQUE_PARCH_GRATUITE = true; // accès libre pendant la bêta

@@ -3,8 +3,8 @@ import { THREE, G, initRendu, majCamera, rendre, majTorches, chargerAssets, char
   emettre, majParticules, majVfx, ajouterVfx, onde, lueurSol, arcTaille, faisceau, telegraphe, meshCarreau, meshBoule, DIR_HAUT, DIR_DROITE, projeter, texRond, texRunes, redimensionner, appliquerNiveau, majQualiteAuto } from './engine.js';
 import { construireHub, construireDonjon, construireArene, construireIle, nbEmplacements, majFeux, noeudReel, creerAssetsProc, construireSylve } from './world.js';
 import { UI, iconeObjet, bustePersonnage, TEINTES_OMBRE } from './ui.js';
-import { TIERS, ARMES, ARMURES, SORTS, MODES, COFFRES, BOSS, MOBS, BOTS, CHAT, tf, MAITRISES, NIVEAU_REQUIS, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT, RESSOURCES, CHANCE_OMBRE, CODES_BETA, MOBS_SYLVE, BOSS_SYLVE, TRAITS, RANGS, PTS_RANG, GAIN_RANG, PERTE_RANG, BOSS_ERRANT } from './data.js';
-import { creerArme, creerArmure, creerPotion, statsHeros, nomObjet, valeurObjet, prixVente, lootCoffre, lootMonstre, tirerCouleurCoffre, ETAT, coutEnchant, ENCH_MAX, creerButin, xpPour, peutPorter, niveauRequis, niveauDe, sortsArme, prixTrophees } from './items.js';
+import { TIERS, ARMES, ARMURES, SORTS, MODES, COFFRES, BOSS, MOBS, BOTS, CHAT, tf, MAITRISES, NIVEAU_REQUIS, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT, RESSOURCES, CHANCE_OMBRE, CODES_BETA, MOBS_SYLVE, BOSS_SYLVE, TRAITS, RANGS, PTS_RANG, GAIN_RANG, PERTE_RANG, BOSS_ERRANT, PARCHEMINS, COULEURS_PARCH, DUREE_PARCH, BOUTIQUE_PARCH_GRATUITE } from './data.js';
+import { creerParchemin, creerArme, creerArmure, creerPotion, statsHeros, nomObjet, valeurObjet, prixVente, lootCoffre, lootMonstre, tirerCouleurCoffre, ETAT, coutEnchant, ENCH_MAX, creerButin, xpPour, peutPorter, niveauRequis, niveauDe, sortsArme, prixTrophees } from './items.js';
 
 const $ = (s) => document.querySelector(s);
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -515,7 +515,7 @@ function tuer(e) {
   if (e.rival) { if (arene) { setTimeout(() => { e.descendre = true; }, 4000); verifierArene(); } else if (e.bandit || e.gardeIle) finCombatIle(e); else victoireRival(e); return; }
   const part = coequipiers().length && !modeActuel.sylve ? 0.5 : 1;
   const loot = lootMonstre(modeActuel);
-  const gain = Math.max(1, Math.round(loot.argent * (e.boss ? 12 : 1) * part * (MODES.includes(modeActuel) ? 1 + 0.25 * rangDe('donjon').i : 1)));
+  const gain = Math.max(1, Math.round(loot.argent * (e.boss ? 12 : 1) * part * (1 + bonusParch('argent')) * (MODES.includes(modeActuel) ? 1 + 0.25 * rangDe('donjon').i : 1)));
   J.argent += gain;
   const xp = Math.round(10 * (modeActuel.xp || 1) * (e.boss ? 18 : 1) * part);
   UI.nombre(V(e.pos.x, 2.2, e.pos.z), `+${gain} ¤`, 'info');
@@ -872,7 +872,7 @@ function majJoueur(dt) {
   const bloque = j.verrouT > 0 && j.spinT <= 0;
   if (m > 0.12 && !bloque) {
     const dir = DIR_DROITE.clone().multiplyScalar(mx).addScaledVector(DIR_HAUT, my).normalize();
-    let v = st.vitesse * (j.sprintT > 0 ? 1.6 : 1) * (j.slowT > 0 ? 0.6 : 1) * (j.spinT > 0 ? 0.7 : 1); // vitesse constante, peu importe l'inclinaison du joystick
+    let v = st.vitesse * (1 + bonusParch('vitesse')) * (j.sprintT > 0 ? 1.6 : 1) * (j.slowT > 0 ? 0.6 : 1) * (j.spinT > 0 ? 0.7 : 1); // vitesse constante, peu importe l'inclinaison du joystick
     deplacer(j, dir.x * v * dt, dir.z * v * dt);
     const vise = (entree.atk || entree.clavier[' ']) && j.cible && !j.cible.mort && dist2D(j.cible.pos, j.pos) - j.cible.rayon < st.portee + 0.5;
     if (j.spinT <= 0 && !vise) { j.angle = tourner(j.angle, Math.atan2(dir.x, dir.z), dt * 14); j.root.rotation.y = j.angle; }
@@ -1149,6 +1149,9 @@ const API = {
   piller: () => entrerIle(ileBot()),
   construire: (ile, plot, t) => construire(ile, plot, t),
   get ile() { return API_ILE; },
+  parchemins: () => etatParchemins(),
+  acheterParchemin: (id, n = 1) => { const p = PARCHEMINS[id]; const prix = BOUTIQUE_PARCH_GRATUITE ? 0 : p.prix * n; if (J.argent < prix) { UI.toast('Pas assez d’argent'); son('error_001', 0.4); return false; } J.argent -= prix; ajouterSac(creerParchemin(id, n), true); son('handleCoins', 0.5); sauver(); return true; },
+  utiliserParchemin: (itemId) => utiliserParchemin(itemId),
   rang: (mode) => rangDe(mode), classement: (mode) => classementRang(mode), xpLog: () => J.xpLog || [],
   emote: (id) => emoteJoueur(id),
   visable: (k) => { const s = joueur && joueur.sorts[k]; return !!(s && s.portee > 0 && !['bouclier', 'soin', 'sprint', 'buff'].includes(s.type) && s.id !== 'legion'); },
@@ -1226,7 +1229,8 @@ function ouvrirCoffre(c) {
   emettre(V(c.pos.x, 1.2, c.pos.z), { n: 90, c1: '#fff2c0', c2: c.def.color, vit: 7, vie: 1.2, taille: 0.45, grav: 4, monte: 4 });
   onde(c.pos, c.def.color, 5, 0.8);
   const loot = lootCoffre(c.couleur, modeActuel, c.mega ? 3 : c.boss.idx);
-  if (MODES.includes(modeActuel)) loot.argent = Math.round(loot.argent * (1 + 0.25 * rangDe('donjon').i));
+  if (MODES.includes(modeActuel)) loot.argent = Math.round(loot.argent * (1 + 0.25 * rangDe('donjon').i) * (1 + bonusParch('argent')));
+  { const bd = bonusParch('drop'); if (bd > 0) { const extra = lootCoffre(c.couleur, modeActuel, c.boss.idx || 0).objets; for (const it of extra) if (Math.random() < bd * 1.6) loot.objets.push(it); if (extra.length && Math.random() < bd) loot.objets.push(extra[0]); } }
   if (c.mega) {
     loot.argent *= 8; const tm = modeActuel.tiers[1];
     loot.objets.push(...[0, 1, 2].map(() => Math.random() < 0.5 ? creerArme(hasard(['epee', 'arbalete', 'baton']), tm, 3 + (Math.random() < 0.4 ? 1 : 0)) : creerArmure(hasard(['casque', 'plastron', 'bottes']), tm, 3 + (Math.random() < 0.4 ? 1 : 0))), creerButin('rune', 12));
@@ -1365,7 +1369,7 @@ function boucle() {
     majCamera(dt, joueur.pos);
     majTorches(joueur.pos);
     hudT -= dt; if (hudT <= 0) { hudT = 0.08; UI.majHud(joueur, joueur.st); UI.majSorts(joueur); majInteractions(); majCadreAutre(); majBarreRival(); }
-    miniT -= dt; if (miniT <= 0) { miniT = 0.2; majMini(); }
+    miniT -= dt; if (miniT <= 0) { miniT = 0.2; majMini(); majParchemins(0.2); }
     UI.majPlaques(joueur.pos);
     // anneau de cible
     majAnneauCible(); majVisee();
@@ -1796,6 +1800,7 @@ function montrerXP(source) {
 }
 function gagnerXP(base) {
   if (!base) return;
+  base = Math.round(base * (1 + bonusParch('xp')));
   for (const t of typesPortes()) noterXP(t, base);
   let monte = false;
   for (const t of typesPortes()) monte = gainXP(t, base) || monte;
@@ -1804,6 +1809,7 @@ function gagnerXP(base) {
   sauver();
 }
 function gagnerXPRelatif(frac) {
+  frac *= 1 + bonusParch('xp');
   let total = 0;
   for (const t of typesPortes()) { const m = J.maitrise[t]; const x = Math.round(xpPour(m.niv) * frac); total += x; gainXP(t, x); noterXP(t, x); }
   recalculer(); sauver();
@@ -3058,6 +3064,43 @@ function transitionVerdanthos(e, ph) {
   if (ph === 3) for (const mt of e.mats) if (mt.emissive) { mt.emissive.set('#2aff6a').multiplyScalar(0.35); mt.userData.baseEmissive = mt.emissive.clone(); }
 }
 
+
+
+// ---------------- Parchemins ----------------
+function parchActifs() { return MODES.includes(modeActuel) && !(invasion && invasion.mode === 'menee') && !rivauxVivants().length; }
+function bonusParch(effet) {
+  if (!J.parchemins || !parchActifs()) return 0;
+  for (const [c, p] of Object.entries(J.parchemins)) if (COULEURS_PARCH[c].effet === effet && p.reste > 0) return p.bonus;
+  return 0;
+}
+let parchSauveT = 0;
+function majParchemins(dt) {
+  const P = J.parchemins; if (!P) return;
+  const actif = parchActifs();
+  const now = performance.now(); const reel = Math.min(5, (now - (majParchemins.t || now)) / 1000); majParchemins.t = now;
+  if (actif) for (const [c, p] of Object.entries(P)) {
+    p.reste -= reel;
+    if (p.reste <= 0) { delete P[c]; UI.toast(`Parchemin de ${COULEURS_PARCH[c].nom} épuisé`); son('close_001', 0.4); }
+  }
+  parchSauveT -= 0.2; if (parchSauveT <= 0) { parchSauveT = 5; sauver(); }
+  UI.majParchemins(etatParchemins());
+}
+function etatParchemins() {
+  const P = J.parchemins || {}; const pause = !parchActifs();
+  const raison = !MODES.includes(modeActuel) ? 'hors Brèche' : invasion && invasion.mode === 'menee' ? 'invasion' : rivauxVivants().length ? 'combat d’invasion' : '';
+  return Object.entries(P).map(([c, p]) => ({ couleur: c, bonus: p.bonus, reste: p.reste, pause, raison }));
+}
+function utiliserParchemin(itemId) {
+  const it = J.sac.find(i => i.id == itemId && i.cat === 'parchemin'); if (!it) return;
+  const def = PARCHEMINS[it.type]; J.parchemins = J.parchemins || {};
+  const cur = J.parchemins[def.couleur];
+  if (cur) { cur.reste += DUREE_PARCH; cur.bonus = Math.max(cur.bonus, def.bonus); UI.toast(`${COULEURS_PARCH[def.couleur].nom} prolongé : ${Math.round(cur.reste / 60)} min restantes`); }
+  else { J.parchemins[def.couleur] = { bonus: def.bonus, reste: DUREE_PARCH }; UI.toast(`Parchemin activé : +${Math.round(def.bonus * 100)} % ${COULEURS_PARCH[def.couleur].texte} pendant 30 min`, true); }
+  it.n = (it.n || 1) - 1; if (it.n <= 0) J.sac = J.sac.filter(x => x !== it);
+  son('bookOpen', 0.6); if (joueur) { onde(joueur.pos, COULEURS_PARCH[def.couleur].c2, 4, 0.6); emettre(V(joueur.pos.x, 1.2, joueur.pos.z), { n: 50, c1: COULEURS_PARCH[def.couleur].c1, c2: COULEURS_PARCH[def.couleur].c2, vit: 4, vie: 1, taille: 0.4, monte: 3 }); }
+  if (!MODES.includes(modeActuel)) UI.toast('Il ne s’écoule que dans la Brèche Écarlate');
+  sauver();
+}
 
 // ---------------- Rangs classés ----------------
 function rangDe(mode) { const p = (J.rang && J.rang[mode]) || 0; const i = Math.min(RANGS.length - 1, Math.floor(p / PTS_RANG)); return { i, pts: p, local: i === RANGS.length - 1 ? p - i * PTS_RANG : p % PTS_RANG, r: RANGS[i], mode }; }
