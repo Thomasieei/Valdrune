@@ -1,10 +1,10 @@
 // ===== Brèche Écarlate — boucle de jeu =====
 import { THREE, G, initRendu, majCamera, rendre, majTorches, chargerAssets, chargerSons, son, ambiance, Acteur, cloner,
-  emettre, majParticules, majVfx, ajouterVfx, onde, lueurSol, arcTaille, faisceau, telegraphe, meshCarreau, meshBoule, DIR_HAUT, DIR_DROITE, projeter, texRond, redimensionner, appliquerNiveau, majQualiteAuto } from './engine.js';
+  emettre, majParticules, majVfx, ajouterVfx, onde, lueurSol, arcTaille, faisceau, telegraphe, meshCarreau, meshBoule, DIR_HAUT, DIR_DROITE, projeter, texRond, texRunes, redimensionner, appliquerNiveau, majQualiteAuto } from './engine.js';
 import { construireHub, construireDonjon, construireArene, construireIle, nbEmplacements, majFeux, noeudReel, creerAssetsProc, construireSylve } from './world.js';
 import { UI, iconeObjet, bustePersonnage, TEINTES_OMBRE } from './ui.js';
 import { TIERS, ARMES, ARMURES, SORTS, MODES, COFFRES, BOSS, MOBS, BOTS, CHAT, tf, MAITRISES, NIVEAU_REQUIS, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT, RESSOURCES, CHANCE_OMBRE, CODES_BETA, MOBS_SYLVE, BOSS_SYLVE, TRAITS } from './data.js';
-import { creerArme, creerArmure, creerPotion, statsHeros, nomObjet, valeurObjet, prixVente, lootCoffre, lootMonstre, tirerCouleurCoffre, ETAT, xpPour, peutPorter, niveauRequis, niveauDe, sortsArme, prixTrophees } from './items.js';
+import { creerArme, creerArmure, creerPotion, statsHeros, nomObjet, valeurObjet, prixVente, lootCoffre, lootMonstre, tirerCouleurCoffre, ETAT, coutEnchant, ENCH_MAX, creerButin, xpPour, peutPorter, niveauRequis, niveauDe, sortsArme, prixTrophees } from './items.js';
 
 const $ = (s) => document.querySelector(s);
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -78,7 +78,7 @@ async function demarrer() {
   } catch (e) { $('#chargeTxt').textContent = 'Un fichier du jeu n’a pas pu se charger (' + (e && e.message ? e.message : e) + '). Recharge la page.'; console.error(e); return; }
   monde = construireHub();
   G.scene.add(G.points);
-  creerMarchand(); creerPasseur(); creerBots();
+  creerMarchand(); creerPasseur(); creerGraveuse(); creerBots();
   prechauffer();
   G.camTarget.set(0, 0, 4);
   $('#charge').hidden = true; $('#chargeTxt').hidden = true;
@@ -171,6 +171,41 @@ function creerMarchand() {
   UI.plaque(a, { nom: 'Borin', guilde: 'MARCHAND', classe: 'pnj', vie: false });
   marchand = a;
 }
+let graveuse = null;
+function creerGraveuse() {
+  const p = V(-4, 0, 15);
+  const a = new Acteur('Mage', { hauteur: 2.05 });
+  const tous = Object.keys(a.nodes).filter(n => /Staff|Wand|Spellbook/.test(n)); a.montrerSeul(['Spellbook_open'], tous);
+  a.teinter('Mage_Cape', '#3a7aff', 0.75, 0.3); a.teinter('Mage_Hat', '#2a5acc', 0.7, 0.2); a.teinter('Mage_Body', '#4a6aaa', 0.5, 0);
+  a.root.position.copy(p); a.root.rotation.y = Math.PI; a.pos = a.root.position; a.hauteurPlaque = 2.7;
+  a.jouer('Idle'); G.scene.add(a.root);
+  UI.plaque(a, { nom: 'Ysolde', guilde: 'GRAVEUSE DE RUNES', classe: 'pnj', vie: false });
+  const cercle = new THREE.Mesh(new THREE.PlaneGeometry(6, 6), new THREE.MeshBasicMaterial({ map: texRunes('#5ab0ff'), transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }));
+  cercle.rotation.x = -Math.PI / 2; cercle.position.set(p.x, 0.08, p.z); G.scene.add(cercle);
+  const cristal = new THREE.Mesh(new THREE.OctahedronGeometry(0.45, 0), new THREE.MeshStandardMaterial({ color: '#9ad8ff', emissive: '#3a8aff', emissiveIntensity: 1.8, flatShading: true }));
+  cristal.scale.set(1, 1.7, 1); G.scene.add(cristal);
+  G.torches.push({ pos: V(p.x, 2.5, p.z), color: '#4a9aff', int: 30, dist: 12 });
+  G.anims.push((t) => { cercle.rotation.z = t * 0.2; cristal.position.set(p.x + 1.4, 2.6 + Math.sin(t * 2) * 0.2, p.z); cristal.rotation.y = t; if (Math.random() < 0.15) emettre(V(p.x + rnd(-2, 2), 0.2, p.z + rnd(-2, 2)), { n: 1, c1: '#bfe6ff', c2: '#2a6aff', dir: V(0, 1, 0), vit: 1.5, vie: 1, taille: 0.25 }); });
+  monde.collisions.push({ x: p.x, z: p.z, r: 0.8 });
+  graveuse = a;
+  a.decor = [cercle, cristal];
+}
+function enchanter(id) {
+  const it = J.sac.find(i => i.id == id) || Object.values(J.equip).find(i => i && i.id == id); if (!it) return { ok: false };
+  const c = coutEnchant(it); if (!c) return { ok: false, msg: 'Enchantement maximal' };
+  const runes = API.nbRunes();
+  if (runes < c.runes) { UI.toast(`Il te faut ${c.runes} runes (tu en as ${runes})`); son('error_001', 0.4); return { ok: false }; }
+  if (J.argent < c.argent) { UI.toast('Pas assez d’argent'); son('error_001', 0.4); return { ok: false }; }
+  J.argent -= c.argent; let reste = c.runes;
+  for (const r of J.sac.filter(i => i.cat === 'butin' && i.type === 'rune')) { const pris = Math.min(reste, r.n || 1); r.n = (r.n || 1) - pris; reste -= pris; }
+  J.sac = J.sac.filter(i => !(i.cat === 'butin' && i.type === 'rune' && (i.n || 0) <= 0));
+  const reussi = Math.random() < c.chance;
+  if (reussi) { it.ench = (it.ench || 0) + 1; son('jingle_legend', 0.55, 1.2); if (graveuse) { onde(graveuse.pos, '#5ab0ff', 5, 0.8); emettre(V(graveuse.pos.x, 1.6, graveuse.pos.z), { n: 80, c1: '#e0f4ff', c2: '#2a6aff', vit: 6, vie: 1.1, taille: 0.45, monte: 3 }); } }
+  else { son('error_001', 0.6, 0.7); if (graveuse) emettre(V(graveuse.pos.x, 1.4, graveuse.pos.z), { n: 40, c1: '#888', c2: '#333', vit: 4, vie: 0.8, taille: 0.5 }); }
+  if (Object.values(J.equip).includes(it)) { recalculer(); construireJoueur(); }
+  sauver();
+  return { ok: true, reussi, ench: it.ench || 0 };
+}
 function creerBots() {
   const n = 16;
   for (let i = 0; i < n; i++) {
@@ -235,6 +270,7 @@ function viderMonde() {
   for (const o of ouvriers) G.scene.remove(o.root);
   if (intendant) G.scene.remove(intendant.root);
   if (passeur) G.scene.remove(passeur.root);
+  if (graveuse) { G.scene.remove(graveuse.root, ...graveuse.decor); graveuse = null; }
   ouvriers = []; intendant = null; passeur = null; recolteJ = null; assaut = null;
   if (raid && raid.r) raid = null;
   G.scene.background.set('#120b1b'); G.scene.fog.color.set('#150d20'); G.sun.color.set('#c9b8ff'); G.hemi.color.set('#8f7cc8'); G.hemi.groundColor.set('#2a1830');
@@ -261,7 +297,7 @@ function fondu(fn) {
 
 function lancerHub(premier = false) {
   invasion = null; arene = null; selection = null;
-  if (!premier) { viderMonde(); monde = construireHub(); creerMarchand(); creerPasseur(); creerBots(); }
+  if (!premier) { viderMonde(); monde = construireHub(); creerMarchand(); creerPasseur(); creerGraveuse(); creerBots(); }
   modeActuel = null; enJeu = true;
   construireJoueur(monde.spawn.clone());
   joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax;
@@ -1091,7 +1127,11 @@ const API = {
   vendreButin: () => { let t = 0; J.sac = J.sac.filter(it => { if (it.cat === 'butin') { t += prixVente(it) * it.n; return false; } return true; }); J.argent += t; son('handleCoins', 0.7); UI.toast(`Butin vendu : +${t.toLocaleString('fr-FR')}`); sauver(); },
   rangerPotion: (id) => { const i = J.sac.findIndex(x => x.id == id); if (i >= 0) { J.potions += J.sac[i].n || 1; joueur.potions = J.potions; J.sac.splice(i, 1); sauver(); } },
   entrer: (id) => entrerDonjon(id),
-  arene: (format) => entrerArene(format),
+  arene: (format, opts = {}) => entrerArene(format, opts),
+  enchanter: (id) => enchanter(id),
+  acheterRunes: (n) => { const prix = 140 * n; if (J.argent < prix) { UI.toast('Pas assez d’argent'); son('error_001', 0.4); return false; } J.argent -= prix; ajouterSac(creerButin('rune', n), true); son('handleCoins', 0.5); sauver(); return true; },
+  nbRunes: () => J.sac.filter(i => i.cat === 'butin' && i.type === 'rune').reduce((a, i) => a + (i.n || 1), 0),
+  ombreDebloquee: () => !!((J.codes && J.codes.length) || J.equip.arme?.type === 'ombre' || J.sac.some(i => i.type === 'ombre')),
   acheterIle: (type, taille) => acheterIle(type, taille),
   allerIle: (id) => { const ile = iles().find(i => i.id === id); if (ile) entrerIle(ile); },
   piller: () => entrerIle(ileBot()),
@@ -1146,6 +1186,7 @@ function majInteractions() {
   if (modeActuel && modeActuel.id === 'ile') return interactionsIle();
   if (!modeActuel) {
     if (marchand && dist2D(joueur.pos, marchand.pos) < 5) return UI.action('Parler à Borin', () => UI.dialogueMarchand());
+    if (graveuse && dist2D(joueur.pos, graveuse.pos) < 4.5) return UI.action('Graver des runes', () => UI.runes());
     if (dist2D(joueur.pos, monde.portail.pos) < 9) return UI.action('Franchir la Brèche', () => UI.menuPortail());
     if (monde.portailArene && dist2D(joueur.pos, monde.portailArene.pos) < 9) return UI.action('Entrer dans l’Arène', () => UI.menuArene(groupe));
     if ((passeur && dist2D(joueur.pos, passeur.pos) < 4.5) || (monde.portailIle && dist2D(joueur.pos, monde.portailIle.pos) < 5)) return UI.action('Les Îles', () => UI.menuIles(infosIles()));
@@ -1296,6 +1337,7 @@ function boucle() {
     if (modeActuel && modeActuel.sylve) majSylve(dt);
     if (modeActuel && modeActuel.id === 'ile') { majOuvriers(dt); majNoeuds(dt); majRecolteJoueur(dt); majPillard(dt); if (intendant) intendant.maj(dt); }
     if (passeur) passeur.maj(dt);
+    if (graveuse) graveuse.maj(dt);
     ileT -= dt; if (ileT <= 0) { ileT = 3; majProduction(); majAssauts(); majRaids(); if (modeActuel && modeActuel.id === 'ile' && !monde.etranger && !(raid && raid.r)) journalIle(monde.ile); }
     majCamera(dt, joueur.pos);
     majTorches(joueur.pos);
@@ -1742,7 +1784,7 @@ function entrerArene(format, opts = {}) {
     joueur.angle = Math.PI / 2; joueur.root.rotation.y = joueur.angle;
     G.camTarget.copy(joueur.pos); G.scene.fog.density = 0.012; G.hemi.intensity = 1.0; G.sun.intensity = 1.1;
     const ipJ = statsHeros(J.equip).ip;
-    arene = { format, duel: opts.duel || null, mise: opts.mise || 0, fini: false, t: 3.6, dernier: 4 };
+    arene = { format, duel: opts.duel || null, mise: opts.mise || 0, letale: !!opts.letale, fini: false, t: 3.6, dernier: 4 };
     const pris = [];
     if (format === '2v2') { const m = groupe || donneesBot(ipJ + rnd(-40, 40)); pris.push(m.nom); const a = creerCombattant(monde.spawnAllie.clone(), m, 'allie'); a.angle = Math.PI / 2; a.root.rotation.y = a.angle; }
     const n = format === '2v2' ? 2 : 1;
@@ -1755,7 +1797,8 @@ function entrerArene(format, opts = {}) {
     for (const e of ennemis) emoteBot(e, ['salut', 'diable', 'toi', 'malin'], 0.6, rnd(1.5, 3.5));
     const rivaux = ennemis.map(e => `${e.nom} (⚔ ${e.ip} · ${e.skill >= 0.75 ? 'Expert' : e.skill >= 0.55 ? 'Confirmé' : 'Débutant'})`).join(' et ');
     UI.journal('Arène des Échos', `${format === '2v2' ? 'Équipe adverse' : 'Adversaire'} : ${rivaux}`, null);
-    UI.zone('Arène des Échos', opts.duel ? `Duel · mise ${fmtN(opts.mise)}` : format === '2v2' ? '2 contre 2' : '1 contre 1');
+    UI.zone(opts.letale ? 'Arène létale' : 'Arène des Échos', opts.duel ? `Duel · mise ${fmtN(opts.mise)}` : (format === '2v2' ? '2 contre 2' : '1 contre 1') + (opts.letale ? ' · stuff en jeu' : ''));
+    if (opts.letale) { setTimeout(() => UI.toast('ARÈNE LÉTALE : le perdant repart à poil', true), 700); G.hemi.color.set('#ff6a6a'); }
     $('#btnQuitter').hidden = false;
     son('forceField_000', 0.6, 0.6);
     G.renderer.compile(G.scene, G.camera);
@@ -1783,17 +1826,34 @@ function finArene(victoire) {
   if (arene.duel) {
     if (victoire) { J.argent += arene.mise * 2; lignes.push(arene.mise ? `+ ${fmtN(arene.mise * 2)} d’argent (mises remportées)` : 'Duel amical remporté'); }
     else lignes.push(arene.mise ? `Mise perdue : ${fmtN(arene.mise)}` : 'Duel amical perdu');
-  } else if (victoire) { J.trophees = (J.trophees || 0) + 100; lignes.push(`🏆 +100 trophées (total ${fmtN(J.trophees)})`); }
+  } else if (victoire) { const tr = arene.letale ? 200 : 100; J.trophees = (J.trophees || 0) + tr; lignes.push(`🏆 +${tr} trophées (total ${fmtN(J.trophees)})`); }
   else lignes.push('Aucun trophée cette fois');
+  if (arene.letale && !victoire) {
+    const perdus = ['arme', 'casque', 'plastron', 'bottes'].map(s => J.equip[s]).filter(Boolean);
+    const type = J.equip.arme ? J.equip.arme.type : 'epee';
+    J.equip = { arme: creerArme(type === 'ombre' ? 'epee' : type, 1, 0), casque: null, plastron: null, bottes: null };
+    lignes.push(`Arène létale : tu perds tout ton équipement porté (${perdus.map(it => nomObjet(it)).join(', ') || 'rien'}). Il te reste ton argent et ton sac.`);
+  }
+  if (arene.letale && victoire) lignes.push('Arène létale : fouille la dépouille des perdants avant de partir.');
   const xp = gagnerXPRelatif(victoire ? (arene.duel ? 0.05 : 0.12) : 0.03);
   lignes.push(`+ ${fmtN(xp)} XP de maîtrise sur ton équipement porté`);
   son(victoire ? 'jingle_win' : 'lowFrequency_explosion_000', 0.6, victoire ? 1 : 0.6);
+  if (victoire) for (const a of [joueur, ...allies]) if (a.mort) programmer(1.2, () => {
+    a.mort = false; a.pv = (a === joueur ? a.st.pvMax : a.pvMax) * 0.3; a.jouer(a === joueur ? a.def.idle : a.armeDef.idle);
+    onde(a.pos, '#ffd27a', 4, 0.8); emettre(V(a.pos.x, 1, a.pos.z), { n: 60, c1: '#fff2c0', c2: '#ffd27a', vit: 4, vie: 1.1, taille: 0.45, monte: 4 }); son('confirmation_001', 0.5, 0.8);
+    UI.toast(a === joueur ? 'Ton équipe a gagné : tu te relèves' : `${a.nom} se relève`);
+  });
   if (victoire && !joueur.mort) joueur.jouer('Cheer', { boucle: false });
   for (const a of allies) if (!a.mort && victoire) a.jouer('Cheer', { boucle: false });
   for (const e of ennemis) if (!e.mort) { e.jouer('Cheer', { boucle: false }); UI.chat(e.nom, hasard(RIVAL_GAGNE)); emoteBot(e, ['ez', 'mdr', 'clown', 'bof'], 1, 0.4); }
   if (victoire) { const r = ennemis.find(e => e.rival); if (r) { setTimeout(() => UI.chat(r.nom, hasard(RIVAL_PERD)), 800); emoteBot(r, ['gg', 'ouin', 'rage'], 0.8, 1.2); } for (const a of allies) if (!a.mort && !a.invoc) emoteBot(a, ['gg', 'feu', 'ez'], 0.7, 1.6); }
   sauver();
-  setTimeout(() => UI.resultatArene({ victoire, lignes }, () => fondu(() => lancerHub())), 2200);
+  const finir = () => UI.resultatArene({ victoire, lignes }, () => fondu(() => lancerHub()));
+  if (arene.letale && victoire) {
+    const morts = ennemis.filter(e => e.rival);
+    const suivant = (i) => { if (i >= morts.length) return finir(); const r = morts[i]; UI.depouille(r.nom, r.ip, Object.values(r.equip).filter(Boolean), r.argent, (pris) => { J.argent += r.argent; for (const it of pris) ajouterSac(it, true); son('handleCoins', 0.6); sauver(); suivant(i + 1); }); };
+    setTimeout(() => suivant(0), 2600);
+  } else setTimeout(finir, 2200);
 }
 
 // ---------------- Invasions ----------------

@@ -20,8 +20,9 @@ export function creerPotion(n = 1) { return { id: ++uid, cat: 'potion', type: 's
 
 export function nomObjet(it) {
   const suf = it.arene ? ' ' + VARIANTES[it.arene].suffixe : '';
-  if (it.cat === 'arme') return ARMES[it.type].noms[it.tier] + suf;
-  if (it.cat === 'armure') return ARMURES[it.type].noms[it.tier] + suf;
+  const en = it.ench ? ' +' + it.ench : '';
+  if (it.cat === 'arme') return ARMES[it.type].noms[it.tier] + suf + en;
+  if (it.cat === 'armure') return ARMURES[it.type].noms[it.tier] + suf + en;
   if (it.cat === 'butin') return BUTINS.find(b => b.id === it.type).nom;
   if (it.cat === 'potion') return 'Potion de soin';
   return '?';
@@ -34,18 +35,18 @@ export function couleurObjet(it) {
 export function categorieLabel(it) {
   if (it.cat === 'arme') return ARMES[it.type].label + (ARMES[it.type].rare ? (it.beta ? ' · ✦ Bêta' : ' · ✦ Classe rare (0,1 %)') : '');
   if (it.cat === 'armure') return ARMURES[it.type].label;
-  if (it.cat === 'butin') return 'Butin sans valeur';
+  if (it.cat === 'butin') return it.type === 'rune' ? 'Matériau d’enchantement' : 'Butin sans valeur';
   return 'Consommable';
 }
 export function puissanceObjet(it) {
   if (it.cat !== 'arme' && it.cat !== 'armure') return 0;
-  return 300 + (it.tier - 1) * 100 + QUALITES[it.q].ip;
+  return 300 + (it.tier - 1) * 100 + QUALITES[it.q].ip + (it.ench || 0) * 50;
 }
 export function valeurObjet(it) {
   if (it.cat === 'butin') return BUTINS.find(b => b.id === it.type).valeur;
   if (it.cat === 'potion') return 60;
   const base = it.cat === 'arme' ? 180 : 120;
-  return Math.round(base * Math.pow(2.6, it.tier - 1) * QUALITES[it.q].mult * (it.arene ? 1.2 : 1));
+  return Math.round(base * Math.pow(2.6, it.tier - 1) * QUALITES[it.q].mult * (it.arene ? 1.2 : 1) * Math.pow(1.6, it.ench || 0) * (ARMES[it.type] && ARMES[it.type].rare ? 3 : 1));
 }
 export const prixVente = (it) => Math.max(1, Math.round(valeurObjet(it) * (it.cat === 'butin' ? 1 : 0.35)));
 
@@ -67,21 +68,22 @@ export function statsObjet(it, niv = null) {
   const n = niv ?? niveauDe(it.type);
   const bm = 1 + bonusMaitrise(n);
   const v = it.arene ? VARIANTES[it.arene] : null;
+  const te = it.tier + (it.ench || 0) * 0.5; // 2 enchantements = 1 tier
   if (it.cat === 'arme') {
     const a = ARMES[it.type]; const m = v ? v.arme : { degats: 1, crit: 0, vitesse: 1 };
-    const degats = Math.round(a.base * tf(it.tier) * q * m.degats * bm);
-    const crit = +(5 + it.tier * 0.75 + m.crit).toFixed(1);
+    const degats = Math.round(a.base * tf(te) * q * m.degats * bm);
+    const crit = +(5 + te * 0.75 + m.crit).toFixed(1);
     const vitesse = +(a.vitesse * m.vitesse).toFixed(2);
     const s = { degats, vitesse, crit, portee: a.portee, dps: Math.round(degats * vitesse * (1 + crit / 200)) };
-    if (m.pv) s.pv = Math.round(m.pv * tf(it.tier));
+    if (m.pv) s.pv = Math.round(m.pv * tf(te));
     if (v) s.pvp = 10;
     return s;
   }
   if (it.cat === 'armure') {
     const a = ARMURES[it.type]; const m = v ? v.armure : { armure: 1, pv: 1 };
-    const s = { armure: Math.round(a.armure * tf(it.tier) * q * m.armure * bm), pv: Math.round(a.pv * tf(it.tier) * q * m.pv * bm) };
-    if (it.type === 'bottes') s.vitesse = +(2 + it.tier * 1.2).toFixed(1);
-    if (it.type === 'casque') s.regen = +(0.4 + it.tier * 0.12).toFixed(2);
+    const s = { armure: Math.round(a.armure * tf(te) * q * m.armure * bm), pv: Math.round(a.pv * tf(te) * q * m.pv * bm) };
+    if (it.type === 'bottes') s.vitesse = +(2 + te * 1.2).toFixed(1);
+    if (it.type === 'casque') s.regen = +(0.4 + te * 0.12).toFixed(2);
     if (m.bonusDeg) s.bonusDeg = m.bonusDeg;
     if (m.recharge) s.recharge = m.recharge;
     if (v) s.pvp = 10;
@@ -183,15 +185,21 @@ export function lootMonstre(mode) {
 }
 
 // ---- Stock du marchand ----
-export function stockMarchand() {
+// toutes les armes et armures, du T1 au T8 (les Dagues des Ombres seulement pour ceux qui ont débloqué la classe)
+export function stockMarchand(ombre = false) {
   const out = [];
-  for (let t = 1; t <= 4; t++) {
-    for (const ty of ['epee', 'arbalete', 'baton']) out.push(creerArme(ty, t, 0));
+  for (let t = 1; t <= 8; t++) {
+    for (const ty of ['epee', 'arbalete', 'baton', ...(ombre ? ['ombre'] : [])]) out.push(creerArme(ty, t, 0));
     for (const s of ['casque', 'plastron', 'bottes']) out.push(creerArmure(s, t, 0));
-    if (t <= 3) { out.push(creerArme(['epee', 'arbalete', 'baton'][t - 1], t, 1)); }
   }
-  out.push(creerPotion(1));
+  out.push(creerPotion(1), creerButin('rune', 1));
   return out;
+}
+// ---- Enchantement (runes) : jusqu'à +6, deux enchantements valent un tier ----
+export const ENCH_MAX = 6;
+export function coutEnchant(it) {
+  const e = it.ench || 0; if (e >= ENCH_MAX) return null;
+  return { runes: (e + 1) * (1 + Math.ceil(it.tier / 2)), argent: Math.round(90 * Math.pow(2.3, it.tier - 1) * (e + 1) * (1 + e * 0.25)), chance: [1, 1, 1, 0.9, 0.8, 0.65][e] };
 }
 
 // ---- Boutique de l'arène ----

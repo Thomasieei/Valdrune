@@ -2,7 +2,7 @@
 import { THREE, G, projeter } from './engine.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, MODES, COFFRES, MAITRISES, NIVEAU_REQUIS, VARIANTES, EMOTES, TRAITS, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT } from './data.js';
-import { nomObjet, couleurObjet, statsObjet, sortsObjet, puissanceObjet, valeurObjet, prixVente, categorieLabel, statsHeros, stockMarchand, stockArene, prixTrophees, niveauRequis, peutPorter, niveauDe, xpPour, bonusMaitrise, tierMaxPour } from './items.js';
+import { nomObjet, couleurObjet, statsObjet, sortsObjet, puissanceObjet, valeurObjet, prixVente, categorieLabel, statsHeros, stockMarchand, stockArene, prixTrophees, niveauRequis, peutPorter, niveauDe, xpPour, bonusMaitrise, tierMaxPour, coutEnchant } from './items.js';
 
 const $ = (s) => document.querySelector(s);
 const fmt = (n) => Math.round(n).toLocaleString('fr-FR');
@@ -179,7 +179,7 @@ export function htmlCase(it, extra = '', style = '') {
   const tc = it.tier ? TIERS[it.tier].color : '#8a6a4a';
   const bg = it.tier ? `background:radial-gradient(circle at 50% 42%, ${tc}aa, ${tc}33 55%, #241810 85%);--tc:${tc};` : '';
   const cad = bloque ? `<span class="cadenas"><svg viewBox="0 0 24 24"><path d="M7 10V7a5 5 0 0110 0v3h1.5v11h-13V10zm2 0h6V7a3 3 0 00-6 0z" fill="#ffd0c0"/></svg>Niv. ${niveauRequis(it)}</span>` : '';
-  return `<div class="case q${it.q || 0} ${it.tier ? 'tiere' : ''} ${bloque ? 'bloque' : ''} ${extra}" style="${bg}${style}">${cad}<img src="${iconeObjet(it)}" alt="" style="${glow}">${it.tier ? `<span class="tier">${TIERS[it.tier].roman}</span>` : ''}${it.n > 1 ? `<span class="nb">${it.n}</span>` : ''}</div>`;
+  return `<div class="case q${it.q || 0} ${it.tier ? 'tiere' : ''} ${bloque ? 'bloque' : ''} ${extra}" style="${bg}${style}">${cad}<img src="${iconeObjet(it)}" alt="" style="${glow}">${it.tier ? `<span class="tier">${TIERS[it.tier].roman}</span>` : ''}${it.ench ? `<span class="ench">${'<i></i>'.repeat(it.ench)}</span>` : ''}${it.n > 1 ? `<span class="nb">${it.n}</span>` : ''}</div>`;
 }
 
 // ---------------- Barre de sorts ----------------
@@ -466,6 +466,8 @@ UI.rendreInventaire = () => {
 };
 
 // Fiche détaillée d'un objet (un seul clic)
+// Fiche détaillée d'un objet : grande, riche, lisible
+const STAT_MAX = { degats: 900, dps: 1400, vitesse: 1.6, crit: 16, portee: 13, armure: 260, pv: 2200, regen: 1.6, bonusDeg: 12, recharge: 15, pvp: 10 };
 UI.fiche = (it, contexte) => {
   if (!it) return;
   api.son('select_001', 0.4);
@@ -475,15 +477,17 @@ UI.fiche = (it, contexte) => {
   const porte = slot ? j.equip[slot] : null;
   const stP = porte && porte.id !== it.id ? statsObjet(porte) : null;
   const libelles = { bonusDeg: 'Bonus de dégâts', recharge: 'Recharge des sorts', pvp: 'Contre les joueurs', degats: 'Dégâts par coup', dps: 'Dégâts par seconde', vitesse: it.cat === 'arme' ? "Vitesse d'attaque" : 'Vitesse de déplacement', crit: 'Chance de critique', portee: 'Portée', armure: 'Armure', pv: 'Points de vie', regen: 'Régénération' };
-  const unite = { vitesse: it.cat === 'arme' ? '/s' : ' %', crit: ' %', portee: ' m', regen: ' %/s', bonusDeg: ' %', recharge: ' % plus rapide', pvp: ' % de dégâts' };
+  const unite = { vitesse: it.cat === 'arme' ? '/s' : ' %', crit: ' %', portee: ' m', regen: ' %/s', bonusDeg: ' %', recharge: ' %', pvp: ' %' };
+  const t = it.tier ? TIERS[it.tier] : null;
+  const q = QUALITES[it.q || 0];
+  const tc = t ? t.color : '#8a6a4a';
   const lignes = Object.entries(st).map(([k, v]) => {
     let diff = '';
     if (stP && stP[k] !== undefined) { const d = v - stP[k]; if (Math.abs(d) > 0.001) diff = `<span class="${d > 0 ? 'plus' : 'moins'}">${d > 0 ? '▲' : '▼'} ${Math.abs(+d.toFixed(2))}</span>`; }
-    return `<tr><td>${libelles[k] || k}</td><td>${typeof v === 'number' && !Number.isInteger(v) ? v.toFixed(k === 'vitesse' && it.cat === 'arme' ? 2 : 1) : fmt(v)}${unite[k] || ''}</td><td class="diff">${diff}</td></tr>`;
+    const pct = Math.max(4, Math.min(100, v / (STAT_MAX[k] || v) * 100));
+    return `<div class="statF"><span class="lib">${libelles[k] || k}</span><div class="barreF"><i style="width:${pct.toFixed(0)}%"></i></div><b>${typeof v === 'number' && !Number.isInteger(v) ? v.toFixed(k === 'vitesse' && it.cat === 'arme' ? 2 : 1) : fmt(v)}${unite[k] || ''}</b><span class="diff">${diff}</span></div>`;
   }).join('');
-  const sorts = sortsObjet(it).map(s => `<div class="s">${svgSort(s.glyphe, s.couleur[0], s.couleur[1], 'f' + s.touche)}<div><b>${s.touche} · ${s.nom}</b> <span style="color:#6a4a2e">— ${s.cd} s · ${s.energie} énergie</span><br>${s.desc}</div></div>`).join('');
-  const t = it.tier ? TIERS[it.tier] : null;
-  const q = QUALITES[it.q || 0];
+  const sorts = sortsObjet(it).map(s => `<div class="s">${svgSort(s.glyphe, s.couleur[0], s.couleur[1], 'f' + s.touche)}<div><b>${s.touche} · ${s.nom}</b> <span class="cdS">${s.cd} s · ${s.energie} énergie</span><br>${s.desc}</div></div>`).join('');
   const boutons = [];
   const ok = peutPorter(it);
   if (contexte === 'sac' && slot) boutons.push(`<button class="btn or" data-a="equiper" ${ok ? '' : 'disabled'}>Équiper</button>`);
@@ -492,18 +496,29 @@ UI.fiche = (it, contexte) => {
   if (contexte === 'vente') boutons.push(`<button class="btn" data-a="vendre">Vendre ${fmt(prixVente(it))}</button>`);
   if (contexte === 'achat') boutons.push(`<button class="btn" data-a="acheter">Acheter ${fmt(valeurObjet(it))}</button>`);
   if (contexte === 'arene') boutons.push(`<button class="btn" data-a="acheterArene" ${j.trophees >= prixTrophees(it) ? '' : 'disabled'}>Acheter 🏆 ${fmt(prixTrophees(it))}</button>`);
-  const req = slot ? (() => { const n = niveauDe(it.type), r = niveauRequis(it); const nomM = MAITRISES.find(m => m.id === it.type).nom; return `<p class="req ${n >= r ? 'okr' : 'ko'}">Niveau requis : ${nomM} ${r} · ${n >= r ? 'tu es niveau ' + n : 'tu n’es que niveau ' + n}${n > 1 ? ` · bonus de maîtrise +${(bonusMaitrise(n) * 100).toFixed(1).replace('.', ',')} %` : ''}</p>`; })() : '';
+  const req = slot ? (() => { const n = niveauDe(it.type), r = niveauRequis(it); const nomM = MAITRISES.find(m => m.id === it.type).nom; return `<p class="req ${n >= r ? 'okr' : 'ko'}">${n >= r ? '✔' : '🔒'} Niveau requis : ${nomM} ${r} · ${n >= r ? 'tu es niveau ' + n : 'tu n’es que niveau ' + n}${n > 1 ? ` · bonus de maîtrise +${(bonusMaitrise(n) * 100).toFixed(1).replace('.', ',')} %` : ''}</p>`; })() : '';
   const vInfo = it.arene ? `<p class="varArene" style="--vc:${VARIANTES[it.arene].couleur}"><b>Objet d’arène · ${VARIANTES[it.arene].style}.</b> ${VARIANTES[it.arene].texte} +10 % contre les joueurs.</p>` : '';
-  $('#fiche').innerHTML = `<div class="carteObjet parchemin"><button class="fermer" data-x aria-label="Fermer">×</button>
-    <div class="tete"><div class="grosse">${htmlCase(it, '', 'width:100%;height:100%')}</div>
-    <div><div class="titre" style="color:${it.tier ? shade(couleurObjet(it)) : '#3a2312'}">${nomObjet(it)}</div>
-    <div class="sous">${categorieLabel(it)}${t ? ` · Tier ${t.roman} (${t.nom}) · <b style="color:${shade(q.color)}">${q.nom}</b>` : ''}</div>
-    ${slot ? `<span class="ip">Puissance ${puissanceObjet(it)}</span>` : ''}</div></div>
-    ${req}${vInfo}
-    ${lignes ? `<table>${lignes}</table>` : `<p style="font-size:2.1vh">${it.cat === 'potion' ? 'Rend 40 % de tes PV en 1 s. Se boit avec le bouton potion.' : 'Ne sert à rien, sauf à être vendu au marchand.'}</p>`}
-    ${sorts ? `<div class="sortsObj">${sorts}</div>` : ''}
-    ${porte && porte.id !== it.id ? `<p style="font-size:1.8vh;color:#6a4a2e;margin:1vh 0 0">Comparé à ton ${nomObjet(porte)} (${TIERS[porte.tier].roman}).</p>` : ''}
-    <p style="font-size:1.8vh;margin:1vh 0 0">Valeur : <b>${fmt(valeurObjet(it))}</b> · Revente : <b>${fmt(prixVente(it))}</b></p>
+  const etoiles = slot ? `<div class="etoiles">${[1, 2, 3, 4].map(k => `<span class="${(it.q || 0) >= k ? 'on' : ''}">★</span>`).join('')}</div>` : '';
+  const ench = slot ? `<div class="enchF" title="Enchantement">${Array.from({ length: 6 }, (_, k) => `<i class="${(it.ench || 0) > k ? 'on' : ''}"></i>`).join('')}<small>${it.ench ? `+${it.ench} · équivaut à un T${(it.tier + it.ench / 2).toString().replace('.', ',')}` : 'Non enchanté'}</small></div>` : '';
+  const desc = it.cat === 'potion' ? 'Rend 40 % de tes PV en 1 s. Se boit avec le bouton potion.' : it.cat === 'butin' ? (it.type === 'rune' ? 'Sert à graver un enchantement chez Ysolde, la graveuse de runes, sur la Place. Jusqu’à +6 par objet : deux enchantements valent un tier.' : 'Ne sert à rien, sauf à être vendu au marchand.') : '';
+  $('#fiche').innerHTML = `<div class="carteObjet riche" style="--tc:${tc}"><button class="fermer" data-x aria-label="Fermer">×</button>
+    <div class="bandeau"><span>${t ? `TIER ${t.roman} · ${t.nom.toUpperCase()}` : categorieLabel(it).toUpperCase()}</span>${slot ? `<span class="qual" style="color:${q.color}">${q.nom}</span>` : ''}</div>
+    <div class="corpsF">
+      <div class="gaucheF">
+        <div class="vitrine"><div class="halo"></div>${htmlCase(it, '', 'width:100%;height:100%')}</div>
+        ${etoiles}${ench}
+        ${slot ? `<div class="ipF"><small>PUISSANCE</small><b>${puissanceObjet(it)}</b></div>` : ''}
+      </div>
+      <div class="droiteF">
+        <div class="titre">${nomObjet(it)}</div>
+        <div class="sous">${categorieLabel(it)}</div>
+        ${req}${vInfo}
+        ${lignes ? `<div class="statsF">${lignes}</div>` : `<p class="descF">${desc}</p>`}
+        ${sorts ? `<div class="sortsObj">${sorts}</div>` : ''}
+        ${porte && porte.id !== it.id ? `<p class="compare">Comparé à ton ${nomObjet(porte)} (${TIERS[porte.tier].roman}) : ▲ mieux, ▼ moins bien.</p>` : ''}
+        <p class="valeurF">Valeur <b>${fmt(valeurObjet(it))}</b> · Revente <b>${fmt(prixVente(it))}</b></p>
+      </div>
+    </div>
     <div class="actions">${boutons.join('')}</div></div>`;
   const f = $('#fiche'); f.hidden = false;
   f.querySelector('[data-x]').onclick = () => (f.hidden = true);
@@ -519,6 +534,46 @@ UI.fiche = (it, contexte) => {
     if (!$('#inv').hidden) UI.rendreInventaire();
     if (!$('#marche').hidden) UI.rendreMarche();
   });
+};
+// ---------------- Ysolde, la graveuse de runes ----------------
+let choixRune = null;
+UI.runes = () => {
+  const j = api.etat(); const d = $('#portailMenu');
+  const objets = [...['arme', 'casque', 'plastron', 'bottes'].map(s => j.equip[s]).filter(Boolean), ...j.sac.filter(i => i.cat === 'arme' || i.cat === 'armure')];
+  if (!choixRune || !objets.find(o => o.id === choixRune)) choixRune = objets[0] && objets[0].id;
+  const it = objets.find(o => o.id === choixRune);
+  const nb = api.nbRunes();
+  let detail = '<p class="vide">Tu n’as aucun objet à enchanter.</p>';
+  if (it) {
+    const c = coutEnchant(it); const e = it.ench || 0;
+    const avant = statsObjet(it), apres = c ? statsObjet({ ...it, ench: e + 1 }) : null;
+    const lib = { degats: 'Dégâts', dps: 'DPS', armure: 'Armure', pv: 'Points de vie', crit: 'Critique', vitesse: it.cat === 'arme' ? 'Vit. d’attaque' : 'Vitesse', regen: 'Régénération' };
+    const lignes = apres ? Object.keys(lib).filter(k => avant[k] !== undefined && avant[k] !== apres[k]).map(k => `<div class="evo"><span>${lib[k]}</span><b>${fmt(avant[k])}</b><em>➜</em><b class="nouv">${fmt(apres[k])}</b></div>`).join('') : '';
+    detail = `<div class="ficheRune" style="--tc:${TIERS[it.tier].color}">
+      <div class="teteR"><div class="caseR">${htmlCase(it, '', 'width:100%;height:100%')}</div><div><b>${nomObjet(it)}</b><small>Tier ${TIERS[it.tier].roman} · ${QUALITES[it.q || 0].nom}</small>
+        <div class="enchF">${Array.from({ length: 6 }, (_, k) => `<i class="${e > k ? 'on' : ''} ${e === k && c ? 'proch' : ''}"></i>`).join('')}</div></div></div>
+      ${c ? `<div class="evos"><div class="evo titreE"><span>Puissance</span><b>${puissanceObjet(it)}</b><em>➜</em><b class="nouv">${puissanceObjet({ ...it, ench: e + 1 })}</b></div>${lignes}</div>
+        <div class="cout"><span class="${nb >= c.runes ? 'ok' : 'ko'}"><i class="runeIco"></i> ${c.runes} runes <small>(tu en as ${nb})</small></span><span class="${j.argent >= c.argent ? 'ok' : 'ko'}"><span class="piece"></span> ${fmt(c.argent)}</span><span class="${c.chance < 1 ? 'risque' : 'ok'}">Réussite ${Math.round(c.chance * 100)} %</span></div>
+        ${c.chance < 1 ? '<p class="avert">Au-delà de +3, la gravure peut échouer : les runes et l’argent sont perdus, l’objet reste intact.</p>' : ''}
+        <button class="btn bleu grand" data-g ${nb >= c.runes && j.argent >= c.argent ? '' : 'disabled'}>Graver l’enchantement +${e + 1}</button>`
+      : '<p class="max">Enchantement maximal atteint : +6. Cet objet vaut un tier de plus que trois paliers au-dessus.</p>'}
+    </div>`;
+  }
+  d.innerHTML = `<div class="cadreP runes"><button class="fermer" data-x aria-label="Fermer">×</button>
+    <h2>Ysolde, graveuse de runes</h2><div class="sous">Jusqu’à +6 enchantements par objet. Deux enchantements valent un tier : un T1 +2 équivaut à un T2. Ton argent : <b>${fmt(j.argent)}</b></div>
+    <div class="runesCorps"><div class="listeR">${objets.map(o => `<button class="${o.id === choixRune ? 'choisi' : ''}" data-o="${o.id}">${htmlCase(o)}</button>`).join('')}</div>
+    <div class="detailR">${detail}
+      <div class="achatR"><span><i class="runeIco"></i> Rune d’enchantement · 140</span><button class="btn gris" data-r="1">Acheter 1</button><button class="btn gris" data-r="5">Acheter 5 (700)</button><button class="btn gris" data-r="20">Acheter 20 (2 800)</button></div>
+    </div></div></div>`;
+  d.hidden = false; d.onclick = (ev) => { if (ev.target === d) d.hidden = true; };
+  d.querySelector('[data-x]').onclick = () => (d.hidden = true);
+  d.querySelectorAll('[data-o]').forEach(b => b.onclick = () => { choixRune = +b.dataset.o || b.dataset.o; api.son('click_001', 0.4); UI.runes(); });
+  d.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { if (api.acheterRunes(+b.dataset.r)) UI.runes(); });
+  const g = d.querySelector('[data-g]');
+  if (g) g.onclick = () => {
+    g.disabled = true; g.classList.add('grave');
+    setTimeout(() => { const r = api.enchanter(it.id); if (r.ok) UI.toast(r.reussi ? `Gravure réussie : ${nomObjet(it)}` : 'La rune s’est brisée… l’objet est intact', true); UI.runes(); }, 700);
+  };
 };
 function shade(c) { const S = THREE.SRGBColorSpace; const col = new THREE.Color(c); const hsl = {}; col.getHSL(hsl, S); return '#' + new THREE.Color().setHSL(hsl.h, Math.min(1, hsl.s * 1.15), Math.min(hsl.l, 0.34), S).getHexString(S); }
 
@@ -543,7 +598,7 @@ UI.dialogueMarchand = () => {
   });
 };
 let stockA = null;
-UI.ouvrirMarche = (onglet = null) => { if (!stock) stock = stockMarchand(); if (!stockA) stockA = stockArene(); if (onglet) { ongletM = onglet; if (onglet === 'arene') { filtres.niv = 'tout'; filtres.q = 'tout'; } } UI.rendreMarche(); $('#marche').hidden = false; api.son('open_001', 0.4); };
+UI.ouvrirMarche = (onglet = null) => { const om = api.ombreDebloquee(); if (!stock || stock.ombre !== om) { stock = stockMarchand(om); stock.ombre = om; } if (!stockA) stockA = stockArene(); if (onglet) { ongletM = onglet; if (onglet === 'arene') { filtres.niv = 'tout'; filtres.q = 'tout'; } } UI.rendreMarche(); $('#marche').hidden = false; api.son('open_001', 0.4); };
 UI.rendreMarche = () => {
   const j = api.etat();
   const A = ongletM === 'arene';
@@ -729,10 +784,16 @@ UI.menuArene = (groupe) => {
       <div class="mode" style="--c:#4fd1ff"><div class="niv">ÉQUIPE</div><h3>2 contre 2</h3><p>${groupe ? `Avec <b>${groupe.nom}</b> (⚔ ${groupe.ip}), ton coéquipier de groupe.` : 'Tu n’as pas de groupe : un coéquipier sera trouvé pour toi. Touche un joueur sur la Place pour former un groupe.'}</p>
         <div class="ipl"><span>Équipe</span><b>${groupe ? 'Groupe' : 'Aléatoire'}</b></div><button class="btn or" data-f="2v2">Trouver un combat</button></div>
     </div>
+    <div class="letale"><div><div class="niv">ARÈNE LÉTALE</div><h3>Ton stuff est en jeu</h3><p>Le perdant repart à poil : il perd tout son équipement porté (il garde son argent et son sac). Le gagnant fouille les dépouilles et gagne 🏆 200 trophées.</p></div>
+      <div class="boutonsL"><button class="btn rouge" data-l="1v1">1 contre 1</button><button class="btn rouge" data-l="2v2">2 contre 2</button></div></div>
     <div class="barreTroph"><div><span class="troph" style="font-size:3.4vh">🏆</span><b>${fmt(j.trophees || 0)}</b> trophées</div><button class="btn" data-shop>Boutique des trophées</button></div></div>`;
   p.hidden = false; api.son('forceField_000', 0.5, 0.8);
   p.querySelector('[data-x]').onclick = () => (p.hidden = true);
   p.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { p.hidden = true; api.arene(b.dataset.f); });
+  p.querySelectorAll('[data-l]').forEach(b => b.onclick = () => {
+    if (b.dataset.ok) { p.hidden = true; api.arene(b.dataset.l, { letale: true }); return; }
+    b.dataset.ok = '1'; b.textContent = 'Confirmer : je risque mon stuff'; api.son('error_001', 0.3, 0.6);
+  });
   p.querySelector('[data-shop]').onclick = () => { p.hidden = true; UI.ouvrirMarche('arene'); };
 };
 UI.resultatArene = (r, cb) => {

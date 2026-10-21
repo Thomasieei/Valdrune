@@ -79,7 +79,7 @@ export const BUTINS = [
   { id: 'tissu', nom: 'Tissu déchiré', valeur: 10, color: '#8f7d6a', icone: 'tissu' },
   { id: 'crane', nom: 'Crâne fêlé', valeur: 18, color: '#e3dccb', icone: 'crane' },
   { id: 'gemme', nom: 'Gemme terne', valeur: 40, color: '#7aa0a6', icone: 'gemme' },
-  { id: 'rune', nom: 'Rune ébréchée', valeur: 75, color: '#c27a4a', icone: 'rune' },
+  { id: 'rune', nom: 'Rune d’enchantement', valeur: 140, color: '#5ab0ff', icone: 'rune' },
 ];
 
 // ---- Sorts ----
