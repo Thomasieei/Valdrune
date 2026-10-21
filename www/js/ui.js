@@ -334,6 +334,11 @@ UI.majPlaques = (centre) => {
     const x = Math.round(s.x), y = Math.round(s.y);
     if (x !== p.x || y !== p.y) { p.d.style.transform = `translate(${x}px,${y}px) translate(-50%,-100%)`; p.x = x; p.y = y; }
     if (p.barre && ent.pvMax) { const w = Math.max(0, Math.round(ent.pv / ent.pvMax * 100)); if (w !== p.w) { p.barre.style.width = w + '%'; p.w = w; } }
+    // compte à rebours des invocations, en temps réel
+    if (ent.vieT !== undefined) {
+      const t = Math.max(0, Math.ceil(ent.vieT));
+      if (t !== p.t) { p.t = t; const g = p.gd || (p.gd = p.d.querySelector('.gd')); if (g) { g.textContent = `⏳ ${t} s`; g.classList.toggle('urgent', t <= 5); } }
+    }
   }
   if (bulles.size) majBulles();
 };

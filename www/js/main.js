@@ -1485,7 +1485,11 @@ function majCombattant(e, dt) {
       if (dist2D(e.pos, e.poste) > 1.5) { avancerVers(e, e.poste, dt, e.st.vitesse * 0.8); e.jouer(def.run); } else e.jouer(def.idle);
     } else if (e.camp === 'allie') { // suit le joueur
       const dj = dist2D(e.pos, joueur.pos);
-      if (dj > 3.5) { avancerVers(e, joueur.pos, dt, e.st.vitesse * (dj > 8 ? 1.15 : 0.9)); e.jouer(def.run); }
+      if (e.invoc) { // les invocations collent au joueur, même quand il court ou sprinte
+        if (dj > 16) { fumeeOmbre(e.pos); e.pos.copy(pointLibrePres(joueur.pos, 1.5, 3)); fumeeOmbre(e.pos); }
+        else if (dj > 2.8) { avancerVers(e, joueur.pos, dt, Math.max(e.st.vitesse, vitesseJoueur()) * (dj > 6 ? 1.3 : 1.05)); e.jouer(def.run); }
+        else e.jouer(def.idle);
+      } else if (dj > 3.5) { avancerVers(e, joueur.pos, dt, e.st.vitesse * (dj > 8 ? 1.15 : 0.9)); e.jouer(def.run); }
       else e.jouer(def.idle);
       if (dj > 34 && !arene) { e.pos.copy(pointLibrePres(joueur.pos, 1.5, 3)); onde(e.pos, '#4fd1ff', 2.5, 0.5); }
     } else e.jouer(def.idle);
@@ -1500,7 +1504,7 @@ function majCombattant(e, dt) {
     if (!e.invoc && e.specT > 2.5 && e.pv < e.pvMax * (melee ? 0.6 : 0.85) && Math.random() < 0.6) { e.repliT = Math.min(e.specT - 1, rnd(2, 3.5)); if (e.camp === 'ennemi') emoteBot(e, ['fuite', 'oups', 'ouin'], 0.35); return; }
   }
   const portee = melee ? def.portee + (c.rayon || 0.5) : 9.5;
-  if (d > portee) { avancerVers(e, c.pos, dt, e.st.vitesse * (e.slowT > 0 ? 0.6 : 0.92)); e.jouer(def.run); return; }
+  if (d > portee) { avancerVers(e, c.pos, dt, (e.invoc ? Math.max(e.st.vitesse, vitesseJoueur()) : e.st.vitesse) * (e.slowT > 0 ? 0.6 : 0.92)); e.jouer(def.run); return; }
   // un tireur garde ses distances
   if (!melee && d < 4.5 && e.esquiveT <= 0) {
     const arr = V(e.pos.x - c.pos.x, 0, e.pos.z - c.pos.z).normalize();
@@ -2278,6 +2282,7 @@ function tirageOmbre(tMin, tMax, source) {
   }, 1200);
   return true;
 }
+function vitesseJoueur() { return joueur.st.vitesse * (joueur.sprintT > 0 ? 1.6 : 1) * (joueur.slowT > 0 ? 0.6 : 1); }
 function fumeeOmbre(p) {
   emettre(V(p.x, 0.8, p.z), { n: 26, c1: '#b48aff', c2: '#0a0012', vit: 3.5, rayon: 0.6, vie: 0.7, taille: 0.6, grav: -1 });
   lueurSol(p, '#7a3aff', 1.8, 0.4, 0.6);
@@ -2301,7 +2306,7 @@ function invoquerOmbres(n) {
     a.pvMax = a.pv = Math.round(st.pvMax * 0.3); a.dmg = st.degats * 0.35; a.reduction = st.reduction * 0.6;
     a.root.scale.setScalar(0.9);
     teinteSpectrale(a, '#140c20', 0.8);
-    UI.plaque(a, { nom: 'Ombre', guilde: '', classe: 'allie', vie: true, lettre: false });
+    UI.plaque(a, { nom: 'Ombre', guilde: '60 s', classe: 'allie', vie: true, lettre: false });
     fumeeOmbre(pos);
     a.jouer('Spellcast_Raise', { boucle: false, fin: () => a.jouer(a.armeDef.idle) });
   }
@@ -2341,9 +2346,15 @@ function majRefletMob(a, dt) {
   a.tc = cibleIA(a); a.atkT -= dt;
   const c = a.tc;
   if (a.attaqueT > 0) { a.attaqueT -= dt; return; }
-  if (!c) { const dj = dist2D(a.pos, joueur.pos); if (dj > 3.5) { avancerVers(a, joueur.pos, dt, a.vitesse); a.jouer(a.armeDef.run); } else a.jouer(a.armeDef.idle); return; }
+  if (!c) {
+    const dj = dist2D(a.pos, joueur.pos);
+    if (dj > 16) { fumeeOmbre(a.pos); a.pos.copy(pointLibrePres(joueur.pos, 1.5, 3)); fumeeOmbre(a.pos); }
+    else if (dj > 3) { avancerVers(a, joueur.pos, dt, Math.max(a.vitesse, vitesseJoueur()) * (dj > 6 ? 1.3 : 1.05)); a.jouer(a.armeDef.run); }
+    else a.jouer(a.armeDef.idle);
+    return;
+  }
   const d = dist2D(a.pos, c.pos);
-  if (d > a.portee + (c.rayon || 0.5)) { avancerVers(a, c.pos, dt, a.vitesse); a.jouer(a.armeDef.run); return; }
+  if (d > a.portee + (c.rayon || 0.5)) { avancerVers(a, c.pos, dt, Math.max(a.vitesse, vitesseJoueur())); a.jouer(a.armeDef.run); return; }
   faceJoueur(a, dt, 10);
   if (a.atkT > 0) { a.jouer(a.armeDef.idle); return; }
   a.atkT = 1.15; a.attaqueT = 0.35;
