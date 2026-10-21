@@ -1,7 +1,7 @@
 // ===== Interface : icônes, HUD, inventaire, marché, dialogues =====
 import { THREE, G, projeter } from './engine.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, MODES, COFFRES, MAITRISES, NIVEAU_REQUIS, VARIANTES, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT } from './data.js';
+import { TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, MODES, COFFRES, MAITRISES, NIVEAU_REQUIS, VARIANTES, EMOTES, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT } from './data.js';
 import { nomObjet, couleurObjet, statsObjet, sortsObjet, puissanceObjet, valeurObjet, prixVente, categorieLabel, statsHeros, stockMarchand, stockArene, prixTrophees, niveauRequis, peutPorter, niveauDe, xpPour, bonusMaitrise, tierMaxPour } from './items.js';
 
 const $ = (s) => document.querySelector(s);
@@ -112,23 +112,34 @@ export function iconeObjet(it) {
   return (icoCache[cle] = rendreGroupe(grp, orient));
 }
 export const TEINTES_OMBRE = { Rogue_Head_Hooded: ['#5a2aa0', 0.85, 0.3], Rogue_Body: ['#2a1a40', 0.85, 0.15], Rogue_Cape: ['#6a2aff', 0.6, 0.2] };
-export function bustePersonnage(cle, canvas, couleurFond = null, teintes = null) {
+export function bustePersonnage(cle, canvas, couleurFond = null, teintes = null, opts = {}) {
   if (!icoR) initIcones();
-  const src = G.assets[cle];
-  const m = SkeletonUtils.clone(src.scene);
+  const corps = opts.cadrage === 'corps';
+  const src = opts.source || G.assets[cle].scene;
+  const m = SkeletonUtils.clone(src);
+  m.position.set(0, 0, 0); m.rotation.set(0, 0, 0); m.visible = true;
+  m.traverse(o => { o.visible = o.visible !== false; });
+  if (opts.source) { const s = src.scale; m.scale.copy(s); }
   if (teintes) for (const [nom, [c, f, gl]] of Object.entries(teintes)) { const n = m.getObjectByName(nom); if (n) n.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.color.set('#ffffff').lerp(new THREE.Color(c), f); if (gl && o.material.emissive) o.material.emissive.set(c).multiplyScalar(gl); } }); }
-  // on cache les armes pour un portrait propre
-  m.traverse(o => { if (/Sword|Axe|Shield|Crossbow|Staff|Wand|Knife|Throwable|Mug|Spellbook|Offhand/.test(o.name)) o.visible = false; });
+  // portrait : on cache les armes ; corps entier : on les garde
+  if (!corps) m.traverse(o => { if (/Sword|Axe|Shield|Crossbow|Staff|Wand|Knife|Throwable|Mug|Spellbook|Offhand/.test(o.name)) o.visible = false; });
   icoScene.add(m); m.updateMatrixWorld(true);
-  const box = new THREE.Box3().setFromObject(m); const h = box.max.y - box.min.y;
-  const cy = box.max.y - h * 0.2; const r = h * 0.21;
+  const box = new THREE.Box3();
+  m.traverse(o => { if (o.isMesh && o.visible && !/Sword|Axe|Shield|Crossbow|Staff|Wand|Knife|Throwable|Mug|Spellbook|Offhand/.test(o.name)) box.expandByObject(o); });
+  if (box.isEmpty()) box.setFromObject(m);
+  const h = box.max.y - box.min.y;
+  // portrait : toute la tête et le haut des épaules ; corps : le personnage en entier
+  const r = corps ? h * 0.56 : h * 0.34;
+  const cy = corps ? (box.min.y + box.max.y) / 2 : box.max.y - h * 0.31;
   icoCam.left = -r; icoCam.right = r; icoCam.top = r; icoCam.bottom = -r;
-  icoCam.position.set(r * 0.6, cy + r * 0.1, 50); icoCam.lookAt(0, cy, 0); icoCam.updateProjectionMatrix();
+  const cx = (box.min.x + box.max.x) / 2;
+  icoCam.position.set(cx + r * 0.5, cy + r * 0.12, 50); icoCam.lookAt(cx, cy, 0); icoCam.updateProjectionMatrix();
   icoR.setClearColor(0x000000, 0); icoR.render(icoScene, icoCam);
   icoScene.remove(m);
   const g = canvas.getContext('2d'); g.clearRect(0, 0, canvas.width, canvas.height);
-  if (couleurFond) { const gr = g.createRadialGradient(64, 50, 10, 64, 64, 80); gr.addColorStop(0, couleurFond); gr.addColorStop(1, '#120b16'); g.fillStyle = gr; g.fillRect(0, 0, canvas.width, canvas.height); }
-  g.drawImage(icoR.domElement, 0, 0, canvas.width, canvas.height);
+  const W = canvas.width;
+  if (couleurFond) { const gr = g.createRadialGradient(W / 2, W * 0.4, W * 0.08, W / 2, W / 2, W * 0.62); gr.addColorStop(0, couleurFond); gr.addColorStop(1, '#120b16'); g.fillStyle = gr; g.fillRect(0, 0, W, canvas.height); }
+  g.drawImage(icoR.domElement, 0, 0, W, canvas.height);
 }
 function icone2D(it) {
   const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
@@ -257,6 +268,37 @@ UI.chat = (nom, txt) => {
   log.appendChild(d); while (log.children.length > 2) log.firstChild.remove();
   setTimeout(() => d.remove(), 9000);
 };
+// ---------------- Émoticônes ----------------
+const bulles = new Map();
+const EMO = Object.fromEntries(EMOTES.map(e => [e.id, e]));
+UI.emote = (ent, id, nom = null) => {
+  const e = EMO[id]; if (!e || !ent) return;
+  const old = bulles.get(ent); if (old) old.d.remove();
+  const d = document.createElement('div'); d.className = 'emoteBulle' + (e.texte ? ' txt' : '');
+  d.innerHTML = e.texte ? `<span style="color:${e.c}">${e.g}</span>` : `<span>${e.g}</span>`;
+  $('#labels').appendChild(d);
+  const b = { d, h: (ent.hauteurPlaque || 2.5) + 1.15 }; bulles.set(ent, b);
+  setTimeout(() => { if (bulles.get(ent) === b) { bulles.delete(ent); } d.remove(); }, 2700);
+  if (nom) UI.chat(nom, e.g);
+};
+function majBulles() {
+  for (const [ent, b] of bulles) {
+    const pos = ent.pos || ent.root.position;
+    _v.set(pos.x, pos.y + b.h, pos.z); const s = projeter(_v);
+    const vis = s.visible;
+    if (vis !== b.vis) { b.vis = vis; b.d.style.visibility = vis ? '' : 'hidden'; }
+    if (!vis) continue;
+    const x = Math.round(s.x), y = Math.round(s.y);
+    if (x !== b.x || y !== b.y) { b.x = x; b.y = y; b.d.style.transform = `translate(${x}px,${y}px) translate(-50%,-100%)`; }
+  }
+}
+UI.panneauEmotes = () => {
+  const p = $('#emotes');
+  if (!p.hidden) { p.hidden = true; return; }
+  p.innerHTML = EMOTES.map(e => `<button data-e="${e.id}" aria-label="${e.nom}">${e.texte ? `<b style="color:${e.c}">${e.g}</b>` : e.g}<small>${e.nom}</small></button>`).join('');
+  p.hidden = false;
+  p.querySelectorAll('[data-e]').forEach(b => b.onclick = (ev) => { ev.stopPropagation(); p.hidden = true; api.emote(b.dataset.e); });
+};
 UI.action = (texte, cb) => {
   const b = $('#action');
   if (!texte) { b.hidden = true; b.onclick = null; return; }
@@ -279,7 +321,7 @@ UI.plaque = (ent, { nom, guilde = '', classe = '', vie = true, lettre = true, ip
   $('#labels').appendChild(d); plaques.set(ent, { d, barre: d.querySelector('.vie i'), h: ent.hauteurPlaque || 2.5 });
 };
 UI.retirerPlaque = (ent) => { const p = plaques.get(ent); if (p) { p.d.remove(); plaques.delete(ent); } };
-UI.viderPlaques = () => { for (const p of plaques.values()) p.d.remove(); plaques.clear(); };
+UI.viderPlaques = () => { for (const p of plaques.values()) p.d.remove(); plaques.clear(); for (const b of bulles.values()) b.d.remove(); bulles.clear(); };
 const _v = new THREE.Vector3();
 UI.majPlaques = (centre) => {
   for (const [ent, p] of plaques) {
@@ -293,6 +335,7 @@ UI.majPlaques = (centre) => {
     if (x !== p.x || y !== p.y) { p.d.style.transform = `translate(${x}px,${y}px) translate(-50%,-100%)`; p.x = x; p.y = y; }
     if (p.barre && ent.pvMax) { const w = Math.max(0, Math.round(ent.pv / ent.pvMax * 100)); if (w !== p.w) { p.barre.style.width = w + '%'; p.w = w; } }
   }
+  if (bulles.size) majBulles();
 };
 
 // ---------------- Mini-carte ----------------
@@ -373,7 +416,7 @@ UI.rendreInventaire = () => {
       ${Array.from({ length: Math.max(0, 40 - j.sac.length) }, () => '<div class="case"></div>').join('')}</div>
       <p style="margin:1vh 0 0;font-size:1.8vh;color:#6a4a2e">Touche un objet pour voir toutes ses caractéristiques et l’équiper.</p>
     </div></div>`;
-  if ($('#silCv')) { const tA = j.equip.arme ? j.equip.arme.type : 'epee'; bustePersonnage(ARMES[tA].model, $('#silCv'), tA === 'ombre' ? '#3a1a5a' : '#6a4a3a', ARMES[tA].ombre ? TEINTES_OMBRE : null); }
+  if ($('#silCv')) { const tA = j.equip.arme ? j.equip.arme.type : 'epee'; const mj = api.modeleJoueur && api.modeleJoueur(); bustePersonnage(ARMES[tA].model, $('#silCv'), tA === 'ombre' ? '#3a1a5a' : '#6a4a3a', mj ? null : ARMES[tA].ombre ? TEINTES_OMBRE : null, { cadrage: 'corps', source: mj }); }
   $('#inv').querySelectorAll('[data-t]').forEach(b => b.onclick = () => { ongletInv = b.dataset.t; api.son('click_001', 0.4); UI.rendreInventaire(); });
   $('#inv').querySelector('[data-x]').onclick = () => { $('#inv').hidden = true; api.son('close_001', 0.4); };
   $('#inv').querySelectorAll('[data-id]').forEach(b => b.onclick = () => { const it = j.sac.find(i => i.id == b.dataset.id); UI.fiche(it, 'sac'); });

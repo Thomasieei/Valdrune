@@ -190,6 +190,12 @@ function creerBots() {
   }
 }
 function majBots(dt) {
+  emoteHubT -= dt;
+  if (emoteHubT <= 0) {
+    emoteHubT = rnd(7, 16);
+    const proches = bots.filter(b => !(b.absentT > 0) && !b.mort && b.root.visible !== false && (!joueur || dist2D(b.pos, joueur.pos) < 22));
+    if (proches.length) emoteBot(hasard(proches), ['salut', 'mdr', 'feu', 'bof', 'malin', 'diable', 'clown', 'gg', 'toi'], 1);
+  }
   for (const b of bots) {
     b.timer -= dt;
     if (groupe && b.nom === groupe.nom && joueur) { // le coéquipier suit le joueur sur la place
@@ -447,6 +453,7 @@ function tuer(e) {
   for (const it of loot.objets) ajouterSac(it, true);
   if (e.boss) {
     tirageOmbre(modeActuel.tiers[0], modeActuel.tiers[1], 'boss');
+    for (const a of allies) if (!a.mort && !a.invoc && !a.garde) emoteBot(a, ['gg', 'feu', 'merci'], 0.6, 1);
     bossVaincus++; UI.boss(null); G.shake = 1;
     onde(e.pos, e.boss.couleur, 10, 1.2);
     emettre(V(e.pos.x, 2, e.pos.z), { n: 120, c1: '#ffd27a', c2: e.boss.couleur, vit: 9, vie: 1.4, taille: 0.5, grav: 3 });
@@ -468,14 +475,19 @@ function blesserJoueur(d, source = null) {
   if (source && source.combattant && joueur.st.pvp) d *= 1 - joueur.st.pvp / 200;
   if (joueur.bouclier > 0) { const a = Math.min(joueur.bouclier, d); joueur.bouclier -= a; d -= a; emettre(V(joueur.pos.x, 1.2, joueur.pos.z), { n: 6, c1: '#bfe6ff', c2: '#4a9aff', vit: 3, vie: 0.4, taille: 0.3 }); }
   if (d <= 0) return;
+  if (source) dernierAgresseur = source;
   joueur.pv -= d; joueur.frapper(); joueur.combatT = 4;
   UI.nombre(V(joueur.pos.x, 2.2, joueur.pos.z), Math.round(d), 'joueur');
   G.shake = Math.min(1, G.shake + d / joueur.st.pvMax * 3);
   son('impactMetal_medium_001', 0.35);
   if (joueur.pv <= 0) mourirJoueur();
 }
+let dernierAgresseur = null;
 function mourirJoueur() {
   joueur.pv = 0; joueur.mort = true; joueur.jouer('Death_A', { boucle: false });
+  // le « joueur » qui t'a tué te nargue
+  const k = dernierAgresseur;
+  if (k && k.combattant && !k.mort && k.camp === 'ennemi') { emoteBot(k, ['ez', 'mdr', 'clown', 'rip', 'toi', 'bof'], 1, 0.7); emoteBot(k, ['mdr', 'clown', 'diable'], 0.4, 3.2); }
   for (const a of allies.filter(x => x.invoc)) dissiper(a);
   if (assaut && !assaut.fini) { // les bandits pillent 70 % du coffre
     assaut.fini = true; const ile = assaut.ile; const pertes = [];
@@ -732,6 +744,7 @@ function bulle(cible, fini) {
 }
 function rempartIA(e) {
   e.cdRempart = 18; e.bouclierIA = e.pvMax * 0.25; e.bouclierT = 4;
+  if (e.camp === 'ennemi') emoteBot(e, ['malin', 'bof'], 0.2, 0.3);
   bulle(e, () => e.bouclierIA <= 0 || e.bouclierT <= 0);
   onde(e.pos, '#8fd3ff', 3, 0.5); son('forceField_000', 0.45, 1.4);
   UI.nombre(V(e.pos.x, 2.8, e.pos.z), 'Rempart', 'info');
@@ -1045,6 +1058,8 @@ const API = {
   piller: () => entrerIle(ileBot()),
   construire: (ile, plot, t) => construire(ile, plot, t),
   get ile() { return API_ILE; },
+  emote: (id) => emoteJoueur(id),
+  modeleJoueur: () => (joueur && joueur.model) || null,
   code: (c) => utiliserCode(c),
   infosIle: (i) => infosIle(i),
   acheterArene: (it) => {
@@ -1206,6 +1221,7 @@ function initEntrees() {
   };
   $('#btnReg').onclick = () => UI.reglages();
   $('#btnChat').onclick = () => UI.chat(J.nom, 'Salut tout le monde !');
+  $('#btnEmote').onclick = (ev) => { ev.stopPropagation(); son('click_001', 0.4); UI.panneauEmotes(); };
   let quitConf = 0;
   $('#btnQuitter').onclick = () => {
     if (!modeActuel) return;
@@ -1481,7 +1497,7 @@ function majCombattant(e, dt) {
   if (e.specT <= 0 && d < 14) { capaciteCombattant(e, type); e.specT = rnd(4.5, 7.5); e.repliPossible = true; return; }
   if (e.repliPossible && e.attaqueT <= 0) {
     e.repliPossible = false;
-    if (!e.invoc && e.specT > 2.5 && e.pv < e.pvMax * (melee ? 0.6 : 0.85) && Math.random() < 0.6) { e.repliT = Math.min(e.specT - 1, rnd(2, 3.5)); return; }
+    if (!e.invoc && e.specT > 2.5 && e.pv < e.pvMax * (melee ? 0.6 : 0.85) && Math.random() < 0.6) { e.repliT = Math.min(e.specT - 1, rnd(2, 3.5)); if (e.camp === 'ennemi') emoteBot(e, ['fuite', 'oups', 'ouin'], 0.35); return; }
   }
   const portee = melee ? def.portee + (c.rayon || 0.5) : 9.5;
   if (d > portee) { avancerVers(e, c.pos, dt, e.st.vitesse * (e.slowT > 0 ? 0.6 : 0.92)); e.jouer(def.run); return; }
@@ -1489,6 +1505,7 @@ function majCombattant(e, dt) {
   if (!melee && d < 4.5 && e.esquiveT <= 0) {
     const arr = V(e.pos.x - c.pos.x, 0, e.pos.z - c.pos.z).normalize();
     e.dashT = 0.35; e.dashV = arr.multiplyScalar(18); e.esquiveT = rnd(4, 6);
+    if (e.camp === 'ennemi') emoteBot(e, ['malin', 'bof', 'mdr'], 0.3, 0.2);
     e.jouer('Dodge_Backward', { boucle: false, forcer: true, vitesse: 1.5, fin: () => e.jouer(def.idle) });
     emettre(V(e.pos.x, 0.3, e.pos.z), { n: 12, c1: '#d0f0ff', c2: '#6aa0c0', vit: 3, vie: 0.4, taille: 0.35 });
     return;
@@ -1512,6 +1529,7 @@ function capaciteCombattant(e, type) {
   const base = Math.atan2(pj.x - e.pos.x, pj.z - e.pos.z);
   e.angle = base; e.root.rotation.y = base;
   const coul = e.camp === 'allie' ? '#4fd1ff' : '#ff3a2a';
+  if (e.camp === 'ennemi') emoteBot(e, ['feu', 'diable', 'toi'], 0.12, 0.4);
   if (type === 'ombre') { // surgit dans le dos de sa cible
     e.attaqueT = 0.7;
     const derriere = V(pj.x + Math.sin(base) * 1.4, 0, pj.z + Math.cos(base) * 1.4);
@@ -1655,6 +1673,7 @@ function entrerArene(format, opts = {}) {
       const r = creerCombattant(monde.spawnsRivaux[i].clone(), d, 'ennemi');
       r.angle = -Math.PI / 2; r.root.rotation.y = r.angle; r.potions = 1;
     }
+    for (const e of ennemis) emoteBot(e, ['salut', 'diable', 'toi', 'malin'], 0.6, rnd(1.5, 3.5));
     const rivaux = ennemis.map(e => `${e.nom} (⚔ ${e.ip})`).join(' et ');
     UI.journal('Arène des Échos', `${format === '2v2' ? 'Équipe adverse' : 'Adversaire'} : ${rivaux}`, null);
     UI.zone('Arène des Échos', opts.duel ? `Duel · mise ${fmtN(opts.mise)}` : format === '2v2' ? '2 contre 2' : '1 contre 1');
@@ -1692,8 +1711,8 @@ function finArene(victoire) {
   son(victoire ? 'jingle_win' : 'lowFrequency_explosion_000', 0.6, victoire ? 1 : 0.6);
   if (victoire && !joueur.mort) joueur.jouer('Cheer', { boucle: false });
   for (const a of allies) if (!a.mort && victoire) a.jouer('Cheer', { boucle: false });
-  for (const e of ennemis) if (!e.mort) { e.jouer('Cheer', { boucle: false }); UI.chat(e.nom, hasard(RIVAL_GAGNE)); }
-  if (victoire) { const r = ennemis.find(e => e.rival); if (r) setTimeout(() => UI.chat(r.nom, hasard(RIVAL_PERD)), 800); }
+  for (const e of ennemis) if (!e.mort) { e.jouer('Cheer', { boucle: false }); UI.chat(e.nom, hasard(RIVAL_GAGNE)); emoteBot(e, ['ez', 'mdr', 'clown', 'bof'], 1, 0.4); }
+  if (victoire) { const r = ennemis.find(e => e.rival); if (r) { setTimeout(() => UI.chat(r.nom, hasard(RIVAL_PERD)), 800); emoteBot(r, ['gg', 'ouin', 'rage'], 0.8, 1.2); } for (const a of allies) if (!a.mort && !a.invoc) emoteBot(a, ['gg', 'feu', 'ez'], 0.7, 1.6); }
   sauver();
   setTimeout(() => UI.resultatArene({ victoire, lignes }, () => fondu(() => lancerHub())), 2200);
 }
@@ -1735,6 +1754,7 @@ function victoireRival(e) {
   son('jingle_win', 0.6);
   UI.toast(`${e.nom} est vaincu !`, true);
   setTimeout(() => UI.chat(e.nom, hasard(RIVAL_PERD)), 900);
+  emoteBot(e, ['rage', 'ouin', 'gg', 'rip'], 0.75, 0.5);
   onde(e.pos, '#ff3a2a', 8, 1); emettre(V(e.pos.x, 1.5, e.pos.z), { n: 90, c1: '#ffd27a', c2: '#ff2a2a', vit: 8, vie: 1.2, taille: 0.45, grav: 3 });
   const pos = pointLibrePres(e.pos, 0.5, 1.5);
   const obj = cloner('chest_gold', pos.x, 0, pos.z, Math.PI / 4, 1.5);
@@ -2202,6 +2222,28 @@ function creerPasseur() {
   passeur = a;
 }
 
+
+
+// ---------------- Émoticônes ----------------
+let emoteHubT = 6, emoteJoueurT = 0;
+const REPONSES = { salut: ['salut', 'merci'], gg: ['gg', 'merci'], mdr: ['mdr', 'clown'], ez: ['rage', 'toi', 'clown', 'mdr'], clown: ['clown', 'rage', 'mdr'], rip: ['mdr', 'ouin'],
+  rage: ['mdr', 'clown', 'bof'], ouin: ['mdr', 'rip'], toi: ['diable', 'toi', 'malin'], bof: ['bof', 'malin'], feu: ['feu', 'mdr'], merci: ['merci', 'salut'],
+  diable: ['diable', 'fuite', 'ez'], fuite: ['mdr', 'clown'], malin: ['malin', 'toi'], oups: ['mdr', 'oups'] };
+function emoteBot(e, ids, chance = 1, delai = 0) {
+  if (!e || Math.random() > chance) return;
+  const go = () => { if (!e.mort || ids.includes('rip') || ids.includes('ouin') || ids.includes('rage')) UI.emote(e, hasard(ids), e.nom); };
+  if (delai > 0) setTimeout(go, delai * 1000); else go();
+}
+function emoteJoueur(id) {
+  if (!joueur || performance.now() < emoteJoueurT) return;
+  emoteJoueurT = performance.now() + 1500;
+  UI.emote(joueur, id, J.nom); son('select_001', 0.3, 1.3);
+  const rep = REPONSES[id] || ['mdr'];
+  // les autres « joueurs » réagissent
+  const cands = !modeActuel ? bots.filter(b => !(b.absentT > 0) && dist2D(b.pos, joueur.pos) < 14) : [...ennemis.filter(e => e.combattant && !e.mort), ...allies.filter(a => !a.mort && !a.invoc && a.combattant)];
+  cands.sort((a, b) => dist2D(a.pos, joueur.pos) - dist2D(b.pos, joueur.pos));
+  cands.slice(0, 2).forEach((c, i) => emoteBot(c, rep, i ? 0.25 : (modeActuel ? 0.45 : 0.6), rnd(0.8, 1.9) + i));
+}
 
 // ---------------- Classe des Ombres ----------------
 function utiliserCode(brut) {

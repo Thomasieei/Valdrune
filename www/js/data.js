@@ -214,3 +214,12 @@ export const GARDES_ILE = [
 ];
 export const CHAMPION_ILE = { nom: 'Champion de l’île', prix: 3500000, ratio: 1.15 };
 export const HEURE_ASSAUT = 21;
+
+// ---- Émoticônes (joueur et bots) ----
+export const EMOTES = [
+  { id: 'salut', g: '👋', nom: 'Salut' }, { id: 'gg', g: 'GG', nom: 'GG', texte: true, c: '#ffd25a' }, { id: 'mdr', g: '😂', nom: 'MDR' },
+  { id: 'ez', g: 'EZ', nom: 'Trop facile', texte: true, c: '#ff5a4a' }, { id: 'clown', g: '🤡', nom: 'Clown' }, { id: 'rip', g: '💀', nom: 'RIP' },
+  { id: 'rage', g: '😡', nom: 'Rage' }, { id: 'ouin', g: '😭', nom: 'Ouin' }, { id: 'toi', g: '👉', nom: 'Toi !' },
+  { id: 'bof', g: '🥱', nom: 'Bof' }, { id: 'feu', g: '🔥', nom: 'En feu' }, { id: 'merci', g: '❤️', nom: 'Merci' },
+  { id: 'diable', g: '😈', nom: 'Viens' }, { id: 'fuite', g: '🏃', nom: 'Je fuis' }, { id: 'malin', g: '😏', nom: 'Malin' }, { id: 'oups', g: '😅', nom: 'Oups' },
+];

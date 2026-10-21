@@ -155,7 +155,7 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 .equipement{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,auto);gap:1.2vh;justify-items:center;align-items:center;background:#00000014;border-radius:6px;padding:1.4vh}
 .equipement .silhouette{grid-column:2;grid-row:1/4;width:100%;height:100%;min-height:20vh}
 .equipement .silhouette{display:grid;place-items:center;overflow:hidden}
-.equipement .silhouette canvas{height:100%;max-height:26vh;width:auto;aspect-ratio:1;display:block;border-radius:6px}
+.equipement .silhouette canvas{width:100%;height:auto;max-width:26vh;max-height:100%;aspect-ratio:1;object-fit:contain;display:block;border-radius:6px}
 .case{width:9vh;height:9vh;border-radius:6px;position:relative;background:linear-gradient(#5a4632,#3a2a1c);border:2px solid #2a1a0e;box-shadow:inset 0 0 8px #000a;display:grid;place-items:center;padding:0;overflow:hidden}
 .case img{width:92%;height:92%;object-fit:contain;filter:drop-shadow(0 2px 2px #000a)}
 .case .tier{position:absolute;left:2px;top:1px;font-family:var(--f-label);font-weight:800;font-size:1.6vh;color:#fff;text-shadow:0 0 3px #000}
@@ -419,6 +419,24 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 .annonceRare h2{margin:0;font-family:var(--f-titre);font-size:7vh;color:#e8d0ff;text-shadow:0 0 30px #8a3aff,0 0 60px #4a0aaa}
 .annonceRare p{margin:.6vh 0 0;font:800 2.6vh var(--f-label);color:#fff}
 @keyframes rare{0%{opacity:0;transform:translate(-50%,-40%) scale(.7)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.05)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-56%) scale(1)}}
+
+/* émoticônes */
+.chatBtns{display:flex;gap:1vh;align-items:center}
+#chat #btnEmote{padding:.3vh 1.6vh;font-size:2.8vh;line-height:1}
+#emotes{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 7.5vh);transform:translateX(-50%);z-index:30;pointer-events:auto;display:grid;grid-template-columns:repeat(8,1fr);gap:.6vh;padding:1vh;border-radius:10px;background:linear-gradient(#2a2232f2,#14101af2);border:2px solid #7a7082;box-shadow:0 6px 24px #000a;width:min(92vh,62vw);box-sizing:border-box;animation:apparaitE .16s ease-out}
+@keyframes apparaitE{0%{opacity:0;margin-bottom:-2vh}100%{opacity:1;margin-bottom:0}}
+#emotes[hidden]{display:none}
+#emotes button{display:flex;justify-content:center;flex-direction:column;align-items:center;gap:.2vh;padding:.6vh 0;border-radius:8px;background:#ffffff10;border:1px solid #ffffff22;color:#fff;font-size:4vh;line-height:1;min-height:7.4vh}
+#emotes button b{font:900 3.2vh var(--f-label);line-height:4vh;text-shadow:0 2px 0 #000}
+#emotes button small{font-size:1.4vh;color:#cfc4d8;font-weight:700}
+#emotes button:active{transform:scale(.92);background:#ffffff26}
+.emoteBulle{position:absolute;left:0;top:0;pointer-events:none;z-index:5}
+.emoteBulle span{display:block;font-size:5vh;line-height:1;padding:.6vh .9vh;border-radius:2vh;background:#fffdf6;box-shadow:0 3px 0 #0005,0 0 0 2px #2a1a10;animation:popE .35s cubic-bezier(.3,1.8,.5,1),flotte 2.7s ease-in forwards;position:relative}
+.emoteBulle span::after{content:"";position:absolute;left:50%;bottom:-1vh;transform:translateX(-50%);border:1vh solid transparent;border-top-color:#fffdf6;border-bottom:0}
+.emoteBulle.txt span{font:900 3.6vh var(--f-titre);padding:.6vh 1.6vh;background:#1a1016;box-shadow:0 3px 0 #0008,0 0 0 2px currentColor;text-shadow:0 0 12px currentColor}
+.emoteBulle.txt span::after{border-top-color:#1a1016}
+@keyframes popE{0%{transform:scale(.55)}100%{transform:scale(1)}}
+@keyframes flotte{0%,80%{opacity:1}100%{opacity:0;margin-top:-3vh}}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important}}
 </style>
 
@@ -462,7 +480,7 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
     <div id="joy"><div class="stick"></div></div>
     <div id="sorts"></div>
     <button id="action" hidden>Parler</button>
-    <div id="chat"><div class="log" id="chatLog"></div><button id="btnChat">Chat</button></div>
+    <div id="emotes" hidden></div><div id="chat"><div class="log" id="chatLog"></div><div class="chatBtns"><button id="btnEmote" aria-label="Émoticônes">😀</button><button id="btnChat">Chat</button></div></div>
     <div id="toast"></div>
   </div>
 
