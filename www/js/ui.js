@@ -247,6 +247,9 @@ UI.majHud = (j, st) => {
   txt(E('pvTxt'), `${fmt(j.pv)} / ${fmt(st.pvMax)}`);
   sty(E('enFill'), 'transform', `scaleX(${(Math.max(0, j.energie / st.energieMax)).toFixed(3)})`);
   txt(E('enTxt'), `${fmt(j.energie)} / ${fmt(st.energieMax)}`);
+  // filtre rouge quand la vie est basse : il pulse comme un cœur et s'efface quand la vie remonte
+  const ratio = j.pv / st.pvMax, k = j.mort ? 0 : Math.max(0, Math.min(1, (0.38 - ratio) / 0.3));
+  const vg = E('vignetteVie'); if (vg) { sty(vg, 'opacity', k.toFixed(2)); sty(vg, '--v', '1'); }
   const et = api.etat();
   txt(E('argentTxt'), fmt(et.argent));
   txt(E('trophTxt'), fmt(et.trophees || 0));

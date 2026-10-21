@@ -718,10 +718,14 @@ export function construireSylve() {
   const ligne = [];
   troncons.forEach((t, i) => { ligne.push(...t); ligne.push(salles[i].c); });
   const segs = []; for (let i = 0; i < ligne.length - 1; i++) segs.push([ligne[i], ligne[i + 1]]);
-  const DEMI = 4.6;
+  const DEMI = 5.2;
   const distChemin = (x, z) => { let d = Infinity; for (const [a, b] of segs) d = Math.min(d, distSeg(x, z, a, b)); return d; };
   const dansSalle = (x, z, marge = 0) => salles.find(s => (x - s.c.x) ** 2 + (z - s.c.z) ** 2 < (s.r + marge) ** 2);
-  const marche = (x, z) => !!dansSalle(x, z) || distChemin(x, z) < DEMI;
+  const marche = (x, z) => !!dansSalle(x, z, 0.8) || distChemin(x, z) < DEMI;
+  // abscisse le long du chemin (pour que les joueurs du groupe suivent la route comme des humains)
+  const cum = [0]; for (const [a, b] of segs) cum.push(cum[cum.length - 1] + a.distanceTo(b));
+  const abscisse = (x, z) => { let best = Infinity, s = 0; segs.forEach(([a, b], i) => { const vx = b.x - a.x, vz = b.z - a.z, l2 = vx * vx + vz * vz; let t = l2 ? ((x - a.x) * vx + (z - a.z) * vz) / l2 : 0; t = Math.max(0, Math.min(1, t)); const dx = x - (a.x + vx * t), dz = z - (a.z + vz * t), d = dx * dx + dz * dz; if (d < best) { best = d; s = cum[i] + t * Math.sqrt(l2); } }); return s; };
+  const pointA = (s) => { s = Math.max(0, Math.min(cum[cum.length - 1], s)); for (let i = 0; i < segs.length; i++) if (s <= cum[i + 1]) { const [a, b] = segs[i]; const t = (s - cum[i]) / Math.max(1e-6, cum[i + 1] - cum[i]); return { p: a.clone().lerp(b, t), dir: b.clone().sub(a).normalize() }; } const [a, b] = segs[segs.length - 1]; return { p: b.clone(), dir: b.clone().sub(a).normalize() }; };
   const collisions = [];
   // sol
   const tH = texHerbe(); tH.repeat.set(70, 26);
@@ -734,7 +738,7 @@ export function construireSylve() {
     const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
     const t = b.clone().sub(a).normalize(); const nx = -t.z, nz = t.x;
     if (i) dist += pts[i].distanceTo(pts[i - 1]);
-    const L = DEMI + 0.9;
+    const L = DEMI + 0.3;
     pos.push(pts[i].x + nx * L, 0.02, pts[i].z + nz * L, pts[i].x - nx * L, 0.02, pts[i].z - nz * L);
     uv.push(0, dist / 6, 1, dist / 6);
     if (i) { const k = i * 2; idx.push(k - 2, k - 1, k, k - 1, k + 1, k); }
@@ -849,6 +853,7 @@ export function construireSylve() {
   });
   const spawn = P(-1, 0.5);
   return {
+    abscisse, pointA, longueur: cum[cum.length - 1], salleS: salles.map(s => abscisse(s.c.x, s.c.z)),
     groupe, type: 'sylve', nom: 'Sanctuaire d’Émeraude', spawn, sortie: P(-5, 0), salles, troncons, segs, packs, barrieres, collisions, marche,
     rayonMonde: 160, bornes: { x0: -12, x1: 310, z0: -48, z1: 30 },
     zoneDe: (x, z) => { const s = dansSalle(x, z); return s ? 'S' + s.id : -1; },

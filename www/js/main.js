@@ -380,8 +380,14 @@ function libre(x, z, r = 0.5) {
   }
   return true;
 }
+function pointLibreProche(p, r) {
+  if (libre(p.x, p.z, r)) return p;
+  for (let d = 0.5; d <= 6; d += 0.5) for (let k = 0; k < 16; k++) { const a = k / 16 * 6.283; const x = p.x + Math.cos(a) * d, z = p.z + Math.sin(a) * d; if (libre(x, z, r)) return V(x, 0, z); }
+  return null;
+}
 function deplacer(ent, dx, dz, r = 0.5) {
   const p = ent.pos;
+  if (!libre(p.x, p.z, r * 0.6)) { const q = pointLibreProche(p, r); if (q) { p.x = q.x; p.z = q.z; } return true; }
   if (libre(p.x + dx, p.z + dz, r)) { p.x += dx; p.z += dz; return true; }
   if (libre(p.x + dx, p.z, r)) { p.x += dx; return true; }
   if (libre(p.x, p.z + dz, r)) { p.z += dz; return true; }
@@ -893,7 +899,7 @@ function majMob(e, d, dt) {
   const c = e.tc;
   if (e.attaqueT > 0) { e.attaqueT -= dt; faceJoueur(e, dt, 6); return; }
   const portee = def.portee;
-  if (d > portee + e.rayon) { avancerVers(e, c.pos, dt, def.vitesse); e.jouer('Running_A'); return; }
+  if (d > portee + e.rayon) { allerVers(e, c.pos, dt, def.vitesse); e.jouer('Running_A'); return; }
   faceJoueur(e, dt);
   if (e.atkT > 0) { e.jouer('Idle_Combat'); return; }
   e.atkT = def.type === 'melee' ? rnd(1.6, 2.0) : rnd(2.2, 2.8);
@@ -928,7 +934,7 @@ function majBoss(e, d, dt) {
   if (b.id === 'sylphe') e.root.position.y = e.hover + Math.sin(G.t * 2) * 0.25;
   const portee = ranged ? 10 : e.def.portee + e.rayon;
   if (e.figeT > 0) { e.figeT -= dt; return; }
-  if (d > portee) { avancerVers(e, tc.pos, dt, e.def.vitesse * (enrage ? 1.25 : 1)); e.jouer(dragon ? 'Fast_Flying' : 'Running_A'); return; }
+  if (d > portee) { allerVers(e, tc.pos, dt, e.def.vitesse * (enrage ? 1.25 : 1)); e.jouer(dragon ? 'Fast_Flying' : 'Running_A'); return; }
   faceJoueur(e, dt, 6);
   if (e.atkT > 0) { e.jouer(dragon ? 'Flying_Idle' : 'Idle_Combat'); return; }
   e.atkT = ranged ? 1.6 : 2.0; e.attaqueT = 0.8;
@@ -1426,7 +1432,7 @@ function creerCombattant(pos, data, camp = 'ennemi') {
     argent: Math.round(rnd(0.7, 1.4) * 60 * Math.pow(2.3, arme.tier - 1)),
   });
   a.jouer('Cheer', { boucle: false, fin: () => a.jouer(def.idle) });
-  UI.plaque(a, { nom: data.nom, guilde: data.guilde, classe: camp === 'ennemi' ? 'rival' : 'allie', ip: a.ip, vie: camp === 'ennemi' });
+  UI.plaque(a, { nom: data.nom, guilde: data.guilde, classe: camp === 'ennemi' ? 'rival' : 'allie', ip: a.ip, vie: true });
   if (camp === 'ennemi') ennemis.push(a); else allies.push(a);
   return a;
 }
@@ -1439,6 +1445,7 @@ function cibleIA(e) {
   let liste;
   if (e.poste && e.camp === 'allie') liste = vivants().filter(x => dist2D(x.pos, e.poste) < 24);
   else if (e.poste) liste = equipeJoueur().filter(x => dist2D(x.pos, e.poste) < 20);
+  else if (e.camp === 'allie' && e.membreSylve) liste = vivants().filter(x => x.etat !== 'dormant' && (x.etat === 'chasse' ? dist2D(x.pos, e.pos) < 20 : dist2D(x.pos, e.pos) < 11));
   else if (e.camp === 'allie') liste = arene ? vivants() : e.autonome ? vivants().filter(x => x.etat !== 'dormant' && (dist2D(x.pos, e.pos) < 12 || (dist2D(x.pos, joueur.pos) < 15 && x.etat !== 'idle')) && (!x.boss || dist2D(x.pos, joueur.pos) < 22)) : vivants().filter(x => x.etat !== 'dormant' && dist2D(x.pos, joueur.pos) < 15 && (x.etat !== 'idle' || dist2D(x.pos, e.pos) < 8));
   else liste = equipeJoueur();
   if (!liste.length) return null;
@@ -1488,7 +1495,7 @@ function blesserAllie(a, d, src, opts = {}) {
   // en donjon, le coéquipier se relève au bout de 15 s près du joueur
   programmer(15, () => {
     if (!allies.includes(a) || joueur.mort) return;
-    a.mort = false; a.pv = a.pvMax * 0.5; a.pos.copy(pointLibrePres(joueur.pos, 1.5, 3)); a.jouer(a.armeDef.idle);
+    a.mort = false; a.pv = a.pvMax * 0.5; if (!a.membreSylve) a.pos.copy(pointLibrePres(joueur.pos, 1.5, 3)); a.jouer(a.armeDef.idle);
     onde(a.pos, '#9dff8a', 3, 0.6); UI.toast(`${a.nom} se relève`);
   });
 }
@@ -1525,7 +1532,7 @@ function majCombattant(e, dt) {
   if (e.tc && !e.invoc && e.cdRempart <= 0 && (e.pv < e.pvMax * 0.55 || (e.pvRef || e.pv) - e.pv > e.pvMax * 0.18)) rempartIA(e);
   if (e.dashT > 0) { e.dashT -= dt; deplacer(e, e.dashV.x * dt, e.dashV.z * dt, 0.5); return; }
   if (e.autonome && e.perso === 'traitre' && !e.trahi && joueur.pv < joueur.st.pvMax * 0.35 && dist2D(e.pos, joueur.pos) < 10 && Math.random() < dt * 0.25) { e.trahi = true; trahir(e); }
-  if (e.camp === 'allie' && dangers.length) { const z = dangerSur(e.pos); if (z) { const dir = V(e.pos.x - z.p.x, 0, e.pos.z - z.p.z); if (dir.lengthSq() < 0.01) dir.set(Math.random() - 0.5, 0, Math.random() - 0.5); dir.normalize(); avancerVers(e, V(z.p.x + dir.x * (z.r + 2), 0, z.p.z + dir.z * (z.r + 2)), dt, e.st.vitesse * 1.1); e.jouer(def.run); return; } }
+  if (e.camp === 'allie' && dangers.length) { const z = dangerSur(e.pos); if (z && reagit(e, z, dt)) { const dir = V(e.pos.x - z.p.x, 0, e.pos.z - z.p.z); if (dir.lengthSq() < 0.01) dir.set(Math.random() - 0.5, 0, Math.random() - 0.5); dir.normalize(); avancerVers(e, V(z.p.x + dir.x * (z.r + 2), 0, z.p.z + dir.z * (z.r + 2)), dt, e.st.vitesse * 1.1); e.jouer(def.run); return; } }
   // repli : il s'éloigne le temps que ses sorts reviennent, puis revient
   if (e.repliT > 0 && e.tc) {
     e.repliT -= dt;
@@ -1545,8 +1552,9 @@ function majCombattant(e, dt) {
         if (dj > 16) { fumeeOmbre(e.pos); e.pos.copy(pointLibrePres(joueur.pos, 1.5, 3)); fumeeOmbre(e.pos); }
         else if (dj > 2.8) { avancerVers(e, joueur.pos, dt, Math.max(e.st.vitesse, vitesseJoueur()) * (dj > 6 ? 1.3 : 1.05)); e.jouer(def.run); }
         else e.jouer(def.idle);
-      } else if (e.autonome && autonomieAllie(e, dt, dj)) { /* il fait sa vie */ }
-      else if (dj > 3.5) { allerVers(e, joueur.pos, dt, e.st.vitesse * (dj > 8 ? 1.15 : 0.9)); e.jouer(def.run); }
+      } else if (e.membreSylve) { autonomieSylve(e, dt); }
+      else if (e.autonome && autonomieAllie(e, dt, dj)) { /* il fait sa vie */ }
+      else if (dj > (e.autonome ? 7 : 3.5)) { if (e.ox === undefined) { e.ox = rnd(-3, 3); e.oz = rnd(-3, 3); } allerVers(e, e.autonome ? V(joueur.pos.x + e.ox, 0, joueur.pos.z + e.oz) : joueur.pos, dt, e.st.vitesse * (dj > 12 ? 1.1 : 0.85)); e.jouer(def.run); }
       else e.jouer(def.idle);
       if (dj > 34 && !arene && !e.autonome) { e.pos.copy(pointLibrePres(joueur.pos, 1.5, 3)); onde(e.pos, '#4fd1ff', 2.5, 0.5); }
     } else e.jouer(def.idle);
@@ -2318,6 +2326,52 @@ function emoteJoueur(id) {
 
 
 
+
+// ---------------- Réflexes humains : on esquive… pas toujours ----------------
+function reagit(e, z, dt) {
+  if (e.invoc) return true;
+  if (e.dangerVu !== z) { e.dangerVu = z; e.reflexeOK = Math.random() < (e.reflexe || (e.reflexe = rnd(0.55, 0.85))); e.reactionT = rnd(0.15, 0.55); }
+  if (!e.reflexeOK) return false;
+  e.reactionT -= dt; return e.reactionT <= 0;
+}
+// ---------------- Au Sanctuaire, chaque joueur du groupe joue sa partie ----------------
+let objectifSylve = null, objectifSylveT = 0;
+function majObjectifSylve(dt) {
+  objectifSylveT -= dt; if (objectifSylveT > 0) return objectifSylve; objectifSylveT = 0.8;
+  let best = null, bs = Infinity;
+  for (const x of ennemis) { if (x.mort || x.invoque) continue; const s = monde.abscisse(x.pos.x, x.pos.z); if (s < bs) { bs = s; best = x; } }
+  objectifSylve = best ? { e: best, s: bs, boss: !!best.boss } : null;
+  return objectifSylve;
+}
+function autonomieSylve(e, dt) {
+  if (!e.style) { Object.assign(e, { style: hasard(['fonceur', 'normal', 'normal', 'prudent']), decal: rnd(-3.2, 3.2), attenteT: 0, flanerT: rnd(2, 5), parlerT: rnd(15, 30) }); }
+  const obj = majObjectifSylve(dt); if (!obj) { e.jouer(e.armeDef.idle); return; }
+  const avance = e.style === 'fonceur' ? 2 : e.style === 'prudent' ? -7 : -3;
+  let s = obj.s + avance;
+  if (obj.boss && obj.e.etat === 'dormant') {
+    // devant la clairière du boss : on attend le groupe… ou pas
+    const k = obj.e.idxSylve; const entree = monde.salleS[k] - monde.salles[k].r - 3;
+    s = entree + (e.style === 'fonceur' ? 0 : -3) ;
+    if (dist2D(e.pos, monde.pointA(s).p) < 4) {
+      e.attenteT += dt;
+      const sj = monde.abscisse(joueur.pos.x, joueur.pos.z);
+      if (e.style === 'fonceur' && e.attenteT > 26 && sj < entree - 20) { // il pull sans toi
+        if (!e.annonce) { e.annonce = true; UI.chat(e.nom, hasard(['on pull ?', 'je lance le boss', 'bon on y va sans lui', 'go go go'])); emoteBot(e, ['diable', 'feu'], 0.6); }
+        if (e.attenteT > 31) { allerVers(e, obj.e.pos, dt, e.st.vitesse); e.jouer(e.armeDef.run); return; }
+      } else if (e.attenteT > 14 && !e.relance && sj < entree - 25) { e.relance = true; UI.chat(e.nom, hasard([`${J.nom} tu viens ?`, 'on attend qui là', 'allez on avance', 'afk ?'])); }
+    }
+  } else { e.attenteT = 0; e.annonce = false; e.relance = false; }
+  const cible = monde.pointA(s); const nx = -cible.dir.z, nz = cible.dir.x;
+  const dest = V(cible.p.x + nx * e.decal, 0, cible.p.z + nz * e.decal);
+  const d = dist2D(e.pos, dest);
+  if (d > 1.6) { allerVers(e, dest, dt, e.st.vitesse * (d > 12 ? 1 : 0.8)); e.jouer(e.armeDef.run); return; }
+  // sur place : il regarde autour, bouge un peu, parle
+  e.flanerT -= dt; e.parlerT -= dt;
+  if (e.flanerT <= 0) { e.flanerT = rnd(2.5, 6); e.decal = Math.max(-3.5, Math.min(3.5, e.decal + rnd(-1.5, 1.5))); e.angle = rnd(0, 6.28); e.root.rotation.y = e.angle; }
+  if (e.parlerT <= 0) { e.parlerT = rnd(25, 50); if (Math.random() < 0.5) emoteBot(e, ['bof', 'feu', 'malin', 'salut', 'diable'], 1); }
+  e.jouer(e.armeDef.idle);
+}
+
 // ---------------- Visée des sorts (doigt appuyé) ----------------
 let visee = null, viseeForcee = null, viseeObj = null;
 function cibleDansDirection(dir, portee) {
@@ -2377,7 +2431,20 @@ function cheminGrille(a, b) {
   return pts.reverse();
 }
 // va vers une destination en contournant les murs du donjon
+function ligneLibre(a, b) {
+  const d = dist2D(a, b), n = Math.ceil(d / 1.5);
+  for (let i = 1; i < n; i++) { const t = i / n; if (!libre(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t, 0.45)) return false; }
+  return true;
+}
 function allerVers(e, dest, dt, vitesse) {
+  if (monde.type === 'sylve') {
+    e._lv = e._lv || { t: 0, ok: true };
+    e._lv.t -= dt; if (e._lv.t <= 0) { e._lv.t = 0.4; e._lv.ok = dist2D(e.pos, dest) < 3 || ligneLibre(e.pos, dest); }
+    if (e._lv.ok) { avancerVers(e, dest, dt, vitesse); return; }
+    const se = monde.abscisse(e.pos.x, e.pos.z), sd = monde.abscisse(dest.x, dest.z);
+    const w = monde.pointA(se + Math.sign(sd - se) * Math.min(5, Math.abs(sd - se)));
+    avancerVers(e, w.p, dt, vitesse); return;
+  }
   if (!monde.grille || dist2D(e.pos, dest) < 7) { avancerVers(e, dest, dt, vitesse); return; }
   const ch = e.chemin;
   if (!ch || ch.t <= 0 || dist2D(ch.dest, dest) > 4) { e.chemin = { pts: cheminGrille(e.pos, dest) || [], i: 0, dest: dest.clone(), t: 1.5 }; }
