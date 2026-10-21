@@ -1,7 +1,7 @@
 // ===== Interface : icônes, HUD, inventaire, marché, dialogues =====
 import { THREE, G, projeter } from './engine.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, MODES, COFFRES, MAITRISES, NIVEAU_REQUIS, VARIANTES, EMOTES, TRAITS, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT } from './data.js';
+import { TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, MODES, COFFRES, MAITRISES, NIVEAU_REQUIS, VARIANTES, EMOTES, TRAITS, RANGS, PTS_RANG, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT } from './data.js';
 import { nomObjet, couleurObjet, statsObjet, sortsObjet, puissanceObjet, valeurObjet, prixVente, categorieLabel, statsHeros, stockMarchand, stockArene, prixTrophees, niveauRequis, peutPorter, niveauDe, xpPour, bonusMaitrise, tierMaxPour, coutEnchant } from './items.js';
 
 const $ = (s) => document.querySelector(s);
@@ -410,6 +410,7 @@ UI.mini = (monde, joueur, entites) => {
     else if (e.type === 'joueur') { g.fillStyle = '#7fb2ff'; g.beginPath(); g.arc(a, b, 3, 0, 7); g.fill(); }
     else if (e.type === 'pnj') { g.fillStyle = '#ffd97a'; g.beginPath(); g.arc(a, b, 5, 0, 7); g.fill(); }
     else if (e.type === 'allie') { g.fillStyle = '#4fd1ff'; g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.beginPath(); g.arc(a, b, 4.5, 0, 7); g.fill(); g.stroke(); }
+    else if (e.type === 'errant') { const k = 7 + 2.5 * Math.sin(performance.now() / 150); g.fillStyle = '#c06aff'; g.shadowColor = '#a03aff'; g.shadowBlur = 16; g.beginPath(); g.arc(a, b, k, 0, 7); g.fill(); g.shadowBlur = 0; g.strokeStyle = '#ffd27a'; g.lineWidth = 2; g.stroke(); }
     else if (e.type === 'envahisseur') { const k = 6 + 2 * Math.sin(performance.now() / 120); g.fillStyle = '#ff1a1a'; g.shadowColor = '#ff0000'; g.shadowBlur = 14; g.beginPath(); g.arc(a, b, k, 0, 7); g.fill(); g.shadowBlur = 0; g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.stroke(); }
     else if (e.type === 'portailJ') { g.fillStyle = '#ffc84a'; g.shadowColor = '#ffc84a'; g.shadowBlur = 8; g.beginPath(); g.arc(a, b, 5, 0, 7); g.fill(); g.shadowBlur = 0; }
     else if (e.type === 'portailV') { g.fillStyle = '#b05aff'; g.shadowColor = '#b05aff'; g.shadowBlur = 8; g.beginPath(); g.arc(a, b, 6, 0, 7); g.fill(); g.shadowBlur = 0; }
@@ -654,6 +655,7 @@ UI.rendreMarche = () => {
 UI.menuPortail = () => {
   const j = api.etat(); const ip = statsHeros(j.equip).ip;
   $('#portailMenu').innerHTML = `<div class="cadreP"><button class="fermer" data-x aria-label="Fermer">×</button>
+    <div class="enteteRang">${emblemeRang(api.rang('donjon').i, 9)}<div><small>TON RANG DANS LA BRÈCHE</small><b style="color:${RANGS[api.rang('donjon').i].c1}">${RANGS[api.rang('donjon').i].nom}</b>${barreRang(api.rang('donjon'))}<small>Plus le rang est haut, plus les monstres sont forts… et l’argent abondant (+${25 * api.rang('donjon').i} %).</small></div><button class="btn gris" data-cl="donjon">Classement</button></div>
     <h2>La Brèche Écarlate</h2><div class="sous">Quatre gardiens, quatre coffres. La couleur du coffre se voit en entrant ; il ne s’ouvre qu’une fois son gardien tombé.</div>
     <div class="modes">${MODES.map(m => {
       const ok = ip >= m.ipConseil;
@@ -675,6 +677,7 @@ UI.menuPortail = () => {
     <div><h4>Envahir</h4><p>Entre dans le donjon d’un joueur de puissance proche. Tue-le et choisis ce que tu prends dans son équipement. Meurs et tu perds le tien.</p>
     <button class="btn" data-envahir>Envahir un joueur</button></div>`;
   $('#portailMenu .cadreP').appendChild(inv);
+  $('#portailMenu').querySelectorAll('[data-cl]').forEach(b => b.onclick = () => UI.classement(b.dataset.cl));
   inv.querySelector('#accInv').onchange = (e) => api.accepterInvasion(e.target.checked);
   inv.querySelector('[data-envahir]').onclick = () => { $('#portailMenu').hidden = true; api.envahir(); };
   const p = $('#portailMenu'); p.hidden = false; api.son('forceField_000', 0.5);
@@ -770,6 +773,7 @@ function htmlMaitrise(j) {
         <div class="mInfo">Porte jusqu’au <b style="color:${shade(TIERS[tmax].color)}">T${tmax}</b> · Prochain palier : ${info}${d.niv > 1 ? ` · <b>+${(bonusMaitrise(d.niv) * 100).toFixed(1).replace('.', ',')} % de puissance</b>` : ''}</div></div>
       <div class="mNiv"><small>NIV.</small>${d.niv}</div></div>`;
   }).join('')}
+  ${(api.xpLog() || []).length ? `<div class="xpLog"><h4>Dernières sources d’expérience</h4>${api.xpLog().map(l => `<div><span>${l.s}</span><b>+${fmt(l.x)} XP</b><small>${Math.max(0, Math.round((Date.now() - l.t) / 60000))} min</small></div>`).join('')}</div>` : ''}
   <p class="mAide">Seules les pièces que tu portes gagnent de l’expérience. Chaque niveau ajoute 0,2 % de puissance brute à ce type de pièce, puis 2 % par niveau du 90 au 100.</p></div>`;
 }
 
@@ -778,6 +782,7 @@ UI.menuArene = (groupe) => {
   const j = api.etat(); const ip = statsHeros(j.equip).ip;
   const p = $('#portailMenu');
   p.innerHTML = `<div class="cadreP arene"><button class="fermer" data-x aria-label="Fermer">×</button>
+    <div class="enteteRang">${emblemeRang(api.rang('arene').i, 9)}<div><small>TON RANG D’ARÈNE</small><b style="color:${RANGS[api.rang('arene').i].c1}">${RANGS[api.rang('arene').i].nom}</b>${barreRang(api.rang('arene'))}</div><button class="btn gris" data-cl="arene">Classement</button></div>
     <h2>Arène des Échos</h2><div class="sous">Combats entre joueurs. Chaque victoire rapporte 🏆 100 trophées et de l’expérience. Ton équipement ne se perd pas ici.</div>
     <div class="modes deux">
       <div class="mode" style="--c:#b05aff"><div class="niv">DUEL</div><h3>1 contre 1</h3><p>Un adversaire de puissance proche. Rien que toi et lui.</p>
@@ -791,6 +796,7 @@ UI.menuArene = (groupe) => {
   p.hidden = false; api.son('forceField_000', 0.5, 0.8);
   p.querySelector('[data-x]').onclick = () => (p.hidden = true);
   p.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { p.hidden = true; api.arene(b.dataset.f); });
+  p.querySelectorAll('[data-cl]').forEach(b => b.onclick = () => UI.classement(b.dataset.cl));
   p.querySelectorAll('[data-l]').forEach(b => b.onclick = () => {
     if (b.dataset.ok) { p.hidden = true; api.arene(b.dataset.l, { letale: true }); return; }
     b.dataset.ok = '1'; b.textContent = 'Confirmer : je risque mon stuff'; api.son('error_001', 0.3, 0.6);
@@ -1029,3 +1035,62 @@ UI.alerteInvasion = (n, subie) => {
   document.body.appendChild(d); setTimeout(() => d.remove(), 4200);
 };
 UI.ping = () => { const m = $('#carteCadre') || $('#hudD'); if (!m) return; m.classList.remove('ping'); void m.offsetWidth; m.classList.add('ping'); };
+
+// ---------------- Rangs : emblèmes dessinés ----------------
+export function emblemeRang(i, taille = 8) {
+  const r = RANGS[i]; const id = 'rg' + i + Math.random().toString(36).slice(2, 7);
+  const chevrons = Array.from({ length: Math.min(3, i + 1) }, (_, k) => `<path d="M30 ${78 - k * 11} L50 ${66 - k * 11} L70 ${78 - k * 11}" fill="none" stroke="${r.c3}" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>`).join('');
+  const ailes = i >= 4 ? `<g fill="url(#${id}a)" stroke="${r.c3}" stroke-width="1.5"><path d="M18 40 C2 34 -2 20 4 10 C10 22 16 26 24 28 Z"/><path d="M82 40 C98 34 102 20 96 10 C90 22 84 26 76 28 Z"/></g>` : '';
+  const couronne = i >= 5 ? `<path d="M34 10 L40 0 L46 8 L50 -2 L54 8 L60 0 L66 10 Z" fill="#ffd27a" stroke="#6a3a00" stroke-width="1.5"/>` : '';
+  const etoile = i >= 3 ? `<path d="M50 24 l3.5 7 7.5 1 -5.5 5 1.5 7.5 -7 -3.6 -7 3.6 1.5 -7.5 -5.5 -5 7.5 -1z" fill="${r.c1}" stroke="${r.c3}" stroke-width="1.2"/>` : `<circle cx="50" cy="36" r="6" fill="${r.c1}" stroke="${r.c3}" stroke-width="1.5"/>`;
+  return `<svg class="embleme" viewBox="-4 -6 108 112" style="width:${taille}vh;height:${taille}vh" aria-label="${r.nom}"><defs>
+    <linearGradient id="${id}m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${r.c1}"/><stop offset=".45" stop-color="${r.c2}"/><stop offset="1" stop-color="${r.c3}"/></linearGradient>
+    <linearGradient id="${id}a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${r.c1}"/><stop offset="1" stop-color="${r.c2}"/></linearGradient>
+    <filter id="${id}f"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity=".6"/></filter></defs>
+    <g filter="url(#${id}f)">${ailes}
+    <path d="M50 4 L88 16 L84 58 C80 80 64 94 50 102 C36 94 20 80 16 58 L12 16 Z" fill="url(#${id}m)" stroke="${r.c3}" stroke-width="3"/>
+    <path d="M50 12 L80 22 L77 57 C74 75 62 86 50 93 C38 86 26 75 23 57 L20 22 Z" fill="none" stroke="${r.c1}" stroke-opacity=".7" stroke-width="2"/>
+    ${etoile}${chevrons}${couronne}</g></svg>`;
+}
+function barreRang(rg) {
+  const max = rg.i === RANGS.length - 1 ? null : PTS_RANG;
+  return `<div class="barreRang"><i style="width:${max ? rg.local / max * 100 : 100}%;background:linear-gradient(90deg,${rg.r.c2},${rg.r.c1})"></i><span>${max ? `${rg.local} / ${max} pts` : `${rg.local} pts`}</span></div>`;
+}
+UI.changementRang = (avant, apres, delta, raison) => {
+  const d = document.createElement('div'); const monte = apres.i > avant.i, descend = apres.i < avant.i;
+  d.className = 'changeRang ' + (monte ? 'monte' : descend ? 'descend' : '');
+  d.innerHTML = `${emblemeRang(apres.i, monte || descend ? 12 : 7)}<div><small>${apres.mode === 'arene' ? 'ARÈNE' : 'BRÈCHE'} · ${raison}</small>
+    <b style="color:${apres.r.c1}">${monte ? 'PROMOTION : ' : descend ? 'RÉTROGRADÉ : ' : ''}${apres.r.nom}</b>${barreRang(apres)}<em class="${delta >= 0 ? 'plus' : 'moins'}">${delta >= 0 ? '+' : ''}${delta} pts</em></div>`;
+  document.body.appendChild(d); setTimeout(() => d.remove(), monte || descend ? 5200 : 3400);
+};
+UI.classement = (mode) => {
+  const c = api.classement(mode); const rg = c.rang;
+  const d = $('#butin');
+  d.innerHTML = `<div class="cadreCl" style="--c1:${rg.r.c1};--c2:${rg.r.c2}"><button class="fermer" data-x aria-label="Fermer">×</button>
+    <div class="ongCl"><button data-m="arene" class="${mode === 'arene' ? 'actif' : ''}">Arène</button><button data-m="donjon" class="${mode === 'donjon' ? 'actif' : ''}">Brèche</button></div>
+    <div class="teteCl">${emblemeRang(rg.i, 14)}<div><small>LIGUE</small><h2>${rg.r.nom}</h2>${barreRang(rg)}<p>${rg.i < RANGS.length - 1 ? `Victoire +20 · défaite −15. À 100 pts, promotion en <b>${RANGS[rg.i + 1].nom}</b>. Sous 0, retour en ${rg.i ? RANGS[rg.i - 1].nom : 'Bronze'}.` : 'Le sommet. Tes adversaires sont les meilleurs du jeu.'}</p></div></div>
+    <div class="echelle">${RANGS.map((r, k) => `<div class="${k === rg.i ? 'ici' : k < rg.i ? 'fait' : ''}">${emblemeRang(k, 5)}<small>${r.nom}</small></div>`).join('')}</div>
+    <div class="listeCl">${c.liste.map((l, k) => `<div class="${l.moi ? 'moi' : ''}"><span class="pos">${k + 1}</span><b>${l.nom}</b><small>${l.tag || ''}</small><span class="pts">${l.pts} pts</span></div>`).join('')}</div></div>`;
+  d.hidden = false;
+  d.querySelector('[data-x]').onclick = () => (d.hidden = true);
+  d.querySelectorAll('[data-m]').forEach(b => b.onclick = () => UI.classement(b.dataset.m));
+};
+// ---------------- Jauge d'expérience ----------------
+UI.jaugeXP = (lignes, source) => {
+  document.querySelectorAll('.jaugeXP').forEach(x => x.remove());
+  const d = document.createElement('div'); d.className = 'jaugeXP';
+  d.innerHTML = `<div class="srcXP">${source} · <b>+${fmt(lignes.reduce((a, l) => a + l.gain, 0))} XP</b></div>` + lignes.map(l => `<div class="lXP"><span class="ic">${svgSort(['casque', 'plastron', 'bottes'].includes(l.type) ? 'shield' : l.type, '#ffe2a0', '#3a2a10', 'x' + l.type)}</span>
+    <div class="cXP"><div><b>${l.nom}</b><small>niv. ${l.niv}</small><em>+${fmt(l.gain)}</em></div><div class="bXP"><i style="--k:${(l.k * 100).toFixed(1)}%"></i></div><small class="resteXP">${l.niv >= 100 ? 'MAX' : `encore ${fmt(Math.max(0, l.reste))} XP pour le niv. ${l.niv + 1}`}</small></div></div>`).join('');
+  document.body.appendChild(d); setTimeout(() => d.classList.add('part'), 4200); setTimeout(() => d.remove(), 4800);
+};
+// ---------------- Butin d'un pillage ----------------
+UI.butinPillage = (b) => {
+  const d = $('#butin'); const T = { bois: 'Bois', minerai: 'Minerai', recolte: 'Récoltes' };
+  d.innerHTML = `<div class="cadreB parchemin pillage"><h2>Pillage réussi !</h2><div class="sous">L’île ${b.ile} de <b>${b.proprio}</b> est vidée.</div>
+    <div class="tuilesP">
+      <div class="tuileP"><img src="${iconeModele(RES_ICO[b.res])}" alt=""><b>${fmt(b.butin)}</b><small>${T[b.res]} volé${b.res === 'recolte' ? 'es' : ''}</small></div>
+      ${b.ok ? `<div class="tuileP"><img src="${iconeModele('chest_gold')}" alt=""><b>${fmt(b.ok)}</b><small>rangés sur ${b.cible}</small></div>` : ''}
+      ${b.argent ? `<div class="tuileP or"><span class="piece" style="width:7vh;height:7vh"></span><b>+${fmt(b.argent)}</b><small>${fmt(b.reste)} revendus sur place</small></div>` : ''}
+    </div><button class="btn or" data-ok>Emporter le butin</button></div>`;
+  d.hidden = false; d.querySelector('[data-ok]').onclick = () => (d.hidden = true);
+};

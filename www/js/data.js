@@ -247,3 +247,16 @@ export const TRAITS = {
   protecteur: { nom: 'Protecteur', ico: '💚', desc: 'Reste près de toi et tape tes ennemis', vit: 1.0, avance: -2, reflexe: 0.75 },
   bavard:     { nom: 'Bavard', ico: '💬', desc: 'Parle tout le temps', vit: 1.0, avance: 0, reflexe: 0.65 },
 };
+
+// ---- Rangs classés (arène et Brèche) ----
+export const RANGS = [
+  { id: 'bronze', nom: 'Bronze', c1: '#f0b878', c2: '#a0602a', c3: '#4a2a0e' },
+  { id: 'argent', nom: 'Argent', c1: '#ffffff', c2: '#a8b4c4', c3: '#3a4252' },
+  { id: 'or', nom: 'Or', c1: '#fff3a0', c2: '#e8a81a', c3: '#5a3a00' },
+  { id: 'diamant', nom: 'Diamant', c1: '#e0fcff', c2: '#3ac8ff', c3: '#06306a' },
+  { id: 'champion', nom: 'Champion', c1: '#f4d8ff', c2: '#a83aff', c3: '#2a0650' },
+  { id: 'grand', nom: 'Grand Champion', c1: '#fff0c8', c2: '#ff3a2a', c3: '#4a0000' },
+];
+export const PTS_RANG = 100, GAIN_RANG = 20, PERTE_RANG = 15;
+// boss errant ultra rare de la Brèche
+export const BOSS_ERRANT = { id: 'devoreur', nom: 'Nyx’Ahrûn', titre: 'le Dévoreur d’Étoiles', model: 'Dragon_Evolved', arme: null, scale: 1.0, hauteur: 6.4, rayon: 3.0, hpMult: 54, dmgMult: 4.2, couleur: '#c06aff', teinte: '#3a0a6a', errant: true };

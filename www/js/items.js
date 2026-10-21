@@ -199,7 +199,8 @@ export function stockMarchand(ombre = false) {
 export const ENCH_MAX = 6;
 export function coutEnchant(it) {
   const e = it.ench || 0; if (e >= ENCH_MAX) return null;
-  return { runes: (e + 1) * (1 + Math.ceil(it.tier / 2)), argent: Math.round(90 * Math.pow(2.3, it.tier - 1) * (e + 1) * (1 + e * 0.25)), chance: [1, 1, 1, 0.9, 0.8, 0.65][e] };
+  // de plus en plus ruineux : ×3,2 à chaque palier
+  return { runes: (e + 1) * (e + 1) * (1 + Math.ceil(it.tier / 2)), argent: Math.round(450 * Math.pow(2.4, it.tier - 1) * Math.pow(3.2, e)), chance: [1, 0.85, 0.7, 0.55, 0.4, 0.28][e] };
 }
 
 // ---- Boutique de l'arène ----
