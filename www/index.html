@@ -438,6 +438,48 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 .emoteBulle.txt span::after{border-top-color:#1a1016}
 @keyframes popE{0%{transform:scale(.55)}100%{transform:scale(1)}}
 @keyframes flotte{0%,80%{opacity:1}100%{opacity:0;margin-top:-3vh}}
+#perfHud{position:fixed;left:50%;top:.6vh;transform:translateX(-50%);z-index:80;pointer-events:none;font:700 1.7vh/1 monospace;color:#9effa0;background:#000a;padding:.5vh 1vh;border-radius:4px}
+
+/* Sanctuaire d'Émeraude */
+.carteSylve{position:relative;display:flex;align-items:center;gap:2vh;margin-top:1.6vh;padding:1.6vh 2vh;border-radius:8px;overflow:hidden;background:linear-gradient(120deg,#0a2a18,#123a22 50%,#0a2414);border:2px solid #3affa0;box-shadow:0 0 30px #3affa055,inset 0 0 40px #3affa022}
+.carteSylve .feuilles{position:absolute;inset:0;background:radial-gradient(circle at 15% 30%,#5aff9a33,transparent 30%),radial-gradient(circle at 80% 70%,#c97aff22,transparent 35%);pointer-events:none}
+.carteSylve .txtS{flex:1;position:relative}.carteSylve .niv{font:800 1.6vh var(--f-label);letter-spacing:.14em;color:#8affc0}
+.carteSylve h3{margin:.2vh 0;font-family:var(--f-titre);font-size:3.6vh;color:#eaffd8;text-shadow:0 0 16px #3affa0}
+.carteSylve p{margin:.4vh 0;font-size:1.8vh;color:#cfe8d8}.carteSylve .tiers{display:flex;gap:.8vh}.carteSylve .tiers span{padding:.2vh 1vh;border-radius:3px;font:800 1.6vh var(--f-label);color:#1a1008}
+.btn.vert{background:linear-gradient(#6affb0,#1aa860);color:#032a14;border-color:#bfffd8;text-shadow:none;font-weight:900}
+.btn.grand{padding:1.2vh 4vh;font-size:2.6vh;margin-top:1.4vh}
+.cadreG,.cadreS{position:relative;width:min(150vh,94vw);max-height:92vh;overflow:auto;box-sizing:border-box;padding:2.4vh;border-radius:10px;background:radial-gradient(ellipse at top,#163a26,#07150d 75%);border:3px solid var(--c,#3affa0);box-shadow:0 0 70px #3affa055;color:#eaffe8;text-align:center}
+.cadreG h2,.cadreS h2{margin:0;font-family:var(--f-titre);font-size:5vh;color:#eaffd8;text-shadow:0 0 22px var(--c,#3affa0)}
+.cadreG .sous,.cadreS .sous{font-size:2vh;color:#a8d8b8;margin-bottom:1.6vh}
+.slotsG{display:grid;grid-template-columns:repeat(5,1fr);gap:1.2vh}
+.slotG{min-height:20vh;border-radius:8px;border:2px dashed #3a6a4a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6vh;padding:1vh;background:#0a1e12}
+.slotG.plein{border:2px solid var(--c);background:linear-gradient(#123a24,#0a1e12);animation:popE .4s cubic-bezier(.3,1.6,.5,1) backwards}
+.slotG .icoC{width:7vh;height:7vh}.slotG b{font:800 2.2vh var(--f-label)}.slotG small{font-size:1.5vh;color:#7fb2ff}.slotG span{font:800 1.8vh var(--f-label);color:#ffd27a}
+.slotG .cherche{width:5vh;height:5vh;border-radius:50%;border:4px solid #3affa044;border-top-color:#3affa0;animation:tourne 0.9s linear infinite}
+@keyframes tourne{to{transform:rotate(360deg)}}
+.introBoss{position:fixed;left:50%;top:26%;transform:translate(-50%,-50%);z-index:55;text-align:center;pointer-events:none;animation:intro 3.6s ease forwards;width:90vw}
+.introBoss h2{margin:0;font-family:var(--f-titre);font-size:8.5vh;color:#fff;text-shadow:0 0 24px var(--c),0 0 60px var(--c),0 4px 0 #000}
+.introBoss p{margin:.4vh 0;font:800 2.8vh var(--f-label);letter-spacing:.2em;text-transform:uppercase;color:var(--c);text-shadow:0 2px 0 #000}
+.introBoss .trait{height:3px;margin:1vh auto;width:60vh;background:linear-gradient(90deg,transparent,var(--c),transparent)}
+@keyframes intro{0%{opacity:0;letter-spacing:.4em}12%{opacity:1;letter-spacing:normal}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-62%)}}
+.enteteS{display:grid;grid-template-columns:30% 1fr 14%;gap:1vh;font:800 1.6vh var(--f-label);color:#7fb898;text-transform:uppercase;letter-spacing:.1em;padding:0 1vh 0 12vh;text-align:left}
+.cadreS.final .enteteS{grid-template-columns:22% 1fr 11% 26%}
+.lignesS{display:flex;flex-direction:column;gap:.8vh}
+.ligneS{display:grid;grid-template-columns:4vh 6vh 26% 1fr 14%;align-items:center;gap:1vh;padding:.8vh 1vh;border-radius:6px;background:#0d2216;border:1px solid #1e4a2e;text-align:left;animation:glisse .45s ease-out backwards}
+.cadreS.final .ligneS{grid-template-columns:4vh 6vh 18% 1fr 11% 26%}
+.ligneS.moi{border-color:#ffd27a;box-shadow:0 0 14px #ffd27a44 inset}
+@keyframes glisse{0%{opacity:0;transform:translateX(-4vh)}100%{opacity:1;transform:none}}
+.ligneS .rang{font:900 2.6vh var(--f-titre);color:#ffd27a;text-align:center}.ligneS .icoC{width:5.5vh;height:5.5vh}
+.ligneS .nomS{display:flex;flex-direction:column;min-width:0}.ligneS .nomS b{font:800 2.2vh var(--f-label);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ligneS .nomS small{font-size:1.5vh;color:#9ac8a8}
+.barreS{position:relative;height:3.4vh;border-radius:4px;background:#051209;overflow:hidden;border:1px solid #1e3a26}
+.barreS i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,var(--c),#ffffffaa);opacity:.85;animation:remplit 1.1s cubic-bezier(.2,.8,.3,1) backwards;box-shadow:0 0 12px var(--c)}
+@keyframes remplit{0%{width:0!important}}
+.barreS span{position:relative;z-index:1;display:block;padding:0 1vh;font:900 2vh/3.4vh var(--f-label);color:#fff;text-shadow:0 1px 2px #000}
+.ligneS .chiffres{display:flex;flex-direction:column;align-items:flex-end}.ligneS .chiffres b{font:800 2vh var(--f-label)}.ligneS .chiffres small{font-size:1.6vh;color:#9ac8a8}
+.butinS{display:flex;align-items:center;gap:.5vh;flex-wrap:wrap}.butinS .mini .case{width:5vh;height:5vh}.butinS .arg,.butinBoss .arg{display:flex;align-items:center;gap:.4vh;font:800 1.8vh var(--f-label);color:#ffd27a}
+.butinBoss{display:flex;align-items:center;justify-content:center;gap:1.4vh;margin-top:1.6vh;padding:1vh;border-radius:8px;background:#0a1e12;border:1px solid #2a5a3a}
+.butinBoss .titreB{font:800 1.8vh var(--f-label);letter-spacing:.12em;text-transform:uppercase;color:#8affc0}.butinBoss .case{width:8vh;height:8vh}
+.cadreS.final .eclat{position:absolute;inset:-30%;background:conic-gradient(from 0deg,transparent,#3affa022,transparent 20%,#3affa022 40%,transparent 60%);animation:tourne 18s linear infinite;pointer-events:none}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important}}
 </style>
 

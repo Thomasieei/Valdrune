@@ -663,3 +663,194 @@ export function creerAssetsProc() {
     G.assets[k] = { scene: g, animations: [], hauteur: 1 };
   }
 }
+
+// ================= Sanctuaire d'Émeraude : donjon de groupe (5 joueurs) =================
+// un seul chemin continu : tronçon → clairière du boss → tronçon → … → cœur de la forêt
+function distSeg(px, pz, a, b) {
+  const vx = b.x - a.x, vz = b.z - a.z, l2 = vx * vx + vz * vz;
+  let t = l2 ? ((px - a.x) * vx + (pz - a.z) * vz) / l2 : 0; t = Math.max(0, Math.min(1, t));
+  const dx = px - (a.x + vx * t), dz = pz - (a.z + vz * t); return Math.sqrt(dx * dx + dz * dz);
+}
+const texHerbe = () => texture('herbeSylve', 256, 256, (g, w) => {
+  g.fillStyle = '#3f8a3a'; g.fillRect(0, 0, w, w);
+  for (let i = 0; i < 2600; i++) { const x = Math.random() * w, y = Math.random() * w, l = 30 + Math.random() * 30; g.fillStyle = `hsl(${100 + Math.random() * 30},${45 + Math.random() * 20}%,${l}%)`; g.fillRect(x, y, 2, 3 + Math.random() * 4); }
+  for (let i = 0; i < 40; i++) { const x = Math.random() * w, y = Math.random() * w; const gr = g.createRadialGradient(x, y, 0, x, y, 30); gr.addColorStop(0, 'rgba(20,60,20,.35)'); gr.addColorStop(1, 'rgba(20,60,20,0)'); g.fillStyle = gr; g.fillRect(x - 30, y - 30, 60, 60); }
+}, { repeat: true });
+const texChemin = () => texture('cheminSylve', 128, 256, (g, w, h) => {
+  g.clearRect(0, 0, w, h);
+  const bord = (y) => 10 + 8 * Math.sin(y * 0.11) + 5 * Math.sin(y * 0.37 + 1);
+  for (let y = 0; y < h; y++) { const b = bord(y), b2 = bord(y + 40); g.fillStyle = '#8a7350'; g.fillRect(b, y, w - b - b2, 1); }
+  for (let i = 0; i < 70; i++) { const y = Math.random() * h, x = 18 + Math.random() * (w - 36), r = 4 + Math.random() * 9; g.fillStyle = `hsl(${30 + Math.random() * 15},${10 + Math.random() * 12}%,${48 + Math.random() * 18}%)`; g.beginPath(); g.ellipse(x, y, r, r * 0.75, Math.random() * 3, 0, 7); g.fill(); g.strokeStyle = 'rgba(40,30,20,.35)'; g.lineWidth = 1.5; g.stroke(); }
+  for (let i = 0; i < 260; i++) { const y = Math.random() * h, x = Math.random() * w; g.fillStyle = 'rgba(70,140,50,.55)'; g.fillRect(x, y, 2, 2); }
+}, { repeat: true });
+const texDalles = () => texture('dallesSylve', 512, 512, (g, w) => {
+  g.fillStyle = '#6f7a66'; g.fillRect(0, 0, w, w); g.translate(w / 2, w / 2);
+  for (let r = 0; r < 8; r++) { const n = 6 + r * 6; for (let i = 0; i < n; i++) { const a0 = i / n * 6.283, a1 = (i + 1) / n * 6.283; g.beginPath(); g.arc(0, 0, r * 32 + 30, a0 + 0.02, a1 - 0.02); g.arc(0, 0, r * 32 + 2, a1 - 0.02, a0 + 0.02, true); g.closePath(); g.fillStyle = `hsl(${90 + Math.random() * 40},${8 + Math.random() * 10}%,${45 + Math.random() * 15}%)`; g.fill(); } }
+  for (let i = 0; i < 500; i++) { const a = Math.random() * 6.28, rr = Math.random() * 250; g.fillStyle = 'rgba(70,150,60,.5)'; g.fillRect(Math.cos(a) * rr, Math.sin(a) * rr, 3, 3); }
+});
+let sylveProcPret = false;
+function preparerSylve() {
+  if (sylveProcPret) return; sylveProcPret = true;
+  // champignons lumineux
+  const lum = (cle, nom, couleur, k) => G.assets[cle] && G.assets[cle].scene.traverse(o => { if (o.isMesh && o.material.name === nom) { o.material = o.material.clone(); o.material.color.set(couleur); o.material.emissive = new THREE.Color(couleur); o.material.emissiveIntensity = k; } });
+  for (const c of ['n_mushroom_red', 'n_mushroom_redTall', 'n_mushroom_redGroup']) lum(c, 'colorRed', '#ff4ab8', 0.9);
+  for (const c of ['n_mushroom_tan', 'n_mushroom_tanTall', 'n_mushroom_tanGroup']) lum(c, 'colorTan', '#4ae8ff', 1.0);
+  for (const c of ['n_flower_purpleB', 'n_flower_purpleC']) lum(c, 'colorPurple', '#c97aff', 0.5);
+}
+export function construireSylve() {
+  preparerSylve();
+  const groupe = new THREE.Group();
+  G.torches = []; G.feux = []; G.anims = [];
+  const rng = graineRng(4242);
+  const P = (x, z) => new THREE.Vector3(x, 0, z);
+  const salles = [
+    { id: 0, c: P(56, -10), r: 17, nom: 'Clairière des Lucioles' },
+    { id: 1, c: P(130, -2), r: 17, nom: 'Bassin des Sylphes' },
+    { id: 2, c: P(196, -16), r: 17, nom: 'Taillis du Chasseur' },
+    { id: 3, c: P(282, -6), r: 23, nom: 'Cœur d’Émeraude' },
+  ];
+  const troncons = [
+    [P(0, 0), P(13, 4), P(26, 1), P(38, -6)],
+    [P(76, -5), P(88, 4), P(102, 8), P(114, 4)],
+    [P(148, -8), P(160, -20), P(176, -24)],
+    [P(214, -10), P(228, 2), P(244, 6), P(258, 0)],
+  ];
+  const ligne = [];
+  troncons.forEach((t, i) => { ligne.push(...t); ligne.push(salles[i].c); });
+  const segs = []; for (let i = 0; i < ligne.length - 1; i++) segs.push([ligne[i], ligne[i + 1]]);
+  const DEMI = 4.6;
+  const distChemin = (x, z) => { let d = Infinity; for (const [a, b] of segs) d = Math.min(d, distSeg(x, z, a, b)); return d; };
+  const dansSalle = (x, z, marge = 0) => salles.find(s => (x - s.c.x) ** 2 + (z - s.c.z) ** 2 < (s.r + marge) ** 2);
+  const marche = (x, z) => !!dansSalle(x, z) || distChemin(x, z) < DEMI;
+  const collisions = [];
+  // sol
+  const tH = texHerbe(); tH.repeat.set(70, 26);
+  const sol = new THREE.Mesh(new THREE.PlaneGeometry(380, 140), new THREE.MeshStandardMaterial({ map: tH, color: '#cfe8c0', roughness: 1 }));
+  sol.rotation.x = -Math.PI / 2; sol.position.set(140, -0.02, -8); sol.receiveShadow = true; groupe.add(sol);
+  // ruban du chemin (une seule géométrie)
+  const pts = []; for (const [a, b] of segs) { const l = a.distanceTo(b), n = Math.max(1, Math.ceil(l / 1.5)); for (let i = 0; i < n; i++) pts.push(a.clone().lerp(b, i / n)); } pts.push(ligne[ligne.length - 1].clone());
+  const pos = [], uv = [], idx = []; let dist = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+    const t = b.clone().sub(a).normalize(); const nx = -t.z, nz = t.x;
+    if (i) dist += pts[i].distanceTo(pts[i - 1]);
+    const L = DEMI + 0.9;
+    pos.push(pts[i].x + nx * L, 0.02, pts[i].z + nz * L, pts[i].x - nx * L, 0.02, pts[i].z - nz * L);
+    uv.push(0, dist / 6, 1, dist / 6);
+    if (i) { const k = i * 2; idx.push(k - 2, k - 1, k, k - 1, k + 1, k); }
+  }
+  const gr = new THREE.BufferGeometry(); gr.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); gr.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); gr.setIndex(idx); gr.computeVertexNormals();
+  const ruban = new THREE.Mesh(gr, new THREE.MeshStandardMaterial({ map: texChemin(), alphaTest: 0.4, roughness: 0.95, side: THREE.DoubleSide }));
+  ruban.receiveShadow = true; groupe.add(ruban);
+  const inst = new Instancieur(), arbres = new Instancieur();
+  const essence = ['Tree_1_A', 'Tree_3_A', 'Tree_2_C', 'n_tree_oak', 'n_tree_detailed', 'n_tree_fat_darkh'];
+  const planter = (x, z) => { const k = essence[Math.floor(rng() * essence.length)]; const kenney = k.startsWith('n_'); arbres.ajouter(k, x, 0, z, rng() * 6.28, ...Array(3).fill((kenney ? 4.4 : 0.72) * (0.8 + rng() * 0.45))); };
+  // forêt dense le long du chemin
+  for (let i = 0; i < pts.length; i += 2) {
+    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)];
+    const t = b.clone().sub(a).normalize(); const nx = -t.z, nz = t.x;
+    for (const cote of [1, -1]) {
+      for (let k = 0; k < 3; k++) {
+        const o = 7.5 + k * 4.5 + rng() * 3; const x = pts[i].x + nx * o * cote + (rng() - 0.5) * 2, z = pts[i].z + nz * o * cote + (rng() - 0.5) * 2;
+        if (distChemin(x, z) < DEMI + 2.2 || dansSalle(x, z, 3)) continue;
+        if (rng() < 0.8) planter(x, z);
+      }
+      // sous-bois au bord du chemin
+      const o = DEMI + 0.6 + rng() * 1.8; const x = pts[i].x + nx * o * cote, z = pts[i].z + nz * o * cote;
+      if (!dansSalle(x, z, 1)) {
+        const r = rng();
+        if (r < 0.28) inst.ajouter(['Bush_1_A', 'Bush_2_C', 'Bush_3_B', 'Bush_4_A'][Math.floor(rng() * 4)], x, 0, z, rng() * 6, 1.1, 1.1, 1.1);
+        else if (r < 0.45) inst.ajouter(['n_plant_bushLarge', 'n_plant_bushDetailed', 'n_plant_flatTall'][Math.floor(rng() * 3)], x, 0, z, rng() * 6, 5, 5, 5);
+        else if (r < 0.58) inst.ajouter(['n_mushroom_redTall', 'n_mushroom_tanTall', 'n_mushroom_redGroup', 'n_mushroom_tanGroup'][Math.floor(rng() * 4)], x, 0, z, rng() * 6, 6, 6, 6);
+        else if (r < 0.7) inst.ajouter(['n_flower_purpleB', 'n_flower_redC', 'n_flower_yellowC', 'n_flower_purpleC'][Math.floor(rng() * 4)], x, 0, z, rng() * 6, 7, 7, 7);
+        else if (r < 0.8) inst.ajouter(['Rock_1_A', 'Rock_2_C', 'n_rock_largeB', 'n_stump_old'][Math.floor(rng() * 4)], x, 0, z, rng() * 6, 1.2, 1.2, 1.2);
+        else if (r < 0.86) inst.ajouter('n_log_large', x, 0, z, rng() * 6, 3, 3, 3);
+      }
+    }
+    // touffes d'herbe sur le chemin, côté bord
+    if (rng() < 0.6) { const c = rng() < 0.5 ? 1 : -1, o = DEMI - 0.3 - rng(); inst.ajouter('Grass_1_A', pts[i].x + nx * o * c, 0, pts[i].z + nz * o * c, rng() * 6, 1.6, 1.6, 1.6); }
+  }
+  // clairières des boss
+  const tD = texDalles();
+  const barrieres = [];
+  for (const s of salles) {
+    const disque = new THREE.Mesh(new THREE.CircleGeometry(s.r + 1.2, 72), new THREE.MeshStandardMaterial({ map: tD, roughness: 0.9 }));
+    disque.rotation.x = -Math.PI / 2; disque.position.set(s.c.x, 0.03, s.c.z); disque.receiveShadow = true; groupe.add(disque);
+    const runes = new THREE.Mesh(new THREE.PlaneGeometry(s.r * 1.3, s.r * 1.3), new THREE.MeshBasicMaterial({ map: texRunes('#7dffb0'), transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+    runes.rotation.x = -Math.PI / 2; runes.position.set(s.c.x, 0.06, s.c.z); groupe.add(runes); s.runes = runes;
+    G.anims.push((t) => { runes.rotation.z = t * 0.05 * (s.id % 2 ? -1 : 1); runes.material.opacity = 0.35 + 0.2 * Math.sin(t * 1.3 + s.id); });
+    // colonnes en cercle, avec des ouvertures pour le chemin
+    const n = s.id === 3 ? 14 : 10;
+    for (let i = 0; i < n; i++) {
+      const a = i / n * 6.283 + 0.2; const x = s.c.x + Math.cos(a) * (s.r - 0.6), z = s.c.z + Math.sin(a) * (s.r - 0.6);
+      if (distChemin(x, z) < DEMI + 1.5 && segs.some(([p, q]) => distSeg(x, z, p, q) < DEMI + 1.5 && !(dansSalle(p.x, p.z) && dansSalle(q.x, q.z)))) continue;
+      const k = s.id === 3 ? 'n_statue_obelisk' : (i % 3 === 2 ? 'n_statue_columnDamaged' : 'n_statue_column');
+      inst.ajouter(k, x, 0, z, -a, 4.2, 4.2, 4.2); collisions.push({ x, z, r: 0.9 });
+      if (i % 2 === 0) inst.ajouter(rng() < 0.5 ? 'n_mushroom_tanGroup' : 'n_mushroom_redGroup', x + rng() - 0.5, 0, z + rng() - 0.5, rng() * 6, 7, 7, 7);
+    }
+    // forêt autour de la clairière
+    for (let i = 0; i < 70; i++) { const a = rng() * 6.283, rr = s.r + 3 + rng() * 15; const x = s.c.x + Math.cos(a) * rr, z = s.c.z + Math.sin(a) * rr; if (distChemin(x, z) > DEMI + 2.5) planter(x, z); }
+    // cristaux flottants qui éclairent la clairière
+    for (let i = 0; i < 3; i++) {
+      const a = i / 3 * 6.283 + s.id; const x = s.c.x + Math.cos(a) * (s.r + 2.5), z = s.c.z + Math.sin(a) * (s.r + 2.5);
+      const cr = new THREE.Mesh(new THREE.OctahedronGeometry(0.9, 0), new THREE.MeshStandardMaterial({ color: '#7dffd0', emissive: '#3affb0', emissiveIntensity: 1.6, roughness: 0.2, flatShading: true }));
+      cr.scale.set(1, 2, 1); cr.position.set(x, 3, z); groupe.add(cr);
+      G.anims.push((t) => { cr.position.y = 3 + Math.sin(t * 1.4 + i) * 0.4; cr.rotation.y = t * 0.6; });
+      G.torches.push({ pos: new THREE.Vector3(x, 3.5, z), color: '#4affc0', int: 34, dist: 18 });
+    }
+  }
+  // bassin de la 2e clairière
+  { const s = salles[1]; const eau = new THREE.Mesh(new THREE.CircleGeometry(5.5, 48), new THREE.MeshStandardMaterial({ color: '#2a9ab8', emissive: '#0a4a6a', roughness: 0.08, metalness: 0.4, transparent: true, opacity: 0.85 }));
+    eau.rotation.x = -Math.PI / 2; eau.position.set(s.c.x - 9, 0.05, s.c.z + 8); groupe.add(eau);
+    for (let i = 0; i < 6; i++) inst.ajouter(rng() < 0.5 ? 'n_lily_large' : 'n_lily_small', s.c.x - 9 + (rng() - 0.5) * 7, 0.07, s.c.z + 8 + (rng() - 0.5) * 7, rng() * 6, 6, 6, 6);
+    collisions.push({ x: s.c.x - 9, z: s.c.z + 8, r: 5.2 }); }
+  // l'arbre ancestral derrière le dernier boss
+  { const s = salles[3]; arbres.ajouter('Tree_2_C', s.c.x + s.r + 9, 0, s.c.z - 4, 0.4, 3.4, 3.4, 3.4); arbres.ajouter('Tree_3_B', s.c.x + 6, 0, s.c.z - s.r - 9, 1.2, 2.6, 2.6, 2.6); arbres.ajouter('Tree_3_B', s.c.x + 4, 0, s.c.z + s.r + 9, 2.2, 2.6, 2.6, 2.6); }
+  // barrières de ronces magiques : elles tombent quand le boss de la clairière meurt
+  for (let i = 0; i < 3; i++) {
+    const s = salles[i], suite = troncons[i + 1][0];
+    const dir = suite.clone().sub(s.c).normalize(); const pt = s.c.clone().addScaledVector(dir, s.r + 1.2);
+    const nx = -dir.z, nz = dir.x;
+    const g = new THREE.Group(); g.position.copy(pt);
+    const matV = new THREE.MeshStandardMaterial({ color: '#2f7a2a', emissive: '#1aff6a', emissiveIntensity: 0.35, roughness: 0.7, flatShading: true });
+    for (let k = 0; k < 16; k++) { const o = (k / 15 - 0.5) * 11; const h = 2.5 + rng() * 2.5; const m = new THREE.Mesh(new THREE.ConeGeometry(0.35 + rng() * 0.25, h, 5), matV); m.position.set(nx * o, h / 2, nz * o); m.rotation.set((rng() - 0.5) * 0.6, rng() * 3, (rng() - 0.5) * 0.6); g.add(m); }
+    const voile = new THREE.Mesh(new THREE.PlaneGeometry(11, 4), new THREE.MeshBasicMaterial({ color: '#5affa0', transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    voile.position.y = 2; voile.rotation.y = Math.atan2(nx, nz); g.add(voile);
+    G.anims.push((t) => { voile.material.opacity = 0.18 + 0.1 * Math.sin(t * 3 + i); });
+    groupe.add(g);
+    const cols = []; for (let k = -2; k <= 2; k++) { const c = { x: pt.x + nx * k * 2.4, z: pt.z + nz * k * 2.4, r: 1.6, barriere: i }; collisions.push(c); cols.push(c); }
+    barrieres.push({ salle: i, groupe: g, cols, pt });
+  }
+  // départ : arche de pierre et cercle de cristaux
+  inst.ajouter('n_statue_ring', -3, 0, 0, Math.PI / 2, 5, 5, 5);
+  inst.construire(groupe); arbres.construire(groupe, { ombre: false });
+  // lucioles autour du joueur
+  G.anims.push((t, dt) => {
+    if (!G.focus || Math.random() > (dt || 0.016) * 9) return;
+    const a = Math.random() * 6.28, r = 3 + Math.random() * 12;
+    emettre(new THREE.Vector3(G.focus.x + Math.cos(a) * r, 0.6 + Math.random() * 2.5, G.focus.z + Math.sin(a) * r), { n: 1, c1: '#f4ff9a', c2: '#5aff9a', vit: 0.4, vie: 2.6, taille: 0.22, grav: -0.15 });
+  });
+  G.scene.add(groupe);
+  // packs : 3 monstres alignés en travers du chemin
+  const packs = [];
+  const parTroncon = [3, 4, 3, 4];
+  troncons.forEach((t, i) => {
+    const seg = []; for (let k = 0; k < t.length - 1; k++) seg.push([t[k], t[k + 1]]);
+    seg.push([t[t.length - 1], salles[i].c]);
+    const longueur = seg.reduce((s, [a, b]) => s + a.distanceTo(b), 0) - salles[i].r;
+    for (let p = 0; p < parTroncon[i]; p++) {
+      let d = longueur * (0.22 + p * 0.74 / parTroncon[i]);
+      for (const [a, b] of seg) { const l = a.distanceTo(b); if (d > l) { d -= l; continue; }
+        const c = a.clone().lerp(b, d / l); const dir = b.clone().sub(a).normalize(); const nx = -dir.z, nz = dir.x;
+        const n = 3 + (p === parTroncon[i] - 1 && i > 0 ? 1 : 0);
+        packs.push({ troncon: i, pts: Array.from({ length: n }, (_, k) => c.clone().add(new THREE.Vector3(nx * (k - (n - 1) / 2) * 2.4, 0, nz * (k - (n - 1) / 2) * 2.4))), dir });
+        break; }
+    }
+  });
+  const spawn = P(-1, 0.5);
+  return {
+    groupe, type: 'sylve', nom: 'Sanctuaire d’Émeraude', spawn, sortie: P(-5, 0), salles, troncons, segs, packs, barrieres, collisions, marche,
+    rayonMonde: 160, bornes: { x0: -12, x1: 310, z0: -48, z1: 30 },
+    zoneDe: (x, z) => { const s = dansSalle(x, z); return s ? 'S' + s.id : -1; },
+  };
+}

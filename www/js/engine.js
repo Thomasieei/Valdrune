@@ -23,6 +23,7 @@ export function initRendu(canvas) {
   r.shadowMap.enabled = true;
   r.shadowMap.type = THREE.PCFShadowMap;
   r.info.autoReset = false;
+  r.shadowMap.autoUpdate = false; // ombres recalculées une image sur deux
   G.renderer = r;
   G.scene = new THREE.Scene();
   G.scene.background = new THREE.Color('#120b1b');
@@ -137,6 +138,8 @@ export function majQualiteAuto(dtReel, actif) {
 export function rendre() {
   G.renderer.info.reset();
   cullActeurs();
+  G._img = (G._img || 0) + 1;
+  if (G.renderer.shadowMap.enabled) G.renderer.shadowMap.needsUpdate = (G._img & 1) === 0;
   if (G.niveau >= 1) G.composer.render(); else G.renderer.render(G.scene, G.camera);
 }
 
@@ -346,7 +349,7 @@ export class Instancieur {
   }
   // découpé en blocs de 24 m : la caméra ne dessine que les blocs visibles
   construire(groupe, { ombre = false } = {}) {
-    const CELL = 24;
+    const CELL = 36;
     for (const [cle, toutes] of this.par) {
       const src = G.assets[cle]; if (!src) continue;
       src.scene.updateMatrixWorld(true);

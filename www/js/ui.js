@@ -305,12 +305,19 @@ UI.action = (texte, cb) => {
   if (b.textContent !== texte) b.textContent = texte;
   b.hidden = false; b.onclick = (e) => { e.stopPropagation(); cb(); };
 };
+// chiffres de dégâts : au plus 26 à l'écran (au-delà, le téléphone passe son temps à mettre la page en page)
+let nbNombres = 0;
 UI.nombre = (pos, txt, classe = '') => {
+  if (nbNombres >= 26 && classe !== 'crit' && classe !== 'joueur') return;
   const p = projeter(pos); if (!p.visible) return;
   const d = document.createElement('div'); d.className = 'dmg contour ' + classe; d.textContent = txt;
   d.style.left = (p.x + (Math.random() - 0.5) * 30) + 'px'; d.style.top = p.y + 'px';
-  $('#nombres').appendChild(d); setTimeout(() => d.remove(), 900);
+  $('#nombres').appendChild(d); nbNombres++; setTimeout(() => { d.remove(); nbNombres--; }, 900);
 };
+// compteur de performances (Réglages)
+let perfEl = null;
+UI.perf = (on) => { if (on && !perfEl) { perfEl = document.createElement('div'); perfEl.id = 'perfHud'; document.body.appendChild(perfEl); } if (!on && perfEl) { perfEl.remove(); perfEl = null; } };
+UI.majPerf = (txt) => { if (perfEl) perfEl.textContent = txt; };
 
 // ---------------- Plaques de nom ----------------
 const plaques = new Map();
@@ -351,12 +358,19 @@ UI.mini = (monde, joueur, entites) => {
   if (monde.type === 'hub') { x0 = monde.bornes.x0 - 4; x1 = monde.bornes.x1 + 4; z0 = monde.bornes.z0 - 4; z1 = monde.bornes.z1 + 4; }
   else if (monde.type === 'arene') { x0 = z0 = -monde.rayon - 3; x1 = z1 = monde.rayon + 3; }
   else if (monde.type === 'ile') { x0 = z0 = -monde.rayonMonde - 14; x1 = z1 = monde.rayonMonde + 14; }
+  else if (monde.type === 'sylve') { x0 = monde.bornes.x0; x1 = monde.bornes.x1; z0 = monde.bornes.z0; z1 = monde.bornes.z1; }
   else { x0 = 0; z0 = 0; x1 = monde.grilleW * 4; z1 = monde.grilleH * 4; }
   const ech = 236 / Math.max(x1 - x0, z1 - z0), ox = 128 - (x0 + x1) / 2 * ech, oz = 128 - (z0 + z1) / 2 * ech;
   const P = (x, z) => [ox + x * ech, oz + z * ech];
   if (!monde._fond) {
     const c = document.createElement('canvas'); c.width = c.height = 256; const f = c.getContext('2d');
     if (monde.type === 'hub') { f.fillStyle = '#4a5f8a'; const [a, b] = P(monde.bornes.x0, monde.bornes.z0); f.fillRect(a, b, (monde.bornes.x1 - monde.bornes.x0) * ech, (monde.bornes.z1 - monde.bornes.z0) * ech); f.fillStyle = '#6a80b0'; f.beginPath(); f.arc(...P(0, 0), 10 * ech, 0, 7); f.fill(); }
+    else if (monde.type === 'sylve') {
+      f.fillStyle = '#1e3a24'; f.fillRect(0, 0, 256, 256);
+      f.strokeStyle = '#8fd07a'; f.lineCap = 'round'; f.lineJoin = 'round'; f.lineWidth = 9.2 * ech; f.beginPath();
+      monde.segs.forEach(([a, b], i) => { if (!i) f.moveTo(...P(a.x, a.z)); f.lineTo(...P(b.x, b.z)); }); f.stroke();
+      for (const s of monde.salles) { f.fillStyle = '#a8e090'; f.beginPath(); f.arc(...P(s.c.x, s.c.z), s.r * ech, 0, 7); f.fill(); f.strokeStyle = '#3affa0'; f.lineWidth = 1.5; f.stroke(); }
+    }
     else if (monde.type === 'ile') { f.fillStyle = '#2a5a8a'; f.fillRect(0, 0, 256, 256); f.fillStyle = '#6aa85a'; f.beginPath(); f.arc(...P(0, 0), monde.rayonMonde * ech, 0, 7); f.fill(); for (const p of monde.plots) { f.fillStyle = p.bati ? '#c8a060' : '#ffd25a66'; f.beginPath(); f.arc(...P(p.pos.x, p.pos.z), 4 * ech, 0, 7); f.fill(); } }
     else if (monde.type === 'arene') { f.fillStyle = '#5f5a8e'; f.beginPath(); f.arc(...P(0, 0), monde.rayon * ech, 0, 7); f.fill(); }
     else {
@@ -571,6 +585,13 @@ UI.menuPortail = () => {
       <p>${m.texte}</p><div class="ipl"><span>Puissance conseillée</span><b>${m.ipConseil}</b></div><div class="ipl"><span>Ta puissance</span><b class="${ok ? 'ok' : 'ko'}">${ip}</b></div>
       <button class="btn ${ok ? 'or' : ''}" data-m="${m.id}">${ok ? 'Entrer' : 'Entrer quand même'}</button></div>`;
     }).join('')}</div></div>`;
+  const sy = document.createElement('div'); sy.className = 'carteSylve';
+  sy.innerHTML = `<div class="feuilles"></div><div class="txtS"><div class="niv">DONJON DE GROUPE · 5 JOUEURS</div><h3>Sanctuaire d’Émeraude</h3>
+    <p>Une forêt magique, un seul chemin, quatre gardiens. Le dernier, Verdanthos, ne pardonne rien : il faut bouger, esquiver, jouer ensemble. Scores après chaque boss, coffre final pour tout le groupe.</p>
+    <div class="tiers"><span style="background:${TIERS[Math.max(1, Math.min(8, Math.round((ip - 320) / 100) + 1))].color}">Butin à ton niveau</span><span style="background:#3affa0;color:#06301a">Coffre légendaire</span></div></div>
+    <button class="btn vert" data-sylve>Rechercher un groupe</button>`;
+  $('#portailMenu .cadreP').appendChild(sy);
+  sy.querySelector('[data-sylve]').onclick = () => { $('#portailMenu').hidden = true; api.sylve(); };
   const inv = document.createElement('div'); inv.className = 'invasion';
   inv.innerHTML = `<div><h4>Être envahi</h4><label class="bascule"><input type="checkbox" id="accInv" ${j.accepteInvasion ? 'checked' : ''}><span>Ouvrir mon monde aux invasions</span></label>
     <p>+25 % d’argent dans les coffres. Un joueur peut surgir dans ton donjon. S’il te tue, il emporte tout ton équipement porté.</p></div>
@@ -609,6 +630,7 @@ UI.reglages = () => {
   r.innerHTML = `<div class="reglages parchemin"><button class="fermer" data-x aria-label="Fermer">×</button><h2>Réglages</h2>
     <label>Qualité graphique <select id="rQ" class="btn gris">${[['auto', 'Automatique (conseillé)'], ['haute', 'Haute : lueurs et ombres'], ['moyenne', 'Moyenne : ombres, sans lueurs'], ['basse', 'Basse : fluidité maximale']].map(([v, l]) => `<option value="${v}" ${G.qualite === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <label>Sons <input type="checkbox" id="rS" ${G.son ? 'checked' : ''} style="width:3vh;height:3vh"></label>
+    <label>Afficher les FPS <input type="checkbox" id="rP" ${G.perfOn ? 'checked' : ''} style="width:3vh;height:3vh"></label>
     <label>Plein écran <button class="btn gris" id="rF">Activer</button></label>
     <label>Sauvegarde <button class="btn" id="rR">Effacer et recommencer</button></label>
     <p id="rConf" style="font-size:2vh;margin:0" hidden>Touche encore pour confirmer : tout ton équipement sera perdu.</p></div>`;
@@ -616,6 +638,7 @@ UI.reglages = () => {
   r.querySelector('[data-x]').onclick = () => (r.hidden = true);
   r.querySelector('#rQ').onchange = (e) => api.qualite(e.target.value);
   r.querySelector('#rS').onchange = (e) => { G.son = e.target.checked; };
+  r.querySelector('#rP').onchange = (e) => { G.perfOn = e.target.checked; UI.perf(G.perfOn); try { localStorage.setItem('breche-perf', G.perfOn ? '1' : ''); } catch (er) {} };
   r.querySelector('#rF').onclick = () => { document.documentElement.requestFullscreen?.().catch(() => {}); };
   let n = 0; r.querySelector('#rR').onclick = () => { if (++n === 1) { r.querySelector('#rConf').hidden = false; return; } api.reset(); };
 };
@@ -856,4 +879,61 @@ UI.rapport = (titre, lignes) => {
   const d = $('#butin');
   d.innerHTML = `<div class="cadreB parchemin"><h2>${titre}</h2>${lignes.map(l => `<p style="font-size:2.3vh;margin:.8vh 0">${l}</p>`).join('')}<button class="btn or" data-ok>Compris</button></div>`;
   d.hidden = false; d.querySelector('[data-ok]').onclick = () => (d.hidden = true);
+};
+
+// ---------------- Sanctuaire d'Émeraude ----------------
+const COUL_CLASSE = { epee: '#ff6a5a', arbalete: '#5aff9a', baton: '#ffab3a', ombre: '#b07aff' };
+const fmtK = (n) => n >= 1e6 ? (n / 1e6).toFixed(2).replace('.', ',') + ' M' : n >= 1e4 ? (n / 1e3).toFixed(1).replace('.', ',') + ' k' : fmt(n);
+const fmtT = (s) => `${Math.floor(s / 60)} min ${String(Math.floor(s % 60)).padStart(2, '0')}`;
+UI.rechercheGroupe = (membres, cb) => {
+  const d = $('#butin'); const j = api.etat();
+  const slot = (m, i) => m ? `<div class="slotG plein" style="--c:${COUL_CLASSE[m.equip.arme.type]};animation-delay:${i * 0.1}s"><div class="icoC">${svgSort(m.equip.arme.type, '#ffe2a0', '#3a2a10', 'g' + i)}</div><b>${m.nom}</b><small>${m.guilde || ''}</small><span>⚔ ${m.ip}</span></div>` : `<div class="slotG"><div class="cherche"></div><small>Recherche…</small></div>`;
+  const moi = { nom: j.nom, guilde: 'CROW ZERO', ip: statsHeros(j.equip).ip, equip: j.equip };
+  let n = 0;
+  const rendre = () => {
+    d.innerHTML = `<div class="cadreG"><h2>${n < membres.length ? 'Recherche de groupe…' : 'Groupe complet !'}</h2><div class="sous">Sanctuaire d’Émeraude · 5 joueurs</div>
+      <div class="slotsG">${slot(moi, 0)}${membres.map((m, i) => slot(i < n ? m : null, i + 1)).join('')}</div>
+      ${n >= membres.length ? '<button class="btn vert grand" data-go>Entrer dans le Sanctuaire</button>' : '<button class="btn gris" data-annule>Annuler</button>'}</div>`;
+    const go = d.querySelector('[data-go]'); if (go) go.onclick = () => { d.hidden = true; cb(); };
+    const an = d.querySelector('[data-annule]'); if (an) an.onclick = () => { clearInterval(iv); d.hidden = true; };
+  };
+  d.hidden = false; rendre(); api.son('forceField_000', 0.4, 1.3);
+  const iv = setInterval(() => { n++; api.son('select_001', 0.4, 1 + n * 0.1); rendre(); if (n >= membres.length) { clearInterval(iv); api.son('jingle_win', 0.4, 1.2); } }, 750);
+};
+UI.introBoss = (nom, titre, couleur) => {
+  const d = document.createElement('div'); d.className = 'introBoss'; d.style.setProperty('--c', couleur);
+  d.innerHTML = `<div class="trait"></div><h2>${nom}</h2><p>${titre}</p><div class="trait"></div>`;
+  document.body.appendChild(d); setTimeout(() => d.remove(), 3600);
+};
+function lignesScores(lignes, opts = {}) {
+  const max = Math.max(1, ...lignes.map(l => l.degats));
+  return lignes.map((l, i) => `<div class="ligneS ${l.moi ? 'moi' : ''}" style="--c:${COUL_CLASSE[l.type] || '#fff'};animation-delay:${0.15 + i * 0.12}s">
+    <div class="rang">${i === 0 ? '👑' : i + 1}</div><div class="icoC">${svgSort(l.type, '#ffe2a0', '#3a2a10', 's' + i + (opts.id || ''))}</div>
+    <div class="nomS"><b>${l.nom}</b><small>${ARMES[l.type] ? ARMES[l.type].court : ''} · ⚔ ${l.ip}</small></div>
+    <div class="barreS"><i style="width:${(l.degats / max * 100).toFixed(1)}%"></i><span>${fmtK(l.degats)}</span></div>
+    <div class="chiffres"><b>${fmtK(l.dps)}/s</b><small>${Math.round(l.part * 100)} %</small></div>
+    ${opts.butin && l.butin ? `<div class="butinS"><span class="arg"><span class="piece"></span>${fmtK(l.butin.argent)}</span>${l.butin.objets.map(it => `<span class="mini">${htmlCase(it)}</span>`).join('')}</div>` : ''}</div>`).join('');
+}
+UI.scores = (data, cb) => {
+  const d = $('#butin');
+  d.innerHTML = `<div class="cadreS" style="--c:${data.couleur}"><h2>${data.titre}</h2><div class="sous">${data.sous} · combat ${fmtT(data.duree)}</div>
+    <div class="enteteS"><span>Joueur</span><span>Dégâts</span><span>DPS · part</span></div>
+    <div class="lignesS">${lignesScores(data.lignes)}</div>
+    <div class="butinBoss"><span class="titreB">Ton butin</span><span class="arg"><span class="piece"></span>+ ${fmt(data.butin.argent)}</span>${data.butin.objets.map((it, i) => `<button class="item" data-i="${i}" style="border:0;background:none;padding:0">${htmlCase(it)}</button>`).join('')}</div>
+    <button class="btn vert grand" data-ok>Continuer</button></div>`;
+  d.hidden = false;
+  d.querySelectorAll('[data-i]').forEach(b => b.onclick = () => UI.fiche(data.butin.objets[+b.dataset.i], 'apercu'));
+  d.querySelector('[data-ok]').onclick = () => { d.hidden = true; cb && cb(); };
+};
+UI.recapFinal = (data, cb) => {
+  const d = $('#butin'); const moi = data.lignes.find(l => l.moi);
+  d.innerHTML = `<div class="cadreS final" style="--c:#3affa0"><div class="eclat"></div><h2>Sanctuaire purifié</h2>
+    <div class="sous">4 gardiens vaincus · ${fmtT(data.duree)} · ${fmtK(data.total)} dégâts au total</div>
+    <div class="enteteS"><span>Joueur</span><span>Dégâts totaux</span><span>DPS · part</span><span>Butin</span></div>
+    <div class="lignesS">${lignesScores(data.lignes, { butin: true, id: 'f' })}</div>
+    <div class="butinBoss"><span class="titreB">Ton coffre</span><span class="arg"><span class="piece"></span>+ ${fmt(moi.butin.argent)}</span>${moi.butin.objets.map((it, i) => `<button class="item" data-i="${i}" style="border:0;background:none;padding:0">${htmlCase(it)}</button>`).join('')}</div>
+    <button class="btn vert grand" data-ok>Récupérer mon butin</button></div>`;
+  d.hidden = false;
+  d.querySelectorAll('[data-i]').forEach(b => b.onclick = () => UI.fiche(moi.butin.objets[+b.dataset.i], 'apercu'));
+  d.querySelector('[data-ok]').onclick = () => { d.hidden = true; cb && cb(); };
 };

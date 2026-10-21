@@ -223,3 +223,17 @@ export const EMOTES = [
   { id: 'bof', g: '🥱', nom: 'Bof' }, { id: 'feu', g: '🔥', nom: 'En feu' }, { id: 'merci', g: '❤️', nom: 'Merci' },
   { id: 'diable', g: '😈', nom: 'Viens' }, { id: 'fuite', g: '🏃', nom: 'Je fuis' }, { id: 'malin', g: '😏', nom: 'Malin' }, { id: 'oups', g: '😅', nom: 'Oups' },
 ];
+
+// ---- Sanctuaire d'Émeraude : donjon de groupe à 5 ----
+export const MOBS_SYLVE = {
+  moussu:  { nom: 'Squelette moussu', model: 'Skeleton_Minion', arme: 'Skeleton_Blade', hp: 1.1, dmg: 1.0, vitesse: 3.5, portee: 2.0, type: 'melee', atk: '1H_Melee_Attack_Chop', teinte: '#7acf5a' },
+  ecorce:  { nom: 'Gardien d’écorce', model: 'Skeleton_Warrior', arme: 'Skeleton_Axe', hp: 2.0, dmg: 1.4, vitesse: 2.9, portee: 2.3, type: 'melee', atk: '2H_Melee_Attack_Chop', teinte: '#a07a4a' },
+  ronce:   { nom: 'Archer des ronces', model: 'Skeleton_Rogue', arme: 'Skeleton_Crossbow', hp: 0.85, dmg: 1.15, vitesse: 3.2, portee: 10, type: 'ranged', atk: '2H_Ranged_Shoot', teinte: '#5ab86a' },
+  druide:  { nom: 'Druide déchu', model: 'Skeleton_Mage', arme: 'Skeleton_Staff', hp: 0.8, dmg: 1.3, vitesse: 3.0, portee: 9.5, type: 'caster', atk: 'Spellcast_Shoot', teinte: '#a07aff' },
+};
+export const BOSS_SYLVE = [
+  { id: 'ronces', nom: 'Tisserand de Ronces', titre: 'Gardien de la Clairière', model: 'Skeleton_Warrior', arme: 'Skeleton_Axe', scale: 2.5, hpMult: 26, dmgMult: 2.6, couleur: '#7dff6a', teinte: '#7a6a3a' },
+  { id: 'sylphe', nom: 'Reine Sylphe', titre: 'Dame du Bassin', model: 'Skeleton_Mage', arme: 'Skeleton_Staff', scale: 2.4, hpMult: 28, dmgMult: 2.5, couleur: '#f08aff', teinte: '#e8d0ff', hover: 1.1 },
+  { id: 'chasseur', nom: 'Chasseur Écorce', titre: 'Celui qui traque', model: 'Skeleton_Rogue', arme: 'Skeleton_Crossbow', scale: 2.4, hpMult: 30, dmgMult: 2.75, couleur: '#ffd06a', teinte: '#6a5030' },
+  { id: 'verdanthos', nom: 'Verdanthos', titre: 'l’Ancien d’Émeraude', model: 'Dragon_Evolved', arme: null, scale: 1.0, hauteur: 7.2, rayon: 3.4, hpMult: 56, dmgMult: 3.0, couleur: '#3affa0', teinte: '#2aff8a' },
+];
