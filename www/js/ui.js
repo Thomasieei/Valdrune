@@ -1,7 +1,7 @@
 // ===== Interface : icônes, HUD, inventaire, marché, dialogues =====
 import { THREE, G, projeter } from './engine.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, MODES, COFFRES, MAITRISES, NIVEAU_REQUIS, VARIANTES, EMOTES, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT } from './data.js';
+import { TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, MODES, COFFRES, MAITRISES, NIVEAU_REQUIS, VARIANTES, EMOTES, TRAITS, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT } from './data.js';
 import { nomObjet, couleurObjet, statsObjet, sortsObjet, puissanceObjet, valeurObjet, prixVente, categorieLabel, statsHeros, stockMarchand, stockArene, prixTrophees, niveauRequis, peutPorter, niveauDe, xpPour, bonusMaitrise, tierMaxPour } from './items.js';
 
 const $ = (s) => document.querySelector(s);
@@ -908,7 +908,7 @@ const fmtK = (n) => n >= 1e6 ? (n / 1e6).toFixed(2).replace('.', ',') + ' M' : n
 const fmtT = (s) => `${Math.floor(s / 60)} min ${String(Math.floor(s % 60)).padStart(2, '0')}`;
 UI.rechercheGroupe = (membres, cb) => {
   const d = $('#butin'); const j = api.etat();
-  const slot = (m, i) => m ? `<div class="slotG plein" style="--c:${COUL_CLASSE[m.equip.arme.type]};animation-delay:${i * 0.1}s"><div class="icoC">${svgSort(m.equip.arme.type, '#ffe2a0', '#3a2a10', 'g' + i)}</div><b>${m.nom}</b><small>${m.guilde || ''}</small><span>⚔ ${m.ip}</span></div>` : `<div class="slotG"><div class="cherche"></div><small>Recherche…</small></div>`;
+  const slot = (m, i) => m ? `<div class="slotG plein" style="--c:${COUL_CLASSE[m.equip.arme.type]};animation-delay:${i * 0.1}s"><div class="icoC">${svgSort(m.equip.arme.type, '#ffe2a0', '#3a2a10', 'g' + i)}</div><b>${m.nom}</b><small>${m.guilde || ''}</small><span>⚔ ${m.ip}</span>${m.trait && TRAITS[m.trait] ? `<em class="trait" title="${TRAITS[m.trait].desc}">${TRAITS[m.trait].ico} ${TRAITS[m.trait].nom}</em>` : ''}</div>` : `<div class="slotG"><div class="cherche"></div><small>Recherche…</small></div>`;
   const moi = { nom: j.nom, guilde: 'CROW ZERO', ip: statsHeros(j.equip).ip, equip: j.equip };
   let n = 0;
   const rendre = () => {
@@ -940,6 +940,7 @@ UI.scores = (data, cb) => {
   d.innerHTML = `<div class="cadreS" style="--c:${data.couleur}"><h2>${data.titre}</h2><div class="sous">${data.sous} · combat ${fmtT(data.duree)}</div>
     <div class="enteteS"><span>Joueur</span><span>Dégâts</span><span>DPS · part</span></div>
     <div class="tableauScores">${tableauScorescores(data.lignes)}</div>
+    <div class="partage">Coffre du gardien : <b>${fmt(data.butin.pool)}</b> pièces, partagé en ${data.butin.nb} → <b>${fmt(data.butin.argent)}</b> chacun</div>
     <div class="butinBoss"><span class="titreB">Ton butin</span><span class="arg"><span class="piece"></span>+ ${fmt(data.butin.argent)}</span>${data.butin.objets.map((it, i) => `<button class="item" data-i="${i}" style="border:0;background:none;padding:0">${htmlCase(it)}</button>`).join('')}</div>
     <button class="btn vert grand" data-ok>Continuer</button></div>`;
   d.hidden = false;
@@ -950,6 +951,7 @@ UI.recapFinal = (data, cb) => {
   const d = $('#butin'); const moi = data.lignes.find(l => l.moi);
   d.innerHTML = `<div class="cadreS final" style="--c:#3affa0"><div class="eclat"></div><h2>Sanctuaire purifié</h2>
     <div class="sous">4 gardiens vaincus · ${fmtT(data.duree)} · ${fmtK(data.total)} dégâts au total</div>
+    <div class="partage">Trésor du Sanctuaire : <b>${fmt(data.pool)}</b> pièces, partagé en ${data.lignes.length} → <b>${fmt(Math.round(data.pool / data.lignes.length))}</b> chacun</div>
     <div class="enteteS"><span>Joueur</span><span>Dégâts totaux</span><span>DPS · part</span><span>Butin</span></div>
     <div class="tableauScores">${tableauScorescores(data.lignes, { butin: true, id: 'f' })}</div>
     <div class="butinBoss"><span class="titreB">Ton coffre</span><span class="arg"><span class="piece"></span>+ ${fmt(moi.butin.argent)}</span>${moi.butin.objets.map((it, i) => `<button class="item" data-i="${i}" style="border:0;background:none;padding:0">${htmlCase(it)}</button>`).join('')}</div>

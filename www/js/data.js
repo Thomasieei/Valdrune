@@ -237,3 +237,13 @@ export const BOSS_SYLVE = [
   { id: 'chasseur', nom: 'Chasseur Écorce', titre: 'Celui qui traque', model: 'Skeleton_Rogue', arme: 'Skeleton_Crossbow', scale: 2.4, hpMult: 30, dmgMult: 2.75, couleur: '#ffd06a', teinte: '#6a5030' },
   { id: 'verdanthos', nom: 'Verdanthos', titre: 'l’Ancien d’Émeraude', model: 'Dragon_Evolved', arme: null, scale: 1.0, hauteur: 7.2, rayon: 3.4, hpMult: 56, dmgMult: 3.0, couleur: '#3affa0', teinte: '#2aff8a' },
 ];
+
+// ---- Caractères des joueurs simulés ----
+export const TRAITS = {
+  fonceur:    { nom: 'Fonceur', ico: '🔥', desc: 'Toujours devant, lance les boss', vit: 1.08, avance: 4, reflexe: 0.6 },
+  tranquille: { nom: 'Tranquille', ico: '🐢', desc: 'Prend son temps, part parfois AFK', vit: 0.8, avance: -8, reflexe: 0.6 },
+  toxique:    { nom: 'Toxique', ico: '🤡', desc: 'Tourne en rond, provoque, fait n’importe quoi', vit: 1.05, avance: 0, reflexe: 0.45 },
+  prudent:    { nom: 'Prudent', ico: '🛡️', desc: 'Reste en retrait, esquive bien', vit: 0.92, avance: -5, reflexe: 0.9 },
+  protecteur: { nom: 'Protecteur', ico: '💚', desc: 'Reste près de toi et tape tes ennemis', vit: 1.0, avance: -2, reflexe: 0.75 },
+  bavard:     { nom: 'Bavard', ico: '💬', desc: 'Parle tout le temps', vit: 1.0, avance: 0, reflexe: 0.65 },
+};
