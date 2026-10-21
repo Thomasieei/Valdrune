@@ -381,7 +381,7 @@ export function majVfx(dt) {
     const v = G.vfx[i]; v.t += dt;
     if (v.maj(v.t, dt, v.obj) === false) {
       G.scene.remove(v.obj);
-      v.obj.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && !o.material.userData.partage) o.material.dispose(); });
+      v.obj.traverse(o => { if (o.geometry && !o.geometry.userData.partage) o.geometry.dispose(); }); // les matériaux restent : leur programme GPU est réutilisé
       G.vfx.splice(i, 1);
     }
   }
@@ -400,19 +400,20 @@ export function lueurSol(pos, couleur, rayon, duree, int = 1) {
 // Arc de taillade (épée)
 export function arcTaille(pos, angle, rayon, couleur, ouverture = Math.PI * 0.75, duree = 0.28) {
   const geo = new THREE.RingGeometry(rayon * 0.35, rayon, 40, 1, -ouverture / 2, ouverture);
-  const c = document.createElement('canvas'); c.width = 128; c.height = 8; const g = c.getContext('2d');
-  const gr = g.createLinearGradient(0, 0, 128, 0); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.7, 'rgba(255,255,255,0.6)'); gr.addColorStop(1, 'rgba(255,255,255,1)');
-  g.fillStyle = gr; g.fillRect(0, 0, 128, 8);
-  const m = new THREE.Mesh(geo, matAdd(couleur, 1, new THREE.CanvasTexture(c)));
+  const tex = texture('arc', 128, 8, (g) => {
+    const gr = g.createLinearGradient(0, 0, 128, 0); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.7, 'rgba(255,255,255,0.6)'); gr.addColorStop(1, 'rgba(255,255,255,1)');
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 8);
+  });
+  const m = new THREE.Mesh(geo, matAdd(couleur, 1, tex));
   m.rotation.x = -Math.PI / 2; m.rotation.z = angle; m.position.set(pos.x, 1.0, pos.z);
   ajouterVfx(m, (t) => { const k = t / duree; if (k >= 1) return false; m.material.opacity = 1 - k; m.rotation.z = angle + (k - 0.5) * 0.9; m.scale.setScalar(0.85 + k * 0.25); });
 }
 // Faisceau vertical (coffres, butin)
 export function faisceau(pos, couleur, hauteur = 14, largeur = 0.9) {
-  const c = document.createElement('canvas'); c.width = 4; c.height = 128; const g = c.getContext('2d');
-  const gr = g.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.75, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,1)');
-  g.fillStyle = gr; g.fillRect(0, 0, 4, 128);
-  const tex = new THREE.CanvasTexture(c);
+  const tex = texture('faisceau', 4, 128, (g) => {
+    const gr = g.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.75, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,1)');
+    g.fillStyle = gr; g.fillRect(0, 0, 4, 128);
+  });
   const grp = new THREE.Group();
   for (let i = 0; i < 2; i++) {
     const m = new THREE.Mesh(new THREE.CylinderGeometry(largeur * (i ? 0.45 : 1), largeur * (i ? 0.45 : 1), hauteur, 20, 1, true), matAdd(couleur, i ? 0.9 : 0.45, tex));
@@ -450,21 +451,24 @@ export function telegraphe(pos, rayon, duree, couleur = '#ff2a2a', cb, opts = {}
   return m;
 }
 // Projectiles visuels
+// matériaux et géométries des projectiles partagés (aucune création à chaque tir)
+const cacheP = {};
+const pris = (cle, f) => { if (!cacheP[cle]) { const o = f(); if (o.isBufferGeometry) o.userData.partage = true; cacheP[cle] = o; } return cacheP[cle]; };
 export function meshCarreau(couleur) {
   const g = new THREE.Group();
-  const corps = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.1, 6), new THREE.MeshStandardMaterial({ color: '#3a2a1e', roughness: 0.8 }));
+  const corps = new THREE.Mesh(pris('gCorps', () => new THREE.CylinderGeometry(0.04, 0.04, 1.1, 6)), pris('mCorps', () => new THREE.MeshStandardMaterial({ color: '#3a2a1e', roughness: 0.8 })));
   corps.rotation.x = Math.PI / 2; g.add(corps);
-  const pointe = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.28, 6), new THREE.MeshStandardMaterial({ color: couleur, emissive: couleur, emissiveIntensity: 1.6 }));
+  const pointe = new THREE.Mesh(pris('gPointe', () => new THREE.ConeGeometry(0.09, 0.28, 6)), pris('mP' + couleur, () => new THREE.MeshStandardMaterial({ color: couleur, emissive: couleur, emissiveIntensity: 1.6 })));
   pointe.rotation.x = Math.PI / 2; pointe.position.z = 0.65; g.add(pointe);
-  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: texRond(), color: couleur, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.8 }));
+  const halo = new THREE.Sprite(pris('sH' + couleur, () => new THREE.SpriteMaterial({ map: texRond(), color: couleur, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.8 })));
   halo.scale.setScalar(0.9); halo.position.z = 0.6; g.add(halo);
   return g;
 }
 export function meshBoule(couleur, taille = 0.45) {
   const g = new THREE.Group();
-  const coeur = new THREE.Mesh(new THREE.SphereGeometry(taille * 0.55, 12, 10), new THREE.MeshBasicMaterial({ color: '#fff4c8' }));
-  g.add(coeur);
-  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: texRond(), color: couleur, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+  const coeur = new THREE.Mesh(pris('gBoule', () => new THREE.SphereGeometry(1, 12, 10)), pris('mBoule', () => new THREE.MeshBasicMaterial({ color: '#fff4c8' })));
+  coeur.scale.setScalar(taille * 0.55); g.add(coeur);
+  const halo = new THREE.Sprite(pris('sB' + couleur, () => new THREE.SpriteMaterial({ map: texRond(), color: couleur, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })));
   halo.scale.setScalar(taille * 4.2); g.add(halo);
   return g;
 }

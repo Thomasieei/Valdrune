@@ -1,7 +1,7 @@
 // ===== Interface : icônes, HUD, inventaire, marché, dialogues =====
 import { THREE, G, projeter } from './engine.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, MODES, COFFRES, MAITRISES, NIVEAU_REQUIS, VARIANTES } from './data.js';
+import { TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, MODES, COFFRES, MAITRISES, NIVEAU_REQUIS, VARIANTES, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT } from './data.js';
 import { nomObjet, couleurObjet, statsObjet, sortsObjet, puissanceObjet, valeurObjet, prixVente, categorieLabel, statsHeros, stockMarchand, stockArene, prixTrophees, niveauRequis, peutPorter, niveauDe, xpPour, bonusMaitrise, tierMaxPour } from './items.js';
 
 const $ = (s) => document.querySelector(s);
@@ -156,9 +156,13 @@ function icone2D(it) {
 
 export function htmlCase(it, extra = '', style = '') {
   if (!it) return `<div class="case ${extra}"></div>`;
-  const glow = it.tier >= 5 ? `filter:drop-shadow(0 0 6px ${TIERS[it.tier].color})` : '';
-  const bg = it.tier ? `background:radial-gradient(circle at 50% 45%, ${TIERS[it.tier].color}55, #2a1c12 70%);` : '';
-  return `<div class="case q${it.q || 0} ${extra}" style="${bg}${style}"><img src="${iconeObjet(it)}" alt="" style="${glow}">${it.tier ? `<span class="tier">${TIERS[it.tier].roman}</span>` : ''}${it.n > 1 ? `<span class="nb">${it.n}</span>` : ''}</div>`;
+  const equipable = it.cat === 'arme' || it.cat === 'armure';
+  const bloque = equipable && !peutPorter(it);
+  const glow = it.tier >= 5 && !bloque ? `filter:drop-shadow(0 0 6px ${TIERS[it.tier].color})` : '';
+  const tc = it.tier ? TIERS[it.tier].color : '#8a6a4a';
+  const bg = it.tier ? `background:radial-gradient(circle at 50% 42%, ${tc}aa, ${tc}33 55%, #241810 85%);--tc:${tc};` : '';
+  const cad = bloque ? `<span class="cadenas"><svg viewBox="0 0 24 24"><path d="M7 10V7a5 5 0 0110 0v3h1.5v11h-13V10zm2 0h6V7a3 3 0 00-6 0z" fill="#ffd0c0"/></svg>Niv. ${niveauRequis(it)}</span>` : '';
+  return `<div class="case q${it.q || 0} ${it.tier ? 'tiere' : ''} ${bloque ? 'bloque' : ''} ${extra}" style="${bg}${style}">${cad}<img src="${iconeObjet(it)}" alt="" style="${glow}">${it.tier ? `<span class="tier">${TIERS[it.tier].roman}</span>` : ''}${it.n > 1 ? `<span class="nb">${it.n}</span>` : ''}</div>`;
 }
 
 // ---------------- Barre de sorts ----------------
@@ -283,12 +287,14 @@ UI.mini = (monde, joueur, entites) => {
   let x0, z0, x1, z1;
   if (monde.type === 'hub') { x0 = monde.bornes.x0 - 4; x1 = monde.bornes.x1 + 4; z0 = monde.bornes.z0 - 4; z1 = monde.bornes.z1 + 4; }
   else if (monde.type === 'arene') { x0 = z0 = -monde.rayon - 3; x1 = z1 = monde.rayon + 3; }
+  else if (monde.type === 'ile') { x0 = z0 = -monde.rayonMonde - 14; x1 = z1 = monde.rayonMonde + 14; }
   else { x0 = 0; z0 = 0; x1 = monde.grilleW * 4; z1 = monde.grilleH * 4; }
   const ech = 236 / Math.max(x1 - x0, z1 - z0), ox = 128 - (x0 + x1) / 2 * ech, oz = 128 - (z0 + z1) / 2 * ech;
   const P = (x, z) => [ox + x * ech, oz + z * ech];
   if (!monde._fond) {
     const c = document.createElement('canvas'); c.width = c.height = 256; const f = c.getContext('2d');
     if (monde.type === 'hub') { f.fillStyle = '#4a5f8a'; const [a, b] = P(monde.bornes.x0, monde.bornes.z0); f.fillRect(a, b, (monde.bornes.x1 - monde.bornes.x0) * ech, (monde.bornes.z1 - monde.bornes.z0) * ech); f.fillStyle = '#6a80b0'; f.beginPath(); f.arc(...P(0, 0), 10 * ech, 0, 7); f.fill(); }
+    else if (monde.type === 'ile') { f.fillStyle = '#2a5a8a'; f.fillRect(0, 0, 256, 256); f.fillStyle = '#6aa85a'; f.beginPath(); f.arc(...P(0, 0), monde.rayonMonde * ech, 0, 7); f.fill(); for (const p of monde.plots) { f.fillStyle = p.bati ? '#c8a060' : '#ffd25a66'; f.beginPath(); f.arc(...P(p.pos.x, p.pos.z), 4 * ech, 0, 7); f.fill(); } }
     else if (monde.type === 'arene') { f.fillStyle = '#5f5a8e'; f.beginPath(); f.arc(...P(0, 0), monde.rayon * ech, 0, 7); f.fill(); }
     else {
       for (let z = 0; z < monde.grilleH; z++) for (let x = 0; x < monde.grilleW; x++) {
@@ -307,6 +313,7 @@ UI.mini = (monde, joueur, entites) => {
     else if (e.type === 'joueur') { g.fillStyle = '#7fb2ff'; g.beginPath(); g.arc(a, b, 3, 0, 7); g.fill(); }
     else if (e.type === 'pnj') { g.fillStyle = '#ffd97a'; g.beginPath(); g.arc(a, b, 5, 0, 7); g.fill(); }
     else if (e.type === 'allie') { g.fillStyle = '#4fd1ff'; g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.beginPath(); g.arc(a, b, 4.5, 0, 7); g.fill(); g.stroke(); }
+    else if (e.type === 'portailJ') { g.fillStyle = '#ffc84a'; g.shadowColor = '#ffc84a'; g.shadowBlur = 8; g.beginPath(); g.arc(a, b, 5, 0, 7); g.fill(); g.shadowBlur = 0; }
     else if (e.type === 'portailV') { g.fillStyle = '#b05aff'; g.shadowColor = '#b05aff'; g.shadowBlur = 8; g.beginPath(); g.arc(a, b, 6, 0, 7); g.fill(); g.shadowBlur = 0; }
     else if (e.type === 'portail') { g.fillStyle = '#ff3a2a'; g.shadowColor = '#ff3a2a'; g.shadowBlur = 8; g.beginPath(); g.arc(a, b, 6, 0, 7); g.fill(); g.shadowBlur = 0; }
   }
@@ -347,7 +354,7 @@ UI.rendreInventaire = () => {
     </div>
     <div class="colDroite">
       <div class="entete"><h2>Sac</h2><div style="font-family:var(--f-label);font-weight:800;font-size:2.4vh;display:flex;align-items:center;gap:.8vh"><span class="piece"></span>${fmt(j.argent)} <span class="troph">🏆</span>${fmt(j.trophees || 0)} · ${j.sac.length}/40</div></div>
-      <div class="grilleSac">${j.sac.map(it => `<button data-id="${it.id}" style="border:0;background:none;padding:0">${htmlCase(it, (selection === it.id ? 'choisi ' : '') + (peutPorter(it) ? '' : 'bloque'))}</button>`).join('')}
+      <div class="grilleSac">${j.sac.map(it => `<button data-id="${it.id}" style="border:0;background:none;padding:0">${htmlCase(it, selection === it.id ? 'choisi' : '')}</button>`).join('')}
       ${Array.from({ length: Math.max(0, 40 - j.sac.length) }, () => '<div class="case"></div>').join('')}</div>
       <p style="margin:1vh 0 0;font-size:1.8vh;color:#6a4a2e">Touche un objet pour voir toutes ses caractéristiques et l’équiper.</p>
     </div></div>`;
@@ -651,4 +658,123 @@ UI.menuJoueur = (data, estMembre, aUnGroupe) => {
     if (b.dataset.a === 'exclure') api.exclure();
     if (b.dataset.a === 'duel') api.duel(data, mise);
   });
+};
+
+// ---------------- Îles ----------------
+const icoModeles = {};
+export function iconeModele(cle) {
+  if (icoModeles[cle]) return icoModeles[cle];
+  if (!icoR) initIcones();
+  const m = G.assets[cle].scene.clone(true);
+  const grp = new THREE.Group(); grp.add(m);
+  return (icoModeles[cle] = rendreGroupe(grp, 'armure'));
+}
+const RES_ICO = { bois: 'Wood_Log_Stack', minerai: 'Iron_Nuggets', recolte: 'crop_pumpkin' };
+const RES_NOM = { bois: 'Bois', minerai: 'Minerai', recolte: 'Récoltes' };
+const ICO_TYPE = { bois: 'Tree_1_A', mine: 'Gold_Nuggets', cueillette: 'Bush_2_C' };
+const fmtCourt = (n) => n >= 1e6 ? (n / 1e6).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' M' : n >= 1e3 ? Math.round(n / 1e3).toLocaleString('fr-FR') + ' k' : fmt(n);
+function dans(ts) { const m = Math.max(0, Math.round((ts - Date.now()) / 60000)); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m} min`; }
+function ouvrir(id) { const p = $(id); p.hidden = false; p.onclick = (e) => { if (e.target === p) p.hidden = true; }; return p; }
+
+UI.menuIles = (info) => {
+  const p = ouvrir('#portailMenu');
+  const mes = info.iles.length ? info.iles.map(({ ile, cap, total, prodHeure, assaut }) => {
+    const T = ILE_TYPES[ile.type];
+    return `<div class="carteIle" style="--c:${T.couleur}"><img src="${iconeModele(ICO_TYPE[ile.type])}" alt=""><div class="txtIle"><b>${ile.nom}</b><small>${ILE_TAILLES[ile.taille].nom} · niveau ${ile.niveau} · ${fmt(ile.coffre[T.res] || 0)} ${T.label}${cap < Infinity ? ' / ' + fmt(cap) : ''} · ${fmt(prodHeure)}/h · assaut dans ${dans(assaut)}</small></div><button class="btn or" data-aller="${ile.id}">Y aller</button></div>`;
+  }).join('') : '<p class="aideIle">Tu n’as pas encore d’île. Choisis son type avec soin : chacune ne produit qu’une seule ressource.</p>';
+  const achat = Object.entries(ILE_TYPES).map(([k, T]) => `<div class="typeIle" style="--c:${T.couleur}"><img src="${iconeModele(ICO_TYPE[k])}" alt=""><h4>${T.nom}</h4><p>${T.desc}</p><div class="prixRes"><img src="${iconeModele(RES_ICO[T.res])}" alt="">${T.label} · ${T.prix} pièces l’unité</div>
+    <div class="tailles">${ILE_TAILLES.map((t, i) => `<button class="taille" data-type="${k}" data-taille="${i}" ${info.argent < t.prix ? 'disabled' : ''}><b>${t.nom}</b><span>${fmtCourt(t.prix)}</span></button>`).join('')}</div></div>`).join('');
+  p.innerHTML = `<div class="cadreP iles"><button class="fermer" data-x aria-label="Fermer">×</button>
+    <h2>Les Îles d’Aldric</h2><div class="sous">Achète une île, construis, fais travailler tes ouvriers… et défends ton coffre. Ton argent : <b>${fmt(info.argent)}</b></div>
+    <h3 class="sec">Tes îles</h3><div class="mesIles">${mes}</div>
+    <h3 class="sec">Acheter une île</h3><div class="typesIle">${achat}</div>
+    <div class="barreTroph pille"><div><b>Piller une île</b> — attaque l’île d’un autre joueur, élimine ses 3 gardes et son champion, puis vide son coffre.</div><button class="btn" data-piller>Partir piller (⚔ ${info.ip})</button></div></div>`;
+  p.querySelector('[data-x]').onclick = () => (p.hidden = true);
+  p.querySelectorAll('[data-aller]').forEach(b => b.onclick = () => { p.hidden = true; api.allerIle(b.dataset.aller); });
+  p.querySelectorAll('[data-type]').forEach(b => b.onclick = () => {
+    const t = ILE_TAILLES[+b.dataset.taille], T = ILE_TYPES[b.dataset.type];
+    b.closest('.typeIle').querySelector('p').innerHTML = `<b>${t.nom} ${T.nom.replace('Île', '').trim()}</b> pour ${fmt(t.prix)} pièces. <button class="btn or" data-confirm>Confirmer l’achat</button>`;
+    b.closest('.typeIle').querySelector('[data-confirm]').onclick = () => { p.hidden = true; api.acheterIle(b.dataset.type, +b.dataset.taille); };
+  });
+  p.querySelector('[data-piller]').onclick = () => { p.hidden = true; api.piller(); };
+  api.son('forceField_000', 0.4, 1.4);
+};
+
+UI.menuIntendant = (ile, info, onglet = 'accueil') => {
+  const T = ILE_TYPES[ile.type];
+  const d = ouvrir('#portailMenu');
+  const res = (k) => `<div class="resL"><img src="${iconeModele(RES_ICO[k])}" alt=""><b>${fmt(ile.coffre[k] || 0)}</b> ${RES_NOM[k]} <span>(${ILE_TYPES[{ bois: 'bois', minerai: 'mine', recolte: 'cueillette' }[k]].prix}/u)</span>
+    <button class="btn gris" data-v="${k}" data-p="0.5" ${(ile.coffre[k] || 0) < 2 ? 'disabled' : ''}>Vendre la moitié</button><button class="btn" data-v="${k}" data-p="1" ${(ile.coffre[k] || 0) < 1 ? 'disabled' : ''}>Tout vendre</button></div>`;
+  const ong = { accueil: 'Règles', coffre: 'Coffre', ameliorer: 'Améliorer', ouvriers: 'Ouvriers', securite: 'Sécurité' };
+  let corps = '';
+  if (onglet === 'accueil') corps = `<div class="regles">
+    <p><b>Bienvenue sur ${ile.nom}.</b> Je suis Oswin, ton intendant. Voici comment tourne ton île :</p>
+    <ul><li><b>Récolte</b> : tu peux ${T.verbe.toLowerCase()} toi-même ici, jamais chez les autres. Tout va dans le coffre.</li>
+    <li><b>Ouvriers</b> : chaque <b>maison d’ouvrier</b> te permet d’en invoquer un. Ils travaillent même quand tu es ailleurs (12 h maximum).</li>
+    <li><b>Constructions</b> : chaque achat (maison, route, décor) ajoute <b>+0,1 %</b> de vitesse à tes ouvriers.</li>
+    <li><b>Ta maison</b> : sans elle, le coffre est limité à ${fmt(1000 * (1 + ile.taille))}. Avec elle, il devient illimité.</li>
+    <li><b>Niveaux</b> : livre-moi des ressources pour agrandir l’île : plus d’emplacements, +5 % de vitesse par niveau.</li>
+    <li><b>Assaut des bandits</b> : chaque jour à ${HEURE_ASSAUT} h. Si tu es là, tu gardes tout leur butin. Absent sans gardes : ils emportent <b>70 %</b> du coffre. Absent avec gardes : tu ne touches que 10 % de leur butin.</li>
+    <li><b>Pillards</b> : d’autres joueurs passent parfois. Tu peux y aller toi-même ou laisser tes gardes s’en charger.</li></ul></div>`;
+  if (onglet === 'coffre') corps = `<div class="coffreIle"><p>Capacité : <b>${info.cap < Infinity ? fmt(info.total) + ' / ' + fmt(info.cap) : 'illimitée'}</b> · Production : <b>${fmt(info.prodHeure)} ${T.label}/h</b> · Vitesse ×${info.vitesse.toFixed(3).replace('.', ',')}</p>${['bois', 'minerai', 'recolte'].map(res).join('')}</div>`;
+  if (onglet === 'ameliorer') {
+    const k = T.res; const pct = info.besoin ? Math.min(1, (ile.livre || 0) / info.besoin) : 1;
+    corps = info.besoin ? `<div class="amelio"><p>Niveau <b>${ile.niveau}</b> → <b>${ile.niveau + 1}</b> : livre ${fmt(info.besoin)} ${T.label.toLowerCase()}.</p>
+      <div class="mBarre gros"><i style="width:${pct * 100}%"></i><span>${fmt(ile.livre || 0)} / ${fmt(info.besoin)}</span></div>
+      <p>Au niveau suivant : +2 emplacements de construction, +5 % de vitesse${ile.niveau + 1 === 4 || ile.niveau + 1 === 7 ? ', et l’île s’agrandit d’un anneau de terres' : ''}.</p>
+      <button class="btn or" data-livrer ${(ile.coffre[k] || 0) ? '' : 'disabled'}>Livrer depuis le coffre (${fmt(ile.coffre[k] || 0)})</button></div>` : '<p>Ton île a atteint son niveau maximum.</p>';
+  }
+  if (onglet === 'ouvriers') corps = `<div class="ouvr"><p>Ouvriers au travail : <b>${Math.min(ile.ouvriers || 0, info.maxOuv)}</b> / ${info.maxOuv} (une maison = un ouvrier).</p>
+    <div class="choix"><button class="btn gris" data-o="-1">Renvoyer un ouvrier</button><button class="btn or" data-o="1" ${(ile.ouvriers || 0) >= info.maxOuv ? 'disabled' : ''}>Invoquer un ouvrier</button></div>
+    <p class="aideIle">Chaque ouvrier rapporte environ ${fmt(Math.round(450 * info.vitesse))} ${T.label.toLowerCase()} par heure. Construis des maisons sur les emplacements dorés pour en avoir plus.</p></div>`;
+  if (onglet === 'securite') corps = `<div class="secu"><p>Tes gardes défendent l’île contre les bandits et les pillards. Leur puissance suit <b>la tienne en temps réel</b>.</p>
+    ${GARDES_ILE.map((g, i) => `<div class="gardeL ${i < (ile.gardes || 0) ? 'pris' : ''}"><b>${g.nom}</b><span>${Math.round(g.ratio * 100)} % de ta puissance</span>${i < (ile.gardes || 0) ? '<em>En poste</em>' : `<button class="btn" data-g="${i}" ${i !== (ile.gardes || 0) || info.argent < g.prix ? 'disabled' : ''}>Recruter · ${fmtCourt(g.prix)}</button>`}</div>`).join('')}
+    <div class="gardeL champ ${ile.champion ? 'pris' : ''}"><b>${CHAMPION_ILE.nom}</b><span>Boss final · ${Math.round(CHAMPION_ILE.ratio * 100)} % de ta puissance</span>${ile.champion ? '<em>En poste</em>' : `<button class="btn" data-g="champion" ${info.argent < CHAMPION_ILE.prix ? 'disabled' : ''}>Recruter · ${fmtCourt(CHAMPION_ILE.prix)}</button>`}</div>
+    <p class="aideIle">Prochain assaut des bandits : dans ${dans(info.assaut)} (${HEURE_ASSAUT} h).</p></div>`;
+  d.innerHTML = `<div class="cadreP intendant"><button class="fermer" data-x aria-label="Fermer">×</button>
+    <div class="teteInt"><div class="visage"><canvas width="128" height="128"></canvas></div><div><h2>Oswin, intendant</h2><div class="sous">${ile.nom} · ${ILE_TAILLES[ile.taille].nom} · niveau ${ile.niveau}</div></div></div>
+    <div class="ongletsInv ongInt">${Object.entries(ong).map(([k, l]) => `<button data-t="${k}" class="${k === onglet ? 'actif' : ''}">${l}</button>`).join('')}</div>
+    <div class="corpsInt">${corps}</div></div>`;
+  bustePersonnage('Mage', d.querySelector('canvas'), '#5a4a2a');
+  d.querySelector('[data-x]').onclick = () => (d.hidden = true);
+  const re = (o) => UI.menuIntendant(ile, api.infosIle ? api.infosIle(ile) : info, o);
+  d.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { api.son('click_001', 0.4); re(b.dataset.t); });
+  d.querySelectorAll('[data-v]').forEach(b => b.onclick = () => { api.ile.vendre(ile, b.dataset.v, +b.dataset.p); re('coffre'); });
+  const l = d.querySelector('[data-livrer]'); if (l) l.onclick = () => { d.hidden = true; api.ile.livrer(ile); };
+  d.querySelectorAll('[data-o]').forEach(b => b.onclick = () => { api.ile.invoquer(ile, +b.dataset.o); re('ouvriers'); });
+  d.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { d.hidden = true; api.ile.garde(ile, b.dataset.g === 'champion' ? 'champion' : +b.dataset.g); });
+};
+
+UI.menuConstruction = (ile, plot, info) => {
+  const d = ouvrir('#portailMenu');
+  const T = ILE_TYPES[ile.type];
+  const liste = Object.entries(BATIMENTS).map(([k, b]) => {
+    const deja = b.unique && ile.batiments.some(x => x.t === k);
+    const mod = k === 'atelier' ? T.atelier : k === 'jardin' ? 'flower_redA' : b.modele;
+    return `<div class="batL ${deja ? 'pris' : ''}"><img src="${iconeModele(mod)}" alt=""><div><b>${b.nom}${k === 'atelier' ? ` (${{ bois: 'scierie', mine: 'mine', cueillette: 'étal' }[ile.type]})` : ''}</b><small>${b.desc} +0,1 % de vitesse.</small></div>
+      ${deja ? '<em>Construit</em>' : `<button class="btn ${info.argent >= info.prix[k] ? 'or' : ''}" data-b="${k}" ${info.argent < info.prix[k] ? 'disabled' : ''}>${fmtCourt(info.prix[k])}</button>`}</div>`;
+  }).join('');
+  d.innerHTML = `<div class="cadreP construction"><button class="fermer" data-x aria-label="Fermer">×</button>
+    <h2>Construire</h2><div class="sous">Emplacement ${plot + 1} / ${info.nbEmpl} · Ton argent : <b>${fmt(info.argent)}</b> · Vitesse actuelle ×${info.vitesse.toFixed(3).replace('.', ',')}</div>
+    <div class="listeBat">${liste}</div></div>`;
+  d.querySelector('[data-x]').onclick = () => (d.hidden = true);
+  d.querySelectorAll('[data-b]').forEach(b => b.onclick = () => { d.hidden = true; api.construire(ile, plot, b.dataset.b); });
+};
+
+UI.alerteRaid = (data, ile, cb) => {
+  const d = $('#mort');
+  let reste = 45;
+  d.innerHTML = `<div class="alerteRaid"><div class="sirene">⚠</div><h2>Ton île est pillée !</h2>
+    <p><b>${data.nom}</b> <span style="color:#7fb2ff">${data.guilde}</span> <span class="ipb2">⚔ ${data.ip}</span> vide le coffre de <b>${ile.nom}</b>.</p>
+    <div class="choix" style="justify-content:center"><button class="btn or" data-c="y aller">J’y vais, je le chasse moi-même</button><button class="btn gris" data-c="gardes">Je confie l’île à mes gardes</button></div>
+    <p class="aideIle" id="raidTimer">Sans réponse, tes gardes s’en chargent dans ${reste} s.</p></div>`;
+  d.hidden = false; UI.flashInvasion();
+  const fin = (c) => { clearInterval(iv); d.hidden = true; cb(c); };
+  const iv = setInterval(() => { reste--; const t = document.getElementById('raidTimer'); if (t) t.textContent = `Sans réponse, tes gardes s’en chargent dans ${reste} s.`; if (reste <= 0) fin('gardes'); }, 1000);
+  d.querySelectorAll('[data-c]').forEach(b => b.onclick = () => fin(b.dataset.c));
+};
+UI.rapport = (titre, lignes) => {
+  const d = $('#butin');
+  d.innerHTML = `<div class="cadreB parchemin"><h2>${titre}</h2>${lignes.map(l => `<p style="font-size:2.3vh;margin:.8vh 0">${l}</p>`).join('')}<button class="btn or" data-ok>Compris</button></div>`;
+  d.hidden = false; d.querySelector('[data-ok]').onclick = () => (d.hidden = true);
 };

@@ -1,9 +1,9 @@
 // ===== Brèche Écarlate — boucle de jeu =====
 import { THREE, G, initRendu, majCamera, rendre, majTorches, chargerAssets, chargerSons, son, ambiance, Acteur, cloner,
   emettre, majParticules, majVfx, ajouterVfx, onde, lueurSol, arcTaille, faisceau, telegraphe, meshCarreau, meshBoule, DIR_HAUT, DIR_DROITE, projeter, texRond, redimensionner } from './engine.js';
-import { construireHub, construireDonjon, construireArene, majFeux } from './world.js';
+import { construireHub, construireDonjon, construireArene, construireIle, nbEmplacements, majFeux } from './world.js';
 import { UI, iconeObjet, bustePersonnage } from './ui.js';
-import { TIERS, ARMES, ARMURES, SORTS, MODES, COFFRES, BOSS, MOBS, BOTS, CHAT, tf, MAITRISES, NIVEAU_REQUIS } from './data.js';
+import { TIERS, ARMES, ARMURES, SORTS, MODES, COFFRES, BOSS, MOBS, BOTS, CHAT, tf, MAITRISES, NIVEAU_REQUIS, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT, RESSOURCES } from './data.js';
 import { creerArme, creerArmure, creerPotion, statsHeros, nomObjet, valeurObjet, prixVente, lootCoffre, lootMonstre, tirerCouleurCoffre, ETAT, xpPour, peutPorter, niveauRequis, niveauDe, sortsArme, prixTrophees } from './items.js';
 
 const $ = (s) => document.querySelector(s);
@@ -54,10 +54,13 @@ const ASSETS = [
   ...['floor_tile_large', 'floor_tile_large_rocks', 'floor_dirt_large', 'wall', 'wall_corner', 'wall_arched', 'wall_broken', 'pillar', 'pillar_decorated', 'column', 'torch_mounted', 'banner_patternA_red', 'banner_thin_red', 'banner_patternB_red',
     'barrel_large', 'barrel_small_stack', 'box_stacked', 'crates_stacked', 'table_long_decorated_A', 'table_long_tablecloth_decorated_A', 'shelves', 'shelf_small_candles', 'candle_triple', 'candle_lit', 'coin_stack_large',
     'rubble_large', 'rubble_half', 'sword_shield_broken', 'keg_decorated', 'trunk_large_A', 'barrier', 'stairs_wide', 'chest', 'chest_gold'].map(k => [k, `assets/env/${k}.json`]),
+  ...['hex_grass', 'hex_water', 'b_home_A', 'b_home_B', 'b_tavern', 'b_lumbermill', 'b_mine', 'b_market', 'b_well', 'b_windmill', 'b_tower_A', 'flag_yellow', 'barrel', 'crate_A_big', 'sack', 'tent',
+    'Tree_1_A', 'Tree_2_B', 'Tree_3_A', 'Tree_4_A', 'Bush_2_C', 'Rock_1_A', 'Rock_3_C', 'Grass_1_A', 'Wood_Log_A', 'Wood_Log_Stack', 'Iron_Nuggets', 'Gold_Nuggets', 'Copper_Nuggets', 'Stone_Chunks_Large',
+    'tool_axe', 'tool_pickaxe', 'tool_lantern', 'crop_carrot', 'crop_pumpkin', 'crop_melon', 'flower_redA', 'flower_yellowA', 'flower_purpleA', 'ground_pathTile'].map(k => [k, `assets/ile/${k}.json`]),
 ];
 const SONS = ['knifeSlice', 'knifeSlice2', 'drawKnife2', 'handleCoins', 'creak1', 'doorOpen_1', 'metalLatch', 'cloth1', 'bookOpen', 'impactPlate_heavy_000', 'impactMetal_medium_001', 'impactGeneric_light_000',
   'footstep_concrete_000', 'footstep_concrete_001', 'click_001', 'open_001', 'close_001', 'confirmation_001', 'error_001', 'select_001', 'maximize_001', 'thrusterFire_000', 'explosionCrunch_000', 'lowFrequency_explosion_000', 'forceField_000',
-  'jingle_win', 'jingle_loot', 'jingle_legend'].map(k => [k, `assets/audio/${k}.ogg`]);
+  'jingle_win', 'jingle_loot', 'jingle_legend', 'chop', 'impactMining_000', 'impactMining_001', 'impactPlank_medium_000', 'handleSmallLeather'].map(k => [k, `assets/audio/${k}.ogg`]);
 
 async function demarrer() {
   initRendu($('#scene'));
@@ -66,7 +69,8 @@ async function demarrer() {
   } catch (e) { $('#chargeTxt').textContent = 'Un fichier du jeu n’a pas pu se charger (' + (e && e.message ? e.message : e) + '). Recharge la page.'; console.error(e); return; }
   monde = construireHub();
   G.scene.add(G.points);
-  creerMarchand(); creerBots();
+  creerMarchand(); creerPasseur(); creerBots();
+  prechauffer();
   G.camTarget.set(0, 0, 4);
   $('#charge').hidden = true; $('#chargeTxt').hidden = true;
   const sauve = charger();
@@ -90,6 +94,17 @@ async function demarrer() {
   $('#ignorerRot').onclick = () => $('#rotation').classList.remove('actif');
   window.addEventListener('orientationchange', () => setTimeout(() => { if (!window.matchMedia('(orientation: portrait)').matches) $('#rotation').classList.remove('actif'); redimensionner(); }, 300));
   boucle();
+}
+
+// compile d'avance les effets des sorts : évite le petit gel au premier lancer de chaque effet
+function prechauffer() {
+  const p = V(400, 0, 400);
+  const objs = [meshCarreau('#ffffff'), meshBoule('#ff7a1a', 0.5), faisceau(p, '#ffffff')];
+  for (const o of objs) { o.position.copy(p); G.scene.add(o); }
+  telegraphe(p, 2, 0.05, '#ff2a2a'); telegraphe(p, 2, 0.05, '#ff2a2a', null, { cone: 1 }); telegraphe(p, 4, 0.05, '#ff2a2a', null, { ligne: true, largeur: 2, angle: 0 });
+  arcTaille(p, 0, 2, '#ffffff'); onde(p, '#ffffff'); lueurSol(p, '#ffffff', 2, 0.05);
+  G.renderer.compile(G.scene, G.camera);
+  for (const o of objs) G.scene.remove(o);
 }
 
 // ---------------- Joueur ----------------
@@ -174,6 +189,8 @@ function majBots(dt) {
       else { const c = b.courante ? b.courante.getClip().name : ''; if (c === 'Running_A' || c === 'Walking_A' || c === 'Sit_Floor_Idle') b.jouer('Idle'); }
       b.etat = 'idle'; b.timer = 2; b.maj(dt); continue;
     }
+    if (majVieBot(b, dt)) { if (!b.mort && joueur && b.pos.distanceTo(joueur.pos) < 45) b.maj(dt); continue; }
+    if (b.etat === 'idle' && b.timer <= 0 && Math.random() < 0.55) { const dst = destinationBot(b); if (dst) { b.but = dst; b.etat = 'but'; continue; } }
     if (b.etat === 'idle' && b.timer <= 0) {
       const r = Math.random();
       if (r < 0.65) { let p; let n = 0; do { p = V(rnd(-24, 22), 0, rnd(-20, 20)); } while (!libre(p.x, p.z, 0.6) && ++n < 20); b.cible = p; b.etat = 'marche'; b.jouer(Math.random() < 0.3 ? 'Running_A' : 'Walking_A'); b.course = b.courante === b.actions.Running_A; }
@@ -197,6 +214,12 @@ function majBots(dt) {
 function viderMonde() {
   for (const e of ennemis) G.scene.remove(e.root);
   for (const a of allies) G.scene.remove(a.root);
+  for (const o of ouvriers) G.scene.remove(o.root);
+  if (intendant) G.scene.remove(intendant.root);
+  if (passeur) G.scene.remove(passeur.root);
+  ouvriers = []; intendant = null; passeur = null; recolteJ = null; assaut = null;
+  if (raid && raid.r) raid = null;
+  G.scene.background.set('#120b1b'); G.scene.fog.color.set('#150d20'); G.sun.color.set('#c9b8ff');
   for (const b of bots) G.scene.remove(b.root);
   for (const p of projectiles) G.scene.remove(p.mesh);
   for (const c of coffres) { G.scene.remove(c.obj); G.scene.remove(c.beam); }
@@ -219,7 +242,7 @@ function fondu(fn) {
 
 function lancerHub(premier = false) {
   invasion = null; arene = null; selection = null;
-  if (!premier) { viderMonde(); monde = construireHub(); creerMarchand(); creerBots(); }
+  if (!premier) { viderMonde(); monde = construireHub(); creerMarchand(); creerPasseur(); creerBots(); }
   modeActuel = null; enJeu = true;
   construireJoueur(monde.spawn.clone());
   joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax;
@@ -367,6 +390,7 @@ function blesser(e, mult, opts = {}) {
   let { d, crit } = degatsJoueur(mult);
   if (opts.fixe) { d = opts.fixe; crit = false; }
   if (e.reduction) d *= 1 - e.reduction * 0.6;
+  if (e.bouclierIA > 0) { const a = Math.min(e.bouclierIA, d); e.bouclierIA -= a; d -= a; emettre(V(e.pos.x, 1.2, e.pos.z), { n: 5, c1: '#bfe6ff', c2: '#4a9aff', vit: 3, vie: 0.4, taille: 0.3 }); if (d <= 0) { UI.nombre(V(e.pos.x, e.hauteurPlaque * 0.8, e.pos.z), 'Absorbé', 'info'); return; } }
   if (e.combattant && !opts.fixe && joueur.st.pvp) d *= 1 + joueur.st.pvp / 200;
   if (!opts.fixe && joueur.vampT > 0 && !joueur.mort) { joueur.pv = Math.min(joueur.st.pvMax, joueur.pv + d * 0.35); if (Math.random() < 0.5) emettre(V(joueur.pos.x, 1.2, joueur.pos.z), { n: 4, c1: '#ff8aa0', c2: '#c0103a', vit: 1.5, vie: 0.5, taille: 0.3 }); }
   e.pv -= d; e.frapper();
@@ -403,8 +427,8 @@ function tuer(e) {
   son('impactGeneric_light_000', 0.5, 0.7);
   emettre(V(e.pos.x, 1, e.pos.z), { n: 22, c1: '#e9e0c8', c2: '#9a8a70', vit: 5, vie: 0.7, taille: 0.3, grav: 9 });
   if (joueur.cibleVerrou === e) joueur.cibleVerrou = null;
-  if (e.rival) { if (arene) { setTimeout(() => { e.descendre = true; }, 4000); verifierArene(); } else victoireRival(e); return; }
-  const part = allies.length ? 0.5 : 1;
+  if (e.rival) { if (arene) { setTimeout(() => { e.descendre = true; }, 4000); verifierArene(); } else if (e.bandit || e.gardeIle) finCombatIle(e); else victoireRival(e); return; }
+  const part = coequipiers().length ? 0.5 : 1;
   const loot = lootMonstre(modeActuel);
   const gain = Math.max(1, Math.round(loot.argent * (e.boss ? 12 : 1) * part));
   J.argent += gain;
@@ -442,6 +466,13 @@ function blesserJoueur(d, source = null) {
 }
 function mourirJoueur() {
   joueur.pv = 0; joueur.mort = true; joueur.jouer('Death_A', { boucle: false });
+  if (assaut && !assaut.fini) { // les bandits pillent 70 % du coffre
+    assaut.fini = true; const ile = assaut.ile; const pertes = [];
+    for (const k in ile.coffre) { const p = Math.floor(ile.coffre[k] * 0.7); if (p) { ile.coffre[k] -= p; pertes.push(`${fmtN(p)} ${RES_LABEL[k]}`); } }
+    sauver(); son('lowFrequency_explosion_000', 0.7, 0.5);
+    setTimeout(() => UI.mort(`Les bandits ont vidé ton coffre : ${pertes.join(', ') || 'il était vide'}. Recrute des gardes chez Oswin pour la prochaine fois.`, () => fondu(() => lancerHub())), 1600);
+    return;
+  }
   if (arene) { son('lowFrequency_explosion_000', 0.6, 0.6); if (allies.some(a => !a.mort)) UI.toast('Ton coéquipier continue le combat…'); verifierArene(); return; }
   if (invasion && invasion.rival && !invasion.rival.mort) return defaiteRival();
   son('lowFrequency_explosion_000', 0.7, 0.5);
@@ -472,7 +503,7 @@ function attaquer(dt) {
   const anim = def.attaques[Math.floor(Math.random() * def.attaques.length)];
   const vit = Math.max(1, st.vitesseAtk * joueur.duree(anim) * 0.95);
   joueur.jouer(anim, { boucle: false, vitesse: vit, forcer: true, fondu: 0.08, fin: () => joueur.jouer(def.idle) });
-  if (Math.hypot(entree.jx, entree.jy) < 0.12) joueur.verrouT = 0.28; // l'attaque de base ne bloque pas un joueur qui se déplace
+  joueur.verrouT = 0.28; // l'attaque de base fige brièvement : choix voulu pour le PvP
   const couleur = TIERS[J.equip.arme.tier].color;
   if (joueur.armeType === 'epee') {
     programmer(0.3 / vit * 1.4, () => {
@@ -623,10 +654,7 @@ function lancerSort(k) {
     }
     case 'rempart': {
       joueur.bouclier = joueur.st.pvMax * 0.25; joueur.bouclierT = 4;
-      const bulle = new THREE.Mesh(new THREE.SphereGeometry(1.5, 24, 16), new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-        uniforms: { uT: { value: 0 } }, vertexShader: 'varying vec3 vN; varying vec3 vV; void main(){ vec4 mv=modelViewMatrix*vec4(position,1.0); vN=normalize(normalMatrix*normal); vV=normalize(-mv.xyz); gl_Position=projectionMatrix*mv; }',
-        fragmentShader: 'uniform float uT; varying vec3 vN; varying vec3 vV; void main(){ float f=pow(1.0-abs(dot(vN,vV)),2.5); gl_FragColor=vec4(vec3(0.45,0.8,1.0)*(f*1.6+0.06), f*0.9+0.05); }' }));
-      ajouterVfx(bulle, () => { bulle.position.set(joueur.pos.x, 1.1, joueur.pos.z); if (joueur.bouclier <= 0 || joueur.bouclierT <= 0) return false; });
+      bulle(joueur, () => joueur.bouclier <= 0 || joueur.bouclierT <= 0);
       onde(joueur.pos, '#8fd3ff', 3, 0.5); son('forceField_000', 0.5, 1.4);
       break;
     }
@@ -649,6 +677,21 @@ function lancerSort(k) {
     case 'souffle': { joueur.soinT = 3; son('confirmation_001', 0.4); onde(joueur.pos, '#9dff8a', 2.5, 0.6); break; }
     case 'ruee': { joueur.sprintT = 3; joueur.slowT = 0; son('cloth1', 0.6, 1.4); emettre(V(joueur.pos.x, 0.4, joueur.pos.z), { n: 20, c1: '#fff8c0', c2: '#ffd04a', vit: 3, vie: 0.5, taille: 0.35 }); break; }
   }
+}
+// bulle de protection (joueur, rivaux, coéquipiers) : un seul matériau partagé
+let matBulle = null;
+function bulle(cible, fini) {
+  matBulle = matBulle || new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: 'varying vec3 vN; varying vec3 vV; void main(){ vec4 mv=modelViewMatrix*vec4(position,1.0); vN=normalize(normalMatrix*normal); vV=normalize(-mv.xyz); gl_Position=projectionMatrix*mv; }',
+    fragmentShader: 'varying vec3 vN; varying vec3 vV; void main(){ float f=pow(1.0-abs(dot(vN,vV)),2.5); gl_FragColor=vec4(vec3(0.45,0.8,1.0)*(f*1.6+0.06), f*0.9+0.05); }' });
+  const m = new THREE.Mesh(new THREE.SphereGeometry(1.5, 24, 16), matBulle);
+  ajouterVfx(m, () => { m.position.set(cible.pos.x, 1.1, cible.pos.z); if (cible.mort || fini()) return false; });
+}
+function rempartIA(e) {
+  e.cdRempart = 18; e.bouclierIA = e.pvMax * 0.25; e.bouclierT = 4;
+  bulle(e, () => e.bouclierIA <= 0 || e.bouclierT <= 0);
+  onde(e.pos, '#8fd3ff', 3, 0.5); son('forceField_000', 0.45, 1.4);
+  UI.nombre(V(e.pos.x, 2.8, e.pos.z), 'Rempart', 'info');
 }
 function boirePotion() {
   if ((joueur.cds.POT || 0) > 0 || joueur.potions <= 0 || joueur.mort) { son('error_001', 0.25); return; }
@@ -954,6 +997,12 @@ const API = {
   rangerPotion: (id) => { const i = J.sac.findIndex(x => x.id == id); if (i >= 0) { J.potions += J.sac[i].n || 1; joueur.potions = J.potions; J.sac.splice(i, 1); sauver(); } },
   entrer: (id) => entrerDonjon(id),
   arene: (format) => entrerArene(format),
+  acheterIle: (type, taille) => acheterIle(type, taille),
+  allerIle: (id) => { const ile = iles().find(i => i.id === id); if (ile) entrerIle(ile); },
+  piller: () => entrerIle(ileBot()),
+  construire: (ile, plot, t) => construire(ile, plot, t),
+  get ile() { return API_ILE; },
+  infosIle: (i) => infosIle(i),
   acheterArene: (it) => {
     const prix = prixTrophees(it);
     if ((J.trophees || 0) < prix) { UI.toast('Pas assez de trophées'); son('error_001', 0.3); return; }
@@ -990,10 +1039,12 @@ UI.init(API);
 function majInteractions() {
   if (joueur.mort) { UI.action(null); return; }
   if (arene) return UI.action(null);
+  if (modeActuel && modeActuel.id === 'ile') return interactionsIle();
   if (!modeActuel) {
     if (marchand && dist2D(joueur.pos, marchand.pos) < 5) return UI.action('Parler à Borin', () => UI.dialogueMarchand());
     if (dist2D(joueur.pos, monde.portail.pos) < 9) return UI.action('Franchir la Brèche', () => UI.menuPortail());
     if (monde.portailArene && dist2D(joueur.pos, monde.portailArene.pos) < 9) return UI.action('Entrer dans l’Arène', () => UI.menuArene(groupe));
+    if ((passeur && dist2D(joueur.pos, passeur.pos) < 4.5) || (monde.portailIle && dist2D(joueur.pos, monde.portailIle.pos) < 5)) return UI.action('Les Îles', () => UI.menuIles(infosIles()));
     return UI.action(null);
   }
   for (const c of coffres) {
@@ -1014,8 +1065,8 @@ function ouvrirCoffre(c) {
   onde(c.pos, c.def.color, 5, 0.8);
   const loot = lootCoffre(c.couleur, modeActuel, c.boss.idx);
   if (J.accepteInvasion) loot.argent = Math.round(loot.argent * 1.25);
-  if (allies.length) { // en groupe, le coffre est partagé en deux
-    const a = allies[0]; const moitie = Math.round(loot.argent / 2);
+  if (coequipiers().length) { // en groupe, le coffre est partagé en deux
+    const a = coequipiers()[0]; const moitie = Math.round(loot.argent / 2);
     loot.allie = { nom: a.nom, argent: loot.argent - moitie, objets: loot.objets.filter((_, i) => i % 2 === 1) };
     loot.argent = moitie; loot.objets = loot.objets.filter((_, i) => i % 2 === 0);
   }
@@ -1023,6 +1074,43 @@ function ouvrirCoffre(c) {
     UI.butin(c.couleur, loot, () => { J.argent += loot.argent; for (const it of loot.objets) ajouterSac(it, true); son('handleCoins', 0.6); sauver(); c.beam.visible = false; });
   }, 700);
 }
+
+function interactionsIle() {
+  const ile = monde.ile;
+  if (dist2D(joueur.pos, monde.portail.pos) < 3.5) return UI.action('Retourner sur la Place', () => fondu(() => lancerHub()));
+  if (monde.etranger) {
+    const gardes = ennemis.filter(e => e.gardeIle && !e.mort).length;
+    if (dist2D(joueur.pos, monde.coffrePos) < 3.2) return gardes ? UI.action('Coffre gardé', () => UI.toast(`Il reste ${gardes} garde${gardes > 1 ? 's' : ''}`)) : (monde.pille ? UI.action(null) : UI.action('Piller le coffre', pillerCoffre));
+    return UI.action(null);
+  }
+  if (intendant && dist2D(joueur.pos, intendant.pos) < 4) return UI.action('Parler à Oswin', () => UI.menuIntendant(ile, infosIle(ile)));
+  if (assaut && !assaut.fini) return UI.action(null);
+  if (!recolteJ) {
+    let best = null, bd = Infinity;
+    for (const n of monde.noeuds) { if (n.pv <= 0) continue; const d = dist2D(n.pos, joueur.pos) - n.rayon; if (d < 2.2 && d < bd) { bd = d; best = n; } }
+    if (best) return UI.action(ILE_TYPES[ile.type].verbe, () => commencerRecolte(best));
+  } else return UI.action('Arrêter', arreterRecolte);
+  for (const p of monde.plots) if (!p.bati && dist2D(p.pos, joueur.pos) < 3.6) return UI.action('Construire ici', () => UI.menuConstruction(ile, p.idx, infosIle(ile)));
+  if (dist2D(joueur.pos, monde.coffrePos) < 3) return UI.action('Voir le coffre', () => UI.menuIntendant(ile, infosIle(ile), 'coffre'));
+  UI.action(null);
+}
+function pillerCoffre() {
+  const bot = monde.ile; monde.pille = true; const res = ILE_TYPES[bot.type].res;
+  const butin = Math.floor((bot.coffre[res] || 0) * 0.4);
+  const cible = iles().find(i => i.type === bot.type) || iles()[0];
+  let ok = 0; if (cible) ok = ajouterRes(cible, res, butin);
+  const reste = butin - ok; const argent = Math.round(reste * ILE_TYPES[bot.type].prix * 0.7); J.argent += argent;
+  son('jingle_legend', 0.6); emettre(V(monde.coffrePos.x, 1.2, monde.coffrePos.z), { n: 80, c1: '#fff2c0', c2: '#ffc84a', vit: 6, vie: 1, taille: 0.4, grav: 4 });
+  UI.rapport('Pillage réussi', [`${fmtN(butin)} ${RES_LABEL[res]} volés à ${bot.proprio.nom}.`, ok ? `${fmtN(ok)} rangés dans le coffre de ${cible.nom}.` : '', argent ? `${fmtN(reste)} revendus sur place : +${fmtN(argent)}` : ''].filter(Boolean));
+  sauver();
+}
+function infosIle(ile) {
+  majProduction();
+  const prix = {}; for (const t in BATIMENTS) prix[t] = prixBatiment(ile, t);
+  return { cap: capaciteIle(ile), vitesse: vitesseIle(ile), maxOuv: maxOuvriers(ile), prix, total: totalCoffre(ile), assaut: ile.assaut, besoin: ILE_NIVEAUX[ile.niveau + 1] || 0, nbEmpl: nbEmplacements(ile), argent: J.argent,
+    prodHeure: Math.round(Math.min(ile.ouvriers || 0, maxOuvriers(ile)) * vitesseIle(ile) * 450) };
+}
+function infosIles() { majProduction(); return { iles: iles().map(i => ({ ile: i, ...infosIle(i) })), argent: J.argent, ip: statsHeros(J.equip).ip }; }
 
 // ---------------- Entrées ----------------
 function initEntrees() {
@@ -1083,7 +1171,7 @@ function initEntrees() {
 }
 
 // ---------------- Boucle ----------------
-let dernier = performance.now(), hudT = 0, miniT = 0;
+let dernier = performance.now(), hudT = 0, miniT = 0, ileT = 2;
 const ORBITE = V(0, 0, 0);
 function boucle() {
   requestAnimationFrame(boucle);
@@ -1096,6 +1184,9 @@ function boucle() {
     G.focus = joueur.pos;
     if (!transition) majJoueur(dt);
     if (!modeActuel) majBots(dt); else { majEnnemis(dt); majAllies(dt); majProjectiles(dt); majInvasion(dt); majArene(dt); }
+    if (modeActuel && modeActuel.id === 'ile') { majOuvriers(dt); majNoeuds(dt); majRecolteJoueur(dt); majPillard(dt); if (intendant) intendant.maj(dt); }
+    if (passeur) passeur.maj(dt);
+    ileT -= dt; if (ileT <= 0) { ileT = 3; majProduction(); majAssauts(); majRaids(); if (modeActuel && modeActuel.id === 'ile' && !monde.etranger && !(raid && raid.r)) journalIle(monde.ile); }
     majCamera(dt, joueur.pos);
     majTorches(joueur.pos);
     hudT -= dt; if (hudT <= 0) { hudT = 0.08; UI.majHud(joueur, joueur.st); UI.majSorts(joueur); majInteractions(); majCadreAutre(); majBarreRival(); }
@@ -1128,10 +1219,18 @@ function majAnneauCible() {
 function majMini() {
   const ents = [];
   if (!modeActuel) {
-    for (const b of bots) ents.push({ type: groupe && b.nom === groupe.nom ? 'allie' : 'joueur', x: b.pos.x, z: b.pos.z });
+    for (const b of bots) if (!b.mort) ents.push({ type: groupe && b.nom === groupe.nom ? 'allie' : 'joueur', x: b.pos.x, z: b.pos.z });
     if (marchand) ents.push({ type: 'pnj', x: marchand.pos.x, z: marchand.pos.z });
     ents.push({ type: 'portail', x: monde.portail.pos.x, z: monde.portail.pos.z });
     if (monde.portailArene) ents.push({ type: 'portailV', x: monde.portailArene.pos.x, z: monde.portailArene.pos.z });
+    if (monde.portailIle) ents.push({ type: 'portailJ', x: monde.portailIle.pos.x, z: monde.portailIle.pos.z });
+  } else if (monde.type === 'ile') {
+    for (const e of ennemis) if (!e.mort) ents.push({ type: 'boss', x: e.pos.x, z: e.pos.z });
+    for (const a of allies) if (!a.mort) ents.push({ type: 'allie', x: a.pos.x, z: a.pos.z });
+    for (const o of ouvriers) ents.push({ type: 'joueur', x: o.pos.x, z: o.pos.z });
+    if (intendant) ents.push({ type: 'pnj', x: intendant.pos.x, z: intendant.pos.z });
+    ents.push({ type: 'coffre', x: monde.coffrePos.x, z: monde.coffrePos.z, c: '#ffd25a' });
+    ents.push({ type: 'portailJ', x: monde.portail.pos.x, z: monde.portail.pos.z });
   } else {
     for (const e of ennemis) if (!e.mort) ents.push({ type: e.boss || e.rival ? 'boss' : 'mob', x: e.pos.x, z: e.pos.z });
     for (const c of coffres) if (!c.ouvert) ents.push({ type: 'coffre', x: c.pos.x, z: c.pos.z, c: c.def.color });
@@ -1206,11 +1305,14 @@ function creerCombattant(pos, data, camp = 'ennemi') {
 }
 
 // ---- camps, cibles et dégâts ----
+function coequipiers() { return allies.filter(a => !a.garde); }
 function equipeJoueur() { const l = []; if (!joueur.mort) l.push(joueur); for (const a of allies) if (!a.mort) l.push(a); return l; }
 function adversaires(e) { return e.camp === 'allie' ? vivants() : equipeJoueur(); }
 function cibleIA(e) {
   let liste;
-  if (e.camp === 'allie') liste = arene ? vivants() : vivants().filter(x => x.etat !== 'dormant' && dist2D(x.pos, joueur.pos) < 15 && (x.etat !== 'idle' || dist2D(x.pos, e.pos) < 8));
+  if (e.poste && e.camp === 'allie') liste = vivants().filter(x => dist2D(x.pos, e.poste) < 24);
+  else if (e.poste) liste = equipeJoueur().filter(x => dist2D(x.pos, e.poste) < 20);
+  else if (e.camp === 'allie') liste = arene ? vivants() : vivants().filter(x => x.etat !== 'dormant' && dist2D(x.pos, joueur.pos) < 15 && (x.etat !== 'idle' || dist2D(x.pos, e.pos) < 8));
   else liste = equipeJoueur();
   if (!liste.length) return null;
   let p = null, pd = Infinity;
@@ -1241,6 +1343,7 @@ function toucherZone(src, p, r, d, opts = {}) {
 function blesserAllie(a, d, src, opts = {}) {
   if (a.mort) return;
   d = d * (1 - a.reduction) * rnd(0.92, 1.08);
+  if (a.bouclierIA > 0) { const b = Math.min(a.bouclierIA, d); a.bouclierIA -= b; d -= b; if (d <= 0) return; }
   a.pv -= d; a.frapper();
   UI.nombre(V(a.pos.x, 2.2, a.pos.z), Math.round(d), 'allie');
   if (opts.slow) a.slowT = Math.max(a.slowT, opts.slow);
@@ -1250,6 +1353,7 @@ function blesserAllie(a, d, src, opts = {}) {
   UI.toast(`${a.nom} est tombé`);
   setTimeout(() => UI.chat(a.nom, hasard(['désolé…', 'je suis mort', 'ils frappent fort', 'vas-y finis-les'])), 700);
   if (arene) return verifierArene();
+  if (a.garde) return;
   // en donjon, le coéquipier se relève au bout de 15 s près du joueur
   programmer(15, () => {
     if (!allies.includes(a) || joueur.mort) return;
@@ -1282,12 +1386,27 @@ function majCombattant(e, dt) {
   if (arene && arene.t > 0) { e.jouer(def.idle); faceJoueur(e, dt, 4); return; }
   e.tc = cibleIA(e);
   if (e.potionT > 0) { e.potionT -= dt; e.pv = Math.min(e.pvMax, e.pv + e.pvMax * 0.4 * dt); if (Math.random() < 0.4) emettre(V(e.pos.x, 0.5, e.pos.z), { n: 1, c1: '#ff8a9a', c2: '#ff2a4a', dir: V(0, 1, 0), vit: 2, rayon: 0.6, vie: 0.6, taille: 0.3 }); }
-  if (e.pv < e.pvMax * 0.35 && e.potions > 0 && e.potionT <= 0) { e.potions--; e.potionT = 1; son('metalLatch', 0.4, 1.4); UI.nombre(V(e.pos.x, 2.6, e.pos.z), 'Potion', 'soin'); }
+  e.potionCd = (e.potionCd || 0) - dt; e.cdRempart = (e.cdRempart || 0) - dt;
+  if (e.bouclierT > 0) { e.bouclierT -= dt; if (e.bouclierT <= 0) e.bouclierIA = 0; }
+  e.pvT = (e.pvT || 0) - dt; if (e.pvT <= 0) { e.pvT = 2; e.pvRef = e.pv; }
+  if (e.pv < e.pvMax * 0.35 && e.potions > 0 && e.potionT <= 0 && e.potionCd <= 0) { e.potions--; e.potionT = 1; e.potionCd = 60; son('metalLatch', 0.4, 1.4); UI.nombre(V(e.pos.x, 2.6, e.pos.z), 'Potion', 'soin'); }
+  // bulle de protection : sous la pression (gros dégâts récents ou vie basse)
+  if (e.tc && e.cdRempart <= 0 && (e.pv < e.pvMax * 0.55 || (e.pvRef || e.pv) - e.pv > e.pvMax * 0.18)) rempartIA(e);
   if (e.dashT > 0) { e.dashT -= dt; deplacer(e, e.dashV.x * dt, e.dashV.z * dt, 0.5); return; }
+  // repli : il s'éloigne le temps que ses sorts reviennent, puis revient
+  if (e.repliT > 0 && e.tc) {
+    e.repliT -= dt;
+    const fuite = V(e.pos.x - e.tc.pos.x, 0, e.pos.z - e.tc.pos.z).normalize().multiplyScalar(9).add(e.pos);
+    avancerVers(e, fuite, dt, e.st.vitesse * 1.05); e.jouer(def.run);
+    if (e.repliT <= 0 && e.camp === 'ennemi' && Math.random() < 0.3) UI.chat(e.nom, hasard(['je reviens', 'attends un peu', 'cd', 'tu vas voir']));
+    return;
+  }
   if (e.attaqueT > 0) { e.attaqueT -= dt; if (e.tc) faceJoueur(e, dt, 8); return; }
   const c = e.tc;
   if (!c) {
-    if (e.camp === 'allie') { // suit le joueur
+    if (e.poste) { // un garde retourne à son poste
+      if (dist2D(e.pos, e.poste) > 1.5) { avancerVers(e, e.poste, dt, e.st.vitesse * 0.8); e.jouer(def.run); } else e.jouer(def.idle);
+    } else if (e.camp === 'allie') { // suit le joueur
       const dj = dist2D(e.pos, joueur.pos);
       if (dj > 3.5) { avancerVers(e, joueur.pos, dt, e.st.vitesse * (dj > 8 ? 1.15 : 0.9)); e.jouer(def.run); }
       else e.jouer(def.idle);
@@ -1298,7 +1417,11 @@ function majCombattant(e, dt) {
   const d = dist2D(e.pos, c.pos);
   if (e.camp === 'ennemi') { e.chatT -= dt; if (e.chatT <= 0 && d < 20) { e.chatT = rnd(16, 28); UI.chat(e.nom, hasard(RIVAL_COMBAT)); } }
   e.esquiveT -= dt; e.specT -= dt;
-  if (e.specT <= 0 && d < 14) { capaciteCombattant(e, type); e.specT = rnd(4.5, 7.5); return; }
+  if (e.specT <= 0 && d < 14) { capaciteCombattant(e, type); e.specT = rnd(4.5, 7.5); e.repliPossible = true; return; }
+  if (e.repliPossible && e.attaqueT <= 0) {
+    e.repliPossible = false;
+    if (e.specT > 2.5 && e.pv < e.pvMax * (melee ? 0.6 : 0.85) && Math.random() < 0.6) { e.repliT = Math.min(e.specT - 1, rnd(2, 3.5)); return; }
+  }
   const portee = melee ? def.portee + (c.rayon || 0.5) : 9.5;
   if (d > portee) { avancerVers(e, c.pos, dt, e.st.vitesse * (e.slowT > 0 ? 0.6 : 0.92)); e.jouer(def.run); return; }
   // un tireur garde ses distances
@@ -1327,11 +1450,6 @@ function capaciteCombattant(e, type) {
   const def = e.armeDef; const c = e.tc; const pj = c.pos.clone();
   const base = Math.atan2(pj.x - e.pos.x, pj.z - e.pos.z);
   e.angle = base; e.root.rotation.y = base;
-  if (e.pv < e.pvMax * 0.5 && !e.bouclierFait) { // Rempart
-    e.bouclierFait = true; e.attaqueT = 0.4; onde(e.pos, '#8fd3ff', 3, 0.5); son('forceField_000', 0.5, 1.4);
-    e.reduction = Math.min(0.85, e.reduction + 0.45); setTimeout(() => { e.reduction = e.st.reduction; }, 4000);
-    UI.nombre(V(e.pos.x, 2.6, e.pos.z), 'Rempart', 'info'); return;
-  }
   const coul = e.camp === 'allie' ? '#4fd1ff' : '#ff3a2a';
   if (type === 'epee') {
     if (Math.random() < 0.5) { // charge héroïque
@@ -1380,7 +1498,7 @@ function majAllies(dt) {
 }
 function majCadreAutre() {
   if (selection && !modeActuel) return UI.cadreAutre(selection.data, { membre: !!(groupe && groupe.nom === selection.nom) });
-  const a = allies[0];
+  const a = coequipiers()[0];
   if (a) return UI.cadreAutre(a.data, { membre: true, pv: a.pv / a.pvMax, en: 1 });
   if (groupe) return UI.cadreAutre(groupe, { membre: true });
   UI.cadreAutre(null);
@@ -1545,7 +1663,8 @@ function victoireRival(e) {
   G.scene.add(obj);
   const beam = faisceau(V(pos.x, 0, pos.z), '#ff2a3a', 16, 0.9); G.scene.add(beam);
   coffres.push({ obj, beam, couleur: 'rival', def: { color: '#ff2a3a', nom: 'Dépouille' }, boss: { mort: true }, pos, ouvert: false, lid: obj.getObjectByName('chest_lid'), depouille: true, rival: e });
-  UI.journal(invasion && invasion.mode === 'menee' ? 'Invasion réussie' : 'Invasion repoussée', `Fouille la dépouille de ${e.nom} : choisis ce que tu gardes.`, null);
+  UI.journal(e.pillard ? 'Pillard éliminé' : invasion && invasion.mode === 'menee' ? 'Invasion réussie' : 'Invasion repoussée', `Fouille la dépouille de ${e.nom} : choisis ce que tu gardes.`, null);
+  if (e.pillard) { raid = null; UI.boss(null); }
   gagnerXPRelatif(0.1);
   if (invasion) invasion.fini = true;
   setTimeout(() => { e.descendre = true; }, 3500);
@@ -1578,8 +1697,433 @@ function defaiteRival() {
   setTimeout(() => UI.mort(`${r.nom} (puissance ${r.ip}) t’a vaincu et emporte tout ton équipement porté : ${liste || 'rien'}. Tu perds aussi ${perte.toLocaleString('fr-FR')} pièces. Tu repars avec une arme rouillée ; ton sac est intact.`, () => fondu(() => lancerHub())), 1800);
 }
 
+// ---------------- Îles ----------------
+let recolteJ = null, ouvriers = [], intendant = null, passeur = null, assaut = null, raid = null, ileVolee = null;
+const RES_LABEL = { bois: 'Bois', minerai: 'Minerai', recolte: 'Récoltes' };
+const heureMs = 3600 * 1000;
+function prochaineHeure(h, depuis = Date.now()) { const d = new Date(depuis); d.setHours(h, 0, 0, 0); if (d.getTime() <= depuis) d.setDate(d.getDate() + 1); return d.getTime(); }
+function iles() { return (J.iles = J.iles || []); }
+function nbBati(ile, t) { return ile.batiments.filter(b => b.t === t).length; }
+function maxOuvriers(ile) { return nbBati(ile, 'maison'); }
+function vitesseIle(ile) { return 1 + 0.001 * ile.batiments.length + 0.05 * (ile.niveau - 1); }
+function capaciteIle(ile) { return nbBati(ile, 'foyer') ? Infinity : 1000 * (1 + ile.taille); }
+function stockIle(ile) { return ile.coffre[ILE_TYPES[ile.type].res] || 0; }
+function totalCoffre(ile) { return Object.values(ile.coffre).reduce((a, b) => a + b, 0); }
+function ajouterRes(ile, res, n) {
+  const cap = capaciteIle(ile); const tot = totalCoffre(ile);
+  const ajout = Math.max(0, Math.min(n, cap - tot));
+  ile.coffre[res] = (ile.coffre[res] || 0) + ajout;
+  return ajout;
+}
+function prixBatiment(ile, t) { const d = BATIMENTS[t]; return Math.round(d.prix * Math.pow(d.croiss || 1, nbBati(ile, t))); }
+// production des ouvriers : tourne même quand le joueur est ailleurs (12 h max hors ligne)
+function majProduction() {
+  const now = Date.now();
+  for (const ile of iles()) {
+    const dt = Math.min(12 * heureMs, Math.max(0, now - (ile.maj || now))) / 1000;
+    ile.maj = now;
+    const n = Math.min(ile.ouvriers || 0, maxOuvriers(ile));
+    if (!n || !dt) continue;
+    ile.reste = (ile.reste || 0) + n * vitesseIle(ile) * dt / 8;
+    const entier = Math.floor(ile.reste); ile.reste -= entier;
+    if (entier) ajouterRes(ile, ILE_TYPES[ile.type].res, entier);
+  }
+}
+function acheterIle(type, taille) {
+  const prix = ILE_TAILLES[taille].prix;
+  if (J.argent < prix) { UI.toast('Pas assez d’argent'); son('error_001', 0.4); return; }
+  J.argent -= prix;
+  const n = iles().filter(i => i.type === type).length;
+  const ile = { id: 'i' + Date.now(), graine: Math.floor(Math.random() * 1e9), type, taille, niveau: 1, nom: `${ILE_TYPES[type].nom}${n ? ' ' + (n + 1) : ''}`,
+    coffre: { bois: 0, minerai: 0, recolte: 0 }, batiments: [], ouvriers: 0, gardes: 0, champion: false, livre: 0, maj: Date.now(), assaut: prochaineHeure(HEURE_ASSAUT) };
+  iles().push(ile);
+  if (!J.prochainRaid) J.prochainRaid = Date.now() + rnd(100, 140) * 60000;
+  sauver(); son('jingle_legend', 0.6);
+  UI.toast(`${ILE_TAILLES[taille].nom} achetée !`, true);
+  entrerIle(ile);
+}
+function ileBot() {
+  const ip = statsHeros(J.equip).ip;
+  const type = hasard(Object.keys(ILE_TYPES)); const taille = Math.floor(Math.random() * 3);
+  const proprio = donneesBot(ip);
+  const ile = { id: 'bot', graine: Math.floor(Math.random() * 1e9), type, taille, niveau: 1 + Math.floor(Math.random() * 5), nom: `Île de ${proprio.nom}`, proprio,
+    coffre: { bois: 0, minerai: 0, recolte: 0 }, batiments: [], gardes: 3, champion: true };
+  ile.coffre[ILE_TYPES[type].res] = Math.round(rnd(2000, 9000) * (1 + taille));
+  const n = nbEmplacements(ile); const types = ['maison', 'maison', 'maison', 'route', 'jardin', 'puits', 'moulin', 'tour', 'foyer', 'atelier'];
+  for (let i = 0; i < n; i++) if (Math.random() < 0.75) ile.batiments.push({ plot: i, t: types[i % types.length] });
+  return ile;
+}
+
+function entrerIle(ile, opts = {}) {
+  fondu(() => {
+    viderMonde(); invasion = null; arene = null; selection = null; assaut = null; recolteJ = null;
+    majProduction();
+    const etr = ile.id === 'bot';
+    modeActuel = { id: 'ile', nom: ile.nom, lieu: ile.nom, argent: 0, xp: 0, tiers: [1, 1], mobTier: 1 };
+    monde = construireIle(ile, etr);
+    construireJoueur(monde.spawn.clone());
+    joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax;
+    G.camTarget.copy(joueur.pos);
+    G.scene.background.set('#8fb8d8'); G.scene.fog.color.set('#9cc2dc'); G.scene.fog.density = 0.006; G.hemi.intensity = 1.35; G.sun.intensity = 1.7; G.sun.color.set('#fff2d8');
+    if (groupe) creerCombattant(pointLibrePres(monde.spawn, 1.5, 3), groupe, 'allie');
+    // gardes de l'île : sur ton île ils te défendent, chez les autres ils défendent le coffre
+    const ipJ = statsHeros(J.equip).ip;
+    const postes = [[-5, 3], [3, -5], [-6, -6], [6, 6]];
+    const nG = etr ? ile.gardes : ile.gardes || 0;
+    for (let i = 0; i < nG + ((etr || ile.champion) ? 1 : 0); i++) {
+      const champ = i === nG;
+      const def = champ ? CHAMPION_ILE : GARDES_ILE[i];
+      const d = donneesBot(ipJ * def.ratio);
+      d.nom = etr ? `${def.nom} de ${ile.proprio.nom}` : def.nom; d.guilde = etr ? ile.proprio.guilde : 'GARDE DE L’ÎLE';
+      const pp = pointLibrePres(monde.coffrePos.clone().add(V(postes[i][0], 0, postes[i][1])), 0, 2);
+      const g = creerCombattant(pp, d, etr ? 'ennemi' : 'allie');
+      g.garde = true; g.poste = pp.clone(); g.gardeIle = etr;
+      if (champ) { g.root.scale.setScalar(1.25); g.hauteurPlaque = 3.1; g.pvMax = g.pv = g.pvMax * 1.6; }
+      g.jouer(g.armeDef.idle);
+    }
+    if (!etr) {
+      intendant = new Acteur('Mage', { hauteur: 2.0 });
+      habiller(intendant, genererEquipRival(300, 'baton'), ARMES.baton);
+      intendant.root.position.copy(monde.intendantPos); intendant.pos = intendant.root.position; intendant.hauteurPlaque = 2.6;
+      intendant.root.rotation.y = Math.atan2(monde.spawn.x - monde.intendantPos.x, monde.spawn.z - monde.intendantPos.z);
+      intendant.jouer('Idle'); G.scene.add(intendant.root);
+      monde.collisions.push({ x: intendant.pos.x, z: intendant.pos.z, r: 0.7 });
+      UI.plaque(intendant, { nom: 'Oswin', guilde: 'INTENDANT', classe: 'pnj', vie: false });
+      const n = Math.min(ile.ouvriers || 0, maxOuvriers(ile), 10);
+      for (let i = 0; i < n; i++) creerOuvrier(ile, i);
+    }
+    const T = ILE_TYPES[ile.type];
+    UI.zone(ile.nom, etr ? 'Pillage' : `${ILE_TAILLES[ile.taille].nom} · niv. ${ile.niveau}`);
+    if (etr) { UI.journal('Pillage', `Élimine les gardes de ${ile.proprio.nom} pour ouvrir son coffre. Tu ne peux rien récolter ici.`, null); setTimeout(() => UI.toast(`Île de ${ile.proprio.nom}`, true), 600); }
+    else { journalIle(ile); setTimeout(() => UI.toast(ile.nom, true), 600); if (!ile.vu) { ile.vu = true; setTimeout(() => UI.toast('Parle à Oswin, ton intendant : il t’explique tout'), 2400); } }
+    $('#btnQuitter').hidden = true;
+    if (opts.raid) lancerRaidSurPlace(ile, opts.raid);
+    if (opts.assaut) lancerAssaut(ile);
+    G.renderer.compile(G.scene, G.camera);
+    sauver();
+  });
+}
+function journalIle(ile) {
+  const T = ILE_TYPES[ile.type];
+  const cap = capaciteIle(ile);
+  UI.journal(ile.nom, `${T.label} : ${fmtN(stockIle(ile))}${cap < Infinity ? ' / ' + fmtN(cap) : ''} · Ouvriers ${Math.min(ile.ouvriers || 0, maxOuvriers(ile))}/${maxOuvriers(ile)} · Assaut à ${HEURE_ASSAUT} h`, null);
+}
+
+// ---- ouvriers (visuels : la production est calculée par majProduction) ----
+function creerOuvrier(ile, i) {
+  const T = ILE_TYPES[ile.type];
+  const a = new Acteur(T.ouvrier, { hauteur: 1.95 });
+  const tous = Object.keys(a.nodes).filter(n => /Sword|Axe|Shield|Crossbow|Staff|Wand|Knife|Throwable|Mug|Spellbook|Offhand/.test(n));
+  a.montrerSeul(ile.type === 'bois' ? ['1H_Axe'] : [], tous);
+  if (ile.type === 'mine') a.attacher('tool_pickaxe', 'handslot.r', { echelle: 0.75 });
+  const cape = Object.keys(a.nodes).find(n => n.endsWith('_Cape')); if (cape) a.teinter(cape, T.couleur, 0.55);
+  a.root.position.copy(pointLibrePres(monde.coffrePos, 2, 5)); a.pos = a.root.position;
+  G.scene.add(a.root);
+  Object.assign(a, { etat: 'cherche', t: rnd(0, 2), cible: null, angle: 0, hauteurPlaque: 2.5 });
+  UI.plaque(a, { nom: hasard(['Bram', 'Lutz', 'Ivo', 'Mara', 'Tibo', 'Nell', 'Gus', 'Odile', 'Pip', 'Rune']), guilde: 'OUVRIER', classe: 'pnj', vie: false, lettre: false });
+  ouvriers.push(a);
+}
+function majOuvriers(dt) {
+  const ile = monde.ile; if (!ile) return;
+  for (const o of ouvriers) {
+    o.t -= dt;
+    if (o.etat === 'cherche') {
+      const vivants = monde.noeuds.filter(n => n.pv > 0);
+      o.cible = hasard(vivants.length ? vivants : monde.noeuds);
+      o.etat = 'va'; o.jouer('Walking_A');
+    } else if (o.etat === 'va' || o.etat === 'retour') {
+      const but = o.etat === 'va' ? o.cible.pos : monde.coffrePos;
+      const d = dist2D(o.pos, but);
+      if (d < (o.etat === 'va' ? o.cible.rayon + 1.0 : 2.2)) {
+        if (o.etat === 'va') { o.etat = 'recolte'; o.t = rnd(4, 7); o.jouer(ile.type === 'cueillette' ? 'PickUp' : '1H_Melee_Attack_Chop', { vitesse: ile.type === 'cueillette' ? 0.8 : 0.9 }); }
+        else { o.etat = 'depose'; o.t = 1.2; o.jouer('Interact'); if (o.charge) { o.charge.removeFromParent(); o.charge = null; } }
+        o.angle = Math.atan2(but.x - o.pos.x, but.z - o.pos.z); o.root.rotation.y = o.angle;
+      } else {
+        const dir = V(but.x - o.pos.x, 0, but.z - o.pos.z).normalize();
+        deplacer(o, dir.x * 2.6 * dt, dir.z * 2.6 * dt, 0.45);
+        o.angle = tourner(o.angle, Math.atan2(dir.x, dir.z), dt * 8); o.root.rotation.y = o.angle;
+      }
+    } else if (o.etat === 'recolte') {
+      if (Math.random() < dt * 1.3) effetRecolte(o.cible, ile.type, 0.4);
+      if (o.t <= 0) {
+        o.etat = 'retour'; o.jouer('Walking_A');
+        const cle = ile.type === 'bois' ? 'Wood_Log_A' : ile.type === 'mine' ? (o.cible && o.cible.obj.children[1] ? 'Iron_Nuggets' : 'Iron_Nuggets') : 'crop_pumpkin';
+        o.charge = o.attacher(cle, 'handslot.l', { echelle: cle === 'crop_pumpkin' ? 2.2 : 0.8 });
+      }
+    } else if (o.etat === 'depose' && o.t <= 0) o.etat = 'cherche';
+    if (o.pos.distanceTo(joueur.pos) < 50) o.maj(dt);
+  }
+}
+function effetRecolte(n, type, force = 1) {
+  if (!n) return;
+  const p = V(n.pos.x, type === 'bois' ? 1.4 : 1.2, n.pos.z);
+  if (type === 'bois') emettre(p, { n: Math.round(10 * force), c1: '#d8a868', c2: '#7a4a22', vit: 4, vie: 0.6, taille: 0.25, grav: 8, hemi: true });
+  else if (type === 'mine') emettre(p, { n: Math.round(12 * force), c1: '#fff2b0', c2: '#9aa0aa', vit: 5, vie: 0.4, taille: 0.2, grav: 9 });
+  else emettre(p, { n: Math.round(10 * force), c1: '#9dff6a', c2: '#ff6a8a', vit: 3, vie: 0.7, taille: 0.25, grav: 4 });
+  n.secoue = 0.25;
+  if (force >= 1) son(type === 'bois' ? 'chop' : type === 'mine' ? (Math.random() < 0.5 ? 'impactMining_000' : 'impactMining_001') : 'handleSmallLeather', 0.5);
+}
+function majNoeuds(dt) {
+  for (const n of monde.noeuds) {
+    if (n.secoue > 0) { n.secoue -= dt; n.obj.rotation.z = Math.sin(n.secoue * 60) * 0.04 * (n.secoue / 0.25); }
+    if (n.pv <= 0) { n.regenT -= dt; if (n.regenT <= 0) { n.pv = n.pvMax; n.obj.visible = true; n.souche.visible = false; n.obj.scale.setScalar(0.01); n.pousse = 1; } }
+    if (n.pousse > 0) { n.pousse = Math.max(0, n.pousse - dt * 1.5); n.obj.scale.setScalar(1 - n.pousse); }
+  }
+}
+// ---- récolte par le joueur (uniquement sur ses îles) ----
+function commencerRecolte(n) {
+  const ile = monde.ile; const T = ILE_TYPES[ile.type];
+  if (capaciteIle(ile) - totalCoffre(ile) <= 0) { UI.toast('Coffre plein : construis ta maison ou vends des ressources'); son('error_001', 0.4); return; }
+  recolteJ = { n, t: 0.35, outil: null };
+  const arme = joueur.nodes[joueur.def.node]; if (arme) arme.visible = false;
+  if (T.outil) recolteJ.outil = joueur.attacher(T.outil, 'handslot.r', { echelle: 0.75 });
+  joueur.angle = Math.atan2(n.pos.x - joueur.pos.x, n.pos.z - joueur.pos.z); joueur.root.rotation.y = joueur.angle;
+}
+function arreterRecolte() {
+  if (!recolteJ) return;
+  if (recolteJ.outil) recolteJ.outil.removeFromParent();
+  const arme = joueur.nodes[joueur.def.node]; if (arme) arme.visible = true;
+  recolteJ = null; joueur.jouer(joueur.def.idle);
+}
+function majRecolteJoueur(dt) {
+  if (!recolteJ) return;
+  const bouge = Math.hypot(entree.jx, entree.jy) > 0.12 || entree.atk || joueur.mort;
+  const n = recolteJ.n;
+  if (bouge || n.pv <= 0 || dist2D(n.pos, joueur.pos) > n.rayon + 3) return arreterRecolte();
+  recolteJ.t -= dt;
+  if (recolteJ.t > 0) return;
+  recolteJ.t = 1.35;
+  const ile = monde.ile; const T = ILE_TYPES[ile.type];
+  joueur.jouer(ile.type === 'cueillette' ? 'PickUp' : '1H_Melee_Attack_Chop', { boucle: false, forcer: true, vitesse: ile.type === 'cueillette' ? 1.1 : 1.0 });
+  programmer(ile.type === 'cueillette' ? 0.55 : 0.45, () => {
+    if (!recolteJ || recolteJ.n !== n) return;
+    effetRecolte(n, ile.type, 1);
+    const gain = Math.round(rnd(2, 4) * vitesseIle(ile));
+    const ok = ajouterRes(ile, T.res, gain);
+    UI.nombre(V(n.pos.x, 2.6, n.pos.z), ok ? `+${ok} ${T.label}` : 'Coffre plein', ok ? 'soin' : 'info');
+    n.pv--;
+    if (n.pv <= 0) { n.obj.visible = false; n.souche.visible = true; n.regenT = 40; arreterRecolte(); son('impactPlank_medium_000', 0.5, 0.8); }
+    if (!ok) arreterRecolte();
+    journalIle(ile); sauver();
+  });
+}
+// ---- construction ----
+function construire(ile, plot, t) {
+  const prix = prixBatiment(ile, t);
+  if (J.argent < prix) { UI.toast('Pas assez d’argent'); son('error_001', 0.4); return; }
+  if (BATIMENTS[t].unique && nbBati(ile, t)) { UI.toast('Déjà construit'); return; }
+  J.argent -= prix; ile.batiments.push({ plot, t }); sauver();
+  son('jingle_loot', 0.5); UI.toast(`${BATIMENTS[t].nom} construit · +0,1 % de vitesse`);
+  const pos = joueur.pos.clone();
+  entrerIleSansFondu(ile, pos);
+}
+function entrerIleSansFondu(ile, pos) { // reconstruit l'île en gardant la position du joueur
+  const garde = { pv: joueur.pv };
+  entrerIle(ile);
+  setTimeout(() => { if (joueur && monde.ile === ile) { joueur.pos.copy(pos); G.camTarget.copy(pos); } }, 650);
+}
+// ---- intendant : améliorer, vendre, ouvriers, sécurité ----
+const API_ILE = {
+  livrer: (ile) => {
+    const besoin = ILE_NIVEAUX[ile.niveau + 1]; if (!besoin) return UI.toast('Niveau maximum atteint');
+    const res = ILE_TYPES[ile.type].res;
+    const manque = besoin - (ile.livre || 0);
+    const don = Math.min(manque, ile.coffre[res] || 0);
+    if (!don) { UI.toast(`Il te faut du ${RES_LABEL[res].toLowerCase()} dans ton coffre`); return; }
+    ile.coffre[res] -= don; ile.livre = (ile.livre || 0) + don;
+    if (ile.livre >= besoin) { ile.niveau++; ile.livre = 0; son('jingle_legend', 0.6); UI.toast(`${ile.nom} passe au niveau ${ile.niveau} !`, true); sauver(); entrerIleSansFondu(ile, joueur.pos.clone()); return; }
+    son('handleCoins', 0.5); UI.toast(`Livré : ${fmtN(don)} ${RES_LABEL[res]}`); sauver(); journalIle(ile);
+  },
+  vendre: (ile, res, part) => {
+    const n = Math.floor((ile.coffre[res] || 0) * part); if (!n) return;
+    const prix = ILE_TYPES[RESSOURCES[res]].prix;
+    ile.coffre[res] -= n; J.argent += n * prix; son('handleCoins', 0.7);
+    UI.toast(`Vendu ${fmtN(n)} ${RES_LABEL[res]} : +${fmtN(n * prix)}`); sauver(); journalIle(ile);
+  },
+  invoquer: (ile, delta) => {
+    const v = Math.max(0, Math.min(maxOuvriers(ile), (ile.ouvriers || 0) + delta));
+    if (v === (ile.ouvriers || 0)) { if (delta > 0) UI.toast('Construis une maison d’ouvrier pour en invoquer un de plus'); return; }
+    majProduction(); ile.ouvriers = v; sauver();
+    if (delta > 0 && monde.ile === ile && ouvriers.length < 10) { creerOuvrier(ile, ouvriers.length); onde(ouvriers[ouvriers.length - 1].pos, '#ffd25a', 3, 0.6); }
+    if (delta < 0 && monde.ile === ile && ouvriers.length > v) { const o = ouvriers.pop(); G.scene.remove(o.root); UI.retirerPlaque(o); }
+    son('confirmation_001', 0.4); journalIle(ile);
+  },
+  garde: (ile, i) => {
+    const def = i === 'champion' ? CHAMPION_ILE : GARDES_ILE[i];
+    if (i !== 'champion' && i !== (ile.gardes || 0)) return;
+    if (J.argent < def.prix) { UI.toast('Pas assez d’argent'); son('error_001', 0.4); return; }
+    J.argent -= def.prix; if (i === 'champion') ile.champion = true; else ile.gardes = (ile.gardes || 0) + 1;
+    sauver(); son('jingle_win', 0.5); UI.toast(`${def.nom} recruté`); entrerIleSansFondu(ile, joueur.pos.clone());
+  },
+};
+
+// ---- assaut des bandits (chaque jour à 21 h) ----
+function lancerAssaut(ile) {
+  assaut = { ile, fini: false };
+  UI.flashInvasion(); UI.toast('ASSAUT DES BANDITS', true); UI.toast('Défends ton coffre !');
+  son('lowFrequency_explosion_000', 0.7, 0.7);
+  const ipJ = statsHeros(J.equip).ip;
+  for (let i = 0; i < 6; i++) {
+    const chef = i === 5;
+    const d = donneesBot(ipJ * (chef ? 0.95 : 0.7));
+    d.nom = chef ? 'Chef des bandits' : hasard(['Bandit des récifs', 'Pilleur', 'Écumeur', 'Coupe-jarret']); d.guilde = 'BANDITS';
+    const a = Math.random() * 6.28; const p = pointLibrePres(monde.centre.clone().add(V(Math.cos(a) * monde.rayonMonde * 0.75, 0, Math.sin(a) * monde.rayonMonde * 0.75)), 0, 4);
+    const b = creerCombattant(p, d, 'ennemi'); b.bandit = true; b.potions = chef ? 1 : 0;
+    if (chef) { b.root.scale.setScalar(1.2); b.pvMax = b.pv = b.pvMax * 1.5; }
+    effetArrivee(p);
+  }
+  UI.journal('Assaut des bandits', 'Élimine tous les bandits. Si tu tombes, ils emportent 70 % de ton coffre.', null);
+}
+function butinBandits(ile) { return Math.round(4000 * (1 + ile.taille) * (1 + ile.niveau * 0.25)); }
+function finCombatIle(e) {
+  setTimeout(() => { e.descendre = true; }, 3000);
+  const restants = ennemis.filter(x => x.rival && !x.mort && (x.bandit || x.gardeIle));
+  if (restants.length) return;
+  if (assaut && !assaut.fini) {
+    assaut.fini = true; const b = butinBandits(assaut.ile);
+    J.argent += b; son('jingle_win', 0.6); UI.toast('Assaut repoussé !', true); UI.toast(`Le coffre des bandits : +${fmtN(b)}`);
+    gagnerXPRelatif(0.06); journalIle(assaut.ile); sauver();
+  } else if (monde.etranger) {
+    UI.toast('Le coffre est sans défense !', true); son('jingle_win', 0.6);
+    UI.journal('Pillage', `Ouvre le coffre de ${monde.ile.proprio.nom} et repars par le portail doré.`, 1);
+    gagnerXPRelatif(0.08);
+  }
+}
+function majAssauts() {
+  const now = Date.now();
+  for (const ile of iles()) {
+    if (!ile.assaut) ile.assaut = prochaineHeure(HEURE_ASSAUT);
+    if (!ile.alerte && ile.assaut - now < 15 * 60000 && ile.assaut > now) { ile.alerte = true; UI.toast(`Les bandits attaquent ${ile.nom} dans 15 min`); }
+    if (now < ile.assaut) continue;
+    ile.assaut = prochaineHeure(HEURE_ASSAUT, now); ile.alerte = false;
+    if (monde.type === 'ile' && monde.ile === ile && !assaut) { lancerAssaut(ile); continue; }
+    // absent : les gardes s'en chargent, sinon les bandits pillent 70 % du coffre
+    const lignes = [];
+    if ((ile.gardes || 0) > 0 || ile.champion) {
+      const b = Math.round(butinBandits(ile) * 0.1); J.argent += b;
+      lignes.push(`Tes gardes ont repoussé les bandits sur ${ile.nom}.`, `Ta part de leur coffre (10 %) : +${fmtN(b)}`, 'Sois présent à 21 h pour récupérer 100 % du butin.');
+    } else {
+      const pertes = []; for (const r in ile.coffre) { const p = Math.floor(ile.coffre[r] * 0.7); if (p) { ile.coffre[r] -= p; pertes.push(`${fmtN(p)} ${RES_LABEL[r]}`); } }
+      lignes.push(`Personne ne défendait ${ile.nom}.`, pertes.length ? `Les bandits ont emporté 70 % du coffre : ${pertes.join(', ')}` : 'Ton coffre était vide : ils sont repartis bredouilles.', 'Recrute des gardes chez Oswin, ou sois là à 21 h.');
+    }
+    sauver(); UI.rapport('Assaut des bandits', lignes);
+  }
+}
+// ---- pillards (autres joueurs) : de temps en temps, environ toutes les 2 h ----
+function majRaids() {
+  if (!iles().length || raid || transition || arene) return;
+  if (!J.prochainRaid) J.prochainRaid = Date.now() + rnd(100, 140) * 60000;
+  if (Date.now() < J.prochainRaid) return;
+  J.prochainRaid = Date.now() + rnd(100, 140) * 60000; sauver();
+  const ile = hasard(iles());
+  const d = donneesBot(statsHeros(J.equip).ip + rnd(-60, 90));
+  raid = { ile, d };
+  son('lowFrequency_explosion_000', 0.6, 0.9);
+  UI.alerteRaid(d, ile, (choix) => {
+    if (choix === 'y aller') entrerIle(ile, { raid: d });
+    else resoudreRaidGardes(ile, d);
+  });
+}
+function resoudreRaidGardes(ile, d) {
+  raid = null;
+  const ipJ = statsHeros(J.equip).ip;
+  const defense = (ile.gardes || 0) * 0.32 * ipJ + (ile.champion ? 0.55 * ipJ : 0);
+  const lignes = [];
+  if (defense > 0 && defense * rnd(0.75, 1.25) > d.ip * 0.8) {
+    const b = Math.round(60 * Math.pow(2.3, d.equip.arme.tier - 1)); J.argent += b;
+    lignes.push(`Tes gardes ont repoussé ${d.nom} (⚔ ${d.ip}).`, `Butin récupéré sur lui : +${fmtN(b)}`);
+  } else {
+    const pertes = []; for (const r in ile.coffre) { const p = Math.floor(ile.coffre[r] * 0.25); if (p) { ile.coffre[r] -= p; pertes.push(`${fmtN(p)} ${RES_LABEL[r]}`); } }
+    lignes.push(`${d.nom} (⚔ ${d.ip}) a pillé ${ile.nom}${defense ? ' malgré tes gardes' : ''}.`, pertes.length ? `Perdu : ${pertes.join(', ')}` : 'Ton coffre était vide.');
+  }
+  sauver(); UI.rapport('Pillage de ton île', lignes);
+}
+function lancerRaidSurPlace(ile, d) {
+  const p = pointLibrePres(monde.coffrePos, 2, 4);
+  effetArrivee(p);
+  const r = creerCombattant(p, d, 'ennemi'); r.pillard = true; r.volT = 45;
+  ileVolee = ile; raid = { ile, d, r };
+  UI.toast(`${d.nom} vide ton coffre !`, true);
+  UI.journal('Pillard !', `Tue ${d.nom} avant qu’il ne s’enfuie avec 25 % de ton coffre.`, 0);
+  setTimeout(() => !r.mort && UI.chat(r.nom, hasard(['oups, pris la main dans le sac', 'trop tard', 'merci pour le bois :)'])), 1500);
+}
+function majPillard(dt) {
+  if (!raid || !raid.r) return;
+  const r = raid.r;
+  if (r.mort) { raid = null; return; }
+  r.volT -= dt;
+  UI.journal('Pillard !', `${r.nom} vide ton coffre : il s’enfuit dans ${Math.ceil(r.volT)} s.`, 1 - r.volT / 45);
+  if (r.volT <= 0) {
+    const ile = raid.ile; const pertes = [];
+    for (const k in ile.coffre) { const p = Math.floor(ile.coffre[k] * 0.25); if (p) { ile.coffre[k] -= p; pertes.push(`${fmtN(p)} ${RES_LABEL[k]}`); } }
+    effetArrivee(r.pos); G.scene.remove(r.root); UI.retirerPlaque(r); r.mort = true; ennemis.splice(ennemis.indexOf(r), 1);
+    UI.boss(null); raid = null; sauver();
+    UI.rapport('Le pillard s’est enfui', [pertes.length ? `Perdu : ${pertes.join(', ')}` : 'Ton coffre était vide.']);
+    journalIle(ile);
+  }
+}
+
+// ---- vie du monde : les joueurs de la Place ----
+const PHRASES_RETOUR = ['coffre violet !!', 'le dragon m’a eu…', 'facile ce donjon', 'gg l’arène', '+100 trophées', 'mon île a bien produit', 'qui vend du T3 ?', 'enfin un légendaire'];
+function destinationBot(b) {
+  const r = Math.random();
+  const devant = (p, d = 4.5) => { const v = p.clone().setY(0); return v.addScaledVector(v.clone().negate().normalize(), d); };
+  if (r < 0.18 && marchand) return { type: 'marchand', p: marchand.pos.clone().add(V(2.4, 0, 2.4)) };
+  if (r < 0.32) return { type: 'portail', p: devant(monde.portail.pos), porte: monde.portail.pos };
+  if (r < 0.42) return { type: 'portail', p: devant(monde.portailArene.pos), porte: monde.portailArene.pos };
+  if (r < 0.50) return { type: 'portail', p: devant(monde.portailIle.pos, 2.5), porte: monde.portailIle.pos };
+  if (r < 0.58) return { type: 'fontaine', p: V(Math.cos(r * 40) * 3.6, 0, Math.sin(r * 40) * 3.6) };
+  return null;
+}
+function majVieBot(b, dt) {
+  if (b.absentT > 0) { // dans un donjon, l'arène ou sur son île
+    b.absentT -= dt;
+    if (b.absentT <= 0) {
+      b.mort = false; b.root.visible = true; b.pos.copy(pointLibrePres(b.retour, 2, 4)); effetPortail(b.pos, b.couleurPortail);
+      b.jouer('Cheer', { boucle: false, fin: () => b.jouer('Idle') }); b.etat = 'idle'; b.timer = rnd(3, 6);
+      if (Math.random() < 0.6) setTimeout(() => UI.chat(b.nom, hasard(PHRASES_RETOUR)), 1200);
+    }
+    return true;
+  }
+  if (b.etat === 'commerce') {
+    b.timer -= dt; if (b.timer <= 0) { b.etat = 'idle'; b.timer = rnd(1, 3); b.jouer('Idle'); if (marchand) marchand.jouer('Idle'); }
+    return false;
+  }
+  if (b.etat !== 'but') return false;
+  const d = dist2D(b.pos, b.but.p);
+  if (d < 1.0) {
+    if (b.but.type === 'marchand') {
+      b.etat = 'commerce'; b.timer = rnd(4, 8); b.jouer('Interact'); b.angle = Math.atan2(marchand.pos.x - b.pos.x, marchand.pos.z - b.pos.z); b.root.rotation.y = b.angle;
+      marchand.jouer('Interact'); son('handleCoins', 0.15);
+      if (Math.random() < 0.4) setTimeout(() => UI.chat(b.nom, hasard(['je revends mon butin', 'Borin t’as du bronze ?', 'combien la potion ?', 'vendu !'])), 800);
+    } else if (b.but.type === 'portail') {
+      b.mort = true; b.root.visible = false; b.absentT = rnd(45, 160); b.retour = b.but.porte;
+      b.couleurPortail = b.but.porte === monde.portail.pos ? '#ff3a2a' : b.but.porte === monde.portailArene.pos ? '#b05aff' : '#ffc84a';
+      effetPortail(b.pos, b.couleurPortail);
+    } else { b.etat = 'idle'; b.timer = rnd(6, 14); b.jouer('Sit_Floor_Idle'); }
+    return true;
+  }
+  const dir = V(b.but.p.x - b.pos.x, 0, b.but.p.z - b.pos.z).normalize();
+  const v = 4.6 * dt;
+  if (!deplacer(b, dir.x * v, dir.z * v, 0.5)) { b.bloque = (b.bloque || 0) + dt; if (b.bloque > 2) { b.etat = 'idle'; b.timer = 1; b.bloque = 0; b.jouer('Idle'); } }
+  b.angle = tourner(b.angle, Math.atan2(dir.x, dir.z), dt * 8); b.root.rotation.y = b.angle; b.jouer('Running_A');
+  return true;
+}
+function effetPortail(p, c) { onde(p, c, 3, 0.6); emettre(V(p.x, 1, p.z), { n: 30, c1: '#ffffff', c2: c, dir: V(0, 1, 0), vit: 5, disp: 1.5, rayon: 0.8, vie: 0.8, taille: 0.35 }); }
+function creerPasseur() {
+  const a = new Acteur('Knight', { hauteur: 2.05 });
+  const tous = Object.keys(a.nodes).filter(n => /Sword|Axe|Shield|Crossbow|Staff|Wand|Knife|Throwable|Mug|Spellbook|Offhand/.test(n));
+  a.montrerSeul([], tous); a.attacher('tool_lantern', 'handslot.l', { echelle: 0.6 });
+  const cape = Object.keys(a.nodes).find(n => n.endsWith('_Cape')); if (cape) a.teinter(cape, '#ffc84a', 0.7, 0.2);
+  a.root.position.copy(monde.passeur.pos); a.root.rotation.y = monde.passeur.rot; a.pos = a.root.position; a.hauteurPlaque = 2.65;
+  a.jouer('Idle'); G.scene.add(a.root);
+  UI.plaque(a, { nom: 'Aldric', guilde: 'MAÎTRE DES ÎLES', classe: 'pnj', vie: false });
+  monde.collisions.push({ x: a.pos.x, z: a.pos.z, r: 0.7 });
+  passeur = a;
+}
+
 // accès de débogage (console)
-window.__jeu = { API, entrerDonjon, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
+window.__jeu = { API, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
 
 initEntrees();
 demarrer();

@@ -166,3 +166,36 @@ export const VARIANTES = {
     texte: 'Un peu de tout, recharge des sorts plus rapide. Soif de sang remplace le sort du milieu.' },
 };
 export const PRIX_TROPHEES = [0, 0, 0, 0, 0, 1500, 3200, 6000, 11000];
+
+// ---- Îles ----
+export const ILE_TYPES = {
+  bois: { nom: 'Île des Bûcherons', res: 'bois', label: 'Bois', prix: 3, couleur: '#8fd16a', verbe: 'Couper l’arbre', outil: 'tool_axe', atelier: 'b_lumbermill', icone: 'Wood_Log_Stack', ouvrier: 'Barbarian', desc: 'Une forêt dense : tes ouvriers abattent les arbres et empilent les rondins.' },
+  mine: { nom: 'Île Minière', res: 'minerai', label: 'Minerai', prix: 5, couleur: '#b8c4d8', verbe: 'Miner le filon', outil: 'tool_pickaxe', atelier: 'b_mine', icone: 'Iron_Nuggets', ouvrier: 'Knight', desc: 'Des rochers veinés de fer, de cuivre et d’or. Le minerai se vend plus cher.' },
+  cueillette: { nom: 'Île des Cueilleurs', res: 'recolte', label: 'Récoltes', prix: 4, couleur: '#ffa06a', verbe: 'Cueillir', outil: null, atelier: 'b_market', icone: 'crop_pumpkin', ouvrier: 'Rogue', desc: 'Buissons à baies, potagers et fleurs. Récolte rapide et régulière.' },
+};
+export const RESSOURCES = { bois: 'bois', minerai: 'mine', recolte: 'cueillette' };
+export const ILE_TAILLES = [
+  { nom: 'Îlot', rayon: 3, prix: 500000 },
+  { nom: 'Île', rayon: 4, prix: 4000000 },
+  { nom: 'Grande île', rayon: 5, prix: 25000000 },
+  { nom: 'Île immense', rayon: 6, prix: 150000000 },
+];
+// ressources à livrer à l'intendant pour passer au niveau n
+export const ILE_NIVEAUX = [0, 0, 1000, 3000, 8000, 20000, 50000, 120000, 300000, 700000];
+export const BATIMENTS = {
+  maison: { nom: 'Maison d’ouvrier', modele: 'b_home_A', ech: 5, prix: 25000, croiss: 1.35, desc: '+1 ouvrier que tu peux invoquer.' },
+  foyer: { nom: 'Ta maison', modele: 'b_tavern', ech: 5, prix: 120000, unique: true, desc: 'Ton coffre définitif : stockage illimité.' },
+  atelier: { nom: 'Atelier', modele: null, ech: 4.5, prix: 60000, unique: true, desc: 'Scierie, mine ou étal selon ton île.' },
+  route: { nom: 'Route pavée', modele: 'ground_pathTile', ech: 1, prix: 2500, croiss: 1.05, desc: 'Pavés et lanternes.' },
+  jardin: { nom: 'Jardin fleuri', modele: null, ech: 1, prix: 6000, croiss: 1.05, desc: 'Fleurs, tonneaux et sacs.' },
+  puits: { nom: 'Puits', modele: 'b_well', ech: 5, prix: 15000, croiss: 1.1, desc: 'Un puits de pierre.' },
+  moulin: { nom: 'Moulin', modele: 'b_windmill', ech: 5, prix: 45000, croiss: 1.1, desc: 'Un moulin à vent.' },
+  tour: { nom: 'Tour de guet', modele: 'b_tower_A', ech: 4, prix: 80000, croiss: 1.1, desc: 'Une tour qui domine l’île.' },
+};
+export const GARDES_ILE = [
+  { nom: 'Sentinelle', prix: 150000, ratio: 0.85 },
+  { nom: 'Gardien', prix: 450000, ratio: 0.92 },
+  { nom: 'Capitaine', prix: 1200000, ratio: 1.0 },
+];
+export const CHAMPION_ILE = { nom: 'Champion de l’île', prix: 3500000, ratio: 1.15 };
+export const HEURE_ASSAUT = 21;

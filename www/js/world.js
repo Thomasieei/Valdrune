@@ -81,7 +81,7 @@ export function construireHub() {
   inst.ajouter('pillar', X0 * CELL, 0, (Z1 + 1) * CELL, 0, 0.8, 0.5, 0.8);
   inst.ajouter('pillar', (X1 + 1) * CELL, 0, Z0 * CELL, 0, 0.8, 1, 0.8);
   // décor
-  const deco = [['barrel_large', -24, 18], ['barrel_small_stack', -21.5, 19.5], ['crates_stacked', -24, -6], ['rubble_half', 20, 19], ['sword_shield_broken', 8, -20], ['box_stacked', 22, 10], ['trunk_large_A', 3, -21]];
+  const deco = [['barrel_large', -24, 18], ['barrel_small_stack', -21.5, 19.5], ['crates_stacked', -24, -6], ['rubble_half', 20, 19], ['sword_shield_broken', 8, -20], ['trunk_large_A', 3, -21]];
   for (const [k, x, z] of deco) inst.ajouter(k, x, 0, z, rnd(0, 6.28));
   inst.construire(groupe);
 
@@ -148,19 +148,24 @@ export function construireHub() {
   // ---- Le Portail de l'Arène (nord-ouest) ----
   const PA = new THREE.Vector3(-17, 0, -13);
   const portailArene = construirePortail(groupe, PA, 0.35, THEME_VIOLET);
+  // ---- Le petit portail doré des Îles (sud-est) et son passeur ----
+  const PI = new THREE.Vector3(18, 0, 13);
+  const portailIle = construirePortail(groupe, PI, -0.5, THEME_JAUNE, 0.5);
+  const passeur = { pos: new THREE.Vector3(13.2, 0, 15.6), rot: -0.9 };
+  for (const [k, x, z, r2, s2] of [['barrel_large', 21.8, 16.8, 0, 0.7], ['crates_stacked', 22.5, 9.6, 0.4, 0.7]]) groupe.add(cloner(k, x, 0, z, r2, s2));
 
   G.scene.add(groupe);
   // Collisions
   const collisions = [
     { x: 0, z: 0, r: 2.8 }, ...[[7, 7], [-7, 7], [7, -7], [-7, -7]].map(([x, z]) => ({ x, z, r: 0.7 })),
     { x: M.x, z: M.z, r: 2.4 }, { x: M.x - 1.6, z: M.z - 1.6, r: 2.4 }, { x: M.x + 1.6, z: M.z - 1.6, r: 2.4 }, { x: M.x - 2.4, z: M.z - 2.4, r: 2.6 },
-    { x: P.x, z: P.z, r: 3.2 }, { x: PA.x, z: PA.z, r: 3.2 }, { x: -24, z: 18, r: 1.2 }, { x: 22, z: 10, r: 1.2 }, { x: -24, z: -6, r: 1.3 },
+    { x: P.x, z: P.z, r: 3.2 }, { x: PA.x, z: PA.z, r: 3.2 }, { x: PI.x, z: PI.z, r: 1.8 }, { x: 21.8, z: 16.8, r: 0.9 }, { x: 22.5, z: 9.6, r: 1.0 }, { x: -24, z: 18, r: 1.2 }, { x: -24, z: -6, r: 1.3 },
   ];
   return {
     groupe, type: 'hub', nom: 'Place des Cendres',
     spawn: new THREE.Vector3(0, 0, 9),
     marchand: { pos: M.clone().add(new THREE.Vector3(-1.4, 0, -1.4)), rot: Math.PI / 4, comptoir: M.clone() },
-    portail, portailArene,
+    portail, portailArene, portailIle, passeur,
     marche: (x, z) => x > X0 * CELL + 0.8 && x < (X1 + 1) * CELL - 0.8 && z > Z0 * CELL + 0.8 && z < (Z1 + 1) * CELL - 0.8,
     collisions,
     bornes: { x0: X0 * CELL, x1: (X1 + 1) * CELL, z0: Z0 * CELL, z1: (Z1 + 1) * CELL },
@@ -171,11 +176,14 @@ export function construireHub() {
 
 const THEME_ROUGE = { runes: '#ff2a2a', cle: '#ff3a3a', cleE: '#ff1a1a', anneau: '#ff5a3a', anneauE: '#ff2a1a', halo: '#ff2a1a', eclat: '#ff6a5a', eclatE: '#ff1a1a', brasero: '#ff2a1a', lumiere: '#ff2a1a', p1: '#ff6a3a', p2: '#ff1a00', s1: '#ff4a1a', s2: '#ffb36a', fissures: true,
   v1: 'vec3(0.05,0.0,0.02)', v2: 'vec3(0.9,0.06,0.04)', v3: 'vec3(1.0,0.5,0.25)', v4: 'vec3(1.0,0.2,0.1)', pierre: ['#3c2a36', '#22161f'] };
+const THEME_JAUNE = { runes: '#ffcf3a', cle: '#ffe08a', cleE: '#ffaa00', anneau: '#ffd25a', anneauE: '#ff9a00', halo: '#ffb81a', eclat: '#fff0a0', eclatE: '#ffb000', brasero: '#ffb52a', lumiere: '#ffc04a', p1: '#fff0a0', p2: '#ffaa00', s1: '#ffd25a', s2: '#ffffff', fissures: false,
+  v1: 'vec3(0.06,0.04,0.0)', v2: 'vec3(1.0,0.62,0.05)', v3: 'vec3(1.0,0.95,0.7)', v4: 'vec3(1.0,0.75,0.2)', pierre: ['#4a4030', '#2a2418'] };
+export { THEME_JAUNE };
 const THEME_VIOLET = { runes: '#b05aff', cle: '#c88aff', cleE: '#8a2aff', anneau: '#b47aff', anneauE: '#7a2aff', halo: '#8a3aff', eclat: '#d0a0ff', eclatE: '#7a1aff', brasero: '#9a4aff', lumiere: '#8a3aff', p1: '#d09aff', p2: '#6a1aff', s1: '#b07aff', s2: '#ffc8ff', fissures: false,
   v1: 'vec3(0.02,0.0,0.06)', v2: 'vec3(0.45,0.08,0.95)', v3: 'vec3(0.9,0.6,1.0)', v4: 'vec3(0.6,0.25,1.0)', pierre: ['#2e2a40', '#18141f'] };
 
-function construirePortail(groupe, P, rot, th = THEME_ROUGE) {
-  const g = new THREE.Group(); g.position.copy(P); g.rotation.y = rot; groupe.add(g);
+function construirePortail(groupe, P, rot, th = THEME_ROUGE, ech = 1) {
+  const g = new THREE.Group(); g.position.copy(P); g.rotation.y = rot; g.scale.setScalar(ech); groupe.add(g);
   const pm = pierreMat(th.pierre[0], th.pierre[1]);
   const dais = new THREE.Mesh(new THREE.CylinderGeometry(5.2, 5.6, 0.45, 40), pm); dais.position.y = 0.22; dais.receiveShadow = true; g.add(dais);
   const marche = new THREE.Mesh(new THREE.CylinderGeometry(5.9, 6.2, 0.2, 40), pm); marche.position.y = 0.1; g.add(marche);
@@ -221,23 +229,23 @@ function construirePortail(groupe, P, rot, th = THEME_ROUGE) {
   }
   // braseros rouges et bougies
   for (const [x, z] of [[-4.2, 3.4], [4.2, 3.4]]) {
-    const w = new THREE.Vector3(x, 0, z).applyAxisAngle(new THREE.Vector3(0, 1, 0), rot).add(P);
-    brasero(groupe, w.x, w.z, th.brasero, 1.15);
+    const w = new THREE.Vector3(x * ech, 0, z * ech).applyAxisAngle(new THREE.Vector3(0, 1, 0), rot).add(P);
+    brasero(groupe, w.x, w.z, th.brasero, 1.15 * Math.max(0.6, ech));
   }
   for (const [x, z] of [[-2.2, 2.4], [2.2, 2.4], [-1.2, 3.0], [1.4, 3.1]]) g.add(cloner('candle_triple', x, 0.45, z, Math.random() * 6, 1.3));
-  G.torches.push({ pos: P.clone().add(new THREE.Vector3(0, 3.5, 0)), color: th.lumiere, int: 60, dist: 18 });
-  const centre = new THREE.Vector3(0, 3.55, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), rot).add(P);
+  G.torches.push({ pos: P.clone().add(new THREE.Vector3(0, 3.5 * ech, 0)), color: th.lumiere, int: 60 * ech, dist: 18 * ech });
+  const centre = new THREE.Vector3(0, 3.55 * ech, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), rot).add(P);
   G.anims.push((t, dt) => {
     vortex.material.uniforms.uT.value = t;
     runes.rotation.z = t * 0.12; anneau.rotation.z = t * 0.4; halo.material.opacity = 0.5 + 0.15 * Math.sin(t * 3);
     cle.rotation.y = t * 1.2;
     eclats.forEach(e => { const u = e.userData; const a = u.a + t * u.v; e.position.set(Math.cos(a) * u.r, u.h + Math.sin(t * 2 + u.a) * 0.4, Math.sin(a) * u.r * 0.5); e.rotation.x = t; e.rotation.y = t * 1.3; });
     if (Math.random() < dt * 40) {
-      const a = Math.random() * 6.28, r = 2.7;
-      const p = new THREE.Vector3(Math.cos(a) * r, 3.55 + Math.sin(a) * r, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), rot).add(P);
+      const a = Math.random() * 6.28, r = 2.7 * ech;
+      const p = new THREE.Vector3(Math.cos(a) * r, 3.55 * ech + Math.sin(a) * r, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), rot).add(P);
       emettre(p, { n: 1, c1: th.p1, c2: th.p2, vit: 0.6, vie: 1.0, taille: 0.35, frein: 0.5 });
     }
-    if (Math.random() < dt * 14) emettre(new THREE.Vector3(P.x + rnd(-5, 5), 0.5, P.z + rnd(-5, 5)), { n: 1, c1: th.s1, c2: th.s2, dir: new THREE.Vector3(0, 1, 0), vit: 1.6, disp: 0.3, vie: 2.2, taille: 0.22, frein: 0.2 });
+    if (Math.random() < dt * 14) emettre(new THREE.Vector3(P.x + rnd(-5, 5) * ech, 0.5, P.z + rnd(-5, 5) * ech), { n: 1, c1: th.s1, c2: th.s2, dir: new THREE.Vector3(0, 1, 0), vit: 1.6, disp: 0.3, vie: 2.2, taille: 0.22, frein: 0.2 });
   });
   return { pos: P, centre, groupe: g };
 }
@@ -464,5 +472,138 @@ export function construireArene() {
     spawnsRivaux: [new THREE.Vector3(10, 0, -1.2), new THREE.Vector3(10, 0, 1.8)],
     marche: (x, z) => Math.hypot(x, z) < R - 1.2,
     collisions: [], rayon: R,
+  };
+}
+
+// ======================= ÎLES =======================
+import { ILE_TYPES, ILE_TAILLES, BATIMENTS } from './data.js';
+function graineRng(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+export const HEX = { SC: 4, taille: 1.15 * 4 };
+export function hexPos(q, r) { return new THREE.Vector3(HEX.taille * Math.sqrt(3) * (q + r / 2), 0, HEX.taille * 1.5 * r); }
+const hexDist = (q, r) => (Math.abs(q) + Math.abs(r) + Math.abs(-q - r)) / 2;
+function versHex(x, z) {
+  const q = (Math.sqrt(3) / 3 * x - z / 3) / HEX.taille, r = (2 / 3 * z) / HEX.taille;
+  let rx = Math.round(q), rz = Math.round(r), ry = Math.round(-q - r);
+  const dx = Math.abs(rx - q), dz = Math.abs(rz - r), dy = Math.abs(ry + q + r);
+  if (dx > dy && dx > dz) rx = -ry - rz; else if (dy > dz) ry = -rx - rz; else rz = -rx - ry;
+  return [rx, rz];
+}
+export function rayonIle(ile) { return ILE_TAILLES[ile.taille].rayon + (ile.niveau >= 4 ? 1 : 0) + (ile.niveau >= 7 ? 1 : 0); }
+export function nbEmplacements(ile) { return 6 + 2 * ile.taille + 2 * (ile.niveau - 1); }
+
+export function construireIle(ile, etranger = false) {
+  const groupe = new THREE.Group();
+  G.torches = []; G.feux = []; G.anims = [];
+  const rng = graineRng(ile.graine || 7);
+  const T = ILE_TYPES[ile.type];
+  const SC = HEX.SC, R = rayonIle(ile);
+  if (!G.assets.hex_grass.verdi) { G.assets.hex_grass.verdi = true; G.assets.hex_grass.scene.traverse(o => { if (o.isMesh) o.material.color.setRGB(0.72, 0.95, 0.6); }); }
+  const inst = new Instancieur();
+  const terre = [];
+  for (let q = -R - 5; q <= R + 5; q++) for (let r = -R - 5; r <= R + 5; r++) {
+    const d = hexDist(q, r); if (d > R + 5) continue;
+    const p = hexPos(q, r);
+    if (d <= R) { inst.ajouter('hex_grass', p.x, 0, p.z, 0, SC, SC, SC); terre.push({ q, r, d, p }); }
+    else inst.ajouter('hex_water', p.x, 0, p.z, 0, SC, SC, SC);
+  }
+  // mer au-delà des tuiles : reflets animés
+  const mer = new THREE.Mesh(new THREE.CircleGeometry(260, 64), new THREE.ShaderMaterial({
+    uniforms: { uT: { value: 0 } },
+    vertexShader: 'varying vec2 vP; void main(){ vP=position.xy; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
+    fragmentShader: `uniform float uT; varying vec2 vP;
+      void main(){ float w=sin(vP.x*0.18+uT*0.8)*sin(vP.y*0.21-uT*0.6)+sin((vP.x+vP.y)*0.11+uT*0.5);
+        vec3 c=mix(vec3(0.09,0.33,0.52),vec3(0.16,0.52,0.72),0.5+0.25*w); c+=vec3(0.7,0.85,1.0)*smoothstep(1.55,1.9,w)*0.25;
+        float d=length(vP)/260.0; c=mix(c,vec3(0.07,0.18,0.32),smoothstep(0.35,1.0,d)); gl_FragColor=vec4(c,1.0);} `,
+  }));
+  mer.rotation.x = -Math.PI / 2; mer.position.y = -0.85; groupe.add(mer);
+  G.anims.push((t) => { mer.material.uniforms.uT.value = t; });
+
+  // ponton et portail de retour, côté caméra
+  const bord = terre.filter(t => t.d === R).sort((a, b) => (b.p.x + b.p.z) - (a.p.x + a.p.z))[0];
+  const dirOut = bord.p.clone().normalize();
+  const spawn = bord.p.clone().addScaledVector(dirOut, -2.5);
+  for (let i = 0; i < 4; i++) { const pp = bord.p.clone().addScaledVector(dirOut, 3 + i * 3); inst.ajouter('ground_pathTile', pp.x, 0.05, pp.z, Math.atan2(dirOut.x, dirOut.z), 3, 3, 3); }
+  const portailPos = bord.p.clone().addScaledVector(dirOut, 9.5).setY(0);
+  const portail = construirePortail(groupe, portailPos, Math.atan2(dirOut.x, dirOut.z) + Math.PI, THEME_JAUNE, 0.42);
+  const intendantPos = bord.p.clone().addScaledVector(dirOut, -1).add(new THREE.Vector3(-dirOut.z, 0, dirOut.x).multiplyScalar(4));
+
+  // centre : maison du joueur (ou entrepôt provisoire) et coffre
+  const centre = hexPos(0, 0);
+  const aFoyer = !etranger ? ile.batiments.some(b => b.t === 'foyer') : true;
+  let coffrePos = centre.clone().add(new THREE.Vector3(3.2, 0, 3.2));
+  if (aFoyer) { groupe.add(cloner('b_tavern', centre.x - 0.6, 0, centre.z - 0.6, Math.PI / 4, 5.2)); }
+  else { groupe.add(cloner('tent', centre.x - 1, 0, centre.z - 1, Math.PI / 4, 5)); groupe.add(cloner('crate_A_big', centre.x + 1.8, 0, centre.z - 1.8, 0.3, 7)); groupe.add(cloner('barrel', centre.x - 2.6, 0, centre.z + 1.4, 0, 7)); }
+  const coffre = cloner(etranger ? 'chest_gold' : 'chest', coffrePos.x, 0, coffrePos.z, Math.PI / 4, 1.4); groupe.add(coffre);
+  G.torches.push({ pos: coffrePos.clone().setY(3), color: '#ffd27a', int: 18, dist: 12 });
+  const tasRes = cloner(T.icone === 'Wood_Log_Stack' ? 'Wood_Log_Stack' : T.icone === 'Iron_Nuggets' ? 'Stone_Chunks_Large' : 'sack', coffrePos.x + 2.4, 0, coffrePos.z - 0.6, 0.5, T.icone === 'crop_pumpkin' ? 10 : 1.6); groupe.add(tasRes);
+
+  // emplacements de construction
+  const libres = terre.filter(t => t.d >= 1 && !(t.q === bord.q && t.r === bord.r));
+  const ordre = libres.sort((a, b) => a.d - b.d || Math.atan2(a.p.z, a.p.x) - Math.atan2(b.p.z, b.p.x));
+  const nPlots = Math.min(nbEmplacements(ile), ordre.length - 4);
+  const plots = [];
+  const collisions = [{ x: centre.x, z: centre.z, r: 4.2 }, { x: coffrePos.x, z: coffrePos.z, r: 1.4 }, { x: portailPos.x, z: portailPos.z, r: 1.4 }];
+  const anneauMat = new THREE.MeshBasicMaterial({ color: '#ffd25a', transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
+  for (let i = 0; i < nPlots; i++) {
+    const t = ordre[i]; const b = ile.batiments.find(x => x.plot === i);
+    const plot = { idx: i, pos: t.p.clone(), bati: b ? b.t : null, tuile: t };
+    if (b) {
+      const def = BATIMENTS[b.t];
+      const rot = Math.atan2(-t.p.x, -t.p.z) + (rng() - 0.5) * 0.4;
+      if (b.t === 'route') { for (const [dx, dz] of [[-1.4, -1.4], [1.4, -1.4], [-1.4, 1.4], [1.4, 1.4]]) inst.ajouter('ground_pathTile', t.p.x + dx, 0.04, t.p.z + dz, 0, 2.8, 2.8, 2.8); groupe.add(cloner('tool_lantern', t.p.x + 2.6, 0, t.p.z + 2.6, 0, 1.6)); G.torches.push({ pos: t.p.clone().add(new THREE.Vector3(2.6, 1.4, 2.6)), color: '#ffcf7a', int: 10, dist: 8 }); }
+      else if (b.t === 'jardin') { for (let k = 0; k < 9; k++) groupe.add(cloner(['flower_redA', 'flower_yellowA', 'flower_purpleA'][k % 3], t.p.x + (rng() - 0.5) * 6, 0, t.p.z + (rng() - 0.5) * 6, rng() * 6, 5)); groupe.add(cloner('barrel', t.p.x + 1.5, 0, t.p.z - 1.2, 0, 7)); groupe.add(cloner('sack', t.p.x - 1.5, 0, t.p.z + 1.2, 1, 10)); }
+      else { const modele = b.t === 'atelier' ? T.atelier : def.modele; groupe.add(cloner(modele, t.p.x, 0, t.p.z, rot, def.ech)); collisions.push({ x: t.p.x, z: t.p.z, r: b.t === 'tour' ? 2.4 : 3.0 }); }
+    } else if (!etranger) {
+      const ring = new THREE.Mesh(new THREE.RingGeometry(3.3, 3.7, 6), anneauMat); ring.rotation.x = -Math.PI / 2; ring.rotation.z = Math.PI / 6; ring.position.set(t.p.x, 0.06, t.p.z); groupe.add(ring);
+      const pl = new THREE.Mesh(new THREE.CircleGeometry(3.3, 6), new THREE.MeshBasicMaterial({ color: '#ffd25a', transparent: true, opacity: 0.08, depthWrite: false })); pl.rotation.x = -Math.PI / 2; pl.rotation.z = Math.PI / 6; pl.position.set(t.p.x, 0.05, t.p.z); groupe.add(pl);
+      groupe.add(cloner('flag_yellow', t.p.x + 2.4, 0, t.p.z - 1.2, 0, 6));
+    }
+    plots.push(plot);
+  }
+  G.anims.push((t) => { anneauMat.opacity = 0.35 + 0.25 * Math.sin(t * 2.5); });
+
+  // nœuds de ressource sur les tuiles restantes
+  const noeuds = [];
+  const reste = ordre.slice(nPlots).filter(t => !(t.q === bord.q && t.r === bord.r));
+  const minerais = ['Iron_Nuggets', 'Copper_Nuggets', 'Iron_Nuggets', 'Gold_Nuggets'];
+  for (const t of reste) {
+    const n = ile.type === 'bois' ? 1 + Math.floor(rng() * 2) : 2 + Math.floor(rng() * 2);
+    for (let k = 0; k < n; k++) {
+      const a = rng() * Math.PI * 2, rr = 1 + rng() * 2.6;
+      const p = t.p.clone().add(new THREE.Vector3(Math.cos(a) * rr, 0, Math.sin(a) * rr));
+      const g = new THREE.Group(); g.position.copy(p); g.rotation.y = rng() * 6.28;
+      let souche, rayon = 1.0;
+      if (ile.type === 'bois') {
+        g.add(cloner(['Tree_1_A', 'Tree_2_B', 'Tree_3_A', 'Tree_4_A'][Math.floor(rng() * 4)], 0, 0, 0, 0, 0.85 + rng() * 0.3));
+        souche = cloner('Wood_Log_A', p.x, 0.2, p.z, rng() * 6, 1.4);
+      } else if (ile.type === 'mine') {
+        g.add(cloner('Rock_3_C', 0, 0.7, 0, 0, 2.5)); g.add(cloner(minerais[Math.floor(rng() * 4)], 0.3, 1.4, 0.2, rng() * 6, 1.4));
+        souche = cloner('Rock_1_A', p.x, 0, p.z, rng() * 6, 2); rayon = 1.4;
+      } else {
+        if (rng() < 0.5) { g.add(cloner('Bush_2_C', 0, 0, 0, 0, 1.6)); for (let f = 0; f < 4; f++) g.add(cloner('flower_redA', (rng() - 0.5) * 1.6, 0.6 + rng() * 1.2, (rng() - 0.5) * 1.6, rng() * 6, 4)); }
+        else { for (let f = 0; f < 4; f++) g.add(cloner(['crop_pumpkin', 'crop_melon', 'crop_carrot'][Math.floor(rng() * 3)], (f % 2 - 0.5) * 1.6, 0, (Math.floor(f / 2) - 0.5) * 1.6, rng() * 6, 3.2)); }
+        souche = cloner('Grass_1_A', p.x, 0, p.z, 0, 3);
+      }
+      g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+      groupe.add(g); souche.visible = false; groupe.add(souche);
+      noeuds.push({ pos: p, obj: g, souche, pv: 6, pvMax: 6, regenT: 0, rayon });
+      collisions.push({ x: p.x, z: p.z, r: rayon * 0.8, noeud: noeuds[noeuds.length - 1] });
+    }
+  }
+  // herbes et fleurs décoratives
+  for (const t of terre) for (let k = 0; k < 3; k++) { const a = rng() * 6.28, rr = rng() * 4; inst.ajouter(rng() < 0.7 ? 'Grass_1_A' : 'flower_yellowA', t.p.x + Math.cos(a) * rr, 0, t.p.z + Math.sin(a) * rr, rng() * 6, 3, 3, 3); }
+  inst.construire(groupe);
+  G.scene.add(groupe);
+  const rayonMonde = (R + 0.45) * HEX.taille * Math.sqrt(3);
+  return {
+    groupe, type: 'ile', nom: ile.nom, ile, etranger,
+    spawn, portail: { pos: portailPos }, intendantPos, coffrePos, centre, plots, noeuds, rayonMonde, R,
+    collisions,
+    marche: (x, z) => {
+      const [q, r] = versHex(x, z); if (hexDist(q, r) <= R) return true;
+      // ponton
+      const v = new THREE.Vector3(x, 0, z).sub(bord.p); const along = v.dot(dirOut); const perp = Math.abs(v.x * dirOut.z - v.z * dirOut.x);
+      return along > 0 && along < 11 && perp < 2;
+    },
   };
 }
