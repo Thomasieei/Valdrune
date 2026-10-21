@@ -84,16 +84,19 @@ export const SORTS = {
   meteore:   { nom: 'Météore', desc: 'Appelle un météore gigantesque. Le sol brûle ensuite 3 s.', cd: 25, energie: 50, mult: 5.0, portee: 12, type: 'meteore', couleur: ['#ffe27a', '#7a1a00'], glyphe: 'meteor' },
   rempart:   { nom: "Rempart d'Égide", desc: 'Bouclier qui absorbe 25 % de tes PV max pendant 4 s.', cd: 18, energie: 20, mult: 0, type: 'bouclier', couleur: ['#8fd3ff', '#0d2a55'], glyphe: 'shield' },
   souffle:   { nom: 'Second souffle', desc: 'Rend 30 % de tes PV max en 3 s.', cd: 25, energie: 25, mult: 0, type: 'soin', couleur: ['#9dff8a', '#0f3d14'], glyphe: 'heart' },
+  execution: { nom: 'Exécution', desc: 'Frappe brutale. Dégâts triplés si la cible a moins de 35 % de PV.', cd: 9, energie: 30, mult: 1.6, portee: 4, type: 'cible', couleur: ['#ff9a9a', '#3a0008'], glyphe: 'slash' },
+  vampirisme:{ nom: 'Soif de sang', desc: 'Pendant 5 s, tes coups te rendent 35 % des dégâts infligés.', cd: 16, energie: 25, mult: 0, type: 'buff', couleur: ['#ff6a8a', '#40001a'], glyphe: 'heart' },
+  purge:     { nom: 'Purge du gladiateur', desc: 'Supprime ralentissements et étourdissements, intouchable 1,2 s.', cd: 18, energie: 20, mult: 0, type: 'buff', couleur: ['#e0c8ff', '#2a0a4a'], glyphe: 'shield' },
   ruee:      { nom: 'Ruée', desc: '+60 % de vitesse pendant 3 s, supprime les ralentissements.', cd: 15, energie: 15, mult: 0, type: 'sprint', couleur: ['#fff08a', '#4d3a06'], glyphe: 'wing' },
 };
 
 // ---- Donjons ----
 export const MODES = [
-  { id: 0, nom: 'Facile', lieu: 'Cryptes Oubliées', tiers: [1, 2], mobTier: 1, bossTier: [1.4, 1.6, 1.8, 2.1], ipConseil: 300, couleur: '#49c25a',
+  { id: 0, nom: 'Facile', lieu: 'Cryptes Oubliées', argent: 1, xp: 1, tiers: [1, 2], mobTier: 1, bossTier: [1.4, 1.6, 1.8, 2.1], ipConseil: 300, couleur: '#49c25a',
     texte: 'Ouvert aux débutants. Une arme T1 suffit. Butin T1 à T2.' },
-  { id: 1, nom: 'Intermédiaire', lieu: 'Forteresse des Ossements', tiers: [3, 5], mobTier: 3.6, bossTier: [4.0, 4.3, 4.6, 5.0], ipConseil: 620, couleur: '#3f8cff',
+  { id: 1, nom: 'Intermédiaire', lieu: 'Forteresse des Ossements', argent: 9, xp: 5, tiers: [3, 5], mobTier: 3.6, bossTier: [4.0, 4.3, 4.6, 5.0], ipConseil: 620, couleur: '#3f8cff',
     texte: 'Prévois au moins du T3–T4. Les boss frappent fort. Butin T3 à T5.' },
-  { id: 2, nom: 'Cauchemar', lieu: 'Gouffre Écarlate', tiers: [6, 8], mobTier: 6.5, bossTier: [7.0, 7.3, 7.6, 8.0], ipConseil: 950, couleur: '#ff3b3b',
+  { id: 2, nom: 'Cauchemar', lieu: 'Gouffre Écarlate', argent: 45, xp: 14, tiers: [6, 8], mobTier: 6.5, bossTier: [7.0, 7.3, 7.6, 8.0], ipConseil: 950, couleur: '#ff3b3b',
     texte: 'Réservé au T6 et plus. Chaque erreur se paie. Butin T6 à T8.' },
 ];
 
@@ -139,3 +142,27 @@ export const CHAT = [
   "Je farm le Facile pour le bronze, ça monte vite",
   "Quelqu'un sait si la tempête d'acier traverse les boucliers ?",
 ];
+
+// ---- Maîtrise : niveau requis par tier ----
+export const NIVEAU_REQUIS = [0, 1, 15, 40, 50, 60, 70, 80, 90];
+export const MAITRISES = [
+  { id: 'epee', nom: 'Épée à deux mains', cat: 'arme' }, { id: 'arbalete', nom: 'Arbalète lourde', cat: 'arme' }, { id: 'baton', nom: 'Bâton de feu', cat: 'arme' },
+  { id: 'casque', nom: 'Armure de tête', cat: 'armure' }, { id: 'plastron', nom: 'Armure de poitrine', cat: 'armure' }, { id: 'bottes', nom: 'Armure de pieds', cat: 'armure' },
+];
+
+// ---- Équipement d'arène (boutique des trophées) ----
+export const VARIANTES = {
+  bourreau: { suffixe: 'du Bourreau', style: 'Offensif', couleur: '#ff5a4a',
+    arme: { degats: 1.18, crit: 6, vitesse: 1.0 }, armure: { armure: 0.85, pv: 0.95, bonusDeg: 6 },
+    remplace: { epee: ['Q', 'execution'], arbalete: ['Q', 'execution'], baton: ['Q', 'execution'] },
+    texte: 'Plus de dégâts, moins de défense. Exécution remplace le premier sort.' },
+  gardien: { suffixe: 'du Gardien', style: 'Défensif', couleur: '#5aa8ff',
+    arme: { degats: 0.92, crit: 0, vitesse: 1.0, pv: 180 }, armure: { armure: 1.35, pv: 1.2, bonusDeg: 0 },
+    remplace: { epee: ['E', 'purge'], arbalete: ['E', 'purge'], baton: ['E', 'purge'] },
+    texte: 'Beaucoup plus d’armure et de vie. Purge du gladiateur remplace le dernier sort.' },
+  champion: { suffixe: 'du Champion', style: 'Équilibré', couleur: '#ffcf4a',
+    arme: { degats: 1.07, crit: 3, vitesse: 1.08 }, armure: { armure: 1.12, pv: 1.08, bonusDeg: 3, recharge: 6 },
+    remplace: { epee: ['W', 'vampirisme'], arbalete: ['W', 'vampirisme'], baton: ['W', 'vampirisme'] },
+    texte: 'Un peu de tout, recharge des sorts plus rapide. Soif de sang remplace le sort du milieu.' },
+};
+export const PRIX_TROPHEES = [0, 0, 0, 0, 0, 1500, 3200, 6000, 11000];

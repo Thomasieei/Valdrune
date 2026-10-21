@@ -55,7 +55,8 @@ export function initRendu(canvas) {
 
 export function redimensionner() {
   const w = window.innerWidth, h = window.innerHeight;
-  const pr = Math.min(window.devicePixelRatio || 1, G.qualite === 'haute' ? 1.6 : 1.0);
+  const tactile = matchMedia('(pointer: coarse)').matches;
+  const pr = Math.min(window.devicePixelRatio || 1, G.qualite === 'haute' ? (tactile ? 1.25 : 1.6) : 1.0);
   G.renderer.setPixelRatio(pr);
   G.renderer.setSize(w, h, false);
   G.composer.setPixelRatio(pr);

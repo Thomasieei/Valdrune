@@ -1,8 +1,8 @@
 // ===== Interface : icônes, HUD, inventaire, marché, dialogues =====
 import { THREE, G, projeter } from './engine.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
-import { TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, MODES, COFFRES } from './data.js';
-import { nomObjet, couleurObjet, statsObjet, sortsObjet, puissanceObjet, valeurObjet, prixVente, categorieLabel, statsHeros, stockMarchand } from './items.js';
+import { TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, MODES, COFFRES, MAITRISES, NIVEAU_REQUIS, VARIANTES } from './data.js';
+import { nomObjet, couleurObjet, statsObjet, sortsObjet, puissanceObjet, valeurObjet, prixVente, categorieLabel, statsHeros, stockMarchand, stockArene, prixTrophees, niveauRequis, peutPorter, niveauDe, xpPour, bonusMaitrise, tierMaxPour } from './items.js';
 
 const $ = (s) => document.querySelector(s);
 const fmt = (n) => Math.round(n).toLocaleString('fr-FR');
@@ -204,12 +204,15 @@ UI.majHud = (j, st) => {
   $('#enFill').style.transform = `scaleX(${Math.max(0, j.energie / st.energieMax)})`;
   $('#enTxt').textContent = `${fmt(j.energie)} / ${fmt(st.energieMax)}`;
   $('#argentTxt').textContent = fmt(api.etat().argent);
+  $('#trophTxt').textContent = fmt(api.etat().trophees || 0);
   const d = new Date(); $('#zHeure').textContent = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
   const buffs = [];
   if (j.bouclier > 0) buffs.push(['#62b0ff', 'É']);
   if (j.soinT > 0) buffs.push(['#6aff7a', '+']);
   if (j.sprintT > 0) buffs.push(['#ffe27a', '»']);
   if (j.bonusTir) buffs.push(['#9effc4', '×2']);
+  if (j.vampT > 0) buffs.push(['#ff4a6a', '♥']);
+  if (j.invuln > 0.3) buffs.push(['#e0c8ff', '✦']);
   const html = buffs.map(([c, t]) => `<div class="buff" style="background:radial-gradient(${c},#111);color:#fff">${t}</div>`).join('');
   if (UI._buffs !== html) { $('#buffs').innerHTML = html; UI._buffs = html; }
 };
@@ -262,12 +265,14 @@ const _v = new THREE.Vector3();
 UI.majPlaques = (centre) => {
   for (const [ent, p] of plaques) {
     const pos = ent.pos || ent.root.position;
-    if (ent.mort || pos.distanceTo(centre) > 34) { p.d.style.display = 'none'; continue; }
-    _v.set(pos.x, pos.y + p.h, pos.z);
-    const s = projeter(_v);
-    if (!s.visible) { p.d.style.display = 'none'; continue; }
-    p.d.style.display = ''; p.d.style.left = s.x + 'px'; p.d.style.top = s.y + 'px';
-    if (p.barre && ent.pvMax) p.barre.style.width = Math.max(0, ent.pv / ent.pvMax * 100) + '%';
+    let vis = !ent.mort && Math.abs(pos.x - centre.x) < 30 && Math.abs(pos.z - centre.z) < 30;
+    let s = null;
+    if (vis) { _v.set(pos.x, pos.y + p.h, pos.z); s = projeter(_v); vis = s.visible && s.x > -80 && s.x < innerWidth + 80 && s.y > -40 && s.y < innerHeight + 40; }
+    if (!vis) { if (p.vis !== false) { p.d.style.display = 'none'; p.vis = false; } continue; }
+    if (p.vis !== true) { p.d.style.display = ''; p.vis = true; }
+    const x = Math.round(s.x), y = Math.round(s.y);
+    if (x !== p.x || y !== p.y) { p.d.style.transform = `translate(${x}px,${y}px) translate(-50%,-100%)`; p.x = x; p.y = y; }
+    if (p.barre && ent.pvMax) { const w = Math.max(0, Math.round(ent.pv / ent.pvMax * 100)); if (w !== p.w) { p.barre.style.width = w + '%'; p.w = w; } }
   }
 };
 
@@ -277,12 +282,14 @@ UI.mini = (monde, joueur, entites) => {
   g.clearRect(0, 0, 256, 256);
   let x0, z0, x1, z1;
   if (monde.type === 'hub') { x0 = monde.bornes.x0 - 4; x1 = monde.bornes.x1 + 4; z0 = monde.bornes.z0 - 4; z1 = monde.bornes.z1 + 4; }
+  else if (monde.type === 'arene') { x0 = z0 = -monde.rayon - 3; x1 = z1 = monde.rayon + 3; }
   else { x0 = 0; z0 = 0; x1 = monde.grilleW * 4; z1 = monde.grilleH * 4; }
   const ech = 236 / Math.max(x1 - x0, z1 - z0), ox = 128 - (x0 + x1) / 2 * ech, oz = 128 - (z0 + z1) / 2 * ech;
   const P = (x, z) => [ox + x * ech, oz + z * ech];
   if (!monde._fond) {
     const c = document.createElement('canvas'); c.width = c.height = 256; const f = c.getContext('2d');
     if (monde.type === 'hub') { f.fillStyle = '#4a5f8a'; const [a, b] = P(monde.bornes.x0, monde.bornes.z0); f.fillRect(a, b, (monde.bornes.x1 - monde.bornes.x0) * ech, (monde.bornes.z1 - monde.bornes.z0) * ech); f.fillStyle = '#6a80b0'; f.beginPath(); f.arc(...P(0, 0), 10 * ech, 0, 7); f.fill(); }
+    else if (monde.type === 'arene') { f.fillStyle = '#5f5a8e'; f.beginPath(); f.arc(...P(0, 0), monde.rayon * ech, 0, 7); f.fill(); }
     else {
       for (let z = 0; z < monde.grilleH; z++) for (let x = 0; x < monde.grilleW; x++) {
         const v = monde.grille[z * monde.grilleW + x]; if (!v) continue;
@@ -299,6 +306,8 @@ UI.mini = (monde, joueur, entites) => {
     else if (e.type === 'coffre') { g.fillStyle = e.c; g.fillRect(a - 4, b - 4, 8, 8); g.strokeStyle = '#000'; g.strokeRect(a - 4, b - 4, 8, 8); }
     else if (e.type === 'joueur') { g.fillStyle = '#7fb2ff'; g.beginPath(); g.arc(a, b, 3, 0, 7); g.fill(); }
     else if (e.type === 'pnj') { g.fillStyle = '#ffd97a'; g.beginPath(); g.arc(a, b, 5, 0, 7); g.fill(); }
+    else if (e.type === 'allie') { g.fillStyle = '#4fd1ff'; g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.beginPath(); g.arc(a, b, 4.5, 0, 7); g.fill(); g.stroke(); }
+    else if (e.type === 'portailV') { g.fillStyle = '#b05aff'; g.shadowColor = '#b05aff'; g.shadowBlur = 8; g.beginPath(); g.arc(a, b, 6, 0, 7); g.fill(); g.shadowBlur = 0; }
     else if (e.type === 'portail') { g.fillStyle = '#ff3a2a'; g.shadowColor = '#ff3a2a'; g.shadowBlur = 8; g.beginPath(); g.arc(a, b, 6, 0, 7); g.fill(); g.shadowBlur = 0; }
   }
   const [a, b] = P(joueur.pos.x, joueur.pos.z);
@@ -307,7 +316,7 @@ UI.mini = (monde, joueur, entites) => {
 };
 
 // ---------------- Inventaire ----------------
-let selection = null;
+let selection = null, ongletInv = 'equip';
 UI.ouvrirInventaire = () => { selection = null; UI.rendreInventaire(); $('#inv').hidden = false; api.son('open_001', 0.4); };
 UI.rendreInventaire = () => {
   const j = api.etat(); const st = statsHeros(j.equip);
@@ -315,10 +324,12 @@ UI.rendreInventaire = () => {
     const it = j.equip[s];
     return `<button class="case-btn" data-eq="${s}" style="border:0;background:none;padding:0">${it ? htmlCase(it) : `<div class="case"><span class="vide">${label}</span></div>`}</button>`;
   };
+  const tabs = `<div class="ongletsInv"><button data-t="equip" class="${ongletInv === 'equip' ? 'actif' : ''}">Équipement</button><button data-t="maitrise" class="${ongletInv === 'maitrise' ? 'actif' : ''}">Maîtrise</button></div>`;
   $('#inv').innerHTML = `<div class="cadreInv parchemin">
     <button class="fermer" data-x aria-label="Fermer">×</button>
     <div style="display:flex;flex-direction:column;min-height:0">
-      <h2>${j.nom}</h2>
+      <div class="titreInv"><h2>${j.nom}</h2>${tabs}</div>
+      ${ongletInv === 'maitrise' ? htmlMaitrise(j) : `
       <div class="equipement">
         <div style="grid-column:1;grid-row:1">${slot('casque', 'Tête')}</div>
         <div class="silhouette"><canvas id="silCv" width="256" height="256"></canvas></div>
@@ -332,15 +343,16 @@ UI.rendreInventaire = () => {
         <div><span>Dégâts</span><b>${fmt(st.degats)}</b></div><div><span>DPS</span><b>${fmt(st.dps)}</b></div>
         <div><span>Vitesse d'attaque</span><b>${st.vitesseAtk.toFixed(2)}/s</b></div><div><span>Critique</span><b>${st.crit} %</b></div>
         <div><span>Énergie</span><b>${fmt(st.energieMax)}</b></div><div><span>Vitesse</span><b>${st.vitesse.toFixed(1)} m/s</b></div>
-      </div>
+      </div>`}
     </div>
     <div class="colDroite">
-      <div class="entete"><h2>Sac</h2><div style="font-family:var(--f-label);font-weight:800;font-size:2.4vh;display:flex;align-items:center;gap:.6vh"><span class="piece"></span>${fmt(j.argent)} · ${j.sac.length}/40</div></div>
-      <div class="grilleSac">${j.sac.map(it => `<button data-id="${it.id}" style="border:0;background:none;padding:0">${htmlCase(it, selection === it.id ? 'choisi' : '')}</button>`).join('')}
+      <div class="entete"><h2>Sac</h2><div style="font-family:var(--f-label);font-weight:800;font-size:2.4vh;display:flex;align-items:center;gap:.8vh"><span class="piece"></span>${fmt(j.argent)} <span class="troph">🏆</span>${fmt(j.trophees || 0)} · ${j.sac.length}/40</div></div>
+      <div class="grilleSac">${j.sac.map(it => `<button data-id="${it.id}" style="border:0;background:none;padding:0">${htmlCase(it, (selection === it.id ? 'choisi ' : '') + (peutPorter(it) ? '' : 'bloque'))}</button>`).join('')}
       ${Array.from({ length: Math.max(0, 40 - j.sac.length) }, () => '<div class="case"></div>').join('')}</div>
       <p style="margin:1vh 0 0;font-size:1.8vh;color:#6a4a2e">Touche un objet pour voir toutes ses caractéristiques et l’équiper.</p>
     </div></div>`;
-  bustePersonnage(ARMES[j.equip.arme ? j.equip.arme.type : 'epee'].model, $('#silCv'), '#6a4a3a');
+  if ($('#silCv')) bustePersonnage(ARMES[j.equip.arme ? j.equip.arme.type : 'epee'].model, $('#silCv'), '#6a4a3a');
+  $('#inv').querySelectorAll('[data-t]').forEach(b => b.onclick = () => { ongletInv = b.dataset.t; api.son('click_001', 0.4); UI.rendreInventaire(); });
   $('#inv').querySelector('[data-x]').onclick = () => { $('#inv').hidden = true; api.son('close_001', 0.4); };
   $('#inv').querySelectorAll('[data-id]').forEach(b => b.onclick = () => { const it = j.sac.find(i => i.id == b.dataset.id); UI.fiche(it, 'sac'); });
   $('#inv').querySelectorAll('[data-eq]').forEach(b => b.onclick = () => { const it = j.equip[b.dataset.eq]; if (it) UI.fiche(it, 'equipe'); });
@@ -355,8 +367,8 @@ UI.fiche = (it, contexte) => {
   const slot = it.cat === 'arme' ? 'arme' : it.cat === 'armure' ? it.type : null;
   const porte = slot ? j.equip[slot] : null;
   const stP = porte && porte.id !== it.id ? statsObjet(porte) : null;
-  const libelles = { degats: 'Dégâts par coup', dps: 'Dégâts par seconde', vitesse: it.cat === 'arme' ? "Vitesse d'attaque" : 'Vitesse de déplacement', crit: 'Chance de critique', portee: 'Portée', armure: 'Armure', pv: 'Points de vie', regen: 'Régénération' };
-  const unite = { vitesse: it.cat === 'arme' ? '/s' : ' %', crit: ' %', portee: ' m', regen: ' %/s' };
+  const libelles = { bonusDeg: 'Bonus de dégâts', recharge: 'Recharge des sorts', pvp: 'Contre les joueurs', degats: 'Dégâts par coup', dps: 'Dégâts par seconde', vitesse: it.cat === 'arme' ? "Vitesse d'attaque" : 'Vitesse de déplacement', crit: 'Chance de critique', portee: 'Portée', armure: 'Armure', pv: 'Points de vie', regen: 'Régénération' };
+  const unite = { vitesse: it.cat === 'arme' ? '/s' : ' %', crit: ' %', portee: ' m', regen: ' %/s', bonusDeg: ' %', recharge: ' % plus rapide', pvp: ' % de dégâts' };
   const lignes = Object.entries(st).map(([k, v]) => {
     let diff = '';
     if (stP && stP[k] !== undefined) { const d = v - stP[k]; if (Math.abs(d) > 0.001) diff = `<span class="${d > 0 ? 'plus' : 'moins'}">${d > 0 ? '▲' : '▼'} ${Math.abs(+d.toFixed(2))}</span>`; }
@@ -366,16 +378,21 @@ UI.fiche = (it, contexte) => {
   const t = it.tier ? TIERS[it.tier] : null;
   const q = QUALITES[it.q || 0];
   const boutons = [];
-  if (contexte === 'sac' && slot) boutons.push(`<button class="btn or" data-a="equiper">Équiper</button>`);
+  const ok = peutPorter(it);
+  if (contexte === 'sac' && slot) boutons.push(`<button class="btn or" data-a="equiper" ${ok ? '' : 'disabled'}>Équiper</button>`);
   if (contexte === 'sac' && it.cat === 'potion') boutons.push(`<button class="btn or" data-a="ranger">Ranger dans la ceinture</button>`);
   if (contexte === 'equipe') boutons.push(`<button class="btn gris" data-a="retirer">Retirer</button>`);
   if (contexte === 'vente') boutons.push(`<button class="btn" data-a="vendre">Vendre ${fmt(prixVente(it))}</button>`);
   if (contexte === 'achat') boutons.push(`<button class="btn" data-a="acheter">Acheter ${fmt(valeurObjet(it))}</button>`);
+  if (contexte === 'arene') boutons.push(`<button class="btn" data-a="acheterArene" ${j.trophees >= prixTrophees(it) ? '' : 'disabled'}>Acheter 🏆 ${fmt(prixTrophees(it))}</button>`);
+  const req = slot ? (() => { const n = niveauDe(it.type), r = niveauRequis(it); const nomM = MAITRISES.find(m => m.id === it.type).nom; return `<p class="req ${n >= r ? 'okr' : 'ko'}">Niveau requis : ${nomM} ${r} · ${n >= r ? 'tu es niveau ' + n : 'tu n’es que niveau ' + n}${n > 90 ? ` · bonus de maîtrise +${Math.round(bonusMaitrise(n) * 100)} %` : ''}</p>`; })() : '';
+  const vInfo = it.arene ? `<p class="varArene" style="--vc:${VARIANTES[it.arene].couleur}"><b>Objet d’arène · ${VARIANTES[it.arene].style}.</b> ${VARIANTES[it.arene].texte} +10 % contre les joueurs.</p>` : '';
   $('#fiche').innerHTML = `<div class="carteObjet parchemin"><button class="fermer" data-x aria-label="Fermer">×</button>
     <div class="tete"><div class="grosse">${htmlCase(it, '', 'width:100%;height:100%')}</div>
     <div><div class="titre" style="color:${it.tier ? shade(couleurObjet(it)) : '#3a2312'}">${nomObjet(it)}</div>
     <div class="sous">${categorieLabel(it)}${t ? ` · Tier ${t.roman} (${t.nom}) · <b style="color:${shade(q.color)}">${q.nom}</b>` : ''}</div>
     ${slot ? `<span class="ip">Puissance ${puissanceObjet(it)}</span>` : ''}</div></div>
+    ${req}${vInfo}
     ${lignes ? `<table>${lignes}</table>` : `<p style="font-size:2.1vh">${it.cat === 'potion' ? 'Rend 40 % de tes PV en 1 s. Se boit avec le bouton potion.' : 'Ne sert à rien, sauf à être vendu au marchand.'}</p>`}
     ${sorts ? `<div class="sortsObj">${sorts}</div>` : ''}
     ${porte && porte.id !== it.id ? `<p style="font-size:1.8vh;color:#6a4a2e;margin:1vh 0 0">Comparé à ton ${nomObjet(porte)} (${TIERS[porte.tier].roman}).</p>` : ''}
@@ -390,6 +407,7 @@ UI.fiche = (it, contexte) => {
     if (a === 'retirer') api.retirer(slot);
     if (a === 'vendre') api.vendre(it.id);
     if (a === 'acheter') api.acheter(it);
+    if (a === 'acheterArene') api.acheterArene(it);
     if (a === 'ranger') api.rangerPotion(it.id);
     if (!$('#inv').hidden) UI.rendreInventaire();
     if (!$('#marche').hidden) UI.rendreMarche();
@@ -417,10 +435,15 @@ UI.dialogueMarchand = () => {
     fermer(); ongletM = b.dataset.c; UI.ouvrirMarche();
   });
 };
-UI.ouvrirMarche = () => { if (!stock) stock = stockMarchand(); UI.rendreMarche(); $('#marche').hidden = false; api.son('open_001', 0.4); };
+let stockA = null;
+UI.ouvrirMarche = (onglet = null) => { if (!stock) stock = stockMarchand(); if (!stockA) stockA = stockArene(); if (onglet) { ongletM = onglet; if (onglet === 'arene') { filtres.niv = 'tout'; filtres.q = 'tout'; } } UI.rendreMarche(); $('#marche').hidden = false; api.son('open_001', 0.4); };
 UI.rendreMarche = () => {
   const j = api.etat();
-  const liste = (ongletM === 'achat' ? stock : j.sac).filter(it => {
+  const A = ongletM === 'arene';
+  const source = ongletM === 'achat' ? stock : A ? stockA : j.sac;
+  const prix = (it) => A ? prixTrophees(it) : ongletM === 'achat' ? valeurObjet(it) : prixVente(it);
+  const solde = A ? j.trophees : j.argent;
+  const liste = source.filter(it => {
     if (filtres.cat !== 'tout') {
       const c = it.cat === 'arme' ? 'arme' : it.cat === 'armure' ? it.type : it.cat;
       if (c !== filtres.cat) return false;
@@ -429,26 +452,27 @@ UI.rendreMarche = () => {
     if (filtres.q !== 'tout' && (it.q || 0) != filtres.q) return false;
     if (filtres.txt && !nomObjet(it).toLowerCase().includes(filtres.txt.toLowerCase())) return false;
     return true;
-  }).sort((a, b) => (ongletM === 'achat' ? valeurObjet(a) - valeurObjet(b) : prixVente(b) - prixVente(a)));
+  }).sort((a, b) => (ongletM === 'vente' ? prix(b) - prix(a) : prix(a) - prix(b)));
+  const icone = A ? '<span class="troph">🏆</span>' : '<span class="piece"></span>';
   const opt = (v, l, cur) => `<option value="${v}" ${cur == v ? 'selected' : ''}>${l}</option>`;
   $('#marche').innerHTML = `<div class="cadreM parchemin"><button class="fermer" data-x aria-label="Fermer">×</button>
     <div class="mEntete"><div class="embleme"><svg viewBox="0 0 24 24" fill="#f2cd78"><path d="M13.8 2.6l7.6 7.6-2.1 2.1-1.4-1.4-2.8 2.8 1.4 1.4-2.1 2.1-5.7-5.7 2.1-2.1 1.4 1.4 2.8-2.8-1.4-1.4zM8 14l2 2-6.4 6.4-2-2z"/></svg></div>
       <input id="rech" placeholder="Recherche…" value="${filtres.txt}" aria-label="Rechercher un objet">
-      <div class="solde"><span class="piece" style="width:3vh;height:3vh"></span>${fmt(j.argent)}</div></div>
+      <div class="solde">${A ? '<span class="troph" style="font-size:3vh">🏆</span>' : '<span class="piece" style="width:3vh;height:3vh"></span>'}${fmt(solde)}</div></div>
     <div class="filtres">
       <select id="fCat" aria-label="Catégorie">${opt('tout', 'Catégorie : tout', filtres.cat)}${opt('arme', 'Armes', filtres.cat)}${opt('casque', 'Armure de tête', filtres.cat)}${opt('plastron', 'Armure de poitrine', filtres.cat)}${opt('bottes', 'Armure de pieds', filtres.cat)}${opt('potion', 'Consommable', filtres.cat)}${opt('butin', 'Butin', filtres.cat)}</select>
       <select id="fNiv" aria-label="Niveau">${opt('tout', 'Niveau : tout', filtres.niv)}${[1, 2, 3, 4, 5, 6, 7, 8].map(n => opt(n, 'Niveau ' + n, filtres.niv)).join('')}</select>
       <select id="fQ" aria-label="Qualité">${opt('tout', 'Qualité : toute', filtres.q)}${QUALITES.map(q => opt(q.id, q.nom, filtres.q)).join('')}</select>
     </div>
-    <div class="mCorps"><div class="mListe"><h3>${ongletM === 'achat' ? 'Acheter sur le Marché' : 'Vendre au Marché'}</h3>
+    <div class="mCorps"><div class="mListe"><h3>${A ? 'Boutique des trophées' : ongletM === 'achat' ? 'Acheter sur le Marché' : 'Vendre au Marché'}</h3>${A ? '<p class="sousA">Équipement d’arène, du T5 au T8. Chaque pièce a un style (Offensif, Défensif, Équilibré), un sort qui lui est propre et +10 % contre les joueurs. Le niveau de maîtrise reste requis pour le porter.</p>' : ''}
       <div class="lignes">${liste.length ? liste.map(it => `<div class="ligne"><button data-v="${it.id}" style="border:0;background:none;padding:0">${htmlCase(it)}</button>
-        <div class="nomL" style="color:${it.tier ? shade(couleurObjet(it)) : '#3a2312'}">${nomObjet(it)}<small>${categorieLabel(it)}${it.tier ? ' · ' + QUALITES[it.q].nom + ' · Puissance ' + puissanceObjet(it) : ''}</small></div>
-        <div class="prix"><span class="piece"></span>${fmt(ongletM === 'achat' ? valeurObjet(it) : prixVente(it))}</div>
-        <button class="btn" data-${ongletM === 'achat' ? 'buy' : 'sell'}="${it.id}" ${ongletM === 'achat' && valeurObjet(it) > j.argent ? 'disabled' : ''}>${ongletM === 'achat' ? 'Acheter' : 'Vendre'}</button></div>`).join('')
+        <div class="nomL" style="color:${it.tier ? shade(couleurObjet(it)) : '#3a2312'}">${nomObjet(it)}<small>${categorieLabel(it)}${it.tier ? ' · ' + (it.arene ? VARIANTES[it.arene].style : QUALITES[it.q].nom) + ' · Puissance ' + puissanceObjet(it) + ' · Niv. ' + niveauRequis(it) : ''}</small></div>
+        <div class="prix">${icone}${fmt(prix(it))}</div>
+        <button class="btn" data-${ongletM === 'vente' ? 'sell' : 'buy'}="${it.id}" ${ongletM !== 'vente' && prix(it) > solde ? 'disabled' : ''}>${ongletM === 'vente' ? 'Vendre' : 'Acheter'}</button></div>`).join('')
         : `<div class="vide-liste">${ongletM === 'achat' ? 'Rien ne correspond à ces filtres.' : 'Ton sac ne contient rien à vendre avec ces filtres.'}</div>`}</div>
       ${ongletM === 'vente' && j.sac.some(i => i.cat === 'butin') ? '<div style="padding-top:1vh;text-align:right"><button class="btn or" id="venteButin">Vendre tout le butin sans valeur</button></div>' : ''}
     </div>
-    <div class="onglets"><button data-o="achat" class="${ongletM === 'achat' ? 'actif' : ''}">ACHAT</button><button data-o="vente" class="${ongletM === 'vente' ? 'actif' : ''}">VENTE</button></div></div></div>`;
+    <div class="onglets"><button data-o="achat" class="${ongletM === 'achat' ? 'actif' : ''}">ACHAT</button><button data-o="vente" class="${ongletM === 'vente' ? 'actif' : ''}">VENTE</button><button data-o="arene" class="arene ${A ? 'actif' : ''}">ARÈNE</button></div></div></div>`;
   const m = $('#marche');
   m.querySelector('[data-x]').onclick = () => { m.hidden = true; api.son('close_001', 0.4); };
   m.querySelector('#fCat').onchange = (e) => { filtres.cat = e.target.value; UI.rendreMarche(); };
@@ -456,9 +480,9 @@ UI.rendreMarche = () => {
   m.querySelector('#fQ').onchange = (e) => { filtres.q = e.target.value; UI.rendreMarche(); };
   const r = m.querySelector('#rech'); r.oninput = (e) => { filtres.txt = e.target.value; clearTimeout(UI._rt); UI._rt = setTimeout(() => { UI.rendreMarche(); const n = $('#rech'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 350); };
   m.querySelectorAll('[data-o]').forEach(b => b.onclick = () => { ongletM = b.dataset.o; UI.rendreMarche(); api.son('click_001', 0.4); });
-  const trouve = (id) => (ongletM === 'achat' ? stock : j.sac).find(i => i.id == id);
-  m.querySelectorAll('[data-v]').forEach(b => b.onclick = () => UI.fiche(trouve(b.dataset.v), ongletM === 'achat' ? 'achat' : 'vente'));
-  m.querySelectorAll('[data-buy]').forEach(b => b.onclick = () => { api.acheter(trouve(b.dataset.buy)); UI.rendreMarche(); });
+  const trouve = (id) => source.find(i => i.id == id);
+  m.querySelectorAll('[data-v]').forEach(b => b.onclick = () => UI.fiche(trouve(b.dataset.v), ongletM));
+  m.querySelectorAll('[data-buy]').forEach(b => b.onclick = () => { A ? api.acheterArene(trouve(b.dataset.buy)) : api.acheter(trouve(b.dataset.buy)); UI.rendreMarche(); });
   m.querySelectorAll('[data-sell]').forEach(b => b.onclick = () => { api.vendre(+b.dataset.sell); UI.rendreMarche(); });
   const vb = m.querySelector('#venteButin'); if (vb) vb.onclick = () => { api.vendreButin(); UI.rendreMarche(); };
 };
@@ -495,8 +519,10 @@ UI.butin = (couleur, loot, cb) => {
     <div style="font-size:2vh;color:#6a4a2e">${c.desc}</div>
     <div class="argentG"><span class="piece" style="width:3vh;height:3vh"></span>+ ${fmt(loot.argent)}</div>
     <div class="lootGrille">${loot.objets.map((it, i) => `<button class="item" data-i="${i}" style="animation-delay:${0.25 + i * 0.22}s;border:0;background:none;padding:0">${htmlCase(it)}<span style="color:${it.tier ? shade(couleurObjet(it)) : '#3a2312'}">${nomObjet(it)}${it.tier ? ` (${TIERS[it.tier].roman})` : ''}</span></button>`).join('')}</div>
-    <button class="btn or" data-ok>Tout prendre</button></div>`;
+    ${loot.allie ? `<div class="partAllie"><b>Part de ${loot.allie.nom}</b> · ${fmt(loot.allie.argent)} d’argent${loot.allie.objets.length ? ' · ' + loot.allie.objets.map(o => nomObjet(o) + (o.tier ? ` (${TIERS[o.tier].roman})` : '')).join(', ') : ''}</div>` : ''}
+    <button class="btn or" data-ok>Prendre ma part</button></div>`;
   const b = $('#butin'); b.hidden = false;
+  if (!loot.allie) b.querySelector('[data-ok]').textContent = 'Tout prendre';
   b.querySelectorAll('[data-i]').forEach(e => e.onclick = () => UI.fiche(loot.objets[+e.dataset.i], 'apercu'));
   b.querySelector('[data-ok]').onclick = () => { b.hidden = true; cb(); };
 };
@@ -542,3 +568,87 @@ UI.depouille = (nom, ip, objets, argent, cb) => {
   rendre(); b.hidden = false;
 };
 UI.flashInvasion = () => { const d = document.createElement('div'); d.id = 'flashInv'; $('#jeu').appendChild(d); setTimeout(() => d.remove(), 2500); };
+
+// ---------------- Maîtrise ----------------
+function htmlMaitrise(j) {
+  const portes = new Set(['arme', 'casque', 'plastron', 'bottes'].map(s => j.equip[s] && j.equip[s].type).filter(Boolean));
+  return `<div class="maitrise">${MAITRISES.map(m => {
+    const d = j.maitrise[m.id]; const need = xpPour(d.niv); const k = d.niv >= 100 ? 1 : d.xp / need;
+    const tmax = tierMaxPour(d.niv); const suiv = NIVEAU_REQUIS.findIndex((n, i) => i > 0 && n > d.niv);
+    const it = { cat: m.cat, type: m.id, tier: tmax, q: 0 };
+    const info = d.niv >= 100 ? 'Maîtrise complète' : suiv > 0 ? `T${suiv} au niveau ${NIVEAU_REQUIS[suiv]}` : `Bonus +2 % par niveau jusqu’au 100`;
+    return `<div class="mLigne ${portes.has(m.id) ? 'porte' : ''}">
+      <div class="mIco">${htmlCase(it)}</div>
+      <div class="mTxt"><div class="mNom">${m.nom}${portes.has(m.id) ? '<span class="pastille">porté</span>' : ''}</div>
+        <div class="mBarre"><i style="width:${(k * 100).toFixed(1)}%"></i><span>${d.niv >= 100 ? 'MAX' : fmt(d.xp) + ' / ' + fmt(need) + ' XP'}</span></div>
+        <div class="mInfo">Porte jusqu’au <b style="color:${shade(TIERS[tmax].color)}">T${tmax}</b> · Prochain palier : ${info}${d.niv > 90 ? ` · <b>+${Math.round(bonusMaitrise(d.niv) * 100)} %</b>` : ''}</div></div>
+      <div class="mNiv"><small>NIV.</small>${d.niv}</div></div>`;
+  }).join('')}
+  <p class="mAide">Seules les pièces que tu portes gagnent de l’expérience en tuant. Du niveau 90 au 100, chaque niveau ajoute 2 % aux statistiques de ce type de pièce.</p></div>`;
+}
+
+// ---------------- Arène ----------------
+UI.menuArene = (groupe) => {
+  const j = api.etat(); const ip = statsHeros(j.equip).ip;
+  const p = $('#portailMenu');
+  p.innerHTML = `<div class="cadreP arene"><button class="fermer" data-x aria-label="Fermer">×</button>
+    <h2>Arène des Échos</h2><div class="sous">Combats entre joueurs. Chaque victoire rapporte 🏆 100 trophées et de l’expérience. Ton équipement ne se perd pas ici.</div>
+    <div class="modes deux">
+      <div class="mode" style="--c:#b05aff"><div class="niv">DUEL</div><h3>1 contre 1</h3><p>Un adversaire de puissance proche. Rien que toi et lui.</p>
+        <div class="ipl"><span>Ta puissance</span><b>${ip}</b></div><button class="btn or" data-f="1v1">Trouver un adversaire</button></div>
+      <div class="mode" style="--c:#4fd1ff"><div class="niv">ÉQUIPE</div><h3>2 contre 2</h3><p>${groupe ? `Avec <b>${groupe.nom}</b> (⚔ ${groupe.ip}), ton coéquipier de groupe.` : 'Tu n’as pas de groupe : un coéquipier sera trouvé pour toi. Touche un joueur sur la Place pour former un groupe.'}</p>
+        <div class="ipl"><span>Équipe</span><b>${groupe ? 'Groupe' : 'Aléatoire'}</b></div><button class="btn or" data-f="2v2">Trouver un combat</button></div>
+    </div>
+    <div class="barreTroph"><div><span class="troph" style="font-size:3.4vh">🏆</span><b>${fmt(j.trophees || 0)}</b> trophées</div><button class="btn" data-shop>Boutique des trophées</button></div></div>`;
+  p.hidden = false; api.son('forceField_000', 0.5, 0.8);
+  p.querySelector('[data-x]').onclick = () => (p.hidden = true);
+  p.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { p.hidden = true; api.arene(b.dataset.f); });
+  p.querySelector('[data-shop]').onclick = () => { p.hidden = true; UI.ouvrirMarche('arene'); };
+};
+UI.resultatArene = (r, cb) => {
+  const m = $('#mort');
+  m.innerHTML = `<div class="resultat ${r.victoire ? 'gagne' : 'perdu'}"><h2>${r.victoire ? 'Victoire' : 'Défaite'}</h2>
+    <div class="recap">${r.lignes.map(l => `<div>${l}</div>`).join('')}</div>
+    <button class="btn or" data-ok>Revenir sur la Place</button></div>`;
+  m.hidden = false; m.querySelector('[data-ok]').onclick = () => { m.hidden = true; cb(); };
+};
+UI.compteur = (n) => { const d = document.createElement('div'); d.className = 'compteur'; d.textContent = n; $('#jeu').appendChild(d); setTimeout(() => d.remove(), 900); };
+
+// ---------------- Groupe et cible ----------------
+UI.cadreAutre = (data, opts = {}) => {
+  const c = $('#cadreAutre');
+  if (!data) { c.hidden = true; c._nom = null; return; }
+  c.hidden = false; c.classList.toggle('membre', !!opts.membre);
+  if (c._nom !== data.nom || c._membre !== !!opts.membre) {
+    c._nom = data.nom; c._membre = !!opts.membre;
+    c.querySelector('.nomA').innerHTML = `${data.nom}<span>⚔ ${data.ip}</span>`;
+    c.querySelector('.etiq').textContent = opts.membre ? 'GROUPE' : 'JOUEUR';
+    bustePersonnage(data.modele, c.querySelector('canvas'), opts.membre ? '#2a5a7a' : '#5a3a5a');
+  }
+  const pv = opts.pv ?? 1, en = opts.en ?? 1;
+  c.querySelector('.pvA').style.transform = `scaleX(${Math.max(0, pv)})`;
+  c.querySelector('.enA').style.transform = `scaleX(${Math.max(0, en)})`;
+  c.classList.toggle('ko', pv <= 0);
+};
+UI.menuJoueur = (data, estMembre, aUnGroupe) => {
+  const j = api.etat();
+  const d = $('#dialogue');
+  d.innerHTML = `<div class="boiteDial bois"><button class="fermer" data-x aria-label="Fermer">×</button><div class="visage"><canvas width="128" height="128"></canvas></div>
+  <div style="min-width:0;flex:1"><h3>${data.nom} <span style="color:#7fb2ff;font-size:2.2vh">${data.guilde}</span> <span class="ipb2">⚔ ${data.ip}</span></h3>
+  <div class="choix" style="margin:1.4vh 0">
+    ${estMembre ? '<button class="btn gris" data-a="exclure">Exclure du groupe</button>' : `<button class="btn or" data-a="inviter">${aUnGroupe ? 'Remplacer mon coéquipier' : 'Inviter dans le groupe'}</button>`}
+  </div>
+  <div class="duelBloc"><b>Proposer un duel à l’arène</b> · mise :
+    <div class="mises">${[0, 100, 500, 1000, 5000].map((m, i) => `<button class="mise ${i === 1 ? 'actif' : ''}" data-m="${m}" ${m > j.argent ? 'disabled' : ''}>${m ? fmt(m) : 'Sans mise'}</button>`).join('')}</div>
+    <button class="btn" data-a="duel">Défier ${data.nom}</button><p class="aide">Le gagnant remporte les deux mises.</p></div></div></div>`;
+  d.hidden = false; bustePersonnage(data.modele, d.querySelector('canvas'), '#4a3a5a');
+  let mise = Math.min(100, j.argent >= 100 ? 100 : 0);
+  d.querySelectorAll('.mise').forEach(b => { b.classList.toggle('actif', +b.dataset.m === mise); b.onclick = () => { mise = +b.dataset.m; d.querySelectorAll('.mise').forEach(x => x.classList.toggle('actif', x === b)); api.son('click_001', 0.4); }; });
+  d.querySelector('[data-x]').onclick = () => (d.hidden = true);
+  d.querySelectorAll('[data-a]').forEach(b => b.onclick = () => {
+    d.hidden = true;
+    if (b.dataset.a === 'inviter') api.inviter(data);
+    if (b.dataset.a === 'exclure') api.exclure();
+    if (b.dataset.a === 'duel') api.duel(data, mise);
+  });
+};
