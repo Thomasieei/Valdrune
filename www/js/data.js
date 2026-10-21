@@ -51,7 +51,19 @@ export const ARMES = {
     noms: ['', 'Bâton noueux', 'Bâton de bronze', 'Branche sylvestre', "Sceptre d'azur", 'Bâton de braise', 'Soleil captif', "Œil de l'abysse", 'Flamme céleste'],
     sorts: ['bouleFeu', 'colonne', 'meteore'],
   },
+  // classe rare : 0,1 % sur les boss et en PvP, ou code bêta (T1)
+  ombre: {
+    label: 'Dagues des Ombres', court: 'Ombres', model: 'Rogue_Hooded', node: 'Knife', node2: 'Knife_Offhand', rare: true, ombre: true,
+    helmet: null, cape: 'Rogue_Cape', legs: ['Rogue_LegLeft', 'Rogue_LegRight'], body: 'Rogue_Body',
+    portee: 2.5, vitesse: 1.3, base: 36, projectile: null,
+    idle: 'Idle', run: 'Running_A',
+    attaques: ['1H_Melee_Attack_Slice_Diagonal', '1H_Melee_Attack_Chop'],
+    noms: ['', 'Dagues de suie', 'Crocs du crépuscule', 'Épines de brume', 'Lames du vide', 'Braises noires', 'Éclipse', "Murmures de l'abysse", 'Néant céleste'],
+    sorts: ['legion', 'reflet', 'pasOmbre'],
+  },
 };
+export const CHANCE_OMBRE = 0.001; // 0,1 %
+export const CODES_BETA = { 'BRECHE-OMBRE': { arme: 'ombre', tier: 1, texte: 'Accès bêta : Dagues des Ombres T1' } };
 
 export const ARMURES = {
   casque: { label: 'Armure de tête', slot: 'casque', armure: 8, pv: 60, sort: 'souffle',
@@ -87,6 +99,9 @@ export const SORTS = {
   execution: { nom: 'Exécution', desc: 'Frappe brutale. Dégâts triplés si la cible a moins de 35 % de PV.', cd: 9, energie: 30, mult: 1.6, portee: 4, type: 'cible', couleur: ['#ff9a9a', '#3a0008'], glyphe: 'slash' },
   vampirisme:{ nom: 'Soif de sang', desc: 'Pendant 5 s, tes coups te rendent 35 % des dégâts infligés.', cd: 16, energie: 25, mult: 0, type: 'buff', couleur: ['#ff6a8a', '#40001a'], glyphe: 'heart' },
   purge:     { nom: 'Purge du gladiateur', desc: 'Supprime ralentissements et étourdissements, intouchable 1,2 s.', cd: 18, energie: 20, mult: 0, type: 'buff', couleur: ['#e0c8ff', '#2a0a4a'], glyphe: 'shield' },
+  legion:    { nom: 'Légion d’ombres', desc: 'Invoque une ombre par tier de ton arme (T1 = 1, T8 = 8). Elles te défendent 60 s et explosent en mourant.', cd: 25, energie: 35, mult: 0, portee: 0, type: 'invocation', couleur: ['#c9a0ff', '#1a0630'], glyphe: 'ombres' },
+  reflet:    { nom: 'Reflet volé', desc: 'Arrache le reflet de ta cible : un double avec 15 % de ses PV et de son énergie combat pour toi 30 s.', cd: 40, energie: 40, mult: 0, portee: 14, type: 'invocation', couleur: ['#e0b8ff', '#2a0a4a'], glyphe: 'miroir' },
+  pasOmbre:  { nom: 'Pas de l’ombre', desc: 'Disparais et réapparais dans le dos de ta cible : frappe ×2,4 et étourdit 0,8 s. Tes ombres te suivent.', cd: 11, energie: 24, mult: 2.4, portee: 12, type: 'dash', couleur: ['#b07aff', '#12001f'], glyphe: 'pasOmbre' },
   ruee:      { nom: 'Ruée', desc: '+60 % de vitesse pendant 3 s, supprime les ralentissements.', cd: 15, energie: 15, mult: 0, type: 'sprint', couleur: ['#fff08a', '#4d3a06'], glyphe: 'wing' },
 };
 
@@ -146,7 +161,7 @@ export const CHAT = [
 // ---- Maîtrise : niveau requis par tier ----
 export const NIVEAU_REQUIS = [0, 1, 15, 40, 50, 60, 70, 80, 90];
 export const MAITRISES = [
-  { id: 'epee', nom: 'Épée à deux mains', cat: 'arme' }, { id: 'arbalete', nom: 'Arbalète lourde', cat: 'arme' }, { id: 'baton', nom: 'Bâton de feu', cat: 'arme' },
+  { id: 'epee', nom: 'Épée à deux mains', cat: 'arme' }, { id: 'arbalete', nom: 'Arbalète lourde', cat: 'arme' }, { id: 'baton', nom: 'Bâton de feu', cat: 'arme' }, { id: 'ombre', nom: 'Dagues des Ombres', cat: 'arme', rare: true },
   { id: 'casque', nom: 'Armure de tête', cat: 'armure' }, { id: 'plastron', nom: 'Armure de poitrine', cat: 'armure' }, { id: 'bottes', nom: 'Armure de pieds', cat: 'armure' },
 ];
 

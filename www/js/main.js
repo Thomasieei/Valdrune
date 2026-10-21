@@ -2,8 +2,8 @@
 import { THREE, G, initRendu, majCamera, rendre, majTorches, chargerAssets, chargerSons, son, ambiance, Acteur, cloner,
   emettre, majParticules, majVfx, ajouterVfx, onde, lueurSol, arcTaille, faisceau, telegraphe, meshCarreau, meshBoule, DIR_HAUT, DIR_DROITE, projeter, texRond, redimensionner, appliquerNiveau, majQualiteAuto } from './engine.js';
 import { construireHub, construireDonjon, construireArene, construireIle, nbEmplacements, majFeux, noeudReel, creerAssetsProc } from './world.js';
-import { UI, iconeObjet, bustePersonnage } from './ui.js';
-import { TIERS, ARMES, ARMURES, SORTS, MODES, COFFRES, BOSS, MOBS, BOTS, CHAT, tf, MAITRISES, NIVEAU_REQUIS, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT, RESSOURCES } from './data.js';
+import { UI, iconeObjet, bustePersonnage, TEINTES_OMBRE } from './ui.js';
+import { TIERS, ARMES, ARMURES, SORTS, MODES, COFFRES, BOSS, MOBS, BOTS, CHAT, tf, MAITRISES, NIVEAU_REQUIS, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT, RESSOURCES, CHANCE_OMBRE, CODES_BETA } from './data.js';
 import { creerArme, creerArmure, creerPotion, statsHeros, nomObjet, valeurObjet, prixVente, lootCoffre, lootMonstre, tirerCouleurCoffre, ETAT, xpPour, peutPorter, niveauRequis, niveauDe, sortsArme, prixTrophees } from './items.js';
 
 const $ = (s) => document.querySelector(s);
@@ -124,11 +124,13 @@ function construireJoueur(pos) {
   const a = new Acteur(def.model, { hauteur: 2.0 });
   // ne montrer que l'arme portée
   const tous = Object.keys(a.nodes).filter(n => /Sword|Axe|Shield|Crossbow|Staff|Wand|Knife|Throwable|Mug|Spellbook/.test(n));
-  a.montrerSeul([def.node], tous);
+  a.montrerSeul([def.node, def.node2].filter(Boolean), tous);
   a.teinter(def.node, TIERS[arme.tier].color, 0.62, TIERS[arme.tier].glow);
+  if (def.node2) a.teinter(def.node2, TIERS[arme.tier].color, 0.62, TIERS[arme.tier].glow);
   if (def.helmet) { a.nodes[def.helmet].visible = !!J.equip.casque; if (J.equip.casque) a.teinter(def.helmet, TIERS[J.equip.casque.tier].color, 0.5, TIERS[J.equip.casque.tier].glow * 0.3); }
   if (J.equip.plastron) { a.teinter(def.cape, TIERS[J.equip.plastron.tier].color, 0.7, TIERS[J.equip.plastron.tier].glow * 0.25); a.teinter(def.body, TIERS[J.equip.plastron.tier].color, 0.28, 0); }
   if (J.equip.bottes) def.legs.forEach(l => a.teinter(l, TIERS[J.equip.bottes.tier].color, 0.3, 0));
+  if (def.ombre) habitOmbre(a, def);
   G.scene.add(a.root);
   a.root.position.copy(ancienPos);
   const st = statsHeros(J.equip);
@@ -151,7 +153,7 @@ function construireJoueur(pos) {
   $('#ipHud').textContent = '⚔ ' + st.ip;
   UI.construireSorts(joueur);
   $('#nomHud').textContent = J.nom;
-  bustePersonnage(def.model, $('#avatarCv'), '#5a3a5a');
+  bustePersonnage(def.model, $('#avatarCv'), def.ombre ? '#3a1a5a' : '#5a3a5a', def.ombre ? TEINTES_OMBRE : null);
   joueur.root.rotation.y = joueur.angle;
 }
 function recalculer() { joueur.st = statsHeros(J.equip); joueur.pv = Math.min(joueur.pv, joueur.st.pvMax); }
@@ -444,6 +446,7 @@ function tuer(e) {
   gagnerXP(xp);
   for (const it of loot.objets) ajouterSac(it, true);
   if (e.boss) {
+    tirageOmbre(modeActuel.tiers[0], modeActuel.tiers[1], 'boss');
     bossVaincus++; UI.boss(null); G.shake = 1;
     onde(e.pos, e.boss.couleur, 10, 1.2);
     emettre(V(e.pos.x, 2, e.pos.z), { n: 120, c1: '#ffd27a', c2: e.boss.couleur, vit: 9, vie: 1.4, taille: 0.5, grav: 3 });
@@ -473,6 +476,7 @@ function blesserJoueur(d, source = null) {
 }
 function mourirJoueur() {
   joueur.pv = 0; joueur.mort = true; joueur.jouer('Death_A', { boucle: false });
+  for (const a of allies.filter(x => x.invoc)) dissiper(a);
   if (assaut && !assaut.fini) { // les bandits pillent 70 % du coffre
     assaut.fini = true; const ile = assaut.ile; const pertes = [];
     for (const k in ile.coffre) { const p = Math.floor(ile.coffre[k] * 0.7); if (p) { ile.coffre[k] -= p; pertes.push(`${fmtN(p)} ${RES_LABEL[k]}`); } }
@@ -492,7 +496,7 @@ function attaquer(dt) {
   if (joueur.verrouT > 0 || joueur.mort || joueur.spinT > 0) return;
   const def = joueur.def, st = joueur.st;
   const c = choisirCible(st.portee);
-  if (!c) { if (joueur.atkT <= 0 && joueur.armeType === 'epee') { /* coup dans le vide */ } return; }
+  if (!c) return;
   joueur.cible = c;
   const d = dist2D(c.pos, joueur.pos) - c.rayon;
   const dir = V(c.pos.x - joueur.pos.x, 0, c.pos.z - joueur.pos.z).normalize();
@@ -512,10 +516,11 @@ function attaquer(dt) {
   joueur.jouer(anim, { boucle: false, vitesse: vit, forcer: true, fondu: 0.08, fin: () => joueur.jouer(def.idle) });
   joueur.verrouT = 0.28; // l'attaque de base fige brièvement : choix voulu pour le PvP
   const couleur = TIERS[J.equip.arme.tier].color;
-  if (joueur.armeType === 'epee') {
-    programmer(0.3 / vit * 1.4, () => {
+  if (!def.projectile) {
+    programmer((def.ombre ? 0.22 : 0.3) / vit * 1.4, () => {
       if (c.mort) return;
-      arcTaille(joueur.pos, joueur.angle - Math.PI / 2, 2.9, couleur, Math.PI * 0.7, 0.22);
+      arcTaille(joueur.pos, joueur.angle - Math.PI / 2, def.ombre ? 2.6 : 2.9, def.ombre ? '#9a5aff' : couleur, Math.PI * 0.7, 0.22);
+      if (def.ombre) emettre(V(c.pos.x, 1.1, c.pos.z), { n: 6, c1: '#c9a0ff', c2: '#1a0630', vit: 3, vie: 0.4, taille: 0.3 });
       if (dist2D(c.pos, joueur.pos) - c.rayon < st.portee + 1) { blesser(c, 1); son(Math.random() < 0.5 ? 'knifeSlice' : 'knifeSlice2', 0.45); }
     });
   } else {
@@ -668,14 +673,45 @@ function lancerSort(k) {
     case 'execution': {
       const portee = Math.max(s.portee, joueur.st.portee);
       const { dir, cible } = directionVisee(portee); faireFace(dir);
-      const anim = joueur.armeType === 'epee' ? '2H_Melee_Attack_Chop' : joueur.armeType === 'arbalete' ? '2H_Ranged_Shoot' : 'Spellcast_Shoot';
+      const anim = joueur.armeType === 'ombre' ? '1H_Melee_Attack_Chop' : joueur.armeType === 'epee' ? '2H_Melee_Attack_Chop' : joueur.armeType === 'arbalete' ? '2H_Ranged_Shoot' : 'Spellcast_Shoot';
       joueur.jouer(anim, { boucle: false, vitesse: 1.3, forcer: true, fin }); joueur.verrouT = 0.4;
       const bas = cible && cible.pv / cible.pvMax < 0.35; const mult = s.mult * (bas ? 3 : 1);
       programmer(0.25, () => {
         if (!cible || cible.mort) return;
-        if (joueur.armeType === 'epee') { if (dist2D(cible.pos, joueur.pos) - cible.rayon < portee + 1) { arcTaille(joueur.pos, joueur.angle - Math.PI / 2, 3.6, '#ff2a3a', Math.PI * 0.5, 0.35); blesser(cible, mult, { c1: '#ff3a4a', c2: '#5a0008' }); son('impactPlate_heavy_000', 0.6, 0.7); } }
+        if (!joueur.def.projectile) { if (dist2D(cible.pos, joueur.pos) - cible.rayon < portee + 1) { arcTaille(joueur.pos, joueur.angle - Math.PI / 2, 3.6, '#ff2a3a', Math.PI * 0.5, 0.35); blesser(cible, mult, { c1: '#ff3a4a', c2: '#5a0008' }); son('impactPlate_heavy_000', 0.6, 0.7); } }
         else tirerProjectile(joueur.armeType === 'arbalete' ? 'carreau' : 'feu', '#ff2a3a', cible, 34, mult, { taille: 0.6 });
         if (bas) { G.shake = 0.5; UI.nombre(V(cible.pos.x, 3, cible.pos.z), 'EXÉCUTION', 'crit'); }
+      });
+      break;
+    }
+    case 'legion': {
+      if (!modeActuel) { joueur.cds[k] = 0; joueur.energie += s.energie; UI.toast('Tes ombres ne répondent qu’au combat'); break; }
+      joueur.jouer('Spellcast_Raise', { boucle: false, vitesse: 1.3, forcer: true, fin }); joueur.verrouT = 0.45;
+      programmer(0.3, () => invoquerOmbres(J.equip.arme.tier));
+      break;
+    }
+    case 'reflet': {
+      const { dir, cible } = directionVisee(s.portee);
+      if (!modeActuel || !cible) { joueur.cds[k] = 0; joueur.energie += s.energie; UI.toast(!modeActuel ? 'Tes ombres ne répondent qu’au combat' : 'Aucune cible à refléter'); break; }
+      faireFace(dir); joueur.jouer('Spellcast_Shoot', { boucle: false, vitesse: 1.2, forcer: true, fin }); joueur.verrouT = 0.4;
+      programmer(0.25, () => { if (!cible.mort) invoquerReflet(cible); });
+      break;
+    }
+    case 'pasOmbre': {
+      const { cible } = directionVisee(s.portee);
+      if (!cible) { joueur.cds[k] = 0; joueur.energie += s.energie; UI.toast('Aucune cible'); break; }
+      const ang = Math.atan2(cible.pos.x - joueur.pos.x, cible.pos.z - joueur.pos.z);
+      const dos = V(cible.pos.x + Math.sin(ang) * (cible.rayon + 1.0), 0, cible.pos.z + Math.cos(ang) * (cible.rayon + 1.0));
+      fumeeOmbre(joueur.pos); son('cloth1', 0.6, 0.6);
+      const p = monde.marche && !monde.marche(dos.x, dos.z) ? cible.pos.clone().add(V(-Math.sin(ang), 0, -Math.cos(ang))) : dos;
+      joueur.pos.set(p.x, 0, p.z); joueur.invuln = Math.max(joueur.invuln, 0.35);
+      faireFace(V(cible.pos.x - joueur.pos.x, 0, cible.pos.z - joueur.pos.z).normalize()); fumeeOmbre(joueur.pos);
+      for (const a of allies) if (a.invoc === 'ombre' && !a.mort) { a.pos.copy(pointLibrePres(cible.pos, cible.rayon + 1, cible.rayon + 2.4)); fumeeOmbre(a.pos); a.tc = cible; }
+      joueur.jouer('1H_Melee_Attack_Chop', { boucle: false, vitesse: 1.7, forcer: true, fin }); joueur.verrouT = 0.35;
+      programmer(0.15, () => {
+        if (cible.mort) return;
+        arcTaille(joueur.pos, joueur.angle - Math.PI / 2, 3, '#b07aff', Math.PI * 0.8, 0.3); arcTaille(joueur.pos, joueur.angle - Math.PI / 2, 2.4, '#ffffff', Math.PI * 0.5, 0.2);
+        blesser(cible, s.mult, { stun: 0.8, c1: '#c9a0ff', c2: '#2a0a4a' }); son('knifeSlice2', 0.6, 0.7); G.shake = 0.35;
       });
       break;
     }
@@ -791,7 +827,7 @@ function majEnnemis(dt) {
     e.tc = cibleIA(e);
     if (!e.tc) { e.jouer(e.def.model === 'Dragon_Evolved' ? 'Flying_Idle' : 'Idle_Combat'); e.maj(dt); continue; }
     const dc = dist2D(e.pos, e.tc.pos);
-    if (e.boss) { UI.boss(e); majBoss(e, dc, dt); e.maj(dt); continue; }
+    if (e.boss) { majBoss(e, dc, dt); e.maj(dt); continue; }
     majMob(e, dc, dt);
     e.maj(dt);
   }
@@ -1009,6 +1045,7 @@ const API = {
   piller: () => entrerIle(ileBot()),
   construire: (ile, plot, t) => construire(ile, plot, t),
   get ile() { return API_ILE; },
+  code: (c) => utiliserCode(c),
   infosIle: (i) => infosIle(i),
   acheterArene: (it) => {
     const prix = prixTrophees(it);
@@ -1288,14 +1325,23 @@ function pointLibrePres(centre, dMin, dMax, r = 0.7) {
 function habiller(a, equip, def) {
   const arme = equip.arme;
   const tous = Object.keys(a.nodes).filter(n => /Sword|Axe|Shield|Crossbow|Staff|Wand|Knife|Throwable|Mug|Spellbook/.test(n));
-  a.montrerSeul([def.node], tous);
+  a.montrerSeul([def.node, def.node2].filter(Boolean), tous);
   a.teinter(def.node, TIERS[arme.tier].color, 0.62, TIERS[arme.tier].glow);
+  if (def.node2) a.teinter(def.node2, TIERS[arme.tier].color, 0.62, TIERS[arme.tier].glow);
   const cape = Object.keys(a.nodes).find(n => n.endsWith('_Cape'));
   const corps = Object.keys(a.nodes).find(n => n.endsWith('_Body'));
   const casque = Object.keys(a.nodes).find(n => /_(Helmet|Hat)$/.test(n));
   if (casque && equip.casque) a.teinter(casque, TIERS[equip.casque.tier].color, 0.5, TIERS[equip.casque.tier].glow * 0.3);
   if (equip.plastron) { if (cape) a.teinter(cape, TIERS[equip.plastron.tier].color, 0.7, TIERS[equip.plastron.tier].glow * 0.25); if (corps) a.teinter(corps, TIERS[equip.plastron.tier].color, 0.28, 0); }
   if (equip.bottes) Object.keys(a.nodes).filter(n => /_Leg(Left|Right)$/.test(n)).forEach(l => a.teinter(l, TIERS[equip.bottes.tier].color, 0.3, 0));
+  if (def.ombre) habitOmbre(a, def);
+}
+// la classe des Ombres : capuche et tunique noires, liseré violet
+function habitOmbre(a, def) {
+  a.teinter(def.body, '#2a1a40', 0.85, 0.25);
+  a.teinter('Rogue_Head_Hooded', '#5a2aa0', 0.85, 0.5);
+  a.teinter(def.cape, '#5a1ad0', 0.75, 0.35);
+  def.legs.forEach(l => a.teinter(l, '#1c1428', 0.75, 0));
 }
 function creerCombattant(pos, data, camp = 'ennemi') {
   const equip = data.equip, arme = equip.arme, def = ARMES[arme.type];
@@ -1318,7 +1364,7 @@ function creerCombattant(pos, data, camp = 'ennemi') {
 }
 
 // ---- camps, cibles et dégâts ----
-function coequipiers() { return allies.filter(a => !a.garde); }
+function coequipiers() { return allies.filter(a => !a.garde && !a.invoc); }
 function equipeJoueur() { const l = []; if (!joueur.mort) l.push(joueur); for (const a of allies) if (!a.mort) l.push(a); return l; }
 function adversaires(e) { return e.camp === 'allie' ? vivants() : equipeJoueur(); }
 function cibleIA(e) {
@@ -1362,7 +1408,9 @@ function blesserAllie(a, d, src, opts = {}) {
   if (opts.slow) a.slowT = Math.max(a.slowT, opts.slow);
   if (opts.stun) a.stunT = Math.max(a.stunT, opts.stun * 0.5);
   if (a.pv > 0) return;
-  a.pv = 0; a.mort = true; a.jouer('Death_A', { boucle: false });
+  a.pv = 0; a.mort = true;
+  if (a.invoc) { mortInvocation(a); return; }
+  a.jouer('Death_A', { boucle: false });
   UI.toast(`${a.nom} est tombé`);
   setTimeout(() => UI.chat(a.nom, hasard(['désolé…', 'je suis mort', 'ils frappent fort', 'vas-y finis-les'])), 700);
   if (arene) return verifierArene();
@@ -1395,7 +1443,7 @@ function bondir(e, cible) {
 
 // ---- IA des combattants (rivaux et coéquipiers) ----
 function majCombattant(e, dt) {
-  const def = e.armeDef, type = e.equip.arme.type, melee = type === 'epee';
+  const def = e.armeDef, type = e.equip.arme.type, melee = !ARMES[type].projectile;
   if (arene && arene.t > 0) { e.jouer(def.idle); faceJoueur(e, dt, 4); return; }
   e.tc = cibleIA(e);
   if (e.potionT > 0) { e.potionT -= dt; e.pv = Math.min(e.pvMax, e.pv + e.pvMax * 0.4 * dt); if (Math.random() < 0.4) emettre(V(e.pos.x, 0.5, e.pos.z), { n: 1, c1: '#ff8a9a', c2: '#ff2a4a', dir: V(0, 1, 0), vit: 2, rayon: 0.6, vie: 0.6, taille: 0.3 }); }
@@ -1404,7 +1452,7 @@ function majCombattant(e, dt) {
   e.pvT = (e.pvT || 0) - dt; if (e.pvT <= 0) { e.pvT = 2; e.pvRef = e.pv; }
   if (e.pv < e.pvMax * 0.35 && e.potions > 0 && e.potionT <= 0 && e.potionCd <= 0) { e.potions--; e.potionT = 1; e.potionCd = 60; son('metalLatch', 0.4, 1.4); UI.nombre(V(e.pos.x, 2.6, e.pos.z), 'Potion', 'soin'); }
   // bulle de protection : sous la pression (gros dégâts récents ou vie basse)
-  if (e.tc && e.cdRempart <= 0 && (e.pv < e.pvMax * 0.55 || (e.pvRef || e.pv) - e.pv > e.pvMax * 0.18)) rempartIA(e);
+  if (e.tc && !e.invoc && e.cdRempart <= 0 && (e.pv < e.pvMax * 0.55 || (e.pvRef || e.pv) - e.pv > e.pvMax * 0.18)) rempartIA(e);
   if (e.dashT > 0) { e.dashT -= dt; deplacer(e, e.dashV.x * dt, e.dashV.z * dt, 0.5); return; }
   // repli : il s'éloigne le temps que ses sorts reviennent, puis revient
   if (e.repliT > 0 && e.tc) {
@@ -1433,7 +1481,7 @@ function majCombattant(e, dt) {
   if (e.specT <= 0 && d < 14) { capaciteCombattant(e, type); e.specT = rnd(4.5, 7.5); e.repliPossible = true; return; }
   if (e.repliPossible && e.attaqueT <= 0) {
     e.repliPossible = false;
-    if (e.specT > 2.5 && e.pv < e.pvMax * (melee ? 0.6 : 0.85) && Math.random() < 0.6) { e.repliT = Math.min(e.specT - 1, rnd(2, 3.5)); return; }
+    if (!e.invoc && e.specT > 2.5 && e.pv < e.pvMax * (melee ? 0.6 : 0.85) && Math.random() < 0.6) { e.repliT = Math.min(e.specT - 1, rnd(2, 3.5)); return; }
   }
   const portee = melee ? def.portee + (c.rayon || 0.5) : 9.5;
   if (d > portee) { avancerVers(e, c.pos, dt, e.st.vitesse * (e.slowT > 0 ? 0.6 : 0.92)); e.jouer(def.run); return; }
@@ -1464,6 +1512,14 @@ function capaciteCombattant(e, type) {
   const base = Math.atan2(pj.x - e.pos.x, pj.z - e.pos.z);
   e.angle = base; e.root.rotation.y = base;
   const coul = e.camp === 'allie' ? '#4fd1ff' : '#ff3a2a';
+  if (type === 'ombre') { // surgit dans le dos de sa cible
+    e.attaqueT = 0.7;
+    const derriere = V(pj.x + Math.sin(base) * 1.4, 0, pj.z + Math.cos(base) * 1.4);
+    fumeeOmbre(e.pos); e.pos.copy(derriere); e.angle = base + Math.PI; e.root.rotation.y = e.angle; fumeeOmbre(e.pos);
+    e.jouer('1H_Melee_Attack_Chop', { boucle: false, forcer: true, vitesse: 1.6, fin: () => e.jouer(def.idle) });
+    programmer(0.2, () => { if (e.mort || c.mort) return; arcTaille(e.pos, e.angle - Math.PI / 2, 2.6, '#9a5aff', Math.PI * 0.7, 0.25); infliger(e, c, e.dmg * 2, { stun: 0.5 }); son('knifeSlice2', 0.4, 0.8); });
+    return;
+  }
   if (type === 'epee') {
     if (Math.random() < 0.5) { // charge héroïque
       e.attaqueT = 1.1; const dir = V(Math.sin(base), 0, Math.cos(base)); const dist = Math.max(2, Math.min(9, dist2D(e.pos, pj) - 1));
@@ -1499,9 +1555,12 @@ function capaciteCombattant(e, type) {
   }
 }
 function majAllies(dt) {
-  for (const a of allies) {
+  for (let i = allies.length - 1; i >= 0; i--) {
+    const a = allies[i];
+    if (a.vieT !== undefined && !a.mort) { a.vieT -= dt; if (a.vieT <= 0) { dissiper(a); continue; } if (a.vieT < 3 && Math.random() < dt * 8) emettre(V(a.pos.x, 1, a.pos.z), { n: 1, c1: '#c9a0ff', c2: '#1a0630', dir: V(0, 1, 0), vit: 1.5, rayon: 0.5, vie: 0.6, taille: 0.35 }); }
     if (a.mort) { a.maj(dt); continue; }
     if (a.stunT > 0) { a.stunT -= dt; a.maj(dt * 0.15); continue; }
+    if (a.refletMob) { majRefletMob(a, dt); a.maj(dt); continue; }
     if (a.slowT > 0) a.slowT -= dt;
     a.atkT -= dt;
     if (sautEnCours(a, dt)) continue;
@@ -1516,13 +1575,18 @@ function majCadreAutre() {
   if (groupe) return UI.cadreAutre(groupe, { membre: true });
   UI.cadreAutre(null);
 }
+// une seule barre de vie en haut : boss réveillé ou joueur adverse, choisie une fois par tick (avant, deux codes se la disputaient → clignotement)
+let barreSuivie = null;
 function majBarreRival() {
-  if (!arene && !(invasion && invasion.rival)) return;
-  const rivaux = ennemis.filter(e => e.rival && !e.mort);
-  if (!rivaux.length) return UI.boss(null);
-  const r = rivaux.includes(joueur.cible) ? joueur.cible : rivaux.reduce((m, e) => (dist2D(e.pos, joueur.pos) < dist2D(m.pos, joueur.pos) ? e : m));
-  if (!arene && dist2D(r.pos, joueur.pos) > 22) return UI.boss(null);
-  UI.boss({ nom: `${r.nom} · ⚔ ${r.ip}`, pv: r.pv, pvMax: r.pvMax });
+  const valide = (e) => e && !e.mort && ennemis.includes(e) && ((e.boss && e.etat !== 'idle' && e.etat !== 'dormant' && dist2D(e.pos, joueur.pos) < 30) || (e.rival && (arene || dist2D(e.pos, joueur.pos) < 22)));
+  if (valide(joueur.cible) && joueur.cible !== barreSuivie) barreSuivie = joueur.cible;
+  if (!valide(barreSuivie)) {
+    barreSuivie = null; let bd = Infinity;
+    for (const e of ennemis) if (valide(e)) { const d = dist2D(e.pos, joueur.pos) - (e.boss ? 6 : 0); if (d < bd) { bd = d; barreSuivie = e; } }
+  }
+  if (!barreSuivie) return UI.boss(null);
+  const e = barreSuivie;
+  UI.boss({ nom: e.rival ? `${e.nom} · ⚔ ${e.ip}` : (e.boss && e.boss.nom) || e.nom || e.def.nom, pv: e.pv, pvMax: e.pvMax });
 }
 
 // ---------------- Expérience de maîtrise ----------------
@@ -1616,6 +1680,7 @@ function verifierArene() {
 }
 function finArene(victoire) {
   arene.fini = true; UI.boss(null);
+  if (victoire && !arene.duel) { const t = J.equip.arme ? J.equip.arme.tier : 1; tirageOmbre(Math.max(1, t - 1), Math.min(8, t + 1), 'pvp'); }
   const lignes = [];
   if (arene.duel) {
     if (victoire) { J.argent += arene.mise * 2; lignes.push(arene.mise ? `+ ${fmtN(arene.mise * 2)} d’argent (mises remportées)` : 'Duel amical remporté'); }
@@ -1666,6 +1731,7 @@ function majInvasion(dt) {
 }
 function victoireRival(e) {
   UI.boss(null); G.shake = 0.8;
+  tirageOmbre(Math.max(1, e.equip.arme.tier - 1), e.equip.arme.tier, 'pvp');
   son('jingle_win', 0.6);
   UI.toast(`${e.nom} est vaincu !`, true);
   setTimeout(() => UI.chat(e.nom, hasard(RIVAL_PERD)), 900);
@@ -2136,8 +2202,136 @@ function creerPasseur() {
   passeur = a;
 }
 
+
+// ---------------- Classe des Ombres ----------------
+function utiliserCode(brut) {
+  const c = String(brut || '').trim().toUpperCase().replace(/\s+/g, '');
+  const def = CODES_BETA[c];
+  if (!def) { son('error_001', 0.4); return { ok: false, texte: 'Code inconnu.' }; }
+  J.codes = J.codes || [];
+  if (J.codes.includes(c)) return { ok: false, texte: 'Ce code a déjà été utilisé sur ce profil.' };
+  J.codes.push(c);
+  const it = creerArme(def.arme, def.tier, 0); it.beta = true;
+  J.maitrise[def.arme] = J.maitrise[def.arme] || { niv: 1, xp: 0 };
+  ajouterSac(it, true); sauverMaintenant();
+  annonceRare('Dagues des Ombres', 'Accès bêta débloqué : équipe-les depuis ton sac');
+  return { ok: true, texte: def.texte + ' — ajoutées à ton sac !' };
+}
+function annonceRare(titre, sous) {
+  const d = document.createElement('div'); d.className = 'annonceRare';
+  d.innerHTML = `<h2>${titre}</h2><p>${sous}</p>`; document.body.appendChild(d); setTimeout(() => d.remove(), 4600);
+  son('jingle_legend', 0.7); G.shake = 0.6;
+  if (joueur) { onde(joueur.pos, '#9a5aff', 8, 1); emettre(V(joueur.pos.x, 1.4, joueur.pos.z), { n: 120, c1: '#e8d0ff', c2: '#3a0a6a', vit: 8, vie: 1.4, taille: 0.5, grav: 2 }); }
+}
+// 0,1 % de chance sur chaque boss et chaque victoire PvP
+function tirageOmbre(tMin, tMax, source) {
+  if (Math.random() >= (G.chanceOmbre ?? CHANCE_OMBRE)) return false;
+  const t = Math.max(1, Math.min(8, tMin + Math.floor(Math.random() * (tMax - tMin + 1))));
+  const it = creerArme('ombre', t, Math.random() < 0.5 ? 1 : 2);
+  J.maitrise.ombre = J.maitrise.ombre || { niv: 1, xp: 0 };
+  setTimeout(() => {
+    ajouterSac(it, true); sauver();
+    annonceRare(`${nomObjet(it)} · T${t}`, source === 'pvp' ? 'Arraché à un adversaire : une chance sur mille' : 'Tombé d’un boss : une chance sur mille');
+    UI.chat('Système', `${J.nom} vient d’obtenir ${nomObjet(it)} (T${t}) !`);
+  }, 1200);
+  return true;
+}
+function fumeeOmbre(p) {
+  emettre(V(p.x, 0.8, p.z), { n: 26, c1: '#b48aff', c2: '#0a0012', vit: 3.5, rayon: 0.6, vie: 0.7, taille: 0.6, grav: -1 });
+  lueurSol(p, '#7a3aff', 1.8, 0.4, 0.6);
+}
+function teinteSpectrale(a, couleur, force) {
+  for (const mt of a.mats) {
+    mt.color.lerp(new THREE.Color(couleur), force);
+    if (mt.emissive) { mt.emissive.set('#6a2aff').multiplyScalar(0.35); mt.userData.baseEmissive = mt.emissive.clone(); }
+  }
+}
+function invoquerOmbres(n) {
+  for (const a of allies.filter(x => x.invoc === 'ombre')) dissiper(a);
+  const st = joueur.st;
+  son('forceField_000', 0.5, 0.6); onde(joueur.pos, '#9a5aff', 5, 0.7);
+  for (let i = 0; i < n; i++) {
+    const ang = joueur.angle + Math.PI + (i - (n - 1) / 2) * (Math.PI * 1.6 / Math.max(1, n));
+    const pos = pointLibrePres(V(joueur.pos.x + Math.sin(ang) * 2.4, 0, joueur.pos.z + Math.cos(ang) * 2.4), 0, 1.2);
+    const a = creerCombattant(pos, { nom: 'Ombre', guilde: J.nom.toUpperCase(), equip: J.equip, modele: 'Rogue_Hooded' }, 'allie');
+    UI.retirerPlaque(a);
+    Object.assign(a, { invoc: 'ombre', vieT: 60, potions: 0, cdRempart: 1e9, specT: rnd(2, 5), ip: undefined });
+    a.pvMax = a.pv = Math.round(st.pvMax * 0.3); a.dmg = st.degats * 0.35; a.reduction = st.reduction * 0.6;
+    a.root.scale.setScalar(0.9);
+    teinteSpectrale(a, '#140c20', 0.8);
+    UI.plaque(a, { nom: 'Ombre', guilde: '', classe: 'allie', vie: true, lettre: false });
+    fumeeOmbre(pos);
+    a.jouer('Spellcast_Raise', { boucle: false, fin: () => a.jouer(a.armeDef.idle) });
+  }
+}
+function invoquerReflet(cible) {
+  for (const a of allies.filter(x => x.invoc === 'reflet')) dissiper(a);
+  const pos = pointLibrePres(V((joueur.pos.x + cible.pos.x) / 2, 0, (joueur.pos.z + cible.pos.z) / 2), 0, 1.5);
+  let a;
+  const nom = 'Reflet de ' + (cible.nom || cible.def.nom);
+  if (cible.combattant) {
+    a = creerCombattant(pos, { ...cible.data, nom, guilde: 'OMBRE DE ' + J.nom.toUpperCase() }, 'allie');
+    UI.retirerPlaque(a);
+    Object.assign(a, { potions: 0, cdRempart: 1e9 });
+  } else {
+    const def = cible.def, dragon = def.model === 'Dragon_Evolved';
+    a = new Acteur(def.model, { hauteur: dragon ? 3.2 : 2.0, echelle: cible.boss && !dragon ? Math.min(1.35, cible.boss.scale * 0.8) : 1 });
+    if (def.arme) a.attacher(def.arme, 'handslot.r');
+    a.root.position.copy(pos); G.scene.add(a.root);
+    Object.assign(a, { def, refletMob: true, dragon, camp: 'allie', pos: a.root.position, angle: 0, mort: false, stunT: 0, slowT: 0, dots: [], atkT: 0.5, attaqueT: 0,
+      rayon: Math.max(0.5, (cible.rayon || 0.6) * 0.8), hauteurPlaque: dragon ? 3.8 : (cible.hauteurPlaque || 2.5) * 0.85, hover: dragon ? 0.6 : 0, reduction: 0.25, nom,
+      armeDef: { idle: dragon ? 'Flying_Idle' : 'Idle_Combat', run: dragon ? 'Fast_Flying' : 'Running_A' }, vitesse: (def.vitesse || 3.6) * 1.05, portee: def.type === 'ranged' || def.type === 'caster' ? 9 : (def.portee || 2.2) });
+    a.root.position.y = a.hover;
+    allies.push(a);
+  }
+  Object.assign(a, { invoc: 'reflet', vieT: 30 });
+  a.pvMax = a.pv = Math.max(50, Math.round(cible.pvMax * 0.15));
+  a.energieMax = a.energie = Math.round((cible.st ? cible.st.energieMax : 200) * 0.15);
+  a.dmg = (cible.dmg || joueur.st.degats) * 0.6;
+  teinteSpectrale(a, '#b48aff', 0.45);
+  UI.plaque(a, { nom, guilde: '30 s', classe: 'allie', vie: true, lettre: false });
+  fumeeOmbre(pos); onde(pos, '#c9a0ff', 4, 0.6); son('forceField_000', 0.6, 0.5);
+  // le reflet sort du corps de la cible
+  emettre(V(cible.pos.x, 1.2, cible.pos.z), { n: 40, c1: '#ffffff', c2: '#7a3aff', vit: 5, vie: 0.6, taille: 0.4 });
+  UI.nombre(V(cible.pos.x, (cible.hauteurPlaque || 2.5) + 0.4, cible.pos.z), 'Reflet volé', 'crit');
+}
+function majRefletMob(a, dt) {
+  a.tc = cibleIA(a); a.atkT -= dt;
+  const c = a.tc;
+  if (a.attaqueT > 0) { a.attaqueT -= dt; return; }
+  if (!c) { const dj = dist2D(a.pos, joueur.pos); if (dj > 3.5) { avancerVers(a, joueur.pos, dt, a.vitesse); a.jouer(a.armeDef.run); } else a.jouer(a.armeDef.idle); return; }
+  const d = dist2D(a.pos, c.pos);
+  if (d > a.portee + (c.rayon || 0.5)) { avancerVers(a, c.pos, dt, a.vitesse); a.jouer(a.armeDef.run); return; }
+  faceJoueur(a, dt, 10);
+  if (a.atkT > 0) { a.jouer(a.armeDef.idle); return; }
+  a.atkT = 1.15; a.attaqueT = 0.35;
+  const distance = a.portee > 5;
+  const anim = a.dragon ? (Math.random() < 0.5 ? 'Punch' : 'Headbutt') : distance ? 'Spellcast_Shoot' : (Math.random() < 0.5 ? '1H_Melee_Attack_Chop' : '2H_Melee_Attack_Chop');
+  a.jouer(anim, { boucle: false, forcer: true, vitesse: 1.3, fin: () => a.jouer(a.armeDef.idle) });
+  programmer(0.3, () => {
+    if (a.mort || c.mort) return;
+    if (distance) { const p = V(c.pos.x, 1.1, c.pos.z); for (let k = 0; k < 6; k++) { const t = k / 6; emettre(V(a.pos.x + (p.x - a.pos.x) * t, 1.2, a.pos.z + (p.z - a.pos.z) * t), { n: 2, c1: '#e0c8ff', c2: '#5a1aaa', vit: 1, vie: 0.3, taille: 0.3 }); } }
+    else arcTaille(a.pos, a.angle - Math.PI / 2, 2.6, '#b07aff', Math.PI * 0.7, 0.22);
+    infliger(a, c, a.dmg); son('knifeSlice', 0.35, 0.8);
+  });
+}
+// une ombre qui meurt explose et blesse tout autour
+function mortInvocation(a) {
+  if (a.invoc === 'ombre') {
+    onde(a.pos, '#9a5aff', 3.4, 0.45); emettre(V(a.pos.x, 1, a.pos.z), { n: 40, c1: '#e0c8ff', c2: '#2a0050', vit: 7, vie: 0.6, taille: 0.5 });
+    toucherZone(a, a.pos, 3.2, a.dmg * 1.6, { slow: 1.5 }); son('explosionCrunch_000', 0.35, 1.4);
+  }
+  dissiper(a);
+}
+function dissiper(a) {
+  const i = allies.indexOf(a); if (i < 0) return;
+  allies.splice(i, 1); a.mort = true;
+  fumeeOmbre(a.pos); UI.retirerPlaque(a); G.scene.remove(a.root);
+  if (joueur && joueur.cible === a) joueur.cible = null;
+}
+
 // accès de débogage (console)
-window.__jeu = { API, G, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
+window.__jeu = { API, G, invoquerOmbres, tirageOmbre, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
 
 initEntrees();
 demarrer();

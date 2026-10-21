@@ -12,6 +12,10 @@ UI.init = (a) => { api = a; };
 
 // ---------------- Icônes de sorts (SVG) ----------------
 const GLYPHES = {
+  ombre: '<path d="M22 84 L60 30 L66 34 L28 88 Z"/><path d="M60 30 L74 12 L70 36 Z"/><path d="M78 84 L40 30 L34 34 L72 88 Z" opacity=".75"/><path d="M40 30 L26 12 L30 36 Z" opacity=".75"/>',
+  ombres: '<g><circle cx="50" cy="26" r="11"/><path d="M34 88 C34 58 40 42 50 40 C60 42 66 58 66 88 Z"/></g><g opacity=".55"><circle cx="24" cy="38" r="8"/><path d="M12 88 C12 64 16 52 24 50 C32 52 36 64 36 88 Z"/><circle cx="76" cy="38" r="8"/><path d="M64 88 C64 64 68 52 76 50 C84 52 88 64 88 88 Z"/></g>',
+  miroir: '<ellipse cx="50" cy="50" rx="30" ry="40" fill="none" stroke="#fff" stroke-width="6"/><circle cx="42" cy="38" r="8"/><path d="M28 78 C30 60 36 52 42 50 C48 52 54 60 56 78 Z"/><circle cx="62" cy="40" r="7" opacity=".45"/><path d="M50 78 C52 62 56 56 62 54 C68 56 72 62 72 78 Z" opacity=".45"/>',
+  pasOmbre: '<path d="M20 70 C30 40 50 30 70 30 L64 20 L88 34 L66 50 L68 40 C52 40 38 50 30 74 Z"/><circle cx="24" cy="80" r="6" opacity=".5"/><circle cx="12" cy="66" r="4" opacity=".35"/>',
   slash: '<path d="M16 80 C28 42 54 20 88 14 C66 30 46 54 30 86 Z"/><path d="M30 60 L44 46 M40 72 L56 54" stroke="#fff" stroke-width="3" opacity=".6"/>',
   dash: '<path d="M14 30 L38 50 L14 70 L22 50 Z M40 30 L64 50 L40 70 L48 50 Z M66 30 L90 50 L66 70 L74 50 Z"/>',
   spin: '<g><path d="M50 12 A38 38 0 0 1 88 50 L74 50 A24 24 0 0 0 50 26 Z"/><path d="M50 12 A38 38 0 0 1 88 50 L74 50 A24 24 0 0 0 50 26 Z" transform="rotate(120 50 50)"/><path d="M50 12 A38 38 0 0 1 88 50 L74 50 A24 24 0 0 0 50 26 Z" transform="rotate(240 50 50)"/><circle cx="50" cy="50" r="9"/></g>',
@@ -107,10 +111,12 @@ export function iconeObjet(it) {
   }
   return (icoCache[cle] = rendreGroupe(grp, orient));
 }
-export function bustePersonnage(cle, canvas, couleurFond = null) {
+export const TEINTES_OMBRE = { Rogue_Head_Hooded: ['#5a2aa0', 0.85, 0.3], Rogue_Body: ['#2a1a40', 0.85, 0.15], Rogue_Cape: ['#6a2aff', 0.6, 0.2] };
+export function bustePersonnage(cle, canvas, couleurFond = null, teintes = null) {
   if (!icoR) initIcones();
   const src = G.assets[cle];
   const m = SkeletonUtils.clone(src.scene);
+  if (teintes) for (const [nom, [c, f, gl]] of Object.entries(teintes)) { const n = m.getObjectByName(nom); if (n) n.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.color.set('#ffffff').lerp(new THREE.Color(c), f); if (gl && o.material.emissive) o.material.emissive.set(c).multiplyScalar(gl); } }); }
   // on cache les armes pour un portrait propre
   m.traverse(o => { if (/Sword|Axe|Shield|Crossbow|Staff|Wand|Knife|Throwable|Mug|Spellbook|Offhand/.test(o.name)) o.visible = false; });
   icoScene.add(m); m.updateMatrixWorld(true);
@@ -233,11 +239,13 @@ UI.journal = (titre, obj, prog = null) => {
 };
 UI.zone = (nom, info) => { $('#zNom').textContent = nom; $('#zInfo').textContent = info; };
 UI.boss = (b) => {
-  const el = $('#bossbar');
-  if (!b) { el.hidden = true; return; }
-  el.hidden = false; $('#bNom').textContent = b.nom;
-  $('#bFill').style.transform = `scaleX(${Math.max(0, b.pv / b.pvMax)})`; $('#bFill').style.transformOrigin = 'left';
-  $('#bTxt').textContent = `${fmt(b.pv)} / ${fmt(b.pvMax)}`;
+  const el = E('bossbar');
+  if (!b) { if (!el.hidden) el.hidden = true; return; }
+  if (el.hidden) el.hidden = false;
+  txt(E('bNom'), b.nom);
+  sty(E('bFill'), 'transformOrigin', 'left');
+  sty(E('bFill'), 'transform', `scaleX(${Math.max(0, b.pv / b.pvMax).toFixed(3)})`);
+  txt(E('bTxt'), `${fmt(Math.max(0, b.pv))} / ${fmt(b.pvMax)}`);
 };
 UI.toast = (txt, grand = false) => {
   const d = document.createElement('div'); d.textContent = txt; if (grand) d.className = 'grand';
@@ -338,12 +346,12 @@ UI.rendreInventaire = () => {
     const it = j.equip[s];
     return `<button class="case-btn" data-eq="${s}" style="border:0;background:none;padding:0">${it ? htmlCase(it) : `<div class="case"><span class="vide">${label}</span></div>`}</button>`;
   };
-  const tabs = `<div class="ongletsInv"><button data-t="equip" class="${ongletInv === 'equip' ? 'actif' : ''}">Équipement</button><button data-t="maitrise" class="${ongletInv === 'maitrise' ? 'actif' : ''}">Maîtrise</button></div>`;
+  const tabs = `<div class="ongletsInv"><button data-t="equip" class="${ongletInv === 'equip' ? 'actif' : ''}">Équipement</button><button data-t="maitrise" class="${ongletInv === 'maitrise' ? 'actif' : ''}">Maîtrise</button><button data-t="profil" class="${ongletInv === 'profil' ? 'actif' : ''}">Profil</button></div>`;
   $('#inv').innerHTML = `<div class="cadreInv parchemin">
     <button class="fermer" data-x aria-label="Fermer">×</button>
     <div style="display:flex;flex-direction:column;min-height:0">
       <div class="titreInv"><h2>${j.nom}</h2>${tabs}</div>
-      ${ongletInv === 'maitrise' ? htmlMaitrise(j) : `
+      ${ongletInv === 'profil' ? htmlProfil(j) : ongletInv === 'maitrise' ? htmlMaitrise(j) : `
       <div class="equipement">
         <div style="grid-column:1;grid-row:1">${slot('casque', 'Tête')}</div>
         <div class="silhouette"><canvas id="silCv" width="256" height="256"></canvas></div>
@@ -365,10 +373,12 @@ UI.rendreInventaire = () => {
       ${Array.from({ length: Math.max(0, 40 - j.sac.length) }, () => '<div class="case"></div>').join('')}</div>
       <p style="margin:1vh 0 0;font-size:1.8vh;color:#6a4a2e">Touche un objet pour voir toutes ses caractéristiques et l’équiper.</p>
     </div></div>`;
-  if ($('#silCv')) bustePersonnage(ARMES[j.equip.arme ? j.equip.arme.type : 'epee'].model, $('#silCv'), '#6a4a3a');
+  if ($('#silCv')) { const tA = j.equip.arme ? j.equip.arme.type : 'epee'; bustePersonnage(ARMES[tA].model, $('#silCv'), tA === 'ombre' ? '#3a1a5a' : '#6a4a3a', ARMES[tA].ombre ? TEINTES_OMBRE : null); }
   $('#inv').querySelectorAll('[data-t]').forEach(b => b.onclick = () => { ongletInv = b.dataset.t; api.son('click_001', 0.4); UI.rendreInventaire(); });
   $('#inv').querySelector('[data-x]').onclick = () => { $('#inv').hidden = true; api.son('close_001', 0.4); };
   $('#inv').querySelectorAll('[data-id]').forEach(b => b.onclick = () => { const it = j.sac.find(i => i.id == b.dataset.id); UI.fiche(it, 'sac'); });
+  const bc = $('#inv').querySelector('#codeOk');
+  if (bc) bc.onclick = () => { const r = api.code($('#inv').querySelector('#codeIn').value); const m = $('#inv').querySelector('#codeMsg'); m.textContent = r.texte; m.className = r.ok ? 'ok' : 'ko'; if (r.ok) setTimeout(() => UI.rendreInventaire(), 1600); };
   $('#inv').querySelectorAll('[data-eq]').forEach(b => b.onclick = () => { const it = j.equip[b.dataset.eq]; if (it) UI.fiche(it, 'equipe'); });
 };
 
@@ -584,9 +594,23 @@ UI.depouille = (nom, ip, objets, argent, cb) => {
 UI.flashInvasion = () => { const d = document.createElement('div'); d.id = 'flashInv'; $('#jeu').appendChild(d); setTimeout(() => d.remove(), 2500); };
 
 // ---------------- Maîtrise ----------------
+function htmlProfil(j) {
+  const codes = (j.codes || []);
+  return `<div class="profil">
+    <div class="ligneP"><span>Joueur</span><b>${j.nom}</b></div>
+    <div class="ligneP"><span>Guilde</span><b>CROW ZERO</b></div>
+    <div class="ligneP"><span>Trophées d’arène</span><b>🏆 ${fmt(j.trophees || 0)}</b></div>
+    ${codes.length ? `<div class="badgeBeta">✦ Bêta-testeur</div>` : ''}
+    <h3>Code bêta</h3>
+    <p>Un code donne accès en avant-première à du contenu en test. Chaque code ne marche qu’une fois par profil.</p>
+    <div class="codeL"><input id="codeIn" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ENTRE TON CODE" maxlength="24"><button class="btn or" id="codeOk">Valider</button></div>
+    <div id="codeMsg"></div>
+  </div>`;
+}
 function htmlMaitrise(j) {
   const portes = new Set(['arme', 'casque', 'plastron', 'bottes'].map(s => j.equip[s] && j.equip[s].type).filter(Boolean));
-  return `<div class="maitrise">${MAITRISES.map(m => {
+  const possede = (id) => ['arme'].some(s => j.equip[s] && j.equip[s].type === id) || j.sac.some(i => i.type === id);
+  return `<div class="maitrise">${MAITRISES.filter(m => !m.rare || possede(m.id) || (j.maitrise[m.id] && (j.maitrise[m.id].niv > 1 || j.maitrise[m.id].xp > 0))).map(m => {
     const d = j.maitrise[m.id]; const need = xpPour(d.niv); const k = d.niv >= 100 ? 1 : d.xp / need;
     const tmax = tierMaxPour(d.niv); const suiv = NIVEAU_REQUIS.findIndex((n, i) => i > 0 && n > d.niv);
     const it = { cat: m.cat, type: m.id, tier: tmax, q: 0 };

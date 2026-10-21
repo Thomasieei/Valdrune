@@ -32,7 +32,7 @@ export function couleurObjet(it) {
   return TIERS[it.tier].color;
 }
 export function categorieLabel(it) {
-  if (it.cat === 'arme') return ARMES[it.type].label;
+  if (it.cat === 'arme') return ARMES[it.type].label + (ARMES[it.type].rare ? (it.beta ? ' · ✦ Bêta' : ' · ✦ Classe rare (0,1 %)') : '');
   if (it.cat === 'armure') return ARMURES[it.type].label;
   if (it.cat === 'butin') return 'Butin sans valeur';
   return 'Consommable';
