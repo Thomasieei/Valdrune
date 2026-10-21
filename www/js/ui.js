@@ -250,10 +250,10 @@ UI.nombre = (pos, txt, classe = '') => {
 
 // ---------------- Plaques de nom ----------------
 const plaques = new Map();
-UI.plaque = (ent, { nom, guilde = '', classe = '', vie = true, lettre = true }) => {
+UI.plaque = (ent, { nom, guilde = '', classe = '', vie = true, lettre = true, ip = null }) => {
   const d = document.createElement('div'); d.className = 'plaque contour ' + classe;
   const ini = lettre ? `<b>${nom[0]}</b>` : '';
-  d.innerHTML = `<div class="n">${ini}${lettre ? nom.slice(1) : nom}</div>${guilde ? `<div class="gd">${guilde}</div>` : ''}${vie ? '<div class="vie"><i></i></div>' : ''}`;
+  d.innerHTML = `<div class="n">${ini}${lettre ? nom.slice(1) : nom}</div>${guilde || ip ? `<div class="gd">${guilde}${ip ? `<span class="ipb">⚔ ${ip}</span>` : ''}</div>` : ''}${vie ? '<div class="vie"><i></i></div>' : ''}`;
   $('#labels').appendChild(d); plaques.set(ent, { d, barre: d.querySelector('.vie i'), h: ent.hauteurPlaque || 2.5 });
 };
 UI.retirerPlaque = (ent) => { const p = plaques.get(ent); if (p) { p.d.remove(); plaques.delete(ent); } };
@@ -475,6 +475,14 @@ UI.menuPortail = () => {
       <p>${m.texte}</p><div class="ipl"><span>Puissance conseillée</span><b>${m.ipConseil}</b></div><div class="ipl"><span>Ta puissance</span><b class="${ok ? 'ok' : 'ko'}">${ip}</b></div>
       <button class="btn ${ok ? 'or' : ''}" data-m="${m.id}">${ok ? 'Entrer' : 'Entrer quand même'}</button></div>`;
     }).join('')}</div></div>`;
+  const inv = document.createElement('div'); inv.className = 'invasion';
+  inv.innerHTML = `<div><h4>Être envahi</h4><label class="bascule"><input type="checkbox" id="accInv" ${j.accepteInvasion ? 'checked' : ''}><span>Ouvrir mon monde aux invasions</span></label>
+    <p>+25 % d’argent dans les coffres. Un joueur peut surgir dans ton donjon. S’il te tue, il emporte tout ton équipement porté.</p></div>
+    <div><h4>Envahir</h4><p>Entre dans le donjon d’un joueur de puissance proche. Tue-le et choisis ce que tu prends dans son équipement. Meurs et tu perds le tien.</p>
+    <button class="btn" data-envahir>Envahir un joueur</button></div>`;
+  $('#portailMenu .cadreP').appendChild(inv);
+  inv.querySelector('#accInv').onchange = (e) => api.accepterInvasion(e.target.checked);
+  inv.querySelector('[data-envahir]').onclick = () => { $('#portailMenu').hidden = true; api.envahir(); };
   const p = $('#portailMenu'); p.hidden = false; api.son('forceField_000', 0.5);
   p.querySelector('[data-x]').onclick = () => (p.hidden = true);
   p.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { p.hidden = true; api.entrer(+b.dataset.m); });
@@ -513,3 +521,24 @@ UI.reglages = () => {
   r.querySelector('#rF').onclick = () => { document.documentElement.requestFullscreen?.().catch(() => {}); };
   let n = 0; r.querySelector('#rR').onclick = () => { if (++n === 1) { r.querySelector('#rConf').hidden = false; return; } api.reset(); };
 };
+
+// ---------------- Dépouille d'un joueur vaincu ----------------
+UI.depouille = (nom, ip, objets, argent, cb) => {
+  const choix = new Set(objets.map(o => o.id));
+  const b = $('#butin');
+  const rendre = () => {
+    b.innerHTML = `<div class="cadreB parchemin depouille" style="box-shadow:0 0 80px #ff2a2a66, inset 0 0 0 2px #b78f55"><h2 style="color:#8a1410">Dépouille de ${nom}</h2>
+      <div style="font-size:2vh;color:#6a4a2e">Puissance ${ip} · Touche un objet pour le garder ou le laisser.</div>
+      <div class="argentG"><span class="piece" style="width:3vh;height:3vh"></span>+ ${Math.round(argent).toLocaleString('fr-FR')}</div>
+      <div class="lootGrille">${objets.map((it, i) => `<div class="item ${choix.has(it.id) ? 'on' : ''}" data-i="${i}" style="animation-delay:${0.15 + i * 0.15}s">${htmlCase(it)}<span style="color:${shade(couleurObjet(it))}">${nomObjet(it)} (${TIERS[it.tier].roman})</span><span class="coche">${choix.has(it.id) ? '✓ Je prends' : 'Je laisse'}</span><button class="det" data-d="${i}">Détails</button></div>`).join('')}</div>
+      <div class="actions" style="justify-content:center"><button class="btn gris" data-rien>Ne rien prendre</button><button class="btn" data-tout>Tout prendre</button><button class="btn or" data-sel>Prendre la sélection (${choix.size})</button></div></div>`;
+    b.querySelectorAll('[data-i]').forEach(e => e.onclick = (ev) => { if (ev.target.dataset.d !== undefined) return; const it = objets[+e.dataset.i]; choix.has(it.id) ? choix.delete(it.id) : choix.add(it.id); api.son('click_001', 0.4); rendre(); });
+    b.querySelectorAll('[data-d]').forEach(e => e.onclick = (ev) => { ev.stopPropagation(); UI.fiche(objets[+e.dataset.d], 'apercu'); });
+    const fin = (liste) => { b.hidden = true; cb(liste); };
+    b.querySelector('[data-rien]').onclick = () => fin([]);
+    b.querySelector('[data-tout]').onclick = () => fin(objets);
+    b.querySelector('[data-sel]').onclick = () => fin(objets.filter(o => choix.has(o.id)));
+  };
+  rendre(); b.hidden = false;
+};
+UI.flashInvasion = () => { const d = document.createElement('div'); d.id = 'flashInv'; $('#jeu').appendChild(d); setTimeout(() => d.remove(), 2500); };

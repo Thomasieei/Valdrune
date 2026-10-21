@@ -46,7 +46,12 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 #hud{position:absolute;inset:0;pointer-events:none}
 #hud > *{pointer-events:auto}
 .metal{background:radial-gradient(circle at 35% 30%,#4d4256,#1d1623 70%);border:3px solid #8d8394;box-shadow:inset 0 0 0 2px #1b141f,0 2px 6px #000a}
-#portrait{position:absolute;left:calc(env(safe-area-inset-left,0px) + 1.5vh);top:1.2vh;display:flex;align-items:center;pointer-events:none}
+#hudG{position:absolute;left:calc(env(safe-area-inset-left,0px) + 1.5vh);top:1.2vh;display:flex;flex-direction:column;gap:2.6vh;pointer-events:none;z-index:3}
+#hudG .rangee{display:flex;gap:1.6vh;align-items:flex-start;pointer-events:auto}
+#portrait{display:flex;align-items:center;pointer-events:none}
+#hudD{position:absolute;right:calc(env(safe-area-inset-right,0px) + 1.6vh);top:1.2vh;display:flex;flex-direction:column;align-items:center;pointer-events:none}
+#carteCadre{width:28vh;height:28vh;display:grid;place-items:center;margin-top:1vh}
+#ipHud{display:inline-block;margin-left:1vh;padding:0 .8vh;border-radius:.6vh;background:#3a2312;color:#ffd27a;font-size:1.9vh;vertical-align:middle}
 #portrait .avatar{width:11vh;height:11vh;border-radius:50%;overflow:hidden;position:relative;z-index:2}
 #portrait .avatar canvas{width:100%;height:100%}
 #portrait .bloc{margin-left:-2vh;padding-left:2.6vh;display:flex;flex-direction:column;gap:.3vh}
@@ -60,21 +65,21 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 #buffs{display:flex;gap:.5vh;margin-top:.3vh;min-height:3.4vh}
 .buff{width:3.4vh;height:3.4vh;border-radius:50%;border:2px solid #7a6e80;display:grid;place-items:center;font-size:1.3vh;font-weight:800}
 
-#colonne{position:absolute;left:calc(env(safe-area-inset-left,0px) + 2.6vh);top:15vh;display:flex;flex-direction:column;gap:1.4vh}
+#colonne{display:flex;flex-direction:column;gap:1.4vh;margin-left:1.1vh}
 .rond{width:6.6vh;height:6.6vh;border-radius:50%;display:grid;place-items:center;padding:0}
 .rond svg{width:58%;height:58%}
-#journal{position:absolute;left:calc(env(safe-area-inset-left,0px) + 11vh);top:15.5vh;width:31vh;background:linear-gradient(#2a2131ee,#1d1623ee);border:1px solid #4e4356;border-radius:4px;overflow:hidden}
+#journal{width:31vh;max-width:34vw;background:linear-gradient(#2a2131ee,#1d1623ee);border:1px solid #4e4356;border-radius:4px;overflow:hidden}
 #journal .t{display:flex;align-items:center;gap:1vh;padding:.8vh 1.2vh;background:#3a2f42;font-family:var(--f-label);font-weight:800;font-size:2.1vh;color:var(--or)}
-#journal .o{padding:.9vh 1.2vh;font-size:1.9vh;font-weight:700}
+#journal .o{padding:.9vh 1.2vh;font-size:1.9vh;font-weight:700;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 #journal .prog{height:.8vh;background:#3a1418;margin:0 1.2vh 1vh;border-radius:3px;overflow:hidden}
 #journal .prog i{display:block;height:100%;background:linear-gradient(90deg,#ff3a2a,#ff9a4a);width:0}
 #argent{display:flex;align-items:center;gap:.6vh;padding:0 1.2vh 1vh;font-family:var(--f-label);font-weight:800;font-size:1.9vh;color:#e8e3ef}
 .piece{width:1.8vh;height:1.8vh;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#b9bcc6 45%,#6b6f7a);display:inline-block}
 
-#zone{position:absolute;right:calc(env(safe-area-inset-right,0px) + 11vh);top:1.2vh;width:27vh;padding:.6vh 1.4vh;background:linear-gradient(#e8d2a6,#c9a874);border:2px solid #6e5232;border-radius:6px;color:var(--encre);pointer-events:none}
+#zone{width:27vh;padding:.6vh 1.4vh;background:linear-gradient(#e8d2a6,#c9a874);border:2px solid #6e5232;border-radius:6px;color:var(--encre);pointer-events:none}
 #zone .nom{font-family:var(--f-label);font-weight:800;font-size:2.4vh;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #zone .ligne{display:flex;justify-content:space-between;font-family:var(--f-label);font-weight:700;font-size:2vh}
-#carteMini{position:absolute;right:calc(env(safe-area-inset-right,0px) + 13vh);top:10.5vh;width:22vh;height:22vh;transform:rotate(45deg) scale(.95);border:2px solid #8a6a3a;background:#120c18cc;box-shadow:0 0 12px #000;overflow:hidden;pointer-events:none}
+#carteMini{width:18.5vh;height:18.5vh;transform:rotate(45deg);border:2px solid #8a6a3a;background:#120c18cc;box-shadow:0 0 12px #000;overflow:hidden;pointer-events:none}
 #carteMini canvas{width:100%;height:100%;display:block}
 #btnSac{position:absolute;right:calc(env(safe-area-inset-right,0px) + 1.6vh);top:1.2vh;width:8.4vh;height:8.4vh}
 #btnPerso{position:absolute;right:calc(env(safe-area-inset-right,0px) + 2.4vh);top:12vh}
@@ -120,7 +125,7 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 #joy{position:absolute;left:calc(env(safe-area-inset-left,0px) + 22vh);bottom:19.6vh;width:22vh;height:22vh;transform:translate(-50%,50%);border-radius:50%;background:radial-gradient(#ffffff0a,#ffffff05 60%,#ffffff12 61%,transparent 63%);border:1px solid #ffffff22;pointer-events:none}
 #joy .stick{position:absolute;left:50%;top:50%;width:9.5vh;height:9.5vh;margin:-4.75vh;border-radius:50%;background:radial-gradient(circle at 40% 35%,#5a5463,#25202b);border:3px solid #8b8494;box-shadow:0 2px 8px #000}
 #zoneJoy{position:absolute;left:0;bottom:0;width:42%;height:56%;pointer-events:auto;z-index:1}
-#colonne,#journal{z-index:3}
+
 
 #chat{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 1.4vh);transform:translateX(-50%);width:min(52vh,44vw);display:flex;flex-direction:column;align-items:center;gap:.8vh;pointer-events:none}
 #chat .log{width:100%;font-size:2.2vh;line-height:1.3;color:#fff;display:flex;flex-direction:column;gap:.4vh}
@@ -265,6 +270,28 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 .reglages{width:min(70vh,92vw);padding:2.4vh;box-sizing:border-box;position:relative;display:flex;flex-direction:column;gap:1.4vh}
 .reglages label{display:flex;justify-content:space-between;align-items:center;font-size:2.4vh;font-weight:700}
 .reglages h2{margin:0;font-family:var(--f-titre);font-size:4vh}
+
+.plaque .ipb{display:inline-block;margin-left:4px;padding:0 4px;border-radius:3px;background:#000a;color:#ffd27a;font-size:clamp(9px,1.4vh,11px);letter-spacing:0}
+.plaque.rival .n{color:#ff6a5a}
+.plaque.rival .gd{color:#ff9a8a}
+.invasion{margin-top:2vh;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:2vh}
+.invasion > div{padding:1.6vh 2vh;border-radius:6px;background:linear-gradient(#1d0e14,#0e070a);border:2px solid #6a1a1a;display:flex;flex-direction:column;gap:1vh}
+.invasion h4{margin:0;font-family:var(--f-titre);font-size:3vh;color:#ff8a6a}
+.invasion p{margin:0;font-size:1.9vh;color:#d9c3bd;line-height:1.3}
+.bascule{display:flex;align-items:center;gap:1.4vh;font-family:var(--f-label);font-weight:800;font-size:2.2vh;color:#fff;cursor:pointer}
+.bascule input{appearance:none;-webkit-appearance:none;width:7vh;height:3.6vh;border-radius:2vh;background:#3a2a2e;border:2px solid #6a4a4a;position:relative;flex:none;cursor:pointer;margin:0}
+.bascule input::after{content:"";position:absolute;top:.3vh;left:.3vh;width:2.6vh;height:2.6vh;border-radius:50%;background:#bba;transition:.2s}
+.bascule input:checked{background:#8a1a14;border-color:#ff5a3a}
+.bascule input:checked::after{left:3.7vh;background:#ffd0a0;box-shadow:0 0 8px #ff6a3a}
+#flashInv{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 40%,#c0000088 100%);animation:flashInv 2.4s forwards;z-index:15}
+@keyframes flashInv{0%{opacity:0}10%{opacity:1}30%{opacity:.5}45%{opacity:1}100%{opacity:0}}
+.depouille .item{cursor:pointer}
+.depouille .item .case{transition:transform .15s}
+.depouille .item.on .case{outline:4px solid #4fd16a;outline-offset:2px;transform:scale(1.04)}
+.depouille .lootGrille{gap:2.4vh}
+.depouille .item{gap:1.2vh}
+.depouille .item .coche{font-family:var(--f-label);font-weight:800;font-size:1.7vh;color:#2a7a2a;min-height:2vh}
+.depouille .det{font-size:1.6vh;color:#6a3a1a;text-decoration:underline;background:none;border:0;padding:0}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important}}
 </style>
 
@@ -274,15 +301,17 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
   <div id="nombres"></div>
 
   <div id="hud" hidden>
+    <div id="hudG">
     <div id="portrait">
       <div class="avatar metal"><canvas id="avatarCv" width="128" height="128"></canvas></div>
       <div class="bloc">
-        <div class="nom" id="nomHud">Thomas</div>
+        <div class="nom"><span id="nomHud">Thomas</span><span id="ipHud">⚔ 300</span></div>
         <div class="barre pv"><i id="pvShield" class="bouclier"></i><i id="pvFill"></i><span id="pvTxt"></span></div>
         <div class="barre en"><i id="enFill"></i><span id="enTxt"></span></div>
         <div id="buffs"></div>
       </div>
     </div>
+    <div class="rangee">
     <div id="colonne">
       <button class="rond metal" id="btnInv" aria-label="Inventaire"><svg viewBox="0 0 24 24" fill="#f2cd78"><path d="M7 7V6a5 5 0 0110 0v1h2.5l1 14h-17l1-14zm2 0h6V6a3 3 0 00-6 0zm-1 4a1 1 0 102 0 1 1 0 00-2 0zm6 0a1 1 0 102 0 1 1 0 00-2 0z"/></svg></button>
       <button class="rond metal" id="btnQuitter" aria-label="Quitter le donjon" hidden><svg viewBox="0 0 24 24" fill="#ff8a7a"><path d="M10 3h9v18h-9v-2h7V5h-7zM8.5 7l1.4 1.4L7.3 11H15v2H7.3l2.6 2.6L8.5 17 3.5 12z"/></svg></button>
@@ -294,8 +323,9 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
       <div class="prog" id="jProg" hidden><i></i></div>
       <div id="argent"><span class="piece"></span><span id="argentTxt">0</span></div>
     </div>
-    <div id="zone"><div class="nom" id="zNom">Place des Cendres</div><div class="ligne"><span id="zInfo">Joueurs 1/20</span><span id="zHeure">08:00</span></div></div>
-    <div id="carteMini"><canvas id="miniCv" width="256" height="256"></canvas></div>
+    </div></div>
+    <div id="hudD"><div id="zone"><div class="nom" id="zNom">Place des Cendres</div><div class="ligne"><span id="zInfo">Joueurs 1/20</span><span id="zHeure">08:00</span></div></div>
+    <div id="carteCadre"><div id="carteMini"><canvas id="miniCv" width="256" height="256"></canvas></div></div></div>
     <div id="bossbar" hidden><div class="ico"><svg viewBox="0 0 24 24" fill="#ffe0b0"><path d="M12 2C7 2 4 5.6 4 10c0 2.6 1.2 4.4 3 5.5V19h2v-2h2v2h2v-2h2v2h2v-3.5c1.8-1.1 3-2.9 3-5.5 0-4.4-3-8-8-8zM8.5 12a1.8 1.8 0 110-3.6 1.8 1.8 0 010 3.6zm7 0a1.8 1.8 0 110-3.6 1.8 1.8 0 010 3.6z"/></svg></div><div><div class="nom" id="bNom"></div><div class="barre"><i id="bFill"></i><span id="bTxt"></span></div></div></div>
 
     <div id="zoneJoy"></div>
