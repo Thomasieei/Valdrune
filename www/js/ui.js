@@ -194,6 +194,7 @@ UI.construireSorts = (joueur) => {
     else if (k === 'POT') svg = svgSort('potion', '#ffd0d8', '#5a0a18', 'pot');
     else if (k === 'CIBLE') svg = svgSort('cible', '#ffcf9a', '#3a1a10', 'cib');
     else { const s = joueur.sorts[k]; svg = s ? svgSort(s.glyphe, s.couleur[0], s.couleur[1], k) : svgSort('', '#3a3440', '#141016', k); if (!s) b.classList.add('off'); }
+    if (joueur.sorts[k] && joueur.sorts[k].vole) b.classList.add('vole');
     b.innerHTML = `<div class="cadre"><div>${svg}<div class="cd"></div><div class="num"></div></div></div>${lettre ? `<span class="t">${lettre}</span>` : ''}${k === 'POT' ? '<span class="compte"></span>' : ''}`;
     b.setAttribute('aria-label', k === 'ATK' ? 'Attaque' : k === 'POT' ? 'Potion' : k === 'CIBLE' ? 'Verrouiller la cible' : (joueur.sorts[k]?.nom || 'Vide'));
     // sort visable : on garde le doigt appuyé, un cercle montre la portée, on glisse pour choisir sa cible, on relâche pour lancer

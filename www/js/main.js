@@ -3185,8 +3185,8 @@ function tirageOmbre(tMin, tMax, source) {
   }, 1200);
   return true;
 }
-// une ombre = 20 % de ta puissance, +2 % par tier au-dessus du T1, +3 % par enchantement
-function forceOmbre() { const a = J.equip.arme || { tier: 1 }; return 0.2 + (a.tier - 1) * 0.02 + (a.ench || 0) * 0.03; }
+// une ombre = 25 % de ta puissance, +2 % par tier au-dessus du T1, +3 % par enchantement
+function forceOmbre() { const a = J.equip.arme || { tier: 1 }; return 0.25 + (a.tier - 1) * 0.02 + (a.ench || 0) * 0.03; }
 function vitesseJoueur() { return joueur.st.vitesse * (joueur.sprintT > 0 ? 1.6 : 1) * (joueur.slowT > 0 ? 0.6 : 1); }
 function fumeeOmbre(p) {
   emettre(V(p.x, 0.8, p.z), { n: 26, c1: '#b48aff', c2: '#0a0012', vit: 3.5, rayon: 0.6, vie: 0.7, taille: 0.6, grav: -1 });
@@ -3248,6 +3248,31 @@ function invoquerReflet(cible) {
   // le reflet sort du corps de la cible
   emettre(V(cible.pos.x, 1.2, cible.pos.z), { n: 40, c1: '#ffffff', c2: '#7a3aff', vit: 5, vie: 0.6, taille: 0.4 });
   UI.nombre(V(cible.pos.x, (cible.hauteurPlaque || 2.5) + 0.4, cible.pos.z), 'Reflet volé', 'crit');
+  volerPouvoir(cible, a);
+}
+// tant que le double vit, le joueur dispose d'un pouvoir de la cible copiée (à la place de Reflet volé)
+function pouvoirDe(c) {
+  if (c.combattant && c.equip) { const ids = sortsArme(c.equip.arme).filter(id => id !== 'legion' && id !== 'reflet'); return ids[ids.length - 1] || 'fente'; }
+  const d = c.def || {};
+  if (d.model === 'Dragon_Evolved') return 'meteore';
+  if (d.type === 'ranged') return c.boss ? 'pluie' : 'perforant';
+  if (d.type === 'caster') return c.boss ? 'meteore' : 'bouleFeu';
+  return c.boss ? 'tempete' : 'charge';
+}
+function volerPouvoir(cible, double) {
+  const id = pouvoirDe(cible); const s = SORTS[id]; if (!s) return;
+  joueur.pouvoirVole = { double, finReflet: G.t + (joueur.cdMax.W || 40), sortReflet: joueur.sorts.W, cdMaxReflet: joueur.cdMax.W };
+  joueur.sorts.W = { ...s, id, vole: true, nom: s.nom + ' (volé)' };
+  joueur.cdMax.W = +(s.cd * (1 - joueur.st.recharge / 100)).toFixed(2); joueur.cds.W = 0;
+  UI.construireSorts(joueur);
+  UI.toast(`Pouvoir volé : ${s.nom} — tant que le double vit`, true);
+  son('forceField_000', 0.6, 1.6); emettre(V(joueur.pos.x, 1.4, joueur.pos.z), { n: 50, c1: '#f0d0ff', c2: '#7a2aff', vit: 4, vie: 0.9, taille: 0.45, monte: 3 });
+}
+function rendrePouvoir() {
+  const pv = joueur && joueur.pouvoirVole; if (!pv) return;
+  joueur.sorts.W = pv.sortReflet; joueur.cdMax.W = pv.cdMaxReflet; joueur.cds.W = Math.max(0, pv.finReflet - G.t);
+  joueur.pouvoirVole = null; UI.construireSorts(joueur);
+  UI.toast('Le double s’efface : pouvoir volé perdu');
 }
 function majRefletMob(a, dt) {
   a.tc = cibleIA(a); a.atkT -= dt;
@@ -3284,6 +3309,7 @@ function mortInvocation(a) {
   dissiper(a);
 }
 function dissiper(a) {
+  if (joueur && joueur.pouvoirVole && joueur.pouvoirVole.double === a) rendrePouvoir();
   const i = allies.indexOf(a); if (i < 0) return;
   allies.splice(i, 1); a.mort = true;
   fumeeOmbre(a.pos); UI.retirerPlaque(a); G.scene.remove(a.root);
