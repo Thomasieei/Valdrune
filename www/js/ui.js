@@ -195,9 +195,26 @@ UI.construireSorts = (joueur) => {
     else { const s = joueur.sorts[k]; svg = s ? svgSort(s.glyphe, s.couleur[0], s.couleur[1], k) : svgSort('', '#3a3440', '#141016', k); if (!s) b.classList.add('off'); }
     b.innerHTML = `<div class="cadre"><div>${svg}<div class="cd"></div><div class="num"></div></div></div>${lettre ? `<span class="t">${lettre}</span>` : ''}${k === 'POT' ? '<span class="compte"></span>' : ''}`;
     b.setAttribute('aria-label', k === 'ATK' ? 'Attaque' : k === 'POT' ? 'Potion' : k === 'CIBLE' ? 'Verrouiller la cible' : (joueur.sorts[k]?.nom || 'Vide'));
-    const go = (e) => { e.preventDefault(); e.stopPropagation(); api.touche(k, true); };
-    const fin = (e) => { e.preventDefault(); api.touche(k, false); };
-    b.addEventListener('pointerdown', go); b.addEventListener('pointerup', fin); b.addEventListener('pointercancel', fin); b.addEventListener('pointerleave', fin);
+    // sort visable : on garde le doigt appuyé, un cercle montre la portée, on glisse pour choisir sa cible, on relâche pour lancer
+    let vise = null;
+    const go = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      if ('QWERDF'.includes(k) && api.visable(k)) { vise = { id: e.pointerId, x: e.clientX, y: e.clientY, bouge: false }; try { b.setPointerCapture(e.pointerId); } catch (er) {} api.viseeDebut(k); b.classList.add('vise'); return; }
+      api.touche(k, true);
+    };
+    const bouge = (e) => {
+      if (!vise || e.pointerId !== vise.id) return;
+      const dx = e.clientX - vise.x, dy = e.clientY - vise.y;
+      if (!vise.bouge && Math.hypot(dx, dy) > 14) vise.bouge = true;
+      if (vise.bouge) api.viseeDir(dx, dy);
+    };
+    const fin = (e) => {
+      e.preventDefault();
+      if (vise) { if (e.pointerId !== vise.id) return; const v = vise; vise = null; b.classList.remove('vise'); api.viseeFin(k, e.type !== 'pointercancel'); return; }
+      api.touche(k, false);
+    };
+    b.addEventListener('pointerdown', go); b.addEventListener('pointermove', bouge); b.addEventListener('pointerup', fin); b.addEventListener('pointercancel', fin);
+    b.addEventListener('pointerleave', (e) => { if (!vise) fin(e); });
     zone.appendChild(b);
   }
 };
@@ -390,6 +407,7 @@ UI.mini = (monde, joueur, entites) => {
     else if (e.type === 'joueur') { g.fillStyle = '#7fb2ff'; g.beginPath(); g.arc(a, b, 3, 0, 7); g.fill(); }
     else if (e.type === 'pnj') { g.fillStyle = '#ffd97a'; g.beginPath(); g.arc(a, b, 5, 0, 7); g.fill(); }
     else if (e.type === 'allie') { g.fillStyle = '#4fd1ff'; g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.beginPath(); g.arc(a, b, 4.5, 0, 7); g.fill(); g.stroke(); }
+    else if (e.type === 'envahisseur') { const k = 6 + 2 * Math.sin(performance.now() / 120); g.fillStyle = '#ff1a1a'; g.shadowColor = '#ff0000'; g.shadowBlur = 14; g.beginPath(); g.arc(a, b, k, 0, 7); g.fill(); g.shadowBlur = 0; g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.stroke(); }
     else if (e.type === 'portailJ') { g.fillStyle = '#ffc84a'; g.shadowColor = '#ffc84a'; g.shadowBlur = 8; g.beginPath(); g.arc(a, b, 5, 0, 7); g.fill(); g.shadowBlur = 0; }
     else if (e.type === 'portailV') { g.fillStyle = '#b05aff'; g.shadowColor = '#b05aff'; g.shadowBlur = 8; g.beginPath(); g.arc(a, b, 6, 0, 7); g.fill(); g.shadowBlur = 0; }
     else if (e.type === 'portail') { g.fillStyle = '#ff3a2a'; g.shadowColor = '#ff3a2a'; g.shadowBlur = 8; g.beginPath(); g.arc(a, b, 6, 0, 7); g.fill(); g.shadowBlur = 0; }
@@ -937,3 +955,10 @@ UI.recapFinal = (data, cb) => {
   d.querySelectorAll('[data-i]').forEach(b => b.onclick = () => UI.fiche(moi.butin.objets[+b.dataset.i], 'apercu'));
   d.querySelector('[data-ok]').onclick = () => { d.hidden = true; cb && cb(); };
 };
+
+UI.alerteInvasion = (n, subie) => {
+  const d = document.createElement('div'); d.className = 'alerteInv';
+  d.innerHTML = `<div class="voile"></div><h2>${subie ? 'Invasion !' : 'Tu envahis un monde'}</h2><p>${subie ? `Vous avez été envahis par ${n} joueur${n > 1 ? 's' : ''}` : `${n} joueur${n > 1 ? 's' : ''} à traquer`}</p><small>${subie ? 'Ils vous cherchent. Leur position apparaît par moments sur la carte.' : 'Leur position apparaît par moments sur la carte.'}</small>`;
+  document.body.appendChild(d); setTimeout(() => d.remove(), 4200);
+};
+UI.ping = () => { const m = $('#carteCadre') || $('#hudD'); if (!m) return; m.classList.remove('ping'); void m.offsetWidth; m.classList.add('ping'); };

@@ -229,6 +229,7 @@ function majBots(dt) {
 }
 
 function viderMonde() {
+  if (viseeObj) { G.scene.remove(viseeObj.g, viseeObj.fleche, viseeObj.marque); viseeObj = null; } visee = null;
   for (const e of ennemis) G.scene.remove(e.root);
   for (const a of allies) G.scene.remove(a.root);
   for (const o of ouvriers) G.scene.remove(o.root);
@@ -284,7 +285,7 @@ function entrerDonjon(id, opts = {}) {
     construireJoueur(monde.spawn.clone());
     joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax;
     G.camTarget.copy(joueur.pos); G.scene.fog.density = 0.028; G.hemi.intensity = 0.75; G.sun.intensity = 0.8;
-    if (groupe) creerCombattant(pointLibrePres(monde.spawn, 1.5, 3), groupe, 'allie');
+    if (groupe) { const a = creerCombattant(pointLibrePres(monde.spawn, 1.5, 3), groupe, 'allie'); const p = Math.random(); Object.assign(a, { autonome: true, perso: p < 0.6 ? 'loyal' : p < 0.85 ? 'solo' : 'traitre', modeA: 'suivre', modeT: rnd(10, 18) }); }
     // monstres
     const types = id === 0 ? ['minion', 'minion', 'minion', 'guerrier', 'archer'] : id === 1 ? ['minion', 'guerrier', 'guerrier', 'archer', 'mage'] : ['guerrier', 'guerrier', 'archer', 'mage', 'mage', 'minion'];
     monde.packs.forEach((pk, i) => pk.pts.forEach(p => creerEnnemi(MOBS[types[Math.floor(Math.random() * types.length)]], p, modeActuel.mobTier, i)));
@@ -407,6 +408,7 @@ function choisirCible(portee) {
   return best;
 }
 function directionVisee(portee) {
+  if (viseeForcee) { const v = viseeForcee; return v.cible ? { dir: V(v.cible.pos.x - joueur.pos.x, 0, v.cible.pos.z - joueur.pos.z).normalize(), cible: v.cible, point: v.cible.pos.clone() } : { dir: v.dir.clone(), cible: null, point: joueur.pos.clone().addScaledVector(v.dir, Math.min(portee, v.portee * 0.85)) }; }
   const c = choisirCible(portee);
   if (c) return { dir: V(c.pos.x - joueur.pos.x, 0, c.pos.z - joueur.pos.z).normalize(), cible: c, point: c.pos.clone() };
   const d = V(Math.sin(joueur.angle), 0, Math.cos(joueur.angle));
@@ -478,6 +480,7 @@ function tuer(e) {
     tirageOmbre(modeActuel.tiers[0], modeActuel.tiers[1], 'boss');
     for (const a of allies) if (!a.mort && !a.invoc && !a.garde) emoteBot(a, ['gg', 'feu', 'merci'], 0.6, 1);
     bossVaincus++; UI.boss(null); G.shake = 1;
+    for (const a of allies) if (a.autonome && !a.mort) reactionApresBoss(a);
     onde(e.pos, e.boss.couleur, 10, 1.2);
     emettre(V(e.pos.x, 2, e.pos.z), { n: 120, c1: '#ffd27a', c2: e.boss.couleur, vit: 9, vie: 1.4, taille: 0.5, grav: 3 });
     son('jingle_win', 0.6);
@@ -520,7 +523,7 @@ function mourirJoueur() {
     return;
   }
   if (arene) { son('lowFrequency_explosion_000', 0.6, 0.6); if (allies.some(a => !a.mort)) UI.toast('Ton coéquipier continue le combat…'); verifierArene(); return; }
-  if (invasion && invasion.rival && !invasion.rival.mort) return defaiteRival();
+  if (invasion && rivauxVivants().length) { invasion.rival = rivauxVivants()[0]; return defaiteRival(); }
   if (modeActuel && modeActuel.sylve) return mortSylve();
   son('lowFrequency_explosion_000', 0.7, 0.5);
   const perte = Math.round(J.argent * 0.05); J.argent -= perte; sauver();
@@ -1087,6 +1090,10 @@ const API = {
   construire: (ile, plot, t) => construire(ile, plot, t),
   get ile() { return API_ILE; },
   emote: (id) => emoteJoueur(id),
+  visable: (k) => { const s = joueur && joueur.sorts[k]; return !!(s && s.portee > 0 && !['bouclier', 'soin', 'sprint', 'buff'].includes(s.type) && s.id !== 'legion'); },
+  viseeDebut: (k) => { if (!joueur || joueur.mort || transition) return; visee = { k, s: joueur.sorts[k], dir: null, cible: null }; },
+  viseeDir: (dx, dy) => { if (!visee) return; const d = DIR_DROITE.clone().multiplyScalar(dx).addScaledVector(DIR_HAUT, -dy); d.y = 0; if (d.lengthSq() < 1e-4) return; visee.dir = d.normalize(); visee.cible = cibleDansDirection(visee.dir, visee.s.portee); },
+  viseeFin: (k, lancer) => { const v = visee; visee = null; cacherVisee(); if (!v || !lancer) return; viseeForcee = v.dir ? { dir: v.dir, cible: v.cible, portee: v.s.portee } : null; if (v.cible) joueur.cible = v.cible; lancerSort(k); viseeForcee = null; },
   sylve: () => { const g = preparerGroupeSylve(); UI.rechercheGroupe(g, () => entrerSylve(g)); },
   modeleJoueur: () => (joueur && joueur.model) || null,
   code: (c) => utiliserCode(c),
@@ -1101,7 +1108,8 @@ const API = {
   inviter: (data) => {
     UI.toast(`Invitation envoyée à ${data.nom}…`); son('click_001', 0.4);
     setTimeout(() => {
-      if (Math.random() < 0.12) { UI.toast(`${data.nom} a décliné l’invitation`); UI.chat(data.nom, hasard(['dsl je farm', 'pas maintenant', 'je vais déco bientôt'])); return; }
+      const ecart = data.ip - statsHeros(J.equip).ip;
+      if (Math.random() < (ecart > 150 ? 0.5 : 0.2)) { UI.toast(`${data.nom} a refusé l’invitation`); UI.chat(data.nom, ecart > 150 ? hasard(['t’es trop low dsl', 'reviens avec du T' + (Math.round((data.ip - 320) / 100) + 1), 'non merci', 'je groupe pas avec les débutants']) : hasard(['dsl je farm', 'pas maintenant', 'je vais déco bientôt', 'déjà en groupe', 'non']), 600); emoteBot(bots.find(b => b.nom === data.nom), ['bof', 'malin', 'oups'], 0.5); return; }
       groupe = data; selection = null; son('confirmation_001', 0.5);
       UI.toast(`${data.nom} a rejoint ton groupe`); UI.chat(data.nom, hasard(['go', 'let’s go !', 'je te suis', 'on fait un donjon ?', 'salut, on y va']));
     }, 1200 + Math.random() * 900);
@@ -1286,7 +1294,7 @@ function boucle() {
     miniT -= dt; if (miniT <= 0) { miniT = 0.2; majMini(); }
     UI.majPlaques(joueur.pos);
     // anneau de cible
-    majAnneauCible();
+    majAnneauCible(); majVisee();
   } else if (monde) {
     // écran titre : la caméra tourne autour de la place
     G.camYaw = Math.PI / 4 + Math.sin(G.t * 0.1) * 0.5; ORBITE.set(Math.sin(G.t * 0.07) * 6, 0, 2);
@@ -1339,7 +1347,10 @@ function majMini() {
     ents.push({ type: 'coffre', x: monde.coffrePos.x, z: monde.coffrePos.z, c: '#ffd25a' });
     ents.push({ type: 'portailJ', x: monde.portail.pos.x, z: monde.portail.pos.z });
   } else {
-    for (const e of ennemis) if (!e.mort) ents.push({ type: e.boss || e.rival ? 'boss' : 'mob', x: e.pos.x, z: e.pos.z });
+    for (const e of ennemis) if (!e.mort) {
+      if (e.rival && invasion && !(invasion.revele > 0) && dist2D(e.pos, joueur.pos) > 14) continue;
+      ents.push({ type: e.rival ? 'envahisseur' : e.boss ? 'boss' : 'mob', x: e.pos.x, z: e.pos.z });
+    }
     for (const c of coffres) if (!c.ouvert) ents.push({ type: 'coffre', x: c.pos.x, z: c.pos.z, c: c.def.color });
     if (sortie) ents.push({ type: 'portailV', x: sortie.pos.x, z: sortie.pos.z });
     for (const a of allies) if (!a.mort) ents.push({ type: 'allie', x: a.pos.x, z: a.pos.z });
@@ -1428,7 +1439,7 @@ function cibleIA(e) {
   let liste;
   if (e.poste && e.camp === 'allie') liste = vivants().filter(x => dist2D(x.pos, e.poste) < 24);
   else if (e.poste) liste = equipeJoueur().filter(x => dist2D(x.pos, e.poste) < 20);
-  else if (e.camp === 'allie') liste = arene ? vivants() : vivants().filter(x => x.etat !== 'dormant' && dist2D(x.pos, joueur.pos) < 15 && (x.etat !== 'idle' || dist2D(x.pos, e.pos) < 8));
+  else if (e.camp === 'allie') liste = arene ? vivants() : e.autonome ? vivants().filter(x => x.etat !== 'dormant' && (dist2D(x.pos, e.pos) < 12 || (dist2D(x.pos, joueur.pos) < 15 && x.etat !== 'idle')) && (!x.boss || dist2D(x.pos, joueur.pos) < 22)) : vivants().filter(x => x.etat !== 'dormant' && dist2D(x.pos, joueur.pos) < 15 && (x.etat !== 'idle' || dist2D(x.pos, e.pos) < 8));
   else liste = equipeJoueur();
   if (!liste.length) return null;
   let p = null, pd = Infinity;
@@ -1513,6 +1524,7 @@ function majCombattant(e, dt) {
   // bulle de protection : sous la pression (gros dégâts récents ou vie basse)
   if (e.tc && !e.invoc && e.cdRempart <= 0 && (e.pv < e.pvMax * 0.55 || (e.pvRef || e.pv) - e.pv > e.pvMax * 0.18)) rempartIA(e);
   if (e.dashT > 0) { e.dashT -= dt; deplacer(e, e.dashV.x * dt, e.dashV.z * dt, 0.5); return; }
+  if (e.autonome && e.perso === 'traitre' && !e.trahi && joueur.pv < joueur.st.pvMax * 0.35 && dist2D(e.pos, joueur.pos) < 10 && Math.random() < dt * 0.25) { e.trahi = true; trahir(e); }
   if (e.camp === 'allie' && dangers.length) { const z = dangerSur(e.pos); if (z) { const dir = V(e.pos.x - z.p.x, 0, e.pos.z - z.p.z); if (dir.lengthSq() < 0.01) dir.set(Math.random() - 0.5, 0, Math.random() - 0.5); dir.normalize(); avancerVers(e, V(z.p.x + dir.x * (z.r + 2), 0, z.p.z + dir.z * (z.r + 2)), dt, e.st.vitesse * 1.1); e.jouer(def.run); return; } }
   // repli : il s'éloigne le temps que ses sorts reviennent, puis revient
   if (e.repliT > 0 && e.tc) {
@@ -1533,9 +1545,10 @@ function majCombattant(e, dt) {
         if (dj > 16) { fumeeOmbre(e.pos); e.pos.copy(pointLibrePres(joueur.pos, 1.5, 3)); fumeeOmbre(e.pos); }
         else if (dj > 2.8) { avancerVers(e, joueur.pos, dt, Math.max(e.st.vitesse, vitesseJoueur()) * (dj > 6 ? 1.3 : 1.05)); e.jouer(def.run); }
         else e.jouer(def.idle);
-      } else if (dj > 3.5) { avancerVers(e, joueur.pos, dt, e.st.vitesse * (dj > 8 ? 1.15 : 0.9)); e.jouer(def.run); }
+      } else if (e.autonome && autonomieAllie(e, dt, dj)) { /* il fait sa vie */ }
+      else if (dj > 3.5) { allerVers(e, joueur.pos, dt, e.st.vitesse * (dj > 8 ? 1.15 : 0.9)); e.jouer(def.run); }
       else e.jouer(def.idle);
-      if (dj > 34 && !arene) { e.pos.copy(pointLibrePres(joueur.pos, 1.5, 3)); onde(e.pos, '#4fd1ff', 2.5, 0.5); }
+      if (dj > 34 && !arene && !e.autonome) { e.pos.copy(pointLibrePres(joueur.pos, 1.5, 3)); onde(e.pos, '#4fd1ff', 2.5, 0.5); }
     } else e.jouer(def.idle);
     return;
   }
@@ -1548,7 +1561,7 @@ function majCombattant(e, dt) {
     if (!e.invoc && e.specT > 2.5 && e.pv < e.pvMax * (melee ? 0.6 : 0.85) && Math.random() < 0.6) { e.repliT = Math.min(e.specT - 1, rnd(2, 3.5)); if (e.camp === 'ennemi') emoteBot(e, ['fuite', 'oups', 'ouin'], 0.35); return; }
   }
   const portee = melee ? def.portee + (c.rayon || 0.5) : 9.5;
-  if (d > portee) { avancerVers(e, c.pos, dt, (e.invoc ? Math.max(e.st.vitesse, vitesseJoueur()) : e.st.vitesse) * (e.slowT > 0 ? 0.6 : 0.92)); e.jouer(def.run); return; }
+  if (d > portee) { allerVers(e, c.pos, dt, (e.invoc ? Math.max(e.st.vitesse, vitesseJoueur()) : e.st.vitesse) * (e.slowT > 0 ? 0.6 : 0.92)); e.jouer(def.run); return; }
   // un tireur garde ses distances
   if (!melee && d < 4.5 && e.esquiveT <= 0) {
     const arr = V(e.pos.x - c.pos.x, 0, e.pos.z - c.pos.z).normalize();
@@ -1772,29 +1785,38 @@ function effetArrivee(pos) {
   son('lowFrequency_explosion_000', 0.8, 0.8); son('forceField_000', 0.6, 0.6); G.shake = 0.6;
 }
 function majInvasion(dt) {
+  if (invasion && invasion.rivaux && rivauxVivants().length) {
+    // positions révélées brièvement toutes les ~14 s
+    invasion.revealT -= dt; if (invasion.revele > 0) invasion.revele -= dt;
+    if (invasion.revealT <= 0) { invasion.revealT = rnd(12, 16); invasion.revele = 2.6; son('forceField_000', 0.35, 1.8); UI.ping(); }
+  }
   if (!invasion || invasion.rival || joueur.mort || transition) return;
   invasion.t -= dt; if (invasion.t > 0) return;
-  const data = donneesBot(statsHeros(J.equip).ip + Math.round(rnd(-50, 90)));
+  lancerInvasion();
+}
+function lancerInvasion() {
+  const ipJ = statsHeros(J.equip).ip;
+  const n = coequipiers().length ? 2 : 1; const pris = [];
+  const datas = Array.from({ length: n }, () => { const d = donneesBot(ipJ + Math.round(rnd(-50, 90)), pris); pris.push(d.nom); return d; });
+  const salles = monde.salles.filter(s => s.type === 'normale');
+  invasion.rivaux = [];
   if (invasion.mode === 'subie') {
-    const pos = pointLibrePres(joueur.pos, 11, 16);
-    effetArrivee(pos);
-    const r = invasion.rival = creerCombattant(pos, data, 'ennemi');
-    UI.flashInvasion();
-    UI.toast('INVASION', true);
-    UI.toast(`${r.nom} ${r.guilde} · Puissance ${r.ip} a envahi ton monde`);
-    setTimeout(() => !r.mort && UI.chat(r.nom, hasard(RIVAL_ARRIVEE)), 1800);
-    UI.journal('Invasion !', `${r.nom} est venu te dépouiller. Tue-le ou perds tout ton équipement.`, null);
+    // ils arrivent loin de toi et te cherchent ; toi aussi tu les cherches
+    const s = [...salles].sort((a, b) => dist2D(b.centre, joueur.pos) - dist2D(a.centre, joueur.pos))[Math.floor(Math.random() * 2)] || salles[0];
+    for (const d of datas) { const pos = pointLibrePres(s.centre, 0, 4); effetArrivee(pos); const r = creerCombattant(pos, d, 'ennemi'); r.chasseur = true; invasion.rivaux.push(r); }
+    invasion.rival = invasion.rivaux[0];
+    alerteInvasion(n, true);
+    setTimeout(() => invasion && invasion.rivaux.forEach((r, i) => !r.mort && setTimeout(() => UI.chat(r.nom, hasard(RIVAL_ARRIVEE)), i * 1400)), 1800);
+    UI.journal('Invasion !', `${n === 2 ? `${datas[0].nom} et ${datas[1].nom} sont venus` : `${datas[0].nom} est venu`} te dépouiller. Trouve-${n === 2 ? 'les' : 'le'} avant qu’${n === 2 ? 'ils' : 'il'} te trouve${n === 2 ? 'nt' : ''}.`, null);
   } else {
-    const salles = monde.salles.filter(s => s.type === 'normale');
-    const s = salles.sort((a, b) => dist2D(b.centre, joueur.pos) - dist2D(a.centre, joueur.pos))[Math.floor(Math.random() * 3)];
-    const r = invasion.rival = creerCombattant(pointLibrePres(s.centre, 0, 4), data, 'ennemi');
-    r.attaqueT = 0; r.jouer(r.armeDef.idle);
-    UI.toast(`Tu as envahi le monde de ${r.nom}`, true);
-    UI.toast(`${r.guilde} · Puissance ${r.ip}`);
-    UI.journal('Invasion', `Traque ${r.nom} (puissance ${r.ip}) et prends-lui tout. Le gros point rouge sur la carte, c’est lui.`, null);
-    son('forceField_000', 0.6, 0.6);
-    setTimeout(() => !r.mort && UI.chat(r.nom, hasard(['?? un envahisseur', 'sérieux pas maintenant', 'viens alors', 'oh non'])), 6000);
+    const s = [...salles].sort((a, b) => dist2D(b.centre, joueur.pos) - dist2D(a.centre, joueur.pos))[Math.floor(Math.random() * 3)] || salles[0];
+    for (const d of datas) { const r = creerCombattant(pointLibrePres(s.centre, 0, 4), d, 'ennemi'); r.attaqueT = 0; r.jouer(r.armeDef.idle); invasion.rivaux.push(r); }
+    invasion.rival = invasion.rivaux[0];
+    alerteInvasion(n, false);
+    UI.journal('Invasion', `Traque ${datas.map(d => d.nom).join(' et ')} et prends-leur tout. Leur position apparaît par moments sur la carte.`, null);
+    setTimeout(() => invasion && invasion.rivaux.forEach(r => !r.mort && UI.chat(r.nom, hasard(['?? un envahisseur', 'sérieux pas maintenant', 'viens alors', 'oh non']))), 6000);
   }
+  invasion.revealT = 4; invasion.revele = 0;
 }
 function victoireRival(e) {
   UI.boss(null); G.shake = 0.8;
@@ -1813,7 +1835,7 @@ function victoireRival(e) {
   UI.journal(e.pillard ? 'Pillard éliminé' : invasion && invasion.mode === 'menee' ? 'Invasion réussie' : 'Invasion repoussée', `Fouille la dépouille de ${e.nom} : choisis ce que tu gardes.`, null);
   if (e.pillard) { raid = null; UI.boss(null); }
   gagnerXPRelatif(0.1);
-  if (invasion) invasion.fini = true;
+  if (invasion && !rivauxVivants().length) invasion.fini = true;
   setTimeout(() => { e.descendre = true; }, 3500);
   sauver();
 }
@@ -2293,6 +2315,137 @@ function emoteJoueur(id) {
   cands.slice(0, 2).forEach((c, i) => emoteBot(c, rep, i ? 0.25 : (modeActuel ? 0.45 : 0.6), rnd(0.8, 1.9) + i));
 }
 
+
+
+
+// ---------------- Visée des sorts (doigt appuyé) ----------------
+let visee = null, viseeForcee = null, viseeObj = null;
+function cibleDansDirection(dir, portee) {
+  let best = null, bs = Infinity;
+  for (const e of vivants()) {
+    const dx = e.pos.x - joueur.pos.x, dz = e.pos.z - joueur.pos.z, d = Math.hypot(dx, dz);
+    if (d > portee + 2 + (e.rayon || 0) || d < 0.3) continue;
+    const cos = (dx * dir.x + dz * dir.z) / d; if (cos < 0.8) continue;
+    const score = (1 - cos) * 30 + d * 0.15; if (score < bs) { bs = score; best = e; }
+  }
+  return best;
+}
+function majVisee() {
+  if (!visee) return;
+  if (!viseeObj) {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false });
+    const cercle = new THREE.Mesh(new THREE.RingGeometry(0.965, 1, 96), mat); cercle.rotation.x = -Math.PI / 2;
+    const fond = new THREE.Mesh(new THREE.CircleGeometry(1, 64), new THREE.MeshBasicMaterial({ color: '#bfe0ff', transparent: true, opacity: 0.05, blending: THREE.AdditiveBlending, depthWrite: false })); fond.rotation.x = -Math.PI / 2;
+    const fleche = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 1).translate(0, 0.5, 0), new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false })); fleche.rotation.x = -Math.PI / 2;
+    const marque = new THREE.Mesh(new THREE.RingGeometry(0.8, 1.05, 40), new THREE.MeshBasicMaterial({ color: '#ffd27a', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false })); marque.rotation.x = -Math.PI / 2;
+    g.add(fond, cercle); G.scene.add(g, fleche, marque);
+    viseeObj = { g, fleche, marque };
+  }
+  const { g, fleche, marque } = viseeObj; const p = visee.s.portee;
+  g.visible = true; g.position.set(joueur.pos.x, 0.1, joueur.pos.z); g.scale.set(p, 1, p);
+  fleche.visible = !!visee.dir;
+  if (visee.dir) {
+    const cible = visee.cible; const l = cible ? Math.min(p, dist2D(cible.pos, joueur.pos)) : p;
+    const ang = cible ? Math.atan2(cible.pos.x - joueur.pos.x, cible.pos.z - joueur.pos.z) : Math.atan2(visee.dir.x, visee.dir.z);
+    fleche.position.set(joueur.pos.x, 0.12, joueur.pos.z); fleche.scale.set(1, l, 1); fleche.rotation.z = ang + Math.PI;
+  }
+  marque.visible = !!visee.cible;
+  if (visee.cible) { const c = visee.cible; const r = (c.rayon || 0.5) + 0.6; marque.position.set(c.pos.x, 0.13, c.pos.z); marque.scale.set(r, r, 1); marque.rotation.z = G.t * 2; }
+}
+function cacherVisee() { if (viseeObj) { viseeObj.g.visible = false; viseeObj.fleche.visible = false; viseeObj.marque.visible = false; } }
+
+// ---------------- Chemins dans le donjon (grille) ----------------
+function cheminGrille(a, b) {
+  const W = monde.grilleW, H = monde.grilleH, g = monde.grille, C = 4;
+  const ax = Math.floor(a.x / C), az = Math.floor(a.z / C), bx = Math.floor(b.x / C), bz = Math.floor(b.z / C);
+  if (bx < 0 || bz < 0 || bx >= W || bz >= H || !g[bz * W + bx]) return null;
+  const prec = new Int32Array(W * H).fill(-1); const file = [az * W + ax]; prec[az * W + ax] = az * W + ax;
+  const but = bz * W + bx; let i = 0;
+  while (i < file.length) {
+    const c = file[i++]; if (c === but) break;
+    const cx = c % W, cz = (c / W) | 0;
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      const nx = cx + dx, nz = cz + dz; if (nx < 0 || nz < 0 || nx >= W || nz >= H) continue;
+      const k = nz * W + nx; if (prec[k] >= 0 || !g[k]) continue;
+      if (dx && dz && (!g[cz * W + nx] || !g[nz * W + cx])) continue;
+      prec[k] = c; file.push(k);
+    }
+  }
+  if (prec[but] < 0) return null;
+  const pts = []; for (let c = but; c !== prec[c]; c = prec[c]) pts.push(V((c % W) * C + C / 2, 0, ((c / W) | 0) * C + C / 2));
+  return pts.reverse();
+}
+// va vers une destination en contournant les murs du donjon
+function allerVers(e, dest, dt, vitesse) {
+  if (!monde.grille || dist2D(e.pos, dest) < 7) { avancerVers(e, dest, dt, vitesse); return; }
+  const ch = e.chemin;
+  if (!ch || ch.t <= 0 || dist2D(ch.dest, dest) > 4) { e.chemin = { pts: cheminGrille(e.pos, dest) || [], i: 0, dest: dest.clone(), t: 1.5 }; }
+  e.chemin.t -= dt;
+  const pts = e.chemin.pts; while (e.chemin.i < pts.length && dist2D(pts[e.chemin.i], e.pos) < 1.6) e.chemin.i++;
+  avancerVers(e, e.chemin.i < pts.length ? pts[e.chemin.i] : dest, dt, vitesse);
+}
+// ---------------- Le coéquipier fait sa vie ----------------
+const PHRASES_EXPLO = ['je vais clean à côté', 'je prends la salle là-bas', 'rejoins-moi', 'je check à gauche', 'y a du monde par ici', 'suis-moi'];
+function autonomieAllie(e, dt, dj) {
+  e.modeT -= dt;
+  if (e.modeT <= 0) {
+    e.modeT = rnd(18, 34);
+    const avant = e.modeA; e.modeA = Math.random() < 0.55 ? 'explorer' : 'suivre';
+    if (e.modeA !== avant) { if (e.modeA === 'explorer') { UI.chat(e.nom, hasard(PHRASES_EXPLO)); emoteBot(e, ['toi', 'feu', 'malin'], 0.3); } else if (dj > 15) UI.chat(e.nom, hasard(['j’arrive', 'attends-moi', 'je reviens vers toi'])); }
+  }
+  if (e.modeA !== 'explorer') return false;
+  if (!e.objectif || e.objectif.mort || e.objectif.etat === 'chasse' && dist2D(e.objectif.pos, e.pos) > 30) {
+    let best = null, bd = Infinity;
+    for (const x of ennemis) { if (x.mort || x.boss || x.rival || x.etat === 'dormant') continue; const d = dist2D(x.pos, e.pos); if (d < bd) { bd = d; best = x; } }
+    e.objectif = best;
+  }
+  if (!e.objectif) { e.modeA = 'suivre'; return false; }
+  allerVers(e, e.objectif.pos, dt, e.st.vitesse * 0.95); e.jouer(e.armeDef.run);
+  return true;
+}
+function reactionApresBoss(a) {
+  if (a.perso === 'solo' && !a.parti && Math.random() < 0.7) { a.parti = true; setTimeout(() => partirAllie(a), rnd(2500, 5000)); return; }
+  if (a.perso === 'traitre' && !a.trahi && bossVaincus >= 1 && Math.random() < 0.65) { a.trahi = true; setTimeout(() => trahir(a), rnd(4000, 9000)); return; }
+  emoteBot(a, ['gg', 'feu', 'merci', 'ez'], 0.6, 1);
+}
+function partirAllie(a) {
+  if (a.mort || !allies.includes(a)) return;
+  emoteBot(a, ['gg', 'merci', 'salut'], 1);
+  UI.chat(a.nom, hasard(['bon je dois y aller, gg', 'gg je déco', 'je rentre, bonne chance', 'j’ai ce qu’il me faut, bye', 'ma mère m’appelle dsl']));
+  setTimeout(() => {
+    if (!allies.includes(a)) return;
+    effetArrivee(a.pos.clone()); fumeeOmbre(a.pos);
+    allies.splice(allies.indexOf(a), 1); UI.retirerPlaque(a); G.scene.remove(a.root);
+    if (groupe && groupe.nom === a.nom) groupe = null;
+    UI.toast(`${a.nom} a quitté le donjon et ton groupe`);
+  }, 2200);
+}
+function trahir(a) {
+  if (a.mort || !allies.includes(a) || joueur.mort || !modeActuel || modeActuel.sylve) return;
+  UI.chat(a.nom, hasard(['dsl, rien de perso', 'ton stuff me plaît trop', 'gg… pour moi', 'merci pour le carry 😈', 'surprise']));
+  emoteBot(a, ['diable', 'toi', 'malin'], 1);
+  setTimeout(() => {
+    if (a.mort || !allies.includes(a)) return;
+    allies.splice(allies.indexOf(a), 1); ennemis.push(a);
+    Object.assign(a, { camp: 'ennemi', rival: true, autonome: false, potions: 2, tc: joueur, specT: 1, chasseur: true });
+    UI.retirerPlaque(a); UI.plaque(a, { nom: a.nom, guilde: a.guilde, classe: 'rival', ip: a.ip, vie: true });
+    if (groupe && groupe.nom === a.nom) groupe = null;
+    invasion = invasion && !invasion.fini ? invasion : { mode: 'subie', t: 0, rival: null, rivaux: [] };
+    invasion.rivaux = [...(invasion.rivaux || []), a]; invasion.rival = invasion.rival && !invasion.rival.mort ? invasion.rival : a; invasion.revealT = 10; invasion.revele = 0;
+    UI.flashInvasion(); son('lowFrequency_explosion_000', 0.8, 0.7); G.shake = 0.6;
+    UI.toast('TRAHISON !', true); UI.toast(`${a.nom} se retourne contre toi : s’il te tue, il prend tout ton équipement`);
+    UI.journal('Trahison !', `${a.nom} veut ton équipement. Tue-le ou perds tout.`, null);
+  }, 1600);
+}
+function rivauxVivants() { return invasion && invasion.rivaux ? invasion.rivaux.filter(r => !r.mort) : invasion && invasion.rival && !invasion.rival.mort ? [invasion.rival] : []; }
+function alerteInvasion(n, subie) {
+  UI.alerteInvasion(n, subie);
+  son('lowFrequency_explosion_000', 0.9, 0.55); G.shake = 0.7;
+  // la lumière du donjon vire au rouge quelques secondes
+  const h0 = G.hemi.color.clone(), s0 = G.sun.color.clone();
+  ajouterVfx(new THREE.Group(), (t) => { const k = Math.max(0, Math.sin(Math.min(1, t / 3) * Math.PI)); G.hemi.color.copy(h0).lerp(new THREE.Color('#ff1a1a'), k * 0.85); G.sun.color.copy(s0).lerp(new THREE.Color('#ff3a2a'), k * 0.8); if (t > 3) { G.hemi.color.copy(h0); G.sun.color.copy(s0); return false; } });
+}
 
 // =================== Sanctuaire d'Émeraude : donjon de groupe à 5 ===================
 let sylve = null, compteur = null, dangers = [], zonesSol = [], orbes = [], rayons = [];
@@ -2774,7 +2927,7 @@ function dissiper(a) {
 }
 
 // accès de débogage (console)
-window.__jeu = { API, G, entrerSylve: (o) => entrerSylve(o), get sylve() { return sylve; }, invoquerOmbres, tirageOmbre, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
+window.__jeu = { API, G, groupeTest: () => { groupe = donneesBot(statsHeros(J.equip).ip); return groupe.nom; }, trahir: () => allies.forEach(a => a.autonome && trahir(a)), invasionTest: () => { invasion = { mode: "subie", t: 0, rival: null }; lancerInvasion(); }, entrerSylve: (o) => entrerSylve(o), get sylve() { return sylve; }, invoquerOmbres, tirageOmbre, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
 
 initEntrees();
 demarrer();

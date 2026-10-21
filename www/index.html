@@ -480,6 +480,18 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 .butinBoss{display:flex;align-items:center;justify-content:center;gap:1.4vh;margin-top:1.6vh;padding:1vh;border-radius:8px;background:#0a1e12;border:1px solid #2a5a3a}
 .butinBoss .titreB{font:800 1.8vh var(--f-label);letter-spacing:.12em;text-transform:uppercase;color:#8affc0}.butinBoss .case{width:8vh;height:8vh}
 .cadreS.final .eclat{position:absolute;inset:-30%;background:conic-gradient(from 0deg,transparent,#3affa022,transparent 20%,#3affa022 40%,transparent 60%);animation:tourne 18s linear infinite;pointer-events:none}
+
+/* invasion, visée */
+.alerteInv{position:fixed;inset:0;z-index:58;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center;animation:alerteI 4.2s ease forwards}
+.alerteInv .voile{position:absolute;inset:0;background:radial-gradient(ellipse at center,#ff000000 25%,#ff0000aa 75%,#6a0000ee);animation:pulseR .55s ease-in-out 6 alternate}
+.alerteInv h2{position:relative;margin:0;font-family:var(--f-titre);font-size:10vh;color:#fff;text-shadow:0 0 30px #ff0000,0 0 60px #ff0000,0 4px 0 #000}
+.alerteInv p{position:relative;margin:.4vh 0;font:900 3.4vh var(--f-label);color:#ffd0c8;text-shadow:0 2px 0 #000;letter-spacing:.06em}
+.alerteInv small{position:relative;font:700 2vh var(--f-label);color:#ffb0a0;text-shadow:0 2px 0 #000}
+@keyframes pulseR{from{opacity:.55}to{opacity:1}}
+@keyframes alerteI{0%{opacity:0}8%{opacity:1}80%{opacity:1}100%{opacity:0}}
+#carteCadre.ping{animation:pingC 2.6s ease-out}
+@keyframes pingC{0%,30%,60%{box-shadow:0 0 0 0 #ff2a2a,0 0 30px #ff0000}15%,45%{box-shadow:0 0 0 6px #ff2a2a88,0 0 40px #ff0000}100%{box-shadow:none}}
+.sort.vise .cadre{box-shadow:0 0 0 3px #fff8,0 0 18px #fff6}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important}}
 </style>
 
