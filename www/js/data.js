@@ -83,7 +83,7 @@ export const SORTS = {
   colonne:   { nom: 'Colonne de flammes', desc: 'Après 0,8 s, un pilier de feu jaillit et projette les ennemis en l’air.', cd: 9, energie: 30, mult: 2.6, portee: 12, type: 'delai', couleur: ['#ff6a2a', '#4a0606'], glyphe: 'pillar' },
   meteore:   { nom: 'Météore', desc: 'Appelle un météore gigantesque. Le sol brûle ensuite 3 s.', cd: 25, energie: 50, mult: 5.0, portee: 12, type: 'meteore', couleur: ['#ffe27a', '#7a1a00'], glyphe: 'meteor' },
   rempart:   { nom: "Rempart d'Égide", desc: 'Bouclier qui absorbe 25 % de tes PV max pendant 4 s.', cd: 18, energie: 20, mult: 0, type: 'bouclier', couleur: ['#8fd3ff', '#0d2a55'], glyphe: 'shield' },
-  souffle:   { nom: 'Second souffle', desc: 'Rend 30 % de tes PV max en 3 s.', cd: 25, energie: 25, mult: 0, type: 'soin', couleur: ['#9dff8a', '#0f3d14'], glyphe: 'heart' },
+  souffle:   { nom: 'Second souffle', desc: 'Rend 30 % de tes PV max en 3 s.', cd: 45, energie: 25, mult: 0, type: 'soin', couleur: ['#9dff8a', '#0f3d14'], glyphe: 'heart' },
   execution: { nom: 'Exécution', desc: 'Frappe brutale. Dégâts triplés si la cible a moins de 35 % de PV.', cd: 9, energie: 30, mult: 1.6, portee: 4, type: 'cible', couleur: ['#ff9a9a', '#3a0008'], glyphe: 'slash' },
   vampirisme:{ nom: 'Soif de sang', desc: 'Pendant 5 s, tes coups te rendent 35 % des dégâts infligés.', cd: 16, energie: 25, mult: 0, type: 'buff', couleur: ['#ff6a8a', '#40001a'], glyphe: 'heart' },
   purge:     { nom: 'Purge du gladiateur', desc: 'Supprime ralentissements et étourdissements, intouchable 1,2 s.', cd: 18, energie: 20, mult: 0, type: 'buff', couleur: ['#e0c8ff', '#2a0a4a'], glyphe: 'shield' },

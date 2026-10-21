@@ -355,7 +355,12 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 .resultat .recap{display:flex;flex-direction:column;gap:.6vh;font-size:2.6vh;color:#f0e0ff}
 .compteur{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%);font-family:var(--f-titre);font-size:16vh;color:#e0c0ff;text-shadow:0 0 30px #8a3aff;animation:compteur .9s forwards;pointer-events:none;z-index:12}
 @keyframes compteur{0%{opacity:0;scale:2}20%{opacity:1;scale:1}100%{opacity:0;scale:.8}}
-.niveauUp{position:absolute;left:50%;top:30%;transform:translateX(-50%);font-family:var(--f-titre);font-size:6vh;color:#8fd0ff;text-shadow:0 0 20px #3a7aff;pointer-events:none;animation:toast 2.6s forwards;white-space:nowrap;z-index:12}
+.niveauUp{position:absolute;left:50%;top:58%;transform:translateX(-50%);max-width:min(90vw,110vh);display:flex;flex-direction:column;align-items:center;gap:.8vh;padding:1.2vh 3vh;border-radius:1vh;background:linear-gradient(90deg,#0a1a3a00,#0a1a3ae0 18%,#0a1a3ae0 82%,#0a1a3a00);pointer-events:none;animation:niv 3.3s forwards;z-index:12;text-align:center}
+.niveauUp .titreNiv{font-family:var(--f-titre);font-size:5.4vh;line-height:1;color:#bfe2ff;text-shadow:0 0 20px #3a7aff,0 2px 0 #061230}
+.niveauUp .lignesNiv{display:flex;flex-wrap:wrap;justify-content:center;gap:.6vh 1.6vh}
+.niveauUp .lignesNiv span{font-family:var(--f-label);font-weight:800;font-size:2.4vh;color:#fff;text-shadow:0 0 3px #000,0 0 3px #000}
+.niveauUp .palierNiv{font-family:var(--f-label);font-weight:800;font-size:2.4vh;color:#ffd27a;text-shadow:0 0 3px #000,0 0 3px #000}
+@keyframes niv{0%{opacity:0;transform:translate(-50%,10px) scale(.9)}10%{opacity:1;transform:translate(-50%,0)}82%{opacity:1}100%{opacity:0}}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important}}
 </style>
 

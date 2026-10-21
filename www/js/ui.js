@@ -385,7 +385,7 @@ UI.fiche = (it, contexte) => {
   if (contexte === 'vente') boutons.push(`<button class="btn" data-a="vendre">Vendre ${fmt(prixVente(it))}</button>`);
   if (contexte === 'achat') boutons.push(`<button class="btn" data-a="acheter">Acheter ${fmt(valeurObjet(it))}</button>`);
   if (contexte === 'arene') boutons.push(`<button class="btn" data-a="acheterArene" ${j.trophees >= prixTrophees(it) ? '' : 'disabled'}>Acheter 🏆 ${fmt(prixTrophees(it))}</button>`);
-  const req = slot ? (() => { const n = niveauDe(it.type), r = niveauRequis(it); const nomM = MAITRISES.find(m => m.id === it.type).nom; return `<p class="req ${n >= r ? 'okr' : 'ko'}">Niveau requis : ${nomM} ${r} · ${n >= r ? 'tu es niveau ' + n : 'tu n’es que niveau ' + n}${n > 90 ? ` · bonus de maîtrise +${Math.round(bonusMaitrise(n) * 100)} %` : ''}</p>`; })() : '';
+  const req = slot ? (() => { const n = niveauDe(it.type), r = niveauRequis(it); const nomM = MAITRISES.find(m => m.id === it.type).nom; return `<p class="req ${n >= r ? 'okr' : 'ko'}">Niveau requis : ${nomM} ${r} · ${n >= r ? 'tu es niveau ' + n : 'tu n’es que niveau ' + n}${n > 1 ? ` · bonus de maîtrise +${(bonusMaitrise(n) * 100).toFixed(1).replace('.', ',')} %` : ''}</p>`; })() : '';
   const vInfo = it.arene ? `<p class="varArene" style="--vc:${VARIANTES[it.arene].couleur}"><b>Objet d’arène · ${VARIANTES[it.arene].style}.</b> ${VARIANTES[it.arene].texte} +10 % contre les joueurs.</p>` : '';
   $('#fiche').innerHTML = `<div class="carteObjet parchemin"><button class="fermer" data-x aria-label="Fermer">×</button>
     <div class="tete"><div class="grosse">${htmlCase(it, '', 'width:100%;height:100%')}</div>
@@ -581,10 +581,10 @@ function htmlMaitrise(j) {
       <div class="mIco">${htmlCase(it)}</div>
       <div class="mTxt"><div class="mNom">${m.nom}${portes.has(m.id) ? '<span class="pastille">porté</span>' : ''}</div>
         <div class="mBarre"><i style="width:${(k * 100).toFixed(1)}%"></i><span>${d.niv >= 100 ? 'MAX' : fmt(d.xp) + ' / ' + fmt(need) + ' XP'}</span></div>
-        <div class="mInfo">Porte jusqu’au <b style="color:${shade(TIERS[tmax].color)}">T${tmax}</b> · Prochain palier : ${info}${d.niv > 90 ? ` · <b>+${Math.round(bonusMaitrise(d.niv) * 100)} %</b>` : ''}</div></div>
+        <div class="mInfo">Porte jusqu’au <b style="color:${shade(TIERS[tmax].color)}">T${tmax}</b> · Prochain palier : ${info}${d.niv > 1 ? ` · <b>+${(bonusMaitrise(d.niv) * 100).toFixed(1).replace('.', ',')} % de puissance</b>` : ''}</div></div>
       <div class="mNiv"><small>NIV.</small>${d.niv}</div></div>`;
   }).join('')}
-  <p class="mAide">Seules les pièces que tu portes gagnent de l’expérience en tuant. Du niveau 90 au 100, chaque niveau ajoute 2 % aux statistiques de ce type de pièce.</p></div>`;
+  <p class="mAide">Seules les pièces que tu portes gagnent de l’expérience. Chaque niveau ajoute 0,2 % de puissance brute à ce type de pièce, puis 2 % par niveau du 90 au 100.</p></div>`;
 }
 
 // ---------------- Arène ----------------

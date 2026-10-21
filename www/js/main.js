@@ -123,7 +123,7 @@ function construireJoueur(pos) {
   if (J.equip.casque) joueur.sorts.D = { ...SORTS.souffle, id: 'souffle' };
   if (J.equip.bottes) joueur.sorts.F = { ...SORTS.ruee, id: 'ruee' };
   for (const k in joueur.sorts) joueur.cdMax[k] = +(joueur.sorts[k].cd * (1 - st.recharge / 100)).toFixed(2);
-  joueur.cdMax.POT = 20; joueur.potions = J.potions;
+  joueur.cdMax.POT = 60; joueur.potions = J.potions;
   joueur.jouer(def.idle);
   UI.plaque(joueur, { nom: J.nom, guilde: 'CROW ZERO', classe: 'allie', vie: false, ip: st.ip });
   $('#ipHud').textContent = '⚔ ' + st.ip;
@@ -472,7 +472,7 @@ function attaquer(dt) {
   const anim = def.attaques[Math.floor(Math.random() * def.attaques.length)];
   const vit = Math.max(1, st.vitesseAtk * joueur.duree(anim) * 0.95);
   joueur.jouer(anim, { boucle: false, vitesse: vit, forcer: true, fondu: 0.08, fin: () => joueur.jouer(def.idle) });
-  joueur.verrouT = 0.28;
+  if (Math.hypot(entree.jx, entree.jy) < 0.12) joueur.verrouT = 0.28; // l'attaque de base ne bloque pas un joueur qui se déplace
   const couleur = TIERS[J.equip.arme.tier].color;
   if (joueur.armeType === 'epee') {
     programmer(0.3 / vit * 1.4, () => {
@@ -652,7 +652,7 @@ function lancerSort(k) {
 }
 function boirePotion() {
   if ((joueur.cds.POT || 0) > 0 || joueur.potions <= 0 || joueur.mort) { son('error_001', 0.25); return; }
-  joueur.potions--; J.potions = joueur.potions; joueur.cds.POT = 20; joueur.potionT = 1;
+  joueur.potions--; J.potions = joueur.potions; joueur.cds.POT = 60; joueur.potionT = 1;
   son('metalLatch', 0.5, 1.4); emettre(V(joueur.pos.x, 1.2, joueur.pos.z), { n: 20, c1: '#ff8a9a', c2: '#ff2a4a', vit: 2, vie: 0.7, taille: 0.35, monte: 2 });
   sauver();
 }
@@ -692,11 +692,11 @@ function majJoueur(dt) {
   const bloque = j.verrouT > 0 && j.spinT <= 0;
   if (m > 0.12 && !bloque) {
     const dir = DIR_DROITE.clone().multiplyScalar(mx).addScaledVector(DIR_HAUT, my).normalize();
-    let v = st.vitesse * (j.sprintT > 0 ? 1.6 : 1) * (j.slowT > 0 ? 0.6 : 1) * (j.spinT > 0 ? 0.7 : 1) * Math.max(0.35, m);
+    let v = st.vitesse * (j.sprintT > 0 ? 1.6 : 1) * (j.slowT > 0 ? 0.6 : 1) * (j.spinT > 0 ? 0.7 : 1); // vitesse constante, peu importe l'inclinaison du joystick
     deplacer(j, dir.x * v * dt, dir.z * v * dt);
     const vise = (entree.atk || entree.clavier[' ']) && j.cible && !j.cible.mort && dist2D(j.cible.pos, j.pos) - j.cible.rayon < st.portee + 0.5;
     if (j.spinT <= 0 && !vise) { j.angle = tourner(j.angle, Math.atan2(dir.x, dir.z), dt * 14); j.root.rotation.y = j.angle; }
-    if (j.spinT <= 0 && (j.atkT < 0.1 || !entree.atk)) j.jouer(m > 0.55 ? j.def.run : 'Walking_A', { vitesse: m > 0.55 ? 1 : 1.3 });
+    if (j.spinT <= 0 && (j.atkT < 0.1 || !entree.atk)) j.jouer(j.def.run);
     j.pasT -= dt * v; if (j.pasT <= 0) { j.pasT = 2.4; son(Math.random() < 0.5 ? 'footstep_concrete_000' : 'footstep_concrete_001', 0.12); }
   } else if (!bloque && j.spinT <= 0) {
     const c = j.courante; const n = c ? c.getClip().name : '';
@@ -1402,13 +1402,27 @@ function gainXP(type, montant) {
   if (m.xp < need) return false;
   m.niv++; m.xp = Math.min(m.xp - need, xpPour(m.niv) * 0.25);
   const nomM = MAITRISES.find(x => x.id === type).nom;
-  const d = document.createElement('div'); d.className = 'niveauUp'; d.textContent = `${nomM} · niveau ${m.niv}`; $('#jeu').appendChild(d); setTimeout(() => d.remove(), 2700);
+  annonce(nomM, `${nomM} niv. ${m.niv}`);
   const t = NIVEAU_REQUIS.indexOf(m.niv);
-  if (t > 0) setTimeout(() => UI.toast(`Tu peux maintenant porter du T${t} (${nomM})`), 900);
-  if (m.niv > 90) setTimeout(() => UI.toast(`Bonus de maîtrise : +${(m.niv - 90) * 2} % (${nomM})`), 900);
-  onde(joueur.pos, '#8fd0ff', 4, 0.8); emettre(V(joueur.pos.x, 0.4, joueur.pos.z), { n: 50, c1: '#ffffff', c2: '#3a7aff', dir: V(0, 1, 0), vit: 6, disp: 1.5, rayon: 1, vie: 1, taille: 0.4 });
-  son('confirmation_001', 0.5);
+  if (t > 0) annonce('palier ' + nomM, `T${t} débloqué : ${nomM}`, true);
   return true;
+}
+// les montées de niveau simultanées sont regroupées dans un seul bandeau
+let annonces = null;
+function annonce(cle, txt, palier = false) {
+  if (!annonces) {
+    annonces = { lignes: new Map(), paliers: new Map() };
+    setTimeout(() => {
+      const a = annonces; annonces = null;
+      document.querySelectorAll('.niveauUp').forEach(x => x.remove()); // un seul bandeau à la fois
+      const d = document.createElement('div'); d.className = 'niveauUp';
+      d.innerHTML = `<div class="titreNiv">Niveau supérieur</div><div class="lignesNiv">${[...a.lignes.values()].map(l => `<span>${l}</span>`).join('')}</div>${[...a.paliers.values()].map(p => `<div class="palierNiv">${p}</div>`).join('')}`;
+      $('#jeu').appendChild(d); setTimeout(() => d.remove(), 3400);
+      onde(joueur.pos, '#8fd0ff', 4, 0.8); emettre(V(joueur.pos.x, 0.4, joueur.pos.z), { n: 50, c1: '#ffffff', c2: '#3a7aff', dir: V(0, 1, 0), vit: 6, disp: 1.5, rayon: 1, vie: 1, taille: 0.4 });
+      son('confirmation_001', 0.5);
+    }, 60);
+  }
+  (palier ? annonces.paliers : annonces.lignes).set(cle, txt); // la dernière valeur remplace les précédentes
 }
 function typesPortes() { return [...new Set(['arme', 'casque', 'plastron', 'bottes'].map(s => J.equip[s] && J.equip[s].type).filter(Boolean))]; }
 function gagnerXP(base) {

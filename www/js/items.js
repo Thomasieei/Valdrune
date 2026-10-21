@@ -56,7 +56,8 @@ export function xpPour(n) {
   if (n < 50) return Math.round(25 * Math.pow(n, 1.4));
   return Math.round(25 * Math.pow(49, 1.4) * Math.pow(1.1, n - 49));
 }
-export const bonusMaitrise = (niv) => Math.max(0, niv - 90) * 0.02;
+// +0,2 % de puissance brute par niveau, puis +2 % par niveau du 90 au 100
+export const bonusMaitrise = (niv) => Math.max(0, niv - 1) * 0.002 + Math.max(0, niv - 90) * 0.02;
 export function niveauDe(type) { return (ETAT.maitrise && ETAT.maitrise[type] && ETAT.maitrise[type].niv) || 1; }
 export function peutPorter(it) { return it.cat !== 'arme' && it.cat !== 'armure' ? true : niveauDe(it.type) >= niveauRequis(it); }
 export function tierMaxPour(niv) { let t = 1; for (let i = 1; i <= 8; i++) if (niv >= NIVEAU_REQUIS[i]) t = i; return t; }
@@ -110,7 +111,7 @@ export function statsHeros(equip, avecMaitrise = true) {
   for (const slot of ['arme', 'casque', 'plastron', 'bottes']) {
     const it = equip[slot]; if (!it) continue;
     const st = avecMaitrise ? statsObjet(it) : statsObjet(it, 1);
-    ipSum += puissanceObjet(it) + (avecMaitrise ? Math.max(0, niveauDe(it.type) - 90) * 10 : 0); ipN++;
+    ipSum += puissanceObjet(it) + (avecMaitrise ? Math.floor((niveauDe(it.type) - 1) / 2) + Math.max(0, niveauDe(it.type) - 90) * 10 : 0); ipN++;
     if (slot === 'arme') { s.degats = st.degats; s.vitesseAtk = st.vitesse; s.crit = st.crit; s.portee = st.portee; s.energieMax += it.tier * 15; if (st.pv) s.pvMax += st.pv; }
     else { s.armure += st.armure; s.pvMax += st.pv; if (st.vitesse) s.vitesse *= 1 + st.vitesse / 100; if (st.regen) s.regen += st.regen; }
     if (st.bonusDeg) s.bonusDeg += st.bonusDeg; if (st.recharge) s.recharge += st.recharge; if (st.pvp) s.pvp += st.pvp;
