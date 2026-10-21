@@ -1,0 +1,515 @@
+// ===== Interface : icônes, HUD, inventaire, marché, dialogues =====
+import { THREE, G, projeter } from './engine.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import { TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, MODES, COFFRES } from './data.js';
+import { nomObjet, couleurObjet, statsObjet, sortsObjet, puissanceObjet, valeurObjet, prixVente, categorieLabel, statsHeros, stockMarchand } from './items.js';
+
+const $ = (s) => document.querySelector(s);
+const fmt = (n) => Math.round(n).toLocaleString('fr-FR');
+export const UI = {};
+let api = null;
+UI.init = (a) => { api = a; };
+
+// ---------------- Icônes de sorts (SVG) ----------------
+const GLYPHES = {
+  slash: '<path d="M16 80 C28 42 54 20 88 14 C66 30 46 54 30 86 Z"/><path d="M30 60 L44 46 M40 72 L56 54" stroke="#fff" stroke-width="3" opacity=".6"/>',
+  dash: '<path d="M14 30 L38 50 L14 70 L22 50 Z M40 30 L64 50 L40 70 L48 50 Z M66 30 L90 50 L66 70 L74 50 Z"/>',
+  spin: '<g><path d="M50 12 A38 38 0 0 1 88 50 L74 50 A24 24 0 0 0 50 26 Z"/><path d="M50 12 A38 38 0 0 1 88 50 L74 50 A24 24 0 0 0 50 26 Z" transform="rotate(120 50 50)"/><path d="M50 12 A38 38 0 0 1 88 50 L74 50 A24 24 0 0 0 50 26 Z" transform="rotate(240 50 50)"/><circle cx="50" cy="50" r="9"/></g>',
+  bolt: '<path d="M18 82 L66 34 L60 28 L88 14 L74 42 L68 36 L20 84 Z"/><path d="M18 82 L10 74 M18 82 L26 90 M24 76 L16 68 M24 76 L32 84" stroke="#fff" stroke-width="4" fill="none"/>',
+  roll: '<path d="M72 30 A28 28 0 1 0 78 58" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round"/><path d="M58 18 L84 22 L76 46 Z"/>',
+  rain: '<g stroke="#fff" stroke-width="5" stroke-linecap="round"><path d="M26 14 L22 46"/><path d="M50 22 L46 54"/><path d="M74 12 L70 44"/><path d="M36 50 L32 82"/><path d="M62 54 L58 86"/></g><g><path d="M22 52 L14 40 L28 42 Z"/><path d="M46 60 L38 48 L52 50 Z"/><path d="M70 50 L62 38 L76 40 Z"/><path d="M32 88 L24 76 L38 78 Z"/><path d="M58 92 L50 80 L64 82 Z"/></g>',
+  fire: '<path d="M50 10 C62 30 80 40 76 62 C74 80 60 90 50 90 C38 90 24 80 24 62 C24 48 34 42 36 28 C44 40 46 44 50 48 C53 34 50 22 50 10 Z"/><path d="M50 52 C56 60 64 66 62 76 C60 84 54 86 50 86 C44 86 38 82 38 74 C38 66 46 62 50 52 Z" fill="#ffd27a"/>',
+  pillar: '<ellipse cx="50" cy="86" rx="30" ry="7" opacity=".7"/><path d="M36 86 L36 44 C36 28 46 22 50 8 C54 22 64 28 64 44 L64 86 Z"/><path d="M44 86 L44 52 C44 42 48 38 50 30 C52 38 56 42 56 52 L56 86 Z" fill="#ffe0a0"/>',
+  meteor: '<path d="M44 52 L90 10 L56 62 Z" opacity=".75"/><path d="M38 46 L80 18 L48 58 Z" opacity=".5"/><circle cx="36" cy="66" r="20"/><circle cx="30" cy="60" r="6" fill="#ffe0a0"/>',
+  shield: '<path d="M50 8 L86 20 L82 54 C78 74 64 84 50 92 C36 84 22 74 18 54 L14 20 Z"/><path d="M50 22 L72 30 L69 52 C66 64 58 72 50 77 Z" fill="#ffffff" opacity=".35"/>',
+  heart: '<path d="M50 86 C20 64 10 48 14 32 C18 18 36 14 50 30 C64 14 82 18 86 32 C90 48 80 64 50 86 Z"/><path d="M44 34 h12 v12 h12 v12 h-12 v12 h-12 v-12 h-12 v-12 h12 z" fill="#1a5a1a" opacity=".7"/>',
+  wing: '<path d="M14 72 C26 40 58 22 90 18 C76 28 72 34 68 42 C78 40 84 40 88 42 C76 50 66 54 56 56 C64 58 70 60 74 64 C58 72 40 74 14 72 Z"/><path d="M14 72 L30 86 L40 76 Z"/>',
+  epee: '<path d="M80 12 L88 20 L46 62 L38 54 Z"/><path d="M30 50 L50 70 L44 76 L24 56 Z"/><path d="M36 64 L20 80 L26 86 L42 70 Z"/><circle cx="18" cy="84" r="5"/>',
+  arbalete: '<path d="M14 40 C40 24 60 24 86 40 L84 46 C60 32 40 32 16 46 Z"/><path d="M47 30 h6 v56 h-6 z"/><path d="M50 26 L56 36 L44 36 Z"/><path d="M16 44 L50 60 L84 44" stroke="#fff" stroke-width="2" fill="none"/>',
+  baton: '<path d="M30 90 L62 34 L68 37 L36 93 Z"/><circle cx="68" cy="26" r="12"/><path d="M68 8 C74 16 80 18 78 26 C76 34 60 34 58 26 C58 20 64 18 68 8 Z" fill="#ffd27a"/>',
+  potion: '<path d="M40 10 h20 v8 h-4 v14 C70 38 78 50 78 62 C78 80 66 90 50 90 C34 90 22 80 22 62 C22 50 30 38 44 32 V18 h-4 z"/><path d="M28 62 C34 58 44 66 50 62 C58 58 66 62 72 60 C72 76 62 84 50 84 C38 84 28 76 28 62 Z" fill="#ff3a4a"/>',
+  cible: '<circle cx="50" cy="50" r="28" fill="none" stroke="#fff" stroke-width="7"/><path d="M50 8 V30 M50 70 V92 M8 50 H30 M70 50 H92" stroke="#fff" stroke-width="7"/><circle cx="50" cy="50" r="6"/>',
+};
+export function svgSort(glyphe, c1, c2, id) {
+  const gid = 'g' + id + Math.random().toString(36).slice(2, 6);
+  return `<svg class="ic" viewBox="0 0 100 100"><defs><radialGradient id="${gid}" cx="40%" cy="35%" r="75%"><stop offset="0" stop-color="${c1}"/><stop offset=".55" stop-color="${mix(c1, c2, .55)}"/><stop offset="1" stop-color="${c2}"/></radialGradient>
+  <filter id="f${gid}" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+  <rect width="100" height="100" fill="url(#${gid})"/><circle cx="50" cy="50" r="44" fill="none" stroke="#000" stroke-opacity=".35" stroke-width="6"/>
+  <g fill="#fff" filter="url(#f${gid})" transform="translate(50 50) scale(.78) translate(-50 -50)">${GLYPHES[glyphe] || ''}</g></svg>`;
+}
+function mix(a, b, k) { const ca = new THREE.Color(a), cb = new THREE.Color(b); return '#' + ca.lerp(cb, k).getHexString(THREE.SRGBColorSpace); }
+
+// ---------------- Icônes d'objets (rendu 3D) ----------------
+let icoR = null, icoScene, icoCam;
+const icoCache = {};
+function initIcones() {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 192;
+  icoR = new THREE.WebGLRenderer({ canvas: cv, alpha: true, antialias: true, preserveDrawingBuffer: true });
+  icoR.outputColorSpace = THREE.SRGBColorSpace; icoR.toneMapping = THREE.ACESFilmicToneMapping; icoR.toneMappingExposure = 1.2;
+  icoScene = new THREE.Scene();
+  icoScene.add(new THREE.AmbientLight('#ffffff', 1.0));
+  const k = new THREE.DirectionalLight('#fff4e0', 2.4); k.position.set(2, 3, 4); icoScene.add(k);
+  const r = new THREE.DirectionalLight('#9ab8ff', 1.2); r.position.set(-3, 1, -2); icoScene.add(r);
+  icoCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100);
+}
+function meshesDe(cleModele, noms) {
+  const src = G.assets[cleModele].scene; const out = [];
+  for (const n of noms) { const node = src.getObjectByName(n); if (!node) continue; node.traverse(o => { if (o.isMesh) out.push(o); }); }
+  return out;
+}
+function rendreGroupe(grp, orient = 'arme') {
+  icoScene.add(grp);
+  grp.updateMatrixWorld(true);
+  let box = new THREE.Box3().setFromObject(grp);
+  const size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+  grp.position.sub(c);
+  if (orient === 'arme') {
+    // axe le plus long en diagonale
+    const axe = size.x > size.y && size.x > size.z ? 'x' : size.y > size.z ? 'y' : 'z';
+    const pivot = new THREE.Group(); icoScene.add(pivot); pivot.add(grp);
+    if (axe === 'x') pivot.rotation.z = Math.PI / 2; if (axe === 'z') pivot.rotation.x = Math.PI / 2;
+    const p2 = new THREE.Group(); icoScene.add(p2); p2.add(pivot); p2.rotation.z = -Math.PI / 4; p2.rotation.y = 0.5;
+    p2.updateMatrixWorld(true); box = new THREE.Box3().setFromObject(p2);
+    const cc = box.getCenter(new THREE.Vector3()); p2.position.sub(cc);
+    grp = p2;
+  } else { grp.rotation.y = 0.45; grp.rotation.x = 0.12; }
+  grp.updateMatrixWorld(true); box = new THREE.Box3().setFromObject(grp);
+  const s = box.getSize(new THREE.Vector3()); const m = Math.max(s.x, s.y) * 0.56;
+  icoCam.left = -m; icoCam.right = m; icoCam.top = m; icoCam.bottom = -m; icoCam.position.set(0, 0, 50); icoCam.lookAt(0, 0, 0); icoCam.updateProjectionMatrix();
+  icoR.setClearColor(0x000000, 0); icoR.render(icoScene, icoCam);
+  const url = icoR.domElement.toDataURL('image/png');
+  icoScene.remove(grp);
+  return url;
+}
+function materielTier(m, tier) {
+  const mat = m.material.clone();
+  const col = TIERS[tier].color;
+  mat.color = new THREE.Color('#ffffff').lerp(new THREE.Color(col), 0.62);
+  if (mat.emissive) { mat.emissive = new THREE.Color(col); mat.emissiveIntensity = TIERS[tier].glow * 0.5; }
+  mat.skinning = false;
+  return mat;
+}
+export function iconeObjet(it) {
+  const cle = it.cat + '_' + it.type + '_' + it.tier;
+  if (icoCache[cle]) return icoCache[cle];
+  if (it.cat === 'butin' || it.cat === 'potion') return (icoCache[cle] = icone2D(it));
+  if (!icoR) initIcones();
+  const grp = new THREE.Group();
+  let ms, orient = 'arme';
+  if (it.cat === 'arme') ms = meshesDe(ARMES[it.type].model, [ARMES[it.type].node]);
+  else if (it.type === 'casque') { ms = meshesDe('Knight', ['Knight_Helmet']); orient = 'armure'; }
+  else if (it.type === 'plastron') { ms = meshesDe('Knight', ['Knight_Body', 'Knight_ArmLeft', 'Knight_ArmRight']); orient = 'armure'; }
+  else { ms = meshesDe('Knight', ['Knight_LegLeft', 'Knight_LegRight']); orient = 'armure'; }
+  for (const m of ms) {
+    const mesh = new THREE.Mesh(m.geometry, materielTier(m, it.tier));
+    if (orient === 'arme') { m.updateMatrixWorld(true); }
+    grp.add(mesh);
+  }
+  return (icoCache[cle] = rendreGroupe(grp, orient));
+}
+export function bustePersonnage(cle, canvas, couleurFond = null) {
+  if (!icoR) initIcones();
+  const src = G.assets[cle];
+  const m = SkeletonUtils.clone(src.scene);
+  // on cache les armes pour un portrait propre
+  m.traverse(o => { if (/Sword|Axe|Shield|Crossbow|Staff|Wand|Knife|Throwable|Mug|Spellbook|Offhand/.test(o.name)) o.visible = false; });
+  icoScene.add(m); m.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(m); const h = box.max.y - box.min.y;
+  const cy = box.max.y - h * 0.2; const r = h * 0.21;
+  icoCam.left = -r; icoCam.right = r; icoCam.top = r; icoCam.bottom = -r;
+  icoCam.position.set(r * 0.6, cy + r * 0.1, 50); icoCam.lookAt(0, cy, 0); icoCam.updateProjectionMatrix();
+  icoR.setClearColor(0x000000, 0); icoR.render(icoScene, icoCam);
+  icoScene.remove(m);
+  const g = canvas.getContext('2d'); g.clearRect(0, 0, canvas.width, canvas.height);
+  if (couleurFond) { const gr = g.createRadialGradient(64, 50, 10, 64, 64, 80); gr.addColorStop(0, couleurFond); gr.addColorStop(1, '#120b16'); g.fillStyle = gr; g.fillRect(0, 0, canvas.width, canvas.height); }
+  g.drawImage(icoR.domElement, 0, 0, canvas.width, canvas.height);
+}
+function icone2D(it) {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  g.lineJoin = 'round'; g.lineCap = 'round'; g.shadowColor = '#000a'; g.shadowBlur = 6; g.shadowOffsetY = 3;
+  const t = it.type;
+  if (it.cat === 'potion') {
+    g.fillStyle = '#d8e8f0'; g.globalAlpha = .9; g.beginPath(); g.moveTo(54, 18); g.lineTo(74, 18); g.lineTo(74, 42); g.quadraticCurveTo(102, 54, 100, 82); g.quadraticCurveTo(96, 112, 64, 112); g.quadraticCurveTo(32, 112, 28, 82); g.quadraticCurveTo(26, 54, 54, 42); g.closePath(); g.fill();
+    g.globalAlpha = 1; const gr = g.createLinearGradient(0, 60, 0, 110); gr.addColorStop(0, '#ff6a7a'); gr.addColorStop(1, '#a3102a'); g.fillStyle = gr;
+    g.beginPath(); g.moveTo(32, 76); g.quadraticCurveTo(64, 66, 96, 76); g.quadraticCurveTo(94, 108, 64, 108); g.quadraticCurveTo(34, 108, 32, 76); g.fill();
+    g.fillStyle = '#8a5a2a'; g.fillRect(50, 10, 28, 12); g.fillStyle = '#fff8'; g.beginPath(); g.ellipse(46, 70, 6, 12, 0.4, 0, 7); g.fill();
+  } else if (t === 'os') {
+    g.fillStyle = '#e8dcc0'; g.translate(64, 64); g.rotate(-0.7);
+    g.fillRect(-36, -7, 72, 14); for (const s of [-1, 1]) { g.beginPath(); g.arc(s * 38, -8, 10, 0, 7); g.arc(s * 38, 8, 10, 0, 7); g.fill(); }
+    g.strokeStyle = '#7a6a4a'; g.lineWidth = 2; g.beginPath(); g.moveTo(-4, -8); g.lineTo(4, 8); g.stroke();
+  } else if (t === 'tissu') {
+    g.fillStyle = '#8a6a4e'; g.beginPath(); g.moveTo(20, 30); g.lineTo(104, 22); g.lineTo(96, 60); g.lineTo(108, 100); g.lineTo(70, 92); g.lineTo(52, 108); g.lineTo(30, 88); g.lineTo(18, 60); g.closePath(); g.fill();
+    g.strokeStyle = '#5a4030'; g.lineWidth = 3; g.setLineDash([6, 5]); g.strokeRect(34, 40, 56, 40);
+  } else if (t === 'crane') {
+    g.fillStyle = '#eee4cc'; g.beginPath(); g.arc(64, 54, 36, Math.PI * 0.9, Math.PI * 2.1); g.lineTo(88, 96); g.lineTo(40, 96); g.closePath(); g.fill();
+    g.fillStyle = '#2a1a10'; g.beginPath(); g.arc(50, 60, 9, 0, 7); g.arc(78, 60, 9, 0, 7); g.fill(); g.fillRect(58, 74, 12, 8);
+    g.strokeStyle = '#6a5a40'; g.lineWidth = 3; g.beginPath(); g.moveTo(64, 20); g.lineTo(60, 34); g.lineTo(68, 44); g.stroke();
+  } else if (t === 'gemme') {
+    g.fillStyle = '#6a9aa0'; g.beginPath(); g.moveTo(64, 18); g.lineTo(100, 50); g.lineTo(64, 110); g.lineTo(28, 50); g.closePath(); g.fill();
+    g.fillStyle = '#9ac8cc'; g.beginPath(); g.moveTo(64, 18); g.lineTo(80, 50); g.lineTo(64, 110); g.lineTo(48, 50); g.closePath(); g.fill();
+  } else if (t === 'rune') {
+    g.fillStyle = '#6a4a3a'; g.beginPath(); g.ellipse(64, 66, 40, 46, 0.2, 0, 7); g.fill();
+    g.strokeStyle = '#ff8a3a'; g.shadowColor = '#ff5a1a'; g.shadowBlur = 14; g.lineWidth = 7; g.beginPath(); g.moveTo(52, 40); g.lineTo(52, 92); g.moveTo(52, 50); g.lineTo(78, 64); g.lineTo(52, 76); g.stroke();
+  }
+  return c.toDataURL('image/png');
+}
+
+export function htmlCase(it, extra = '', style = '') {
+  if (!it) return `<div class="case ${extra}"></div>`;
+  const glow = it.tier >= 5 ? `filter:drop-shadow(0 0 6px ${TIERS[it.tier].color})` : '';
+  const bg = it.tier ? `background:radial-gradient(circle at 50% 45%, ${TIERS[it.tier].color}55, #2a1c12 70%);` : '';
+  return `<div class="case q${it.q || 0} ${extra}" style="${bg}${style}"><img src="${iconeObjet(it)}" alt="" style="${glow}">${it.tier ? `<span class="tier">${TIERS[it.tier].roman}</span>` : ''}${it.n > 1 ? `<span class="nb">${it.n}</span>` : ''}</div>`;
+}
+
+// ---------------- Barre de sorts ----------------
+const TOUCHES = ['ATK', 'Q', 'W', 'E', 'R', 'D', 'F', 'POT', 'CIBLE'];
+UI.construireSorts = (joueur) => {
+  const zone = $('#sorts'); zone.innerHTML = '';
+  for (const k of TOUCHES) {
+    const b = document.createElement('button'); b.className = 'sort'; b.id = 's-' + k; b.dataset.k = k;
+    let svg = '', lettre = k.length === 1 ? k : '';
+    if (k === 'ATK') { const t = joueur.armeType; svg = svgSort(t, '#ffe2a0', '#6a3a10', 'atk'); }
+    else if (k === 'POT') svg = svgSort('potion', '#ffd0d8', '#5a0a18', 'pot');
+    else if (k === 'CIBLE') svg = svgSort('cible', '#ffcf9a', '#3a1a10', 'cib');
+    else { const s = joueur.sorts[k]; svg = s ? svgSort(s.glyphe, s.couleur[0], s.couleur[1], k) : svgSort('', '#3a3440', '#141016', k); if (!s) b.classList.add('off'); }
+    b.innerHTML = `<div class="cadre"><div>${svg}<div class="cd"></div><div class="num"></div></div></div>${lettre ? `<span class="t">${lettre}</span>` : ''}${k === 'POT' ? '<span class="compte"></span>' : ''}`;
+    b.setAttribute('aria-label', k === 'ATK' ? 'Attaque' : k === 'POT' ? 'Potion' : k === 'CIBLE' ? 'Verrouiller la cible' : (joueur.sorts[k]?.nom || 'Vide'));
+    const go = (e) => { e.preventDefault(); e.stopPropagation(); api.touche(k, true); };
+    const fin = (e) => { e.preventDefault(); api.touche(k, false); };
+    b.addEventListener('pointerdown', go); b.addEventListener('pointerup', fin); b.addEventListener('pointercancel', fin); b.addEventListener('pointerleave', fin);
+    zone.appendChild(b);
+  }
+};
+UI.majSorts = (joueur) => {
+  for (const k of ['Q', 'W', 'E', 'R', 'D', 'F', 'POT']) {
+    const b = document.getElementById('s-' + k); if (!b) continue;
+    const cd = joueur.cds[k] || 0, max = joueur.cdMax[k] || 1;
+    const cdEl = b.querySelector('.cd'), num = b.querySelector('.num');
+    cdEl.style.setProperty('--k', (cd > 0 ? cd / max : 0) + 'turn');
+    num.textContent = cd > 0 ? (cd < 1 ? cd.toFixed(1) : Math.ceil(cd)) : '';
+    const s = joueur.sorts[k];
+    b.classList.toggle('manque', !!(s && cd <= 0 && joueur.energie < s.energie));
+    if (k === 'POT') b.querySelector('.compte').textContent = 'x' + joueur.potions;
+    if (b._cd > 0 && cd <= 0) { b.classList.remove('pret'); void b.offsetWidth; b.classList.add('pret'); }
+    b._cd = cd;
+  }
+  document.getElementById('s-CIBLE')?.classList.toggle('actif', !!joueur.cibleVerrou);
+};
+
+// ---------------- HUD ----------------
+UI.majHud = (j, st) => {
+  $('#pvFill').style.transform = `scaleX(${Math.max(0, j.pv / st.pvMax)})`;
+  $('#pvShield').style.transform = `scaleX(${Math.min(1, (j.pv + j.bouclier) / st.pvMax)})`;
+  $('#pvTxt').textContent = `${fmt(j.pv)} / ${fmt(st.pvMax)}`;
+  $('#enFill').style.transform = `scaleX(${Math.max(0, j.energie / st.energieMax)})`;
+  $('#enTxt').textContent = `${fmt(j.energie)} / ${fmt(st.energieMax)}`;
+  $('#argentTxt').textContent = fmt(api.etat().argent);
+  const d = new Date(); $('#zHeure').textContent = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  const buffs = [];
+  if (j.bouclier > 0) buffs.push(['#62b0ff', 'É']);
+  if (j.soinT > 0) buffs.push(['#6aff7a', '+']);
+  if (j.sprintT > 0) buffs.push(['#ffe27a', '»']);
+  if (j.bonusTir) buffs.push(['#9effc4', '×2']);
+  const html = buffs.map(([c, t]) => `<div class="buff" style="background:radial-gradient(${c},#111);color:#fff">${t}</div>`).join('');
+  if (UI._buffs !== html) { $('#buffs').innerHTML = html; UI._buffs = html; }
+};
+UI.journal = (titre, obj, prog = null) => {
+  $('#jTitre').textContent = titre; $('#jObj').textContent = obj;
+  const p = $('#jProg'); p.hidden = prog === null; if (prog !== null) p.querySelector('i').style.width = (prog * 100) + '%';
+};
+UI.zone = (nom, info) => { $('#zNom').textContent = nom; $('#zInfo').textContent = info; };
+UI.boss = (b) => {
+  const el = $('#bossbar');
+  if (!b) { el.hidden = true; return; }
+  el.hidden = false; $('#bNom').textContent = b.nom;
+  $('#bFill').style.transform = `scaleX(${Math.max(0, b.pv / b.pvMax)})`; $('#bFill').style.transformOrigin = 'left';
+  $('#bTxt').textContent = `${fmt(b.pv)} / ${fmt(b.pvMax)}`;
+};
+UI.toast = (txt, grand = false) => {
+  const d = document.createElement('div'); d.textContent = txt; if (grand) d.className = 'grand';
+  $('#toast').appendChild(d); setTimeout(() => d.remove(), 2700);
+};
+UI.chat = (nom, txt) => {
+  const log = $('#chatLog'); const d = document.createElement('div');
+  d.innerHTML = `[Français] <b></b>: <span></span>`; d.querySelector('b').textContent = nom; d.querySelector('span').textContent = txt;
+  log.appendChild(d); while (log.children.length > 2) log.firstChild.remove();
+  setTimeout(() => d.remove(), 9000);
+};
+UI.action = (texte, cb) => {
+  const b = $('#action');
+  if (!texte) { b.hidden = true; b.onclick = null; return; }
+  if (b.textContent !== texte) b.textContent = texte;
+  b.hidden = false; b.onclick = (e) => { e.stopPropagation(); cb(); };
+};
+UI.nombre = (pos, txt, classe = '') => {
+  const p = projeter(pos); if (!p.visible) return;
+  const d = document.createElement('div'); d.className = 'dmg contour ' + classe; d.textContent = txt;
+  d.style.left = (p.x + (Math.random() - 0.5) * 30) + 'px'; d.style.top = p.y + 'px';
+  $('#nombres').appendChild(d); setTimeout(() => d.remove(), 900);
+};
+
+// ---------------- Plaques de nom ----------------
+const plaques = new Map();
+UI.plaque = (ent, { nom, guilde = '', classe = '', vie = true, lettre = true }) => {
+  const d = document.createElement('div'); d.className = 'plaque contour ' + classe;
+  const ini = lettre ? `<b>${nom[0]}</b>` : '';
+  d.innerHTML = `<div class="n">${ini}${lettre ? nom.slice(1) : nom}</div>${guilde ? `<div class="gd">${guilde}</div>` : ''}${vie ? '<div class="vie"><i></i></div>' : ''}`;
+  $('#labels').appendChild(d); plaques.set(ent, { d, barre: d.querySelector('.vie i'), h: ent.hauteurPlaque || 2.5 });
+};
+UI.retirerPlaque = (ent) => { const p = plaques.get(ent); if (p) { p.d.remove(); plaques.delete(ent); } };
+UI.viderPlaques = () => { for (const p of plaques.values()) p.d.remove(); plaques.clear(); };
+const _v = new THREE.Vector3();
+UI.majPlaques = (centre) => {
+  for (const [ent, p] of plaques) {
+    const pos = ent.pos || ent.root.position;
+    if (ent.mort || pos.distanceTo(centre) > 34) { p.d.style.display = 'none'; continue; }
+    _v.set(pos.x, pos.y + p.h, pos.z);
+    const s = projeter(_v);
+    if (!s.visible) { p.d.style.display = 'none'; continue; }
+    p.d.style.display = ''; p.d.style.left = s.x + 'px'; p.d.style.top = s.y + 'px';
+    if (p.barre && ent.pvMax) p.barre.style.width = Math.max(0, ent.pv / ent.pvMax * 100) + '%';
+  }
+};
+
+// ---------------- Mini-carte ----------------
+UI.mini = (monde, joueur, entites) => {
+  const cv = $('#miniCv'), g = cv.getContext('2d');
+  g.clearRect(0, 0, 256, 256);
+  let x0, z0, x1, z1;
+  if (monde.type === 'hub') { x0 = monde.bornes.x0 - 4; x1 = monde.bornes.x1 + 4; z0 = monde.bornes.z0 - 4; z1 = monde.bornes.z1 + 4; }
+  else { x0 = 0; z0 = 0; x1 = monde.grilleW * 4; z1 = monde.grilleH * 4; }
+  const ech = 236 / Math.max(x1 - x0, z1 - z0), ox = 128 - (x0 + x1) / 2 * ech, oz = 128 - (z0 + z1) / 2 * ech;
+  const P = (x, z) => [ox + x * ech, oz + z * ech];
+  if (!monde._fond) {
+    const c = document.createElement('canvas'); c.width = c.height = 256; const f = c.getContext('2d');
+    if (monde.type === 'hub') { f.fillStyle = '#4a5f8a'; const [a, b] = P(monde.bornes.x0, monde.bornes.z0); f.fillRect(a, b, (monde.bornes.x1 - monde.bornes.x0) * ech, (monde.bornes.z1 - monde.bornes.z0) * ech); f.fillStyle = '#6a80b0'; f.beginPath(); f.arc(...P(0, 0), 10 * ech, 0, 7); f.fill(); }
+    else {
+      for (let z = 0; z < monde.grilleH; z++) for (let x = 0; x < monde.grilleW; x++) {
+        const v = monde.grille[z * monde.grilleW + x]; if (!v) continue;
+        f.fillStyle = v === 1 ? '#5f7fae' : '#4a6290'; const [a, b] = P(x * 4, z * 4); f.fillRect(a, b, 4 * ech + 0.6, 4 * ech + 0.6);
+      }
+    }
+    monde._fond = c;
+  }
+  g.drawImage(monde._fond, 0, 0);
+  for (const e of entites) {
+    const [a, b] = P(e.x, e.z);
+    if (e.type === 'mob') { g.fillStyle = '#ff3a2a'; g.beginPath(); g.arc(a, b, 2.6, 0, 7); g.fill(); }
+    else if (e.type === 'boss') { g.fillStyle = '#ff2a1a'; g.strokeStyle = '#ffd27a'; g.lineWidth = 1.5; g.beginPath(); g.arc(a, b, 6, 0, 7); g.fill(); g.stroke(); }
+    else if (e.type === 'coffre') { g.fillStyle = e.c; g.fillRect(a - 4, b - 4, 8, 8); g.strokeStyle = '#000'; g.strokeRect(a - 4, b - 4, 8, 8); }
+    else if (e.type === 'joueur') { g.fillStyle = '#7fb2ff'; g.beginPath(); g.arc(a, b, 3, 0, 7); g.fill(); }
+    else if (e.type === 'pnj') { g.fillStyle = '#ffd97a'; g.beginPath(); g.arc(a, b, 5, 0, 7); g.fill(); }
+    else if (e.type === 'portail') { g.fillStyle = '#ff3a2a'; g.shadowColor = '#ff3a2a'; g.shadowBlur = 8; g.beginPath(); g.arc(a, b, 6, 0, 7); g.fill(); g.shadowBlur = 0; }
+  }
+  const [a, b] = P(joueur.pos.x, joueur.pos.z);
+  g.save(); g.translate(a, b); g.rotate(-joueur.angle + Math.PI);
+  g.fillStyle = '#ffffff'; g.strokeStyle = '#2a6aff'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, -8); g.lineTo(6, 6); g.lineTo(0, 3); g.lineTo(-6, 6); g.closePath(); g.fill(); g.stroke(); g.restore();
+};
+
+// ---------------- Inventaire ----------------
+let selection = null;
+UI.ouvrirInventaire = () => { selection = null; UI.rendreInventaire(); $('#inv').hidden = false; api.son('open_001', 0.4); };
+UI.rendreInventaire = () => {
+  const j = api.etat(); const st = statsHeros(j.equip);
+  const slot = (s, label) => {
+    const it = j.equip[s];
+    return `<button class="case-btn" data-eq="${s}" style="border:0;background:none;padding:0">${it ? htmlCase(it) : `<div class="case"><span class="vide">${label}</span></div>`}</button>`;
+  };
+  $('#inv').innerHTML = `<div class="cadreInv parchemin">
+    <button class="fermer" data-x aria-label="Fermer">×</button>
+    <div style="display:flex;flex-direction:column;min-height:0">
+      <h2>${j.nom}</h2>
+      <div class="equipement">
+        <div style="grid-column:1;grid-row:1">${slot('casque', 'Tête')}</div>
+        <div class="silhouette"><canvas id="silCv" width="256" height="256"></canvas></div>
+        <div style="grid-column:3;grid-row:1">${slot('arme', 'Arme')}</div>
+        <div style="grid-column:1;grid-row:2">${slot('plastron', 'Torse')}</div>
+        <div style="grid-column:1;grid-row:3">${slot('bottes', 'Pieds')}</div>
+        <div style="grid-column:3;grid-row:2;font-family:var(--f-label);font-weight:800;text-align:center;font-size:2vh">Puissance<br><span style="font-size:3.4vh">${st.ip}</span></div>
+      </div>
+      <div class="stats">
+        <div><span>Points de vie</span><b>${fmt(st.pvMax)}</b></div><div><span>Armure</span><b>${fmt(st.armure)} (${Math.round(st.reduction * 100)} %)</b></div>
+        <div><span>Dégâts</span><b>${fmt(st.degats)}</b></div><div><span>DPS</span><b>${fmt(st.dps)}</b></div>
+        <div><span>Vitesse d'attaque</span><b>${st.vitesseAtk.toFixed(2)}/s</b></div><div><span>Critique</span><b>${st.crit} %</b></div>
+        <div><span>Énergie</span><b>${fmt(st.energieMax)}</b></div><div><span>Vitesse</span><b>${st.vitesse.toFixed(1)} m/s</b></div>
+      </div>
+    </div>
+    <div class="colDroite">
+      <div class="entete"><h2>Sac</h2><div style="font-family:var(--f-label);font-weight:800;font-size:2.4vh;display:flex;align-items:center;gap:.6vh"><span class="piece"></span>${fmt(j.argent)} · ${j.sac.length}/40</div></div>
+      <div class="grilleSac">${j.sac.map(it => `<button data-id="${it.id}" style="border:0;background:none;padding:0">${htmlCase(it, selection === it.id ? 'choisi' : '')}</button>`).join('')}
+      ${Array.from({ length: Math.max(0, 40 - j.sac.length) }, () => '<div class="case"></div>').join('')}</div>
+      <p style="margin:1vh 0 0;font-size:1.8vh;color:#6a4a2e">Touche un objet pour voir toutes ses caractéristiques et l’équiper.</p>
+    </div></div>`;
+  bustePersonnage(ARMES[j.equip.arme ? j.equip.arme.type : 'epee'].model, $('#silCv'), '#6a4a3a');
+  $('#inv').querySelector('[data-x]').onclick = () => { $('#inv').hidden = true; api.son('close_001', 0.4); };
+  $('#inv').querySelectorAll('[data-id]').forEach(b => b.onclick = () => { const it = j.sac.find(i => i.id == b.dataset.id); UI.fiche(it, 'sac'); });
+  $('#inv').querySelectorAll('[data-eq]').forEach(b => b.onclick = () => { const it = j.equip[b.dataset.eq]; if (it) UI.fiche(it, 'equipe'); });
+};
+
+// Fiche détaillée d'un objet (un seul clic)
+UI.fiche = (it, contexte) => {
+  if (!it) return;
+  api.son('select_001', 0.4);
+  const j = api.etat();
+  const st = statsObjet(it);
+  const slot = it.cat === 'arme' ? 'arme' : it.cat === 'armure' ? it.type : null;
+  const porte = slot ? j.equip[slot] : null;
+  const stP = porte && porte.id !== it.id ? statsObjet(porte) : null;
+  const libelles = { degats: 'Dégâts par coup', dps: 'Dégâts par seconde', vitesse: it.cat === 'arme' ? "Vitesse d'attaque" : 'Vitesse de déplacement', crit: 'Chance de critique', portee: 'Portée', armure: 'Armure', pv: 'Points de vie', regen: 'Régénération' };
+  const unite = { vitesse: it.cat === 'arme' ? '/s' : ' %', crit: ' %', portee: ' m', regen: ' %/s' };
+  const lignes = Object.entries(st).map(([k, v]) => {
+    let diff = '';
+    if (stP && stP[k] !== undefined) { const d = v - stP[k]; if (Math.abs(d) > 0.001) diff = `<span class="${d > 0 ? 'plus' : 'moins'}">${d > 0 ? '▲' : '▼'} ${Math.abs(+d.toFixed(2))}</span>`; }
+    return `<tr><td>${libelles[k] || k}</td><td>${typeof v === 'number' && !Number.isInteger(v) ? v.toFixed(k === 'vitesse' && it.cat === 'arme' ? 2 : 1) : fmt(v)}${unite[k] || ''}</td><td class="diff">${diff}</td></tr>`;
+  }).join('');
+  const sorts = sortsObjet(it).map(s => `<div class="s">${svgSort(s.glyphe, s.couleur[0], s.couleur[1], 'f' + s.touche)}<div><b>${s.touche} · ${s.nom}</b> <span style="color:#6a4a2e">— ${s.cd} s · ${s.energie} énergie</span><br>${s.desc}</div></div>`).join('');
+  const t = it.tier ? TIERS[it.tier] : null;
+  const q = QUALITES[it.q || 0];
+  const boutons = [];
+  if (contexte === 'sac' && slot) boutons.push(`<button class="btn or" data-a="equiper">Équiper</button>`);
+  if (contexte === 'sac' && it.cat === 'potion') boutons.push(`<button class="btn or" data-a="ranger">Ranger dans la ceinture</button>`);
+  if (contexte === 'equipe') boutons.push(`<button class="btn gris" data-a="retirer">Retirer</button>`);
+  if (contexte === 'vente') boutons.push(`<button class="btn" data-a="vendre">Vendre ${fmt(prixVente(it))}</button>`);
+  if (contexte === 'achat') boutons.push(`<button class="btn" data-a="acheter">Acheter ${fmt(valeurObjet(it))}</button>`);
+  $('#fiche').innerHTML = `<div class="carteObjet parchemin"><button class="fermer" data-x aria-label="Fermer">×</button>
+    <div class="tete"><div class="grosse">${htmlCase(it, '', 'width:100%;height:100%')}</div>
+    <div><div class="titre" style="color:${it.tier ? shade(couleurObjet(it)) : '#3a2312'}">${nomObjet(it)}</div>
+    <div class="sous">${categorieLabel(it)}${t ? ` · Tier ${t.roman} (${t.nom}) · <b style="color:${shade(q.color)}">${q.nom}</b>` : ''}</div>
+    ${slot ? `<span class="ip">Puissance ${puissanceObjet(it)}</span>` : ''}</div></div>
+    ${lignes ? `<table>${lignes}</table>` : `<p style="font-size:2.1vh">${it.cat === 'potion' ? 'Rend 40 % de tes PV en 1 s. Se boit avec le bouton potion.' : 'Ne sert à rien, sauf à être vendu au marchand.'}</p>`}
+    ${sorts ? `<div class="sortsObj">${sorts}</div>` : ''}
+    ${porte && porte.id !== it.id ? `<p style="font-size:1.8vh;color:#6a4a2e;margin:1vh 0 0">Comparé à ton ${nomObjet(porte)} (${TIERS[porte.tier].roman}).</p>` : ''}
+    <p style="font-size:1.8vh;margin:1vh 0 0">Valeur : <b>${fmt(valeurObjet(it))}</b> · Revente : <b>${fmt(prixVente(it))}</b></p>
+    <div class="actions">${boutons.join('')}</div></div>`;
+  const f = $('#fiche'); f.hidden = false;
+  f.querySelector('[data-x]').onclick = () => (f.hidden = true);
+  f.onclick = (e) => { if (e.target === f) f.hidden = true; };
+  f.querySelectorAll('[data-a]').forEach(b => b.onclick = () => {
+    const a = b.dataset.a; f.hidden = true;
+    if (a === 'equiper') api.equiper(it.id);
+    if (a === 'retirer') api.retirer(slot);
+    if (a === 'vendre') api.vendre(it.id);
+    if (a === 'acheter') api.acheter(it);
+    if (a === 'ranger') api.rangerPotion(it.id);
+    if (!$('#inv').hidden) UI.rendreInventaire();
+    if (!$('#marche').hidden) UI.rendreMarche();
+  });
+};
+function shade(c) { const S = THREE.SRGBColorSpace; const col = new THREE.Color(c); const hsl = {}; col.getHSL(hsl, S); return '#' + new THREE.Color().setHSL(hsl.h, Math.min(1, hsl.s * 1.15), Math.min(hsl.l, 0.34), S).getHexString(S); }
+
+// ---------------- Marchand ----------------
+let stock = null, ongletM = 'achat';
+const filtres = { cat: 'tout', niv: 'tout', q: 'tout', txt: '' };
+UI.dialogueMarchand = () => {
+  const d = $('#dialogue');
+  d.innerHTML = `<div class="boiteDial bois"><button class="fermer" data-x aria-label="Fermer">×</button><div class="visage"><canvas id="visageCv" width="128" height="128"></canvas></div>
+  <div><h3>Borin, marchand de la Place</h3><p>Bienvenue, voyageur. Le bronze et l'azur, je les ai. Le reste, faudra aller le chercher de l'autre côté de la Brèche… et revenir vivant pour me le revendre.</p>
+  <div class="choix"><button class="btn or" data-c="achat">Acheter</button><button class="btn" data-c="vente">Vendre</button><button class="btn gris" data-c="infos">Parle-moi des tiers</button><button class="btn gris" data-x2>Au revoir</button></div></div></div>`;
+  d.hidden = false; bustePersonnage('Barbarian', $('#visageCv'), '#8a5a2a');
+  api.son('bookOpen', 0.5);
+  const fermer = () => { d.hidden = true; };
+  d.querySelector('[data-x]').onclick = fermer; d.querySelector('[data-x2]').onclick = fermer;
+  d.querySelectorAll('[data-c]').forEach(b => b.onclick = () => {
+    if (b.dataset.c === 'infos') {
+      d.querySelector('p').innerHTML = 'Du <b style="color:#c9c1b4">T1 Rouillé</b> au <b style="color:#fff0b0">T8 Céleste</b> : rouillé, bronze, <b style="color:#6be27a">sylvestre</b>, <b style="color:#7ab0ff">azur</b>, <b style="color:#ff7a5a">braise</b>, <b style="color:#ffb84a">solaire</b>, <b style="color:#c88aff">abyssal</b>, céleste. Chaque tier frappe environ 40 % plus fort que le précédent. La qualité, de Normal à Chef-d’œuvre, ajoute jusqu’à 40 %.';
+      return;
+    }
+    fermer(); ongletM = b.dataset.c; UI.ouvrirMarche();
+  });
+};
+UI.ouvrirMarche = () => { if (!stock) stock = stockMarchand(); UI.rendreMarche(); $('#marche').hidden = false; api.son('open_001', 0.4); };
+UI.rendreMarche = () => {
+  const j = api.etat();
+  const liste = (ongletM === 'achat' ? stock : j.sac).filter(it => {
+    if (filtres.cat !== 'tout') {
+      const c = it.cat === 'arme' ? 'arme' : it.cat === 'armure' ? it.type : it.cat;
+      if (c !== filtres.cat) return false;
+    }
+    if (filtres.niv !== 'tout' && it.tier != filtres.niv) return false;
+    if (filtres.q !== 'tout' && (it.q || 0) != filtres.q) return false;
+    if (filtres.txt && !nomObjet(it).toLowerCase().includes(filtres.txt.toLowerCase())) return false;
+    return true;
+  }).sort((a, b) => (ongletM === 'achat' ? valeurObjet(a) - valeurObjet(b) : prixVente(b) - prixVente(a)));
+  const opt = (v, l, cur) => `<option value="${v}" ${cur == v ? 'selected' : ''}>${l}</option>`;
+  $('#marche').innerHTML = `<div class="cadreM parchemin"><button class="fermer" data-x aria-label="Fermer">×</button>
+    <div class="mEntete"><div class="embleme"><svg viewBox="0 0 24 24" fill="#f2cd78"><path d="M13.8 2.6l7.6 7.6-2.1 2.1-1.4-1.4-2.8 2.8 1.4 1.4-2.1 2.1-5.7-5.7 2.1-2.1 1.4 1.4 2.8-2.8-1.4-1.4zM8 14l2 2-6.4 6.4-2-2z"/></svg></div>
+      <input id="rech" placeholder="Recherche…" value="${filtres.txt}" aria-label="Rechercher un objet">
+      <div class="solde"><span class="piece" style="width:3vh;height:3vh"></span>${fmt(j.argent)}</div></div>
+    <div class="filtres">
+      <select id="fCat" aria-label="Catégorie">${opt('tout', 'Catégorie : tout', filtres.cat)}${opt('arme', 'Armes', filtres.cat)}${opt('casque', 'Armure de tête', filtres.cat)}${opt('plastron', 'Armure de poitrine', filtres.cat)}${opt('bottes', 'Armure de pieds', filtres.cat)}${opt('potion', 'Consommable', filtres.cat)}${opt('butin', 'Butin', filtres.cat)}</select>
+      <select id="fNiv" aria-label="Niveau">${opt('tout', 'Niveau : tout', filtres.niv)}${[1, 2, 3, 4, 5, 6, 7, 8].map(n => opt(n, 'Niveau ' + n, filtres.niv)).join('')}</select>
+      <select id="fQ" aria-label="Qualité">${opt('tout', 'Qualité : toute', filtres.q)}${QUALITES.map(q => opt(q.id, q.nom, filtres.q)).join('')}</select>
+    </div>
+    <div class="mCorps"><div class="mListe"><h3>${ongletM === 'achat' ? 'Acheter sur le Marché' : 'Vendre au Marché'}</h3>
+      <div class="lignes">${liste.length ? liste.map(it => `<div class="ligne"><button data-v="${it.id}" style="border:0;background:none;padding:0">${htmlCase(it)}</button>
+        <div class="nomL" style="color:${it.tier ? shade(couleurObjet(it)) : '#3a2312'}">${nomObjet(it)}<small>${categorieLabel(it)}${it.tier ? ' · ' + QUALITES[it.q].nom + ' · Puissance ' + puissanceObjet(it) : ''}</small></div>
+        <div class="prix"><span class="piece"></span>${fmt(ongletM === 'achat' ? valeurObjet(it) : prixVente(it))}</div>
+        <button class="btn" data-${ongletM === 'achat' ? 'buy' : 'sell'}="${it.id}" ${ongletM === 'achat' && valeurObjet(it) > j.argent ? 'disabled' : ''}>${ongletM === 'achat' ? 'Acheter' : 'Vendre'}</button></div>`).join('')
+        : `<div class="vide-liste">${ongletM === 'achat' ? 'Rien ne correspond à ces filtres.' : 'Ton sac ne contient rien à vendre avec ces filtres.'}</div>`}</div>
+      ${ongletM === 'vente' && j.sac.some(i => i.cat === 'butin') ? '<div style="padding-top:1vh;text-align:right"><button class="btn or" id="venteButin">Vendre tout le butin sans valeur</button></div>' : ''}
+    </div>
+    <div class="onglets"><button data-o="achat" class="${ongletM === 'achat' ? 'actif' : ''}">ACHAT</button><button data-o="vente" class="${ongletM === 'vente' ? 'actif' : ''}">VENTE</button></div></div></div>`;
+  const m = $('#marche');
+  m.querySelector('[data-x]').onclick = () => { m.hidden = true; api.son('close_001', 0.4); };
+  m.querySelector('#fCat').onchange = (e) => { filtres.cat = e.target.value; UI.rendreMarche(); };
+  m.querySelector('#fNiv').onchange = (e) => { filtres.niv = e.target.value; UI.rendreMarche(); };
+  m.querySelector('#fQ').onchange = (e) => { filtres.q = e.target.value; UI.rendreMarche(); };
+  const r = m.querySelector('#rech'); r.oninput = (e) => { filtres.txt = e.target.value; clearTimeout(UI._rt); UI._rt = setTimeout(() => { UI.rendreMarche(); const n = $('#rech'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); }, 350); };
+  m.querySelectorAll('[data-o]').forEach(b => b.onclick = () => { ongletM = b.dataset.o; UI.rendreMarche(); api.son('click_001', 0.4); });
+  const trouve = (id) => (ongletM === 'achat' ? stock : j.sac).find(i => i.id == id);
+  m.querySelectorAll('[data-v]').forEach(b => b.onclick = () => UI.fiche(trouve(b.dataset.v), ongletM === 'achat' ? 'achat' : 'vente'));
+  m.querySelectorAll('[data-buy]').forEach(b => b.onclick = () => { api.acheter(trouve(b.dataset.buy)); UI.rendreMarche(); });
+  m.querySelectorAll('[data-sell]').forEach(b => b.onclick = () => { api.vendre(+b.dataset.sell); UI.rendreMarche(); });
+  const vb = m.querySelector('#venteButin'); if (vb) vb.onclick = () => { api.vendreButin(); UI.rendreMarche(); };
+};
+
+// ---------------- Portail ----------------
+UI.menuPortail = () => {
+  const j = api.etat(); const ip = statsHeros(j.equip).ip;
+  $('#portailMenu').innerHTML = `<div class="cadreP"><button class="fermer" data-x aria-label="Fermer">×</button>
+    <h2>La Brèche Écarlate</h2><div class="sous">Quatre gardiens, quatre coffres. La couleur du coffre se voit en entrant ; il ne s’ouvre qu’une fois son gardien tombé.</div>
+    <div class="modes">${MODES.map(m => {
+      const ok = ip >= m.ipConseil;
+      return `<div class="mode" style="--c:${m.couleur}"><div class="niv">NIVEAU ${m.id + 1}</div><h3>${m.nom}</h3><div class="lieu">${m.lieu}</div>
+      <div class="tiers">${Array.from({ length: m.tiers[1] - m.tiers[0] + 1 }, (_, i) => m.tiers[0] + i).map(t => `<span style="background:${TIERS[t].color}">T${t}</span>`).join('')}</div>
+      <p>${m.texte}</p><div class="ipl"><span>Puissance conseillée</span><b>${m.ipConseil}</b></div><div class="ipl"><span>Ta puissance</span><b class="${ok ? 'ok' : 'ko'}">${ip}</b></div>
+      <button class="btn ${ok ? 'or' : ''}" data-m="${m.id}">${ok ? 'Entrer' : 'Entrer quand même'}</button></div>`;
+    }).join('')}</div></div>`;
+  const p = $('#portailMenu'); p.hidden = false; api.son('forceField_000', 0.5);
+  p.querySelector('[data-x]').onclick = () => (p.hidden = true);
+  p.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { p.hidden = true; api.entrer(+b.dataset.m); });
+};
+
+// ---------------- Butin d'un coffre ----------------
+UI.butin = (couleur, loot, cb) => {
+  const c = COFFRES.find(x => x.id === couleur);
+  $('#butin').innerHTML = `<div class="cadreB parchemin" style="box-shadow:0 0 80px ${c.color}88, inset 0 0 0 2px #b78f55"><h2 style="color:${shade(c.color)}">${c.nom}</h2>
+    <div style="font-size:2vh;color:#6a4a2e">${c.desc}</div>
+    <div class="argentG"><span class="piece" style="width:3vh;height:3vh"></span>+ ${fmt(loot.argent)}</div>
+    <div class="lootGrille">${loot.objets.map((it, i) => `<button class="item" data-i="${i}" style="animation-delay:${0.25 + i * 0.22}s;border:0;background:none;padding:0">${htmlCase(it)}<span style="color:${it.tier ? shade(couleurObjet(it)) : '#3a2312'}">${nomObjet(it)}${it.tier ? ` (${TIERS[it.tier].roman})` : ''}</span></button>`).join('')}</div>
+    <button class="btn or" data-ok>Tout prendre</button></div>`;
+  const b = $('#butin'); b.hidden = false;
+  b.querySelectorAll('[data-i]').forEach(e => e.onclick = () => UI.fiche(loot.objets[+e.dataset.i], 'apercu'));
+  b.querySelector('[data-ok]').onclick = () => { b.hidden = true; cb(); };
+};
+
+UI.mort = (txt, cb) => {
+  $('#mort').innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:2vh"><h2>Tu es tombé</h2><p>${txt}</p><button class="btn or" data-ok>Revenir sur la Place</button></div>`;
+  const m = $('#mort'); m.hidden = false; m.querySelector('[data-ok]').onclick = () => { m.hidden = true; cb(); };
+};
+
+UI.reglages = () => {
+  const r = $('#regl');
+  r.innerHTML = `<div class="reglages parchemin"><button class="fermer" data-x aria-label="Fermer">×</button><h2>Réglages</h2>
+    <label>Qualité graphique <select id="rQ" class="btn gris"><option value="haute" ${G.qualite === 'haute' ? 'selected' : ''}>Haute (lueurs)</option><option value="basse" ${G.qualite === 'basse' ? 'selected' : ''}>Économie batterie</option></select></label>
+    <label>Sons <input type="checkbox" id="rS" ${G.son ? 'checked' : ''} style="width:3vh;height:3vh"></label>
+    <label>Plein écran <button class="btn gris" id="rF">Activer</button></label>
+    <label>Sauvegarde <button class="btn" id="rR">Effacer et recommencer</button></label>
+    <p id="rConf" style="font-size:2vh;margin:0" hidden>Touche encore pour confirmer : tout ton équipement sera perdu.</p></div>`;
+  r.hidden = false;
+  r.querySelector('[data-x]').onclick = () => (r.hidden = true);
+  r.querySelector('#rQ').onchange = (e) => api.qualite(e.target.value);
+  r.querySelector('#rS').onchange = (e) => { G.son = e.target.checked; };
+  r.querySelector('#rF').onclick = () => { document.documentElement.requestFullscreen?.().catch(() => {}); };
+  let n = 0; r.querySelector('#rR').onclick = () => { if (++n === 1) { r.querySelector('#rConf').hidden = false; return; } api.reset(); };
+};
