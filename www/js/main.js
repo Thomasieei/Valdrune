@@ -296,6 +296,11 @@ function fondu(fn) {
 }
 
 function lancerHub(premier = false) {
+  if (groupe && modeActuel && (modeActuel.mode !== undefined || MODES.includes(modeActuel))) {
+    if (groupe.fort) { J.rushs = (J.rushs || 0) + 1; sauver(); }
+    groupe.donjonsRestants = (groupe.donjonsRestants ?? 2) - 1;
+    if (groupe.donjonsRestants <= 0) { const n = groupe.nom; groupe = null; setTimeout(() => { UI.chat(n, hasard(['gg, je dois y aller', 'bon je déco, gg', 'merci pour les runs', 'bye'])); UI.toast(`${n} a quitté le groupe`); }, 2500); }
+  }
   invasion = null; arene = null; selection = null;
   if (!premier) { viderMonde(); monde = construireHub(); creerMarchand(); creerPasseur(); creerGraveuse(); creerBots(); }
   modeActuel = null; enJeu = true;
@@ -522,6 +527,7 @@ function tuer(e) {
     tirageOmbre(modeActuel.tiers[0], modeActuel.tiers[1], 'boss');
     for (const a of allies) if (!a.mort && !a.invoc && !a.garde) emoteBot(a, ['gg', 'feu', 'merci'], 0.6, 1);
     bossVaincus++; UI.boss(null); G.shake = 1;
+    { const cf = coffres.find(c => c.boss === e); if (cf) for (const a of allies) if (a.autonome && !a.mort && !a.lootCible && dist2D(a.pos, cf.pos) < 45) a.lootCible = cf; }
     for (const a of allies) if (a.autonome && !a.mort) reactionApresBoss(a);
     onde(e.pos, e.boss.couleur, 10, 1.2);
     emettre(V(e.pos.x, 2, e.pos.z), { n: 120, c1: '#ffd27a', c2: e.boss.couleur, vit: 9, vie: 1.4, taille: 0.5, grav: 3 });
@@ -1157,8 +1163,11 @@ const API = {
     UI.toast(`Invitation envoyée à ${data.nom}…`); son('click_001', 0.4);
     setTimeout(() => {
       const ecart = data.ip - statsHeros(J.equip).ip;
+      J.rushs = J.rushs || 0;
+      if (ecart > 150 && J.rushs >= 3) { UI.toast(`${data.nom} a refusé l’invitation`); return; }
       if (Math.random() < (ecart > 150 ? 0.5 : 0.2)) { UI.toast(`${data.nom} a refusé l’invitation`); UI.chat(data.nom, ecart > 150 ? hasard(['t’es trop low dsl', 'reviens avec du T' + (Math.round((data.ip - 320) / 100) + 1), 'non merci', 'je groupe pas avec les débutants']) : hasard(['dsl je farm', 'pas maintenant', 'je vais déco bientôt', 'déjà en groupe', 'non']), 600); emoteBot(bots.find(b => b.nom === data.nom), ['bof', 'malin', 'oups'], 0.5); return; }
       groupe = data; selection = null; son('confirmation_001', 0.5);
+      groupe.fort = ecart > 150; groupe.donjonsRestants = 1 + Math.floor(Math.random() * 3);
       UI.toast(`${data.nom} a rejoint ton groupe`); UI.chat(data.nom, hasard(['go', 'let’s go !', 'je te suis', 'on fait un donjon ?', 'salut, on y va']));
     }, 1200 + Math.random() * 900);
   },
@@ -1495,6 +1504,7 @@ function cibleIA(e) {
   else if (e.camp === 'allie') liste = arene ? vivants() : e.autonome ? vivants().filter(x => x.etat !== 'dormant' && (dist2D(x.pos, e.pos) < 12 || (dist2D(x.pos, joueur.pos) < 15 && x.etat !== 'idle')) && (!x.boss || dist2D(x.pos, joueur.pos) < 22)) : vivants().filter(x => x.etat !== 'dormant' && dist2D(x.pos, joueur.pos) < 15 && (x.etat !== 'idle' || dist2D(x.pos, e.pos) < 8));
   else liste = equipeJoueur();
   if (!liste.length) return null;
+  if (!e.combattant && !e.rival && liste.length > 1) { e.aggroT = (e.aggroT || 0) - 0.1; if (e.aggroT <= 0 || !e.tc || e.tc.mort || !liste.includes(e.tc)) { e.aggroT = rnd(4, 8); const proches = liste.filter(c => dist2D(c.pos, e.pos) < 12); if (proches.length) return hasard(proches); } }
   let p = null, pd = Infinity;
   for (const c of liste) { const d = dist2D(c.pos, e.pos); if (d < pd) { pd = d; p = c; } }
   // on garde sa cible, sauf si une autre est nettement plus proche
@@ -1524,7 +1534,8 @@ function toucherZone(src, p, r, d, opts = {}) {
 }
 function blesserAllie(a, d, src, opts = {}) {
   if (a.mort) return;
-  d = d * (1 - a.reduction) * rnd(0.92, 1.08);
+  d = d * (1 - a.reduction) * rnd(0.92, 1.08) * (a.invoc ? 1 : 1.3);
+  a.coupT = 5;
   if (a.bouclierIA > 0) { const b = Math.min(a.bouclierIA, d); a.bouclierIA -= b; d -= b; if (d <= 0) return; }
   a.pv -= d; a.frapper();
   UI.nombre(V(a.pos.x, 2.2, a.pos.z), Math.round(d), 'allie');
@@ -1697,6 +1708,8 @@ function majAllies(dt) {
     const a = allies[i];
     if (a.vieT !== undefined && !a.mort) { a.vieT -= dt; if (a.vieT <= 0) { dissiper(a); continue; } if (a.vieT < 3 && Math.random() < dt * 8) emettre(V(a.pos.x, 1, a.pos.z), { n: 1, c1: '#c9a0ff', c2: '#1a0630', dir: V(0, 1, 0), vit: 1.5, rayon: 0.5, vie: 0.6, taille: 0.35 }); }
     if (a.mort) { a.maj(dt); continue; }
+    a.coupT = (a.coupT || 0) - dt;
+    if (!a.invoc && a.coupT <= 0 && a.pv < a.pvMax) a.pv = Math.min(a.pvMax, a.pv + a.pvMax * (a.coupT < -4 ? 0.06 : 0.012) * dt);
     if (a.stunT > 0) { a.stunT -= dt; a.maj(dt * 0.15); continue; }
     if (a.refletMob) { majRefletMob(a, dt); a.maj(dt); continue; }
     if (a.slowT > 0) a.slowT -= dt;
@@ -2476,7 +2489,24 @@ function traitVivant(e, dt) {
   }
   return false;
 }
+function allerLooter(e, dt) {
+  const c = e.lootCible; if (!c) return false;
+  if (c.lootePar && c.lootePar.has(e)) { e.lootCible = null; return false; }
+  if (dist2D(e.pos, c.pos) > 2.4) { allerVers(e, c.pos, dt, e.st.vitesse); e.jouer(e.armeDef.run); return true; }
+  if (!e.fouilleT) { e.fouilleT = 1.6; e.jouer('Interact' in e.actions ? 'Interact' : 'PickUp', { boucle: false, forcer: true }); son('creak1', 0.35, 1.2); }
+  e.fouilleT -= dt;
+  if (e.fouilleT <= 0) {
+    e.fouilleT = 0; (c.lootePar = c.lootePar || new Set()).add(e); e.lootCible = null;
+    emettre(V(c.pos.x, 1.2, c.pos.z), { n: 30, c1: '#fff2c0', c2: c.def.color, vit: 4, vie: 0.8, taille: 0.35, monte: 3 });
+    UI.toast(`${e.nom} a récupéré sa part du ${c.def.nom.toLowerCase()}`);
+    if (Math.random() < 0.5) UI.chat(e.nom, hasard(['loot !', 'merci le boss', 'pas ouf', 'ENFIN un drop', 'encore des os…', 'bof']));
+    else emoteBot(e, ['feu', 'malin', 'merci', 'bof'], 1);
+    e.jouer(e.armeDef.idle);
+  }
+  return true;
+}
 function autonomieSylve(e, dt) {
+  if (allerLooter(e, dt)) return;
   if (e.decal === undefined) Object.assign(e, { decal: rnd(-3.2, 3.2), attenteT: 0, proieT: 0 });
   if (traitVivant(e, dt)) return;
   const T = TRAITS[e.trait] || TRAITS.bavard;
@@ -2589,6 +2619,7 @@ function allerVers(e, dest, dt, vitesse) {
 // ---------------- Le coéquipier fait sa vie ----------------
 const PHRASES_EXPLO = ['je vais clean à côté', 'je prends la salle là-bas', 'rejoins-moi', 'je check à gauche', 'y a du monde par ici', 'suis-moi'];
 function autonomieAllie(e, dt, dj) {
+  if (allerLooter(e, dt)) return true;
   if (traitVivant(e, dt)) return true;
   e.modeT -= dt;
   if (e.modeT <= 0) {
@@ -2828,6 +2859,7 @@ function finBossSylve(e) {
     const c = COFFRES.find(x => x.id === 'legendaire');
     const obj = cloner('chest_gold', pos.x, 0, pos.z, Math.PI / 4, 2.2); obj.traverse(o => { if (o.isMesh) o.castShadow = true; });
     G.scene.add(obj); const beam = faisceau(V(pos.x, 0, pos.z), '#3affa0', 22, 1.3); G.scene.add(beam);
+    setTimeout(() => { const cf = coffres.find(x => x.final); if (cf) for (const a of allies) if (a.membreSylve && !a.mort) a.lootCible = cf; }, 4000);
     coffres.push({ obj, beam, couleur: 'legendaire', def: { ...c, nom: 'Coffre du Sanctuaire', color: '#3affa0' }, boss: { mort: true, boss: e.boss }, pos, ouvert: false, lid: obj.getObjectByName('chest_lid'), final: true });
     if (sortie) { G.scene.remove(sortie.groupe); } creerSortie(s.c.clone().add(V(6, 0, 5)));
     UI.journal('Sanctuaire purifié !', 'Ouvrez le Coffre du Sanctuaire pour voir les dégâts totaux et le butin de chacun.', 1);
@@ -3134,7 +3166,7 @@ function dissiper(a) {
 }
 
 // accès de débogage (console)
-window.__jeu = { API, G, UI, groupeTest: () => { groupe = donneesBot(statsHeros(J.equip).ip); return groupe.nom; }, trahir: () => allies.forEach(a => a.autonome && trahir(a)), invasionTest: () => { invasion = { mode: "subie", t: 0, rival: null }; lancerInvasion(); }, entrerSylve: (o) => entrerSylve(o), get sylve() { return sylve; }, invoquerOmbres, tirageOmbre, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
+window.__jeu = { API, G, UI, tuerUn: (e) => { e.pv = 0; tuer(e); }, groupeTest: () => { groupe = donneesBot(statsHeros(J.equip).ip); return groupe.nom; }, trahir: () => allies.forEach(a => a.autonome && trahir(a)), invasionTest: () => { invasion = { mode: "subie", t: 0, rival: null }; lancerInvasion(); }, entrerSylve: (o) => entrerSylve(o), get sylve() { return sylve; }, invoquerOmbres, tirageOmbre, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
 
 initEntrees();
 demarrer();

@@ -608,7 +608,8 @@ UI.rendreMarche = () => {
   const liste = source.filter(it => {
     if (filtres.cat !== 'tout') {
       const c = it.cat === 'arme' ? 'arme' : it.cat === 'armure' ? it.type : it.cat;
-      if (c !== filtres.cat) return false;
+      if (filtres.cat.startsWith('arme:')) { if (it.cat !== 'arme' || it.type !== filtres.cat.slice(5)) return false; }
+      else if (c !== filtres.cat) return false;
     }
     if (filtres.niv !== 'tout' && it.tier != filtres.niv) return false;
     if (filtres.q !== 'tout' && (it.q || 0) != filtres.q) return false;
@@ -622,7 +623,7 @@ UI.rendreMarche = () => {
       <input id="rech" placeholder="Recherche…" value="${filtres.txt}" aria-label="Rechercher un objet">
       <div class="solde">${A ? '<span class="troph" style="font-size:3vh">🏆</span>' : '<span class="piece" style="width:3vh;height:3vh"></span>'}${fmt(solde)}</div></div>
     <div class="filtres">
-      <select id="fCat" aria-label="Catégorie">${opt('tout', 'Catégorie : tout', filtres.cat)}${opt('arme', 'Armes', filtres.cat)}${opt('casque', 'Armure de tête', filtres.cat)}${opt('plastron', 'Armure de poitrine', filtres.cat)}${opt('bottes', 'Armure de pieds', filtres.cat)}${opt('potion', 'Consommable', filtres.cat)}${opt('butin', 'Butin', filtres.cat)}</select>
+      <select id="fCat" aria-label="Catégorie">${opt('tout', 'Catégorie : tout', filtres.cat)}${opt('arme', 'Toutes les armes', filtres.cat)}${opt('arme:epee', '— Épées à deux mains', filtres.cat)}${opt('arme:arbalete', '— Arbalètes lourdes', filtres.cat)}${opt('arme:baton', '— Bâtons de feu', filtres.cat)}${api.ombreDebloquee() ? opt('arme:ombre', '— Dagues des Ombres', filtres.cat) : ''}${opt('casque', 'Armure de tête', filtres.cat)}${opt('plastron', 'Armure de poitrine', filtres.cat)}${opt('bottes', 'Armure de pieds', filtres.cat)}${opt('potion', 'Consommable', filtres.cat)}${opt('butin', 'Butin', filtres.cat)}</select>
       <select id="fNiv" aria-label="Niveau">${opt('tout', 'Niveau : tout', filtres.niv)}${[1, 2, 3, 4, 5, 6, 7, 8].map(n => opt(n, 'Niveau ' + n, filtres.niv)).join('')}</select>
       <select id="fQ" aria-label="Qualité">${opt('tout', 'Qualité : toute', filtres.q)}${QUALITES.map(q => opt(q.id, q.nom, filtres.q)).join('')}</select>
     </div>
