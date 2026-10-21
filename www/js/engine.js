@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -9,7 +10,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 export { THREE };
 export const G = {
-  assets: {}, sounds: {}, t: 0, dt: 0, vfx: [], qualite: 'haute', son: true,
+  assets: {}, sounds: {}, t: 0, dt: 0, vfx: [], qualite: 'auto', niveau: 2, son: true, acteurs: new Set(), focus: null,
   camYaw: Math.PI / 4, camDist: 25, camPitch: 0.98, shake: 0, camTarget: new THREE.Vector3(),
 };
 
@@ -20,7 +21,8 @@ export function initRendu(canvas) {
   r.toneMapping = THREE.ACESFilmicToneMapping;
   r.toneMappingExposure = 1.15;
   r.shadowMap.enabled = true;
-  r.shadowMap.type = THREE.PCFSoftShadowMap;
+  r.shadowMap.type = THREE.PCFShadowMap;
+  r.info.autoReset = false;
   G.renderer = r;
   G.scene = new THREE.Scene();
   G.scene.background = new THREE.Color('#120b1b');
@@ -43,7 +45,7 @@ export function initRendu(canvas) {
   G.composer.addPass(new OutputPass());
   // Pool de lumières ponctuelles (torches)
   G.lightPool = [];
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 4; i++) {
     const l = new THREE.PointLight('#ff9a4a', 0, 13, 1.6);
     G.scene.add(l); G.lightPool.push(l);
   }
@@ -56,7 +58,7 @@ export function initRendu(canvas) {
 export function redimensionner() {
   const w = window.innerWidth, h = window.innerHeight;
   const tactile = matchMedia('(pointer: coarse)').matches;
-  const pr = Math.min(window.devicePixelRatio || 1, G.qualite === 'haute' ? (tactile ? 1.25 : 1.6) : 1.0);
+  const pr = Math.min(window.devicePixelRatio || 1, G.niveau >= 2 ? (tactile ? 1.25 : 1.6) : G.niveau === 1 ? (tactile ? 1.0 : 1.25) : 0.8);
   G.renderer.setPixelRatio(pr);
   G.renderer.setSize(w, h, false);
   G.composer.setPixelRatio(pr);
@@ -69,10 +71,11 @@ export function redimensionner() {
   if (G.partMat) G.partMat.uniforms.uScale.value = h * pr * 0.5 / Math.tan(THREE.MathUtils.degToRad(G.camera.fov / 2));
 }
 
+const _off = new THREE.Vector3();
 export function majCamera(dt, cible) {
   G.camTarget.lerp(cible, 1 - Math.exp(-dt * 8));
   const d = G.camDist, p = G.camPitch;
-  const off = new THREE.Vector3(Math.sin(G.camYaw) * Math.cos(p) * d, Math.sin(p) * d, Math.cos(G.camYaw) * Math.cos(p) * d);
+  const off = _off.set(Math.sin(G.camYaw) * Math.cos(p) * d, Math.sin(p) * d, Math.cos(G.camYaw) * Math.cos(p) * d);
   G.camera.position.copy(G.camTarget).add(off);
   if (G.shake > 0) {
     G.shake = Math.max(0, G.shake - dt * 2.5);
@@ -87,8 +90,54 @@ export function majCamera(dt, cible) {
 export const DIR_HAUT = new THREE.Vector3(-1, 0, -1).normalize();
 export const DIR_DROITE = new THREE.Vector3(1, 0, -1).normalize();
 
+// ---------- Qualité et culling des personnages ----------
+const _frustum = new THREE.Frustum(), _pv = new THREE.Matrix4(), _sph = new THREE.Sphere();
+function cullActeurs() {
+  G.camera.updateMatrixWorld();
+  _pv.multiplyMatrices(G.camera.projectionMatrix, G.camera.matrixWorldInverse); _frustum.setFromProjectionMatrix(_pv);
+  const f = G.focus || G.camTarget;
+  for (const a of G.acteurs) {
+    if (!a.root.parent) { if (a._dansScene) G.acteurs.delete(a); continue; }
+    if (!a._dansScene) { a._dansScene = true; a.fusionner(); }
+    const p = a.root.position;
+    _sph.center.set(p.x, p.y + a.rayonVis * 0.6, p.z); _sph.radius = a.rayonVis + 2.5;
+    const vis = _frustum.intersectsSphere(_sph);
+    if (vis !== a.vu) { a.vu = vis; a.model.visible = vis; }
+    if (vis) {
+      const ombre = G.niveau > 0 && Math.abs(p.x - f.x) + Math.abs(p.z - f.z) < 30;
+      if (ombre !== a._ombre) { a._ombre = ombre; for (const m of a.meshes) m.castShadow = ombre; }
+    }
+  }
+}
+export function appliquerNiveau(n) {
+  n = Math.max(0, Math.min(2, n));
+  const avant = G.niveau; G.niveau = n;
+  G.bloom.enabled = n >= 2;
+  const ombres = n >= 1;
+  if (G.sun.castShadow !== ombres) { G.sun.castShadow = ombres; G.renderer.shadowMap.enabled = ombres; G.scene.traverse(o => { if (o.material) [].concat(o.material).forEach(m => (m.needsUpdate = true)); }); }
+  redimensionner();
+  return avant !== n;
+}
+// mesure de fluidité : la qualité « auto » descend d’un cran si le jeu rame, et remonte si ça n’a rien changé
+const auto = { t: 0, n: 0, somme: 0, essai: null, fini: false };
+export function majQualiteAuto(dtReel, actif) {
+  if (G.qualite !== 'auto' || auto.fini || !actif) { auto.t = auto.n = auto.somme = 0; return null; }
+  auto.t += Math.min(dtReel, 0.25); auto.n++; auto.somme += dtReel;
+  if (auto.t < 4) return null;
+  const fps = auto.n / auto.somme; auto.t = auto.n = auto.somme = 0;
+  if (auto.essai) {
+    const e = auto.essai; auto.essai = null;
+    if (fps < e.fps * 1.12) { auto.fini = true; appliquerNiveau(e.niveau); return 'inutile'; }
+    if (fps >= 48) { auto.fini = true; return null; }
+  }
+  if (fps < 48 && G.niveau > 0) { auto.essai = { fps, niveau: G.niveau }; appliquerNiveau(G.niveau - 1); return 'baisse'; }
+  if (fps >= 55) auto.fini = true;
+  return null;
+}
 export function rendre() {
-  if (G.qualite === 'haute') G.composer.render(); else G.renderer.render(G.scene, G.camera);
+  G.renderer.info.reset();
+  cullActeurs();
+  if (G.niveau >= 1) G.composer.render(); else G.renderer.render(G.scene, G.camera);
 }
 
 // ---------- Torches : on allume les plus proches ----------
@@ -177,6 +226,7 @@ export function ambiance() {
 }
 
 // ---------- Acteurs animés ----------
+const NOIR = new THREE.Color(0), BLANC = new THREE.Color('#ffffff');
 export class Acteur {
   constructor(cle, { hauteur = 2.0, echelle = 1 } = {}) {
     const src = G.assets[cle];
@@ -187,11 +237,13 @@ export class Acteur {
     this.model.scale.multiplyScalar(s);
     this.root.add(this.model);
     this.nodes = {};
-    this.mats = [];
+    this.mats = []; this.meshes = [];
+    this.rayonVis = hauteur * echelle * 0.75 + 0.8; this.vu = true; this._ombre = true; this._acc = 0;
+    G.acteurs.add(this);
     this.model.traverse(o => {
       this.nodes[o.name] = o;
       if (o.isMesh) {
-        o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false;
+        o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; this.meshes.push(o);
         o.material = o.material.clone(); this.mats.push(o.material);
         o.material.userData.baseEmissive = o.material.emissive ? o.material.emissive.clone() : null;
       }
@@ -224,17 +276,61 @@ export class Acteur {
     });
   }
   frapper() { this.flash = 0.12; }
+  // fusionne les morceaux du corps (tête, buste, bras, jambes) en un seul maillage : 1 appel GPU au lieu de 6
+  fusionner() {
+    if (this._fusion || G.pasFusion) return; this._fusion = true;
+    const groupes = new Map();
+    this.model.traverse(o => {
+      if (!o.isSkinnedMesh || !o.geometry.attributes.uv) return;
+      let v = true; for (let p = o; p; p = p.parent) if (!p.visible) { v = false; break; }
+      if (!v) return;
+      const be = o.material.userData.baseEmissive; if (be && (be.r + be.g + be.b) > 0.001) return;
+      if (o.material.transparent) return;
+      const k = (o.material.map ? o.material.map.uuid : '-') + '|' + o.skeleton.bones.length + '|' + o.parent.uuid;
+      if (!groupes.has(k)) groupes.set(k, []); groupes.get(k).push(o);
+    });
+    for (const parts of groupes.values()) {
+      if (parts.length < 2) continue;
+      const ref = parts[0];
+      if (!parts.every(p => p.bindMatrix.equals(ref.bindMatrix) && p.skeleton.bones.every((b, i) => b === ref.skeleton.bones[i]))) continue;
+      const geos = [];
+      for (const p of parts) {
+        const g = new THREE.BufferGeometry();
+        for (const n of ['position', 'normal', 'uv', 'skinIndex', 'skinWeight']) { if (!p.geometry.attributes[n]) return; g.setAttribute(n, p.geometry.attributes[n]); }
+        if (p.geometry.index) g.setIndex(p.geometry.index);
+        const nb = g.attributes.position.count, col = new Float32Array(nb * 3), c = p.material.color;
+        for (let i = 0; i < nb; i++) { col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b; }
+        g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+        geos.push(g.index ? g : g);
+      }
+      const indexes = geos.every(g => g.index), aucun = geos.every(g => !g.index);
+      if (!indexes && !aucun) continue;
+      const geo = mergeGeometries(geos, false); if (!geo) continue;
+      const mat = ref.material.clone(); mat.color.set('#ffffff'); mat.vertexColors = true;
+      mat.userData.baseEmissive = mat.emissive ? mat.emissive.clone() : null;
+      const m = new THREE.SkinnedMesh(geo, mat);
+      m.name = ref.name + '_fusion'; m.frustumCulled = false; m.castShadow = this._ombre; m.receiveShadow = false;
+      m.bind(ref.skeleton, ref.bindMatrix);
+      m.position.copy(ref.position); m.quaternion.copy(ref.quaternion); m.scale.copy(ref.scale);
+      ref.parent.add(m);
+      for (const p of parts) { p.removeFromParent(); const i = this.mats.indexOf(p.material); if (i >= 0) this.mats.splice(i, 1); const j = this.meshes.indexOf(p); if (j >= 0) this.meshes.splice(j, 1); }
+      this.mats.push(mat); this.meshes.push(m);
+    }
+  }
   maj(dt) {
+    // hors écran : animation mise à jour 5 fois par seconde seulement
+    if (this.vu === false) { this._acc += dt; if (this._acc < 0.2) return; dt = this._acc; }
+    this._acc = 0;
     this.mixer.update(dt);
-    if (this.flash > 0) {
-      this.flash -= dt; const k = Math.max(0, this.flash) / 0.12;
-      for (const m of this.mats) if (m.emissive) { m.emissive.copy(m.userData.baseEmissive || new THREE.Color(0)).lerp(new THREE.Color('#ffffff'), k * 0.8); }
+    if (this.flash > 0 || this._flashOn) {
+      this.flash -= dt; const k = Math.max(0, this.flash) / 0.12; this._flashOn = k > 0;
+      for (const m of this.mats) if (m.emissive) { m.emissive.copy(m.userData.baseEmissive || NOIR).lerp(BLANC, k * 0.8); }
     }
   }
   attacher(cleProp, os = 'handslot.r', { echelle = 1, rot = null } = {}) {
     const p = G.assets[cleProp]; if (!p || !this.nodes[os]) return null;
     const m = p.scene.clone(true);
-    m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.material = o.material.clone(); this.mats.push(o.material); } });
+    m.traverse(o => { if (o.isMesh) { o.castShadow = this._ombre; o.material = o.material.clone(); this.mats.push(o.material); this.meshes.push(o); } });
     m.scale.setScalar(echelle); if (rot) m.rotation.set(...rot);
     this.nodes[os].add(m); return m;
   }
@@ -248,23 +344,30 @@ export class Instancieur {
     const m = new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rotY), new THREE.Vector3(sx, sy, sz));
     this.par.get(cle).push(m);
   }
+  // découpé en blocs de 24 m : la caméra ne dessine que les blocs visibles
   construire(groupe, { ombre = false } = {}) {
-    for (const [cle, mats] of this.par) {
+    const CELL = 24;
+    for (const [cle, toutes] of this.par) {
       const src = G.assets[cle]; if (!src) continue;
       src.scene.updateMatrixWorld(true);
+      const blocs = new Map();
+      for (const m of toutes) { const k = Math.floor(m.elements[12] / CELL) + ',' + Math.floor(m.elements[14] / CELL); if (!blocs.has(k)) blocs.set(k, []); blocs.get(k).push(m); }
       src.scene.traverse(o => {
         if (!o.isMesh) return;
-        const im = new THREE.InstancedMesh(o.geometry, o.material, mats.length);
         const tmp = new THREE.Matrix4();
-        mats.forEach((m, i) => im.setMatrixAt(i, tmp.multiplyMatrices(m, o.matrixWorld)));
-        im.receiveShadow = true; im.castShadow = ombre;
-        groupe.add(im);
+        for (const mats of blocs.values()) {
+          const im = new THREE.InstancedMesh(o.geometry, o.material, mats.length);
+          mats.forEach((m, i) => im.setMatrixAt(i, tmp.multiplyMatrices(m, o.matrixWorld)));
+          im.computeBoundingSphere();
+          im.receiveShadow = true; im.castShadow = ombre; im.matrixAutoUpdate = false;
+          groupe.add(im);
+        }
       });
     }
   }
 }
 export function cloner(cle, x = 0, y = 0, z = 0, rotY = 0, s = 1) {
-  const src = G.assets[cle]; const m = src.scene.clone(true);
+  const src = G.assets[cle]; const m = src.scene.clone(true); m.userData.cle = cle;
   m.position.set(x, y, z); m.rotation.y = rotY; m.scale.setScalar(s);
   return m;
 }

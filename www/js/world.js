@@ -580,15 +580,29 @@ export function construireIle(ile, etranger = false) {
         g.add(cloner('Rock_3_C', 0, 0.7, 0, 0, 2.5)); g.add(cloner(minerais[Math.floor(rng() * 4)], 0.3, 1.4, 0.2, rng() * 6, 1.4));
         souche = cloner('Rock_1_A', p.x, 0, p.z, rng() * 6, 2); rayon = 1.4;
       } else {
-        if (rng() < 0.5) { g.add(cloner('Bush_2_C', 0, 0, 0, 0, 1.6)); for (let f = 0; f < 4; f++) g.add(cloner('flower_redA', (rng() - 0.5) * 1.6, 0.6 + rng() * 1.2, (rng() - 0.5) * 1.6, rng() * 6, 4)); }
-        else { for (let f = 0; f < 4; f++) g.add(cloner(['crop_pumpkin', 'crop_melon', 'crop_carrot'][Math.floor(rng() * 3)], (f % 2 - 0.5) * 1.6, 0, (Math.floor(f / 2) - 0.5) * 1.6, rng() * 6, 3.2)); }
+        creerAssetsProc();
+        if (rng() < 0.35) g.add(cloner('proc_baies', 0, 0, 0, rng() * 6, 1));
+        else { const cul = ['proc_citrouille', 'proc_pasteque', 'proc_chou'][Math.floor(rng() * 3)];
+          for (let f = 0; f < 3; f++) { const fa = f / 3 * 6.28 + rng(); g.add(cloner(cul, Math.cos(fa) * 1.0, 0, Math.sin(fa) * 1.0, rng() * 6, 0.95 + rng() * 0.25)); } rayon = 1.4; }
         souche = cloner('Grass_1_A', p.x, 0, p.z, 0, 3);
       }
       g.traverse(o => { if (o.isMesh) o.castShadow = true; });
-      groupe.add(g); souche.visible = false; groupe.add(souche);
-      noeuds.push({ pos: p, obj: g, souche, pv: 6, pvMax: 6, regenT: 0, rayon });
+      souche.visible = false; groupe.add(souche);
+      noeuds.push({ pos: p, obj: g, souche, pv: 6, pvMax: 6, regenT: 0, rayon, inst: [], reel: false, groupe });
       collisions.push({ x: p.x, z: p.z, r: rayon * 0.8, noeud: noeuds[noeuds.length - 1] });
     }
+  }
+  // les nœuds sont dessinés en instances (une poignée d’appels GPU au lieu de plusieurs centaines)
+  const lots = new Map();
+  for (const n of noeuds) { n.obj.updateMatrixWorld(true); for (const c of n.obj.children) { const k = c.userData.cle; if (!lots.has(k)) lots.set(k, []); lots.get(k).push({ n, m: c.matrixWorld.clone() }); } }
+  for (const [cle, liste] of lots) {
+    const src = G.assets[cle].scene; src.updateMatrixWorld(true);
+    src.traverse(o => {
+      if (!o.isMesh) return;
+      const im = new THREE.InstancedMesh(o.geometry, o.material, liste.length); im.castShadow = true; im.receiveShadow = true; im.matrixAutoUpdate = false;
+      liste.forEach((e, i) => { const mat = new THREE.Matrix4().multiplyMatrices(e.m, o.matrixWorld); im.setMatrixAt(i, mat); e.n.inst.push({ im, i, mat }); });
+      im.computeBoundingSphere(); groupe.add(im);
+    });
   }
   // herbes et fleurs décoratives
   for (const t of terre) for (let k = 0; k < 3; k++) { const a = rng() * 6.28, rr = rng() * 4; inst.ajouter(rng() < 0.7 ? 'Grass_1_A' : 'flower_yellowA', t.p.x + Math.cos(a) * rr, 0, t.p.z + Math.sin(a) * rr, rng() * 6, 3, 3, 3); }
@@ -606,4 +620,46 @@ export function construireIle(ile, etranger = false) {
       return along > 0 && along < 11 && perp < 2;
     },
   };
+}
+
+// un nœud passe en objet « réel » pendant qu’on le secoue, le coupe ou qu’il repousse, puis revient en instance
+const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+export function noeudReel(n, oui) {
+  if (!!n.reel === oui) return;
+  n.reel = oui;
+  if (oui) n.groupe.add(n.obj); else { n.obj.removeFromParent(); n.obj.rotation.z = 0; n.obj.scale.setScalar(1); }
+  for (const e of n.inst) { e.im.setMatrixAt(e.i, oui ? ZERO : e.mat); e.im.instanceMatrix.needsUpdate = true; }
+}
+
+// ---------- Cultures modélisées à la main : lisibles de loin (citrouilles, pastèques, choux, baies) ----------
+export function creerAssetsProc() {
+  if (G.assets.proc_citrouille) return;
+  const std = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.75, flatShading: true, ...o });
+  const feuille = std('#3f9a34'), tige = std('#6a7a2a');
+  const sol = (g) => { const t = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.05, 0.08, 9), std('#7a4a2a')); t.position.y = 0.04; g.add(t); };
+  const feuilles = (g, n, r, y = 0.12) => { for (let i = 0; i < n; i++) { const a = i / n * 6.28 + 0.4; const f = new THREE.Mesh(new THREE.SphereGeometry(0.28, 6, 4), feuille); f.scale.set(1.3, 0.25, 0.8); f.position.set(Math.cos(a) * r, y, Math.sin(a) * r); f.rotation.y = -a; g.add(f); } };
+  const cit = new THREE.Group(); sol(cit); feuilles(cit, 5, 0.7);
+  const corps = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 9), std('#ff8418')); corps.scale.set(1, 0.72, 1); corps.position.y = 0.4; cit.add(corps);
+  for (let i = 0; i < 6; i++) { const c = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 8), std('#ff9a2e')); c.scale.set(0.42, 0.7, 0.5); const a = i / 6 * 6.28; c.position.set(Math.cos(a) * 0.3, 0.4, Math.sin(a) * 0.3); c.rotation.y = -a; cit.add(c); }
+  const t = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.25, 6), tige); t.position.y = 0.82; t.rotation.z = 0.25; cit.add(t);
+  const pas = new THREE.Group(); sol(pas); feuilles(pas, 4, 0.75);
+  const pc = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 9), std('#2f8a35')); pc.scale.set(1.25, 0.78, 0.9); pc.position.y = 0.38; pas.add(pc);
+  for (let i = 0; i < 5; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 8), std('#9ad85a')); b.scale.set(1.27, 0.8, 0.12); b.position.set(0, 0.38, (i - 2) * 0.17); pas.add(b); }
+  const chou = new THREE.Group(); sol(chou);
+  for (let i = 0; i < 7; i++) { const a = i / 7 * 6.28; const f = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), std(i % 2 ? '#7ccf4a' : '#9ade5c')); f.scale.set(1, 0.55, 0.7); f.position.set(Math.cos(a) * 0.32, 0.25, Math.sin(a) * 0.32); f.rotation.set(0.5, -a, 0); chou.add(f); }
+  const coeur = new THREE.Mesh(new THREE.SphereGeometry(0.33, 10, 8), std('#c8f07a')); coeur.position.y = 0.4; chou.add(coeur);
+  const baies = new THREE.Group();
+  const bb = G.assets.Bush_2_C.scene.clone(true); bb.scale.setScalar(1.1); baies.add(bb);
+  const bx = new THREE.Box3().setFromObject(bb), bc = bx.getCenter(new THREE.Vector3()), bs = bx.getSize(new THREE.Vector3());
+  const rouge = std('#ff2a4a', { emissive: '#5a0010', roughness: 0.35, flatShading: false });
+  // baies posées sur les faces du buisson (cube arrondi)
+  for (let i = 0; i < 22; i++) {
+    const h1 = (x) => { const s = Math.sin(x) * 43758.5453; return s - Math.floor(s); }; const face = i % 5, u = (h1(i * 12.99 + 1) - 0.5) * 0.85, v = (h1(i * 78.23 + 7) - 0.5) * 0.85;
+    const p = face === 4 ? new THREE.Vector3(u * bs.x, bs.y / 2 + 0.06, v * bs.z) : new THREE.Vector3(...(face < 2 ? [(face ? 1 : -1) * (bs.x / 2 + 0.06), v * bs.y, u * bs.z] : [u * bs.x, v * bs.y, (face === 2 ? 1 : -1) * (bs.z / 2 + 0.06)]));
+    const s = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), rouge); s.position.copy(p.add(bc)); baies.add(s);
+  }
+  for (const [k, g] of [['proc_citrouille', cit], ['proc_pasteque', pas], ['proc_chou', chou], ['proc_baies', baies]]) {
+    g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    G.assets[k] = { scene: g, animations: [], hauteur: 1 };
+  }
 }

@@ -184,32 +184,39 @@ UI.construireSorts = (joueur) => {
     zone.appendChild(b);
   }
 };
+// écritures DOM seulement quand la valeur change (sinon le navigateur recalcule le style 12 fois par seconde)
+const txt = (el, v) => { if (el && el._t !== v) { el._t = v; el.textContent = v; } };
+const sty = (el, k, v) => { if (!el) return; const c = el._s || (el._s = {}); if (c[k] !== v) { c[k] = v; if (k[0] === '-') el.style.setProperty(k, v); else el.style[k] = v; } };
+const cls = (el, c, on) => { if (!el) return; const m = el._c || (el._c = {}); if (m[c] !== on) { m[c] = on; el.classList.toggle(c, on); } };
+const els = {};
+const E = (id) => { const e = els[id]; if (e && e.isConnected) return e; return (els[id] = document.getElementById(id)); };
 UI.majSorts = (joueur) => {
   for (const k of ['Q', 'W', 'E', 'R', 'D', 'F', 'POT']) {
-    const b = document.getElementById('s-' + k); if (!b) continue;
+    const b = E('s-' + k); if (!b) continue;
     const cd = joueur.cds[k] || 0, max = joueur.cdMax[k] || 1;
-    const cdEl = b.querySelector('.cd'), num = b.querySelector('.num');
-    cdEl.style.setProperty('--k', (cd > 0 ? cd / max : 0) + 'turn');
-    num.textContent = cd > 0 ? (cd < 1 ? cd.toFixed(1) : Math.ceil(cd)) : '';
+    const cdEl = b._cdEl || (b._cdEl = b.querySelector('.cd')), num = b._num || (b._num = b.querySelector('.num'));
+    sty(cdEl, '--k', (cd > 0 ? Math.round(cd / max * 200) / 200 : 0) + 'turn');
+    txt(num, cd > 0 ? (cd < 1 ? cd.toFixed(1) : String(Math.ceil(cd))) : '');
     const s = joueur.sorts[k];
-    b.classList.toggle('manque', !!(s && cd <= 0 && joueur.energie < s.energie));
-    if (k === 'POT') b.querySelector('.compte').textContent = 'x' + joueur.potions;
+    cls(b, 'manque', !!(s && cd <= 0 && joueur.energie < s.energie));
+    if (k === 'POT') txt(b._cpt || (b._cpt = b.querySelector('.compte')), 'x' + joueur.potions);
     if (b._cd > 0 && cd <= 0) { b.classList.remove('pret'); void b.offsetWidth; b.classList.add('pret'); }
     b._cd = cd;
   }
-  document.getElementById('s-CIBLE')?.classList.toggle('actif', !!joueur.cibleVerrou);
+  cls(E('s-CIBLE'), 'actif', !!joueur.cibleVerrou);
 };
 
 // ---------------- HUD ----------------
 UI.majHud = (j, st) => {
-  $('#pvFill').style.transform = `scaleX(${Math.max(0, j.pv / st.pvMax)})`;
-  $('#pvShield').style.transform = `scaleX(${Math.min(1, (j.pv + j.bouclier) / st.pvMax)})`;
-  $('#pvTxt').textContent = `${fmt(j.pv)} / ${fmt(st.pvMax)}`;
-  $('#enFill').style.transform = `scaleX(${Math.max(0, j.energie / st.energieMax)})`;
-  $('#enTxt').textContent = `${fmt(j.energie)} / ${fmt(st.energieMax)}`;
-  $('#argentTxt').textContent = fmt(api.etat().argent);
-  $('#trophTxt').textContent = fmt(api.etat().trophees || 0);
-  const d = new Date(); $('#zHeure').textContent = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  sty(E('pvFill'), 'transform', `scaleX(${(Math.max(0, j.pv / st.pvMax)).toFixed(3)})`);
+  sty(E('pvShield'), 'transform', `scaleX(${(Math.min(1, (j.pv + j.bouclier) / st.pvMax)).toFixed(3)})`);
+  txt(E('pvTxt'), `${fmt(j.pv)} / ${fmt(st.pvMax)}`);
+  sty(E('enFill'), 'transform', `scaleX(${(Math.max(0, j.energie / st.energieMax)).toFixed(3)})`);
+  txt(E('enTxt'), `${fmt(j.energie)} / ${fmt(st.energieMax)}`);
+  const et = api.etat();
+  txt(E('argentTxt'), fmt(et.argent));
+  txt(E('trophTxt'), fmt(et.trophees || 0));
+  const d = new Date(); txt(E('zHeure'), String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'));
   const buffs = [];
   if (j.bouclier > 0) buffs.push(['#62b0ff', 'É']);
   if (j.soinT > 0) buffs.push(['#6aff7a', '+']);
@@ -218,7 +225,7 @@ UI.majHud = (j, st) => {
   if (j.vampT > 0) buffs.push(['#ff4a6a', '♥']);
   if (j.invuln > 0.3) buffs.push(['#e0c8ff', '✦']);
   const html = buffs.map(([c, t]) => `<div class="buff" style="background:radial-gradient(${c},#111);color:#fff">${t}</div>`).join('');
-  if (UI._buffs !== html) { $('#buffs').innerHTML = html; UI._buffs = html; }
+  if (UI._buffs !== html) { E('buffs').innerHTML = html; UI._buffs = html; }
 };
 UI.journal = (titre, obj, prog = null) => {
   $('#jTitre').textContent = titre; $('#jObj').textContent = obj;
@@ -542,7 +549,7 @@ UI.mort = (txt, cb) => {
 UI.reglages = () => {
   const r = $('#regl');
   r.innerHTML = `<div class="reglages parchemin"><button class="fermer" data-x aria-label="Fermer">×</button><h2>Réglages</h2>
-    <label>Qualité graphique <select id="rQ" class="btn gris"><option value="haute" ${G.qualite === 'haute' ? 'selected' : ''}>Haute (lueurs)</option><option value="basse" ${G.qualite === 'basse' ? 'selected' : ''}>Économie batterie</option></select></label>
+    <label>Qualité graphique <select id="rQ" class="btn gris">${[['auto', 'Automatique (conseillé)'], ['haute', 'Haute : lueurs et ombres'], ['moyenne', 'Moyenne : ombres, sans lueurs'], ['basse', 'Basse : fluidité maximale']].map(([v, l]) => `<option value="${v}" ${G.qualite === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <label>Sons <input type="checkbox" id="rS" ${G.son ? 'checked' : ''} style="width:3vh;height:3vh"></label>
     <label>Plein écran <button class="btn gris" id="rF">Activer</button></label>
     <label>Sauvegarde <button class="btn" id="rR">Effacer et recommencer</button></label>
@@ -669,9 +676,9 @@ export function iconeModele(cle) {
   const grp = new THREE.Group(); grp.add(m);
   return (icoModeles[cle] = rendreGroupe(grp, 'armure'));
 }
-const RES_ICO = { bois: 'Wood_Log_Stack', minerai: 'Iron_Nuggets', recolte: 'crop_pumpkin' };
+const RES_ICO = { bois: 'Wood_Log_Stack', minerai: 'Iron_Nuggets', recolte: 'proc_citrouille' };
 const RES_NOM = { bois: 'Bois', minerai: 'Minerai', recolte: 'Récoltes' };
-const ICO_TYPE = { bois: 'Tree_1_A', mine: 'Gold_Nuggets', cueillette: 'Bush_2_C' };
+const ICO_TYPE = { bois: 'Tree_1_A', mine: 'Gold_Nuggets', cueillette: 'proc_baies' };
 const fmtCourt = (n) => n >= 1e6 ? (n / 1e6).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' M' : n >= 1e3 ? Math.round(n / 1e3).toLocaleString('fr-FR') + ' k' : fmt(n);
 function dans(ts) { const m = Math.max(0, Math.round((ts - Date.now()) / 60000)); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m} min`; }
 function ouvrir(id) { const p = $(id); p.hidden = false; p.onclick = (e) => { if (e.target === p) p.hidden = true; }; return p; }

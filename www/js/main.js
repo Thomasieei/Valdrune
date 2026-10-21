@@ -1,7 +1,7 @@
 // ===== Brèche Écarlate — boucle de jeu =====
 import { THREE, G, initRendu, majCamera, rendre, majTorches, chargerAssets, chargerSons, son, ambiance, Acteur, cloner,
-  emettre, majParticules, majVfx, ajouterVfx, onde, lueurSol, arcTaille, faisceau, telegraphe, meshCarreau, meshBoule, DIR_HAUT, DIR_DROITE, projeter, texRond, redimensionner } from './engine.js';
-import { construireHub, construireDonjon, construireArene, construireIle, nbEmplacements, majFeux } from './world.js';
+  emettre, majParticules, majVfx, ajouterVfx, onde, lueurSol, arcTaille, faisceau, telegraphe, meshCarreau, meshBoule, DIR_HAUT, DIR_DROITE, projeter, texRond, redimensionner, appliquerNiveau, majQualiteAuto } from './engine.js';
+import { construireHub, construireDonjon, construireArene, construireIle, nbEmplacements, majFeux, noeudReel, creerAssetsProc } from './world.js';
 import { UI, iconeObjet, bustePersonnage } from './ui.js';
 import { TIERS, ARMES, ARMURES, SORTS, MODES, COFFRES, BOSS, MOBS, BOTS, CHAT, tf, MAITRISES, NIVEAU_REQUIS, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT, RESSOURCES } from './data.js';
 import { creerArme, creerArmure, creerPotion, statsHeros, nomObjet, valeurObjet, prixVente, lootCoffre, lootMonstre, tirerCouleurCoffre, ETAT, xpPour, peutPorter, niveauRequis, niveauDe, sortsArme, prixTrophees } from './items.js';
@@ -14,7 +14,11 @@ const dist2D = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 // ---------------- Sauvegarde ----------------
 let J = null;
 const CLE = 'breche-ecarlate-v1';
-function sauver() { try { localStorage.setItem(CLE, JSON.stringify(J)); } catch (e) {} }
+// sauvegarde groupée : au plus une écriture toutes les 1,5 s (l’écriture disque fait des micro-freezes sur Android)
+let sauverT = null, efface = false;
+function sauverMaintenant() { if (efface) return; if (sauverT) { clearTimeout(sauverT); sauverT = null; } try { localStorage.setItem(CLE, JSON.stringify(J)); } catch (e) {} }
+function sauver() { if (!sauverT) sauverT = setTimeout(sauverMaintenant, 1500); }
+addEventListener('pagehide', sauverMaintenant); document.addEventListener('visibilitychange', () => { if (document.hidden) sauverMaintenant(); });
 function charger() { try { const s = localStorage.getItem(CLE); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
 function nouvellePartie(nom, arme) {
   J = { nom, argent: 400, potions: 5, trophees: 0, sac: [], equip: {
@@ -64,8 +68,11 @@ const SONS = ['knifeSlice', 'knifeSlice2', 'drawKnife2', 'handleCoins', 'creak1'
 
 async function demarrer() {
   initRendu($('#scene'));
+  try { const q = localStorage.getItem('breche-qualite'); if (q) G.qualite = q; } catch (e) {}
+  appliquerNiveau({ haute: 2, moyenne: 1, basse: 0, auto: 2 }[G.qualite] ?? 2);
   try {
     await chargerAssets(ASSETS, (k, nom) => { $('#charge i').style.width = (k * 100) + '%'; $('#chargeTxt').textContent = 'Chargement… ' + Math.round(k * 100) + ' %'; });
+    creerAssetsProc();
   } catch (e) { $('#chargeTxt').textContent = 'Un fichier du jeu n’a pas pu se charger (' + (e && e.message ? e.message : e) + '). Recharge la page.'; console.error(e); return; }
   monde = construireHub();
   G.scene.add(G.points);
@@ -1030,8 +1037,8 @@ const API = {
   },
   accepterInvasion: (v) => { J.accepteInvasion = v; sauver(); UI.toast(v ? 'Ton monde est ouvert aux invasions' : 'Ton monde est fermé aux invasions'); },
   envahir: () => { const ip = statsHeros(J.equip).ip; entrerDonjon(ip < 560 ? 0 : ip < 860 ? 1 : 2, { envahir: true }); },
-  qualite: (q) => { G.qualite = q; G.sun.castShadow = q === 'haute'; redimensionner(); },
-  reset: () => { try { localStorage.removeItem(CLE); } catch (e) {} location.reload(); },
+  qualite: (q) => { G.qualite = q; try { localStorage.setItem('breche-qualite', q); } catch (e) {} appliquerNiveau({ haute: 2, moyenne: 1, basse: 0, auto: 2 }[q]); },
+  reset: () => { efface = true; if (sauverT) clearTimeout(sauverT); try { localStorage.removeItem(CLE); } catch (e) {} location.reload(); },
 };
 UI.init(API);
 
@@ -1175,7 +1182,9 @@ let dernier = performance.now(), hudT = 0, miniT = 0, ileT = 2;
 const ORBITE = V(0, 0, 0);
 function boucle() {
   requestAnimationFrame(boucle);
-  const now = performance.now(); let dt = Math.min(0.05, (now - dernier) / 1000); dernier = now;
+  const now = performance.now(); const dtReel = (now - dernier) / 1000; let dt = Math.min(0.05, dtReel); dernier = now;
+  const q = majQualiteAuto(dtReel, enJeu && !transition && !document.hidden);
+  if (q === 'baisse') UI.toast(G.niveau === 1 ? 'Qualité ajustée : lueurs coupées pour plus de fluidité' : 'Qualité ajustée : ombres coupées pour plus de fluidité');
   G.t += dt; G.dt = dt;
   for (const f of G.anims || []) f(G.t, dt);
   for (let i = minuteries.length - 1; i >= 0; i--) { const m = minuteries[i]; m.t -= dt; if (m.t <= 0) { minuteries.splice(i, 1); m.fn(); } }
@@ -1203,7 +1212,11 @@ function boucle() {
   }
   if (enJeu) G.camYaw = Math.PI / 4;
   majFeux(dt); majVfx(dt); majParticules(dt);
+  const t1 = performance.now();
   rendre();
+  const t2 = performance.now(), P = G.perf || (G.perf = { upd: 0, rend: 0, max: 0, pics: 0 });
+  P.upd = P.upd * 0.95 + (t1 - now) * 0.05; P.rend = P.rend * 0.95 + (t2 - t1) * 0.05;
+  if (t2 - now > 40) P.pics++; P.max = Math.max(P.max, t2 - now);
 }
 let anneau = null;
 function majAnneauCible() {
@@ -1847,8 +1860,8 @@ function majOuvriers(dt) {
       if (Math.random() < dt * 1.3) effetRecolte(o.cible, ile.type, 0.4);
       if (o.t <= 0) {
         o.etat = 'retour'; o.jouer('Walking_A');
-        const cle = ile.type === 'bois' ? 'Wood_Log_A' : ile.type === 'mine' ? (o.cible && o.cible.obj.children[1] ? 'Iron_Nuggets' : 'Iron_Nuggets') : 'crop_pumpkin';
-        o.charge = o.attacher(cle, 'handslot.l', { echelle: cle === 'crop_pumpkin' ? 2.2 : 0.8 });
+        const cle = ile.type === 'bois' ? 'Wood_Log_A' : ile.type === 'mine' ? (o.cible && o.cible.obj.children[1] ? 'Iron_Nuggets' : 'Iron_Nuggets') : 'proc_citrouille';
+        o.charge = o.attacher(cle, 'handslot.l', { echelle: cle === 'proc_citrouille' ? 0.45 : 0.8 });
       }
     } else if (o.etat === 'depose' && o.t <= 0) o.etat = 'cherche';
     if (o.pos.distanceTo(joueur.pos) < 50) o.maj(dt);
@@ -1860,7 +1873,7 @@ function effetRecolte(n, type, force = 1) {
   if (type === 'bois') emettre(p, { n: Math.round(10 * force), c1: '#d8a868', c2: '#7a4a22', vit: 4, vie: 0.6, taille: 0.25, grav: 8, hemi: true });
   else if (type === 'mine') emettre(p, { n: Math.round(12 * force), c1: '#fff2b0', c2: '#9aa0aa', vit: 5, vie: 0.4, taille: 0.2, grav: 9 });
   else emettre(p, { n: Math.round(10 * force), c1: '#9dff6a', c2: '#ff6a8a', vit: 3, vie: 0.7, taille: 0.25, grav: 4 });
-  n.secoue = 0.25;
+  noeudReel(n, true); n.secoue = 0.25;
   if (force >= 1) son(type === 'bois' ? 'chop' : type === 'mine' ? (Math.random() < 0.5 ? 'impactMining_000' : 'impactMining_001') : 'handleSmallLeather', 0.5);
 }
 function majNoeuds(dt) {
@@ -1868,6 +1881,7 @@ function majNoeuds(dt) {
     if (n.secoue > 0) { n.secoue -= dt; n.obj.rotation.z = Math.sin(n.secoue * 60) * 0.04 * (n.secoue / 0.25); }
     if (n.pv <= 0) { n.regenT -= dt; if (n.regenT <= 0) { n.pv = n.pvMax; n.obj.visible = true; n.souche.visible = false; n.obj.scale.setScalar(0.01); n.pousse = 1; } }
     if (n.pousse > 0) { n.pousse = Math.max(0, n.pousse - dt * 1.5); n.obj.scale.setScalar(1 - n.pousse); }
+    if (n.reel && n.pv > 0 && !(n.secoue > 0) && !(n.pousse > 0)) noeudReel(n, false);
   }
 }
 // ---- récolte par le joueur (uniquement sur ses îles) ----
@@ -1902,7 +1916,7 @@ function majRecolteJoueur(dt) {
     const ok = ajouterRes(ile, T.res, gain);
     UI.nombre(V(n.pos.x, 2.6, n.pos.z), ok ? `+${ok} ${T.label}` : 'Coffre plein', ok ? 'soin' : 'info');
     n.pv--;
-    if (n.pv <= 0) { n.obj.visible = false; n.souche.visible = true; n.regenT = 40; arreterRecolte(); son('impactPlank_medium_000', 0.5, 0.8); }
+    if (n.pv <= 0) { noeudReel(n, true); n.obj.visible = false; n.souche.visible = true; n.regenT = 40; arreterRecolte(); son('impactPlank_medium_000', 0.5, 0.8); }
     if (!ok) arreterRecolte();
     journalIle(ile); sauver();
   });
@@ -2123,7 +2137,7 @@ function creerPasseur() {
 }
 
 // accès de débogage (console)
-window.__jeu = { API, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
+window.__jeu = { API, G, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
 
 initEntrees();
 demarrer();
