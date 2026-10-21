@@ -69,6 +69,7 @@ const SONS = ['knifeSlice', 'knifeSlice2', 'drawKnife2', 'handleCoins', 'creak1'
 
 async function demarrer() {
   initRendu($('#scene'));
+  try { const dc = localStorage.getItem('breche-decal'); if (dc !== null) document.documentElement.style.setProperty('--decalSorts', dc + 'vw'); } catch (e) {}
   try { const q = localStorage.getItem('breche-qualite'); if (q) G.qualite = q; G.perfOn = !!localStorage.getItem('breche-perf'); } catch (e) {}
   if (G.perfOn) UI.perf(true);
   appliquerNiveau({ haute: 2, moyenne: 1, basse: 0, auto: 2 }[G.qualite] ?? 2);
