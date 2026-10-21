@@ -285,7 +285,7 @@ function entrerDonjon(id, opts = {}) {
     construireJoueur(monde.spawn.clone());
     joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax;
     G.camTarget.copy(joueur.pos); G.scene.fog.density = 0.028; G.hemi.intensity = 0.75; G.sun.intensity = 0.8;
-    if (groupe) { const a = creerCombattant(pointLibrePres(monde.spawn, 1.5, 3), groupe, 'allie'); const p = Math.random(); Object.assign(a, { autonome: true, perso: p < 0.6 ? 'loyal' : p < 0.85 ? 'solo' : 'traitre', modeA: 'suivre', modeT: rnd(10, 18) }); }
+    if (groupe) { const a = creerCombattant(pointLibrePres(monde.spawn, 1.5, 3), groupe, 'allie'); const p = Math.random(); Object.assign(a, { autonome: true, perso: p < 0.6 ? 'loyal' : p < 0.85 ? 'solo' : 'traitre', modeA: 'explorer', modeT: rnd(14, 24) }); }
     // monstres
     const types = id === 0 ? ['minion', 'minion', 'minion', 'guerrier', 'archer'] : id === 1 ? ['minion', 'guerrier', 'guerrier', 'archer', 'mage'] : ['guerrier', 'guerrier', 'archer', 'mage', 'mage', 'minion'];
     monde.packs.forEach((pk, i) => pk.pts.forEach(p => creerEnnemi(MOBS[types[Math.floor(Math.random() * types.length)]], p, modeActuel.mobTier, i)));
@@ -2343,33 +2343,40 @@ function majObjectifSylve(dt) {
   objectifSylve = best ? { e: best, s: bs, boss: !!best.boss } : null;
   return objectifSylve;
 }
+function choisirProie(e, filtre) {
+  // un vrai joueur ne va pas taper le même monstre que toi : il part de son côté
+  let best = null, bs = Infinity;
+  for (const x of ennemis) {
+    if (x.mort || x.etat === 'dormant' || x.rival || !filtre(x)) continue;
+    let s = dist2D(x.pos, e.pos);
+    if (dist2D(x.pos, joueur.pos) < 9) s += 14;
+    s += 8 * allies.filter(a => a !== e && a.proie === x).length;
+    if (s < bs) { bs = s; best = x; }
+  }
+  return best;
+}
 function autonomieSylve(e, dt) {
-  if (!e.style) { Object.assign(e, { style: hasard(['fonceur', 'normal', 'normal', 'prudent']), decal: rnd(-3.2, 3.2), attenteT: 0, flanerT: rnd(2, 5), parlerT: rnd(15, 30) }); }
-  const obj = majObjectifSylve(dt); if (!obj) { e.jouer(e.armeDef.idle); return; }
-  const avance = e.style === 'fonceur' ? 2 : e.style === 'prudent' ? -7 : -3;
-  let s = obj.s + avance;
-  if (obj.boss && obj.e.etat === 'dormant') {
-    // devant la clairière du boss : on attend le groupe… ou pas
-    const k = obj.e.idxSylve; const entree = monde.salleS[k] - monde.salles[k].r - 3;
-    s = entree + (e.style === 'fonceur' ? 0 : -3) ;
-    if (dist2D(e.pos, monde.pointA(s).p) < 4) {
-      e.attenteT += dt;
-      const sj = monde.abscisse(joueur.pos.x, joueur.pos.z);
-      if (e.style === 'fonceur' && e.attenteT > 26 && sj < entree - 20) { // il pull sans toi
-        if (!e.annonce) { e.annonce = true; UI.chat(e.nom, hasard(['on pull ?', 'je lance le boss', 'bon on y va sans lui', 'go go go'])); emoteBot(e, ['diable', 'feu'], 0.6); }
-        if (e.attenteT > 31) { allerVers(e, obj.e.pos, dt, e.st.vitesse); e.jouer(e.armeDef.run); return; }
-      } else if (e.attenteT > 14 && !e.relance && sj < entree - 25) { e.relance = true; UI.chat(e.nom, hasard([`${J.nom} tu viens ?`, 'on attend qui là', 'allez on avance', 'afk ?'])); }
-    }
-  } else { e.attenteT = 0; e.annonce = false; e.relance = false; }
-  const cible = monde.pointA(s); const nx = -cible.dir.z, nz = cible.dir.x;
-  const dest = V(cible.p.x + nx * e.decal, 0, cible.p.z + nz * e.decal);
-  const d = dist2D(e.pos, dest);
-  if (d > 1.6) { allerVers(e, dest, dt, e.st.vitesse * (d > 12 ? 1 : 0.8)); e.jouer(e.armeDef.run); return; }
-  // sur place : il regarde autour, bouge un peu, parle
-  e.flanerT -= dt; e.parlerT -= dt;
-  if (e.flanerT <= 0) { e.flanerT = rnd(2.5, 6); e.decal = Math.max(-3.5, Math.min(3.5, e.decal + rnd(-1.5, 1.5))); e.angle = rnd(0, 6.28); e.root.rotation.y = e.angle; }
-  if (e.parlerT <= 0) { e.parlerT = rnd(25, 50); if (Math.random() < 0.5) emoteBot(e, ['bof', 'feu', 'malin', 'salut', 'diable'], 1); }
+  if (!e.style) Object.assign(e, { style: hasard(['fonceur', 'normal', 'normal', 'prudent']), decal: rnd(-3.2, 3.2), attenteT: 0, parlerT: rnd(15, 30), proieT: 0 });
+  const se = monde.abscisse(e.pos.x, e.pos.z);
+  // prochaine clairière dont le boss dort encore : on ne la dépasse pas
+  const k = monde.salles.findIndex((s, i) => ennemis.some(b => b.boss && b.idxSylve === i && !b.mort && b.etat === 'dormant'));
+  const limite = k >= 0 ? monde.salleS[k] - monde.salles[k].r - 3 : monde.longueur;
+  e.proieT -= dt;
+  if (e.proieT <= 0 || !e.proie || e.proie.mort) { e.proieT = rnd(1.5, 3); e.proie = choisirProie(e, x => { const s = monde.abscisse(x.pos.x, x.pos.z); return s > se - 12 && s < Math.min(limite + 6, se + 70) && (!x.boss || x.etat === 'chasse'); }); }
+  if (e.proie) { allerVers(e, e.proie.pos, dt, e.st.vitesse); e.jouer(e.armeDef.run); e.attenteT = 0; return; }
+  // plus rien à portée : il avance sur le chemin jusqu'à la prochaine clairière
+  const s = Math.min(limite + (e.style === 'fonceur' ? 1 : -2), Math.max(se, monde.abscisse(joueur.pos.x, joueur.pos.z)) + 14);
+  const c = monde.pointA(s); const dest = V(c.p.x - c.dir.z * e.decal, 0, c.p.z + c.dir.x * e.decal);
+  if (dist2D(e.pos, dest) > 1.8) { allerVers(e, dest, dt, e.st.vitesse * 0.9); e.jouer(e.armeDef.run); return; }
   e.jouer(e.armeDef.idle);
+  if (k >= 0 && s >= limite - 3) {
+    e.attenteT += dt;
+    if (e.style === 'fonceur' && e.attenteT > 22) {
+      if (!e.annonce) { e.annonce = true; UI.chat(e.nom, hasard(['on pull ?', 'je lance le boss', 'go go go', 'bon j’y vais'])); emoteBot(e, ['diable', 'feu'], 0.6); }
+      const b = ennemis.find(x => x.boss && x.idxSylve === k && !x.mort); if (b && e.attenteT > 26) { allerVers(e, b.pos, dt, e.st.vitesse); e.jouer(e.armeDef.run); }
+    } else if (e.attenteT > 12 && !e.relance && dist2D(joueur.pos, e.pos) > 25) { e.relance = true; UI.chat(e.nom, hasard([`${J.nom} tu viens ?`, 'on attend qui là', 'afk ?'])); }
+  } else { e.attenteT = 0; e.annonce = false; e.relance = false; }
+  e.parlerT -= dt; if (e.parlerT <= 0) { e.parlerT = rnd(25, 50); if (Math.random() < 0.5) emoteBot(e, ['bof', 'feu', 'malin', 'salut'], 1); }
 }
 
 // ---------------- Visée des sorts (doigt appuyé) ----------------
@@ -2458,14 +2465,12 @@ function autonomieAllie(e, dt, dj) {
   e.modeT -= dt;
   if (e.modeT <= 0) {
     e.modeT = rnd(18, 34);
-    const avant = e.modeA; e.modeA = Math.random() < 0.55 ? 'explorer' : 'suivre';
+    const avant = e.modeA; e.modeA = Math.random() < 0.75 ? 'explorer' : 'suivre';
     if (e.modeA !== avant) { if (e.modeA === 'explorer') { UI.chat(e.nom, hasard(PHRASES_EXPLO)); emoteBot(e, ['toi', 'feu', 'malin'], 0.3); } else if (dj > 15) UI.chat(e.nom, hasard(['j’arrive', 'attends-moi', 'je reviens vers toi'])); }
   }
   if (e.modeA !== 'explorer') return false;
   if (!e.objectif || e.objectif.mort || e.objectif.etat === 'chasse' && dist2D(e.objectif.pos, e.pos) > 30) {
-    let best = null, bd = Infinity;
-    for (const x of ennemis) { if (x.mort || x.boss || x.rival || x.etat === 'dormant') continue; const d = dist2D(x.pos, e.pos); if (d < bd) { bd = d; best = x; } }
-    e.objectif = best;
+    e.objectif = choisirProie(e, x => !x.boss);
   }
   if (!e.objectif) { e.modeA = 'suivre'; return false; }
   allerVers(e, e.objectif.pos, dt, e.st.vitesse * 0.95); e.jouer(e.armeDef.run);
@@ -2994,7 +2999,7 @@ function dissiper(a) {
 }
 
 // accès de débogage (console)
-window.__jeu = { API, G, groupeTest: () => { groupe = donneesBot(statsHeros(J.equip).ip); return groupe.nom; }, trahir: () => allies.forEach(a => a.autonome && trahir(a)), invasionTest: () => { invasion = { mode: "subie", t: 0, rival: null }; lancerInvasion(); }, entrerSylve: (o) => entrerSylve(o), get sylve() { return sylve; }, invoquerOmbres, tirageOmbre, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
+window.__jeu = { API, G, UI, groupeTest: () => { groupe = donneesBot(statsHeros(J.equip).ip); return groupe.nom; }, trahir: () => allies.forEach(a => a.autonome && trahir(a)), invasionTest: () => { invasion = { mode: "subie", t: 0, rival: null }; lancerInvasion(); }, entrerSylve: (o) => entrerSylve(o), get sylve() { return sylve; }, invoquerOmbres, tirageOmbre, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
 
 initEntrees();
 demarrer();

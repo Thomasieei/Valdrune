@@ -926,9 +926,9 @@ UI.introBoss = (nom, titre, couleur) => {
   d.innerHTML = `<div class="trait"></div><h2>${nom}</h2><p>${titre}</p><div class="trait"></div>`;
   document.body.appendChild(d); setTimeout(() => d.remove(), 3600);
 };
-function lignesScores(lignes, opts = {}) {
+function tableauScorescores(lignes, opts = {}) {
   const max = Math.max(1, ...lignes.map(l => l.degats));
-  return lignes.map((l, i) => `<div class="ligneS ${l.moi ? 'moi' : ''}" style="--c:${COUL_CLASSE[l.type] || '#fff'};animation-delay:${0.15 + i * 0.12}s">
+  return lignes.map((l, i) => `<div class="rangScore ${l.moi ? 'moi' : ''}" style="--c:${COUL_CLASSE[l.type] || '#fff'};animation-delay:${0.15 + i * 0.12}s">
     <div class="rang">${i === 0 ? '👑' : i + 1}</div><div class="icoC">${svgSort(l.type, '#ffe2a0', '#3a2a10', 's' + i + (opts.id || ''))}</div>
     <div class="nomS"><b>${l.nom}</b><small>${ARMES[l.type] ? ARMES[l.type].court : ''} · ⚔ ${l.ip}</small></div>
     <div class="barreS"><i style="width:${(l.degats / max * 100).toFixed(1)}%"></i><span>${fmtK(l.degats)}</span></div>
@@ -939,7 +939,7 @@ UI.scores = (data, cb) => {
   const d = $('#butin');
   d.innerHTML = `<div class="cadreS" style="--c:${data.couleur}"><h2>${data.titre}</h2><div class="sous">${data.sous} · combat ${fmtT(data.duree)}</div>
     <div class="enteteS"><span>Joueur</span><span>Dégâts</span><span>DPS · part</span></div>
-    <div class="lignesS">${lignesScores(data.lignes)}</div>
+    <div class="tableauScores">${tableauScorescores(data.lignes)}</div>
     <div class="butinBoss"><span class="titreB">Ton butin</span><span class="arg"><span class="piece"></span>+ ${fmt(data.butin.argent)}</span>${data.butin.objets.map((it, i) => `<button class="item" data-i="${i}" style="border:0;background:none;padding:0">${htmlCase(it)}</button>`).join('')}</div>
     <button class="btn vert grand" data-ok>Continuer</button></div>`;
   d.hidden = false;
@@ -951,7 +951,7 @@ UI.recapFinal = (data, cb) => {
   d.innerHTML = `<div class="cadreS final" style="--c:#3affa0"><div class="eclat"></div><h2>Sanctuaire purifié</h2>
     <div class="sous">4 gardiens vaincus · ${fmtT(data.duree)} · ${fmtK(data.total)} dégâts au total</div>
     <div class="enteteS"><span>Joueur</span><span>Dégâts totaux</span><span>DPS · part</span><span>Butin</span></div>
-    <div class="lignesS">${lignesScores(data.lignes, { butin: true, id: 'f' })}</div>
+    <div class="tableauScores">${tableauScorescores(data.lignes, { butin: true, id: 'f' })}</div>
     <div class="butinBoss"><span class="titreB">Ton coffre</span><span class="arg"><span class="piece"></span>+ ${fmt(moi.butin.argent)}</span>${moi.butin.objets.map((it, i) => `<button class="item" data-i="${i}" style="border:0;background:none;padding:0">${htmlCase(it)}</button>`).join('')}</div>
     <button class="btn vert grand" data-ok>Récupérer mon butin</button></div>`;
   d.hidden = false;
