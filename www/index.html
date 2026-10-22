@@ -613,6 +613,11 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 .sort.vole .cadre{background:conic-gradient(from 0deg,#e0a0ff,#6a1aff,#ff7ae8,#6a1aff,#e0a0ff);animation:tourneV 2.5s linear infinite;box-shadow:0 0 18px #a03aff}
 .sort.vole .cadre>div{animation:tourneV 2.5s linear infinite reverse}
 @keyframes tourneV{to{transform:rotate(360deg)}}
+#comboHud{position:absolute;right:calc(var(--decalSorts,18vw) + 14vh);bottom:52vh;display:flex;align-items:center;gap:.8vh;pointer-events:none;z-index:6}
+#comboHud i{width:2.6vh;height:2.6vh;transform:rotate(45deg);background:#2a0a10;border:2px solid #6a1a24;transition:all .15s}
+#comboHud i.on{background:radial-gradient(#fff0f0,#ff2a3a 60%,#7a0010);border-color:#ffd0d0;box-shadow:0 0 10px #ff2a3a}
+#comboHud i.max{animation:pulseR .35s infinite alternate}
+#comboHud span{font:900 1.8vh var(--f-label);color:#ffb0b0;letter-spacing:.12em;text-shadow:0 2px 2px #000}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important}}
 </style>
 

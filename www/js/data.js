@@ -71,9 +71,19 @@ export const ARMES = {
     noms: ['', 'Haches grondantes', 'Haches du tonnerre', 'Fendeuses d’éclairs', 'Haches de l’ouragan', 'Crocs de la tempête', 'Colère céleste', 'Haches du cataclysme', 'Jugement de Thoros'],
     sorts: ['tornade', 'titan', 'orage'],
   },
+  // classe rapide à combos : code réutilisable
+  assassin: {
+    label: 'Lames de l’Assassin', court: 'Assassin', model: 'Rogue', node: 'Knife', node2: 'Knife_Offhand', rare: true, assassin: true,
+    helmet: null, cape: 'Rogue_Cape', legs: ['Rogue_LegLeft', 'Rogue_LegRight'], body: 'Rogue_Body',
+    portee: 2.2, vitesse: 1.75, base: 30, projectile: null,
+    idle: '2H_Melee_Idle', run: 'Running_A',
+    attaques: ['1H_Melee_Attack_Slice_Diagonal', '1H_Melee_Attack_Chop', '2H_Melee_Attack_Stab'],
+    noms: ['', 'Surins émoussés', 'Crocs de vipère', 'Épines du silence', 'Lames du crépuscule', 'Sang-froid', 'Murmure écarlate', 'Dernier soupir', 'Fin de partie'],
+    sorts: ['triple', 'curee', 'zephyr'],
+  },
 };
 export const CHANCE_OMBRE = 0.001; // 0,1 %
-export const CODES_BETA = { 'BRECHE-OMBRE': { arme: 'ombre', tier: 1, texte: 'Accès bêta : Dagues des Ombres T1' }, 'BRECHE-ORAGE': { arme: 'orage', tous: true, reutilisable: true, texte: 'Haches de l’Orage T1 à T8 ajoutées (maîtrise niveau 90)' } };
+export const CODES_BETA = { 'BRECHE-OMBRE': { arme: 'ombre', tier: 1, texte: 'Accès bêta : Dagues des Ombres T1' }, 'BRECHE-ORAGE': { arme: 'orage', tous: true, reutilisable: true, texte: 'Haches de l’Orage T1 à T8 ajoutées (maîtrise niveau 90)' }, 'BRECHE-ASSASSIN': { arme: 'assassin', tous: true, reutilisable: true, texte: 'Lames de l’Assassin T1 à T8 ajoutées (maîtrise niveau 90)' } };
 export const CHANCE_ORAGE = 0.01;
 
 export const ARMURES = {
@@ -116,6 +126,9 @@ export const SORTS = {
   tornade:   { nom: 'Œil du cyclone', desc: 'Tourbillonne 4 s en aspirant tout ce qui est autour de toi. Chaque monstre aspiré prend des dégâts continus. Tu peux bouger.', cd: 9, energie: 30, mult: 0.7, portee: 7, type: 'spin', couleur: ['#bfe8ff', '#0a2a5a'], glyphe: 'tornade' },
   titan:     { nom: 'Chute du Titan', desc: 'Bondis sur la zone visée : onde de choc qui projette tout en l’air. Si 3 ennemis ou plus meurent, la recharge est remise à zéro.', cd: 8, energie: 26, mult: 3.2, portee: 13, type: 'dash', couleur: ['#ffe27a', '#5a3a00'], glyphe: 'titan' },
   orage:     { nom: 'Colère de l’Orage', desc: 'Pendant 10 s : +70 % de vitesse d’attaque, +40 % de vitesse, vol de vie, et la foudre frappe un ennemi proche toutes les 0,4 s.', cd: 24, energie: 40, mult: 1.1, portee: 11, type: 'buff', couleur: ['#e0f4ff', '#3a3aff'], glyphe: 'foudre' },
+  triple:    { nom: 'Triple entaille', desc: 'Sans recharge. Fonds sur ta cible (6 m) et enchaîne 3 coups éclair. +3 points de combo.', cd: 0, energie: 14, mult: 0.8, portee: 6, type: 'cible', couleur: ['#ff8a8a', '#3a0008'], glyphe: 'triple' },
+  curee:     { nom: 'Curée', desc: 'Finisher automatique sur la cible la plus proche : consomme tous les points de combo. Dégâts énormes par point ; à 5 points, tu disparais 1,5 s.', cd: 5, energie: 22, mult: 1.0, portee: 9, type: 'cible', couleur: ['#ffd0d0', '#8a0010'], glyphe: 'curee' },
+  zephyr:    { nom: 'Pas du zéphyr', desc: '3 dashs foudroyants en 5 s qui traversent et entaillent les ennemis (+1 combo chacun), et +60 % de vitesse pendant 5 s.', cd: 12, energie: 18, mult: 0.9, portee: 8, type: 'dash', couleur: ['#e0fff0', '#0a5a3a'], glyphe: 'zephyr' },
   ruee:      { nom: 'Ruée', desc: '+60 % de vitesse pendant 3 s, supprime les ralentissements.', cd: 15, energie: 15, mult: 0, type: 'sprint', couleur: ['#fff08a', '#4d3a06'], glyphe: 'wing' },
 };
 
@@ -175,7 +188,7 @@ export const CHAT = [
 // ---- Maîtrise : niveau requis par tier ----
 export const NIVEAU_REQUIS = [0, 1, 15, 40, 50, 60, 70, 80, 90];
 export const MAITRISES = [
-  { id: 'epee', nom: 'Épée à deux mains', cat: 'arme' }, { id: 'arbalete', nom: 'Arbalète lourde', cat: 'arme' }, { id: 'baton', nom: 'Bâton de feu', cat: 'arme' }, { id: 'ombre', nom: 'Dagues des Ombres', cat: 'arme', rare: true }, { id: 'orage', nom: 'Haches de l’Orage', cat: 'arme', rare: true },
+  { id: 'epee', nom: 'Épée à deux mains', cat: 'arme' }, { id: 'arbalete', nom: 'Arbalète lourde', cat: 'arme' }, { id: 'baton', nom: 'Bâton de feu', cat: 'arme' }, { id: 'ombre', nom: 'Dagues des Ombres', cat: 'arme', rare: true }, { id: 'orage', nom: 'Haches de l’Orage', cat: 'arme', rare: true }, { id: 'assassin', nom: 'Lames de l’Assassin', cat: 'arme', rare: true },
   { id: 'casque', nom: 'Armure de tête', cat: 'armure' }, { id: 'plastron', nom: 'Armure de poitrine', cat: 'armure' }, { id: 'bottes', nom: 'Armure de pieds', cat: 'armure' },
 ];
 

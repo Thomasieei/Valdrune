@@ -140,6 +140,7 @@ function construireJoueur(pos) {
   if (J.equip.plastron) { a.teinter(def.cape, TIERS[J.equip.plastron.tier].color, 0.7, TIERS[J.equip.plastron.tier].glow * 0.25); a.teinter(def.body, TIERS[J.equip.plastron.tier].color, 0.28, 0); }
   if (J.equip.bottes) def.legs.forEach(l => a.teinter(l, TIERS[J.equip.bottes.tier].color, 0.3, 0));
   if (def.ombre) habitOmbre(a, def);
+  if (def.assassin) habitAssassin(a, def);
   G.scene.add(a.root);
   a.root.position.copy(ancienPos);
   const st = statsHeros(J.equip);
@@ -612,11 +613,13 @@ function attaquer(dt) {
   if (joueur.atkT > 0) { joueur.angle = tourner(joueur.angle, ang, dt * 14); joueur.root.rotation.y = joueur.angle; return; }
   faireFace(dir);
   joueur.atkT = 1 / st.vitesseAtk / (joueur.orageT > 0 ? 1.7 : 1); joueur.debutAtk = G.t;
+  if (def.assassin) { joueur.atkT *= 0.85; }
   const anim = def.attaques[Math.floor(Math.random() * def.attaques.length)];
   const vit = Math.max(1, st.vitesseAtk * joueur.duree(anim) * 0.95);
   joueur.jouer(anim, { boucle: false, vitesse: vit, forcer: true, fondu: 0.08, fin: () => joueur.jouer(def.idle) });
   joueur.verrouT = 0.28; // l'attaque de base fige brièvement : choix voulu pour le PvP
   const couleur = TIERS[J.equip.arme.tier].color;
+  if (def.assassin) { attaqueAssassin(c, vit); return; }
   if (!def.projectile) {
     programmer((def.ombre ? 0.22 : 0.3) / vit * 1.4, () => {
       if (c.mort) return;
@@ -869,6 +872,51 @@ function lancerSort(k) {
         if (joueur.orageT <= 0) return false;
       });
       UI.toast('COLÈRE DE L’ORAGE', true);
+      break;
+    }
+    case 'triple': {
+      const { dir, cible } = directionVisee(s.portee);
+      if (!cible) { joueur.energie += s.energie; UI.toast('Aucune cible'); break; }
+      faireFace(dir);
+      const d = dist2D(cible.pos, joueur.pos) - cible.rayon;
+      if (d > 1.6) { const p = cible.pos.clone().addScaledVector(V(joueur.pos.x - cible.pos.x, 0, joueur.pos.z - cible.pos.z).normalize(), cible.rayon + 1.1); traineeRouge(joueur.pos, p); const q = pointLibreProche(p, 0.5); if (q) joueur.pos.set(q.x, 0, q.z); }
+      joueur.verrouT = 0.42;
+      const anims = ['1H_Melee_Attack_Slice_Diagonal', '1H_Melee_Attack_Chop', '2H_Melee_Attack_Stab'];
+      for (let i = 0; i < 3; i++) programmer(0.02 + i * 0.13, () => {
+        if (cible.mort) return; faireFace(V(cible.pos.x - joueur.pos.x, 0, cible.pos.z - joueur.pos.z).normalize());
+        joueur.jouer(anims[i], { boucle: false, vitesse: 2.6, forcer: true, fondu: 0.04, fin });
+        arcTaille(joueur.pos, joueur.angle - Math.PI / 2, 2.4, i === 2 ? '#ff2a3a' : '#ffb0b0', Math.PI * 0.6, 0.18);
+        blesser(cible, s.mult * furtifBonus(), { c1: '#ff4a5a', c2: '#3a0008' }); gagnerCombo(1); son(i === 2 ? 'knifeSlice2' : 'knifeSlice', 0.4, 1.2 + i * 0.1);
+      });
+      break;
+    }
+    case 'curee': {
+      const pts = joueur.combo || 0;
+      const { dir, cible } = directionVisee(s.portee);
+      if (!cible || !pts) { joueur.cds[k] = 0; joueur.energie += s.energie; UI.toast(!pts ? 'Pas de points de combo' : 'Aucune cible'); son('error_001', 0.3); break; }
+      faireFace(dir); teleportDerriere(cible);
+      joueur.jouer('2H_Melee_Attack_Stab', { boucle: false, vitesse: 1.8, forcer: true, fin }); joueur.verrouT = 0.35;
+      programmer(0.12, () => {
+        if (cible.mort) return;
+        const mult = (s.mult + 0.95 * pts) * furtifBonus();
+        arcTaille(joueur.pos, joueur.angle - Math.PI / 2, 3.2, '#ff1a2a', Math.PI * 0.9, 0.35); arcTaille(joueur.pos, joueur.angle - Math.PI / 2, 2.5, '#ffffff', Math.PI * 0.5, 0.25);
+        blesser(cible, mult, { c1: '#ff2a3a', c2: '#2a0004' }); emettre(V(cible.pos.x, 1.2, cible.pos.z), { n: 20 + pts * 12, c1: '#ff6a6a', c2: '#5a0008', vit: 7, vie: 0.7, taille: 0.45, grav: 6 });
+        UI.nombre(V(cible.pos.x, 3, cible.pos.z), pts >= 5 ? 'CURÉE ×5 !' : `Curée ×${pts}`, 'crit'); son('impactPlate_heavy_000', 0.6, 0.9); G.shake = 0.25 + pts * 0.1;
+        joueur.combo = 0; if (pts >= 5) furtif(1.5);
+      });
+      break;
+    }
+    case 'zephyr': {
+      if (joueur.zephyrT > 0 && joueur.zephyrCharges > 0) { joueur.zephyrCharges--; joueur.energie += s.energie; joueur.cds[k] = joueur.zephyrCharges > 0 ? 0.25 : joueur.cdMax[k]; }
+      else { joueur.zephyrCharges = 2; joueur.zephyrT = 5; joueur.cds[k] = 0.25; joueur.sprintT = Math.max(joueur.sprintT, 5); programmer(5, () => { if (joueur.zephyrCharges > 0) { joueur.zephyrCharges = 0; joueur.cds[k] = joueur.cdMax[k]; } joueur.zephyrT = 0; }); }
+      const mv = Math.hypot(entree.jx, entree.jy) > 0.2 ? DIR_DROITE.clone().multiplyScalar(entree.jx).addScaledVector(DIR_HAUT, entree.jy).normalize() : directionVisee(s.portee).dir;
+      faireFace(mv); const dep = joueur.pos.clone();
+      joueur.jouer('Dodge_Forward', { boucle: false, vitesse: 2, forcer: true, fin }); joueur.dashT = 0.2; joueur.dashV = mv.clone().multiplyScalar(s.portee / 0.2); joueur.invuln = Math.max(joueur.invuln, 0.3);
+      son('cloth1', 0.6, 1.4);
+      programmer(0.21, () => {
+        traineeRouge(dep, joueur.pos, '#7affc0');
+        for (const e of vivants()) { if (distSegPt(dep, joueur.pos, e.pos) < 1.6 + e.rayon) { blesser(e, s.mult * furtifBonus(), { c1: '#bfffe0', c2: '#0a5a3a' }); gagnerCombo(1); } }
+      });
       break;
     }
     case 'vampirisme': { joueur.vampT = 5; son('forceField_000', 0.4, 1.6); onde(joueur.pos, '#ff4a6a', 3, 0.5); emettre(V(joueur.pos.x, 1, joueur.pos.z), { n: 30, c1: '#ff8aa0', c2: '#8a0020', vit: 3, vie: 0.7, taille: 0.4 }); break; }
@@ -1207,7 +1255,7 @@ const API = {
   enchanter: (id) => enchanter(id),
   acheterRunes: (n) => { const prix = 140 * n; if (J.argent < prix) { UI.toast('Pas assez d’argent'); son('error_001', 0.4); return false; } J.argent -= prix; ajouterSac(creerButin('rune', n), true); son('handleCoins', 0.5); sauver(); return true; },
   nbRunes: () => J.sac.filter(i => i.cat === 'butin' && i.type === 'rune').reduce((a, i) => a + (i.n || 1), 0),
-  raresDebloques: () => ['ombre', 'orage'].filter(t => (t === 'ombre' && J.codes && J.codes.includes('BRECHE-OMBRE')) || J.equip.arme?.type === t || J.sac.some(i => i.type === t) || (J.debloques || []).includes(t)),
+  raresDebloques: () => ['ombre', 'orage', 'assassin'].filter(t => (t === 'ombre' && J.codes && J.codes.includes('BRECHE-OMBRE')) || J.equip.arme?.type === t || J.sac.some(i => i.type === t) || (J.debloques || []).includes(t)),
   ombreDebloquee: () => !!((J.codes && J.codes.length) || J.equip.arme?.type === 'ombre' || J.sac.some(i => i.type === 'ombre')),
   acheterIle: (type, taille) => acheterIle(type, taille),
   allerIle: (id) => { const ile = iles().find(i => i.id === id); if (ile) entrerIle(ile); },
@@ -1434,7 +1482,8 @@ function boucle() {
     ileT -= dt; if (ileT <= 0) { ileT = 3; majProduction(); majAssauts(); majRaids(); if (modeActuel && modeActuel.id === 'ile' && !monde.etranger && !(raid && raid.r)) journalIle(monde.ile); }
     majCamera(dt, joueur.pos);
     majTorches(joueur.pos);
-    hudT -= dt; if (hudT <= 0) { hudT = 0.08; UI.majHud(joueur, joueur.st); UI.majSorts(joueur); majInteractions(); majCadreAutre(); majBarreRival(); }
+    if (joueur.comboT > 0) { joueur.comboT -= dt; if (joueur.comboT <= 0) joueur.combo = 0; }
+    hudT -= dt; if (hudT <= 0) { hudT = 0.08; UI.majCombo(joueur.def.assassin ? joueur.combo || 0 : -1); UI.majHud(joueur, joueur.st); UI.majSorts(joueur); majInteractions(); majCadreAutre(); majBarreRival(); }
     miniT -= dt; if (miniT <= 0) { miniT = 0.2; majMini(); majParchemins(0.2); majMusique(0.2); }
     UI.majPlaques(joueur.pos);
     // anneau de cible
@@ -1550,6 +1599,10 @@ function habiller(a, equip, def) {
   if (def.ombre) habitOmbre(a, def);
 }
 // la classe des Ombres : capuche et tunique noires, liseré violet
+function habitAssassin(a, def) {
+  a.teinter(def.body, '#1a1418', 0.85, 0); a.teinter('Rogue_Head', '#f0d0c0', 0.1, 0);
+  a.teinter(def.cape, '#b0101a', 0.85, 0.35); def.legs.forEach(l => a.teinter(l, '#201a20', 0.8, 0));
+}
 function habitOmbre(a, def) {
   a.teinter(def.body, '#2a1a40', 0.85, 0.25);
   a.teinter('Rogue_Head_Hooded', '#5a2aa0', 0.85, 0.5);
@@ -1579,7 +1632,7 @@ function creerCombattant(pos, data, camp = 'ennemi') {
 
 // ---- camps, cibles et dégâts ----
 function coequipiers() { return allies.filter(a => !a.garde && !a.invoc); }
-function equipeJoueur() { const l = []; if (!joueur.mort) l.push(joueur); for (const a of allies) if (!a.mort) l.push(a); return l; }
+function equipeJoueur() { const l = []; if (!joueur.mort && !(joueur.furtifT > 0)) l.push(joueur); for (const a of allies) if (!a.mort) l.push(a); return l; }
 function adversaires(e) { return e.camp === 'allie' ? vivants() : equipeJoueur(); }
 function cibleIA(e) {
   let liste;
@@ -3239,6 +3292,52 @@ function mortErrant(e) {
   setTimeout(() => { e.descendre = true; }, 6000);
 }
 
+
+
+// ---------------- Assassin ----------------
+function distSegPt(a, b, p) { const vx = b.x - a.x, vz = b.z - a.z, l2 = vx * vx + vz * vz; let t = l2 ? ((p.x - a.x) * vx + (p.z - a.z) * vz) / l2 : 0; t = Math.max(0, Math.min(1, t)); return Math.hypot(p.x - (a.x + vx * t), p.z - (a.z + vz * t)); }
+function gagnerCombo(n) { joueur.combo = Math.min(5, (joueur.combo || 0) + n); joueur.comboT = 8; }
+function furtifBonus() { return joueur.furtifT > 0 ? 1.35 : 1; }
+function traineeRouge(a, b, c1 = '#ff4a5a') { const n = Math.max(3, Math.round(a.distanceTo(b) * 2)); for (let i = 0; i <= n; i++) { const p = a.clone().lerp(b, i / n); emettre(V(p.x, 1, p.z), { n: 1, c1, c2: '#1a0004', vit: 0.6, vie: 0.35, taille: 0.45 }); } }
+function teleportDerriere(c) {
+  const ang = Math.atan2(c.pos.x - joueur.pos.x, c.pos.z - joueur.pos.z);
+  const p = V(c.pos.x + Math.sin(ang) * (c.rayon + 1.0), 0, c.pos.z + Math.cos(ang) * (c.rayon + 1.0));
+  const q = pointLibreProche(p, 0.5) || joueur.pos.clone();
+  emettre(V(joueur.pos.x, 1, joueur.pos.z), { n: 20, c1: '#ff8a8a', c2: '#1a0004', vit: 3, vie: 0.5, taille: 0.45 });
+  joueur.pos.set(q.x, 0, q.z); faireFace(V(c.pos.x - q.x, 0, c.pos.z - q.z).normalize());
+  emettre(V(q.x, 1, q.z), { n: 20, c1: '#ff8a8a', c2: '#1a0004', vit: 3, vie: 0.5, taille: 0.45 }); son('cloth1', 0.5, 1.6);
+}
+function furtif(t) {
+  joueur.furtifT = Math.max(joueur.furtifT || 0, t); joueur.invuln = Math.max(joueur.invuln, t);
+  for (const e of ennemis) if (e.tc === joueur) e.tc = null;
+  if (!joueur._furtifVfx) {
+    joueur._furtifVfx = true;
+    for (const m of joueur.mats) { m.transparent = true; m.opacity = 0.28; }
+    ajouterVfx(new THREE.Group(), (tt, dt) => {
+      joueur.furtifT -= dt;
+      if (Math.random() < 0.4) emettre(V(joueur.pos.x + rnd(-0.4, 0.4), 0.3 + Math.random() * 1.5, joueur.pos.z + rnd(-0.4, 0.4)), { n: 1, c1: '#ff9a9a', c2: '#1a0004', vit: 0.6, vie: 0.5, taille: 0.3 });
+      if (joueur.furtifT <= 0) { for (const m of joueur.mats) { m.opacity = 1; m.transparent = false; } joueur._furtifVfx = false; return false; }
+    });
+  }
+}
+// attaque de base : coup 1, coup 2, puis au 3e coup on se téléporte dans son dos et on disparaît 1 s
+function attaqueAssassin(c, vit) {
+  const st = joueur.st;
+  joueur.comboPas = G.t - (joueur.dernierCoup || -9) < 1.5 ? ((joueur.comboPas || 0) + 1) % 3 : 0; joueur.dernierCoup = G.t;
+  const pas = joueur.comboPas;
+  if (pas === 2) teleportDerriere(c);
+  const anim = ['1H_Melee_Attack_Slice_Diagonal', '1H_Melee_Attack_Chop', '2H_Melee_Attack_Stab'][pas];
+  joueur.jouer(anim, { boucle: false, vitesse: Math.max(1.6, vit * 1.3), forcer: true, fondu: 0.05, fin: () => joueur.jouer(joueur.def.idle) });
+  joueur.verrouT = pas === 2 ? 0.3 : 0.2;
+  programmer(0.12, () => {
+    if (c.mort) return;
+    if (dist2D(c.pos, joueur.pos) - c.rayon > st.portee + 1.2) return;
+    arcTaille(joueur.pos, joueur.angle - Math.PI / 2, 2.4, pas === 2 ? '#ff1a2a' : '#ffb0b0', Math.PI * 0.6, 0.18);
+    blesser(c, (pas === 2 ? 1.9 : 0.9) * furtifBonus(), { c1: '#ff5a6a' }); gagnerCombo(1);
+    son(pas === 2 ? 'knifeSlice2' : 'knifeSlice', 0.45, 1.1 + pas * 0.15);
+    if (pas === 2) { furtif(1); UI.nombre(V(joueur.pos.x, 2.8, joueur.pos.z), 'Furtif', 'info'); }
+  });
+}
 
 // ---------------- Haches de l'Orage ----------------
 function arcElectrique(a, b) {

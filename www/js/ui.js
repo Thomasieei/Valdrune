@@ -12,6 +12,10 @@ UI.init = (a) => { api = a; };
 
 // ---------------- Icônes de sorts (SVG) ----------------
 const GLYPHES = {
+  assassin: '<path d="M22 84 L58 30 L64 34 L28 88 Z"/><path d="M58 30 L80 10 L66 38 Z"/><path d="M78 84 L42 30 L36 34 L72 88 Z" opacity=".75"/><path d="M42 30 L20 10 L34 38 Z" opacity=".75"/><circle cx="50" cy="60" r="5" fill="#ff4a5a"/>',
+  triple: '<path d="M14 30 L60 16 L56 24 Z"/><path d="M14 52 L72 38 L68 46 Z"/><path d="M14 74 L86 60 L80 70 Z" fill="#ff8a8a"/>',
+  curee: '<path d="M50 8 L58 60 L50 92 L42 60 Z"/><circle cx="50" cy="66" r="10" fill="#ff2a3a"/><path d="M30 26 h40" stroke="#fff" stroke-width="5"/>',
+  zephyr: '<path d="M10 64 C30 40 56 34 90 36 C70 42 56 50 46 64 Z"/><path d="M16 80 C34 64 56 60 80 62 C64 68 52 74 44 82 Z" opacity=".7"/><path d="M60 14 l14 10 -16 6z"/>',
   orage: '<path d="M30 86 L52 30 L58 33 L36 89 Z"/><path d="M52 30 C40 20 46 8 62 10 C60 18 66 26 70 30 C64 34 58 34 52 30 Z"/><path d="M70 86 L48 30 L42 33 L64 89 Z" opacity=".7"/><path d="M60 46 L76 46 L66 58 L80 58 L56 80 L64 62 L52 62 Z" fill="#ffe27a"/>',
   tornade: '<path d="M18 22 C40 14 64 14 84 22 C64 30 40 30 22 26 Z"/><path d="M26 38 C42 32 60 32 74 38 C60 44 44 44 30 42 Z"/><path d="M34 54 C46 50 56 50 66 54 C56 58 46 58 38 58 Z"/><path d="M42 68 C48 66 54 66 58 68 C54 72 48 72 44 72 Z"/><path d="M48 80 h6 v10 h-6z"/>',
   titan: '<path d="M50 8 L58 30 L50 26 L42 30 Z"/><path d="M34 34 h32 l-6 22 h-20 z"/><ellipse cx="50" cy="80" rx="38" ry="8" fill="none" stroke="#fff" stroke-width="5"/><ellipse cx="50" cy="80" rx="22" ry="4"/><path d="M14 70 l8 4 M86 70 l-8 4 M26 62 l6 6 M74 62 l-6 6" stroke="#fff" stroke-width="4"/>',
@@ -1150,4 +1154,14 @@ UI.majParchemins = (liste) => {
   const html = liste.map(p => { const C = COULEURS_PARCH[p.couleur]; const m = Math.floor(p.reste / 60), s = Math.floor(p.reste % 60);
     return `<div class="pH ${p.pause ? 'pause' : ''}" style="--c2:${C.c2}" title="${C.nom}">${svgParchemin(p.couleur + (p.bonus >= 0.5 ? '50' : '20'), '4.4vh')}<span>${p.pause ? '⏸' : `${m}:${String(s).padStart(2, '0')}`}</span></div>`; }).join('');
   if (html !== parchCache) { el.innerHTML = html; parchCache = html; }
+};
+
+// points de combo de l'assassin
+let comboCache = -2;
+UI.majCombo = (n) => {
+  if (n === comboCache) return; comboCache = n;
+  let el = document.getElementById('comboHud');
+  if (n < 0) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('div'); el.id = 'comboHud'; $('#jeu').appendChild(el); }
+  el.innerHTML = Array.from({ length: 5 }, (_, i) => `<i class="${i < n ? 'on' : ''} ${n >= 5 ? 'max' : ''}"></i>`).join('') + `<span>${n >= 5 ? 'CURÉE PRÊTE' : 'COMBO'}</span>`;
 };
