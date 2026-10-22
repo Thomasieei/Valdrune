@@ -30,11 +30,11 @@ html,body{height:100%;margin:0;overflow:hidden;background:var(--nuit);color:var(
 #scene{position:absolute;inset:0;width:100%;height:100%;display:block}
 button{font-family:var(--f-label);color:inherit;cursor:pointer}
 button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
-.contour{text-shadow:0 0 2px #000,0 1px 2px #000,1px 0 2px #000,-1px 0 2px #000}
+.contour{text-shadow:0 1px 2px #000,0 0 3px #000}
 
 /* ---------- étiquettes et chiffres ---------- */
 #labels,#nombres{position:absolute;inset:0;pointer-events:none;overflow:hidden}
-.plaque{position:absolute;transform:translate(-50%,-100%);text-align:center;white-space:nowrap;font-family:var(--f-label);font-weight:700;line-height:1}
+.plaque{position:absolute;left:0;top:0;will-change:transform;contain:layout style;backface-visibility:hidden;transform:translate(-50%,-100%);text-align:center;white-space:nowrap;font-family:var(--f-label);font-weight:700;line-height:1}
 .plaque .n{font-size:clamp(11px,1.9vh,15px);color:#fff}
 .plaque .n b{display:inline-block;background:#e9c241;color:#2a1a05;padding:0 3px;margin-right:2px;border-radius:2px}
 .plaque .gd{font-size:clamp(9px,1.4vh,11px);color:#7fb2ff;letter-spacing:.04em}

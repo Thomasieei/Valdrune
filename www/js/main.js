@@ -388,7 +388,7 @@ function entrerDonjon(id, opts = {}) {
       creerCoffre(monde.coffresPos[k], couleurSelonRang(tirerCouleurCoffre()), b);
     });
     creerSortie(monde.sortie);
-    if (!opts.envahir && (Math.random() < 0.1 || opts.errant)) apparitionErrant();
+    if (!opts.envahir && !G.sansErrant && (Math.random() < 0.1 || opts.errant)) apparitionErrant();
     UI.journal(modeActuel.lieu, 'Gardiens vaincus : 0 / 4', 0);
     UI.zone(modeActuel.lieu, `${modeActuel.nom} · T${modeActuel.tiers[0]}–T${modeActuel.tiers[1]}`);
     $('#btnQuitter').hidden = false;
@@ -870,7 +870,9 @@ function lancerSort(k) {
       const g = new THREE.Group();
       for (let i = 0; i < 4; i++) { const m = new THREE.Mesh(new THREE.RingGeometry(1.2 + i * 1.3, 1.6 + i * 1.3, 40, 1, 0, Math.PI * 1.3), new THREE.MeshBasicMaterial({ color: i % 2 ? '#ffffff' : '#7ac8ff', transparent: true, opacity: 0.5 - i * 0.08, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); m.rotation.x = -Math.PI / 2; m.position.y = 0.4 + i * 0.5; m.userData.v = 10 - i * 1.5; g.add(m); }
       son('thrusterFire_000', 0.5, 0.6);
+      const jT = joueur;
       ajouterVfx(g, (t, dt) => {
+        if (joueur !== jT || !(joueur.tornadeT > 0)) { if (joueur === jT) joueur.jouer(def.idle); return false; }
         g.position.copy(joueur.pos); g.children.forEach(m => (m.rotation.z -= m.userData.v * dt));
         if (joueur.courante && joueur.courante.getClip().name !== '2H_Melee_Attack_Spinning') joueur.jouer('2H_Melee_Attack_Spinning', { vitesse: 1.5 });
         joueur.tornadeT -= dt; if (joueur.mort) joueur.tornadeT = 0;
@@ -907,8 +909,9 @@ function lancerSort(k) {
       joueur.orageT = 10; joueur.vampT = Math.max(joueur.vampT, 10);
       son('forceField_000', 0.7, 1.8); son('lowFrequency_explosion_000', 0.5, 1.6); G.shake = 0.5;
       onde(joueur.pos, '#9ab8ff', 6, 0.7); emettre(V(joueur.pos.x, 1.5, joueur.pos.z), { n: 80, c1: '#ffffff', c2: '#3a5aff', vit: 8, vie: 0.8, taille: 0.45 });
-      let frappe = 0;
+      let frappe = 0; const jO = joueur;
       ajouterVfx(new THREE.Group(), (t, dt) => {
+        if (joueur !== jO || !(joueur.orageT > 0)) return false;
         joueur.orageT -= dt; if (joueur.mort) joueur.orageT = 0;
         if (Math.random() < 0.5) emettre(V(joueur.pos.x + rnd(-0.6, 0.6), 0.5 + Math.random() * 1.6, joueur.pos.z + rnd(-0.6, 0.6)), { n: 1, c1: '#ffffff', c2: '#5a8aff', vit: 2, vie: 0.3, taille: 0.25 });
         frappe -= dt;
@@ -3461,8 +3464,10 @@ function furtif(t) {
   if (!joueur._furtifVfx) {
     joueur._furtifVfx = true;
     for (const m of joueur.mats) { m.transparent = true; m.opacity = 0.28; }
+    const jF = joueur;
     ajouterVfx(new THREE.Group(), (tt, dt) => {
-      joueur.furtifT -= dt;
+      if (joueur !== jF) return false;
+      joueur.furtifT = (joueur.furtifT || 0) - dt;
       if (Math.random() < 0.4) emettre(V(joueur.pos.x + rnd(-0.4, 0.4), 0.3 + Math.random() * 1.5, joueur.pos.z + rnd(-0.4, 0.4)), { n: 1, c1: '#ff9a9a', c2: '#1a0004', vit: 0.6, vie: 0.5, taille: 0.3 });
       if (joueur.furtifT <= 0) { for (const m of joueur.mats) { m.opacity = 1; m.transparent = false; } joueur._furtifVfx = false; return false; }
     });
