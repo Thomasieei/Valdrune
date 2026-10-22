@@ -683,6 +683,36 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 #butinFlash .bf.part{opacity:0;transform:translateY(-1vh)}
 #butinFlash .t{display:flex;flex-direction:column;font:800 1.5vh var(--f-label);color:var(--c);white-space:nowrap}#butinFlash .t span{color:#ffe08a;font-size:1.7vh}
 #butinFlash .ic{display:flex;gap:.4vh}#butinFlash img{width:4.6vh;height:4.6vh;border-radius:.6vh;background:#2a1a10;border:1px solid #ffffff22}#butinFlash i{font:800 1.5vh var(--f-label);color:#fff;align-self:center}
+/* cases d'objet façon carte de butin : cadre d'acier, fond à la couleur du tier, médaillon du tier, bulle de quantité */
+.case{border-radius:1.1vh;border:none!important;padding:0;background:linear-gradient(#6a6e78,#3a3c44);box-shadow:0 .3vh .6vh #0008,inset 0 1px 0 #ffffff55!important}
+.case::before{content:"";position:absolute;inset:.55vh;border-radius:.7vh;background:radial-gradient(circle at 50% 35%,#7a6450,#3a2c20 80%);box-shadow:inset 0 0 1vh #000a,inset 0 0 0 1px #0008;z-index:0}
+.case.tiere::before{background:radial-gradient(circle at 50% 30%,color-mix(in srgb,var(--tc) 85%,#fff 15%),color-mix(in srgb,var(--tc) 70%,#000 30%) 75%,color-mix(in srgb,var(--tc) 40%,#000 60%))}
+.case img{position:relative;z-index:1;width:86%;height:86%;filter:drop-shadow(0 .3vh .3vh #000c)!important}
+.case .tier{z-index:2;left:.15vh;top:.15vh;min-width:2.9vh;height:2.9vh;padding:0;border-radius:50%;display:grid;place-items:center;background:radial-gradient(#fbf3e2,#d8c8a8);border:.25vh solid #2a2a30;color:color-mix(in srgb,var(--tc,#5a4a3a) 75%,#000 25%);font:900 1.35vh 'Grenze Gotisch',serif;text-shadow:none;box-shadow:0 .2vh .3vh #0009}
+.case .nb{z-index:2;right:.2vh;bottom:.2vh;min-width:2.8vh;height:2.8vh;padding:0 .5vh;border-radius:1.4vh;display:grid;place-items:center;background:radial-gradient(#3a3c44,#16171c);border:.2vh solid #8a8e98;color:#fff;font:800 1.45vh var(--f-label);text-shadow:none;box-sizing:border-box}
+.case .ench{z-index:2;left:.6vh;bottom:.5vh;transform:none}
+.case.q1{box-shadow:0 0 0 .25vh #9fd8ff,0 .3vh .6vh #0008!important}.case.q2{box-shadow:0 0 0 .25vh #5aff7a,0 .3vh .6vh #0008!important}.case.q3{box-shadow:0 0 0 .25vh #c98aff,0 0 1vh #b05aff88!important}.case.q4{box-shadow:0 0 0 .3vh #ffcf4a,0 0 1.4vh #ffcf4aaa!important}
+.case.bloque::before{background:#2a2220!important}
+.case .cadenas{z-index:3}
+/* carte de butin */
+#butin .lootCarte{position:relative;width:min(62vh,92vw);max-height:92vh;display:flex;flex-direction:column;padding:2vh 2.2vh 1.8vh;box-sizing:border-box;border-radius:1.4vh;
+  background:linear-gradient(#efdcb8,#e2c99c 60%,#d8bc8a);border:.35vh solid #8a6a3e;box-shadow:0 0 0 .3vh #3a2a14,0 1.5vh 5vh #000c,0 0 6vh color-mix(in srgb,var(--cc) 45%,transparent);color:#4a3218;text-align:left;animation:apparaitE .3s ease-out}
+.lcTete{display:flex;gap:1.6vh;align-items:center;padding-bottom:1.2vh;border-bottom:.2vh solid #b8966088}
+.lcTete .medaille{flex:0 0 12vh;height:12vh;border-radius:50%;padding:.5vh;background:linear-gradient(#c8a46a,#7a5a2e);box-shadow:0 .4vh 1vh #0006}
+.lcTete .medaille svg{width:100%;height:100%;display:block;border-radius:50%}
+.lcTitre small{font:600 1.9vh var(--f-texte);color:#7a5a36}
+.lcTitre h2{margin:0;font:800 4.4vh var(--f-titre)!important;line-height:1;color:#4a2e14!important}
+.bonusL{display:flex;align-items:center;gap:.8vh;margin-top:.5vh;font:800 2vh var(--f-label);color:#4a3218}.bonusL small{font:600 1.6vh var(--f-texte);color:#7a5a36}
+.bonusL .icB{width:2.6vh;height:2.6vh;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:1.5vh;box-shadow:inset 0 0 0 .2vh #0005}
+.lcGrille{flex:1 1 auto;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(4,1fr);gap:1.2vh;padding:1.6vh .4vh;touch-action:pan-y}
+.lcItem{border:0;background:none;padding:0;animation:revele .45s backwards;aspect-ratio:1}
+.lcItem .case{width:100%;height:100%}
+.lcPied{display:flex;align-items:flex-end;justify-content:space-between;gap:1.6vh;padding-top:1.2vh;border-top:.2vh solid #b8966088}
+.lcPied small{display:block;font:600 1.8vh var(--f-texte);color:#7a5a36}.lcPied b{display:flex;align-items:center;gap:.8vh;font:900 3vh var(--f-label);color:#3a2410}
+.lcPied .piece{width:2.6vh;height:2.6vh}
+#butinFlash .ic .case{width:5.4vh;height:5.4vh}#butinFlash .ic .case .tier{min-width:1.9vh;height:1.9vh;font-size:.95vh;border-width:.15vh}#butinFlash .ic .case .nb{min-width:2vh;height:2vh;font-size:1.05vh}
+#butinFlash .bf{background:linear-gradient(#efdcb8f2,#d8bc8af2);border-color:#8a6a3e;box-shadow:0 0 0 .2vh #3a2a14,0 0 2vh color-mix(in srgb,var(--c) 60%,transparent)}
+#butinFlash .t b{color:#4a2e14}#butinFlash .t span{color:#3a2410}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important}}
 </style>
 

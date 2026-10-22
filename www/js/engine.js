@@ -39,7 +39,9 @@ export function initRendu(canvas) {
   G.sun.shadow.bias = -0.0008; G.sun.shadow.normalBias = 0.03;
   G.scene.add(G.sun, G.sun.target);
   // Composer + bloom
-  G.composer = new EffectComposer(r);
+  // rendu intermédiaire avec anticrénelage (MSAA) : sans ça, les contours des persos sont pixelisés dès que le bloom est actif
+  const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
+  G.composer = new EffectComposer(r, rt);
   G.composer.addPass(new RenderPass(G.scene, G.camera));
   G.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.75, 0.45, 0.78);
   G.composer.addPass(G.bloom);
@@ -140,7 +142,7 @@ export function rendre() {
   cullActeurs();
   G._img = (G._img || 0) + 1;
   if (G.renderer.shadowMap.enabled) G.renderer.shadowMap.needsUpdate = (G._img & 1) === 0;
-  if (G.niveau >= 1) G.composer.render(); else G.renderer.render(G.scene, G.camera);
+  if (G.niveau >= 2) G.composer.render(); else G.renderer.render(G.scene, G.camera); // sans bloom : rendu direct, anticrénelé par le navigateur
 }
 
 // ---------- Torches : on allume les plus proches ----------

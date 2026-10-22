@@ -428,7 +428,7 @@ function majEscouade(dt) {
       if (pret && !resteBoss) { o.escCoffre = pret; coffresPris.add(pret); teleporterOmbre(o, pret.pos); o.escT = 0.2; continue; }
       const c = cibleLibre(o, prises);
       if (c) { o.escCible = c; prises.add(c); teleporterOmbre(o, c.pos); o.angle = Math.atan2(c.pos.x - o.pos.x, c.pos.z - o.pos.z); o.root.rotation.y = o.angle;
-        o.jouer('1H_Melee_Attack_Stab', { boucle: false, forcer: true, vitesse: 2.2, fin: () => o.jouer(o.armeDef.idle) }); o.escT = 0.14; continue; }
+        o.jouer('1H_Melee_Attack_Chop', { boucle: false, forcer: true, vitesse: 2.2, fin: () => o.jouer(o.armeDef.idle) }); o.escT = 0.14; continue; }
       // 2) plus d'ennemis : les coffres
       const cf = coffres.find(x => !x.ouvert && !x.final && !coffresPris.has(x));
       if (cf) { o.escCoffre = cf; coffresPris.add(cf); teleporterOmbre(o, cf.pos); o.escT = 0.35; continue; }
@@ -815,7 +815,7 @@ function lancerSort(k) {
   if (joueur.energie < s.energie) { UI.toast('Pas assez d’énergie'); son('error_001', 0.25); return; }
   joueur.sortAttente = null;
   if (joueur.verrouT > 0.15 && !['rempart', 'souffle', 'ruee', 'purge', 'vampirisme', 'orage'].includes(s.id)) { joueur.sortAttente = { k, t: 0.7, force: viseeForcee }; return; }
-  joueur.energie -= s.energie; joueur.cds[k] = joueur.cdMax[k] || s.cd; joueur.combatT = 4; joueur.debutAtk = G.t;
+  joueur.energie -= s.energie; joueur.cds[k] = joueur.cdMax[k] || s.cd; joueur.combatT = 4; joueur.debutAtk = G.t; joueur.animT = 0.5; // laisse l'animation du sort se jouer même en courant
   const def = joueur.def;
   const fin = () => joueur.jouer(def.idle);
   switch (s.id) {
@@ -1142,19 +1142,21 @@ function majJoueur(dt) {
   if (k.ArrowLeft) mx -= 1; if (k.ArrowRight) mx += 1; if (k.ArrowUp) my += 1; if (k.ArrowDown) my -= 1;
   if (arene && arene.t > 0) { mx = 0; my = 0; } // décompte : personne ne bouge
   const m = Math.min(1, Math.hypot(mx, my));
-  const bloque = j.verrouT > 0 && j.spinT <= 0;
+  const tourne = j.spinT > 0 || j.tornadeT > 0; // tempête d'acier / œil du cyclone : on garde l'animation de toupie
+  if (j.animT > 0) j.animT -= dt;
+  const bloque = j.verrouT > 0 && !tourne;
   let autoAtk = false;
   if (G.auto && pvpActif()) couperAuto('Mode auto désactivé : combat JcJ');
   if (G.auto && m <= 0.12 && !transition) autoAtk = modeAuto(j, dt, bloque);
   if (m > 0.12 && !bloque) {
     const dir = DIR_DROITE.clone().multiplyScalar(mx).addScaledVector(DIR_HAUT, my).normalize();
-    let v = st.vitesse * (1 + bonusParch('vitesse')) * (j.orageT > 0 ? 1.4 : 1) * (j.sprintT > 0 ? 1.6 : 1) * (j.slowT > 0 ? 0.6 : 1) * (j.spinT > 0 ? 0.7 : 1); // vitesse constante, peu importe l'inclinaison du joystick
+    let v = st.vitesse * (1 + bonusParch('vitesse')) * (j.orageT > 0 ? 1.4 : 1) * (j.sprintT > 0 ? 1.6 : 1) * (j.slowT > 0 ? 0.6 : 1) * (tourne ? 0.7 : 1); // vitesse constante, peu importe l'inclinaison du joystick
     deplacer(j, dir.x * v * dt, dir.z * v * dt);
     const vise = (entree.atk || entree.clavier[' ']) && j.cible && !j.cible.mort && dist2D(j.cible.pos, j.pos) - j.cible.rayon < st.portee + 0.5;
-    if (j.spinT <= 0 && !vise) { j.angle = tourner(j.angle, Math.atan2(dir.x, dir.z), dt * 14); j.root.rotation.y = j.angle; }
-    if (j.spinT <= 0 && (j.atkT < 0.1 || !entree.atk)) j.jouer(j.def.run);
+    if (!tourne && !vise) { j.angle = tourner(j.angle, Math.atan2(dir.x, dir.z), dt * 14); j.root.rotation.y = j.angle; }
+    if (!tourne && !(j.animT > 0) && (j.atkT < 0.1 || !entree.atk)) j.jouer(j.def.run);
     j.pasT -= dt * v; if (j.pasT <= 0) { j.pasT = 2.4; son(Math.random() < 0.5 ? 'footstep_concrete_000' : 'footstep_concrete_001', 0.12); }
-  } else if (!bloque && j.spinT <= 0) {
+  } else if (!bloque && !tourne && !(j.animT > 0)) {
     const c = j.courante; const n = c ? c.getClip().name : '';
     if (n === j.def.run || n === 'Walking_A') j.jouer(j.def.idle);
   }
@@ -1207,7 +1209,7 @@ function modeAuto(j, dt, bloque) {
   const c = j.autoCible; if (!c) return false;
   j.cible = c;
   const d = dist2D(c.pos, j.pos) - c.rayon;
-  if (d > j.st.portee * 0.9 && !bloque && j.spinT <= 0) {
+  if (d > j.st.portee * 0.9 && !bloque && !(j.spinT > 0 || j.tornadeT > 0)) {
     const ax = j.pos.x, az = j.pos.z;
     allerVers(j, c.pos, dt, v);
     if (dangerAuto(j.pos, 0.6)) { j.pos.x = ax; j.pos.z = az; j.jouer(j.def.idle); return false; } // n'entre pas dans une zone rouge
@@ -1442,7 +1444,7 @@ function majProjectiles(dt) {
 // ---------------- Inventaire / commerce ----------------
 function ajouterSac(it, silencieux = false) {
   if (it.cat === 'potion') { J.potions += it.n || 1; if (joueur) joueur.potions = J.potions; return; }
-  if (it.cat === 'butin') { const ex = J.sac.find(x => x.cat === 'butin' && x.type === it.type); if (ex) { ex.n += it.n; return; } }
+  if (it.cat === 'butin') { const ex = J.sac.find(x => x.cat === 'butin' && x.type === it.type && (x.tier || 0) === (it.tier || 0)); if (ex) { ex.n += it.n; return; } }
   if (J.sac.length >= 40) { UI.toast('Sac plein : ' + nomObjet(it) + ' perdu'); return; }
   J.sac.push(it);
   if (!silencieux) UI.toast('+ ' + nomObjet(it));
@@ -1589,6 +1591,10 @@ function ouvrirCoffre(c, auto = false) {
     const g0 = G.chanceOmbre; G.chanceOmbre = 0.05; tirageOmbre(tm, tm, 'boss'); G.chanceOmbre = g0;
   }
   if (J.accepteInvasion) loot.argent = Math.round(loot.argent * 1.25);
+  loot.bonus = [];
+  { const rk = (MODES.includes(modeActuel) || modeActuel && modeActuel.sylve) ? rangDe('donjon') : null; if (rk && rk.i) loot.bonus.push({ pct: 25 * rk.i, txt: 'rang ' + rk.r.nom, i: '♛', c: rk.r.c2 }); }
+  { const bp = Math.round(bonusParch('argent') * 100); if (bp) loot.bonus.push({ pct: bp, txt: 'parchemin d’argent', i: '¤', c: '#e8902a' }); }
+  if (J.accepteInvasion) loot.bonus.push({ pct: 25, txt: 'zone d’invasion', i: '⚔', c: '#c0281a' });
   if (coequipiers().length) { // en groupe, le coffre est partagé en deux
     const a = coequipiers()[0]; const moitie = Math.round(loot.argent / 2);
     loot.allie = { nom: a.nom, argent: loot.argent - moitie, objets: loot.objets.filter((_, i) => i % 2 === 1) };
@@ -3259,7 +3265,7 @@ function finBossSylve(e) {
   // butin du gardien (le joueur le voit dans le tableau des scores)
   // le coffre du gardien est commun : sa valeur est partagée entre les 5 joueurs, où qu'ils soient
   const nb = 1 + allies.filter(a => a.membreSylve).length;
-  const pool = Math.round(lootCoffre(k >= 2 ? 'legendaire' : 'violet', modeActuel, k).argent * 5 * (1 + k * 0.35));
+  const pool = Math.round(lootCoffre(k >= 2 ? 'violet' : 'bleu', modeActuel, k).argent * 5 * (1 + k * 0.35));
   const butin = { argent: Math.round(pool / nb), pool, nb, objets: [objetSylve(modeActuel.tier, k >= 2 ? 3 : 2)] };
   if (Math.random() < 0.35) butin.objets.push(objetSylve(modeActuel.tier, 2));
   if (Math.random() < 0.12 + k * 0.05) butin.objets.push(objetSylve(Math.min(8, modeActuel.tier + 1), 2));
@@ -3311,7 +3317,7 @@ function ouvrirCoffreFinal(c) {
   const lignes = classement(compteur.total, 0, G.t - sylve.debut);
   // 2 pièces à ton tier (belle qualité) + 1 pièce du tier suivant, à viser pour plus tard
   const objetsPour = () => { const o = [objetSylve(t, 3), objetSylve(t, 2), objetSylve(Math.min(8, t + 1), 2)]; if (Math.random() < 0.25) o.push(objetSylve(Math.min(8, t + 1), 3)); return o; };
-  const pool = Math.round(lootCoffre('legendaire', modeActuel, 3).argent * 5 * 3.2);
+  const pool = Math.round(lootCoffre('violet', modeActuel, 3).argent * 5 * 2);
   const part = Math.round(pool / lignes.length);
   for (const l of lignes) l.butin = { argent: part, objets: objetsPour() };
   const moi = lignes.find(l => l.moi);
@@ -3508,16 +3514,29 @@ function utiliserParchemin(itemId) {
 // les rivaux de haut rang encaissent et cognent plus (maîtrise, talents… comme de vrais joueurs)
 function kpv(camp) { if (camp !== 'ennemi') return 1; const i = rangK(); return arene ? 1 + 0.16 * i + (i >= 5 ? 0.3 : 0) : 1 + 0.07 * i; }
 function kdg(camp) { if (camp !== 'ennemi') return 1; const i = rangK(); return arene ? 1 + 0.09 * i : 1 + 0.07 * i; }
-function couleurSelonRang(c) { const ordre = ['vert', 'bleu', 'violet', 'legendaire']; let i = ordre.indexOf(c); if (i >= 0 && i < 3 && Math.random() < 0.07 * rangK()) i++; return ordre[i] || c; }
+function couleurSelonRang(c) { const ordre = ['vert', 'bleu', 'violet', 'legendaire']; let i = ordre.indexOf(c); if (i >= 0 && i < 2 && Math.random() < 0.025 * rangK()) i++; return ordre[i] || c; } // le rang ne crée jamais de légendaire
 function rangK() {
   if (arene) return rangDe('arene').i;
   if (MODES.includes(modeActuel) || modeActuel && modeActuel.sylve) return rangDe('donjon').i;
   return 0;
 }
-function rangDe(mode) { const p = (J.rang && J.rang[mode]) || 0; const i = Math.min(RANGS.length - 1, Math.floor(p / PTS_RANG)); return { i, pts: p, local: i === RANGS.length - 1 ? p - i * PTS_RANG : p % PTS_RANG, r: RANGS[i], mode }; }
+// progression lente sur la durée : chaque palier demande beaucoup plus que le précédent
+const SEUILS_RANG = [0, 100, 300, 800, 2000, 4000];
+const GAIN_K = [1, 0.85, 0.65, 0.45, 0.3, 0.25], PERTE_K = [0.6, 0.8, 1, 1.2, 1.4, 1.6];
+function migrerRang() {
+  if (!J.rang || J.rangV2) return; J.rangV2 = true;
+  for (const m of ['arene', 'donjon']) { const p = J.rang[m] || 0, i = Math.min(RANGS.length - 1, Math.floor(p / 100)); const loc = i === RANGS.length - 1 ? p - i * 100 : p % 100;
+    const larg = (SEUILS_RANG[i + 1] || SEUILS_RANG[i] + 1000) - SEUILS_RANG[i]; J.rang[m] = SEUILS_RANG[i] + Math.round(Math.min(0.99, loc / 100) * larg); }
+}
+function rangDe(mode) {
+  migrerRang();
+  const p = (J.rang && J.rang[mode]) || 0; let i = 0; while (i < RANGS.length - 1 && p >= SEUILS_RANG[i + 1]) i++;
+  const max = i === RANGS.length - 1 ? null : SEUILS_RANG[i + 1] - SEUILS_RANG[i];
+  return { i, pts: p, local: p - SEUILS_RANG[i], max, r: RANGS[i], mode };
+}
 function changerRang(mode, delta, raison) {
-  J.rang = J.rang || { arene: 0, donjon: 0 };
-  const avant = rangDe(mode); J.rang[mode] = Math.max(0, Math.round(J.rang[mode] + delta)); const apres = rangDe(mode); sauver();
+  if (!J.rang) { J.rang = { arene: 0, donjon: 0 }; J.rangV2 = true; }
+  const avant = rangDe(mode); delta = delta >= 0 ? Math.max(1, Math.round(delta * GAIN_K[avant.i])) : Math.round(delta * PERTE_K[avant.i]); J.rang[mode] = Math.max(0, Math.round(J.rang[mode] + delta)); const apres = rangDe(mode); sauver();
   UI.changementRang(avant, apres, Math.round(delta), raison);
   if (apres.i > avant.i) son('jingle_legend', 0.6); else if (apres.i < avant.i) son('lowFrequency_explosion_000', 0.6, 0.6);
 }
@@ -3526,7 +3545,7 @@ function classementRang(mode) {
   const rg = rangDe(mode); const t = Date.now() / 3.6e6;
   const liste = BOTS.slice(0, 24).map(([nom, tag], k) => {
     const s = (k + 1) * 9301 + rg.i * 49297 + (mode === 'arene' ? 7 : 3);
-    const base = (s * 233280) % 97; const pts = Math.max(0, Math.min(rg.i === RANGS.length - 1 ? 400 : 99, Math.round(base + 10 * Math.sin(t * (0.6 + (s % 7) / 10) + k))));
+    const base = (s * 233280) % 97; const pts = Math.max(0, Math.min(rg.max || 3000, Math.round((base / 97) * (rg.max || 3000) * 0.95 + 10 * Math.sin(t * (0.6 + (s % 7) / 10) + k))));
     return { nom, tag, pts, moi: false };
   });
   liste.push({ nom: J.nom, tag: 'CZ', pts: rg.local, moi: true });

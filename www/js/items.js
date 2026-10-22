@@ -1,4 +1,4 @@
-import { TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, COFFRES, tf, NIVEAU_REQUIS, VARIANTES, PRIX_TROPHEES, PARCHEMINS, COULEURS_PARCH } from './data.js';
+import { VALEUR_MAT, TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, COFFRES, tf, NIVEAU_REQUIS, VARIANTES, PRIX_TROPHEES, PARCHEMINS, COULEURS_PARCH } from './data.js';
 
 // maîtrise courante du joueur (niveaux par arme / pièce d'armure)
 export const ETAT = { maitrise: null };
@@ -13,8 +13,8 @@ export function creerArme(type, tier, qualite = 0) {
 export function creerArmure(slot, tier, qualite = 0) {
   return { id: ++uid, cat: 'armure', type: slot, tier, q: qualite };
 }
-export function creerButin(bid, n = 1) {
-  return { id: ++uid, cat: 'butin', type: bid, tier: 0, q: 0, n };
+export function creerButin(bid, n = 1, tier = 0) {
+  return { id: ++uid, cat: 'butin', type: bid, tier, q: 0, n };
 }
 export function creerParchemin(id, n = 1) { return { id: ++uid, cat: 'parchemin', type: id, tier: 0, q: 0, n }; }
 export function creerPotion(n = 1) { return { id: ++uid, cat: 'potion', type: 'soin', tier: 0, q: 0, n }; }
@@ -30,7 +30,7 @@ export function nomObjet(it) {
   return '?';
 }
 export function couleurObjet(it) {
-  if (it.cat === 'butin') return BUTINS.find(b => b.id === it.type).color;
+  if (it.cat === 'butin') return it.tier ? TIERS[it.tier].color : BUTINS.find(b => b.id === it.type).color;
   if (it.cat === 'potion') return '#ff5a6a';
   if (it.cat === 'parchemin') return COULEURS_PARCH[PARCHEMINS[it.type].couleur].c2;
   return TIERS[it.tier].color;
@@ -39,19 +39,25 @@ export function categorieLabel(it) {
   if (it.cat === 'arme') return ARMES[it.type].label + (ARMES[it.type].rare ? (it.beta ? ' · ✦ Bêta' : it.type === 'orage' ? ' · ⚡ Classe légendaire (1 % en Cauchemar)' : it.type === 'assassin' ? ' · 🗡 Classe d’élite' : ' · ✦ Classe rare (0,1 %)') : '');
   if (it.cat === 'armure') return ARMURES[it.type].label;
   if (it.cat === 'parchemin') return 'Parchemin · Brèche uniquement';
-  if (it.cat === 'butin') return it.type === 'rune' ? 'Matériau d’enchantement' : 'Butin sans valeur';
+  if (it.cat === 'butin') return it.type === 'rune' ? 'Matériau d’enchantement' : BUTINS.find(b => b.id === it.type).mat ? 'Marchandise · se revend au marché' : 'Butin sans valeur';
   return 'Consommable';
 }
 export function puissanceObjet(it) {
   if (it.cat !== 'arme' && it.cat !== 'armure') return 0;
   return 300 + (it.tier - 1) * 100 + QUALITES[it.q].ip + (it.ench || 0) * 50;
 }
+// prix de marché par tier (fourchettes voulues) : la qualité, l'enchantement et la rareté placent l'objet dans la fourchette
+export const PRIX_TIER = [null, [2000, 10000], [50000, 100000], [100000, 250000], [250000, 600000], [600000, 700000], [700000, 800000], [800000, 900000], [900000, 10000000]];
 export function valeurObjet(it) {
-  if (it.cat === 'butin') return BUTINS.find(b => b.id === it.type).valeur;
+  if (it.cat === 'butin') { const b = BUTINS.find(x => x.id === it.type); return b.mat ? Math.round(VALEUR_MAT[it.tier || 1] * b.mat) : b.valeur; }
   if (it.cat === 'potion') return 60;
   if (it.cat === 'parchemin') return PARCHEMINS[it.type].prix;
-  const base = it.cat === 'arme' ? 180 : 120;
-  return Math.round(base * Math.pow(2.6, it.tier - 1) * QUALITES[it.q].mult * (it.arene ? 1.2 : 1) * Math.pow(1.6, it.ench || 0) * (ARMES[it.type] && ARMES[it.type].rare ? (it.type === 'orage' ? 5 : 3) : 1));
+  const [mn, mx] = PRIX_TIER[it.tier];
+  const rare = ARMES[it.type] && ARMES[it.type].rare ? (it.type === 'orage' ? 0.3 : 0.2) : 0;
+  let f = 0.12 + (it.q || 0) / 4 * 0.4 + (it.ench || 0) / 6 * 0.38 + rare + (it.arene ? 0.08 : 0) + (it.cat === 'arme' ? 0.04 : 0);
+  f = Math.max(0, Math.min(1, f));
+  const v = it.tier === 8 ? mn * Math.pow(mx / mn, f * f) : mn + (mx - mn) * f; // en T8 les meilleures pièces montent jusqu'à 10 M
+  return Math.round(v / 100) * 100;
 }
 export const prixVente = (it) => Math.max(1, Math.round(valeurObjet(it) * (it.cat === 'butin' ? 1 : 0.35)));
 
@@ -153,32 +159,47 @@ export function lootCoffre(couleur, mode, idxBoss, rang = 0) {
     const span = tMax - tMin; let t = tMin + Math.floor(Math.pow(Math.random(), 1 / (1 + biais + rang * 0.2)) * (span + 1));
     return Math.min(tMax, Math.max(tMin, t));
   };
-  const scale = (mode.argent || 1) * (1 + idxBoss * 0.15);
+  // argent des coffres : zone 1 (T1-T2) ×1, zone 2 (T3-T5) ×2, zone 3 (T6-T8) ×3
+  const zone = tMax <= 2 ? 1 : tMax <= 5 ? 2 : 3;
+  const scale = zone * (1 + idxBoss * 0.05);
   if (couleur === 'vert') {
-    out.argent = Math.round(rnd(10, 22) * scale);
-    for (let i = 0; i < ri(2, 3); i++) out.objets.push(creerButin(BUTINS[ri(0, 2)].id, ri(1, 3)));
+    out.argent = Math.round(rnd(9000, 25000) * scale);
     if (Math.random() < 0.18) out.objets.push(objetAleatoire(tMin, -10));
   } else if (couleur === 'bleu') {
-    out.argent = Math.round(rnd(28, 50) * scale);
+    out.argent = Math.round(rnd(25000, 50000) * scale);
     out.objets.push(objetAleatoire(tierSelon(0), 0));
     if (Math.random() < 0.5) out.objets.push(objetAleatoire(tMin, 0));
-    out.objets.push(creerButin(BUTINS[ri(1, 3)].id, ri(1, 2)));
     if (Math.random() < 0.4) out.objets.push(creerPotion(1));
   } else if (couleur === 'violet') {
-    out.argent = Math.round(rnd(70, 120) * scale);
+    out.argent = Math.round(rnd(100000, 200000) * scale);
     out.objets.push(objetAleatoire(tierSelon(0.8), 12));
     out.objets.push(objetAleatoire(tierSelon(0.4), 8));
     if (Math.random() < 0.45) out.objets.push(objetAleatoire(tierSelon(0.4), 8));
-    out.objets.push(creerButin(BUTINS[ri(3, 4)].id, 1));
+    out.objets.push(creerButin('rune', 1));
     out.objets.push(creerPotion(ri(1, 2)));
   } else {
-    out.argent = Math.round(rnd(180, 300) * scale);
+    out.argent = Math.round(rnd(285000, 330000) * scale);
     out.objets.push(objetAleatoire(tMax, 30));
     out.objets.push(objetAleatoire(tierSelon(1.5), 25));
     out.objets.push(objetAleatoire(tierSelon(1.0), 20));
     if (Math.random() < 0.5) out.objets.push(objetAleatoire(tierSelon(1.0), 20));
     out.objets.push(creerButin('rune', ri(1, 3)));
     out.objets.push(creerPotion(2));
+  }
+  // marchandises : des piles d'éclats, sceaux, amulettes et tomes (valeur ≈ 40 à 90 % de l'argent du coffre)
+  {
+    const budget = out.argent * rnd(0.4, 0.9) * (couleur === 'legendaire' ? 1.4 : 1);
+    const nPiles = couleur === 'vert' ? ri(2, 3) : couleur === 'bleu' ? ri(3, 4) : ri(4, 6);
+    const sortes = ['eclat', 'sceau', 'eclat', 'sceau', 'relique', 'tome'];
+    const piles = new Map();
+    for (let k = 0; k < nPiles; k++) {
+      const sorte = couleur === 'vert' ? sortes[ri(0, 3)] : sortes[ri(0, 5)];
+      const t = tierSelon(couleur === 'legendaire' ? 1.2 : couleur === 'violet' ? 0.6 : 0);
+      const unite = VALEUR_MAT[t] * BUTINS.find(b => b.id === sorte).mat;
+      const n = Math.max(1, Math.round(budget / nPiles / unite));
+      const cle = sorte + t; if (piles.has(cle)) piles.get(cle).n += n; else piles.set(cle, creerButin(sorte, n, t));
+    }
+    out.objets.push(...piles.values());
   }
   // rang (Argent, Or…) : objets de meilleure qualité et chance d'objet bonus
   if (rang > 0) {
@@ -190,7 +211,7 @@ export function lootCoffre(couleur, mode, idxBoss, rang = 0) {
 }
 export function lootMonstre(mode) {
   const out = { argent: Math.round(rnd(1, 3) * (mode.argent || 1)), objets: [] };
-  if (Math.random() < 0.22) out.objets.push(creerButin(BUTINS[ri(0, 2)].id, 1));
+  if (Math.random() < 0.22) out.objets.push(creerButin(Math.random() < 0.6 ? 'eclat' : 'sceau', ri(1, 3), mode.tiers[0]));
   if (Math.random() < 0.035) out.objets.push(objetAleatoire(mode.tiers[0], -15));
   return out;
 }

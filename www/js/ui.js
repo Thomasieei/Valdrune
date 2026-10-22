@@ -101,11 +101,100 @@ function materielTier(m, tier) {
   mat.skinning = false;
   return mat;
 }
+// icônes de butin peintes (marchandises, runes, bourse d'argent)
+export function svgButin(type, tier = 0) {
+  const tc = tier ? TIERS[tier].color : '#ff8a2a';
+  const D = `<defs>
+    <radialGradient id="feu" cx=".45" cy=".45" r=".6"><stop offset="0" stop-color="#fff6c0"/><stop offset=".35" stop-color="#ffb02a"/><stop offset=".75" stop-color="#e2420e"/><stop offset="1" stop-color="#5a0e04"/></radialGradient>
+    <linearGradient id="roche" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6a5a52"/><stop offset=".5" stop-color="#3a302c"/><stop offset="1" stop-color="#1a1412"/></linearGradient>
+    <radialGradient id="lueur"><stop offset="0" stop-color="${tc}" stop-opacity=".9"/><stop offset="1" stop-color="${tc}" stop-opacity="0"/></radialGradient>
+    <linearGradient id="cuir" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8d8b8"/><stop offset=".6" stop-color="#b89a70"/><stop offset="1" stop-color="#6a5038"/></linearGradient>
+    <radialGradient id="glace" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#e8fbff"/><stop offset=".45" stop-color="#5ad0ff"/><stop offset="1" stop-color="#0a4a7a"/></radialGradient>
+    <linearGradient id="or" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff0a8"/><stop offset=".5" stop-color="#e8b04a"/><stop offset="1" stop-color="#7a4a10"/></linearGradient>
+    <filter id="fl" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="3"/></filter></defs>`;
+  const ombre = '<ellipse cx="50" cy="90" rx="28" ry="5" fill="#000" opacity=".4"/>';
+  const T = 'stroke="#1a0e06" stroke-width="2.4" stroke-linejoin="round"';
+  let c = '';
+  if (type === 'eclat') c = `<path d="M50 6 L70 30 L74 64 L54 92 L30 78 L24 40 Z" fill="url(#roche)" ${T}/>
+    <path d="M50 14 L64 34 L66 60 L52 82 L36 72 L32 42 Z" fill="url(#feu)"/>
+    <path d="M50 14 L52 46 L66 60 M52 46 L36 72 M52 46 L32 42" stroke="#fff2b0" stroke-width="1.8" opacity=".75" fill="none"/>
+    <circle cx="50" cy="48" r="16" fill="#ffd27a" opacity=".55" filter="url(#fl)"/>
+    <path d="M40 24 L46 18" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".8"/>`;
+  else if (type === 'sceau') c = `<path d="M22 30 C26 14 70 8 80 26 C90 44 86 74 70 86 C52 96 24 88 18 66 C14 52 18 40 22 30 Z" fill="url(#roche)" ${T}/>
+    <path d="M30 30 C40 20 66 18 74 30" stroke="#8a7a70" stroke-width="3" fill="none" opacity=".6"/>
+    <path d="M50 30 L66 64 L34 64 Z" fill="none" stroke="${tc}" stroke-width="7" stroke-linejoin="round" filter="url(#fl)"/>
+    <path d="M50 30 L66 64 L34 64 Z" fill="none" stroke="#fff3c8" stroke-width="3.2" stroke-linejoin="round"/>
+    <path d="M50 44 L50 56" stroke="#fff3c8" stroke-width="3" stroke-linecap="round"/>`;
+  else if (type === 'relique') c = `<path d="M36 10 C36 2 64 2 64 10 L60 22 L40 22 Z" fill="none" stroke="#2a1a10" stroke-width="3"/>
+    <circle cx="50" cy="56" r="30" fill="#0a2a40" ${T}/>
+    <circle cx="50" cy="56" r="26" fill="url(#glace)"/>
+    <circle cx="50" cy="56" r="26" fill="none" stroke="#bff4ff" stroke-width="2" opacity=".7"/>
+    <path d="M50 38 L58 50 L72 52 L60 60 L64 74 L50 66 L36 74 L40 60 L28 52 L42 50 Z" fill="none" stroke="#e8fbff" stroke-width="2.6" stroke-linejoin="round"/>
+    <circle cx="50" cy="56" r="7" fill="#e8fbff"/><circle cx="42" cy="46" r="5" fill="#fff" opacity=".7"/>`;
+  else if (type === 'tome') c = `<path d="M18 22 L60 14 L82 26 L82 84 L40 92 L18 80 Z" fill="#5a1a10" ${T}/>
+    <path d="M40 30 L82 26 L82 84 L40 92 Z" fill="#9a2a1a" ${T}/>
+    <path d="M18 22 L40 30 L40 92 L18 80 Z" fill="#e8d8b0" ${T}/>
+    <path d="M22 34 L36 38 M22 46 L36 50 M22 58 L36 62" stroke="#8a7a5a" stroke-width="2"/>
+    <circle cx="61" cy="58" r="12" fill="url(#or)" ${T}/><path d="M56 58 L66 58 M61 53 L61 63" stroke="#7a1a0a" stroke-width="3"/>
+    <path d="M44 34 L78 30" stroke="#e8b04a" stroke-width="3"/>`;
+  else if (type === 'rune') c = `<circle cx="50" cy="52" r="34" fill="url(#lueur)" opacity=".6"/>
+    <path d="M32 18 L68 18 L80 50 L66 86 L34 86 L20 50 Z" fill="#2a3a5a" ${T}/>
+    <path d="M36 24 L64 24 L74 50 L62 80 L38 80 L26 50 Z" fill="#3a5a8a"/>
+    <path d="M50 30 L50 74 M50 40 L62 50 L50 60 M50 52 L38 44" stroke="#bfe8ff" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+    <path d="M50 30 L50 74 M50 40 L62 50 L50 60 M50 52 L38 44" stroke="#5ab0ff" stroke-width="10" stroke-linecap="round" fill="none" opacity=".35" filter="url(#fl)"/>`;
+  else if (type === 'bourse') c = `<path d="M30 40 C14 54 14 86 34 90 L66 90 C86 86 86 54 70 40 Z" fill="url(#cuir)" ${T}/>
+    <path d="M36 40 C34 30 40 24 50 24 C60 24 66 30 64 40 Z" fill="#d8c8a8" ${T}/>
+    <path d="M32 40 C40 46 60 46 68 40" stroke="#6a3a1a" stroke-width="5" fill="none"/>
+    <circle cx="50" cy="66" r="11" fill="url(#or)" ${T}/><text x="50" y="71" text-anchor="middle" font-size="13" font-weight="900" fill="#7a4a10" font-family="Georgia,serif">¤</text>
+    <ellipse cx="68" cy="88" rx="9" ry="4" fill="url(#or)" stroke="#1a0e06" stroke-width="1.6" stroke-linejoin="round"/><ellipse cx="78" cy="84" rx="8" ry="3.6" fill="url(#or)" stroke="#1a0e06" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M38 52 C40 62 40 74 42 82" stroke="#fff" stroke-width="3" opacity=".35" fill="none"/>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="128" height="128">${D}${ombre}${c}</svg>`;
+}
+const SVG_BUTINS = ['eclat', 'sceau', 'relique', 'tome', 'rune', 'bourse'];
+// icônes d'armure dessinées (plus nettes et plus belles que les morceaux du modèle 3D)
+function svgArmure(slot, tier) {
+  const T = TIERS[tier], c = new THREE.Color(T.color);
+  const hx = (col) => '#' + col.getHexString();
+  const clair = hx(c.clone().lerp(new THREE.Color('#ffffff'), 0.55)), moyen = hx(c.clone().lerp(new THREE.Color('#d8d8e0'), 0.25)), sombre = hx(c.clone().multiplyScalar(0.38));
+  // métal neutre (acier, bronze ou rouille) pour bien ressortir sur le fond coloré du tier ; les ornements prennent la couleur du tier
+  const metal = tier === 1 ? ['#c8b8a0', '#8a7058', '#3e2e22'] : tier === 2 ? ['#f0c890', '#b07a3a', '#4a2a10'] : tier >= 7 ? ['#ffffff', '#b8c0cc', '#2a2e38'] : ['#eef2f6', '#98a2ae', '#343a44'];
+  const orne = tier <= 2 ? '#6a5040' : hx(c.clone().lerp(new THREE.Color('#ffffff'), 0.15));
+  void clair; void moyen; void sombre;
+  const gemme = tier >= 5 ? `<circle cx="50" cy="${slot === 'casque' ? 40 : slot === 'plastron' ? 42 : 62}" r="${tier >= 7 ? 6 : 4.5}" fill="${T.color}" stroke="#fff8" stroke-width="1.5"/><circle cx="48" cy="${slot === 'casque' ? 38 : slot === 'plastron' ? 40 : 60}" r="1.6" fill="#fff"/>` : '';
+  const halo = tier >= 7 ? `<circle cx="50" cy="52" r="44" fill="url(#h)"/>` : '';
+  const defs = `<defs><linearGradient id="m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${metal[0]}"/><stop offset=".55" stop-color="${metal[1]}"/><stop offset="1" stop-color="${metal[2]}"/></linearGradient>
+    <linearGradient id="r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".4" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <radialGradient id="h"><stop offset="0" stop-color="${T.color}" stop-opacity=".45"/><stop offset="1" stop-color="${T.color}" stop-opacity="0"/></radialGradient></defs>`;
+  const trait = `stroke="#1a1208" stroke-width="2.5" stroke-linejoin="round"`;
+  let corps = '';
+  if (slot === 'casque') corps = `<path d="M20 58 C20 30 34 16 50 16 C66 16 80 30 80 58 L80 74 L64 74 L62 60 L38 60 L36 74 L20 74 Z" fill="url(#m)" ${trait}/>
+    <path d="M26 54 C27 34 38 22 50 22" fill="none" stroke="url(#r)" stroke-width="6" stroke-linecap="round"/>
+    <path d="M47 16 L53 16 L54 60 L46 60 Z" fill="${orne}" stroke="#1a1208" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M30 60 L70 60 L68 66 L32 66 Z" fill="#1a1208" opacity=".85"/>
+    ${tier >= 4 ? `<path d="M20 50 L8 40 L14 58 Z M80 50 L92 40 L86 58 Z" fill="${orne}" stroke="#1a1208" stroke-width="1.6" stroke-linejoin="round"/>` : ''}
+    ${tier >= 6 ? `<path d="M38 18 L42 6 L46 16 M54 16 L58 6 L62 18" fill="${orne}" stroke="#1a1208" stroke-width="1.6" stroke-linejoin="round"/>` : ''}`;
+  else if (slot === 'plastron') corps = `<path d="M30 18 L42 24 L58 24 L70 18 L86 30 L80 50 L72 46 L72 86 C62 92 38 92 28 86 L28 46 L20 50 L14 30 Z" fill="url(#m)" ${trait}/>
+    <path d="M36 30 C36 50 40 70 44 84" fill="none" stroke="url(#r)" stroke-width="7" stroke-linecap="round"/>
+    <path d="M50 26 L50 88" stroke="#1a1208" stroke-width="2" opacity=".6"/>
+    <path d="M32 58 C42 64 58 64 68 58" fill="none" stroke="${orne}" stroke-width="3.5"/>
+    <path d="M30 72 C42 78 58 78 70 72" fill="none" stroke="${orne}" stroke-width="3" opacity=".8"/>
+    <path d="M42 24 L50 32 L58 24" fill="none" stroke="${orne}" stroke-width="3"/>
+    ${tier >= 5 ? `<path d="M14 30 L22 26 L28 34 M86 30 L78 26 L72 34" fill="none" stroke="${orne}" stroke-width="3"/>` : ''}`;
+  else corps = `<path d="M24 16 L44 16 L44 62 L50 70 L50 84 L16 84 L16 74 L24 66 Z" fill="url(#m)" ${trait}/>
+    <path d="M56 16 L76 16 L76 66 L84 74 L84 84 L50 84 L50 70 L56 62 Z" fill="url(#m)" ${trait} opacity=".92"/>
+    <path d="M28 22 L28 60" stroke="url(#r)" stroke-width="5" stroke-linecap="round"/>
+    <path d="M22 30 L46 30 M54 30 L78 30" stroke="${orne}" stroke-width="3.5"/>
+    <path d="M16 78 L50 78 M50 78 L84 78" stroke="#1a1208" stroke-width="2" opacity=".6"/>
+    ${tier >= 4 ? `<path d="M22 46 L46 46 M54 46 L78 46" stroke="${orne}" stroke-width="2.5" opacity=".85"/>` : ''}`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="128" height="128">${defs}${halo}<ellipse cx="50" cy="92" rx="30" ry="4" fill="#000" opacity=".35"/>${corps}${gemme}</svg>`;
+}
 export function iconeObjet(it) {
   const cle = it.cat + '_' + it.type + '_' + it.tier;
   if (icoCache[cle]) return icoCache[cle];
   if (it.cat === 'parchemin') return (icoCache[cle] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgParchemin(it.type)));
+  if (it.cat === 'butin' && SVG_BUTINS.includes(it.type)) return (icoCache[cle] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgButin(it.type, it.tier)));
   if (it.cat === 'butin' || it.cat === 'potion') return (icoCache[cle] = icone2D(it));
+  if (it.cat === 'armure') return (icoCache[cle] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgArmure(it.type, it.tier)));
   if (!icoR) initIcones();
   const grp = new THREE.Group();
   let ms, orient = 'arme';
@@ -183,10 +272,10 @@ function icone2D(it) {
 export function htmlCase(it, extra = '', style = '') {
   if (!it) return `<div class="case ${extra}"></div>`;
   const equipable = it.cat === 'arme' || it.cat === 'armure';
-  const bloque = equipable && !peutPorter(it);
+  const bloque = equipable && !peutPorter(it) && !extra.includes('libre');
   const glow = it.tier >= 5 && !bloque ? `filter:drop-shadow(0 0 6px ${TIERS[it.tier].color})` : '';
   const tc = it.tier ? TIERS[it.tier].color : '#8a6a4a';
-  const bg = it.tier ? `background:radial-gradient(circle at 50% 42%, ${tc}aa, ${tc}33 55%, #241810 85%);--tc:${tc};` : '';
+  const bg = it.tier ? `--tc:${tc};` : '';
   const cad = bloque ? `<span class="cadenas"><svg viewBox="0 0 24 24"><path d="M7 10V7a5 5 0 0110 0v3h1.5v11h-13V10zm2 0h6V7a3 3 0 00-6 0z" fill="#ffd0c0"/></svg>Niv. ${niveauRequis(it)}</span>` : '';
   return `<div class="case q${it.q || 0} ${it.tier ? 'tiere' : ''} ${bloque ? 'bloque' : ''} ${extra}" style="${bg}${style}">${cad}<img src="${iconeObjet(it)}" alt="" style="${glow}">${it.tier ? `<span class="tier">${TIERS[it.tier].roman}</span>` : ''}${it.ench ? `<span class="ench">${'<i></i>'.repeat(it.ench)}</span>` : ''}${it.n > 1 ? `<span class="nb">${it.n}</span>` : ''}</div>`;
 }
@@ -226,7 +315,8 @@ UI.butinFlash = (couleur, loot) => {
   if (!pile) { pile = document.createElement('div'); pile.id = 'butinFlash'; $('#jeu').appendChild(pile); }
   const C = COFFRES.find(c => c.id === couleur) || { nom: 'Coffre', color: '#fff' };
   const d = document.createElement('div'); d.className = 'bf'; d.style.setProperty('--c', C.color);
-  d.innerHTML = `<div class="t"><b>${C.nom}</b><span>+${fmt(loot.argent)} ¤</span></div><div class="ic">${loot.objets.slice(0, 8).map(it => `<img src="${iconeObjet(it)}" alt="">`).join('')}${loot.objets.length > 8 ? `<i>+${loot.objets.length - 8}</i>` : ''}</div>`;
+  const valeur = loot.argent + loot.objets.reduce((a, it) => a + valeurObjet(it) * (it.n || 1), 0);
+  d.innerHTML = `<div class="t"><b>${C.nom}</b><span>≈ ${fmtK(valeur)}</span></div><div class="ic">${loot.argent ? caseBourse(loot.argent) : ''}${loot.objets.slice(0, 7).map(it => htmlCase(it, 'libre')).join('')}${loot.objets.length > 7 ? `<i>+${loot.objets.length - 7}</i>` : ''}</div>`;
   pile.prepend(d); while (pile.children.length > 3) pile.lastChild.remove();
   setTimeout(() => { d.classList.add('part'); setTimeout(() => d.remove(), 400); }, 4500);
 };
@@ -762,16 +852,26 @@ UI.menuPortail = () => {
 };
 
 // ---------------- Butin d'un coffre ----------------
+// carte de butin : médaillon du coffre, bonus, grille d'objets par tier, valeur marchande estimée
+function svgCoffre(col) {
+  return `<svg viewBox="0 0 100 100"><defs><linearGradient id="cb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d8d4cc"/><stop offset="1" stop-color="#6a6660"/></linearGradient></defs>
+    <circle cx="50" cy="50" r="48" fill="#2a2622"/><circle cx="50" cy="50" r="44" fill="#4a4540"/>
+    <path d="M20 46 C20 30 80 30 80 46 L80 52 L20 52 Z" fill="url(#cb)" stroke="#1a1714" stroke-width="2.5"/>
+    <rect x="20" y="50" width="60" height="28" rx="3" fill="url(#cb)" stroke="#1a1714" stroke-width="2.5"/>
+    <path d="M20 58 L80 58 M34 36 L34 78 M66 36 L66 78" stroke="#1a1714" stroke-width="3" opacity=".7"/>
+    <rect x="44" y="50" width="12" height="14" rx="2" fill="${col}" stroke="#1a1714" stroke-width="2"/><circle cx="50" cy="56" r="2.4" fill="#1a1714"/></svg>`;
+}
+function caseBourse(v) { return `<div class="case tiere bourse" style="--tc:#9aa0aa"><img src="${'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgButin('bourse'))}" alt=""><span class="nb">${fmtK(v)}</span></div>`; }
 UI.butin = (couleur, loot, cb) => {
-  const c = COFFRES.find(x => x.id === couleur);
-  $('#butin').innerHTML = `<div class="cadreB parchemin" style="box-shadow:0 0 80px ${c.color}88, inset 0 0 0 2px #b78f55"><h2 style="color:${shade(c.color)}">${c.nom}</h2>
-    <div style="font-size:2vh;color:#6a4a2e">${c.desc}</div>
-    <div class="argentG"><span class="piece" style="width:3vh;height:3vh"></span>+ ${fmt(loot.argent)}</div>
-    <div class="lootGrille">${loot.objets.map((it, i) => `<button class="item" data-i="${i}" style="animation-delay:${0.25 + i * 0.22}s;border:0;background:none;padding:0">${htmlCase(it)}<span style="color:${it.tier ? shade(couleurObjet(it)) : '#3a2312'}">${nomObjet(it)}${it.tier ? ` (${TIERS[it.tier].roman})` : ''}</span></button>`).join('')}</div>
-    ${loot.allie ? `<div class="partAllie"><b>Part de ${loot.allie.nom}</b> · ${fmt(loot.allie.argent)} d’argent${loot.allie.objets.length ? ' · ' + loot.allie.objets.map(o => nomObjet(o) + (o.tier ? ` (${TIERS[o.tier].roman})` : '')).join(', ') : ''}</div>` : ''}
-    <button class="btn or" data-ok>Prendre ma part</button></div>`;
+  const c = COFFRES.find(x => x.id === couleur) || { nom: 'Coffre', color: '#c9a052', desc: '' };
+  const valeur = loot.argent + loot.objets.reduce((a, it) => a + valeurObjet(it) * (it.n || 1), 0);
+  const bonus = (loot.bonus || []).map(b => `<div class="bonusL"><span class="icB" style="background:${b.c}">${b.i}</span>+${b.pct} % <small>${b.txt}</small></div>`).join('');
+  $('#butin').innerHTML = `<div class="lootCarte" style="--cc:${c.color}">
+    <div class="lcTete"><div class="medaille">${svgCoffre(c.color)}</div><div class="lcTitre"><small>Butin du</small><h2>${c.nom}</h2>${bonus}</div></div>
+    <div class="lcGrille">${loot.argent ? `<div class="lcItem" style="animation-delay:.15s">${caseBourse(loot.argent)}</div>` : ''}${loot.objets.map((it, i) => `<button class="lcItem" data-i="${i}" style="animation-delay:${0.25 + i * 0.12}s">${htmlCase(it, 'libre')}</button>`).join('')}</div>
+    ${loot.allie ? `<div class="partAllie"><b>Part de ${loot.allie.nom}</b> · ${fmt(loot.allie.argent)} d’argent</div>` : ''}
+    <div class="lcPied"><div><small>Valeur marchande estimée :</small><b><span class="piece"></span>${fmtK(valeur)}</b></div><button class="btn or" data-ok>${loot.allie ? 'Prendre ma part' : 'Tout prendre'}</button></div></div>`;
   const b = $('#butin'); b.hidden = false;
-  if (!loot.allie) b.querySelector('[data-ok]').textContent = 'Tout prendre';
   b.querySelectorAll('[data-i]').forEach(e => e.onclick = () => UI.fiche(loot.objets[+e.dataset.i], 'apercu'));
   b.querySelector('[data-ok]').onclick = () => { b.hidden = true; cb(); };
 };
@@ -1134,7 +1234,7 @@ export function emblemeRang(i, taille = 8) {
     ${etoile}${chevrons}${couronne}</g></svg>`;
 }
 function barreRang(rg) {
-  const max = rg.i === RANGS.length - 1 ? null : PTS_RANG;
+  const max = rg.max;
   return `<div class="barreRang"><i style="width:${max ? rg.local / max * 100 : 100}%;background:linear-gradient(90deg,${rg.r.c2},${rg.r.c1})"></i><span>${max ? `${rg.local} / ${max} pts` : `${rg.local} pts`}</span></div>`;
 }
 UI.changementRang = (avant, apres, delta, raison) => {

@@ -101,7 +101,14 @@ export const BUTINS = [
   { id: 'crane', nom: 'Crâne fêlé', valeur: 18, color: '#e3dccb', icone: 'crane' },
   { id: 'gemme', nom: 'Gemme terne', valeur: 40, color: '#7aa0a6', icone: 'gemme' },
   { id: 'rune', nom: 'Rune d’enchantement', valeur: 140, color: '#5ab0ff', icone: 'rune' },
+  // marchandises de butin (par tier) : se revendent au marché
+  { id: 'eclat', nom: 'Éclat d’âme', valeur: 0, color: '#ff8a2a', icone: 'eclat', mat: 1 },
+  { id: 'sceau', nom: 'Sceau runique', valeur: 0, color: '#ffb36a', icone: 'sceau', mat: 0.6 },
+  { id: 'relique', nom: 'Amulette ancienne', valeur: 0, color: '#5ad0ff', icone: 'relique', mat: 1.6 },
+  { id: 'tome', nom: 'Tome de maîtrise', valeur: 0, color: '#e8b04a', icone: 'tome', mat: 2.2 },
 ];
+// valeur d'une unité de marchandise selon son tier
+export const VALEUR_MAT = [0, 150, 600, 1800, 4500, 9000, 18000, 36000, 72000];
 
 // ---- Sorts ----
 // type: cone | dash | spin | ligne | roulade | zone | projectile | delai | meteore | bouclier | soin | sprint
@@ -143,10 +150,10 @@ export const MODES = [
 ];
 
 export const COFFRES = [
-  { id: 'vert', nom: 'Coffre commun', color: '#4fd16a', chance: 45, desc: 'Surtout des babioles sans valeur.' },
-  { id: 'bleu', nom: 'Coffre correct', color: '#3f9bff', chance: 32, desc: 'Quelques objets et de l’argent.' },
-  { id: 'violet', nom: 'Coffre rare', color: '#b65bff', chance: 17, desc: 'Du bon équipement, parfois de meilleure qualité.' },
-  { id: 'legendaire', nom: 'Coffre légendaire', color: '#ffc23a', chance: 6, desc: 'Le haut de la fourchette du donjon, qualités élevées.' },
+  { id: 'vert', nom: 'Coffre commun', color: '#4fd16a', chance: 60, desc: 'Surtout des babioles sans valeur.' },
+  { id: 'bleu', nom: 'Coffre correct', color: '#3f9bff', chance: 34.9, desc: 'Quelques objets et de l’argent.' },
+  { id: 'violet', nom: 'Coffre rare', color: '#b65bff', chance: 5, desc: 'Du bon équipement, parfois de meilleure qualité.' },
+  { id: 'legendaire', nom: 'Coffre légendaire', color: '#ffc23a', chance: 0.1, desc: 'Le haut de la fourchette du donjon, qualités élevées.' },
 ];
 
 export const BOSS = [
