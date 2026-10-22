@@ -18,7 +18,7 @@ const CLE = 'breche-ecarlate-v1';
 let sauverT = null, efface = false;
 function sauverMaintenant() { if (efface) return; if (sauverT) { clearTimeout(sauverT); sauverT = null; } try { localStorage.setItem(CLE, JSON.stringify(J)); } catch (e) {} }
 function sauver() { if (!sauverT) sauverT = setTimeout(sauverMaintenant, 1500); }
-addEventListener('pagehide', sauverMaintenant); document.addEventListener('visibilitychange', () => { if (document.hidden) sauverMaintenant(); });
+addEventListener('pagehide', sauverMaintenant); document.addEventListener('visibilitychange', () => { try { if (G.audio) document.hidden ? G.audio.suspend() : G.audio.resume(); } catch (e) {} }); document.addEventListener('visibilitychange', () => { if (document.hidden) sauverMaintenant(); });
 function charger() { try { const s = localStorage.getItem(CLE); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
 function nouvellePartie(nom, arme) {
   J = { nom, argent: 400, potions: 5, trophees: 0, sac: [], equip: {

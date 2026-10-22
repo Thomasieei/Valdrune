@@ -206,24 +206,32 @@ export async function chargerAssets(liste, progres) {
 
 export async function chargerSons(liste) {
   const ctx = (G.audio = G.audio || new (window.AudioContext || window.webkitAudioContext)());
-  G.master = G.master || ctx.createGain(); G.master.gain.value = 0.8; G.master.connect(ctx.destination);
+  if (!G.master) {
+    // limiteur : quand beaucoup de sons se superposent, on évite la saturation qui grésille sur téléphone
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.knee.value = 10; comp.ratio.value = 8; comp.attack.value = 0.003; comp.release.value = 0.2;
+    G.master = ctx.createGain(); G.master.gain.value = 0.6; G.master.connect(comp); comp.connect(ctx.destination);
+  }
   await Promise.all(liste.map(async ([cle, url]) => {
     try { const b = await (await fetch(url)).arrayBuffer(); G.sounds[cle] = await ctx.decodeAudioData(b); } catch (e) { /* son manquant */ }
   }));
 }
+const dernierSon = {}; let sonsActifs = 0;
 export function son(cle, vol = 0.5, rate = 1) {
   if (!G.son || !G.audio || !G.sounds[cle]) return;
+  // anti-spam : un même son au plus toutes les 70 ms, et 10 sons simultanés maximum
+  const now = G.audio.currentTime; if (now - (dernierSon[cle] || -1) < 0.07 || sonsActifs >= 10) return; dernierSon[cle] = now;
   const s = G.audio.createBufferSource(); s.buffer = G.sounds[cle]; s.playbackRate.value = rate * (0.94 + Math.random() * 0.12);
-  const g = G.audio.createGain(); g.gain.value = vol; s.connect(g); g.connect(G.master); s.start();
+  const g = G.audio.createGain(); g.gain.value = Math.min(0.8, vol); s.connect(g); g.connect(G.master); sonsActifs++; s.onended = () => { sonsActifs--; s.disconnect(); g.disconnect(); }; s.start();
 }
 export function ambiance() {
+  // nappe très douce (sinusoïdes filtrées) — l'ancien bourdonnement en dents de scie grésillait sur les haut-parleurs de téléphone
   if (G._amb || !G.audio) return; G._amb = true;
-  const ctx = G.audio; const out = ctx.createGain(); out.gain.value = 0.05; out.connect(G.master);
-  const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 380; f.connect(out);
-  [55, 82.4, 110.3].forEach((fr, i) => {
-    const o = ctx.createOscillator(); o.type = i === 1 ? 'triangle' : 'sawtooth'; o.frequency.value = fr; o.detune.value = i * 7;
-    const g = ctx.createGain(); g.gain.value = i === 0 ? 0.7 : 0.25; o.connect(g); g.connect(f); o.start();
-    const lfo = ctx.createOscillator(); lfo.frequency.value = 0.05 + i * 0.03; const lg = ctx.createGain(); lg.gain.value = 0.2;
+  const ctx = G.audio; const out = ctx.createGain(); out.gain.value = 0.025; out.connect(G.master);
+  const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 600; f.connect(out);
+  [110, 164.8, 220].forEach((fr, i) => {
+    const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = fr; o.detune.value = i * 4;
+    const g = ctx.createGain(); g.gain.value = 0.35; o.connect(g); g.connect(f); o.start();
+    const lfo = ctx.createOscillator(); lfo.frequency.value = 0.04 + i * 0.02; const lg = ctx.createGain(); lg.gain.value = 0.25;
     lfo.connect(lg); lg.connect(g.gain); lfo.start();
   });
 }

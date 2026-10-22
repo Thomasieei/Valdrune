@@ -724,7 +724,7 @@ UI.reglages = () => {
   r.querySelector('[data-x]').onclick = () => (r.hidden = true);
   r.querySelector('#rQ').onchange = (e) => api.qualite(e.target.value);
   r.querySelector('#rDec').oninput = (e) => { document.documentElement.style.setProperty('--decalSorts', e.target.value + 'vw'); try { localStorage.setItem('breche-decal', e.target.value); } catch (er) {} };
-  r.querySelector('#rS').onchange = (e) => { G.son = e.target.checked; };
+  r.querySelector('#rS').onchange = (e) => { G.son = e.target.checked; if (G.master) G.master.gain.value = G.son ? 0.6 : 0; };
   r.querySelector('#rP').onchange = (e) => { G.perfOn = e.target.checked; UI.perf(G.perfOn); try { localStorage.setItem('breche-perf', G.perfOn ? '1' : ''); } catch (er) {} };
   r.querySelector('#rF').onclick = () => { document.documentElement.requestFullscreen?.().catch(() => {}); };
   let n = 0; r.querySelector('#rR').onclick = () => { if (++n === 1) { r.querySelector('#rConf').hidden = false; return; } api.reset(); };
