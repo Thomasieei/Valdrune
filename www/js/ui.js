@@ -205,13 +205,14 @@ UI.construireSorts = (joueur) => {
     let vise = null;
     const go = (e) => {
       e.preventDefault(); e.stopPropagation();
-      if ('QWERDF'.includes(k) && api.visable(k)) { vise = { id: e.pointerId, x: e.clientX, y: e.clientY, bouge: false }; try { b.setPointerCapture(e.pointerId); } catch (er) {} api.viseeDebut(k); b.classList.add('vise'); return; }
+      try { b.setPointerCapture(e.pointerId); } catch (er) {} // le doigt peut glisser hors du bouton sans tout couper
+      if ('QWERDF'.includes(k) && api.visable(k)) { vise = { id: e.pointerId, x: e.clientX, y: e.clientY, bouge: false }; api.viseeDebut(k); b.classList.add('vise'); return; }
       api.touche(k, true);
     };
     const bouge = (e) => {
       if (!vise || e.pointerId !== vise.id) return;
       const dx = e.clientX - vise.x, dy = e.clientY - vise.y;
-      if (!vise.bouge && Math.hypot(dx, dy) > 14) vise.bouge = true;
+      if (!vise.bouge && Math.hypot(dx, dy) > 38) vise.bouge = true; // un petit glissement du pouce ne compte pas comme une visée
       if (vise.bouge) api.viseeDir(dx, dy);
     };
     const fin = (e) => {
@@ -220,7 +221,7 @@ UI.construireSorts = (joueur) => {
       api.touche(k, false);
     };
     b.addEventListener('pointerdown', go); b.addEventListener('pointermove', bouge); b.addEventListener('pointerup', fin); b.addEventListener('pointercancel', fin);
-    b.addEventListener('pointerleave', (e) => { if (!vise) fin(e); });
+    b.addEventListener('lostpointercapture', (e) => { if (!vise) fin(e); });
     zone.appendChild(b);
   }
 };

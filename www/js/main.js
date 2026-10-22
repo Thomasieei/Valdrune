@@ -653,7 +653,8 @@ function lancerSort(k) {
   if (!s || joueur.mort) return;
   if ((joueur.cds[k] || 0) > 0) { son('error_001', 0.25); return; }
   if (joueur.energie < s.energie) { UI.toast('Pas assez d’énergie'); son('error_001', 0.25); return; }
-  if (joueur.verrouT > 0.15 && !['rempart', 'souffle', 'ruee', 'purge', 'vampirisme'].includes(s.id)) return;
+  joueur.sortAttente = null;
+  if (joueur.verrouT > 0.15 && !['rempart', 'souffle', 'ruee', 'purge', 'vampirisme', 'orage'].includes(s.id)) { joueur.sortAttente = { k, t: 0.7, force: viseeForcee }; return; }
   joueur.energie -= s.energie; joueur.cds[k] = joueur.cdMax[k] || s.cd; joueur.combatT = 4; joueur.debutAtk = G.t;
   const def = joueur.def;
   const fin = () => joueur.jouer(def.idle);
@@ -944,7 +945,8 @@ function majJoueur(dt) {
     const c = j.courante; const n = c ? c.getClip().name : '';
     if (n === j.def.run || n === 'Walking_A') j.jouer(j.def.idle);
   }
-  if ((entree.atk || entree.clavier[' ']) && !(arene && arene.t > 0)) attaquer(dt);
+  if (j.sortAttente) { j.sortAttente.t -= dt; if (j.sortAttente.t <= 0) j.sortAttente = null; else if (j.verrouT <= 0.15) { const sa = j.sortAttente; j.sortAttente = null; viseeForcee = sa.force; lancerSort(sa.k); viseeForcee = null; } }
+  if ((entree.atk || entree.clavier[' ']) && !(arene && arene.t > 0) && !j.sortAttente) attaquer(dt);
   j.maj(dt);
 }
 
@@ -1221,7 +1223,7 @@ const API = {
   visable: (k) => { const s = joueur && joueur.sorts[k]; return !!(s && s.portee > 0 && !['bouclier', 'soin', 'sprint', 'buff'].includes(s.type) && s.id !== 'legion'); },
   viseeDebut: (k) => { if (!joueur || joueur.mort || transition) return; visee = { k, s: joueur.sorts[k], dir: null, cible: null }; },
   viseeDir: (dx, dy) => { if (!visee) return; const d = DIR_DROITE.clone().multiplyScalar(dx).addScaledVector(DIR_HAUT, -dy); d.y = 0; if (d.lengthSq() < 1e-4) return; visee.dir = d.normalize(); visee.cible = cibleDansDirection(visee.dir, visee.s.portee); },
-  viseeFin: (k, lancer) => { const v = visee; visee = null; cacherVisee(); if (!v || !lancer) return; viseeForcee = v.dir ? { dir: v.dir, cible: v.cible, portee: v.s.portee } : null; if (v.cible) joueur.cible = v.cible; lancerSort(k); viseeForcee = null; },
+  viseeFin: (k, lancer) => { const v = visee; visee = null; cacherVisee(); if (!lancer) return; if (!v) { lancerSort(k); return; } viseeForcee = v.dir && (v.cible || !['reflet', 'pasOmbre', 'execution', 'charge'].includes(v.s.id)) ? { dir: v.dir, cible: v.cible, portee: v.s.portee } : null; if (v.cible) joueur.cible = v.cible; lancerSort(k); viseeForcee = null; },
   sylve: () => { const g = preparerGroupeSylve(); UI.rechercheGroupe(g, () => entrerSylve(g)); },
   modeleJoueur: () => (joueur && joueur.model) || null,
   code: (c) => utiliserCode(c),
@@ -2679,16 +2681,19 @@ function cheminGrille(a, b) {
   const W = monde.grilleW, H = monde.grilleH, g = monde.grille, C = 4;
   const ax = Math.floor(a.x / C), az = Math.floor(a.z / C), bx = Math.floor(b.x / C), bz = Math.floor(b.z / C);
   if (bx < 0 || bz < 0 || bx >= W || bz >= H || !g[bz * W + bx]) return null;
-  const prec = new Int32Array(W * H).fill(-1); const file = [az * W + ax]; prec[az * W + ax] = az * W + ax;
+  if (!cheminGrille.prec || cheminGrille.prec.length !== W * H) { cheminGrille.prec = new Int32Array(W * H); cheminGrille.file = new Int32Array(W * H); }
+  if (ax < 0 || az < 0 || ax >= W || az >= H) return null;
+  const prec = cheminGrille.prec, file = cheminGrille.file; prec.fill(-1);
+  let n = 0; file[n++] = az * W + ax; prec[az * W + ax] = az * W + ax;
   const but = bz * W + bx; let i = 0;
-  while (i < file.length) {
+  while (i < n) {
     const c = file[i++]; if (c === but) break;
     const cx = c % W, cz = (c / W) | 0;
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
       const nx = cx + dx, nz = cz + dz; if (nx < 0 || nz < 0 || nx >= W || nz >= H) continue;
       const k = nz * W + nx; if (prec[k] >= 0 || !g[k]) continue;
       if (dx && dz && (!g[cz * W + nx] || !g[nz * W + cx])) continue;
-      prec[k] = c; file.push(k);
+      prec[k] = c; file[n++] = k;
     }
   }
   if (prec[but] < 0) return null;
