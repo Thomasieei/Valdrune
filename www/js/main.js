@@ -289,6 +289,7 @@ function libererGPU(racines) {
   });
 }
 function viderMonde() {
+  viderEscouade();
   ressourcesAssets = null;
   try { libererGPU([monde && monde.groupe, ...ennemis.map(e => e.root), ...allies.map(a => a.root), ...bots.map(b => b.root), ...coffres.map(c => c.obj), ...projectiles.map(p => p.mesh), ...G.vfx.map(v => v.obj)]); } catch (e) { console.warn(e); }
   if (viseeObj) { G.scene.remove(viseeObj.g, viseeObj.fleche, viseeObj.marque); viseeObj = null; } visee = null;
@@ -366,6 +367,100 @@ function utiliserTP() {
 }
 // compile tous les shaders de la nouvelle zone pendant le fondu (sinon : gel en plein combat)
 function precompiler() { try { if (G.renderer.compileAsync) G.renderer.compileAsync(G.scene, G.camera).catch(() => {}); else G.renderer.compile(G.scene, G.camera); } catch (e) {} }
+// ---------------- Escouade d'ombres (code THOMAS83, outil de test de l'économie) ----------------
+// 6 ombres qui se déploient : chacune se téléporte sur une cible DIFFÉRENTE (boss d'abord), la détruit d'un coup,
+// puis elles ouvrent les coffres et ramassent tout le butin. Un compteur mesure l'argent et l'XP gagnés par heure.
+let escouade = [];
+const ESC = { kills: 0, coffres: 0, xp: 0 };
+function statsEscouade() {
+  if (!J.escStats) J.escStats = { debut: Date.now(), argent0: J.argent, xp: 0, kills: 0, coffres: 0 };
+  return J.escStats;
+}
+function viderEscouade() { for (const o of escouade) { G.scene.remove(o.root); UI.retirerPlaque(o); } escouade = []; }
+function creerOmbreEscouade(i) {
+  const ang = i / 6 * Math.PI * 2;
+  const pos = pointLibrePres(V(joueur.pos.x + Math.sin(ang) * 2.6, 0, joueur.pos.z + Math.cos(ang) * 2.6), 0, 1.2);
+  const a = creerCombattant(pos, { nom: 'Ombre', guilde: J.nom.toUpperCase(), equip: J.equip, modele: 'Rogue_Hooded' }, 'allie');
+  allies.splice(allies.indexOf(a), 1); // hors des alliés : personne ne la cible, elle ne compte pas dans le groupe
+  UI.retirerPlaque(a);
+  a.root.scale.setScalar(0.95); teinteSpectrale(a, '#140c20', 0.8);
+  UI.plaque(a, { nom: 'Ombre ' + 'ⅠⅡⅢⅣⅤⅥ'[i], guilde: 'ESCOUADE', classe: 'allie', vie: false, lettre: false });
+  Object.assign(a, { escIdx: i, escCible: null, escT: 0.3 + i * 0.08, escPhase: 0 });
+  fumeeOmbre(pos); a.jouer('Spellcast_Raise', { boucle: false, fin: () => a.jouer(a.armeDef.idle) });
+  return a;
+}
+function cibleLibre(o, prises) {
+  let vivantsE = ennemis.filter(e => !e.mort && !e.descendre && !prises.has(e));
+  if (modeActuel && modeActuel.sylve) { // au Sanctuaire, les gardiens tombent dans l'ordre (le chemin s'ouvre de salle en salle)
+    const k = Math.min(...ennemis.filter(e => e.boss && !e.mort && e.idxSylve !== undefined).map(e => e.idxSylve));
+    vivantsE = vivantsE.filter(e => !e.boss || e.idxSylve === k);
+  }
+  if (!vivantsE.length) return null;
+  const boss = vivantsE.filter(e => e.boss);
+  const l = boss.length ? boss : vivantsE;
+  let best = null, bd = 1e9;
+  for (const e of l) { const d = dist2D(e.pos, o.pos) + (e.rival ? -50 : 0); if (d < bd) { bd = d; best = e; } }
+  return best;
+}
+function teleporterOmbre(o, p) {
+  fumeeOmbre(o.pos);
+  const q = pointLibrePres(p, 0.8, 1.8); o.pos.copy(q); o.chemin = null;
+  fumeeOmbre(q); son('cloth1', 0.25, 1.6);
+}
+function majEscouade(dt) {
+  if (!J.escouade || !joueur || joueur.mort && !arene) { if (escouade.length && !J.escouade) viderEscouade(); return; }
+  if (transition) return;
+  const enAttente = arene && arene.t > 0;
+  while (escouade.length < 6) escouade.push(creerOmbreEscouade(escouade.length));
+  const prises = new Set(escouade.map(o => o.escCible).filter(c => c && !c.mort));
+  const coffresPris = new Set(escouade.map(o => o.escCoffre).filter(Boolean));
+  for (const o of escouade) {
+    o.maj(dt);
+    o.escT -= dt;
+    if (o.escCible && o.escCible.mort) o.escCible = null;
+    if (o.escT > 0) continue;
+    if (enAttente) { o.escT = 0.2; continue; }
+    // 1) une cible différente pour chaque ombre
+    if (!o.escCible && !o.escCoffre) {
+      // les coffres dont le gardien est tombé passent avant les petits monstres
+      const pret = coffres.find(x => !x.ouvert && !x.final && !coffresPris.has(x) && (!x.boss || x.boss.mort || !x.boss.pv));
+      const resteBoss = ennemis.some(e => e.boss && !e.mort && !prises.has(e));
+      if (pret && !resteBoss) { o.escCoffre = pret; coffresPris.add(pret); teleporterOmbre(o, pret.pos); o.escT = 0.2; continue; }
+      const c = cibleLibre(o, prises);
+      if (c) { o.escCible = c; prises.add(c); teleporterOmbre(o, c.pos); o.angle = Math.atan2(c.pos.x - o.pos.x, c.pos.z - o.pos.z); o.root.rotation.y = o.angle;
+        o.jouer('1H_Melee_Attack_Stab', { boucle: false, forcer: true, vitesse: 2.2, fin: () => o.jouer(o.armeDef.idle) }); o.escT = 0.14; continue; }
+      // 2) plus d'ennemis : les coffres
+      const cf = coffres.find(x => !x.ouvert && !x.final && !coffresPris.has(x));
+      if (cf) { o.escCoffre = cf; coffresPris.add(cf); teleporterOmbre(o, cf.pos); o.escT = 0.35; continue; }
+    }
+    if (o.escCible) { // coup fatal
+      const c = o.escCible; o.escCible = null;
+      if (!c.mort) {
+        arcTaille(c.pos, o.angle - Math.PI / 2, 2.6, '#b07aff', Math.PI * 0.8, 0.25); emettre(V(c.pos.x, 1.2, c.pos.z), { n: 30, c1: '#e0c8ff', c2: '#3a0a6a', vit: 6, vie: 0.6, taille: 0.45 });
+        UI.nombre(V(c.pos.x, 2.6, c.pos.z), 'EXÉCUTÉ', 'crit'); son('knifeSlice2', 0.4, 0.8 + Math.random() * 0.4);
+        c.pv = 0; tuer(c); const s = statsEscouade(); s.kills++;
+      }
+      o.escT = 0.1 + Math.random() * 0.12; continue;
+    }
+    if (o.escCoffre) { // ouvre le coffre et ramasse tout pour le joueur
+      const cf = o.escCoffre; o.escCoffre = null;
+      if (!cf.ouvert) { o.jouer('Interact', { boucle: false, forcer: true, fin: () => o.jouer(o.armeDef.idle) }); if (cf.depouille) ouvrirDepouille(cf, true); else ouvrirCoffre(cf, true); statsEscouade().coffres++; }
+      o.escT = 0.25; continue;
+    }
+    // 3) rien à faire : elles reviennent se déployer autour du joueur
+    const ang = o.escIdx / 6 * Math.PI * 2 + G.t * 0.3, cible = V(joueur.pos.x + Math.sin(ang) * 3, 0, joueur.pos.z + Math.cos(ang) * 3);
+    const d = dist2D(o.pos, cible);
+    if (d > 16) teleporterOmbre(o, cible);
+    else if (d > 1) { avancerVers(o, cible, dt, joueur.st.vitesse * 1.3); o.jouer(o.armeDef.run); }
+    else o.jouer(o.armeDef.idle);
+    o.escT = 0;
+  }
+  // compteur à l'écran
+  escHudT = (escHudT || 0) - dt;
+  if (escHudT <= 0) { escHudT = 0.5; const s = statsEscouade(); const h = Math.max(1 / 60, (Date.now() - s.debut) / 3.6e6);
+    UI.escouadeHud({ duree: Date.now() - s.debut, argent: J.argent - s.argent0, parHeure: Math.round((J.argent - s.argent0) / h), xp: s.xp, xpH: Math.round(s.xp / h), kills: s.kills, coffres: s.coffres }); }
+}
+let escHudT = 0;
 // ---------------- Refaire ----------------
 function memoriserMode(nom, fn) { G.dernier = { nom, fn }; UI.boutonRefaire(null); }
 function proposerRefaire(duree = 0) {
@@ -1477,7 +1572,7 @@ function majInteractions() {
   if (sortie && dist2D(joueur.pos, sortie.pos) < 3.2) return UI.action('Retourner sur la Place', () => fondu(() => lancerHub()));
   UI.action(null);
 }
-function ouvrirCoffre(c) {
+function ouvrirCoffre(c, auto = false) {
   if (c.final) return ouvrirCoffreFinal(c);
   c.ouvert = true; UI.action(null);
   son('creak1', 0.7); son(c.couleur === 'legendaire' ? 'jingle_legend' : 'jingle_loot', 0.55);
@@ -1498,6 +1593,10 @@ function ouvrirCoffre(c) {
     const a = coequipiers()[0]; const moitie = Math.round(loot.argent / 2);
     loot.allie = { nom: a.nom, argent: loot.argent - moitie, objets: loot.objets.filter((_, i) => i % 2 === 1) };
     loot.argent = moitie; loot.objets = loot.objets.filter((_, i) => i % 2 === 0);
+  }
+  if (auto) { // l'escouade ramasse tout : butin ajouté directement et affiché à l'écran
+    J.argent += loot.argent; for (const it of loot.objets) ajouterSac(it, true); son('handleCoins', 0.5); c.beam.visible = false; sauver();
+    UI.butinFlash(c.couleur, loot); return;
   }
   setTimeout(() => {
     UI.butin(c.couleur, loot, () => { J.argent += loot.argent; for (const it of loot.objets) ajouterSac(it, true); son('handleCoins', 0.6); sauver(); c.beam.visible = false; });
@@ -1624,6 +1723,7 @@ function boucle() {
     if (passeur) passeur.maj(dt);
     if (graveuse) graveuse.maj(dt);
     ileT -= dt; if (ileT <= 0) { ileT = 3; majProduction(); majAssauts(); majRaids(); if (modeActuel && modeActuel.id === 'ile' && !monde.etranger && !(raid && raid.r)) journalIle(monde.ile); }
+    majEscouade(dt);
     majCamera(dt, G.camCible || joueur.pos);
     majTorches(joueur.pos);
     if (joueur.comboT > 0) { joueur.comboT -= dt; if (joueur.comboT <= 0) joueur.combo = 0; }
@@ -2074,6 +2174,7 @@ function montrerXP(source) {
 function gagnerXP(base) {
   if (!base) return;
   base = Math.round(base * (1 + bonusParch('xp')));
+  if (J.escouade) statsEscouade().xp += base;
   for (const t of typesPortes()) noterXP(t, base);
   let monte = false;
   for (const t of typesPortes()) monte = gainXP(t, base) || monte;
@@ -2239,12 +2340,13 @@ function victoireRival(e) {
   setTimeout(() => { e.descendre = true; }, 3500);
   sauver();
 }
-function ouvrirDepouille(c) {
+function ouvrirDepouille(c, auto = false) {
   c.ouvert = true; UI.action(null);
   son('creak1', 0.7); son('jingle_legend', 0.5);
   if (c.lid) ajouterVfx(new THREE.Group(), (t) => { c.lid.rotation.x = -Math.min(1, t / 0.6) * 1.9; if (t > 0.7) return false; });
   emettre(V(c.pos.x, 1.2, c.pos.z), { n: 90, c1: '#ffe0c0', c2: '#ff2a3a', vit: 7, vie: 1.2, taille: 0.45, grav: 4, monte: 4 });
   const r = c.rival; const objets = Object.values(r.equip).filter(Boolean);
+  if (auto) { J.argent += r.argent; for (const it of objets) ajouterSac(it, true); c.beam.visible = false; sauver(); UI.butinFlash('legendaire', { argent: r.argent, objets }); return; }
   setTimeout(() => UI.depouille(r.nom, r.ip, objets, r.argent, (pris) => {
     J.argent += r.argent; for (const it of pris) ajouterSac(it, true);
     son('handleCoins', 0.6); c.beam.visible = false; sauver();
@@ -3543,6 +3645,13 @@ function tirageOrage(t) {
 // ---------------- Classe des Ombres ----------------
 function utiliserCode(brut) {
   const c = String(brut || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (c === 'THOMAS83') {
+    J.escouade = !J.escouade;
+    if (J.escouade) { J.escStats = { debut: Date.now(), argent0: J.argent, xp: 0, kills: 0, coffres: 0 }; annonceRare('Escouade d’ombres', '6 ombres te suivent partout · compteur de gains lancé'); }
+    else { viderEscouade(); UI.escouadeHud(null); }
+    sauverMaintenant();
+    return { ok: true, texte: J.escouade ? 'Escouade d’ombres activée (retape le code pour la renvoyer).' : 'Escouade d’ombres renvoyée.' };
+  }
   const def = CODES_BETA[c];
   if (!def) { son('error_001', 0.4); return { ok: false, texte: 'Code inconnu.' }; }
   J.codes = J.codes || [];

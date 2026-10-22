@@ -210,6 +210,26 @@ UI.boutonTP = (n, fn) => {
   if (b._h !== h) { b.innerHTML = h; b._h = h; }
   b.onpointerdown = (e) => { e.stopPropagation(); e.preventDefault(); fn(); };
 };
+// compteur de l'escouade d'ombres (mesure de l'économie)
+UI.escouadeHud = (s) => {
+  let el = document.getElementById('escHud');
+  if (!s) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('div'); el.id = 'escHud'; $('#jeu').appendChild(el); }
+  const t = Math.floor(s.duree / 1000), hh = Math.floor(t / 3600), mm = Math.floor(t / 60) % 60, ss = t % 60;
+  const h = `<b>☠ Escouade d’ombres</b><span>⏱ ${hh ? hh + ' h ' : ''}${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}</span>
+    <span>¤ +${fmt(s.argent)} <em>${fmt(s.parHeure)}/h</em></span><span>✦ +${fmt(s.xp)} XP <em>${fmt(s.xpH)}/h</em></span><span>⚔ ${fmt(s.kills)} · 🗝 ${fmt(s.coffres)} coffres</span>`;
+  if (el._h !== h) { el.innerHTML = h; el._h = h; }
+};
+// butin ramassé par l'escouade : carte compacte, sans bloquer le jeu
+UI.butinFlash = (couleur, loot) => {
+  let pile = document.getElementById('butinFlash');
+  if (!pile) { pile = document.createElement('div'); pile.id = 'butinFlash'; $('#jeu').appendChild(pile); }
+  const C = COFFRES.find(c => c.id === couleur) || { nom: 'Coffre', color: '#fff' };
+  const d = document.createElement('div'); d.className = 'bf'; d.style.setProperty('--c', C.color);
+  d.innerHTML = `<div class="t"><b>${C.nom}</b><span>+${fmt(loot.argent)} ¤</span></div><div class="ic">${loot.objets.slice(0, 8).map(it => `<img src="${iconeObjet(it)}" alt="">`).join('')}${loot.objets.length > 8 ? `<i>+${loot.objets.length - 8}</i>` : ''}</div>`;
+  pile.prepend(d); while (pile.children.length > 3) pile.lastChild.remove();
+  setTimeout(() => { d.classList.add('part'); setTimeout(() => d.remove(), 400); }, 4500);
+};
 UI.boutonAuto = (api) => {
   let b = document.getElementById('btnAuto');
   if (!b) {
