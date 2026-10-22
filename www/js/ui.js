@@ -193,6 +193,16 @@ export function htmlCase(it, extra = '', style = '') {
 
 // ---------------- Barre de sorts ----------------
 const TOUCHES = ['ATK', 'Q', 'W', 'E', 'R', 'D', 'F', 'POT', 'CIBLE'];
+UI.boutonAuto = (api) => {
+  let b = document.getElementById('btnAuto');
+  if (!b) {
+    b = document.createElement('button'); b.id = 'btnAuto'; b.type = 'button';
+    b.innerHTML = '<i></i>AUTO';
+    b.addEventListener('pointerdown', (e) => { e.stopPropagation(); e.preventDefault(); b.classList.toggle('on', api.basculerAuto()); });
+    document.getElementById('hud').appendChild(b);
+  }
+  b.classList.toggle('on', api.autoActif());
+};
 UI.construireSorts = (joueur) => {
   const zone = $('#sorts'); zone.innerHTML = '';
   for (const k of TOUCHES) {

@@ -630,6 +630,25 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 #dmgMeter>div{position:relative;height:2.6vh;border-radius:3px;overflow:hidden;background:#ffffff0d}
 #dmgMeter i{position:absolute;inset:0 auto 0 0;opacity:.55}#dmgMeter span,#dmgMeter b{position:relative;font:700 1.5vh/2.6vh var(--f-label);color:#fff;padding:0 .6vh;text-shadow:0 1px 2px #000}
 #dmgMeter b{position:absolute;right:0;top:0}#dmgMeter>div.moi{outline:1px solid #ffd27a}
+/* fiche compacte v1.27 */
+.carteObjet.riche{width:min(104vh,95vw);max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
+.riche .corpsF{grid-template-columns:20vh 1fr;gap:1.6vh;padding:1.2vh 2vh;overflow-y:auto;flex:1 1 auto;min-height:0;touch-action:pan-y}
+.riche .vitrine{width:16vh;height:16vh}
+.riche .gaucheF{gap:.7vh}
+.riche .etoiles span{font-size:2.2vh}
+.riche .ipF b{font-size:3vh}
+.riche .titre{font-size:3.3vh}
+.riche .sous{font-size:1.7vh;margin:.2vh 0 .5vh}
+.riche .statsF{gap:.35vh;margin:.5vh 0}
+.riche .statF{grid-template-columns:16vh 1fr 9vh 8vh;font-size:1.7vh}
+.riche .statF b{font-size:1.8vh}
+.riche .sortsObj .s{font-size:1.6vh;padding:.5vh}
+.riche .compare,.riche .valeurF,.riche .descF{font-size:1.6vh;margin:.4vh 0 0}
+.riche .actions{flex:0 0 auto;padding:1vh 2vh;border-top:1px solid #2a160833;background:#e6d0a6}
+#btnAuto{position:absolute;right:calc(var(--decalSorts,18vw) + 1vh);bottom:50vh;pointer-events:auto;display:flex;align-items:center;gap:.7vh;padding:.5vh 1.3vh;border-radius:2vh;border:1px solid #ffffff33;background:#0d0806aa;color:#c8b8a0;font:800 1.5vh var(--f-label);letter-spacing:.14em;opacity:.7;touch-action:none}
+#btnAuto i{width:1.1vh;height:1.1vh;border-radius:50%;background:#6a5a4a}
+#btnAuto.on{opacity:1;color:#bfffb0;border-color:#5aff6a88;box-shadow:0 0 10px #3aff4a44}
+#btnAuto.on i{background:#4aff5a;box-shadow:0 0 6px #4aff5a;animation:pulseR .8s infinite alternate}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important}}
 </style>
 

@@ -161,7 +161,7 @@ function construireJoueur(pos) {
   joueur.jouer(def.idle);
   UI.plaque(joueur, { nom: J.nom, guilde: 'CROW ZERO', classe: 'allie', vie: false, ip: st.ip });
   $('#ipHud').textContent = '⚔ ' + st.ip;
-  UI.construireSorts(joueur);
+  UI.construireSorts(joueur); UI.boutonAuto(API);
   $('#nomHud').textContent = J.nom;
   bustePersonnage(def.model, $('#avatarCv'), def.ombre ? '#3a1a5a' : '#5a3a5a', def.ombre ? TEINTES_OMBRE : null);
   joueur.root.rotation.y = joueur.angle;
@@ -613,7 +613,6 @@ function attaquer(dt) {
   if (joueur.atkT > 0) { joueur.angle = tourner(joueur.angle, ang, dt * 14); joueur.root.rotation.y = joueur.angle; return; }
   faireFace(dir);
   joueur.atkT = 1 / st.vitesseAtk / (joueur.orageT > 0 ? 1.7 : 1); joueur.debutAtk = G.t;
-  if (def.assassin) { joueur.atkT *= 0.85; }
   const anim = def.attaques[Math.floor(Math.random() * def.attaques.length)];
   const vit = Math.max(1, st.vitesseAtk * joueur.duree(anim) * 0.95);
   joueur.jouer(anim, { boucle: false, vitesse: vit, forcer: true, fondu: 0.08, fin: () => joueur.jouer(def.idle) });
@@ -898,17 +897,17 @@ function lancerSort(k) {
       joueur.jouer('2H_Melee_Attack_Stab', { boucle: false, vitesse: 1.8, forcer: true, fin }); joueur.verrouT = 0.35;
       programmer(0.12, () => {
         if (cible.mort) return;
-        const mult = (s.mult + 0.95 * pts) * furtifBonus();
+        const mult = (s.mult + 0.65 * pts) * furtifBonus();
         arcTaille(joueur.pos, joueur.angle - Math.PI / 2, 3.2, '#ff1a2a', Math.PI * 0.9, 0.35); arcTaille(joueur.pos, joueur.angle - Math.PI / 2, 2.5, '#ffffff', Math.PI * 0.5, 0.25);
         blesser(cible, mult, { c1: '#ff2a3a', c2: '#2a0004' }); emettre(V(cible.pos.x, 1.2, cible.pos.z), { n: 20 + pts * 12, c1: '#ff6a6a', c2: '#5a0008', vit: 7, vie: 0.7, taille: 0.45, grav: 6 });
         UI.nombre(V(cible.pos.x, 3, cible.pos.z), pts >= 5 ? 'CURÉE ×5 !' : `Curée ×${pts}`, 'crit'); son('impactPlate_heavy_000', 0.6, 0.9); G.shake = 0.25 + pts * 0.1;
-        joueur.combo = 0; if (pts >= 5) furtif(1.5);
+        joueur.combo = 0; if (pts >= 5) furtif(1);
       });
       break;
     }
     case 'zephyr': {
       if (joueur.zephyrT > 0 && joueur.zephyrCharges > 0) { joueur.zephyrCharges--; joueur.energie += s.energie; joueur.cds[k] = joueur.zephyrCharges > 0 ? 0.25 : joueur.cdMax[k]; }
-      else { joueur.zephyrCharges = 2; joueur.zephyrT = 5; joueur.cds[k] = 0.25; joueur.sprintT = Math.max(joueur.sprintT, 5); programmer(5, () => { if (joueur.zephyrCharges > 0) { joueur.zephyrCharges = 0; joueur.cds[k] = joueur.cdMax[k]; } joueur.zephyrT = 0; }); }
+      else { joueur.zephyrCharges = 2; joueur.zephyrT = 5; joueur.cds[k] = 0.25; joueur.sprintT = Math.max(joueur.sprintT, 3); programmer(5, () => { if (joueur.zephyrCharges > 0) { joueur.zephyrCharges = 0; joueur.cds[k] = joueur.cdMax[k]; } joueur.zephyrT = 0; }); }
       const mv = Math.hypot(entree.jx, entree.jy) > 0.2 ? DIR_DROITE.clone().multiplyScalar(entree.jx).addScaledVector(DIR_HAUT, entree.jy).normalize() : directionVisee(s.portee).dir;
       faireFace(mv); const dep = joueur.pos.clone();
       joueur.jouer('Dodge_Forward', { boucle: false, vitesse: 2, forcer: true, fin }); joueur.dashT = 0.2; joueur.dashV = mv.clone().multiplyScalar(s.portee / 0.2); joueur.invuln = Math.max(joueur.invuln, 0.3);
@@ -949,6 +948,7 @@ function boirePotion() {
 }
 
 // ---------------- Mise à jour du joueur ----------------
+G.auto = (() => { try { return localStorage.getItem('breche-auto') === '1'; } catch (e) { return false; } })();
 function majJoueur(dt) {
   const j = joueur, st = j.st;
   for (const k in j.cds) j.cds[k] = Math.max(0, j.cds[k] - dt);
@@ -981,6 +981,8 @@ function majJoueur(dt) {
   if (k.ArrowLeft) mx -= 1; if (k.ArrowRight) mx += 1; if (k.ArrowUp) my += 1; if (k.ArrowDown) my -= 1;
   const m = Math.min(1, Math.hypot(mx, my));
   const bloque = j.verrouT > 0 && j.spinT <= 0;
+  let autoAtk = false;
+  if (G.auto && m <= 0.12 && !(arene && arene.t > 0) && !transition) autoAtk = modeAuto(j, dt, bloque);
   if (m > 0.12 && !bloque) {
     const dir = DIR_DROITE.clone().multiplyScalar(mx).addScaledVector(DIR_HAUT, my).normalize();
     let v = st.vitesse * (1 + bonusParch('vitesse')) * (j.orageT > 0 ? 1.4 : 1) * (j.sprintT > 0 ? 1.6 : 1) * (j.slowT > 0 ? 0.6 : 1) * (j.spinT > 0 ? 0.7 : 1); // vitesse constante, peu importe l'inclinaison du joystick
@@ -994,10 +996,52 @@ function majJoueur(dt) {
     if (n === j.def.run || n === 'Walking_A') j.jouer(j.def.idle);
   }
   if (j.sortAttente) { j.sortAttente.t -= dt; if (j.sortAttente.t <= 0) j.sortAttente = null; else if (j.verrouT <= 0.15) { const sa = j.sortAttente; j.sortAttente = null; viseeForcee = sa.force; lancerSort(sa.k); viseeForcee = null; } }
-  if ((entree.atk || entree.clavier[' ']) && !(arene && arene.t > 0) && !j.sortAttente) attaquer(dt);
+  if ((entree.atk || entree.clavier[' '] || autoAtk) && !(arene && arene.t > 0) && !j.sortAttente) attaquer(dt);
   j.maj(dt);
 }
 
+// ---------------- Mode auto ----------------
+function cibleAuto(j) {
+  let best = null, bd = 1e9;
+  for (const e of ennemis) {
+    if (e.mort || e.camp === 'allie' || e.camp === 'joueur' || e.furtifT > 0 || e.pnj) continue;
+    const d = dist2D(e.pos, j.pos);
+    const sc = d + (e.boss && d > 12 ? 40 : 0) + (d > 32 ? 20 : 0);
+    if (sc < bd) { bd = sc; best = e; }
+  }
+  return best;
+}
+function modeAuto(j, dt, bloque) {
+  j.autoT = (j.autoT || 0) - dt;
+  if (j.autoT <= 0 || !j.autoCible || j.autoCible.mort) { j.autoT = 0.35; j.autoCible = cibleAuto(j); }
+  const c = j.autoCible; if (!c) return false;
+  if (j.pv < j.st.pvMax * 0.35 && j.potions > 0 && !(j.cds.POT > 0) && j.potionT <= 0) boirePotion();
+  j.cible = c;
+  const d = dist2D(c.pos, j.pos) - c.rayon;
+  if (d > j.st.portee * 0.9 && !bloque && j.spinT <= 0) {
+    const v = j.st.vitesse * (1 + bonusParch('vitesse')) * (j.orageT > 0 ? 1.4 : 1) * (j.sprintT > 0 ? 1.6 : 1);
+    const ax = j.pos.x, az = j.pos.z;
+    allerVers(j, c.pos, dt, v);
+    const mx = j.pos.x - ax, mz = j.pos.z - az;
+    if (mx * mx + mz * mz > 1e-6) { j.angle = tourner(j.angle, Math.atan2(mx, mz), dt * 12); j.root.rotation.y = j.angle; }
+    j.jouer(j.def.run);
+  }
+  // sorts : un toutes les ~0,6 s, quand la cible est à portée
+  j.autoSortT = (j.autoSortT || 0) - dt;
+  if (j.autoSortT <= 0 && !j.sortAttente && j.verrouT <= 0.15) {
+    j.autoSortT = 0.6;
+    const ordre = ['W', 'E', 'Q'];
+    if (j.sorts.R && j.pv < j.st.pvMax * 0.5) ordre.unshift('R');
+    for (const k of ordre) {
+      const s = j.sorts[k]; if (!s || (j.cds[k] || 0) > 0 || j.energie < s.energie) continue;
+      const portee = s.portee > 0 ? s.portee : 6;
+      if (k !== 'R' && d > portee + 1) continue;
+      if (s.id === 'curee' && (j.combo || 0) < 4) continue;
+      lancerSort(k); break;
+    }
+  }
+  return true;
+}
 // ---------------- IA des ennemis ----------------
 function majEnnemis(dt) {
   for (let i = ennemis.length - 1; i >= 0; i--) {
@@ -1214,6 +1258,8 @@ function ajouterSac(it, silencieux = false) {
   if (!silencieux) UI.toast('+ ' + nomObjet(it));
 }
 const API = {
+  basculerAuto: () => { G.auto = !G.auto; try { localStorage.setItem('breche-auto', G.auto ? '1' : '0'); } catch (e) {} if (joueur) joueur.autoCible = null; UI.toast(G.auto ? 'Mode auto activé' : 'Mode auto désactivé'); return G.auto; },
+  autoActif: () => !!G.auto,
   etat: () => J,
   son,
   touche: (k, bas) => {
@@ -3300,7 +3346,7 @@ function mortErrant(e) {
 // ---------------- Assassin ----------------
 function distSegPt(a, b, p) { const vx = b.x - a.x, vz = b.z - a.z, l2 = vx * vx + vz * vz; let t = l2 ? ((p.x - a.x) * vx + (p.z - a.z) * vz) / l2 : 0; t = Math.max(0, Math.min(1, t)); return Math.hypot(p.x - (a.x + vx * t), p.z - (a.z + vz * t)); }
 function gagnerCombo(n) { joueur.combo = Math.min(5, (joueur.combo || 0) + n); joueur.comboT = 8; }
-function furtifBonus() { return joueur.furtifT > 0 ? 1.35 : 1; }
+function furtifBonus() { return joueur.furtifT > 0 ? 1.15 : 1; }
 function traineeRouge(a, b, c1 = '#ff4a5a') { const n = Math.max(3, Math.round(a.distanceTo(b) * 2)); for (let i = 0; i <= n; i++) { const p = a.clone().lerp(b, i / n); emettre(V(p.x, 1, p.z), { n: 1, c1, c2: '#1a0004', vit: 0.6, vie: 0.35, taille: 0.45 }); } }
 function teleportDerriere(c) {
   const ang = Math.atan2(c.pos.x - joueur.pos.x, c.pos.z - joueur.pos.z);
@@ -3336,9 +3382,9 @@ function attaqueAssassin(c, vit) {
     if (c.mort) return;
     if (dist2D(c.pos, joueur.pos) - c.rayon > st.portee + 1.2) return;
     arcTaille(joueur.pos, joueur.angle - Math.PI / 2, 2.4, pas === 2 ? '#ff1a2a' : '#ffb0b0', Math.PI * 0.6, 0.18);
-    blesser(c, (pas === 2 ? 1.9 : 0.9) * furtifBonus(), { c1: '#ff5a6a' }); gagnerCombo(1);
+    blesser(c, (pas === 2 ? 1.45 : 0.85) * furtifBonus(), { c1: '#ff5a6a' }); gagnerCombo(1);
     son(pas === 2 ? 'knifeSlice2' : 'knifeSlice', 0.45, 1.1 + pas * 0.15);
-    if (pas === 2) { furtif(1); UI.nombre(V(joueur.pos.x, 2.8, joueur.pos.z), 'Furtif', 'info'); }
+    if (pas === 2 && G.t - (joueur.dernierFurtif || -9) > 4) { joueur.dernierFurtif = G.t; furtif(0.8); UI.nombre(V(joueur.pos.x, 2.8, joueur.pos.z), 'Furtif', 'info'); }
   });
 }
 
