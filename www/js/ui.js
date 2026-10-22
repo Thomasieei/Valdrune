@@ -299,9 +299,23 @@ UI.boss = (b) => {
   sty(E('bFill'), 'transform', `scaleX(${Math.max(0, b.pv / b.pvMax).toFixed(3)})`);
   txt(E('bTxt'), `${fmt(Math.max(0, b.pv))} / ${fmt(b.pvMax)}`);
 };
+// file d'annonces centrales : une seule à la fois, jamais de superposition
+const fileC = []; let fileOcc = false;
+function suivantFile() {
+  const it = fileC.shift(); if (!it) { fileOcc = false; return; }
+  fileOcc = true; const k = fileC.length >= 2 ? 0.55 : fileC.length === 1 ? 0.8 : 1;
+  const d = it.montrer(); if (d) d.classList.add('fileC');
+  setTimeout(() => { if (d) { d.classList.add('fileOut'); setTimeout(() => d.remove(), 300); } setTimeout(suivantFile, 120); }, it.duree * k * 1000);
+}
+UI.enFile = (montrer, duree, cle) => {
+  if (cle) { const i = fileC.findIndex(x => x.cle === cle); if (i >= 0) { fileC[i] = { montrer, duree, cle }; return; } }
+  fileC.push({ montrer, duree, cle }); if (!fileOcc) suivantFile();
+};
 UI.toast = (txt, grand = false) => {
-  const d = document.createElement('div'); d.textContent = txt; if (grand) d.className = 'grand';
-  $('#toast').appendChild(d); setTimeout(() => d.remove(), 2700);
+  if (grand) { UI.enFile(() => { const d = document.createElement('div'); d.textContent = txt; d.className = 'grand'; $('#toast').appendChild(d); return d; }, 1.9); return; }
+  const t = $('#toast'); [...t.children].filter(x => !x.classList.contains('grand')).slice(0, -2).forEach(x => x.remove());
+  if ([...t.children].some(x => x.textContent === txt)) return;
+  const d = document.createElement('div'); d.textContent = txt; t.appendChild(d); setTimeout(() => d.remove(), 2700);
 };
 UI.chat = (nom, txt) => {
   const log = $('#chatLog'); const d = document.createElement('div');
@@ -1089,7 +1103,7 @@ UI.changementRang = (avant, apres, delta, raison) => {
   d.className = 'changeRang ' + (monte ? 'monte' : descend ? 'descend' : '');
   d.innerHTML = `${emblemeRang(apres.i, monte || descend ? 12 : 7)}<div><small>${apres.mode === 'arene' ? 'ARÈNE' : 'BRÈCHE'} · ${raison}</small>
     <b style="color:${apres.r.c1}">${monte ? 'PROMOTION : ' : descend ? 'RÉTROGRADÉ : ' : ''}${apres.r.nom}</b>${barreRang(apres)}<em class="${delta >= 0 ? 'plus' : 'moins'}">${delta >= 0 ? '+' : ''}${delta} pts</em></div>`;
-  document.body.appendChild(d); setTimeout(() => d.remove(), monte || descend ? 5200 : 3400);
+  UI.enFile(() => { document.body.appendChild(d); return d; }, monte || descend ? 4 : 2.4);
 };
 UI.classement = (mode) => {
   const c = api.classement(mode); const rg = c.rang;

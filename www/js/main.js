@@ -289,7 +289,7 @@ function viderMonde() {
   if (marchand) G.scene.remove(marchand.root);
   if (sortie) G.scene.remove(sortie.groupe);
   for (const v of G.vfx) G.scene.remove(v.obj);
-  G.vfx = []; ennemis = []; allies = []; bots = []; projectiles = []; coffres = []; minuteries = []; marchand = null; sortie = null;
+  G.vfx = []; dangers.length = 0; ennemis = []; allies = []; bots = []; projectiles = []; coffres = []; minuteries = []; marchand = null; sortie = null;
   UI.viderPlaques(); UI.boss(null);
   if (monde) { G.scene.remove(monde.groupe); monde.groupe.traverse(o => { if (o.isInstancedMesh) o.dispose(); }); }
   for (const p of G.parts) p.vie = 0;
@@ -1012,6 +1012,7 @@ function couperAuto(msg) {
   if (joueur) joueur.autoCible = null;
   UI.toast(msg); const b = document.getElementById('btnAuto'); if (b) b.classList.remove('on');
 }
+function dangerAuto(p, marge) { for (const z of dangers) { if (z.camp === 'allie' || z.camp === 'joueur') continue; const dx = p.x - z.p.x, dz = p.z - z.p.z; if (dx * dx + dz * dz < (z.r + marge) ** 2) return z; } return null; }
 function cibleAuto(j) {
   let best = null, bd = 1e9;
   for (const e of ennemis) {
@@ -1025,18 +1026,34 @@ function cibleAuto(j) {
 function modeAuto(j, dt, bloque) {
   j.autoT = (j.autoT || 0) - dt;
   if (j.autoT <= 0 || !j.autoCible || j.autoCible.mort) { j.autoT = 0.35; j.autoCible = cibleAuto(j); }
-  const c = j.autoCible; if (!c) return false;
   if (j.pv < j.st.pvMax * 0.35 && j.potions > 0 && !(j.cds.POT > 0) && j.potionT <= 0) boirePotion();
+  const v = j.st.vitesse * (1 + bonusParch('vitesse')) * (j.orageT > 0 ? 1.4 : 1) * (j.sprintT > 0 ? 1.6 : 1) * (j.slowT > 0 ? 0.6 : 1);
+  // esquive des zones rouges
+  const z = bloque ? null : dangerAuto(j.pos, 0.9);
+  if (z) {
+    const dir = V(j.pos.x - z.p.x, 0, j.pos.z - z.p.z); if (dir.lengthSq() < 0.01) dir.set(Math.sin(j.angle + 1.57), 0, Math.cos(j.angle + 1.57)); dir.normalize();
+    let ok = false;
+    for (const k of [0, 0.7, -0.7, 1.4, -1.4, 2.2, -2.2]) {
+      const a = Math.atan2(dir.x, dir.z) + k, dx = Math.sin(a) * v * dt, dz = Math.cos(a) * v * dt;
+      const np = V(j.pos.x + Math.sin(a) * 1.5, 0, j.pos.z + Math.cos(a) * 1.5);
+      if (!libre(np.x, np.z, 0.5)) continue;
+      const ax = j.pos.x, az = j.pos.z; deplacer(j, dx, dz);
+      if (Math.hypot(j.pos.x - ax, j.pos.z - az) > v * dt * 0.3) { ok = true; j.angle = tourner(j.angle, a, dt * 14); j.root.rotation.y = j.angle; break; }
+    }
+    if (ok) { j.jouer(j.def.run); return false; }
+  }
+  const c = j.autoCible; if (!c) return false;
   j.cible = c;
   const d = dist2D(c.pos, j.pos) - c.rayon;
   if (d > j.st.portee * 0.9 && !bloque && j.spinT <= 0) {
-    const v = j.st.vitesse * (1 + bonusParch('vitesse')) * (j.orageT > 0 ? 1.4 : 1) * (j.sprintT > 0 ? 1.6 : 1);
     const ax = j.pos.x, az = j.pos.z;
     allerVers(j, c.pos, dt, v);
+    if (dangerAuto(j.pos, 0.6)) { j.pos.x = ax; j.pos.z = az; j.jouer(j.def.idle); return false; } // n'entre pas dans une zone rouge
     const mx = j.pos.x - ax, mz = j.pos.z - az;
     if (mx * mx + mz * mz > 1e-6) { j.angle = tourner(j.angle, Math.atan2(mx, mz), dt * 12); j.root.rotation.y = j.angle; }
     j.jouer(j.def.run);
   }
+  const aPortee = d <= j.st.portee + 0.3;
   // sorts : un toutes les ~0,6 s, quand la cible est à portée
   j.autoSortT = (j.autoSortT || 0) - dt;
   if (j.autoSortT <= 0 && !j.sortAttente && j.verrouT <= 0.15) {
@@ -1051,7 +1068,7 @@ function modeAuto(j, dt, bloque) {
       lancerSort(k); break;
     }
   }
-  return true;
+  return aPortee;
 }
 // ---------------- IA des ennemis ----------------
 function majEnnemis(dt) {
@@ -1101,11 +1118,11 @@ function avancerVers(e, cible, dt, vitesse) {
   dir.normalize();
   const v = vitesse * (e.slowT > 0 ? 0.6 : 1) * dt;
   const ax = e.pos.x, az = e.pos.z;
-  deplacer(e, dir.x * v, dir.z * v, Math.min(e.rayon * 0.8, 1.1));
+  deplacer(e, dir.x * v, dir.z * v, e === joueur ? 0.5 : Math.min(e.rayon * 0.8, 1.1));
   // détection de blocage dans le décor : après 0,8 s coincé, il bondit près de sa cible
   const bouge = Math.hypot(e.pos.x - ax, e.pos.z - az);
   e.bloqueT = bouge < v * 0.3 ? (e.bloqueT || 0) + dt : Math.max(0, (e.bloqueT || 0) - dt * 2);
-  if (e.bloqueT > 0.8) { e.bloqueT = 0; if (l < 18) bondir(e, cible); }
+  if (e.bloqueT > 0.8) { e.bloqueT = 0; if (e === joueur) { e.chemin = null; e.contour = -(e.contour || 1); } else if (l < 18) bondir(e, cible); }
   e.angle = tourner(e.angle, Math.atan2(dir.x, dir.z), dt * 10); e.root.rotation.y = e.angle;
 }
 function faceJoueur(e, dt, k = 10) { const c = e.tc || joueur; e.angle = tourner(e.angle, Math.atan2(c.pos.x - e.pos.x, c.pos.z - e.pos.z), dt * k); e.root.rotation.y = e.angle; }
@@ -1178,18 +1195,18 @@ function capaciteBoss(e) {
       // bond et fracas
       e.jouer('1H_Melee_Attack_Jump_Chop', { boucle: false, forcer: true, vitesse: 0.8, fin: () => e.jouer('Idle_Combat') });
       e.sautA = e.pos.clone(); e.sautB = pointLibrePres(pj, 0, 1.2, 1.0); e.sautD = e.sautT = 1.2; e.sautH = 4; e.attaqueT = 1.6;
-      telegraphe(pj, 3.8, 1.2, '#ff2a2a', () => { G.shake = 1; onde(pj, '#ff8a3a', 6, 0.6); emettre(V(pj.x, 0.3, pj.z), { n: 50, c1: '#d8c8a8', c2: '#6a5a4a', vit: 8, vie: 0.8, taille: 0.6, hemi: true, grav: 6 }); son('impactPlate_heavy_000', 0.8, 0.6); toucherZone(e, pj, 3.8, e.dmg * 3.4, { slow: 2.5 }); });
+      tele(pj, 3.8, 1.2, '#ff2a2a', () => { G.shake = 1; onde(pj, '#ff8a3a', 6, 0.6); emettre(V(pj.x, 0.3, pj.z), { n: 50, c1: '#d8c8a8', c2: '#6a5a4a', vit: 8, vie: 0.8, taille: 0.6, hemi: true, grav: 6 }); son('impactPlate_heavy_000', 0.8, 0.6); toucherZone(e, pj, 3.8, e.dmg * 3.4, { slow: 2.5 }); });
     } else {
       e.jouer('2H_Melee_Attack_Spinning', { vitesse: 1.2, forcer: true }); e.attaqueT = 1.6;
       const c = e.pos.clone();
-      telegraphe(c, 5.5, 1.4, '#ff2a2a', () => { onde(c, '#ffd0a0', 6, 0.5); son('knifeSlice', 0.7, 0.6); toucherZone(e, e.pos, 5.9, e.dmg * 2.9); e.jouer('Idle_Combat'); });
+      tele(c, 5.5, 1.4, '#ff2a2a', () => { onde(c, '#ffd0a0', 6, 0.5); son('knifeSlice', 0.7, 0.6); toucherZone(e, e.pos, 5.9, e.dmg * 2.9); e.jouer('Idle_Combat'); });
     }
   } else if (b.id === 'archere') {
     if (e.cycle % 3 === 0) { e.jouer('Spellcast_Summon', { boucle: false, forcer: true, fin: () => e.jouer('Idle_Combat') }); e.attaqueT = 1.2; invoquer(e, 2); UI.toast('L’Archère appelle ses morts !'); }
     else {
       const base = Math.atan2(pj.x - e.pos.x, pj.z - e.pos.z); e.attaqueT = 1.5;
       e.jouer('2H_Ranged_Aiming' in e.actions ? '2H_Ranged_Shoot' : e.def.atk, { boucle: false, forcer: true, vitesse: 0.6, fin: () => e.jouer('Idle_Combat') });
-      telegraphe(e.pos, 14, 1.0, '#ff2a2a', () => { for (let i = -3; i <= 3; i++) { const a = base + i * 0.17; tirEnnemi(e, 'carreau', e.dmg * 1.5, V(Math.sin(a), 0, Math.cos(a)), 19); } }, { cone: 1.2, angle: base - Math.PI / 2 });
+      tele(e.pos, 14, 1.0, '#ff2a2a', () => { for (let i = -3; i <= 3; i++) { const a = base + i * 0.17; tirEnnemi(e, 'carreau', e.dmg * 1.5, V(Math.sin(a), 0, Math.cos(a)), 19); } }, { cone: 1.2, angle: base - Math.PI / 2 });
     }
   } else if (b.id === 'necro') {
     if (e.cycle % 3 === 0) { e.jouer('Spellcast_Summon', { boucle: false, forcer: true, fin: () => e.jouer('Idle_Combat') }); e.attaqueT = 1.4; invoquer(e, 3); UI.toast('Le Nécromancien relève les morts !'); }
@@ -1197,7 +1214,7 @@ function capaciteBoss(e) {
       e.jouer('Spellcast_Shoot', { boucle: false, forcer: true, fin: () => e.jouer('Idle_Combat') }); e.attaqueT = 1.0;
       for (let i = 0; i < 5; i++) {
         const p = i === 0 ? pj.clone() : pj.clone().add(V(rnd(-5, 5), 0, rnd(-5, 5)));
-        telegraphe(p, 2.6, 1.3 + i * 0.12, '#ff2a2a', () => { emettre(V(p.x, 0.4, p.z), { n: 30, c1: '#ff8aff', c2: '#ff1a4a', vit: 6, vie: 0.6, taille: 0.6, hemi: true }); onde(p, '#ff3a6a', 3, 0.4); son('explosionCrunch_000', 0.3, 1.2); toucherZone(e, p, 2.6, e.dmg * 2.4); });
+        tele(p, 2.6, 1.3 + i * 0.12, '#ff2a2a', () => { emettre(V(p.x, 0.4, p.z), { n: 30, c1: '#ff8aff', c2: '#ff1a4a', vit: 6, vie: 0.6, taille: 0.6, hemi: true }); onde(p, '#ff3a6a', 3, 0.4); son('explosionCrunch_000', 0.3, 1.2); toucherZone(e, p, 2.6, e.dmg * 2.4); });
       }
     }
   } else if (b.id === 'horreur' || b.id === 'devoreur') {
@@ -1207,20 +1224,20 @@ function capaciteBoss(e) {
       e.attaqueT = 1.9; e.jouer('Headbutt', { boucle: false, forcer: true, vitesse: 0.6, fin: () => e.jouer('Flying_Idle') });
       e.angle = base; e.root.rotation.y = base;
       const c = e.pos.clone();
-      telegraphe(c, 11, 1.3, '#ff2a2a', () => {
+      tele(c, 11, 1.3, '#ff2a2a', () => {
         son('thrusterFire_000', 0.9, 0.6); G.shake = 0.6;
         for (let i = 0; i < 70; i++) { const a = base + rnd(-0.6, 0.6); emettre(V(c.x, 2.4, c.z), { n: 1, c1: '#ffe08a', c2: '#ff2a00', dir: V(Math.sin(a), -0.05, Math.cos(a)), vit: 16, disp: 1, vie: 0.7, taille: 1.0, frein: 1 }); }
         toucherZone(e, c, 11, e.dmg * 3.6, { cone: { dir: V(Math.sin(base), 0, Math.cos(base)), cos: Math.cos(0.65) } });
       }, { cone: 1.3, angle: base - Math.PI / 2 });
     } else if (r === 2) {
       e.attaqueT = 1.2; const dir = V(Math.sin(base), 0, Math.cos(base));
-      telegraphe(e.pos, 18, 1.1, '#ff2a2a', () => { e.chargeT = 0.6; e.chargeV = dir.clone().multiplyScalar(30); e.chargeTouches = new Set(); e.jouer('Fast_Flying', { vitesse: 2 }); son('lowFrequency_explosion_000', 0.5, 1.2); }, { ligne: true, largeur: 3.4, angle: base + Math.PI });
+      tele(e.pos, 18, 1.1, '#ff2a2a', () => { e.chargeT = 0.6; e.chargeV = dir.clone().multiplyScalar(30); e.chargeTouches = new Set(); e.jouer('Fast_Flying', { vitesse: 2 }); son('lowFrequency_explosion_000', 0.5, 1.2); }, { ligne: true, largeur: 3.4, angle: base + Math.PI });
       e.angle = base; e.root.rotation.y = base;
     } else {
       e.attaqueT = 1; e.jouer('Punch', { boucle: false, forcer: true, fin: () => e.jouer('Flying_Idle') });
       for (let i = 0; i < 6; i++) {
         const p = i === 0 ? pj.clone() : pj.clone().add(V(rnd(-6, 6), 0, rnd(-6, 6)));
-        telegraphe(p, 3, 1.6 + i * 0.1, '#ff2a2a', () => { G.shake = 0.5; emettre(V(p.x, 0.5, p.z), { n: 40, c1: '#fff0b0', c2: '#ff3a00', vit: 8, vie: 0.7, taille: 0.7, hemi: true }); onde(p, '#ff8a2a', 4, 0.5); son('explosionCrunch_000', 0.4, 0.8); toucherZone(e, p, 3, e.dmg * 2.6); });
+        tele(p, 3, 1.6 + i * 0.1, '#ff2a2a', () => { G.shake = 0.5; emettre(V(p.x, 0.5, p.z), { n: 40, c1: '#fff0b0', c2: '#ff3a00', vit: 8, vie: 0.7, taille: 0.7, hemi: true }); onde(p, '#ff8a2a', 4, 0.5); son('explosionCrunch_000', 0.4, 0.8); toucherZone(e, p, 3, e.dmg * 2.6); });
         const m = meshBoule('#ff5a1a', 0.9); m.position.set(p.x + 6, 18, p.z - 6); G.scene.add(m);
         const dur = 1.6 + i * 0.1;
         ajouterVfx(m, (t) => { const k = t / dur; if (k >= 1) return false; m.position.set(p.x + 6 * (1 - k), 18 * (1 - k), p.z - 6 * (1 - k)); emettre(m.position, { n: 2, c1: '#ffe08a', c2: '#ff3a00', vit: 0.5, vie: 0.4, taille: 0.6 }); });
@@ -1531,6 +1548,7 @@ function boucle() {
     if (!transition) majJoueur(dt);
     for (const x of [joueur, ...allies]) { if (!x._pp) x._pp = x.pos.clone(); x.vel = x.vel || V(); x.vel.set((x.pos.x - x._pp.x) / Math.max(dt, 0.001), 0, (x.pos.z - x._pp.z) / Math.max(dt, 0.001)); x._pp.copy(x.pos); }
     if (!modeActuel) majBots(dt); else { majEnnemis(dt); majAllies(dt); majProjectiles(dt); majInvasion(dt); majArene(dt); }
+    for (let i = dangers.length - 1; i >= 0; i--) { dangers[i].t -= dt; if (dangers[i].t <= 0) dangers.splice(i, 1); }
     if (modeActuel && modeActuel.sylve) { majSylve(dt); sylveMeterT = (sylveMeterT || 0) - dt; if (sylveMeterT <= 0) { sylveMeterT = 0.5; if (compteur) UI.majDegats(classement(compteur.total, 0, G.t - sylve.debut)); } }
     if (errant) majErrant(dt);
     if (modeActuel && modeActuel.id === 'ile') { majOuvriers(dt); majNoeuds(dt); majRecolteJoueur(dt); majPillard(dt); if (intendant) intendant.maj(dt); }
@@ -1872,14 +1890,14 @@ function capaciteCombattant(e, type) {
   if (type === 'epee') {
     if (Math.random() < 0.5) { // charge héroïque
       e.attaqueT = 1.1; const dir = V(Math.sin(base), 0, Math.cos(base)); const dist = Math.max(2, Math.min(9, dist2D(e.pos, pj) - 1));
-      telegraphe(e.pos, dist, 0.55, coul, () => {
+      teleC(e, e.pos, dist, 0.55, coul, () => {
         if (e.mort) return; e.jouer('Dodge_Forward', { boucle: false, forcer: true, vitesse: 1.6 });
         e.dashT = 0.25; e.dashV = dir.clone().multiplyScalar(dist / 0.25);
         programmer(0.27, () => { if (e.mort) return; e.jouer('2H_Melee_Attack_Chop', { boucle: false, forcer: true, vitesse: 1.6, fin: () => e.jouer(def.idle) }); onde(e.pos, '#ffd36b', 4, 0.45); toucherZone(e, e.pos, 3.4, e.dmg * 2.2, { stun: 0.8 }); });
       }, { ligne: true, largeur: 2.4, angle: base + Math.PI });
     } else { // fente
       e.attaqueT = 1.0;
-      telegraphe(e.pos, 4.8, 0.65, coul, () => {
+      teleC(e, e.pos, 4.8, 0.65, coul, () => {
         if (e.mort) return; e.jouer('2H_Melee_Attack_Slice', { boucle: false, forcer: true, vitesse: 1.5, fin: () => e.jouer(def.idle) });
         arcTaille(e.pos, e.angle - Math.PI / 2, 4.6, '#ff3a2a', Math.PI * 0.8, 0.3);
         toucherZone(e, e.pos, 4.8, e.dmg * 2.3, { cone: { dir: V(Math.sin(base), 0, Math.cos(base)), cos: Math.cos(0.7) } });
@@ -1888,18 +1906,18 @@ function capaciteCombattant(e, type) {
   } else if (type === 'arbalete') {
     if (Math.random() < 0.5) { // carreau perforant
       e.attaqueT = 0.9;
-      telegraphe(e.pos, 16, 0.6, coul, () => { if (e.mort) return; e.jouer('2H_Ranged_Shoot', { boucle: false, forcer: true, fin: () => e.jouer(def.idle) }); tirEnnemi(e, 'carreau', e.dmg * 2.4, V(Math.sin(base), 0, Math.cos(base)), 34); }, { ligne: true, largeur: 1.4, angle: base + Math.PI });
+      teleC(e, e.pos, 16, 0.6, coul, () => { if (e.mort) return; e.jouer('2H_Ranged_Shoot', { boucle: false, forcer: true, fin: () => e.jouer(def.idle) }); tirEnnemi(e, 'carreau', e.dmg * 2.4, V(Math.sin(base), 0, Math.cos(base)), 34); }, { ligne: true, largeur: 1.4, angle: base + Math.PI });
     } else { // pluie
       e.attaqueT = 0.6; e.jouer('2H_Ranged_Shoot', { boucle: false, forcer: true, fin: () => e.jouer(def.idle) });
-      for (let w = 0; w < 3; w++) telegraphe(pj, 4.2, 0.9 + w * 0.45, coul, () => { emettre(V(pj.x, 0.3, pj.z), { n: 20, c1: '#bfffd8', c2: '#3a9a6a', rayon: 3.8, vit: 2, vie: 0.4, taille: 0.3, hemi: true }); son('impactGeneric_light_000', 0.3, 1.3); toucherZone(e, pj, 4.2, e.dmg * 1.1, { slow: 2 }); });
+      for (let w = 0; w < 3; w++) teleC(e, pj, 4.2, 0.9 + w * 0.45, coul, () => { emettre(V(pj.x, 0.3, pj.z), { n: 20, c1: '#bfffd8', c2: '#3a9a6a', rayon: 3.8, vit: 2, vie: 0.4, taille: 0.3, hemi: true }); son('impactGeneric_light_000', 0.3, 1.3); toucherZone(e, pj, 4.2, e.dmg * 1.1, { slow: 2 }); });
     }
   } else {
     if (Math.random() < 0.7) { // colonne de flammes
       e.attaqueT = 0.7; e.jouer('Spellcast_Raise', { boucle: false, forcer: true, fin: () => e.jouer(def.idle) });
-      telegraphe(pj, 3.5, 0.9, coul, () => { emettre(V(pj.x, 0.3, pj.z), { n: 60, c1: '#ffe08a', c2: '#ff2a00', dir: V(0, 1, 0), vit: 14, disp: 2.5, rayon: 1.8, vie: 0.8, taille: 0.7, frein: 2 }); son('explosionCrunch_000', 0.5, 0.8); if (c === joueur) G.shake = 0.4; toucherZone(e, pj, 3.5, e.dmg * 2.8); });
+      teleC(e, pj, 3.5, 0.9, coul, () => { emettre(V(pj.x, 0.3, pj.z), { n: 60, c1: '#ffe08a', c2: '#ff2a00', dir: V(0, 1, 0), vit: 14, disp: 2.5, rayon: 1.8, vie: 0.8, taille: 0.7, frein: 2 }); son('explosionCrunch_000', 0.5, 0.8); if (c === joueur) G.shake = 0.4; toucherZone(e, pj, 3.5, e.dmg * 2.8); });
     } else { // météore
       e.attaqueT = 1.3; e.jouer('Spellcast_Long', { boucle: false, forcer: true, fin: () => e.jouer(def.idle) });
-      telegraphe(pj, 6, 1.6, coul, () => { G.shake = 0.8; onde(pj, '#ffd27a', 9, 0.7); emettre(V(pj.x, 0.5, pj.z), { n: 140, c1: '#fff0b0', c2: '#ff2a00', vit: 14, vie: 1.0, taille: 0.9, grav: 4, hemi: true }); son('lowFrequency_explosion_000', 0.8); toucherZone(e, pj, 6, e.dmg * 4.2); });
+      teleC(e, pj, 6, 1.6, coul, () => { G.shake = 0.8; onde(pj, '#ffd27a', 9, 0.7); emettre(V(pj.x, 0.5, pj.z), { n: 140, c1: '#fff0b0', c2: '#ff2a00', vit: 14, vie: 1.0, taille: 0.9, grav: 4, hemi: true }); son('lowFrequency_explosion_000', 0.8); toucherZone(e, pj, 6, e.dmg * 4.2); });
     }
   }
 }
@@ -1960,10 +1978,11 @@ function annonce(cle, txt, palier = false) {
     annonces = { lignes: new Map(), paliers: new Map() };
     setTimeout(() => {
       const a = annonces; annonces = null;
+      UI.enFile(() => {
       document.querySelectorAll('.niveauUp').forEach(x => x.remove()); // un seul bandeau à la fois
       const d = document.createElement('div'); d.className = 'niveauUp';
       d.innerHTML = `<div class="titreNiv">Niveau supérieur</div><div class="lignesNiv">${[...a.lignes.values()].map(l => `<span>${l}</span>`).join('')}</div>${[...a.paliers.values()].map(p => `<div class="palierNiv">${p}</div>`).join('')}`;
-      $('#jeu').appendChild(d); setTimeout(() => d.remove(), 3400);
+      $('#jeu').appendChild(d); return d; }, a.paliers.size ? 3.2 : 2.4, 'niveau');
       onde(joueur.pos, '#8fd0ff', 4, 0.8); emettre(V(joueur.pos.x, 0.4, joueur.pos.z), { n: 50, c1: '#ffffff', c2: '#3a7aff', dir: V(0, 1, 0), vit: 6, disp: 1.5, rayon: 1, vie: 1, taille: 0.4 });
       son('confirmation_001', 0.5);
     }, 60);
@@ -2825,7 +2844,7 @@ function allerVers(e, dest, dt, vitesse) {
     const w = monde.pointA(se + Math.sign(sd - se) * Math.min(5, Math.abs(sd - se)));
     avancerVers(e, w.p, dt, vitesse); return;
   }
-  if (!monde.grille || dist2D(e.pos, dest) < 7) { avancerVers(e, dest, dt, vitesse); return; }
+  if (!monde.grille || dist2D(e.pos, dest) < 7 && (e !== joueur || ligneLibre(e.pos, dest))) { avancerVers(e, dest, dt, vitesse); return; }
   const ch = e.chemin;
   if (!ch || ch.t <= 0 || dist2D(ch.dest, dest) > 4) { e.chemin = { pts: cheminGrille(e.pos, dest) || [], i: 0, dest: dest.clone(), t: 1.5 }; }
   e.chemin.t -= dt;
@@ -2959,11 +2978,13 @@ function noterDegats(src, d) {
 }
 // zones dangereuses connues des alliés (pour qu'ils esquivent comme de vrais joueurs)
 function dangerSur(p) { for (const z of dangers) { const dx = p.x - z.p.x, dz = p.z - z.p.z; if (dx * dx + dz * dz < (z.r + 0.8) ** 2) return z; } return null; }
+function teleC(src, pos, r, duree, couleur, cb, opts = {}) { opts.camp = src.camp; return tele(pos, r, duree, couleur, cb, opts); }
 function tele(pos, r, duree, couleur, cb, opts = {}) {
-  const p = pos.clone();
+  const p = pos.clone(); const n0 = dangers.length;
   if (opts.ligne) { const a = opts.angle - Math.PI; for (let d = 0; d < r; d += 2) dangers.push({ p: V(p.x + Math.sin(a) * d, 0, p.z + Math.cos(a) * d), r: opts.largeur / 2 + 0.4, t: duree + 0.1 }); }
   else if (opts.cone) { const a = opts.angle + Math.PI / 2; for (let d = 2; d < r; d += 3) dangers.push({ p: V(p.x + Math.sin(a) * d, 0, p.z + Math.cos(a) * d), r: d * Math.tan(opts.cone / 2) + 0.5, t: duree + 0.1 }); }
   else dangers.push({ p, r, t: duree + 0.1 });
+  for (let i = n0; i < dangers.length; i++) dangers[i].camp = opts.camp || 'ennemi';
   return telegraphe(pos, r, duree, couleur, cb, opts);
 }
 function zoneSol(p, r, duree, dps, src, couleur = '#5aff6a', opts = {}) {
@@ -2995,7 +3016,6 @@ function rayonsEmeraude(e, n, duree, vit) {
   UI.toast('Rayons d’émeraude : tournez autour de lui !');
 }
 function majSylve(dt) {
-  for (let i = dangers.length - 1; i >= 0; i--) { dangers[i].t -= dt; if (dangers[i].t <= 0) dangers.splice(i, 1); }
   for (let i = zonesSol.length - 1; i >= 0; i--) {
     const z = zonesSol[i]; z.t += dt; z.tick -= dt;
     z.disque.material.opacity = 0.22 + 0.12 * Math.sin(z.t * 5);
@@ -3601,7 +3621,7 @@ function dissiper(a) {
 }
 
 // accès de débogage (console)
-window.__jeu = { API, G, UI, tirageOrage, changerRang, apparitionErrant, get errant() { return errant; }, tuerUn: (e) => { e.pv = 0; tuer(e); }, groupeTest: () => { groupe = donneesBot(statsHeros(J.equip).ip); return groupe.nom; }, trahir: () => allies.forEach(a => a.autonome && trahir(a)), invasionTest: () => { invasion = { mode: "subie", t: 0, rival: null }; lancerInvasion(); }, entrerSylve: (o) => entrerSylve(o), get sylve() { return sylve; }, invoquerOmbres, tirageOmbre, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
+window.__jeu = { get dangers() { return dangers; }, API, G, UI, tirageOrage, changerRang, apparitionErrant, get errant() { return errant; }, tuerUn: (e) => { e.pv = 0; tuer(e); }, groupeTest: () => { groupe = donneesBot(statsHeros(J.equip).ip); return groupe.nom; }, trahir: () => allies.forEach(a => a.autonome && trahir(a)), invasionTest: () => { invasion = { mode: "subie", t: 0, rival: null }; lancerInvasion(); }, entrerSylve: (o) => entrerSylve(o), get sylve() { return sylve; }, invoquerOmbres, tirageOmbre, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
 
 initEntrees();
 demarrer();

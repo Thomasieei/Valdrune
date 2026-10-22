@@ -649,6 +649,11 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 #btnAuto i{width:1.1vh;height:1.1vh;border-radius:50%;background:#6a5a4a}
 #btnAuto.on{opacity:1;color:#bfffb0;border-color:#5aff6a88;box-shadow:0 0 10px #3aff4a44}
 #btnAuto.on i{background:#4aff5a;box-shadow:0 0 6px #4aff5a;animation:pulseR .8s infinite alternate}
+.fileC{transition:opacity .3s}.fileC.fileOut{opacity:0!important}
+#toast div.grand{animation:toastG 1.9s forwards}
+@keyframes toastG{0%{opacity:0;transform:scale(1.15)}12%{opacity:1;transform:scale(1)}85%{opacity:1}100%{opacity:.9}}
+.jaugeXP.mini{top:1.5vh;bottom:auto}
+#toast{top:29vh}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important}}
 </style>
 
