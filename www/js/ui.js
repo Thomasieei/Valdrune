@@ -534,6 +534,7 @@ UI.rendreInventaire = () => {
   $('#inv').querySelector('[data-x]').onclick = () => { $('#inv').hidden = true; api.son('close_001', 0.4); };
   $('#inv').querySelectorAll('[data-id]').forEach(b => b.onclick = () => { const it = j.sac.find(i => i.id == b.dataset.id); UI.fiche(it, 'sac'); });
   const bc = $('#inv').querySelector('#codeOk');
+  const ci = $('#inv').querySelector('#codeIn'); if (ci && bc) ci.onkeydown = (e) => { if (e.key === 'Enter') bc.click(); };
   if (bc) bc.onclick = () => { const r = api.code($('#inv').querySelector('#codeIn').value); const m = $('#inv').querySelector('#codeMsg'); m.textContent = r.texte; m.className = r.ok ? 'ok' : 'ko'; if (r.ok) setTimeout(() => UI.rendreInventaire(), 1600); };
   $('#inv').querySelectorAll('[data-eq]').forEach(b => b.onclick = () => { const it = j.equip[b.dataset.eq]; if (it) UI.fiche(it, 'equipe'); });
 };

@@ -3645,7 +3645,7 @@ function tirageOrage(t) {
 // ---------------- Classe des Ombres ----------------
 function utiliserCode(brut) {
   const c = String(brut || '').trim().toUpperCase().replace(/\s+/g, '');
-  if (c === 'THOMAS83') {
+  if (c.normalize('NFKD').replace(/[^A-Z0-9]/gi, '').toUpperCase() === 'THOMAS83') {
     J.escouade = !J.escouade;
     if (J.escouade) { J.escStats = { debut: Date.now(), argent0: J.argent, xp: 0, kills: 0, coffres: 0 }; annonceRare('Escouade d’ombres', '6 ombres te suivent partout · compteur de gains lancé'); }
     else { viderEscouade(); UI.escouadeHud(null); }
