@@ -96,8 +96,8 @@ function rendreGroupe(grp, orient = 'arme') {
 function materielTier(m, tier) {
   const mat = m.material.clone();
   const col = TIERS[tier].color;
-  mat.color = new THREE.Color('#ffffff').lerp(new THREE.Color(col), 0.62);
-  if (mat.emissive) { mat.emissive = new THREE.Color(col); mat.emissiveIntensity = TIERS[tier].glow * 0.5; }
+  mat.color = new THREE.Color('#ffffff').lerp(new THREE.Color(col), 0.75);
+  if (mat.emissive) { mat.emissive = new THREE.Color(col); mat.emissiveIntensity = Math.min(0.22, TIERS[tier].glow * 0.2); } // icône lisible : pas de surbrillance
   mat.skinning = false;
   return mat;
 }

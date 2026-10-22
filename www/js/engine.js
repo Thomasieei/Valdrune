@@ -59,7 +59,7 @@ export function initRendu(canvas) {
 export function redimensionner() {
   const w = window.innerWidth, h = window.innerHeight;
   const tactile = matchMedia('(pointer: coarse)').matches;
-  const pr = Math.min(window.devicePixelRatio || 1, G.niveau >= 2 ? (tactile ? 1.25 : 1.6) : G.niveau === 1 ? (tactile ? 1.0 : 1.25) : 0.8);
+  const pr = Math.min(window.devicePixelRatio || 1, G.niveau >= 2 ? (tactile ? 1.1 : 1.6) : G.niveau === 1 ? (tactile ? 0.95 : 1.25) : 0.8);
   G.renderer.setPixelRatio(pr);
   G.renderer.setSize(w, h, false);
   G.composer.setPixelRatio(pr);
@@ -283,7 +283,7 @@ export class Acteur {
       if (!o.isMesh) return;
       const c = new THREE.Color('#ffffff').lerp(new THREE.Color(couleur), force);
       o.material.color.copy(c);
-      if (o.material.emissive) { o.material.emissive.set(couleur).multiplyScalar(glow * 0.6); o.material.userData.baseEmissive = o.material.emissive.clone(); }
+      if (o.material.emissive) { o.material.emissive.set(couleur).multiplyScalar(Math.min(0.32, glow * 0.3)); o.material.userData.baseEmissive = o.material.emissive.clone(); }
     });
   }
   frapper() { this.flash = 0.12; }

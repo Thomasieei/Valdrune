@@ -128,7 +128,7 @@ function prechauffer() {
 function construireJoueur(pos) {
   const ancienPos = pos || (joueur ? joueur.root.position.clone() : V());
   const ancienAngle = joueur ? joueur.angle : Math.PI * 1.25;
-  if (joueur) { G.scene.remove(joueur.root); UI.retirerPlaque(joueur); }
+  if (joueur) { G.scene.remove(joueur.root); UI.retirerPlaque(joueur); try { libererGPU([joueur.root]); } catch (e) {} }
   const arme = J.equip.arme || creerArme('epee', 1);
   const def = ARMES[arme.type];
   const a = new Acteur(def.model, { hauteur: 2.0 });
@@ -272,7 +272,25 @@ function majBots(dt) {
   if (Math.random() < dt / 14) { const b = bots[Math.floor(Math.random() * bots.length)]; UI.chat(b.nom, CHAT[Math.floor(Math.random() * CHAT.length)]); }
 }
 
+// libère la mémoire GPU de la zone quittée (géométries/ textures propres à la zone) : sinon le jeu s'alourdit de partie en partie
+let ressourcesAssets = null;
+function libererGPU(racines) {
+  if (!ressourcesAssets) {
+    ressourcesAssets = new Set();
+    for (const k in G.assets) { const s = G.assets[k] && G.assets[k].scene; if (s) s.traverse(o => { if (o.geometry) ressourcesAssets.add(o.geometry); const ms = o.material ? [].concat(o.material) : []; for (const mt of ms) for (const c of ['map', 'normalMap', 'emissiveMap']) if (mt[c]) ressourcesAssets.add(mt[c]); }); }
+  }
+  const vus = new Set();
+  for (const r of racines) if (r) r.traverse(o => {
+    if (o.isSkinnedMesh && o.skeleton && !vus.has(o.skeleton)) { vus.add(o.skeleton); o.skeleton.dispose(); }
+    const g = o.geometry;
+    if (g && !vus.has(g) && !ressourcesAssets.has(g) && !(g.userData && g.userData.partage)) { vus.add(g); g.dispose(); }
+    const ms = o.material ? [].concat(o.material) : [];
+    for (const mt of ms) for (const c of ['map', 'alphaMap']) { const t = mt[c]; if (t && t.isCanvasTexture && !vus.has(t) && !ressourcesAssets.has(t) && !t.userData.partage) { vus.add(t); t.dispose(); } }
+  });
+}
 function viderMonde() {
+  ressourcesAssets = null;
+  try { libererGPU([monde && monde.groupe, ...ennemis.map(e => e.root), ...allies.map(a => a.root), ...bots.map(b => b.root), ...coffres.map(c => c.obj), ...projectiles.map(p => p.mesh), ...G.vfx.map(v => v.obj)]); } catch (e) { console.warn(e); }
   if (viseeObj) { G.scene.remove(viseeObj.g, viseeObj.fleche, viseeObj.marque); viseeObj = null; } visee = null;
   for (const e of ennemis) G.scene.remove(e.root);
   for (const a of allies) G.scene.remove(a.root);
@@ -1588,7 +1606,7 @@ const ORBITE = V(0, 0, 0);
 function boucle() {
   requestAnimationFrame(boucle);
   const now = performance.now(); const dtReel = (now - dernier) / 1000; let dt = Math.min(0.05, dtReel); dernier = now;
-  const q = majQualiteAuto(dtReel, enJeu && !transition && !document.hidden);
+  const q = majQualiteAuto(dtReel, enJeu && !transition && !document.hidden && !modeActuel); // réglage auto seulement sur la Place : jamais de gel en plein combat
   if (q === 'baisse') UI.toast(G.niveau === 1 ? 'Qualité ajustée : lueurs coupées pour plus de fluidité' : 'Qualité ajustée : ombres coupées pour plus de fluidité');
   G.t += dt; G.dt = dt;
   for (const f of G.anims || []) f(G.t, dt);

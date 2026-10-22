@@ -8,8 +8,8 @@ export const TIERS = [
   { t: 4, roman: 'IV',   nom: 'Azur',      color: '#3f8cff', glow: 0.3 },
   { t: 5, roman: 'V',    nom: 'Braise',    color: '#ff4a2e', glow: 0.55 },
   { t: 6, roman: 'VI',   nom: 'Solaire',   color: '#ffa21c', glow: 0.8 },
-  { t: 7, roman: 'VII',  nom: 'Abyssal',   color: '#b153ff', glow: 1.1 },
-  { t: 8, roman: 'VIII', nom: 'Céleste',   color: '#fff0b0', glow: 1.5 },
+  { t: 7, roman: 'VII',  nom: 'Abyssal',   color: '#b153ff', glow: 0.85 },
+  { t: 8, roman: 'VIII', nom: 'Céleste',   color: '#ffc928', glow: 1.0 },
 ];
 
 export const QUALITES = [

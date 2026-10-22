@@ -564,13 +564,14 @@ export function construireIle(ile, etranger = false) {
 
   // nœuds de ressource sur les tuiles restantes
   const noeuds = [];
-  const reste = ordre.slice(nPlots).filter(t => !(t.q === bord.q && t.r === bord.r));
+  // une allée dégagée du ponton jusqu'au centre, puis un nœud bien rangé au milieu de chaque tuile restante
+  const surAllee = (p) => { const ab = centre.clone().sub(bord.p), ap = p.clone().sub(bord.p); const k = Math.max(0, Math.min(1, ap.dot(ab) / ab.lengthSq())); return ap.sub(ab.multiplyScalar(k)).length() < 4.2; };
+  const reste = ordre.slice(nPlots).filter(t => !(t.q === bord.q && t.r === bord.r) && !surAllee(t.p));
   const minerais = ['Iron_Nuggets', 'Copper_Nuggets', 'Iron_Nuggets', 'Gold_Nuggets'];
   for (const t of reste) {
-    const n = ile.type === 'bois' ? 1 + Math.floor(rng() * 2) : 2 + Math.floor(rng() * 2);
+    const n = 1;
     for (let k = 0; k < n; k++) {
-      const a = rng() * Math.PI * 2, rr = 1 + rng() * 2.6;
-      const p = t.p.clone().add(new THREE.Vector3(Math.cos(a) * rr, 0, Math.sin(a) * rr));
+      const p = t.p.clone().add(new THREE.Vector3((rng() - 0.5) * 0.8, 0, (rng() - 0.5) * 0.8));
       const g = new THREE.Group(); g.position.copy(p); g.rotation.y = rng() * 6.28;
       let souche, rayon = 1.0;
       if (ile.type === 'bois') {
@@ -583,13 +584,13 @@ export function construireIle(ile, etranger = false) {
         creerAssetsProc();
         if (rng() < 0.35) g.add(cloner('proc_baies', 0, 0, 0, rng() * 6, 1));
         else { const cul = ['proc_citrouille', 'proc_pasteque', 'proc_chou'][Math.floor(rng() * 3)];
-          for (let f = 0; f < 3; f++) { const fa = f / 3 * 6.28 + rng(); g.add(cloner(cul, Math.cos(fa) * 1.0, 0, Math.sin(fa) * 1.0, rng() * 6, 0.95 + rng() * 0.25)); } rayon = 1.4; }
+          for (let f = 0; f < 4; f++) { const fx = (f % 2 - 0.5) * 1.5, fz = (Math.floor(f / 2) - 0.5) * 1.5; g.add(cloner(cul, fx, 0, fz, rng() * 6, 0.9 + rng() * 0.2)); } rayon = 1.3; }
         souche = cloner('Grass_1_A', p.x, 0, p.z, 0, 3);
       }
       g.traverse(o => { if (o.isMesh) o.castShadow = true; });
       souche.visible = false; groupe.add(souche);
       noeuds.push({ pos: p, obj: g, souche, pv: 6, pvMax: 6, regenT: 0, rayon, inst: [], reel: false, groupe });
-      collisions.push({ x: p.x, z: p.z, r: rayon * 0.8, noeud: noeuds[noeuds.length - 1] });
+      collisions.push({ x: p.x, z: p.z, r: rayon * 0.7, noeud: noeuds[noeuds.length - 1] });
     }
   }
   // les nœuds sont dessinés en instances (une poignée d’appels GPU au lieu de plusieurs centaines)
@@ -605,7 +606,7 @@ export function construireIle(ile, etranger = false) {
     });
   }
   // herbes et fleurs décoratives
-  for (const t of terre) for (let k = 0; k < 3; k++) { const a = rng() * 6.28, rr = rng() * 4; inst.ajouter(rng() < 0.7 ? 'Grass_1_A' : 'flower_yellowA', t.p.x + Math.cos(a) * rr, 0, t.p.z + Math.sin(a) * rr, rng() * 6, 3, 3, 3); }
+  for (const t of terre) for (let k = 0; k < 2; k++) { const a = rng() * 6.28, rr = 2.5 + rng() * 1.5; inst.ajouter(rng() < 0.7 ? 'Grass_1_A' : 'flower_yellowA', t.p.x + Math.cos(a) * rr, 0, t.p.z + Math.sin(a) * rr, rng() * 6, 3, 3, 3); }
   inst.construire(groupe);
   G.scene.add(groupe);
   const rayonMonde = (R + 0.45) * HEX.taille * Math.sqrt(3);
