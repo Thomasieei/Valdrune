@@ -593,3 +593,30 @@ export function projeter(v3) {
   const v = v3.clone().project(G.camera);
   return { x: (v.x + 1) / 2 * window.innerWidth, y: (1 - v.y) / 2 * window.innerHeight, visible: v.z < 1 && v.z > -1 };
 }
+
+// ---------- Musique : thème au démarrage et en combat intense, nappe en boucle sinon ----------
+const pistes = {};
+let pisteVoulue = null, musiqueT = null;
+function piste(nom) {
+  if (!pistes[nom]) { const a = new Audio(`assets/musique/${nom}.mp3`); a.loop = true; a.preload = 'auto'; a.volume = 0; pistes[nom] = a; }
+  return pistes[nom];
+}
+export function musique(nom) {
+  pisteVoulue = nom;
+  if (nom && G.musiqueOn !== false) { const a = piste(nom); if (a.paused) { a.play().catch(() => {}); } }
+  if (musiqueT) return;
+  // fondu enchaîné doux entre les pistes
+  musiqueT = setInterval(() => {
+    let stable = true;
+    for (const [n, a] of Object.entries(pistes)) {
+      const cible = n === pisteVoulue && G.musiqueOn !== false ? (n === 'theme' ? 0.42 : 0.3) : 0;
+      const v = a.volume + Math.sign(cible - a.volume) * Math.min(Math.abs(cible - a.volume), 0.02);
+      a.volume = Math.max(0, Math.min(1, v));
+      if (Math.abs(a.volume - cible) > 0.001) stable = false;
+      if (a.volume === 0 && cible === 0 && !a.paused) a.pause();
+    }
+    if (stable) { clearInterval(musiqueT); musiqueT = null; }
+  }, 60);
+}
+export function musiqueActive(on) { G.musiqueOn = on; musique(pisteVoulue); }
+export function musiquePause(p) { for (const a of Object.values(pistes)) { if (p) a.pause(); else if (a.volume > 0) a.play().catch(() => {}); } }

@@ -716,6 +716,7 @@ UI.reglages = () => {
     <label>Qualité graphique <select id="rQ" class="btn gris">${[['auto', 'Automatique (conseillé)'], ['haute', 'Haute : lueurs et ombres'], ['moyenne', 'Moyenne : ombres, sans lueurs'], ['basse', 'Basse : fluidité maximale']].map(([v, l]) => `<option value="${v}" ${G.qualite === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <label>Sons <input type="checkbox" id="rS" ${G.son ? 'checked' : ''} style="width:3vh;height:3vh"></label>
     <label>Position des sorts <input type="range" id="rDec" min="0" max="35" step="1" value="${parseInt(getComputedStyle(document.documentElement).getPropertyValue('--decalSorts')) || 18}" style="width:22vh"></label>
+    <label>Musique <input type="checkbox" id="rM" ${G.musiqueOn !== false ? 'checked' : ''} style="width:3vh;height:3vh"></label>
     <label>Afficher les FPS <input type="checkbox" id="rP" ${G.perfOn ? 'checked' : ''} style="width:3vh;height:3vh"></label>
     <label>Plein écran <button class="btn gris" id="rF">Activer</button></label>
     <label>Sauvegarde <button class="btn" id="rR">Effacer et recommencer</button></label>
@@ -724,6 +725,7 @@ UI.reglages = () => {
   r.querySelector('[data-x]').onclick = () => (r.hidden = true);
   r.querySelector('#rQ').onchange = (e) => api.qualite(e.target.value);
   r.querySelector('#rDec').oninput = (e) => { document.documentElement.style.setProperty('--decalSorts', e.target.value + 'vw'); try { localStorage.setItem('breche-decal', e.target.value); } catch (er) {} };
+  r.querySelector('#rM').onchange = (e) => { api.musique(e.target.checked); try { localStorage.setItem('breche-musique', e.target.checked ? '1' : '0'); } catch (er) {} };
   r.querySelector('#rS').onchange = (e) => { G.son = e.target.checked; if (G.master) G.master.gain.value = G.son ? 0.6 : 0; };
   r.querySelector('#rP').onchange = (e) => { G.perfOn = e.target.checked; UI.perf(G.perfOn); try { localStorage.setItem('breche-perf', G.perfOn ? '1' : ''); } catch (er) {} };
   r.querySelector('#rF').onclick = () => { document.documentElement.requestFullscreen?.().catch(() => {}); };

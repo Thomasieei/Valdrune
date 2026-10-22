@@ -1,6 +1,6 @@
 // ===== Brèche Écarlate — boucle de jeu =====
 import { THREE, G, initRendu, majCamera, rendre, majTorches, chargerAssets, chargerSons, son, ambiance, Acteur, cloner,
-  emettre, majParticules, majVfx, ajouterVfx, onde, lueurSol, arcTaille, faisceau, telegraphe, meshCarreau, meshBoule, DIR_HAUT, DIR_DROITE, projeter, texRond, texRunes, redimensionner, appliquerNiveau, majQualiteAuto } from './engine.js';
+  emettre, majParticules, majVfx, ajouterVfx, onde, lueurSol, arcTaille, faisceau, telegraphe, meshCarreau, meshBoule, DIR_HAUT, DIR_DROITE, projeter, texRond, texRunes, redimensionner, appliquerNiveau, majQualiteAuto, musique, musiqueActive, musiquePause } from './engine.js';
 import { construireHub, construireDonjon, construireArene, construireIle, nbEmplacements, majFeux, noeudReel, creerAssetsProc, construireSylve } from './world.js';
 import { UI, iconeObjet, bustePersonnage, TEINTES_OMBRE } from './ui.js';
 import { TIERS, ARMES, ARMURES, SORTS, MODES, COFFRES, BOSS, MOBS, BOTS, CHAT, tf, MAITRISES, NIVEAU_REQUIS, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT, RESSOURCES, CHANCE_OMBRE, CODES_BETA, MOBS_SYLVE, BOSS_SYLVE, TRAITS, RANGS, PTS_RANG, GAIN_RANG, PERTE_RANG, BOSS_ERRANT, PARCHEMINS, COULEURS_PARCH, DUREE_PARCH, BOUTIQUE_PARCH_GRATUITE } from './data.js';
@@ -18,7 +18,7 @@ const CLE = 'breche-ecarlate-v1';
 let sauverT = null, efface = false;
 function sauverMaintenant() { if (efface) return; if (sauverT) { clearTimeout(sauverT); sauverT = null; } try { localStorage.setItem(CLE, JSON.stringify(J)); } catch (e) {} }
 function sauver() { if (!sauverT) sauverT = setTimeout(sauverMaintenant, 1500); }
-addEventListener('pagehide', sauverMaintenant); document.addEventListener('visibilitychange', () => { try { if (G.audio) document.hidden ? G.audio.suspend() : G.audio.resume(); } catch (e) {} }); document.addEventListener('visibilitychange', () => { if (document.hidden) sauverMaintenant(); });
+addEventListener('pagehide', sauverMaintenant); document.addEventListener('visibilitychange', () => { try { if (G.audio) document.hidden ? G.audio.suspend() : G.audio.resume(); } catch (e) {} musiquePause(document.hidden); }); document.addEventListener('visibilitychange', () => { if (document.hidden) sauverMaintenant(); });
 function charger() { try { const s = localStorage.getItem(CLE); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
 function nouvellePartie(nom, arme) {
   J = { nom, argent: 400, potions: 5, trophees: 0, sac: [], equip: {
@@ -72,6 +72,11 @@ async function demarrer() {
   try { const dc = localStorage.getItem('breche-decal'); if (dc !== null) document.documentElement.style.setProperty('--decalSorts', dc + 'vw'); } catch (e) {}
   try { const q = localStorage.getItem('breche-qualite'); if (q) G.qualite = q; G.perfOn = !!localStorage.getItem('breche-perf'); } catch (e) {}
   if (G.perfOn) UI.perf(true);
+  try { G.musiqueOn = localStorage.getItem('breche-musique') !== '0'; } catch (e) {}
+  // le thème démarre pendant le chargement (dans l'appli) ; sur navigateur, au premier toucher
+  musique('theme');
+  const relance = () => { musique(pisteMusique || 'theme'); removeEventListener('pointerdown', relance); };
+  addEventListener('pointerdown', relance);
   appliquerNiveau({ haute: 2, moyenne: 1, basse: 0, auto: 2 }[G.qualite] ?? 2);
   try {
     await chargerAssets(ASSETS, (k, nom) => { $('#charge i').style.width = (k * 100) + '%'; $('#chargeTxt').textContent = 'Chargement… ' + Math.round(k * 100) + ' %'; });
@@ -98,6 +103,7 @@ async function demarrer() {
     else J.nom = ($('#nomJoueur').value || J.nom).slice(0, 16);
     try { await document.documentElement.requestFullscreen?.(); await screen.orientation?.lock?.('landscape'); } catch (e) {}
     $('#titre').hidden = true; $('#hud').hidden = false;
+    pisteMusique = 'fond'; musique('fond');
     lancerHub(true);
   };
   if (window.matchMedia('(orientation: portrait)').matches && innerWidth < 900) $('#rotation').classList.add('actif');
@@ -1150,6 +1156,7 @@ const API = {
   piller: () => entrerIle(ileBot()),
   construire: (ile, plot, t) => construire(ile, plot, t),
   get ile() { return API_ILE; },
+  musique: (on) => musiqueActive(on),
   parchemins: () => etatParchemins(),
   acheterParchemin: (id, n = 1) => { const p = PARCHEMINS[id]; const prix = BOUTIQUE_PARCH_GRATUITE ? 0 : p.prix * n; if (J.argent < prix) { UI.toast('Pas assez d’argent'); son('error_001', 0.4); return false; } J.argent -= prix; ajouterSac(creerParchemin(id, n), true); son('handleCoins', 0.5); sauver(); return true; },
   utiliserParchemin: (itemId) => utiliserParchemin(itemId),
@@ -1370,7 +1377,7 @@ function boucle() {
     majCamera(dt, joueur.pos);
     majTorches(joueur.pos);
     hudT -= dt; if (hudT <= 0) { hudT = 0.08; UI.majHud(joueur, joueur.st); UI.majSorts(joueur); majInteractions(); majCadreAutre(); majBarreRival(); }
-    miniT -= dt; if (miniT <= 0) { miniT = 0.2; majMini(); majParchemins(0.2); }
+    miniT -= dt; if (miniT <= 0) { miniT = 0.2; majMini(); majParchemins(0.2); majMusique(0.2); }
     UI.majPlaques(joueur.pos);
     // anneau de cible
     majAnneauCible(); majVisee();
@@ -3067,6 +3074,19 @@ function transitionVerdanthos(e, ph) {
 
 
 
+// ---------------- Musique ----------------
+let pisteMusique = null, calmeT = 0;
+function combatIntense() {
+  if (arene && !arene.fini) return true;
+  if (rivauxVivants().length) return true;
+  if (assaut && !assaut.fini) return true;
+  return ennemis.some(e => e.boss && !e.mort && e.etat === 'chasse' && dist2D(e.pos, joueur.pos) < 30);
+}
+function majMusique(dt) {
+  if (!enJeu) return;
+  if (combatIntense()) { calmeT = 5; if (pisteMusique !== 'theme') { pisteMusique = 'theme'; musique('theme'); } }
+  else if (pisteMusique === 'theme') { calmeT -= dt; if (calmeT <= 0) { pisteMusique = 'fond'; musique('fond'); } }
+}
 // ---------------- Parchemins ----------------
 function parchActifs() { return MODES.includes(modeActuel) && !(invasion && invasion.mode === 'menee') && !rivauxVivants().length; }
 function bonusParch(effet) {
