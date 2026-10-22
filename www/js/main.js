@@ -982,7 +982,8 @@ function majJoueur(dt) {
   const m = Math.min(1, Math.hypot(mx, my));
   const bloque = j.verrouT > 0 && j.spinT <= 0;
   let autoAtk = false;
-  if (G.auto && m <= 0.12 && !(arene && arene.t > 0) && !transition) autoAtk = modeAuto(j, dt, bloque);
+  if (G.auto && pvpActif()) couperAuto('Mode auto désactivé : combat JcJ');
+  if (G.auto && m <= 0.12 && !transition) autoAtk = modeAuto(j, dt, bloque);
   if (m > 0.12 && !bloque) {
     const dir = DIR_DROITE.clone().multiplyScalar(mx).addScaledVector(DIR_HAUT, my).normalize();
     let v = st.vitesse * (1 + bonusParch('vitesse')) * (j.orageT > 0 ? 1.4 : 1) * (j.sprintT > 0 ? 1.6 : 1) * (j.slowT > 0 ? 0.6 : 1) * (j.spinT > 0 ? 0.7 : 1); // vitesse constante, peu importe l'inclinaison du joystick
@@ -1001,6 +1002,16 @@ function majJoueur(dt) {
 }
 
 // ---------------- Mode auto ----------------
+function pvpActif() {
+  if (arene) return true;
+  if (invasion && !invasion.fini && (invasion.mode === 'menee' || (invasion.rivaux || []).some(r => !r.mort) || invasion.rival && !invasion.rival.mort)) return true;
+  return ennemis.some(e => e.rival && !e.mort);
+}
+function couperAuto(msg) {
+  G.auto = false; try { localStorage.setItem('breche-auto', '0'); } catch (e) {}
+  if (joueur) joueur.autoCible = null;
+  UI.toast(msg); const b = document.getElementById('btnAuto'); if (b) b.classList.remove('on');
+}
 function cibleAuto(j) {
   let best = null, bd = 1e9;
   for (const e of ennemis) {
@@ -1258,7 +1269,7 @@ function ajouterSac(it, silencieux = false) {
   if (!silencieux) UI.toast('+ ' + nomObjet(it));
 }
 const API = {
-  basculerAuto: () => { G.auto = !G.auto; try { localStorage.setItem('breche-auto', G.auto ? '1' : '0'); } catch (e) {} if (joueur) joueur.autoCible = null; UI.toast(G.auto ? 'Mode auto activé' : 'Mode auto désactivé'); return G.auto; },
+  basculerAuto: () => { if (!G.auto && pvpActif()) { UI.toast('Mode auto interdit en JcJ'); return false; } G.auto = !G.auto; try { localStorage.setItem('breche-auto', G.auto ? '1' : '0'); } catch (e) {} if (joueur) joueur.autoCible = null; UI.toast(G.auto ? 'Mode auto activé' : 'Mode auto désactivé'); return G.auto; },
   autoActif: () => !!G.auto,
   etat: () => J,
   son,
