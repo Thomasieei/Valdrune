@@ -193,6 +193,23 @@ export function htmlCase(it, extra = '', style = '') {
 
 // ---------------- Barre de sorts ----------------
 const TOUCHES = ['ATK', 'Q', 'W', 'E', 'R', 'D', 'F', 'POT', 'CIBLE'];
+UI.boutonRefaire = (nom, fn, duree = 0) => {
+  let b = document.getElementById('btnRefaire');
+  clearTimeout(UI._refT);
+  if (!nom) { if (b) b.remove(); return; }
+  if (!b) { b = document.createElement('button'); b.id = 'btnRefaire'; b.type = 'button'; document.getElementById('hud').appendChild(b); }
+  b.innerHTML = `<span class="ic">↻</span><span><b>Refaire</b><small>${nom}</small></span>`;
+  b.onpointerdown = (e) => { e.stopPropagation(); e.preventDefault(); fn(); };
+  if (duree) UI._refT = setTimeout(() => b.remove(), duree * 1000);
+};
+UI.boutonTP = (n, fn) => {
+  let b = document.getElementById('btnTP');
+  if (!n) { if (b) b.remove(); return; }
+  if (!b) { b = document.createElement('button'); b.id = 'btnTP'; b.type = 'button'; document.getElementById('hud').appendChild(b); }
+  const h = `<span class="ic">✦</span><span><b>Téléport boss</b><small>${n} parchemin${n > 1 ? 's' : ''}</small></span>`;
+  if (b._h !== h) { b.innerHTML = h; b._h = h; }
+  b.onpointerdown = (e) => { e.stopPropagation(); e.preventDefault(); fn(); };
+};
 UI.boutonAuto = (api) => {
   let b = document.getElementById('btnAuto');
   if (!b) {
@@ -693,7 +710,7 @@ UI.rendreMarche = () => {
 UI.menuPortail = () => {
   const j = api.etat(); const ip = statsHeros(j.equip).ip;
   $('#portailMenu').innerHTML = `<div class="cadreP"><button class="fermer" data-x aria-label="Fermer">×</button>
-    <div class="enteteRang">${emblemeRang(api.rang('donjon').i, 9)}<div><small>TON RANG DANS LA BRÈCHE</small><b style="color:${RANGS[api.rang('donjon').i].c1}">${RANGS[api.rang('donjon').i].nom}</b>${barreRang(api.rang('donjon'))}<small>Plus le rang est haut, plus les monstres sont forts… et l’argent abondant (+${25 * api.rang('donjon').i} %).</small></div><button class="btn gris" data-cl="donjon">Classement</button></div>
+    <div class="enteteRang">${emblemeRang(api.rang('donjon').i, 9)}<div><small>TON RANG DANS LA BRÈCHE</small><b style="color:${RANGS[api.rang('donjon').i].c1}">${RANGS[api.rang('donjon').i].nom}</b>${barreRang(api.rang('donjon'))}<small>${api.rang('donjon').i ? `Monstres et boss +${15 * api.rang('donjon').i} % · envahisseurs plus forts · argent +${25 * api.rang('donjon').i} % · coffres et objets de meilleure qualité` : 'Monte en rang : ennemis plus forts, mais butin et argent bien meilleurs.'}</small></div><button class="btn gris" data-cl="donjon">Classement</button></div>
     <h2>La Brèche Écarlate</h2><div class="sous">Quatre gardiens, quatre coffres. La couleur du coffre se voit en entrant ; il ne s’ouvre qu’une fois son gardien tombé.</div>
     <div class="modes">${MODES.map(m => {
       const ok = ip >= m.ipConseil;
@@ -824,7 +841,7 @@ UI.menuArene = (groupe) => {
   const j = api.etat(); const ip = statsHeros(j.equip).ip;
   const p = $('#portailMenu');
   p.innerHTML = `<div class="cadreP arene"><button class="fermer" data-x aria-label="Fermer">×</button>
-    <div class="enteteRang">${emblemeRang(api.rang('arene').i, 9)}<div><small>TON RANG D’ARÈNE</small><b style="color:${RANGS[api.rang('arene').i].c1}">${RANGS[api.rang('arene').i].nom}</b>${barreRang(api.rang('arene'))}</div><button class="btn gris" data-cl="arene">Classement</button></div>
+    <div class="enteteRang">${emblemeRang(api.rang('arene').i, 9)}<div><small>TON RANG D’ARÈNE</small><b style="color:${RANGS[api.rang('arene').i].c1}">${RANGS[api.rang('arene').i].nom}</b>${barreRang(api.rang('arene'))}<small>${api.rang('arene').i ? `Adversaires +${7 * api.rang('arene').i} % PV/dégâts, plus malins · trophées +${25 * api.rang('arene').i} %` : 'Monte en rang : adversaires plus forts, récompenses plus grosses.'}</small></div><button class="btn gris" data-cl="arene">Classement</button></div>
     <h2>Arène des Échos</h2><div class="sous">Combats entre joueurs. Chaque victoire rapporte 🏆 100 trophées et de l’expérience. Ton équipement ne se perd pas ici.</div>
     <div class="modes deux">
       <div class="mode" style="--c:#b05aff"><div class="niv">DUEL</div><h3>1 contre 1</h3><p>Un adversaire de puissance proche. Rien que toi et lui.</p>
@@ -849,8 +866,9 @@ UI.resultatArene = (r, cb) => {
   const m = $('#mort');
   m.innerHTML = `<div class="resultat ${r.victoire ? 'gagne' : 'perdu'}"><h2>${r.victoire ? 'Victoire' : 'Défaite'}</h2>
     <div class="recap">${r.lignes.map(l => `<div>${l}</div>`).join('')}</div>
-    <button class="btn or" data-ok>Revenir sur la Place</button></div>`;
-  m.hidden = false; m.querySelector('[data-ok]').onclick = () => { m.hidden = true; cb(); };
+    <div class="actionsRes">${r.refaire ? `<button class="btn vert" data-re>↻ Refaire</button>` : ''}<button class="btn or" data-ok>Revenir sur la Place</button></div></div>`;
+  m.hidden = false; m.querySelector('[data-ok]').onclick = () => { m.hidden = true; cb(false); };
+  const re = m.querySelector('[data-re]'); if (re) re.onclick = () => { m.hidden = true; cb(true); };
 };
 UI.compteur = (n) => { const d = document.createElement('div'); d.className = 'compteur'; d.textContent = n; $('#jeu').appendChild(d); setTimeout(() => d.remove(), 900); };
 
@@ -1172,7 +1190,14 @@ UI.boutiqueParchemins = () => {
   d.innerHTML = `<div class="cadreP parch"><button class="fermer" data-x aria-label="Fermer">×</button>
     <h2>Parchemins de la Brèche</h2><div class="sous">Lis-les depuis ton sac. Ils ne s’écoulent que dans la Brèche Écarlate et se mettent en pause pendant une invasion. Combine les couleurs ; une même couleur additionne la durée.${BOUTIQUE_PARCH_GRATUITE ? ' <b class="beta">Accès bêta : gratuit</b>' : ''}</div>
     ${actifs.length ? `<div class="actifsP">${actifs.map(a => `<span style="--c2:${COULEURS_PARCH[a.couleur].c2}">${COULEURS_PARCH[a.couleur].nom} +${Math.round(a.bonus * 100)} % · ${Math.ceil(a.reste / 60)} min${a.pause ? ' · en pause' : ''}</span>`).join('')}</div>` : ''}
-    <div class="grilleParch">${cartes}</div></div>`;
+    <div class="grilleParch">${cartes}</div>
+    <div class="carteTP"><svg viewBox="0 0 100 100" width="12vh" height="12vh"><defs><radialGradient id="gTP"><stop offset="0" stop-color="#fff2c0"/><stop offset=".5" stop-color="#ff5a2a"/><stop offset="1" stop-color="#5a0606"/></radialGradient></defs>
+      <rect x="22" y="16" width="56" height="68" rx="6" fill="#f2dcae" stroke="#5a2a0e" stroke-width="3"/><rect x="16" y="10" width="68" height="12" rx="6" fill="#c8964a" stroke="#5a2a0e" stroke-width="3"/><rect x="16" y="78" width="68" height="12" rx="6" fill="#c8964a" stroke="#5a2a0e" stroke-width="3"/>
+      <circle cx="50" cy="50" r="18" fill="url(#gTP)"/><path d="M50 36 L56 50 L50 64 L44 50Z" fill="#fff8e0"/><circle cx="50" cy="50" r="22" fill="none" stroke="#ff3a2a" stroke-width="2" stroke-dasharray="4 4"/></svg>
+      <div><h4>Parchemin de téléportation</h4><small>Uniquement dans les donjons de la Brèche rouge : te transporte devant le prochain gardien encore debout. Usage unique.</small>
+      ${j.parchTP ? `<em>${j.parchTP} en ta possession</em>` : ''}</div>
+      <button class="btn or" data-tp>${fmt(api.prixTP())}</button></div></div>`;
+  d.querySelector('[data-tp]').onclick = () => { if (api.acheterTP()) UI.boutiqueParchemins(); };
   d.hidden = false; d.onclick = (e) => { if (e.target === d) d.hidden = true; };
   d.querySelector('[data-x]').onclick = () => (d.hidden = true);
   d.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { if (api.acheterParchemin(b.dataset.p, 1)) { UI.toast('Parchemin ajouté au sac'); UI.boutiqueParchemins(); } });
@@ -1221,3 +1246,4 @@ UI.majDegats = (lignes) => {
   const max = Math.max(1, ...lignes.map(l => l.degats));
   p.innerHTML = lignes.map((l, i) => `<div class="${l.moi ? 'moi' : ''}"><i style="width:${(l.degats / max * 100).toFixed(0)}%;background:${COUL_CLASSE[l.type] || '#aaa'}"></i><span>${i + 1}. ${l.nom}</span><b>${fmtK(l.degats)}</b></div>`).join('');
 };
+UI.emblemeHTML = (i, t) => emblemeRang(i, t);

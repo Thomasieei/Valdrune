@@ -8,6 +8,7 @@ import { creerParchemin, creerArme, creerArmure, creerPotion, statsHeros, nomObj
 
 const $ = (s) => document.querySelector(s);
 const rnd = (a, b) => a + Math.random() * (b - a);
+const ri = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
 const dist2D = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 
@@ -300,7 +301,7 @@ function fondu(fn) {
   transition = true;
   const f = document.createElement('div'); f.style.cssText = 'position:fixed;inset:0;background:radial-gradient(#ff2a1a,#2a0000 60%,#000);opacity:0;transition:opacity .45s;z-index:50;pointer-events:none';
   document.body.appendChild(f); requestAnimationFrame(() => (f.style.opacity = 1));
-  setTimeout(() => { fn(); f.style.background = '#000'; setTimeout(() => { f.style.opacity = 0; setTimeout(() => { f.remove(); transition = false; }, 500); }, 120); }, 480);
+  setTimeout(() => { fn(); precompiler(); f.style.background = '#000'; setTimeout(() => { f.style.opacity = 0; setTimeout(() => { f.remove(); transition = false; }, 500); }, 120); }, 480);
 }
 
 function lancerHub(premier = false) {
@@ -311,8 +312,10 @@ function lancerHub(premier = false) {
   }
   invasion = null; arene = null; selection = null;
   if (!premier) { viderMonde(); monde = construireHub(); creerMarchand(); creerPasseur(); creerGraveuse(); creerBots(); }
+  const revientDeMode = !!modeActuel;
   modeActuel = null; enJeu = true;
   construireJoueur(monde.spawn.clone());
+  if (revientDeMode && !premier) setTimeout(() => proposerRefaire(60), 900); else UI.boutonRefaire(null);
   joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax;
   G.camTarget.copy(joueur.pos); G.camDist = 25; G.scene.fog.density = 0.016;
   G.hemi.intensity = 1.1; G.sun.intensity = 1.3;
@@ -324,8 +327,49 @@ function lancerHub(premier = false) {
   sauver();
 }
 
+// ---------------- Parchemin de téléportation ----------------
+const PRIX_TP = 2500000;
+function prochainBoss() { return ennemis.filter(e => e.boss && !e.mort && !e.errant && !e.invoc).sort((a, b) => (a.idx ?? 0) - (b.idx ?? 0) || dist2D(a.pos, joueur.pos) - dist2D(b.pos, joueur.pos))[0]; }
+function majBoutonTP() {
+  const ok = MODES.includes(modeActuel) && (J.parchTP || 0) > 0 && !transition && !(invasion && invasion.rivaux && invasion.rivaux.some(r => !r.mort));
+  const b = ok ? prochainBoss() : null;
+  UI.boutonTP(b && dist2D(b.pos, joueur.pos) > 18 ? J.parchTP : 0, utiliserTP);
+}
+function utiliserTP() {
+  const b = prochainBoss(); if (!b || !(J.parchTP > 0) || !MODES.includes(modeActuel)) return;
+  J.parchTP--; sauver();
+  effetPortail(joueur.pos, '#ff3a2a'); son('jingle_legend', 0.4, 1.3);
+  let p = null;
+  for (let i = 0; i < 80 && !p; i++) { const a = Math.random() * 6.28, r = rnd(7, 10); const x = b.pos.x + Math.cos(a) * r, z = b.pos.z + Math.sin(a) * r; if (libre(x, z, 0.7) && (!b.salle || !monde.zoneDe || monde.zoneDe(x, z) === b.salle.id) && ligneLibre(V(x, 0, z), b.pos)) p = V(x, 0, z); }
+  p = p || pointLibrePres(b.pos, 5, 9);
+  joueur.pos.copy(p); G.camTarget.copy(p); joueur.chemin = null; joueur.autoCible = null;
+  for (const a of allies) if (!a.mort && !a.parti) { a.pos.copy(pointLibrePres(p, 1, 3)); a.chemin = null; }
+  effetPortail(p, '#ff3a2a'); UI.toast(`Téléporté devant ${b.boss.nom}`);
+}
+// compile tous les shaders de la nouvelle zone pendant le fondu (sinon : gel en plein combat)
+function precompiler() { try { if (G.renderer.compileAsync) G.renderer.compileAsync(G.scene, G.camera).catch(() => {}); else G.renderer.compile(G.scene, G.camera); } catch (e) {} }
+// ---------------- Refaire ----------------
+function memoriserMode(nom, fn) { G.dernier = { nom, fn }; UI.boutonRefaire(null); }
+function proposerRefaire(duree = 0) {
+  if (!G.dernier) return;
+  const d = G.dernier;
+  UI.boutonRefaire(d.nom, () => {
+    if (transition) return;
+    UI.boutonRefaire(null);
+    if (modeActuel) bilanGroupe();
+    d.fn();
+  }, duree);
+}
+function bilanGroupe() {
+  if (groupe && modeActuel && (modeActuel.mode !== undefined || MODES.includes(modeActuel))) {
+    if (groupe.fort) { J.rushs = (J.rushs || 0) + 1; sauver(); }
+    groupe.donjonsRestants = (groupe.donjonsRestants ?? 2) - 1;
+    if (groupe.donjonsRestants <= 0) { const n = groupe.nom; groupe = null; setTimeout(() => UI.chat(n, hasard(['gg, je dois y aller', 'bon je déco, gg', 'merci pour les runs', 'bye'])), 1500); }
+  }
+}
 // ---------------- Donjon ----------------
 function entrerDonjon(id, opts = {}) {
+  if (!opts.errant) memoriserMode(MODES[id].lieu + ' · ' + MODES[id].nom + (opts.envahir ? ' · invasion' : ''), () => entrerDonjon(id, { envahir: opts.envahir }));
   fondu(() => {
     viderMonde();
     modeActuel = MODES[id]; bossVaincus = 0;
@@ -341,7 +385,7 @@ function entrerDonjon(id, opts = {}) {
     // boss et coffres
     if (!opts.envahir) monde.bossSalles.forEach((s, k) => {
       const b = creerBoss(BOSS[k], s.centre.clone().add(V(2, 0, 2)), modeActuel.bossTier[k], s);
-      creerCoffre(monde.coffresPos[k], tirerCouleurCoffre(), b);
+      creerCoffre(monde.coffresPos[k], couleurSelonRang(tirerCouleurCoffre()), b);
     });
     creerSortie(monde.sortie);
     if (!opts.envahir && (Math.random() < 0.1 || opts.errant)) apparitionErrant();
@@ -364,7 +408,7 @@ function creerEnnemi(def, pos, tierMob, pack, boss = null) {
   a.root.position.copy(pos); a.root.rotation.y = rnd(0, 6.28);
   G.scene.add(a.root);
   const f = tf(tierMob);
-  const kr = MODES.includes(modeActuel) ? 1 + 0.12 * rangDe('donjon').i : 1;
+  const kr = 1 + 0.15 * rangK();
   const pvMax = Math.round(160 * f * (def.hp || 1) * (boss ? boss.hpMult : 1) * kr);
   Object.assign(a, {
     def, boss, pos: a.root.position, pv: pvMax, pvMax, dmg: 15 * f * (def.dmg || 1) * (boss ? boss.dmgMult : 1) * kr,
@@ -549,7 +593,7 @@ function tuer(e) {
     UI.toast(e.boss.nom + ' est vaincu !', true);
     UI.toast('Son coffre peut maintenant être ouvert.');
     UI.journal(modeActuel.lieu, `Gardiens vaincus : ${bossVaincus} / 4`, bossVaincus / 4);
-    if (bossVaincus === 4) setTimeout(() => { UI.toast('Donjon nettoyé !', true); UI.journal(modeActuel.lieu, 'Les 4 gardiens sont tombés. Ouvre les coffres puis rentre par le portail violet.', 1); }, 2800);
+    if (bossVaincus === 4) setTimeout(() => { proposerRefaire(); UI.toast('Donjon nettoyé !', true); UI.journal(modeActuel.lieu, 'Les 4 gardiens sont tombés. Ouvre les coffres puis rentre par le portail violet.', 1); }, 2800);
     // les sbires restants s'effondrent
     for (const o of ennemis) if (!o.mort && o.invoque && o.maitre === e) { o.pv = 0; tuer(o); }
   }
@@ -651,8 +695,9 @@ function tirerProjectile(type, couleur, cible, vitesse, mult, opts = {}) {
 
 // ---------------- Sorts ----------------
 function lancerSort(k) {
-  const s = joueur.sorts[k];
+  const s = joueur && joueur.sorts[k];
   if (!s || joueur.mort) return;
+  if (arene && arene.t > 0) { UI.toast('Attends la fin du décompte'); return; }
   if ((joueur.cds[k] || 0) > 0) { son('error_001', 0.25); return; }
   if (joueur.energie < s.energie) { UI.toast('Pas assez d’énergie'); son('error_001', 0.25); return; }
   joueur.sortAttente = null;
@@ -979,6 +1024,7 @@ function majJoueur(dt) {
   let mx = entree.jx, my = entree.jy;
   const k = entree.clavier;
   if (k.ArrowLeft) mx -= 1; if (k.ArrowRight) mx += 1; if (k.ArrowUp) my += 1; if (k.ArrowDown) my -= 1;
+  if (arene && arene.t > 0) { mx = 0; my = 0; } // décompte : personne ne bouge
   const m = Math.min(1, Math.hypot(mx, my));
   const bloque = j.verrouT > 0 && j.spinT <= 0;
   let autoAtk = false;
@@ -1338,6 +1384,8 @@ const API = {
   get ile() { return API_ILE; },
   musique: (on) => musiqueActive(on),
   parchemins: () => etatParchemins(),
+  prixTP: () => PRIX_TP,
+  acheterTP: () => { if (J.argent < PRIX_TP) { UI.toast('Pas assez d’argent'); son('error_001', 0.4); return false; } J.argent -= PRIX_TP; J.parchTP = (J.parchTP || 0) + 1; son('jingle_legend', 0.5); UI.toast('Parchemin de téléportation acheté'); sauver(); return true; },
   acheterParchemin: (id, n = 1) => { const p = PARCHEMINS[id]; const prix = BOUTIQUE_PARCH_GRATUITE ? 0 : p.prix * n; if (J.argent < prix) { UI.toast('Pas assez d’argent'); son('error_001', 0.4); return false; } J.argent -= prix; ajouterSac(creerParchemin(id, n), true); son('handleCoins', 0.5); sauver(); return true; },
   utiliserParchemin: (itemId) => utiliserParchemin(itemId),
   rang: (mode) => rangDe(mode), classement: (mode) => classementRang(mode), xpLog: () => J.xpLog || [],
@@ -1416,8 +1464,8 @@ function ouvrirCoffre(c) {
   if (c.lid) ajouterVfx(new THREE.Group(), (t) => { c.lid.rotation.x = -Math.min(1, t / 0.6) * 1.9; if (t > 0.7) return false; });
   emettre(V(c.pos.x, 1.2, c.pos.z), { n: 90, c1: '#fff2c0', c2: c.def.color, vit: 7, vie: 1.2, taille: 0.45, grav: 4, monte: 4 });
   onde(c.pos, c.def.color, 5, 0.8);
-  const loot = lootCoffre(c.couleur, modeActuel, c.mega ? 3 : c.boss.idx);
-  if (MODES.includes(modeActuel)) loot.argent = Math.round(loot.argent * (1 + 0.25 * rangDe('donjon').i) * (1 + bonusParch('argent')));
+  const loot = lootCoffre(c.couleur, modeActuel, c.mega ? 3 : c.boss.idx, rangK());
+  if (MODES.includes(modeActuel) || modeActuel && modeActuel.sylve) loot.argent = Math.round(loot.argent * (1 + 0.25 * rangDe('donjon').i) * (1 + bonusParch('argent')));
   { const bd = bonusParch('drop'); if (bd > 0) { const extra = lootCoffre(c.couleur, modeActuel, c.boss.idx || 0).objets; for (const it of extra) if (Math.random() < bd * 1.6) loot.objets.push(it); if (extra.length && Math.random() < bd) loot.objets.push(extra[0]); } }
   if (c.mega) {
     loot.argent *= 8; const tm = modeActuel.tiers[1];
@@ -1555,11 +1603,11 @@ function boucle() {
     if (passeur) passeur.maj(dt);
     if (graveuse) graveuse.maj(dt);
     ileT -= dt; if (ileT <= 0) { ileT = 3; majProduction(); majAssauts(); majRaids(); if (modeActuel && modeActuel.id === 'ile' && !monde.etranger && !(raid && raid.r)) journalIle(monde.ile); }
-    majCamera(dt, joueur.pos);
+    majCamera(dt, G.camCible || joueur.pos);
     majTorches(joueur.pos);
     if (joueur.comboT > 0) { joueur.comboT -= dt; if (joueur.comboT <= 0) joueur.combo = 0; }
     hudT -= dt; if (hudT <= 0) { hudT = 0.08; UI.majCombo(joueur.def.assassin ? joueur.combo || 0 : -1); UI.majHud(joueur, joueur.st); UI.majSorts(joueur); majInteractions(); majCadreAutre(); majBarreRival(); }
-    miniT -= dt; if (miniT <= 0) { miniT = 0.2; majMini(); majParchemins(0.2); majMusique(0.2); }
+    miniT -= dt; if (miniT <= 0) { miniT = 0.2; majBoutonTP(); majMini(); majParchemins(0.2); majMusique(0.2); }
     UI.majPlaques(joueur.pos);
     // anneau de cible
     majAnneauCible(); majVisee();
@@ -1570,7 +1618,7 @@ function boucle() {
     majBots(dt);
     UI.majPlaques(ORBITE);
   }
-  if (enJeu) G.camYaw = Math.PI / 4;
+  if (enJeu && !G.camLibre) G.camYaw = Math.PI / 4;
   majFeux(dt); majVfx(dt); majParticules(dt);
   const t1 = performance.now();
   rendre();
@@ -1636,17 +1684,21 @@ const RIVAL_GAGNE = ['gg, merci pour le stuff', 'ez', 'merci pour l’équipemen
 const hasard = (l) => l[Math.floor(Math.random() * l.length)];
 const fmtN = (n) => Math.round(n).toLocaleString('fr-FR');
 
-function genererEquipRival(ipCible, type = null) {
+// équipement minimal selon le rang d'arène (Diamant, Champion, Grand Champion = des joueurs vraiment équipés)
+const EQUIP_RANG = { 3: { t: [4, 6], e: [0, 2], q: [1, 3] }, 4: { t: [5, 7], e: [1, 4], q: [1, 3] }, 5: { t: [7, 8], e: [3, 6], q: [2, 4] } };
+function genererEquipRival(ipCible, type = null, rang = -1) {
   const tMoy = Math.max(1, Math.min(8, Math.round((ipCible - 320) / 100) + 1));
-  const t = () => Math.max(1, Math.min(8, tMoy + (Math.random() < 0.25 ? 1 : Math.random() < 0.3 ? -1 : 0)));
-  const q = () => (Math.random() < 0.45 ? 0 : 1 + Math.floor(Math.random() * 3));
+  const R = EQUIP_RANG[rang];
+  const t = () => { const v = Math.max(1, Math.min(8, tMoy + (Math.random() < 0.25 ? 1 : Math.random() < 0.3 ? -1 : 0))); return R ? Math.max(ri(R.t[0], R.t[1]), Math.min(R.t[1], v)) : v; };
+  const q = () => R ? ri(R.q[0], R.q[1]) : (Math.random() < 0.45 ? 0 : 1 + Math.floor(Math.random() * 3));
+  const e = (it) => { if (R) it.ench = ri(R.e[0], R.e[1]); return it; };
   type = type || ['epee', 'arbalete', 'baton'][Math.floor(Math.random() * 3)];
-  return { arme: creerArme(type, t(), q()), casque: creerArmure('casque', t(), q()), plastron: creerArmure('plastron', t(), q()), bottes: creerArmure('bottes', t(), q()) };
+  return { arme: e(creerArme(type, t(), q())), casque: e(creerArmure('casque', t(), q())), plastron: e(creerArmure('plastron', t(), q())), bottes: e(creerArmure('bottes', t(), q())) };
 }
-function donneesBot(ipCible, exclure = []) {
+function donneesBot(ipCible, exclure = [], rang = -1) {
   const libres = BOTS.filter(b => !exclure.includes(b[0]) && b[0] !== J.nom && !(groupe && groupe.nom === b[0]));
   const [nom, tag, guilde] = hasard(libres.length ? libres : BOTS);
-  const equip = genererEquipRival(ipCible);
+  const equip = genererEquipRival(ipCible, null, rang);
   const type = equip.arme.type;
   return { nom, guilde: (tag ? `[${tag}] ` : '') + guilde, equip, ip: statsHeros(equip, false).ip, modele: type === 'arbalete' && Math.random() < 0.5 ? 'Rogue' : ARMES[type].model };
 }
@@ -1693,7 +1745,7 @@ function creerCombattant(pos, data, camp = 'ennemi') {
   Object.assign(a, {
     combattant: true, rival: camp === 'ennemi', camp, nom: data.nom, guilde: data.guilde, ip: data.ip || st.ip, data,
     armeDef: def, equip, st, def: { nom: data.nom, model: def.model },
-    pos: a.root.position, pv: st.pvMax, pvMax: st.pvMax, reduction: st.reduction, dmg: st.degats * 1.05,
+    pos: a.root.position, pv: Math.round(st.pvMax * kpv(camp)), pvMax: Math.round(st.pvMax * kpv(camp)), reduction: st.reduction, dmg: st.degats * 1.05 * kdg(camp),
     etat: 'chasse', atkT: 1.2, attaqueT: 1.2, stunT: 0, slowT: 0, dots: [], pack: -9, angle: 0, mort: false, hauteurPlaque: 2.55, rayon: 0.55, hover: 0,
     specT: rnd(3, 5), potions: 2, potionT: 0, esquiveT: 2, dashT: 0, strafe: Math.random() < 0.5 ? 1 : -1, chatT: rnd(10, 18), tc: null,
     argent: Math.round(rnd(0.7, 1.4) * 60 * Math.pow(2.3, arme.tier - 1)),
@@ -2018,6 +2070,8 @@ function gagnerXPRelatif(frac) {
 
 // ---------------- Arène ----------------
 function entrerArene(format, opts = {}) {
+  if (!opts.duel) memoriserMode(`Arène ${format}${opts.letale ? ' létale' : ''}`, () => entrerArene(format, { letale: opts.letale }));
+  else G.dernier = null;
   fondu(() => {
     viderMonde(); invasion = null; selection = null;
     modeActuel = { id: 'arene', nom: 'Arène', lieu: 'Arène des Échos', argent: 0, xp: 0, tiers: [1, 1], mobTier: 1 };
@@ -2029,11 +2083,12 @@ function entrerArene(format, opts = {}) {
     const ipJ = statsHeros(J.equip).ip;
     arene = { format, duel: opts.duel || null, mise: opts.mise || 0, letale: !!opts.letale, fini: false, t: 3.6, dernier: 4 };
     const pris = [];
-    if (format === '2v2') { const m = groupe || donneesBot(ipJ + rnd(-40, 40)); pris.push(m.nom); const a = creerCombattant(monde.spawnAllie.clone(), m, 'allie'); a.angle = Math.PI / 2; a.root.rotation.y = a.angle; }
+    if (format === '2v2') { const m = groupe || donneesBot(ipJ + rnd(-40, 40), [], rangDe('arene').i); pris.push(m.nom); const a = creerCombattant(monde.spawnAllie.clone(), m, 'allie'); a.angle = Math.PI / 2; a.root.rotation.y = a.angle; }
     const n = format === '2v2' ? 2 : 1;
     for (let i = 0; i < n; i++) {
-      const d = i === 0 && opts.duel ? opts.duel : donneesBot(ipJ + rnd(-50, 80) + 35 * rangDe('arene').i, pris); pris.push(d.nom);
-      d.skill = Math.max(0.35, Math.min(0.98, 0.06 * rangDe('arene').i + 0.5 + Math.min(0.35, (J.trophees || 0) / 3000) + rnd(-0.15, 0.2) + (format === '2v2' ? 0.08 : 0)));
+      const rgA = rangDe('arene').i;
+      const d = i === 0 && opts.duel ? opts.duel : donneesBot(ipJ + rnd(-50, 80) + 35 * rgA, pris, rgA); pris.push(d.nom);
+      d.skill = Math.max([0.35, 0.4, 0.5, 0.7, 0.85, 0.93][rgA] || 0.35, Math.min(0.98, 0.06 * rgA + 0.5 + Math.min(0.35, (J.trophees || 0) / 3000) + rnd(-0.15, 0.2) + (format === '2v2' ? 0.08 : 0)));
       const r = creerCombattant(monde.spawnsRivaux[i].clone(), d, 'ennemi');
       r.angle = -Math.PI / 2; r.root.rotation.y = r.angle; r.potions = 1;
     }
@@ -2093,7 +2148,7 @@ function finArene(victoire) {
   for (const e of ennemis) if (!e.mort) { e.jouer('Cheer', { boucle: false }); UI.chat(e.nom, hasard(RIVAL_GAGNE)); emoteBot(e, ['ez', 'mdr', 'clown', 'bof'], 1, 0.4); }
   if (victoire) { const r = ennemis.find(e => e.rival); if (r) { setTimeout(() => UI.chat(r.nom, hasard(RIVAL_PERD)), 800); emoteBot(r, ['gg', 'ouin', 'rage'], 0.8, 1.2); } for (const a of allies) if (!a.mort && !a.invoc) emoteBot(a, ['gg', 'feu', 'ez'], 0.7, 1.6); }
   sauver();
-  const finir = () => UI.resultatArene({ victoire, lignes }, () => fondu(() => lancerHub()));
+  const finir = () => UI.resultatArene({ victoire, lignes, refaire: G.dernier ? G.dernier.nom : null }, (refaire) => { if (refaire && G.dernier) G.dernier.fn(); else fondu(() => lancerHub()); });
   if (arene.letale && victoire) {
     const morts = ennemis.filter(e => e.rival);
     const suivant = (i) => { if (i >= morts.length) return finir(); const r = morts[i]; UI.depouille(r.nom, r.ip, Object.values(r.equip).filter(Boolean), r.argent, (pris) => { J.argent += r.argent; for (const it of pris) ajouterSac(it, true); son('handleCoins', 0.6); sauver(); suivant(i + 1); }); };
@@ -2120,7 +2175,8 @@ function majInvasion(dt) {
 function lancerInvasion() {
   const ipJ = statsHeros(J.equip).ip;
   const n = coequipiers().length ? 2 : 1; const pris = [];
-  const datas = Array.from({ length: n }, () => { const d = donneesBot(ipJ + Math.round(rnd(-50, 90)), pris); pris.push(d.nom); return d; });
+  const rk = rangDe('donjon').i;
+  const datas = Array.from({ length: n }, () => { const d = donneesBot(ipJ + Math.round(rnd(-50, 90)) + 30 * rk, pris); d.skill = Math.min(0.97, (d.skill || 0.55) + 0.05 * rk); pris.push(d.nom); return d; });
   const salles = monde.salles.filter(s => s.type === 'normale');
   invasion.rivaux = [];
   if (invasion.mode === 'subie') {
@@ -2937,6 +2993,7 @@ function preparerGroupeSylve() {
 }
 let assetsSylvePrets = false;
 async function entrerSylve(membres = null) {
+  memoriserMode('Sanctuaire d’Émeraude', () => entrerSylve());
   membres = membres || preparerGroupeSylve();
   if (!assetsSylvePrets) {
     UI.toast('Ouverture du Sanctuaire…');
@@ -3138,6 +3195,7 @@ function ouvrirCoffreFinal(c) {
   setTimeout(() => UI.recapFinal({ duree: G.t - sylve.debut, total: lignes.reduce((a, l) => a + l.degats, 0), lignes, pool, precedents: sylve.butinJoueur }, () => {
     J.argent += moi.butin.argent; for (const it of moi.butin.objets) ajouterSac(it, true); son('handleCoins', 0.7); sauver(); c.beam.visible = false;
     for (const a of allies) if (!a.mort) emoteBot(a, ['gg', 'merci', 'feu', 'ez'], 0.8, rnd(0.3, 2));
+    proposerRefaire();
   }), 900);
 }
 function mortSylve() {
@@ -3323,6 +3381,16 @@ function utiliserParchemin(itemId) {
 }
 
 // ---------------- Rangs classés ----------------
+// rang de la partie en cours : Argent, Or… rendent les ennemis plus forts et le butin meilleur
+// les rivaux de haut rang encaissent et cognent plus (maîtrise, talents… comme de vrais joueurs)
+function kpv(camp) { if (camp !== 'ennemi') return 1; const i = rangK(); return arene ? 1 + 0.16 * i + (i >= 5 ? 0.3 : 0) : 1 + 0.07 * i; }
+function kdg(camp) { if (camp !== 'ennemi') return 1; const i = rangK(); return arene ? 1 + 0.09 * i : 1 + 0.07 * i; }
+function couleurSelonRang(c) { const ordre = ['vert', 'bleu', 'violet', 'legendaire']; let i = ordre.indexOf(c); if (i >= 0 && i < 3 && Math.random() < 0.07 * rangK()) i++; return ordre[i] || c; }
+function rangK() {
+  if (arene) return rangDe('arene').i;
+  if (MODES.includes(modeActuel) || modeActuel && modeActuel.sylve) return rangDe('donjon').i;
+  return 0;
+}
 function rangDe(mode) { const p = (J.rang && J.rang[mode]) || 0; const i = Math.min(RANGS.length - 1, Math.floor(p / PTS_RANG)); return { i, pts: p, local: i === RANGS.length - 1 ? p - i * PTS_RANG : p % PTS_RANG, r: RANGS[i], mode }; }
 function changerRang(mode, delta, raison) {
   J.rang = J.rang || { arene: 0, donjon: 0 };
@@ -3621,7 +3689,7 @@ function dissiper(a) {
 }
 
 // accès de débogage (console)
-window.__jeu = { get dangers() { return dangers; }, API, G, UI, tirageOrage, changerRang, apparitionErrant, get errant() { return errant; }, tuerUn: (e) => { e.pv = 0; tuer(e); }, groupeTest: () => { groupe = donneesBot(statsHeros(J.equip).ip); return groupe.nom; }, trahir: () => allies.forEach(a => a.autonome && trahir(a)), invasionTest: () => { invasion = { mode: "subie", t: 0, rival: null }; lancerInvasion(); }, entrerSylve: (o) => entrerSylve(o), get sylve() { return sylve; }, invoquerOmbres, tirageOmbre, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
+window.__jeu = { get dangers() { return dangers; }, creerCoffre: (p, c, b) => creerCoffre(p, c, b), entrerArene, construireJoueur: () => construireJoueur(joueur.pos.clone()), get entree() { return entree; }, API, G, UI, tirageOrage, changerRang, apparitionErrant, get errant() { return errant; }, tuerUn: (e) => { e.pv = 0; tuer(e); }, groupeTest: () => { groupe = donneesBot(statsHeros(J.equip).ip); return groupe.nom; }, trahir: () => allies.forEach(a => a.autonome && trahir(a)), invasionTest: () => { invasion = { mode: "subie", t: 0, rival: null }; lancerInvasion(); }, entrerSylve: (o) => entrerSylve(o), get sylve() { return sylve; }, invoquerOmbres, tirageOmbre, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
 
 initEntrees();
 demarrer();

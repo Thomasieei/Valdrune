@@ -24,7 +24,7 @@ export function initRendu(canvas) {
   r.shadowMap.type = THREE.PCFShadowMap;
   r.info.autoReset = false;
   r.shadowMap.autoUpdate = false; // ombres recalculées une image sur deux
-  G.renderer = r;
+  G.renderer = r; r.debug.checkShaderErrors = false; // évite des blocages GPU à chaque nouveau shader
   G.scene = new THREE.Scene();
   G.scene.background = new THREE.Color('#120b1b');
   G.scene.fog = new THREE.FogExp2('#150d20', 0.022);

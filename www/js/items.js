@@ -146,11 +146,11 @@ export function tirerCouleurCoffre() {
   for (const c of COFFRES) { if ((r -= c.chance) < 0) return c.id; }
   return 'vert';
 }
-export function lootCoffre(couleur, mode, idxBoss) {
+export function lootCoffre(couleur, mode, idxBoss, rang = 0) {
   const [tMin, tMax] = mode.tiers;
   const out = { argent: 0, objets: [] };
   const tierSelon = (biais) => {
-    const span = tMax - tMin; let t = tMin + Math.floor(Math.pow(Math.random(), 1 / (1 + biais)) * (span + 1));
+    const span = tMax - tMin; let t = tMin + Math.floor(Math.pow(Math.random(), 1 / (1 + biais + rang * 0.2)) * (span + 1));
     return Math.min(tMax, Math.max(tMin, t));
   };
   const scale = (mode.argent || 1) * (1 + idxBoss * 0.15);
@@ -179,6 +179,12 @@ export function lootCoffre(couleur, mode, idxBoss) {
     if (Math.random() < 0.5) out.objets.push(objetAleatoire(tierSelon(1.0), 20));
     out.objets.push(creerButin('rune', ri(1, 3)));
     out.objets.push(creerPotion(2));
+  }
+  // rang (Argent, Or…) : objets de meilleure qualité et chance d'objet bonus
+  if (rang > 0) {
+    for (const it of out.objets) if (it.q !== undefined && Math.random() < 0.06 * rang) it.q = Math.min(QUALITES.length - 1, it.q + 1);
+    if (couleur !== 'vert' && Math.random() < 0.08 * rang) out.objets.push(objetAleatoire(tierSelon(rang * 0.3), 6 * rang));
+    if (Math.random() < 0.05 * rang) out.objets.push(creerButin('rune', 1));
   }
   return out;
 }

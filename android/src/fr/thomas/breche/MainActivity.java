@@ -79,6 +79,8 @@ public class MainActivity extends Activity {
         if (c.endsWith(".jpg") || c.endsWith(".jpeg")) return "image/jpeg";
         if (c.endsWith(".ogg")) return "audio/ogg";
         if (c.endsWith(".mp3")) return "audio/mpeg";
+        if (c.endsWith(".woff")) return "font/woff";
+        if (c.endsWith(".woff2")) return "font/woff2";
         if (c.endsWith(".css")) return "text/css";
         if (c.endsWith(".svg")) return "image/svg+xml";
         return "application/octet-stream";
