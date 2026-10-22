@@ -1095,6 +1095,13 @@ UI.classement = (mode) => {
 };
 // ---------------- Jauge d'expérience ----------------
 UI.jaugeXP = (lignes, source) => {
+  // version compacte, en haut au centre, qui ne gêne pas le combat
+  document.querySelectorAll('.jaugeXP').forEach(x => x.remove());
+  const d = document.createElement('div'); d.className = 'jaugeXP mini';
+  d.innerHTML = `<div class="srcXP">${source} · <b>+${fmt(lignes.reduce((a, l) => a + l.gain, 0))} XP</b></div>` + lignes.map(l => `<div class="lXP"><small>${l.nom.replace('Armure de ', '').replace('Épée à deux mains', 'Épée')}</small><div class="bXP"><i style="--k:${(l.k * 100).toFixed(1)}%"></i></div><em>niv. ${l.niv}</em></div>`).join('');
+  document.body.appendChild(d); setTimeout(() => d.classList.add('part'), 3200); setTimeout(() => d.remove(), 3800);
+};
+UI._jaugeXPGrande = (lignes, source) => {
   document.querySelectorAll('.jaugeXP').forEach(x => x.remove());
   const d = document.createElement('div'); d.className = 'jaugeXP';
   d.innerHTML = `<div class="srcXP">${source} · <b>+${fmt(lignes.reduce((a, l) => a + l.gain, 0))} XP</b></div>` + lignes.map(l => `<div class="lXP"><span class="ic">${svgSort(['casque', 'plastron', 'bottes'].includes(l.type) ? 'shield' : l.type, '#ffe2a0', '#3a2a10', 'x' + l.type)}</span>
@@ -1164,4 +1171,29 @@ UI.majCombo = (n) => {
   if (n < 0) { if (el) el.remove(); return; }
   if (!el) { el = document.createElement('div'); el.id = 'comboHud'; $('#jeu').appendChild(el); }
   el.innerHTML = Array.from({ length: 5 }, (_, i) => `<i class="${i < n ? 'on' : ''} ${n >= 5 ? 'max' : ''}"></i>`).join('') + `<span>${n >= 5 ? 'CURÉE PRÊTE' : 'COMBO'}</span>`;
+};
+
+// ---------------- Sanctuaire : résumé discret et compteur de dégâts ----------------
+UI.resumeBoss = (r) => {
+  const d = document.createElement('div'); d.className = 'resumeBoss'; d.style.setProperty('--c', r.couleur);
+  d.innerHTML = `<b>${r.nom} vaincu</b><span>Tu es <b>${r.rang}${r.rang === 1 ? 'er' : 'e'}</b> / ${r.nb} aux dégâts</span><span><span class="piece"></span> +${fmt(r.argent)} <small>(coffre ${fmt(r.pool)} ÷ ${r.nb})</small></span>${r.objets.length ? `<span class="objR">${r.objets.map(it => `<img src="${iconeObjet(it)}" alt="" style="border-color:${TIERS[it.tier].color}">`).join('')}</span>` : ''}`;
+  document.body.appendChild(d); setTimeout(() => d.classList.add('part'), 4200); setTimeout(() => d.remove(), 4800);
+};
+let degatsOuvert = false, derniersDegats = null;
+UI.boutonDegats = (on) => {
+  let b = document.getElementById('btnDegats');
+  if (!on) { if (b) b.remove(); const p = document.getElementById('dmgMeter'); if (p) p.remove(); degatsOuvert = false; return; }
+  if (b) return;
+  b = document.createElement('button'); b.id = 'btnDegats'; b.className = 'rond metal'; b.setAttribute('aria-label', 'Dégâts du groupe');
+  b.innerHTML = '<svg viewBox="0 0 24 24" fill="#ffd0d0"><path d="M4 20V10h3v10zm6.5 0V4h3v16zM17 20v-7h3v7z"/></svg>';
+  b.onclick = (e) => { e.stopPropagation(); degatsOuvert = !degatsOuvert; api.son('click_001', 0.4); UI.majDegats(derniersDegats); };
+  $('#jeu').appendChild(b);
+};
+UI.majDegats = (lignes) => {
+  derniersDegats = lignes;
+  let p = document.getElementById('dmgMeter');
+  if (!degatsOuvert || !lignes) { if (p) p.remove(); return; }
+  if (!p) { p = document.createElement('div'); p.id = 'dmgMeter'; $('#jeu').appendChild(p); }
+  const max = Math.max(1, ...lignes.map(l => l.degats));
+  p.innerHTML = lignes.map((l, i) => `<div class="${l.moi ? 'moi' : ''}"><i style="width:${(l.degats / max * 100).toFixed(0)}%;background:${COUL_CLASSE[l.type] || '#aaa'}"></i><span>${i + 1}. ${l.nom}</span><b>${fmtK(l.degats)}</b></div>`).join('');
 };

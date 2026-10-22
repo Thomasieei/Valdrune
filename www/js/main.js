@@ -282,7 +282,7 @@ function viderMonde() {
   ouvriers = []; intendant = null; passeur = null; recolteJ = null; assaut = null;
   if (raid && raid.r) raid = null;
   G.scene.background.set('#120b1b'); G.scene.fog.color.set('#150d20'); G.sun.color.set('#c9b8ff'); G.hemi.color.set('#8f7cc8'); G.hemi.groundColor.set('#2a1830');
-  viderSylve();
+  viderSylve(); UI.boutonDegats(false);
   for (const b of bots) G.scene.remove(b.root);
   for (const p of projectiles) G.scene.remove(p.mesh);
   for (const c of coffres) { G.scene.remove(c.obj); G.scene.remove(c.beam); }
@@ -1474,7 +1474,7 @@ function boucle() {
     if (!transition) majJoueur(dt);
     for (const x of [joueur, ...allies]) { if (!x._pp) x._pp = x.pos.clone(); x.vel = x.vel || V(); x.vel.set((x.pos.x - x._pp.x) / Math.max(dt, 0.001), 0, (x.pos.z - x._pp.z) / Math.max(dt, 0.001)); x._pp.copy(x.pos); }
     if (!modeActuel) majBots(dt); else { majEnnemis(dt); majAllies(dt); majProjectiles(dt); majInvasion(dt); majArene(dt); }
-    if (modeActuel && modeActuel.sylve) majSylve(dt);
+    if (modeActuel && modeActuel.sylve) { majSylve(dt); sylveMeterT = (sylveMeterT || 0) - dt; if (sylveMeterT <= 0) { sylveMeterT = 0.5; if (compteur) UI.majDegats(classement(compteur.total, 0, G.t - sylve.debut)); } }
     if (errant) majErrant(dt);
     if (modeActuel && modeActuel.id === 'ile') { majOuvriers(dt); majNoeuds(dt); majRecolteJoueur(dt); majPillard(dt); if (intendant) intendant.maj(dt); }
     if (passeur) passeur.maj(dt);
@@ -2838,6 +2838,7 @@ function alerteInvasion(n, subie) {
 }
 
 // =================== Sanctuaire d'Émeraude : donjon de groupe à 5 ===================
+let sylveMeterT = 0;
 let sylve = null, compteur = null, dangers = [], zonesSol = [], orbes = [], rayons = [];
 const MOBS_PACKS = [['moussu', 'moussu', 'ronce'], ['moussu', 'ecorce', 'ronce', 'druide'], ['ecorce', 'ronce', 'druide', 'moussu'], ['ecorce', 'ecorce', 'druide', 'ronce']];
 function tierJoueur() { return Math.max(1, Math.min(8, Math.round((statsHeros(J.equip).ip - 320) / 100) + 1)); }
@@ -2882,6 +2883,7 @@ async function entrerSylve(membres = null) {
     sylve = { debut: G.t, segDebut: G.t, butinJoueur: { argent: 0, objets: [] } };
     compteur = { total: new Map(), seg: new Map(), noms: [J.nom, ...allies.filter(a => a.membreSylve).map(a => a.nom)] };
     UI.journal('Sanctuaire d’Émeraude', 'Suivez le chemin à travers la forêt. Gardiens vaincus : 0 / 4', 0);
+    UI.boutonDegats(true);
     UI.zone('Sanctuaire d’Émeraude', `Groupe de 5 · T${modeActuel.tiers[0]}–T${modeActuel.tiers[1]}`);
     $('#btnQuitter').hidden = false;
     setTimeout(() => { UI.toast('Sanctuaire d’Émeraude', true); UI.toast('Un seul chemin. Quatre gardiens. Restez groupés.'); for (const a of allies) emoteBot(a, ['salut', 'feu', 'diable', 'gg'], 0.5, rnd(1, 3)); }, 700);
@@ -3025,11 +3027,12 @@ function finBossSylve(e) {
     UI.journal('Sanctuaire purifié !', 'Ouvrez le Coffre du Sanctuaire pour voir les dégâts totaux et le butin de chacun.', 1);
   }
   setTimeout(() => {
-    UI.scores({ titre: `${e.boss.nom} est vaincu`, sous: derniere ? 'Le cœur de la forêt est libéré !' : `Gardien ${k + 1} / 4`, couleur: e.boss.couleur, lignes, butin, duree: G.t - (sylve.bossT || sylve.segDebut) }, () => {
-      J.argent += butin.argent; for (const it of butin.objets) ajouterSac(it, true); son('handleCoins', 0.6); sauver();
-      sylve.butinJoueur.argent += butin.argent; sylve.butinJoueur.objets.push(...butin.objets);
-      if (!derniere) UI.toast('Le chemin est ouvert : en avant !', true);
-    });
+    // plus de grand panneau qui bloque : le butin tombe directement, un petit résumé s'affiche, les dégâts restent consultables (bouton à gauche)
+    J.argent += butin.argent; for (const it of butin.objets) ajouterSac(it, true); son('handleCoins', 0.6); sauver();
+    sylve.butinJoueur.argent += butin.argent; sylve.butinJoueur.objets.push(...butin.objets);
+    const moi = lignes.findIndex(l => l.moi);
+    UI.resumeBoss({ nom: e.boss.nom, couleur: e.boss.couleur, rang: moi + 1, nb: lignes.length, argent: butin.argent, pool: butin.pool, objets: butin.objets });
+    if (!derniere) UI.toast('Le chemin est ouvert : en avant !', true);
     compteur.seg = new Map(); sylve.segDebut = G.t; sylve.bossT = null;
   }, 2600);
 }

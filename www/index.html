@@ -618,6 +618,18 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 #comboHud i.on{background:radial-gradient(#fff0f0,#ff2a3a 60%,#7a0010);border-color:#ffd0d0;box-shadow:0 0 10px #ff2a3a}
 #comboHud i.max{animation:pulseR .35s infinite alternate}
 #comboHud span{font:900 1.8vh var(--f-label);color:#ffb0b0;letter-spacing:.12em;text-shadow:0 2px 2px #000}
+.jaugeXP.mini{left:50%;top:10vh;bottom:auto;width:auto;min-width:34vh;max-width:46vh;padding:.6vh 1.2vh;gap:.4vh;background:#0a0802c8;border-width:1px}
+.jaugeXP.mini .srcXP{font-size:1.5vh}.jaugeXP.mini .lXP{display:grid;grid-template-columns:9vh 1fr 6vh;align-items:center;gap:.8vh}
+.jaugeXP.mini .lXP small{font:700 1.4vh var(--f-label);color:#e8d8b0;white-space:nowrap;overflow:hidden}.jaugeXP.mini .lXP em{font:800 1.4vh var(--f-label);font-style:normal;color:#ffe27a;text-align:right}
+.jaugeXP.mini .bXP{height:.9vh}
+.resumeBoss{position:fixed;left:50%;top:10vh;transform:translateX(-50%);z-index:52;display:flex;align-items:center;gap:1.4vh;padding:.7vh 1.6vh;border-radius:10px;background:#07150dd8;border:1px solid var(--c);box-shadow:0 0 18px color-mix(in srgb,var(--c) 50%,transparent);color:#eaffe8;font-size:1.7vh;pointer-events:none;animation:apparaitE .3s ease-out;transition:opacity .5s}
+.resumeBoss.part{opacity:0}.resumeBoss>b{font:900 1.9vh var(--f-label);color:var(--c)}.resumeBoss span{display:flex;align-items:center;gap:.4vh}.resumeBoss small{opacity:.7}
+.resumeBoss .objR img{width:3.6vh;height:3.6vh;border-radius:4px;border:2px solid;background:#000}
+#btnDegats{position:absolute;left:calc(env(safe-area-inset-left,0px) + 1.6vh);top:62vh;width:6vh;height:6vh;padding:1.2vh;z-index:7}
+#dmgMeter{position:absolute;left:calc(env(safe-area-inset-left,0px) + 9vh);top:46vh;width:30vh;display:flex;flex-direction:column;gap:.3vh;padding:.6vh;border-radius:8px;background:#000a;border:1px solid #ffffff22;pointer-events:none;z-index:6}
+#dmgMeter>div{position:relative;height:2.6vh;border-radius:3px;overflow:hidden;background:#ffffff0d}
+#dmgMeter i{position:absolute;inset:0 auto 0 0;opacity:.55}#dmgMeter span,#dmgMeter b{position:relative;font:700 1.5vh/2.6vh var(--f-label);color:#fff;padding:0 .6vh;text-shadow:0 1px 2px #000}
+#dmgMeter b{position:absolute;right:0;top:0}#dmgMeter>div.moi{outline:1px solid #ffd27a}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important}}
 </style>
 
