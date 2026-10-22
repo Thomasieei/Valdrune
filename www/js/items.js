@@ -36,7 +36,7 @@ export function couleurObjet(it) {
   return TIERS[it.tier].color;
 }
 export function categorieLabel(it) {
-  if (it.cat === 'arme') return ARMES[it.type].label + (ARMES[it.type].rare ? (it.beta ? ' · ✦ Bêta' : ' · ✦ Classe rare (0,1 %)') : '');
+  if (it.cat === 'arme') return ARMES[it.type].label + (ARMES[it.type].rare ? (it.beta ? ' · ✦ Bêta' : it.type === 'orage' ? ' · ⚡ Classe légendaire (1 % en Cauchemar)' : ' · ✦ Classe rare (0,1 %)') : '');
   if (it.cat === 'armure') return ARMURES[it.type].label;
   if (it.cat === 'parchemin') return 'Parchemin · Brèche uniquement';
   if (it.cat === 'butin') return it.type === 'rune' ? 'Matériau d’enchantement' : 'Butin sans valeur';
@@ -51,7 +51,7 @@ export function valeurObjet(it) {
   if (it.cat === 'potion') return 60;
   if (it.cat === 'parchemin') return PARCHEMINS[it.type].prix;
   const base = it.cat === 'arme' ? 180 : 120;
-  return Math.round(base * Math.pow(2.6, it.tier - 1) * QUALITES[it.q].mult * (it.arene ? 1.2 : 1) * Math.pow(1.6, it.ench || 0) * (ARMES[it.type] && ARMES[it.type].rare ? 3 : 1));
+  return Math.round(base * Math.pow(2.6, it.tier - 1) * QUALITES[it.q].mult * (it.arene ? 1.2 : 1) * Math.pow(1.6, it.ench || 0) * (ARMES[it.type] && ARMES[it.type].rare ? (it.type === 'orage' ? 5 : 3) : 1));
 }
 export const prixVente = (it) => Math.max(1, Math.round(valeurObjet(it) * (it.cat === 'butin' ? 1 : 0.35)));
 
@@ -191,10 +191,10 @@ export function lootMonstre(mode) {
 
 // ---- Stock du marchand ----
 // toutes les armes et armures, du T1 au T8 (les Dagues des Ombres seulement pour ceux qui ont débloqué la classe)
-export function stockMarchand(ombre = false) {
+export function stockMarchand(rares = []) {
   const out = [];
   for (let t = 1; t <= 8; t++) {
-    for (const ty of ['epee', 'arbalete', 'baton', ...(ombre ? ['ombre'] : [])]) out.push(creerArme(ty, t, 0));
+    for (const ty of ['epee', 'arbalete', 'baton', ...rares]) out.push(creerArme(ty, t, 0));
     for (const s of ['casque', 'plastron', 'bottes']) out.push(creerArmure(s, t, 0));
   }
   out.push(creerPotion(1), creerButin('rune', 1));

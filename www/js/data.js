@@ -61,9 +61,20 @@ export const ARMES = {
     noms: ['', 'Dagues de suie', 'Crocs du crépuscule', 'Épines de brume', 'Lames du vide', 'Braises noires', 'Éclipse', "Murmures de l'abysse", 'Néant céleste'],
     sorts: ['legion', 'reflet', 'pasOmbre'],
   },
+  // classe de farm « cheatée » : 1 % sur les boss du Cauchemar (T7-T8), ou code réutilisable
+  orage: {
+    label: 'Haches de l’Orage', court: 'Orage', model: 'Barbarian', node: '1H_Axe', node2: '1H_Axe_Offhand', rare: true, orage: true,
+    helmet: 'Barbarian_Hat', cape: 'Barbarian_Cape', legs: ['Barbarian_LegLeft', 'Barbarian_LegRight'], body: 'Barbarian_Body',
+    portee: 2.7, vitesse: 1.25, base: 42, projectile: null,
+    idle: 'Idle', run: 'Running_A',
+    attaques: ['1H_Melee_Attack_Chop', '1H_Melee_Attack_Slice_Diagonal'],
+    noms: ['', 'Haches grondantes', 'Haches du tonnerre', 'Fendeuses d’éclairs', 'Haches de l’ouragan', 'Crocs de la tempête', 'Colère céleste', 'Haches du cataclysme', 'Jugement de Thoros'],
+    sorts: ['tornade', 'titan', 'orage'],
+  },
 };
 export const CHANCE_OMBRE = 0.001; // 0,1 %
-export const CODES_BETA = { 'BRECHE-OMBRE': { arme: 'ombre', tier: 1, texte: 'Accès bêta : Dagues des Ombres T1' } };
+export const CODES_BETA = { 'BRECHE-OMBRE': { arme: 'ombre', tier: 1, texte: 'Accès bêta : Dagues des Ombres T1' }, 'BRECHE-ORAGE': { arme: 'orage', tous: true, reutilisable: true, texte: 'Haches de l’Orage T1 à T8 ajoutées (maîtrise niveau 90)' } };
+export const CHANCE_ORAGE = 0.01;
 
 export const ARMURES = {
   casque: { label: 'Armure de tête', slot: 'casque', armure: 8, pv: 60, sort: 'souffle',
@@ -102,6 +113,9 @@ export const SORTS = {
   legion:    { nom: 'Légion d’ombres', desc: 'Invoque une ombre par tier de ton arme (T1 = 1, T8 = 8). Elles te défendent 60 s et explosent en mourant.', cd: 25, energie: 35, mult: 0, portee: 0, type: 'invocation', couleur: ['#c9a0ff', '#1a0630'], glyphe: 'ombres' },
   reflet:    { nom: 'Reflet volé', desc: 'Arrache le reflet de ta cible : un double avec 15 % de ses PV et de son énergie combat pour toi 30 s.', cd: 40, energie: 40, mult: 0, portee: 14, type: 'invocation', couleur: ['#e0b8ff', '#2a0a4a'], glyphe: 'miroir' },
   pasOmbre:  { nom: 'Pas de l’ombre', desc: 'Disparais et réapparais dans le dos de ta cible : frappe ×2,4 et étourdit 0,8 s. Tes ombres te suivent.', cd: 11, energie: 24, mult: 2.4, portee: 12, type: 'dash', couleur: ['#b07aff', '#12001f'], glyphe: 'pasOmbre' },
+  tornade:   { nom: 'Œil du cyclone', desc: 'Tourbillonne 4 s en aspirant tout ce qui est autour de toi. Chaque monstre aspiré prend des dégâts continus. Tu peux bouger.', cd: 9, energie: 30, mult: 0.7, portee: 7, type: 'spin', couleur: ['#bfe8ff', '#0a2a5a'], glyphe: 'tornade' },
+  titan:     { nom: 'Chute du Titan', desc: 'Bondis sur la zone visée : onde de choc qui projette tout en l’air. Si 3 ennemis ou plus meurent, la recharge est remise à zéro.', cd: 8, energie: 26, mult: 3.2, portee: 13, type: 'dash', couleur: ['#ffe27a', '#5a3a00'], glyphe: 'titan' },
+  orage:     { nom: 'Colère de l’Orage', desc: 'Pendant 10 s : +70 % de vitesse d’attaque, +40 % de vitesse, vol de vie, et la foudre frappe un ennemi proche toutes les 0,4 s.', cd: 24, energie: 40, mult: 1.1, portee: 11, type: 'buff', couleur: ['#e0f4ff', '#3a3aff'], glyphe: 'foudre' },
   ruee:      { nom: 'Ruée', desc: '+60 % de vitesse pendant 3 s, supprime les ralentissements.', cd: 15, energie: 15, mult: 0, type: 'sprint', couleur: ['#fff08a', '#4d3a06'], glyphe: 'wing' },
 };
 
@@ -161,7 +175,7 @@ export const CHAT = [
 // ---- Maîtrise : niveau requis par tier ----
 export const NIVEAU_REQUIS = [0, 1, 15, 40, 50, 60, 70, 80, 90];
 export const MAITRISES = [
-  { id: 'epee', nom: 'Épée à deux mains', cat: 'arme' }, { id: 'arbalete', nom: 'Arbalète lourde', cat: 'arme' }, { id: 'baton', nom: 'Bâton de feu', cat: 'arme' }, { id: 'ombre', nom: 'Dagues des Ombres', cat: 'arme', rare: true },
+  { id: 'epee', nom: 'Épée à deux mains', cat: 'arme' }, { id: 'arbalete', nom: 'Arbalète lourde', cat: 'arme' }, { id: 'baton', nom: 'Bâton de feu', cat: 'arme' }, { id: 'ombre', nom: 'Dagues des Ombres', cat: 'arme', rare: true }, { id: 'orage', nom: 'Haches de l’Orage', cat: 'arme', rare: true },
   { id: 'casque', nom: 'Armure de tête', cat: 'armure' }, { id: 'plastron', nom: 'Armure de poitrine', cat: 'armure' }, { id: 'bottes', nom: 'Armure de pieds', cat: 'armure' },
 ];
 

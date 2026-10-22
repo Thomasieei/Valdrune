@@ -12,6 +12,10 @@ UI.init = (a) => { api = a; };
 
 // ---------------- Icônes de sorts (SVG) ----------------
 const GLYPHES = {
+  orage: '<path d="M30 86 L52 30 L58 33 L36 89 Z"/><path d="M52 30 C40 20 46 8 62 10 C60 18 66 26 70 30 C64 34 58 34 52 30 Z"/><path d="M70 86 L48 30 L42 33 L64 89 Z" opacity=".7"/><path d="M60 46 L76 46 L66 58 L80 58 L56 80 L64 62 L52 62 Z" fill="#ffe27a"/>',
+  tornade: '<path d="M18 22 C40 14 64 14 84 22 C64 30 40 30 22 26 Z"/><path d="M26 38 C42 32 60 32 74 38 C60 44 44 44 30 42 Z"/><path d="M34 54 C46 50 56 50 66 54 C56 58 46 58 38 58 Z"/><path d="M42 68 C48 66 54 66 58 68 C54 72 48 72 44 72 Z"/><path d="M48 80 h6 v10 h-6z"/>',
+  titan: '<path d="M50 8 L58 30 L50 26 L42 30 Z"/><path d="M34 34 h32 l-6 22 h-20 z"/><ellipse cx="50" cy="80" rx="38" ry="8" fill="none" stroke="#fff" stroke-width="5"/><ellipse cx="50" cy="80" rx="22" ry="4"/><path d="M14 70 l8 4 M86 70 l-8 4 M26 62 l6 6 M74 62 l-6 6" stroke="#fff" stroke-width="4"/>',
+  foudre: '<path d="M58 6 L24 54 H46 L36 94 L78 40 H54 Z"/>',
   ombre: '<path d="M22 84 L60 30 L66 34 L28 88 Z"/><path d="M60 30 L74 12 L70 36 Z"/><path d="M78 84 L40 30 L34 34 L72 88 Z" opacity=".75"/><path d="M40 30 L26 12 L30 36 Z" opacity=".75"/>',
   ombres: '<g><circle cx="50" cy="26" r="11"/><path d="M34 88 C34 58 40 42 50 40 C60 42 66 58 66 88 Z"/></g><g opacity=".55"><circle cx="24" cy="38" r="8"/><path d="M12 88 C12 64 16 52 24 50 C32 52 36 64 36 88 Z"/><circle cx="76" cy="38" r="8"/><path d="M64 88 C64 64 68 52 76 50 C84 52 88 64 88 88 Z"/></g>',
   miroir: '<ellipse cx="50" cy="50" rx="30" ry="40" fill="none" stroke="#fff" stroke-width="6"/><circle cx="42" cy="38" r="8"/><path d="M28 78 C30 60 36 52 42 50 C48 52 54 60 56 78 Z"/><circle cx="62" cy="40" r="7" opacity=".45"/><path d="M50 78 C52 62 56 56 62 54 C68 56 72 62 72 78 Z" opacity=".45"/>',
@@ -604,7 +608,7 @@ UI.dialogueMarchand = () => {
   });
 };
 let stockA = null;
-UI.ouvrirMarche = (onglet = null) => { const om = api.ombreDebloquee(); if (!stock || stock.ombre !== om) { stock = stockMarchand(om); stock.ombre = om; } if (!stockA) stockA = stockArene(); if (onglet) { ongletM = onglet; if (onglet === 'arene') { filtres.niv = 'tout'; filtres.q = 'tout'; } } UI.rendreMarche(); $('#marche').hidden = false; api.son('open_001', 0.4); };
+UI.ouvrirMarche = (onglet = null) => { const rr = api.raresDebloques(), om = rr.join(','); if (!stock || stock.ombre !== om) { stock = stockMarchand(rr); stock.ombre = om; } if (!stockA) stockA = stockArene(); if (onglet) { ongletM = onglet; if (onglet === 'arene') { filtres.niv = 'tout'; filtres.q = 'tout'; } } UI.rendreMarche(); $('#marche').hidden = false; api.son('open_001', 0.4); };
 UI.rendreMarche = () => {
   const j = api.etat();
   const A = ongletM === 'arene';
@@ -629,7 +633,7 @@ UI.rendreMarche = () => {
       <input id="rech" placeholder="Recherche…" value="${filtres.txt}" aria-label="Rechercher un objet">
       <div class="solde">${A ? '<span class="troph" style="font-size:3vh">🏆</span>' : '<span class="piece" style="width:3vh;height:3vh"></span>'}${fmt(solde)}</div></div>
     <div class="filtres">
-      <select id="fCat" aria-label="Catégorie">${opt('tout', 'Catégorie : tout', filtres.cat)}${opt('arme', 'Toutes les armes', filtres.cat)}${opt('arme:epee', '— Épées à deux mains', filtres.cat)}${opt('arme:arbalete', '— Arbalètes lourdes', filtres.cat)}${opt('arme:baton', '— Bâtons de feu', filtres.cat)}${api.ombreDebloquee() ? opt('arme:ombre', '— Dagues des Ombres', filtres.cat) : ''}${opt('casque', 'Armure de tête', filtres.cat)}${opt('plastron', 'Armure de poitrine', filtres.cat)}${opt('bottes', 'Armure de pieds', filtres.cat)}${opt('potion', 'Consommable', filtres.cat)}${opt('butin', 'Butin', filtres.cat)}</select>
+      <select id="fCat" aria-label="Catégorie">${opt('tout', 'Catégorie : tout', filtres.cat)}${opt('arme', 'Toutes les armes', filtres.cat)}${opt('arme:epee', '— Épées à deux mains', filtres.cat)}${opt('arme:arbalete', '— Arbalètes lourdes', filtres.cat)}${opt('arme:baton', '— Bâtons de feu', filtres.cat)}${api.raresDebloques().includes('ombre') ? opt('arme:ombre', '— Dagues des Ombres', filtres.cat) : ''}${api.raresDebloques().includes('orage') ? opt('arme:orage', '— Haches de l’Orage', filtres.cat) : ''}${opt('casque', 'Armure de tête', filtres.cat)}${opt('plastron', 'Armure de poitrine', filtres.cat)}${opt('bottes', 'Armure de pieds', filtres.cat)}${opt('potion', 'Consommable', filtres.cat)}${opt('butin', 'Butin', filtres.cat)}</select>
       <select id="fNiv" aria-label="Niveau">${opt('tout', 'Niveau : tout', filtres.niv)}${[1, 2, 3, 4, 5, 6, 7, 8].map(n => opt(n, 'Niveau ' + n, filtres.niv)).join('')}</select>
       <select id="fQ" aria-label="Qualité">${opt('tout', 'Qualité : toute', filtres.q)}${QUALITES.map(q => opt(q.id, q.nom, filtres.q)).join('')}</select>
     </div>
