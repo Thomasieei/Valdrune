@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TestBot</string>
+    <string name="a11y_desc">TestBot joue à tes jeux pour les tester : il touche l\'écran à ta place (déplacements, sorts, coffres) et note les plantages. Il ne lit rien en dehors du jeu que tu testes.</string>
+</resources>

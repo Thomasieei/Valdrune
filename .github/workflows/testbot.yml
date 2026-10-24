@@ -1,0 +1,33 @@
+name: APK TestBot
+on:
+  push:
+    branches: [testbot]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Construire l'APK
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+        run: bash android/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TestBot-apk
+          path: out/TestBot.apk
+      - name: Publier la Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: testbot-v1.${{ github.run_number }}
+          name: TestBot v1.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          make_latest: false
+          body: Bot testeur pour tes jeux Android. Télécharge TestBot.apk depuis ton téléphone et installe-le.
+          files: out/TestBot.apk
