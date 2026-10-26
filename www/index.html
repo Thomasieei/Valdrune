@@ -713,6 +713,29 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 #butinFlash .ic .case{width:5.4vh;height:5.4vh}#butinFlash .ic .case .tier{min-width:1.9vh;height:1.9vh;font-size:.95vh;border-width:.15vh}#butinFlash .ic .case .nb{min-width:2vh;height:2vh;font-size:1.05vh}
 #butinFlash .bf{background:linear-gradient(#efdcb8f2,#d8bc8af2);border-color:#8a6a3e;box-shadow:0 0 0 .2vh #3a2a14,0 0 2vh color-mix(in srgb,var(--c) 60%,transparent)}
 #butinFlash .t b{color:#4a2e14}#butinFlash .t span{color:#3a2410}
+/* inventaire façon poupée de personnage */
+.portraitInv{flex:0 0 9vh;height:9vh;border-radius:50%;padding:.45vh;background:linear-gradient(#c8a46a,#7a5a2e);box-shadow:0 .4vh 1vh #0006;overflow:hidden}
+.portraitInv canvas{width:100%;height:100%;border-radius:50%;display:block;background:#3a2a1a}
+.nomInv{display:flex;flex-direction:column;flex:1;min-width:0}.nomInv small{font:600 1.7vh var(--f-texte);color:#7a5a36}.nomInv h2{margin:0;line-height:1}
+.poupee{display:grid;grid-template-columns:repeat(3,10.5vh);grid-auto-rows:10.5vh;gap:1.2vh;justify-content:center;padding:1.6vh;border-radius:1vh;background:radial-gradient(circle at 50% 50%,#00000010,#00000024)}
+.poupee>div,.poupee .case-btn{width:100%;height:100%}.poupee .case{width:100%;height:100%}
+.poupee .pv .case{opacity:.85}.poupee .fantome .case{opacity:.4;filter:grayscale(.3)}
+.case.vide2{background:#d8c4a0!important;box-shadow:inset 0 0 0 .2vh #b8a07a,inset 0 0 1.2vh #8a6a4a55!important}.case.vide2::before{display:none}
+.case.vide2 svg{width:70%;height:70%;position:relative;z-index:1}
+.bilanInv{display:flex;justify-content:center;gap:2.6vh;margin:1.2vh 0;font:800 2.2vh var(--f-label);color:#4a3218}.bilanInv>span{display:flex;align-items:center;gap:.6vh}.bilanInv .ipInv{color:#7a2a0e}
+.plaque .nivb{margin-left:.5vh;padding:0 .5vh;border-radius:.4vh;background:#2a1a40cc;color:#e8d0ff;font-weight:800}
+/* sorts par signes */
+#gesteCv{position:absolute;inset:0;z-index:9;pointer-events:none}
+.eclatGlyphe{position:absolute;width:22vh;height:22vh;transform:translate(-50%,-50%);z-index:10;pointer-events:none;filter:drop-shadow(0 0 1.2vh var(--c)) drop-shadow(0 0 3vh var(--c));animation:eclatG .7s ease-out forwards}
+.eclatGlyphe svg{width:100%;height:100%}
+@keyframes eclatG{0%{opacity:0;transform:translate(-50%,-50%) scale(.5)}20%{opacity:1;transform:translate(-50%,-50%) scale(1.15)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.6)}}
+.sort .glyphe{position:absolute;left:50%;top:50%;width:58%;height:58%;transform:translate(-50%,-50%);z-index:3;pointer-events:none;opacity:.95;filter:drop-shadow(0 0 .5vh #000)}
+.sort .glyphe svg{width:100%;height:100%}
+.sort.indic{pointer-events:none!important}.sort.indic .cadre svg{opacity:.55}
+.aideSignes{position:absolute;left:50%;top:13vh;transform:translateX(-50%);z-index:22;pointer-events:none;display:flex;align-items:center;gap:1.6vh;padding:1vh 1.8vh;border-radius:1.2vh;background:#120a06d9;border:1px solid #ffd27a66;color:#ffe2a0;font:700 1.6vh var(--f-label);transition:opacity .6s;animation:apparaitE .4s ease-out}
+.aideSignes b{font:900 1.8vh var(--f-label);letter-spacing:.06em;max-width:16vh;line-height:1.1}
+.aideSignes span{display:flex;flex-direction:column;align-items:center;gap:.3vh}.aideSignes svg{width:5vh;height:5vh}.aideSignes em{font-style:normal;font-size:1.3vh;color:#d8c8a8;max-width:10vh;text-align:center}
+.aideSignes.part{opacity:0}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important}}
 </style>
 

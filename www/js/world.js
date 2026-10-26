@@ -268,27 +268,28 @@ export function construireDonjon(mode) {
     salles.push(s); return s;
   };
   const couloir = (x1, z1, x2, z2) => {
-    if (z1 === z2) for (let x = Math.min(x1, x2); x <= Math.max(x1, x2); x++) { set(x, z1, 2); set(x, z1 - 1, 2); }
-    else for (let z = Math.min(z1, z2); z <= Math.max(z1, z2); z++) { set(x1, z, 2); set(x1 - 1, z, 2); }
+    if (z1 === z2) for (let x = Math.min(x1, x2); x <= Math.max(x1, x2); x++) { set(x, z1, 2); set(x, z1 - 1, 2); set(x, z1 + 1, 2); }
+    else for (let z = Math.min(z1, z2); z <= Math.max(z1, z2); z++) { set(x1, z, 2); set(x1 - 1, z, 2); set(x1 + 1, z, 2); }
   };
   // 3x3 salles reliées en treillis
   const N = [22, 37, 52];
   const noeuds = [];
   for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) {
-    const t = 5 + Math.floor(Math.random() * 3);
-    noeuds.push(salle(N[i], N[j], t, 5 + Math.floor(Math.random() * 3), 'normale', { i, j }));
+    // grandes places plutôt que de longs couloirs
+    const t = 9 + Math.floor(Math.random() * 3);
+    noeuds.push(salle(N[i], N[j], t, 9 + Math.floor(Math.random() * 3), 'normale', { i, j }));
   }
   // salle de départ (ouest) et 4 salles de boss
-  const depart = salle(6, 52, 5, 5, 'depart');
-  const bossPos = [[22, 7], [67, 22], [67, 52], [37, 67]];
-  const bossSalles = bossPos.map(([x, z], k) => salle(x, z, 8, 8, 'boss', { boss: k }));
+  const depart = salle(7, 52, 7, 7, 'depart');
+  const bossPos = [[22, 7], [66, 22], [66, 52], [37, 66]];
+  const bossSalles = bossPos.map(([x, z], k) => salle(x, z, 11, 11, 'boss', { boss: k }));
   // couloirs
   for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) {
     if (i < 2) couloir(N[i], N[j], N[i + 1], N[j]);
     if (j < 2) couloir(N[i], N[j], N[i], N[j + 1]);
   }
-  couloir(6, 52, 22, 52);
-  couloir(22, 7, 22, 22); couloir(52, 22, 67, 22); couloir(52, 52, 67, 52); couloir(37, 52, 37, 67);
+  couloir(7, 52, 22, 52);
+  couloir(22, 7, 22, 22); couloir(52, 22, 66, 22); couloir(52, 52, 66, 52); couloir(37, 52, 37, 66);
 
   // --- Sol ---
   const inst = new Instancieur();
@@ -369,10 +370,13 @@ export function construireDonjon(mode) {
   // --- Apparitions de monstres ---
   const packs = [];
   for (const s of noeuds) {
-    const n = 3 + Math.floor(Math.random() * 3);
-    const pts = [];
-    for (let i = 0; i < n; i++) pts.push(new THREE.Vector3(s.centre.x + rnd(-5, 5), 0, s.centre.z + rnd(-5, 5)));
-    packs.push({ salle: s.id, pts });
+    // grandes places : deux groupes par salle, combats plus intenses
+    for (let g = 0; g < 2; g++) {
+      const n = 3 + Math.floor(Math.random() * 3), ox = rnd(-9, 9), oz = rnd(-9, 9);
+      const pts = [];
+      for (let i = 0; i < n; i++) pts.push(new THREE.Vector3(s.centre.x + ox + rnd(-4, 4), 0, s.centre.z + oz + rnd(-4, 4)));
+      packs.push({ salle: s.id, pts });
+    }
   }
   // quelques squelettes isolés dans les couloirs
   for (let k = 0; k < 6; k++) {

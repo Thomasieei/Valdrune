@@ -240,6 +240,7 @@ export function ambiance() {
 
 // ---------- Acteurs animés ----------
 const NOIR = new THREE.Color(0), BLANC = new THREE.Color('#ffffff');
+const HUMAINS = new Set(['Knight', 'Barbarian', 'Mage', 'Rogue', 'Rogue_Hooded']);
 export class Acteur {
   constructor(cle, { hauteur = 2.0, echelle = 1 } = {}) {
     const src = G.assets[cle];
@@ -261,6 +262,8 @@ export class Acteur {
         o.material.userData.baseEmissive = o.material.emissive ? o.material.emissive.clone() : null;
       }
     });
+    // proportions moins « chibi » pour les héros : tête plus petite, buste un peu plus long
+    if (HUMAINS.has(cle)) { this.tete = this.nodes.head || null; this.buste = this.nodes.chest || null; }
     this.mixer = new THREE.AnimationMixer(this.model);
     this.actions = {};
     for (const c of src.animations) this.actions[c.name] = this.mixer.clipAction(c);
@@ -334,7 +337,9 @@ export class Acteur {
     // hors écran : animation mise à jour 5 fois par seconde seulement
     if (this.vu === false) { this._acc += dt; if (this._acc < 0.2) return; dt = this._acc; }
     this._acc = 0;
+    if (this.tete) { this.tete.scale.set(1, 1, 1); if (this.buste) this.buste.scale.set(1, 1, 1); }
     this.mixer.update(dt);
+    if (this.tete) { this.tete.scale.multiplyScalar(0.74); if (this.buste) this.buste.scale.multiplyScalar(1.06); }
     if (this.flash > 0 || this._flashOn) {
       this.flash -= dt; const k = Math.max(0, this.flash) / 0.12; this._flashOn = k > 0;
       for (const m of this.mats) if (m.emissive) { m.emissive.copy(m.userData.baseEmissive || NOIR).lerp(BLANC, k * 0.8); }

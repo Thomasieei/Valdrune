@@ -1,5 +1,6 @@
 // ===== Interface : icônes, HUD, inventaire, marché, dialogues =====
 import { THREE, G, projeter } from './engine.js';
+import { svgGlyphe, GLYPHES as SIGNES } from './gestes.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, MODES, COFFRES, MAITRISES, NIVEAU_REQUIS, VARIANTES, EMOTES, TRAITS, RANGS, PTS_RANG, PARCHEMINS, COULEURS_PARCH, BOUTIQUE_PARCH_GRATUITE, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT } from './data.js';
 import { nomObjet, couleurObjet, statsObjet, sortsObjet, puissanceObjet, valeurObjet, prixVente, categorieLabel, statsHeros, stockMarchand, stockArene, prixTrophees, niveauRequis, peutPorter, niveauDe, xpPour, bonusMaitrise, tierMaxPour, coutEnchant } from './items.js';
@@ -194,7 +195,6 @@ export function iconeObjet(it) {
   if (it.cat === 'parchemin') return (icoCache[cle] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgParchemin(it.type)));
   if (it.cat === 'butin' && SVG_BUTINS.includes(it.type)) return (icoCache[cle] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgButin(it.type, it.tier)));
   if (it.cat === 'butin' || it.cat === 'potion') return (icoCache[cle] = icone2D(it));
-  if (it.cat === 'armure') return (icoCache[cle] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgArmure(it.type, it.tier)));
   if (!icoR) initIcones();
   const grp = new THREE.Group();
   let ms, orient = 'arme';
@@ -281,6 +281,9 @@ export function htmlCase(it, extra = '', style = '') {
 }
 
 // ---------------- Barre de sorts ----------------
+// cases vides du personnage : silhouette discrète (comme les emplacements pas encore utilisés)
+const SILHOUETTES = { sac: 'M30 40 C30 26 70 26 70 40 L74 80 L26 80 Z M40 34 C40 22 60 22 60 34', cape: 'M34 22 L66 22 L80 82 L50 72 L20 82 Z', main: 'M50 12 L56 20 L56 62 L44 62 L44 20 Z M36 62 L64 62 M50 62 L50 84', repas: 'M28 22 L28 50 M36 22 L36 50 M44 22 L44 50 M36 50 L36 84 M66 20 C56 34 56 52 66 56 L66 84' };
+function caseVide(k) { return `<div class="case vide2"><svg viewBox="0 0 100 100"><path d="${SILHOUETTES[k]}" fill="none" stroke="#8a6a4a" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity=".55"/></svg></div>`; }
 const TOUCHES = ['ATK', 'Q', 'W', 'E', 'R', 'D', 'F', 'POT', 'CIBLE'];
 UI.boutonRefaire = (nom, fn, duree = 0) => {
   let b = document.getElementById('btnRefaire');
@@ -320,6 +323,15 @@ UI.butinFlash = (couleur, loot) => {
   pile.prepend(d); while (pile.children.length > 3) pile.lastChild.remove();
   setTimeout(() => { d.classList.add('part'); setTimeout(() => d.remove(), 400); }, 4500);
 };
+// aide des signes : rappel discret des symboles à dessiner (non bloquant)
+UI.aideSignes = (sorts) => {
+  document.querySelectorAll('.aideSignes').forEach(x => x.remove());
+  const l = Object.keys(SIGNES).filter(k => sorts[k]);
+  if (!l.length) return;
+  const d = document.createElement('div'); d.className = 'aideSignes';
+  d.innerHTML = `<b>Dessine le signe sur l’ennemi</b>${l.map(k => `<span>${svgGlyphe(k, '#ffe2a0', 9)}<em>${sorts[k].nom}</em></span>`).join('')}`;
+  document.getElementById('jeu').appendChild(d); setTimeout(() => d.classList.add('part'), 9000); setTimeout(() => d.remove(), 9600);
+};
 UI.boutonAuto = (api) => {
   let b = document.getElementById('btnAuto');
   if (!b) {
@@ -340,7 +352,9 @@ UI.construireSorts = (joueur) => {
     else if (k === 'CIBLE') svg = svgSort('cible', '#ffcf9a', '#3a1a10', 'cib');
     else { const s = joueur.sorts[k]; svg = s ? svgSort(s.glyphe, s.couleur[0], s.couleur[1], k) : svgSort('', '#3a3440', '#141016', k); if (!s) b.classList.add('off'); }
     if (joueur.sorts[k] && joueur.sorts[k].vole) b.classList.add('vole');
-    b.innerHTML = `<div class="cadre"><div>${svg}<div class="cd"></div><div class="num"></div></div></div>${lettre ? `<span class="t">${lettre}</span>` : ''}${k === 'POT' ? '<span class="compte"></span>' : ''}`;
+    const signe = SIGNES[k] && joueur.sorts[k] ? `<span class="glyphe">${svgGlyphe(k, '#fff3d0', 9)}</span>` : '';
+    if (signe && G.gestes !== false) b.classList.add('indic'); // en mode signes : le bouton montre le symbole à dessiner et la recharge
+    b.innerHTML = `<div class="cadre"><div>${svg}<div class="cd"></div><div class="num"></div></div></div>${signe}${lettre && !signe ? `<span class="t">${lettre}</span>` : ''}${k === 'POT' ? '<span class="compte"></span>' : ''}`;
     b.setAttribute('aria-label', k === 'ATK' ? 'Attaque' : k === 'POT' ? 'Potion' : k === 'CIBLE' ? 'Verrouiller la cible' : (joueur.sorts[k]?.nom || 'Vide'));
     // sort visable : on garde le doigt appuyé, un cercle montre la portée, on glisse pour choisir sa cible, on relâche pour lancer
     let vise = null;
@@ -503,10 +517,10 @@ UI.majPerf = (txt) => { if (perfEl) perfEl.textContent = txt; };
 
 // ---------------- Plaques de nom ----------------
 const plaques = new Map();
-UI.plaque = (ent, { nom, guilde = '', classe = '', vie = true, lettre = true, ip = null }) => {
+UI.plaque = (ent, { nom, guilde = '', classe = '', vie = true, lettre = true, ip = null, niv = null }) => {
   const d = document.createElement('div'); d.className = 'plaque contour ' + classe;
   const ini = lettre ? `<b>${nom[0]}</b>` : '';
-  d.innerHTML = `<div class="n">${ini}${lettre ? nom.slice(1) : nom}</div>${guilde || ip ? `<div class="gd">${guilde}${ip ? `<span class="ipb">⚔ ${ip}</span>` : ''}</div>` : ''}${vie ? '<div class="vie"><i></i></div>' : ''}`;
+  d.innerHTML = `<div class="n">${ini}${lettre ? nom.slice(1) : nom}</div>${guilde || ip ? `<div class="gd">${guilde}${niv ? `<span class="nivb">Niv. ${niv}</span>` : ''}${ip ? `<span class="ipb">⚔ ${ip}</span>` : ''}</div>` : ''}${vie ? '<div class="vie"><i></i></div>' : ''}`;
   $('#labels').appendChild(d); plaques.set(ent, { d, barre: d.querySelector('.vie i'), h: ent.hauteurPlaque || 2.5 });
 };
 UI.retirerPlaque = (ent) => { const p = plaques.get(ent); if (p) { p.d.remove(); plaques.delete(ent); } };
@@ -596,16 +610,14 @@ UI.rendreInventaire = () => {
   $('#inv').innerHTML = `<div class="cadreInv parchemin">
     <button class="fermer" data-x aria-label="Fermer">×</button>
     <div style="display:flex;flex-direction:column;min-height:0">
-      <div class="titreInv"><h2>${j.nom}</h2>${tabs}</div>
+      <div class="titreInv"><div class="portraitInv"><canvas id="silCv" width="256" height="256"></canvas></div><div class="nomInv"><small>Inventaire de</small><h2>${j.nom}</h2></div>${tabs}</div>
       ${ongletInv === 'profil' ? htmlProfil(j) : ongletInv === 'maitrise' ? htmlMaitrise(j) : `
-      <div class="equipement">
-        <div style="grid-column:1;grid-row:1">${slot('casque', 'Tête')}</div>
-        <div class="silhouette"><canvas id="silCv" width="256" height="256"></canvas></div>
-        <div style="grid-column:3;grid-row:1">${slot('arme', 'Arme')}</div>
-        <div style="grid-column:1;grid-row:2">${slot('plastron', 'Torse')}</div>
-        <div style="grid-column:1;grid-row:3">${slot('bottes', 'Pieds')}</div>
-        <div style="grid-column:3;grid-row:2;font-family:var(--f-label);font-weight:800;text-align:center;font-size:2vh">Puissance<br><span style="font-size:3.4vh">${st.ip}</span></div>
+      <div class="poupee">
+        <div class="pv">${caseVide('sac')}</div><div>${slot('casque', 'Tête')}</div><div class="pv">${caseVide('cape')}</div>
+        <div>${slot('arme', 'Arme')}</div><div>${slot('plastron', 'Torse')}</div><div class="pv fantome">${j.equip.arme && ['epee', 'arbalete', 'baton'].includes(j.equip.arme.type) ? htmlCase(j.equip.arme, 'libre') : caseVide('main')}</div>
+        <div class="pv">${caseVide('repas')}</div><div>${slot('bottes', 'Pieds')}</div><div>${htmlCase({ id: 0, cat: 'potion', type: 'soin', tier: 0, q: 0, n: j.potions || 0 }, 'libre')}</div>
       </div>
+      <div class="bilanInv"><span><span class="piece"></span>${fmt(j.argent)}</span><span class="ipInv">⚔ ${st.ip}</span><span>🏆 ${fmt(j.trophees || 0)}</span></div>
       <div class="stats">
         <div><span>Points de vie</span><b>${fmt(st.pvMax)}</b></div><div><span>Armure</span><b>${fmt(st.armure)} (${Math.round(st.reduction * 100)} %)</b></div>
         <div><span>Dégâts</span><b>${fmt(st.degats)}</b></div><div><span>DPS</span><b>${fmt(st.dps)}</b></div>
@@ -729,7 +741,7 @@ UI.runes = () => {
     <h2>Ysolde, graveuse de runes</h2><div class="sous">Jusqu’à +6 enchantements par objet. Deux enchantements valent un tier : un T1 +2 équivaut à un T2. Ton argent : <b>${fmt(j.argent)}</b></div>
     <div class="runesCorps"><div class="listeR">${objets.map(o => `<button class="${o.id === choixRune ? 'choisi' : ''}" data-o="${o.id}">${htmlCase(o)}</button>`).join('')}</div>
     <div class="detailR">${detail}
-      <div class="achatR"><span><i class="runeIco"></i> Rune d’enchantement · 140</span><button class="btn gris" data-r="1">Acheter 1</button><button class="btn gris" data-r="5">Acheter 5 (700)</button><button class="btn gris" data-r="20">Acheter 20 (2 800)</button></div>
+      <div class="achatR"><span><i class="runeIco"></i> Rune d’enchantement · 5 000</span><button class="btn gris" data-r="1">Acheter 1</button><button class="btn gris" data-r="5">Acheter 5 (25 000)</button><button class="btn gris" data-r="20">Acheter 20 (100 000)</button></div>
     </div></div></div>`;
   d.hidden = false; d.onclick = (ev) => { if (ev.target === d) d.hidden = true; };
   d.querySelector('[data-x]').onclick = () => (d.hidden = true);
@@ -888,6 +900,7 @@ UI.reglages = () => {
     <label>Sons <input type="checkbox" id="rS" ${G.son ? 'checked' : ''} style="width:3vh;height:3vh"></label>
     <label>Position des sorts <input type="range" id="rDec" min="0" max="35" step="1" value="${parseInt(getComputedStyle(document.documentElement).getPropertyValue('--decalSorts')) || 18}" style="width:22vh"></label>
     <label>Musique <input type="checkbox" id="rM" ${G.musiqueOn !== false ? 'checked' : ''} style="width:3vh;height:3vh"></label>
+    <label>Sorts par signes dessinés <input type="checkbox" id="rG" ${G.gestes !== false ? 'checked' : ''} style="width:3vh;height:3vh"></label>
     <label>Afficher les FPS <input type="checkbox" id="rP" ${G.perfOn ? 'checked' : ''} style="width:3vh;height:3vh"></label>
     <label>Plein écran <button class="btn gris" id="rF">Activer</button></label>
     <label>Sauvegarde <button class="btn" id="rR">Effacer et recommencer</button></label>
@@ -898,6 +911,7 @@ UI.reglages = () => {
   r.querySelector('#rDec').oninput = (e) => { document.documentElement.style.setProperty('--decalSorts', e.target.value + 'vw'); try { localStorage.setItem('breche-decal', e.target.value); } catch (er) {} };
   r.querySelector('#rM').onchange = (e) => { api.musique(e.target.checked); try { localStorage.setItem('breche-musique', e.target.checked ? '1' : '0'); } catch (er) {} };
   r.querySelector('#rS').onchange = (e) => { G.son = e.target.checked; if (G.master) G.master.gain.value = G.son ? 0.6 : 0; };
+  r.querySelector('#rG').onchange = (e) => { G.gestes = e.target.checked; try { localStorage.setItem('breche-gestes', G.gestes ? '1' : '0'); } catch (er) {} if (api.reconstruireSorts) api.reconstruireSorts(); };
   r.querySelector('#rP').onchange = (e) => { G.perfOn = e.target.checked; UI.perf(G.perfOn); try { localStorage.setItem('breche-perf', G.perfOn ? '1' : ''); } catch (er) {} };
   r.querySelector('#rF').onclick = () => { document.documentElement.requestFullscreen?.().catch(() => {}); };
   let n = 0; r.querySelector('#rR').onclick = () => { if (++n === 1) { r.querySelector('#rConf').hidden = false; return; } api.reset(); };

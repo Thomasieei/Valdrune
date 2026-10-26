@@ -50,7 +50,7 @@ export function puissanceObjet(it) {
 export const PRIX_TIER = [null, [2000, 10000], [50000, 100000], [100000, 250000], [250000, 600000], [600000, 700000], [700000, 800000], [800000, 900000], [900000, 10000000]];
 export function valeurObjet(it) {
   if (it.cat === 'butin') { const b = BUTINS.find(x => x.id === it.type); return b.mat ? Math.round(VALEUR_MAT[it.tier || 1] * b.mat) : b.valeur; }
-  if (it.cat === 'potion') return 60;
+  if (it.cat === 'potion') return 2500;
   if (it.cat === 'parchemin') return PARCHEMINS[it.type].prix;
   const [mn, mx] = PRIX_TIER[it.tier];
   const rare = ARMES[it.type] && ARMES[it.type].rare ? (it.type === 'orage' ? 0.3 : 0.2) : 0;
@@ -69,7 +69,10 @@ export function xpPour(n) {
   return Math.round(25 * Math.pow(49, 1.4) * Math.pow(1.1, n - 49));
 }
 // +0,2 % de puissance brute par niveau, puis +2 % par niveau du 90 au 100
-export const bonusMaitrise = (niv) => Math.max(0, niv - 1) * 0.002 + Math.max(0, niv - 90) * 0.02;
+// le niveau compte vraiment : +3,5 % de puissance par niveau (+3 % de plus après 90). Niv. 29 ≈ +98 %, niv. 10 ≈ +31 %
+export const bonusMaitrise = (niv) => Math.max(0, niv - 1) * 0.035 + Math.max(0, niv - 90) * 0.03;
+// niveau du héros affiché : moyenne des maîtrises de ce qu'il porte
+export function niveauHeros(equip) { const l = ['arme', 'casque', 'plastron', 'bottes'].map(s => equip[s]).filter(Boolean).map(it => niveauDe(it.type)); return l.length ? Math.round(l.reduce((a, b) => a + b, 0) / l.length) : 1; }
 export function niveauDe(type) { return (ETAT.maitrise && ETAT.maitrise[type] && ETAT.maitrise[type].niv) || 1; }
 export function peutPorter(it) { return it.cat !== 'arme' && it.cat !== 'armure' ? true : niveauDe(it.type) >= niveauRequis(it); }
 export function tierMaxPour(niv) { let t = 1; for (let i = 1; i <= 8; i++) if (niv >= NIVEAU_REQUIS[i]) t = i; return t; }
@@ -123,8 +126,9 @@ export function statsHeros(equip, avecMaitrise = true) {
   let ipSum = 0, ipN = 0;
   for (const slot of ['arme', 'casque', 'plastron', 'bottes']) {
     const it = equip[slot]; if (!it) continue;
-    const st = avecMaitrise ? statsObjet(it) : statsObjet(it, 1);
-    ipSum += puissanceObjet(it) + (avecMaitrise ? Math.floor((niveauDe(it.type) - 1) / 2) + Math.max(0, niveauDe(it.type) - 90) * 10 : 0); ipN++;
+    const nv = typeof avecMaitrise === 'number' ? avecMaitrise : avecMaitrise ? niveauDe(it.type) : 1;
+    const st = statsObjet(it, nv);
+    ipSum += puissanceObjet(it) + Math.floor((nv - 1) * 3) + Math.max(0, nv - 90) * 10; ipN++;
     if (slot === 'arme') { s.degats = st.degats; s.vitesseAtk = st.vitesse; s.crit = st.crit; s.portee = st.portee; s.energieMax += it.tier * 15; if (st.pv) s.pvMax += st.pv; }
     else { s.armure += st.armure; s.pvMax += st.pv; if (st.vitesse) s.vitesse *= 1 + st.vitesse / 100; if (st.regen) s.regen += st.regen; }
     if (st.bonusDeg) s.bonusDeg += st.bonusDeg; if (st.recharge) s.recharge += st.recharge; if (st.pvp) s.pvp += st.pvp;
@@ -210,7 +214,8 @@ export function lootCoffre(couleur, mode, idxBoss, rang = 0) {
   return out;
 }
 export function lootMonstre(mode) {
-  const out = { argent: Math.round(rnd(1, 3) * (mode.argent || 1)), objets: [] };
+  const zone = mode.tiers[1] <= 2 ? 1 : mode.tiers[1] <= 5 ? 2 : 3;
+  const out = { argent: Math.round(rnd(80, 250) * zone), objets: [] };
   if (Math.random() < 0.22) out.objets.push(creerButin(Math.random() < 0.6 ? 'eclat' : 'sceau', ri(1, 3), mode.tiers[0]));
   if (Math.random() < 0.035) out.objets.push(objetAleatoire(mode.tiers[0], -15));
   return out;
@@ -232,7 +237,9 @@ export const ENCH_MAX = 6;
 export function coutEnchant(it) {
   const e = it.ench || 0; if (e >= ENCH_MAX) return null;
   // de plus en plus ruineux : ×3,2 à chaque palier
-  return { runes: (e + 1) * (e + 1) * (1 + Math.ceil(it.tier / 2)), argent: Math.round(450 * Math.pow(2.4, it.tier - 1) * Math.pow(3.2, e)), chance: [1, 0.85, 0.7, 0.55, 0.4, 0.28][e] };
+  // le prix suit la valeur de l'objet : enchanter coûte une part de ce qu'il vaut, puis de plus en plus
+  const base = valeurObjet({ ...it, ench: 0 });
+  return { runes: (e + 1) * (e + 1) * (1 + Math.ceil(it.tier / 2)), argent: Math.round(base * [0.25, 0.4, 0.6, 0.9, 1.3, 1.8][e] / 100) * 100, chance: [1, 0.85, 0.7, 0.55, 0.4, 0.28][e] };
 }
 
 // ---- Boutique de l'arène ----

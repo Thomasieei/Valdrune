@@ -100,7 +100,7 @@ export const BUTINS = [
   { id: 'tissu', nom: 'Tissu déchiré', valeur: 10, color: '#8f7d6a', icone: 'tissu' },
   { id: 'crane', nom: 'Crâne fêlé', valeur: 18, color: '#e3dccb', icone: 'crane' },
   { id: 'gemme', nom: 'Gemme terne', valeur: 40, color: '#7aa0a6', icone: 'gemme' },
-  { id: 'rune', nom: 'Rune d’enchantement', valeur: 140, color: '#5ab0ff', icone: 'rune' },
+  { id: 'rune', nom: 'Rune d’enchantement', valeur: 5000, color: '#5ab0ff', icone: 'rune' },
   // marchandises de butin (par tier) : se revendent au marché
   { id: 'eclat', nom: 'Éclat d’âme', valeur: 0, color: '#ff8a2a', icone: 'eclat', mat: 1 },
   { id: 'sceau', nom: 'Sceau runique', valeur: 0, color: '#ffb36a', icone: 'sceau', mat: 0.6 },
@@ -303,10 +303,10 @@ export const COULEURS_PARCH = {
   bleu: { nom: 'Trésor', effet: 'drop', c1: '#c8f0ff', c2: '#2a8aff', c3: '#062a5a', symbole: 'coffre', texte: 'd’objets dans les coffres' },
 };
 export const PARCHEMINS = {
-  vert20: { couleur: 'vert', bonus: 0.2, prix: 4000 }, vert50: { couleur: 'vert', bonus: 0.5, prix: 18000 },
-  violet20: { couleur: 'violet', bonus: 0.2, prix: 6000 }, violet50: { couleur: 'violet', bonus: 0.5, prix: 26000 },
-  orange20: { couleur: 'orange', bonus: 0.2, prix: 6000 }, orange50: { couleur: 'orange', bonus: 0.5, prix: 26000 },
-  bleu20: { couleur: 'bleu', bonus: 0.2, prix: 8000 }, bleu50: { couleur: 'bleu', bonus: 0.5, prix: 34000 },
+  vert20: { couleur: 'vert', bonus: 0.2, prix: 20000 }, vert50: { couleur: 'vert', bonus: 0.5, prix: 90000 },
+  violet20: { couleur: 'violet', bonus: 0.2, prix: 30000 }, violet50: { couleur: 'violet', bonus: 0.5, prix: 130000 },
+  orange20: { couleur: 'orange', bonus: 0.2, prix: 30000 }, orange50: { couleur: 'orange', bonus: 0.5, prix: 130000 },
+  bleu20: { couleur: 'bleu', bonus: 0.2, prix: 40000 }, bleu50: { couleur: 'bleu', bonus: 0.5, prix: 170000 },
 };
 export const DUREE_PARCH = 30 * 60;
 export const BOUTIQUE_PARCH_GRATUITE = true; // accès libre pendant la bêta
