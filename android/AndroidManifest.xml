@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="fr.thomas.breche">
     <uses-permission android:name="android.permission.INTERNET" />
+    <queries>
+        <package android:name="fr.thomas.testbot" />
+    </queries>
     <application
         android:label="Brèche Écarlate"
         android:icon="@mipmap/ic_launcher"

@@ -7,6 +7,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -16,6 +17,12 @@ import android.webkit.WebViewClient;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -42,6 +49,8 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(false);
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
         vue.setWebChromeClient(new WebChromeClient());
+        // Passerelle TestBot : seulement si l'appli TestBot est installée sur le téléphone
+        if (testBotInstalle()) vue.addJavascriptInterface(new PontTestBot(), "TestBotPont");
         vue.setWebViewClient(new WebViewClient() {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView v, WebResourceRequest req) {
@@ -68,6 +77,31 @@ public class MainActivity extends Activity {
         setContentView(vue);
         pleinEcran();
         vue.loadUrl("https://" + HOTE + "/index.html");
+    }
+
+    private boolean testBotInstalle() {
+        try { getPackageManager().getPackageInfo("fr.thomas.testbot", 0); return true; } catch (Exception e) { return false; }
+    }
+
+    /** Envoie l'état du jeu à TestBot sur le téléphone même (UDP local, port 47231). Jamais bloquant pour le jeu. */
+    static final class PontTestBot {
+        private final ExecutorService ex = Executors.newSingleThreadExecutor();
+        private DatagramSocket sock;
+        private volatile int enAttente;
+
+        @JavascriptInterface
+        public void envoyer(final String json) {
+            if (enAttente > 3) return; // si ça bouchonne, on saute un envoi
+            enAttente++;
+            ex.execute(() -> {
+                try {
+                    if (sock == null) sock = new DatagramSocket();
+                    byte[] b = json.getBytes(StandardCharsets.UTF_8);
+                    sock.send(new DatagramPacket(b, b.length, InetAddress.getByName("127.0.0.1"), 47231));
+                } catch (Exception ignored) {
+                } finally { enAttente--; }
+            });
+        }
     }
 
     private static String typeMime(String p) {

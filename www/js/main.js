@@ -48,6 +48,73 @@ let allies = [];
 let modeActuel = null, bossVaincus = 0, enJeu = false, transition = false;
 const entree = { jx: 0, jy: 0, atk: false, clavier: {} };
 
+// ---------------- Passerelle TestBot (bot testeur) ----------------
+// Si l'appli TestBot est installée, Android expose window.TestBotPont : 10 fois par seconde on lui envoie
+// ce que le joueur voit, en pixels d'écran (perso, monstres, coffres, zones rouges, sorts, joystick,
+// chemin calculé par le jeu) + les erreurs JS. Sans TestBot : rien ne se passe, aucun coût.
+let pontT = 0;
+const pontErreurs = [];
+window.addEventListener('error', (e) => { if (pontErreurs.length < 20) pontErreurs.push(`${e.message} (${String(e.filename || '').split('/').pop()}:${e.lineno})`); });
+window.addEventListener('unhandledrejection', (e) => { if (pontErreurs.length < 20) pontErreurs.push('Promesse rejetée : ' + ((e.reason && e.reason.message) || e.reason)); });
+function pontEcran(x, y, z) {
+  const p = projeter(V(x, y, z)), k = window.devicePixelRatio || 1;
+  return { x: Math.round(p.x * k), y: Math.round(p.y * k), v: p.visible ? 1 : 0 };
+}
+function pontRect(el) {
+  if (!el || el.hidden) return null;
+  const cs = getComputedStyle(el); if (cs.display === 'none' || cs.visibility === 'hidden') return null;
+  const r = el.getBoundingClientRect(); if (r.width < 2 || r.height < 2) return null;
+  const k = window.devicePixelRatio || 1;
+  return { x: Math.round((r.left + r.width / 2) * k), y: Math.round((r.top + r.height / 2) * k), w: Math.round(r.width * k), h: Math.round(r.height * k) };
+}
+function majPont(dt) {
+  const pont = window.TestBotPont; if (!pont) return;
+  pontT -= dt; if (pontT > 0) return; pontT = 0.1;
+  try {
+    const k = window.devicePixelRatio || 1;
+    const e = { v: 1, jeu: 'Brèche Écarlate', ecran: { w: Math.round(innerWidth * k), h: Math.round(innerHeight * k) }, enJeu: !!(enJeu && joueur && !transition), mode: modeActuel ? modeActuel.id : 'place' };
+    if (pontErreurs.length) e.erreurs = pontErreurs.splice(0);
+    if (e.enJeu) {
+      const pj = pontEcran(joueur.pos.x, 1, joueur.pos.z);
+      e.joueur = { x: pj.x, y: pj.y, wx: +joueur.pos.x.toFixed(2), wz: +joueur.pos.z.toFixed(2), pv: Math.round(joueur.pv), pvMax: Math.round(joueur.st.pvMax), mort: joueur.mort ? 1 : 0 };
+      const ens = [];
+      for (const m of vivants()) { const p = pontEcran(m.pos.x, 1, m.pos.z); ens.push({ x: p.x, y: p.y, v: p.v, d: +dist2D(m.pos, joueur.pos).toFixed(1), pv: Math.round(m.pv), pvMax: Math.round(m.pvMax || m.pv || 1), boss: m.boss ? 1 : 0 }); }
+      ens.sort((a, b) => a.d - b.d); e.ennemis = ens.slice(0, 25);
+      e.coffres = coffres.filter(c => !c.ouvert).map(c => { const p = pontEcran(c.pos.x, 0.5, c.pos.z); return { x: p.x, y: p.y, v: p.v, d: +dist2D(c.pos, joueur.pos).toFixed(1) }; }).sort((a, b) => a.d - b.d).slice(0, 15);
+      e.dangers = [];
+      for (const z of dangers) {
+        if (z.camp === 'allie' || z.camp === 'joueur') continue;
+        const c = pontEcran(z.p.x, 0, z.p.z), b = pontEcran(z.p.x + z.r, 0, z.p.z);
+        e.dangers.push({ x: c.x, y: c.y, r: Math.round(Math.hypot(b.x - c.x, b.y - c.y)), wr: +z.r.toFixed(1), d: +dist2D(z.p, joueur.pos).toFixed(1), t: +z.t.toFixed(2) });
+      }
+      // Où aller : le jeu calcule lui-même le chemin dans le donjon (il contourne les murs)
+      let cible = null, quoi = null, bd = Infinity;
+      for (const m of vivants()) { const d = dist2D(m.pos, joueur.pos); if (d < bd) { bd = d; cible = m.pos; quoi = 'ennemi'; } }
+      if (!cible) for (const c of coffres) if (!c.ouvert) { const d = dist2D(c.pos, joueur.pos); if (d < bd) { bd = d; cible = c.pos; quoi = 'coffre'; } }
+      if (!cible && sortie) { cible = sortie.pos; bd = dist2D(sortie.pos, joueur.pos); quoi = 'sortie'; }
+      if (cible) {
+        let pt = cible;
+        if (monde && monde.grille && bd > 4) { const ch = cheminGrille(joueur.pos, cible); if (ch && ch.length) pt = ch[Math.min(1, ch.length - 1)]; }
+        const p = pontEcran(pt.x, 1, pt.z);
+        e.nav = { x: p.x, y: p.y, quoi, d: +bd.toFixed(1) };
+      }
+      e.sorts = [];
+      for (const kk of ['ATK', 'Q', 'W', 'E', 'R', 'D', 'F', 'POT']) {
+        const b = document.getElementById('s-' + kk), r = pontRect(b);
+        if (!r || b.classList.contains('off')) continue;
+        const cd = (joueur.cds && joueur.cds[kk]) || 0, s = joueur.sorts && joueur.sorts[kk];
+        const pret = cd <= 0 && !b.classList.contains('manque') && (kk !== 'POT' || joueur.potions > 0) && (!s || joueur.energie >= (s.energie || 0));
+        e.sorts.push({ k: kk, x: r.x, y: r.y, pret: pret ? 1 : 0 });
+      }
+      const zj = pontRect($('#zoneJoy')), jy = $('#joy');
+      if (zj) e.joy = { x: Math.round(zj.x - zj.w * 0.1), y: Math.round(zj.y + zj.h * 0.2), r: Math.round((jy && jy.offsetWidth ? jy.offsetWidth * 0.42 : 50) * k) };
+      const act = pontRect($('#action'));
+      if (act) e.action = { x: act.x, y: act.y, texte: ($('#action').textContent || '').trim().slice(0, 40) };
+    }
+    pont.envoyer(JSON.stringify(e));
+  } catch (err) { /* la passerelle ne doit jamais gêner le jeu */ }
+}
+
 function programmer(delai, fn) { minuteries.push({ t: delai, fn }); }
 
 // ---------------- Démarrage ----------------
@@ -1738,6 +1805,7 @@ function boucle() {
     UI.majPlaques(joueur.pos);
     // anneau de cible
     majAnneauCible(); majVisee();
+    majPont(dt);
   } else if (monde) {
     // écran titre : la caméra tourne autour de la place
     G.camYaw = Math.PI / 4 + Math.sin(G.t * 0.1) * 0.5; ORBITE.set(Math.sin(G.t * 0.07) * 6, 0, 2);
