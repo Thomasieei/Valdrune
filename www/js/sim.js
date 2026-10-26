@@ -61,10 +61,10 @@ export const ENEMIES = {
     intro: 'Skeletons_Awaken_Standing', idle: [0.55, 1.0], openP: 0.75, failles: 3, D: 1.35, curveP: 0.35,
     atk: [['b_chop', 3], ['b_sweep', 3], ['b_combo', 2], ['b_spin', 2], ['b_leap', 2]],
     p2: { failles: 4, D: 1.15, curveP: 0.5, tele: 0.82, idle: [0.35, 0.75], atk: [['b_chop', 2], ['b_sweep', 2], ['b_combo', 3], ['b_spin', 2], ['b_leap', 2], ['b_cross', 3]] },
-    framing: { pos: [0.8, 2.05, 6.9], look: [-0.7, 1.7, 0] }, par: 120 },
+    framing: { pos: [0.9, 2.25, 8.4], look: [-0.7, 1.95, 0] }, par: 120 },
 };
 export const RUN = ['minion', 'rogue', 'boss'];
-const FAILLE_BONES = ['head', 'chest', 'spine', 'hips', 'upperarm.l', 'upperarm.r', 'lowerarm.l', 'lowerarm.r', 'upperleg.l', 'upperleg.r', 'lowerleg.l', 'lowerleg.r'];
+const FAILLE_BONES = ['head', 'chest', 'spine', 'hips', 'upperarm.l', 'upperarm.r', 'lowerarm.l', 'lowerarm.r', 'hand.l', 'hand.r', 'upperleg.l', 'upperleg.r', 'lowerleg.l', 'lowerleg.r'];
 const MIRROR_SIDE = ['upperarm.l', 'lowerarm.l', 'upperleg.l', 'lowerleg.l', 'hand.l'];
 const mirrorOf = b => b.replace('.l', '.r');
 
@@ -361,7 +361,7 @@ export class Sim {
     // toujours n failles : on relâche l'écart minimal si l'ennemi est petit à l'écran
     let chosen = [], best = [];
     for (let tries = 0; tries < 60 && chosen.length < n; tries++) {
-      const minD = Math.max(0.07, 0.15 - Math.floor(tries / 12) * 0.02);
+      const minD = Math.max(0.125, 0.16 - Math.floor(tries / 12) * 0.01);
       chosen = []; const pool = avail.slice();
       while (chosen.length < n && pool.length) {
         const b = pool.splice(Math.floor(this.r() * pool.length), 1)[0];

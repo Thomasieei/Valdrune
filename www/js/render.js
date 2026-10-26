@@ -103,6 +103,8 @@ export function buildActor(key, gltf, opts) {
     }
   });
   remove.forEach(o => o.parent && o.parent.remove(o));
+  // GLTFLoader retire les points des noms ("upperarm.l" → "upperarml") : on accepte les deux écritures
+  const boneMap = new Proxy(bones, { get: (t, k) => t[k] !== undefined ? t[k] : (typeof k === 'string' ? t[k.replace(/\./g, '')] : undefined) });
   const olMat = outlineMaterial(opts.outline ?? 0x05030a, opts.outlineW ?? 0.022);
   meshes.forEach(o => {
     const isEye = /Eyes/.test(o.name);
@@ -115,7 +117,7 @@ export function buildActor(key, gltf, opts) {
   const mixer = new THREE.AnimationMixer(model);
   const actions = {};
   gltf.animations.forEach(c => { actions[c.name] = mixer.clipAction(c); });
-  const a = { key, root, model, mixer, actions, bones, U, cur: null, meshes, olMat, weapon: null, scale: opts.scale || 1 };
+  const a = { key, root, model, mixer, actions, bones: boneMap, U, cur: null, meshes, olMat, weapon: null, scale: opts.scale || 1 };
   return a;
 }
 function addOutline(o, mat) {

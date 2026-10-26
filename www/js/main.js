@@ -118,9 +118,9 @@ function showTitle() {
 }
 function setupShowcase() {
   Object.values(W.enemies).forEach(a => a.root.visible = false);
-  const b = W.enemies.boss; b.root.visible = true; b.mixer.stopAllAction(); b.cur = null; b.root.position.set(0.6, 0, -0.6); b.root.rotation.y = -0.7; play(b, 'Idle_Combat', { loop: true, fade: 0 });
-  const h = W.hero; h.mixer.stopAllAction(); h.cur = null; h.root.position.set(-1.9, 0, 0.9); h.root.rotation.y = 1.9; play(h, '2H_Melee_Idle', { loop: true, fade: 0 });
-  setFraming({ pos: [-1.2, 2.0, 8.4], look: [-0.9, 1.55, 0] }, 0);
+  const b = W.enemies.boss; b.root.visible = true; b.mixer.stopAllAction(); b.cur = null; b.root.position.set(0.35, 0, -0.6); b.root.rotation.y = -0.75; play(b, 'Idle_Combat', { loop: true, fade: 0 });
+  const h = W.hero; h.mixer.stopAllAction(); h.cur = null; h.root.position.set(-1.7, 0, 0.9); h.root.rotation.y = 1.9; play(h, '2H_Melee_Idle', { loop: true, fade: 0 });
+  setFraming({ pos: [-1.0, 1.5, 9.6], look: [-0.7, 1.75, 0] }, 0);
   showcaseT = 0;
 }
 $('bPlay').onclick = () => { sfx('uiOk'); startRun(); };
@@ -372,8 +372,8 @@ function showcase(dt) {
   showcaseT += dt;
   W.hero.mixer.update(dt); W.enemies.boss.mixer.update(dt);
   const a = showcaseT * 0.08;
-  R.logicCam.position.set(-1.2 + Math.sin(a) * 0.9, 2.0 + Math.sin(a * 1.3) * 0.15, 8.4 + Math.cos(a) * 0.4);
-  R.logicCam.lookAt(-0.9, 1.55, 0); R.logicCam.updateMatrixWorld(true);
+  R.logicCam.position.set(-1.0 + Math.sin(a) * 0.9, 1.5 + Math.sin(a * 1.3) * 0.12, 9.6 + Math.cos(a) * 0.4);
+  R.logicCam.lookAt(-0.7, 1.75, 0); R.logicCam.updateMatrixWorld(true);
 }
 function perfLoop(dt) {
   fpsS = fpsS * 0.95 + (1 / Math.max(dt, 0.001)) * 0.05;
