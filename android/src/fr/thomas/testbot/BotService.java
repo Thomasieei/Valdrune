@@ -70,6 +70,8 @@ public class BotService extends AccessibilityService {
     final AutoBrain auto = new AutoBrain(this);
     final AiBrain ai = new AiBrain(this);
     final CarBrain foot = new CarBrain(this);
+    final Bridge bridge = new Bridge(this);
+    final BridgeBrain bridgeBrain = new BridgeBrain(this);
 
     void post(Runnable r) { h.post(r); }
 
@@ -154,6 +156,7 @@ public class BotService extends AccessibilityService {
         gamePkg = p.getString("game", null);
         gameLabel = p.getString("gameLabel", "Aucun jeu");
         cfg = Cfg.load(this, gamePkg);
+        bridge.start();
         h.post(loop);
     }
 
@@ -162,6 +165,7 @@ public class BotService extends AccessibilityService {
     @Override
     public boolean onUnbind(Intent intent) {
         inst = null;
+        bridge.stop();
         h.removeCallbacksAndMessages(null);
         hideAll();
         return super.onUnbind(intent);
@@ -174,7 +178,7 @@ public class BotService extends AccessibilityService {
             tick++;
             try {
                 updateScreen();
-                eyesTick();
+                if (!bridge.live()) eyesTick();
                 if (on) think();
                 flush();
                 if (tick % 4 == 0) refreshUi();
@@ -221,7 +225,7 @@ public class BotService extends AccessibilityService {
 
     void start() {
         if (on) return;
-        if (!CaptureService.running() && Build.VERSION.SDK_INT < 30) { toast("Ouvre TestBot et autorise la vue de l'écran d'abord"); return; }
+        if (!CaptureService.running() && Build.VERSION.SDK_INT < 30 && !bridge.live()) { toast("Ouvre TestBot et autorise la vue de l'écran d'abord"); return; }
         try {
             AccessibilityNodeInfo root = getRootInActiveWindow();
             if (root != null && root.getPackageName() != null) {
@@ -230,7 +234,7 @@ public class BotService extends AccessibilityService {
             }
         } catch (Exception ignored) {}
         // Sans IA, le bot ne devine pas le genre : il le demande, puis il se fait montrer ce qui lui manque
-        String eb = effectiveBrain();
+        String eb = bridge.live() ? "pont" : effectiveBrain();
         if (eb.equals("choisir")) { showGenreChooser(); return; }
         if (eb.equals("foot") && !ai.hasKey() && !foot.missing().isEmpty()) { startWizard(); return; }
         on = true; t0 = now(); prog = false; kind = "explore";
@@ -246,7 +250,7 @@ public class BotService extends AccessibilityService {
     void stop() {
         if (!on) return;
         on = false; runMs += now() - t0;
-        auto.stop(); foot.stop(); ai.reset();
+        auto.stop(); foot.stop(); ai.reset(); bridgeBrain.stop();
         joyWant = null; holdStart = null; hold2 = null; status = "En pause";
         if (sight != null) sight.invalidate();
         Cfg.prefs(this).edit().putString("last_report", report()).apply();
@@ -390,6 +394,8 @@ public class BotService extends AccessibilityService {
         if (!cfg.auto && tick % 2 == 0) scan();
         for (int i = black.size() - 1; i >= 0; i--) if (t > black.get(i)[2]) black.remove(i);
 
+        // Le jeu parle au bot (passerelle) : on joue avec ses infos exactes, rien d'autre
+        if (bridge.live()) { bridgeBrain.tick(t, bridge.last); return; }
         String eb = effectiveBrain();
         if (eb.equals("choisir")) { joyWant = null; holdStart = null; hold2 = null; status = "Dis-moi le genre du jeu"; return; }
         if (eb.equals("attente")) {
@@ -682,6 +688,8 @@ public class BotService extends AccessibilityService {
         s.append("Mode RPG : ").append(cfg.auto ? "auto (" + (cfg.calibrated ? "calibré, " + cfg.spells.size() + " sort(s), " + cfg.move : "pas encore calibré") + ")" : "appris à la main").append('\n');
         s.append("Touchers envoyés : ").append(nTaps).append('\n');
         s.append("Gestes acceptés / refusés par Android : ").append(nGestOk).append(" / ").append(nGestFail).append('\n');
+        Bridge.State bs = bridge.last;
+        s.append("Passerelle : ").append(bridge.live() ? "connectée à " + bs.game + " (" + bridge.packets + " messages, le bot n'a pas besoin de capture)" : bridge.packets > 0 ? "coupée (le jeu ne parle plus)" : "aucun jeu connecté").append('\n');
         s.append("Yeux : ").append(eyesText()).append('\n');
         s.append("Image de l'écran : ").append(CaptureService.frame == null ? "aucune reçue" : CaptureService.fw + "x" + CaptureService.fh + ", il y a " + (now() - CaptureService.frameTime) + " ms").append('\n');
         s.append("Vue de l'écran : ").append(!CaptureService.running() ? "désactivée" : blackScreen ? "écran noir (capture bloquée)" : "OK").append('\n');

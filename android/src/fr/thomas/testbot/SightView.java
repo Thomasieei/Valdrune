@@ -41,7 +41,21 @@ final class SightView extends View {
         c.drawText(s, cx, top + d * 18, txt);
         if (!b.on) { c.restore(); return; }
 
-        boolean footMode = b.effectiveBrain().equals("foot");
+        if (b.bridge.live()) {
+            Bridge.State s = b.bridge.last;
+            float kx = s.sw > 0 ? b.sw / s.sw : 1, ky = s.sh > 0 ? b.sh / s.sh : 1;
+            st.setColor(Ui.CYAN);
+            c.drawCircle(s.px * kx, s.py * ky, d * 20, st);
+            st.setColor(0xFFFFFFFF);
+            float e = d * 10;
+            for (float[] p : s.enemies) if (p[2] == 1) { float x = p[0] * kx, y = p[1] * ky; c.drawLine(x - e, y - e, x + e, y + e, st); c.drawLine(x + e, y - e, x - e, y + e, st); }
+            st.setColor(Ui.AMBER);
+            for (float[] p : s.chests) if (p[2] == 1) { float x = p[0] * kx, y = p[1] * ky; c.drawRect(x - d * 12, y - d * 12, x + d * 12, y + d * 12, st); }
+            st.setColor(Ui.CORAL);
+            for (float[] z : s.dangers) c.drawCircle(z[0] * kx, z[1] * ky, Math.max(z[2] * kx, d * 10), st);
+            if (s.nav != null) { st.setColor(0xAAFFFFFF); c.drawLine(s.px * kx, s.py * ky, s.nav[0] * kx, s.nav[1] * ky, st); }
+        }
+        boolean footMode = !b.bridge.live() && b.effectiveBrain().equals("foot");
         if (footMode) {
             float[] bl = b.foot.ball, cr = b.foot.car;
             st.setColor(Ui.CYAN);
