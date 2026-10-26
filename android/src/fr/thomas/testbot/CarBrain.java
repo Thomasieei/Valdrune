@@ -21,6 +21,8 @@ final class CarBrain {
     private long lastFrame, lastJump, jump2At, lastHelp, stillT, flipUntil;
     private float stillX;
     private int flipDir;
+    private long lostSince;
+    private boolean lostWarned;
 
     CarBrain(BotService b) { this.b = b; }
 
@@ -98,9 +100,17 @@ final class CarBrain {
         if (bl == null || t - ballT > 2500) {
             stop();
             b.status = "Je ne vois pas la balle";
+            if (lostSince == 0) lostSince = t;
+            if (t - lostSince > 10000 && !lostWarned) {
+                lostWarned = true;
+                b.event("Balle introuvable depuis 10 s : sa couleur ne correspond plus ? Réapprends-la (Apprendre → Balle)");
+                // J'essaie quand même de bouger pour sortir d'un éventuel blocage
+                drive(Math.random() < .5 ? -1 : 1);
+            }
             if (t - lastHelp > 9000 && b.ai.hasKey()) { lastHelp = t; b.ai.help(t, "Je ne vois plus la balle depuis 2 s (menu, but, replay, fin de match ?).", false); }
             return;
         }
+        lostSince = 0; lostWarned = false;
         if (cr == null || t - carT > 2500) {
             stop();
             b.status = "Je ne vois pas ma voiture";

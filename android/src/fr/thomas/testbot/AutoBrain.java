@@ -80,7 +80,48 @@ final class AutoBrain {
     private double rotA, lastCmdA;
     private final List<float[]> poiBlack = new ArrayList<>(); // x, y (mini-carte), expiration
 
+    private int hpFull, wdN;
+    private long lastGreyT, emptySince, deathOffUntil, deadT, progT, snapT, wdActUntil;
+    private float greyBase = 0.5f;
+    private final ArrayList<Float> greyHist = new ArrayList<>();
+    private int[] progSnap;
+    private double wdA;
+
     AutoBrain(BotService b) { this.b = b; }
+
+    /** Vrai tant que le chien de garde agit lui-même (le reste du cerveau attend). */
+    private boolean watchdog(long t, int[] f) {
+        if (progT == 0) progT = t;
+        if (progSnap == null || t - snapT > 2000) {
+            if (progSnap != null) {
+                float d = Vision.diff(progSnap, f, CaptureService.fw, CaptureService.fh, .15f, .15f, .85f, .85f);
+                if (d < 0 || d > base * 2f + 2f) { progT = t; wdN = 0; }
+            }
+            progSnap = f; snapT = t;
+        }
+        if (t < wdActUntil) {
+            float md = minDim();
+            go(t, (float) (b.sw / 2f + Math.cos(wdA) * md * 0.3), (float) (b.sh / 2f + Math.sin(wdA) * md * 0.3));
+            return true;
+        }
+        if (t - progT < 10000) return false;
+        wdN++;
+        progT = t;
+        dead = false; low = false; lootGoal = null; arriveT = 0; darkSince = 0;
+        if (wdN >= 3 && b.cfg.joy != null) {
+            b.event("Rien ne bouge depuis 30 s : je recalibre mes commandes");
+            b.cfg.calibrated = false; b.cfg.joy = null; b.cfg.move = "auto";
+            wdN = 0;
+            begin(t);
+            return true;
+        }
+        b.event("Rien ne bouge depuis 10 s : j'oublie ce que je croyais et j'essaie autre chose");
+        b.status = "Rien ne bouge : j'essaie autre chose";
+        wdA = Math.random() * 6.283;
+        wdActUntil = t + 1800;
+        if (b.ai.hasKey()) b.ai.help(t, "Le bot ne voit rien bouger depuis 10 secondes. Que faut-il toucher pour reprendre le jeu ?", false);
+        return true;
+    }
 
     boolean calibrating() { return ph != Ph.RUN; }
 
@@ -88,6 +129,7 @@ final class AutoBrain {
         enemies = new ArrayList<>(); loot = new ArrayList<>(); hp = -1; hpMax = 0; low = false; dead = false;
         still = null; lootGoal = null; centerGoldBase = -1; goldHist.clear(); rescanDone = false;
         mini.reset(); rotT = 0; darkSince = 0; poiBlack.clear(); nearPoiSince = 0;
+        hpFull = 0; wdN = 0; progT = 0; progSnap = null; wdActUntil = 0; emptySince = 0; greyHist.clear(); deathOffUntil = 0;
         if (!b.cfg.calibrated) {
             ph = Ph.BASE; phT = t; snap = CaptureService.frame;
             b.status = "Calibrage : j'observe le jeu";
@@ -254,7 +296,9 @@ final class AutoBrain {
         // Ma vie : barre rouge/verte en haut à gauche
         int run = Vision.hpRun(f, fw, fh, 0, 0, (int) (fw * 0.42f), (int) (fh * 0.2f));
         if (run > hpMax) hpMax = run;
-        hp = hpMax >= Math.max(8, fw / 60) ? (float) run / hpMax : -1;
+        // Je ne crois à « ma barre de vie » que si je l'ai vue pleine plusieurs fois (sinon ce n'en est pas une)
+        if (hpMax >= Math.max(8, fw / 60) && run >= hpMax * 0.8f) hpFull++;
+        hp = hpMax >= Math.max(8, fw / 60) && hpFull >= 15 ? (float) run / hpMax : -1;
 
         // Butin : doré + couleurs déjà apprises
         List<float[]> loot = new ArrayList<>();
@@ -335,19 +379,38 @@ final class AutoBrain {
             if (darkSince == 0) darkSince = t;
             if (t - darkSince > 1000) { b.joyWant = null; b.status = "Écran noir (chargement ?), j'attends"; return; }
         } else darkSince = 0;
-        boolean deadNow = grey > 0.78f || (hp >= 0 && hp < 0.03f && hpMax > 0);
-        if (deadNow && !dead) { dead = true; b.event("Mon perso est mort"); b.nDeaths++; }
+
+        // Chien de garde : rien ne bouge à l'écran depuis 10 s ? Je remets en cause ce que je crois.
+        if (watchdog(t, f)) return;
+        // Gris « normal » du jeu (médiane des 30 dernières secondes) : un donjon en pierre n'est pas un écran de mort
+        if (t - lastGreyT > 1000) {
+            lastGreyT = t;
+            greyHist.add(grey); if (greyHist.size() > 30) greyHist.remove(0);
+            ArrayList<Float> gs = new ArrayList<>(greyHist); Collections.sort(gs);
+            greyBase = gs.get(gs.size() / 2);
+        }
+        if (hp >= 0 && hp < 0.03f) { if (emptySince == 0) emptySince = t; } else emptySince = 0;
+        boolean deadNow = t > deathOffUntil && (
+                (grey > 0.9f && greyBase < 0.6f && greyHist.size() >= 5)
+                || (emptySince > 0 && t - emptySince > 2000));
+        if (deadNow && !dead) { dead = true; deadT = t; b.event("Mon perso semble mort"); b.nDeaths++; }
         if (dead) {
             b.joyWant = null;
-            b.status = "Mort, j'attends la réapparition";
+            b.status = "Mort ? J'attends la réapparition";
             if (t - lastDeadTap > 3000) { b.tap(cx, b.sh * 0.72f); lastDeadTap = t; }
-            if (grey < 0.6f && (hp < 0 || hp > 0.2f)) { dead = false; b.event("Réapparition"); hpMax = 0; }
-            return;
+            if (grey < 0.6f && (hp < 0 || hp > 0.2f) && t - deadT > 1500) { dead = false; b.event("Réapparition"); }
+            else if (t - deadT > 12000) {
+                // Je me suis trompé : je coupe cette détection pour 5 minutes et je rejoue
+                dead = false; b.nDeaths = Math.max(0, b.nDeaths - 1);
+                deathOffUntil = t + 300000; hpMax = 0; hpFull = 0;
+                b.event("Fausse alerte : je n'étais pas mort, je rejoue");
+            }
+            if (dead) return;
         }
 
         float[] en = nearest(enemies, cx, cy);
         float de = en == null ? 1e9f : (float) Math.hypot(en[0] - cx, en[1] - cy);
-        boolean lowNow = hp >= 0 && hp < 0.33f;
+        boolean lowNow = hp >= 0 && hp < 0.33f && t > deathOffUntil;
         if (lowNow && !low) b.event("PV bas (" + Math.round(hp * 100) + " %)");
         low = lowNow;
 
