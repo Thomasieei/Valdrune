@@ -1,0 +1,33 @@
+name: APK BUG 404
+on:
+  push:
+    branches: [bug-404]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Construire l'APK
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+        run: bash android/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BUG404-apk
+          path: out/BUG404.apk
+      - name: Publier la Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: bug404-v1.${{ github.run_number }}
+          name: BUG 404 v1.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          make_latest: false
+          body: APK Android de BUG 404. Télécharge BUG404.apk depuis ton téléphone et installe-le.
+          files: out/BUG404.apk
