@@ -2328,7 +2328,7 @@ function gagnerXP(base) {
   sauver();
 }
 function gagnerXPRelatif(frac) {
-  frac *= 1 + bonusParch('xp');
+  frac *= 0.1 * (1 + bonusParch('xp')); // les bonus de fin (boss, arène…) restent un petit plus : la progression vient surtout du combat
   let total = 0;
   for (const t of typesPortes()) { const m = J.maitrise[t]; const x = Math.round(xpPour(m.niv) * frac); total += x; gainXP(t, x); noterXP(t, x); }
   recalculer(); sauver();

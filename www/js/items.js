@@ -65,10 +65,12 @@ export const prixVente = (it) => Math.max(1, Math.round(valeurObjet(it) * (it.ca
 
 // ---- Maîtrise ----
 export const niveauRequis = (it) => NIVEAU_REQUIS[it.tier] || 1;
+// courbe d'expérience calée sur le temps de jeu : niv. 29 ≈ 7 h, niv. 60 ≈ 105 h, niv. 70 ≈ 240 h,
+// niv. 90 (T8) ≈ 1 200 h, soit 4 mois à 10 h par jour. Heures par niveau × XP gagnée par heure dans la zone adaptée.
+const XP_HEURE = (n) => n < 40 ? 9000 : n < 70 ? 45000 : 125000;
 export function xpPour(n) {
   if (n >= 100) return Infinity;
-  if (n < 50) return Math.round(25 * Math.pow(n, 1.4));
-  return Math.round(25 * Math.pow(49, 1.4) * Math.pow(1.1, n - 49));
+  return Math.round(0.06 * Math.exp(0.083914 * (n - 1)) * XP_HEURE(n));
 }
 // +0,2 % de puissance brute par niveau, puis +2 % par niveau du 90 au 100
 // le niveau compte vraiment : +3,5 % de puissance par niveau (+3 % de plus après 90). Niv. 29 ≈ +98 %, niv. 10 ≈ +31 %
