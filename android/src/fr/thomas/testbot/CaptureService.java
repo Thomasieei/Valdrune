@@ -37,6 +37,18 @@ public class CaptureService extends Service {
     static volatile long frameTime;
     /** Images analysées par seconde (pour l'affichage). */
     static volatile int fps;
+    /** Vrai quand la vue de secours (captures d'accessibilité) a pris le relais : on ignore alors nos images noires. */
+    static volatile boolean muted;
+    /** D'où vient l'image : « écran » (capture Android) ou « secours » (captures d'accessibilité). */
+    static volatile String source = "écran";
+
+    /** Publie une image (utilisé par la vue de secours). */
+    static void publish(int[] px, int w, int h, String src) {
+        long t = SystemClock.uptimeMillis();
+        fw = w; fh = h; frame = px; frameTime = t; source = src;
+        fpsN++;
+        if (t - fpsT >= 1000) { fps = fpsN; fpsN = 0; fpsT = t; }
+    }
     private static int fpsN; private static long fpsT;
 
     private MediaProjection mp;
@@ -119,7 +131,7 @@ public class CaptureService extends Service {
                 img = r.acquireLatestImage();
                 if (img == null) return;
                 long t = SystemClock.uptimeMillis();
-                if (t - frameTime < 30) return; // jusqu'à ~30 images/s
+                if (muted || t - frameTime < 30) return; // jusqu'à ~30 images/s
                 Image.Plane pl = img.getPlanes()[0];
                 ByteBuffer buf = pl.getBuffer();
                 int ps = pl.getPixelStride(), rs = pl.getRowStride(), iw = img.getWidth(), ih = img.getHeight();
@@ -153,7 +165,7 @@ public class CaptureService extends Service {
                     }
                 }
                 }
-                fw = iw; fh = ih; frame = out; frameTime = t;
+                fw = iw; fh = ih; frame = out; frameTime = t; source = "écran";
                 fpsN++;
                 if (t - fpsT >= 1000) { fps = fpsN; fpsN = 0; fpsT = t; }
             } catch (Exception ignored) {

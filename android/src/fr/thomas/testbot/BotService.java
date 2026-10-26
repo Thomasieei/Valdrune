@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Path;
 import android.graphics.PixelFormat;
@@ -27,6 +28,7 @@ import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -172,6 +174,7 @@ public class BotService extends AccessibilityService {
             tick++;
             try {
                 updateScreen();
+                eyesTick();
                 if (on) think();
                 flush();
                 if (tick % 4 == 0) refreshUi();
@@ -218,7 +221,7 @@ public class BotService extends AccessibilityService {
 
     void start() {
         if (on) return;
-        if (!CaptureService.running()) { toast("Ouvre TestBot et autorise la vue de l'écran d'abord"); return; }
+        if (!CaptureService.running() && Build.VERSION.SDK_INT < 30) { toast("Ouvre TestBot et autorise la vue de l'écran d'abord"); return; }
         try {
             AccessibilityNodeInfo root = getRootInActiveWindow();
             if (root != null && root.getPackageName() != null) {
@@ -679,6 +682,7 @@ public class BotService extends AccessibilityService {
         s.append("Mode RPG : ").append(cfg.auto ? "auto (" + (cfg.calibrated ? "calibré, " + cfg.spells.size() + " sort(s), " + cfg.move : "pas encore calibré") + ")" : "appris à la main").append('\n');
         s.append("Touchers envoyés : ").append(nTaps).append('\n');
         s.append("Gestes acceptés / refusés par Android : ").append(nGestOk).append(" / ").append(nGestFail).append('\n');
+        s.append("Yeux : ").append(eyesText()).append('\n');
         s.append("Image de l'écran : ").append(CaptureService.frame == null ? "aucune reçue" : CaptureService.fw + "x" + CaptureService.fh + ", il y a " + (now() - CaptureService.frameTime) + " ms").append('\n');
         s.append("Vue de l'écran : ").append(!CaptureService.running() ? "désactivée" : blackScreen ? "écran noir (capture bloquée)" : "OK").append('\n');
         s.append("Alertes (").append(events.size()).append(") :\n");
@@ -702,6 +706,95 @@ public class BotService extends AccessibilityService {
     private void remove(View v) { try { if (v != null && v.getWindowToken() != null) wm.removeView(v); } catch (Exception ignored) {} }
 
     SightView sight;
+
+    // ------------------------------------------------------------------ yeux : capture Android, ou vue de secours
+
+    private boolean shotMode, shotPending, bothBlackWarned;
+    private long eyesBlackSince, lastShot, shotBlackSince;
+    private int shotFails;
+    private java.util.concurrent.ExecutorService shotExec;
+
+    /** Image presque noire et uniforme ? */
+    static boolean isBlack(int[] f) {
+        if (f == null || f.length == 0) return true;
+        long s = 0; int n = 0;
+        for (int i = 0; i < f.length; i += 47) { s += Vision.lum(f[i]); n++; }
+        float mean = (float) s / n; long v = 0;
+        for (int i = 0; i < f.length; i += 47) { float d = Vision.lum(f[i]) - mean; v += (long) (d * d); }
+        return mean < 10 && Math.sqrt((double) v / n) < 6;
+    }
+
+    static float meanLum(int[] f) {
+        if (f == null || f.length == 0) return 0;
+        long s = 0; int n = 0;
+        for (int i = 0; i < f.length; i += 47) { s += Vision.lum(f[i]); n++; }
+        return (float) s / n;
+    }
+
+    /** Si la capture Android ne donne que du noir (ou n'est pas autorisée), on passe aux captures d'accessibilité. */
+    private void eyesTick() {
+        if (Build.VERSION.SDK_INT < 30) return;
+        long t = now();
+        if (!shotMode) {
+            boolean mp = CaptureService.inst != null;
+            int[] f = CaptureService.frame;
+            boolean bad = !mp || f == null || isBlack(f);
+            if (!bad) { eyesBlackSince = 0; return; }
+            if (eyesBlackSince == 0) eyesBlackSince = t;
+            if (!mp || t - eyesBlackSince > 2000) {
+                shotMode = true;
+                CaptureService.muted = true;
+                event(mp ? "La capture Android ne renvoie que du noir : je passe à la vue de secours" : "Vue de l'écran non autorisée : j'utilise la vue de secours");
+            }
+            return;
+        }
+        if (!shotPending && t - lastShot > 330) takeShot(t);
+        int[] f = CaptureService.frame;
+        if (f != null && "secours".equals(CaptureService.source) && isBlack(f)) {
+            if (shotBlackSince == 0) shotBlackSince = t;
+            if (t - shotBlackSince > 5000 && !bothBlackWarned) { bothBlackWarned = true; event("Même la vue de secours est noire : le jeu (ou le téléphone) bloque toute capture d'écran"); }
+        } else shotBlackSince = 0;
+    }
+
+    private void takeShot(long t) {
+        if (Build.VERSION.SDK_INT < 30) return;
+        if (shotExec == null) shotExec = java.util.concurrent.Executors.newSingleThreadExecutor();
+        shotPending = true; lastShot = t;
+        try {
+            takeScreenshot(Display.DEFAULT_DISPLAY, shotExec, new TakeScreenshotCallback() {
+                @Override public void onSuccess(ScreenshotResult r) {
+                    try {
+                        android.hardware.HardwareBuffer hb = r.getHardwareBuffer();
+                        Bitmap hw = Bitmap.wrapHardwareBuffer(hb, r.getColorSpace());
+                        if (hw != null) {
+                            Bitmap sb = hw.copy(Bitmap.Config.ARGB_8888, false);
+                            hw.recycle();
+                            float k = 640f / Math.max(sb.getWidth(), sb.getHeight());
+                            int w = Math.max(2, Math.round(sb.getWidth() * k)), hh = Math.max(2, Math.round(sb.getHeight() * k));
+                            Bitmap sc = Bitmap.createScaledBitmap(sb, w, hh, true);
+                            sb.recycle();
+                            int[] out = new int[w * hh];
+                            sc.getPixels(out, 0, w, 0, 0, w, hh);
+                            sc.recycle();
+                            CaptureService.publish(out, w, hh, "secours");
+                        }
+                        hb.close();
+                    } catch (Exception ignored) {
+                    } finally { shotPending = false; }
+                }
+                @Override public void onFailure(int code) {
+                    shotPending = false; shotFails++;
+                    if (shotFails == 1 || shotFails == 50) event("Vue de secours refusée par Android (code " + code + ", " + shotFails + " fois)");
+                }
+            });
+        } catch (Exception e) { shotPending = false; }
+    }
+
+    String eyesText() {
+        int[] f = CaptureService.frame;
+        String src = f == null ? "aucune image" : "secours".equals(CaptureService.source) ? "vue de secours (~3 img/s)" : "capture Android";
+        return src + (f == null ? "" : ", " + CaptureService.fps + " img/s, luminosité " + Math.round(meanLum(f)) + (isBlack(f) ? " → NOIRE" : ""));
+    }
 
     /** Calque transparent qui montre ce que le bot voit et fait (ne bloque aucun toucher). */
     void showSight() {
@@ -1021,6 +1114,23 @@ public class BotService extends AccessibilityService {
         tReport.setBackground(Ui.box(this, Ui.CARD, 10, 0));
         tReport.setPadding(Ui.dp(this, 10), Ui.dp(this, 8), Ui.dp(this, 10), Ui.dp(this, 8));
         tReport.setMaxLines(16);
+        TextView see = Ui.button(this, "Voir ce que voit le bot", Ui.CARD, Ui.CYAN, Ui.LINE);
+        ImageView shot = new ImageView(this);
+        shot.setAdjustViewBounds(true);
+        shot.setVisibility(View.GONE);
+        TextView seeTxt = Ui.text(this, "", 12, Ui.MUTE, false);
+        see.setOnClickListener(v -> {
+            int[] f = CaptureService.frame; int w = CaptureService.fw, hh = CaptureService.fh;
+            if (f == null || w == 0) { seeTxt.setText("Aucune image reçue : ses yeux ne marchent pas."); return; }
+            try {
+                shot.setImageBitmap(Bitmap.createBitmap(f, w, hh, Bitmap.Config.ARGB_8888));
+                shot.setVisibility(View.VISIBLE);
+                seeTxt.setText("Yeux : " + eyesText() + ". Si cette image est noire alors que ton jeu s'affiche, le bot est aveugle.");
+            } catch (Exception e) { seeTxt.setText("Impossible d'afficher l'image"); }
+        });
+        pane.addView(see, Ui.margins(Ui.full(), this, 0, 10, 0, 0));
+        pane.addView(shot, Ui.margins(Ui.full(), this, 0, 6, 0, 0));
+        pane.addView(seeTxt, Ui.margins(Ui.full(), this, 0, 4, 0, 0));
         pane.addView(tReport, Ui.margins(Ui.full(), this, 0, 10, 0, 0));
         LinearLayout r = Ui.row(this);
         TextView copy = Ui.button(this, "Copier", Ui.CARD, Ui.FG, Ui.LINE);
@@ -1168,7 +1278,7 @@ public class BotService extends AccessibilityService {
 
     private void startLearn(String what) {
         boolean needsEyes = what.equals("chest") || what.equals("enemy") || what.equals("player") || what.equals("spell") || what.equals("ball") || what.equals("car");
-        if (!CaptureService.running() && needsEyes) {
+        if (!CaptureService.running() && Build.VERSION.SDK_INT < 30 && needsEyes) {
             toast("Autorise d'abord la vue de l'écran dans l'appli TestBot");
             return;
         }
