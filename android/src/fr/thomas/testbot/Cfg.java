@@ -21,6 +21,10 @@ final class Cfg {
     int tol = 42, spellEvery = 700;
     String move = "auto"; // auto | joystick | toucher
     boolean autoSpells = true, autoChests = true, hunt = true, explore = true, popups = true;
+    /** Mode auto : le bot découvre seul le jeu (déplacement, sorts, ennemis, butin). */
+    boolean auto = true, calibrated = false;
+    /** Points à ne jamais toucher (ouvrent un menu), en fractions d'écran. */
+    List<float[]> avoid = new ArrayList<>();
 
     static SharedPreferences prefs(Context c) { return c.getSharedPreferences("testbot", Context.MODE_PRIVATE); }
 
@@ -47,6 +51,9 @@ final class Cfg {
             k.hunt = o.optBoolean("hunt", true);
             k.explore = o.optBoolean("explore", true);
             k.popups = o.optBoolean("popups", true);
+            k.auto = o.optBoolean("auto", true);
+            k.calibrated = o.optBoolean("calibrated", false);
+            k.avoid = floats(o.optJSONArray("avoid"));
         } catch (JSONException ignored) {}
         return k;
     }
@@ -66,12 +73,13 @@ final class Cfg {
             o.put("tol", tol); o.put("spellEvery", spellEvery); o.put("move", move);
             o.put("autoSpells", autoSpells); o.put("autoChests", autoChests); o.put("hunt", hunt);
             o.put("explore", explore); o.put("popups", popups);
+            o.put("auto", auto); o.put("calibrated", calibrated); o.put("avoid", jFloats(avoid));
             prefs(c).edit().putString("cfg_" + pkg, o.toString()).apply();
         } catch (JSONException ignored) {}
     }
 
     void clearLearned() {
-        chest.clear(); enemy.clear(); player = null; spells.clear(); joy = null; ignore.clear();
+        chest.clear(); enemy.clear(); player = null; spells.clear(); joy = null; ignore.clear(); avoid.clear(); calibrated = false;
     }
 
     private static List<int[]> ints(JSONArray a) throws JSONException {

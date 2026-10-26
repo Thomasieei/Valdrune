@@ -26,7 +26,7 @@ import android.view.Display;
 
 import java.nio.ByteBuffer;
 
-/** Regarde l'écran : copie réduite de l'écran (≈400 px) mise à jour plusieurs fois par seconde. */
+/** Regarde l'écran : copie réduite de l'écran (≈640 px) mise à jour plusieurs fois par seconde. */
 public class CaptureService extends Service {
     static final String EX_CODE = "code", EX_DATA = "data";
     static volatile CaptureService inst;
@@ -103,7 +103,7 @@ public class CaptureService extends Service {
         if (mp == null) return;
         Point s = screen();
         curW = s.x; curH = s.y;
-        float k = 400f / Math.max(s.x, s.y);
+        float k = 640f / Math.max(s.x, s.y);
         final int w = Math.max(2, Math.round(s.x * k)), hh = Math.max(2, Math.round(s.y * k));
         ImageReader old = ir;
         ir = ImageReader.newInstance(w, hh, PixelFormat.RGBA_8888, 2);

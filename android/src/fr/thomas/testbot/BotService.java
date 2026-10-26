@@ -64,19 +64,21 @@ public class BotService extends AccessibilityService {
     // État de la session
     boolean on;
     private long t0, runMs;
-    int nSpells, nChests, nStuck, nPopups, nTaps;
+    int nSpells, nChests, nStuck, nPopups, nTaps, nDeaths;
+    final AutoBrain auto = new AutoBrain(this);
     final List<String> events = new ArrayList<>();
     String status = "En attente";
     private boolean blackScreen;
 
     // Perception
-    private float sw = 1080, sh = 2400, px, py;
+    float sw = 1080, sh = 2400, px, py;
     private boolean pAssumed = true;
     private List<Vision.Blob> chests = new ArrayList<>(), enemies = new ArrayList<>();
 
     // Cerveau
     private long lastSpell, lastPopup, lastNodeChest, lastTapMove, lastChestTap, closeTo, lastNodeSpell;
-    private int spellIdx, prevChestN, tick;
+    int spellIdx;
+    private int prevChestN, tick;
     private String kind = "explore";
     private boolean prog; private float progBest; private long progT, progStart; private int progN, progSide = 1;
     private long detourUntil; private int detourSide;
@@ -84,7 +86,7 @@ public class BotService extends AccessibilityService {
     private final List<float[]> black = new ArrayList<>(); // x, y, expiration
 
     // Gestes
-    private float[] joyWant;
+    float[] joyWant;
     private GestureDescription.StrokeDescription joyStroke;
     private float joyLx, joyLy;
     private boolean inFlight;
@@ -188,6 +190,7 @@ public class BotService extends AccessibilityService {
         } catch (Exception ignored) {}
         on = true; t0 = now(); prog = false; kind = "explore";
         status = "Démarrage";
+        if (cfg.auto) auto.begin(t0);
         toast("Bot lancé sur " + gameLabel);
         refreshUi();
     }
@@ -195,13 +198,14 @@ public class BotService extends AccessibilityService {
     void stop() {
         if (!on) return;
         on = false; runMs += now() - t0;
+        auto.stop();
         joyWant = null; status = "En pause";
         Cfg.prefs(this).edit().putString("last_report", report()).apply();
         refreshUi();
     }
 
     void resetStats() {
-        nSpells = nChests = nStuck = nPopups = nTaps = 0; events.clear();
+        nSpells = nChests = nStuck = nPopups = nTaps = nDeaths = 0; events.clear();
         runMs = 0; if (on) t0 = now();
     }
 
@@ -213,6 +217,17 @@ public class BotService extends AccessibilityService {
     }
 
     // ------------------------------------------------------------------ perception
+
+    /** Mode auto : on garde seulement la détection d'écran noir. */
+    private void scanBlackOnly() {
+        int[] f = CaptureService.frame;
+        if (f == null) return;
+        long sum = 0; int n = 0;
+        for (int i = 0; i < f.length; i += 61) { int c = f[i]; sum += ((c >> 16) & 255) + ((c >> 8) & 255) + (c & 255); n++; }
+        boolean blk = n > 0 && sum / n < 10;
+        if (blk && !blackScreen) event("Écran noir : le jeu bloque peut-être la capture");
+        blackScreen = blk;
+    }
 
     private void scan() {
         int[] f = CaptureService.frame;
@@ -315,9 +330,10 @@ public class BotService extends AccessibilityService {
 
     private void think() {
         long t = now();
-        if (tick % 2 == 0) scan();
+        if (!cfg.auto && tick % 2 == 0) scan();
         for (int i = black.size() - 1; i >= 0; i--) if (t > black.get(i)[2]) black.remove(i);
 
+        if (cfg.auto && auto.calibrating()) { auto.tick(t); return; }
         if (cfg.popups && t - lastPopup > 700) {
             float[] b = findNode(RX_POPUP, 28);
             if (b != null) { joyWant = null; tap(b[0], b[1]); nPopups++; lastPopup = t; status = "Ferme une popup"; return; }
@@ -326,6 +342,11 @@ public class BotService extends AccessibilityService {
             lastNodeChest = t;
             float[] c = findNode(RX_CHEST, 30);
             if (c != null) { tap(c[0], c[1]); nChests++; status = "Coffre (bouton)"; }
+        }
+        if (cfg.auto) {
+            if (!auto.calibrating() && tick % 2 == 0) scanBlackOnly();
+            auto.tick(t);
+            return;
         }
         if (cfg.autoSpells && t - lastSpell > cfg.spellEvery) castSpell(t);
 
@@ -383,7 +404,7 @@ public class BotService extends AccessibilityService {
         }
     }
 
-    private void steerTo(float tx, float ty) {
+    void steerTo(float tx, float ty) {
         if (now() < detourUntil) {
             double a = Math.atan2(ty - py, tx - px) + detourSide * 1.25;
             float r = Math.min(sw, sh) * 0.2f;
@@ -438,7 +459,7 @@ public class BotService extends AccessibilityService {
     }
 
     /** Un sort est prêt s'il est presque aussi lumineux que quand on l'a appris. */
-    private boolean ready(float[] s) {
+    boolean ready(float[] s) {
         int[] f = CaptureService.frame;
         if (f == null || s.length < 3 || s[2] <= 0) return true;
         float l = Vision.luma(f, CaptureService.fw, CaptureService.fh, s[0] * CaptureService.fw, s[1] * CaptureService.fh, 3);
@@ -447,7 +468,7 @@ public class BotService extends AccessibilityService {
 
     // ------------------------------------------------------------------ gestes
 
-    private void tap(float x, float y) {
+    void tap(float x, float y) {
         if (own(x, y)) return;
         Path p = new Path();
         p.moveTo(x, y);
@@ -532,6 +553,8 @@ public class BotService extends AccessibilityService {
         s.append("Coffres ramassés : ").append(nChests).append('\n');
         s.append("Popups fermées : ").append(nPopups).append('\n');
         s.append("Blocages : ").append(nStuck).append('\n');
+        s.append("Morts du perso : ").append(nDeaths).append('\n');
+        s.append("Mode : ").append(cfg.auto ? "auto (" + (cfg.calibrated ? "calibré, " + cfg.spells.size() + " sort(s), " + cfg.move : "pas encore calibré") + ")" : "appris à la main").append('\n');
         s.append("Touchers envoyés : ").append(nTaps).append('\n');
         s.append("Vue de l'écran : ").append(!CaptureService.running() ? "désactivée" : blackScreen ? "écran noir (capture bloquée)" : "OK").append('\n');
         s.append("Alertes (").append(events.size()).append(") :\n");
@@ -720,8 +743,15 @@ public class BotService extends AccessibilityService {
     }
 
     private void buildLearn() {
-        TextView hint = Ui.text(this, "Appuie sur un bouton puis touche l'élément dans le jeu. Pour un sort, touche-le quand il est prêt.", 12, Ui.MUTE, false);
-        pane.addView(hint, Ui.margins(Ui.full(), this, 2, 10, 2, 4));
+        String autoTxt = cfg.auto
+                ? (cfg.calibrated ? "Mode auto : jeu déjà calibré (" + cfg.spells.size() + " sort(s), déplacement " + cfg.move + "). Rien à faire, ou corrige ci-dessous." : "Mode auto : au lancement je calibre seul (≈15 s). Rien à faire.")
+                : "Appuie sur un bouton puis touche l'élément dans le jeu. Pour un sort, touche-le quand il est prêt.";
+        pane.addView(Ui.text(this, autoTxt, 12, cfg.auto ? Ui.CYAN : Ui.MUTE, false), Ui.margins(Ui.full(), this, 2, 10, 2, 4));
+        if (cfg.auto) {
+            TextView rc = Ui.button(this, "Refaire le calibrage", Ui.CARD, Ui.FG, Ui.LINE);
+            rc.setOnClickListener(v -> { auto.recalibrate(); buildPane(); toast(on ? "Calibrage relancé" : "Calibrage au prochain lancement"); });
+            pane.addView(rc, Ui.margins(Ui.full(), this, 0, 4, 0, 4));
+        }
         String[][] items = {
                 {"chest", "Coffre", cfg.chest.size() + " couleur(s)"},
                 {"enemy", "Ennemi", cfg.enemy.size() + " couleur(s)"},
@@ -769,7 +799,8 @@ public class BotService extends AccessibilityService {
     }
 
     private void buildSettings() {
-        pane.addView(toggle("Lancer les sorts", cfg.autoSpells, v -> { cfg.autoSpells = !cfg.autoSpells; }), Ui.margins(Ui.full(), this, 0, 8, 0, 0));
+        pane.addView(toggle("Mode auto (découvre le jeu seul)", cfg.auto, v -> { cfg.auto = !cfg.auto; if (on) { auto.stop(); if (cfg.auto) auto.begin(now()); } }), Ui.margins(Ui.full(), this, 0, 8, 0, 0));
+        pane.addView(toggle("Lancer les sorts", cfg.autoSpells, v -> { cfg.autoSpells = !cfg.autoSpells; }), Ui.full());
         pane.addView(toggle("Ramasser les coffres", cfg.autoChests, v -> { cfg.autoChests = !cfg.autoChests; }), Ui.full());
         pane.addView(toggle("Aller vers les ennemis", cfg.hunt, v -> { cfg.hunt = !cfg.hunt; }), Ui.full());
         pane.addView(toggle("Explorer si rien à faire", cfg.explore, v -> { cfg.explore = !cfg.explore; }), Ui.full());
@@ -833,6 +864,8 @@ public class BotService extends AccessibilityService {
     }
 
     private void save() { cfg.save(this, gamePkg); }
+    void saveCfg() { save(); }
+    static float dpS(BotService s, float v) { return Ui.dp(s, v); }
 
     private void refreshUi() {
         if (bubble != null) {
@@ -940,8 +973,8 @@ public class BotService extends AccessibilityService {
         if (!cfg.enemy.isEmpty()) l.add(cfg.enemy.size() + " ennemi(s)");
         if (!cfg.spells.isEmpty()) l.add(cfg.spells.size() + " sort(s)");
         if (cfg.joy != null) l.add("joystick");
-        if (l.isEmpty()) return "Rien d'appris pour l'instant";
-        Collections.sort(l);
+        if (l.isEmpty()) return cfg.auto ? "Mode auto, pas encore calibré" : "Rien d'appris pour l'instant";
+        if (cfg.auto) l.add(0, "mode auto");
         return "Appris : " + String.join(", ", l);
     }
 }

@@ -78,7 +78,7 @@ public class MainActivity extends Activity {
 
         // Étape 3 : le jeu
         LinearLayout c3 = card(root, "3", "Choisir le jeu à tester",
-                "Touche ton jeu : il s'ouvre avec la bulle BOT par-dessus. Ensuite, onglet Apprendre : touche un coffre, un ennemi, tes sorts, ton joystick. Puis Lancer.");
+                "Touche ton jeu : il s'ouvre avec la bulle BOT par-dessus. Touche la bulle puis Lancer. En mode auto, le bot calibre seul le jeu (≈15 s) : déplacement, sorts, ennemis, butin. Rien à lui apprendre.");
         gameNow = Ui.text(this, "", 13, Ui.CYAN, true);
         c3.addView(gameNow, Ui.margins(Ui.full(), this, 0, 8, 0, 0));
         TextView showBot = Ui.button(this, "Afficher la bulle sans changer de jeu", Ui.CARD2, Ui.FG, Ui.LINE);

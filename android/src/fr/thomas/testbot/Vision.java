@@ -67,4 +67,95 @@ final class Vision {
         }
         return n == 0 ? -1 : s / (10f * n);
     }
+
+    static int lum(int c) { return (((c >> 16) & 255) * 3 + ((c >> 8) & 255) * 6 + (c & 255)) / 10; }
+
+    /** Différence moyenne de luminosité entre deux images, sur une zone (fractions 0..1). */
+    static float diff(int[] a, int[] b, int w, int h, float x0, float y0, float x1, float y1) {
+        if (a == null || b == null || a.length != b.length || a.length < w * h) return -1;
+        int ax = Math.max(0, (int) (x0 * w)), ay = Math.max(0, (int) (y0 * h));
+        int bx = Math.min(w, (int) (x1 * w)), by = Math.min(h, (int) (y1 * h));
+        long s = 0; int n = 0;
+        for (int y = ay; y < by; y += 2) for (int x = ax; x < bx; x += 2) {
+            int i = y * w + x;
+            s += Math.abs(lum(a[i]) - lum(b[i])); n++;
+        }
+        return n == 0 ? -1 : (float) s / n;
+    }
+
+    static boolean red(int c) {
+        int r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255;
+        return r > 140 && r > g * 1.8f && r > b * 1.8f;
+    }
+
+    static boolean hpColor(int c) {
+        int r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255;
+        return red(c) || (g > 140 && g > r * 1.5f && g > b * 1.3f);
+    }
+
+    /**
+     * Barres de vie rouges (longues, très fines) dans une zone en pixels de l'image réduite.
+     * Retour : {x, y, largeur} en pixels de l'image réduite.
+     */
+    static List<float[]> redBars(int[] px, int w, int h, int x0, int y0, int x1, int y1, int minLen, int maxH) {
+        List<float[]> out = new ArrayList<>();
+        if (px == null || px.length < w * h) return out;
+        x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(w, x1); y1 = Math.min(h, y1);
+        // groupe : xs, xe, yStart, yLast
+        List<int[]> open = new ArrayList<>(), done = new ArrayList<>();
+        for (int y = y0; y < y1; y++) {
+            List<int[]> runs = new ArrayList<>();
+            int x = x0;
+            while (x < x1) {
+                if (!red(px[y * w + x])) { x++; continue; }
+                int s = x;
+                while (x < x1 && red(px[y * w + x])) x++;
+                if (x - s >= minLen) runs.add(new int[]{s, x});
+            }
+            List<int[]> next = new ArrayList<>();
+            for (int[] r : runs) {
+                int[] g = null;
+                for (int[] o : open) if (o[3] == y - 1 && r[0] < o[1] && r[1] > o[0]) { g = o; break; }
+                if (g != null) { open.remove(g); g[0] = Math.min(g[0], r[0]); g[1] = Math.max(g[1], r[1]); g[3] = y; next.add(g); }
+                else next.add(new int[]{r[0], r[1], y, y});
+            }
+            for (int[] o : open) if (o[3] < y) done.add(o);
+            open = next;
+        }
+        done.addAll(open);
+        for (int[] g : done) {
+            int gh = g[3] - g[2] + 1, gw = g[1] - g[0];
+            if (gh <= maxH && gw >= gh * 3) out.add(new float[]{(g[0] + g[1]) / 2f, (g[2] + g[3]) / 2f, gw});
+        }
+        return out;
+    }
+
+    /** Plus longue traînée rouge ou verte d'une zone : sert à lire la barre de vie du joueur. */
+    static int hpRun(int[] px, int w, int h, int x0, int y0, int x1, int y1) {
+        if (px == null || px.length < w * h) return 0;
+        x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(w, x1); y1 = Math.min(h, y1);
+        int best = 0;
+        for (int y = y0; y < y1; y++) {
+            int run = 0;
+            for (int x = x0; x < x1; x++) {
+                // barre fine : pas la même couleur 5 px au-dessus et au-dessous (exclut l'herbe d'une minicarte)
+                boolean thin = (y - 5 < 0 || !hpColor(px[(y - 5) * w + x])) && (y + 5 >= h || !hpColor(px[(y + 5) * w + x]));
+                if (thin && hpColor(px[y * w + x])) { run++; if (run > best) best = run; } else run = 0;
+            }
+        }
+        return best;
+    }
+
+    /** Part des pixels peu colorés (écran de mort souvent gris). */
+    static float greyRatio(int[] px) {
+        if (px == null) return 0;
+        int n = 0, g = 0;
+        for (int i = 0; i < px.length; i += 37) {
+            int c = px[i], r = (c >> 16) & 255, gg = (c >> 8) & 255, b = c & 255;
+            int mx = Math.max(r, Math.max(gg, b)), mn = Math.min(r, Math.min(gg, b));
+            if (mx - mn < 14) g++;
+            n++;
+        }
+        return n == 0 ? 0 : (float) g / n;
+    }
 }
