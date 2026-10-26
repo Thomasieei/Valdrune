@@ -54,11 +54,11 @@ android/          WebView natif sans Gradle (build.sh), pont JS `AndroidHaptics.
 
 | Poste | Budget | Mesuré (scène boss) |
 |---|---|---|
-| Draw calls | ≤ 80 | ~50 (ville = 1 draw call instancié, particules = 2) |
-| Triangles | ≤ 60 k | ~24 k |
+| Draw calls | ≤ 80 | 47–66 (ville = 1 draw call instancié, particules = 2) |
+| Triangles | ≤ 60 k | 24–26 k |
 | Textures | ≤ 20 | 13 (atlas KayKit 1 par perso) |
-| Mémoire JS | ≤ 120 Mo | ~48 Mo |
-| CPU par frame | ≤ 6 ms | 3–6 ms (Chromium headless) |
+| Mémoire JS | ≤ 120 Mo | 48–51 Mo |
+| CPU par frame | ≤ 6 ms | 3–4 ms (Chromium headless) |
 | Post-process | aucun | aucun (glow = sprites additifs) |
 | Résolution | dpr 1,6 max | **auto** : descend à 0,85 si < 47 fps, remonte si > 58 fps |
 
