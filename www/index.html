@@ -121,15 +121,17 @@ button:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
 .tst{font-family:var(--f-display);font-size:clamp(14px,3.6vw,19px);text-align:center;padding:8px 16px;border-radius:14px;background:rgba(10,6,22,.88);border:2px solid #000;animation:tin .25s ease-out, fadeout 4.5s forwards}
 .tst.bad{color:#ffb4ad;box-shadow:0 0 0 2px var(--red)} .tst.good{color:#c4ffbd;box-shadow:0 0 0 2px var(--lime)} .tst.glitch{color:#ffc0df;box-shadow:0 0 0 2px var(--glitch)}
 @keyframes tin{from{transform:translateY(-12px) scale(.9);opacity:0}}
+#aim{position:absolute;bottom:calc(12px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);width:min(420px,46vw);padding:10px 12px;border-radius:14px;background:rgba(10,6,22,.92);border:2px solid #000;box-shadow:0 0 0 2px var(--gold);text-align:center;display:flex;flex-direction:column;gap:5px;align-items:center;z-index:2}
+.aimt{font:400 15px var(--f-display);color:var(--gold)} .aimd{font:800 12.5px/1.3 var(--f-body)} .aimh{font:800 12px var(--f-body);color:var(--cyan)}
 #prompt{position:absolute;left:50%;bottom:calc(120px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font-weight:900;font-size:13px;padding:5px 12px;border-radius:10px;background:rgba(10,6,22,.8);pointer-events:none;white-space:nowrap}
 #labels{position:fixed;inset:0;pointer-events:none;z-index:12;overflow:hidden}
-.nm{position:absolute;transform:translate(-50%,-100%);font:900 12px var(--f-body);white-space:nowrap;padding:1px 7px;border-radius:7px;background:rgba(10,6,22,.6)}
+.nm{position:absolute;left:0;top:0;translate:-50% -100%;font:900 12px var(--f-body);white-space:nowrap;padding:1px 7px;border-radius:7px;background:rgba(10,6,22,.6)}
 .nm.ex{color:var(--red)}
-.bub{position:absolute;transform:translate(-50%,-100%);max-width:200px;font:800 12.5px/1.25 var(--f-body);color:#1a0f2e;background:#fff6ea;border:2px solid #000;border-radius:12px;padding:5px 9px;text-align:center}
+.bub{position:absolute;left:0;top:0;translate:-50% -100%;max-width:200px;font:800 12.5px/1.25 var(--f-body);color:#1a0f2e;background:#fff6ea;border:2px solid #000;border-radius:12px;padding:5px 9px;text-align:center}
 .bub::after{content:"";position:absolute;left:50%;bottom:-8px;margin-left:-6px;border:6px solid transparent;border-top-color:#000}
 .bub.npc{background:#d9ccff} .bub.w{background:#ffc0df}
-.ping{position:absolute;transform:translate(-50%,-50%);font-size:26px;animation:pingit 1s ease-out 3}
-@keyframes pingit{from{transform:translate(-50%,-50%) scale(.5);opacity:1}to{transform:translate(-50%,-50%) scale(1.6);opacity:.2}}
+.ping{position:absolute;left:0;top:0;translate:-50% -50%;font-size:26px;animation:pingit 1s ease-out 3}
+@keyframes pingit{from{scale:.5;opacity:1}to{scale:1.6;opacity:.2}}
 #vign{position:fixed;inset:0;pointer-events:none;z-index:11;background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.75) 100%)}
 #glitchfx{position:fixed;inset:0;pointer-events:none;z-index:13;opacity:0;background:repeating-linear-gradient(0deg,rgba(255,46,136,.12) 0 2px,transparent 2px 5px),linear-gradient(90deg,rgba(34,240,255,.12),transparent 30%,rgba(255,46,136,.14))}
 #glitchfx.on{animation:glfx .5s steps(4) 1}
@@ -194,6 +196,7 @@ button:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
 #introtxt{max-width:34ch}
 @media (orientation:landscape) and (max-height:500px){
   .rcard{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start;width:min(680px,92vw);padding:12px 16px} .rcard .big{font-size:44px} .miss li{font-size:13px} .rcard p{margin:.2em 0}
+  #aim{width:min(380px,40vw);padding:7px 10px;gap:3px} .aimd{font-size:11.5px}
   #intro{gap:8px} #roletag{max-width:28vw} #toast{width:min(38vw,400px)} .tst{font-size:13px;padding:6px 10px} #quest{width:min(240px,30vw);top:calc(54px + env(safe-area-inset-top,0px))} .qs2{font-size:11px;padding:3px 7px}
   #chatlog{left:calc(max(10px,env(safe-area-inset-left,0px)) + 130px);bottom:calc(10px + env(safe-area-inset-bottom,0px));width:min(300px,34vw)}
   #lobby .side{gap:7px} #lobby h1{font-size:22px} #nick{padding:6px 10px;font-size:16px}
@@ -206,6 +209,7 @@ button:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
   .glitchword{font-size:clamp(48px,14vh,120px)}
 }
 @media (max-width:560px) and (orientation:portrait){
+  #aim{bottom:auto;top:calc(150px + env(safe-area-inset-top,0px));width:calc(100vw - 32px)}
   #topbar{top:calc(58px + env(safe-area-inset-top,0px))}
   #toast{top:calc(104px + env(safe-area-inset-top,0px))}
   #roletag{max-width:calc(100vw - 130px)}
@@ -245,12 +249,12 @@ button:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
     <div class="rolegrid">
       <div class="rolebox"><b style="color:var(--cyan)">🗝️ Crocheteur</b><small>Évadé. Force les portes, détecte le Bug et les PNJ possédés.</small></div>
       <div class="rolebox"><b style="color:var(--lime)">🔮 Oracle</b><small>Évadé. Sa lanterne dit si un indice est vrai, sa vision révèle le Bug.</small></div>
-      <div class="rolebox"><b style="color:var(--gold)">🎭 Complice</b><small>Se fait passer pour un évadé. Brise les sceaux, bluffe, chuchote avec le Bug.</small></div>
-      <div class="rolebox"><b style="color:var(--glitch)">👾 Bug 404</b><small>Invisible. Possède les squelettes, ferme les portes, plante de faux indices, coupe la lumière.</small></div>
+      <div class="rolebox"><b style="color:var(--gold)">🎭 Complice</b><small>Se fait passer pour un évadé. Brise les sceaux, pose des pièges, calomnie les autres.</small></div>
+      <div class="rolebox"><b style="color:var(--glitch)">👾 Bug 404</b><small>Invisible. Possède les squelettes, claque les portes, hante les joueurs, pose de faux indices.</small></div>
     </div>
     <p style="margin-top:12px"><b>Pour sortir :</b> activer les 3 sceaux (runes, anneaux, plaques jumelles à deux), trouver le code de 4 symboles sur les parchemins, le taper à la Porte 404, puis sortir à deux avant la fin du chrono.</p>
     <p><b>Les gardes</b> squelettes patrouillent : s'ils te voient trop longtemps, ils t'envoient au cellier. Un allié peut t'ouvrir.</p>
-    <p><b>Le chat est de proximité :</b> on ne t'entend que de près. Le Bug, lui, entend tout. À la chapelle, tu peux dénoncer le complice une seule fois : bonne réponse +60 s, erreur −90 s.</p>
+    <p><b>Le chat est de proximité :</b> on ne t'entend que de près. Le Bug, lui, entend tout.</p><p><b>Pouvoirs :</b> touche un bouton de pouvoir, puis touche la cible qui s'allume (porte, squelette, joueur…). Touche un joueur pour ouvrir sa fiche.</p><p><b>Réunion d'urgence :</b> à l'autel de la Chapelle, chacun peut sonner une fois. Tout le monde vote : complice démasqué = +60 s, innocent au cellier = −20 s.</p>
   </div>
 </div>
 
@@ -281,6 +285,7 @@ button:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
     <button class="ibtn" id="brules" aria-label="Règles">❓</button>
   </div>
   <div id="toast"></div>
+  <div id="aim" hidden></div>
   <div id="chatlog"></div>
   <div id="prompt" hidden></div>
   <div id="joy"><div id="knob"></div></div>
@@ -403,14 +408,23 @@ const CHARS = [
 const WEAPON_RX = /Shield|Axe|Sword|Mug|Spellbook|Wand|Staff|Crossbow|Knife|Throwable/;
 const ROLES = {
   S: { name: 'Crocheteur', team: 'E', ico: '🗝️', col: '#22f0ff', goal: 'Active les 3 sceaux, trouve le code, sors à deux.',
-       pw: [{ k: 'pick', ico: '🗝️', lbl: 'Crocheter', n: 3 }, { k: 'scan', ico: '📡', lbl: 'Détecter', n: 2 }] },
+       pw: [{ k: 'pick', ico: '🗝️', lbl: 'Crocheter', n: 3, t: 'door', r: 3.4, d: 'Touche une porte proche : elle s\'ouvre et se déverrouille, même celle du cellier.' },
+            { k: 'scan', ico: '📡', lbl: 'Détecter', n: 2, t: 'none', d: 'Pendant 9 s, tu vois le Bug et les squelettes possédés autour de toi.' }] },
   O: { name: 'Oracle', team: 'E', ico: '🔮', col: '#7dff6b', goal: 'Démêle le vrai du faux, active les sceaux, sors à deux.',
-       pw: [{ k: 'lantern', ico: '🏮', lbl: 'Lanterne', n: 2 }, { k: 'vision', ico: '👁️', lbl: 'Vision', n: 2 }] },
+       pw: [{ k: 'lantern', ico: '🏮', lbl: 'Lanterne', n: 2, t: 'clue', r: 3.4, d: 'Touche un parchemin proche : tu sais s\'il dit vrai ou s\'il a été posé par le Bug.' },
+            { k: 'vision', ico: '👁️', lbl: 'Vision', n: 2, t: 'none', d: 'Pendant 7 s, tu vois le Bug invisible et ses pièges.' }] },
   X: { name: 'Complice', team: 'B', ico: '🎭', col: '#ffc83a', goal: 'Fais-toi passer pour un évadé. Retarde-les jusqu\'à la fin du chrono.',
-       pw: [{ k: 'sabot', ico: '💥', lbl: 'Saboter', n: 2 }, { k: 'mimic', ico: '✨', lbl: 'Simulacre', n: 3 }] },
+       pw: [{ k: 'sabot', ico: '💥', lbl: 'Saboter', n: 2, t: 'seal', r: 3.4, d: 'Touche un sceau ACTIVÉ à côté de toi : il se brise (2 s). Si un serviteur te voit, il pourra te dénoncer.' },
+            { k: 'trap', ico: '🪤', lbl: 'Piège', n: 2, t: 'none', d: 'Pose un piège invisible à tes pieds : le prochain évadé qui marche dessus est bloqué 5 s et les gardes accourent.' },
+            { k: 'slander', ico: '🗣️', lbl: 'Calomnie', n: 2, t: 'player', r: 99, d: 'Touche un joueur : les serviteurs raconteront qu\'ils l\'ont vu saboter un sceau.' }] },
   B: { name: 'Bug 404', team: 'B', ico: '👾', col: '#ff2e88', goal: 'Invisible. Empêche-les de sortir avant la fin du chrono.',
-       pw: [{ k: 'poss', ico: '💀', lbl: 'Posséder', n: 99 }, { k: 'door', ico: '🚪', lbl: 'Porte', n: 6 }, { k: 'fake', ico: '📜', lbl: 'Faux indice', n: 2 }, { k: 'black', ico: '🌑', lbl: 'Panne', n: 2 }, { k: 'echo', ico: '🔔', lbl: 'Écho', n: 4 }] },
+       pw: [{ k: 'poss', ico: '💀', lbl: 'Posséder', n: 99, t: 'npc', r: 9, d: 'Touche un squelette à moins de 9 m : tu le contrôles 30 s. Un garde possédé attrape les joueurs qu\'il touche.' },
+            { k: 'door', ico: '🚪', lbl: 'Porte', n: 6, t: 'door', r: 10, d: 'Touche une porte à moins de 10 m : elle claque et reste verrouillée 20 s (ou s\'ouvre si elle était fermée).' },
+            { k: 'haunt', ico: '👻', lbl: 'Hanter', n: 3, t: 'player', r: 12, d: 'Touche un joueur à moins de 12 m : son écran grésille et ses commandes s\'inversent 4 s.' },
+            { k: 'fake', ico: '📜', lbl: 'Faux indice', n: 2, t: 'none', d: 'Pose un faux parchemin là où tu flottes, avec le symbole de ton choix.' },
+            { k: 'black', ico: '🌑', lbl: 'Panne', n: 2, t: 'none', d: 'Toutes les torches s\'éteignent 9 s : les visibles n\'y voient presque plus.' }] },
 };
+const SEATS = [{ x: 40.5, z: 51.2 }, { x: 42.5, z: 51.2 }, { x: 45.5, z: 51.2 }, { x: 47.5, z: 51.2 }];
 const BOT_NAMES = ['Lysandre', 'Moko', 'Pivoine', 'Gaspard', 'Nyx', 'Ombeline', 'Tibo'];
 const MATCH_TIME = 420;
 const CHAT_RANGE = 11;
@@ -485,7 +499,7 @@ const Audio = {
 /* =========================================================
    Monde 3D : rendu, chargement, construction de la crypte
    ========================================================= */
-const W3 = {
+const W3 = { lamb: new Map(),
   renderer: null, scene: null, cam: null, clock: new THREE.Clock(), gltf: {}, dmat: null, colMat: null,
   boxes: [], doors: [], torches: [], lights: [], xray: { uP: { value: new THREE.Vector3() }, uOn: { value: 1 } },
   seals: [], plates: [], clueMeshes: new Map(), gate: null, camTarget: new THREE.Vector3(28, 0, 28), camDist: 1,
@@ -493,8 +507,8 @@ const W3 = {
 
 function initRenderer() {
   const cv = $('gl');
-  const r = new THREE.WebGLRenderer({ canvas: cv, antialias: devicePixelRatio < 2, powerPreference: 'high-performance' });
-  r.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+  const r = new THREE.WebGLRenderer({ canvas: cv, antialias: false, powerPreference: 'high-performance' });
+  W3.pr = Math.min(devicePixelRatio, 1.3); r.setPixelRatio(W3.pr);
   r.setSize(innerWidth, innerHeight, false);
   r.outputColorSpace = THREE.SRGBColorSpace;
   r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 1.15;
@@ -502,11 +516,11 @@ function initRenderer() {
   const sc = new THREE.Scene(); sc.background = new THREE.Color(0x07060d);
   sc.fog = new THREE.Fog(0x07060d, 21, 36);
   W3.scene = sc;
-  W3.cam = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.5, 70);
+  W3.cam = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.5, 46);
   W3.hemi = new THREE.HemisphereLight(0x8f86ff, 0x1a0f22, 0.9); sc.add(W3.hemi);
   W3.amb = new THREE.AmbientLight(0x6a5f8a, 0.55); sc.add(W3.amb);
   W3.moon = new THREE.DirectionalLight(0xb8c4ff, 0.55); W3.moon.position.set(-20, 40, 30); sc.add(W3.moon);
-  for (let i = 0; i < 7; i++) { const l = new THREE.PointLight(0xff9a3c, 0, 10, 1.6); sc.add(l); W3.lights.push(l); }
+  for (let i = 0; i < 4; i++) { const l = new THREE.PointLight(0xff9a3c, 0, 11, 1.5); sc.add(l); W3.lights.push(l); }
   W3.lantern = new THREE.PointLight(0xcfe6ff, 1.4, 9, 1.4); sc.add(W3.lantern);
   const sh = new THREE.Shape(); sh.moveTo(0, 0.7); sh.lineTo(0.5, -0.1); sh.lineTo(0.18, -0.1); sh.lineTo(0.18, -0.6); sh.lineTo(-0.18, -0.6); sh.lineTo(-0.18, -0.1); sh.lineTo(-0.5, -0.1); sh.closePath();
   W3.guide = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshBasicMaterial({ color: 0x22f0ff, transparent: true, opacity: 0.85, depthWrite: false }));
@@ -538,10 +552,10 @@ async function loadAll(onProg) {
   // matériau unique du donjon (même atlas), avec découpe « rayons X » des murs devant le joueur
   let base = null;
   W3.gltf['d:wall']?.scene.traverse(o => { if (o.isMesh && !base) base = o.material; });
-  W3.dmat = base ? base.clone() : new THREE.MeshStandardMaterial({ color: 0x777777 });
-  W3.dmat.roughness = 0.85; W3.dmat.metalness = 0;
+  W3.dmat = new THREE.MeshLambertMaterial({ map: base ? base.map : null, color: base ? 0xffffff : 0x777777 });
+  
   patchXray(W3.dmat);
-  W3.colMat = new THREE.MeshStandardMaterial({ color: 0x625b78, roughness: 0.9 }); patchXray(W3.colMat);
+  W3.colMat = new THREE.MeshLambertMaterial({ color: 0x625b78 }); patchXray(W3.colMat);
 }
 function patchXray(mat) {
   mat.onBeforeCompile = s => {
@@ -571,7 +585,7 @@ function flushPlacements(parent) {
     const g = W3.gltf['d:' + model]; if (!g) continue;
     g.scene.updateMatrixWorld(true);
     const chunks = {}; // découpage en blocs de 16 m pour que la caméra ne dessine que l'utile
-    for (const m of mats) { v.setFromMatrixPosition(m); const k = Math.floor(v.x / 16) + ',' + Math.floor(v.z / 16); (chunks[k] = chunks[k] || []).push(m); }
+    for (const m of mats) { v.setFromMatrixPosition(m); const k = Math.floor(v.x / 8) + ',' + Math.floor(v.z / 8); (chunks[k] = chunks[k] || []).push(m); }
     g.scene.traverse(o => {
       if (!o.isMesh) return;
       const local = o.matrixWorld.clone();
@@ -628,10 +642,10 @@ function buildCrypt() {
     if (e.k === gateKey) { buildGate(root, e); continue; }
     let m = 'wall'; const h = hash(e.x, e.z);
     if (!e.two) {
-      if (e.reg === 'L' && h < 0.7) m = 'wall_shelves';
-      else if (e.reg === 'A' && h < 0.45) m = 'wall_shelves';
+      if (e.reg === 'L' && h < 0.4) m = 'wall_shelves';
+      else if (e.reg === 'A' && h < 0.3) m = 'wall_shelves';
       else if ((e.reg === 'G' || e.reg === 'P') && h < 0.5) m = 'wall_arched';
-      else if (h < 0.16) m = 'wall_cracked';
+      else if (h < 0.05) m = 'wall_cracked';
       else if (e.reg === '.' && h > 0.9) m = 'wall_window_closed';
     }
     place(m, e.x, e.z, ry);
@@ -736,7 +750,7 @@ function buildStations(root) {
   SEALS.forEach((s, i) => {
     const g = new THREE.Group(); g.position.set(s.x, 0, s.z); root.add(g);
     const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.75, 1.05, 8), W3.colMat); ped.position.y = 0.52; g.add(ped);
-    const cry = new THREE.Mesh(new THREE.OctahedronGeometry(0.42, 0), new THREE.MeshStandardMaterial({ color: 0xff4a3d, emissive: 0xff4a3d, emissiveIntensity: 1.2, roughness: 0.3 }));
+    const cry = new THREE.Mesh(new THREE.OctahedronGeometry(0.42, 0), new THREE.MeshLambertMaterial({ color: 0xff4a3d, emissive: 0xff4a3d, emissiveIntensity: 1.2 }));
     cry.position.y = 1.75; g.add(cry);
     const ring = new THREE.Mesh(new THREE.RingGeometry(1.15, 1.45, 32), glowMat(0xff4a3d, 0.55)); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.07; g.add(ring);
     const l = new THREE.PointLight(0xff4a3d, 2.2, 7, 1.5); l.position.y = 2; g.add(l);
@@ -744,7 +758,7 @@ function buildStations(root) {
     W3.seals[i] = { g, cry, ring, l, on: -1 };
   });
   PLATES.forEach(p => {
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.15, 0.12, 24), new THREE.MeshStandardMaterial({ color: 0x3b3554, emissive: 0x22f0ff, emissiveIntensity: 0.15 }));
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(1.05, 1.15, 0.12, 24), new THREE.MeshLambertMaterial({ color: 0x3b3554, emissive: 0x22f0ff, emissiveIntensity: 0.15 }));
     m.position.set(p.x, 0.06, p.z); root.add(m);
     const ring = new THREE.Mesh(new THREE.RingGeometry(1.1, 1.3, 32), glowMat(0x22f0ff, 0.35)); ring.rotation.x = -Math.PI / 2; ring.position.set(p.x, 0.14, p.z); root.add(ring);
     W3.plates.push({ m, ring });
@@ -756,7 +770,7 @@ function buildStations(root) {
   addBox(GATE.x - 3.1, GATE.z - 0.3, GATE.x - 2.1, GATE.z + 0.3, 'prop');
   // autel de pierre
   const alt = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.95, 0.75), W3.colMat); alt.position.set(ALTAR.x, 0.47, 47.3); root.add(alt);
-  const book = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.08, 0.42), new THREE.MeshStandardMaterial({ color: 0xffd36b, emissive: 0xffa21a, emissiveIntensity: 0.8 })); book.position.set(ALTAR.x, 1.0, 47.3); root.add(book);
+  const book = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.08, 0.42), new THREE.MeshLambertMaterial({ color: 0xffd36b, emissive: 0xffa21a, emissiveIntensity: 0.8 })); book.position.set(ALTAR.x, 1.0, 47.3); root.add(book);
   const al = new THREE.PointLight(0xffc83a, 3, 7, 1.5); al.position.set(ALTAR.x, 2, 47.8); root.add(al);
   addBox(ALTAR.x - 0.65, 46.92, ALTAR.x + 0.65, 47.68, 'prop');
   // autel : cercle
@@ -767,9 +781,9 @@ function buildStations(root) {
 }
 function makeParchment() {
   const g = new THREE.Group();
-  const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.7, 10), new THREE.MeshStandardMaterial({ color: 0xf0d79a, emissive: 0x6a4a10, emissiveIntensity: 0.6 }));
+  const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.7, 10), new THREE.MeshLambertMaterial({ color: 0xf0d79a, emissive: 0x6a4a10, emissiveIntensity: 0.6 }));
   roll.rotation.z = Math.PI / 2; roll.position.y = 0.9; g.add(roll);
-  const sheet = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.55), new THREE.MeshStandardMaterial({ color: 0xf7e4b5, emissive: 0x6a4a10, emissiveIntensity: 0.5, side: THREE.DoubleSide }));
+  const sheet = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.55), new THREE.MeshLambertMaterial({ color: 0xf7e4b5, emissive: 0x6a4a10, emissiveIntensity: 0.5, side: THREE.DoubleSide }));
   sheet.position.set(0, 0.62, 0.02); g.add(sheet);
   const halo = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.7, 24), glowMat(0xffc83a, 0.45)); halo.rotation.x = -Math.PI / 2; halo.position.y = 0.06; g.add(halo);
   g.userData.halo = halo; return g;
@@ -799,7 +813,7 @@ function buildLobby() {
 const ANIMS = ['Unarmed_Idle', 'Walking_A', 'Running_A', 'Interact', 'Spellcasting', 'Cheer', 'Sit_Floor_Idle', 'Use_Item', 'Hit_A', 'Idle'];
 function makeChar(id, opts = {}) {
   const g = W3.gltf['c:' + id]; const root = new THREE.Group();
-  if (!g) { const m = new THREE.Mesh(new THREE.CapsuleGeometry(0.4, 1.2), new THREE.MeshStandardMaterial({ color: 0x888888 })); m.position.y = 1; root.add(m); return { root, play() {}, update() {} }; }
+  if (!g) { const m = new THREE.Mesh(new THREE.CapsuleGeometry(0.4, 1.2), new THREE.MeshLambertMaterial({ color: 0x888888 })); m.position.y = 1; root.add(m); return { root, play() {}, update() {} }; }
   const model = SkeletonUtils.clone(g.scene); root.add(model);
   const pre = (CHARS.find(c => c.id === id) || {}).pre;
   model.traverse(o => {
@@ -807,6 +821,7 @@ function makeChar(id, opts = {}) {
     o.frustumCulled = false;
     if (pre && (WEAPON_RX.test(o.name) || !o.name.startsWith(pre))) o.visible = false;
     if (o.name.endsWith('_Eyes')) { o.material = new THREE.MeshBasicMaterial({ color: opts.eyes || 0xff3030 }); }
+    else if (o.material && o.material.isMeshStandardMaterial) { const src = o.material; o.material = W3.lamb.get(src) || W3.lamb.set(src, new THREE.MeshLambertMaterial({ map: src.map, color: src.color })).get(src); }
     if (opts.ghost) { o.material = W3.ghostMat; }
   });
   const mixer = new THREE.AnimationMixer(model); const actions = {};
@@ -1003,7 +1018,6 @@ function doorSide(i, side) { const [a, b, c, d] = DOORS[i]; const p = side ? [a,
 const GUARD_ROUTES = [
   [[6, 20], [50, 20]],
   [[50, 40], [6, 40]],
-  [[38.5, 49.5], [52, 49.5], [52, 52.5], [38.5, 52.5]],
 ];
 const SERVANT_SPOTS = [[6, 6], [12, 10], [22, 8], [34, 9], [46, 5], [50, 10], [14, 30], [42, 30], [44, 36], [10, 50], [22, 52], [40, 52], [50, 50], [28, 20], [10, 40], [46, 40], [28, 40]];
 const SERVANT_LINES = [
@@ -1019,7 +1033,7 @@ const Host = {
     const S = {
       ph: 'intro', tIntro: 15, tl: MATCH_TIME, go: 0, ac: 0, wn: '', why: '',
       pl: {}, np: [], dr: DOORS.map(() => 0), dl: DOORS.map(() => 0), sl: [0, 0, 0], sp: 0, cl: [], bo: 0, ev: [], bc: [],
-      code: [0, 1, 2, 3].map(() => rint(0, 5)), seen: [], rumors: [],
+      code: [0, 1, 2, 3].map(() => rint(0, 5)), seen: [], rumors: [], traps: [], votes: {}, vt: 0, caller: '',
     };
     // portes ouvertes sauf réveil
     S.dr = DOORS.map((_, i) => (i === 6 || i === 7) ? 0 : (Math.random() < 0.7 ? 1 : 0));
@@ -1041,7 +1055,7 @@ const Host = {
     for (const p of participants) {
       const r = assign[p.id]; const sp = r === 'B' ? SPAWNS[3] : SPAWNS[si++];
       const c = p.bot ? (freeChars.shift() ?? rint(0, 3)) : p.c;
-      S.pl[p.id] = { n: p.n, c, r, v: r === 'X' ? pick(['S', 'O']) : '', b: p.bot ? 1 : 0, x: sp.x, z: sp.z, y: Math.PI, a: 0, k: 0, e: 0, o: 0, ch: ROLES[r].pw.map(w => w.n), pc: r === 'B' ? MATCH_TIME - 25 : 0, poss: -1 };
+      S.pl[p.id] = { n: p.n, c, r, v: r === 'X' ? pick(['S', 'O']) : '', b: p.bot ? 1 : 0, x: sp.x, z: sp.z, y: Math.PI, a: 0, k: 0, e: 0, o: 0, ch: ROLES[r].pw.map(w => w.n), pc: r === 'B' ? MATCH_TIME - 25 : 0, poss: -1, rt: 0, hu: 0, bell: 0 };
       if (p.bot) this.brains[p.id] = makeBrain(p.id, r);
     }
     // PNJ : 3 gardes, 3 serviteurs
@@ -1073,8 +1087,15 @@ const Host = {
       if (S.tIntro <= 0) { S.ph = 'play'; S.dl[6] = S.dl[7] = 0; S.dr[6] = S.dr[7] = 1; this.pushEv('dr', 6, 1); this.pushEv('dr', 7, 1); this.pushEv('go'); }
       return;
     }
+    if (S.ph === 'vote') { S.vt -= dt; this.voteTick(); return; }
     if (S.ph !== 'play') return;
-    S.tl -= dt;
+    S.tl -= dt; if (S.grace > 0) S.grace -= dt;
+    for (const p of Object.values(S.pl)) { if (p.rt > 0) p.rt = Math.max(0, p.rt - dt); if (p.hu > 0) p.hu = Math.max(0, p.hu - dt); }
+    for (const t of S.traps) if (!t.used) for (const [id, p] of this.evaders()) if (!p.k && !p.o && dist2(p.x, p.z, t.x, t.z) < 0.95) {
+      t.used = 1; p.rt = 5; this.pushEv('trap', id, r1(t.x), r1(t.z));
+      S.np.forEach(n => { if (n.t === 'G' && !n.pb && dist2(n.x, n.z, t.x, t.z) < 22) { n.st = 'invest'; n.inv = [t.x, t.z]; n.path = null; } }); break;
+    }
+    S.traps = S.traps.filter(t => !t.used);
     for (let i = 0; i < S.dl.length; i++) if (S.dl[i] > 0 && S.dl[i] < 900) { S.dl[i] = Math.max(0, S.dl[i] - dt); }
     if (S.bo > 0) S.bo = Math.max(0, S.bo - dt);
     if (S.dl[PRISON_DOOR] >= 900) { S.ct -= dt; if (S.ct <= 0) { this.freePrison(''); this.pushEv('rust'); } }
@@ -1088,9 +1109,31 @@ const Host = {
     if (ev.length && ev.every(([, p]) => p.o)) this.end('E', 'Les évadés ont franchi la Porte 404 !');
     else if (S.tl <= 0) this.end('B', 'Le chrono est tombé à zéro. La crypte garde ses prisonniers.');
   },
+  startVote(by) {
+    const S = this.S; S.ph = 'vote'; S.vt = 40; S.votes = {}; S.caller = by;
+    const vis = Object.entries(S.pl).filter(([id, p]) => p.r !== 'B' && !p.o).sort((a, b) => a[0] < b[0] ? -1 : 1);
+    vis.forEach(([id, p], i) => { if (!p.k) { const st = SEATS[i % SEATS.length]; p.x = st.x; p.z = st.z; p.y = 0; } p.rt = 0; p.hu = 0; });
+    for (const [id, p] of Object.entries(S.pl)) if (p.r === 'B' && p.poss >= 0) this.power(id, p, 'poss', [-1]);
+    S.np.forEach(n => { if (n.t === 'G') { n.st = 'return'; n.al = 0; n.path = null; } });
+    for (const b of Object.values(this.brains)) { b.voteAt = 40 - rnd(5, 20); b.goal = null; b.act = 0; }
+    this.pushEv('bell', by);
+  },
+  voteTick() {
+    const S = this.S;
+    const elig = Object.entries(S.pl).filter(([id, p]) => p.r !== 'B' && !p.o);
+    for (const [id, p] of elig) { const b = this.brains[id]; if (b && S.votes[id] === undefined && S.vt <= b.voteAt) { S.votes[id] = b.voteChoice(this); this.botSay(id, S.votes[id] === 'skip' ? pick(['Je passe, pas assez d\'indices.', 'Je ne sais pas… je passe.']) : `Je vote contre ${S.pl[S.votes[id]].n}.`); } }
+    if (S.vt > 0 && !elig.every(([id]) => S.votes[id] !== undefined)) return;
+    const cnt = {}; let skip = 0; for (const v of Object.values(S.votes)) { if (v === 'skip') skip++; else cnt[v] = (cnt[v] || 0) + 1; }
+    const ord = Object.entries(cnt).sort((a, b) => b[1] - a[1]);
+    let tid = '', ok = 0;
+    if (ord.length && ord[0][1] > skip && (!ord[1] || ord[1][1] < ord[0][1])) tid = ord[0][0];
+    if (tid) { const t = S.pl[tid]; if (t.r === 'X') { ok = 1; t.e = 1; S.tl += 60; } else { this.capture(tid); S.tl -= 20; } }
+    S.ph = 'play'; S.grace = 6; this.pushEv('vres', tid, ok);
+    for (const b of Object.values(this.brains)) b.goal = null;
+  },
   end(team, why) { const S = this.S; if (S.ph === 'end') return; S.ph = 'end'; S.wn = team; S.why = why; this.pushEv('end', team); },
   action(id, kind, a) {
-    const S = this.S, p = S.pl[id]; if (!p || S.ph !== 'play') return;
+    const S = this.S, p = S.pl[id]; if (!p || (S.ph !== 'play' && !(S.ph === 'vote' && kind === 'vote'))) return;
     const near = (x, z, r) => dist2(p.x, p.z, x, z) <= r;
     switch (kind) {
       case 'open': { const i = a[0] | 0; if (i < 0 || i >= DOORS.length || S.dl[i] > 0 || p.r === 'B') return; const dp = doorPos(i); if (!near(dp.x, dp.z, 3.2)) return; S.dr[i] ^= 1; this.pushEv('dr', i, S.dr[i]); break; }
@@ -1105,16 +1148,14 @@ const Host = {
         else { S.tl -= 45; this.pushEv('gate', 0, id); S.np.forEach(n => { if (n.t === 'G' && !n.pb) { n.st = 'invest'; n.inv = [GATE.x, GATE.z - 3]; n.path = null; } }); }
         break;
       }
-      case 'acc': {
-        if (S.ac || p.r === 'B' || p.k || !near(ALTAR.x, ALTAR.z, 3.2)) return; const t = S.pl[a[0]]; if (!t || t.r === 'B' || a[0] === id) return;
-        S.ac = 1; const ok = t.r === 'X'; if (ok) { t.e = 1; S.tl += 60; } else S.tl -= 90; this.pushEv('acc', id, a[0], ok ? 1 : 0); break;
-      }
+      case 'bell': { if (p.r === 'B' || p.k || p.bell || p.o || !near(ALTAR.x, ALTAR.z, 3.4)) return; p.bell = 1; this.startVote(id); break; }
+      case 'vote': { if (S.ph !== 'vote' || p.r === 'B' || p.o || S.votes[id] !== undefined) return; const t = a[0]; if (t !== 'skip' && !(S.pl[t] && S.pl[t].r !== 'B' && !S.pl[t].o)) return; S.votes[id] = t; break; }
       case 'talk': {
         const n = S.np[a[0] | 0]; if (!n || n.t !== 'M' || !near(n.x, n.z, 3.4)) return;
         let txt;
         if (n.pb) txt = 'Le squelette te fixe sans un mot… ses orbites grésillent de pixels roses.';
         else {
-          const seen = S.seen.filter(s => dist2(s.x, s.z, n.x, n.z) < 11 && s.who !== id);
+          const seen = S.seen.filter(s => (s.rum || dist2(s.x, s.z, n.x, n.z) < 11) && s.who !== id);
           const sab = seen.filter(s => s.k === 'sab').pop(); const rd = seen.filter(s => s.k === 'read').pop(); const pw = seen.filter(s => s.k === 'pw').pop();
           if (sab) txt = `J'ai vu ${S.pl[sab.who]?.n || '???'} toucher le ${SEALS[sab.i].name} juste avant qu'il se brise.`;
           else if (pw && Math.random() < 0.5) txt = `${S.pl[pw.who]?.n || '???'} a utilisé un pouvoir près d'ici. Ça brillait.`;
@@ -1160,6 +1201,14 @@ const Host = {
         const x = clamp(p.x, 0, 56), z = clamp(p.z, 0, 56); S.cl.push({ id: 'f' + (this.evId++), s: slot, y: sym, x, z, f: 1 }); break;
       }
       case 'black': { use(); S.bo = 9; this.pushEv('black'); break; }
+      case 'trap': { use(); S.traps.push({ x: p.x, z: p.z, by: id }); break; }
+      case 'slander': {
+        const t = S.pl[a[0]]; if (!t || t.r === 'B' || a[0] === id) return; use(); const i = rint(0, 2);
+        S.seen.push({ k: 'sab', who: a[0], x: SEALS[i].x, z: SEALS[i].z, i, t: S.tl, rum: 1 }); if (S.seen.length > 20) S.seen.shift();
+        for (const b of Object.values(this.brains)) if (b.role === 'S' || b.role === 'O') b.susp[a[0]] = (b.susp[a[0]] || 0) + 1.5;
+        this.pushEv('slan', id, a[0]); break;
+      }
+      case 'haunt': { const t = S.pl[a[0]]; if (!t || t.r === 'B' || t.o || dist2(p.x, p.z, t.x, t.z) > 13) return; use(); t.hu = 4; this.pushEv('haunt', a[0]); break; }
       case 'echo': { use(); this.pushEv('echo', r1(p.x), r1(p.z)); S.np.forEach(n => { if (n.t === 'G' && !n.pb && dist2(n.x, n.z, p.x, p.z) < 16) { n.st = 'invest'; n.inv = [p.x, p.z]; n.path = null; } }); break; }
     }
   },
@@ -1199,7 +1248,7 @@ const Host = {
     // détection
     let best = null, bestScore = 0;
     for (const [id, p] of Object.entries(S.pl)) {
-      if (!this.visible(id) || p.k) continue;
+      if (!this.visible(id) || p.k || S.grace > 0) continue;
       const d = dist2(p.x, p.z, n.x, n.z); if (d > 6.8) continue;
       const ang = Math.atan2(p.x - n.x, p.z - n.z); let da = Math.abs(ang - n.y); while (da > Math.PI) da = Math.abs(da - Math.PI * 2);
       if (da > 0.66 && d > 1.6) continue;
@@ -1238,12 +1287,12 @@ const Host = {
   snapshot() {
     const S = this.S;
     const pl = {};
-    for (const [id, p] of Object.entries(S.pl)) pl[id] = { n: p.n, c: p.c, r: p.r, v: p.v, b: p.b, x: r1(p.x), z: r1(p.z), y: r1(p.y), a: p.a, k: p.k, e: p.e, o: p.o, ch: p.ch, pc: Math.round(p.pc), ps: p.poss };
+    for (const [id, p] of Object.entries(S.pl)) pl[id] = { n: p.n, c: p.c, r: p.r, v: p.v, b: p.b, x: r1(p.x), z: r1(p.z), y: r1(p.y), a: p.a, k: p.k, e: p.e, o: p.o, ch: p.ch, pc: Math.round(p.pc), ps: p.poss, rt: Math.ceil(p.rt), hu: Math.ceil(p.hu), bl: p.bell };
     return {
       ph: S.ph, ti: Math.ceil(S.tIntro), ct: Math.ceil(S.ct || 0), tl: Math.max(0, Math.round(S.tl)), go: S.go, ac: S.ac, wn: S.wn, why: S.why, pl,
       np: S.np.map(n => [n.t, r1(n.x), r1(n.z), r1(n.y), n.a, n.pb || 0, r1(n.al)]),
       dr: S.dr.slice(), dl: S.dl.map(v => Math.ceil(v)), sl: S.sl.slice(), sp: Math.round(S.sp), po: S.plOcc || [0, 0],
-      cl: S.cl.map(c => [c.id, c.s, c.y, r1(c.x), r1(c.z), c.f]), bo: Math.ceil(S.bo), ev: S.ev.slice(), bc: S.bc.slice(),
+      cl: S.cl.map(c => [c.id, c.s, c.y, r1(c.x), r1(c.z), c.f]), bo: Math.ceil(S.bo), tp: S.traps.map(t => [r1(t.x), r1(t.z)]), vt: Math.ceil(S.vt), vo: S.votes, ca: S.caller, ev: S.ev.slice(), bc: S.bc.slice(),
     };
   },
 };
@@ -1258,6 +1307,8 @@ function makeBrain(id, role) {
       const S = H.S, p = this.me(H); if (!p) return;
       this.chatCd -= dt;
       if (role === 'B') return this.bug(dt, H, p);
+      if (p.rt > 0) { p.a = 8; return; }
+      if (p.hu > 0) { const a = performance.now() / 300; let nx = p.x + Math.sin(a) * 2 * dt, nz = p.z + Math.cos(a) * 2 * dt; [nx, nz] = collide(nx, nz, 0.42); p.x = nx; p.z = nz; p.a = 1; return; }
       if (p.o) { p.a = 5; return; }
       if (p.k) { p.a = 6; if (!this.said.cell) { this.said.cell = 1; this.say(H, pick(['Je suis au cellier !! Quelqu\'un peut m\'ouvrir ?', 'Un garde m\'a chopé, venez au cellier svp', 'Cellier. Porte fermée. Help.'])); } return; }
       this.said.cell = 0;
@@ -1302,8 +1353,8 @@ function makeBrain(id, role) {
       if (S.go && !evil) return { k: 'exit', x: 16, z: 52.4, run: 1, r: 0.6 };
       // accuser ?
       const sus = Object.entries(this.susp).sort((a, b) => b[1] - a[1])[0];
-      if (!evil && !S.ac && sus && sus[1] >= 3 && S.pl[sus[0]]) return { k: 'acc', x: ALTAR.x, z: ALTAR.z + 0.5, t: sus[0], run: 1 };
-      if (evil && !S.ac && Math.random() < 0.06) { const tg = Object.entries(S.pl).find(([oid, o]) => oid !== id && ROLES[o.r].team === 'E'); if (tg) return { k: 'acc', x: ALTAR.x, z: ALTAR.z + 0.5, t: tg[0], run: 0 }; }
+      if (!evil && !p.bell && sus && sus[1] >= 3 && S.pl[sus[0]] && !S.pl[sus[0]].e) return { k: 'acc', x: ALTAR.x, z: ALTAR.z + 0.5, t: sus[0], run: 1 };
+      if (evil && !p.bell && Math.random() < 0.04) { const tg = Object.entries(S.pl).find(([oid, o]) => oid !== id && ROLES[o.r].team === 'E'); if (tg) return { k: 'acc', x: ALTAR.x, z: ALTAR.z + 0.5, t: tg[0], run: 0 }; }
       // code connu + sceaux → porte
       if (S.sl.every(Boolean) && !evil) { const code = this.code(); if (code) return { k: 'gate', x: GATE.x - 1.6, z: GATE.z - 0.6, code, run: 1 }; }
       // sabotage pour le complice
@@ -1325,6 +1376,17 @@ function makeBrain(id, role) {
       if (!choices.length) { const s = pick(SERVANT_SPOTS); return { k: 'wander', x: s[0], z: s[1] }; }
       // évite que deux bots prennent la même chose : un peu d'aléa
       const tot = choices.reduce((a, c) => a + c.w, 0); let rr = Math.random() * tot; for (const c of choices) { rr -= c.w; if (rr <= 0) return c; } return choices[0];
+    },
+    voteChoice(H) {
+      const S = H.S;
+      if (role === 'X') { const ev = Object.entries(S.pl).filter(([oid, o]) => ROLES[o.r].team === 'E' && !o.o); return ev.length && Math.random() < 0.65 ? pick(ev)[0] : 'skip'; }
+      if (this.voteFor && S.pl[this.voteFor] && !S.pl[this.voteFor].o) { const v = this.voteFor; this.voteFor = null; return v; }
+      const sus = Object.entries(this.susp).filter(([oid]) => S.pl[oid] && S.pl[oid].r !== 'B' && !S.pl[oid].o && oid !== id).sort((a, b) => b[1] - a[1])[0];
+      if (sus && sus[1] >= 2) return sus[0];
+      // suivre la majorité qui se dessine
+      const cnt = {}; Object.values(S.votes).forEach(v => { if (v !== 'skip' && v !== id) cnt[v] = (cnt[v] || 0) + 1; });
+      const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
+      return top && top[1] >= 1 && Math.random() < 0.5 ? top[0] : 'skip';
     },
     conflict(H) {
       const by = {}; for (const [cid, k] of Object.entries(this.know)) { if (k.ok === 0) continue; (by[k.s] = by[k.s] || []).push([cid, k]); }
@@ -1370,10 +1432,13 @@ function makeBrain(id, role) {
         case 'free': { const caught = Object.values(S.pl).some(o => o.k); if (!caught) { this.goal = null; break; } this.act = 2.2; this.actAnim = 3; this.actDo = ['free']; break; }
         case 'gate': this.act = 2; this.actAnim = 3; this.actDo = ['gate', g.code]; this.say(H, `Je tente le code : ${g.code.map(v => SYMS[v]).join(' · ')}`); break;
         case 'lant': this.act = 1; this.actAnim = 4; this.actDo = ['pw', 'lantern', g.c]; break;
-        case 'acc': if (S.pl[g.t]) { this.say(H, `Je dénonce ${S.pl[g.t].n} !`); this.act = 1.5; this.actAnim = 4; this.actDo = ['acc', g.t]; } break;
+        case 'acc': if (S.pl[g.t]) { this.say(H, `Réunion d'urgence ! Je soupçonne ${S.pl[g.t].n}.`); this.voteFor = g.t; this.act = 1.2; this.actAnim = 4; this.actDo = ['bell']; } break;
         case 'exit': this.goal = { k: 'exit2', x: 16, z: 56.6, run: 1, r: 0.2 }; this.t = 99; break;
         case 'exit2': break;
-        default: if (role === 'X' && p.ch[1] > 0 && Math.random() < 0.15) H.action(id, 'pw', ['mimic']); this.goal = null;
+        default:
+          if (role === 'X' && p.ch[1] > 0 && Math.random() < 0.3) H.action(id, 'pw', ['trap']);
+          if (role === 'X' && p.ch[2] > 0 && Math.random() < 0.15) { const ev = Object.entries(S.pl).filter(([oid, o]) => ROLES[o.r].team === 'E'); if (ev.length) H.action(id, 'pw', ['slander', pick(ev)[0]]); }
+          this.goal = null;
       }
     },
     // ---------- le Bug ----------
@@ -1406,7 +1471,7 @@ function makeBrain(id, role) {
       if (ch('door') > 0) { const di = DOORS.map((_, i) => i).filter(i => i !== PRISON_DOOR && S.dr[i] && dist2(doorPos(i).x, doorPos(i).z, t.x, t.z) < 7 && dist2(doorPos(i).x, doorPos(i).z, p.x, p.z) < 10); if (di.length) opts.push(() => H.power(id, p, 'door', [di[0]])); }
       if (ch('fake') > 0 && S.cl.filter(c => c.f).length < 2) opts.push(() => { const real = pick(S.cl.filter(c => !c.f)); if (isFloor(...cellOf(p.x, p.z))) H.power(id, p, 'fake', [real.s, (real.y + rint(1, 5)) % 6]); });
       if (ch('black') > 0 && (S.sl.filter(Boolean).length >= 2 || S.tl < 150)) opts.push(() => H.power(id, p, 'black', []));
-      if (ch('echo') > 0) opts.push(() => H.power(id, p, 'echo', []));
+      if (ch('haunt') > 0 && dist2(p.x, p.z, t.x, t.z) < 12) opts.push(() => H.power(id, p, 'haunt', [this.tg]));
       if (opts.length && Math.random() < 0.75) pick(opts)();
     },
   };
@@ -1460,7 +1525,7 @@ const Game = {
     if (this.bugGhost) { W3.scene.remove(this.bugGhost.root); this.bugGhost = null; }
     this.ents = {}; this.npcEnts = []; this.clueEnts = new Map(); this.w = null; this.evSeen = 0; this.chatSeen = new Set(); this.journal = {};
     this.actQ = []; this.chatOut = []; this.seq = 0; this.visionT = this.scanT = this.castT = 0; this.busy = 0; this.possPos = null;
-    this.introShown = false; this.ended = false; this.spectate = null; this.wasCap = 0; this.hostGoneT = 0;
+    this.introShown = false; this.inVote = false; this.ended = false; this.spectate = null; this.wasCap = 0; this.hostGoneT = 0;
     Host.S = null; Host.humanPres = {};
     W3.doors.forEach(d => { if (d) { d.cur = d.open = 0; if (d.door) d.door.rotation.y = 0; } });
     if (W3.gate) { W3.gate.cur = 0; W3.gate.obj.position.y = 0; }
@@ -1500,7 +1565,7 @@ const Game = {
     const myRole = this.role(); const sp = this.speakerPos(id, via); if (!sp) return;
     const speaker = this.w && this.w.pl[id];
     if (chan === 1 && !(myRole === 'X' || myRole === 'B')) return;
-    if (chan === 0 && !mine && myRole !== 'B' && dist2(sp.x, sp.z, this.me.x, this.me.z) > CHAT_RANGE) return;
+    if (chan === 0 && !mine && myRole !== 'B' && !(this.w && this.w.ph === 'vote') && dist2(sp.x, sp.z, this.me.x, this.me.z) > CHAT_RANGE) return;
     let name;
     if (sp.npc !== undefined && via >= 0) name = this.w.np[via][0] === 'G' ? '💀 Garde' : '💀 Serviteur';
     else if (String(id).startsWith('npc')) name = this.w.np[+String(id).slice(3)]?.[0] === 'G' ? '💀 Garde' : '💀 Serviteur';
@@ -1543,7 +1608,16 @@ const Game = {
     // phases
     if (w.ph === 'intro' && !this.introShown) { this.introShown = true; this.spawnLocal(P); UI.intro(P, w); }
     if (w.ph === 'intro') UI.introTick(w.ti);
-    if (w.ph === 'play' && UI.cur !== 'hud' && !this.ended) { UI.introEnd(); UI.show('hud'); UI.buildHUD(P); Audio.startMusic('game'); }
+    if ((w.ph === 'play' || w.ph === 'vote') && UI.cur !== 'hud' && !this.ended) { UI.introEnd(); UI.show('hud'); UI.buildHUD(P); Audio.startMusic('game'); }
+    if (w.ph === 'vote' && !this.inVote) {
+      this.inVote = true; UI.cancelAim(); this.busy = 0;
+      const vis = Object.entries(w.pl).filter(([id, p]) => p.r !== 'B' && !p.o).sort((a, b) => a[0] < b[0] ? -1 : 1);
+      const idx = vis.findIndex(([id]) => id === this.myId);
+      if (idx >= 0 && !P.k) { const st = SEATS[idx % SEATS.length]; this.me.x = st.x; this.me.z = st.z; this.me.y = 0; }
+      UI.voteModal(w);
+    }
+    if (w.ph === 'vote') UI.voteTick(w);
+    if (w.ph !== 'vote' && this.inVote) { this.inVote = false; if (UI.modal === 'vote') UI.closeModal(); }
     if (w.ph === 'end' && !this.ended) { this.ended = true; setTimeout(() => UI.end(this.w), 1600); }
     this.processEvents(w);
     this.collectChats();
@@ -1566,10 +1640,11 @@ const Game = {
     this.wasCap = P.k;
     if (P.o) { me.a = 5; return; }
     let ix = Input.x, iz = Input.z;
+    if (P.hu > 0) { ix = -ix; iz = -iz; }
     if (Input.keys.KeyW || Input.keys.ArrowUp) iz -= 1; if (Input.keys.KeyS || Input.keys.ArrowDown) iz += 1;
     if (Input.keys.KeyA || Input.keys.ArrowLeft) ix -= 1; if (Input.keys.KeyD || Input.keys.ArrowRight) ix += 1;
     let mag = Math.hypot(ix, iz); if (mag > 1) { ix /= mag; iz /= mag; mag = 1; }
-    const locked = w.ph !== 'play' || this.busy > 0 || UI.modalOpen();
+    const locked = w.ph !== 'play' || this.busy > 0 || UI.modalOpen() || P.rt > 0;
     if (locked) { ix = iz = 0; mag = 0; }
     // le Bug pilote un PNJ possédé
     if (isBug && P.ps >= 0) {
@@ -1589,7 +1664,7 @@ const Game = {
       let nx = me.x + ix * sp * dt, nz = me.z + iz * sp * dt; [nx, nz] = collide(nx, nz, 0.42); me.x = nx; me.z = nz;
       me.y = angLerp(me.y, Math.atan2(ix, iz), Math.min(1, dt * 12)); me.a = mag > 0.72 ? 2 : 1;
       this.stepT -= dt * (me.a === 2 ? 1.6 : 1); if (this.stepT <= 0) { this.stepT = 0.42; Audio.play(Math.random() < 0.5 ? 'step1' : 'step2', 0.25); }
-    } else me.a = P.k ? 6 : (this.busy > 0 ? 3 : (this.castT > 0 ? 4 : 0));
+    } else me.a = (P.k || w.ph === 'vote') ? 6 : (this.busy > 0 ? 3 : (this.castT > 0 ? 4 : 0));
   },
   /* ---------- entités ---------- */
   syncEntities(dt, w) {
@@ -1640,6 +1715,7 @@ const Game = {
     this.tension = lerp(this.tension, t, Math.min(1, dt * 3));
   },
   syncWorld(dt, w) {
+    const myRole = w.pl[this.myId].r;
     // portes
     W3.doors.forEach((d, i) => { if (!d) return; d.cur = lerp(d.cur, w.dr[i], Math.min(1, dt * 6)); if (d.door) d.door.rotation.y = -d.cur * 1.75; d.lock.visible = w.dl[i] > 0 && !w.dr[i]; if (d.lock.visible) d.lock.rotation.z += dt * 2; });
     // porte 404
@@ -1660,8 +1736,13 @@ const Game = {
       m.userData.halo.material.opacity = this.journal[c[0]] ? 0.15 : 0.5;
     }
     for (const [id, m] of this.clueEnts) if (!ids.has(id)) { W3.scene.remove(m); this.clueEnts.delete(id); }
+    // pièges (visibles par le Complice, le Bug, et l'Oracle pendant sa Vision)
+    const seeTraps = myRole === 'X' || myRole === 'B' || this.visionT > 0;
+    W3.trapPool = W3.trapPool || [];
+    (w.tp || []).forEach((t, i) => { let m = W3.trapPool[i]; if (!m) { m = new THREE.Mesh(new THREE.RingGeometry(0.45, 0.8, 6), glowMat(0xff2e88, 0.6)); m.rotation.x = -Math.PI / 2; W3.scene.add(m); W3.trapPool[i] = m; } m.position.set(t[0], 0.09, t[1]); m.rotation.z += dt; m.visible = seeTraps; });
+    for (let i = (w.tp || []).length; i < W3.trapPool.length; i++) W3.trapPool[i].visible = false;
     // obscurité
-    const black = w.bo > 0 && w.pl[this.myId].r !== 'B';
+    const black = w.bo > 0 && myRole !== 'B';
     $('dark').style.opacity = black ? '1' : '0';
     W3.scene.fog.near = lerp(W3.scene.fog.near, black ? 9 : 21, dt * 3); W3.scene.fog.far = lerp(W3.scene.fog.far, black ? 20 : 36, dt * 3);
     W3.hemi.intensity = lerp(W3.hemi.intensity, black ? 0.15 : 0.9, dt * 3); W3.amb.intensity = lerp(W3.amb.intensity, black ? 0.08 : 0.55, dt * 3);
@@ -1681,6 +1762,11 @@ const Game = {
         case 'cap': if (a === this.myId) { UI.toast('Un garde t\'a attrapé ! −10 s. Attends qu\'on t\'ouvre le cellier.', 'bad'); Audio.play('captured'); } else UI.toast(`⛓️ ${name(a)} a été envoyé au cellier (−10 s).`, 'bad'); break;
         case 'free': if (a === this.myId) UI.toast(`🔓 ${name(b)} t'a libéré !`, 'good'); Audio.play('latch', 0.6); break;
         case 'gate': if (a) { UI.toast('🟦 LA PORTE 404 S\'OUVRE ! Sortez à deux !', 'good'); Audio.play('bell'); } else { UI.toast(`❌ Mauvais code tapé par ${name(b)} : −45 s et les gardes accourent !`, 'bad'); Audio.play('err'); Audio.play('boom', 0.6); } break;
+        case 'bell': UI.toast(`🔔 ${name(a)} convoque une RÉUNION D'URGENCE !`, 'glitch'); Audio.play('bell'); break;
+        case 'vres': if (!a) UI.toast('🗳️ Personne n\'est désigné. La partie reprend.', ''); else UI.toast(b ? `🎭 ${name(a)} était le COMPLICE ! Démasqué : +60 s` : `⛓️ ${name(a)} était innocent… envoyé au cellier, −20 s`, b ? 'good' : 'bad'); Audio.play(b ? 'ok' : 'err'); break;
+        case 'trap': if (a === this.myId) { UI.toast('🪤 Pris au piège ! Bloqué 5 s… les gardes arrivent !', 'bad'); UI.glitch(); } Audio.at('latch', b, c, 1.2, 22); UI.ping(b, c, '🪤'); break;
+        case 'haunt': if (a === this.myId) { UI.toast('👻 Tu es hanté ! Tes commandes sont inversées 4 s.', 'glitch'); UI.glitch(); setTimeout(() => UI.glitch(), 900); setTimeout(() => UI.glitch(), 2000); Audio.play('glitch2'); UI.chatLine('👾 ???', pick(['Tu ne sortiras pas…', 'Je suis juste derrière toi.', 'Erreur… 404… toi…'])); } break;
+        case 'slan': if (a === this.myId) UI.toast(`🗣️ Les serviteurs accuseront ${name(b)} de sabotage.`, 'good'); break;
         case 'acc': UI.toast(c ? `⚖️ ${name(a)} a démasqué le complice : ${name(b)} ! +60 s` : `⚖️ ${name(a)} a accusé ${name(b)}… à tort ! −90 s`, c ? 'good' : 'bad'); Audio.play(c ? 'ok' : 'err'); break;
         case 'fx': UI.fx(a, b, c); break;
         case 'lant': if (a === this.myId) { const j = this.journal[b]; if (j) j.v = c; UI.toast(c ? '🏮 Ce parchemin dit la vérité.' : '🏮 Ce parchemin est un FAUX !', c ? 'good' : 'bad'); UI.refreshJournal(); } break;
@@ -1701,7 +1787,10 @@ const Game = {
 let lastLight = 0;
 function frame() {
   requestAnimationFrame(frame);
-  const dt = Math.min(0.05, W3.clock.getDelta());
+  const dt = Math.min(0.1, W3.clock.getDelta());
+  // résolution adaptative : si ça rame, on baisse la définition
+  W3.fpsN = (W3.fpsN || 0) + 1; W3.fpsT = (W3.fpsT || 0) + dt;
+  if (W3.fpsT > 2.5) { const fps = W3.fpsN / W3.fpsT; W3.fpsN = 0; W3.fpsT = 0; if (fps < 38 && W3.pr > 0.7) { W3.pr = Math.max(0.7, W3.pr - 0.15); W3.renderer.setPixelRatio(W3.pr); W3.renderer.setSize(innerWidth, innerHeight, false); } else if (fps > 56 && W3.pr < Math.min(devicePixelRatio, 1.3)) { W3.pr = Math.min(Math.min(devicePixelRatio, 1.3), W3.pr + 0.1); W3.renderer.setPixelRatio(W3.pr); W3.renderer.setSize(innerWidth, innerHeight, false); } }
   Game.update(dt);
   Lobby.update(dt);
   // caméra
@@ -1732,7 +1821,7 @@ function frame() {
     W3.lights.forEach((l, i) => { const t = near[i] && near[i][1] < 26 ? near[i][0] : null; l.userData.t = t; if (t) l.position.set(t.x, t.y, t.z); });
   }
   const tm = performance.now() / 1000;
-  W3.lights.forEach(l => { const t = l.userData.t; l.intensity = t ? (9 + Math.sin(tm * 9 + t.ph) * 1.6 + Math.sin(tm * 23 + t.ph) * 0.8) * (W3.torchDim ?? 1) : 0; });
+  W3.lights.forEach(l => { const t = l.userData.t; l.intensity = t ? (11 + Math.sin(tm * 9 + t.ph) * 1.6 + Math.sin(tm * 23 + t.ph) * 0.8) * (W3.torchDim ?? 1) : 0; });
   W3.torches.forEach(t => t.fl.scale.setScalar((0.85 + Math.sin(tm * 12 + t.ph) * 0.15) * (W3.torchDim ?? 1)));
   if (W3.altarRing) W3.altarRing.rotation.z += dt * 0.5;
   W3.renderer.render(W3.scene, W3.cam);
@@ -1779,7 +1868,7 @@ const UI = {
       if (Game.mode === 'match' && (sy < 64 || sy > innerHeight - 20)) return;
       let el = this.labelEls.get(key); if (!el) { el = document.createElement('div'); L.appendChild(el); this.labelEls.set(key, el); }
       if (el.className !== cls) el.className = cls; if (el._h !== html) { el.innerHTML = html; el._h = html; }
-      el.style.left = sx + 'px'; el.style.top = sy + 'px'; used.add(key);
+      el.style.transform = `translate3d(${sx | 0}px,${sy | 0}px,0) ${el._tf || ''}`; used.add(key);
     };
     const now = performance.now();
     if (Game.mode === 'match' && Game.w) {
@@ -1788,6 +1877,7 @@ const UI = {
         const p = w.pl[id]; if (!p || p.o || dist2(e.x, e.z, Game.me.x, Game.me.z) > 16) continue;
         let tag = esc(p.n); if (id === Game.myId) tag = '★ ' + tag; if (p.k) tag = '⛓️ ' + tag;
         if (myRole === 'B' || myRole === 'X') { if (p.r === 'X' && id !== Game.myId) tag += ' 🎭'; }
+        if (Game.marks && Game.marks[id]) tag = '❗ ' + tag;
         put('n' + id, 'nm' + (p.e ? ' ex' : ''), tag, e.x, 2.75, e.z);
         const b = this.bubbles.get(id); if (b && b.t > now) put('b' + id, 'bub ' + (b.cls || ''), esc(b.text), e.x, 3.35, e.z);
       }
@@ -1800,8 +1890,8 @@ const UI = {
   },
   /* ---------- intro ---------- */
   missions(P) {
-    if (P.r === 'X') return [`Fais semblant d'être ${ROLES[P.v].name} : aide un peu, parle beaucoup.`, 'Quand personne ne regarde, brise un sceau actif avec 💥.', 'Annonce de faux symboles et chuchote avec le Bug.', 'Tu gagnes si le chrono tombe à 0:00.'];
-    if (P.r === 'B') return ['Tu es invisible : survole la crypte, tu entends tout.', 'Possède un squelette 💀 pour parler ou attraper.', 'Claque les portes 🚪, pose de faux parchemins 📜, coupe la lumière 🌑.', 'Tu gagnes si personne ne sort avant 0:00.'];
+    if (P.r === 'X') return [`Fais semblant d'être ${ROLES[P.v].name} : suis les autres, parle, aide un peu.`, '💥 Saboter : touche le bouton, puis le sceau ACTIVÉ qui brille, quand personne ne regarde.', '🪤 Piège : posé à tes pieds, il bloque le prochain évadé. 🗣️ Calomnie : touche un joueur pour que les serviteurs l\'accusent.', 'Survis aux réunions de vote. Tu gagnes si le chrono tombe à 0:00.'];
+    if (P.r === 'B') return ['Tu es invisible et tu entends tout le monde.', '💀 Posséder : touche le bouton puis un squelette qui brille, et dirige-le. Un garde possédé attrape les joueurs.', '🚪 Porte, 👻 Hanter : touche le bouton puis la cible. 📜 Faux indice et 🌑 Panne agissent tout de suite.', 'Tu gagnes si personne ne sort avant 0:00.'];
     return ['Active les 3 sceaux : Bibliothèque, Alchimie, et les 2 plaques du Réfectoire (à deux).', 'Lis les parchemins dorés : chacun donne un symbole du code (4 en tout).', 'Tape le code au panneau de la Porte 404, dans le Hall.', 'Sors par la porte avec l\'autre évadé avant 0:00.'];
   },
   intro(P, w) {
@@ -1837,7 +1927,7 @@ const UI = {
     big.addEventListener('pointerdown', e => { e.preventDefault(); fire(); });
   },
   hudTick(P, w) {
-    this.quest(P, w);
+    this.quest(P, w); this.aimTick();
     const t = w.tl; const tm = $('timer'); tm.textContent = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; tm.classList.toggle('low', t <= 60);
     [...$('seals').children].forEach((s, i) => s.classList.toggle('on', !!w.sl[i]));
     const R = ROLES[P.r];
@@ -1854,7 +1944,7 @@ const UI = {
     this.ctxT -= 1; if (this.ctxT <= 0) { this.ctxT = 6; this.ctx = this.contextAction(P, w); }
     const big = $('bigact'); if (big && !this.holding) { big.textContent = this.ctx ? this.ctx.label : '—'; big.classList.toggle('off', !this.ctx); big.classList.remove('prog'); }
     const pr = $('prompt'); const hint = this.ctx ? this.ctx.hint : (P.k ? `Cellier : un allié peut t'ouvrir… sinon la serrure cède dans ${w.ct} s` : '');
-    pr.hidden = !hint; if (hint) pr.textContent = hint;
+    pr.hidden = !hint || !!this.aim; if (hint) pr.textContent = hint;
   },
   /* ---------- objectifs + flèche de guidage ---------- */
   quest(P, w) {
@@ -1906,7 +1996,7 @@ const UI = {
     const clue = w.cl.filter(c => near(c[3], c[4], 1.9)).sort((a, b) => dist2(me.x, me.z, a[3], a[4]) - dist2(me.x, me.z, b[3], b[4]))[0];
     if (clue) return { label: 'LIRE', fn: () => this.readClue(clue), hint: 'Parchemin' };
     if (near(GATE.x - 2.6, GATE.z, 2.6)) return { label: 'PORTE 404', fn: () => this.mgGate(w), hint: 'Panneau du code' };
-    if (!w.ac && near(ALTAR.x, ALTAR.z, 2.3)) return { label: 'DÉNONCER', fn: () => this.mgAccuse(w), hint: 'Autel : une seule accusation par partie' };
+    if (near(ALTAR.x, ALTAR.z, 2.3)) return P.bl ? { label: 'DÉJÀ UTILISÉ', fn: () => this.toast('Une seule réunion d\'urgence par joueur.', ''), hint: 'Cloche de la Chapelle' } : { label: 'RÉUNION', fn: () => { Game.act('bell'); Audio.play('bell'); }, hint: 'Sonne la cloche : tout le monde vient voter (1 fois par joueur)' };
     const npc = Game.npcEnts.map((e, i) => [e, i]).filter(([e, i]) => w.np[i][0] === 'M' && near(e.x, e.z, 2.3))[0];
     if (npc) return { label: 'PARLER', fn: () => { Game.act('talk', npc[1]); Audio.play('select'); }, hint: 'Serviteur squelette' };
     for (let i = 0; i < DOORS.length; i++) {
@@ -1935,43 +2025,121 @@ const UI = {
   /* ---------- pouvoirs ---------- */
   usePower(k, i) {
     const w = Game.w, P = Game.myP(); if (!w || !P || w.ph !== 'play' || P.e || P.k || Game.busy) return;
-    const me = Game.me; const idx = ROLES[P.r].pw.findIndex(p => p.k === k);
+    const pw = ROLES[P.r].pw.find(p => p.k === k); const idx = ROLES[P.r].pw.indexOf(pw);
+    if (this.aim && this.aim.k === k) return this.cancelAim();
+    if (k === 'poss' && P.ps >= 0) { Game.act('pw', 'poss', -1); return; }
     if (k !== 'poss' && P.ch[idx] <= 0) { this.toast('Plus de charges pour ce pouvoir.', 'bad'); return; }
+    if (k === 'poss' && P.pc && w.tl > P.pc) return this.toast(`Possession en recharge (${w.tl - P.pc} s).`, 'bad');
+    if (pw.t !== 'none') { this.startAim(pw); return; }
     const done = () => { Game.castT = 1; Audio.play('power', 0.7); };
-    const nearestDoor = (r, filt) => DOORS.map((_, j) => [j, doorPos(j)]).filter(([j, d]) => dist2(me.x, me.z, d.x, d.z) <= r && filt(j)).sort((a, b) => dist2(me.x, me.z, a[1].x, a[1].z) - dist2(me.x, me.z, b[1].x, b[1].z))[0];
+    const me = Game.me;
     switch (k) {
-      case 'pick': { const d = nearestDoor(3.2, j => !w.dr[j]); if (!d) return this.toast('Approche-toi d\'une porte fermée.', 'bad'); Game.act('pw', 'pick', d[0]); done(); break; }
       case 'scan': {
         Game.act('pw', 'scan'); done(); Game.scanT = 9;
         const bug = Object.values(w.pl).find(p => p.r === 'B'); const poss = w.np.filter(n => n[5] && dist2(n[1], n[2], me.x, me.z) < 14).length;
         const d = bug ? dist2(bug.x, bug.z, me.x, me.z) : 99;
-        this.toast(d < 14 ? `📡 Présence du Bug à ~${Math.round(d)} m ! ${poss ? poss + ' squelette(s) possédé(s).' : ''}` : `📡 Rien dans un rayon de 14 m.${poss ? ' Mais ' + poss + ' squelette possédé !' : ''}`, d < 14 ? 'glitch' : '');
+        this.toast(d < 14 ? `📡 Le Bug est à ~${Math.round(d)} m ! ${poss ? poss + ' squelette(s) possédé(s) en violet.' : ''}` : `📡 Pas de Bug à moins de 14 m.${poss ? ' Mais ' + poss + ' squelette possédé (en violet) !' : ''}`, d < 14 ? 'glitch' : '');
         break;
       }
-      case 'lantern': {
-        const c = w.cl.filter(c => dist2(me.x, me.z, c[3], c[4]) < 2.6)[0]; if (!c) return this.toast('Approche-toi d\'un parchemin.', 'bad');
-        if (!Game.journal[c[0]]) Game.journal[c[0]] = { s: c[1], y: c[2], v: null, at: roomAt(c[3], c[4]) };
-        Game.act('pw', 'lantern', c[0]); done(); break;
-      }
-      case 'vision': Game.act('pw', 'vision'); done(); Game.visionT = 7; this.toast('👁️ Tu vois l\'invisible pendant 7 s.', 'good'); break;
-      case 'sabot': {
-        const s = SEALS.map((s, j) => [s, j]).filter(([s, j]) => w.sl[j] && dist2(me.x, me.z, s.x, s.z) < 3)[0];
-        if (!s) return this.toast('Approche-toi d\'un sceau ACTIVÉ.', 'bad');
-        this.channel(2, 'SABOTAGE', () => { Game.act('pw', 'sabot', s[1]); done(); }); break;
-      }
-      case 'mimic': Game.act('pw', 'mimic'); done(); this.toast('✨ Tu fais semblant d\'utiliser un pouvoir.', ''); break;
-      case 'poss': {
-        if (P.ps >= 0) { Game.act('pw', 'poss', -1); break; }
-        if (P.pc && w.tl > P.pc) return this.toast(`Possession en recharge (${w.tl - P.pc} s).`, 'bad');
-        const n = Game.npcEnts.map((e, j) => [e, j]).filter(([e, j]) => !w.np[j][5] && dist2(e.x, e.z, me.x, me.z) < 8.5).sort((a, b) => dist2(a[0].x, a[0].z, me.x, me.z) - dist2(b[0].x, b[0].z, me.x, me.z))[0];
-        if (!n) return this.toast('Aucun squelette à moins de 8 m.', 'bad');
-        Game.act('pw', 'poss', n[1]); done(); break;
-      }
-      case 'door': { const d = nearestDoor(10, j => j !== PRISON_DOOR); if (!d) return this.toast('Aucune porte à portée (10 m).', 'bad'); Game.act('pw', 'door', d[0]); done(); break; }
+      case 'vision': Game.act('pw', 'vision'); done(); Game.visionT = 7; this.toast('👁️ 7 s : tu vois le Bug (silhouette rose) et ses pièges.', 'good'); break;
+      case 'trap': Game.act('pw', 'trap'); done(); this.toast('🪤 Piège posé ici. Seuls toi et le Bug le voyez (anneau rose).', 'good'); break;
       case 'fake': this.mgFake(); break;
-      case 'black': Game.act('pw', 'black'); done(); break;
-      case 'echo': Game.act('pw', 'echo'); done(); this.toast('🔔 Un bruit résonne ici : les gardes viennent voir.', 'glitch'); break;
+      case 'black': Game.act('pw', 'black'); done(); this.toast('🌑 Panne générale pendant 9 s !', 'glitch'); break;
     }
+  },
+  /* ---------- visée : toucher une cible ---------- */
+  aimTargets(t) {
+    const w = Game.w; const me = Game.me; const out = [];
+    if (t === 'door') DOORS.forEach((_, i) => { if (this.aim.k === 'door' && i === PRISON_DOOR) return; if (this.aim.k === 'pick' && w.dr[i]) return; const d = doorPos(i); out.push({ x: d.x, z: d.z, arg: i, n: 'Porte ' + DOOR_NAMES[i] }); });
+    if (t === 'clue') w.cl.forEach(c => out.push({ x: c[3], z: c[4], arg: c[0], n: 'Parchemin', c }));
+    if (t === 'seal') SEALS.forEach((s, i) => { if (w.sl[i]) out.push({ x: s.x, z: s.z, arg: i, n: s.name }); });
+    if (t === 'npc') Game.npcEnts.forEach((e, i) => { if (!w.np[i][5]) out.push({ x: e.x, z: e.z, arg: i, n: w.np[i][0] === 'G' ? 'Garde' : 'Serviteur' }); });
+    if (t === 'player') for (const [id, e] of Object.entries(Game.ents)) { const p = w.pl[id]; if (id === Game.myId || !p || p.o || p.r === 'B') continue; out.push({ x: e.x, z: e.z, arg: id, n: p.n }); }
+    out.forEach(o => { o.d = dist2(me.x, me.z, o.x, o.z); o.ok = o.d <= this.aim.r; });
+    return out;
+  },
+  startAim(pw) {
+    this.aim = { ...pw, r: pw.r || 3.4 }; Audio.play('select');
+    const b = $('aim'); b.hidden = false;
+    b.innerHTML = `<div class="aimt">${pw.ico} ${pw.lbl.toUpperCase()}</div><div class="aimd">${pw.d}</div><div class="aimh">Touche une cible qui brille · <b id="aimn"></b></div><button class="btn sm dark" id="aimx">ANNULER</button>`;
+    $('aimx').onclick = () => this.cancelAim();
+  },
+  cancelAim() { this.aim = null; if ($('aim')) $('aim').hidden = true; (W3.aimPool || []).forEach(m => m.visible = false); },
+  aimTick() {
+    W3.aimPool = W3.aimPool || [];
+    if (!this.aim) return;
+    const P = Game.myP(); if (!P || Game.w.ph !== 'play' || P.k) return this.cancelAim();
+    const list = this.aimTargets(this.aim.t).filter(o => o.d < Math.max(this.aim.r * 2.2, 14));
+    const t = performance.now() / 1000;
+    list.forEach((o, i) => {
+      let m = W3.aimPool[i]; if (!m) { m = new THREE.Mesh(new THREE.RingGeometry(0.85, 1.15, 28), glowMat(0xffffff, 0.8)); m.rotation.x = -Math.PI / 2; W3.scene.add(m); W3.aimPool[i] = m; }
+      m.visible = true; m.position.set(o.x, 0.12, o.z); m.material.color.set(o.ok ? ROLES[P.r].col : '#5b4a85'); m.material.opacity = o.ok ? 0.9 : 0.35; m.scale.setScalar(o.ok ? 1 + Math.sin(t * 6) * 0.12 : 0.8);
+    });
+    for (let i = list.length; i < W3.aimPool.length; i++) W3.aimPool[i].visible = false;
+    const inR = list.filter(o => o.ok).length; const n = $('aimn'); if (n) n.textContent = inR ? `${inR} à portée` : `rien à portée (${Math.round(this.aim.r)} m), rapproche-toi`;
+  },
+  screenOf(x, y, z) { const v = new THREE.Vector3(x, y, z).project(W3.cam); return [(v.x * 0.5 + 0.5) * innerWidth, (-v.y * 0.5 + 0.5) * innerHeight, v.z]; },
+  pickAt(list, sx, sy) {
+    let best = null, bd = 80;
+    for (const o of list) { const [px, py, pz] = this.screenOf(o.x, 1, o.z); if (pz > 1) continue; const d = Math.hypot(px - sx, py - sy); if (d < bd) { bd = d; best = o; } }
+    return best;
+  },
+  tap(sx, sy) {
+    const w = Game.w, P = Game.myP(); if (!w || !P || this.modal) return;
+    if (this.aim) {
+      const o = this.pickAt(this.aimTargets(this.aim.t), sx, sy);
+      if (!o) return this.toast('Touche directement une cible qui brille.', '');
+      if (!o.ok) return this.toast(`${o.n} est trop loin (${Math.round(o.d)} m, max ${Math.round(this.aim.r)} m).`, 'bad');
+      const k = this.aim.k; this.cancelAim(); this.fireAt(k, o); return;
+    }
+    if (w.ph !== 'play') return;
+    // toucher un joueur : sa fiche
+    const pl = []; for (const [id, e] of Object.entries(Game.ents)) { const p = w.pl[id]; if (id !== Game.myId && p && !p.o && p.r !== 'B') pl.push({ x: e.x, z: e.z, arg: id, n: p.n }); }
+    const o = this.pickAt(pl, sx, sy - 30); if (o) this.playerCard(o.arg);
+  },
+  fireAt(k, o) {
+    const done = () => { Game.castT = 1; Audio.play('power', 0.7); };
+    switch (k) {
+      case 'pick': Game.act('pw', 'pick', o.arg); done(); this.toast(`🗝️ ${o.n} : crochetée !`, 'good'); break;
+      case 'lantern': { const c = o.c; if (!Game.journal[c[0]]) Game.journal[c[0]] = { s: c[1], y: c[2], v: null, at: roomAt(c[3], c[4]) }; Game.act('pw', 'lantern', c[0]); done(); break; }
+      case 'sabot': this.channel(2, 'SABOTAGE', () => { Game.act('pw', 'sabot', o.arg); done(); }); break;
+      case 'slander': Game.act('pw', 'slander', o.arg); done(); break;
+      case 'poss': Game.act('pw', 'poss', o.arg); done(); this.toast(`💀 Tu contrôles ce ${o.n.toLowerCase()} 30 s. Bouge avec le joystick, parle avec 💬.`, 'glitch'); break;
+      case 'door': Game.act('pw', 'door', o.arg); done(); break;
+      case 'haunt': Game.act('pw', 'haunt', o.arg); done(); this.toast(`👻 ${o.n} est hanté : ses commandes sont inversées 4 s.`, 'glitch'); break;
+    }
+  },
+  playerCard(id) {
+    const w = Game.w, P = Game.myP(), p = w.pl[id]; if (!p) return;
+    Game.marks = Game.marks || {};
+    const acts = [`<button class="btn sm dark" id="pc_mark">${Game.marks[id] ? 'Retirer le marquage' : '❗ Marquer comme suspect'}</button>`, `<button class="btn sm dark" id="pc_call">📣 L'appeler</button>`];
+    if (P.r === 'X') { const n = P.ch[2]; acts.push(`<button class="btn sm pink" id="pc_pw" ${n > 0 ? '' : 'disabled'}>🗣️ Calomnier (${n})</button>`); }
+    if (P.r === 'B') { const n = P.ch[2]; acts.push(`<button class="btn sm pink" id="pc_pw" ${n > 0 ? '' : 'disabled'}>👻 Hanter (${n})</button>`); }
+    if (P.r === 'S' || P.r === 'O') acts.push(`<button class="btn sm cyan" id="pc_vote">🔔 Le dénoncer en réunion</button>`);
+    this.openModal(`<h2 class="stroke">${esc(p.n)}</h2><p class="lobbyhint">${p.e ? '🎭 Complice démasqué' : (p.k ? '⛓️ Au cellier' : 'Joueur visible')}${Game.marks[id] ? ' · ❗ marqué suspect par toi' : ''}</p><div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">${acts.join('')}</div>`, 'card');
+    $('pc_mark').onclick = () => { Game.marks[id] = !Game.marks[id]; this.closeModal(); };
+    $('pc_call').onclick = () => { Game.say(`${p.n}, viens par ici !`); this.closeModal(); };
+    if ($('pc_pw')) $('pc_pw').onclick = () => { const k = P.r === 'X' ? 'slander' : 'haunt'; const pw = ROLES[P.r].pw.find(x => x.k === k); const d = dist2(Game.me.x, Game.me.z, Game.ents[id].x, Game.ents[id].z); this.closeModal(); if (d > (pw.r || 99)) return this.toast(`Trop loin (${Math.round(d)} m, max ${pw.r} m).`, 'bad'); this.fireAt(k, { arg: id, n: p.n }); };
+    if ($('pc_vote')) $('pc_vote').onclick = () => { this.closeModal(); this.toast(P.bl ? 'Tu as déjà utilisé ta réunion d\'urgence.' : 'Va à l\'autel de la Chapelle (flèche dorée sur la carte) et touche RÉUNION.', ''); };
+  },
+  /* ---------- réunion d'urgence ---------- */
+  voteModal(w) {
+    const P = w.pl[Game.myId]; const canVote = P.r !== 'B' && !P.o && !(w.vo && w.vo[Game.myId] !== undefined);
+    const list = Object.entries(w.pl).filter(([id, p]) => p.r !== 'B' && !p.o);
+    this.openModal(`<h2 class="stroke">🔔 Réunion d'urgence</h2><p>Convoquée par <b>${esc(w.pl[w.ca]?.n || '???')}</b>. Discutez avec 💬 (tout le monde vous entend), puis votez. Le plus désigné part au cellier ; si c'est le complice, il est démasqué (+60 s). Un innocent coûte −20 s.</p>
+      <div class="mgmsg" id="vtime"></div>
+      <div class="acc" id="vlist">${list.map(([id, p]) => `<button class="btn sm dark vbtn" data-id="${esc(id)}" ${canVote && id !== Game.myId ? '' : 'disabled'}>${esc(p.n)}${id === Game.myId ? ' (toi)' : ''} <span class="vc" data-c="${esc(id)}"></span></button>`).join('')}<button class="btn sm dark vbtn" data-id="skip" ${canVote ? '' : 'disabled'}>Passer <span class="vc" data-c="skip"></span></button></div>
+      <div style="display:flex;gap:8px;margin-top:10px"><button class="btn sm pink" id="vchat">💬 PARLER</button></div>
+      ${canVote ? '' : '<p class="lobbyhint">Le Bug ne vote pas… mais il peut murmurer à son complice.</p>'}`, 'vote');
+    $('mgclose').hidden = true;
+    document.querySelectorAll('.vbtn').forEach(b => b.onclick = () => { Game.act('vote', b.dataset.id); Audio.play('ok'); document.querySelectorAll('.vbtn').forEach(x => { x.disabled = true; x.classList.toggle('pink', x === b); }); });
+    $('vchat').onclick = () => { this.closeModal(); this.chatModal(); this.reopenVote = true; };
+  },
+  voteTick(w) {
+    if (this.modal !== 'vote') { if (this.reopenVote && !this.modal) { this.reopenVote = false; this.voteModal(w); } return; }
+    const el = $('vtime'); if (el) el.textContent = `Vote : ${w.vt} s · ${Object.keys(w.vo || {}).length} vote(s)`;
+    const cnt = {}; Object.values(w.vo || {}).forEach(v => cnt[v] = (cnt[v] || 0) + 1);
+    document.querySelectorAll('.vc').forEach(s => { const n = cnt[s.dataset.c] || 0; s.textContent = n ? '· ' + '🗳️'.repeat(n) : ''; });
   },
   /* ---------- mini-jeux ---------- */
   mgSeal(i, P) {
@@ -2097,9 +2265,9 @@ const UI = {
     const P = Game.myP(); if (!P) { $('how').hidden = false; return; } const R = ROLES[P.r];
     this.openModal(`<h2 class="stroke" style="color:${R.col}">${R.ico} ${R.name} : ta mission</h2><ol class="miss" style="--rc:${R.col}">${this.missions(P).map(m => `<li>${m}</li>`).join('')}</ol>
       <h2 class="stroke" style="font-size:19px;margin-top:14px">Les commandes</h2>
-      <p>🕹️ Joystick à gauche pour bouger (pousse à fond pour courir).<br>🟠 Le gros bouton rond change selon ce qui est devant toi : <b>SCEAU, LIRE, PLAQUE, OUVRIR, DÉNONCER, PORTE 404</b>…<br>✨ Les petits boutons sont tes pouvoirs, le chiffre = charges restantes.<br>💬 Parler : seuls les joueurs proches t'entendent.<br>➜ La flèche bleue au sol et le faisceau lumineux montrent l'objectif le plus proche. 🗺️ Carte · 📜 Carnet des symboles.</p>
+      <p>🕹️ Joystick à gauche pour bouger (pousse à fond pour courir).<br>🟠 Le gros bouton rond change selon ce qui est devant toi : <b>SCEAU, LIRE, PLAQUE, OUVRIR, DÉNONCER, PORTE 404</b>…<br>✨ Les petits boutons sont tes pouvoirs (chiffre = charges). Si le pouvoir vise quelque chose, des anneaux s'allument : <b>touche la cible</b> (porte, squelette, joueur, sceau, parchemin).<br>👆 Touche un joueur pour ouvrir sa fiche : le marquer suspect, l'appeler, ou utiliser un pouvoir sur lui.<br>💬 Parler : seuls les joueurs proches t'entendent.<br>➜ La flèche bleue au sol et le faisceau lumineux montrent l'objectif le plus proche. 🗺️ Carte · 📜 Carnet des symboles.</p>
       <h2 class="stroke" style="font-size:19px;margin-top:14px">Les dangers</h2>
-      <p>💀 Les gardes (cône rouge) t'envoient au cellier s'ils te fixent trop longtemps : −10 s. Un allié t'ouvre de l'extérieur, sinon la serrure cède en 35 s.<br>📜 Certains parchemins sont des faux posés par le Bug : l'Oracle peut les vérifier.<br>⚖️ À la Chapelle, une seule dénonciation : le bon complice = +60 s, erreur = −90 s.</p>`, 'rules');
+      <p>💀 Les gardes (cône rouge) t'envoient au cellier s'ils te fixent trop longtemps : −10 s. Un allié t'ouvre de l'extérieur, sinon la serrure cède en 35 s.<br>📜 Certains parchemins sont des faux posés par le Bug : l'Oracle peut les vérifier.<br>🔔 À l'autel de la Chapelle, chacun peut sonner UNE réunion d'urgence : tout le monde vote. Le complice démasqué = +60 s, un innocent au cellier = −20 s.</p>`, 'rules');
   },
   journalModal() {
     this.openModal(`<h2 class="stroke">Carnet</h2><div id="jlist"></div>`, 'journal'); this.refreshJournal();
@@ -2203,11 +2371,14 @@ const Lobby = {
 function initInput() {
   const joy = $('joy'), knob = $('knob'); let id = null, ox = 0, oy = 0;
   const R = 52;
-  joy.addEventListener('pointerdown', e => { id = e.pointerId; joy.setPointerCapture(id); const r = joy.getBoundingClientRect(); ox = r.left + r.width / 2; oy = r.top + r.height / 2; move(e); });
+  joy.addEventListener('pointerdown', e => { e.preventDefault(); id = e.pointerId; try { joy.setPointerCapture(id); } catch {} const r = joy.getBoundingClientRect(); ox = r.left + r.width / 2; oy = r.top + r.height / 2; move(e); });
   const move = e => { if (e.pointerId !== id) return; let dx = e.clientX - ox, dy = e.clientY - oy; const d = Math.hypot(dx, dy); if (d > R) { dx = dx / d * R; dy = dy / d * R; } knob.style.transform = `translate(${dx}px,${dy}px)`; Input.x = dx / R; Input.z = dy / R; };
   joy.addEventListener('pointermove', move);
   const end = e => { if (e.pointerId !== id) return; id = null; knob.style.transform = ''; Input.x = Input.z = 0; };
   joy.addEventListener('pointerup', end); joy.addEventListener('pointercancel', end);
+  const gl = $('gl'); let tdn = null;
+  gl.addEventListener('pointerdown', e => { tdn = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+  gl.addEventListener('pointerup', e => { if (!tdn) return; const d = Math.hypot(e.clientX - tdn.x, e.clientY - tdn.y); if (d < 14 && performance.now() - tdn.t < 600 && Game.mode === 'match') UI.tap(e.clientX, e.clientY); tdn = null; });
   addEventListener('keydown', e => {
     if (e.target && e.target.tagName === 'INPUT') return; Input.keys[e.code] = true;
     if (Game.mode === 'match' && !UI.modalOpen()) {
