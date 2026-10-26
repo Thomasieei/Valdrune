@@ -74,6 +74,12 @@ final class AutoBrain {
         GOLD.add(new int[]{214, 150, 24});
     }
 
+    final MiniMap mini = new MiniMap();
+    private long rotT, darkSince, mapDetourUntil, nearPoiSince;
+    private float rotPx, rotPy;
+    private double rotA, lastCmdA;
+    private final List<float[]> poiBlack = new ArrayList<>(); // x, y (mini-carte), expiration
+
     AutoBrain(BotService b) { this.b = b; }
 
     boolean calibrating() { return ph != Ph.RUN; }
@@ -81,6 +87,7 @@ final class AutoBrain {
     void begin(long t) {
         enemies = new ArrayList<>(); loot = new ArrayList<>(); hp = -1; hpMax = 0; low = false; dead = false;
         still = null; lootGoal = null; centerGoldBase = -1; goldHist.clear(); rescanDone = false;
+        mini.reset(); rotT = 0; darkSince = 0; poiBlack.clear(); nearPoiSince = 0;
         if (!b.cfg.calibrated) {
             ph = Ph.BASE; phT = t; snap = CaptureService.frame;
             b.status = "Calibrage : j'observe le jeu";
@@ -262,6 +269,7 @@ final class AutoBrain {
 
         this.enemies = enemies;
         this.loot = loot;
+        if (b.cfg.minimap != null) { try { mini.read(f, fw, fh, b.cfg.minimap, t); } catch (Exception ignored) {} }
 
         // Pixels dorés au centre : sert à savoir si le butin a été ramassé
         int g = centerGold(f, fw, fh);
@@ -288,6 +296,8 @@ final class AutoBrain {
     /** Zones d'interface : sorts, joystick, menus repérés. */
     private boolean hud(float x, float y) {
         float md = minDim();
+        float[] mm = b.cfg.minimap;
+        if (mm != null && x > (mm[0] - .02f) * b.sw && x < (mm[2] + .02f) * b.sw && y > (mm[1] - .02f) * b.sh && y < (mm[3] + .02f) * b.sh) return true;
         for (float[] s : b.cfg.spells) if (Math.hypot(x - s[0] * b.sw, y - s[1] * b.sh) < md * 0.09f) return true;
         for (float[] s : b.cfg.avoid) if (Math.hypot(x - s[0] * b.sw, y - s[1] * b.sh) < md * 0.09f) return true;
         if (b.cfg.joy != null && Math.hypot(x - b.cfg.joy[0] * b.sw, y - b.cfg.joy[1] * b.sh) < md * 0.2f) return true;
@@ -317,7 +327,14 @@ final class AutoBrain {
         long ls = 0; int ln = 0;
         for (int i = 0; i < f.length; i += 53) { ls += Vision.lum(f[i]); ln++; }
         float meanLum = ln == 0 ? 0 : (float) ls / ln;
-        if (meanLum < 18) { b.joyWant = null; b.status = "Écran noir ou chargement, j'attends"; return; }
+        // Vrai écran noir seulement : très sombre ET uniforme pendant plus d'une seconde (une scène sombre a des contrastes)
+        long vs = 0;
+        for (int i = 0; i < f.length; i += 53) { float dl = Vision.lum(f[i]) - meanLum; vs += (long) (dl * dl); }
+        float sd = ln == 0 ? 0 : (float) Math.sqrt((double) vs / ln);
+        if (meanLum < 10 && sd < 6) {
+            if (darkSince == 0) darkSince = t;
+            if (t - darkSince > 1000) { b.joyWant = null; b.status = "Écran noir (chargement ?), j'attends"; return; }
+        } else darkSince = 0;
         boolean deadNow = grey > 0.78f || (hp >= 0 && hp < 0.03f && hpMax > 0);
         if (deadNow && !dead) { dead = true; b.event("Mon perso est mort"); b.nDeaths++; }
         if (dead) {
@@ -371,7 +388,38 @@ final class AutoBrain {
             checkStuck(t, f);
             return;
         }
-        // 5. Explorer
+        // 5. Mini-carte : objectifs, monstres au loin, zones jamais visitées
+        MiniMap.Read mm = b.cfg.minimap != null ? mini.last : null;
+        if (mm != null) learnRot(t, mm);
+        if (b.cfg.explore && mm != null && mm.terrain > 0.05f && t > mapDetourUntil) {
+            for (int i = poiBlack.size() - 1; i >= 0; i--) if (t > poiBlack.get(i)[2]) poiBlack.remove(i);
+            float[] goal = null; String why = "Explore (mini-carte)";
+            if (b.cfg.autoChests) {
+                List<float[]> ok = new ArrayList<>();
+                for (float[] p : mm.pois) { boolean bl = false; for (float[] k : poiBlack) if (Math.hypot(k[0] - p[0], k[1] - p[1]) < 0.04) bl = true; if (!bl) ok.add(p); }
+                goal = nearest(ok, mm.px, mm.py);
+                if (goal != null) why = "Va vers un objectif (mini-carte)";
+            }
+            if (goal == null && b.cfg.hunt) { goal = nearest(mm.enemies, mm.px, mm.py); if (goal != null) why = "Va vers des monstres (mini-carte)"; }
+            float dx, dy;
+            if (goal != null) {
+                dx = goal[0] - mm.px; dy = goal[1] - mm.py;
+                // Arrivé sur un objectif qui ne disparaît pas (portail, PNJ) : on l'oublie un moment
+                if (Math.hypot(dx, dy) < 0.035) {
+                    if (nearPoiSince == 0) nearPoiSince = t;
+                    if (t - nearPoiSince > 3000) { poiBlack.add(new float[]{goal[0], goal[1], t + 30000}); nearPoiSince = 0; }
+                } else nearPoiSince = 0;
+            } else if (mm.explore != null) { dx = mm.explore[0]; dy = mm.explore[1]; }
+            else { dx = 0; dy = 0; }
+            if (dx != 0 || dy != 0) {
+                double a = Math.atan2(dy, dx) - mini.rotation();
+                b.status = why;
+                go(t, (float) (cx + Math.cos(a) * md * 0.3), (float) (cy + Math.sin(a) * md * 0.3));
+                if (checkStuck(t, f)) { mapDetourUntil = t + 1800; turn(true); if (goal != null) poiBlack.add(new float[]{goal[0], goal[1], t + 15000}); }
+                return;
+            }
+        }
+        // 6. Explorer au hasard
         if (b.cfg.explore) {
             if (t > headingUntil) turn(false);
             b.status = "Explore";
@@ -453,6 +501,19 @@ final class AutoBrain {
     private void go(long t, float x, float y) {
         b.steerTo(x, y);
         lastMoveCmd = t;
+        lastCmdA = Math.atan2(y - b.sh / 2f, x - b.sw / 2f);
+    }
+
+    /** Apprend de combien la mini-carte est tournée par rapport à l'écran, en regardant ma flèche bouger. */
+    private void learnRot(long t, MiniMap.Read mm) {
+        if (!mm.playerSeen || t - lastMoveCmd > 300) { rotT = 0; return; }
+        if (rotT == 0 || Math.abs(Math.atan2(Math.sin(lastCmdA - rotA), Math.cos(lastCmdA - rotA))) > 0.5) {
+            rotT = t; rotPx = mm.px; rotPy = mm.py; rotA = lastCmdA; return;
+        }
+        if (t - rotT > 1200) {
+            mini.learnRotation(rotA, mm.px - rotPx, mm.py - rotPy);
+            rotT = 0;
+        }
     }
 
     private void turn(boolean blocked) {
@@ -461,10 +522,10 @@ final class AutoBrain {
     }
 
     /** Image figée alors que je bouge : je suis bloqué contre un mur. */
-    private void checkStuck(long t, int[] f) {
-        if (t - lastMoveCmd > 800) { still = null; return; }
-        if (still == null) { still = f; stillT = t; return; }
-        if (t - stillT < 1600) return;
+    private boolean checkStuck(long t, int[] f) {
+        if (t - lastMoveCmd > 800) { still = null; return false; }
+        if (still == null) { still = f; stillT = t; return false; }
+        if (t - stillT < 1600) return false;
         float d = Vision.diff(still, f, CaptureService.fw, CaptureService.fh, .2f, .2f, .8f, .75f);
         still = f; stillT = t;
         if (d >= 0 && d < base * 1.3f + 0.6f) {
@@ -472,7 +533,9 @@ final class AutoBrain {
             b.status = "Bloqué, je change de direction";
             if (lootGoal != null) { lootGoal = null; arriveT = 0; lootIgnoreUntil = t + 5000; }
             turn(true);
+            return true;
         }
+        return false;
     }
 
     private static float[] nearest(List<float[]> l, float x, float y) {

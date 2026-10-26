@@ -36,6 +36,8 @@ final class Cfg {
     float[] jump, boost, left, right;
     /** +1 : j'attaque vers la droite, -1 : vers la gauche, 0 : inconnu. */
     int attack = 0;
+    /** Mini-carte : x0, y0, x1, y1 en fractions d'écran (null = inconnue). */
+    float[] minimap;
 
     static SharedPreferences prefs(Context c) { return c.getSharedPreferences("testbot", Context.MODE_PRIVATE); }
 
@@ -77,6 +79,7 @@ final class Cfg {
             k.left = oneF(floats(o.optJSONArray("left")));
             k.right = oneF(floats(o.optJSONArray("right")));
             k.attack = o.optInt("attack", 0);
+            k.minimap = oneF(floats(o.optJSONArray("minimap")));
         } catch (JSONException ignored) {}
         return k;
     }
@@ -101,6 +104,7 @@ final class Cfg {
             o.put("jump", jFloats(listF(jump))); o.put("boost", jFloats(listF(boost)));
             o.put("left", jFloats(listF(left))); o.put("right", jFloats(listF(right)));
             o.put("attack", attack);
+            o.put("minimap", jFloats(listF(minimap)));
             o.put("auto", auto); o.put("showSight", showSight); o.put("calibrated", calibrated); o.put("avoid", jFloats(avoid));
             prefs(c).edit().putString("cfg_" + pkg, o.toString()).apply();
         } catch (JSONException ignored) {}
@@ -108,7 +112,7 @@ final class Cfg {
 
     void clearLearned() {
         chest.clear(); enemy.clear(); player = null; spells.clear(); joy = null; ignore.clear(); avoid.clear(); calibrated = false;
-        genre = ""; aiDesc = ""; aiGoal = ""; ball = null; car = null; jump = null; boost = null; left = null; right = null; attack = 0;
+        genre = ""; aiDesc = ""; aiGoal = ""; ball = null; car = null; jump = null; boost = null; left = null; right = null; attack = 0; minimap = null;
     }
 
     private static int[] one(List<int[]> l) { return l.isEmpty() ? null : l.get(0); }

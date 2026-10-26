@@ -271,9 +271,14 @@ public class BotService extends AccessibilityService {
         long sum = 0; int n = 0;
         for (int i = 0; i < f.length; i += 61) { int c = f[i]; sum += ((c >> 16) & 255) + ((c >> 8) & 255) + (c & 255); n++; }
         boolean blk = n > 0 && sum / n < 10;
-        if (blk && !blackScreen) event("Écran noir : le jeu bloque peut-être la capture");
-        blackScreen = blk;
+        long t = now();
+        if (!blk) blackSince = 0; else if (blackSince == 0) blackSince = t;
+        // On ne le signale que s'il dure : un chargement de 1-2 s est normal
+        boolean longBlack = blk && t - blackSince > 4000;
+        if (longBlack && !blackScreen) event("Écran noir depuis plus de 4 s (chargement bloqué, ou capture refusée par le jeu)");
+        blackScreen = longBlack;
     }
+    private long blackSince;
 
     private void scan() {
         int[] f = CaptureService.frame;
@@ -284,8 +289,11 @@ public class BotService extends AccessibilityService {
         long sum = 0; int n = 0;
         for (int i = 0; i < f.length; i += 61) { int c = f[i]; sum += ((c >> 16) & 255) + ((c >> 8) & 255) + (c & 255); n++; }
         boolean blk = n > 0 && sum / n < 10;
-        if (blk && !blackScreen && on) event("Écran noir : le jeu bloque peut-être la capture");
-        blackScreen = blk;
+        long tb = now();
+        if (!blk) blackSince = 0; else if (blackSince == 0) blackSince = tb;
+        boolean longBlack = blk && tb - blackSince > 4000;
+        if (longBlack && !blackScreen && on) event("Écran noir depuis plus de 4 s (chargement bloqué, ou capture refusée par le jeu)");
+        blackScreen = longBlack;
         if (cfg.player != null) {
             List<int[]> one = new ArrayList<>(); one.add(cfg.player);
             Vision.Blob best = null;
@@ -909,6 +917,7 @@ public class BotService extends AccessibilityService {
                 {"spell", "Sort", cfg.spells.size() + " appris"},
                 {"joystick", "Joystick", cfg.joy != null ? "appris" : "aucun"},
                 {"ignore", "Ignorer zone", cfg.ignore.size() + " zone(s)"},
+                {"map1", "Mini-carte", cfg.minimap != null ? "apprise" : "aucune"},
                 {"ball", "Balle", cfg.ball != null ? "apprise" : "rien"},
                 {"car", "Ma voiture", cfg.car != null ? "apprise" : "rien"},
                 {"jump", "Saut", cfg.jump != null ? "appris" : "aucun"},
@@ -1067,11 +1076,13 @@ public class BotService extends AccessibilityService {
             {"ball", "Touche la BALLE"}, {"car", "Touche TA VOITURE (sur la couleur)"},
             {"jump", "Touche le bouton SAUT"}, {"boost", "Touche le bouton BOOST"},
             {"left", "Touche le bouton GAUCHE"}, {"right", "Touche le bouton DROITE"},
-            {"goal", "Touche la CAGE ADVERSE (où tu dois marquer)"}};
+            {"goal", "Touche la CAGE ADVERSE (où tu dois marquer)"},
+            {"map1", "Mini-carte : touche son coin HAUT-GAUCHE"}, {"map2", "Mini-carte : touche son coin BAS-DROIT"}};
 
     // ------------------------------------------------------------------ choix du genre + apprentissage guidé
 
     private FrameLayout chooser;
+    private float[] mapTmp;
     private final java.util.ArrayDeque<String> wiz = new java.util.ArrayDeque<>();
     private boolean wizardOn;
     private int wizStep, wizTotal;
@@ -1207,6 +1218,11 @@ public class BotService extends AccessibilityService {
             case "joystick": cfg.joy = new float[]{fx, fy}; msg = "Joystick appris"; break;
             case "ignore": cfg.ignore.add(new float[]{fx, fy}); msg = "Zone ignorée"; break;
             case "jump": cfg.jump = new float[]{fx, fy}; msg = "Saut appris"; break;
+            case "map1": mapTmp = new float[]{fx, fy}; msg = "Coin noté"; break;
+            case "map2":
+                if (mapTmp == null) { msg = "Recommence par le coin haut-gauche"; break; }
+                cfg.minimap = new float[]{Math.min(mapTmp[0], fx), Math.min(mapTmp[1], fy), Math.max(mapTmp[0], fx), Math.max(mapTmp[1], fy)};
+                mapTmp = null; auto.mini.reset(); msg = "Mini-carte apprise"; break;
             case "goal": cfg.attack = fx > 0.5f ? 1 : -1; msg = "J'attaque vers la " + (cfg.attack > 0 ? "droite" : "gauche"); break;
             case "boost": cfg.boost = new float[]{fx, fy}; msg = "Boost appris"; break;
             case "left": cfg.left = new float[]{fx, fy}; msg = "Bouton gauche appris"; break;
@@ -1228,6 +1244,7 @@ public class BotService extends AccessibilityService {
         }
         save();
         toast(msg);
+        if (what.equals("map1") && mapTmp != null) { remove(catcher); catcher = null; startLearn("map2"); return; }
         nextLearn();
     }
 

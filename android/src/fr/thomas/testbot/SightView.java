@@ -78,6 +78,14 @@ final class SightView extends View {
         if (b.cfg.auto) for (float[] p : b.auto.loot) c.drawRect(p[0] - k, p[1] - k, p[0] + k, p[1] + k, st);
         else for (Vision.Blob p : b.chests) c.drawRect(p.x - k, p.y - k, p.x + k, p.y + k, st);
 
+        // Cadre de la mini-carte, dessiné à l'extérieur pour ne pas fausser sa lecture
+        float[] mmr = b.cfg.minimap;
+        if (mmr != null) {
+            st.setColor(0xAAFFFFFF);
+            float g = d * 4;
+            c.drawRect(mmr[0] * b.sw - g, mmr[1] * b.sh - g, mmr[2] * b.sw + g, mmr[3] * b.sh + g, st);
+        }
+
         // Sorts repérés
         st.setColor(0xFF9F8BFF);
         for (float[] sp : b.cfg.spells) c.drawCircle(sp[0] * b.sw, sp[1] * b.sh, d * 30, st);

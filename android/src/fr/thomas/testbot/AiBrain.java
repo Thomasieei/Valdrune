@@ -270,6 +270,7 @@ final class AiBrain {
                 + "\"attaque_vers\":\"gauche|droite\" ou null (côté de la cage adverse),"
                 + "\"ennemi\":{\"x\":0.0,\"y\":0.0} ou null,"
                 + "\"butin\":{\"x\":0.0,\"y\":0.0} ou null,"
+                + "\"minicarte\":{\"x0\":0.0,\"y0\":0.0,\"x1\":0.0,\"y1\":0.0} ou null (cadre exact de la mini-carte),"
                 + "\"toucher_pour_jouer\":{\"x\":0.0,\"y\":0.0} ou null (si c'est un menu : le bouton pour lancer une partie),"
                 + "\"bug\":\"bug visuel vu, ou null\"}";
     }
@@ -340,6 +341,11 @@ final class AiBrain {
             if ((p = pt(r.optJSONObject("ma_voiture"))) != null) c.car = Vision.sample(f, fw, fh, p[0] * fw, p[1] * fh);
             if ((p = pt(r.optJSONObject("ennemi"))) != null) { int[] col = Vision.sample(f, fw, fh, p[0] * fw, p[1] * fh); if (col != null) c.enemy.add(col); }
             if ((p = pt(r.optJSONObject("butin"))) != null) { int[] col = Vision.sample(f, fw, fh, p[0] * fw, p[1] * fh); if (col != null) c.chest.add(col); }
+            JSONObject mm = r.optJSONObject("minicarte");
+            if (mm != null) {
+                float a0 = (float) mm.optDouble("x0", -1), b0 = (float) mm.optDouble("y0", -1), a1 = (float) mm.optDouble("x1", -1), b1 = (float) mm.optDouble("y1", -1);
+                if (a0 >= 0 && b0 >= 0 && a1 <= 1 && b1 <= 1 && a1 - a0 > 0.04 && b1 - b0 > 0.04) { c.minimap = new float[]{a0, b0, a1, b1}; b.auto.mini.reset(); }
+            }
             String att = r.optString("attaque_vers", "");
             if (att.equals("gauche")) c.attack = -1; else if (att.equals("droite")) c.attack = 1;
             if (c.joy != null || !c.spells.isEmpty()) c.calibrated = true; // l'IA a déjà trouvé les commandes : pas de calibrage à l'aveugle
