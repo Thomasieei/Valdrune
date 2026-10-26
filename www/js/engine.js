@@ -61,7 +61,7 @@ export function initRendu(canvas) {
 export function redimensionner() {
   const w = window.innerWidth, h = window.innerHeight;
   const tactile = matchMedia('(pointer: coarse)').matches;
-  const pr = Math.min(window.devicePixelRatio || 1, G.niveau >= 2 ? (tactile ? 1.1 : 1.6) : G.niveau === 1 ? (tactile ? 0.95 : 1.25) : 0.8);
+  const pr = Math.min(window.devicePixelRatio || 1, G.niveau >= 2 ? (tactile ? 1.5 : 1.75) : G.niveau === 1 ? (tactile ? 1.2 : 1.4) : 0.9);
   G.renderer.setPixelRatio(pr);
   G.renderer.setSize(w, h, false);
   G.composer.setPixelRatio(pr);
@@ -291,6 +291,32 @@ export class Acteur {
       if (o.material.emissive) { o.material.emissive.set(couleur).multiplyScalar(Math.min(0.32, glow * 0.3)); o.material.userData.baseEmissive = o.material.emissive.clone(); }
     });
   }
+  // remplace une pièce du corps par celle d'un autre héros (même squelette KayKit) : tenues composées
+  remplacerPiece(nomCible, cleSrc, nomSrc) {
+    const cible = this.nodes[nomCible], srcRoot = G.assets[cleSrc] && G.assets[cleSrc].scene.getObjectByName(nomSrc);
+    if (!cible || !srcRoot) return null;
+    let ref = null; cible.traverse(o => { if (!ref && o.isSkinnedMesh) ref = o; });
+    if (!ref) this.model.traverse(o => { if (!ref && o.isSkinnedMesh) ref = o; });
+    if (!ref) return null;
+    const g = new THREE.Group(); g.name = nomSrc + '_tenue';
+    g.position.copy(srcRoot.position); g.quaternion.copy(srcRoot.quaternion); g.scale.copy(srcRoot.scale);
+    srcRoot.updateMatrix();
+    const ajout = (src, parent) => {
+      if (src.isSkinnedMesh) {
+        const m = new THREE.SkinnedMesh(src.geometry, src.material.clone());
+        m.position.copy(src.position); m.quaternion.copy(src.quaternion); m.scale.copy(src.scale);
+        m.bind(ref.skeleton, src.bindMatrix); m.castShadow = true; m.frustumCulled = false;
+        m.material.userData.baseEmissive = m.material.emissive ? m.material.emissive.clone() : null;
+        this.mats.push(m.material); this.meshes.push(m); parent.add(m);
+      }
+      for (const c of src.children) if (src !== srcRoot || true) { if (c.isSkinnedMesh || c.children.length) ajout(c, parent); }
+    };
+    if (srcRoot.isSkinnedMesh) { g.position.set(0, 0, 0); g.quaternion.identity(); g.scale.set(1, 1, 1); ajout(srcRoot, g); }
+    else ajout(srcRoot, g);
+    cible.parent.add(g); cible.visible = false;
+    this.nodes[nomSrc] = g; this.nodes[nomCible + '_orig'] = cible;
+    return g;
+  }
   frapper() { this.flash = 0.12; }
   // fusionne les morceaux du corps (tête, buste, bras, jambes) en un seul maillage : 1 appel GPU au lieu de 6
   fusionner() {
@@ -339,7 +365,7 @@ export class Acteur {
     this._acc = 0;
     if (this.tete) { this.tete.scale.set(1, 1, 1); if (this.buste) this.buste.scale.set(1, 1, 1); }
     this.mixer.update(dt);
-    if (this.tete) { this.tete.scale.multiplyScalar(0.74); if (this.buste) this.buste.scale.multiplyScalar(1.06); }
+    if (this.tete) { this.tete.scale.multiplyScalar(G.teteK || 0.62); if (this.buste) this.buste.scale.multiplyScalar(G.busteK || 1.1); }
     if (this.flash > 0 || this._flashOn) {
       this.flash -= dt; const k = Math.max(0, this.flash) / 0.12; this._flashOn = k > 0;
       for (const m of this.mats) if (m.emissive) { m.emissive.copy(m.userData.baseEmissive || NOIR).lerp(BLANC, k * 0.8); }

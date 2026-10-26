@@ -1,7 +1,7 @@
 // ===== Brèche Écarlate — boucle de jeu =====
 import { THREE, G, initRendu, majCamera, rendre, majTorches, chargerAssets, chargerSons, son, ambiance, Acteur, cloner,
   emettre, majParticules, majVfx, ajouterVfx, onde, lueurSol, arcTaille, faisceau, telegraphe, meshCarreau, meshBoule, DIR_HAUT, DIR_DROITE, projeter, texRond, texRunes, redimensionner, appliquerNiveau, majQualiteAuto, musique, musiqueActive, musiquePause } from './engine.js';
-import { construireHub, construireDonjon, construireArene, construireIle, nbEmplacements, majFeux, noeudReel, creerAssetsProc, construireSylve } from './world.js';
+import { construireGoulet, construireHub, construireDonjon, construireArene, construireIle, nbEmplacements, majFeux, noeudReel, creerAssetsProc, construireSylve } from './world.js';
 import { UI, iconeObjet, bustePersonnage, TEINTES_OMBRE } from './ui.js';
 import { initGestes } from './gestes.js';
 import { TIERS, ARMES, ARMURES, SORTS, MODES, COFFRES, BOSS, MOBS, BOTS, CHAT, tf, MAITRISES, NIVEAU_REQUIS, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT, RESSOURCES, CHANCE_OMBRE, CODES_BETA, CHANCE_ORAGE, MOBS_SYLVE, BOSS_SYLVE, TRAITS, RANGS, PTS_RANG, GAIN_RANG, PERTE_RANG, BOSS_ERRANT, PARCHEMINS, COULEURS_PARCH, DUREE_PARCH, BOUTIQUE_PARCH_GRATUITE } from './data.js';
@@ -200,6 +200,7 @@ function construireJoueur(pos) {
   const arme = J.equip.arme || creerArme('epee', 1);
   const def = ARMES[arme.type];
   const a = new Acteur(def.model, { hauteur: 2.0 });
+  tenue(a);
   // ne montrer que l'arme portée
   const tous = Object.keys(a.nodes).filter(n => /Sword|Axe|Shield|Crossbow|Staff|Wand|Knife|Throwable|Mug|Spellbook/.test(n));
   a.montrerSeul([def.node, def.node2].filter(Boolean), tous);
@@ -360,6 +361,7 @@ function libererGPU(racines) {
 }
 function viderMonde() {
   viderEscouade();
+  if (modeActuel && modeActuel.goulet) { goulet = null; UI.scoreGoulet(null); }
   ressourcesAssets = null;
   try { libererGPU([monde && monde.groupe, ...ennemis.map(e => e.root), ...allies.map(a => a.root), ...bots.map(b => b.root), ...coffres.map(c => c.obj), ...projectiles.map(p => p.mesh), ...G.vfx.map(v => v.obj)]); } catch (e) { console.warn(e); }
   if (viseeObj) { G.scene.remove(viseeObj.g, viseeObj.fleche, viseeObj.marque); viseeObj = null; } visee = null;
@@ -531,6 +533,157 @@ function majEscouade(dt) {
     UI.escouadeHud({ duree: Date.now() - s.debut, argent: J.argent - s.argent0, parHeure: Math.round((J.argent - s.argent0) / h), xp: s.xp, xpH: Math.round(s.xp / h), kills: s.kills, coffres: s.coffres }); }
 }
 let escHudT = 0;
+// ---------------- Le Goulet des Braises (champ de bataille 10 contre 10, capture du drapeau) ----------------
+let goulet = null;
+const CYCLE_GOULET = 300, OUVERT_GOULET = 120; // un portail s'ouvre toutes les 5 minutes et reste 2 minutes
+function etatPortailGoulet() { const s = (Date.now() / 1000) % CYCLE_GOULET; return s < OUVERT_GOULET ? { ouvert: true, reste: OUVERT_GOULET - s } : { ouvert: false, reste: CYCLE_GOULET - s }; }
+function majPortailGoulet() {
+  const pg = monde && monde.portailGoulet; if (!pg) return;
+  const e = etatPortailGoulet();
+  if (pg.groupe.visible !== e.ouvert) {
+    pg.groupe.visible = e.ouvert;
+    if (e.ouvert) { UI.toast('LE GOULET DES BRAISES EST OUVERT', true); UI.toast('Portail bleu et rouge à l’ouest de la Place · 10 contre 10'); son('jingle_legend', 0.5, 0.8); onde(pg.pos, '#7ab8ff', 6, 1); }
+  }
+}
+const membresGoulet = (camp) => camp === 'bleu' ? [joueur, ...allies.filter(a => a.bg)] : ennemis.filter(e => e.bg);
+const adversairesGoulet = (camp) => membresGoulet(camp === 'bleu' ? 'rouge' : 'bleu').filter(x => x && !x.mort);
+const campDe = (x) => x === joueur ? 'bleu' : x.bg ? x.bg.camp : null;
+const estPorteur = (x) => goulet && (goulet.drapeaux.bleu.porteur === x || goulet.drapeaux.rouge.porteur === x);
+function drapeauMesh(coul) {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color: '#d8c8a8', roughness: 0.6, metalness: 0.3 });
+  const mat2 = new THREE.MeshStandardMaterial({ color: coul, emissive: coul, emissiveIntensity: 0.6, side: THREE.DoubleSide });
+  const hampe = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 3.6, 8), mat); hampe.position.y = 1.8; g.add(hampe);
+  const tissu = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.0, 8, 4), mat2); tissu.position.set(0.82, 3, 0); g.add(tissu);
+  const boule = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshStandardMaterial({ color: '#ffd27a', emissive: '#ffb02a', emissiveIntensity: 1 })); boule.position.y = 3.65; g.add(boule);
+  const pos0 = tissu.geometry.attributes.position.array.slice();
+  G.anims.push((t) => { const p = tissu.geometry.attributes.position; for (let i = 0; i < p.count; i++) { const x = pos0[i * 3]; p.array[i * 3 + 2] = Math.sin(t * 6 + x * 3) * 0.12 * (x + 0.8); } p.needsUpdate = true; });
+  monde.groupe.add(g); return g;
+}
+function entrerGoulet() {
+  memoriserMode('Goulet des Braises · 10 contre 10', () => entrerGoulet());
+  fondu(() => {
+    viderMonde(); invasion = null; arene = null; selection = null;
+    modeActuel = { id: 'goulet', nom: 'Goulet', lieu: 'Goulet des Braises', argent: 0, xp: 3, tiers: [1, 1], mobTier: 1, goulet: true };
+    monde = construireGoulet();
+    construireJoueur(monde.bases.bleu.spawn.clone());
+    joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax; joueur.cds = {};
+    joueur.angle = Math.PI / 2; joueur.root.rotation.y = joueur.angle;
+    G.camTarget.copy(joueur.pos); G.scene.fog.color.set('#a8b8c8'); G.scene.fog.density = 0.006; G.scene.background.set('#9ab4d0');
+    G.hemi.color.set('#d8e4ff'); G.hemi.groundColor.set('#4a5a3a'); G.hemi.intensity = 1.1; G.sun.color.set('#fff0d0'); G.sun.intensity = 1.5;
+    goulet = { score: { bleu: 0, rouge: 0 }, t: 600, debut: 5, fini: false, stats: { kills: 0, morts: 0, caps: 0, retours: 0 },
+      drapeaux: { bleu: { camp: 'bleu', etat: 'base', porteur: null, sol: null, t: 0, mesh: drapeauMesh('#3a7aff') }, rouge: { camp: 'rouge', etat: 'base', porteur: null, sol: null, t: 0, mesh: drapeauMesh('#ff3a3a') } } };
+    const ipJ = statsHeros(J.equip).ip, rg = rangDe('arene').i, pris = [];
+    const roles = ['att', 'att', 'att', 'def', 'def', 'def', 'mil', 'mil', 'mil', 'att'];
+    for (let i = 0; i < 9; i++) {
+      const d = donneesBot(ipJ + rnd(-60, 40), pris, rg); pris.push(d.nom);
+      const a = creerCombattant(pointLibrePres(monde.bases.bleu.spawn, 1, 6), d, 'allie');
+      Object.assign(a, { bg: { camp: 'bleu', role: roles[i] }, potions: 1, skill: Math.min(0.95, 0.6 + 0.06 * rg + rnd(-0.05, 0.1)) });
+    }
+    for (let i = 0; i < 10; i++) {
+      const d = donneesBot(ipJ + rnd(-40, 70) + 25 * rg, pris, rg); pris.push(d.nom);
+      d.skill = Math.max([0.55, 0.7, 0.8, 0.9, 0.95, 0.98][rg] || 0.55, Math.min(0.98, 0.6 + 0.07 * rg + rnd(-0.05, 0.12)));
+      const r = creerCombattant(pointLibrePres(monde.bases.rouge.spawn, 1, 6), d, 'ennemi');
+      Object.assign(r, { bg: { camp: 'rouge', role: roles[i] }, potions: 1, skill: d.skill, chasseur: false });
+      r.angle = -Math.PI / 2; r.root.rotation.y = r.angle;
+    }
+    UI.journal('Goulet des Braises', 'Ramène le drapeau rouge à ton socle bleu. Impossible de marquer tant que ton propre drapeau est volé. 3 captures pour gagner.');
+    UI.zone('Goulet des Braises', '10 contre 10');
+    $('#btnQuitter').hidden = false;
+    UI.toast('Le combat commence dans 5 secondes', true);
+  });
+}
+function iaGoulet(e, dt) {
+  const def = e.armeDef;
+  if (goulet.debut > 0 || goulet.fini) { e.jouer(def.idle); return true; }
+  const camp = e.bg.camp, adv = camp === 'bleu' ? 'rouge' : 'bleu';
+  const base = monde.bases[camp].pos, baseAdv = monde.bases[adv].pos;
+  const Fadv = goulet.drapeaux[adv], Fmien = goulet.drapeaux[camp];
+  const v = e.st.vitesse * (e.slowT > 0 ? 0.6 : 1);
+  if (Fadv.porteur === e) { // je porte leur drapeau : je rentre, en me défendant seulement si on me colle
+    const proche = adversairesGoulet(camp).some(x => dist2D(x.pos, e.pos) < 3.2);
+    if (proche && Math.random() < 0.5) return false;
+    allerVers(e, base, dt, v * 0.92); e.jouer(def.run); return true;
+  }
+  // les attaquants foncent vers le drapeau et ne se battent que si on leur barre la route ; défenseurs et milieux engagent plus loin
+  const foe = adversairesGoulet(camp).find(x => dist2D(x.pos, e.pos) < (e.bg.role === 'def' ? 13 : e.bg.role === 'att' ? (Fadv.etat === 'porte' ? 9 : 4.5) : 10));
+  if (foe) return false; // combat normal (esquives, sorts, replis…)
+  let obj = null;
+  if (Fmien.etat === 'porte' && Fmien.porteur) obj = Fmien.porteur.pos; // tout le monde chasse le voleur
+  else if (Fmien.etat === 'sol' && dist2D(Fmien.sol, e.pos) < 40) obj = Fmien.sol; // on ramène notre drapeau
+  else if (e.bg.role === 'att') obj = Fadv.etat === 'porte' && Fadv.porteur ? Fadv.porteur.pos : Fadv.etat === 'sol' ? Fadv.sol : baseAdv; // escorte ou va le prendre
+  else if (e.bg.role === 'def') { if (!e.bgPoste || G.t > (e.bgPosteT || 0)) { e.bgPosteT = G.t + rnd(4, 8); e.bgPoste = V(base.x + (camp === 'bleu' ? 1 : -1) * rnd(4, 16), 0, rnd(-12, 12)); } obj = e.bgPoste; }
+  else { if (!e.bgPoste || G.t > (e.bgPosteT || 0)) { e.bgPosteT = G.t + rnd(5, 9); e.bgPoste = V(rnd(-18, 18), 0, rnd(-16, 16)); } obj = Fadv.etat === 'porte' && Fadv.porteur && Math.random() < 0.5 ? Fadv.porteur.pos : e.bgPoste; }
+  if (dist2D(obj, e.pos) > 2) { allerVers(e, obj, dt, v * 0.95); e.jouer(def.run); } else e.jouer(def.idle);
+  return true;
+}
+function mortGoulet(x) {
+  x.mort = true; x.pv = 0;
+  if (x !== joueur) x.jouer(x.actions && x.actions.Death_A ? 'Death_A' : 'Death_A', { boucle: false });
+  for (const F of Object.values(goulet.drapeaux)) if (F.porteur === x) { F.porteur = null; F.etat = 'sol'; F.sol = x.pos.clone(); F.t = 20; UI.toast(`Drapeau ${F.camp} lâché !`); onde(F.sol, F.camp === 'bleu' ? '#3a7aff' : '#ff3a3a', 4, 0.6); }
+  const c = campDe(x);
+  if (c === 'rouge' && dernierAgresseurDe(x) === joueur) { goulet.stats.kills++; UI.nombre(V(x.pos.x, 2.6, x.pos.z), '+8 renommée', 'info'); }
+  if (x === joueur) { goulet.stats.morts++; UI.toast('Tu es tombé · retour au château dans 8 s', true); }
+  const jx = x;
+  programmer(8, () => {
+    if (!goulet || goulet.fini || !monde || monde.type !== 'goulet') return;
+    const sp = pointLibrePres(monde.bases[c].spawn, 0.5, 5);
+    jx.pos.copy(sp); jx.mort = false; jx.root.position.y = 0;
+    if (jx === joueur) { joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax; joueur.invuln = 2; joueur.jouer(joueur.def.idle); G.camTarget.copy(sp); }
+    else { jx.pv = jx.pvMax; jx.tc = null; jx.chemin = null; jx.jouer(jx.armeDef.idle); jx.potions = 1; }
+    onde(sp, c === 'bleu' ? '#3a7aff' : '#ff3a3a', 3, 0.5);
+  });
+}
+const dernierAgresseurDe = (x) => G.t - (x.coupJoueurT || -99) < 2 ? joueur : null;
+function majGoulet(dt) {
+  if (!goulet || goulet.fini) return;
+  if (goulet.debut > 0) { const avant = Math.ceil(goulet.debut); goulet.debut -= dt; if (Math.ceil(goulet.debut) !== avant && goulet.debut > 0) UI.toast(String(Math.ceil(goulet.debut))); if (goulet.debut <= 0) { UI.toast('À L’ATTAQUE !', true); son('jingle_win', 0.5); } UI.scoreGoulet(goulet); return; }
+  goulet.t -= dt;
+  for (const F of Object.values(goulet.drapeaux)) {
+    const adv = F.camp === 'bleu' ? 'rouge' : 'bleu';
+    const pos = F.etat === 'base' ? monde.bases[F.camp].pos : F.etat === 'sol' ? F.sol : F.porteur.pos;
+    if (F.etat === 'base' || F.etat === 'sol') {
+      // un adversaire le ramasse
+      const voleur = adversairesGoulet(F.camp).find(x => dist2D(x.pos, pos) < 2.4);
+      if (voleur) { F.etat = 'porte'; F.porteur = voleur; F.sol = null; UI.toast(voleur === joueur ? 'TU AS LE DRAPEAU ! Ramène-le à ton socle' : `${voleur.nom} a pris le drapeau ${F.camp} !`, voleur === joueur); son('jingle_legend', 0.4, 1.2); }
+      else if (F.etat === 'sol') {
+        F.t -= dt;
+        const gardien = membresGoulet(F.camp).find(x => x && !x.mort && dist2D(x.pos, pos) < 2.4);
+        if (gardien || F.t <= 0) { F.etat = 'base'; F.sol = null; if (gardien === joueur) { goulet.stats.retours++; UI.toast('Drapeau bleu ramené ! +15 renommée'); } else UI.toast(`Drapeau ${F.camp} rentré au château`); son('confirmation_001', 0.4); }
+      }
+    } else if (F.etat === 'porte') {
+      const p = F.porteur; const sonCamp = campDe(p);
+      // le porteur arrive chez lui : il marque si son propre drapeau est bien au socle
+      if (dist2D(p.pos, monde.bases[sonCamp].pos) < 3.2) {
+        if (goulet.drapeaux[sonCamp].etat === 'base') {
+          goulet.score[sonCamp]++; F.etat = 'base'; F.porteur = null;
+          if (p === joueur) goulet.stats.caps++;
+          UI.toast(sonCamp === 'bleu' ? `CAPTURE BLEUE ! ${goulet.score.bleu} – ${goulet.score.rouge}` : `Capture rouge… ${goulet.score.bleu} – ${goulet.score.rouge}`, true);
+          son(sonCamp === 'bleu' ? 'jingle_win' : 'lowFrequency_explosion_000', 0.6); onde(monde.bases[sonCamp].pos, sonCamp === 'bleu' ? '#3a7aff' : '#ff3a3a', 10, 1.2); G.shake = 0.6;
+          if (goulet.score[sonCamp] >= 3) return finGoulet(sonCamp === 'bleu');
+        } else if (!p._msgBloque || G.t - p._msgBloque > 6) { p._msgBloque = G.t; if (p === joueur) UI.toast('Impossible de marquer : ton drapeau a été volé !'); }
+      }
+    }
+    // position du drapeau
+    const q = F.etat === 'base' ? monde.bases[F.camp].pos : F.etat === 'sol' ? F.sol : F.porteur.pos;
+    F.mesh.position.set(q.x, F.etat === 'porte' ? 1.2 : 0.5, q.z);
+    F.mesh.scale.setScalar(F.etat === 'porte' ? 0.75 : 1);
+  }
+  if (goulet.t <= 0) return finGoulet(goulet.score.bleu > goulet.score.rouge ? true : goulet.score.bleu < goulet.score.rouge ? false : null);
+  UI.scoreGoulet(goulet);
+}
+function finGoulet(victoire) {
+  goulet.fini = true; UI.scoreGoulet(null);
+  const s = goulet.stats;
+  const renom = s.kills * 8 + s.caps * 60 + s.retours * 15 + (victoire === true ? 200 : victoire === false ? 60 : 110);
+  J.renom = (J.renom || 0) + renom;
+  const gainA = Math.round((victoire === true ? 90000 : 30000) * (1 + 0.3 * rangDe('arene').i)); J.argent += gainA;
+  gagnerXP(Math.round(8 * 14 * (victoire ? 60 : 25)));
+  if (victoire !== null) changerRang('arene', victoire ? 12 : -8, victoire ? 'Victoire au Goulet' : 'Défaite au Goulet');
+  sauver();
+  const lignes = [`Score final : 🔵 ${goulet.score.bleu} – ${goulet.score.rouge} 🔴`, `Ennemis abattus : ${s.kills} · captures : ${s.caps} · drapeaux ramenés : ${s.retours} · morts : ${s.morts}`, `✦ +${renom} renommée (total ${fmtN(J.renom)})`, `+ ${fmtN(gainA)} d’argent`];
+  setTimeout(() => UI.resultatArene({ victoire: victoire === true, lignes, refaire: 'Goulet des Braises', titre: victoire === null ? 'Égalité' : null }, (refaire) => { goulet = null; if (refaire && etatPortailGoulet().ouvert) entrerGoulet(); else { if (refaire) UI.toast('Le portail du Goulet est refermé : reviens à sa prochaine ouverture'); fondu(() => lancerHub()); } }), 1200);
+}
 // ---------------- Refaire ----------------
 function memoriserMode(nom, fn) { G.dernier = { nom, fn }; UI.boutonRefaire(null); }
 function proposerRefaire(duree = 0) {
@@ -551,16 +704,21 @@ function bilanGroupe() {
   }
 }
 // ---------------- Donjon ----------------
+let modeHard = false;
 function entrerDonjon(id, opts = {}) {
-  if (!opts.errant) memoriserMode(MODES[id].lieu + ' · ' + MODES[id].nom + (opts.envahir ? ' · invasion' : ''), () => entrerDonjon(id, { envahir: opts.envahir }));
+  const M = MODES[id];
+  if (M.nivMin && niveauHeros(J.equip) < M.nivMin && !opts.forcer) { UI.toast(`${M.lieu} : niveau ${M.nivMin} minimum (tu es niveau ${niveauHeros(J.equip)})`, true); son('error_001', 0.4); return; }
+  if (!opts.errant) memoriserMode(M.lieu + ' · ' + M.nom + (opts.hard ? ' · HARD' : '') + (opts.envahir ? ' · invasion' : ''), () => entrerDonjon(id, { envahir: opts.envahir, hard: opts.hard }));
   fondu(() => {
     viderMonde();
-    modeActuel = MODES[id]; bossVaincus = 0;
+    modeActuel = MODES[id]; bossVaincus = 0; modeHard = !!opts.hard; G.abimeT = 2;
     invasion = opts.envahir ? { mode: 'menee', t: 4, rival: null } : (J.accepteInvasion && Math.random() < 0.8 ? { mode: 'subie', t: rnd(40, 100), rival: null } : null);
     monde = construireDonjon(modeActuel);
     construireJoueur(monde.spawn.clone());
     joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax;
     G.camTarget.copy(joueur.pos); G.scene.fog.density = 0.028; G.hemi.intensity = 0.75; G.sun.intensity = 0.8;
+    if (modeActuel.abime) { G.scene.fog.color.set('#2a0408'); G.scene.background.set('#1a0206'); G.hemi.color.set('#ff6a7a'); G.sun.color.set('#ff8a8a'); UI.toast('L’ABÎME VOUS OBSERVE', true); }
+    else if (modeHard) { G.scene.fog.color.set('#1a0810'); G.hemi.color.set('#c87a9a'); UI.toast('MODE HARD', true); }
     if (groupe) { const a = creerCombattant(pointLibrePres(monde.spawn, 1.5, 3), groupe, 'allie'); const p = Math.random(); Object.assign(a, { autonome: true, perso: p < 0.6 ? 'loyal' : p < 0.85 ? 'solo' : 'traitre', modeA: 'explorer', modeT: rnd(14, 24) }); groupe.trait = groupe.trait || hasard(Object.keys(TRAITS)); appliquerTrait(a, groupe.trait); if (a.trait === 'protecteur') a.modeA = 'suivre'; }
     // monstres
     const types = id === 0 ? ['minion', 'minion', 'minion', 'guerrier', 'archer'] : id === 1 ? ['minion', 'guerrier', 'guerrier', 'archer', 'mage'] : ['guerrier', 'guerrier', 'archer', 'mage', 'mage', 'minion'];
@@ -591,7 +749,7 @@ function creerEnnemi(def, pos, tierMob, pack, boss = null) {
   a.root.position.copy(pos); a.root.rotation.y = rnd(0, 6.28);
   G.scene.add(a.root);
   const f = tf(tierMob);
-  const kr = (1 + 0.15 * rangK()) * (1 + bonusMaitrise(NIVEAU_REQUIS[Math.max(1, Math.min(8, Math.round(tierMob)))]) * 0.8); // les monstres suivent le niveau attendu de leur zone
+  const kr = (modeHard ? 3 : 1) * (1 + 0.15 * rangK()) * (1 + bonusMaitrise(NIVEAU_REQUIS[Math.max(1, Math.min(8, Math.round(tierMob)))]) * 0.8); // les monstres suivent le niveau attendu de leur zone
   const pvMax = Math.round(160 * f * (def.hp || 1) * (boss ? boss.hpMult : 1) * kr);
   Object.assign(a, {
     def, boss, pos: a.root.position, pv: pvMax, pvMax, dmg: 15 * f * (def.dmg || 1) * (boss ? boss.dmgMult : 1) * kr,
@@ -706,6 +864,7 @@ function degatsJoueur(mult) {
 }
 function blesser(e, mult, opts = {}) {
   if (e.mort) return;
+  e.coupJoueurT = G.t;
   let { d, crit } = degatsJoueur(mult);
   if (opts.fixe) { d = opts.fixe; crit = false; }
   if (e.reduction) d *= 1 - e.reduction * 0.6;
@@ -741,6 +900,7 @@ function reveiller(e) {
   for (const o of ennemis) if (o.pack === e.pack && o.etat === 'idle' && dist2D(o.pos, e.pos) < 14) o.etat = 'chasse';
 }
 function tuer(e) {
+  if (goulet && e.bg) { mortGoulet(e); return; }
   e.mort = true; e.pv = 0;
   const anim = e.def.model === 'Dragon_Evolved' ? 'Death' : (e.actions.Death_C_Skeletons ? 'Death_C_Skeletons' : 'Death_A');
   e.jouer(anim, { boucle: false, fondu: 0.1 });
@@ -750,9 +910,9 @@ function tuer(e) {
   if (e.rival) { if (arene) { setTimeout(() => { e.descendre = true; }, 4000); verifierArene(); } else if (e.bandit || e.gardeIle) finCombatIle(e); else victoireRival(e); return; }
   const part = coequipiers().length && !modeActuel.sylve ? 0.5 : 1;
   const loot = lootMonstre(modeActuel);
-  const gain = Math.max(1, Math.round(loot.argent * (e.boss ? 25 : 1) * part * (1 + bonusParch('argent')) * (MODES.includes(modeActuel) ? 1 + 0.25 * rangDe('donjon').i : 1)));
+  const gain = Math.max(1, Math.round(loot.argent * (e.boss ? 25 : 1) * (modeHard ? 3 : 1) * part * (1 + bonusParch('argent')) * (MODES.includes(modeActuel) ? 1 + 0.25 * rangDe('donjon').i : 1)));
   J.argent += gain;
-  const xp = Math.round(10 * (modeActuel.xp || 1) * (e.boss ? 18 : 1) * part);
+  const xp = Math.round(10 * (modeActuel.xp || 1) * (e.boss ? 18 : 1) * part * (modeHard ? 3 : 1));
   UI.nombre(V(e.pos.x, 2.2, e.pos.z), `+${gain} ¤`, 'info');
   gagnerXP(xp);
   for (const it of loot.objets) ajouterSac(it, true);
@@ -764,7 +924,7 @@ function tuer(e) {
   } else if (e.boss) {
     ralenti(0.9, 0.28); // ralenti sur le coup fatal du gardien
     tirageOmbre(modeActuel.tiers[0], modeActuel.tiers[1], 'boss');
-    if (modeActuel.id === 2) tirageOrage(Math.random() < 0.5 ? 7 : 8);
+    if (modeActuel.id >= 2) tirageOrage(Math.random() < 0.5 ? 7 : 8);
     for (const a of allies) if (!a.mort && !a.invoc && !a.garde) emoteBot(a, ['gg', 'feu', 'merci'], 0.6, 1);
     bossVaincus++; UI.boss(null); G.shake = 1;
     if (MODES.includes(modeActuel)) changerRang('donjon', 5, 'Gardien vaincu');
@@ -801,6 +961,7 @@ function blesserJoueur(d, source = null) {
 let dernierAgresseur = null;
 function mourirJoueur() {
   joueur.pv = 0; joueur.mort = true; joueur.jouer('Death_A', { boucle: false });
+  if (goulet) return mortGoulet(joueur);
   // le « joueur » qui t'a tué te nargue
   const k = dernierAgresseur;
   if (k && k.combattant && !k.mort && k.camp === 'ennemi') { emoteBot(k, ['ez', 'mdr', 'clown', 'rip', 'toi', 'bof'], 1, 0.7); emoteBot(k, ['mdr', 'clown', 'diable'], 0.4, 3.2); }
@@ -1291,6 +1452,20 @@ function bondStyle(c, apres) {
     }
   });
 }
+// ---------------- Abîme : le sol explose sous les pieds chaque seconde ----------------
+function majAbime(dt) {
+  if (!modeActuel || !modeActuel.abime || !joueur || joueur.mort) return;
+  G.abimeT = (G.abimeT || 0) - dt; if (G.abimeT > 0) return; G.abimeT = 1;
+  let src = null, bd = 30; for (const e of ennemis) { if (e.mort || e.etat === 'idle' || e.etat === 'dormant') continue; const d = dist2D(e.pos, joueur.pos); if (d < bd) { bd = d; src = e; } }
+  if (!src) return;
+  const n = src.boss ? 3 : 1;
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * 6.28, r0 = i === 0 ? rnd(0, 1.2) : rnd(3, 7);
+    const p = V(joueur.pos.x + Math.cos(a) * r0, 0, joueur.pos.z + Math.sin(a) * r0);
+    const R = src.boss ? rnd(4.5, 6.5) : rnd(3.2, 4.4);
+    tele(p, R, 0.85, '#ff1a3a', () => { if (src.mort && !src.boss) return; onde(p, '#ff2a4a', R + 1, 0.4); emettre(V(p.x, 0.4, p.z), { n: 40, c1: '#ffd0d8', c2: '#ff0a2a', vit: 8, vie: 0.6, taille: 0.6, hemi: true }); son('explosionCrunch_000', 0.25, 1.3); toucherZone(src, p, R, src.dmg * (src.boss ? 2.6 : 1.8)); });
+  }
+}
 // ---------------- Mode auto ----------------
 function pvpActif() {
   if (arene) return true;
@@ -1384,7 +1559,7 @@ function majEnnemis(dt) {
     if (sautEnCours(e, dt)) continue;
     if (e.airT > 0) { e.airT -= dt; e.root.position.y = Math.sin((0.6 - e.airT) / 0.6 * Math.PI) * 1.6; e.maj(dt); continue; } else if (!e.boss && !e.sautT) e.root.position.y = e.hover;
     if (e.slowT > 0) e.slowT -= dt;
-    e.atkT -= dt;
+    e.atkT -= dt * (modeActuel && modeActuel.abime ? 2 : modeHard ? 1.35 : 1);
     if (e.etat === 'idle') { if (d < 11 || allies.some(a => !a.mort && dist2D(a.pos, e.pos) < 8)) reveiller(e); e.maj(dt); continue; }
     if (e.etat === 'dormant') {
       const zone = monde.zoneDe(joueur.pos.x, joueur.pos.z);
@@ -1419,7 +1594,7 @@ function faceJoueur(e, dt, k = 10) { const c = e.tc || joueur; e.angle = tourner
 function majMob(e, d, dt) {
   const def = e.def;
   const c = e.tc;
-  if (e.attaqueT > 0) { e.attaqueT -= dt; faceJoueur(e, dt, 6); return; }
+  if (e.attaqueT > 0) { e.attaqueT -= dt * (modeActuel && modeActuel.abime ? 1.8 : 1); faceJoueur(e, dt, 6); return; }
   const portee = def.portee;
   if (d > portee + e.rayon) { allerVers(e, c.pos, dt, def.vitesse); e.jouer('Running_A'); return; }
   faceJoueur(e, dt);
@@ -1615,7 +1790,7 @@ const API = {
   },
   vendreButin: () => { let t = 0; J.sac = J.sac.filter(it => { if (it.cat === 'butin') { t += prixVente(it) * it.n; return false; } return true; }); J.argent += t; son('handleCoins', 0.7); UI.toast(`Butin vendu : +${t.toLocaleString('fr-FR')}`); sauver(); },
   rangerPotion: (id) => { const i = J.sac.findIndex(x => x.id == id); if (i >= 0) { J.potions += J.sac[i].n || 1; joueur.potions = J.potions; J.sac.splice(i, 1); sauver(); } },
-  entrer: (id) => entrerDonjon(id),
+  entrer: (id, hard) => entrerDonjon(id, { hard }),
   arene: (format, opts = {}) => entrerArene(format, opts),
   enchanter: (id) => enchanter(id),
   acheterRunes: (n) => { const prix = 5000 * n; if (J.argent < prix) { UI.toast('Pas assez d’argent'); son('error_001', 0.4); return false; } J.argent -= prix; ajouterSac(creerButin('rune', n), true); son('handleCoins', 0.5); sauver(); return true; },
@@ -1645,9 +1820,9 @@ const API = {
   infosIle: (i) => infosIle(i),
   acheterArene: (it) => {
     const prix = prixTrophees(it);
-    if ((J.trophees || 0) < prix) { UI.toast('Pas assez de trophées'); son('error_001', 0.3); return; }
+    if ((J.trophees || 0) + (J.renom || 0) < prix) { UI.toast('Pas assez de trophées ni de renommée'); son('error_001', 0.3); return; }
     if (J.sac.length >= 40) { UI.toast('Sac plein'); return; }
-    J.trophees -= prix; ajouterSac({ ...it, id: Date.now() + Math.floor(Math.random() * 1e6) }, true);
+    { const r1 = Math.min(J.renom || 0, prix); J.renom = (J.renom || 0) - r1; J.trophees -= prix - r1; } // la renommée du Goulet paie en premier ajouterSac({ ...it, id: Date.now() + Math.floor(Math.random() * 1e6) }, true);
     son('jingle_loot', 0.5); UI.toast('Acheté : ' + nomObjet(it)); sauver();
   },
   inviter: (data) => {
@@ -1689,6 +1864,7 @@ function majInteractions() {
     if (graveuse && dist2D(joueur.pos, graveuse.pos) < 4.5) return UI.action('Graver des runes', () => UI.runes());
     if (dist2D(joueur.pos, monde.portail.pos) < 9) return UI.action('Franchir la Brèche', () => UI.menuPortail());
     if (monde.portailArene && dist2D(joueur.pos, monde.portailArene.pos) < 9) return UI.action('Entrer dans l’Arène', () => UI.menuArene(groupe));
+    if (monde.portailGoulet && dist2D(joueur.pos, monde.portailGoulet.pos) < 6) { const eg = etatPortailGoulet(); if (eg.ouvert) return UI.action(`Goulet des Braises · 10 contre 10 (${Math.floor(eg.reste / 60)}:${String(Math.floor(eg.reste % 60)).padStart(2, '0')})`, () => entrerGoulet()); }
     if ((passeur && dist2D(joueur.pos, passeur.pos) < 4.5) || (monde.portailIle && dist2D(joueur.pos, monde.portailIle.pos) < 5)) return UI.action('Les Îles', () => UI.menuIles(infosIles()));
     return UI.action(null);
   }
@@ -1718,10 +1894,12 @@ function ouvrirCoffre(c, auto = false) {
     const g0 = G.chanceOmbre; G.chanceOmbre = 0.05; tirageOmbre(tm, tm, 'boss'); G.chanceOmbre = g0;
   }
   if (J.accepteInvasion) loot.argent = Math.round(loot.argent * 1.25);
+  if (modeHard) loot.argent *= 3;
   loot.bonus = [];
   { const rk = (MODES.includes(modeActuel) || modeActuel && modeActuel.sylve) ? rangDe('donjon') : null; if (rk && rk.i) loot.bonus.push({ pct: 25 * rk.i, txt: 'rang ' + rk.r.nom, i: '♛', c: rk.r.c2 }); }
   { const bp = Math.round(bonusParch('argent') * 100); if (bp) loot.bonus.push({ pct: bp, txt: 'parchemin d’argent', i: '¤', c: '#e8902a' }); }
   if (J.accepteInvasion) loot.bonus.push({ pct: 25, txt: 'zone d’invasion', i: '⚔', c: '#c0281a' });
+  if (modeHard) loot.bonus.push({ pct: 200, txt: 'mode Hard', i: '☠', c: '#7a0a1a' });
   if (coequipiers().length) { // en groupe, le coffre est partagé en deux
     const a = coequipiers()[0]; const moitie = Math.round(loot.argent / 2);
     loot.allie = { nom: a.nom, argent: loot.argent - moitie, objets: loot.objets.filter((_, i) => i % 2 === 1) };
@@ -1864,7 +2042,7 @@ function boucle() {
     if (passeur) passeur.maj(dt);
     if (graveuse) graveuse.maj(dt);
     ileT -= dt; if (ileT <= 0) { ileT = 3; majProduction(); majAssauts(); majRaids(); if (modeActuel && modeActuel.id === 'ile' && !monde.etranger && !(raid && raid.r)) journalIle(monde.ile); }
-    majEscouade(dt);
+    majEscouade(dt); majAbime(dt); if (goulet) majGoulet(dt); if (!modeActuel) majPortailGoulet();
     majCamera(dt, G.camCible || joueur.pos);
     majTorches(joueur.pos);
     if (joueur.comboT > 0) { joueur.comboT -= dt; if (joueur.comboT <= 0) joueur.combo = 0; }
@@ -1884,7 +2062,7 @@ function boucle() {
   if (enJeu && !G.camLibre) G.camYaw = Math.PI / 4;
   majFeux(dt); majVfx(dt); majParticules(dt);
   const t1 = performance.now();
-  rendre();
+  if (!G.simRapide) rendre();
   const t2 = performance.now(), P = G.perf || (G.perf = { upd: 0, rend: 0, max: 0, pics: 0 });
   P.upd = P.upd * 0.95 + (t1 - now) * 0.05; P.rend = P.rend * 0.95 + (t2 - t1) * 0.05;
   if (t2 - now > 40) P.pics++; P.max = Math.max(P.max, t2 - now);
@@ -1918,6 +2096,10 @@ function majMini() {
     for (const c of coffres) if (!c.ouvert) ents.push({ type: 'coffre', x: c.pos.x, z: c.pos.z, c: c.def.color });
     if (sortie) ents.push({ type: 'portailV', x: sortie.pos.x, z: sortie.pos.z });
     ents.centre = joueur.pos;
+  } else if (monde.type === 'goulet') {
+    for (const a of allies) if (!a.mort && a.bg) ents.push({ type: 'allie', x: a.pos.x, z: a.pos.z });
+    for (const e of ennemis) if (!e.mort && dist2D(e.pos, joueur.pos) < 30) ents.push({ type: 'rouge', x: e.pos.x, z: e.pos.z });
+    if (goulet) for (const F of Object.values(goulet.drapeaux)) ents.push({ type: 'drapeau', x: F.mesh.position.x, z: F.mesh.position.z, c: F.camp === 'bleu' ? '#3a7aff' : '#ff3a3a' });
   } else if (monde.type === 'ile') {
     for (const e of ennemis) if (!e.mort) ents.push({ type: 'boss', x: e.pos.x, z: e.pos.z });
     for (const a of allies) if (!a.mort) ents.push({ type: 'allie', x: a.pos.x, z: a.pos.z });
@@ -1977,7 +2159,14 @@ function pointLibrePres(centre, dMin, dMax, r = 0.7) {
   return centre.clone();
 }
 // habille un personnage selon son équipement (couleur du tier sur l'arme, la cape, le casque, les jambes)
+// tenues : le chevalier troque son armure de plaques contre un équipement de cuir de rôdeur, le barbare enlève sa tête d'ours
+function tenue(a) {
+  if (a.cle === 'Knight' && !a._tenue) { a._tenue = true; for (const [c, s] of [['Knight_Body', 'Rogue_Body'], ['Knight_ArmLeft', 'Rogue_ArmLeft'], ['Knight_ArmRight', 'Rogue_ArmRight'], ['Knight_LegLeft', 'Rogue_LegLeft'], ['Knight_LegRight', 'Rogue_LegRight']]) a.remplacerPiece(c, 'Rogue', s); }
+  if (a.cle === 'Barbarian' && a.nodes.Barbarian_Hat) a.nodes.Barbarian_Hat.visible = false;
+  if (a.nodes.Knight_Helmet) a.nodes.Knight_Helmet.visible = false;
+}
 function habiller(a, equip, def) {
+  tenue(a);
   const arme = equip.arme;
   const tous = Object.keys(a.nodes).filter(n => /Sword|Axe|Shield|Crossbow|Staff|Wand|Knife|Throwable|Mug|Spellbook/.test(n));
   a.montrerSeul([def.node, def.node2].filter(Boolean), tous);
@@ -2029,6 +2218,8 @@ function equipeJoueur() { const l = []; if (!joueur.mort && !(joueur.furtifT > 0
 function adversaires(e) { return e.camp === 'allie' ? vivants() : equipeJoueur(); }
 function cibleIA(e) {
   let liste;
+  if (goulet && e.bg) { const l = adversairesGoulet(e.bg.camp).filter(x => dist2D(x.pos, e.pos) < 14); const porteur = l.find(x => estPorteur(x)); if (porteur) return porteur; liste = l; }
+  else
   if (e.poste && e.camp === 'allie') liste = vivants().filter(x => dist2D(x.pos, e.poste) < 24);
   else if (e.poste) liste = equipeJoueur().filter(x => dist2D(x.pos, e.poste) < 20);
   else if (e.camp === 'allie' && e.membreSylve) liste = vivants().filter(x => x.etat !== 'dormant' && (x.etat === 'chasse' ? dist2D(x.pos, e.pos) < 20 : dist2D(x.pos, e.pos) < 11));
@@ -2078,6 +2269,7 @@ function blesserAllie(a, d, src, opts = {}) {
   a.jouer('Death_A', { boucle: false });
   UI.toast(`${a.nom} est tombé`);
   setTimeout(() => UI.chat(a.nom, hasard(['désolé…', 'je suis mort', 'ils frappent fort', 'vas-y finis-les'])), 700);
+  if (goulet && a.bg) return mortGoulet(a);
   if (arene) return verifierArene();
   if (a.garde) return;
   // en donjon, le coéquipier se relève au bout de 15 s près du joueur
@@ -2110,6 +2302,7 @@ function bondir(e, cible) {
 function majCombattant(e, dt) {
   const def = e.armeDef, type = e.equip.arme.type, melee = !ARMES[type].projectile;
   if (arene && arene.t > 0) { e.jouer(def.idle); faceJoueur(e, dt, 4); return; }
+  if (goulet && e.bg && iaGoulet(e, dt)) return;
   e.tc = cibleIA(e);
   if (e.camp === 'ennemi' && e.skill > 0.6) { e.focusT = (e.focusT || 0) - dt; if (e.focusT <= 0) { e.focusT = 1.5; const l = adversaires(e).filter(x => dist2D(x.pos, e.pos) < 14); if (l.length > 1) e.focus = l.reduce((a, b) => (a.pv / a.pvMax < b.pv / b.pvMax ? a : b)); else e.focus = null; } if (e.focus && !e.focus.mort) e.tc = e.focus; }
   if (e.camp === 'ennemi' && e.skill !== undefined && e.tc && esquiveExperte(e, dt, melee)) return;
@@ -2355,7 +2548,7 @@ function entrerArene(format, opts = {}) {
     for (let i = 0; i < n; i++) {
       const rgA = rangDe('arene').i;
       const d = i === 0 && opts.duel ? opts.duel : donneesBot(ipJ + rnd(-50, 80) + 35 * rgA, pris, rgA); pris.push(d.nom);
-      d.skill = Math.max([0.35, 0.4, 0.5, 0.7, 0.85, 0.93][rgA] || 0.35, Math.min(0.98, 0.06 * rgA + 0.5 + Math.min(0.35, (J.trophees || 0) / 3000) + rnd(-0.15, 0.2) + (format === '2v2' ? 0.08 : 0)));
+      d.skill = Math.max([0.55, 0.7, 0.8, 0.9, 0.95, 0.98][rgA] || 0.55, Math.min(0.98, 0.06 * rgA + 0.5 + Math.min(0.35, (J.trophees || 0) / 3000) + rnd(-0.15, 0.2) + (format === '2v2' ? 0.08 : 0)));
       const r = creerCombattant(monde.spawnsRivaux[i].clone(), d, 'ennemi');
       r.angle = -Math.PI / 2; r.root.rotation.y = r.angle; r.potions = 1;
     }
@@ -2991,12 +3184,12 @@ function esquiveExperte(e, dt, melee) {
     const along = rx * vx + rz * vz; if (along < 0 || along > 8) continue;
     const perp = rx * vz - rz * vx; if (Math.abs(perp) > 1.6) continue;
     if (!p.vus) p.vus = new Set(); if (p.vus.has(e)) continue; p.vus.add(e);
-    if (Math.random() > e.skill * 0.8) continue;
+    if (Math.random() > e.skill * (e.rival && arene ? 0.97 : 0.8)) continue; // en arène, les cracks esquivent presque tout
     const s = perp >= 0 ? 1 : -1; return pasDeCote(e, vz * s, -vx * s, false);
   }
   if (joueur.debutAtk && G.t - joueur.debutAtk < 0.18 && dist2D(joueur.pos, e.pos) < 3.8 && e.dernierAtkVu !== joueur.debutAtk) {
     e.dernierAtkVu = joueur.debutAtk;
-    if (Math.random() < e.skill * 0.45) { const ar = V(e.pos.x - joueur.pos.x, 0, e.pos.z - joueur.pos.z).normalize(); return pasDeCote(e, ar.x, ar.z, true); }
+    if (Math.random() < e.skill * (e.rival && arene ? 0.8 : 0.45)) { const ar = V(e.pos.x - joueur.pos.x, 0, e.pos.z - joueur.pos.z).normalize(); return pasDeCote(e, ar.x, ar.z, true); }
   }
   return false;
 }
@@ -3661,8 +3854,9 @@ function rangK() {
   return 0;
 }
 // progression lente sur la durée : chaque palier demande beaucoup plus que le précédent
-const SEUILS_RANG = [0, 100, 300, 800, 2000, 4000];
-const GAIN_K = [1, 0.85, 0.65, 0.45, 0.3, 0.25], PERTE_K = [0.6, 0.8, 1, 1.2, 1.4, 1.6];
+// monter est une vraie galère : paliers énormes, gains qui fondent et défaites qui coûtent de plus en plus cher
+const SEUILS_RANG = [0, 400, 1400, 4000, 10000, 25000];
+const GAIN_K = [1, 0.7, 0.5, 0.35, 0.25, 0.18], PERTE_K = [0.8, 1, 1.3, 1.6, 2, 2.5];
 function migrerRang() {
   if (!J.rang || J.rangV2) return; J.rangV2 = true;
   for (const m of ['arene', 'donjon']) { const p = J.rang[m] || 0, i = Math.min(RANGS.length - 1, Math.floor(p / 100)); const loc = i === RANGS.length - 1 ? p - i * 100 : p % 100;
@@ -3980,7 +4174,7 @@ function dissiper(a) {
 }
 
 // accès de débogage (console)
-window.__jeu = { get dangers() { return dangers; }, creerCoffre: (p, c, b) => creerCoffre(p, c, b), entrerArene, construireJoueur: () => construireJoueur(joueur.pos.clone()), get entree() { return entree; }, API, G, UI, tirageOrage, changerRang, apparitionErrant, get errant() { return errant; }, tuerUn: (e) => { e.pv = 0; tuer(e); }, groupeTest: () => { groupe = donneesBot(statsHeros(J.equip).ip); return groupe.nom; }, trahir: () => allies.forEach(a => a.autonome && trahir(a)), invasionTest: () => { invasion = { mode: "subie", t: 0, rival: null }; lancerInvasion(); }, entrerSylve: (o) => entrerSylve(o), get sylve() { return sylve; }, invoquerOmbres, tirageOmbre, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
+window.__jeu = { get modeActuel() { return modeActuel; }, entrerGoulet: () => entrerGoulet(), get goulet() { return goulet; }, get dangers() { return dangers; }, creerCoffre: (p, c, b) => creerCoffre(p, c, b), entrerArene, construireJoueur: () => construireJoueur(joueur.pos.clone()), get entree() { return entree; }, API, G, UI, tirageOrage, changerRang, apparitionErrant, get errant() { return errant; }, tuerUn: (e) => { e.pv = 0; tuer(e); }, groupeTest: () => { groupe = donneesBot(statsHeros(J.equip).ip); return groupe.nom; }, trahir: () => allies.forEach(a => a.autonome && trahir(a)), invasionTest: () => { invasion = { mode: "subie", t: 0, rival: null }; lancerInvasion(); }, entrerSylve: (o) => entrerSylve(o), get sylve() { return sylve; }, invoquerOmbres, tirageOmbre, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
 
 initEntrees();
 demarrer();

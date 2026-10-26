@@ -152,6 +152,9 @@ export function construireHub() {
   const PI = new THREE.Vector3(18, 0, 13);
   const portailIle = construirePortail(groupe, PI, -0.5, THEME_JAUNE, 0.5);
   const passeur = { pos: new THREE.Vector3(13.2, 0, 15.6), rot: -0.9 };
+  // ---- Le portail du Goulet des Braises (10 contre 10), qui s'ouvre toutes les 5 minutes ----
+  const PB = new THREE.Vector3(-15, 0, 12);
+  const portailGoulet = construirePortail(groupe, PB, 0.7, THEME_GOULET, 0.55); portailGoulet.groupe.visible = false;
   for (const [k, x, z, r2, s2] of [['barrel_large', 21.8, 16.8, 0, 0.7], ['crates_stacked', 22.5, 9.6, 0.4, 0.7]]) groupe.add(cloner(k, x, 0, z, r2, s2));
 
   G.scene.add(groupe);
@@ -165,7 +168,7 @@ export function construireHub() {
     groupe, type: 'hub', nom: 'Place des Cendres',
     spawn: new THREE.Vector3(0, 0, 9),
     marchand: { pos: M.clone().add(new THREE.Vector3(-1.4, 0, -1.4)), rot: Math.PI / 4, comptoir: M.clone() },
-    portail, portailArene, portailIle, passeur,
+    portail, portailArene, portailIle, portailGoulet, passeur,
     marche: (x, z) => x > X0 * CELL + 0.8 && x < (X1 + 1) * CELL - 0.8 && z > Z0 * CELL + 0.8 && z < (Z1 + 1) * CELL - 0.8,
     collisions,
     bornes: { x0: X0 * CELL, x1: (X1 + 1) * CELL, z0: Z0 * CELL, z1: (Z1 + 1) * CELL },
@@ -179,6 +182,8 @@ const THEME_ROUGE = { runes: '#ff2a2a', cle: '#ff3a3a', cleE: '#ff1a1a', anneau:
 const THEME_JAUNE = { runes: '#ffcf3a', cle: '#ffe08a', cleE: '#ffaa00', anneau: '#ffd25a', anneauE: '#ff9a00', halo: '#ffb81a', eclat: '#fff0a0', eclatE: '#ffb000', brasero: '#ffb52a', lumiere: '#ffc04a', p1: '#fff0a0', p2: '#ffaa00', s1: '#ffd25a', s2: '#ffffff', fissures: false,
   v1: 'vec3(0.06,0.04,0.0)', v2: 'vec3(1.0,0.62,0.05)', v3: 'vec3(1.0,0.95,0.7)', v4: 'vec3(1.0,0.75,0.2)', pierre: ['#4a4030', '#2a2418'] };
 export { THEME_JAUNE };
+const THEME_GOULET = { runes: '#5ab0ff', cle: '#ff6a5a', cleE: '#3a8aff', anneau: '#ff5a4a', anneauE: '#2a6aff', halo: '#ff6a9a', eclat: '#a0d0ff', eclatE: '#ff3a3a', brasero: '#4a8aff', lumiere: '#c07aff', p1: '#7ab8ff', p2: '#ff3a3a', s1: '#5ab0ff', s2: '#ff8a7a', fissures: false,
+  v1: 'vec3(0.02,0.0,0.06)', v2: 'vec3(0.2,0.35,1.0)', v3: 'vec3(1.0,0.4,0.4)', v4: 'vec3(0.9,0.25,0.5)', pierre: ['#2e2a40', '#18141f'] };
 const THEME_VIOLET = { runes: '#b05aff', cle: '#c88aff', cleE: '#8a2aff', anneau: '#b47aff', anneauE: '#7a2aff', halo: '#8a3aff', eclat: '#d0a0ff', eclatE: '#7a1aff', brasero: '#9a4aff', lumiere: '#8a3aff', p1: '#d09aff', p2: '#6a1aff', s1: '#b07aff', s2: '#ffc8ff', fissures: false,
   v1: 'vec3(0.02,0.0,0.06)', v2: 'vec3(0.45,0.08,0.95)', v3: 'vec3(0.9,0.6,1.0)', v4: 'vec3(0.6,0.25,1.0)', pierre: ['#2e2a40', '#18141f'] };
 
@@ -236,6 +241,7 @@ function construirePortail(groupe, P, rot, th = THEME_ROUGE, ech = 1) {
   G.torches.push({ pos: P.clone().add(new THREE.Vector3(0, 3.5 * ech, 0)), color: th.lumiere, int: 60 * ech, dist: 18 * ech });
   const centre = new THREE.Vector3(0, 3.55 * ech, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), rot).add(P);
   G.anims.push((t, dt) => {
+    if (!g.visible) return;
     vortex.material.uniforms.uT.value = t;
     runes.rotation.z = t * 0.12; anneau.rotation.z = t * 0.4; halo.material.opacity = 0.5 + 0.15 * Math.sin(t * 3);
     cle.rotation.y = t * 1.2;
@@ -629,6 +635,68 @@ export function construireIle(ile, etranger = false) {
 
 // un nœud passe en objet « réel » pendant qu’on le secoue, le coupe ou qu’il repousse, puis revient en instance
 const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+// ---------------- Le Goulet des Braises : champ de bataille 10 contre 10 ----------------
+export function construireGoulet() {
+  const groupe = new THREE.Group();
+  G.torches = []; G.feux = []; G.anims = [];
+  const L = 70, Lz = 30; // demi-longueur et demi-largeur
+  // sol : terre brûlée et herbe, au pinceau
+  const tex = texture('sol_goulet', 512, 512, (g, w, h) => {
+    g.fillStyle = '#5a6a3a'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 2600; i++) { const x = Math.random() * w, y = Math.random() * h, r = 2 + Math.random() * 10; g.fillStyle = Math.random() < 0.5 ? `rgba(110,128,66,${0.25 + Math.random() * 0.3})` : `rgba(90,70,48,${0.2 + Math.random() * 0.3})`; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
+    for (let i = 0; i < 400; i++) { const x = Math.random() * w, y = Math.random() * h; g.fillStyle = `rgba(160,170,90,${0.3 + Math.random() * 0.3})`; g.fillRect(x, y, 1.5, 4 + Math.random() * 5); }
+  }, { repeat: true });
+  tex.repeat.set(14, 6);
+  const sol = new THREE.Mesh(new THREE.PlaneGeometry(L * 2 + 40, Lz * 2 + 40), new THREE.MeshStandardMaterial({ map: tex, roughness: 1 }));
+  sol.rotation.x = -Math.PI / 2; sol.receiveShadow = true; groupe.add(sol);
+  // chemin central de terre battue
+  const piste = new THREE.Mesh(new THREE.PlaneGeometry(L * 2, 9), new THREE.MeshStandardMaterial({ color: '#6a5232', roughness: 1, transparent: true, opacity: 0.55 }));
+  piste.rotation.x = -Math.PI / 2; piste.position.y = 0.02; groupe.add(piste);
+  const collisions = [];
+  const inst = new Instancieur();
+  // falaises sur les bords : rochers et arbres
+  for (let x = -L - 14; x <= L + 14; x += 6) for (const s of [-1, 1]) {
+    const z = s * (Lz + 3 + Math.random() * 3);
+    inst.ajouter(Math.random() < 0.55 ? 'Rock_3_C' : 'Tree_' + ['1_A', '2_B', '3_A', '4_A'][Math.floor(Math.random() * 4)], x + Math.random() * 3, Math.random() < 0.55 ? 0.6 : 0, z, Math.random() * 6, 2.6, 2.6, 2.6);
+  }
+  for (let z = -Lz - 6; z <= Lz + 6; z += 6) for (const s of [-1, 1]) inst.ajouter('Rock_3_C', s * (L + 16 + Math.random() * 3), 0.6, z, Math.random() * 6, 3, 3, 3);
+  // couverts au milieu du champ : amas de rochers et ruines
+  const couverts = [[-30, -12], [-30, 13], [0, -16], [0, 15], [30, -12], [30, 13], [-14, 1], [14, -1]];
+  for (const [x, z] of couverts) {
+    inst.ajouter('Rock_3_C', x, 0.7, z, Math.random() * 6, 3.2, 3.2, 3.2); inst.ajouter('Rock_1_A', x + 2, 0, z + 1.5, Math.random() * 6, 2.4, 2.4, 2.4);
+    collisions.push({ x, z, r: 2.6 }, { x: x + 2, z: z + 1.5, r: 1.3 });
+  }
+  for (let i = 0; i < 70; i++) inst.ajouter(Math.random() < 0.75 ? 'Grass_1_A' : 'flower_yellowA', (Math.random() - 0.5) * L * 2, 0, (Math.random() - 0.5) * Lz * 2, Math.random() * 6, 3, 3, 3);
+  // deux châteaux forts : bleu à l'ouest, rouge à l'est
+  const bases = {};
+  for (const [camp, sx, coul] of [['bleu', -1, '#3a7aff'], ['rouge', 1, '#ff3a3a']]) {
+    const cx = sx * (L - 8);
+    // murs en U ouverts vers le champ
+    const mur = (x, z, rot) => { groupe.add(cloner('wall', x, 0, z, rot, 1.6)); };
+    for (let k = -3; k <= 3; k++) { mur(cx + sx * 9, k * 6.4, Math.PI / 2); collisions.push({ x: cx + sx * 9, z: k * 6.4, r: 3.4 }); } // mur du fond
+    for (const s of [-1, 1]) for (let k = 0; k < 3; k++) { const x = cx + sx * (9 - 3.2 - k * 6.4), z = s * 21; mur(x, z, 0); collisions.push({ x, z, r: 3.4 }); }
+    for (const [dx, dz] of [[9, 21], [9, -21], [-9.5, 21], [-9.5, -21]]) { groupe.add(cloner('b_tower_A', cx + sx * dx, 0, dz, 0, 4.2)); collisions.push({ x: cx + sx * dx, z: dz, r: 3 }); }
+    // bannières et braseros
+    for (const z of [-14, 14]) groupe.add(cloner('torch_mounted', cx + sx * 8.4, 2.2, z, sx > 0 ? -Math.PI / 2 : Math.PI / 2, 1.4));
+    for (const z of [-8, 8]) brasero(groupe, cx + sx * 2, z, coul, 1.2);
+    // socle du drapeau
+    const socle = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.8, 0.5, 24), new THREE.MeshStandardMaterial({ color: '#4a4048', roughness: 0.8 }));
+    socle.position.set(cx, 0.25, 0); socle.receiveShadow = true; groupe.add(socle);
+    const anneau = new THREE.Mesh(new THREE.RingGeometry(2.6, 3.1, 40), new THREE.MeshBasicMaterial({ color: coul, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }));
+    anneau.rotation.x = -Math.PI / 2; anneau.position.set(cx, 0.06, 0); groupe.add(anneau);
+    G.anims.push((t) => { anneau.material.opacity = 0.45 + 0.3 * Math.sin(t * 3); });
+    G.torches.push({ pos: new THREE.Vector3(cx, 4, 0), color: coul, int: 50, dist: 22 });
+    bases[camp] = { pos: new THREE.Vector3(cx, 0, 0), spawn: new THREE.Vector3(cx + sx * 4, 0, 0), coul };
+  }
+  inst.construire(groupe);
+  G.scene.add(groupe);
+  return {
+    groupe, type: 'goulet', nom: 'Goulet des Braises', bases, collisions,
+    spawn: bases.bleu.spawn.clone(),
+    bornes: { x0: -L - 10, x1: L + 10, z0: -Lz - 2, z1: Lz + 2 },
+    marche: (x, z) => x > -L - 8 && x < L + 8 && z > -Lz && z < Lz,
+  };
+}
 export function noeudReel(n, oui) {
   if (!!n.reel === oui) return;
   n.reel = oui;

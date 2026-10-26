@@ -143,10 +143,12 @@ export const SORTS = {
 export const MODES = [
   { id: 0, nom: 'Facile', lieu: 'Cryptes Oubliées', argent: 1, xp: 1, tiers: [1, 2], mobTier: 1, bossTier: [1.4, 1.6, 1.8, 2.1], ipConseil: 300, couleur: '#49c25a',
     texte: 'Ouvert aux débutants. Une arme T1 suffit. Butin T1 à T2.' },
-  { id: 1, nom: 'Intermédiaire', lieu: 'Forteresse des Ossements', argent: 9, xp: 5, tiers: [3, 5], mobTier: 3.6, bossTier: [4.0, 4.3, 4.6, 5.0], ipConseil: 620, couleur: '#3f8cff',
+  { id: 1, nom: 'Intermédiaire', lieu: 'Forteresse des Ossements', argent: 9, xp: 5, tiers: [3, 5], mobTier: 3.6, bossTier: [4.0, 4.3, 4.6, 5.0], ipConseil: 700, couleur: '#3f8cff',
     texte: 'Prévois au moins du T3–T4. Les boss frappent fort. Butin T3 à T5.' },
-  { id: 2, nom: 'Cauchemar', lieu: 'Gouffre Écarlate', argent: 45, xp: 14, tiers: [6, 8], mobTier: 6.5, bossTier: [7.0, 7.3, 7.6, 8.0], ipConseil: 950, couleur: '#ff3b3b',
+  { id: 2, nom: 'Cauchemar', lieu: 'Gouffre Écarlate', argent: 45, xp: 14, tiers: [6, 8], mobTier: 6.5, bossTier: [7.0, 7.3, 7.6, 8.0], ipConseil: 1150, couleur: '#ff3b3b',
     texte: 'Réservé au T6 et plus. Chaque erreur se paie. Butin T6 à T8.' },
+  { id: 3, nom: 'Abîme', lieu: 'Abîme Écarlate', argent: 45, xp: 1400, tiers: [8, 8], mobTier: 9.2, bossTier: [10, 10.4, 10.8, 11.4], ipConseil: 1550, couleur: '#b0002a', abime: true, mult: 100, nivMin: 70,
+    texte: 'Or et expérience ×100. Monstres d’une puissance inouïe, zones au sol chaque seconde, boss au burst démentiel. Niveau 70 minimum.' },
 ];
 
 export const COFFRES = [

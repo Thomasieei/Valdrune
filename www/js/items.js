@@ -169,7 +169,7 @@ export function lootCoffre(couleur, mode, idxBoss, rang = 0) {
   };
   // argent des coffres : zone 1 (T1-T2) ×1, zone 2 (T3-T5) ×2, zone 3 (T6-T8) ×3
   const zone = tMax <= 2 ? 1 : tMax <= 5 ? 2 : 3;
-  const scale = zone * (1 + idxBoss * 0.05);
+  const scale = zone * (1 + idxBoss * 0.05) * (mode.mult || 1);
   if (couleur === 'vert') {
     out.argent = Math.round(rnd(9000, 25000) * scale);
     if (Math.random() < 0.18) out.objets.push(objetAleatoire(tMin, -10));
@@ -221,7 +221,7 @@ export function lootCoffre(couleur, mode, idxBoss, rang = 0) {
 }
 export function lootMonstre(mode) {
   const zone = mode.tiers[1] <= 2 ? 1 : mode.tiers[1] <= 5 ? 2 : 3;
-  const out = { argent: Math.round(rnd(80, 250) * zone), objets: [] };
+  const out = { argent: Math.round(rnd(80, 250) * zone * (mode.mult || 1)), objets: [] };
   if (Math.random() < 0.22) out.objets.push(creerButin(Math.random() < 0.6 ? 'eclat' : 'sceau', ri(1, 3), mode.tiers[0]));
   if (Math.random() < 0.035) out.objets.push(objetAleatoire(mode.tiers[0], -15));
   return out;

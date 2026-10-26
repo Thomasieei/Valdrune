@@ -233,7 +233,7 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 #portailMenu .cadreP{position:relative;width:min(150vh,96vw);padding:2.4vh;box-sizing:border-box;background:radial-gradient(ellipse at top,#3a0d12,#120609 70%);border:3px solid #7a1a14;border-radius:8px;box-shadow:0 0 60px #ff1a0a55}
 #portailMenu h2{margin:0;text-align:center;font-family:var(--f-titre);font-weight:800;font-size:5.4vh;color:#ff6a4a;text-shadow:0 0 18px #ff2a1a}
 #portailMenu .sous{text-align:center;font-size:2.2vh;color:#e9c9b9;margin:.4vh 0 2vh}
-.modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2vh}
+.modes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1.6vh}
 .mode{position:relative;padding:2vh;border-radius:6px;background:linear-gradient(#24151b,#120a0f);border:2px solid var(--c);display:flex;flex-direction:column;gap:1vh;min-width:0}
 .mode .niv{font-family:var(--f-label);font-weight:800;font-size:1.8vh;letter-spacing:.12em;color:var(--c)}
 .mode h3{margin:0;font-family:var(--f-titre);font-size:4vh;color:#fff}
@@ -736,6 +736,13 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 .aideSignes b{font:900 1.8vh var(--f-label);letter-spacing:.06em;max-width:16vh;line-height:1.1}
 .aideSignes span{display:flex;flex-direction:column;align-items:center;gap:.3vh}.aideSignes svg{width:5vh;height:5vh}.aideSignes em{font-style:normal;font-size:1.3vh;color:#d8c8a8;max-width:10vh;text-align:center}
 .aideSignes.part{opacity:0}
+.btnsMode{display:flex;gap:1vh;justify-content:center;flex-wrap:wrap}
+.btn.hard{background:linear-gradient(#5a0a14,#2a0408);color:#ffd0d0;border-color:#ff3a4a;box-shadow:0 0 1.2vh #ff1a3a66}
+#scoreGoulet{position:absolute;left:50%;top:1.2vh;transform:translateX(-50%);z-index:21;pointer-events:none;display:flex;align-items:stretch;gap:.6vh;font-family:var(--f-label)}
+#scoreGoulet .sg{display:flex;flex-direction:column;align-items:center;min-width:14vh;padding:.5vh 1.4vh;border-radius:1vh;color:#fff;box-shadow:0 .4vh 1vh #0008}
+#scoreGoulet .sg b{font:900 3.6vh var(--f-titre);line-height:1}#scoreGoulet .sg small{font-size:1.3vh;opacity:.92;white-space:nowrap}
+#scoreGoulet .bleu{background:linear-gradient(#2a5acc,#14306a);border:2px solid #7ab8ff}#scoreGoulet .rouge{background:linear-gradient(#cc2a2a,#6a1414);border:2px solid #ff8a7a}
+#scoreGoulet .chrono{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:.4vh 1.2vh;border-radius:1vh;background:#120a06dd;color:#ffe2a0;font:900 2.6vh var(--f-label)}#scoreGoulet .chrono small{font-size:1.2vh;color:#c8b090}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important}}
 </style>
 

@@ -332,6 +332,15 @@ UI.aideSignes = (sorts) => {
   d.innerHTML = `<b>Dessine le signe sur l’ennemi</b>${l.map(k => `<span>${svgGlyphe(k, '#ffe2a0', 9)}<em>${sorts[k].nom}</em></span>`).join('')}`;
   document.getElementById('jeu').appendChild(d); setTimeout(() => d.classList.add('part'), 9000); setTimeout(() => d.remove(), 9600);
 };
+// tableau du Goulet : score, chrono, état des deux drapeaux
+UI.scoreGoulet = (g) => {
+  let el = document.getElementById('scoreGoulet');
+  if (!g) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('div'); el.id = 'scoreGoulet'; $('#jeu').appendChild(el); }
+  const t = Math.max(0, Math.ceil(g.t)), etat = (F) => F.etat === 'base' ? 'au château' : F.etat === 'sol' ? 'à terre !' : `porté par ${F.porteur && F.porteur.nom ? F.porteur.nom : 'toi'}`;
+  const h = `<div class="sg bleu"><b>${g.score.bleu}</b><small>⚑ ${etat(g.drapeaux.bleu)}</small></div><div class="chrono">${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}<small>3 captures</small></div><div class="sg rouge"><b>${g.score.rouge}</b><small>⚑ ${etat(g.drapeaux.rouge)}</small></div>`;
+  if (el._h !== h) { el.innerHTML = h; el._h = h; }
+};
 UI.boutonAuto = (api) => {
   let b = document.getElementById('btnAuto');
   if (!b) {
@@ -554,7 +563,7 @@ UI.mini = (monde, joueur, entites) => {
   if (monde.type === 'hub') { x0 = monde.bornes.x0 - 4; x1 = monde.bornes.x1 + 4; z0 = monde.bornes.z0 - 4; z1 = monde.bornes.z1 + 4; }
   else if (monde.type === 'arene') { x0 = z0 = -monde.rayon - 3; x1 = z1 = monde.rayon + 3; }
   else if (monde.type === 'ile') { x0 = z0 = -monde.rayonMonde - 14; x1 = z1 = monde.rayonMonde + 14; }
-  else if (monde.type === 'sylve') { x0 = monde.bornes.x0; x1 = monde.bornes.x1; z0 = monde.bornes.z0; z1 = monde.bornes.z1; }
+  else if (monde.type === 'sylve' || monde.type === 'goulet') { x0 = monde.bornes.x0; x1 = monde.bornes.x1; z0 = monde.bornes.z0; z1 = monde.bornes.z1; }
   else { x0 = 0; z0 = 0; x1 = monde.grilleW * 4; z1 = monde.grilleH * 4; }
   const ech = 236 / Math.max(x1 - x0, z1 - z0), ox = 128 - (x0 + x1) / 2 * ech, oz = 128 - (z0 + z1) / 2 * ech;
   const P = (x, z) => [ox + x * ech, oz + z * ech];
@@ -568,6 +577,7 @@ UI.mini = (monde, joueur, entites) => {
       for (const s of monde.salles) { f.fillStyle = '#a8e090'; f.beginPath(); f.arc(...P(s.c.x, s.c.z), s.r * ech, 0, 7); f.fill(); f.strokeStyle = '#3affa0'; f.lineWidth = 1.5; f.stroke(); }
     }
     else if (monde.type === 'ile') { f.fillStyle = '#2a5a8a'; f.fillRect(0, 0, 256, 256); f.fillStyle = '#6aa85a'; f.beginPath(); f.arc(...P(0, 0), monde.rayonMonde * ech, 0, 7); f.fill(); for (const p of monde.plots) { f.fillStyle = p.bati ? '#c8a060' : '#ffd25a66'; f.beginPath(); f.arc(...P(p.pos.x, p.pos.z), 4 * ech, 0, 7); f.fill(); } }
+    else if (monde.type === 'goulet') { f.fillStyle = '#4a5a32'; f.fillRect(0, 0, 256, 256); f.fillStyle = '#6a7a42'; const [a0, b0] = P(monde.bornes.x0, monde.bornes.z0); f.fillRect(a0, b0, (monde.bornes.x1 - monde.bornes.x0) * ech, (monde.bornes.z1 - monde.bornes.z0) * ech); for (const [k, c] of [['bleu', '#3a7aff'], ['rouge', '#ff3a3a']]) { const [a, b] = P(monde.bases[k].pos.x, monde.bases[k].pos.z); f.fillStyle = c + '88'; f.fillRect(a - 9 * ech, b - 21 * ech, 18 * ech, 42 * ech); } }
     else if (monde.type === 'arene') { f.fillStyle = '#5f5a8e'; f.beginPath(); f.arc(...P(0, 0), monde.rayon * ech, 0, 7); f.fill(); }
     else {
       for (let z = 0; z < monde.grilleH; z++) for (let x = 0; x < monde.grilleW; x++) {
@@ -590,6 +600,8 @@ UI.mini = (monde, joueur, entites) => {
     else if (e.type === 'envahisseur') { const k = 6 + 2 * Math.sin(performance.now() / 120); g.fillStyle = '#ff1a1a'; g.shadowColor = '#ff0000'; g.shadowBlur = 14; g.beginPath(); g.arc(a, b, k, 0, 7); g.fill(); g.shadowBlur = 0; g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.stroke(); }
     else if (e.type === 'portailJ') { g.fillStyle = '#ffc84a'; g.shadowColor = '#ffc84a'; g.shadowBlur = 8; g.beginPath(); g.arc(a, b, 5, 0, 7); g.fill(); g.shadowBlur = 0; }
     else if (e.type === 'portailV') { g.fillStyle = '#b05aff'; g.shadowColor = '#b05aff'; g.shadowBlur = 8; g.beginPath(); g.arc(a, b, 6, 0, 7); g.fill(); g.shadowBlur = 0; }
+    else if (e.type === 'drapeau') { g.fillStyle = e.c; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.moveTo(a, b + 6); g.lineTo(a, b - 8); g.lineTo(a + 8, b - 4); g.lineTo(a, b - 1); g.stroke(); g.fill(); }
+    else if (e.type === 'rouge') { g.fillStyle = '#ff4a3a'; g.beginPath(); g.arc(a, b, 3.6, 0, 7); g.fill(); }
     else if (e.type === 'portail') { g.fillStyle = '#ff3a2a'; g.shadowColor = '#ff3a2a'; g.shadowBlur = 8; g.beginPath(); g.arc(a, b, 6, 0, 7); g.fill(); g.shadowBlur = 0; }
   }
   const [a, b] = P(joueur.pos.x, joueur.pos.z);
@@ -672,7 +684,7 @@ UI.fiche = (it, contexte) => {
   if (contexte === 'equipe') boutons.push(`<button class="btn gris" data-a="retirer">Retirer</button>`);
   if (contexte === 'vente') boutons.push(`<button class="btn" data-a="vendre">Vendre ${fmt(prixVente(it))}</button>`);
   if (contexte === 'achat') boutons.push(`<button class="btn" data-a="acheter">Acheter ${fmt(valeurObjet(it))}</button>`);
-  if (contexte === 'arene') boutons.push(`<button class="btn" data-a="acheterArene" ${j.trophees >= prixTrophees(it) ? '' : 'disabled'}>Acheter 🏆 ${fmt(prixTrophees(it))}</button>`);
+  if (contexte === 'arene') boutons.push(`<button class="btn" data-a="acheterArene" ${(j.trophees || 0) + (j.renom || 0) >= prixTrophees(it) ? '' : 'disabled'}>Acheter 🏆 ${fmt(prixTrophees(it))}</button>`);
   const req = slot ? (() => { const n = niveauDe(it.type), r = niveauRequis(it); const nomM = MAITRISES.find(m => m.id === it.type).nom; return `<p class="req ${n >= r ? 'okr' : 'ko'}">${n >= r ? '✔' : '🔒'} Niveau requis : ${nomM} ${r} · ${n >= r ? 'tu es niveau ' + n : 'tu n’es que niveau ' + n}${n > 1 ? ` · bonus de maîtrise +${(bonusMaitrise(n) * 100).toFixed(1).replace('.', ',')} %` : ''}</p>`; })() : '';
   const vInfo = it.arene ? `<p class="varArene" style="--vc:${VARIANTES[it.arene].couleur}"><b>Objet d’arène · ${VARIANTES[it.arene].style}.</b> ${VARIANTES[it.arene].texte} +10 % contre les joueurs.</p>` : '';
   const etoiles = slot ? `<div class="etoiles">${[1, 2, 3, 4].map(k => `<span class="${(it.q || 0) >= k ? 'on' : ''}">★</span>`).join('')}</div>` : '';
@@ -840,7 +852,7 @@ UI.menuPortail = () => {
       return `<div class="mode" style="--c:${m.couleur}"><div class="niv">NIVEAU ${m.id + 1}</div><h3>${m.nom}</h3><div class="lieu">${m.lieu}</div>
       <div class="tiers">${Array.from({ length: m.tiers[1] - m.tiers[0] + 1 }, (_, i) => m.tiers[0] + i).map(t => `<span style="background:${TIERS[t].color}">T${t}</span>`).join('')}</div>
       <p>${m.texte}</p><div class="ipl"><span>Puissance conseillée</span><b>${m.ipConseil}</b></div><div class="ipl"><span>Ta puissance</span><b class="${ok ? 'ok' : 'ko'}">${ip}</b></div>
-      <button class="btn ${ok ? 'or' : ''}" data-m="${m.id}">${ok ? 'Entrer' : 'Entrer quand même'}</button></div>`;
+      <div class="btnsMode"><button class="btn ${ok ? 'or' : ''}" data-m="${m.id}">${ok ? 'Entrer' : 'Entrer quand même'}</button>${m.abime ? '' : `<button class="btn hard" data-h="${m.id}" title="Monstres ×3, or et XP ×3">☠ Hard</button>`}</div></div>`;
     }).join('')}</div></div>`;
   const sy = document.createElement('div'); sy.className = 'carteSylve';
   sy.innerHTML = `<div class="feuilles"></div><div class="txtS"><div class="niv">DONJON DE GROUPE · 5 JOUEURS</div><h3>Sanctuaire d’Émeraude</h3>
@@ -861,6 +873,7 @@ UI.menuPortail = () => {
   const p = $('#portailMenu'); p.hidden = false; api.son('forceField_000', 0.5);
   p.querySelector('[data-x]').onclick = () => (p.hidden = true);
   p.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { p.hidden = true; api.entrer(+b.dataset.m); });
+  p.querySelectorAll('[data-h]').forEach(b => b.onclick = () => { p.hidden = true; api.entrer(+b.dataset.h, true); });
 };
 
 // ---------------- Butin d'un coffre ----------------
@@ -986,7 +999,7 @@ UI.menuArene = (groupe) => {
     </div>
     <div class="letale"><div><div class="niv">ARÈNE LÉTALE</div><h3>Ton stuff est en jeu</h3><p>Le perdant repart à poil : il perd tout son équipement porté (il garde son argent et son sac). Le gagnant fouille les dépouilles et gagne 🏆 200 trophées.</p></div>
       <div class="boutonsL"><button class="btn rouge" data-l="1v1">1 contre 1</button><button class="btn rouge" data-l="2v2">2 contre 2</button></div></div>
-    <div class="barreTroph"><div><span class="troph" style="font-size:3.4vh">🏆</span><b>${fmt(j.trophees || 0)}</b> trophées</div><button class="btn" data-shop>Boutique des trophées</button></div></div>`;
+    <div class="barreTroph"><div><span class="troph" style="font-size:3.4vh">🏆</span><b>${fmt(j.trophees || 0)}</b> trophées · <b style="color:#c9a0ff">✦ ${fmt(j.renom || 0)}</b> renommée</div><button class="btn" data-shop>Boutique des trophées</button></div></div>`;
   p.hidden = false; api.son('forceField_000', 0.5, 0.8);
   p.querySelector('[data-x]').onclick = () => (p.hidden = true);
   p.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { p.hidden = true; api.arene(b.dataset.f); });
@@ -999,7 +1012,7 @@ UI.menuArene = (groupe) => {
 };
 UI.resultatArene = (r, cb) => {
   const m = $('#mort');
-  m.innerHTML = `<div class="resultat ${r.victoire ? 'gagne' : 'perdu'}"><h2>${r.victoire ? 'Victoire' : 'Défaite'}</h2>
+  m.innerHTML = `<div class="resultat ${r.victoire ? 'gagne' : 'perdu'}"><h2>${r.titre || (r.victoire ? 'Victoire' : 'Défaite')}</h2>
     <div class="recap">${r.lignes.map(l => `<div>${l}</div>`).join('')}</div>
     <div class="actionsRes">${r.refaire ? `<button class="btn vert" data-re>↻ Refaire</button>` : ''}<button class="btn or" data-ok>Revenir sur la Place</button></div></div>`;
   m.hidden = false; m.querySelector('[data-ok]').onclick = () => { m.hidden = true; cb(false); };
