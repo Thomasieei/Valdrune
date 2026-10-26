@@ -88,12 +88,13 @@ const _w = new THREE.Vector3();
 
 export class Sim {
   // W = { hero, enemies:{minion,rogue,boss}, project(v,out), aspect(), setFraming(f,dur), applyFraming(dt) }
-  constructor(W, emit, { seed = 1, lame = 'braise', tuto = false, replay = null, fights = RUN } = {}) {
+  constructor(W, emit, { seed = 1, lame = 'braise', tuto = false, replay = null, fights = RUN, heroHp = 100, heroMax = 100, dmgMul = 1 } = {}) {
+    this.heroInit = { hp: heroHp, max: heroMax }; this.dmgMul = dmgMul;
     this.W = W; this.emit = emit; this.seed = seed; this.r = rng(seed); this.lame = LAMES[lame]; this.lameId = lame;
-    this.fights = fights; this.replay = replay; this.rec = { v: 1, seed, lame, aspect: W.aspect(), fights, events: [] };
+    this.fights = fights; this.replay = replay; this.rec = { v: 1, seed, lame, aspect: W.aspect(), fights, heroHp, heroMax, dmgMul, events: [] };
     this.tick = 0; this.T = 0; this.ts = 1; this.queue = [];
     this.hitstop = 0; this.slow = 0; this.slowF = 1;
-    this.hero = { hp: 100, max: 100, st: 3, stMax: 3, stT: 0, res: 0, armed: false, ifr: -1, guard: false, guardT: 0, busy: -1, stag: -1, lungeT: 0, dodgeT: -1, dodgeDir: 0, dead: false, holdArm: 0 };
+    this.hero = { hp: heroHp, max: heroMax, st: 3, stMax: 3, stT: 0, res: 0, armed: false, ifr: -1, guard: false, guardT: 0, busy: -1, stag: -1, lungeT: 0, dodgeT: -1, dodgeDir: 0, dead: false, holdArm: 0 };
     this.g = null; this.blade = null; this.blades = []; this.pendingRelease = null;
     this.win = null; this.lines = []; this.e = null; this.fi = -1;
     this.state = 'start'; this.stT = 0; this.over = null;
@@ -249,7 +250,7 @@ export class Sim {
     const perfect = allHit && orderOK && allCurves && timing === 'perfect' && !ex;
     if (perfect) mult *= 1.5;
     if (this.lameId === 'chaine' && g.extras) mult *= 1 + 0.2 * g.extras;
-    const base = this.lame.base;
+    const base = this.lame.base * this.dmgMul;
     const hits = [];
     hitF.forEach(({ f, i }) => {
       let d = base * (0.7 + 0.3 * f.q) * mult * (brasier.has(i) ? 1.6 : 1);
@@ -560,9 +561,11 @@ export class Sim {
     const prec = s.ruptures ? Math.min(1, s.qSum / s.ruptures) : 0;
     const avoid = s.dmgPot ? Math.max(0, 1 - s.dmgTaken / s.dmgPot) : (s.atkTot ? 0 : 1);
     const par = this.fights.reduce((t, f) => t + ENEMIES[f].par, 0);
-    const bonus = { prec: Math.round(prec * 3000), combo: s.maxCombo * 40, time: win ? Math.round(Math.max(0, par - s.time) * 25) : 0, avoid: Math.round(avoid * 3000), win: win ? 2000 : 0 };
+    const kk = par / 200;
+    const bonus = { prec: Math.round(prec * 3000 * kk), combo: s.maxCombo * 40, time: win ? Math.round(Math.max(0, par - s.time) * 25) : 0, avoid: Math.round(avoid * 3000 * kk), win: win ? Math.round(2000 * kk) : 0 };
     const total = this.score + bonus.prec + bonus.combo + bonus.time + bonus.avoid + bonus.win;
-    const rank = total >= 26000 ? 'SS' : total >= 20000 ? 'S' : total >= 14500 ? 'A' : total >= 9500 ? 'B' : total >= 5500 ? 'C' : 'D';
+    const k = par / 200; // seuils proportionnels à la longueur du combat (run complet = 1)
+    const rank = total >= 26000 * k ? 'SS' : total >= 20000 * k ? 'S' : total >= 14500 * k ? 'A' : total >= 9500 * k ? 'B' : total >= 5500 * k ? 'C' : 'D';
     this.over = { win, prec, avoid, time: s.time, maxCombo: s.maxCombo, bonus, base: this.score, total, rank, stats: { ...s }, lame: this.lameId };
     this.rec.endTick = this.tick; this.rec.score = total; this.rec.rank = rank;
     this.emit(win ? 'victory' : 'defeat', this.over);
@@ -637,7 +640,7 @@ export class Sim {
   }
   resetForRun() {
     this.r = rng(this.seed); this.tick = 0; this.T = 0; this.recording = !this.replay; this.rec.events = []; this.state = 'start';
-    const H = this.hero; Object.assign(H, { hp: 100, st: 3, stT: 0, res: 0, armed: false, ifr: -1, guard: false, busy: -1, stag: -1, dodgeT: -1, dead: false });
+    const H = this.hero; Object.assign(H, { hp: this.heroInit.hp, max: this.heroInit.max, st: 3, stT: 0, res: 0, armed: false, ifr: -1, guard: false, busy: -1, stag: -1, dodgeT: -1, dead: false });
     this.combo = 0; this.score = 0; Object.keys(this.stats).forEach(k => this.stats[k] = 0);
     this.win = null; this.lines = []; this.blade = null; this.blades = []; this.g = null; this.pendingRelease = null;
     this.hitstop = 0; this.slow = 0; this.chronoActive = false; this.chronoFreeze = 0; this.chronoStop = false;

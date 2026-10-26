@@ -1,4 +1,12 @@
-# FRACTURE : Lame Zéro — prototype combat (étape 2)
+# FRACTURE : Lame Zéro — prototype RPG + combat
+
+## Nouveau : le monde RPG
+- **Quartier Zéro** (zone sûre) : place néon, fontaine-cristal (soin gratuit), 4 PNJ — Kaï (Lames-Mémoire), Mira (archives + meilleur replay), Sensei Oda (entraînement + Mode Arène), Nori (fioles de soin, 15 éclats).
+- **Les Friches** (zone hostile) : 10 squelettes errants (Grunts Nv 1, Lames Jumelles Nv 2), 3 coffres, arène du **Gardien Fêlé** (Nv 5) au fond.
+- Joystick à gauche, caméra 3/4, mini-carte. **Toucher un squelette = la Brèche t'aspire dans le duel Tracé-Rupture.**
+- Progression : XP, niveaux (+12 PV max, +7 % dégâts), éclats ×1,25 à ×2 selon le rang de style, PV conservés entre les combats, défaite = réveil au Quartier Zéro (−20 % d'éclats). Sauvegarde automatique.
+- Tenues normales : héros et PNJ = Rogue KayKit sans cape, atlas recoloré ; squelettes sans casque/cape/capuche.
+
 
 Branche `fracture` du dépôt Valdrune. Chaque push construit l'APK `FRACTURE.apk` dans les Releases (tag `fracture-v0.N`).
 

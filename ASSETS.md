@@ -4,8 +4,9 @@ Règle : uniquement des assets libres (CC0 / MIT / OFL) ou générés par le cod
 
 | Asset | Auteur | Licence | Source | Hébergement | Utilisé pour |
 |---|---|---|---|---|---|
-| KayKit Character Pack : Adventurers 1.0 — `Knight.glb` (20 animations gardées sur 76) | Kay Lousberg | CC0 1.0 | https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0 (commit épinglé `672074b`) | GitHub ✅ | Héros « Lame Zéro », épée 1 main et 2 mains (greffées sur les ennemis) |
-| KayKit Character Pack : Skeletons 1.0 — `Skeleton_Minion.glb`, `Skeleton_Rogue.glb`, `Skeleton_Warrior.glb` (11 à 15 animations gardées) | Kay Lousberg | CC0 1.0 | https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0 | GitHub ✅ | Grunt d'os, Lame Jumelle, Le Gardien Fêlé (×1,75) |
+| KayKit Character Pack : Adventurers 1.0 — `Rogue.glb` (25 animations gardées) | Kay Lousberg | CC0 1.0 | https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0 (commit `672074b`) | GitHub ✅ | Héros et PNJ, **sans cape ni armes**, atlas recoloré en tenues de tous les jours (veste, chemise, jean, baskets) |
+| KayKit Adventurers — `Knight.glb` (uniquement les épées) | Kay Lousberg | CC0 1.0 | même dépôt | GitHub ✅ | Épée 1 main (héros) et 2 mains (boss) |
+| KayKit Character Pack : Skeletons 1.0 — `Skeleton_Minion.glb`, `Skeleton_Rogue.glb`, `Skeleton_Warrior.glb` (11 à 15 animations gardées) | Kay Lousberg | CC0 1.0 | https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0 | GitHub ✅ | Grunt d'os, Lame Jumelle, Le Gardien Fêlé — **casques, capes et capuches retirés** |
 | Orbitron (variable) | Matt McInerney | SIL OFL 1.1 | https://github.com/google/fonts/tree/main/ofl/orbitron | GitHub ✅ | Titres, HUD, chiffres des failles |
 | Rajdhani SemiBold / Bold | Indian Type Foundry | SIL OFL 1.1 | https://github.com/google/fonts/tree/main/ofl/rajdhani | GitHub ✅ | Textes d'interface |
 | three.js r160 (+ GLTFLoader) | mrdoob & contributeurs | MIT | https://github.com/mrdoob/three.js | GitHub ✅ | Moteur de rendu (déjà dans le dépôt) |

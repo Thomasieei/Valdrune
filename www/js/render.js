@@ -82,7 +82,7 @@ function loadB64(url) {
   }));
 }
 export async function loadModels(onProg) {
-  const list = ['hero', 'minion', 'rogue', 'boss'];
+  const list = ['hero', 'minion', 'rogue', 'boss', 'weapons'];
   const out = {}; let done = 0;
   await Promise.all(list.map(k => loadB64('assets/m/' + k + '.txt').then(g => { out[k] = g; onProg(++done / list.length); })));
   return out;
@@ -98,7 +98,7 @@ export function buildActor(key, gltf, opts) {
   model.traverse(o => {
     if (o.isBone) bones[o.name] = o;
     if (o.isMesh) {
-      if (opts.keep && !opts.keep.has(o.name)) { remove.push(o); return; }
+      if ((opts.keep && !opts.keep.has(o.name)) || (opts.hide && opts.hide.test(o.name))) { remove.push(o); return; }
       meshes.push(o);
     }
   });
@@ -108,10 +108,11 @@ export function buildActor(key, gltf, opts) {
   const olMat = outlineMaterial(opts.outline ?? 0x05030a, opts.outlineW ?? 0.022);
   meshes.forEach(o => {
     const isEye = /Eyes/.test(o.name);
+    if (opts.map && o.material.map) { o.material = o.material.clone(); o.material.map = opts.map; }
     o.material = toonMaterial(o.material, U, { emissive: isEye ? opts.eyes : null });
     if (isEye) o.material = new THREE.MeshBasicMaterial({ color: opts.eyes || 0xffffff });
     o.frustumCulled = false;
-    if (!isEye) addOutline(o, olMat);
+    if (!isEye && opts.outlineW !== 0) addOutline(o, olMat);
   });
   model.scale.setScalar(opts.scale || 1);
   const mixer = new THREE.AnimationMixer(model);
@@ -130,12 +131,12 @@ function addOutline(o, mat) {
   return ol;
 }
 // Greffe une arme (mesh statique d'un autre modèle) dans la main d'un acteur.
-export function attachWeapon(actor, srcMesh, bone, { scale = 1, color = null, emissive = null } = {}) {
+export function attachWeapon(actor, srcMesh, bone, { scale = 1, color = null, emissive = null, outline = true } = {}) {
   const m = new THREE.Mesh(srcMesh.geometry, toonMaterial(srcMesh.material, actor.U, { emissive }));
   if (color) m.material.color = new THREE.Color(color);
   m.scale.setScalar(scale);
   m.frustumCulled = false;
-  addOutline(m, actor.olMat);
+  if (outline) addOutline(m, actor.olMat);
   const b = actor.bones[bone]; if (b) b.add(m);
   return m;
 }
@@ -155,16 +156,50 @@ export function play(a, name, { loop = false, fade = 0.12, ts = 1, clamp = true,
 }
 
 // ---------- Environnement : toit néon nocturne ----------
-function canvasTex(w, h, draw) {
+export function canvasTex(w, h, draw) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
   draw(c.getContext('2d'), w, h);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 2;
   return t;
 }
+export function makeBuildingMat() {
+  return new THREE.ShaderMaterial({
+    fog: true,
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uT: { value: 0 } }]),
+    vertexShader: `#include <common>
+      #include <fog_pars_vertex>
+      varying vec3 vW; varying vec3 vN; varying float vSeed;
+      void main(){ vec4 w = modelMatrix * instanceMatrix * vec4(position,1.); vW = w.xyz;
+        vN = normalize(mat3(modelMatrix * instanceMatrix) * normal); vSeed = instanceMatrix[3][0]*0.13 + instanceMatrix[3][2]*0.71;
+        vec4 mvPosition = viewMatrix * w; gl_Position = projectionMatrix * mvPosition;
+        #include <fog_vertex>
+      }`,
+    fragmentShader: `#include <common>
+      #include <fog_pars_fragment>
+      varying vec3 vW; varying vec3 vN; varying float vSeed; uniform float uT;
+      float hh(vec2 p){ return fract(sin(dot(p,vec2(41.3,289.1)))*15731.743); }
+      void main(){
+        vec3 base = vec3(0.035,0.02,0.07);
+        float side = 1.0 - abs(vN.y);
+        vec2 uv = vec2(abs(vN.x) > 0.5 ? vW.z : vW.x, vW.y);
+        vec2 cell = floor(uv / vec2(0.9, 1.2)); vec2 f = fract(uv / vec2(0.9, 1.2));
+        float win = step(0.18, f.x) * step(f.x, 0.82) * step(0.25, f.y) * step(f.y, 0.78);
+        float r = hh(cell + vSeed);
+        vec3 wc = r < 0.5 ? vec3(0.2,0.9,1.0) : (r < 0.8 ? vec3(1.0,0.25,0.65) : vec3(1.0,0.75,0.3));
+        float lit = step(0.7, hh(cell*1.7 + vSeed*3.1)) * (0.75 + 0.25*sin(uT*0.7 + r*30.));
+        vec3 c = base + side * win * lit * wc * 1.1;
+        // arête néon au sommet
+        c += vec3(1.0,0.2,0.6) * step(0.98, vN.y) * 0.15;
+        gl_FragColor = vec4(c, 1.0);
+        #include <fog_fragment>
+      }`,
+  });
+}
 export function buildEnv() {
   const S = R.scene, E = R.env;
-  S.add(new THREE.HemisphereLight(0x8a7cff, 0x1a0a28, 0.75));
-  const key = new THREE.DirectionalLight(0xfff0f6, 1.7); key.position.set(3, 6, 8); S.add(key);
+  E.arena = new THREE.Group(); S.add(E.arena);
+  E.hemi = new THREE.HemisphereLight(0x8a7cff, 0x1a0a28, 0.75); S.add(E.hemi);
+  const key = new THREE.DirectionalLight(0xfff0f6, 1.7); key.position.set(3, 6, 8); S.add(key); E.key = key;
   const back = new THREE.DirectionalLight(0xff3d9a, 0.7); back.position.set(-6, 4, -6); S.add(back);
 
   // Ciel : dégradé + étoiles
@@ -201,37 +236,7 @@ export function buildEnv() {
 
   // Gratte-ciel : 1 seul draw call (InstancedMesh), fenêtres procédurales en shader
   const N = 150;
-  const bMat = new THREE.ShaderMaterial({
-    fog: true,
-    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uT: { value: 0 } }]),
-    vertexShader: `#include <common>
-      #include <fog_pars_vertex>
-      varying vec3 vW; varying vec3 vN; varying float vSeed;
-      void main(){ vec4 w = modelMatrix * instanceMatrix * vec4(position,1.); vW = w.xyz;
-        vN = normalize(mat3(modelMatrix * instanceMatrix) * normal); vSeed = instanceMatrix[3][0]*0.13 + instanceMatrix[3][2]*0.71;
-        vec4 mvPosition = viewMatrix * w; gl_Position = projectionMatrix * mvPosition;
-        #include <fog_vertex>
-      }`,
-    fragmentShader: `#include <common>
-      #include <fog_pars_fragment>
-      varying vec3 vW; varying vec3 vN; varying float vSeed; uniform float uT;
-      float hh(vec2 p){ return fract(sin(dot(p,vec2(41.3,289.1)))*15731.743); }
-      void main(){
-        vec3 base = vec3(0.035,0.02,0.07);
-        float side = 1.0 - abs(vN.y);
-        vec2 uv = vec2(abs(vN.x) > 0.5 ? vW.z : vW.x, vW.y);
-        vec2 cell = floor(uv / vec2(0.9, 1.2)); vec2 f = fract(uv / vec2(0.9, 1.2));
-        float win = step(0.18, f.x) * step(f.x, 0.82) * step(0.25, f.y) * step(f.y, 0.78);
-        float r = hh(cell + vSeed);
-        vec3 wc = r < 0.5 ? vec3(0.2,0.9,1.0) : (r < 0.8 ? vec3(1.0,0.25,0.65) : vec3(1.0,0.75,0.3));
-        float lit = step(0.7, hh(cell*1.7 + vSeed*3.1)) * (0.75 + 0.25*sin(uT*0.7 + r*30.));
-        vec3 c = base + side * win * lit * wc * 1.1;
-        // arête néon au sommet
-        c += vec3(1.0,0.2,0.6) * step(0.98, vN.y) * 0.15;
-        gl_FragColor = vec4(c, 1.0);
-        #include <fog_fragment>
-      }`,
-  });
+  const bMat = makeBuildingMat();
   const box = new THREE.BoxGeometry(1, 1, 1); box.translate(0, 0.5, 0);
   const inst = new THREE.InstancedMesh(box, bMat, N);
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3();
@@ -249,14 +254,14 @@ export function buildEnv() {
     m4.compose(p, q, sc); inst.setMatrixAt(i, m4);
     void ang;
   }
-  inst.frustumCulled = false; S.add(inst); E.city = inst;
+  inst.frustumCulled = false; E.arena.add(inst); E.city = inst;
 
   // Enseignes néon (inventées) : quelques plans additifs
   const signs = [['零', '#22f0ff', -16, 14, -30, 7], ['LAME', '#ff2e88', 18, 12, -34, 9], ['ゼロ', '#ffd23f', -30, 22, -48, 9], ['FRACTURE', '#b46bff', 34, 26, -60, 16]];
   E.signs = signs.map(([txt, col, x, y, z, w]) => {
     const t = canvasTex(512, 160, (g, W, H) => { g.font = `900 ${txt.length > 3 ? 92 : 120}px Orbitron, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.shadowColor = col; g.shadowBlur = 30; g.strokeStyle = col; g.lineWidth = 8; g.strokeText(txt, W / 2, H / 2); g.shadowBlur = 10; g.fillStyle = '#fff'; g.fillText(txt, W / 2, H / 2); });
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w * 160 / 512), new THREE.MeshBasicMaterial({ map: t, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
-    m.position.set(x, y, z); m.lookAt(0, y * 0.5, 8); S.add(m); return m;
+    m.position.set(x, y, z); m.lookAt(0, y * 0.5, 8); E.arena.add(m); return m;
   });
 
   // Sol de l'arène : grille néon + anneau
@@ -279,7 +284,7 @@ export function buildEnv() {
         c = mix(c, vec3(0.1,0.04,0.18), smoothstep(30.0, 70.0, r));
         gl_FragColor = vec4(c, 1.0); }`,
   });
-  E.floor = new THREE.Mesh(new THREE.PlaneGeometry(160, 160), floorMat); E.floor.rotation.x = -Math.PI / 2; S.add(E.floor);
+  E.floor = new THREE.Mesh(new THREE.PlaneGeometry(160, 160), floorMat); E.floor.rotation.x = -Math.PI / 2; E.arena.add(E.floor);
 
   // Ombres portées factices
   const blobTex = canvasTex(128, 128, (g, w) => { const gr = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); gr.addColorStop(0, 'rgba(0,0,0,0.75)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, w); });
@@ -353,3 +358,22 @@ export function renderFrame(dt, fxScene, fxCam) {
   if (fxScene) { r.clearDepth(); r.render(fxScene, fxCam); }
 }
 export function addShake(v) { R.shake = Math.min(0.35, R.shake + v); }
+
+// ---------- Tenues : recoloration de l'atlas KayKit (grille 8×4 de dégradés) ----------
+// outfit = { "col,row": 0xRRGGBB } ; on garde le dégradé (luminance) de chaque case.
+export function outfitTexture(srcTex, outfit) {
+  const img = srcTex.image; const w = img.width, h = img.height;
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
+  g.drawImage(img, 0, 0);
+  const cw = w / 8, ch = h / 4;
+  for (const key in outfit) {
+    const [cx, cy] = key.split(',').map(Number); const col = new THREE.Color(outfit[key]);
+    const d = g.getImageData(cx * cw, cy * ch, cw, ch); const a = d.data;
+    let mean = 0; for (let i = 0; i < a.length; i += 4) mean += a[i] * 0.3 + a[i + 1] * 0.59 + a[i + 2] * 0.11; mean = mean / (a.length / 4) || 1;
+    const R0 = col.r * 255, G0 = col.g * 255, B0 = col.b * 255;
+    for (let i = 0; i < a.length; i += 4) { const l = (a[i] * 0.3 + a[i + 1] * 0.59 + a[i + 2] * 0.11) / mean; const k = 0.35 + 0.65 * l; a[i] = Math.min(255, R0 * k); a[i + 1] = Math.min(255, G0 * k); a[i + 2] = Math.min(255, B0 * k); }
+    g.putImageData(d, cx * cw, cy * ch);
+  }
+  const t = new THREE.CanvasTexture(c); t.flipY = srcTex.flipY; t.colorSpace = THREE.SRGBColorSpace; t.magFilter = srcTex.magFilter; t.minFilter = srcTex.minFilter;
+  return t;
+}

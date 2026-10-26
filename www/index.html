@@ -178,6 +178,38 @@ button:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
 #finger{position:fixed;z-index:14;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 16px var(--pink);pointer-events:none}
 #perf{position:fixed;left:50%;bottom:4px;transform:translateX(-50%);z-index:30;font:600 11px/1.2 ui-monospace,monospace;color:#7dffcf;background:rgba(0,0,0,.6);padding:3px 8px;pointer-events:none;white-space:nowrap}
 #rotate{display:none}
+/* ---------- Monde ---------- */
+#whud{pointer-events:none}
+#whud .wtl{position:absolute;left:var(--safeL);top:12px;width:min(28vw,280px)}
+.hname b{color:var(--gold);margin-left:6px}
+.wnum{font-family:var(--fd);font-size:10px;letter-spacing:.15em;color:var(--muted);margin-top:3px}
+.xp{height:5px;margin-top:5px;background:rgba(0,0,0,.6);box-shadow:inset 0 0 0 1px rgba(255,210,63,.25)}
+.xp i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ff9d1c,var(--gold));box-shadow:0 0 8px var(--gold);transition:width .4s}
+#whud .wtr{position:absolute;right:calc(var(--safeR) + 54px);top:10px;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.wgold{display:flex;align-items:center;gap:8px;font-family:var(--fd);font-weight:900;font-size:18px;color:var(--gold);text-shadow:0 0 10px rgba(255,210,63,.5)}
+.wgold .gem{width:12px;height:12px;transform:rotate(45deg);background:var(--gold);box-shadow:0 0 10px var(--gold)}
+#minimap{width:min(18vh,110px);height:min(18vh,110px)}
+.wzone{font-family:var(--fd);font-size:9px;letter-spacing:.3em;color:var(--cyan)}
+#wMenu{position:absolute;right:var(--safeR);top:10px;width:44px;height:44px;pointer-events:auto;background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+#wMenu i{width:18px;height:3px;background:#fff}
+.wbtn{position:absolute;pointer-events:auto;font-family:var(--fd);font-weight:800;letter-spacing:.12em;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:50%;background:radial-gradient(circle at 50% 35%,rgba(60,30,110,.95),rgba(16,8,34,.95));box-shadow:inset 0 0 0 2px var(--c,var(--cyan)),0 0 18px color-mix(in srgb,var(--c,var(--cyan)) 45%,transparent)}
+.wbtn:active{transform:scale(.92)}
+#wPotion{--c:#ff5a8a;right:calc(var(--safeR) + 8px);bottom:20px;width:64px;height:64px;font-size:10px}
+#wPotion b{font-size:16px;color:#fff}
+#wAct{--c:var(--gold);right:calc(var(--safeR) + 86px);bottom:30px;width:96px;height:96px;font-size:14px;color:var(--gold);animation:actp 1s infinite alternate}
+@keyframes actp{to{box-shadow:inset 0 0 0 3px var(--gold),0 0 34px rgba(255,210,63,.6)}}
+#joyBase{position:fixed;z-index:21;width:130px;height:130px;margin:-65px 0 0 -65px;border-radius:50%;border:2px solid rgba(34,240,255,.5);background:radial-gradient(circle,rgba(34,240,255,.12),rgba(34,240,255,.02));pointer-events:none}
+#joyKnob{position:absolute;left:50%;top:50%;width:56px;height:56px;margin:-28px 0 0 -28px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff,var(--cyan) 60%);box-shadow:0 0 20px var(--cyan)}
+#whud .lamechip b{color:var(--lame)}
+.whint{position:absolute;left:var(--safeL);bottom:40px;font-family:var(--fd);font-size:11px;letter-spacing:.18em;color:var(--muted);animation:blink 1.6s infinite}
+.dlg{max-width:min(80vw,520px)}
+.dname{font-family:var(--fd);font-size:22px;font-weight:900;letter-spacing:.18em;color:var(--c,var(--cyan));text-shadow:0 0 14px var(--c,var(--cyan))}
+.drole{font-family:var(--fd);font-size:10px;letter-spacing:.4em;color:var(--muted);margin-top:-6px}
+.dlg p{font-size:18px;font-weight:600;line-height:1.25}
+.rwd{align-items:center;text-align:center}
+.rwrank{font-family:var(--fd);font-weight:900;font-size:64px;line-height:1;color:var(--c,#fff);text-shadow:0 0 24px var(--c,#fff)}
+.rwrows{display:grid;grid-template-columns:auto auto;gap:4px 24px;font-size:18px;font-weight:700}
+.rwrows span:nth-child(2n){font-family:var(--fd);font-size:15px;color:var(--gold);text-align:right}
 @media (orientation:portrait){#rotate{display:flex;position:fixed;inset:0;z-index:99;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:#07050f;font-family:var(--fd);letter-spacing:.2em;text-align:center;padding:30px}#rotate i{width:60px;height:100px;border:3px solid var(--cyan);border-radius:10px;animation:rot 1.6s infinite}}
 @keyframes rot{50%{transform:rotate(-90deg)}}
 @media (max-height:420px){.card p{font-size:12.5px}.card .gem{width:40px;height:40px}.card h3{font-size:14px}#title .menu{gap:8px}.nb{min-height:44px}.nb.main{min-height:54px}}
@@ -206,7 +238,8 @@ window.__bootT=setTimeout(function(){if(!window.__fracture)out('Le jeu ne démar
 <section id="title" class="scr" hidden>
   <div class="logo"><span class="f" data-t="FRACTURE">FRACTURE</span><span class="s"><b>LAME</b> ZÉRO</span><i class="crack"></i></div>
   <div class="menu">
-    <button class="nb main" id="bPlay">COMBATTRE</button>
+    <button class="nb main" id="bPlay">JOUER <small id="saveInfo" style="color:#fff;opacity:.8"></small></button>
+    <button class="nb" id="bArena" style="--c:var(--pink)">MODE ARÈNE</button>
     <button class="equip" id="bLames"><span>LAME-MÉMOIRE</span><span style="display:flex;align-items:center;gap:8px"><b id="eqName">BRAISE</b><i class="dot"></i></span></button>
     <button class="nb" id="bReplay" style="--c:var(--gold)">MEILLEUR REPLAY</button>
     <button class="nb" id="bTuto" style="--c:var(--lime)">TUTORIEL <small id="tutoState">ACTIF</small></button>
@@ -243,6 +276,7 @@ window.__bootT=setTimeout(function(){if(!window.__fracture)out('Le jeu ne démar
     <button class="tog" data-k="haptics">VIBRATIONS <b>ON</b></button>
     <button class="tog" data-k="perf">INFOS PERFS <b>ON</b></button>
     <button class="nb" id="bQuit" style="--c:var(--red)">ABANDONNER</button>
+    <button class="nb" id="bToMenu" style="--c:var(--violet)">MENU PRINCIPAL</button>
   </div>
 </section>
 
@@ -270,6 +304,31 @@ window.__bootT=setTimeout(function(){if(!window.__fracture)out('Le jeu ne démar
   </div>
 </section>
 
+<section id="whud" class="scr" hidden>
+  <div class="wtl">
+    <div class="hname">LAME ZÉRO <b id="wLvl">NV 1</b></div>
+    <div class="hp" id="wHp"><u></u><i></i></div>
+    <div class="wnum" id="wHpTxt">100 / 100</div>
+    <div class="xp" id="wXp"><i></i></div>
+  </div>
+  <div class="wtr">
+    <div class="wgold"><i class="gem"></i><b id="wGold">0</b></div>
+    <canvas id="minimap" width="132" height="132"></canvas>
+    <div class="wzone" id="wZone">QUARTIER ZÉRO</div>
+  </div>
+  <button id="wMenu" aria-label="Menu"><i></i><i></i><i></i></button>
+  <button id="wPotion" class="wbtn"><span>FIOLE</span><b id="wPot">×0</b></button>
+  <button id="wAct" class="wbtn act" hidden>PARLER</button>
+  <div id="joyBase" hidden><i id="joyKnob"></i></div>
+  <div class="lamechip"><i class="dot"></i>LAME <b id="wLame">BRAISE</b></div>
+  <div class="whint" id="wHint">Glisse à gauche pour te déplacer</div>
+</section>
+<section id="dialog" class="scr modal" hidden>
+  <div class="box dlg"><div class="dname" id="dName">KAÏ</div><div class="drole" id="dRole">FORGERON</div><p id="dText"></p><div class="btns" id="dBtns"></div></div>
+</section>
+<section id="reward" class="scr modal" hidden>
+  <div class="box rwd"><h2 id="rwTitle">VICTOIRE</h2><div class="rwrank" id="rwRank">A</div><div class="rwrows" id="rwRows"></div><div class="nr" id="rwLvl" hidden>NIVEAU SUPÉRIEUR !</div><div class="btns"><button class="nb main" id="rwGo">CONTINUER</button><button class="nb" id="rwReplay" style="--c:var(--gold)">REPLAY</button></div></div>
+</section>
 <div id="rbar" hidden><span class="lab">REPLAY</span><button class="nb" id="rbSpeed">×1</button><button class="nb" id="rbQuit" style="--c:var(--red)">QUITTER</button></div>
 <div id="perf" hidden></div>
 <div id="rotate"><i></i>TOURNE TON TÉLÉPHONE</div>

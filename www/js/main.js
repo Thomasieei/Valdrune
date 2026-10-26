@@ -1,6 +1,7 @@
 // FRACTURE : Lame Zéro — orchestration : boot, menus, boucle, présentation, replay, perfs.
 import * as THREE from 'three';
-import { R, initRenderer, buildEnv, loadModels, buildActor, attachWeapon, addBlob, setFraming, applyFraming, project, renderFrame, addShake, play, setPixelRatio, resize } from './render.js';
+import { R, initRenderer, buildEnv, loadModels, buildActor, attachWeapon, addBlob, setFraming, applyFraming, project, renderFrame, addShake, play, setPixelRatio, resize, outfitTexture } from './render.js';
+import { WD, OUTFITS, ENEMY_INFO, initWorld, enterWorld, leaveWorld, updateWorld, killEnt, resetBoss, drawMinimap } from './world.js';
 import { FX, initFX, resizeFX, Ribbon, Disc, Digit, burst, sparks, shock, flash, vignette, setVigTarget, setSlowFX, updateFX, setParticleScale } from './fx.js';
 import { Sim, TICK, LAMES, ENEMIES, R_FAILLE, HERO_POS } from './sim.js';
 import { unlockAudio, sfx, playMusic, musicIntensity, musicMuffle, audioSettings, haptic, hapticsEnabled } from './audio.js';
@@ -31,18 +32,21 @@ const swords = {};
     models = await loadModels(p => { $('bootBar').style.width = (p * 100) + '%'; });
   } catch (e) { $('bootTxt').textContent = 'ERREUR DE CHARGEMENT : ' + e.message; return; }
   $('bootTxt').textContent = 'CALIBRAGE DES FAILLES…';
-  // Héros : chevalier KayKit, lame unique, liseré cyan
-  const keep = new Set(['1H_Sword', 'Knight_Helmet', 'Knight_Cape', 'Knight_ArmLeft', 'Knight_ArmRight', 'Knight_Body', 'Knight_Head', 'Knight_LegLeft', 'Knight_LegRight']);
-  models.hero.scene.traverse(o => { if (o.isMesh && (o.name === '1H_Sword' || o.name === '2H_Sword')) swords[o.name] = o; });
-  const sw2 = swords['2H_Sword'] && { geometry: swords['2H_Sword'].geometry, material: swords['2H_Sword'].material };
-  const sw1 = swords['1H_Sword'] && { geometry: swords['1H_Sword'].geometry, material: swords['1H_Sword'].material };
-  W.hero = buildActor('hero', models.hero, { rim: 0x22f0ff, rimStr: 0.9, keep, outlineW: 0.02, scale: 1 });
+  // Tenues "normales" : on recolore l'atlas du Rogue KayKit (veste, chemise, jean, baskets)
+  let baseTex = null; models.hero.scene.traverse(o => { if (!baseTex && o.isMesh && o.material.map) baseTex = o.material.map; });
+  const outfitTex = {}; for (const k in OUTFITS) outfitTex[k] = outfitTexture(baseTex, OUTFITS[k]);
+  models.weapons.scene.traverse(o => { if (o.isMesh && (o.name === '1H_Sword' || o.name === '2H_Sword')) swords[o.name === '1H_Sword' ? 's1' : 's2'] = { geometry: o.geometry, material: o.material }; });
+  // Le monde clone les modèles intacts : à faire AVANT de construire les acteurs de l'arène
+  initWorld({ models, ENEMIES, swords, outfitTex });
+  const keep = new Set(['Rogue_ArmLeft', 'Rogue_ArmRight', 'Rogue_Body', 'Rogue_Head', 'Rogue_LegLeft', 'Rogue_LegRight']);
+  W.hero = buildActor('hero', models.hero, { rim: 0x22f0ff, rimStr: 0.9, keep, outlineW: 0.02, scale: 1, map: outfitTex.hero });
   R.scene.add(W.hero.root); addBlob(W.hero, 1.6);
-  W.hero.meshes.forEach(m => { if (m.name === '1H_Sword') { m.material.emissive = new THREE.Color(0xff7a1a); m.material.emissiveIntensity = 0.5; W.hero.blade = m; } });
+  W.hero.blade = attachWeapon(W.hero, swords.s1, 'handslot.r', { emissive: 0xff7a1a, scale: 0.85 });
+  W.hero.blade.material.emissiveIntensity = 0.5;
   for (const id of ['minion', 'rogue', 'boss']) {
     const def = ENEMIES[id];
-    const a = buildActor(id, models[id], { rim: def.rim, rimStr: 0.7, eyes: def.eyes, outlineW: 0.022, scale: def.scale });
-    const src = def.weapon === '2H_Sword' ? sw2 : sw1;
+    const a = buildActor(id, models[id], { rim: def.rim, rimStr: 0.7, eyes: def.eyes, outlineW: 0.022, scale: def.scale, hide: /Helmet|Cloak|Hood|Cape/ });
+    const src = def.weapon === '2H_Sword' ? swords.s2 : swords.s1;
     if (src) {
       attachWeapon(a, src, 'handslot.r', { scale: def.wScale, color: 0xb8a8d8, emissive: def.rim });
       if (def.dual) attachWeapon(a, src, 'handslot.l', { scale: def.wScale, color: 0xb8a8d8, emissive: def.rim });
@@ -62,7 +66,7 @@ const swords = {};
 function applyLameLook() {
   const L = LAMES[lameId], hex = '#' + L.col.toString(16).padStart(6, '0');
   document.documentElement.style.setProperty('--lame', hex);
-  $('eqName').textContent = L.name; $('hLame').textContent = L.name;
+  $('eqName').textContent = L.name; $('hLame').textContent = L.name; $('wLame').textContent = L.name;
   if (W.hero && W.hero.blade) W.hero.blade.material.emissive.set(L.col);
   if (pres.blades) pres.blades.forEach(b => b.r.color(L.col, L.core));
   if (pres.trace) pres.trace.color(L.col, 0xffffff);
@@ -81,7 +85,8 @@ function buildPresentation() {
 }
 
 // ---------- État global ----------
-let mode = 'boot'; // boot | title | play | replay | result
+let mode = 'boot'; // boot | title | world | play | replay | result | reward
+let enc = null, backToWorld = false;
 let sim = null, acc = 0, paused = false, replaySpeed = 1, lastRun = null, showcaseT = 0;
 let pointerId = null;
 
@@ -89,29 +94,38 @@ let pointerId = null;
 function toUnits(e) { return [e.clientX / R.H, e.clientY / R.H]; }
 canvas.addEventListener('pointerdown', e => {
   unlockAudio(); if (settings.music) audioSettings(settings);
+  if (mode === 'world' && !paused) { joyStart(e); return; }
   if (mode !== 'play' || paused || pointerId !== null) return;
   pointerId = e.pointerId; try { canvas.setPointerCapture(e.pointerId); } catch (err) { }
   const [x, y] = toUnits(e); sim.input('d', x, y);
 });
 canvas.addEventListener('pointermove', e => {
+  if (mode === 'world') { joyMove(e); return; }
   if (mode !== 'play' || e.pointerId !== pointerId) return;
   const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
   for (const c of (evs.length ? evs : [e])) { const [x, y] = toUnits(c); sim.input('m', x, y); }
 });
-const up = e => { if (e.pointerId !== pointerId) return; pointerId = null; if (mode !== 'play') return; const [x, y] = toUnits(e); sim.input('u', x, y); };
+const up = e => { if (mode === 'world' || joy.id === e.pointerId) { joyUp(e); if (mode === 'world') return; } if (e.pointerId !== pointerId) return; pointerId = null; if (mode !== 'play') return; const [x, y] = toUnits(e); sim.input('u', x, y); };
 canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
 document.addEventListener('pointerdown', () => unlockAudio(), { once: true });
 
 // ---------- Menus ----------
-function show(id) { ['title', 'lames', 'hud', 'pause', 'settings', 'result'].forEach(s => $(s).hidden = s !== id && !(id === 'pause' && s === 'hud')); }
+const SCREENS = ['title', 'lames', 'hud', 'pause', 'settings', 'result', 'whud', 'dialog', 'reward'];
+function show(id) {
+  const keep = id === 'pause' ? (mode === 'world' ? 'whud' : 'hud') : id === 'dialog' ? 'whud' : null;
+  SCREENS.forEach(s => $(s).hidden = s !== id && s !== keep);
+  $('bQuit').hidden = mode === 'world'; $('bToMenu').hidden = mode !== 'world';
+}
 function showTitle() {
-  mode = 'title'; sim = null; paused = false;
+  if (WD.active) { leaveWorld(W.hero); saveGame(); }
+  mode = 'title'; sim = null; paused = false; enc = null; backToWorld = false; joyEnd();
   show('title'); $('tuto').hidden = true; $('rbar').hidden = true; $('finger').hidden = true;
   resize(); // aspect réel
   $('bestScore').textContent = best ? best.total.toLocaleString('fr-FR') : '—';
   $('bestRank').textContent = best ? best.rank : '—';
   $('bReplay').disabled = !store.get('replay', null); $('bReplay').style.opacity = $('bReplay').disabled ? 0.45 : 1;
   $('tutoState').textContent = tutoOn ? 'ACTIF' : 'DÉSACTIVÉ';
+  $('saveInfo').textContent = save.lvl > 1 || save.xp > 0 ? 'NV ' + save.lvl : '';
   setupShowcase();
   playMusic('hub'); musicIntensity(1); musicMuffle(0);
   setVigTarget(0); setSlowFX(0);
@@ -123,22 +137,24 @@ function setupShowcase() {
   setFraming({ pos: [-1.0, 1.5, 9.6], look: [-0.7, 1.75, 0] }, 0);
   showcaseT = 0;
 }
-$('bPlay').onclick = () => { sfx('uiOk'); startRun(); };
+$('bPlay').onclick = () => { sfx('uiOk'); goWorld(); };
+$('bArena').onclick = () => { sfx('uiOk'); enc = null; startRun(); };
 $('bLames').onclick = () => { sfx('ui'); renderCards(); show('lames'); };
-$('bLBack').onclick = () => { sfx('ui'); show('title'); };
+$('bLBack').onclick = () => { sfx('ui'); if (mode === 'world') { show('whud'); paused = false; } else show('title'); };
 $('bReplay').onclick = () => { const r = store.get('replay', null); if (r) { sfx('uiOk'); startReplay(r); } };
 $('bTuto').onclick = () => { tutoOn = !tutoOn; store.set('tuto', tutoOn); $('tutoState').textContent = tutoOn ? 'ACTIF' : 'DÉSACTIVÉ'; sfx('ui'); };
 $('bSet').onclick = () => { sfx('ui'); syncToggles(); show('settings'); };
 $('bSetBack').onclick = () => { sfx('ui'); show('title'); };
 $('pauseBtn').onclick = () => { if (mode !== 'play') return; paused = true; sfx('ui'); syncToggles(); show('pause'); musicMuffle(0.85); };
-$('bResume').onclick = () => { paused = false; sfx('ui'); show('hud'); musicMuffle(0); };
-$('bQuit').onclick = () => { sfx('ui'); paused = false; showTitle(); };
+$('bResume').onclick = () => { paused = false; sfx('ui'); show(mode === 'world' ? 'whud' : 'hud'); musicMuffle(0); };
+$('bQuit').onclick = () => { sfx('ui'); paused = false; if (enc) { enc = null; save.hp = Math.max(1, Math.round(sim.hero.hp)); goWorld(true); } else showTitle(); };
+$('bToMenu').onclick = () => { sfx('ui'); paused = false; showTitle(); };
 $('bSkipTuto').onclick = e => { e.stopPropagation(); if (sim && sim.tuto) { tutoOn = false; store.set('tuto', false); sim.endTuto(); } };
 $('rAgain').onclick = () => { sfx('uiOk'); startRun(); };
-$('rMenu').onclick = () => { sfx('ui'); showTitle(); };
+$('rMenu').onclick = () => { sfx('ui'); if (backToWorld) goWorld(true); else showTitle(); };
 $('rReplay').onclick = () => { const r = lastRun || store.get('replay', null); if (r) { sfx('uiOk'); startReplay(r); } };
 $('rbSpeed').onclick = () => { replaySpeed = replaySpeed === 1 ? 2 : replaySpeed === 2 ? 0.5 : 1; $('rbSpeed').textContent = replaySpeed === 0.5 ? '×½' : '×' + replaySpeed; };
-$('rbQuit').onclick = () => { sfx('ui'); showTitle(); };
+$('rbQuit').onclick = () => { sfx('ui'); if (backToWorld) goWorld(true); else showTitle(); };
 document.querySelectorAll('.tog').forEach(b => b.onclick = () => { const k = b.dataset.k; settings[k] = !settings[k]; store.set('settings', settings); syncToggles(); applySettings(); sfx('ui'); });
 function syncToggles() { document.querySelectorAll('.tog').forEach(b => { const on = settings[b.dataset.k]; const t = b.querySelector('b'); t.textContent = on ? 'ON' : 'OFF'; t.className = on ? '' : 'off'; }); }
 function applySettings() { audioSettings({ music: settings.music, sfx: settings.sfx }); hapticsEnabled(settings.haptics); $('perf').hidden = !settings.perf; }
@@ -163,12 +179,13 @@ function newSim(opts) {
   return sim;
 }
 function startRun() {
-  resize();
+  resize(); if (WD.active) leaveWorld(W.hero);
   newSim({ seed: (Date.now() % 2147483000) | 0, lame: lameId, tuto: tutoOn });
   mode = 'play'; show('hud'); $('tuto').hidden = true; $('rbar').hidden = true;
   playMusic('combat'); musicIntensity(0.5);
 }
 function startReplay(rec) {
+  if (WD.active) leaveWorld(W.hero);
   resize(rec.aspect); // même cadrage logique que lors de l'enregistrement
   const prevLame = lameId; lameId = rec.lame; applyLameLook();
   newSim({ seed: rec.seed, lame: rec.lame, replay: rec, fights: rec.fights });
@@ -261,7 +278,7 @@ function onEvent(k, d = {}) {
       burst(d.x, d.y, 80, { col: 0xff2e88, speed: 1.2, size: 0.025, life: 0.9, drag: 2 }); sparks(d.x, d.y, 60, { col: 0xffffff, speed: 2.4, len: 0.09 }); break;
     case 'interlude': banner(d.next.name, d.next.title + ' · +35 PV'); sfx('uiOk'); break;
     case 'heroDie': sfx('lose'); haptic([0, 120, 60, 200]); banner('LAME BRISÉE', '', ''); vignette(1); break;
-    case 'victory': case 'defeat': if (k === 'victory') play(W.hero, 'Cheer', { loop: true, fade: 0.3 }); setTimeout(() => showResult(d), mode === 'replay' ? 600 : 900); break;
+    case 'victory': case 'defeat': if (k === 'victory') play(W.hero, 'Cheer', { loop: true, fade: 0.3 }); setTimeout(() => (enc && mode === 'play') ? showReward(d) : showResult(d), mode === 'replay' ? 600 : 900); break;
     case 'tuto': $('tuto').hidden = false; $('tuto').className = ''; $('tutoH').textContent = d.t; $('tutoP').textContent = d.sub; $('tutoE').textContent = ''; break;
     case 'tutoRetry': $('tutoE').textContent = d.t; sfx('nodeBad'); break;
     case 'tutoOk': $('tuto').className = 'ok'; $('tutoE').textContent = 'PARFAIT !'; sfx('uiOk'); break;
@@ -351,6 +368,8 @@ function frame(now) {
     acc += dtR * (mode === 'replay' ? replaySpeed : 1);
     let n = 0; while (acc >= TICK && n < 6) { sim.step(); acc -= TICK; n++; }
     if (n >= 6) acc = 0;
+  } else if (mode === 'world' && !paused) {
+    worldTick(dtR);
   } else if (mode === 'title') {
     showcase(dtR);
   } else if (mode === 'result' && W.hero) {
@@ -378,7 +397,7 @@ function showcase(dt) {
 function perfLoop(dt) {
   fpsS = fpsS * 0.95 + (1 / Math.max(dt, 0.001)) * 0.05;
   perfT += dt;
-  if (settings.hq && (mode === 'play' || mode === 'replay')) {
+  if (settings.hq && (mode === 'play' || mode === 'replay' || mode === 'world')) {
     if (fpsS < 47) { lowT += dt; highT = 0; } else if (fpsS > 58) { highT += dt; lowT = 0; } else { lowT = highT = 0; }
     if (lowT > 2.5 && R.dpr > 0.85) { setPixelRatio(Math.max(0.85, R.dpr - 0.2)); lowT = 0; }
     if (highT > 8 && R.dpr < Math.min(window.devicePixelRatio || 1, 1.6)) { setPixelRatio(Math.min(1.6, R.dpr + 0.1)); highT = 0; }
@@ -396,7 +415,7 @@ const tmpPts = [];
 function setText(id, v) { if (hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } }
 function present(dt) {
   if (!pres.failles) return;
-  const live = sim && (mode === 'play' || mode === 'replay' || mode === 'result');
+  const live = sim && (mode === 'play' || mode === 'replay' || mode === 'result' || mode === 'reward');
   const S = sim, T = S ? S.T : 0;
   // --- failles + guides
   const win = live ? S.win : null;
@@ -505,5 +524,164 @@ function updHUD() {
 }
 
 // mise en pause automatique quand l'appli passe en arrière-plan
-document.addEventListener('visibilitychange', () => { if (document.hidden && mode === 'play' && !paused) $('pauseBtn').onclick(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && mode === 'play' && !paused) $('pauseBtn').onclick(); if (document.hidden) saveGame(); });
 window.__fracture = { get sim() { return sim; }, get mode() { return mode; }, R, W, startRun, startReplay, store };
+
+// =====================================================================
+// MONDE RPG : sauvegarde, joystick, rencontres, PNJ, récompenses
+// =====================================================================
+const save = Object.assign({ lvl: 1, xp: 0, gold: 0, pots: 1, hp: 100, x: 0, z: 6, boss: 0 }, store.get('save', {}));
+const maxHp = () => 100 + 12 * (save.lvl - 1);
+const dmgMul = () => 1 + 0.07 * (save.lvl - 1);
+const xpNext = () => 50 * save.lvl;
+function saveGame() {
+  if (WD.active && W.hero) { save.x = +W.hero.root.position.x.toFixed(2); save.z = +W.hero.root.position.z.toFixed(2); }
+  save.hp = Math.min(maxHp(), Math.max(1, Math.round(save.hp))); store.set('save', save);
+}
+WD.heroPos.set(save.x, 0, save.z);
+
+// --- joystick virtuel (moitié gauche de l'écran)
+const joy = { id: null, cx: 0, cy: 0, x: 0, y: 0, m: 0 };
+function joyStart(e) {
+  if (joy.id !== null || e.clientX > R.W * 0.62) return;
+  joy.id = e.pointerId; joy.cx = e.clientX; joy.cy = e.clientY; joy.x = joy.y = joy.m = 0;
+  try { canvas.setPointerCapture(e.pointerId); } catch (err) { }
+  const b = $('joyBase'); b.hidden = false; b.style.left = joy.cx + 'px'; b.style.top = joy.cy + 'px'; $('joyKnob').style.transform = '';
+  $('wHint').hidden = true;
+}
+function joyMove(e) {
+  if (e.pointerId !== joy.id) return;
+  let dx = e.clientX - joy.cx, dy = e.clientY - joy.cy; const d = Math.hypot(dx, dy), R0 = 58;
+  if (d > R0) { dx *= R0 / d; dy *= R0 / d; }
+  joy.x = dx / R0; joy.y = dy / R0; joy.m = Math.min(1, d / R0);
+  $('joyKnob').style.transform = `translate(${dx}px,${dy}px)`;
+}
+function joyUp(e) { if (e.pointerId !== joy.id) return; joyEnd(); }
+function joyEnd() { joy.id = null; joy.m = 0; joy.x = joy.y = 0; $('joyBase').hidden = true; }
+
+// --- entrer dans le monde
+function goWorld(back) {
+  mode = 'world'; sim = null; paused = false; enc = null; backToWorld = false; joyEnd();
+  resetPresentation(); resize();
+  Object.values(W.enemies).forEach(a => a.root.visible = false);
+  if (save.hp <= 0) save.hp = maxHp();
+  enterWorld(W.hero);
+  show('whud'); $('tuto').hidden = true; $('rbar').hidden = true; $('pauseBtn').hidden = false;
+  playMusic('hub'); musicIntensity(1); musicMuffle(0); setSlowFX(0); setVigTarget(0);
+  if (!back) banner(WD.heroPos.z < -20 ? 'LES FRICHES' : 'QUARTIER ZÉRO', 'FRACTURE · LAME ZÉRO');
+  hudW = {};
+}
+$('wMenu').onclick = () => { if (mode !== 'world') return; paused = true; joyEnd(); sfx('ui'); syncToggles(); show('pause'); };
+$('wPotion').onclick = () => {
+  if (mode !== 'world') return;
+  if (save.pots <= 0) { sfx('nodeBad'); pop('PLUS DE FIOLE', 0.92 * R.A, 0.7, 'txt bad'); return; }
+  if (save.hp >= maxHp()) { pop('PV AU MAX', 0.92 * R.A, 0.7, 'txt warn'); return; }
+  save.pots--; save.hp = Math.min(maxHp(), save.hp + maxHp() * 0.4); sfx('resonanceReady'); haptic(20);
+  flash(0.25, 0xff5a8a); pop('+' + Math.round(maxHp() * 0.4) + ' PV', 0.5 * R.A, 0.42, 'txt ok'); saveGame();
+};
+$('wAct').onclick = () => { if (mode === 'world' && WD.near) interact(WD.near); };
+
+// --- boucle du monde
+let regenAcc = 0, mmT = 0, hudW = {};
+const worldHooks = {
+  area(a) {
+    banner(a === 'friches' ? 'LES FRICHES' : 'QUARTIER ZÉRO', a === 'friches' ? 'ZONE HOSTILE · LES SQUELETTES RÔDENT' : 'ZONE SÛRE');
+    playMusic(a === 'friches' ? 'combat' : 'hub'); musicIntensity(a === 'friches' ? 0.35 : 1);
+    if (a === 'hub') resetBoss();
+    $('wZone').textContent = a === 'friches' ? 'LES FRICHES' : 'QUARTIER ZÉRO';
+  },
+  aggro(e) { sfx('telegraph', e.type === 'boss' ? 'purple' : 'red'); if (e.type === 'boss') { sfx('roar'); addShake(0.12); } },
+};
+function worldTick(dt) {
+  const e = updateWorld(dt, W.hero, joy, worldHooks);
+  regenAcc += dt; if (regenAcc > 1) { regenAcc = 0; if (save.hp < maxHp()) save.hp = Math.min(maxHp(), save.hp + (WD.area === 'hub' ? 4 : 1)); }
+  if (e) startEncounter(e);
+  mmT += dt; if (mmT > 0.1) { mmT = 0; drawMinimap($('minimap'), W.hero); }
+  updWorldHUD();
+}
+function updWorldHUD() {
+  const m = maxHp(), hp = Math.max(0, save.hp) / m;
+  if (hudW.hp !== hp) { hudW.hp = hp; $('wHp').querySelector('i').style.transform = `scaleX(${hp})`; $('wHp').querySelector('u').style.transform = `scaleX(${hp})`; $('wHpTxt').textContent = Math.round(save.hp) + ' / ' + m; }
+  if (hudW.lvl !== save.lvl) { hudW.lvl = save.lvl; $('wLvl').textContent = 'NV ' + save.lvl; }
+  const xp = save.xp / xpNext(); if (hudW.xp !== xp) { hudW.xp = xp; $('wXp').querySelector('i').style.width = (xp * 100) + '%'; }
+  if (hudW.gold !== save.gold) { hudW.gold = save.gold; $('wGold').textContent = save.gold.toLocaleString('fr-FR'); }
+  if (hudW.pots !== save.pots) { hudW.pots = save.pots; $('wPot').textContent = '×' + save.pots; $('wPotion').style.opacity = save.pots ? 1 : 0.5; }
+  const n = WD.near; const lab = n ? n.label : '';
+  if (hudW.act !== lab) { hudW.act = lab; $('wAct').hidden = !n; $('wAct').textContent = lab; }
+}
+
+// --- rencontre : la Brèche aspire le héros dans l'arène de duel
+function startEncounter(e, training) {
+  joyEnd(); saveGame();
+  enc = { e, training: !!training, type: e ? e.type : 'minion' };
+  sfx('shatter'); haptic([0, 40, 30, 60]); flash(0.9, 0xff2e88); addShake(0.2);
+  leaveWorld(W.hero);
+  resize();
+  newSim({ seed: (Date.now() % 2147483000) | 0, lame: lameId, tuto: tutoOn || !!training, fights: [enc.type], heroHp: training ? maxHp() : Math.max(1, save.hp), heroMax: maxHp(), dmgMul: dmgMul() });
+  mode = 'play'; show('hud'); $('tuto').hidden = true; $('rbar').hidden = true;
+  playMusic('combat'); musicIntensity(enc.type === 'boss' ? 0.9 : 0.55);
+}
+function showReward(o) {
+  const wasEnc = enc; mode = 'reward';
+  const rec = sim.rec; lastRun = { ...rec, events: rec.events.slice() };
+  if (!best || o.total > best.total) { best = { total: o.total, rank: o.rank, lame: o.lame, date: Date.now() }; store.set('best', best); store.set('replay', lastRun); }
+  const rows = []; let lvlUp = false;
+  if (o.win && !wasEnc.training) {
+    const info = ENEMY_INFO[wasEnc.type];
+    const rankMul = { SS: 2, S: 1.5, A: 1.25, B: 1, C: 1, D: 1 }[o.rank];
+    const gold = Math.round((info.gold[0] + Math.random() * (info.gold[1] - info.gold[0])) * rankMul);
+    const xp = Math.round(info.xp * rankMul);
+    save.gold += gold; save.xp += xp;
+    while (save.xp >= xpNext()) { save.xp -= xpNext(); save.lvl++; lvlUp = true; }
+    save.hp = Math.max(1, Math.round(sim.hero.hp)) + (lvlUp ? 12 : 0);
+    if (wasEnc.e) killEnt(wasEnc.e);
+    if (wasEnc.type === 'boss') save.boss++;
+    rows.push(['Rang de style', o.rank + (rankMul > 1 ? ' (×' + rankMul + ')' : '')], ['Expérience', '+' + xp + ' XP'], ['Éclats', '+' + gold + ' ◆'], ['PV restants', Math.round(sim.hero.hp) + ' / ' + maxHp()]);
+  } else if (o.win) {
+    rows.push(['Rang de style', o.rank], ['Entraînement', 'aucune récompense']);
+  } else {
+    const lost = wasEnc.training ? 0 : Math.round(save.gold * 0.2); save.gold -= lost; save.hp = maxHp();
+    if (!wasEnc.training) { WD.heroPos.set(0, 0, 6); WD.heroRot = Math.PI; }
+    rows.push(['Rang de style', o.rank], ['Éclats perdus', '-' + lost + ' ◆'], ['Réveil', 'Quartier Zéro']);
+  }
+  saveGame();
+  const colors = { SS: '#ffd23f', S: '#ff2e88', A: '#22f0ff', B: '#7dffcf', C: '#b46bff', D: '#a99cc9' };
+  $('rwTitle').textContent = o.win ? (wasEnc.type === 'boss' ? 'GARDIEN BRISÉ' : 'VICTOIRE') : 'LAME BRISÉE';
+  $('rwTitle').style.color = o.win ? 'var(--lime)' : 'var(--red)';
+  const rk = $('rwRank'); rk.textContent = o.rank; rk.style.setProperty('--c', colors[o.rank]);
+  $('rwRows').innerHTML = rows.map(r => `<span>${r[0]}</span><span>${r[1]}</span>`).join('');
+  $('rwLvl').hidden = !lvlUp; if (lvlUp) $('rwLvl').textContent = 'NIVEAU ' + save.lvl + ' ! +12 PV MAX · +7 % DÉGÂTS';
+  show('reward'); sfx(o.win ? 'win' : 'lose'); if (lvlUp) setTimeout(() => sfx('rank'), 500);
+  musicIntensity(0.3);
+}
+$('rwGo').onclick = () => { sfx('uiOk'); const boss = $('rwTitle').textContent === 'GARDIEN BRISÉ'; goWorld(true); if (boss) banner('LES FRICHES RESPIRENT', 'LE GARDIEN REVIENDRA'); };
+$('rwReplay').onclick = () => { if (!lastRun) return; sfx('uiOk'); backToWorld = true; const r = lastRun; startReplay(r); backToWorld = true; };
+
+// --- PNJ & interactions
+function dialog(name, role, color, text, buttons) {
+  joyEnd(); paused = true;
+  $('dName').textContent = name; $('dRole').textContent = role; $('dName').style.setProperty('--c', color); $('dText').textContent = text;
+  const bx = $('dBtns'); bx.innerHTML = '';
+  buttons.concat([['AU REVOIR', null]]).forEach(([lab, fn, c]) => {
+    const b = document.createElement('button'); b.className = 'nb' + (fn && !c ? ' main' : ''); b.textContent = lab; if (c) b.style.setProperty('--c', c);
+    b.onclick = () => { sfx('ui'); paused = false; show('whud'); if (fn) fn(); };
+    bx.appendChild(b);
+  });
+  show('dialog'); sfx('uiOk');
+}
+function interact(it) {
+  switch (it.kind) {
+    case 'forge': dialog('KAÏ', 'FORGERON DE LAMES', '#ff7a1a', `Ta lame actuelle : ${LAMES[lameId].name}. Chaque Lame-Mémoire change ta façon de tracer. Choisis bien, gamin.`, [['CHOISIR UNE LAME', () => { paused = true; renderCards(); show('lames'); }]]); break;
+    case 'archives': dialog('MIRA', 'ARCHIVISTE', '#b46bff', best ? `Ton meilleur combat : ${best.total.toLocaleString('fr-FR')} points, rang ${best.rank}. Je l'ai gravé dans les archives — tu veux le revoir ?` : `Aucun combat archivé pour l'instant. Va dans les Friches et reviens avec un rang qui en vaut la peine.`, best && store.get('replay', null) ? [['VOIR LE MEILLEUR REPLAY', () => { backToWorld = true; leaveWorld(W.hero); saveGame(); startReplay(store.get('replay', null)); backToWorld = true; }, 'var(--gold)']] : []); break;
+    case 'dojo': dialog('SENSEI ODA', 'DOJO', '#22f0ff', `Le Tracé-Rupture, ça se travaille. Un duel d'entraînement avec tutoriel, ou l'Arène complète : trois adversaires d'affilée, score de style.`, [['ENTRAÎNEMENT', () => startEncounter(null, true)], ['MODE ARÈNE', () => { saveGame(); leaveWorld(W.hero); enc = null; backToWorld = true; startRun(); backToWorld = true; }, 'var(--pink)']]); break;
+    case 'shop': dialog('NORI', 'MARCHANDE', '#ffd23f', `Fiole de soin : 15 éclats, rend 40 % des PV. Tu en portes ${save.pots} sur 3. Et toi, tu as ${save.gold} éclats.`, save.gold >= 15 && save.pots < 3 ? [['ACHETER UNE FIOLE (15 ◆)', () => { save.gold -= 15; save.pots++; sfx('uiOk'); pop('+1 FIOLE', 0.5 * R.A, 0.45, 'txt gold'); saveGame(); }]] : []); break;
+    case 'fountain': save.hp = maxHp(); sfx('resonanceCharge'); flash(0.35, 0xff7ad0); pop('PV RESTAURÉS', 0.5 * R.A, 0.42, 'txt ok'); haptic(30); saveGame(); break;
+    case 'chest': {
+      const c = it.ref; c.open = true; const g = 25 + Math.round(Math.random() * 20); save.gold += g; save.xp += 15;
+      while (save.xp >= xpNext()) { save.xp -= xpNext(); save.lvl++; banner('NIVEAU ' + save.lvl, '+12 PV MAX · +7 % DÉGÂTS', 'perf'); sfx('rank'); }
+      if (Math.random() < 0.5 && save.pots < 3) { save.pots++; pop('+1 FIOLE', 0.5 * R.A, 0.36, 'txt gold'); }
+      sfx('win'); flash(0.3, 0xffd23f); pop('+' + g + ' ◆  +15 XP', 0.5 * R.A, 0.42, 'txt gold'); haptic([0, 30, 30, 50]); saveGame(); break;
+    }
+  }
+}
+window.__fracture.goWorld = goWorld; window.__fracture.save = save; window.__fracture.WD = WD;
