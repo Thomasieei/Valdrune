@@ -182,6 +182,13 @@ button:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
 @keyframes rot{50%{transform:rotate(-90deg)}}
 @media (max-height:420px){.card p{font-size:12.5px}.card .gem{width:40px;height:40px}.card h3{font-size:14px}#title .menu{gap:8px}.nb{min-height:44px}.nb.main{min-height:54px}}
 </style>
+<script>
+// Diagnostic : toute erreur s'affiche à l'écran (utile sur téléphone, sans console)
+(function(){var shown=0;function out(m){if(shown++>4)return;var d=document.getElementById('errbox');if(!d){d=document.createElement('pre');d.id='errbox';d.style.cssText='position:fixed;left:8px;right:8px;bottom:8px;z-index:999;max-height:45vh;overflow:auto;background:#200;color:#ff8;font:12px monospace;padding:8px;border:1px solid #f44;white-space:pre-wrap';(document.body||document.documentElement).appendChild(d);}d.textContent+=m+"\n";}
+window.addEventListener('error',function(e){out('ERREUR: '+(e.message||e)+' @ '+(e.filename||'').split('/').pop()+':'+(e.lineno||''));});
+window.addEventListener('unhandledrejection',function(e){out('PROMESSE: '+(e.reason&&(e.reason.stack||e.reason.message)||e.reason));});
+window.__bootT=setTimeout(function(){if(!window.__fracture)out('Le jeu ne démarre pas (module JS non chargé). Navigateur : '+navigator.userAgent);},15000);})();
+</script>
 <script type="importmap">{"imports":{"three":"./lib/three/build/three.module.js","three/addons/":"./lib/three/examples/jsm/"}}</script>
 </head>
 <body>
