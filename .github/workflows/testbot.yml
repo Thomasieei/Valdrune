@@ -17,7 +17,10 @@ jobs:
       - name: Construire l'APK
         env:
           VERSION_CODE: ${{ github.run_number }}
-        run: bash android/build.sh
+        run: bash android/build.sh 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
+      - name: Erreurs de compilation
+        if: failure()
+        run: grep -E "error|\.java:[0-9]+" build.log | head -25 | sed 's/^/::error::/' || true
       - uses: actions/upload-artifact@v4
         with:
           name: TestBot-apk
