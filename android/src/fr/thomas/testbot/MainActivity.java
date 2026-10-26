@@ -18,6 +18,8 @@ import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
+import android.text.InputType;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -31,7 +33,8 @@ import java.util.List;
 /** Écran d'accueil : 2 autorisations, puis choix du jeu à tester. */
 public class MainActivity extends Activity {
     private static final int REQ_CAP = 7;
-    private TextView s1, s2, b1, b2, gameNow, lastRep;
+    private TextView s1, s2, sAi, model, b1, b2, gameNow, lastRep;
+    private boolean aiOk;
     private LinearLayout apps;
     private final Handler h = new Handler(Looper.getMainLooper());
 
@@ -75,6 +78,49 @@ public class MainActivity extends Activity {
         b2 = Ui.button(this, "Autoriser la vue de l'écran", Ui.CARD2, Ui.FG, Ui.LINE);
         b2.setOnClickListener(v -> askCapture());
         c2.addView(b2, Ui.margins(Ui.full(), this, 0, 10, 0, 0));
+
+        // Cerveau IA (facultatif)
+        LinearLayout cAi = card(root, "IA", "Cerveau IA (facultatif)",
+                "Avec une clé API Claude, le bot comprend n'importe quel jeu : genre, commandes, objectif, menus. Il te signale aussi les bugs visuels qu'il voit. Sans clé, il joue avec ses cerveaux réflexes (RPG, foot-voiture). Clé à créer sur console.anthropic.com, payée à l'usage.");
+        sAi = status(cAi);
+        EditText key = new EditText(this);
+        key.setHint("sk-ant-…");
+        key.setHintTextColor(Ui.MUTE);
+        key.setTextColor(Ui.FG);
+        key.setTextSize(14);
+        key.setSingleLine(true);
+        key.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        key.setBackground(Ui.box(this, Ui.CARD2, 10, Ui.LINE));
+        int kp = Ui.dp(this, 12);
+        key.setPadding(kp, kp, kp, kp);
+        String saved = Cfg.aiKey(this);
+        if (!saved.isEmpty()) key.setHint("Clé enregistrée (•••• " + saved.substring(Math.max(0, saved.length() - 4)) + ")");
+        cAi.addView(key, Ui.margins(Ui.full(), this, 0, 10, 0, 0));
+        LinearLayout kr = Ui.row(this);
+        model = Ui.button(this, "", Ui.CARD2, Ui.FG, Ui.LINE);
+        model.setOnClickListener(v -> {
+            String m = Cfg.aiModel(this).contains("haiku") ? "claude-sonnet-5-5" : "claude-haiku-5-5";
+            Cfg.prefs(this).edit().putString("ai_model", m).apply();
+            refresh();
+        });
+        TextView saveKey = Ui.button(this, "Enregistrer et tester", Ui.AMBER, Ui.INK, 0);
+        saveKey.setOnClickListener(v -> {
+            String k = key.getText().toString().trim();
+            if (k.isEmpty()) k = Cfg.aiKey(this);
+            if (k.isEmpty()) { toast("Colle d'abord ta clé API"); return; }
+            Cfg.prefs(this).edit().putString("ai_key", k).apply();
+            key.setText("");
+            key.setHint("Clé enregistrée (•••• " + k.substring(Math.max(0, k.length() - 4)) + ")");
+            sAi.setText("Test…"); sAi.setTextColor(Ui.MUTE);
+            AiBrain.testKey(this, k, Cfg.aiModel(this), r -> h.post(() -> { toast(r); aiOk = r.startsWith("Clé OK"); refresh(); }));
+        });
+        kr.addView(model, Ui.margins(Ui.weight(1), this, 0, 0, 6, 0));
+        kr.addView(saveKey, Ui.weight(1.3f));
+        cAi.addView(kr, Ui.margins(Ui.full(), this, 0, 8, 0, 0));
+        TextView forget = Ui.text(this, "Effacer la clé", 13, Ui.CORAL, true);
+        forget.setPadding(0, Ui.dp(this, 10), 0, 0);
+        forget.setOnClickListener(v -> { Cfg.prefs(this).edit().remove("ai_key").apply(); key.setHint("sk-ant-…"); aiOk = false; refresh(); toast("Clé effacée"); });
+        cAi.addView(forget);
 
         // Étape 3 : le jeu
         LinearLayout c3 = card(root, "3", "Choisir le jeu à tester",
@@ -125,6 +171,10 @@ public class MainActivity extends Activity {
         setStatus(s2, c, "Autorisée", "À autoriser");
         b1.setVisibility(a ? View.GONE : View.VISIBLE);
         b2.setText(c ? "Autoriser à nouveau" : "Autoriser la vue de l'écran");
+        boolean hasKey = Cfg.aiKey(this).length() > 20;
+        sAi.setText(!hasKey ? "Sans clé" : aiOk ? "Prête" : "Clé enregistrée");
+        sAi.setTextColor(!hasKey ? Ui.MUTE : Ui.OK);
+        model.setText(Cfg.aiModel(this).contains("haiku") ? "Modèle : rapide" : "Modèle : plus malin");
         BotService s = BotService.inst;
         String g = Cfg.prefs(this).getString("gameLabel", null);
         gameNow.setText(g == null ? "Aucun jeu choisi" : "Jeu actuel : " + g + (s != null ? " · " + s.learnedSummary() : ""));

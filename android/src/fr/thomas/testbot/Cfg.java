@@ -26,6 +26,17 @@ final class Cfg {
     /** Points à ne jamais toucher (ouvrent un menu), en fractions d'écran. */
     List<float[]> avoid = new ArrayList<>();
 
+    /** Cerveau choisi : auto (l'IA décide), rpg, foot, ia (l'IA joue elle-même). */
+    String brain = "auto";
+    /** Genre compris par l'IA pour ce jeu : rpg, foot_voiture, autre ("" = pas encore analysé). */
+    String genre = "";
+    String aiDesc = "", aiGoal = "";
+    /** Foot-voiture : couleurs de la balle et de ma voiture, commandes (fractions d'écran). */
+    int[] ball, car;
+    float[] jump, boost, left, right;
+    /** +1 : j'attaque vers la droite, -1 : vers la gauche, 0 : inconnu. */
+    int attack = 0;
+
     static SharedPreferences prefs(Context c) { return c.getSharedPreferences("testbot", Context.MODE_PRIVATE); }
 
     static Cfg load(Context c, String pkg) {
@@ -55,6 +66,17 @@ final class Cfg {
             k.showSight = o.optBoolean("showSight", true);
             k.calibrated = o.optBoolean("calibrated", false);
             k.avoid = floats(o.optJSONArray("avoid"));
+            k.brain = o.optString("brain", "auto");
+            k.genre = o.optString("genre", "");
+            k.aiDesc = o.optString("aiDesc", "");
+            k.aiGoal = o.optString("aiGoal", "");
+            k.ball = one(ints(o.optJSONArray("ball")));
+            k.car = one(ints(o.optJSONArray("car")));
+            k.jump = oneF(floats(o.optJSONArray("jump")));
+            k.boost = oneF(floats(o.optJSONArray("boost")));
+            k.left = oneF(floats(o.optJSONArray("left")));
+            k.right = oneF(floats(o.optJSONArray("right")));
+            k.attack = o.optInt("attack", 0);
         } catch (JSONException ignored) {}
         return k;
     }
@@ -74,6 +96,11 @@ final class Cfg {
             o.put("tol", tol); o.put("spellEvery", spellEvery); o.put("move", move);
             o.put("autoSpells", autoSpells); o.put("autoChests", autoChests); o.put("hunt", hunt);
             o.put("explore", explore); o.put("popups", popups);
+            o.put("brain", brain); o.put("genre", genre); o.put("aiDesc", aiDesc); o.put("aiGoal", aiGoal);
+            o.put("ball", jInts(list(ball))); o.put("car", jInts(list(car)));
+            o.put("jump", jFloats(listF(jump))); o.put("boost", jFloats(listF(boost)));
+            o.put("left", jFloats(listF(left))); o.put("right", jFloats(listF(right)));
+            o.put("attack", attack);
             o.put("auto", auto); o.put("showSight", showSight); o.put("calibrated", calibrated); o.put("avoid", jFloats(avoid));
             prefs(c).edit().putString("cfg_" + pkg, o.toString()).apply();
         } catch (JSONException ignored) {}
@@ -81,7 +108,17 @@ final class Cfg {
 
     void clearLearned() {
         chest.clear(); enemy.clear(); player = null; spells.clear(); joy = null; ignore.clear(); avoid.clear(); calibrated = false;
+        genre = ""; aiDesc = ""; aiGoal = ""; ball = null; car = null; jump = null; boost = null; left = null; right = null; attack = 0;
     }
+
+    private static int[] one(List<int[]> l) { return l.isEmpty() ? null : l.get(0); }
+    private static float[] oneF(List<float[]> l) { return l.isEmpty() ? null : l.get(0); }
+    private static List<int[]> list(int[] v) { List<int[]> l = new ArrayList<>(); if (v != null) l.add(v); return l; }
+    private static List<float[]> listF(float[] v) { List<float[]> l = new ArrayList<>(); if (v != null) l.add(v); return l; }
+
+    /** Clé API Claude et modèle : communs à tous les jeux. */
+    static String aiKey(Context c) { return prefs(c).getString("ai_key", ""); }
+    static String aiModel(Context c) { return prefs(c).getString("ai_model", "claude-haiku-5-5"); }
 
     private static List<int[]> ints(JSONArray a) throws JSONException {
         List<int[]> out = new ArrayList<>();

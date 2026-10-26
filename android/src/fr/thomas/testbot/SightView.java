@@ -41,9 +41,30 @@ final class SightView extends View {
         c.drawText(s, cx, top + d * 18, txt);
         if (!b.on) { c.restore(); return; }
 
-        // Mon perso (centre supposé)
-        st.setColor(Ui.CYAN);
-        c.drawCircle(b.px, b.py, d * 20, st);
+        boolean footMode = b.effectiveBrain().equals("foot");
+        if (footMode) {
+            float[] bl = b.foot.ball, cr = b.foot.car;
+            st.setColor(Ui.CYAN);
+            if (bl != null) { c.drawCircle(bl[0], bl[1], d * 26, st); c.drawCircle(bl[0], bl[1], d * 4, st); }
+            st.setColor(0xFFFFFFFF);
+            if (cr != null) { c.drawRect(cr[0] - d * 26, cr[1] - d * 14, cr[0] + d * 26, cr[1] + d * 14, st); }
+            if (bl != null && cr != null) { st.setColor(0x88FFFFFF); c.drawLine(cr[0], cr[1], bl[0], bl[1], st); }
+        } else {
+            // Mon perso (centre supposé)
+            st.setColor(Ui.CYAN);
+            c.drawCircle(b.px, b.py, d * 20, st);
+        }
+        // Note de l'IA sous le bandeau
+        String note = b.ai.note;
+        if (b.ai.hasKey() && note != null && !note.isEmpty()) {
+            String n = "IA : " + (note.length() > 70 ? note.substring(0, 70) + "…" : note);
+            float nw = txt.measureText(n) + d * 20;
+            r.set(cx - nw / 2, top + d * 30, cx + nw / 2, top + d * 52);
+            fill.setColor(0xCC101216);
+            c.drawRoundRect(r, d * 11, d * 11, fill);
+            txt.setColor(Ui.CYAN);
+            c.drawText(n, cx, top + d * 46, txt);
+        }
 
         // Ennemis (blanc : jamais rouge, sinon le bot croirait voir une barre de vie)
         st.setColor(0xFFFFFFFF);
@@ -60,6 +81,11 @@ final class SightView extends View {
         // Sorts repérés
         st.setColor(0xFF9F8BFF);
         for (float[] sp : b.cfg.spells) c.drawCircle(sp[0] * b.sw, sp[1] * b.sh, d * 30, st);
+
+        // Doigt de boost
+        if (b.hold2 != null) { fill.setColor(0xCC7FE0FF); c.drawCircle(b.hold2[0], b.hold2[1], d * 14, fill); }
+        // Bouton gauche/droite tenu
+        if (b.holdStart != null && b.joyWant != null) { fill.setColor(0xCCFFFFFF); c.drawCircle(b.holdStart[0], b.holdStart[1], d * 14, fill); }
 
         // Joystick tenu
         if (b.cfg.joy != null) {

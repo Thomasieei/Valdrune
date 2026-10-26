@@ -66,6 +66,31 @@ public class BotService extends AccessibilityService {
     private long t0, runMs;
     int nSpells, nChests, nStuck, nPopups, nTaps, nDeaths;
     final AutoBrain auto = new AutoBrain(this);
+    final AiBrain ai = new AiBrain(this);
+    final CarBrain foot = new CarBrain(this);
+
+    void post(Runnable r) { h.post(r); }
+
+    /** Cerveau réellement utilisé : rpg, foot, ia, ou attente (l'IA n'a pas encore regardé le jeu). */
+    String effectiveBrain() {
+        if (!cfg.brain.equals("auto")) return cfg.brain.equals("ia") && !ai.hasKey() ? "rpg" : cfg.brain;
+        switch (cfg.genre) {
+            case "foot_voiture": return "foot";
+            case "rpg": return "rpg";
+            case "autre": return ai.hasKey() ? "ia" : "rpg";
+            default: return ai.hasKey() ? "attente" : "rpg";
+        }
+    }
+
+    static String brainName(String k) {
+        switch (k) {
+            case "rpg": return "RPG";
+            case "foot": return "foot-voiture";
+            case "ia": return "IA qui joue";
+            case "attente": return "en attente de l'IA";
+            default: return "auto";
+        }
+    }
     final List<String> events = new ArrayList<>();
     String status = "En attente";
     private boolean blackScreen;
@@ -86,9 +111,20 @@ public class BotService extends AccessibilityService {
     private final List<float[]> black = new ArrayList<>(); // x, y, expiration
 
     // Gestes
+    /** Doigt 1 tenu : vers où pousser le joystick (départ = centre du joystick, ou holdStart). */
     float[] joyWant;
-    private GestureDescription.StrokeDescription joyStroke;
-    private float joyLx, joyLy;
+    /** Si non nul, le doigt 1 part de ce point au lieu du centre du joystick (bouton gauche/droite tenu). */
+    float[] holdStart;
+    /** Doigt 2 tenu (ex. boost), sur ce point. */
+    float[] hold2;
+
+    /** Un doigt qui reste posé d'un geste à l'autre. */
+    private static final class Finger {
+        GestureDescription.StrokeDescription stroke;
+        float lx, ly, sx, sy;
+        boolean wig;
+    }
+    private final Finger f1 = new Finger(), f2 = new Finger();
     private boolean inFlight;
     private final List<GestureDescription.StrokeDescription> pend = new ArrayList<>();
 
@@ -191,6 +227,7 @@ public class BotService extends AccessibilityService {
         } catch (Exception ignored) {}
         on = true; t0 = now(); prog = false; kind = "explore";
         status = "Démarrage";
+        ai.reset(); foot.begin();
         if (cfg.auto) auto.begin(t0);
         if (panel != null && panel.getWindowToken() != null) showBubble();
         showSight();
@@ -201,8 +238,8 @@ public class BotService extends AccessibilityService {
     void stop() {
         if (!on) return;
         on = false; runMs += now() - t0;
-        auto.stop();
-        joyWant = null; status = "En pause";
+        auto.stop(); foot.stop(); ai.reset();
+        joyWant = null; holdStart = null; hold2 = null; status = "En pause";
         if (sight != null) sight.invalidate();
         Cfg.prefs(this).edit().putString("last_report", report()).apply();
         refreshUi();
@@ -337,6 +374,24 @@ public class BotService extends AccessibilityService {
         if (!cfg.auto && tick % 2 == 0) scan();
         for (int i = black.size() - 1; i >= 0; i--) if (t > black.get(i)[2]) black.remove(i);
 
+        String eb = effectiveBrain();
+        if (eb.equals("attente")) {
+            joyWant = null; holdStart = null; hold2 = null;
+            status = "L'IA découvre ton jeu…";
+            ai.analyze(t);
+            return;
+        }
+        if (ai.executing()) { ai.tickActions(t); return; }
+        ai.audit(t);
+        if (eb.equals("foot")) {
+            if (cfg.popups && t - lastPopup > 700) {
+                float[] pb = findNode(RX_POPUP, 28);
+                if (pb != null) { tap(pb[0], pb[1]); nPopups++; lastPopup = t; return; }
+            }
+            foot.tick(t, CaptureService.frame);
+            return;
+        }
+        if (eb.equals("ia")) { ai.tickDirect(t); return; }
         if (cfg.auto && auto.calibrating()) { auto.tick(t); return; }
         if (cfg.popups && t - lastPopup > 700) {
             float[] b = findNode(RX_POPUP, 28);
@@ -492,38 +547,22 @@ public class BotService extends AccessibilityService {
     private void flush() {
         long t = now();
         // Garde-fou : si Android ne répond jamais, on ne reste pas bloqué
-        if (inFlight && t - inFlightSince > 1500) { inFlight = false; joyStroke = null; }
+        if (inFlight && t - inFlightSince > 1500) { inFlight = false; f1.stroke = null; f2.stroke = null; }
         if (inFlight) return;
         List<GestureDescription.StrokeDescription> strokes = new ArrayList<>(pend);
         pend.clear();
         try {
-            if (joyWant != null && cfg.joy != null) {
-                float tx = joyWant[0], ty = joyWant[1];
-                Path p = new Path();
-                if (joyStroke == null) {
-                    p.moveTo(cfg.joy[0] * sw, cfg.joy[1] * sh);
-                    p.lineTo(tx, ty);
-                    joyStroke = new GestureDescription.StrokeDescription(p, 0, 120, true);
-                } else {
-                    // La suite du geste doit partir EXACTEMENT de là où le précédent s'est arrêté,
-                    // et un trait de longueur nulle est refusé : on ondule de 2 px autour de la cible.
-                    if (Math.abs(tx - joyLx) + Math.abs(ty - joyLy) < 1.5f) { wig = !wig; tx += wig ? 2 : -2; }
-                    p.moveTo(joyLx, joyLy);
-                    p.lineTo(tx, ty);
-                    joyStroke = joyStroke.continueStroke(p, 0, 120, true);
-                }
-                joyLx = tx; joyLy = ty;
-                strokes.add(joyStroke);
-            } else if (joyStroke != null) {
-                Path p = new Path();
-                p.moveTo(joyLx, joyLy);
-                p.lineTo(joyLx + 2, joyLy);
-                strokes.add(joyStroke.continueStroke(p, 0, 40, false));
-                joyStroke = null;
+            float[] s1 = null, w1 = null;
+            if (joyWant != null) {
+                if (holdStart != null) s1 = holdStart;
+                else if (cfg.joy != null) s1 = new float[]{cfg.joy[0] * sw, cfg.joy[1] * sh};
+                if (s1 != null) w1 = joyWant;
             }
+            finger(f1, s1, w1, strokes);
+            finger(f2, hold2, hold2, strokes);
         } catch (Exception e) {
-            joyStroke = null;
-            gestFail("geste joystick invalide");
+            f1.stroke = null; f2.stroke = null;
+            gestFail("geste tenu invalide");
         }
         if (strokes.isEmpty()) return;
         GestureDescription.Builder b = new GestureDescription.Builder();
@@ -534,10 +573,47 @@ public class BotService extends AccessibilityService {
         try {
             ok = dispatchGesture(b.build(), new GestureResultCallback() {
                 @Override public void onCompleted(GestureDescription g) { inFlight = false; nGestOk++; }
-                @Override public void onCancelled(GestureDescription g) { inFlight = false; joyStroke = null; gestFail("geste annulé par Android"); }
+                @Override public void onCancelled(GestureDescription g) { inFlight = false; f1.stroke = null; f2.stroke = null; gestFail("geste annulé par Android"); }
             }, null);
         } catch (Exception e) { ok = false; }
-        if (!ok) { inFlight = false; joyStroke = null; gestFail("geste refusé par Android"); }
+        if (!ok) { inFlight = false; f1.stroke = null; f2.stroke = null; gestFail("geste refusé par Android"); }
+    }
+
+    /**
+     * Fait vivre un doigt tenu : le pose (départ -> cible), le fait glisser, ou le relève.
+     * La suite d'un geste doit partir exactement du point d'arrêt précédent, et jamais avoir une longueur nulle.
+     */
+    private void finger(Finger f, float[] start, float[] want, List<GestureDescription.StrokeDescription> out) {
+        if (want != null && f.stroke != null && Math.abs(start[0] - f.sx) + Math.abs(start[1] - f.sy) > 4) {
+            endFinger(f, out); // on change de bouton : on relève, on reposera au tour suivant
+            return;
+        }
+        if (want != null) {
+            float tx = want[0], ty = want[1];
+            Path p = new Path();
+            if (f.stroke == null) {
+                if (Math.abs(tx - start[0]) + Math.abs(ty - start[1]) < 1.5f) tx += 2;
+                p.moveTo(start[0], start[1]);
+                p.lineTo(tx, ty);
+                f.stroke = new GestureDescription.StrokeDescription(p, 0, 120, true);
+                f.sx = start[0]; f.sy = start[1];
+            } else {
+                if (Math.abs(tx - f.lx) + Math.abs(ty - f.ly) < 1.5f) { f.wig = !f.wig; tx += f.wig ? 2 : -2; }
+                p.moveTo(f.lx, f.ly);
+                p.lineTo(tx, ty);
+                f.stroke = f.stroke.continueStroke(p, 0, 120, true);
+            }
+            f.lx = tx; f.ly = ty;
+            out.add(f.stroke);
+        } else if (f.stroke != null) endFinger(f, out);
+    }
+
+    private void endFinger(Finger f, List<GestureDescription.StrokeDescription> out) {
+        Path p = new Path();
+        p.moveTo(f.lx, f.ly);
+        p.lineTo(f.lx + 2, f.ly);
+        out.add(f.stroke.continueStroke(p, 0, 40, false));
+        f.stroke = null;
     }
 
     private void gestFail(String why) {
@@ -580,7 +656,11 @@ public class BotService extends AccessibilityService {
         s.append("Popups fermées : ").append(nPopups).append('\n');
         s.append("Blocages : ").append(nStuck).append('\n');
         s.append("Morts du perso : ").append(nDeaths).append('\n');
-        s.append("Mode : ").append(cfg.auto ? "auto (" + (cfg.calibrated ? "calibré, " + cfg.spells.size() + " sort(s), " + cfg.move : "pas encore calibré") + ")" : "appris à la main").append('\n');
+        s.append("Cerveau : ").append(brainName(effectiveBrain())).append(cfg.brain.equals("auto") ? " (choisi automatiquement)" : "").append('\n');
+        if (!cfg.aiDesc.isEmpty()) s.append("L'IA a compris : ").append(cfg.aiDesc).append('\n');
+        if (!cfg.aiGoal.isEmpty()) s.append("Objectif selon l'IA : ").append(cfg.aiGoal).append('\n');
+        s.append("IA : ").append(ai.hasKey() ? ai.calls + " appel(s), " + ai.tokIn + " jetons lus / " + ai.tokOut + " écrits, " + ai.errors + " erreur(s)" : "pas de clé (cerveaux réflexes seulement)").append('\n');
+        s.append("Mode RPG : ").append(cfg.auto ? "auto (" + (cfg.calibrated ? "calibré, " + cfg.spells.size() + " sort(s), " + cfg.move : "pas encore calibré") + ")" : "appris à la main").append('\n');
         s.append("Touchers envoyés : ").append(nTaps).append('\n');
         s.append("Gestes acceptés / refusés par Android : ").append(nGestOk).append(" / ").append(nGestFail).append('\n');
         s.append("Image de l'écran : ").append(CaptureService.frame == null ? "aucune reçue" : CaptureService.fw + "x" + CaptureService.fh + ", il y a " + (now() - CaptureService.frameTime) + " ms").append('\n');
@@ -753,10 +833,10 @@ public class BotService extends AccessibilityService {
         }
         panel.addView(tabBar, Ui.margins(Ui.full(), this, 0, 10, 0, 0));
 
-        ScrollView sc = new ScrollView(this);
+        paneScroll = new ScrollView(this);
         pane = Ui.col(this);
-        sc.addView(pane);
-        panel.addView(sc, Ui.full());
+        paneScroll.addView(pane);
+        panel.addView(paneScroll, Ui.full());
 
         panelLp = overlayLp(Ui.dp(this, 300), WindowManager.LayoutParams.WRAP_CONTENT);
         SharedPreferences p = Cfg.prefs(this);
@@ -778,9 +858,18 @@ public class BotService extends AccessibilityService {
         return v;
     }
 
+    private ScrollView paneScroll;
+
     private void buildPane() {
         if (pane == null) return;
         pane.removeAllViews();
+        // Hauteur bornée : en paysage le panneau ne doit jamais sortir de l'écran
+        if (paneScroll != null) {
+            paneScroll.setVisibility(tab.isEmpty() ? View.GONE : View.VISIBLE);
+            LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) paneScroll.getLayoutParams();
+            lp.height = (int) Math.min(Ui.dp(this, 300), sh * 0.42f);
+            paneScroll.setLayoutParams(lp);
+        }
         for (TextView b : tabBtns) {
             boolean sel = tab.equals(b.getTag());
             b.setTextColor(sel ? Ui.FG : Ui.MUTE);
@@ -797,6 +886,11 @@ public class BotService extends AccessibilityService {
                 ? (cfg.calibrated ? "Mode auto : jeu déjà calibré (" + cfg.spells.size() + " sort(s), déplacement " + cfg.move + "). Rien à faire, ou corrige ci-dessous." : "Mode auto : au lancement je calibre seul (≈15 s). Rien à faire.")
                 : "Appuie sur un bouton puis touche l'élément dans le jeu. Pour un sort, touche-le quand il est prêt.";
         pane.addView(Ui.text(this, autoTxt, 12, cfg.auto ? Ui.CYAN : Ui.MUTE, false), Ui.margins(Ui.full(), this, 2, 10, 2, 4));
+        if (ai.hasKey()) {
+            TextView an = Ui.button(this, "Faire réanalyser le jeu par l'IA", Ui.CARD, Ui.CYAN, Ui.LINE);
+            an.setOnClickListener(v -> { cfg.genre = ""; ai.reset(); save(); buildPane(); toast(on ? "L'IA regarde le jeu" : "L'IA regardera le jeu au lancement"); });
+            pane.addView(an, Ui.margins(Ui.full(), this, 0, 4, 0, 4));
+        }
         if (cfg.auto) {
             TextView rc = Ui.button(this, "Refaire le calibrage", Ui.CARD, Ui.FG, Ui.LINE);
             rc.setOnClickListener(v -> { auto.recalibrate(); buildPane(); toast(on ? "Calibrage relancé" : "Calibrage au prochain lancement"); });
@@ -808,7 +902,13 @@ public class BotService extends AccessibilityService {
                 {"player", "Mon perso", cfg.player != null ? "suivi couleur" : "centre écran"},
                 {"spell", "Sort", cfg.spells.size() + " appris"},
                 {"joystick", "Joystick", cfg.joy != null ? "appris" : "aucun"},
-                {"ignore", "Ignorer zone", cfg.ignore.size() + " zone(s)"}};
+                {"ignore", "Ignorer zone", cfg.ignore.size() + " zone(s)"},
+                {"ball", "Balle", cfg.ball != null ? "apprise" : "rien"},
+                {"car", "Ma voiture", cfg.car != null ? "apprise" : "rien"},
+                {"jump", "Saut", cfg.jump != null ? "appris" : "aucun"},
+                {"boost", "Boost", cfg.boost != null ? "appris" : "aucun"},
+                {"left", "Bouton gauche", cfg.left != null ? "appris" : "aucun"},
+                {"right", "Bouton droite", cfg.right != null ? "appris" : "aucun"}};
         LinearLayout r = null;
         for (int i = 0; i < items.length; i++) {
             if (i % 2 == 0) { r = Ui.row(this); pane.addView(r, Ui.margins(Ui.full(), this, 0, 6, 0, 0)); }
@@ -849,7 +949,21 @@ public class BotService extends AccessibilityService {
     }
 
     private void buildSettings() {
-        pane.addView(toggle("Mode auto (découvre le jeu seul)", cfg.auto, v -> { cfg.auto = !cfg.auto; if (on) { auto.stop(); if (cfg.auto) auto.begin(now()); } }), Ui.margins(Ui.full(), this, 0, 8, 0, 0));
+        LinearLayout br = Ui.row(this);
+        br.addView(Ui.text(this, "Cerveau", 14, Ui.FG, false), Ui.weight(1));
+        String bl = cfg.brain.equals("auto") ? "Auto (" + brainName(effectiveBrain()) + ")" : brainName(cfg.brain);
+        br.addView(small(bl, v -> {
+            cfg.brain = cfg.brain.equals("auto") ? "rpg" : cfg.brain.equals("rpg") ? "foot" : cfg.brain.equals("foot") ? "ia" : "auto";
+            joyWant = null; holdStart = null; hold2 = null; save(); buildPane();
+        }));
+        pane.addView(br, Ui.margins(Ui.full(), this, 2, 8, 0, 0));
+        LinearLayout at = Ui.row(this);
+        at.addView(Ui.text(this, "Foot : j'attaque vers", 14, Ui.FG, false), Ui.weight(1));
+        at.addView(small(cfg.attack < 0 ? "la gauche" : cfg.attack > 0 ? "la droite" : "? (droite)", v -> {
+            cfg.attack = cfg.attack > 0 ? -1 : 1; save(); buildPane();
+        }));
+        pane.addView(at, Ui.margins(Ui.full(), this, 2, 4, 0, 0));
+        pane.addView(toggle("Mode auto RPG (découvre le jeu seul)", cfg.auto, v -> { cfg.auto = !cfg.auto; if (on) { auto.stop(); if (cfg.auto) auto.begin(now()); } }), Ui.full());
         pane.addView(toggle("Montrer ce que voit le bot", cfg.showSight, v -> { cfg.showSight = !cfg.showSight; if (cfg.showSight) showSight(); else hideSight(); }), Ui.full());
         pane.addView(toggle("Lancer les sorts", cfg.autoSpells, v -> { cfg.autoSpells = !cfg.autoSpells; }), Ui.full());
         pane.addView(toggle("Ramasser les coffres", cfg.autoChests, v -> { cfg.autoChests = !cfg.autoChests; }), Ui.full());
@@ -943,10 +1057,14 @@ public class BotService extends AccessibilityService {
     private static final String[][] LEARN_TXT = {
             {"chest", "Touche un COFFRE dans le jeu"}, {"enemy", "Touche un ENNEMI"},
             {"player", "Touche TON PERSO"}, {"spell", "Touche un SORT prêt"},
-            {"joystick", "Touche le CENTRE du joystick"}, {"ignore", "Touche la zone à IGNORER"}};
+            {"joystick", "Touche le CENTRE du joystick"}, {"ignore", "Touche la zone à IGNORER"},
+            {"ball", "Touche la BALLE"}, {"car", "Touche TA VOITURE (sur la couleur)"},
+            {"jump", "Touche le bouton SAUT"}, {"boost", "Touche le bouton BOOST"},
+            {"left", "Touche le bouton GAUCHE"}, {"right", "Touche le bouton DROITE"}};
 
     private void startLearn(String what) {
-        if (!CaptureService.running() && !what.equals("joystick") && !what.equals("ignore")) {
+        boolean needsEyes = what.equals("chest") || what.equals("enemy") || what.equals("player") || what.equals("spell") || what.equals("ball") || what.equals("car");
+        if (!CaptureService.running() && needsEyes) {
             toast("Autorise d'abord la vue de l'écran dans l'appli TestBot");
             return;
         }
@@ -989,6 +1107,12 @@ public class BotService extends AccessibilityService {
         switch (what) {
             case "joystick": cfg.joy = new float[]{fx, fy}; msg = "Joystick appris"; break;
             case "ignore": cfg.ignore.add(new float[]{fx, fy}); msg = "Zone ignorée"; break;
+            case "jump": cfg.jump = new float[]{fx, fy}; msg = "Saut appris"; break;
+            case "boost": cfg.boost = new float[]{fx, fy}; msg = "Boost appris"; break;
+            case "left": cfg.left = new float[]{fx, fy}; msg = "Bouton gauche appris"; break;
+            case "right": cfg.right = new float[]{fx, fy}; msg = "Bouton droite appris"; break;
+            case "ball": cfg.ball = col; msg = col != null ? "Balle apprise" : "Je ne vois pas l'écran ici"; break;
+            case "car": cfg.car = col; msg = col != null ? "Voiture apprise" : "Je ne vois pas l'écran ici"; break;
             case "spell": {
                 float l = f != null ? Vision.luma(f, fw, fh, fx * fw, fy * fh, 3) : -1;
                 cfg.spells.add(new float[]{fx, fy, l});
