@@ -47,7 +47,8 @@ export function puissanceObjet(it) {
   return 300 + (it.tier - 1) * 100 + QUALITES[it.q].ip + (it.ench || 0) * 50;
 }
 // prix de marché par tier (fourchettes voulues) : la qualité, l'enchantement et la rareté placent l'objet dans la fourchette
-export const PRIX_TIER = [null, [2000, 10000], [50000, 100000], [100000, 250000], [250000, 600000], [600000, 700000], [700000, 800000], [800000, 900000], [900000, 10000000]];
+// en haut, chaque tier coûte environ le double du précédent : un T8 se mérite
+export const PRIX_TIER = [null, [2000, 10000], [50000, 100000], [100000, 250000], [250000, 600000], [600000, 1000000], [1000000, 1800000], [1800000, 3500000], [3500000, 10000000]];
 export function valeurObjet(it) {
   if (it.cat === 'butin') { const b = BUTINS.find(x => x.id === it.type); return b.mat ? Math.round(VALEUR_MAT[it.tier || 1] * b.mat) : b.valeur; }
   if (it.cat === 'potion') return 2500;
@@ -59,7 +60,8 @@ export function valeurObjet(it) {
   const v = it.tier === 8 ? mn * Math.pow(mx / mn, f * f) : mn + (mx - mn) * f; // en T8 les meilleures pièces montent jusqu'à 10 M
   return Math.round(v / 100) * 100;
 }
-export const prixVente = (it) => Math.max(1, Math.round(valeurObjet(it) * (it.cat === 'butin' ? 1 : 0.35)));
+// revente : marchandises au prix plein, équipement à 20 % (le butin rapporte surtout via l'argent des coffres)
+export const prixVente = (it) => Math.max(1, Math.round(valeurObjet(it) * (it.cat === 'butin' ? 1 : it.cat === 'arme' || it.cat === 'armure' ? 0.2 : 0.35)));
 
 // ---- Maîtrise ----
 export const niveauRequis = (it) => NIVEAU_REQUIS[it.tier] || 1;
@@ -190,6 +192,8 @@ export function lootCoffre(couleur, mode, idxBoss, rang = 0) {
     out.objets.push(creerButin('rune', ri(1, 3)));
     out.objets.push(creerPotion(2));
   }
+  // zone 3 : moins de pièces d'équipement par coffre (elles valent très cher)
+  if (zone >= 2) out.objets = out.objets.filter(it => !(it.cat === 'arme' || it.cat === 'armure') || Math.random() < (zone === 3 ? 0.35 : 0.7));
   // marchandises : des piles d'éclats, sceaux, amulettes et tomes (valeur ≈ 40 à 90 % de l'argent du coffre)
   {
     const budget = out.argent * rnd(0.4, 0.9) * (couleur === 'legendaire' ? 1.4 : 1);
