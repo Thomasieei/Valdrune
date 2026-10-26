@@ -336,10 +336,72 @@ UI.aideSignes = (sorts) => {
 UI.scoreGoulet = (g) => {
   let el = document.getElementById('scoreGoulet');
   if (!g) { if (el) el.remove(); return; }
-  if (!el) { el = document.createElement('div'); el.id = 'scoreGoulet'; $('#jeu').appendChild(el); }
-  const t = Math.max(0, Math.ceil(g.t)), etat = (F) => F.etat === 'base' ? 'au château' : F.etat === 'sol' ? 'à terre !' : `porté par ${F.porteur && F.porteur.nom ? F.porteur.nom : 'toi'}`;
-  const h = `<div class="sg bleu"><b>${g.score.bleu}</b><small>⚑ ${etat(g.drapeaux.bleu)}</small></div><div class="chrono">${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}<small>3 captures</small></div><div class="sg rouge"><b>${g.score.rouge}</b><small>⚑ ${etat(g.drapeaux.rouge)}</small></div>`;
+  if (!el) {
+    el = document.createElement('div'); el.id = 'scoreGoulet'; $('#jeu').appendChild(el);
+    el.addEventListener('pointerdown', (e) => {
+      const p = e.target.closest('[data-porteur]'); const c = e.target.closest('[data-cl]');
+      if (p || c) { e.stopPropagation(); e.preventDefault(); }
+      if (p) api.ciblerPorteur(p.dataset.porteur);
+      if (c) UI.classementGoulet({ live: true });
+    });
+  }
+  const t = Math.max(0, Math.ceil(g.debut > 0 ? g.debut : g.t));
+  const etat = (F) => {
+    if (F.etat === 'base') return '<small>⚑ sur son socle</small>';
+    if (F.etat === 'attente') return `<small>⚑ revient dans ${Math.ceil(F.t)} s</small>`;
+    if (F.etat === 'sol') return `<small class="alerte">⚑ à terre ! ${Math.ceil(F.t)} s</small>`;
+    const nom = F.porteur && F.porteur.nom ? F.porteur.nom : 'toi';
+    const ennemi = F.camp === 'bleu'; // notre drapeau porté par un rouge : on peut le cibler d'un toucher
+    return `<button class="porteur ${ennemi ? 'cible' : ''}" ${ennemi ? `data-porteur="bleu"` : ''}>⚑ ${ennemi ? 'Volé par' : 'Porté par'} <b>${nom}</b></button>`;
+  };
+  const assaut = g.assaut > 0 ? `<div class="assaut ${g.assaut > 5 ? 'brutal' : ''}">${g.assaut > 5 ? 'Assaut brutal' : 'Assaut ciblé'} ×${g.assaut} · porteurs +${g.assaut * 10} % de dégâts subis</div>` : '';
+  const res = g.resJ ? `<div class="resBG">✦ L’esprit guérisseur te relève dans ${g.resJ} s</div>` : '';
+  const h = `<div class="ligneSG"><div class="sg bleu"><b>${g.score.bleu}</b>${etat(g.drapeaux.rouge).replace('Porté par', 'Porté par')}</div>
+    <div class="chrono">${g.debut > 0 ? '<small>Ouverture</small>' : ''}${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}<small>3 captures</small><button class="btnCl" data-cl>Classement</button></div>
+    <div class="sg rouge"><b>${g.score.rouge}</b>${etat(g.drapeaux.bleu)}</div></div>${assaut}${res}`;
   if (el._h !== h) { el.innerHTML = h; el._h = h; }
+};
+// flèches au bord de l'écran vers les drapeaux hors champ
+UI.flechesDrapeau = (liste) => {
+  let box = document.getElementById('flechesBG');
+  if (!liste.length) { if (box) box.innerHTML = ''; return; }
+  if (!box) { box = document.createElement('div'); box.id = 'flechesBG'; $('#jeu').appendChild(box); }
+  const W = innerWidth, H = innerHeight, cx = W / 2, cy = H / 2, m = 46;
+  box.innerHTML = liste.map(f => {
+    const dx = f.x - cx, dy = f.y - cy; const k = Math.min((cx - m) / Math.abs(dx || 1e-3), (cy - m) / Math.abs(dy || 1e-3));
+    const x = cx + dx * k, y = cy + dy * k, ang = Math.atan2(dy, dx);
+    return `<div class="flecheBG" style="left:${x}px;top:${y}px;--c:${f.c}"><i style="transform:rotate(${ang}rad)"></i><span>⚑ ${f.nom}</span></div>`;
+  }).join('');
+};
+// tableau des scores (comme dans le vrai Goulet : coups fatals, morts, victoires honorables, dégâts, soins, drapeaux, renommée)
+let clOpts = null, clTri = 'kb', clFiltre = 'tous', clTimer = null;
+UI.classementOuvert = () => !!clOpts;
+UI.classementGoulet = (opts, fini) => {
+  let m = document.getElementById('classementBG');
+  if (!opts) { clOpts = null; clearInterval(clTimer); if (m) m.remove(); return; }
+  clOpts = { ...opts, fini };
+  if (!m) { m = document.createElement('div'); m.id = 'classementBG'; $('#jeu').appendChild(m); }
+  const COLS = [['nom', 'Nom'], ['kb', 'Coups fatals'], ['morts', 'Morts'], ['hk', 'Vict. honorables'], ['caps', 'Drapeaux pris'], ['ret', 'Drapeaux ramenés'], ['deg', 'Dégâts'], ['soin', 'Soins'], ['renom', 'Renommée']];
+  const rendre = () => {
+    const rows = (clOpts.rows || api.classementGoulet() || []).filter(r => clFiltre === 'tous' || r.camp === clFiltre);
+    rows.sort((a, b) => clTri === 'nom' ? a.nom.localeCompare(b.nom) : (b[clTri] - a[clTri]) || (b.deg - a.deg));
+    const tete = clOpts.fin ? `<div class="banBG ${clOpts.victoire === true ? 'bleu' : clOpts.victoire === false ? 'rouge' : ''}"><h2>${clOpts.titre}</h2><div>🔵 ${clOpts.score.bleu} – ${clOpts.score.rouge} 🔴</div></div>` : '<h2 class="titreBG">Goulet des Braises · Classement</h2>';
+    m.innerHTML = `<div class="cadreBG parchemin">${clOpts.fin ? '' : '<button class="fermer" data-x aria-label="Fermer">×</button>'}${tete}
+      <div class="filtresBG">${[['tous', 'Tous'], ['bleu', 'Équipe bleue'], ['rouge', 'Équipe rouge']].map(([k, l]) => `<button data-f="${k}" class="${clFiltre === k ? 'actif' : ''} ${k}">${l}</button>`).join('')}</div>
+      <div class="tabBG"><table><thead><tr>${COLS.map(([k, l]) => `<th data-t="${k}" class="${clTri === k ? 'tri' : ''}">${l}</th>`).join('')}</tr></thead>
+      <tbody>${rows.map(r => `<tr class="${r.camp} ${r.moi ? 'moi' : ''}"><td class="nomBG"><i></i>${r.nom}</td><td>${r.kb}</td><td>${r.morts}</td><td>${r.hk}</td><td>${r.caps}</td><td>${r.ret}</td><td>${fmtK(r.deg)}</td><td>${fmtK(r.soin)}</td><td class="renomBG">${r.renom}</td></tr>`).join('')}</tbody></table></div>
+      ${clOpts.fin ? '<div class="actionsRes"><button class="btn or" data-ok>Continuer</button></div>' : ''}</div>`;
+  };
+  rendre();
+  m.onclick = (e) => {
+    const f = e.target.closest('[data-f]'), t = e.target.closest('[data-t]');
+    if (f) { clFiltre = f.dataset.f; rendre(); }
+    if (t) { clTri = t.dataset.t; rendre(); }
+    if (e.target.closest('[data-x]')) UI.classementGoulet(null);
+    if (e.target.closest('[data-ok]')) { const cb = clOpts.fini; UI.classementGoulet(null); if (cb) cb(); }
+  };
+  m.addEventListener('pointerdown', (e) => e.stopPropagation());
+  clearInterval(clTimer); if (!clOpts.fin) clTimer = setInterval(() => { if (clOpts) rendre(); }, 1000);
 };
 UI.boutonAuto = (api) => {
   let b = document.getElementById('btnAuto');
@@ -538,13 +600,14 @@ const _v = new THREE.Vector3();
 UI.majPlaques = (centre) => {
   for (const [ent, p] of plaques) {
     const pos = ent.pos || ent.root.position;
-    let vis = !ent.mort && Math.abs(pos.x - centre.x) < 30 && Math.abs(pos.z - centre.z) < 30;
+    const lim = ent.drapeauPorte ? 70 : 30; let vis = !ent.mort && Math.abs(pos.x - centre.x) < lim && Math.abs(pos.z - centre.z) < lim;
     let s = null;
     if (vis) { _v.set(pos.x, pos.y + p.h, pos.z); s = projeter(_v); vis = s.visible && s.x > -80 && s.x < innerWidth + 80 && s.y > -40 && s.y < innerHeight + 40; }
     if (!vis) { if (p.vis !== false) { p.d.style.display = 'none'; p.vis = false; } continue; }
     if (p.vis !== true) { p.d.style.display = ''; p.vis = true; }
     const x = Math.round(s.x), y = Math.round(s.y);
     if (x !== p.x || y !== p.y) { p.d.style.transform = `translate(${x}px,${y}px) translate(-50%,-100%)`; p.x = x; p.y = y; }
+    const pd = ent.drapeauPorte || null; if (pd !== p.pd) { p.pd = pd; p.d.classList.toggle('porteurB', pd === 'bleu'); p.d.classList.toggle('porteurR', pd === 'rouge'); }
     if (p.barre && ent.pvMax) { const w = Math.max(0, Math.round(ent.pv / ent.pvMax * 100)); if (w !== p.w) { p.barre.style.width = w + '%'; p.w = w; } }
     // compte à rebours des invocations, en temps réel
     if (ent.vieT !== undefined) {
@@ -577,7 +640,11 @@ UI.mini = (monde, joueur, entites) => {
       for (const s of monde.salles) { f.fillStyle = '#a8e090'; f.beginPath(); f.arc(...P(s.c.x, s.c.z), s.r * ech, 0, 7); f.fill(); f.strokeStyle = '#3affa0'; f.lineWidth = 1.5; f.stroke(); }
     }
     else if (monde.type === 'ile') { f.fillStyle = '#2a5a8a'; f.fillRect(0, 0, 256, 256); f.fillStyle = '#6aa85a'; f.beginPath(); f.arc(...P(0, 0), monde.rayonMonde * ech, 0, 7); f.fill(); for (const p of monde.plots) { f.fillStyle = p.bati ? '#c8a060' : '#ffd25a66'; f.beginPath(); f.arc(...P(p.pos.x, p.pos.z), 4 * ech, 0, 7); f.fill(); } }
-    else if (monde.type === 'goulet') { f.fillStyle = '#4a5a32'; f.fillRect(0, 0, 256, 256); f.fillStyle = '#6a7a42'; const [a0, b0] = P(monde.bornes.x0, monde.bornes.z0); f.fillRect(a0, b0, (monde.bornes.x1 - monde.bornes.x0) * ech, (monde.bornes.z1 - monde.bornes.z0) * ech); for (const [k, c] of [['bleu', '#3a7aff'], ['rouge', '#ff3a3a']]) { const [a, b] = P(monde.bases[k].pos.x, monde.bases[k].pos.z); f.fillStyle = c + '88'; f.fillRect(a - 9 * ech, b - 21 * ech, 18 * ech, 42 * ech); } }
+    else if (monde.type === 'goulet') {
+      f.fillStyle = '#3a4a28'; f.fillRect(0, 0, 256, 256); f.fillStyle = '#6a7a42'; const [a0, b0] = P(-78, -30); f.fillRect(a0, b0, 156 * ech, 60 * ech);
+      for (const [k, c, sx] of [['bleu', '#3a7aff', -1], ['rouge', '#ff3a3a', 1]]) { const [a, b] = P(sx > 0 ? 46 : -76, -18); f.fillStyle = c + '55'; f.fillRect(a, b, 30 * ech, 36 * ech); const cm = monde.bases[k].cimetiere; const [g1, g2] = P(cm.x, cm.z); f.fillStyle = '#d8f4ff'; f.fillRect(g1 - 2, g2 - 5, 4, 10); f.fillRect(g1 - 5, g2 - 2, 10, 4); }
+      f.strokeStyle = '#e8dcc0'; f.lineWidth = Math.max(2, 1.6 * ech); f.lineCap = 'round'; for (const [x0, z0, x1, z1] of monde.murs) { f.beginPath(); f.moveTo(...P(x0, z0)); f.lineTo(...P(x1, z1)); f.stroke(); }
+    }
     else if (monde.type === 'arene') { f.fillStyle = '#5f5a8e'; f.beginPath(); f.arc(...P(0, 0), monde.rayon * ech, 0, 7); f.fill(); }
     else {
       for (let z = 0; z < monde.grilleH; z++) for (let x = 0; x < monde.grilleW; x++) {
@@ -600,6 +667,8 @@ UI.mini = (monde, joueur, entites) => {
     else if (e.type === 'envahisseur') { const k = 6 + 2 * Math.sin(performance.now() / 120); g.fillStyle = '#ff1a1a'; g.shadowColor = '#ff0000'; g.shadowBlur = 14; g.beginPath(); g.arc(a, b, k, 0, 7); g.fill(); g.shadowBlur = 0; g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.stroke(); }
     else if (e.type === 'portailJ') { g.fillStyle = '#ffc84a'; g.shadowColor = '#ffc84a'; g.shadowBlur = 8; g.beginPath(); g.arc(a, b, 5, 0, 7); g.fill(); g.shadowBlur = 0; }
     else if (e.type === 'portailV') { g.fillStyle = '#b05aff'; g.shadowColor = '#b05aff'; g.shadowBlur = 8; g.beginPath(); g.arc(a, b, 6, 0, 7); g.fill(); g.shadowBlur = 0; }
+    else if (e.type === 'bonusBG') { g.fillStyle = e.c; g.beginPath(); g.arc(a, b, 3, 0, 7); g.fill(); }
+    else if (e.type === 'drapeau' && e.porte) { const k = 9 + 3 * Math.sin(performance.now() / 140); g.strokeStyle = e.c; g.lineWidth = 2.5; g.beginPath(); g.arc(a, b - 1, k, 0, 7); g.stroke(); g.fillStyle = e.c; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.moveTo(a, b + 7); g.lineTo(a, b - 10); g.lineTo(a + 10, b - 5); g.lineTo(a, b - 1); g.stroke(); g.fill(); }
     else if (e.type === 'drapeau') { g.fillStyle = e.c; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.moveTo(a, b + 6); g.lineTo(a, b - 8); g.lineTo(a + 8, b - 4); g.lineTo(a, b - 1); g.stroke(); g.fill(); }
     else if (e.type === 'rouge') { g.fillStyle = '#ff4a3a'; g.beginPath(); g.arc(a, b, 3.6, 0, 7); g.fill(); }
     else if (e.type === 'portail') { g.fillStyle = '#ff3a2a'; g.shadowColor = '#ff3a2a'; g.shadowBlur = 8; g.beginPath(); g.arc(a, b, 6, 0, 7); g.fill(); g.shadowBlur = 0; }

@@ -361,7 +361,7 @@ function libererGPU(racines) {
 }
 function viderMonde() {
   viderEscouade();
-  if (modeActuel && modeActuel.goulet) { goulet = null; UI.scoreGoulet(null); }
+  if (modeActuel && modeActuel.goulet) { goulet = null; UI.scoreGoulet(null); UI.flechesDrapeau([]); UI.classementGoulet(null); }
   ressourcesAssets = null;
   try { libererGPU([monde && monde.groupe, ...ennemis.map(e => e.root), ...allies.map(a => a.root), ...bots.map(b => b.root), ...coffres.map(c => c.obj), ...projectiles.map(p => p.mesh), ...G.vfx.map(v => v.obj)]); } catch (e) { console.warn(e); }
   if (viseeObj) { G.scene.remove(viseeObj.g, viseeObj.fleche, viseeObj.marque); viseeObj = null; } visee = null;
@@ -533,9 +533,14 @@ function majEscouade(dt) {
     UI.escouadeHud({ duree: Date.now() - s.debut, argent: J.argent - s.argent0, parHeure: Math.round((J.argent - s.argent0) / h), xp: s.xp, xpH: Math.round(s.xp / h), kills: s.kills, coffres: s.coffres }); }
 }
 let escHudT = 0;
-// ---------------- Le Goulet des Braises (champ de bataille 10 contre 10, capture du drapeau) ----------------
+// ---------------- Le Goulet des Braises (champ de bataille 10 contre 10, règles du Goulet des Chanteguerres) ----------------
+// 20 minutes, 3 captures ; égalité départagée par la dernière capture ; drapeaux remis en place 20 s après une capture ;
+// drapeau lâché : rendu d'un contact par sa propre équipe ou de lui-même au bout de 10 s ; celui qui l'a lâché ne peut le reprendre qu'après 3 s ;
+// quand les deux drapeaux sont hors de leur socle, les porteurs prennent « Assaut ciblé » (+10 % de dégâts subis toutes les 30 s), puis « Assaut brutal » après 5 cumuls ;
+// résurrection par vagues toutes les 30 s au cimetière ; bonus de vitesse, de soins et berserk qui réapparaissent.
 let goulet = null;
 const CYCLE_GOULET = 300, OUVERT_GOULET = 120; // un portail s'ouvre toutes les 5 minutes et reste 2 minutes
+const DUREE_GOULET = 1200, PREPA_GOULET = 20, VAGUE_GOULET = 30;
 function etatPortailGoulet() { const s = (Date.now() / 1000) % CYCLE_GOULET; return s < OUVERT_GOULET ? { ouvert: true, reste: OUVERT_GOULET - s } : { ouvert: false, reste: CYCLE_GOULET - s }; }
 function majPortailGoulet() {
   const pg = monde && monde.portailGoulet; if (!pg) return;
@@ -547,18 +552,43 @@ function majPortailGoulet() {
 }
 const membresGoulet = (camp) => camp === 'bleu' ? [joueur, ...allies.filter(a => a.bg)] : ennemis.filter(e => e.bg);
 const adversairesGoulet = (camp) => membresGoulet(camp === 'bleu' ? 'rouge' : 'bleu').filter(x => x && !x.mort);
-const campDe = (x) => x === joueur ? 'bleu' : x.bg ? x.bg.camp : null;
+const campDe = (x) => x === joueur ? 'bleu' : x && x.bg ? x.bg.camp : null;
 const estPorteur = (x) => goulet && (goulet.drapeaux.bleu.porteur === x || goulet.drapeaux.rouge.porteur === x);
+const pvMaxDe = (x) => x === joueur ? joueur.st.pvMax : x.pvMax;
+const COUL_CAMP = { bleu: '#3a7aff', rouge: '#ff3a3a' };
 function drapeauMesh(coul) {
   const g = new THREE.Group();
   const mat = new THREE.MeshStandardMaterial({ color: '#d8c8a8', roughness: 0.6, metalness: 0.3 });
-  const mat2 = new THREE.MeshStandardMaterial({ color: coul, emissive: coul, emissiveIntensity: 0.6, side: THREE.DoubleSide });
+  const mat2 = new THREE.MeshStandardMaterial({ color: coul, emissive: coul, emissiveIntensity: 0.7, side: THREE.DoubleSide });
   const hampe = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 3.6, 8), mat); hampe.position.y = 1.8; g.add(hampe);
   const tissu = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.0, 8, 4), mat2); tissu.position.set(0.82, 3, 0); g.add(tissu);
   const boule = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), new THREE.MeshStandardMaterial({ color: '#ffd27a', emissive: '#ffb02a', emissiveIntensity: 1 })); boule.position.y = 3.65; g.add(boule);
   const pos0 = tissu.geometry.attributes.position.array.slice();
   G.anims.push((t) => { const p = tissu.geometry.attributes.position; for (let i = 0; i < p.count; i++) { const x = pos0[i * 3]; p.array[i * 3 + 2] = Math.sin(t * 6 + x * 3) * 0.12 * (x + 0.8); } p.needsUpdate = true; });
-  monde.groupe.add(g); return g;
+  monde.groupe.add(g);
+  // colonne de lumière visible de tout le champ + cercle au sol : on repère le porteur de loin
+  const rayon = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 60, 14, 1, true), new THREE.MeshBasicMaterial({ color: coul, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  rayon.position.y = 30; rayon.visible = false; monde.groupe.add(rayon);
+  const cercle = new THREE.Mesh(new THREE.RingGeometry(0.95, 1.35, 36), new THREE.MeshBasicMaterial({ color: coul, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }));
+  cercle.rotation.x = -Math.PI / 2; cercle.position.y = 0.07; cercle.visible = false; monde.groupe.add(cercle);
+  G.anims.push((t) => { rayon.material.opacity = 0.24 + 0.12 * Math.sin(t * 4); cercle.scale.setScalar(1 + 0.12 * Math.sin(t * 6)); });
+  return { g, rayon, cercle };
+}
+// icône flottante des bonus
+function meshBonus(type) {
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  const coul = { vitesse: '#ffd23a', soin: '#4aff7a', berserk: '#ff4a2a' }[type];
+  const gr = g.createRadialGradient(64, 64, 10, 64, 64, 62); gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.35, coul); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.beginPath(); g.arc(64, 64, 62, 0, 7); g.fill();
+  g.fillStyle = '#1a1208'; g.strokeStyle = '#fff'; g.lineWidth = 5; g.lineJoin = 'round';
+  g.beginPath();
+  if (type === 'soin') { g.rect(54, 30, 20, 68); g.rect(30, 54, 68, 20); }
+  else if (type === 'vitesse') { for (const o of [-16, 10]) { g.moveTo(36 + o, 34); g.lineTo(64 + o, 64); g.lineTo(36 + o, 94); g.lineTo(48 + o, 94); g.lineTo(76 + o, 64); g.lineTo(48 + o, 34); g.closePath(); } }
+  else { g.moveTo(64, 26); g.lineTo(76, 54); g.lineTo(104, 50); g.lineTo(82, 72); g.lineTo(94, 100); g.lineTo(64, 84); g.lineTo(34, 100); g.lineTo(46, 72); g.lineTo(24, 50); g.lineTo(52, 54); g.closePath(); }
+  g.stroke(); g.fill();
+  const tex = new THREE.CanvasTexture(c); tex.colorSpace = THREE.SRGBColorSpace;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false })); sp.scale.set(1.6, 1.6, 1);
+  return { sp, coul };
 }
 function entrerGoulet() {
   memoriserMode('Goulet des Braises · 10 contre 10', () => entrerGoulet());
@@ -566,123 +596,258 @@ function entrerGoulet() {
     viderMonde(); invasion = null; arene = null; selection = null;
     modeActuel = { id: 'goulet', nom: 'Goulet', lieu: 'Goulet des Braises', argent: 0, xp: 3, tiers: [1, 1], mobTier: 1, goulet: true };
     monde = construireGoulet();
-    construireJoueur(monde.bases.bleu.spawn.clone());
+    grilleGoulet();
+    for (const b of Object.values(monde.bases)) monde.collisions.push(...b.portes); // herses fermées pendant la préparation
+    construireJoueur(pointLibrePres(monde.bases.bleu.spawn, 0, 4));
     joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax; joueur.cds = {};
     joueur.angle = Math.PI / 2; joueur.root.rotation.y = joueur.angle;
     G.camTarget.copy(joueur.pos); G.scene.fog.color.set('#a8b8c8'); G.scene.fog.density = 0.006; G.scene.background.set('#9ab4d0');
     G.hemi.color.set('#d8e4ff'); G.hemi.groundColor.set('#4a5a3a'); G.hemi.intensity = 1.1; G.sun.color.set('#fff0d0'); G.sun.intensity = 1.5;
-    goulet = { score: { bleu: 0, rouge: 0 }, t: 600, debut: 5, fini: false, stats: { kills: 0, morts: 0, caps: 0, retours: 0 },
-      drapeaux: { bleu: { camp: 'bleu', etat: 'base', porteur: null, sol: null, t: 0, mesh: drapeauMesh('#3a7aff') }, rouge: { camp: 'rouge', etat: 'base', porteur: null, sol: null, t: 0, mesh: drapeauMesh('#ff3a3a') } } };
+    const dr = (camp) => ({ camp, etat: 'base', porteur: null, sol: null, t: 0, ...(() => { const m = drapeauMesh(COUL_CAMP[camp]); return { mesh: m.g, rayon: m.rayon, cercle: m.cercle }; })() });
+    goulet = { score: { bleu: 0, rouge: 0 }, t: DUREE_GOULET, debut: PREPA_GOULET, fini: false, vague: VAGUE_GOULET, morts: new Set(), sc: new Map(), assaut: 0, assautT: 0, dernierCap: null,
+      drapeaux: { bleu: dr('bleu'), rouge: dr('rouge') }, bonus: [] };
+    for (const b of monde.bonus) { const m = meshBonus(b.type); m.sp.position.set(b.pos.x, 1.4, b.pos.z); monde.groupe.add(m.sp); goulet.bonus.push({ ...b, sp: m.sp, coul: m.coul, t: 0 }); }
     const ipJ = statsHeros(J.equip).ip, rg = rangDe('arene').i, pris = [];
-    const roles = ['att', 'att', 'att', 'def', 'def', 'def', 'mil', 'mil', 'mil', 'att'];
+    const roles = ['att', 'att', 'att', 'att', 'def', 'def', 'def', 'mil', 'mil', 'mil'];
     for (let i = 0; i < 9; i++) {
       const d = donneesBot(ipJ + rnd(-60, 40), pris, rg); pris.push(d.nom);
-      const a = creerCombattant(pointLibrePres(monde.bases.bleu.spawn, 1, 6), d, 'allie');
-      Object.assign(a, { bg: { camp: 'bleu', role: roles[i] }, potions: 1, skill: Math.min(0.95, 0.6 + 0.06 * rg + rnd(-0.05, 0.1)) });
+      const a = creerCombattant(pointLibrePres(monde.bases.bleu.spawn, 1, 7), d, 'allie');
+      Object.assign(a, { bg: { camp: 'bleu', role: roles[i + 1], via: Math.random() < 0.35 ? 'tunnel' : 'porte' }, potions: 1, skill: Math.min(0.95, 0.6 + 0.06 * rg + rnd(-0.05, 0.1)) });
     }
     for (let i = 0; i < 10; i++) {
       const d = donneesBot(ipJ + rnd(-40, 70) + 25 * rg, pris, rg); pris.push(d.nom);
       d.skill = Math.max([0.55, 0.7, 0.8, 0.9, 0.95, 0.98][rg] || 0.55, Math.min(0.98, 0.6 + 0.07 * rg + rnd(-0.05, 0.12)));
-      const r = creerCombattant(pointLibrePres(monde.bases.rouge.spawn, 1, 6), d, 'ennemi');
-      Object.assign(r, { bg: { camp: 'rouge', role: roles[i] }, potions: 1, skill: d.skill, chasseur: false });
+      const r = creerCombattant(pointLibrePres(monde.bases.rouge.spawn, 1, 7), d, 'ennemi');
+      Object.assign(r, { bg: { camp: 'rouge', role: roles[i], via: Math.random() < 0.35 ? 'tunnel' : 'porte' }, potions: 1, skill: d.skill, chasseur: false });
       r.angle = -Math.PI / 2; r.root.rotation.y = r.angle;
     }
-    UI.journal('Goulet des Braises', 'Ramène le drapeau rouge à ton socle bleu. Impossible de marquer tant que ton propre drapeau est volé. 3 captures pour gagner.');
+    for (const x of [...membresGoulet('bleu'), ...membresGoulet('rouge')]) scoreDe(x);
+    UI.journal('Goulet des Braises', 'Entre dans le château rouge, prends leur drapeau dans la salle du fond et ramène-le à ton socle. Impossible de marquer tant que ton propre drapeau est volé. 3 captures pour gagner.');
     UI.zone('Goulet des Braises', '10 contre 10');
     $('#btnQuitter').hidden = false;
-    UI.toast('Le combat commence dans 5 secondes', true);
+    UI.toast(`Les portes s’ouvrent dans ${PREPA_GOULET} secondes`, true);
   });
+}
+// grille de passage (2 m) pour que les combattants contournent remparts, portes et tunnel
+function grilleGoulet() {
+  const C = 2, X0 = -80, Z0 = -32, W = 80, H = 32, g = new Uint8Array(W * H);
+  for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) g[z * W + x] = libre(X0 + x * C + C / 2, Z0 + z * C + C / 2, 0.8) ? 1 : 0;
+  Object.assign(monde, { grille: g, grilleW: W, grilleH: H, grilleC: C, grilleX0: X0, grilleZ0: Z0 });
+}
+function scoreDe(x) {
+  if (!x) return null; if (x.invoc) x = joueur;
+  let s = goulet.sc.get(x);
+  if (!s) { s = { nom: x === joueur ? J.nom : x.nom, camp: campDe(x), moi: x === joueur, arme: x === joueur ? (J.equip.arme && J.equip.arme.type) : x.data && x.data.equip && x.data.equip.arme && x.data.equip.arme.type, kb: 0, hk: 0, morts: 0, caps: 0, ret: 0, deg: 0, soin: 0 }; goulet.sc.set(x, s); }
+  return s;
+}
+const renomDe = (s, bonus = 0) => s.kb * 8 + s.hk * 3 + s.caps * 60 + s.ret * 15 + bonus;
+function lignesClassement() { return [...goulet.sc.values()].map(s => ({ ...s, renom: renomDe(s) })); }
+// modificateurs du champ de bataille appliqués à chaque coup (berserk, assaut ciblé) + statistiques du tableau des scores
+function modBG(src, cible, d) {
+  if (!goulet || !(d > 0)) return d;
+  if (src && src.invoc) src = joueur;
+  if (src && src.berserkT > 0) d *= 1.3;
+  if (cible.berserkT > 0) d *= 1.1;
+  if (goulet.assaut > 0 && estPorteur(cible)) d *= 1 + 0.1 * goulet.assaut;
+  cible.restoT = 0;
+  if (src && campDe(src) && campDe(src) !== campDe(cible)) { scoreDe(src).deg += Math.min(d, Math.max(0, cible.pv)); cible.dernierCoup = src; cible.dernierCoupT = G.t; (cible._agg || (cible._agg = new Map())).set(src, G.t); }
+  return d;
 }
 function iaGoulet(e, dt) {
   const def = e.armeDef;
   if (goulet.debut > 0 || goulet.fini) { e.jouer(def.idle); return true; }
   const camp = e.bg.camp, adv = camp === 'bleu' ? 'rouge' : 'bleu';
-  const base = monde.bases[camp].pos, baseAdv = monde.bases[adv].pos;
+  const B = monde.bases[camp], Badv = monde.bases[adv];
   const Fadv = goulet.drapeaux[adv], Fmien = goulet.drapeaux[camp];
   const v = e.st.vitesse * (e.slowT > 0 ? 0.6 : 1);
-  if (Fadv.porteur === e) { // je porte leur drapeau : je rentre, en me défendant seulement si on me colle
+  if (Fadv.porteur === e) { // je porte leur drapeau : je rentre (par la porte ou le tunnel), en me défendant seulement si on me colle
     const proche = adversairesGoulet(camp).some(x => dist2D(x.pos, e.pos) < 3.2);
     if (proche && Math.random() < 0.5) return false;
-    allerVers(e, base, dt, v * 0.92); e.jouer(def.run); return true;
+    const resto = goulet.bonus.find(b => b.t <= 0 && b.type === 'soin' && dist2D(b.pos, e.pos) < 14);
+    const obj = resto && e.pv < e.pvMax * 0.7 ? resto.pos : !B.dans(e.pos.x, e.pos.z) && e.bg.via === 'tunnel' && dist2D(B.tunnel, e.pos) > 3 && Math.abs(e.pos.x) > 40 ? B.tunnel : B.pos;
+    allerVers(e, obj, dt, v * 0.92); e.jouer(def.run); return true;
   }
   // les attaquants foncent vers le drapeau et ne se battent que si on leur barre la route ; défenseurs et milieux engagent plus loin
-  const foe = adversairesGoulet(camp).find(x => dist2D(x.pos, e.pos) < (e.bg.role === 'def' ? 13 : e.bg.role === 'att' ? (Fadv.etat === 'porte' ? 9 : 4.5) : 10));
+  const foe = adversairesGoulet(camp).find(x => dist2D(x.pos, e.pos) < (e.bg.role === 'def' ? 13 : e.bg.role === 'att' ? (Fadv.etat === 'porte' ? 9 : 4.5) : 10) && (estPorteur(x) || ligneLibre(x.pos, e.pos)));
   if (foe) return false; // combat normal (esquives, sorts, replis…)
+  // un bonus tout proche ?
+  const bon = goulet.bonus.find(b => b.t <= 0 && dist2D(b.pos, e.pos) < 12 && (b.type === 'soin' ? e.pv < e.pvMax * 0.65 : b.type === 'berserk' ? e.bg.role !== 'def' : e.bg.role === 'att'));
   let obj = null;
-  if (Fmien.etat === 'porte' && Fmien.porteur) obj = Fmien.porteur.pos; // tout le monde chasse le voleur
-  else if (Fmien.etat === 'sol' && dist2D(Fmien.sol, e.pos) < 40) obj = Fmien.sol; // on ramène notre drapeau
-  else if (e.bg.role === 'att') obj = Fadv.etat === 'porte' && Fadv.porteur ? Fadv.porteur.pos : Fadv.etat === 'sol' ? Fadv.sol : baseAdv; // escorte ou va le prendre
-  else if (e.bg.role === 'def') { if (!e.bgPoste || G.t > (e.bgPosteT || 0)) { e.bgPosteT = G.t + rnd(4, 8); e.bgPoste = V(base.x + (camp === 'bleu' ? 1 : -1) * rnd(4, 16), 0, rnd(-12, 12)); } obj = e.bgPoste; }
-  else { if (!e.bgPoste || G.t > (e.bgPosteT || 0)) { e.bgPosteT = G.t + rnd(5, 9); e.bgPoste = V(rnd(-18, 18), 0, rnd(-16, 16)); } obj = Fadv.etat === 'porte' && Fadv.porteur && Math.random() < 0.5 ? Fadv.porteur.pos : e.bgPoste; }
+  if (bon) obj = bon.pos;
+  else if (Fmien.etat === 'porte' && Fmien.porteur) obj = Fmien.porteur.pos; // tout le monde chasse le voleur
+  else if (Fmien.etat === 'sol' && dist2D(Fmien.sol, e.pos) < 45) obj = Fmien.sol; // on ramène notre drapeau
+  else if (e.bg.role === 'att') {
+    if (Fadv.etat === 'porte' && Fadv.porteur) obj = Fadv.porteur.pos; // escorte
+    else if (Fadv.etat === 'sol') obj = Fadv.sol;
+    else if (Fadv.etat === 'attente') obj = Badv.porte;
+    else obj = !Badv.dans(e.pos.x, e.pos.z) && e.bg.via === 'tunnel' && dist2D(Badv.tunnel, e.pos) > 3 ? Badv.tunnel : Badv.pos; // par la grande porte ou par le tunnel
+  }
+  else if (e.bg.role === 'def') { if (!e.bgPoste || G.t > (e.bgPosteT || 0)) { e.bgPosteT = G.t + rnd(4, 8); e.bgPoste = Math.random() < 0.6 ? pointLibrePres(B.pos, 2, 9) : pointLibrePres(B.spawn, 0, 8); } obj = e.bgPoste; }
+  else { if (!e.bgPoste || G.t > (e.bgPosteT || 0)) { e.bgPosteT = G.t + rnd(5, 9); e.bgPoste = V(rnd(-24, 24), 0, rnd(-18, 18)); } obj = Fadv.etat === 'porte' && Fadv.porteur && Math.random() < 0.5 ? Fadv.porteur.pos : e.bgPoste; }
   if (dist2D(obj, e.pos) > 2) { allerVers(e, obj, dt, v * 0.95); e.jouer(def.run); } else e.jouer(def.idle);
   return true;
 }
+function finBuffs(x) {
+  if (x.vitBuffT > 0) { x.vitBuffT = 0; if (x._vitBase) { x.st.vitesse = x._vitBase; x._vitBase = null; } }
+  if (x.berserkT > 0) { x.berserkT = 0; x.root.scale.divideScalar(1.1); }
+  x.restoT = 0;
+}
+function lacherDrapeaux(x) {
+  for (const F of Object.values(goulet.drapeaux)) if (F.porteur === x) {
+    F.porteur = null; F.etat = 'sol'; F.sol = V(x.pos.x, 0, x.pos.z); F.t = 10; x.dropT = G.t + 3; x.drapeauPorte = null;
+    UI.toast(`Drapeau ${F.camp} lâché !`, campDe(x) === 'bleu' ? false : true); onde(F.sol, COUL_CAMP[F.camp], 4, 0.6); son('impactWood_heavy_000', 0.5);
+  }
+}
 function mortGoulet(x) {
   x.mort = true; x.pv = 0;
-  if (x !== joueur) x.jouer(x.actions && x.actions.Death_A ? 'Death_A' : 'Death_A', { boucle: false });
-  for (const F of Object.values(goulet.drapeaux)) if (F.porteur === x) { F.porteur = null; F.etat = 'sol'; F.sol = x.pos.clone(); F.t = 20; UI.toast(`Drapeau ${F.camp} lâché !`); onde(F.sol, F.camp === 'bleu' ? '#3a7aff' : '#ff3a3a', 4, 0.6); }
+  if (x !== joueur) x.jouer('Death_A', { boucle: false });
+  lacherDrapeaux(x); finBuffs(x);
   const c = campDe(x);
-  if (c === 'rouge' && dernierAgresseurDe(x) === joueur) { goulet.stats.kills++; UI.nombre(V(x.pos.x, 2.6, x.pos.z), '+8 renommée', 'info'); }
-  if (x === joueur) { goulet.stats.morts++; UI.toast('Tu es tombé · retour au château dans 8 s', true); }
-  const jx = x;
-  programmer(8, () => {
-    if (!goulet || goulet.fini || !monde || monde.type !== 'goulet') return;
-    const sp = pointLibrePres(monde.bases[c].spawn, 0.5, 5);
-    jx.pos.copy(sp); jx.mort = false; jx.root.position.y = 0;
-    if (jx === joueur) { joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax; joueur.invuln = 2; joueur.jouer(joueur.def.idle); G.camTarget.copy(sp); }
-    else { jx.pv = jx.pvMax; jx.tc = null; jx.chemin = null; jx.jouer(jx.armeDef.idle); jx.potions = 1; }
-    onde(sp, c === 'bleu' ? '#3a7aff' : '#ff3a3a', 3, 0.5);
-  });
+  scoreDe(x).morts++;
+  // coup fatal et victoires honorables (tous ceux qui ont participé ou étaient à portée)
+  const tueur = x.dernierCoup && G.t - (x.dernierCoupT || -99) < 10 ? (x.dernierCoup.invoc ? joueur : x.dernierCoup) : null;
+  if (tueur) {
+    scoreDe(tueur).kb++;
+    const ct = campDe(tueur);
+    for (const m of membresGoulet(ct)) if (m && (m === tueur || (x._agg && G.t - (x._agg.get(m) || -99) < 12) || (!m.mort && dist2D(m.pos, x.pos) < 25))) { scoreDe(m).hk++; if (m === joueur) UI.nombre(V(x.pos.x, 2.9, x.pos.z), m === tueur ? 'Coup fatal · +11 renommée' : 'Victoire honorable · +3', 'info'); }
+  }
+  x._agg = null; x.dernierCoup = null;
+  if (x === joueur) UI.toast(`Tu es tombé · l’esprit guérisseur te relève dans ${Math.ceil(goulet.vague)} s`, true);
+  goulet.morts.add(x);
+}
+function relever(x) {
+  const c = campDe(x), sp = pointLibrePres(monde.bases[c].cimetiere, 0, 4);
+  x.pos.copy(sp); x.mort = false; x.root.position.y = 0;
+  if (x === joueur) { joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax; joueur.invuln = 2; joueur.jouer(joueur.def.idle); G.camTarget.copy(sp); }
+  else { x.pv = x.pvMax; x.tc = null; x.chemin = null; x.jouer(x.armeDef.idle); x.potions = 1; }
+  emettre(V(sp.x, 1, sp.z), { n: 24, c1: '#ffffff', c2: '#9ad8ff', vit: 3, vie: 0.8, taille: 0.4, grav: -3 });
+}
+function prendreBonus(x, b) {
+  b.t = 90; b.sp.visible = false; onde(b.pos, b.coul, 3, 0.4);
+  if (x === joueur) son('confirmation_001', 0.5);
+  if (b.type === 'vitesse') { if (!(x.vitBuffT > 0)) { x._vitBase = x.st.vitesse; x.st.vitesse *= 2; } x.vitBuffT = 10; if (x === joueur) UI.toast('Vitesse ! +100 % de vitesse pendant 10 s'); }
+  else if (b.type === 'berserk') { if (!(x.berserkT > 0)) x.root.scale.multiplyScalar(1.1); x.berserkT = 60; if (x === joueur) UI.toast('Berserk ! +30 % de dégâts, +10 % de dégâts subis · 1 min'); }
+  else { x.restoT = 10; if (x === joueur) UI.toast('Restauration : 10 % de vie par seconde · annulé si on te frappe'); }
 }
 const dernierAgresseurDe = (x) => G.t - (x.coupJoueurT || -99) < 2 ? joueur : null;
 function majGoulet(dt) {
   if (!goulet || goulet.fini) return;
-  if (goulet.debut > 0) { const avant = Math.ceil(goulet.debut); goulet.debut -= dt; if (Math.ceil(goulet.debut) !== avant && goulet.debut > 0) UI.toast(String(Math.ceil(goulet.debut))); if (goulet.debut <= 0) { UI.toast('À L’ATTAQUE !', true); son('jingle_win', 0.5); } UI.scoreGoulet(goulet); return; }
+  const bases = monde.bases;
+  if (goulet.debut > 0) {
+    const avant = Math.ceil(goulet.debut); goulet.debut -= dt; const n = Math.ceil(goulet.debut);
+    if (n !== avant && goulet.debut > 0 && (n <= 5 || n === 10)) UI.toast(n === 10 ? 'Les portes s’ouvrent dans 10 secondes' : String(n));
+    if (goulet.debut <= 0) {
+      UI.toast('LES PORTES SONT OUVERTES · À L’ATTAQUE !', true); son('jingle_win', 0.5); son('doorOpen_1', 0.7, 0.7);
+      for (const b of Object.values(bases)) { for (const c of b.portes) { const i = monde.collisions.indexOf(c); if (i >= 0) monde.collisions.splice(i, 1); } for (const h of b.herses) G.anims.push((t, d) => { if (h.position.y < 6.2) h.position.y += d * 3; }); }
+    }
+    UI.scoreGoulet(goulet); return;
+  }
   goulet.t -= dt;
+  // vagues de résurrection
+  goulet.vague -= dt;
+  if (goulet.vague <= 0) { goulet.vague = VAGUE_GOULET; for (const x of goulet.morts) relever(x); goulet.morts.clear(); }
+  // bonus
+  for (const b of goulet.bonus) {
+    if (b.t > 0) { b.t -= dt; if (b.t <= 0) { b.sp.visible = true; onde(b.pos, b.coul, 2.5, 0.4); } continue; }
+    b.sp.position.y = 1.4 + Math.sin(G.t * 3) * 0.2;
+    const x = [...adversairesGoulet('rouge'), ...adversairesGoulet('bleu')].find(m => dist2D(m.pos, b.pos) < 1.4);
+    if (x) prendreBonus(x, b);
+  }
+  for (const x of [...adversairesGoulet('rouge'), ...adversairesGoulet('bleu')]) {
+    if (x.vitBuffT > 0) { x.vitBuffT -= dt; if (Math.random() < 0.3) emettre(V(x.pos.x, 0.3, x.pos.z), { n: 1, c1: '#fff8c0', c2: '#ffd23a', vit: 1, vie: 0.4, taille: 0.25 }); if (x.vitBuffT <= 0 && x._vitBase) { x.st.vitesse = x._vitBase; x._vitBase = null; } }
+    if (x.berserkT > 0) { x.berserkT -= dt; if (Math.random() < 0.25) emettre(V(x.pos.x, 1.2, x.pos.z), { n: 1, c1: '#ffb08a', c2: '#ff2a0a', vit: 1.5, vie: 0.4, taille: 0.3 }); if (x.berserkT <= 0) x.root.scale.divideScalar(1.1); }
+    if (x.restoT > 0) { x.restoT -= dt; const pm = pvMaxDe(x), h = Math.min(pm * 0.1 * dt, pm - x.pv); if (h > 0) { x.pv += h; scoreDe(x).soin += h; } if (Math.random() < 0.3) emettre(V(x.pos.x, 0.4, x.pos.z), { n: 1, c1: '#d0ffd8', c2: '#3aff6a', vit: 1, vie: 0.6, taille: 0.25, grav: -2 }); }
+  }
+  // assaut ciblé / brutal quand les deux drapeaux ont quitté leur socle
+  const dehors = Object.values(goulet.drapeaux).every(F => F.etat === 'porte' || F.etat === 'sol');
+  if (dehors) {
+    goulet.assautT += dt; const n = Math.min(10, Math.floor(goulet.assautT / 30));
+    if (n > goulet.assaut) { goulet.assaut = n; UI.toast(n <= 5 ? `Assaut ciblé ×${n} : les porteurs subissent +${n * 10} % de dégâts` : `ASSAUT BRUTAL ×${n} : porteurs à +${n * 10} % de dégâts subis`, true); for (const F of Object.values(goulet.drapeaux)) if (F.porteur && n > 5) { const p = F.porteur; if (p.vitBuffT > 0) { p.vitBuffT = 0.01; } } }
+  } else { goulet.assautT = 0; goulet.assaut = 0; }
   for (const F of Object.values(goulet.drapeaux)) {
-    const adv = F.camp === 'bleu' ? 'rouge' : 'bleu';
-    const pos = F.etat === 'base' ? monde.bases[F.camp].pos : F.etat === 'sol' ? F.sol : F.porteur.pos;
-    if (F.etat === 'base' || F.etat === 'sol') {
-      // un adversaire le ramasse
-      const voleur = adversairesGoulet(F.camp).find(x => dist2D(x.pos, pos) < 2.4);
-      if (voleur) { F.etat = 'porte'; F.porteur = voleur; F.sol = null; UI.toast(voleur === joueur ? 'TU AS LE DRAPEAU ! Ramène-le à ton socle' : `${voleur.nom} a pris le drapeau ${F.camp} !`, voleur === joueur); son('jingle_legend', 0.4, 1.2); }
-      else if (F.etat === 'sol') {
+    const sonSocle = bases[F.camp].pos;
+    if (F.etat === 'attente') { F.t -= dt; if (F.t <= 0) { F.etat = 'base'; UI.toast(`Le drapeau ${F.camp} est de retour sur son socle`); } }
+    else if (F.etat === 'base' || F.etat === 'sol') {
+      const pos = F.etat === 'base' ? sonSocle : F.sol;
+      const voleur = adversairesGoulet(F.camp).find(x => dist2D(x.pos, pos) < 2.2 && !(x.dropT > G.t) && !estPorteur(x));
+      if (voleur) {
+        F.etat = 'porte'; F.porteur = voleur; F.sol = null; voleur.drapeauPorte = F.camp;
+        const amis = campDe(voleur) === 'bleu';
+        UI.toast(voleur === joueur ? 'TU AS LE DRAPEAU ! Ramène-le à ton socle' : amis ? `${voleur.nom} a pris le drapeau rouge !` : `${voleur.nom} a volé ton drapeau !`, true);
+        son(amis ? 'jingle_legend' : 'lowFrequency_explosion_000', 0.45, amis ? 1.2 : 0.8);
+      } else if (F.etat === 'sol') {
         F.t -= dt;
-        const gardien = membresGoulet(F.camp).find(x => x && !x.mort && dist2D(x.pos, pos) < 2.4);
-        if (gardien || F.t <= 0) { F.etat = 'base'; F.sol = null; if (gardien === joueur) { goulet.stats.retours++; UI.toast('Drapeau bleu ramené ! +15 renommée'); } else UI.toast(`Drapeau ${F.camp} rentré au château`); son('confirmation_001', 0.4); }
+        const gardien = membresGoulet(F.camp).find(x => x && !x.mort && dist2D(x.pos, pos) < 2.2);
+        if (gardien || F.t <= 0) {
+          F.etat = 'base'; F.sol = null;
+          if (gardien) { scoreDe(gardien).ret++; if (gardien === joueur) UI.nombre(V(joueur.pos.x, 2.8, joueur.pos.z), 'Drapeau ramené · +15 renommée', 'info'); }
+          UI.toast(gardien ? `${gardien === joueur ? 'Tu as' : gardien.nom + ' a'} ramené le drapeau ${F.camp} !` : `Le drapeau ${F.camp} est rentré au château`); son('confirmation_001', 0.4);
+        }
       }
     } else if (F.etat === 'porte') {
       const p = F.porteur; const sonCamp = campDe(p);
-      // le porteur arrive chez lui : il marque si son propre drapeau est bien au socle
-      if (dist2D(p.pos, monde.bases[sonCamp].pos) < 3.2) {
+      if (dist2D(p.pos, bases[sonCamp].pos) < 3) { // le porteur arrive à son socle : il marque si son propre drapeau y est
         if (goulet.drapeaux[sonCamp].etat === 'base') {
-          goulet.score[sonCamp]++; F.etat = 'base'; F.porteur = null;
-          if (p === joueur) goulet.stats.caps++;
-          UI.toast(sonCamp === 'bleu' ? `CAPTURE BLEUE ! ${goulet.score.bleu} – ${goulet.score.rouge}` : `Capture rouge… ${goulet.score.bleu} – ${goulet.score.rouge}`, true);
-          son(sonCamp === 'bleu' ? 'jingle_win' : 'lowFrequency_explosion_000', 0.6); onde(monde.bases[sonCamp].pos, sonCamp === 'bleu' ? '#3a7aff' : '#ff3a3a', 10, 1.2); G.shake = 0.6;
+          goulet.score[sonCamp]++; goulet.dernierCap = sonCamp; p.drapeauPorte = null; F.porteur = null;
+          for (const D of Object.values(goulet.drapeaux)) { D.etat = 'attente'; D.t = 20; D.porteur = null; D.sol = null; }
+          scoreDe(p).caps++;
+          UI.toast(sonCamp === 'bleu' ? `${p === joueur ? 'TU AS CAPTURÉ' : p.nom.toUpperCase() + ' A CAPTURÉ'} LE DRAPEAU ROUGE ! ${goulet.score.bleu} – ${goulet.score.rouge}` : `${p.nom} a capturé ton drapeau… ${goulet.score.bleu} – ${goulet.score.rouge}`, true);
+          UI.toast('Les drapeaux reviennent dans 20 secondes');
+          son(sonCamp === 'bleu' ? 'jingle_win' : 'lowFrequency_explosion_000', 0.6); onde(bases[sonCamp].pos, COUL_CAMP[sonCamp], 10, 1.2); G.shake = 0.6;
           if (goulet.score[sonCamp] >= 3) return finGoulet(sonCamp === 'bleu');
-        } else if (!p._msgBloque || G.t - p._msgBloque > 6) { p._msgBloque = G.t; if (p === joueur) UI.toast('Impossible de marquer : ton drapeau a été volé !'); }
+        } else if (!p._msgBloque || G.t - p._msgBloque > 6) { p._msgBloque = G.t; if (p === joueur) UI.toast('Impossible de marquer : ton drapeau a été volé ! Tes alliés doivent le récupérer'); }
       }
     }
-    // position du drapeau
-    const q = F.etat === 'base' ? monde.bases[F.camp].pos : F.etat === 'sol' ? F.sol : F.porteur.pos;
-    F.mesh.position.set(q.x, F.etat === 'porte' ? 1.2 : 0.5, q.z);
-    F.mesh.scale.setScalar(F.etat === 'porte' ? 0.75 : 1);
+    // affichage : socle, à terre, ou sur le dos du porteur
+    const m = F.mesh; m.visible = F.etat !== 'attente';
+    if (F.etat === 'porte') {
+      const p = F.porteur, a = p.angle ?? p.root.rotation.y;
+      m.position.set(p.pos.x - Math.sin(a) * 0.38, 0.7 + (p.root.position.y || 0), p.pos.z - Math.cos(a) * 0.38);
+      m.rotation.set(0, Math.atan2(Math.cos(a), -Math.sin(a)), 0); m.rotateZ(-0.28); m.scale.setScalar(0.8);
+    } else {
+      const q = F.etat === 'sol' ? F.sol : sonSocle;
+      m.position.set(q.x, F.etat === 'sol' ? 0 : 0.5, q.z); m.rotation.set(0, G.t * 0.4, 0); m.scale.setScalar(1);
+    }
+    const loin = F.etat === 'porte' || F.etat === 'sol';
+    F.rayon.visible = loin; F.cercle.visible = F.etat === 'porte';
+    if (loin) { F.rayon.position.x = m.position.x; F.rayon.position.z = m.position.z; F.cercle.position.x = m.position.x; F.cercle.position.z = m.position.z; }
   }
-  if (goulet.t <= 0) return finGoulet(goulet.score.bleu > goulet.score.rouge ? true : goulet.score.bleu < goulet.score.rouge ? false : null);
+  if (goulet.t <= 0) {
+    const { bleu, rouge } = goulet.score;
+    return finGoulet(bleu > rouge ? true : bleu < rouge ? false : goulet.dernierCap ? goulet.dernierCap === 'bleu' : null);
+  }
+  goulet.resJ = joueur.mort ? Math.ceil(goulet.vague) : 0;
   UI.scoreGoulet(goulet);
+  // flèches au bord de l'écran vers les porteurs hors champ
+  const fl = [];
+  for (const F of Object.values(goulet.drapeaux)) if ((F.etat === 'porte' && F.porteur !== joueur) || F.etat === 'sol') {
+    const s = projeter(V(F.mesh.position.x, 1.5, F.mesh.position.z));
+    if (s.visible && s.x > 30 && s.x < innerWidth - 30 && s.y > 30 && s.y < innerHeight - 30) continue;
+    fl.push({ x: s.visible ? s.x : innerWidth - s.x, y: s.visible ? s.y : innerHeight - s.y, c: COUL_CAMP[F.camp], nom: F.etat === 'sol' ? 'à terre' : F.porteur.nom });
+  }
+  UI.flechesDrapeau(fl);
+}
+function ciblerPorteur(camp) {
+  if (!goulet) return; const F = goulet.drapeaux[camp];
+  if (F.etat === 'porte' && F.porteur && campDe(F.porteur) !== 'bleu') { joueur.cibleVerrou = F.porteur; UI.toast(`Cible : ${F.porteur.nom}`); son('click_001', 0.3); }
 }
 function finGoulet(victoire) {
-  goulet.fini = true; UI.scoreGoulet(null);
-  const s = goulet.stats;
-  const renom = s.kills * 8 + s.caps * 60 + s.retours * 15 + (victoire === true ? 200 : victoire === false ? 60 : 110);
+  goulet.fini = true; UI.scoreGoulet(null); UI.flechesDrapeau([]);
+  for (const x of [...membresGoulet('bleu'), ...membresGoulet('rouge')]) if (x) { finBuffs(x); x.drapeauPorte = null; }
+  for (const F of Object.values(goulet.drapeaux)) { F.rayon.visible = false; F.cercle.visible = false; }
+  const s = scoreDe(joueur);
+  const bonus = victoire === true ? 200 : victoire === false ? 60 : 110;
+  const renom = renomDe(s, bonus);
   J.renom = (J.renom || 0) + renom;
   const gainA = Math.round((victoire === true ? 90000 : 30000) * (1 + 0.3 * rangDe('arene').i)); J.argent += gainA;
   gagnerXP(Math.round(8 * 14 * (victoire ? 60 : 25)));
   if (victoire !== null) changerRang('arene', victoire ? 12 : -8, victoire ? 'Victoire au Goulet' : 'Défaite au Goulet');
   sauver();
-  const lignes = [`Score final : 🔵 ${goulet.score.bleu} – ${goulet.score.rouge} 🔴`, `Ennemis abattus : ${s.kills} · captures : ${s.caps} · drapeaux ramenés : ${s.retours} · morts : ${s.morts}`, `✦ +${renom} renommée (total ${fmtN(J.renom)})`, `+ ${fmtN(gainA)} d’argent`];
-  setTimeout(() => UI.resultatArene({ victoire: victoire === true, lignes, refaire: 'Goulet des Braises', titre: victoire === null ? 'Égalité' : null }, (refaire) => { goulet = null; if (refaire && etatPortailGoulet().ouvert) entrerGoulet(); else { if (refaire) UI.toast('Le portail du Goulet est refermé : reviens à sa prochaine ouverture'); fondu(() => lancerHub()); } }), 1200);
+  const lignes = [`Score final : 🔵 ${goulet.score.bleu} – ${goulet.score.rouge} 🔴`, `Coups fatals : ${s.kb} · victoires honorables : ${s.hk} · captures : ${s.caps} · drapeaux ramenés : ${s.ret} · morts : ${s.morts}`, `✦ +${renom} renommée (total ${fmtN(J.renom)})`, `+ ${fmtN(gainA)} d’argent`];
+  const rows = lignesClassement(); const moiR = rows.find(r => r.moi); if (moiR) moiR.renom = renom;
+  const titre = victoire === null ? 'Égalité' : (victoire ? 'L’ÉQUIPE BLEUE L’EMPORTE' : 'L’ÉQUIPE ROUGE L’EMPORTE');
+  setTimeout(() => UI.classementGoulet({ rows, fin: true, titre, victoire, score: goulet.score }, () =>
+    UI.resultatArene({ victoire: victoire === true, lignes, refaire: 'Goulet des Braises', titre: victoire === null ? 'Égalité' : null }, (refaire) => { goulet = null; if (refaire && etatPortailGoulet().ouvert) entrerGoulet(); else { if (refaire) UI.toast('Le portail du Goulet est refermé : reviens à sa prochaine ouverture'); fondu(() => lancerHub()); } })), 1400);
 }
 // ---------------- Refaire ----------------
 function memoriserMode(nom, fn) { G.dernier = { nom, fn }; UI.boutonRefaire(null); }
@@ -871,6 +1036,7 @@ function blesser(e, mult, opts = {}) {
   if (e.bouclierIA > 0) { const a = Math.min(e.bouclierIA, d); e.bouclierIA -= a; d -= a; emettre(V(e.pos.x, 1.2, e.pos.z), { n: 5, c1: '#bfe6ff', c2: '#4a9aff', vit: 3, vie: 0.4, taille: 0.3 }); if (d <= 0) { UI.nombre(V(e.pos.x, e.hauteurPlaque * 0.8, e.pos.z), 'Absorbé', 'info'); return; } }
   if (e.combattant && !opts.fixe && joueur.st.pvp) d *= 1 + joueur.st.pvp / 200;
   if (!opts.fixe && joueur.vampT > 0 && !joueur.mort) { joueur.pv = Math.min(joueur.st.pvMax, joueur.pv + d * 0.35); if (Math.random() < 0.5) emettre(V(joueur.pos.x, 1.2, joueur.pos.z), { n: 4, c1: '#ff8aa0', c2: '#c0103a', vit: 1.5, vie: 0.5, taille: 0.3 }); }
+  if (goulet && e.bg) d = modBG(auteurCoup || joueur, e, d);
   e.pv -= d; e.frapper();
   if (compteur) noterDegats(auteurCoup || joueur, Math.min(d, d + e.pv));
   UI.nombre(V(e.pos.x, e.hauteurPlaque * 0.8, e.pos.z), Math.round(d), crit ? 'crit' : '');
@@ -952,6 +1118,7 @@ function blesserJoueur(d, source = null) {
   if (joueur.bouclier > 0) { const a = Math.min(joueur.bouclier, d); joueur.bouclier -= a; d -= a; emettre(V(joueur.pos.x, 1.2, joueur.pos.z), { n: 6, c1: '#bfe6ff', c2: '#4a9aff', vit: 3, vie: 0.4, taille: 0.3 }); }
   if (d <= 0) return;
   if (source) dernierAgresseur = source;
+  if (goulet) d = modBG(source, joueur, d);
   joueur.pv -= d; joueur.frapper(); joueur.combatT = 4;
   UI.nombre(V(joueur.pos.x, 2.2, joueur.pos.z), Math.round(d), 'joueur');
   G.shake = Math.min(1, G.shake + d / joueur.st.pvMax * 3);
@@ -1351,8 +1518,8 @@ function majJoueur(dt) {
   j.energie = Math.min(st.energieMax, j.energie + dt * (6 + st.energieMax * 0.012));
   const regen = j.combatT > 0 ? st.regen * 0.25 : st.regen * 3;
   j.pv = Math.min(st.pvMax, j.pv + st.pvMax * regen / 100 * dt);
-  if (j.soinT > 0) { j.soinT -= dt; const h = st.pvMax * 0.1 * dt; j.pv = Math.min(st.pvMax, j.pv + h); if (Math.random() < 0.5) emettre(V(j.pos.x, 0.4, j.pos.z), { n: 1, c1: '#bfffb0', c2: '#3aff4a', dir: V(0, 1, 0), vit: 2, rayon: 0.7, vie: 0.8, taille: 0.3 }); }
-  if (j.potionT > 0) { j.potionT -= dt; j.pv = Math.min(st.pvMax, j.pv + st.pvMax * 0.4 * dt); }
+  if (j.soinT > 0) { j.soinT -= dt; const h = st.pvMax * 0.1 * dt; if (goulet) scoreDe(j).soin += Math.min(h, st.pvMax - j.pv); j.pv = Math.min(st.pvMax, j.pv + h); if (Math.random() < 0.5) emettre(V(j.pos.x, 0.4, j.pos.z), { n: 1, c1: '#bfffb0', c2: '#3aff4a', dir: V(0, 1, 0), vit: 2, rayon: 0.7, vie: 0.8, taille: 0.3 }); }
+  if (j.potionT > 0) { j.potionT -= dt; if (goulet) scoreDe(j).soin += Math.min(st.pvMax * 0.4 * dt, st.pvMax - j.pv); j.pv = Math.min(st.pvMax, j.pv + st.pvMax * 0.4 * dt); }
   if (j.bouclierT > 0) { j.bouclierT -= dt; if (j.bouclierT <= 0) j.bouclier = 0; }
   if (j.sprintT > 0) { j.sprintT -= dt; if (Math.random() < 0.4) emettre(V(j.pos.x, 0.2, j.pos.z), { n: 1, c1: '#fff2b0', c2: '#ffcf4a', vit: 0.5, vie: 0.5, taille: 0.3 }); }
   if (j.slowT > 0) j.slowT -= dt;
@@ -1468,7 +1635,7 @@ function majAbime(dt) {
 }
 // ---------------- Mode auto ----------------
 function pvpActif() {
-  if (arene) return true;
+  if (arene || goulet) return true;
   if (invasion && !invasion.fini && (invasion.mode === 'menee' || (invasion.rivaux || []).some(r => !r.mort) || invasion.rival && !invasion.rival.mort)) return true;
   return ennemis.some(e => e.rival && !e.mort);
 }
@@ -1751,6 +1918,8 @@ function ajouterSac(it, silencieux = false) {
   if (!silencieux) UI.toast('+ ' + nomObjet(it));
 }
 const API = {
+  ciblerPorteur: (camp) => ciblerPorteur(camp),
+  classementGoulet: () => goulet ? lignesClassement() : null,
   reconstruireSorts: () => { if (joueur) UI.construireSorts(joueur); },
   basculerAuto: () => { if (!G.auto && pvpActif()) { UI.toast('Mode auto interdit en JcJ'); return false; } G.auto = !G.auto; try { localStorage.setItem('breche-auto', G.auto ? '1' : '0'); } catch (e) {} if (joueur) joueur.autoCible = null; UI.toast(G.auto ? 'Mode auto activé' : 'Mode auto désactivé'); return G.auto; },
   autoActif: () => !!G.auto,
@@ -1997,6 +2166,7 @@ function initEntrees() {
     if (['Q', 'W', 'E', 'R', 'D', 'F'].includes(k)) API.touche(k, true);
     if (k === '1') API.touche('POT', true);
     if (k === 'I') UI.ouvrirInventaire();
+    if (e.key === 'Tab' && goulet) { e.preventDefault(); UI.classementGoulet(UI.classementOuvert() ? null : { live: true }); }
     if (k === 'T') API.touche('CIBLE', true);
   });
   window.addEventListener('keyup', (e) => { entree.clavier[e.key] = false; });
@@ -2099,7 +2269,8 @@ function majMini() {
   } else if (monde.type === 'goulet') {
     for (const a of allies) if (!a.mort && a.bg) ents.push({ type: 'allie', x: a.pos.x, z: a.pos.z });
     for (const e of ennemis) if (!e.mort && dist2D(e.pos, joueur.pos) < 30) ents.push({ type: 'rouge', x: e.pos.x, z: e.pos.z });
-    if (goulet) for (const F of Object.values(goulet.drapeaux)) ents.push({ type: 'drapeau', x: F.mesh.position.x, z: F.mesh.position.z, c: F.camp === 'bleu' ? '#3a7aff' : '#ff3a3a' });
+    if (goulet) for (const F of Object.values(goulet.drapeaux)) if (F.etat !== 'attente') ents.push({ type: 'drapeau', x: F.mesh.position.x, z: F.mesh.position.z, c: COUL_CAMP[F.camp], porte: F.etat === 'porte' });
+    if (goulet) for (const b of goulet.bonus) if (b.t <= 0) ents.push({ type: 'bonusBG', x: b.pos.x, z: b.pos.z, c: b.coul });
   } else if (monde.type === 'ile') {
     for (const e of ennemis) if (!e.mort) ents.push({ type: 'boss', x: e.pos.x, z: e.pos.z });
     for (const a of allies) if (!a.mort) ents.push({ type: 'allie', x: a.pos.x, z: a.pos.z });
@@ -2259,6 +2430,7 @@ function blesserAllie(a, d, src, opts = {}) {
   d = d * (1 - a.reduction) * rnd(0.92, 1.08) * (a.invoc ? 1 : 1.3);
   a.coupT = 5;
   if (a.bouclierIA > 0) { const b = Math.min(a.bouclierIA, d); a.bouclierIA -= b; d -= b; if (d <= 0) return; }
+  if (goulet && a.bg) d = modBG(src, a, d);
   a.pv -= d; a.frapper();
   UI.nombre(V(a.pos.x, 2.2, a.pos.z), Math.round(d), 'allie');
   if (opts.slow) a.slowT = Math.max(a.slowT, opts.slow);
@@ -2306,7 +2478,7 @@ function majCombattant(e, dt) {
   e.tc = cibleIA(e);
   if (e.camp === 'ennemi' && e.skill > 0.6) { e.focusT = (e.focusT || 0) - dt; if (e.focusT <= 0) { e.focusT = 1.5; const l = adversaires(e).filter(x => dist2D(x.pos, e.pos) < 14); if (l.length > 1) e.focus = l.reduce((a, b) => (a.pv / a.pvMax < b.pv / b.pvMax ? a : b)); else e.focus = null; } if (e.focus && !e.focus.mort) e.tc = e.focus; }
   if (e.camp === 'ennemi' && e.skill !== undefined && e.tc && esquiveExperte(e, dt, melee)) return;
-  if (e.potionT > 0) { e.potionT -= dt; e.pv = Math.min(e.pvMax, e.pv + e.pvMax * 0.4 * dt); if (Math.random() < 0.4) emettre(V(e.pos.x, 0.5, e.pos.z), { n: 1, c1: '#ff8a9a', c2: '#ff2a4a', dir: V(0, 1, 0), vit: 2, rayon: 0.6, vie: 0.6, taille: 0.3 }); }
+  if (e.potionT > 0) { e.potionT -= dt; if (goulet && e.bg) scoreDe(e).soin += Math.min(e.pvMax * 0.4 * dt, e.pvMax - e.pv); e.pv = Math.min(e.pvMax, e.pv + e.pvMax * 0.4 * dt); if (Math.random() < 0.4) emettre(V(e.pos.x, 0.5, e.pos.z), { n: 1, c1: '#ff8a9a', c2: '#ff2a4a', dir: V(0, 1, 0), vit: 2, rayon: 0.6, vie: 0.6, taille: 0.3 }); }
   e.potionCd = (e.potionCd || 0) - dt; e.cdRempart = (e.cdRempart || 0) - dt;
   if (e.bouclierT > 0) { e.bouclierT -= dt; if (e.bouclierT <= 0) e.bouclierIA = 0; }
   e.pvT = (e.pvT || 0) - dt; if (e.pvT <= 0) { e.pvT = 2; e.pvRef = e.pv; }
@@ -2449,6 +2621,7 @@ function majAllies(dt) {
   }
 }
 function majCadreAutre() {
+  if (goulet) return UI.cadreAutre(null);
   if (selection && !modeActuel) return UI.cadreAutre(selection.data, { membre: !!(groupe && groupe.nom === selection.nom) });
   const a = coequipiers()[0];
   if (a) return UI.cadreAutre(a.data, { membre: true, pv: a.pv / a.pvMax, en: 1 });
@@ -3325,8 +3498,8 @@ function cacherVisee() { if (viseeObj) { viseeObj.g.visible = false; viseeObj.fl
 
 // ---------------- Chemins dans le donjon (grille) ----------------
 function cheminGrille(a, b) {
-  const W = monde.grilleW, H = monde.grilleH, g = monde.grille, C = 4;
-  const ax = Math.floor(a.x / C), az = Math.floor(a.z / C), bx = Math.floor(b.x / C), bz = Math.floor(b.z / C);
+  const W = monde.grilleW, H = monde.grilleH, g = monde.grille, C = monde.grilleC || 4, OX = monde.grilleX0 || 0, OZ = monde.grilleZ0 || 0;
+  const ax = Math.floor((a.x - OX) / C), az = Math.floor((a.z - OZ) / C), bx = Math.floor((b.x - OX) / C), bz = Math.floor((b.z - OZ) / C);
   if (bx < 0 || bz < 0 || bx >= W || bz >= H || !g[bz * W + bx]) return null;
   if (!cheminGrille.prec || cheminGrille.prec.length !== W * H) { cheminGrille.prec = new Int32Array(W * H); cheminGrille.file = new Int32Array(W * H); }
   if (ax < 0 || az < 0 || ax >= W || az >= H) return null;
@@ -3344,7 +3517,7 @@ function cheminGrille(a, b) {
     }
   }
   if (prec[but] < 0) return null;
-  const pts = []; for (let c = but; c !== prec[c]; c = prec[c]) pts.push(V((c % W) * C + C / 2, 0, ((c / W) | 0) * C + C / 2));
+  const pts = []; for (let c = but; c !== prec[c]; c = prec[c]) pts.push(V(OX + (c % W) * C + C / 2, 0, OZ + ((c / W) | 0) * C + C / 2));
   return pts.reverse();
 }
 // va vers une destination en contournant les murs du donjon
@@ -3362,7 +3535,7 @@ function allerVers(e, dest, dt, vitesse) {
     const w = monde.pointA(se + Math.sign(sd - se) * Math.min(5, Math.abs(sd - se)));
     avancerVers(e, w.p, dt, vitesse); return;
   }
-  if (!monde.grille || dist2D(e.pos, dest) < 7 && (e !== joueur || ligneLibre(e.pos, dest))) { avancerVers(e, dest, dt, vitesse); return; }
+  if (!monde.grille || dist2D(e.pos, dest) < 7 && ((e !== joueur && monde.type !== 'goulet') || ligneLibre(e.pos, dest))) { avancerVers(e, dest, dt, vitesse); return; }
   const ch = e.chemin;
   if (!ch || ch.t <= 0 || dist2D(ch.dest, dest) > 4) { e.chemin = { pts: cheminGrille(e.pos, dest) || [], i: 0, dest: dest.clone(), t: 1.5 }; }
   e.chemin.t -= dt;

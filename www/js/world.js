@@ -635,12 +635,39 @@ export function construireIle(ile, etranger = false) {
 
 // un nœud passe en objet « réel » pendant qu’on le secoue, le coupe ou qu’il repousse, puis revient en instance
 const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
-// ---------------- Le Goulet des Braises : champ de bataille 10 contre 10 ----------------
+// ---------------- Le Goulet des Braises : champ de bataille 10 contre 10 (calqué sur le Goulet des Chanteguerres) ----------------
+// étendard peint à la main aux couleurs du camp
+function etendard(groupe, x, z, rotY, coul, camp, h = 5.2) {
+  const tex = texture('etendard_' + camp, 128, 256, (g, w, hh) => {
+    const gr = g.createLinearGradient(0, 0, 0, hh); gr.addColorStop(0, coul); gr.addColorStop(1, camp === 'bleu' ? '#0c1c4a' : '#4a0c0c');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(0, 0); g.lineTo(w, 0); g.lineTo(w, hh - 40); g.lineTo(w / 2, hh); g.lineTo(0, hh - 40); g.closePath(); g.fill();
+    g.strokeStyle = '#ffd27a'; g.lineWidth = 7; g.stroke();
+    g.fillStyle = '#ffd27a'; g.strokeStyle = '#7a5a1a'; g.lineWidth = 3;
+    if (camp === 'bleu') { // aile et étoile de la garde d'azur
+      g.beginPath(); g.moveTo(64, 60); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 11 : 26; g.lineTo(64 + Math.cos(a) * r, 92 + Math.sin(a) * r); } g.closePath(); g.fill(); g.stroke();
+      for (let i = 0; i < 4; i++) { g.beginPath(); g.moveTo(30, 130 + i * 18); g.quadraticCurveTo(64, 116 + i * 18, 98, 130 + i * 18); g.lineTo(90, 140 + i * 18); g.quadraticCurveTo(64, 128 + i * 18, 38, 140 + i * 18); g.closePath(); g.fill(); g.stroke(); }
+    } else { // flamme de la horde des braises
+      g.beginPath(); g.moveTo(64, 56); g.bezierCurveTo(96, 96, 104, 130, 86, 170); g.bezierCurveTo(84, 146, 74, 136, 70, 128); g.bezierCurveTo(74, 160, 62, 186, 64, 200); g.bezierCurveTo(40, 186, 26, 150, 44, 118); g.bezierCurveTo(46, 134, 52, 140, 56, 142); g.bezierCurveTo(48, 110, 54, 84, 64, 56); g.fill(); g.stroke();
+    }
+  });
+  const g = new THREE.Group();
+  const hampe = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, h + 0.6, 6), new THREE.MeshStandardMaterial({ color: '#4a3020', roughness: 0.7 })); hampe.position.y = (h + 0.6) / 2; g.add(hampe);
+  const barre = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 1.7, 6), hampe.material); barre.rotation.z = Math.PI / 2; barre.position.y = h; g.add(barre);
+  const toile = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 3.2), new THREE.MeshStandardMaterial({ map: tex, side: THREE.DoubleSide, transparent: true, alphaTest: 0.5, roughness: 0.9 }));
+  toile.position.y = h - 1.6; g.add(toile);
+  g.position.set(x, 0, z); g.rotation.y = rotY; groupe.add(g);
+}
+// herse de fer : fermée pendant la préparation, elle se lève au début du combat
+function herse(groupe, x, z, largeur, rotY) {
+  const g = new THREE.Group(); const fer = new THREE.MeshStandardMaterial({ color: '#2a2a30', metalness: 0.7, roughness: 0.45 });
+  for (let u = -largeur / 2 + 0.25; u <= largeur / 2; u += 0.55) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.14, 6, 0.14), fer); b.position.set(u, 3, 0); g.add(b); const p = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.35, 4), fer); p.position.set(u, -0.1, 0); p.rotation.x = Math.PI; g.add(p); }
+  for (let y = 0.8; y < 6; y += 1.1) { const b = new THREE.Mesh(new THREE.BoxGeometry(largeur, 0.12, 0.12), fer); b.position.y = y; g.add(b); }
+  g.position.set(x, 0, z); g.rotation.y = rotY; g.traverse(o => { if (o.isMesh) o.castShadow = true; }); groupe.add(g); return g;
+}
 export function construireGoulet() {
   const groupe = new THREE.Group();
   G.torches = []; G.feux = []; G.anims = [];
-  const L = 70, Lz = 30; // demi-longueur et demi-largeur
-  // sol : terre brûlée et herbe, au pinceau
+  const L = 70, Lz = 30; // demi-longueur et demi-largeur du champ
   const tex = texture('sol_goulet', 512, 512, (g, w, h) => {
     g.fillStyle = '#5a6a3a'; g.fillRect(0, 0, w, h);
     for (let i = 0; i < 2600; i++) { const x = Math.random() * w, y = Math.random() * h, r = 2 + Math.random() * 10; g.fillStyle = Math.random() < 0.5 ? `rgba(110,128,66,${0.25 + Math.random() * 0.3})` : `rgba(90,70,48,${0.2 + Math.random() * 0.3})`; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
@@ -649,49 +676,90 @@ export function construireGoulet() {
   tex.repeat.set(14, 6);
   const sol = new THREE.Mesh(new THREE.PlaneGeometry(L * 2 + 40, Lz * 2 + 40), new THREE.MeshStandardMaterial({ map: tex, roughness: 1 }));
   sol.rotation.x = -Math.PI / 2; sol.receiveShadow = true; groupe.add(sol);
-  // chemin central de terre battue
-  const piste = new THREE.Mesh(new THREE.PlaneGeometry(L * 2, 9), new THREE.MeshStandardMaterial({ color: '#6a5232', roughness: 1, transparent: true, opacity: 0.55 }));
+  const piste = new THREE.Mesh(new THREE.PlaneGeometry(92, 9), new THREE.MeshStandardMaterial({ color: '#6a5232', roughness: 1, transparent: true, opacity: 0.55 }));
   piste.rotation.x = -Math.PI / 2; piste.position.y = 0.02; groupe.add(piste);
-  const collisions = [];
+  const collisions = [], murs = [];
   const inst = new Instancieur();
-  // falaises sur les bords : rochers et arbres
+  // bords : rochers et arbres
   for (let x = -L - 14; x <= L + 14; x += 6) for (const s of [-1, 1]) {
     const z = s * (Lz + 3 + Math.random() * 3);
     inst.ajouter(Math.random() < 0.55 ? 'Rock_3_C' : 'Tree_' + ['1_A', '2_B', '3_A', '4_A'][Math.floor(Math.random() * 4)], x + Math.random() * 3, Math.random() < 0.55 ? 0.6 : 0, z, Math.random() * 6, 2.6, 2.6, 2.6);
   }
   for (let z = -Lz - 6; z <= Lz + 6; z += 6) for (const s of [-1, 1]) inst.ajouter('Rock_3_C', s * (L + 16 + Math.random() * 3), 0.6, z, Math.random() * 6, 3, 3, 3);
-  // couverts au milieu du champ : amas de rochers et ruines
+  // couverts au milieu du champ
   const couverts = [[-30, -12], [-30, 13], [0, -16], [0, 15], [30, -12], [30, 13], [-14, 1], [14, -1]];
   for (const [x, z] of couverts) {
     inst.ajouter('Rock_3_C', x, 0.7, z, Math.random() * 6, 3.2, 3.2, 3.2); inst.ajouter('Rock_1_A', x + 2, 0, z + 1.5, Math.random() * 6, 2.4, 2.4, 2.4);
     collisions.push({ x, z, r: 2.6 }, { x: x + 2, z: z + 1.5, r: 1.3 });
   }
-  for (let i = 0; i < 70; i++) inst.ajouter(Math.random() < 0.75 ? 'Grass_1_A' : 'flower_yellowA', (Math.random() - 0.5) * L * 2, 0, (Math.random() - 0.5) * Lz * 2, Math.random() * 6, 3, 3, 3);
-  // deux châteaux forts : bleu à l'ouest, rouge à l'est
-  const bases = {};
+  for (let i = 0; i < 70; i++) inst.ajouter(Math.random() < 0.75 ? 'Grass_1_A' : 'flower_yellowA', (Math.random() - 0.5) * 92, 0, (Math.random() - 0.5) * Lz * 2, Math.random() * 6, 3, 3, 3);
+  const pierre = pierreMat('#6a6470', '#4a4652');
+  // mur de pierre entre deux points : pièces de rempart + cercles de collision serrés
+  const mur = (x0, z0, x1, z1, hk = 1.6) => {
+    const dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz), n = Math.max(1, Math.round(len / 6.4)), pl = len / n, rot = Math.atan2(-dz / len, dx / len);
+    for (let i = 0; i < n; i++) { const t = (i + 0.5) / n; inst.ajouter('wall', x0 + dx * t, 0, z0 + dz * t, rot, pl / 4, hk, 1.6); }
+    const m = Math.ceil(len / 1.4); for (let i = 0; i <= m; i++) { const t = i / m; collisions.push({ x: x0 + dx * t, z: z0 + dz * t, r: 1.25 }); }
+    murs.push([x0, z0, x1, z1]);
+  };
+  const bases = {}, bonus = [];
+  const F = 46, P = 62, B = 76, Zw = 18, T0 = 65, T1 = 70; // façade, cloison de la salle du drapeau, fond, demi-largeur, tunnel
   for (const [camp, sx, coul] of [['bleu', -1, '#3a7aff'], ['rouge', 1, '#ff3a3a']]) {
-    const cx = sx * (L - 8);
-    // murs en U ouverts vers le champ
-    const mur = (x, z, rot) => { groupe.add(cloner('wall', x, 0, z, rot, 1.6)); };
-    for (let k = -3; k <= 3; k++) { mur(cx + sx * 9, k * 6.4, Math.PI / 2); collisions.push({ x: cx + sx * 9, z: k * 6.4, r: 3.4 }); } // mur du fond
-    for (const s of [-1, 1]) for (let k = 0; k < 3; k++) { const x = cx + sx * (9 - 3.2 - k * 6.4), z = s * 21; mur(x, z, 0); collisions.push({ x, z, r: 3.4 }); }
-    for (const [dx, dz] of [[9, 21], [9, -21], [-9.5, 21], [-9.5, -21]]) { groupe.add(cloner('b_tower_A', cx + sx * dx, 0, dz, 0, 4.2)); collisions.push({ x: cx + sx * dx, z: dz, r: 3 }); }
-    // bannières et braseros
-    for (const z of [-14, 14]) groupe.add(cloner('torch_mounted', cx + sx * 8.4, 2.2, z, sx > 0 ? -Math.PI / 2 : Math.PI / 2, 1.4));
-    for (const z of [-8, 8]) brasero(groupe, cx + sx * 2, z, coul, 1.2);
-    // socle du drapeau
-    const socle = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.8, 0.5, 24), new THREE.MeshStandardMaterial({ color: '#4a4048', roughness: 0.8 }));
-    socle.position.set(cx, 0.25, 0); socle.receiveShadow = true; groupe.add(socle);
-    const anneau = new THREE.Mesh(new THREE.RingGeometry(2.6, 3.1, 40), new THREE.MeshBasicMaterial({ color: coul, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }));
-    anneau.rotation.x = -Math.PI / 2; anneau.position.set(cx, 0.06, 0); groupe.add(anneau);
+    const X = (a) => sx * a;
+    // dallage intérieur
+    const dal = new THREE.Mesh(new THREE.PlaneGeometry(B - F, Zw * 2), pierre); dal.rotation.x = -Math.PI / 2; dal.position.set(X((F + B) / 2), 0.03, 0); dal.receiveShadow = true; groupe.add(dal);
+    pierre.map.repeat.set(4, 5);
+    // remparts : façade avec grande porte, côtés (tunnel au nord), fond, cloison de la salle du drapeau
+    mur(X(F), -Zw, X(F), -4.2); mur(X(F), 4.2, X(F), Zw);
+    mur(X(F), -Zw, X(B), -Zw);
+    mur(X(F), Zw, X(T0), Zw); mur(X(T1), Zw, X(B), Zw);
+    mur(X(B), -Zw, X(B), Zw);
+    mur(X(P), -Zw, X(P), -3.6, 1.2); mur(X(P), 3.6, X(P), Zw, 1.2);
+    // le tunnel : couloir bas qui débouche dans la salle du drapeau
+    mur(X(T0), Zw, X(T0), Zw + 7, 0.9); mur(X(T1), Zw, X(T1), Zw + 7, 0.9);
+    for (const a of [T0 - 0.4, T1 + 0.4]) groupe.add(cloner('torch_mounted', X(a), 2, Zw + 6.5, 0, 1.2));
+    // tours d'angle et tours de la porte
+    for (const [a, z, k] of [[F, -Zw, 4.2], [F, Zw, 4.2], [B, -Zw, 4.2], [B, Zw, 4.2]]) { groupe.add(cloner('b_tower_A', X(a), 0, z, 0, k)); collisions.push({ x: X(a), z, r: 3 }); }
+    // porte monumentale : piliers, linteau, herse
+    for (const z of [-5, 5]) { groupe.add(cloner('pillar_decorated', X(F), 0, z, Math.PI / 2, 1.5)); collisions.push({ x: X(F), z, r: 1.4 }); }
+    const linteau = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.3, 12), pierre); linteau.position.set(X(F), 6.3, 0); linteau.castShadow = true; groupe.add(linteau);
+    const herses = [herse(groupe, X(F), 0, 8.4, Math.PI / 2), herse(groupe, X((T0 + T1) / 2), Zw + 6.6, T1 - T0, 0)];
+    const portes = [];
+    for (let z = -3.6; z <= 3.6; z += 1.2) portes.push({ x: X(F), z, r: 1.1 });
+    for (let a = T0 + 0.6; a <= T1 - 0.6; a += 1.1) portes.push({ x: X(a), z: Zw + 6.6, r: 1.1 });
+    // étendards et torches
+    for (const z of [-8.5, 8.5]) etendard(groupe, X(F - 1.6), z, sx > 0 ? Math.PI / 2 : -Math.PI / 2, coul, camp);
+    for (const z of [-10, 10]) etendard(groupe, X(B - 1.4), z, sx > 0 ? -Math.PI / 2 : Math.PI / 2, coul, camp, 6);
+    for (const z of [-12, 12]) groupe.add(cloner('torch_mounted', X(P + 0.9), 2.2, z, sx > 0 ? Math.PI / 2 : -Math.PI / 2, 1.3));
+    for (const z of [-11, 11]) brasero(groupe, X(54), z, coul, 1.2);
+    // salle du drapeau : socle et anneau
+    const fx = X(71);
+    const socle = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.6, 0.5, 24), new THREE.MeshStandardMaterial({ color: '#4a4048', roughness: 0.8 }));
+    socle.position.set(fx, 0.25, 0); socle.receiveShadow = true; groupe.add(socle);
+    const anneau = new THREE.Mesh(new THREE.RingGeometry(2.4, 2.9, 40), new THREE.MeshBasicMaterial({ color: coul, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false }));
+    anneau.rotation.x = -Math.PI / 2; anneau.position.set(fx, 0.06, 0); groupe.add(anneau);
     G.anims.push((t) => { anneau.material.opacity = 0.45 + 0.3 * Math.sin(t * 3); });
-    G.torches.push({ pos: new THREE.Vector3(cx, 4, 0), color: coul, int: 50, dist: 22 });
-    bases[camp] = { pos: new THREE.Vector3(cx, 0, 0), spawn: new THREE.Vector3(cx + sx * 4, 0, 0), coul };
+    G.torches.push({ pos: new THREE.Vector3(fx, 4, 0), color: coul, int: 50, dist: 22 });
+    // cimetière et esprit guérisseur, dehors contre le rempart sud
+    const cim = new THREE.Vector3(X(54), 0, -24.5);
+    for (let i = 0; i < 6; i++) inst.ajouter('Rock_1_A', cim.x + (i - 2.5) * 2.2 * sx, 0, cim.z - 3.2 - (i % 2) * 0.6, i, 0.7, 1.4, 0.5);
+    const esprit = new THREE.Mesh(new THREE.SphereGeometry(0.55, 16, 12), new THREE.MeshBasicMaterial({ color: '#d8f4ff' }));
+    esprit.position.set(cim.x - sx * 5, 2.6, cim.z); groupe.add(esprit);
+    const halo = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.4, 32), new THREE.MeshBasicMaterial({ color: '#9ad8ff', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    halo.position.copy(esprit.position); groupe.add(halo);
+    G.anims.push((t) => { esprit.position.y = 2.6 + Math.sin(t * 2) * 0.25; halo.position.y = esprit.position.y; halo.rotation.y = t; halo.rotation.x = 0.4 * Math.sin(t); });
+    G.torches.push({ pos: new THREE.Vector3(esprit.position.x, 3, cim.z), color: '#9ad8ff', int: 25, dist: 12 });
+    // bonus : vitesse dans la salle du drapeau (sortie du tunnel), soins dans la cour, berserk sur le champ
+    bonus.push({ type: 'vitesse', pos: new THREE.Vector3(X(67.5), 0, 13) }, { type: 'soin', pos: new THREE.Vector3(X(50), 0, -13) }, { type: 'berserk', pos: new THREE.Vector3(X(22), 0, sx * 21) });
+    bases[camp] = {
+      pos: new THREE.Vector3(fx, 0, 0), spawn: new THREE.Vector3(X(56), 0, 0), cimetiere: cim, coul, herses, portes,
+      porte: new THREE.Vector3(X(F - 4), 0, 0), tunnel: new THREE.Vector3(X((T0 + T1) / 2), 0, Zw + 9),
+      dans: (x, z) => sx * x > F && sx * x < B && Math.abs(z) < Zw,
+    };
   }
   inst.construire(groupe);
   G.scene.add(groupe);
   return {
-    groupe, type: 'goulet', nom: 'Goulet des Braises', bases, collisions,
+    groupe, type: 'goulet', nom: 'Goulet des Braises', bases, collisions, murs, bonus,
     spawn: bases.bleu.spawn.clone(),
     bornes: { x0: -L - 10, x1: L + 10, z0: -Lz - 2, z1: Lz + 2 },
     marche: (x, z) => x > -L - 8 && x < L + 8 && z > -Lz && z < Lz,
