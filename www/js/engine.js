@@ -45,7 +45,16 @@ export function initRendu(canvas) {
   G.composer.addPass(new RenderPass(G.scene, G.camera));
   G.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.75, 0.45, 0.78);
   G.composer.addPass(G.bloom);
-  G.composer.addPass(new OutputPass());
+  // passe de sortie + étalonnage dans le même shader (aucune passe plein écran en plus) : couleurs vivantes, contraste, vignette
+  const sortie = new OutputPass();
+  Object.assign(sortie.uniforms, { uVib: { value: 0.2 }, uCon: { value: 1.06 }, uVig: { value: 0.32 } });
+  sortie.material.fragmentShader = sortie.material.fragmentShader
+    .replace('varying vec2 vUv;', 'uniform float uVib, uCon, uVig;\n\t\tvarying vec2 vUv;')
+    .replace(/}\s*$/, `	{ vec3 c = gl_FragColor.rgb; float l = dot(c, vec3(0.299, 0.587, 0.114)); float mx = max(c.r, max(c.g, c.b)), mn = min(c.r, min(c.g, c.b));
+		  c = mix(vec3(l), c, 1.0 + uVib * (1.0 - (mx - mn))); c = (c - 0.5) * uCon + 0.5;
+		  c *= mix(1.0, smoothstep(0.92, 0.3, length(vUv - 0.5) * 1.15), uVig); gl_FragColor.rgb = clamp(c, 0.0, 1.0); }
+		}`);
+  G.composer.addPass(sortie); G.etalon = sortie;
   // Pool de lumières ponctuelles (torches)
   G.lightPool = [];
   for (let i = 0; i < 4; i++) {
@@ -107,7 +116,7 @@ function cullActeurs() {
     const vis = _frustum.intersectsSphere(_sph);
     if (vis !== a.vu) { a.vu = vis; a.model.visible = vis; }
     if (vis) {
-      const ombre = G.niveau > 0 && Math.abs(p.x - f.x) + Math.abs(p.z - f.z) < 30;
+      const ombre = G.niveau > 0 && Math.abs(p.x - f.x) + Math.abs(p.z - f.z) < 20; // ombres des persos proches seulement
       if (ombre !== a._ombre) { a._ombre = ombre; for (const m of a.meshes) m.castShadow = ombre; }
     }
   }
@@ -263,7 +272,7 @@ export class Acteur {
       }
     });
     // proportions moins « chibi » pour les héros : tête plus petite, buste un peu plus long
-    if (HUMAINS.has(cle)) { this.tete = this.nodes.head || null; this.buste = this.nodes.chest || null; }
+    if (HUMAINS.has(cle)) { this.tete = this.nodes.head || null; this.buste = this.nodes.chest || null; const M = G.mince || [0.74, 1.08]; this.model.scale.x *= M[0]; this.model.scale.z *= M[0]; this.model.scale.y *= M[1]; }
     this.mixer = new THREE.AnimationMixer(this.model);
     this.actions = {};
     for (const c of src.animations) this.actions[c.name] = this.mixer.clipAction(c);
@@ -366,7 +375,7 @@ export class Acteur {
     if (this.tete) { this.tete.scale.set(1, 1, 1); if (this.buste) this.buste.scale.set(1, 1, 1); }
     this.model.position.y = G.solH ? G.solH(this.root.position.x, this.root.position.z) : 0;
     this.mixer.update(dt);
-    if (this.tete) { this.tete.scale.multiplyScalar(G.teteK || 0.62); if (this.buste) this.buste.scale.multiplyScalar(G.busteK || 1.1); }
+    if (this.tete) { this.tete.scale.multiplyScalar(G.teteK || 0.49); if (this.buste) { const b = G.busteV || [0.85, 1.12, 0.82]; this.buste.scale.x *= b[0]; this.buste.scale.y *= b[1]; this.buste.scale.z *= b[2]; } }
     if (this.flash > 0 || this._flashOn) {
       this.flash -= dt; const k = Math.max(0, this.flash) / 0.12; this._flashOn = k > 0;
       for (const m of this.mats) if (m.emissive) { m.emissive.copy(m.userData.baseEmissive || NOIR).lerp(BLANC, k * 0.8); }
@@ -679,4 +688,35 @@ export function creerArc(couleurTier = '#c8a070', glow = 0) {
   const corde = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 1.56, 4), new THREE.MeshBasicMaterial({ color: '#ffd8c8' })); corde.position.z = 0.1; g.add(corde);
   g.traverse(o => { if (o.isMesh) o.castShadow = true; });
   return g;
+}
+
+// ---------- Fusion des décors fixes : un appel de dessin par matériau au lieu d'un par objet ----------
+// Les objets animés portent userData.dyn (eux et leurs enfants restent intacts).
+export function fusionnerStatiques(groupe) {
+  groupe.updateMatrixWorld(true);
+  const lots = new Map(), aRetirer = [];
+  const visite = (o) => {
+    if (o.userData.dyn) return;
+    if (o.isMesh && !o.isInstancedMesh && !o.isSkinnedMesh && !Array.isArray(o.material) && o.geometry && o.geometry.index !== undefined) {
+      const g = o.geometry, sig = o.material.uuid + '|' + Object.keys(g.attributes).sort().join(',') + '|' + (g.index ? 'i' : 'n') + '|' + o.castShadow + o.receiveShadow;
+      if (!lots.has(sig)) lots.set(sig, { mat: o.material, items: [], cast: o.castShadow, recv: o.receiveShadow, ordre: o.renderOrder });
+      lots.get(sig).items.push(o);
+    }
+    for (const c of o.children) visite(c);
+  };
+  for (const c of groupe.children) visite(c);
+  let n = 0;
+  for (const lot of lots.values()) {
+    if (lot.items.length < 3) continue;
+    const geos = lot.items.map(o => { const g = o.geometry.clone(); g.applyMatrix4(o.matrixWorld); for (const k of Object.keys(g.morphAttributes || {})) delete g.morphAttributes[k]; return g; });
+    let geo = null; try { geo = mergeGeometries(geos, false); } catch (e) { geo = null; }
+    for (const g of geos) if (g !== geo) g.dispose();
+    if (!geo) continue;
+    const m = new THREE.Mesh(geo, lot.mat); m.castShadow = lot.cast; m.receiveShadow = lot.recv; m.renderOrder = lot.ordre; m.matrixAutoUpdate = false;
+    // le groupe est à l'origine : la géométrie fusionnée est déjà en coordonnées monde
+    groupe.add(m); n += lot.items.length;
+    for (const o of lot.items) aRetirer.push(o);
+  }
+  for (const o of aRetirer) o.removeFromParent();
+  return n;
 }

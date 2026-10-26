@@ -1,5 +1,5 @@
 // ===== Construction des cartes : place publique et donjons =====
-import { THREE, G, Instancieur, cloner, texture, texRond, texRunes, texFissures, emettre, faisceau } from './engine.js';
+import { THREE, G, Instancieur, cloner, fusionnerStatiques, texture, texRond, texRunes, texFissures, emettre, faisceau } from './engine.js';
 
 const CELL = 4;
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -662,7 +662,7 @@ function herse(groupe, x, z, largeur, rotY) {
   const g = new THREE.Group(); const fer = new THREE.MeshStandardMaterial({ color: '#2a2a30', metalness: 0.7, roughness: 0.45 });
   for (let u = -largeur / 2 + 0.25; u <= largeur / 2; u += 0.55) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.14, 6, 0.14), fer); b.position.set(u, 3, 0); g.add(b); const p = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.35, 4), fer); p.position.set(u, -0.1, 0); p.rotation.x = Math.PI; g.add(p); }
   for (let y = 0.8; y < 6; y += 1.1) { const b = new THREE.Mesh(new THREE.BoxGeometry(largeur, 0.12, 0.12), fer); b.position.y = y; g.add(b); }
-  g.position.set(x, 0, z); g.rotation.y = rotY; g.traverse(o => { if (o.isMesh) o.castShadow = true; }); groupe.add(g); return g;
+  g.position.set(x, 0, z); g.rotation.y = rotY; g.traverse(o => { if (o.isMesh) o.castShadow = true; }); g.userData.dyn = true; groupe.add(g); return g;
 }
 // relief du Goulet : collines douces sur le champ (jamais dans les châteaux ni sur la piste centrale), coteaux sur les bords
 const lisse = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -680,40 +680,90 @@ export function construireGoulet() {
   const groupe = new THREE.Group();
   G.torches = []; G.feux = []; G.anims = [];
   const L = 70, Lz = 30; // demi-longueur et demi-largeur du champ
-  const tex = texture('sol_goulet', 512, 512, (g, w, h) => {
-    g.fillStyle = '#5a6a3a'; g.fillRect(0, 0, w, h);
-    for (let i = 0; i < 2600; i++) { const x = Math.random() * w, y = Math.random() * h, r = 2 + Math.random() * 10; g.fillStyle = Math.random() < 0.5 ? `rgba(110,128,66,${0.25 + Math.random() * 0.3})` : `rgba(90,70,48,${0.2 + Math.random() * 0.3})`; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
-    for (let i = 0; i < 400; i++) { const x = Math.random() * w, y = Math.random() * h; g.fillStyle = `rgba(160,170,90,${0.3 + Math.random() * 0.3})`; g.fillRect(x, y, 1.5, 4 + Math.random() * 5); }
+  // sol peint : herbe dense, trèfle, touffes claires, terre
+  const tex = texture('sol_goulet2', 1024, 1024, (g, w, h) => {
+    g.fillStyle = '#5c7a36'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 5200; i++) { const x = Math.random() * w, y = Math.random() * h, r = 3 + Math.random() * 14; const k = Math.random(); g.fillStyle = k < 0.45 ? `rgba(120,150,62,${0.18 + Math.random() * 0.25})` : k < 0.8 ? `rgba(70,98,40,${0.2 + Math.random() * 0.25})` : `rgba(110,92,58,${0.12 + Math.random() * 0.18})`; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
+    for (let i = 0; i < 9000; i++) { const x = Math.random() * w, y = Math.random() * h, l = 4 + Math.random() * 7, a = -0.4 + Math.random() * 0.8; g.strokeStyle = Math.random() < 0.6 ? `rgba(170,200,95,${0.25 + Math.random() * 0.35})` : `rgba(40,70,28,${0.25 + Math.random() * 0.3})`; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.sin(a) * l, y - Math.cos(a) * l); g.stroke(); }
+    for (let i = 0; i < 260; i++) { const x = Math.random() * w, y = Math.random() * h; g.fillStyle = ['#f4f0d0', '#ffd85a', '#e8a0d8', '#ffffff'][i % 4]; g.globalAlpha = 0.7; g.beginPath(); g.arc(x, y, 1.6, 0, 7); g.fill(); g.globalAlpha = 1; }
   }, { repeat: true });
-  tex.repeat.set(14, 6);
+  tex.repeat.set(22, 12); tex.anisotropy = 4;
+  // chemins de terre battue : la grande allée entre les portes, les sentiers du tunnel et du flanc sud
+  const CHEMINS = [];
+  { const ligne = (pts) => CHEMINS.push(pts);
+    const allee = []; for (let x = -46; x <= 46; x += 4) allee.push([x, 3.2 * Math.sin(x * 0.07)]); ligne(allee);
+    for (const s of [-1, 1]) { ligne([[s * 67.5, 28], [s * 52, 26.5], [s * 38, 23], [s * 24, 15], [s * 10, 6]]); ligne([[s * 44, -6], [s * 34, -15], [s * 18, -18], [s * 4, -11]]); ligne([[s * 54, 21], [s * 50, 25]]); }
+  }
+  const distChemin = (x, z) => { let d = 1e9; for (const p of CHEMINS) for (let i = 1; i < p.length; i++) { const [ax, az] = p[i - 1], [bx, bz] = p[i]; const vx = bx - ax, vz = bz - az, t = Math.max(0, Math.min(1, ((x - ax) * vx + (z - az) * vz) / (vx * vx + vz * vz))); d = Math.min(d, Math.hypot(x - ax - vx * t, z - az - vz * t)); } return d; };
   const gSol = new THREE.PlaneGeometry(L * 2 + 60, Lz * 2 + 50, 150, 80);
   { const p = gSol.attributes.position, cols = new Float32Array(p.count * 3);
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), z = -p.getY(i), h = hauteurGoulet(x, z); p.setZ(i, h);
       const bord = Math.max(lisse(29, 40, Math.abs(z)), lisse(79, 92, Math.abs(x))), haut = Math.min(1, Math.max(0, h) / 1.4) * (1 - bord);
-      cols[i * 3] = 0.92 - bord * 0.38 + haut * 0.1; cols[i * 3 + 1] = 0.95 - bord * 0.3 + haut * 0.12; cols[i * 3 + 2] = 0.9 - bord * 0.42;
+      const terre = (1 - lisse(1.2, 2.8, distChemin(x, z))) * (1 - bord);
+      let r = 0.95 - bord * 0.35 + haut * 0.1, gg = 0.97 - bord * 0.28 + haut * 0.12, bb = 0.9 - bord * 0.4;
+      const n = 0.9 + 0.1 * Math.sin(x * 0.09 + Math.sin(z * 0.13) * 2) * Math.cos(z * 0.11 - x * 0.03) + 0.05 * Math.sin(x * 0.31 + z * 0.27);
+      r *= n * (1 - terre * 0.25); gg *= n * (1 - terre * 0.2); bb *= n * (1 - terre * 0.3);
+      cols[i * 3] = r; cols[i * 3 + 1] = gg; cols[i * 3 + 2] = bb;
     }
     gSol.setAttribute('color', new THREE.BufferAttribute(cols, 3)); gSol.computeVertexNormals(); }
-  const sol = new THREE.Mesh(gSol, new THREE.MeshStandardMaterial({ map: tex, roughness: 1, vertexColors: true }));
+  const sol = new THREE.Mesh(gSol, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, vertexColors: true }));
   sol.rotation.x = -Math.PI / 2; sol.receiveShadow = true; groupe.add(sol);
   const H = hauteurGoulet;
-  const piste = new THREE.Mesh(new THREE.PlaneGeometry(92, 9), new THREE.MeshStandardMaterial({ color: '#6a5232', roughness: 1, transparent: true, opacity: 0.55 }));
-  piste.rotation.x = -Math.PI / 2; piste.position.y = 0.02; groupe.add(piste);
+  // sentiers de terre : bandes texturées qui épousent le relief, bords fondus dans l'herbe
+  { const tTerre = texture('terre_chemin', 256, 256, (g, w2, h2) => {
+      g.fillStyle = '#7a6448'; g.fillRect(0, 0, w2, h2);
+      for (let i = 0; i < 900; i++) { const x = Math.random() * w2, y = Math.random() * h2, r = 1 + Math.random() * 5; g.fillStyle = Math.random() < 0.5 ? `rgba(140,118,86,${0.3 + Math.random() * 0.3})` : `rgba(84,66,46,${0.3 + Math.random() * 0.3})`; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
+      for (let i = 0; i < 120; i++) { const x = Math.random() * w2, y = Math.random() * h2; g.fillStyle = `rgba(176,168,152,${0.35 + Math.random() * 0.3})`; g.beginPath(); g.ellipse(x, y, 2 + Math.random() * 3, 1.5 + Math.random() * 2, Math.random() * 3, 0, 7); g.fill(); }
+    }, { repeat: true });
+    const tBord = texture('bord_chemin', 64, 4, (g, w2) => { const gr = g.createLinearGradient(0, 0, w2, 0); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.28, 'rgba(255,255,255,1)'); gr.addColorStop(0.72, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w2, 4); });
+    const matC = new THREE.MeshStandardMaterial({ map: tTerre, alphaMap: tBord, transparent: true, opacity: 0.9, depthWrite: false, roughness: 1, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+    for (const pts of CHEMINS) {
+      const sm = []; for (let i = 1; i < pts.length; i++) { const [ax, az] = pts[i - 1], [bx, bz] = pts[i]; const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, bz - az))); for (let k = 0; k < n; k++) sm.push([ax + (bx - ax) * k / n, az + (bz - az) * k / n]); } sm.push(pts[pts.length - 1]);
+      const pos = [], uv = [], idx = []; let along = 0; const L2 = 3.6, NC = 5;
+      const total = sm.length - 1;
+      sm.forEach(([x, z], i) => { const [px, pz] = sm[Math.max(0, i - 1)], [nx, nz] = sm[Math.min(sm.length - 1, i + 1)]; let dx = nx - px, dz = nz - pz; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l; if (i) along += Math.hypot(x - sm[i - 1][0], z - sm[i - 1][1]);
+        const fin = Math.min(1, (i + 0.3) / 3.5, (total - i + 0.3) / 3.5), Lw = L2 * (0.25 + 0.75 * fin);
+        for (let c = 0; c < NC; c++) { const s = c / (NC - 1) * 2 - 1; const vx = x - dz * s * Lw / 2, vz = z + dx * s * Lw / 2; pos.push(vx, H(vx, vz) + 0.07, vz); uv.push(c / (NC - 1), along / 4); }
+        if (i) for (let c = 0; c < NC - 1; c++) { const b = i * NC + c, p = b - NC; idx.push(p, p + 1, b, p + 1, b + 1, b); } });
+      const g2 = new THREE.BufferGeometry(); g2.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g2.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g2.setIndex(idx); g2.computeVertexNormals();
+      const m = new THREE.Mesh(g2, matC); m.receiveShadow = true; m.renderOrder = 1; groupe.add(m);
+    }
+  }
   const collisions = [], murs = [];
   const inst = new Instancieur();
-  // bords : rochers et arbres
-  for (let x = -L - 14; x <= L + 14; x += 6) for (const s of [-1, 1]) {
-    const z = s * (Lz + 3 + Math.random() * 3);
-    const xx = x + Math.random() * 3; inst.ajouter(Math.random() < 0.55 ? 'Rock_3_C' : 'Tree_' + ['1_A', '2_B', '3_A', '4_A'][Math.floor(Math.random() * 4)], xx, H(xx, z) + (Math.random() < 0.55 ? 0.3 : -0.1), z, Math.random() * 6, 2.6, 2.6, 2.6);
+  const a = (k) => (k in G.assets ? k : null);
+  const pick = (l) => l.filter(a)[Math.floor(Math.random() * l.filter(a).length)];
+  // forêt dense sur les coteaux nord et sud, falaises derrière les châteaux
+  for (let x = -L - 16; x <= L + 16; x += 3.6) for (const s of [-1, 1]) for (let rang = 0; rang < 3; rang++) {
+    const z = s * (Lz + 3.5 + rang * 4.2 + Math.random() * 2.4), xx = x + (Math.random() - 0.5) * 3;
+    const k = pick(['n_tree_oak', 'n_tree_detailed', 'n_tree_default', 'n_tree_fat_darkh', 'Tree_1_A', 'Tree_3_A']); if (!k) continue;
+    const ken = k.startsWith('n_'), sc = (ken ? 4.2 : 1.9) * (0.8 + Math.random() * 0.5);
+    inst.ajouter(k, xx, H(xx, z) - 0.1, z, Math.random() * 6.28, sc, sc, sc);
+    if (rang === 0 && Math.random() < 0.35) { const r = pick(['n_rock_largeB', 'n_rock_largeC', 'Rock_3_C']); inst.ajouter(r, xx + 1.8, H(xx + 1.8, z - s * 1.5), z - s * 1.5, Math.random() * 6, r.startsWith('n_') ? 2.2 : 1.6, r.startsWith('n_') ? 2.2 : 1.6, r.startsWith('n_') ? 2.2 : 1.6); }
   }
-  for (let z = -Lz - 6; z <= Lz + 6; z += 6) for (const s of [-1, 1]) { const xx = s * (L + 16 + Math.random() * 3); inst.ajouter('Rock_3_C', xx, H(xx, z) + 0.3, z, Math.random() * 6, 3, 3, 3); }
+  for (let z = -Lz - 8; z <= Lz + 8; z += 4.5) for (const s of [-1, 1]) { const xx = s * (L + 15 + Math.random() * 4); inst.ajouter('Rock_3_C', xx, H(xx, z) - 0.2, z, Math.random() * 6, 3.2, 3.6, 3.2); }
+  // prairie : touffes d'herbe et fleurs (jamais sur les chemins)
+  for (let i = 0; i < 520; i++) {
+    const x = (Math.random() - 0.5) * 90, z = (Math.random() - 0.5) * 58; if (distChemin(x, z) < 3) continue;
+    const fl = Math.random() < 0.18;
+    const k = fl ? pick(['n_flower_purpleB', 'n_flower_redC', 'n_flower_yellowC', 'n_flower_purpleC', 'flower_yellowA', 'flower_redA', 'flower_purpleA']) : pick(['n_grass', 'n_grass', 'Grass_2_A']);
+    if (!k) continue; const ken = k.startsWith('n_'), sc = (ken ? (fl ? 4.6 : 2.6) : (fl ? 1.3 : 1.0)) * (0.75 + Math.random() * 0.5);
+    inst.ajouter(k, x, H(x, z) - 0.03, z, Math.random() * 6.28, sc, sc, sc);
+  }
+  // pierres plates, souches et troncs couchés au pied des collines
+  for (const [x, z] of [[-26, 21], [26, -21], [-14, 24], [14, -24], [-38, -24], [38, 24], [-3, 26], [3, -26], [-20, -26], [20, 26]]) {
+    const k = pick(['n_stump_old', 'n_log_large', 'n_stone_largeC', 'n_stump_round', 'Rock_1_A']); if (!k) continue;
+    const sc = k.startsWith('n_') ? 2.6 : 1.3; inst.ajouter(k, x, H(x, z) - 0.05, z, Math.random() * 6, sc, sc, sc); collisions.push({ x, z, r: 0.9 });
+  }
+  // dalles de pierre devant les grandes portes
+  for (const s of [-1, 1]) for (let k = 0; k < 6; k++) { const x = s * (44 - k * 2.4), z = 3.2 * Math.sin(x * 0.07); if (a('n_path_stone')) inst.ajouter('n_path_stone', x, H(x, z) + 0.01, z, Math.random() * 6, 3.4, 3.4, 3.4); }
   // couverts au milieu du champ
   const couverts = [[-30, -12], [-30, 13], [0, -16], [0, 15], [30, -12], [30, 13], [-14, 1], [14, -1]];
   for (const [x, z] of couverts) {
     inst.ajouter('Rock_3_C', x, H(x, z) + 0.5, z, Math.random() * 6, 3.2, 3.2, 3.2); inst.ajouter('Rock_1_A', x + 2, H(x + 2, z + 1.5) - 0.1, z + 1.5, Math.random() * 6, 2.4, 2.4, 2.4);
     collisions.push({ x, z, r: 2.6 }, { x: x + 2, z: z + 1.5, r: 1.3 });
   }
-  for (let i = 0; i < 70; i++) { const x = (Math.random() - 0.5) * 92, z = (Math.random() - 0.5) * Lz * 2; inst.ajouter(Math.random() < 0.75 ? 'Grass_1_A' : 'flower_yellowA', x, H(x, z) - 0.05, z, Math.random() * 6, 1.4, 1.4, 1.4); }
   // arbres épars sur les collines du champ (hors des chemins)
   for (const [x, z] of [[-9, -26], [9, 26], [-35, 26], [35, -26]]) { inst.ajouter('Tree_' + ['1_A', '2_B', '3_A'][Math.floor(Math.random() * 3)], x, H(x, z) - 0.1, z, Math.random() * 6, 1.25, 1.25, 1.25); collisions.push({ x, z, r: 0.8 }); }
   const pierre = pierreMat('#6a6470', '#4a4652');
@@ -725,7 +775,7 @@ export function construireGoulet() {
     murs.push([x0, z0, x1, z1]);
   };
   const bases = {}, bonus = [];
-  const F = 46, P = 62, B = 76, Zw = 18, T0 = 65, T1 = 70; // façade, cloison de la salle du drapeau, fond, demi-largeur, tunnel
+  const F = 46, P = 62, B = 76, Zw = 18, T0 = 64, T1 = 71; // façade, cloison de la salle du drapeau, fond, demi-largeur, tunnel
   for (const [camp, sx, coul] of [['bleu', -1, '#3a7aff'], ['rouge', 1, '#ff3a3a']]) {
     const X = (a) => sx * a;
     // dallage intérieur
@@ -778,11 +828,12 @@ export function construireGoulet() {
       inst.ajouter('Tree_Bare_2_A' in G.assets ? 'Tree_Bare_2_A' : 'Tree_1_A', cim.x - sx * 6.5, 0, cim.z + 5.2, 1, 1.6, 1.6, 1.6);
     }
     const esprit = new THREE.Mesh(new THREE.SphereGeometry(0.55, 16, 12), new THREE.MeshBasicMaterial({ color: '#d8f4ff' }));
-    esprit.position.set(cim.x - sx * 5, 2.6, cim.z); groupe.add(esprit);
+    esprit.position.set(cim.x - sx * 5, 2.6, cim.z); esprit.userData.dyn = true; groupe.add(esprit);
     const halo = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.4, 32), new THREE.MeshBasicMaterial({ color: '#9ad8ff', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-    halo.position.copy(esprit.position); groupe.add(halo);
+    halo.position.copy(esprit.position); halo.userData.dyn = true; groupe.add(halo);
     G.anims.push((t) => { esprit.position.y = 2.6 + Math.sin(t * 2) * 0.25; halo.position.y = esprit.position.y; halo.rotation.y = t; halo.rotation.x = 0.4 * Math.sin(t); });
     G.torches.push({ pos: new THREE.Vector3(esprit.position.x, 3, cim.z), color: '#9ad8ff', int: 25, dist: 12 });
+    for (const dx of [-6.5, 6.5]) brasero(groupe, cim.x + dx, cim.z - 2.2, '#ffb05a', 0.9);
     // bonus : vitesse dans la salle du drapeau (sortie du tunnel), soins dans la cour, berserk sur le champ
     bonus.push({ type: 'vitesse', pos: new THREE.Vector3(X(67.5), 0, 13) }, { type: 'soin', pos: new THREE.Vector3(X(50), 0, -13) }, { type: 'berserk', pos: new THREE.Vector3(X(22), 0, sx * 21) });
     bases[camp] = {
@@ -791,6 +842,7 @@ export function construireGoulet() {
       dans: (x, z) => sx * x > F && sx * x < B && Math.abs(z) < Zw,
     };
   }
+  fusionnerStatiques(groupe);
   inst.construire(groupe);
   G.scene.add(groupe);
   return {
