@@ -257,6 +257,119 @@ function construirePortail(groupe, P, rot, th = THEME_ROUGE, ech = 1) {
 }
 
 // ======================= DONJON =======================
+
+// ---------- Habillage des salles de donjon ----------
+const MATS_DECOR = {};
+function matPierre() { return MATS_DECOR.pierre || (MATS_DECOR.pierre = pierreMat('#7a7480', '#55505c')); }
+function texTapis(c1, c2, or) {
+  return texture('tapis' + c1, 128, 512, (g, w, h) => {
+    g.fillStyle = c1; g.fillRect(0, 0, w, h);
+    g.fillStyle = c2; g.fillRect(10, 10, w - 20, h - 20);
+    g.strokeStyle = or; g.lineWidth = 6; g.strokeRect(14, 14, w - 28, h - 28); g.lineWidth = 2; g.strokeRect(24, 24, w - 48, h - 48);
+    g.fillStyle = or; for (let y = 60; y < h - 40; y += 70) { g.beginPath(); g.moveTo(w / 2, y - 22); g.lineTo(w / 2 + 22, y); g.lineTo(w / 2, y + 22); g.lineTo(w / 2 - 22, y); g.closePath(); g.globalAlpha = 0.75; g.fill(); g.globalAlpha = 1; }
+    for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(0,0,0,${Math.random() * 0.12})`; g.fillRect(Math.random() * w, Math.random() * h, 2, 2); }
+    for (let y = 0; y < h; y += 512) {}
+    for (let x = 0; x < w; x += 6) { g.fillStyle = or; g.fillRect(x, 0, 3, 6); g.fillRect(x, h - 6, 3, 6); }
+  });
+}
+function tapis(groupe, x, z, larg, long, rotY, style = 0) {
+  const st = [['#4a0c10', '#7a1418', '#d8a84a'], ['#101a3a', '#1e2c5a', '#c8b070'], ['#2a0a3a', '#43165a', '#d8a8ff']][style % 3];
+  const t = texTapis(...st); t.wrapT = THREE.RepeatWrapping;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(larg, long), new THREE.MeshStandardMaterial({ map: t, roughness: 0.95 }));
+  m.rotation.set(-Math.PI / 2, 0, rotY); m.position.set(x, 0.05, z); m.receiveShadow = true; groupe.add(m);
+}
+function sarcophage(groupe, x, z, rotY) {
+  const g = new THREE.Group(); const p = matPierre();
+  const base = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.85, 2.4), p); base.position.y = 0.42;
+  const cuve = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.18, 2.55), p); cuve.position.y = 0.92;
+  const couvercle = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.2, 2.25), p); couvercle.position.y = 1.1;
+  const croixV = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 1.4), p); croixV.position.y = 1.24;
+  const croixH = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.08, 0.16), p); croixH.position.set(0, 1.24, -0.3);
+  g.add(base, cuve, couvercle, croixV, croixH);
+  g.position.set(x, 0, z); g.rotation.y = rotY; g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); groupe.add(g);
+}
+function toile(groupe, x, z, taille) {
+  const t = MATS_DECOR.toile || (MATS_DECOR.toile = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, opacity: 0.55, map: texture('toile', 256, 256, (g) => {
+    g.strokeStyle = 'rgba(235,235,245,0.9)'; g.lineWidth = 1.6;
+    for (let i = 0; i < 9; i++) { const a = i / 8 * Math.PI / 2; g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a) * 256, Math.sin(a) * 256); g.stroke(); }
+    for (let r = 26; r < 256; r += 26 + Math.random() * 10) { g.beginPath(); for (let i = 0; i <= 8; i++) { const a = i / 8 * Math.PI / 2, rr = r * (0.92 + Math.random() * 0.12); const px = Math.cos(a) * rr, py = Math.sin(a) * rr; if (!i) g.moveTo(px, py); else g.quadraticCurveTo(Math.cos(a - 0.1) * rr * 0.9, Math.sin(a - 0.1) * rr * 0.9, px, py); } g.stroke(); }
+  }) }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(taille, taille), t);
+  m.position.set(x + taille * 0.35, 3.2, z + taille * 0.35); m.rotation.set(-0.6, Math.PI / 4 + Math.PI, 0); groupe.add(m);
+}
+function tache(groupe, x, z, r, couleur) {
+  const cle = 'tache' + couleur;
+  const mat = MATS_DECOR[cle] || (MATS_DECOR[cle] = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, color: couleur, map: texture('tache', 128, 128, (g) => {
+    for (let i = 0; i < 26; i++) { const x0 = 64 + (Math.random() - 0.5) * 70, y0 = 64 + (Math.random() - 0.5) * 70, rr = 8 + Math.random() * 26; const gr = g.createRadialGradient(x0, y0, 0, x0, y0, rr); gr.addColorStop(0, 'rgba(255,255,255,0.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x0, y0, rr, 0, 7); g.fill(); }
+  }) }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(r * 2, r * 2), mat); m.rotation.set(-Math.PI / 2, 0, Math.random() * 6); m.position.set(x, 0.06, z); groupe.add(m);
+}
+function os(groupe, x, z) {
+  const mat = MATS_DECOR.os || (MATS_DECOR.os = new THREE.MeshStandardMaterial({ color: '#d8cfbc', roughness: 0.8 }));
+  for (let i = 0; i < 4; i++) {
+    const b = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.6, 5), mat); b.rotation.set(Math.PI / 2, 0, Math.random() * 6); b.position.set(x + (Math.random() - 0.5) * 1.2, 0.07, z + (Math.random() - 0.5) * 1.2); groupe.add(b);
+  }
+  const crane = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), mat); crane.scale.set(1, 0.85, 1.15); crane.position.set(x, 0.16, z); groupe.add(crane);
+}
+function raiLumiere(groupe, x, z, couleur = '#ffe0b0') {
+  const t = texture('rai', 32, 128, (g) => { const gr = g.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0.05)'); g.fillStyle = gr; g.fillRect(0, 0, 32, 128); const gx = g.createLinearGradient(0, 0, 32, 0); });
+  const mat = new THREE.MeshBasicMaterial({ map: t, color: couleur, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  for (let k = 0; k < 2; k++) { const m = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 12), mat); m.position.set(x, 5.2, z); m.rotation.set(0.38, k * Math.PI / 2 + 0.6, 0.12); groupe.add(m); }
+  const sol = new THREE.Mesh(new THREE.CircleGeometry(2.2, 24), new THREE.MeshBasicMaterial({ map: texRond(), color: couleur, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
+  sol.rotation.x = -Math.PI / 2; sol.position.set(x - 1.2, 0.07, z + 2); groupe.add(sol);
+}
+function decorerSalle(groupe, inst, collisions, s, type) {
+  const X0 = (s.cx - Math.floor(s.tx / 2)) * CELL, Z0 = (s.cz - Math.floor(s.tz / 2)) * CELL, X1 = X0 + s.tx * CELL, Z1 = Z0 + s.tz * CELL;
+  const cx = s.centre.x, cz = s.centre.z, porte = 7.5;
+  const slotsN = [], slotsO = [];
+  for (let x = X0 + 2.6; x < X1 - 2; x += 3.4) if (Math.abs(x - cx) > porte) slotsN.push(x);
+  for (let z = Z0 + 2.6; z < Z1 - 2; z += 3.4) if (Math.abs(z - cz) > porte) slotsO.push(z);
+  const solN = (k, x, d = 1.3, sc = 1, col = 0.9) => { inst.ajouter(k, x, 0, Z0 + d, rnd(-0.08, 0.08), sc, sc, sc); if (col) collisions.push({ x, z: Z0 + d, r: col }); };
+  const solO = (k, z, d = 1.3, sc = 1, col = 0.9) => { inst.ajouter(k, X0 + d, 0, z, Math.PI / 2 + rnd(-0.08, 0.08), sc, sc, sc); if (col) collisions.push({ x: X0 + d, z, r: col }); };
+  const murN = (k, x, y, sc = 1) => inst.ajouter(k, x, y, Z0 + 0.25, 0, sc, sc, sc);
+  const murO = (k, z, y, sc = 1) => inst.ajouter(k, X0 + 0.25, y, z, Math.PI / 2, sc, sc, sc);
+  if (type === 'armurerie') {
+    slotsN.forEach((x, i) => i % 2 ? solN(i % 4 === 1 ? 'crates_stacked' : 'barrel_large', x, 1.4, 0.85) : murN('sword_shield_broken', x, 1.9));
+    slotsO.forEach((z, i) => solO(['chest', 'trunk_large_A', 'barrel_small_stack', 'chest_gold'][i % 4], z, 1.3, 1, 0.9));
+    tapis(groupe, cx, cz, 5, s.tx * CELL - 12, Math.PI / 2, 0);
+  } else if (type === 'bibliotheque') {
+    slotsN.forEach((x, i) => { murN('shelves', x, 0.4); if (i % 2) murN('shelf_small_candles', x, 2.6); });
+    slotsO.forEach((z, i) => { murO('shelves', z, 0.4); if (i % 2 === 0) inst.ajouter('candle_triple', X0 + 1.3, 0, z + 1.7, 0); });
+    inst.ajouter('table_long_decorated_A', cx, 0, Z0 + 7.5, Math.PI / 2); collisions.push({ x: cx - 1.2, z: Z0 + 7.5, r: 1.2 }, { x: cx + 1.2, z: Z0 + 7.5, r: 1.2 });
+    for (const dx of [-3, 3]) inst.ajouter('candle_lit', cx + dx, 0, Z0 + 9.2, 0);
+    tapis(groupe, cx, cz + 1, 4.5, 12, 0, 1);
+  } else if (type === 'refectoire') {
+    for (const dx of [-5.5, 5.5]) { inst.ajouter('table_long_tablecloth_decorated_A', cx + dx, 0, Z0 + 8, Math.PI / 2); collisions.push({ x: cx + dx - 1.2, z: Z0 + 8, r: 1.2 }, { x: cx + dx + 1.2, z: Z0 + 8, r: 1.2 }); }
+    slotsO.forEach((z, i) => solO(i % 2 ? 'keg_decorated' : 'barrel_large', z, 1.6, 0.8, 1));
+    slotsN.forEach((x, i) => { if (i % 2) murN(pick(['banner_patternA_red', 'banner_thin_red', 'banner_patternB_red']), x, 0); else solN('barrel_small_stack', x, 1.2, 0.9, 0.8); });
+  } else if (type === 'crypte') {
+    slotsN.forEach((x, i) => { sarcophage(groupe, x, Z0 + 1.9, 0); collisions.push({ x, z: Z0 + 1.9, r: 1.1 }); if (i % 2) inst.ajouter('candle_lit', x + 1.6, 0, Z0 + 0.8, 0); });
+    slotsO.forEach((z, i) => { sarcophage(groupe, X0 + 1.9, z, Math.PI / 2); collisions.push({ x: X0 + 1.9, z, r: 1.1 }); if (i % 2) inst.ajouter('candle_triple', X0 + 0.9, 0, z + 1.7, 0); });
+    const runes = new THREE.Mesh(new THREE.CircleGeometry(5.5, 40), new THREE.MeshBasicMaterial({ map: texRunes('#9a5aff'), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.4 }));
+    runes.rotation.x = -Math.PI / 2; runes.position.set(cx, 0.07, cz); groupe.add(runes);
+    for (let k = 0; k < 3; k++) os(groupe, cx + rnd(-8, 8), cz + rnd(-8, 8));
+    G.torches.push({ pos: new THREE.Vector3(cx, 1.5, cz), color: '#9a5aff', int: 14, dist: 10 });
+  } else if (type === 'hall') {
+    slotsN.forEach((x, i) => { if (i % 2 === 0) { inst.ajouter('pillar_decorated', x, 0, Z0 + 4.2, 0, 0.85, 1.05, 0.85); collisions.push({ x, z: Z0 + 4.2, r: 0.95 }); } else murN(pick(['banner_patternA_red', 'banner_patternB_red']), x, 0); });
+    slotsO.forEach((z, i) => { if (i % 2 === 0) { inst.ajouter('pillar_decorated', X0 + 4.2, 0, z, Math.PI / 2, 0.85, 1.05, 0.85); collisions.push({ x: X0 + 4.2, z, r: 0.95 }); } else murO('banner_thin_red', z, 0); });
+    tapis(groupe, cx, cz, 5.5, s.tx * CELL - 4, Math.PI / 2, 0);
+    for (const [dx, dz] of [[-4, -4], [4, -4]]) inst.ajouter('candle_triple', cx + dx, 0, cz + dz, 0);
+  } else { // effondrée
+    inst.ajouter('rubble_large', X0 + 5, 0, Z0 + 2.4, 0.15, 0.9, 0.9, 0.9); collisions.push({ x: X0 + 3, z: Z0 + 2.4, r: 1.6 }, { x: X0 + 7, z: Z0 + 2.4, r: 1.6 });
+    inst.ajouter('rubble_half', X1 - 5, 0, Z0 + 2, -0.2, 0.8, 0.8, 0.8); collisions.push({ x: X1 - 5, z: Z0 + 2, r: 1.5 });
+    inst.ajouter('rubble_half', X0 + 2.2, 0, Z1 - 6, Math.PI / 2, 0.75, 0.75, 0.75); collisions.push({ x: X0 + 2.2, z: Z1 - 6, r: 1.4 });
+    inst.ajouter('pillar', cx + 6, 0.75, cz - 5, 0, 0.75, 1, 0.75); // colonne écroulée : on la couche
+    const f = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), new THREE.MeshBasicMaterial({ map: texFissures(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.85 }));
+    f.rotation.x = -Math.PI / 2; f.rotation.z = Math.random() * 6; f.position.set(cx, 0.09, cz); groupe.add(f);
+    G.torches.push({ pos: new THREE.Vector3(cx, 1.2, cz), color: '#ff4a10', int: 18, dist: 10 });
+    raiLumiere(groupe, cx - 4, cz - 3);
+  }
+  // détails communs : toiles d'araignée dans l'angle, traces au sol, rai de lumière
+  toile(groupe, X0 + 0.1, Z0 + 0.1, 3.2);
+  for (let k = 0; k < 5; k++) tache(groupe, rnd(X0 + 3, X1 - 3), rnd(Z0 + 3, Z1 - 3), rnd(1.5, 3.2), pick(['#1a1008', '#203018', '#3a0606']));
+  if (type !== 'effondree' && Math.random() < 0.45) raiLumiere(groupe, cx + rnd(-6, 6), cz + rnd(-6, 2));
+}
+
 export function construireDonjon(mode) {
   const groupe = new THREE.Group();
   G.torches = []; G.feux = []; G.anims = [];
@@ -333,25 +446,15 @@ export function construireDonjon(mode) {
   for (const [k, ds] of sommets) { if (ds.size === 2) { const [x, z] = k.split(',').map(Number); inst.ajouter('pillar', x * CELL - 0.3, 0, z * CELL - 0.3, 0, 0.75, 1.02, 0.75); } }
   for (const [x, z, r] of torchesPos) torcheMurale(inst, x, z, r);
 
-  // --- Décor des salles ---
+  // --- Décor des salles : chaque salle a une fonction (armurerie, bibliothèque, réfectoire, crypte, grand hall, salle effondrée) ---
   const collisions = [];
-  const decor = ['barrel_large', 'barrel_small_stack', 'crates_stacked', 'box_stacked', 'rubble_half', 'sword_shield_broken', 'trunk_large_A', 'candle_triple'];
-  for (const s of salles) {
-    if (s.type === 'boss' || s.type === 'depart') continue;
-    const n = 2 + Math.floor(Math.random() * 3);
-    for (let i = 0; i < n; i++) {
-      const x0 = (s.cx - Math.floor(s.tx / 2)) * CELL, z0 = (s.cz - Math.floor(s.tz / 2)) * CELL;
-      const coin = Math.random() < 0.5;
-      const x = x0 + (coin ? 1.6 : rnd(2, s.tx * CELL - 2)), z = z0 + (coin ? rnd(2, s.tz * CELL - 2) : 1.6);
-      const k = pick(decor);
-      inst.ajouter(k, x, 0, z, rnd(0, 6.28), 0.9, 0.9, 0.9);
-      if (k !== 'candle_triple' && k !== 'sword_shield_broken') collisions.push({ x, z, r: 1.0 });
-    }
-    if (s.type === 'normale' && Math.random() < 0.55) {
-      const f = new THREE.Mesh(new THREE.PlaneGeometry(14, 14), new THREE.MeshBasicMaterial({ map: texFissures(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.85 }));
-      f.rotation.x = -Math.PI / 2; f.rotation.z = Math.random() * 6; f.position.set(s.centre.x + rnd(-3, 3), 0.09, s.centre.z + rnd(-3, 3)); groupe.add(f);
-      G.torches.push({ pos: f.position.clone().setY(1.2), color: '#ff4a10', int: 18, dist: 10 });
-    }
+  const types = ['armurerie', 'bibliotheque', 'refectoire', 'crypte', 'hall', 'effondree', 'crypte', 'armurerie', 'hall'].sort(() => Math.random() - 0.5);
+  noeuds.forEach((s, i) => decorerSalle(groupe, inst, collisions, s, types[i % types.length]));
+  // couloirs : quelques os, tonneaux contre les murs, toiles d'araignée
+  for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) {
+    if (grille[z * W + x] !== 2 || Math.random() > 0.05) continue;
+    if (!solA(x, z - 1)) { if (Math.random() < 0.5) { inst.ajouter(pick(['barrel_large', 'barrel_small_stack']), x * CELL + 2, 0, z * CELL + 1.1, rnd(0, 6), 0.75, 0.75, 0.75); collisions.push({ x: x * CELL + 2, z: z * CELL + 1.1, r: 0.8 }); } else os(groupe, x * CELL + 2, z * CELL + 1.5); }
+    else if (!solA(x - 1, z)) toile(groupe, x * CELL + 0.1, z * CELL + 0.1, 2.4);
   }
   // salles de boss : colonnes, braseros, cercle de runes
   const coffresPos = [];
@@ -363,13 +466,19 @@ export function construireDonjon(mode) {
       collisions.push({ x: c.x + Math.cos(a) * 11, z: c.z + Math.sin(a) * 11, r: 0.6 });
     }
     const runes = new THREE.Mesh(new THREE.CircleGeometry(7.5, 48), new THREE.MeshBasicMaterial({ map: texRunes('#ff3a2a'), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.55 }));
-    runes.rotation.x = -Math.PI / 2; runes.position.set(c.x, 0.08, c.z); groupe.add(runes);
+    runes.rotation.x = -Math.PI / 2; runes.position.set(c.x, 0.08, c.z); runes.userData.dyn = true; groupe.add(runes);
     G.anims.push((t) => { runes.rotation.z = t * 0.08; });
     for (const [dx, dz] of [[-9, -9], [9, -9], [-9, 9], [9, 9]]) brasero(groupe, c.x + dx, c.z + dz, '#ff3a1a', 1.1);
+    // estrade du gardien au nord : marches, piliers sculptés, bannières et trésor
+    inst.ajouter('stairs_wide', c.x, 0, c.z - 19.5, 0, 1, 0.5, 1); collisions.push({ x: c.x - 2, z: c.z - 18, r: 1.8 }, { x: c.x + 2, z: c.z - 18, r: 1.8 });
+    for (const dx of [-5.5, 5.5]) { inst.ajouter('pillar_decorated', c.x + dx, 0, c.z - 18.5, 0, 1, 1.15, 1); collisions.push({ x: c.x + dx, z: c.z - 18.5, r: 1 }); inst.ajouter('banner_patternA_red', c.x + dx * 0.55, 0, c.z - 21.6, 0); }
+    inst.ajouter('coin_stack_large', c.x - 3.2, 0, c.z - 16.8, 0.4); inst.ajouter('chest_gold', c.x + 3.4, 0, c.z - 16.8, -0.3);
+    tapis(groupe, c.x, c.z - 7, 5, 16, 0, 0);
     // le coffre se tient côté nord-ouest (bien visible)
     coffresPos.push(new THREE.Vector3(c.x - 6.5, 0, c.z - 6.5));
     collisions.push({ x: c.x - 6.5, z: c.z - 6.5, r: 1.2 });
   }
+  fusionnerStatiques(groupe);
   inst.construire(groupe);
   G.scene.add(groupe);
 
@@ -428,10 +537,11 @@ export function construireArene() {
   // sable de l'arène
   const sable = texture('sableArene', 1024, 1024, (g) => {
     g.translate(512, 512);
-    const gr = g.createRadialGradient(0, 0, 40, 0, 0, 512); gr.addColorStop(0, '#4a3a5a'); gr.addColorStop(1, '#2a2034'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 512, 0, 7); g.fill();
-    for (let i = 0; i < 3000; i++) { const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * 500; g.fillStyle = `rgba(${150 + Math.random() * 60},${120 + Math.random() * 50},${170 + Math.random() * 60},${Math.random() * 0.12})`; g.fillRect(Math.cos(a) * r, Math.sin(a) * r, 2 + Math.random() * 5, 2 + Math.random() * 5); }
-    g.strokeStyle = 'rgba(200,140,255,0.35)'; g.lineWidth = 6; for (const r of [150, 300, 480]) { g.beginPath(); g.arc(0, 0, r, 0, 7); g.stroke(); }
-    g.strokeStyle = 'rgba(220,170,255,0.25)'; g.lineWidth = 3; g.beginPath(); g.moveTo(-480, 0); g.lineTo(480, 0); g.stroke();
+    const gr = g.createRadialGradient(0, 0, 40, 0, 0, 512); gr.addColorStop(0, '#c8a878'); gr.addColorStop(1, '#9a7a52'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 512, 0, 7); g.fill();
+    for (let i = 0; i < 260; i++) { const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * 480, rr = 10 + Math.random() * 40; const gg = g.createRadialGradient(Math.cos(a) * r, Math.sin(a) * r, 0, Math.cos(a) * r, Math.sin(a) * r, rr); gg.addColorStop(0, Math.random() < 0.5 ? 'rgba(90,60,30,0.18)' : 'rgba(240,220,180,0.16)'); gg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gg; g.beginPath(); g.arc(Math.cos(a) * r, Math.sin(a) * r, rr, 0, 7); g.fill(); }
+    for (let i = 0; i < 3000; i++) { const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * 500; g.fillStyle = `rgba(${120 + Math.random() * 80},${90 + Math.random() * 60},${50 + Math.random() * 40},${Math.random() * 0.25})`; g.fillRect(Math.cos(a) * r, Math.sin(a) * r, 2 + Math.random() * 5, 2 + Math.random() * 5); }
+    g.strokeStyle = 'rgba(110,70,40,0.35)'; g.lineWidth = 6; for (const r of [150, 300, 480]) { g.beginPath(); g.arc(0, 0, r, 0, 7); g.stroke(); }
+    g.strokeStyle = 'rgba(110,70,40,0.25)'; g.lineWidth = 3; g.beginPath(); g.moveTo(-480, 0); g.lineTo(480, 0); g.stroke();
     // deux cercles de départ
     for (const s of [-1, 1]) { g.strokeStyle = s < 0 ? 'rgba(90,170,255,0.6)' : 'rgba(255,80,80,0.6)'; g.lineWidth = 8; g.beginPath(); g.arc(s * 300, 0, 70, 0, 7); g.stroke(); }
   });
@@ -440,7 +550,7 @@ export function construireArene() {
   const runes = new THREE.Mesh(new THREE.CircleGeometry(5, 48), new THREE.MeshBasicMaterial({ map: texRunes('#b05aff'), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.8 }));
   runes.rotation.x = -Math.PI / 2; runes.position.y = 0.06; groupe.add(runes);
   // muret et gradins
-  const pm = pierreMat('#3a3050', '#201a2c');
+  const pm = pierreMat('#a89a88', '#7a6c5c');
   const muret = new THREE.Mesh(new THREE.CylinderGeometry(R + 1.6, R + 1.6, 1.6, 64, 1, true), pm); muret.position.y = 0.8; muret.material.side = THREE.DoubleSide; groupe.add(muret);
   const rebord = new THREE.Mesh(new THREE.TorusGeometry(R + 1.6, 0.35, 8, 64), pm); rebord.rotation.x = Math.PI / 2; rebord.position.y = 1.6; groupe.add(rebord);
   for (let k = 0; k < 5; k++) {
@@ -450,22 +560,34 @@ export function construireArene() {
     groupe.add(trou);
     const face = new THREE.Mesh(new THREE.CylinderGeometry(r0, r0, h, 64, 1, true), pm); face.material.side = THREE.DoubleSide; face.position.y = h / 2; groupe.add(face);
   }
-  // spectateurs : silhouettes sombres sur les gradins
-  const silGeo = new THREE.CapsuleGeometry(0.35, 0.6, 3, 6);
-  const silMat = new THREE.MeshStandardMaterial({ color: '#1a1424', roughness: 1 });
-  const n = 220; const foule = new THREE.InstancedMesh(silGeo, silMat, n); const m4 = new THREE.Matrix4();
+  // spectateurs : foule en habits colorés, qui s'agite pendant le combat
+  const n = 340, corps = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.33, 0.55, 3, 6), new THREE.MeshStandardMaterial({ roughness: 0.9 }), n);
+  const tetes = new THREE.InstancedMesh(new THREE.SphereGeometry(0.24, 8, 6), new THREE.MeshStandardMaterial({ roughness: 0.8 }), n);
+  const m4 = new THREE.Matrix4(), coul = new THREE.Color(), base = [];
+  const habits = ['#8a2a2a', '#2a4a8a', '#3a6a3a', '#8a6a2a', '#5a3a6a', '#7a7a7a', '#a04a2a', '#2a6a6a', '#c8b088', '#4a3a2a'], peaux = ['#f0c8a0', '#d8a07a', '#a8704a', '#7a4a2a'];
   for (let i = 0; i < n; i++) {
-    const k = Math.floor(Math.random() * 5), r0 = R + 3.3 + k * 2.2, h = 1.6 + k * 1.2 + 0.65, a = Math.random() * 6.28;
-    if (Math.cos(a) > 0.6 && Math.sin(a) > -0.3 && Math.sin(a) < 0.3) continue;
-    m4.makeTranslation(Math.cos(a) * r0, h, Math.sin(a) * r0); foule.setMatrixAt(i, m4);
+    const k = Math.floor(Math.random() * 5), r0 = R + 3.3 + k * 2.2, h = 1.6 + k * 1.2 + 0.55, a = Math.random() * 6.28;
+    if (Math.abs(Math.cos(a)) > 0.94) { base.push(null); continue; } // passages vers les portes des combattants
+    const x = Math.cos(a) * (r0 + (Math.random() - 0.5) * 0.6), z = Math.sin(a) * (r0 + (Math.random() - 0.5) * 0.6);
+    base.push([x, h, z, Math.random() * 6.28]);
+    m4.makeTranslation(x, h, z); corps.setMatrixAt(i, m4); corps.setColorAt(i, coul.set(habits[i % habits.length]));
+    m4.makeTranslation(x, h + 0.68, z); tetes.setMatrixAt(i, m4); tetes.setColorAt(i, coul.set(peaux[i % peaux.length]));
   }
-  groupe.add(foule);
-  G.anims.push((t) => { foule.position.y = Math.abs(Math.sin(t * 6)) * 0.06; runes.rotation.z = t * 0.1; });
+  for (let i = 0; i < n; i++) if (!base[i]) { m4.makeScale(0, 0, 0); corps.setMatrixAt(i, m4); tetes.setMatrixAt(i, m4); }
+  corps.castShadow = true; groupe.add(corps, tetes);
+  G.anims.push((t) => { for (let i = 0; i < n; i += 1) { const b = base[i]; if (!b) continue; const y = b[1] + Math.max(0, Math.sin(t * 5 + b[3])) * 0.18; m4.makeTranslation(b[0], y, b[2]); corps.setMatrixAt(i, m4); m4.makeTranslation(b[0], y + 0.68, b[2]); tetes.setMatrixAt(i, m4); } corps.instanceMatrix.needsUpdate = true; tetes.instanceMatrix.needsUpdate = true; runes.rotation.z = t * 0.1; });
+  // grandes portes des combattants (ouest et est) et oriflammes en haut des gradins
+  for (const s of [-1, 1]) {
+    groupe.add(cloner('wall_arched', s * (R + 1.7), 0, 0, Math.PI / 2, 1.3));
+    for (const dz of [-3.4, 3.4]) groupe.add(cloner('pillar_decorated', s * (R + 2), 0, dz, Math.PI / 2, 1.1));
+  }
+  for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2; const r0 = R + 2.2 + 5 * 2.2 + 1.2; const mat = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 6, 6), new THREE.MeshStandardMaterial({ color: '#3a2a1a' })); mat.position.set(Math.cos(a) * r0, 1.6 + 4 * 1.2 + 3, Math.sin(a) * r0); groupe.add(mat);
+    const dr = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.6), new THREE.MeshStandardMaterial({ color: i % 2 ? '#8a1a1a' : '#1a3a8a', side: THREE.DoubleSide, emissive: i % 2 ? '#2a0404' : '#04082a' })); dr.position.set(Math.cos(a) * r0, 1.6 + 4 * 1.2 + 4.4, Math.sin(a) * r0); dr.rotation.y = -a + Math.PI / 2; dr.position.x += Math.cos(a + Math.PI / 2) * 0.72; dr.position.z += Math.sin(a + Math.PI / 2) * 0.72; groupe.add(dr); }
   // piliers et braseros violets
   for (let i = 0; i < 12; i++) {
     const a = i / 12 * Math.PI * 2 + Math.PI / 12; const x = Math.cos(a) * (R + 1.6), z = Math.sin(a) * (R + 1.6);
     groupe.add(cloner('pillar_decorated', x, 0, z, -a + Math.PI / 2, 0.85));
-    if (i % 2 === 0) brasero(groupe, Math.cos(a) * (R - 0.8), Math.sin(a) * (R - 0.8), '#9a4aff', 1.0);
+    if (i % 2 === 0) brasero(groupe, Math.cos(a) * (R - 0.8), Math.sin(a) * (R - 0.8), '#ff8a2a', 1.0);
     else groupe.add(cloner('banner_patternA_red', Math.cos(a) * (R + 1.0), 0, Math.sin(a) * (R + 1.0), -a - Math.PI / 2, 1));
   }
   // cristal flottant au-dessus du centre

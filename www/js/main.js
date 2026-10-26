@@ -2936,7 +2936,7 @@ function entrerArene(format, opts = {}) {
     construireJoueur(monde.spawn.clone());
     joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax; joueur.cds = {};
     joueur.angle = Math.PI / 2; joueur.root.rotation.y = joueur.angle;
-    G.camTarget.copy(joueur.pos); G.scene.fog.density = 0.012; G.hemi.intensity = 1.0; G.sun.intensity = 1.1;
+    G.camTarget.copy(joueur.pos); G.scene.fog.density = 0.008; G.scene.fog.color.set('#3a2a3a'); G.scene.background.set('#2a1e30'); G.hemi.color.set('#ffe0c0'); G.hemi.groundColor.set('#4a3020'); G.hemi.intensity = 1.15; G.sun.color.set('#ffd8a8'); G.sun.intensity = 1.9;
     const ipJ = statsHeros(J.equip).ip;
     arene = { format, duel: opts.duel || null, mise: opts.mise || 0, letale: !!opts.letale, fini: false, t: 3.6, dernier: 4 };
     const pris = [];
