@@ -177,7 +177,25 @@ button:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
 .er{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:rgba(0,0,0,.28)}
 .er .ri{font-size:22px}
 .winbig{font-family:var(--f-display);font-size:clamp(28px,7vw,44px);text-align:center;margin:6px 0}
+
+#quest{position:absolute;top:calc(58px + env(safe-area-inset-top,0px));left:max(10px,env(safe-area-inset-left,0px));width:min(250px,40vw);display:flex;flex-direction:column;gap:3px;pointer-events:none}
+.qs2{display:flex;align-items:center;gap:7px;font:800 12px/1.2 var(--f-body);padding:4px 8px;border-radius:9px;background:rgba(10,6,22,.72);color:var(--muted)}
+.qs2 span{flex:none;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font:900 11px var(--f-body);background:#3a2b57;color:var(--text)}
+.qs2.cur{color:var(--text);box-shadow:0 0 0 2px var(--cyan)} .qs2.cur span{background:var(--cyan);color:#00303d}
+.qs2.ok{color:#9be89a;text-decoration:line-through} .qs2.ok span{background:var(--lime);color:#0e3a07}
+.qt{font:900 12px var(--f-body);color:var(--cyan);padding:2px 8px}
+.rcard{text-align:left}
+.rcard .big{text-align:center}
+.rk{font:400 11px var(--f-display);letter-spacing:.14em;color:var(--muted)}
+.rcard h3{margin:2px 0 6px}
+.miss{margin:0;padding-left:20px;display:grid;gap:4px} .miss li{font-weight:800;font-size:14px;line-height:1.3;color:#f1eaff}
+.miss li::marker{color:var(--rc);font-weight:900}
+.rw{color:var(--gold)!important} .rp{color:var(--muted)!important;font-size:12.5px!important}
+#introtxt{max-width:34ch}
 @media (orientation:landscape) and (max-height:500px){
+  .rcard{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start;width:min(680px,92vw);padding:12px 16px} .rcard .big{font-size:44px} .miss li{font-size:13px} .rcard p{margin:.2em 0}
+  #intro{gap:8px} #roletag{max-width:28vw} #toast{width:min(38vw,400px)} .tst{font-size:13px;padding:6px 10px} #quest{width:min(240px,30vw);top:calc(54px + env(safe-area-inset-top,0px))} .qs2{font-size:11px;padding:3px 7px}
+  #chatlog{left:calc(max(10px,env(safe-area-inset-left,0px)) + 130px);bottom:calc(10px + env(safe-area-inset-bottom,0px));width:min(300px,34vw)}
   #lobby .side{gap:7px} #lobby h1{font-size:22px} #nick{padding:6px 10px;font-size:16px}
   .charbtn{padding:5px 4px} .charbtn i{display:inline;font-size:15px;margin:0 4px 0 0}
   .chip{padding:5px 9px;font-size:12px} #qstat{min-height:0;font-size:17px} .lobbyhint{font-size:11.5px}
@@ -255,10 +273,12 @@ button:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}
 
 <div id="hud" class="ol" hidden>
   <div id="roletag"><div id="roleico">?</div><div><div id="rolename">—</div><div id="objective"></div></div></div>
+  <div id="quest"></div>
   <div id="topbar"><div id="timer">7:00</div><div id="seals"><div class="seal"></div><div class="seal"></div><div class="seal"></div></div></div>
   <div id="tr">
     <button class="ibtn" id="bmap" aria-label="Carte">🗺️</button>
     <button class="ibtn" id="bjournal" aria-label="Carnet">📜</button>
+    <button class="ibtn" id="brules" aria-label="Règles">❓</button>
   </div>
   <div id="toast"></div>
   <div id="chatlog"></div>
@@ -488,6 +508,11 @@ function initRenderer() {
   W3.moon = new THREE.DirectionalLight(0xb8c4ff, 0.55); W3.moon.position.set(-20, 40, 30); sc.add(W3.moon);
   for (let i = 0; i < 7; i++) { const l = new THREE.PointLight(0xff9a3c, 0, 10, 1.6); sc.add(l); W3.lights.push(l); }
   W3.lantern = new THREE.PointLight(0xcfe6ff, 1.4, 9, 1.4); sc.add(W3.lantern);
+  const sh = new THREE.Shape(); sh.moveTo(0, 0.7); sh.lineTo(0.5, -0.1); sh.lineTo(0.18, -0.1); sh.lineTo(0.18, -0.6); sh.lineTo(-0.18, -0.6); sh.lineTo(-0.18, -0.1); sh.lineTo(-0.5, -0.1); sh.closePath();
+  W3.guide = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshBasicMaterial({ color: 0x22f0ff, transparent: true, opacity: 0.85, depthWrite: false }));
+  W3.guide.geometry.rotateX(-Math.PI / 2); W3.guide.geometry.rotateY(Math.PI); W3.guide.visible = false; sc.add(W3.guide);
+  W3.beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 6, 16, 1, true), new THREE.MeshBasicMaterial({ color: 0x22f0ff, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  W3.beacon.visible = false; sc.add(W3.beacon);
   addEventListener('resize', onResize); onResize();
 }
 function onResize() {
@@ -992,7 +1017,7 @@ const Host = {
   start(participants) {
     // participants : [{id, n, c, pref, bot}]
     const S = {
-      ph: 'intro', tIntro: 9, tl: MATCH_TIME, go: 0, ac: 0, wn: '', why: '',
+      ph: 'intro', tIntro: 15, tl: MATCH_TIME, go: 0, ac: 0, wn: '', why: '',
       pl: {}, np: [], dr: DOORS.map(() => 0), dl: DOORS.map(() => 0), sl: [0, 0, 0], sp: 0, cl: [], bo: 0, ev: [], bc: [],
       code: [0, 1, 2, 3].map(() => rint(0, 5)), seen: [], rumors: [],
     };
@@ -1751,6 +1776,7 @@ const UI = {
     const put = (key, cls, html, x, y, z) => {
       v.set(x, y, z).project(W3.cam); if (v.z > 1) return;
       const sx = (v.x * 0.5 + 0.5) * innerWidth, sy = (-v.y * 0.5 + 0.5) * innerHeight;
+      if (Game.mode === 'match' && (sy < 64 || sy > innerHeight - 20)) return;
       let el = this.labelEls.get(key); if (!el) { el = document.createElement('div'); L.appendChild(el); this.labelEls.set(key, el); }
       if (el.className !== cls) el.className = cls; if (el._h !== html) { el.innerHTML = html; el._h = html; }
       el.style.left = sx + 'px'; el.style.top = sy + 'px'; used.add(key);
@@ -1773,24 +1799,32 @@ const UI = {
     for (const [k, el] of this.labelEls) if (!used.has(k)) { el.remove(); this.labelEls.delete(k); }
   },
   /* ---------- intro ---------- */
+  missions(P) {
+    if (P.r === 'X') return [`Fais semblant d'être ${ROLES[P.v].name} : aide un peu, parle beaucoup.`, 'Quand personne ne regarde, brise un sceau actif avec 💥.', 'Annonce de faux symboles et chuchote avec le Bug.', 'Tu gagnes si le chrono tombe à 0:00.'];
+    if (P.r === 'B') return ['Tu es invisible : survole la crypte, tu entends tout.', 'Possède un squelette 💀 pour parler ou attraper.', 'Claque les portes 🚪, pose de faux parchemins 📜, coupe la lumière 🌑.', 'Tu gagnes si personne ne sort avant 0:00.'];
+    return ['Active les 3 sceaux : Bibliothèque, Alchimie, et les 2 plaques du Réfectoire (à deux).', 'Lis les parchemins dorés : chacun donne un symbole du code (4 en tout).', 'Tape le code au panneau de la Porte 404, dans le Hall.', 'Sors par la porte avec l\'autre évadé avant 0:00.'];
+  },
   intro(P, w) {
     $('intro').hidden = false; this.show('none'); Audio.play('glitch1'); Audio.startMusic('game');
     const R = ROLES[P.r];
-    const txt = 'ERREUR 404 — La simulation de la crypte a planté. Trois âmes se réveillent derrière une porte scellée. Une quatrième, invisible, les écoute déjà…';
-    let i = 0; clearInterval(this.typeT); this.typeT = setInterval(() => { $('introtxt').textContent = txt.slice(0, ++i); if (i % 3 === 0) Audio.play('click', 0.15); if (i >= txt.length) clearInterval(this.typeT); }, 28);
-    let extra = '';
-    if (P.r === 'X') extra = `<p style="color:var(--gold)">Ta couverture : prétends être <b>${ROLES[P.v].name}</b>. Le Bug est ton allié : chuchotez ensemble.</p>`;
-    if (P.r === 'B') extra = `<p style="color:var(--glitch)">Personne ne te voit. Tu entends tous les messages. Possède les squelettes pour parler et attraper.</p>`;
-    if (R.team === 'E') extra = `<p style="color:var(--cyan)">Attention : l'un des deux autres visibles est un traître.</p>`;
-    $('introcard').innerHTML = `<div class="rcard" style="--rc:${R.col}"><div class="big">${R.ico}</div><h3 class="stroke">${R.name}</h3><p>${R.goal}</p>${extra}<p style="color:var(--muted);font-size:12.5px">${R.pw.map(p => p.ico + ' ' + p.lbl + (p.n < 50 ? ' ×' + p.n : '')).join(' · ')}</p></div>`;
+    const txt = 'ERREUR 404 — La crypte a planté. Trois âmes se réveillent. Une quatrième, invisible, écoute déjà…';
+    $('introcard').innerHTML = ''; $('introtxt').hidden = false;
+    let i = 0; clearInterval(this.typeT); this.typeT = setInterval(() => { $('introtxt').textContent = txt.slice(0, ++i); if (i % 3 === 0) Audio.play('click', 0.15); if (i >= txt.length) clearInterval(this.typeT); }, 26);
+    let warn = R.team === 'E' ? '⚠️ L\'un des deux autres visibles est un traître.' : (P.r === 'X' ? '🤝 Le Bug est ton allié.' : '🤝 Le Complice est ton allié.');
+    clearTimeout(this.cardT);
+    this.cardT = setTimeout(() => {
+      clearInterval(this.typeT); $('introtxt').hidden = true; Audio.play('select');
+      $('introcard').innerHTML = `<div class="rcard" style="--rc:${R.col}"><div class="big">${R.ico}</div><div class="rbody"><div class="rk">TON RÔLE</div><h3 class="stroke">${R.name}</h3><ol class="miss">${this.missions(P).map(m => `<li>${m}</li>`).join('')}</ol><p class="rw">${warn}</p><p class="rp">${R.pw.map(p => p.ico + ' ' + p.lbl + (p.n < 50 ? ' ×' + p.n : '')).join(' · ')}</p></div></div>`;
+    }, 3600);
   },
   introTick(t) { $('introcount').textContent = t > 0 ? `Les portes s'ouvrent dans ${t}…` : ''; },
-  introEnd() { $('intro').hidden = true; clearInterval(this.typeT); },
+  introEnd() { $('intro').hidden = true; clearInterval(this.typeT); clearTimeout(this.cardT); },
   /* ---------- HUD ---------- */
   buildHUD(P) {
     const R = ROLES[P.r];
     $('roleico').textContent = R.ico; $('roleico').style.background = R.col; $('rolename').textContent = R.name; $('rolename').style.color = R.col;
-    $('objective').textContent = P.r === 'X' ? `Couverture : ${ROLES[P.v].name}` : (P.r === 'B' ? 'Invisible · tu entends tout' : 'Sceaux · code · sortie');
+    $('objective').textContent = P.r === 'X' ? `Couverture : ${ROLES[P.v].name}` : (P.r === 'B' ? 'Invisible' : 'Évadé');
+    this.questKey = '';
     const acts = $('acts'); acts.innerHTML = '';
     R.pw.forEach((w, i) => {
       const b = document.createElement('button'); b.className = 'pw'; b.id = 'pw' + i; b.innerHTML = `${w.ico}<span class="n"></span><span class="lbl">${w.lbl}</span>`;
@@ -1803,6 +1837,7 @@ const UI = {
     big.addEventListener('pointerdown', e => { e.preventDefault(); fire(); });
   },
   hudTick(P, w) {
+    this.quest(P, w);
     const t = w.tl; const tm = $('timer'); tm.textContent = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; tm.classList.toggle('low', t <= 60);
     [...$('seals').children].forEach((s, i) => s.classList.toggle('on', !!w.sl[i]));
     const R = ROLES[P.r];
@@ -1820,6 +1855,41 @@ const UI = {
     const big = $('bigact'); if (big && !this.holding) { big.textContent = this.ctx ? this.ctx.label : '—'; big.classList.toggle('off', !this.ctx); big.classList.remove('prog'); }
     const pr = $('prompt'); const hint = this.ctx ? this.ctx.hint : (P.k ? `Cellier : un allié peut t'ouvrir… sinon la serrure cède dans ${w.ct} s` : '');
     pr.hidden = !hint; if (hint) pr.textContent = hint;
+  },
+  /* ---------- objectifs + flèche de guidage ---------- */
+  quest(P, w) {
+    const me = Game.me; const near = (a, b) => dist2(me.x, me.z, a.x, a.z) - dist2(me.x, me.z, b.x, b.z);
+    const known = [0, 1, 2, 3].filter(s => Object.values(Game.journal).some(j => j.s === s && j.v !== 0)).length;
+    const nSeals = w.sl.filter(Boolean).length; let steps, cur = 0, tgt = null;
+    if (ROLES[P.r].team === 'E') {
+      steps = [`Sceaux activés ${nSeals}/3`, `Symboles du code ${known}/4`, 'Taper le code à la Porte 404', 'Sortir à deux'];
+      cur = w.go ? 3 : (nSeals === 3 && known === 4 ? 2 : (nSeals < 3 ? 0 : 1));
+      const opts = [];
+      SEALS.forEach((s, i) => { if (w.sl[i]) return; if (s.kind === 'twin') { const free = PLATES.filter((pl, k) => !(w.po && w.po[k])); (free.length ? free : PLATES).forEach(pl => opts.push({ x: pl.x, z: pl.z, n: 'Plaque du Réfectoire' })); } else opts.push({ x: s.x, z: s.z, n: s.name }); });
+      if (known < 4) w.cl.forEach(c => { if (!Game.journal[c[0]]) opts.push({ x: c[3], z: c[4], n: 'Parchemin' }); });
+      if (P.k) tgt = null;
+      else if (w.go) tgt = { x: 16, z: 55, n: 'Sortie !' };
+      else if (nSeals === 3 && known === 4) tgt = { x: GATE.x - 2.6, z: GATE.z, n: 'Panneau de la Porte 404' };
+      else tgt = opts.sort(near)[0] || null;
+    } else if (P.r === 'X') {
+      steps = ['Rester crédible', `Briser des sceaux (${P.ch[0]} 💥)`, 'Tenir jusqu\'à 0:00']; cur = nSeals ? 1 : 0;
+      const done = SEALS.filter((s, i) => w.sl[i]).map(s => ({ x: s.x, z: s.z, n: s.name + ' (actif)' }));
+      tgt = done.sort(near)[0] || null;
+    } else {
+      steps = ['Posséder un squelette 💀', 'Semer le chaos : portes, faux indices, panne', 'Personne ne sort avant 0:00']; cur = P.ps >= 0 ? 1 : 0;
+      const ev = Object.values(w.pl).filter(p => ROLES[p.r].team === 'E' && !p.o && !p.k).map(p => ({ x: p.x, z: p.z, n: p.n }));
+      tgt = ev.sort(near)[0] || null;
+    }
+    const key = steps.join('|') + cur + (tgt ? tgt.n : '');
+    if (key !== this.questKey) {
+      this.questKey = key;
+      $('quest').innerHTML = steps.map((t, i) => `<div class="qs2 ${i < cur ? 'ok' : i === cur ? 'cur' : ''}"><span>${i < cur ? '✓' : i + 1}</span>${esc(t)}</div>`).join('') + (tgt ? `<div class="qt">➜ ${esc(tgt.n)}</div>` : '');
+    }
+    const ar = W3.guide; if (!ar) return;
+    const show = tgt && w.ph === 'play' && !P.o && P.r !== 'B';
+    ar.visible = !!show; W3.beacon.visible = !!tgt && w.ph === 'play';
+    if (tgt) { W3.beacon.position.set(tgt.x, 3, tgt.z); W3.beacon.material.opacity = 0.18 + Math.sin(performance.now() / 300) * 0.08; }
+    if (show) { const a = Math.atan2(tgt.x - me.x, tgt.z - me.z); const d = dist2(me.x, me.z, tgt.x, tgt.z); ar.visible = d > 2.2; ar.position.set(me.x + Math.sin(a) * 1.5, 0.12, me.z + Math.cos(a) * 1.5); ar.rotation.y = a; }
   },
   contextAction(P, w) {
     if (w.ph !== 'play' || P.o || Game.busy > 0) return null;
@@ -2023,6 +2093,14 @@ const UI = {
     if (P.r === 'B') Game.npcEnts.forEach((e, i) => { g.fillStyle = w.np[i][0] === 'G' ? '#ff3b30' : '#c7b8ff'; g.fillRect(tx(e.x) - 4, tz(e.z) - 4, 8, 8); });
     g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 3; g.beginPath(); g.arc(tx(Game.me.x), tz(Game.me.z), 8, 0, 7); g.fill(); g.stroke();
   },
+  rulesModal() {
+    const P = Game.myP(); if (!P) { $('how').hidden = false; return; } const R = ROLES[P.r];
+    this.openModal(`<h2 class="stroke" style="color:${R.col}">${R.ico} ${R.name} : ta mission</h2><ol class="miss" style="--rc:${R.col}">${this.missions(P).map(m => `<li>${m}</li>`).join('')}</ol>
+      <h2 class="stroke" style="font-size:19px;margin-top:14px">Les commandes</h2>
+      <p>🕹️ Joystick à gauche pour bouger (pousse à fond pour courir).<br>🟠 Le gros bouton rond change selon ce qui est devant toi : <b>SCEAU, LIRE, PLAQUE, OUVRIR, DÉNONCER, PORTE 404</b>…<br>✨ Les petits boutons sont tes pouvoirs, le chiffre = charges restantes.<br>💬 Parler : seuls les joueurs proches t'entendent.<br>➜ La flèche bleue au sol et le faisceau lumineux montrent l'objectif le plus proche. 🗺️ Carte · 📜 Carnet des symboles.</p>
+      <h2 class="stroke" style="font-size:19px;margin-top:14px">Les dangers</h2>
+      <p>💀 Les gardes (cône rouge) t'envoient au cellier s'ils te fixent trop longtemps : −10 s. Un allié t'ouvre de l'extérieur, sinon la serrure cède en 35 s.<br>📜 Certains parchemins sont des faux posés par le Bug : l'Oracle peut les vérifier.<br>⚖️ À la Chapelle, une seule dénonciation : le bon complice = +60 s, erreur = −90 s.</p>`, 'rules');
+  },
   journalModal() {
     this.openModal(`<h2 class="stroke">Carnet</h2><div id="jlist"></div>`, 'journal'); this.refreshJournal();
   },
@@ -2183,6 +2261,7 @@ async function boot() {
   $('bsound').textContent = Audio.on ? '🔊' : '🔇';
   $('bmap').onclick = () => UI.mapModal();
   $('bjournal').onclick = () => UI.journalModal();
+  $('brules').onclick = () => UI.rulesModal();
   await netReady; if (Game.mode === 'lobby') Lobby.onPeers();
 }
 window.__b = { Game, W3, Host, UI, Net, Lobby };
