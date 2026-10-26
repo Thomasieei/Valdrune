@@ -51,6 +51,16 @@ export const ARMES = {
     noms: ['', 'Bâton noueux', 'Bâton de bronze', 'Branche sylvestre', "Sceptre d'azur", 'Bâton de braise', 'Soleil captif', "Œil de l'abysse", 'Flamme céleste'],
     sorts: ['bouleFeu', 'colonne', 'meteore'],
   },
+  // classe à familiers : arc + meute de 3 loups démoniaques permanents
+  arc: {
+    label: 'Arc du Maître des bêtes', court: 'Arc', model: 'Rogue_Hooded', node: 'Arc', procedural: true, bete: true,
+    helmet: null, cape: 'Rogue_Cape', legs: ['Rogue_LegLeft', 'Rogue_LegRight'], body: 'Rogue_Body',
+    portee: 14, vitesse: 0.95, base: 24, projectile: 'fleche',
+    idle: 'Idle', run: 'Running_A',
+    attaques: ['2H_Ranged_Shoot'],
+    noms: ['', 'Arc de chasse', 'Arc de bronze', 'Arc des sous-bois', 'Arc d’azur', 'Arc des braises', 'Arc du soleil noir', 'Arc de l’abysse', 'Croc céleste'],
+    sorts: ['tirArc', 'meute', 'frenesie'],
+  },
   // classe rare : 0,1 % sur les boss et en PvP, ou code bêta (T1)
   ombre: {
     label: 'Dagues des Ombres', court: 'Ombres', model: 'Rogue_Hooded', node: 'Knife', node2: 'Knife_Offhand', rare: true, ombre: true,
@@ -136,6 +146,17 @@ export const SORTS = {
   triple:    { nom: 'Triple entaille', desc: 'Sans recharge. Fonds sur ta cible (6 m) et enchaîne 3 coups éclair. +3 points de combo.', cd: 0, energie: 22, mult: 0.55, portee: 6, type: 'cible', couleur: ['#ff8a8a', '#3a0008'], glyphe: 'triple' },
   curee:     { nom: 'Curée', desc: 'Finisher automatique sur la cible la plus proche : consomme tous les points de combo. Dégâts énormes par point ; à 5 points, tu disparais 1 s.', cd: 7, energie: 28, mult: 0.8, portee: 9, type: 'cible', couleur: ['#ffd0d0', '#8a0010'], glyphe: 'curee' },
   zephyr:    { nom: 'Pas du zéphyr', desc: '3 dashs foudroyants en 5 s qui traversent et entaillent les ennemis (+1 combo chacun), et +40 % de vitesse pendant 5 s.', cd: 15, energie: 22, mult: 0.55, portee: 8, type: 'dash', couleur: ['#e0fff0', '#0a5a3a'], glyphe: 'zephyr' },
+  // --- Maître des bêtes ---
+  tirArc:    { nom: 'Flèche écarlate', desc: 'Tire une flèche chargée qui traverse tout sur 20 m et inflige des dégâts énormes. Saigne 4 s.', cd: 20, energie: 30, mult: 7.5, portee: 20, type: 'ligne', couleur: ['#ff6a5a', '#3a0004'], glyphe: 'fleche' },
+  meute:     { nom: 'Appel de la meute', desc: 'Invoque tes loups démoniaques (3 au total). Tant que la meute est complète, ce sort devient un enchaînement : Entrave bestiale → Rugissement de la meute → Bond meurtrier.', cd: 20, energie: 30, mult: 0, portee: 0, type: 'invocation', couleur: ['#ff4a3a', '#2a0006'], glyphe: 'loup' },
+  entrave:   { nom: 'Entrave bestiale', desc: 'Les loups bondissent sur ta cible et la clouent au sol 2,6 s (elle ne peut plus bouger).', cd: 1.2, energie: 12, mult: 1.6, portee: 22, type: 'meute', couleur: ['#ffb04a', '#3a1404'], glyphe: 'entrave', combo: 1 },
+  rugissement: { nom: 'Rugissement de la meute', desc: 'Les loups rugissent ensemble : une énorme onde de choc ravage tout autour d’eux.', cd: 1.2, energie: 18, mult: 4.2, portee: 22, type: 'meute', couleur: ['#ff5a2a', '#3a0400'], glyphe: 'rugissement', combo: 2 },
+  bondMeurtrier: { nom: 'Bond meurtrier', desc: 'Chaque loup se téléporte sur un monstre différent et le déchire (saignement). Termine l’enchaînement.', cd: 14, energie: 22, mult: 4.6, portee: 22, type: 'meute', couleur: ['#ff2a4a', '#2a0010'], glyphe: 'bond', combo: 3 },
+  frenesie:  { nom: 'Frénésie sauvage', desc: 'Pendant 8 s : tes loups attaquent 80 % plus vite et volent 20 % de vie, toi +30 % de vitesse d’attaque.', cd: 24, energie: 25, mult: 0, type: 'buff', couleur: ['#ff8a6a', '#4a0a0a'], glyphe: 'rugissement' },
+  // --- compétences débloquées par l'arbre de talents ---
+  pluieEcarlate: { nom: 'Pluie écarlate', desc: 'Une pluie de flèches rouges s’abat 5 fois sur la zone visée. Ralentit de 40 %.', cd: 18, energie: 36, mult: 1.15, portee: 15, type: 'zone', couleur: ['#ff7a6a', '#3a0006'], glyphe: 'rain' },
+  tirMultiple: { nom: 'Salve en éventail', desc: 'Tire 7 carreaux en éventail devant toi.', cd: 8, energie: 24, mult: 1.1, portee: 14, type: 'cone', couleur: ['#c8ffd0', '#0a3a20'], glyphe: 'bolt' },
+  novaGivre: { nom: 'Nova de givre', desc: 'Une onde glacée autour de toi : dégâts et ennemis gelés sur place 2 s.', cd: 14, energie: 30, mult: 2.2, portee: 6, type: 'zone', couleur: ['#bfe8ff', '#0a2a4a'], glyphe: 'spin' },
   ruee:      { nom: 'Ruée', desc: '+60 % de vitesse pendant 3 s, supprime les ralentissements.', cd: 15, energie: 15, mult: 0, type: 'sprint', couleur: ['#fff08a', '#4d3a06'], glyphe: 'wing' },
 };
 
@@ -197,7 +218,7 @@ export const CHAT = [
 // ---- Maîtrise : niveau requis par tier ----
 export const NIVEAU_REQUIS = [0, 1, 15, 40, 50, 60, 70, 80, 90];
 export const MAITRISES = [
-  { id: 'epee', nom: 'Épée à deux mains', cat: 'arme' }, { id: 'arbalete', nom: 'Arbalète lourde', cat: 'arme' }, { id: 'baton', nom: 'Bâton de feu', cat: 'arme' }, { id: 'ombre', nom: 'Dagues des Ombres', cat: 'arme', rare: true }, { id: 'orage', nom: 'Haches de l’Orage', cat: 'arme', rare: true }, { id: 'assassin', nom: 'Lames de l’Assassin', cat: 'arme', rare: true },
+  { id: 'epee', nom: 'Épée à deux mains', cat: 'arme' }, { id: 'arbalete', nom: 'Arbalète lourde', cat: 'arme' }, { id: 'baton', nom: 'Bâton de feu', cat: 'arme' }, { id: 'arc', nom: 'Arc du Maître des bêtes', cat: 'arme' }, { id: 'ombre', nom: 'Dagues des Ombres', cat: 'arme', rare: true }, { id: 'orage', nom: 'Haches de l’Orage', cat: 'arme', rare: true }, { id: 'assassin', nom: 'Lames de l’Assassin', cat: 'arme', rare: true },
   { id: 'casque', nom: 'Armure de tête', cat: 'armure' }, { id: 'plastron', nom: 'Armure de poitrine', cat: 'armure' }, { id: 'bottes', nom: 'Armure de pieds', cat: 'armure' },
 ];
 
@@ -205,15 +226,15 @@ export const MAITRISES = [
 export const VARIANTES = {
   bourreau: { suffixe: 'du Bourreau', style: 'Offensif', couleur: '#ff5a4a',
     arme: { degats: 1.18, crit: 6, vitesse: 1.0 }, armure: { armure: 0.85, pv: 0.95, bonusDeg: 6 },
-    remplace: { epee: ['Q', 'execution'], arbalete: ['Q', 'execution'], baton: ['Q', 'execution'] },
+    remplace: { epee: ['Q', 'execution'], arbalete: ['Q', 'execution'], baton: ['Q', 'execution'], arc: ['Q', 'execution'] },
     texte: 'Plus de dégâts, moins de défense. Exécution remplace le premier sort.' },
   gardien: { suffixe: 'du Gardien', style: 'Défensif', couleur: '#5aa8ff',
     arme: { degats: 0.92, crit: 0, vitesse: 1.0, pv: 180 }, armure: { armure: 1.35, pv: 1.2, bonusDeg: 0 },
-    remplace: { epee: ['E', 'purge'], arbalete: ['E', 'purge'], baton: ['E', 'purge'] },
+    remplace: { epee: ['E', 'purge'], arbalete: ['E', 'purge'], baton: ['E', 'purge'], arc: ['E', 'purge'] },
     texte: 'Beaucoup plus d’armure et de vie. Purge du gladiateur remplace le dernier sort.' },
   champion: { suffixe: 'du Champion', style: 'Équilibré', couleur: '#ffcf4a',
     arme: { degats: 1.07, crit: 3, vitesse: 1.08 }, armure: { armure: 1.12, pv: 1.08, bonusDeg: 3, recharge: 6 },
-    remplace: { epee: ['W', 'vampirisme'], arbalete: ['W', 'vampirisme'], baton: ['W', 'vampirisme'] },
+    remplace: { epee: ['W', 'vampirisme'], arbalete: ['W', 'vampirisme'], baton: ['W', 'vampirisme'], arc: ['E', 'vampirisme'] },
     texte: 'Un peu de tout, recharge des sorts plus rapide. Soif de sang remplace le sort du milieu.' },
 };
 export const PRIX_TROPHEES = [0, 0, 0, 0, 0, 1500, 3200, 6000, 11000];
@@ -312,3 +333,5 @@ export const PARCHEMINS = {
 };
 export const DUREE_PARCH = 30 * 60;
 export const BOUTIQUE_PARCH_GRATUITE = true; // accès libre pendant la bêta
+
+export const CLASSES_BASE = ['epee', 'arbalete', 'baton', 'arc'];

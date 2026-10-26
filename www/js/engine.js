@@ -61,7 +61,7 @@ export function initRendu(canvas) {
 export function redimensionner() {
   const w = window.innerWidth, h = window.innerHeight;
   const tactile = matchMedia('(pointer: coarse)').matches;
-  const pr = Math.min(window.devicePixelRatio || 1, G.niveau >= 2 ? (tactile ? 1.5 : 1.75) : G.niveau === 1 ? (tactile ? 1.2 : 1.4) : 0.9);
+  const pr = Math.min(window.devicePixelRatio || 1, G.niveau >= 2 ? (tactile ? 1.6 : 1.75) : G.niveau === 1 ? (tactile ? 1.35 : 1.4) : 1.1); // même en qualité basse on reste au-dessus de 1 : plus d'image pixelisée
   G.renderer.setPixelRatio(pr);
   G.renderer.setSize(w, h, false);
   G.composer.setPixelRatio(pr);
@@ -364,6 +364,7 @@ export class Acteur {
     if (this.vu === false) { this._acc += dt; if (this._acc < 0.2) return; dt = this._acc; }
     this._acc = 0;
     if (this.tete) { this.tete.scale.set(1, 1, 1); if (this.buste) this.buste.scale.set(1, 1, 1); }
+    this.model.position.y = G.solH ? G.solH(this.root.position.x, this.root.position.z) : 0;
     this.mixer.update(dt);
     if (this.tete) { this.tete.scale.multiplyScalar(G.teteK || 0.62); if (this.buste) this.buste.scale.multiplyScalar(G.busteK || 1.1); }
     if (this.flash > 0 || this._flashOn) {
@@ -372,6 +373,7 @@ export class Acteur {
     }
   }
   attacher(cleProp, os = 'handslot.r', { echelle = 1, rot = null } = {}) {
+    if (!this.nodes[os]) os = os.replace(/\./g, ''); // le chargeur GLTF retire les points des noms d'os
     const p = G.assets[cleProp]; if (!p || !this.nodes[os]) return null;
     const m = p.scene.clone(true);
     m.traverse(o => { if (o.isMesh) { o.castShadow = this._ombre; o.material = o.material.clone(); this.mats.push(o.material); this.meshes.push(o); } });
@@ -483,13 +485,15 @@ function initParticules() {
   G.pIdx = 0;
 }
 const _c1 = new THREE.Color(), _c2 = new THREE.Color();
+// relief du terrain (Goulet) : décalage visuel, la logique reste au sol
+export const solY = (x, z) => G.solH ? G.solH(x, z) : 0;
 export function emettre(pos, o = {}) {
-  const n = o.n ?? 10;
+  const n = o.n ?? 10; const sy = G.solH ? G.solH(pos.x, pos.z) : 0;
   _c1.set(o.c1 ?? '#ffaa44'); _c2.set(o.c2 ?? o.c1 ?? '#ff4400');
   for (let i = 0; i < n; i++) {
     const p = G.parts[G.pIdx]; G.pIdx = (G.pIdx + 1) % MAXP;
     const a = Math.random() * Math.PI * 2, r = Math.random() * (o.rayon ?? 0.2);
-    p.x = pos.x + Math.cos(a) * r; p.y = pos.y + (o.dy ?? 0) + Math.random() * (o.hy ?? 0); p.z = pos.z + Math.sin(a) * r;
+    p.x = pos.x + Math.cos(a) * r; p.y = pos.y + sy + (o.dy ?? 0) + Math.random() * (o.hy ?? 0); p.z = pos.z + Math.sin(a) * r;
     const sp = (o.vit ?? 2) * (0.4 + Math.random() * 0.6);
     const dir = o.dir;
     if (dir) { p.vx = dir.x * sp + (Math.random() - 0.5) * (o.disp ?? 1); p.vy = dir.y * sp + (Math.random() - 0.5) * (o.disp ?? 1); p.vz = dir.z * sp + (Math.random() - 0.5) * (o.disp ?? 1); }
@@ -535,12 +539,12 @@ export function majVfx(dt) {
 }
 export function onde(pos, couleur, rayon = 3, duree = 0.5, y = 0.12) {
   const m = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 48), matAdd(couleur, 1));
-  m.rotation.x = -Math.PI / 2; m.position.set(pos.x, y, pos.z);
+  m.rotation.x = -Math.PI / 2; m.position.set(pos.x, y + solY(pos.x, pos.z), pos.z); if (G.solH) { m.material.depthTest = false; m.renderOrder = 3; }
   ajouterVfx(m, (t) => { const k = t / duree; if (k >= 1) return false; m.scale.setScalar(0.2 + rayon * k); m.material.opacity = (1 - k) * 0.9; });
 }
 export function lueurSol(pos, couleur, rayon, duree, int = 1) {
   const m = new THREE.Mesh(new THREE.CircleGeometry(rayon, 40), matAdd(couleur, int, texRond()));
-  m.rotation.x = -Math.PI / 2; m.position.set(pos.x, 0.1, pos.z);
+  m.rotation.x = -Math.PI / 2; m.position.set(pos.x, 0.1 + solY(pos.x, pos.z), pos.z); if (G.solH) { m.material.depthTest = false; m.renderOrder = 3; }
   ajouterVfx(m, (t) => { const k = t / duree; if (k >= 1) return false; m.material.opacity = int * (1 - k); });
   return m;
 }
@@ -552,7 +556,7 @@ export function arcTaille(pos, angle, rayon, couleur, ouverture = Math.PI * 0.75
     g.fillStyle = gr; g.fillRect(0, 0, 128, 8);
   });
   const m = new THREE.Mesh(geo, matAdd(couleur, 1, tex));
-  m.rotation.x = -Math.PI / 2; m.rotation.z = angle; m.position.set(pos.x, 1.0, pos.z);
+  m.rotation.x = -Math.PI / 2; m.rotation.z = angle; m.position.set(pos.x, 1.0 + solY(pos.x, pos.z), pos.z);
   ajouterVfx(m, (t) => { const k = t / duree; if (k >= 1) return false; m.material.opacity = 1 - k; m.rotation.z = angle + (k - 0.5) * 0.9; m.scale.setScalar(0.85 + k * 0.25); });
 }
 // Faisceau vertical (coffres, butin)
@@ -566,7 +570,7 @@ export function faisceau(pos, couleur, hauteur = 14, largeur = 0.9) {
     const m = new THREE.Mesh(new THREE.CylinderGeometry(largeur * (i ? 0.45 : 1), largeur * (i ? 0.45 : 1), hauteur, 20, 1, true), matAdd(couleur, i ? 0.9 : 0.45, tex));
     m.position.y = hauteur / 2; grp.add(m);
   }
-  grp.position.copy(pos);
+  grp.position.copy(pos); grp.position.y += solY(pos.x, pos.z);
   return grp;
 }
 // Télégraphe au sol : cercle ou cône rouge qui se remplit
@@ -586,7 +590,7 @@ export function telegraphe(pos, rayon, duree, couleur = '#ff2a2a', cb, opts = {}
   if (opts.ligne) geo = new THREE.PlaneGeometry(opts.largeur, rayon).translate(0, rayon / 2, 0);
   const m = new THREE.Mesh(geo, mat);
   m.rotation.x = -Math.PI / 2; if (opts.angle !== undefined) m.rotation.z = opts.angle;
-  m.position.set(pos.x, 0.09, pos.z);
+  m.position.set(pos.x, 0.09 + solY(pos.x, pos.z), pos.z); if (G.solH) { mat.depthTest = false; m.renderOrder = 3; }
   let fait = false;
   ajouterVfx(m, (t) => {
     const k = t / duree;
@@ -653,3 +657,26 @@ export function musique(nom) {
 }
 export function musiqueActive(on) { G.musiqueOn = on; musique(pisteVoulue); }
 export function musiquePause(p) { for (const a of Object.values(pistes)) { if (p) a.pause(); else if (a.volume > 0) a.play().catch(() => {}); } }
+
+// ---------- Arc du Maître des bêtes (modélisé à la main) ----------
+// arc à double courbure en bois noirci, lames aux extrémités et gemme écarlate ; axe de l'arc = Y, ventre vers +Z
+export function creerArc(couleurTier = '#c8a070', glow = 0) {
+  const g = new THREE.Group(); g.name = 'Arc';
+  const bois = new THREE.MeshStandardMaterial({ color: '#4a2a22', roughness: 0.45, metalness: 0.3, emissive: '#3a0606', emissiveIntensity: 0.6 });
+  const metal = new THREE.MeshStandardMaterial({ color: couleurTier, roughness: 0.3, metalness: 0.85, emissive: couleurTier, emissiveIntensity: 0.15 + glow * 0.6 });
+  const braise = new THREE.MeshStandardMaterial({ color: '#ff2a2a', emissive: '#ff1a1a', emissiveIntensity: 1.6, roughness: 0.3 });
+  const pts = [[0, -0.78, 0.1], [0, -0.66, -0.02], [0, -0.42, -0.14], [0, -0.14, -0.1], [0, 0, -0.06], [0, 0.14, -0.1], [0, 0.42, -0.14], [0, 0.66, -0.02], [0, 0.78, 0.1]].map(p => new THREE.Vector3(...p));
+  const courbe = new THREE.CatmullRomCurve3(pts);
+  const branche = new THREE.Mesh(new THREE.TubeGeometry(courbe, 40, 0.042, 7, false), bois); g.add(branche);
+  // liserés métalliques le long des branches
+  for (const s of [-1, 1]) { const c2 = new THREE.CatmullRomCurve3(pts.slice(s < 0 ? 0 : 5, s < 0 ? 4 : 9).map(p => p.clone().add(new THREE.Vector3(0, 0, -0.03)))); g.add(new THREE.Mesh(new THREE.TubeGeometry(c2, 16, 0.016, 5, false), metal)); }
+  const poignee = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.24, 8), new THREE.MeshStandardMaterial({ color: '#5a2a1a', roughness: 0.9 })); poignee.position.z = -0.06; g.add(poignee);
+  const gemme = new THREE.Mesh(new THREE.OctahedronGeometry(0.06), braise); gemme.position.set(0, 0, -0.13); g.add(gemme);
+  for (const s of [-1, 1]) {
+    const lame = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.26, 4), metal); lame.position.set(0, s * 0.86, 0.15); lame.rotation.x = s > 0 ? 0.5 : Math.PI - 0.5; g.add(lame);
+    const pique = new THREE.Mesh(new THREE.ConeGeometry(0.022, 0.14, 4), braise); pique.position.set(0, s * 0.42, -0.2); pique.rotation.x = s > 0 ? -1.2 : Math.PI + 1.2; g.add(pique);
+  }
+  const corde = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 1.56, 4), new THREE.MeshBasicMaterial({ color: '#ffd8c8' })); corde.position.z = 0.1; g.add(corde);
+  g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  return g;
+}

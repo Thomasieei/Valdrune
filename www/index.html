@@ -15,6 +15,57 @@
 @font-face{font-family:'Alegreya Sans SC';src:url(assets/fonts/sc500.woff) format('woff');font-weight:500;font-display:swap}
 @font-face{font-family:'Alegreya Sans SC';src:url(assets/fonts/sc700.woff) format('woff');font-weight:700;font-display:swap}
 @font-face{font-family:'Alegreya Sans SC';src:url(assets/fonts/sc800.woff) format('woff');font-weight:800;font-display:swap}
+
+/* ---- meute du Maître des bêtes ---- */
+#colJournal{display:flex;flex-direction:column;gap:.8vh;align-items:flex-start}
+#cadreMeute{pointer-events:auto;display:flex;gap:.7vh}
+.carteLoup{display:flex;flex-direction:column;align-items:center;gap:.25vh;width:7.6vh;padding:.45vh .35vh .55vh;border-radius:1.1vh;border:1.5px solid #6a1a1a;background:linear-gradient(#2a0e10ee,#14070aee);color:#ffd8c8;box-shadow:0 .3vh .8vh #0008;transition:transform .15s}
+.carteLoup .avL{position:relative;width:5.4vh;height:5.4vh;border-radius:50%;overflow:hidden;border:2px solid #ff3a2a;box-shadow:0 0 1vh #ff2a1a88;background:radial-gradient(#5a1414,#14040a)}
+.carteLoup .avL img{width:100%;height:100%;object-fit:cover;transform:scale(1.15)}
+.carteLoup .mortL{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:2.6vh;background:#000a;color:#ff6a5a}
+.carteLoup b{font:800 1.15vh var(--f-label);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.carteLoup .barreL{width:100%;height:.7vh;border-radius:.4vh;overflow:hidden;background:#000a}.carteLoup .barreL i{display:block;width:100%;height:100%;transform-origin:left;transition:transform .2s}
+.carteLoup .pvL{background:linear-gradient(90deg,#c01a1a,#ff5a3a)}.carteLoup .enL{background:linear-gradient(90deg,#c0601a,#ffb03a)}
+.carteLoup.ko{filter:grayscale(1) brightness(.6)}.carteLoup.ko .mortL{display:flex}
+.carteLoup.choisi{transform:scale(1.08);border-color:#ffd27a;box-shadow:0 0 1.6vh #ffb03a}.carteLoup.choisi .avL{border-color:#ffd27a}
+.carteLoup.rush .avL{animation:pulseLoup .7s infinite alternate}@keyframes pulseLoup{to{box-shadow:0 0 2vh #ff2a1a}}
+.plaque.loupP .n{color:#ff8a7a}
+/* ---- arbre de talents ---- */
+#btnTalents{position:relative}#btnTalents .pastille{position:absolute;top:-.4vh;right:-.4vh;min-width:2.2vh;height:2.2vh;padding:0 .4vh;border-radius:1.1vh;background:#ff2a1a;color:#fff;font:900 1.4vh var(--f-label);display:flex;align-items:center;justify-content:center;box-shadow:0 0 .8vh #ff2a1a;animation:clignote .9s infinite alternate}
+#talents{position:absolute;inset:0;z-index:62;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#1a0e14ee,#06030aee)}
+#talents .cadreT{position:relative;width:min(97vw,170vh);height:94vh;display:flex;flex-direction:column;gap:1vh;padding:1.6vh 2vh;border-radius:1.4vh;border:2px solid #6a4a2a;background:linear-gradient(#1e1418,#120a0e);box-shadow:0 0 4vh #000,inset 0 0 6vh #0008}
+#talents .fermer{position:absolute;right:1vh;top:1vh}
+#talents .enteteT{display:flex;align-items:center;gap:2vh;padding-right:6vh}#talents .enteteT small{color:#c8a070;font:700 1.5vh var(--f-label);text-transform:uppercase;letter-spacing:.2vh}
+#talents .enteteT h2{margin:0;font:900 3.4vh var(--f-titre);color:#ffe2a0;text-shadow:0 0 1.4vh #ff6a2a66}
+#talents .pointsT{margin-left:auto;display:flex;flex-direction:column;align-items:center;padding:.6vh 2vh;border-radius:1vh;background:#2a1a10;border:1px solid #8a6a3a}
+#talents .pointsT b{font:900 3.4vh var(--f-titre);color:#ffd27a;line-height:1}#talents .pointsT span{font:800 1.4vh var(--f-label);color:#ffe2a0}#talents .pointsT small{text-transform:none;letter-spacing:0;font-size:1.2vh}
+#talents .corpsT{flex:1;min-height:0;display:flex;gap:1.4vh}
+#talents .branches{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:1.2vh;min-width:0}
+#talents .branche{display:flex;flex-direction:column;border-radius:1.2vh;border:1px solid color-mix(in srgb,var(--c) 45%,#000);background:linear-gradient(color-mix(in srgb,var(--c) 14%,#0c0608),#0a0508);overflow:hidden}
+#talents .teteB{display:flex;align-items:center;gap:1vh;padding:.8vh 1vh;background:linear-gradient(90deg,color-mix(in srgb,var(--c) 30%,#000),transparent);border-bottom:1px solid color-mix(in srgb,var(--c) 40%,#000)}
+#talents .teteB .ic{width:4.4vh;height:4.4vh;border-radius:50%}#talents .teteB h3{margin:0;font:900 2vh var(--f-titre);color:#fff}#talents .teteB small{color:#d8c8b0;font:700 1.3vh var(--f-label)}
+#talents .grilleB{position:relative;flex:1;margin:1vh 0}
+#talents .liens{position:absolute;inset:0;width:100%;height:100%}
+#talents .liens line{stroke:#ffffff22;stroke-width:1.2;vector-effect:non-scaling-stroke}#talents .liens line.on{stroke:var(--c);stroke-width:3;filter:drop-shadow(0 0 3px var(--c))}
+#talents .noeud{position:absolute;transform:translate(-50%,-50%);width:7vh;height:7vh;padding:0;border:0;background:none;border-radius:50%;cursor:pointer}
+#talents .noeud .ic{width:100%;height:100%;border-radius:50%;border:2.5px solid #4a4048;box-shadow:0 .4vh 1vh #000a}
+#talents .noeud.comp .ic{border-radius:1.4vh}#talents .noeud.ultime{width:8.4vh;height:8.4vh}#talents .noeud.ultime .ic{border-radius:1.6vh;transform:rotate(45deg)}#talents .noeud.ultime .ic g{transform-origin:50% 50%}
+#talents .noeud.bloque .ic{filter:grayscale(1) brightness(.45)}
+#talents .noeud.dispo .ic{border-color:#ffd27a;box-shadow:0 0 1.4vh #ffd27a88;animation:respire 1.4s infinite alternate}
+#talents .noeud.partiel .ic{border-color:var(--c);box-shadow:0 0 1.2vh var(--c)}
+#talents .noeud.max .ic{border-color:#ffe9a0;box-shadow:0 0 1.8vh var(--c),0 0 .6vh #fff}
+#talents .noeud.sel .ic{outline:3px solid #fff;outline-offset:2px}
+@keyframes respire{to{box-shadow:0 0 2.2vh #ffd27a}}
+#talents .noeud .rg{position:absolute;right:-.6vh;bottom:-.4vh;padding:.05vh .6vh;border-radius:.8vh;background:#0a0608;border:1px solid #8a6a3a;color:#ffe2a0;font:900 1.25vh var(--f-label)}
+#talents .noeud.max .rg{background:#ffd27a;color:#2a1408}
+#talents .ficheT{width:34vh;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:.8vh;padding:1.6vh;border-radius:1.2vh;border:1px solid color-mix(in srgb,var(--c,#8a6a3a) 50%,#000);background:linear-gradient(#24161a,#140a0e);color:#f0e0c8;text-align:center;overflow:auto}
+#talents .ficheT.vide{justify-content:center;color:#a89880;font:700 1.7vh var(--f-label)}#talents .ficheT .astuce{font-size:1.4vh;color:#8a7a68}
+#talents .icoT{width:11vh;height:11vh}#talents .icoT .ic{width:100%;height:100%;border-radius:1.6vh;box-shadow:0 0 2vh var(--c)}
+#talents .ficheT h3{margin:0;font:900 2.3vh var(--f-titre);color:#fff}#talents .rangT{font:800 1.5vh var(--f-label);color:#ffd27a}
+#talents .effT{margin:0;font:700 1.75vh var(--f-label);line-height:1.35}#talents .sub{margin:0;font:700 1.45vh var(--f-label);color:#b8a890}
+#talents .bloqueT{margin:0;font:700 1.5vh var(--f-label);color:#ff8a7a}
+#talents .placer{display:flex;flex-wrap:wrap;gap:.6vh;justify-content:center;align-items:center}#talents .placer span{width:100%;font:800 1.4vh var(--f-label);color:#c8a070}
+#talents .placer .btn{min-width:5vh;padding:.6vh 1.2vh}
 </style>
 <style>
 /* Concept : HUD de MMO sombre (ardoise + bronze) au-dessus d'une scène 3D ; panneaux de commerce en parchemin. Un seul thème, volontairement sombre. */

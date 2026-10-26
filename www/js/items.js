@@ -1,4 +1,4 @@
-import { VALEUR_MAT, TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, COFFRES, tf, NIVEAU_REQUIS, VARIANTES, PRIX_TROPHEES, PARCHEMINS, COULEURS_PARCH } from './data.js';
+import { CLASSES_BASE, VALEUR_MAT, TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, COFFRES, tf, NIVEAU_REQUIS, VARIANTES, PRIX_TROPHEES, PARCHEMINS, COULEURS_PARCH } from './data.js';
 
 // maîtrise courante du joueur (niveaux par arme / pièce d'armure)
 export const ETAT = { maitrise: null };
@@ -112,7 +112,7 @@ export function statsObjet(it, niv = null) {
 
 export function sortsArme(it) {
   const ids = [...ARMES[it.type].sorts];
-  if (it.arene) { const [t, id] = VARIANTES[it.arene].remplace[it.type]; ids['QWE'.indexOf(t)] = id; }
+  if (it.arene) { const r = VARIANTES[it.arene].remplace[it.type]; if (r) ids['QWE'.indexOf(r[0])] = r[1]; }
   return ids;
 }
 export function sortsObjet(it) {
@@ -152,7 +152,7 @@ function tirerQualite(bonus = 0) {
 function objetAleatoire(tier, bonusQ = 0) {
   const r = Math.random();
   const q = tirerQualite(bonusQ);
-  if (r < 0.45) return creerArme(['epee', 'arbalete', 'baton'][ri(0, 2)], tier, q);
+  if (r < 0.45) return creerArme(CLASSES_BASE[ri(0, 3)], tier, q);
   return creerArmure(['casque', 'plastron', 'bottes'][ri(0, 2)], tier, q);
 }
 export function tirerCouleurCoffre() {
@@ -232,7 +232,7 @@ export function lootMonstre(mode) {
 export function stockMarchand(rares = []) {
   const out = [];
   for (let t = 1; t <= 8; t++) {
-    for (const ty of ['epee', 'arbalete', 'baton', ...rares]) out.push(creerArme(ty, t, 0));
+    for (const ty of [...CLASSES_BASE, ...rares]) out.push(creerArme(ty, t, 0));
     for (const s of ['casque', 'plastron', 'bottes']) out.push(creerArmure(s, t, 0));
   }
   out.push(creerPotion(1), creerButin('rune', 1));
@@ -252,7 +252,7 @@ export function coutEnchant(it) {
 export function stockArene() {
   const out = [];
   for (const v of Object.keys(VARIANTES)) for (let t = 5; t <= 8; t++) {
-    for (const ty of ['epee', 'arbalete', 'baton']) out.push({ ...creerArme(ty, t, 2), arene: v });
+    for (const ty of CLASSES_BASE) out.push({ ...creerArme(ty, t, 2), arene: v });
     for (const sl of ['casque', 'plastron', 'bottes']) out.push({ ...creerArmure(sl, t, 2), arene: v });
   }
   return out;

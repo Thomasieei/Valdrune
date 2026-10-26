@@ -616,7 +616,7 @@ export function construireIle(ile, etranger = false) {
     });
   }
   // herbes et fleurs décoratives
-  for (const t of terre) for (let k = 0; k < 2; k++) { const a = rng() * 6.28, rr = 2.5 + rng() * 1.5; inst.ajouter(rng() < 0.7 ? 'Grass_1_A' : 'flower_yellowA', t.p.x + Math.cos(a) * rr, 0, t.p.z + Math.sin(a) * rr, rng() * 6, 3, 3, 3); }
+  for (const t of terre) for (let k = 0; k < 2; k++) { const a = rng() * 6.28, rr = 2.5 + rng() * 1.5; inst.ajouter(rng() < 0.7 ? 'Grass_1_A' : 'flower_yellowA', t.p.x + Math.cos(a) * rr, 0, t.p.z + Math.sin(a) * rr, rng() * 6, 1.8, 1.8, 1.8); }
   inst.construire(groupe);
   G.scene.add(groupe);
   const rayonMonde = (R + 0.45) * HEX.taille * Math.sqrt(3);
@@ -664,6 +664,18 @@ function herse(groupe, x, z, largeur, rotY) {
   for (let y = 0.8; y < 6; y += 1.1) { const b = new THREE.Mesh(new THREE.BoxGeometry(largeur, 0.12, 0.12), fer); b.position.y = y; g.add(b); }
   g.position.set(x, 0, z); g.rotation.y = rotY; g.traverse(o => { if (o.isMesh) o.castShadow = true; }); groupe.add(g); return g;
 }
+// relief du Goulet : collines douces sur le champ (jamais dans les châteaux ni sur la piste centrale), coteaux sur les bords
+const lisse = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const BOSSES = [[-22, 15, 1.35, 8], [22, -15, 1.35, 8], [-6, -21, 1.1, 7], [6, 21, 1.1, 7], [-31, -22, 0.9, 6], [31, 22, 0.9, 6], [-12, 9, 0.6, 5], [12, -9, 0.6, 5]];
+export function hauteurGoulet(x, z) {
+  const ax = Math.abs(x), az = Math.abs(z);
+  let v = 0;
+  for (const [bx, bz, A, s] of BOSSES) { const dx = x - bx, dz = z - bz; v += A * Math.exp(-(dx * dx + dz * dz) / (2 * s * s)); }
+  v += 0.22 * Math.sin(x * 0.17 + 1) * Math.cos(z * 0.21);
+  v = Math.max(-0.15, v) * (1 - lisse(36, 44, ax)) * lisse(3.5, 9, az);
+  v += lisse(29, 42, az) * (6 + 2 * Math.sin(x * 0.11)) + lisse(79, 95, ax) * 8; // coteaux hors du terrain de jeu
+  return v;
+}
 export function construireGoulet() {
   const groupe = new THREE.Group();
   G.torches = []; G.feux = []; G.anims = [];
@@ -674,8 +686,17 @@ export function construireGoulet() {
     for (let i = 0; i < 400; i++) { const x = Math.random() * w, y = Math.random() * h; g.fillStyle = `rgba(160,170,90,${0.3 + Math.random() * 0.3})`; g.fillRect(x, y, 1.5, 4 + Math.random() * 5); }
   }, { repeat: true });
   tex.repeat.set(14, 6);
-  const sol = new THREE.Mesh(new THREE.PlaneGeometry(L * 2 + 40, Lz * 2 + 40), new THREE.MeshStandardMaterial({ map: tex, roughness: 1 }));
+  const gSol = new THREE.PlaneGeometry(L * 2 + 60, Lz * 2 + 50, 150, 80);
+  { const p = gSol.attributes.position, cols = new Float32Array(p.count * 3);
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), z = -p.getY(i), h = hauteurGoulet(x, z); p.setZ(i, h);
+      const bord = Math.max(lisse(29, 40, Math.abs(z)), lisse(79, 92, Math.abs(x))), haut = Math.min(1, Math.max(0, h) / 1.4) * (1 - bord);
+      cols[i * 3] = 0.92 - bord * 0.38 + haut * 0.1; cols[i * 3 + 1] = 0.95 - bord * 0.3 + haut * 0.12; cols[i * 3 + 2] = 0.9 - bord * 0.42;
+    }
+    gSol.setAttribute('color', new THREE.BufferAttribute(cols, 3)); gSol.computeVertexNormals(); }
+  const sol = new THREE.Mesh(gSol, new THREE.MeshStandardMaterial({ map: tex, roughness: 1, vertexColors: true }));
   sol.rotation.x = -Math.PI / 2; sol.receiveShadow = true; groupe.add(sol);
+  const H = hauteurGoulet;
   const piste = new THREE.Mesh(new THREE.PlaneGeometry(92, 9), new THREE.MeshStandardMaterial({ color: '#6a5232', roughness: 1, transparent: true, opacity: 0.55 }));
   piste.rotation.x = -Math.PI / 2; piste.position.y = 0.02; groupe.add(piste);
   const collisions = [], murs = [];
@@ -683,16 +704,18 @@ export function construireGoulet() {
   // bords : rochers et arbres
   for (let x = -L - 14; x <= L + 14; x += 6) for (const s of [-1, 1]) {
     const z = s * (Lz + 3 + Math.random() * 3);
-    inst.ajouter(Math.random() < 0.55 ? 'Rock_3_C' : 'Tree_' + ['1_A', '2_B', '3_A', '4_A'][Math.floor(Math.random() * 4)], x + Math.random() * 3, Math.random() < 0.55 ? 0.6 : 0, z, Math.random() * 6, 2.6, 2.6, 2.6);
+    const xx = x + Math.random() * 3; inst.ajouter(Math.random() < 0.55 ? 'Rock_3_C' : 'Tree_' + ['1_A', '2_B', '3_A', '4_A'][Math.floor(Math.random() * 4)], xx, H(xx, z) + (Math.random() < 0.55 ? 0.3 : -0.1), z, Math.random() * 6, 2.6, 2.6, 2.6);
   }
-  for (let z = -Lz - 6; z <= Lz + 6; z += 6) for (const s of [-1, 1]) inst.ajouter('Rock_3_C', s * (L + 16 + Math.random() * 3), 0.6, z, Math.random() * 6, 3, 3, 3);
+  for (let z = -Lz - 6; z <= Lz + 6; z += 6) for (const s of [-1, 1]) { const xx = s * (L + 16 + Math.random() * 3); inst.ajouter('Rock_3_C', xx, H(xx, z) + 0.3, z, Math.random() * 6, 3, 3, 3); }
   // couverts au milieu du champ
   const couverts = [[-30, -12], [-30, 13], [0, -16], [0, 15], [30, -12], [30, 13], [-14, 1], [14, -1]];
   for (const [x, z] of couverts) {
-    inst.ajouter('Rock_3_C', x, 0.7, z, Math.random() * 6, 3.2, 3.2, 3.2); inst.ajouter('Rock_1_A', x + 2, 0, z + 1.5, Math.random() * 6, 2.4, 2.4, 2.4);
+    inst.ajouter('Rock_3_C', x, H(x, z) + 0.5, z, Math.random() * 6, 3.2, 3.2, 3.2); inst.ajouter('Rock_1_A', x + 2, H(x + 2, z + 1.5) - 0.1, z + 1.5, Math.random() * 6, 2.4, 2.4, 2.4);
     collisions.push({ x, z, r: 2.6 }, { x: x + 2, z: z + 1.5, r: 1.3 });
   }
-  for (let i = 0; i < 70; i++) inst.ajouter(Math.random() < 0.75 ? 'Grass_1_A' : 'flower_yellowA', (Math.random() - 0.5) * 92, 0, (Math.random() - 0.5) * Lz * 2, Math.random() * 6, 3, 3, 3);
+  for (let i = 0; i < 70; i++) { const x = (Math.random() - 0.5) * 92, z = (Math.random() - 0.5) * Lz * 2; inst.ajouter(Math.random() < 0.75 ? 'Grass_1_A' : 'flower_yellowA', x, H(x, z) - 0.05, z, Math.random() * 6, 1.4, 1.4, 1.4); }
+  // arbres épars sur les collines du champ (hors des chemins)
+  for (const [x, z] of [[-9, -26], [9, 26], [-35, 26], [35, -26]]) { inst.ajouter('Tree_' + ['1_A', '2_B', '3_A'][Math.floor(Math.random() * 3)], x, H(x, z) - 0.1, z, Math.random() * 6, 1.25, 1.25, 1.25); collisions.push({ x, z, r: 0.8 }); }
   const pierre = pierreMat('#6a6470', '#4a4652');
   // mur de pierre entre deux points : pièces de rempart + cercles de collision serrés
   const mur = (x0, z0, x1, z1, hk = 1.6) => {
@@ -739,9 +762,21 @@ export function construireGoulet() {
     anneau.rotation.x = -Math.PI / 2; anneau.position.set(fx, 0.06, 0); groupe.add(anneau);
     G.anims.push((t) => { anneau.material.opacity = 0.45 + 0.3 * Math.sin(t * 3); });
     G.torches.push({ pos: new THREE.Vector3(fx, 4, 0), color: coul, int: 50, dist: 22 });
-    // cimetière et esprit guérisseur, dehors contre le rempart sud
-    const cim = new THREE.Vector3(X(54), 0, -24.5);
-    for (let i = 0; i < 6; i++) inst.ajouter('Rock_1_A', cim.x + (i - 2.5) * 2.2 * sx, 0, cim.z - 3.2 - (i % 2) * 0.6, i, 0.7, 1.4, 0.5);
+    // cimetière et esprit guérisseur, dehors contre le rempart nord (face à la caméra)
+    const cim = new THREE.Vector3(X(54), 0, 22.5);
+    { // tombes, croix et grille de fer
+      const pierreT = new THREE.MeshStandardMaterial({ color: '#8a8490', roughness: 0.85, flatShading: true }), fer = new THREE.MeshStandardMaterial({ color: '#2a2630', metalness: 0.6, roughness: 0.5 });
+      for (let i = 0; i < 8; i++) {
+        const x = cim.x + (i % 4 - 1.5) * 2.4, z = cim.z + 2.6 + Math.floor(i / 4) * 2.2, g = new THREE.Group();
+        if (i % 3 === 1) { const a = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.3, 0.22), pierreT); a.position.y = 0.65; const b = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.2, 0.22), pierreT); b.position.y = 0.95; g.add(a, b); }
+        else { const s = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.9, 0.22), pierreT); s.position.y = 0.45; const t = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.22, 12, 1, false, 0, Math.PI), pierreT); t.rotation.set(Math.PI / 2, 0, Math.PI / 2); t.position.y = 0.9; g.add(s, t); }
+        const tas = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.12, 1.6), new THREE.MeshStandardMaterial({ color: '#4a3a2a', roughness: 1 })); tas.position.set(0, 0.06, -0.95); g.add(tas);
+        g.position.set(x, 0, z); g.rotation.set(0, (Math.random() - 0.5) * 0.2, (Math.random() - 0.5) * 0.12); g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); groupe.add(g);
+      }
+      for (let k = -5.5; k <= 5.5; k += 0.5) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.1, 0.06), fer); b.position.set(cim.x + k, 0.55, cim.z + 6.8); groupe.add(b); const p = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.18, 4), fer); p.position.set(cim.x + k, 1.18, cim.z + 6.8); groupe.add(p); }
+      const barre = new THREE.Mesh(new THREE.BoxGeometry(11, 0.06, 0.06), fer); barre.position.set(cim.x, 0.9, cim.z + 6.8); groupe.add(barre);
+      inst.ajouter('Tree_Bare_2_A' in G.assets ? 'Tree_Bare_2_A' : 'Tree_1_A', cim.x - sx * 6.5, 0, cim.z + 5.2, 1, 1.6, 1.6, 1.6);
+    }
     const esprit = new THREE.Mesh(new THREE.SphereGeometry(0.55, 16, 12), new THREE.MeshBasicMaterial({ color: '#d8f4ff' }));
     esprit.position.set(cim.x - sx * 5, 2.6, cim.z); groupe.add(esprit);
     const halo = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.4, 32), new THREE.MeshBasicMaterial({ color: '#9ad8ff', transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
@@ -759,7 +794,7 @@ export function construireGoulet() {
   inst.construire(groupe);
   G.scene.add(groupe);
   return {
-    groupe, type: 'goulet', nom: 'Goulet des Braises', bases, collisions, murs, bonus,
+    groupe, type: 'goulet', nom: 'Goulet des Braises', bases, collisions, murs, bonus, solH: hauteurGoulet,
     spawn: bases.bleu.spawn.clone(),
     bornes: { x0: -L - 10, x1: L + 10, z0: -Lz - 2, z1: Lz + 2 },
     marche: (x, z) => x > -L - 8 && x < L + 8 && z > -Lz && z < Lz,
@@ -905,9 +940,9 @@ export function construireSylve() {
       if (!dansSalle(x, z, 1)) {
         const r = rng();
         if (r < 0.28) inst.ajouter(['Bush_1_A', 'Bush_2_C', 'Bush_3_B', 'Bush_4_A'][Math.floor(rng() * 4)], x, 0, z, rng() * 6, 1.1, 1.1, 1.1);
-        else if (r < 0.45) inst.ajouter(['n_plant_bushLarge', 'n_plant_bushDetailed', 'n_plant_flatTall'][Math.floor(rng() * 3)], x, 0, z, rng() * 6, 5, 5, 5);
-        else if (r < 0.58) inst.ajouter(['n_mushroom_redTall', 'n_mushroom_tanTall', 'n_mushroom_redGroup', 'n_mushroom_tanGroup'][Math.floor(rng() * 4)], x, 0, z, rng() * 6, 6, 6, 6);
-        else if (r < 0.7) inst.ajouter(['n_flower_purpleB', 'n_flower_redC', 'n_flower_yellowC', 'n_flower_purpleC'][Math.floor(rng() * 4)], x, 0, z, rng() * 6, 7, 7, 7);
+        else if (r < 0.45) inst.ajouter(['n_plant_bushLarge', 'n_plant_bushDetailed', 'n_plant_flatTall'][Math.floor(rng() * 3)], x, 0, z, rng() * 6, 3.4, 3.4, 3.4);
+        else if (r < 0.58) inst.ajouter(['n_mushroom_redTall', 'n_mushroom_tanTall', 'n_mushroom_redGroup', 'n_mushroom_tanGroup'][Math.floor(rng() * 4)], x, 0, z, rng() * 6, 4.4, 4.4, 4.4);
+        else if (r < 0.7) inst.ajouter(['n_flower_purpleB', 'n_flower_redC', 'n_flower_yellowC', 'n_flower_purpleC'][Math.floor(rng() * 4)], x, 0, z, rng() * 6, 5, 5, 5);
         else if (r < 0.8) inst.ajouter(['Rock_1_A', 'Rock_2_C', 'n_rock_largeB', 'n_stump_old'][Math.floor(rng() * 4)], x, 0, z, rng() * 6, 1.2, 1.2, 1.2);
         else if (r < 0.86) inst.ajouter('n_log_large', x, 0, z, rng() * 6, 3, 3, 3);
       }

@@ -1,10 +1,12 @@
 // ===== Brèche Écarlate — boucle de jeu =====
 import { THREE, G, initRendu, majCamera, rendre, majTorches, chargerAssets, chargerSons, son, ambiance, Acteur, cloner,
-  emettre, majParticules, majVfx, ajouterVfx, onde, lueurSol, arcTaille, faisceau, telegraphe, meshCarreau, meshBoule, DIR_HAUT, DIR_DROITE, projeter, texRond, texRunes, redimensionner, appliquerNiveau, majQualiteAuto, musique, musiqueActive, musiquePause } from './engine.js';
+  emettre, majParticules, majVfx, ajouterVfx, onde, lueurSol, arcTaille, faisceau, telegraphe, meshCarreau, meshBoule, DIR_HAUT, DIR_DROITE, projeter, creerArc, solY, texRond, texRunes, redimensionner, appliquerNiveau, majQualiteAuto, musique, musiqueActive, musiquePause } from './engine.js';
 import { construireGoulet, construireHub, construireDonjon, construireArene, construireIle, nbEmplacements, majFeux, noeudReel, creerAssetsProc, construireSylve } from './world.js';
 import { UI, iconeObjet, bustePersonnage, TEINTES_OMBRE } from './ui.js';
 import { initGestes } from './gestes.js';
-import { TIERS, ARMES, ARMURES, SORTS, MODES, COFFRES, BOSS, MOBS, BOTS, CHAT, tf, MAITRISES, NIVEAU_REQUIS, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT, RESSOURCES, CHANCE_OMBRE, CODES_BETA, CHANCE_ORAGE, MOBS_SYLVE, BOSS_SYLVE, TRAITS, RANGS, PTS_RANG, GAIN_RANG, PERTE_RANG, BOSS_ERRANT, PARCHEMINS, COULEURS_PARCH, DUREE_PARCH, BOUTIQUE_PARCH_GRATUITE } from './data.js';
+import { Loup, portraitLoup } from './loups.js';
+import { arbreDe, effetsTalents, pointsTotaux, pointsDepenses, ALTS } from './talents.js';
+import { CLASSES_BASE, TIERS, ARMES, ARMURES, SORTS, MODES, COFFRES, BOSS, MOBS, BOTS, CHAT, tf, MAITRISES, NIVEAU_REQUIS, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT, RESSOURCES, CHANCE_OMBRE, CODES_BETA, CHANCE_ORAGE, MOBS_SYLVE, BOSS_SYLVE, TRAITS, RANGS, PTS_RANG, GAIN_RANG, PERTE_RANG, BOSS_ERRANT, PARCHEMINS, COULEURS_PARCH, DUREE_PARCH, BOUTIQUE_PARCH_GRATUITE } from './data.js';
 import { creerParchemin, creerArme, creerArmure, creerPotion, statsHeros, nomObjet, valeurObjet, prixVente, lootCoffre, lootMonstre, tirerCouleurCoffre, ETAT, coutEnchant, ENCH_MAX, creerButin, xpPour, peutPorter, niveauRequis, niveauDe, sortsArme, prixTrophees, bonusMaitrise, niveauHeros } from './items.js';
 
 const $ = (s) => document.querySelector(s);
@@ -25,7 +27,7 @@ function charger() { try { const s = localStorage.getItem(CLE); return s ? JSON.
 function nouvellePartie(nom, arme) {
   J = { nom, argent: 400, potions: 5, trophees: 0, sac: [], equip: {
     arme: creerArme(arme, 1, 0), casque: creerArmure('casque', 1, 0), plastron: creerArmure('plastron', 1, 0), bottes: creerArmure('bottes', 1, 0) } };
-  for (const a of ['epee', 'arbalete', 'baton']) if (a !== arme) J.sac.push(creerArme(a, 1, 0));
+  for (const a of CLASSES_BASE) if (a !== arme) J.sac.push(creerArme(a, 1, 0));
   migrer(); sauver();
 }
 // mise à niveau des sauvegardes : maîtrise, trophées, équipement trop haut
@@ -39,6 +41,9 @@ function migrer() {
     const it = J.equip[s];
     if (it && !peutPorter(it)) { J.sac.push(it); J.equip[s] = s === 'arme' ? creerArme(it.type, 1, 0) : creerArmure(s, 1, 0); n++; }
   }
+  // nouvelle classe : un arc T1 offert aux anciennes sauvegardes
+  if (!J.arcOffert) { J.arcOffert = true; if (J.equip.arme && J.equip.arme.type !== 'arc' && !J.sac.some(it => it.cat === 'arme' && it.type === 'arc')) { J.sac.push(creerArme('arc', 1, 0)); setTimeout(() => UI.toast('Nouvelle classe : un Arc du Maître des bêtes t’attend dans ton sac', true), 2500); } }
+  J.talents = J.talents || {}; J.slotsTalent = J.slotsTalent || {};
   if (n) setTimeout(() => UI.toast(`${n} pièce${n > 1 ? 's' : ''} trop haute${n > 1 ? 's' : ''} pour ta maîtrise rangée${n > 1 ? 's' : ''} dans le sac`), 1500);
 }
 
@@ -46,6 +51,7 @@ function migrer() {
 let monde = null, joueur = null, ennemis = [], bots = [], projectiles = [], minuteries = [], coffres = [], marchand = null, sortie = null;
 let invasion = null, arene = null, groupe = null, selection = null;
 let allies = [];
+const meute = []; let loupChoisi = null; // Maître des bêtes : les 3 loups et celui qu'on envoie en ruée
 let modeActuel = null, bossVaincus = 0, enJeu = false, transition = false;
 const entree = { jx: 0, jy: 0, atk: false, clavier: {} };
 
@@ -162,7 +168,7 @@ async function demarrer() {
   let armeChoisie = 'epee';
   if (sauve) { J = sauve; migrer(); $('#nomJoueur').value = J.nom; $('#jouer').textContent = 'Reprendre l’aventure'; $('#choixArme').hidden = true; }
   else {
-    $('#choixArme').innerHTML = ['epee', 'arbalete', 'baton'].map(a => `<button data-a="${a}" class="${a === 'epee' ? 'actif' : ''}"><img src="${iconeObjet({ cat: 'arme', type: a, tier: 1 })}" alt="">${ARMES[a].label}</button>`).join('');
+    $('#choixArme').innerHTML = CLASSES_BASE.map(a => `<button data-a="${a}" class="${a === 'epee' ? 'actif' : ''}"><img src="${iconeObjet({ cat: 'arme', type: a, tier: 1 })}" alt="">${ARMES[a].label}</button>`).join('');
     $('#choixArme').querySelectorAll('button').forEach(b => b.onclick = () => { armeChoisie = b.dataset.a; $('#choixArme').querySelectorAll('button').forEach(x => x.classList.toggle('actif', x === b)); });
   }
   $('#jouer').onclick = async () => {
@@ -204,8 +210,8 @@ function construireJoueur(pos) {
   // ne montrer que l'arme portée
   const tous = Object.keys(a.nodes).filter(n => /Sword|Axe|Shield|Crossbow|Staff|Wand|Knife|Throwable|Mug|Spellbook/.test(n));
   a.montrerSeul([def.node, def.node2].filter(Boolean), tous);
-  a.teinter(def.node, TIERS[arme.tier].color, 0.62, TIERS[arme.tier].glow);
-  if (def.node2) a.teinter(def.node2, TIERS[arme.tier].color, 0.62, TIERS[arme.tier].glow);
+  if (def.procedural) { const arc = creerArc(TIERS[arme.tier].color, TIERS[arme.tier].glow); arc.scale.setScalar(0.8); arc.rotation.set(0, Math.PI / 2, Math.PI / 2); const os = a.nodes['handslotl'] || a.nodes['handslot.l']; if (os) os.add(arc); a.nodes.Arc = arc; }
+  else { a.teinter(def.node, TIERS[arme.tier].color, 0.62, TIERS[arme.tier].glow); if (def.node2) a.teinter(def.node2, TIERS[arme.tier].color, 0.62, TIERS[arme.tier].glow); }
   // tenue : on garde les matières d'origine du modèle (plus de « plastique » coloré) ; seul le tissu de la cape porte la couleur du tier
   if (def.helmet && a.nodes[def.helmet]) a.nodes[def.helmet].visible = false;
   if (J.equip.plastron && def.cape) a.teinter(def.cape, TIERS[J.equip.plastron.tier].color, 0.42, 0);
@@ -213,7 +219,7 @@ function construireJoueur(pos) {
   if (def.assassin) habitAssassin(a, def);
   G.scene.add(a.root);
   a.root.position.copy(ancienPos);
-  const st = statsHeros(J.equip);
+  const st = statsJoueur();
   const j = joueur && joueur.pv !== undefined ? joueur : {};
   joueur = Object.assign(a, {
     pos: a.root.position, angle: ancienAngle, armeType: arme.type, def,
@@ -221,8 +227,8 @@ function construireJoueur(pos) {
     bouclier: 0, bouclierT: 0, soinT: 0, sprintT: 0, slowT: 0, vampT: 0, bonusTir: false, invuln: 0, spinT: 0, verrouT: 0, dashT: 0,
     cds: j.cds || {}, cdMax: {}, sorts: {}, atkT: 0, cible: null, cibleVerrou: j.cibleVerrou || null, mort: false, st, hauteurPlaque: 2.55, combatT: 0, pasT: 0,
   });
-  const ss = sortsArme(arme);
-  ['Q', 'W', 'E'].forEach((k, i) => { joueur.sorts[k] = { ...SORTS[ss[i]], id: ss[i] }; });
+  const ss = idsSortsJoueur(arme, st.tal);
+  ['Q', 'W', 'E'].forEach((k, i) => { joueur.sorts[k] = sortAvecTalents(ss[i], st.tal); });
   if (J.equip.plastron) joueur.sorts.R = { ...SORTS.rempart, id: 'rempart' };
   if (J.equip.casque) joueur.sorts.D = { ...SORTS.souffle, id: 'souffle' };
   if (J.equip.bottes) joueur.sorts.F = { ...SORTS.ruee, id: 'ruee' };
@@ -236,8 +242,38 @@ function construireJoueur(pos) {
   $('#nomHud').textContent = J.nom;
   bustePersonnage(def.model, $('#avatarCv'), def.ombre ? '#3a1a5a' : '#5a3a5a', def.ombre ? TEINTES_OMBRE : null);
   joueur.root.rotation.y = joueur.angle;
+  assurerMeute(); UI.majBoutonTalents && UI.majBoutonTalents();
 }
-function recalculer() { joueur.st = statsHeros(J.equip); joueur.pv = Math.min(joueur.pv, joueur.st.pvMax); }
+function recalculer() { joueur.st = statsJoueur(); joueur.pv = Math.min(joueur.pv, joueur.st.pvMax); }
+// statistiques du héros + effets de l'arbre de talents de sa classe
+function statsJoueur() {
+  const st = statsHeros(J.equip);
+  const type = (J.equip.arme || {}).type || 'epee';
+  const T = effetsTalents((J.talents || {})[type], type); st.tal = T;
+  st.degats = Math.round(st.degats * (1 + (T.deg || 0)));
+  st.crit += T.crit || 0; st.vitesseAtk *= 1 + (T.vitAtk || 0);
+  st.pvMax = Math.round(st.pvMax * (1 + (T.pv || 0))); st.energieMax = Math.round(st.energieMax * (1 + (T.energie || 0)));
+  st.armure *= 1 + (T.armure || 0); st.reduction = st.armure / (st.armure + 320);
+  st.regen *= 1 + (T.regen || 0); st.recharge = Math.min(60, st.recharge + (T.rech || 0)); st.vitesse *= 1 + (T.vit || 0); st.pvp += T.pvp || 0;
+  st.dps = Math.round(st.degats * st.vitesseAtk * (1 + st.crit / 200));
+  return st;
+}
+// un sort avec les bonus de talents (dégâts, recharge)
+function sortAvecTalents(id, T) {
+  const base = SORTS[id]; if (!base) return null;
+  const s = { ...base, id }; T = T || (joueur && joueur.st && joueur.st.tal) || {};
+  const cle = base.type === 'meute' ? 'meute' : id;
+  if (s.mult) s.mult *= 1 + (T.sorts || 0) + (T['s_' + cle] || 0);
+  if (T['cd_' + cle]) s.cd *= 1 - T['cd_' + cle];
+  return s;
+}
+// sorts de la classe, remplacés par les compétences débloquées que le joueur a placées
+function idsSortsJoueur(arme, T) {
+  const ids = sortsArme(arme);
+  const choix = (J.slotsTalent || {})[arme.type] || {};
+  ['Q', 'W', 'E'].forEach((k, i) => { if (choix[k] && T.competences.includes(choix[k])) ids[i] = choix[k]; });
+  return ids;
+}
 
 // ---------------- Place publique ----------------
 function creerMarchand() {
@@ -360,6 +396,7 @@ function libererGPU(racines) {
   });
 }
 function viderMonde() {
+  G.solH = null;
   viderEscouade();
   if (modeActuel && modeActuel.goulet) { goulet = null; UI.scoreGoulet(null); UI.flechesDrapeau([]); UI.classementGoulet(null); }
   ressourcesAssets = null;
@@ -537,7 +574,7 @@ let escHudT = 0;
 // 20 minutes, 3 captures ; égalité départagée par la dernière capture ; drapeaux remis en place 20 s après une capture ;
 // drapeau lâché : rendu d'un contact par sa propre équipe ou de lui-même au bout de 10 s ; celui qui l'a lâché ne peut le reprendre qu'après 3 s ;
 // quand les deux drapeaux sont hors de leur socle, les porteurs prennent « Assaut ciblé » (+10 % de dégâts subis toutes les 30 s), puis « Assaut brutal » après 5 cumuls ;
-// résurrection par vagues toutes les 30 s au cimetière ; bonus de vitesse, de soins et berserk qui réapparaissent.
+// 20 s au cimetière après chaque mort ; bonus de vitesse, de soins et berserk qui réapparaissent.
 let goulet = null;
 const CYCLE_GOULET = 300, OUVERT_GOULET = 120; // un portail s'ouvre toutes les 5 minutes et reste 2 minutes
 const DUREE_GOULET = 1200, PREPA_GOULET = 20, VAGUE_GOULET = 30;
@@ -595,7 +632,7 @@ function entrerGoulet() {
   fondu(() => {
     viderMonde(); invasion = null; arene = null; selection = null;
     modeActuel = { id: 'goulet', nom: 'Goulet', lieu: 'Goulet des Braises', argent: 0, xp: 3, tiers: [1, 1], mobTier: 1, goulet: true };
-    monde = construireGoulet();
+    monde = construireGoulet(); G.solH = monde.solH;
     grilleGoulet();
     for (const b of Object.values(monde.bases)) monde.collisions.push(...b.portes); // herses fermées pendant la préparation
     construireJoueur(pointLibrePres(monde.bases.bleu.spawn, 0, 4));
@@ -606,7 +643,7 @@ function entrerGoulet() {
     const dr = (camp) => ({ camp, etat: 'base', porteur: null, sol: null, t: 0, ...(() => { const m = drapeauMesh(COUL_CAMP[camp]); return { mesh: m.g, rayon: m.rayon, cercle: m.cercle }; })() });
     goulet = { score: { bleu: 0, rouge: 0 }, t: DUREE_GOULET, debut: PREPA_GOULET, fini: false, vague: VAGUE_GOULET, morts: new Set(), sc: new Map(), assaut: 0, assautT: 0, dernierCap: null,
       drapeaux: { bleu: dr('bleu'), rouge: dr('rouge') }, bonus: [] };
-    for (const b of monde.bonus) { const m = meshBonus(b.type); m.sp.position.set(b.pos.x, 1.4, b.pos.z); monde.groupe.add(m.sp); goulet.bonus.push({ ...b, sp: m.sp, coul: m.coul, t: 0 }); }
+    for (const b of monde.bonus) { const m = meshBonus(b.type); m.sp.position.set(b.pos.x, 1.4 + solY(b.pos.x, b.pos.z), b.pos.z); monde.groupe.add(m.sp); goulet.bonus.push({ ...b, sp: m.sp, coul: m.coul, t: 0 }); }
     const ipJ = statsHeros(J.equip).ip, rg = rangDe('arene').i, pris = [];
     const roles = ['att', 'att', 'att', 'att', 'def', 'def', 'def', 'mil', 'mil', 'mil'];
     for (let i = 0; i < 9; i++) {
@@ -695,7 +732,7 @@ function finBuffs(x) {
 function lacherDrapeaux(x) {
   for (const F of Object.values(goulet.drapeaux)) if (F.porteur === x) {
     F.porteur = null; F.etat = 'sol'; F.sol = V(x.pos.x, 0, x.pos.z); F.t = 10; x.dropT = G.t + 3; x.drapeauPorte = null;
-    UI.toast(`Drapeau ${F.camp} lâché !`, campDe(x) === 'bleu' ? false : true); onde(F.sol, COUL_CAMP[F.camp], 4, 0.6); son('impactWood_heavy_000', 0.5);
+    UI.toast(`Drapeau ${F.camp} lâché !`, campDe(x) === 'bleu' ? false : true); onde(F.sol, COUL_CAMP[F.camp], 4, 0.6); son('impactPlank_medium_000', 0.5);
   }
 }
 function mortGoulet(x) {
@@ -712,10 +749,17 @@ function mortGoulet(x) {
     for (const m of membresGoulet(ct)) if (m && (m === tueur || (x._agg && G.t - (x._agg.get(m) || -99) < 12) || (!m.mort && dist2D(m.pos, x.pos) < 25))) { scoreDe(m).hk++; if (m === joueur) UI.nombre(V(x.pos.x, 2.9, x.pos.z), m === tueur ? 'Coup fatal · +11 renommée' : 'Victoire honorable · +3', 'info'); }
   }
   x._agg = null; x.dernierCoup = null;
-  if (x === joueur) UI.toast(`Tu es tombé · l’esprit guérisseur te relève dans ${Math.ceil(goulet.vague)} s`, true);
+  x.resT = 20;
+  if (x === joueur) UI.toast('Tu es tombé · ton esprit rejoint le cimetière, retour au combat dans 20 s', true);
   goulet.morts.add(x);
+  // après la chute, l'esprit apparaît au cimetière de son camp et y attend
+  programmer(2.2, () => { if (!goulet || goulet.fini || !x.mort || !goulet.morts.has(x)) return; const cm = monde.bases[c].cimetiere; x.pos.copy(pointLibrePres(V(cm.x, 0, cm.z - 0.5), 0, 3.5)); x.root.position.y = 0; fantome(x, true); x.jouer('Sit_Floor_Idle', { forcer: true }); emettre(V(x.pos.x, 1, x.pos.z), { n: 20, c1: '#ffffff', c2: '#9ad8ff', vit: 2, vie: 0.8, taille: 0.35, grav: -2 }); if (x === joueur) G.camTarget.copy(x.pos); });
+}
+function fantome(x, on) {
+  for (const m of x.mats || []) { if (on) { if (!m.userData.op0) m.userData.op0 = [m.transparent, m.opacity]; m.transparent = true; m.opacity = 0.42; } else if (m.userData.op0) { [m.transparent, m.opacity] = m.userData.op0; m.userData.op0 = null; } }
 }
 function relever(x) {
+  fantome(x, false);
   const c = campDe(x), sp = pointLibrePres(monde.bases[c].cimetiere, 0, 4);
   x.pos.copy(sp); x.mort = false; x.root.position.y = 0;
   if (x === joueur) { joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax; joueur.invuln = 2; joueur.jouer(joueur.def.idle); G.camTarget.copy(sp); }
@@ -744,16 +788,16 @@ function majGoulet(dt) {
   }
   goulet.t -= dt;
   // vagues de résurrection
-  goulet.vague -= dt;
-  if (goulet.vague <= 0) { goulet.vague = VAGUE_GOULET; for (const x of goulet.morts) relever(x); goulet.morts.clear(); }
+  for (const x of goulet.morts) { x.resT -= dt; if (x.resT <= 0) { relever(x); goulet.morts.delete(x); } }
   // bonus
   for (const b of goulet.bonus) {
     if (b.t > 0) { b.t -= dt; if (b.t <= 0) { b.sp.visible = true; onde(b.pos, b.coul, 2.5, 0.4); } continue; }
-    b.sp.position.y = 1.4 + Math.sin(G.t * 3) * 0.2;
-    const x = [...adversairesGoulet('rouge'), ...adversairesGoulet('bleu')].find(m => dist2D(m.pos, b.pos) < 1.4);
+    b.sp.position.y = 1.4 + Math.sin(G.t * 3) * 0.2 + solY(b.pos.x, b.pos.z);
+    const x = [...adversairesGoulet('rouge'), ...adversairesGoulet('bleu')].find(m => !m.loup && dist2D(m.pos, b.pos) < 1.4);
     if (x) prendreBonus(x, b);
   }
   for (const x of [...adversairesGoulet('rouge'), ...adversairesGoulet('bleu')]) {
+    if (x.loup) continue;
     if (x.vitBuffT > 0) { x.vitBuffT -= dt; if (Math.random() < 0.3) emettre(V(x.pos.x, 0.3, x.pos.z), { n: 1, c1: '#fff8c0', c2: '#ffd23a', vit: 1, vie: 0.4, taille: 0.25 }); if (x.vitBuffT <= 0 && x._vitBase) { x.st.vitesse = x._vitBase; x._vitBase = null; } }
     if (x.berserkT > 0) { x.berserkT -= dt; if (Math.random() < 0.25) emettre(V(x.pos.x, 1.2, x.pos.z), { n: 1, c1: '#ffb08a', c2: '#ff2a0a', vit: 1.5, vie: 0.4, taille: 0.3 }); if (x.berserkT <= 0) x.root.scale.divideScalar(1.1); }
     if (x.restoT > 0) { x.restoT -= dt; const pm = pvMaxDe(x), h = Math.min(pm * 0.1 * dt, pm - x.pv); if (h > 0) { x.pv += h; scoreDe(x).soin += h; } if (Math.random() < 0.3) emettre(V(x.pos.x, 0.4, x.pos.z), { n: 1, c1: '#d0ffd8', c2: '#3aff6a', vit: 1, vie: 0.6, taille: 0.25, grav: -2 }); }
@@ -769,7 +813,7 @@ function majGoulet(dt) {
     if (F.etat === 'attente') { F.t -= dt; if (F.t <= 0) { F.etat = 'base'; UI.toast(`Le drapeau ${F.camp} est de retour sur son socle`); } }
     else if (F.etat === 'base' || F.etat === 'sol') {
       const pos = F.etat === 'base' ? sonSocle : F.sol;
-      const voleur = adversairesGoulet(F.camp).find(x => dist2D(x.pos, pos) < 2.2 && !(x.dropT > G.t) && !estPorteur(x));
+      const voleur = adversairesGoulet(F.camp).find(x => !x.loup && dist2D(x.pos, pos) < 2.2 && !(x.dropT > G.t) && !estPorteur(x));
       if (voleur) {
         F.etat = 'porte'; F.porteur = voleur; F.sol = null; voleur.drapeauPorte = F.camp;
         const amis = campDe(voleur) === 'bleu';
@@ -777,7 +821,7 @@ function majGoulet(dt) {
         son(amis ? 'jingle_legend' : 'lowFrequency_explosion_000', 0.45, amis ? 1.2 : 0.8);
       } else if (F.etat === 'sol') {
         F.t -= dt;
-        const gardien = membresGoulet(F.camp).find(x => x && !x.mort && dist2D(x.pos, pos) < 2.2);
+        const gardien = membresGoulet(F.camp).find(x => x && !x.loup && !x.mort && dist2D(x.pos, pos) < 2.2);
         if (gardien || F.t <= 0) {
           F.etat = 'base'; F.sol = null;
           if (gardien) { scoreDe(gardien).ret++; if (gardien === joueur) UI.nombre(V(joueur.pos.x, 2.8, joueur.pos.z), 'Drapeau ramené · +15 renommée', 'info'); }
@@ -802,21 +846,21 @@ function majGoulet(dt) {
     const m = F.mesh; m.visible = F.etat !== 'attente';
     if (F.etat === 'porte') {
       const p = F.porteur, a = p.angle ?? p.root.rotation.y;
-      m.position.set(p.pos.x - Math.sin(a) * 0.38, 0.7 + (p.root.position.y || 0), p.pos.z - Math.cos(a) * 0.38);
+      m.position.set(p.pos.x - Math.sin(a) * 0.38, 0.7 + (p.root.position.y || 0) + solY(p.pos.x, p.pos.z), p.pos.z - Math.cos(a) * 0.38);
       m.rotation.set(0, Math.atan2(Math.cos(a), -Math.sin(a)), 0); m.rotateZ(-0.28); m.scale.setScalar(0.8);
     } else {
       const q = F.etat === 'sol' ? F.sol : sonSocle;
-      m.position.set(q.x, F.etat === 'sol' ? 0 : 0.5, q.z); m.rotation.set(0, G.t * 0.4, 0); m.scale.setScalar(1);
+      m.position.set(q.x, (F.etat === 'sol' ? 0 : 0.5) + solY(q.x, q.z), q.z); m.rotation.set(0, G.t * 0.4, 0); m.scale.setScalar(1);
     }
     const loin = F.etat === 'porte' || F.etat === 'sol';
     F.rayon.visible = loin; F.cercle.visible = F.etat === 'porte';
-    if (loin) { F.rayon.position.x = m.position.x; F.rayon.position.z = m.position.z; F.cercle.position.x = m.position.x; F.cercle.position.z = m.position.z; }
+    if (loin) { F.rayon.position.x = m.position.x; F.rayon.position.z = m.position.z; F.cercle.position.x = m.position.x; F.cercle.position.z = m.position.z; F.cercle.position.y = 0.07 + solY(m.position.x, m.position.z); }
   }
   if (goulet.t <= 0) {
     const { bleu, rouge } = goulet.score;
     return finGoulet(bleu > rouge ? true : bleu < rouge ? false : goulet.dernierCap ? goulet.dernierCap === 'bleu' : null);
   }
-  goulet.resJ = joueur.mort ? Math.ceil(goulet.vague) : 0;
+  goulet.resJ = joueur.mort ? Math.max(1, Math.ceil(joueur.resT || 0)) : 0;
   UI.scoreGoulet(goulet);
   // flèches au bord de l'écran vers les porteurs hors champ
   const fl = [];
@@ -833,7 +877,7 @@ function ciblerPorteur(camp) {
 }
 function finGoulet(victoire) {
   goulet.fini = true; UI.scoreGoulet(null); UI.flechesDrapeau([]);
-  for (const x of [...membresGoulet('bleu'), ...membresGoulet('rouge')]) if (x) { finBuffs(x); x.drapeauPorte = null; }
+  for (const x of [...membresGoulet('bleu'), ...membresGoulet('rouge')]) if (x) { finBuffs(x); x.drapeauPorte = null; fantome(x, false); }
   for (const F of Object.values(goulet.drapeaux)) { F.rayon.visible = false; F.cercle.visible = false; }
   const s = scoreDe(joueur);
   const bonus = victoire === true ? 200 : victoire === false ? 60 : 110;
@@ -1024,7 +1068,7 @@ function directionVisee(portee) {
 function faireFace(dir) { joueur.angle = Math.atan2(dir.x, dir.z); joueur.root.rotation.y = joueur.angle; }
 function degatsJoueur(mult) {
   const st = joueur.st; const crit = Math.random() * 100 < st.crit;
-  let d = st.degats * mult * (crit ? 1.6 : 1) * rnd(0.92, 1.08);
+  let d = st.degats * mult * (crit ? 1.6 + (st.tal && st.tal.critDeg || 0) : 1) * rnd(0.92, 1.08);
   return { d, crit };
 }
 function blesser(e, mult, opts = {}) {
@@ -1037,6 +1081,10 @@ function blesser(e, mult, opts = {}) {
   if (e.combattant && !opts.fixe && joueur.st.pvp) d *= 1 + joueur.st.pvp / 200;
   if (!opts.fixe && joueur.vampT > 0 && !joueur.mort) { joueur.pv = Math.min(joueur.st.pvMax, joueur.pv + d * 0.35); if (Math.random() < 0.5) emettre(V(joueur.pos.x, 1.2, joueur.pos.z), { n: 4, c1: '#ff8aa0', c2: '#c0103a', vit: 1.5, vie: 0.5, taille: 0.3 }); }
   if (goulet && e.bg) d = modBG(auteurCoup || joueur, e, d);
+  const T = joueur.st.tal || {};
+  if (T.achev && e.pv < e.pvMax * 0.35) d *= 1 + T.achev;
+  if (T.volVie && !joueur.mort && (!auteurCoup || auteurCoup === joueur)) joueur.pv = Math.min(joueur.st.pvMax, joueur.pv + d * T.volVie);
+  if (auteurCoup && auteurCoup.loup && auteurCoup.frenesieT > 0) auteurCoup.pv = Math.min(auteurCoup.pvMax, auteurCoup.pv + d * 0.2);
   e.pv -= d; e.frapper();
   if (compteur) noterDegats(auteurCoup || joueur, Math.min(d, d + e.pv));
   UI.nombre(V(e.pos.x, e.hauteurPlaque * 0.8, e.pos.z), Math.round(d), crit ? 'crit' : '');
@@ -1119,6 +1167,7 @@ function blesserJoueur(d, source = null) {
   if (d <= 0) return;
   if (source) dernierAgresseur = source;
   if (goulet) d = modBG(source, joueur, d);
+  { const T = joueur.st.tal || {}; if (T.reduc) d *= 1 - Math.min(0.5, T.reduc); if (T.survie && joueur.pv < joueur.st.pvMax * 0.3) d *= 1 - T.survie; }
   joueur.pv -= d; joueur.frapper(); joueur.combatT = 4;
   UI.nombre(V(joueur.pos.x, 2.2, joueur.pos.z), Math.round(d), 'joueur');
   G.shake = Math.min(1, G.shake + d / joueur.st.pvMax * 3);
@@ -1168,7 +1217,7 @@ function attaquer(dt) {
   }
   if (joueur.atkT > 0) { joueur.angle = tourner(joueur.angle, ang, dt * 14); joueur.root.rotation.y = joueur.angle; return; }
   faireFace(dir);
-  joueur.atkT = 1 / st.vitesseAtk / (joueur.orageT > 0 ? 1.7 : 1); joueur.debutAtk = G.t;
+  joueur.atkT = 1 / st.vitesseAtk / (joueur.orageT > 0 ? 1.7 : 1) / (joueur.frenesieT > 0 ? 1.3 : 1); joueur.debutAtk = G.t;
   const anim = def.attaques[Math.floor(Math.random() * def.attaques.length)];
   const vit = Math.max(1, st.vitesseAtk * joueur.duree(anim) * 0.95);
   joueur.jouer(anim, { boucle: false, vitesse: vit, forcer: true, fondu: 0.08, fin: () => joueur.jouer(def.idle) });
@@ -1186,6 +1235,7 @@ function attaquer(dt) {
     const mult = joueur.bonusTir ? 2 : 1; joueur.bonusTir = false;
     programmer(0.22, () => {
       if (joueur.armeType === 'arbalete') { tirerProjectile('carreau', couleur, c, 32, mult); son('drawKnife2', 0.35, 1.3); }
+      else if (joueur.armeType === 'arc') { tirerProjectile('carreau', '#ff4a3a', c, 38, mult, { trainee: '#ff3a2a' }); son('drawKnife2', 0.35, 1.6); }
       else { tirerProjectile('feu', '#ff8a2a', c, 20, mult); son('thrusterFire_000', 0.18, 1.6); }
     });
   }
@@ -1198,7 +1248,7 @@ function pointArme() {
 }
 function tirerProjectile(type, couleur, cible, vitesse, mult, opts = {}) {
   const depart = pointArme();
-  const dest = cible ? V(cible.pos.x, (cible.hover || 0) + 1.1 * (cible.boss ? Math.min(2, cible.boss.scale) * 0.8 : 1), cible.pos.z) : depart.clone().addScaledVector(V(Math.sin(joueur.angle), 0, Math.cos(joueur.angle)), 14);
+  const dest = cible ? V(cible.pos.x, (cible.hover || 0) + 1.1 * (cible.boss ? Math.min(2, cible.boss.scale) * 0.8 : 1) + solY(cible.pos.x, cible.pos.z), cible.pos.z) : depart.clone().addScaledVector(V(Math.sin(joueur.angle), 0, Math.cos(joueur.angle)), 14);
   const dir = dest.clone().sub(depart).normalize();
   const mesh = type === 'carreau' ? meshCarreau(couleur) : meshBoule(couleur, opts.taille || 0.4);
   mesh.position.copy(depart); mesh.lookAt(dest); G.scene.add(mesh);
@@ -1266,16 +1316,89 @@ function lancerSort(k) {
       emettre(V(joueur.pos.x, 0.3, joueur.pos.z), { n: 16, c1: '#d0f0ff', c2: '#6aa0c0', vit: 3, vie: 0.5, taille: 0.4 }); son('cloth1', 0.6, 1.2);
       break;
     }
-    case 'pluie': {
+    case 'tirArc': {
+      const { dir, cible } = directionVisee(s.portee); faireFace(dir);
+      joueur.jouer('2H_Ranged_Aiming', { boucle: false, vitesse: 1.6, forcer: true }); joueur.verrouT = 0.6;
+      const p0 = pointArme(); emettre(p0, { n: 26, c1: '#ffd0c0', c2: '#ff1a0a', vit: 2, vie: 0.5, taille: 0.35, rayon: 0.6 }); son('forceField_000', 0.4, 1.8);
+      programmer(0.42, () => {
+        joueur.jouer('2H_Ranged_Shoot', { boucle: false, vitesse: 1.4, forcer: true, fin });
+        tirerProjectile('carreau', '#ff2a1a', cible, 58, s.mult, { perce: true, portee: 22, largeur: 1.7 });
+        son('drawKnife2', 0.8, 0.6); son('lowFrequency_explosion_000', 0.3, 1.8); G.shake = 0.35;
+        const p = pointArme(); for (let k = 0; k < 12; k++) emettre(p.clone().addScaledVector(dir, k * 1.6), { n: 2, c1: '#ffe0d0', c2: '#ff1a0a', vit: 0.5, vie: 0.45, taille: 0.35 });
+      });
+      break;
+    }
+    case 'meute': {
+      joueur.jouer('Spellcast_Raise', { boucle: false, vitesse: 1.3, forcer: true, fin }); joueur.verrouT = 0.5;
+      son('forceField_000', 0.5, 0.5); onde(joueur.pos, '#ff2a1a', 6, 0.7);
+      programmer(0.35, () => { let n = 0; for (let i = 0; i < 3; i++) if (!meute[i] || meute[i].mort || !allies.includes(meute[i])) { creerLoup(i, pointLibrePres(joueur.pos, 1.5, 3.2)); n++; } joueur.comboMeute = 1; majSortMeute(); if (n) UI.toast(n === 3 ? 'La meute répond à ton appel !' : `${n} loup${n > 1 ? 's' : ''} rappelé${n > 1 ? 's' : ''}`); });
+      break;
+    }
+    case 'entrave': case 'rugissement': case 'bondMeurtrier': {
+      const loups = meuteVivante();
+      const c = choisirCible(s.portee);
+      if (!c || !loups.length) { joueur.energie += s.energie; joueur.cds[k] = 0; UI.toast(loups.length ? 'Aucune cible pour la meute' : 'Tes loups sont tombés'); return; }
+      joueur.jouer('Spellcast_Shoot', { boucle: false, vitesse: 1.5, forcer: true, fin }); joueur.verrouT = 0.25;
+      if (s.id === 'entrave') {
+        loups.forEach((l, i) => programmer(i * 0.08, () => bondLoup(l, c, s.mult / 2, { stun: 0.3 })));
+        programmer(0.5, () => { if (c.mort) return; c.racineT = Math.max(c.racineT || 0, 2.6); UI.nombre(V(c.pos.x, (c.hauteurPlaque || 2.4) + 0.3, c.pos.z), 'Entravé', 'crit');
+          const anneau = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.25, 32), new THREE.MeshBasicMaterial({ color: '#ff3a1a', transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+          anneau.rotation.x = -Math.PI / 2; ajouterVfx(anneau, (t) => { anneau.position.set(c.pos.x, 0.08, c.pos.z); anneau.material.opacity = 0.9 * Math.min(1, (2.6 - t) * 2); anneau.rotation.z = t * 3; if (t > 2.6 || c.mort) return false; });
+          for (let q = 0; q < 4; q++) emettre(V(c.pos.x, 0.3, c.pos.z), { n: 8, c1: '#ffb08a', c2: '#ff1a0a', vit: 2.5, vie: 0.6, taille: 0.3, hemi: true });
+          son('impactPlate_heavy_000', 0.5, 0.7); });
+        joueur.comboMeute = 2;
+      } else if (s.id === 'rugissement') {
+        for (const l of loups) { l.actionT = 0.9; l.jouer('hurle', { forcer: true }); }
+        son('lowFrequency_explosion_000', 0.7, 0.55);
+        programmer(0.45, () => {
+          G.shake = 0.9; ralenti(0.18, 0.35);
+          for (const l of meuteVivante()) { onde(l.pos, '#ff3a1a', 7.5, 0.7); onde(l.pos, '#ffd0a0', 5, 0.45); emettre(V(l.pos.x, 0.4, l.pos.z), { n: 40, c1: '#ffd0b0', c2: '#ff1a0a', vit: 9, vie: 0.6, taille: 0.5, hemi: true, rayon: 1 }); lueurSol(l.pos, '#ff2a0a', 6.5, 0.6, 0.9); }
+          for (const e of vivants()) { const l = meuteVivante().find(w => dist2D(w.pos, e.pos) < 6.8 + e.rayon); if (!l) continue; auteurCoup = l; blesser(e, s.mult, { stun: 0.6, c1: '#ff4a2a' }); auteurCoup = null; }
+          son('explosionCrunch_000', 0.7, 0.6);
+        });
+        joueur.comboMeute = 3;
+      } else {
+        const proies = vivants().filter(e => dist2D(e.pos, joueur.pos) < s.portee).sort((a, b) => dist2D(a.pos, joueur.pos) - dist2D(b.pos, joueur.pos));
+        loups.forEach((l, i) => { const e = proies[i] || proies[0]; if (e) programmer(i * 0.12, () => bondLoup(l, e, s.mult, { teleport: true, dot: { dps: joueur.st.degats * 0.35, t: 4, c: '#ff2a1a' } })); });
+        joueur.comboMeute = 1; son('forceField_000', 0.5, 1.4);
+      }
+      joueur.comboT = 9; majSortMeute();
+      if (s.id === 'bondMeurtrier') joueur.cds[k] = joueur.cdMax[k] = +(SORTS.bondMeurtrier.cd * (1 - joueur.st.recharge / 100) * (1 - ((joueur.st.tal || {}).cd_meute || 0))).toFixed(2);
+      break;
+    }
+    case 'frenesie': {
+      const duree = 8 * (1 + ((joueur.st.tal || {}).s_frenesie || 0));
+      joueur.jouer('Spellcast_Raise', { boucle: false, vitesse: 1.4, forcer: true, fin }); joueur.verrouT = 0.3;
+      joueur.frenesieT = duree; for (const l of meuteVivante()) { l.frenesieT = duree; l.jouer('hurle', { forcer: true }); l.actionT = 0.7; emettre(V(l.pos.x, 1, l.pos.z), { n: 24, c1: '#ffd0b0', c2: '#ff1a0a', vit: 4, vie: 0.6, taille: 0.4 }); }
+      onde(joueur.pos, '#ff6a3a', 4, 0.5); son('lowFrequency_explosion_000', 0.45, 0.9); UI.toast(`Frénésie sauvage : ${Math.round(duree)} s`);
+      break;
+    }
+    case 'tirMultiple': {
+      const { dir } = directionVisee(s.portee); faireFace(dir);
+      joueur.jouer('2H_Ranged_Shoot', { boucle: false, vitesse: 1.5, forcer: true, fin }); joueur.verrouT = 0.3;
+      programmer(0.18, () => { const a0 = joueur.angle; for (let i = -3; i <= 3; i++) { joueur.angle = a0 + i * 0.13; tirerProjectile('carreau', s.couleur[0], null, 36, s.mult, { portee: s.portee }); } joueur.angle = a0; son('drawKnife2', 0.6, 1.1); });
+      break;
+    }
+    case 'novaGivre': {
+      joueur.jouer('Spellcast_Raise', { boucle: false, vitesse: 1.6, forcer: true, fin }); joueur.verrouT = 0.3;
+      programmer(0.2, () => {
+        onde(joueur.pos, '#bfe8ff', s.portee + 1, 0.6); lueurSol(joueur.pos, '#7ab8ff', s.portee, 0.7, 0.9);
+        emettre(V(joueur.pos.x, 0.4, joueur.pos.z), { n: 60, c1: '#ffffff', c2: '#5ab0ff', vit: 10, vie: 0.6, taille: 0.45, hemi: true });
+        for (const e of vivants()) if (dist2D(e.pos, joueur.pos) < s.portee + e.rayon) { blesser(e, s.mult, { slow: 3, c1: '#bfe8ff' }); e.racineT = Math.max(e.racineT || 0, 2); }
+        son('impactMining_000', 0.6, 0.8); G.shake = 0.3;
+      });
+      break;
+    }
+    case 'pluie': case 'pluieEcarlate': {
       const { dir, point } = directionVisee(s.portee); faireFace(dir);
       joueur.jouer('2H_Ranged_Shoot', { boucle: false, forcer: true, fin }); joueur.verrouT = 0.3;
       const centre = point.clone();
-      const cercle = new THREE.Mesh(new THREE.RingGeometry(4.3, 4.5, 48), new THREE.MeshBasicMaterial({ color: '#7dffb0', transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+      const cercle = new THREE.Mesh(new THREE.RingGeometry(4.3, 4.5, 48), new THREE.MeshBasicMaterial({ color: s.couleur[0], transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
       cercle.rotation.x = -Math.PI / 2; cercle.position.set(centre.x, 0.1, centre.z);
       ajouterVfx(cercle, (t) => { cercle.material.opacity = 0.8 * (1 - t / 2.4); if (t > 2.4) return false; });
       for (let w = 0; w < 5; w++) programmer(0.3 + w * 0.4, () => {
-        for (let i = 0; i < 9; i++) { const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * 4.2; emettre(V(centre.x + Math.cos(a) * r, 7, centre.z + Math.sin(a) * r), { n: 1, c1: '#ffffff', c2: '#7dffb0', dir: V(0, -1, 0), vit: 22, disp: 0, vie: 0.3, taille: 0.35, frein: 0 }); }
-        programmer(0.3, () => { zoneDegats(centre, 4.4, s.mult, { slow: 2, c1: '#7dffb0', silence: true }); emettre(V(centre.x, 0.2, centre.z), { n: 14, c1: '#bfffd8', c2: '#3a9a6a', rayon: 3.8, vit: 2, vie: 0.4, taille: 0.3, hemi: true }); son('impactGeneric_light_000', 0.3, 1.3); });
+        for (let i = 0; i < 9; i++) { const a = Math.random() * 6.28, r = Math.sqrt(Math.random()) * 4.2; emettre(V(centre.x + Math.cos(a) * r, 7, centre.z + Math.sin(a) * r), { n: 1, c1: '#ffffff', c2: s.couleur[0], dir: V(0, -1, 0), vit: 22, disp: 0, vie: 0.3, taille: 0.35, frein: 0 }); }
+        programmer(0.3, () => { zoneDegats(centre, 4.4, s.mult, { slow: 2, c1: s.couleur[0], silence: true }); emettre(V(centre.x, 0.2, centre.z), { n: 14, c1: '#bfffd8', c2: '#3a9a6a', rayon: 3.8, vit: 2, vie: 0.4, taille: 0.3, hemi: true }); son('impactGeneric_light_000', 0.3, 1.3); });
       });
       break;
     }
@@ -1334,13 +1457,13 @@ function lancerSort(k) {
     case 'execution': {
       const portee = Math.max(s.portee, joueur.st.portee);
       const { dir, cible } = directionVisee(portee); faireFace(dir);
-      const anim = joueur.armeType === 'ombre' ? '1H_Melee_Attack_Chop' : joueur.armeType === 'epee' ? '2H_Melee_Attack_Chop' : joueur.armeType === 'arbalete' ? '2H_Ranged_Shoot' : 'Spellcast_Shoot';
+      const anim = joueur.armeType === 'ombre' ? '1H_Melee_Attack_Chop' : joueur.armeType === 'epee' ? '2H_Melee_Attack_Chop' : (joueur.armeType === 'arbalete' || joueur.armeType === 'arc') ? '2H_Ranged_Shoot' : 'Spellcast_Shoot';
       joueur.jouer(anim, { boucle: false, vitesse: 1.3, forcer: true, fin }); joueur.verrouT = 0.4;
       const bas = cible && cible.pv / cible.pvMax < 0.35; const mult = s.mult * (bas ? 3 : 1);
       programmer(0.25, () => {
         if (!cible || cible.mort) return;
         if (!joueur.def.projectile) { if (dist2D(cible.pos, joueur.pos) - cible.rayon < portee + 1) { arcTaille(joueur.pos, joueur.angle - Math.PI / 2, 3.6, '#ff2a3a', Math.PI * 0.5, 0.35); blesser(cible, mult, { c1: '#ff3a4a', c2: '#5a0008' }); son('impactPlate_heavy_000', 0.6, 0.7); } }
-        else tirerProjectile(joueur.armeType === 'arbalete' ? 'carreau' : 'feu', '#ff2a3a', cible, 34, mult, { taille: 0.6 });
+        else tirerProjectile(joueur.armeType === 'arbalete' || joueur.armeType === 'arc' ? 'carreau' : 'feu', '#ff2a3a', cible, 34, mult, { taille: 0.6 });
         if (bas) { G.shake = 0.5; UI.nombre(V(cible.pos.x, 3, cible.pos.z), 'EXÉCUTION', 'crit'); }
       });
       break;
@@ -1515,11 +1638,11 @@ function majJoueur(dt) {
   j.atkT -= dt; j.verrouT -= dt; j.invuln -= dt; j.combatT -= dt;
   if (j.mort) { j.maj(dt); return; }
   // régénération
-  j.energie = Math.min(st.energieMax, j.energie + dt * (6 + st.energieMax * 0.012));
+  j.energie = Math.min(st.energieMax, j.energie + dt * (6 + st.energieMax * 0.012) * (1 + (st.tal && st.tal.enRegen || 0)));
   const regen = j.combatT > 0 ? st.regen * 0.25 : st.regen * 3;
   j.pv = Math.min(st.pvMax, j.pv + st.pvMax * regen / 100 * dt);
   if (j.soinT > 0) { j.soinT -= dt; const h = st.pvMax * 0.1 * dt; if (goulet) scoreDe(j).soin += Math.min(h, st.pvMax - j.pv); j.pv = Math.min(st.pvMax, j.pv + h); if (Math.random() < 0.5) emettre(V(j.pos.x, 0.4, j.pos.z), { n: 1, c1: '#bfffb0', c2: '#3aff4a', dir: V(0, 1, 0), vit: 2, rayon: 0.7, vie: 0.8, taille: 0.3 }); }
-  if (j.potionT > 0) { j.potionT -= dt; if (goulet) scoreDe(j).soin += Math.min(st.pvMax * 0.4 * dt, st.pvMax - j.pv); j.pv = Math.min(st.pvMax, j.pv + st.pvMax * 0.4 * dt); }
+  if (j.potionT > 0) { j.potionT -= dt; const kP = 0.4 * (1 + (st.tal && st.tal.potion || 0)); if (goulet) scoreDe(j).soin += Math.min(st.pvMax * kP * dt, st.pvMax - j.pv); j.pv = Math.min(st.pvMax, j.pv + st.pvMax * kP * dt); }
   if (j.bouclierT > 0) { j.bouclierT -= dt; if (j.bouclierT <= 0) j.bouclier = 0; }
   if (j.sprintT > 0) { j.sprintT -= dt; if (Math.random() < 0.4) emettre(V(j.pos.x, 0.2, j.pos.z), { n: 1, c1: '#fff2b0', c2: '#ffcf4a', vit: 0.5, vie: 0.5, taille: 0.3 }); }
   if (j.slowT > 0) j.slowT -= dt;
@@ -1566,7 +1689,7 @@ function majJoueur(dt) {
 
 // ---------------- Sorts par signes ----------------
 const COUL_SIGNE = { epee: '#ffd27a', arbalete: '#9aff7a', baton: '#ff8a3a', ombre: '#b07aff', orage: '#7ab8ff', assassin: '#ff4a5a' };
-G.gestes = (() => { try { return localStorage.getItem('breche-gestes') !== '0'; } catch (e) { return true; } })();
+G.gestes = false; // sorts par signes retirés : boutons classiques
 function ralenti(duree, k) { G.ralentiT = Math.max(G.ralentiT || 0, duree); G.ralentiK = k; }
 function cibleEcran(x, y, rayon) {
   let best = null, bd = rayon;
@@ -1726,6 +1849,7 @@ function majEnnemis(dt) {
     if (sautEnCours(e, dt)) continue;
     if (e.airT > 0) { e.airT -= dt; e.root.position.y = Math.sin((0.6 - e.airT) / 0.6 * Math.PI) * 1.6; e.maj(dt); continue; } else if (!e.boss && !e.sautT) e.root.position.y = e.hover;
     if (e.slowT > 0) e.slowT -= dt;
+    if (e.racineT > 0) e.racineT -= dt;
     e.atkT -= dt * (modeActuel && modeActuel.abime ? 2 : modeHard ? 1.35 : 1);
     if (e.etat === 'idle') { if (d < 11 || allies.some(a => !a.mort && dist2D(a.pos, e.pos) < 8)) reveiller(e); e.maj(dt); continue; }
     if (e.etat === 'dormant') {
@@ -1743,6 +1867,7 @@ function majEnnemis(dt) {
   }
 }
 function avancerVers(e, cible, dt, vitesse) {
+  if (e.racineT > 0 && e !== joueur) return; // entravé : ne peut plus bouger
   const dir = V(cible.x - e.pos.x, 0, cible.z - e.pos.z); const l = dir.length(); if (l < 0.01) return;
   dir.divideScalar(l);
   // séparation
@@ -1773,9 +1898,9 @@ function majMob(e, d, dt) {
   else programmer(0.4, () => { if (!e.mort && e.stunT <= 0) tirEnnemi(e, def.type === 'caster' ? 'feu' : 'carreau', e.dmg); });
 }
 function tirEnnemi(e, type, dmg, dirForcee = null, vitesse = null) {
-  const depart = V(e.pos.x, 1.3 * (e.boss ? Math.min(2.2, e.boss.scale) * 0.7 : 1) + (e.hover || 0), e.pos.z);
+  const depart = V(e.pos.x, 1.3 * (e.boss ? Math.min(2.2, e.boss.scale) * 0.7 : 1) + (e.hover || 0) + solY(e.pos.x, e.pos.z), e.pos.z);
   const vise = e.tc || joueur;
-  const dest = V(vise.pos.x, 1.1 + (vise.hover || 0), vise.pos.z);
+  const dest = V(vise.pos.x, 1.1 + (vise.hover || 0) + solY(vise.pos.x, vise.pos.z), vise.pos.z);
   if (e.skill !== undefined && vise.vel && !dirForcee) { const t = dest.distanceTo(V(e.pos.x, 1.3, e.pos.z)) / (vitesse || (type === 'feu' ? 11 : 16)); dest.addScaledVector(vise.vel, t * e.skill * 0.9); }
   if (e.skill !== undefined && !dirForcee) { const err = (1 - e.skill) * 1.6; dest.x += rnd(-err, err); dest.z += rnd(-err, err); }
   const dir = dirForcee ? dirForcee.clone() : dest.sub(depart).normalize();
@@ -1918,6 +2043,12 @@ function ajouterSac(it, silencieux = false) {
   if (!silencieux) UI.toast('+ ' + nomObjet(it));
 }
 const API = {
+  choisirLoup: (i) => choisirLoup(i),
+  portraitLoup: () => portraitLoup(),
+  talents: () => ({ type: (J.equip.arme || {}).type || 'epee', niv: niveauDe((J.equip.arme || {}).type || 'epee'), t: J.talents[(J.equip.arme || {}).type || 'epee'] || {}, slots: J.slotsTalent[(J.equip.arme || {}).type || 'epee'] || {} }),
+  monterTalent: (id) => monterTalent(id),
+  resetTalents: () => resetTalents(),
+  placerCompetence: (id, k) => placerCompetence(id, k),
   ciblerPorteur: (camp) => ciblerPorteur(camp),
   classementGoulet: () => goulet ? lignesClassement() : null,
   reconstruireSorts: () => { if (joueur) UI.construireSorts(joueur); },
@@ -2059,7 +2190,7 @@ function ouvrirCoffre(c, auto = false) {
   { const bd = bonusParch('drop'); if (bd > 0) { const extra = lootCoffre(c.couleur, modeActuel, c.boss.idx || 0).objets; for (const it of extra) if (Math.random() < bd * 1.6) loot.objets.push(it); if (extra.length && Math.random() < bd) loot.objets.push(extra[0]); } }
   if (c.mega) {
     loot.argent *= 8; const tm = modeActuel.tiers[1];
-    loot.objets.push(...[0, 1, 2].map(() => Math.random() < 0.5 ? creerArme(hasard(['epee', 'arbalete', 'baton']), tm, 3 + (Math.random() < 0.4 ? 1 : 0)) : creerArmure(hasard(['casque', 'plastron', 'bottes']), tm, 3 + (Math.random() < 0.4 ? 1 : 0))), creerButin('rune', 12));
+    loot.objets.push(...[0, 1, 2].map(() => Math.random() < 0.5 ? creerArme(hasard(CLASSES_BASE), tm, 3 + (Math.random() < 0.4 ? 1 : 0)) : creerArmure(hasard(['casque', 'plastron', 'bottes']), tm, 3 + (Math.random() < 0.4 ? 1 : 0))), creerButin('rune', 12));
     const g0 = G.chanceOmbre; G.chanceOmbre = 0.05; tirageOmbre(tm, tm, 'boss'); G.chanceOmbre = g0;
   }
   if (J.accepteInvasion) loot.argent = Math.round(loot.argent * 1.25);
@@ -2149,6 +2280,7 @@ function initEntrees() {
   });
   function tapScene(e) {
     if (!enJeu || !joueur) return;
+    if (loupChoisi) { envoyerLoup(e.clientX, e.clientY); return; }
     let best = null, bd = 70;
     for (const en of vivants()) { const s = projeter(V(en.pos.x, 1.2, en.pos.z)); const d = Math.hypot(s.x - e.clientX, s.y - e.clientY); if (d < bd) { bd = d; best = en; } }
     if (best) { joueur.cibleVerrou = best; son('click_001', 0.3); return; }
@@ -2204,7 +2336,7 @@ function boucle() {
     G.focus = joueur.pos;
     if (!transition) majJoueur(dt);
     for (const x of [joueur, ...allies]) { if (!x._pp) x._pp = x.pos.clone(); x.vel = x.vel || V(); x.vel.set((x.pos.x - x._pp.x) / Math.max(dt, 0.001), 0, (x.pos.z - x._pp.z) / Math.max(dt, 0.001)); x._pp.copy(x.pos); }
-    if (!modeActuel) majBots(dt); else { majEnnemis(dt); majAllies(dt); majProjectiles(dt); majInvasion(dt); majArene(dt); }
+    if (!modeActuel) { majBots(dt); for (const l of meute) if (l && !l.mort && allies.includes(l)) { majLoup(l, dt); l.maj(dt); } } else { majEnnemis(dt); majAllies(dt); majProjectiles(dt); majInvasion(dt); majArene(dt); }
     for (let i = dangers.length - 1; i >= 0; i--) { dangers[i].t -= dt; if (dangers[i].t <= 0) dangers.splice(i, 1); }
     if (modeActuel && modeActuel.sylve) { majSylve(dt); sylveMeterT = (sylveMeterT || 0) - dt; if (sylveMeterT <= 0) { sylveMeterT = 0.5; if (compteur) UI.majDegats(classement(compteur.total, 0, G.t - sylve.debut)); } }
     if (errant) majErrant(dt);
@@ -2212,8 +2344,8 @@ function boucle() {
     if (passeur) passeur.maj(dt);
     if (graveuse) graveuse.maj(dt);
     ileT -= dt; if (ileT <= 0) { ileT = 3; majProduction(); majAssauts(); majRaids(); if (modeActuel && modeActuel.id === 'ile' && !monde.etranger && !(raid && raid.r)) journalIle(monde.ile); }
-    majEscouade(dt); majAbime(dt); if (goulet) majGoulet(dt); if (!modeActuel) majPortailGoulet();
-    majCamera(dt, G.camCible || joueur.pos);
+    majEscouade(dt); majAbime(dt); majMeuteJoueur(dt); if (goulet) majGoulet(dt); if (!modeActuel) majPortailGoulet();
+    majCamera(dt, G.solH && !G.camCible ? V(joueur.pos.x, solY(joueur.pos.x, joueur.pos.z), joueur.pos.z) : (G.camCible || joueur.pos));
     majTorches(joueur.pos);
     if (joueur.comboT > 0) { joueur.comboT -= dt; if (joueur.comboT <= 0) joueur.combo = 0; }
     hudT -= dt; if (hudT <= 0) { hudT = 0.08; UI.majCombo(joueur.def.assassin ? joueur.combo || 0 : -1); UI.majHud(joueur, joueur.st); UI.majSorts(joueur); majInteractions(); majCadreAutre(); majBarreRival(); }
@@ -2389,6 +2521,8 @@ function equipeJoueur() { const l = []; if (!joueur.mort && !(joueur.furtifT > 0
 function adversaires(e) { return e.camp === 'allie' ? vivants() : equipeJoueur(); }
 function cibleIA(e) {
   let liste;
+  // les loups provoquent les monstres à moins de 10 m d'eux
+  if (e.camp !== 'allie' && !e.combattant && !e.rival && meute.length) { let best = null, bd = Infinity; for (const l of meute) if (l && !l.mort && allies.includes(l)) { const d = dist2D(l.pos, e.pos); if (d < l.taunt && d < bd) { bd = d; best = l; } } if (best) return best; }
   if (goulet && e.bg) { const l = adversairesGoulet(e.bg.camp).filter(x => dist2D(x.pos, e.pos) < 14); const porteur = l.find(x => estPorteur(x)); if (porteur) return porteur; liste = l; }
   else
   if (e.poste && e.camp === 'allie') liste = vivants().filter(x => dist2D(x.pos, e.poste) < 24);
@@ -2612,6 +2746,7 @@ function majAllies(dt) {
     a.coupT = (a.coupT || 0) - dt;
     if (!a.invoc && a.coupT <= 0 && a.pv < a.pvMax) a.pv = Math.min(a.pvMax, a.pv + a.pvMax * (a.coupT < -4 ? 0.06 : 0.012) * dt);
     if (a.stunT > 0) { a.stunT -= dt; a.maj(dt * 0.15); continue; }
+    if (a.loup) { majLoup(a, dt); a.maj(dt); continue; }
     if (a.refletMob) { majRefletMob(a, dt); a.maj(dt); continue; }
     if (a.slowT > 0) a.slowT -= dt;
     a.atkT -= dt;
@@ -2650,7 +2785,8 @@ function gainXP(type, montant) {
   if (m.xp < need) return false;
   m.niv++; m.xp = Math.min(m.xp - need, xpPour(m.niv) * 0.25);
   const nomM = MAITRISES.find(x => x.id === type).nom;
-  annonce(nomM, `${nomM} niv. ${m.niv}`);
+  annonce(nomM, MAITRISES.find(x => x.id === type).cat === 'arme' ? `${nomM} niv. ${m.niv} · +1 point de talent` : `${nomM} niv. ${m.niv}`);
+  if (UI.majBoutonTalents) setTimeout(() => UI.majBoutonTalents(), 50);
   const t = NIVEAU_REQUIS.indexOf(m.niv);
   if (t > 0) annonce('palier ' + nomM, `T${t} débloqué : ${nomM}`, true);
   return true;
@@ -3661,7 +3797,7 @@ async function entrerSylve(membres = null) {
 }
 function objetSylve(t, qMin) {
   const q = Math.min(4, qMin + (Math.random() < 0.35 ? 1 : 0) + (Math.random() < 0.08 ? 1 : 0));
-  return Math.random() < 0.4 ? creerArme(hasard(['epee', 'arbalete', 'baton']), t, q) : creerArmure(hasard(['casque', 'plastron', 'bottes']), t, q);
+  return Math.random() < 0.4 ? creerArme(hasard(CLASSES_BASE), t, q) : creerArmure(hasard(['casque', 'plastron', 'bottes']), t, q);
 }
 function noterDegats(src, d) {
   if (!compteur || !(d > 0)) return;
@@ -4228,6 +4364,185 @@ function teinteSpectrale(a, couleur, force) {
     if (mt.emissive) { mt.emissive.set('#6a2aff').multiplyScalar(0.35); mt.userData.baseEmissive = mt.emissive.clone(); }
   }
 }
+// ---------------- Arbre de talents ----------------
+function monterTalent(id) {
+  const type = (J.equip.arme || {}).type || 'epee'; const arbre = arbreDe(type);
+  const t = J.talents[type] = J.talents[type] || {};
+  const dispo = pointsTotaux(niveauDe(type)) - pointsDepenses(t);
+  for (const b of arbre.branches) { const n = b.noeuds.find(x => x.id === id); if (!n) continue;
+    const r = t[id] || 0; if (r >= n.max || dispo <= 0) return false;
+    let pb = 0; for (const x of b.noeuds) pb += t[x.id] || 0; if (pb < n.req) return false;
+    if (n.dep && !(t[n.dep] > 0)) return false;
+    t[id] = r + 1; sauver(); son('jingle_loot', 0.35, 1.4);
+    if (n.competence && !t._annonce) UI.toast(`Compétence débloquée : ${SORTS[n.competence].nom} — place-la sur Q, W ou E`, true);
+    const pv = joueur.pv, en = joueur.energie; construireJoueur(joueur.pos.clone()); joueur.pv = Math.min(pv, joueur.st.pvMax); joueur.energie = Math.min(en, joueur.st.energieMax);
+    return true; }
+  return false;
+}
+function resetTalents() {
+  const type = (J.equip.arme || {}).type || 'epee'; J.talents[type] = {}; J.slotsTalent[type] = {}; sauver();
+  construireJoueur(joueur.pos.clone()); UI.toast('Talents réinitialisés : tous tes points sont rendus');
+}
+function placerCompetence(id, k) {
+  const type = (J.equip.arme || {}).type || 'epee';
+  const s = J.slotsTalent[type] = J.slotsTalent[type] || {};
+  for (const x of ['Q', 'W', 'E']) if (s[x] === id) delete s[x];
+  if (k) s[k] = id;
+  sauver(); construireJoueur(joueur.pos.clone());
+  UI.toast(k ? `${SORTS[id].nom} placée sur ${k}` : `${SORTS[id].nom} retirée`);
+}
+// ---------------- Maître des bêtes : la meute de 3 loups démoniaques ----------------
+const NOMS_LOUPS = ['Croc-Sang', 'Cendre', 'Fléau'];
+const meuteVivante = () => meute.filter(l => l && !l.mort && allies.includes(l));
+function statsLoups() {
+  const st = joueur.st, T = st.tal || {};
+  return { pv: Math.round(st.pvMax * 0.7 * (1 + (T.loupPv || 0))), dmg: st.degats * 0.42 * (1 + (T.loupDeg || 0)), vit: 1 + (T.loupVit || 0), red: Math.min(0.75, 0.42 + (T.loupArm || 0)), taunt: 10 + (T.loupTaunt || 0) };
+}
+function creerLoup(i, pos) {
+  const l = new Loup(); G.scene.add(l.root); l.root.position.copy(pos);
+  const S = statsLoups();
+  Object.assign(l, { loup: true, invoc: 'loup', idx: i, camp: 'allie', pos: l.root.position, angle: joueur.angle, mort: false, stunT: 0, slowT: 0, dots: [], atkT: rnd(0, 1), rayon: 0.6, hauteurPlaque: 1.65,
+    reduction: S.red, pvMax: S.pv, pv: S.pv, dmg: S.dmg, vitK: S.vit, taunt: S.taunt, energieMax: 100, energie: 100, nom: NOMS_LOUPS[i], armeDef: { idle: 'idle', run: 'course' }, sautCd: rnd(0, 2), actionT: 0 });
+  if (modeActuel && modeActuel.goulet) l.bg = { camp: 'bleu', role: 'loup' };
+  l.root.rotation.y = l.angle;
+  allies.push(l); meute[i] = l;
+  UI.plaque(l, { nom: l.nom, classe: 'allie loupP', vie: true, lettre: false });
+  onde(pos, '#ff2a1a', 2.6, 0.5); emettre(V(pos.x, 0.8, pos.z), { n: 34, c1: '#ffb08a', c2: '#ff0a0a', vit: 4, vie: 0.6, taille: 0.4, grav: -1 });
+  return l;
+}
+// les loups accompagnent le Maître des bêtes partout (Place, donjons, arène, Goulet)
+function assurerMeute() {
+  if (!joueur || joueur.armeType !== 'arc') {
+    for (const l of meute) if (l && allies.includes(l)) dissiper(l);
+    meute.length = 0; loupChoisi = null; UI.cadreMeute(null); return;
+  }
+  for (let i = 0; i < 3; i++) {
+    const l = meute[i];
+    if (l && allies.includes(l)) { const S = statsLoups(); const k = l.pv / l.pvMax; Object.assign(l, { pvMax: S.pv, pv: S.pv * k, dmg: S.dmg, vitK: S.vit, reduction: S.red, taunt: S.taunt }); continue; }
+    creerLoup(i, pointLibrePres(joueur.pos, 1.5, 3.2));
+  }
+  joueur.comboMeute = joueur.comboMeute || 1; majSortMeute(); UI.cadreMeute(meute, API);
+}
+// le sort W : Appel de la meute s'il manque un loup, sinon l'enchaînement en 3 temps
+function majSortMeute() {
+  if (!joueur || joueur.armeType !== 'arc') return;
+  const k = ['Q', 'W', 'E'].find(x => joueur.sorts[x] && (joueur.sorts[x].id === 'meute' || joueur.sorts[x].type === 'meute')); if (!k) return;
+  const complet = meuteVivante().length === 3;
+  const id = complet ? ['entrave', 'rugissement', 'bondMeurtrier'][(joueur.comboMeute || 1) - 1] : 'meute';
+  if (joueur.sorts[k].id === id) return;
+  joueur.sorts[k] = sortAvecTalents(id);
+  joueur.cdMax[k] = +(joueur.sorts[k].cd * (1 - joueur.st.recharge / 100)).toFixed(2);
+  if (id === 'meute' && (joueur.cds[k] || 0) < 0.1 && meuteVivante().length < 3 && joueur.loupsAppel) joueur.cds[k] = 0;
+  UI.construireSorts(joueur);
+}
+function cibleLoup(a) {
+  const ok = (e) => e && !e.mort && ennemis.includes(e) && e.camp !== 'allie';
+  if (ok(joueur.cibleVerrou) && dist2D(joueur.cibleVerrou.pos, joueur.pos) < 22) return joueur.cibleVerrou;
+  if (ok(joueur.cible) && joueur.combatT > 0 && dist2D(joueur.cible.pos, joueur.pos) < 20) return joueur.cible;
+  let best = null, bd = Infinity;
+  for (const e of vivants()) {
+    if (e.etat === 'dormant' || e.etat === 'idle') continue;
+    const d = Math.min(dist2D(e.pos, a.pos), dist2D(e.pos, joueur.pos));
+    if (d < 11 && d < bd) { bd = d; best = e; }
+  }
+  return best;
+}
+function bondLoup(a, c, mult, opts = {}) {
+  if (a.mort || c.mort) return;
+  const dep = a.pos.clone(); const dir = V(c.pos.x - dep.x, 0, c.pos.z - dep.z); if (dir.lengthSq() < 0.01) dir.set(0, 0, 1); dir.normalize();
+  const r = (c.rayon || 0.5) + 0.75; const arr = V(c.pos.x - dir.x * r, 0, c.pos.z - dir.z * r);
+  a.angle = Math.atan2(dir.x, dir.z); a.root.rotation.y = a.angle;
+  const impact = () => {
+    if (a.mort) return; a.root.position.y = 0; a.jouer('morsure', { forcer: true });
+    emettre(V(c.pos.x, 1, c.pos.z), { n: 16, c1: '#ffd0c0', c2: '#ff0a0a', vit: 4, vie: 0.45, taille: 0.35 }); son('knifeSlice2', 0.4, 0.7);
+    if (c.mort) return;
+    auteurCoup = a;
+    if (mult > 0) blesser(c, mult, { stun: opts.stun, dot: opts.dot, c1: '#ff4a2a' }); else infliger(a, c, a.dmg * 1.6);
+    auteurCoup = null;
+  };
+  if (opts.teleport) {
+    emettre(V(dep.x, 0.8, dep.z), { n: 24, c1: '#ffb08a', c2: '#3a0004', vit: 3, vie: 0.5, taille: 0.45 });
+    a.pos.x = arr.x; a.pos.z = arr.z; a.actionT = 0.35; onde(arr, '#ff2a1a', 2.2, 0.35);
+    programmer(0.06, impact); return;
+  }
+  a.actionT = 0.46; a.jouer('saut', { forcer: true });
+  ajouterVfx(new THREE.Group(), (t) => { if (a.mort) return false; const k = Math.min(1, t / 0.42); a.pos.x = dep.x + (arr.x - dep.x) * k; a.pos.z = dep.z + (arr.z - dep.z) * k; a.root.position.y = Math.sin(k * Math.PI) * 1.5; if (k >= 1) { impact(); return false; } });
+}
+function combatLoup(a, c, dt) {
+  const d = dist2D(a.pos, c.pos) - (c.rayon || 0.5);
+  const vJ = vitesseJoueur() * a.vitK;
+  if (d > 3.5 && d < 10 && a.sautCd <= 0 && ligneLibre(a.pos, c.pos)) { a.sautCd = rnd(4, 6.5); bondLoup(a, c, 0); return; } // bond naturel sur la proie
+  if (d > 1.1) { allerVers(a, c.pos, dt, vJ * 1.1); a.jouer('course'); return; }
+  a.angle = tourner(a.angle, Math.atan2(c.pos.x - a.pos.x, c.pos.z - a.pos.z), dt * 10); a.root.rotation.y = a.angle;
+  if (a.atkT > 0) { if (a.etat !== 'morsure') a.jouer('idle'); return; }
+  a.atkT = 1.05; a.jouer('morsure', { forcer: true });
+  programmer(0.17, () => { if (a.mort || c.mort || dist2D(a.pos, c.pos) > (c.rayon || 0.5) + 1.9) return; infliger(a, c, a.dmg); son('knifeSlice', 0.25, 0.7); });
+}
+function majLoup(a, dt) {
+  a.atkT -= dt * (a.frenesieT > 0 ? 1.8 : 1); a.sautCd -= dt; if (a.frenesieT > 0) a.frenesieT -= dt;
+  a.coupT = (a.coupT || 0) - dt;
+  a.energie = Math.min(a.energieMax, a.energie + dt * 8);
+  if (a.actionT > 0) { a.actionT -= dt; return; }
+  a.root.position.y = 0;
+  if (joueur.mort && !goulet) { a.jouer('idle'); return; }
+  const vJ = vitesseJoueur() * a.vitK;
+  // ruée ordonnée : il fonce au point choisi, nettoie tout dans un rayon de 40 m, puis revient
+  if (a.rush) {
+    const R = a.rush;
+    if (R.phase === 'aller') {
+      if (dist2D(a.pos, R.point) > 1.6 && (R.t = (R.t || 0) + dt) < 25) { allerVers(a, R.point, dt, vitesseJoueur()); a.jouer('course'); return; }
+      R.phase = 'zone'; for (const e of vivants()) if (dist2D(e.pos, R.point) < 40 && (e.etat === 'idle' || e.etat === 'dormant')) reveiller(e);
+    }
+    let cible = null, bd = Infinity;
+    for (const e of vivants()) { const d = dist2D(e.pos, R.point); if (d < 40 && dist2D(e.pos, a.pos) < bd) { bd = dist2D(e.pos, a.pos); cible = e; } }
+    if (cible) { combatLoup(a, cible, dt); return; }
+    a.rush = null; UI.toast(`${a.nom} a nettoyé la zone et revient`);
+  }
+  const c = cibleLoup(a);
+  if (c) { combatLoup(a, c, dt); return; }
+  // suit son maître en formation
+  const off = [[-1.7, -1.3], [1.7, -1.3], [0, -2.5]][a.idx] || [0, -2];
+  const an = joueur.angle, ca = Math.cos(an), sa = Math.sin(an);
+  const dest = V(joueur.pos.x + off[0] * ca + off[1] * sa, 0, joueur.pos.z - off[0] * sa + off[1] * ca);
+  const dJ = dist2D(a.pos, joueur.pos);
+  if (dJ > 30) { emettre(V(a.pos.x, 0.8, a.pos.z), { n: 16, c1: '#ffb08a', c2: '#3a0004', vit: 3, vie: 0.5, taille: 0.4 }); a.pos.copy(pointLibrePres(dest, 0, 1.5)); a.chemin = null; return; }
+  const d = dist2D(a.pos, dest);
+  if (d > 0.8) { allerVers(a, dest, dt, Math.max(vJ * 1.05, 4) * (d > 5 ? 1.35 : 1)); a.jouer('course'); }
+  else { a.jouer('idle'); a.angle = tourner(a.angle, joueur.angle, dt * 4); a.root.rotation.y = a.angle; }
+  if (a.coupT <= 0) a.pv = Math.min(a.pvMax, a.pv + a.pvMax * 0.05 * dt);
+}
+let meuteHudT = 0;
+function majMeuteJoueur(dt) {
+  if (!joueur) return;
+  if (joueur.frenesieT > 0) joueur.frenesieT -= dt;
+  if (joueur.comboT > 0) { joueur.comboT -= dt; if (joueur.comboT <= 0 && joueur.comboMeute !== 1) { joueur.comboMeute = 1; majSortMeute(); } }
+  if (!meute.length) return;
+  if ((meuteHudT -= dt) <= 0) { meuteHudT = 0.15; UI.majMeute(meute, loupChoisi); if (meuteVivante().length < 3 && joueur.sorts.W && joueur.sorts.W.type === 'meute') majSortMeute(); }
+}
+// cadre de la meute : on touche un loup, puis un point de la carte → il y fonce
+function choisirLoup(i) {
+  const l = meute[i];
+  if (!l || l.mort || !allies.includes(l)) { UI.toast('Ce loup est tombé : relance l’Appel de la meute'); return; }
+  loupChoisi = loupChoisi === l ? null : l;
+  if (loupChoisi) { UI.toast(`${l.nom} : touche la carte là où il doit foncer`); son('select_001', 0.4); }
+  UI.majMeute(meute, loupChoisi);
+}
+const _ray = new THREE.Raycaster(), _plan = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+function pointSol(x, y) {
+  const v = new THREE.Vector2(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1);
+  _ray.setFromCamera(v, G.camera); const p = new THREE.Vector3();
+  return _ray.ray.intersectPlane(_plan, p) ? p.setY(0) : null;
+}
+function envoyerLoup(x, y) {
+  const l = loupChoisi; loupChoisi = null; UI.majMeute(meute, null);
+  if (!l || l.mort) return;
+  const p = pointSol(x, y); if (!p) return;
+  if (!monde.marche(p.x, p.z)) { UI.toast('Il ne peut pas aller là'); return; }
+  l.rush = { point: p, phase: 'aller', t: 0 }; l.chemin = null;
+  lueurSol(p, '#ff2a1a', 1.6, 1.2, 0.9); onde(p, '#ff3a1a', 2, 0.5);
+  UI.toast(`${l.nom} fonce ! Il revient quand tout est mort à 40 m`); son('confirmation_001', 0.4, 0.8);
+  l.jouer('hurle', { forcer: true }); l.actionT = 0.35;
+}
 function invoquerOmbres(n) {
   for (const a of allies.filter(x => x.invoc === 'ombre')) dissiper(a);
   const st = joueur.st;
@@ -4332,6 +4647,13 @@ function majRefletMob(a, dt) {
 }
 // une ombre qui meurt explose et blesse tout autour
 function mortInvocation(a) {
+  if (a.loup) { // le loup s'effondre, puis se dissipe en braises
+    const i = allies.indexOf(a); if (i >= 0) allies.splice(i, 1);
+    a.mort = true; a.rush = null; a.jouer('Death_A'); UI.retirerPlaque(a); if (loupChoisi === a) loupChoisi = null;
+    UI.toast(`${a.nom} est tombé · relance l’Appel de la meute`); majSortMeute();
+    ajouterVfx(new THREE.Group(), (t, dt) => { a.maj(dt); if (t > 1.6) { emettre(V(a.pos.x, 0.6, a.pos.z), { n: 30, c1: '#ffb08a', c2: '#3a0004', vit: 3, vie: 0.8, taille: 0.4, grav: -2 }); G.scene.remove(a.root); return false; } });
+    return;
+  }
   if (a.invoc === 'ombre') {
     onde(a.pos, '#9a5aff', 3.4, 0.45); emettre(V(a.pos.x, 1, a.pos.z), { n: 40, c1: '#e0c8ff', c2: '#2a0050', vit: 7, vie: 0.6, taille: 0.5 });
     toucherZone(a, a.pos, 3.2, a.dmg * 1.6, { slow: 1.5 }); son('explosionCrunch_000', 0.35, 1.4);
@@ -4347,7 +4669,7 @@ function dissiper(a) {
 }
 
 // accès de débogage (console)
-window.__jeu = { get modeActuel() { return modeActuel; }, entrerGoulet: () => entrerGoulet(), get goulet() { return goulet; }, get dangers() { return dangers; }, creerCoffre: (p, c, b) => creerCoffre(p, c, b), entrerArene, construireJoueur: () => construireJoueur(joueur.pos.clone()), get entree() { return entree; }, API, G, UI, tirageOrage, changerRang, apparitionErrant, get errant() { return errant; }, tuerUn: (e) => { e.pv = 0; tuer(e); }, groupeTest: () => { groupe = donneesBot(statsHeros(J.equip).ip); return groupe.nom; }, trahir: () => allies.forEach(a => a.autonome && trahir(a)), invasionTest: () => { invasion = { mode: "subie", t: 0, rival: null }; lancerInvasion(); }, entrerSylve: (o) => entrerSylve(o), get sylve() { return sylve; }, invoquerOmbres, tirageOmbre, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
+window.__jeu = { get modeActuel() { return modeActuel; }, tuerJoueur: () => { joueur.pv = 0; mourirJoueur(); }, get meute() { return meute; }, envoyerLoup: (i, x, y) => { loupChoisi = meute[i]; envoyerLoup(x, y); }, entrerGoulet: () => entrerGoulet(), get goulet() { return goulet; }, get dangers() { return dangers; }, creerCoffre: (p, c, b) => creerCoffre(p, c, b), entrerArene, construireJoueur: () => construireJoueur(joueur.pos.clone()), get entree() { return entree; }, API, G, UI, tirageOrage, changerRang, apparitionErrant, get errant() { return errant; }, tuerUn: (e) => { e.pv = 0; tuer(e); }, groupeTest: () => { groupe = donneesBot(statsHeros(J.equip).ip); return groupe.nom; }, trahir: () => allies.forEach(a => a.autonome && trahir(a)), invasionTest: () => { invasion = { mode: "subie", t: 0, rival: null }; lancerInvasion(); }, entrerSylve: (o) => entrerSylve(o), get sylve() { return sylve; }, invoquerOmbres, tirageOmbre, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
 
 initEntrees();
 demarrer();

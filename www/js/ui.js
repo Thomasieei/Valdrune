@@ -1,5 +1,6 @@
 // ===== Interface : icônes, HUD, inventaire, marché, dialogues =====
-import { THREE, G, projeter } from './engine.js';
+import { THREE, G, projeter, creerArc } from './engine.js';
+import { arbreDe, pointsTotaux, pointsDepenses, pointsBranche, peutMonter, texteNoeud, ALTS } from './talents.js';
 import { svgGlyphe, GLYPHES as SIGNES } from './gestes.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { TIERS, QUALITES, ARMES, ARMURES, BUTINS, SORTS, MODES, COFFRES, MAITRISES, NIVEAU_REQUIS, VARIANTES, EMOTES, TRAITS, RANGS, PTS_RANG, PARCHEMINS, COULEURS_PARCH, BOUTIQUE_PARCH_GRATUITE, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT } from './data.js';
@@ -43,6 +44,36 @@ const GLYPHES = {
   potion: '<path d="M40 10 h20 v8 h-4 v14 C70 38 78 50 78 62 C78 80 66 90 50 90 C34 90 22 80 22 62 C22 50 30 38 44 32 V18 h-4 z"/><path d="M28 62 C34 58 44 66 50 62 C58 58 66 62 72 60 C72 76 62 84 50 84 C38 84 28 76 28 62 Z" fill="#ff3a4a"/>',
   cible: '<circle cx="50" cy="50" r="28" fill="none" stroke="#fff" stroke-width="7"/><path d="M50 8 V30 M50 70 V92 M8 50 H30 M70 50 H92" stroke="#fff" stroke-width="7"/><circle cx="50" cy="50" r="6"/>',
 };
+Object.assign(GLYPHES, {
+  arc: '<path d="M30 8 C70 22 74 78 30 92 L34 86 C64 72 62 28 34 14 Z"/><path d="M31 11 L31 89" stroke="#fff" stroke-width="3"/><path d="M14 50 H82" stroke="#fff" stroke-width="5"/><path d="M84 50 L72 42 L72 58 Z"/>',
+  fleche: '<path d="M12 88 L70 30" stroke="#fff" stroke-width="7" stroke-linecap="round"/><path d="M88 12 L58 26 L74 42 Z"/><path d="M12 88 L10 72 M12 88 L28 90 M20 80 L16 66 M20 80 L34 84" stroke="#fff" stroke-width="5"/>',
+  loup: '<path d="M18 22 L36 40 L50 34 L64 40 L82 22 L80 52 C80 70 66 84 50 90 C34 84 20 70 20 52 Z"/><path d="M36 54 L44 58 L36 60 Z M64 54 L56 58 L64 60 Z" fill="#ff2a1a"/><path d="M42 74 L50 82 L58 74 Z" fill="#1a0a0a"/>',
+  entrave: '<circle cx="50" cy="50" r="30" fill="none" stroke="#fff" stroke-width="8" stroke-dasharray="12 6"/><path d="M26 26 L74 74 M74 26 L26 74" stroke="#fff" stroke-width="8" stroke-linecap="round"/>',
+  rugissement: '<path d="M20 50 C20 30 34 18 50 18 C66 18 80 30 80 50 L66 56 L72 72 L50 62 L28 72 L34 56 Z"/><path d="M6 36 C2 46 2 54 6 64 M94 36 C98 46 98 54 94 64" stroke="#fff" stroke-width="5" fill="none"/>',
+  bond: '<path d="M10 80 C30 20 70 20 90 60" stroke="#fff" stroke-width="7" fill="none" stroke-dasharray="10 7"/><path d="M60 52 L92 64 L74 88 Z"/><circle cx="16" cy="78" r="8"/>',
+  sablier: '<path d="M24 10 H76 V18 C76 34 58 42 58 50 C58 58 76 66 76 82 V90 H24 V82 C24 66 42 58 42 50 C42 42 24 34 24 18 Z"/>',
+  crane: '<path d="M50 10 C26 10 14 28 16 48 C18 60 24 64 28 66 V82 H72 V66 C76 64 82 60 84 48 C86 28 74 10 50 10 Z"/><circle cx="36" cy="46" r="9" fill="#1a0a0a"/><circle cx="64" cy="46" r="9" fill="#1a0a0a"/>',
+  livre: '<path d="M10 20 C26 14 42 16 50 24 C58 16 74 14 90 20 V84 C74 78 58 80 50 86 C42 80 26 78 10 84 Z"/><path d="M50 24 V86" stroke="#1a0a0a" stroke-width="3"/>',
+  couronne: '<path d="M10 76 L16 28 L34 50 L50 18 L66 50 L84 28 L90 76 Z"/><rect x="10" y="78" width="80" height="10"/>',
+  goutte: '<path d="M50 8 C62 30 80 48 80 64 C80 82 66 92 50 92 C34 92 20 82 20 64 C20 48 38 30 50 8 Z"/>',
+  oeil: '<path d="M6 50 C24 22 76 22 94 50 C76 78 24 78 6 50 Z"/><circle cx="50" cy="50" r="15" fill="#1a0a0a"/><circle cx="55" cy="45" r="5"/>',
+  poing: '<path d="M22 40 h56 v30 c0 14 -10 22 -26 22 h-6 c-16 0 -24 -8 -24 -22 z"/><path d="M22 40 v-14 h14 v14 M36 40 v-18 h14 v18 M50 40 v-18 h14 v18 M64 40 v-14 h14 v14"/>',
+  etoile: '<path d="M50 6 L61 38 L94 38 L67 58 L77 92 L50 72 L23 92 L33 58 L6 38 L39 38 Z"/>',
+  griffe: '<path d="M20 90 C30 60 40 30 70 8 C56 34 48 62 44 90 Z M44 92 C52 64 62 40 88 24 C76 46 70 70 68 92 Z"/>',
+  epees: '<path d="M14 14 L22 10 L66 54 L58 62 Z M86 14 L78 10 L34 54 L42 62 Z"/><path d="M50 66 L62 54 L74 66 L62 78 Z M50 66 L38 54 L26 66 L38 78 Z"/>',
+  flamme: '<path d="M50 6 C66 30 84 42 78 66 C74 84 62 94 50 94 C36 94 22 84 22 64 C22 46 36 40 38 24 C46 36 48 40 50 44 C54 30 52 18 50 6 Z"/>',
+  bouclier: '<path d="M50 8 L86 20 L82 54 C78 74 64 84 50 92 C36 84 22 74 18 54 L14 20 Z"/>',
+  coeur: '<path d="M50 86 C20 64 10 48 14 32 C18 18 36 14 50 30 C64 14 82 18 86 32 C90 48 80 64 50 86 Z"/>',
+  coeurB: '<path d="M50 86 C20 64 10 48 14 32 C18 18 36 14 50 30 C64 14 82 18 86 32 C90 48 80 64 50 86 Z"/><path d="M50 30 V70 M30 50 H70" stroke="#1a0a0a" stroke-width="7"/>',
+  goutteB: '<path d="M50 8 C62 30 80 48 80 64 C80 82 66 92 50 92 C34 92 20 82 20 64 C20 48 38 30 50 8 Z"/><path d="M38 64 C38 74 44 80 52 80" stroke="#1a3a6a" stroke-width="6" fill="none"/>',
+  feuille: '<path d="M14 86 C14 40 40 14 88 12 C86 60 60 86 14 86 Z"/><path d="M14 86 L64 36" stroke="#1a3a1a" stroke-width="5"/>',
+  aile: '<path d="M14 72 C26 40 58 22 90 18 C76 28 72 34 68 42 C78 40 84 40 88 42 C76 50 66 54 56 56 C64 58 70 60 74 64 C58 72 40 74 14 72 Z"/>',
+  spirale: '<path d="M50 50 m0 -6 a6 6 0 1 1 -6 6 a14 14 0 1 1 14 14 a24 24 0 1 1 -24 -24 a34 34 0 1 1 34 34" stroke="#fff" stroke-width="7" fill="none"/>',
+  tour: '<path d="M22 92 V30 H30 V16 H42 V30 H58 V16 H70 V30 H78 V92 Z"/><rect x="42" y="56" width="16" height="36" fill="#1a0a0a"/>',
+  fiole: '<path d="M40 10 h20 v8 h-4 v14 C70 38 78 50 78 62 C78 80 66 90 50 90 C34 90 22 80 22 62 C22 50 30 38 44 32 V18 h-4 z"/>',
+  eclair: '<path d="M58 6 L22 54 H46 L38 94 L80 40 H54 Z"/>',
+  montagne: '<path d="M4 88 L36 30 L52 54 L66 34 L96 88 Z"/><path d="M36 30 L44 44 L30 44 Z" fill="#fff"/>',
+});
 export function svgSort(glyphe, c1, c2, id) {
   const gid = 'g' + id + Math.random().toString(36).slice(2, 6);
   return `<svg class="ic" viewBox="0 0 100 100"><defs><radialGradient id="${gid}" cx="40%" cy="35%" r="75%"><stop offset="0" stop-color="${c1}"/><stop offset=".55" stop-color="${mix(c1, c2, .55)}"/><stop offset="1" stop-color="${c2}"/></radialGradient>
@@ -198,7 +229,8 @@ export function iconeObjet(it) {
   if (!icoR) initIcones();
   const grp = new THREE.Group();
   let ms, orient = 'arme';
-  if (it.cat === 'arme') ms = meshesDe(ARMES[it.type].model, [ARMES[it.type].node]);
+  if (it.cat === 'arme' && ARMES[it.type].procedural) { const a = creerArc(); a.updateMatrixWorld(true); ms = []; a.traverse(o => { if (o.isMesh) { o.applyMatrix4(a.matrixWorld); ms.push(o); } }); }
+  else if (it.cat === 'arme') ms = meshesDe(ARMES[it.type].model, [ARMES[it.type].node]);
   else if (it.type === 'casque') { ms = meshesDe('Knight', ['Knight_Helmet']); orient = 'armure'; }
   else if (it.type === 'plastron') { ms = meshesDe('Knight', ['Knight_Body', 'Knight_ArmLeft', 'Knight_ArmRight']); orient = 'armure'; }
   else { ms = meshesDe('Knight', ['Knight_LegLeft', 'Knight_LegRight']); orient = 'armure'; }
@@ -355,7 +387,7 @@ UI.scoreGoulet = (g) => {
     return `<button class="porteur ${ennemi ? 'cible' : ''}" ${ennemi ? `data-porteur="bleu"` : ''}>⚑ ${ennemi ? 'Volé par' : 'Porté par'} <b>${nom}</b></button>`;
   };
   const assaut = g.assaut > 0 ? `<div class="assaut ${g.assaut > 5 ? 'brutal' : ''}">${g.assaut > 5 ? 'Assaut brutal' : 'Assaut ciblé'} ×${g.assaut} · porteurs +${g.assaut * 10} % de dégâts subis</div>` : '';
-  const res = g.resJ ? `<div class="resBG">✦ L’esprit guérisseur te relève dans ${g.resJ} s</div>` : '';
+  const res = g.resJ ? `<div class="resBG">✦ Cimetière · retour au combat dans ${g.resJ} s</div>` : '';
   const h = `<div class="ligneSG"><div class="sg bleu"><b>${g.score.bleu}</b>${etat(g.drapeaux.rouge).replace('Porté par', 'Porté par')}</div>
     <div class="chrono">${g.debut > 0 ? '<small>Ouverture</small>' : ''}${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}<small>3 captures</small><button class="btnCl" data-cl>Classement</button></div>
     <div class="sg rouge"><b>${g.score.rouge}</b>${etat(g.drapeaux.bleu)}</div></div>${assaut}${res}`;
@@ -403,6 +435,93 @@ UI.classementGoulet = (opts, fini) => {
   m.addEventListener('pointerdown', (e) => e.stopPropagation());
   clearInterval(clTimer); if (!clOpts.fin) clTimer = setInterval(() => { if (clOpts) rendre(); }, 1000);
 };
+// ---------------- Cadre de la meute (Maître des bêtes) ----------------
+UI.cadreMeute = (meute, api2) => {
+  let c = document.getElementById('cadreMeute');
+  if (!meute) { if (c) c.remove(); return; }
+  if (!c) {
+    c = document.createElement('div'); c.id = 'cadreMeute';
+    const jr = document.getElementById('journal');
+    let col = document.getElementById('colJournal');
+    if (!col && jr) { col = document.createElement('div'); col.id = 'colJournal'; jr.parentNode.insertBefore(col, jr); col.appendChild(jr); }
+    (col || $('#hud')).appendChild(c);
+    const img = api.portraitLoup();
+    c.innerHTML = [0, 1, 2].map(i => `<button class="carteLoup" data-l="${i}" aria-label="Loup ${i + 1}"><div class="avL"><img src="${img}" alt=""><span class="mortL">☠</span></div><b></b><div class="barreL"><i class="pvL"></i></div><div class="barreL en"><i class="enL"></i></div></button>`).join('');
+    c.addEventListener('pointerdown', (e) => { const b = e.target.closest('[data-l]'); if (!b) return; e.stopPropagation(); e.preventDefault(); api.choisirLoup(+b.dataset.l); });
+  }
+  UI.majMeute(meute, null);
+};
+UI.majMeute = (meute, choisi) => {
+  const c = document.getElementById('cadreMeute'); if (!c) return;
+  c.querySelectorAll('.carteLoup').forEach((b, i) => {
+    const l = meute[i]; const mort = !l || l.mort;
+    b.classList.toggle('ko', mort); b.classList.toggle('choisi', !!l && l === choisi); b.classList.toggle('rush', !!l && !!l.rush && !mort);
+    const nom = l ? l.nom : ['Croc-Sang', 'Cendre', 'Fléau'][i]; const bb = b.querySelector('b'); if (bb.textContent !== nom) bb.textContent = nom;
+    b.querySelector('.pvL').style.transform = `scaleX(${mort ? 0 : Math.max(0, l.pv / l.pvMax)})`;
+    b.querySelector('.enL').style.transform = `scaleX(${mort ? 0 : Math.max(0, l.energie / l.energieMax)})`;
+  });
+};
+// ---------------- Arbre de talents ----------------
+UI.majBoutonTalents = () => {
+  let b = document.getElementById('btnTalents');
+  if (!b) {
+    b = document.createElement('button'); b.id = 'btnTalents'; b.className = 'rond metal'; b.setAttribute('aria-label', 'Arbre de talents');
+    b.innerHTML = '<svg viewBox="0 0 24 24" fill="#ffd27a"><path d="M12 2l2.4 5 5.6.8-4 3.9.9 5.6L12 14.7 7.1 17.3l.9-5.6-4-3.9 5.6-.8z"/><path d="M11 17h2v5h-2z"/></svg><span class="pastille" hidden></span>';
+    b.addEventListener('click', () => UI.ouvrirTalents());
+    const col = document.getElementById('colonne'); col.insertBefore(b, document.getElementById('btnQuitter'));
+  }
+  const T = api.talents(); const dispo = pointsTotaux(T.niv) - pointsDepenses(T.t);
+  const p = b.querySelector('.pastille'); p.hidden = dispo <= 0; p.textContent = dispo;
+};
+let talentSel = null;
+const ICONES_NOEUD = (n) => n.competence ? SORTS[n.competence].glyphe : n.ic;
+UI.ouvrirTalents = () => {
+  let m = document.getElementById('talents');
+  if (!m) { m = document.createElement('div'); m.id = 'talents'; $('#jeu').appendChild(m); m.addEventListener('pointerdown', (e) => e.stopPropagation()); }
+  m.hidden = false; api.son('open_001', 0.4);
+  const rendre = () => {
+    const T = api.talents(); const arbre = arbreDe(T.type); const t = T.t;
+    const total = pointsTotaux(T.niv), dep = pointsDepenses(t), dispo = total - dep;
+    const ROWS = 6;
+    const branche = (b) => {
+      const pb = pointsBranche(t, b);
+      const pos = (n) => ({ x: n.col === 0 ? 28 : 72, y: 8 + n.rang * (84 / (ROWS - 1)) });
+      const liens = b.noeuds.filter(n => n.dep).map(n => { const p = b.noeuds.find(x => x.id === n.dep); if (!p) return ''; const a = pos(p), c = pos(n); const on = (t[n.dep] || 0) > 0; return `<line x1="${a.x}" y1="${a.y}" x2="${c.x}" y2="${c.y}" class="${on ? 'on' : ''}" style="--c:${b.couleur}"/>`; }).join('');
+      const noeuds = b.noeuds.map(n => {
+        const r = t[n.id] || 0, p = pos(n), ok = peutMonter(t, arbre, b, n, dispo).ok;
+        const etat = r >= n.max ? 'max' : r > 0 ? 'partiel' : ok ? 'dispo' : 'bloque';
+        const sorts = n.competence ? SORTS[n.competence] : null;
+        const ic = svgSort(ICONES_NOEUD(n), sorts ? sorts.couleur[0] : b.couleur, sorts ? sorts.couleur[1] : '#1a0e08', 'n' + n.id);
+        return `<button class="noeud ${etat} ${n.ultime ? 'ultime' : ''} ${n.competence ? 'comp' : ''} ${talentSel === n.id ? 'sel' : ''}" data-n="${n.id}" style="left:${p.x}%;top:${p.y}%;--c:${b.couleur}">${ic}<span class="rg">${r}/${n.max}</span></button>`;
+      }).join('');
+      return `<div class="branche" style="--c:${b.couleur}"><div class="teteB">${svgSort(b.ic, b.couleur, '#1a0e08', 'b' + b.id)}<div><h3>${b.nom}</h3><small>${pb} point${pb > 1 ? 's' : ''} investi${pb > 1 ? 's' : ''}</small></div></div>
+        <div class="grilleB"><svg class="liens" viewBox="0 0 100 100" preserveAspectRatio="none">${liens}</svg>${noeuds}</div></div>`;
+    };
+    // fiche du nœud sélectionné
+    let fiche = '<div class="ficheT vide"><p>Touche un talent pour voir ce qu’il apporte.</p><p class="astuce">1 point par niveau de maîtrise de ton arme. Chaque ligne demande 3 points de plus dans la même branche.</p></div>';
+    if (talentSel) for (const b of arbre.branches) { const n = b.noeuds.find(x => x.id === talentSel); if (!n) continue;
+      const r = t[n.id] || 0, v = peutMonter(t, arbre, b, n, dispo);
+      const sorts = n.competence ? SORTS[n.competence] : null;
+      const place = n.competence && r ? Object.entries(T.slots).find(([, id]) => id === n.competence) : null;
+      fiche = `<div class="ficheT" style="--c:${b.couleur}"><div class="icoT">${svgSort(ICONES_NOEUD(n), sorts ? sorts.couleur[0] : b.couleur, sorts ? sorts.couleur[1] : '#1a0e08', 'f' + n.id)}</div>
+        <h3>${n.nom}</h3><div class="rangT">Rang ${r} / ${n.max}${n.ultime ? ' · <b>Ultime</b>' : ''}</div>
+        ${sorts ? `<p class="effT">${sorts.desc}</p><p class="sub">Recharge ${sorts.cd} s · ${sorts.energie} énergie</p>` : `<p class="effT">${r ? 'Actuel : ' + texteNoeud(n, r) : texteNoeud(n, 1)}</p>${r && r < n.max ? `<p class="sub">Rang suivant : ${texteNoeud(n, r + 1)}</p>` : ''}`}
+        ${v.ok ? `<button class="btn or" data-up>${r ? 'Améliorer' : 'Apprendre'} · 1 point</button>` : r >= n.max ? '' : `<p class="bloqueT">🔒 ${v.raison}</p>`}
+        ${n.competence && r ? `<div class="placer"><span>Placer sur :</span>${['Q', 'W', 'E'].map(k => `<button class="btn ${place && place[0] === k ? 'vert' : 'gris'}" data-k="${k}">${k}</button>`).join('')}${place ? '<button class="btn gris" data-k="">Retirer</button>' : ''}</div>` : ''}
+      </div>`; }
+    m.innerHTML = `<div class="cadreT"><button class="fermer" data-x aria-label="Fermer">×</button>
+      <div class="enteteT"><div><small>Arbre de talents</small><h2>${arbre.branches[2].nom}</h2></div><div class="pointsT"><b>${dispo}</b><span>point${dispo > 1 ? 's' : ''} à dépenser</span><small>${dep} / ${total} utilisés · maîtrise niv. ${T.niv}</small></div><button class="btn gris" data-reset>Réinitialiser</button></div>
+      <div class="corpsT"><div class="branches">${arbre.branches.map(branche).join('')}</div>${fiche}</div></div>`;
+  };
+  rendre();
+  m.onclick = (e) => {
+    if (e.target.closest('[data-x]')) { m.hidden = true; UI.majBoutonTalents(); return; }
+    const n = e.target.closest('[data-n]'); if (n) { talentSel = n.dataset.n; api.son('select_001', 0.3); rendre(); return; }
+    if (e.target.closest('[data-up]')) { if (api.monterTalent(talentSel)) rendre(); else api.son('error_001', 0.3); return; }
+    const k = e.target.closest('[data-k]'); if (k) { const T = api.talents(); for (const b of arbreDe(T.type).branches) { const nn = b.noeuds.find(x => x.id === talentSel); if (nn && nn.competence) api.placerCompetence(nn.competence, k.dataset.k || null); } rendre(); return; }
+    if (e.target.closest('[data-reset]')) { if (m._conf && Date.now() - m._conf < 3000) { api.resetTalents(); talentSel = null; m._conf = 0; rendre(); } else { m._conf = Date.now(); UI.toast('Touche encore « Réinitialiser » pour rendre tous tes points'); } }
+  };
+};
 UI.boutonAuto = (api) => {
   let b = document.getElementById('btnAuto');
   if (!b) {
@@ -423,7 +542,7 @@ UI.construireSorts = (joueur) => {
     else if (k === 'CIBLE') svg = svgSort('cible', '#ffcf9a', '#3a1a10', 'cib');
     else { const s = joueur.sorts[k]; svg = s ? svgSort(s.glyphe, s.couleur[0], s.couleur[1], k) : svgSort('', '#3a3440', '#141016', k); if (!s) b.classList.add('off'); }
     if (joueur.sorts[k] && joueur.sorts[k].vole) b.classList.add('vole');
-    const signe = SIGNES[k] && joueur.sorts[k] ? `<span class="glyphe">${svgGlyphe(k, '#fff3d0', 9)}</span>` : '';
+    const signe = '';
     if (signe && G.gestes !== false) b.classList.add('indic'); // en mode signes : le bouton montre le symbole à dessiner et la recharge
     b.innerHTML = `<div class="cadre"><div>${svg}<div class="cd"></div><div class="num"></div></div></div>${signe}${lettre && !signe ? `<span class="t">${lettre}</span>` : ''}${k === 'POT' ? '<span class="compte"></span>' : ''}`;
     b.setAttribute('aria-label', k === 'ATK' ? 'Attaque' : k === 'POT' ? 'Potion' : k === 'CIBLE' ? 'Verrouiller la cible' : (joueur.sorts[k]?.nom || 'Vide'));
@@ -576,7 +695,7 @@ UI.action = (texte, cb) => {
 let nbNombres = 0;
 UI.nombre = (pos, txt, classe = '') => {
   if (nbNombres >= 26 && classe !== 'crit' && classe !== 'joueur') return;
-  const p = projeter(pos); if (!p.visible) return;
+  const p = projeter(G.solH ? new THREE.Vector3(pos.x, pos.y + G.solH(pos.x, pos.z), pos.z) : pos); if (!p.visible) return;
   const d = document.createElement('div'); d.className = 'dmg contour ' + classe; d.textContent = txt;
   d.style.left = (p.x + (Math.random() - 0.5) * 30) + 'px'; d.style.top = p.y + 'px';
   $('#nombres').appendChild(d); nbNombres++; setTimeout(() => { d.remove(); nbNombres--; }, 900);
@@ -602,7 +721,7 @@ UI.majPlaques = (centre) => {
     const pos = ent.pos || ent.root.position;
     const lim = ent.drapeauPorte ? 70 : 30; let vis = !ent.mort && Math.abs(pos.x - centre.x) < lim && Math.abs(pos.z - centre.z) < lim;
     let s = null;
-    if (vis) { _v.set(pos.x, pos.y + p.h, pos.z); s = projeter(_v); vis = s.visible && s.x > -80 && s.x < innerWidth + 80 && s.y > -40 && s.y < innerHeight + 40; }
+    if (vis) { _v.set(pos.x, pos.y + p.h + (G.solH ? G.solH(pos.x, pos.z) : 0), pos.z); s = projeter(_v); vis = s.visible && s.x > -80 && s.x < innerWidth + 80 && s.y > -40 && s.y < innerHeight + 40; }
     if (!vis) { if (p.vis !== false) { p.d.style.display = 'none'; p.vis = false; } continue; }
     if (p.vis !== true) { p.d.style.display = ''; p.vis = true; }
     const x = Math.round(s.x), y = Math.round(s.y);
@@ -883,7 +1002,7 @@ UI.rendreMarche = () => {
       <input id="rech" placeholder="Recherche…" value="${filtres.txt}" aria-label="Rechercher un objet">
       <div class="solde">${A ? '<span class="troph" style="font-size:3vh">🏆</span>' : '<span class="piece" style="width:3vh;height:3vh"></span>'}${fmt(solde)}</div></div>
     <div class="filtres">
-      <select id="fCat" aria-label="Catégorie">${opt('tout', 'Catégorie : tout', filtres.cat)}${opt('arme', 'Toutes les armes', filtres.cat)}${opt('arme:epee', '— Épées à deux mains', filtres.cat)}${opt('arme:arbalete', '— Arbalètes lourdes', filtres.cat)}${opt('arme:baton', '— Bâtons de feu', filtres.cat)}${api.raresDebloques().includes('ombre') ? opt('arme:ombre', '— Dagues des Ombres', filtres.cat) : ''}${api.raresDebloques().includes('orage') ? opt('arme:orage', '— Haches de l’Orage', filtres.cat) : ''}${opt('casque', 'Armure de tête', filtres.cat)}${opt('plastron', 'Armure de poitrine', filtres.cat)}${opt('bottes', 'Armure de pieds', filtres.cat)}${opt('potion', 'Consommable', filtres.cat)}${opt('butin', 'Butin', filtres.cat)}</select>
+      <select id="fCat" aria-label="Catégorie">${opt('tout', 'Catégorie : tout', filtres.cat)}${opt('arme', 'Toutes les armes', filtres.cat)}${opt('arme:epee', '— Épées à deux mains', filtres.cat)}${opt('arme:arbalete', '— Arbalètes lourdes', filtres.cat)}${opt('arme:baton', '— Bâtons de feu', filtres.cat)}${opt('arme:arc', '— Arcs du Maître des bêtes', filtres.cat)}${api.raresDebloques().includes('ombre') ? opt('arme:ombre', '— Dagues des Ombres', filtres.cat) : ''}${api.raresDebloques().includes('orage') ? opt('arme:orage', '— Haches de l’Orage', filtres.cat) : ''}${opt('casque', 'Armure de tête', filtres.cat)}${opt('plastron', 'Armure de poitrine', filtres.cat)}${opt('bottes', 'Armure de pieds', filtres.cat)}${opt('potion', 'Consommable', filtres.cat)}${opt('butin', 'Butin', filtres.cat)}</select>
       <select id="fNiv" aria-label="Niveau">${opt('tout', 'Niveau : tout', filtres.niv)}${[1, 2, 3, 4, 5, 6, 7, 8].map(n => opt(n, 'Niveau ' + n, filtres.niv)).join('')}</select>
       <select id="fQ" aria-label="Qualité">${opt('tout', 'Qualité : toute', filtres.q)}${QUALITES.map(q => opt(q.id, q.nom, filtres.q)).join('')}</select>
     </div>
@@ -982,7 +1101,6 @@ UI.reglages = () => {
     <label>Sons <input type="checkbox" id="rS" ${G.son ? 'checked' : ''} style="width:3vh;height:3vh"></label>
     <label>Position des sorts <input type="range" id="rDec" min="0" max="35" step="1" value="${parseInt(getComputedStyle(document.documentElement).getPropertyValue('--decalSorts')) || 18}" style="width:22vh"></label>
     <label>Musique <input type="checkbox" id="rM" ${G.musiqueOn !== false ? 'checked' : ''} style="width:3vh;height:3vh"></label>
-    <label>Sorts par signes dessinés <input type="checkbox" id="rG" ${G.gestes !== false ? 'checked' : ''} style="width:3vh;height:3vh"></label>
     <label>Afficher les FPS <input type="checkbox" id="rP" ${G.perfOn ? 'checked' : ''} style="width:3vh;height:3vh"></label>
     <label>Plein écran <button class="btn gris" id="rF">Activer</button></label>
     <label>Sauvegarde <button class="btn" id="rR">Effacer et recommencer</button></label>
@@ -993,7 +1111,6 @@ UI.reglages = () => {
   r.querySelector('#rDec').oninput = (e) => { document.documentElement.style.setProperty('--decalSorts', e.target.value + 'vw'); try { localStorage.setItem('breche-decal', e.target.value); } catch (er) {} };
   r.querySelector('#rM').onchange = (e) => { api.musique(e.target.checked); try { localStorage.setItem('breche-musique', e.target.checked ? '1' : '0'); } catch (er) {} };
   r.querySelector('#rS').onchange = (e) => { G.son = e.target.checked; if (G.master) G.master.gain.value = G.son ? 0.6 : 0; };
-  r.querySelector('#rG').onchange = (e) => { G.gestes = e.target.checked; try { localStorage.setItem('breche-gestes', G.gestes ? '1' : '0'); } catch (er) {} if (api.reconstruireSorts) api.reconstruireSorts(); };
   r.querySelector('#rP').onchange = (e) => { G.perfOn = e.target.checked; UI.perf(G.perfOn); try { localStorage.setItem('breche-perf', G.perfOn ? '1' : ''); } catch (er) {} };
   r.querySelector('#rF').onclick = () => { document.documentElement.requestFullscreen?.().catch(() => {}); };
   let n = 0; r.querySelector('#rR').onclick = () => { if (++n === 1) { r.querySelector('#rConf').hidden = false; return; } api.reset(); };
@@ -1248,7 +1365,7 @@ UI.rapport = (titre, lignes) => {
 };
 
 // ---------------- Sanctuaire d'Émeraude ----------------
-const COUL_CLASSE = { epee: '#ff6a5a', arbalete: '#5aff9a', baton: '#ffab3a', ombre: '#b07aff' };
+const COUL_CLASSE = { epee: '#ff6a5a', arbalete: '#5aff9a', baton: '#ffab3a', ombre: '#b07aff', arc: '#ff3a3a', orage: '#7ab8ff', assassin: '#ff5a6a' };
 const fmtK = (n) => n >= 1e6 ? (n / 1e6).toFixed(2).replace('.', ',') + ' M' : n >= 1e4 ? (n / 1e3).toFixed(1).replace('.', ',') + ' k' : fmt(n);
 const fmtT = (s) => `${Math.floor(s / 60)} min ${String(Math.floor(s % 60)).padStart(2, '0')}`;
 UI.rechercheGroupe = (membres, cb) => {
