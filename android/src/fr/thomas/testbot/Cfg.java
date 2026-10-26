@@ -22,7 +22,7 @@ final class Cfg {
     String move = "auto"; // auto | joystick | toucher
     boolean autoSpells = true, autoChests = true, hunt = true, explore = true, popups = true;
     /** Mode auto : le bot découvre seul le jeu (déplacement, sorts, ennemis, butin). */
-    boolean auto = true, calibrated = false;
+    boolean auto = true, calibrated = false, showSight = true;
     /** Points à ne jamais toucher (ouvrent un menu), en fractions d'écran. */
     List<float[]> avoid = new ArrayList<>();
 
@@ -52,6 +52,7 @@ final class Cfg {
             k.explore = o.optBoolean("explore", true);
             k.popups = o.optBoolean("popups", true);
             k.auto = o.optBoolean("auto", true);
+            k.showSight = o.optBoolean("showSight", true);
             k.calibrated = o.optBoolean("calibrated", false);
             k.avoid = floats(o.optJSONArray("avoid"));
         } catch (JSONException ignored) {}
@@ -73,7 +74,7 @@ final class Cfg {
             o.put("tol", tol); o.put("spellEvery", spellEvery); o.put("move", move);
             o.put("autoSpells", autoSpells); o.put("autoChests", autoChests); o.put("hunt", hunt);
             o.put("explore", explore); o.put("popups", popups);
-            o.put("auto", auto); o.put("calibrated", calibrated); o.put("avoid", jFloats(avoid));
+            o.put("auto", auto); o.put("showSight", showSight); o.put("calibrated", calibrated); o.put("avoid", jFloats(avoid));
             prefs(c).edit().putString("cfg_" + pkg, o.toString()).apply();
         } catch (JSONException ignored) {}
     }

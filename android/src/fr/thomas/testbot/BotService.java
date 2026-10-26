@@ -73,7 +73,7 @@ public class BotService extends AccessibilityService {
     // Perception
     float sw = 1080, sh = 2400, px, py;
     private boolean pAssumed = true;
-    private List<Vision.Blob> chests = new ArrayList<>(), enemies = new ArrayList<>();
+    List<Vision.Blob> chests = new ArrayList<>(), enemies = new ArrayList<>();
 
     // Cerveau
     private long lastSpell, lastPopup, lastNodeChest, lastTapMove, lastChestTap, closeTo, lastNodeSpell;
@@ -138,6 +138,7 @@ public class BotService extends AccessibilityService {
                 if (on) think();
                 flush();
                 if (tick % 2 == 0) refreshUi();
+                if (sight != null && sight.getWindowToken() != null) sight.invalidate();
             } catch (Exception e) {
                 event("Erreur interne du bot : " + e.getClass().getSimpleName());
             }
@@ -191,6 +192,8 @@ public class BotService extends AccessibilityService {
         on = true; t0 = now(); prog = false; kind = "explore";
         status = "Démarrage";
         if (cfg.auto) auto.begin(t0);
+        if (panel != null && panel.getWindowToken() != null) showBubble();
+        showSight();
         toast("Bot lancé sur " + gameLabel);
         refreshUi();
     }
@@ -200,6 +203,7 @@ public class BotService extends AccessibilityService {
         on = false; runMs += now() - t0;
         auto.stop();
         joyWant = null; status = "En pause";
+        if (sight != null) sight.invalidate();
         Cfg.prefs(this).edit().putString("last_report", report()).apply();
         refreshUi();
     }
@@ -474,10 +478,21 @@ public class BotService extends AccessibilityService {
         p.moveTo(x, y);
         pend.add(new GestureDescription.StrokeDescription(p, 0, 55));
         nTaps++;
+        tapsShown.add(new float[]{x, y, now()});
+        if (tapsShown.size() > 12) tapsShown.remove(0);
     }
 
     /** Envoie les gestes de ce tour : joystick maintenu + touchers, en un seul geste multi-doigts. */
+    private long inFlightSince;
+    private boolean wig;
+    int nGestOk, nGestFail;
+    /** Derniers touchers, pour la vue du bot : x, y, instant. */
+    final List<float[]> tapsShown = new ArrayList<>();
+
     private void flush() {
+        long t = now();
+        // Garde-fou : si Android ne répond jamais, on ne reste pas bloqué
+        if (inFlight && t - inFlightSince > 1500) { inFlight = false; joyStroke = null; }
         if (inFlight) return;
         List<GestureDescription.StrokeDescription> strokes = new ArrayList<>(pend);
         pend.clear();
@@ -488,35 +503,46 @@ public class BotService extends AccessibilityService {
                 if (joyStroke == null) {
                     p.moveTo(cfg.joy[0] * sw, cfg.joy[1] * sh);
                     p.lineTo(tx, ty);
-                    joyStroke = new GestureDescription.StrokeDescription(p, 0, 110, true);
+                    joyStroke = new GestureDescription.StrokeDescription(p, 0, 120, true);
                 } else {
+                    // La suite du geste doit partir EXACTEMENT de là où le précédent s'est arrêté,
+                    // et un trait de longueur nulle est refusé : on ondule de 2 px autour de la cible.
+                    if (Math.abs(tx - joyLx) + Math.abs(ty - joyLy) < 1.5f) { wig = !wig; tx += wig ? 2 : -2; }
                     p.moveTo(joyLx, joyLy);
-                    p.lineTo(Math.abs(tx - joyLx) + Math.abs(ty - joyLy) < 1 ? tx + 1 : tx, ty);
-                    joyStroke = joyStroke.continueStroke(p, 0, 110, true);
+                    p.lineTo(tx, ty);
+                    joyStroke = joyStroke.continueStroke(p, 0, 120, true);
                 }
                 joyLx = tx; joyLy = ty;
                 strokes.add(joyStroke);
             } else if (joyStroke != null) {
                 Path p = new Path();
                 p.moveTo(joyLx, joyLy);
-                p.lineTo(joyLx + 1, joyLy);
+                p.lineTo(joyLx + 2, joyLy);
                 strokes.add(joyStroke.continueStroke(p, 0, 40, false));
                 joyStroke = null;
             }
-        } catch (Exception e) { joyStroke = null; }
+        } catch (Exception e) {
+            joyStroke = null;
+            gestFail("geste joystick invalide");
+        }
         if (strokes.isEmpty()) return;
         GestureDescription.Builder b = new GestureDescription.Builder();
         int max = Math.min(strokes.size(), GestureDescription.getMaxStrokeCount());
         for (int i = 0; i < max; i++) b.addStroke(strokes.get(i));
-        inFlight = true;
+        inFlight = true; inFlightSince = t;
         boolean ok;
         try {
             ok = dispatchGesture(b.build(), new GestureResultCallback() {
-                @Override public void onCompleted(GestureDescription g) { inFlight = false; }
-                @Override public void onCancelled(GestureDescription g) { inFlight = false; joyStroke = null; }
+                @Override public void onCompleted(GestureDescription g) { inFlight = false; nGestOk++; }
+                @Override public void onCancelled(GestureDescription g) { inFlight = false; joyStroke = null; gestFail("geste annulé par Android"); }
             }, null);
         } catch (Exception e) { ok = false; }
-        if (!ok) { inFlight = false; joyStroke = null; }
+        if (!ok) { inFlight = false; joyStroke = null; gestFail("geste refusé par Android"); }
+    }
+
+    private void gestFail(String why) {
+        nGestFail++;
+        if (nGestFail == 1 || nGestFail == 20 || nGestFail == 200) event("Touchers : " + why + " (" + nGestFail + " fois)");
     }
 
     // ------------------------------------------------------------------ détection des plantages
@@ -556,6 +582,8 @@ public class BotService extends AccessibilityService {
         s.append("Morts du perso : ").append(nDeaths).append('\n');
         s.append("Mode : ").append(cfg.auto ? "auto (" + (cfg.calibrated ? "calibré, " + cfg.spells.size() + " sort(s), " + cfg.move : "pas encore calibré") + ")" : "appris à la main").append('\n');
         s.append("Touchers envoyés : ").append(nTaps).append('\n');
+        s.append("Gestes acceptés / refusés par Android : ").append(nGestOk).append(" / ").append(nGestFail).append('\n');
+        s.append("Image de l'écran : ").append(CaptureService.frame == null ? "aucune reçue" : CaptureService.fw + "x" + CaptureService.fh + ", il y a " + (now() - CaptureService.frameTime) + " ms").append('\n');
         s.append("Vue de l'écran : ").append(!CaptureService.running() ? "désactivée" : blackScreen ? "écran noir (capture bloquée)" : "OK").append('\n');
         s.append("Alertes (").append(events.size()).append(") :\n");
         if (events.isEmpty()) s.append("  aucune\n");
@@ -577,6 +605,28 @@ public class BotService extends AccessibilityService {
     private void add(View v, WindowManager.LayoutParams lp) { try { wm.addView(v, lp); } catch (Exception ignored) {} }
     private void remove(View v) { try { if (v != null && v.getWindowToken() != null) wm.removeView(v); } catch (Exception ignored) {} }
 
+    SightView sight;
+
+    /** Calque transparent qui montre ce que le bot voit et fait (ne bloque aucun toucher). */
+    void showSight() {
+        if (wm == null || !cfg.showSight) return;
+        if (sight == null) sight = new SightView(this);
+        if (sight.getWindowToken() != null) return;
+        WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                PixelFormat.TRANSLUCENT);
+        lp.gravity = Gravity.TOP | Gravity.START;
+        if (Build.VERSION.SDK_INT >= 28) lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        // Le calque passe sous la bulle : on l'ajoute, puis on remet la bulle au-dessus
+        add(sight, lp);
+        if (bubble != null && bubble.getWindowToken() != null) { remove(bubble); add(bubble, bubbleLp); }
+    }
+
+    void hideSight() { remove(sight); }
+
     void showBubble() {
         if (wm == null) return;
         remove(panel);
@@ -592,7 +642,7 @@ public class BotService extends AccessibilityService {
         refreshUi();
     }
 
-    void hideAll() { remove(bubble); remove(panel); remove(catcher); catcher = null; }
+    void hideAll() { remove(bubble); remove(panel); remove(catcher); remove(sight); catcher = null; }
 
     boolean visible() { return (bubble != null && bubble.getWindowToken() != null) || (panel != null && panel.getWindowToken() != null); }
 
@@ -800,6 +850,7 @@ public class BotService extends AccessibilityService {
 
     private void buildSettings() {
         pane.addView(toggle("Mode auto (découvre le jeu seul)", cfg.auto, v -> { cfg.auto = !cfg.auto; if (on) { auto.stop(); if (cfg.auto) auto.begin(now()); } }), Ui.margins(Ui.full(), this, 0, 8, 0, 0));
+        pane.addView(toggle("Montrer ce que voit le bot", cfg.showSight, v -> { cfg.showSight = !cfg.showSight; if (cfg.showSight) showSight(); else hideSight(); }), Ui.full());
         pane.addView(toggle("Lancer les sorts", cfg.autoSpells, v -> { cfg.autoSpells = !cfg.autoSpells; }), Ui.full());
         pane.addView(toggle("Ramasser les coffres", cfg.autoChests, v -> { cfg.autoChests = !cfg.autoChests; }), Ui.full());
         pane.addView(toggle("Aller vers les ennemis", cfg.hunt, v -> { cfg.hunt = !cfg.hunt; }), Ui.full());

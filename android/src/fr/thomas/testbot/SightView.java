@@ -1,0 +1,87 @@
+package fr.thomas.testbot;
+
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.RectF;
+import android.graphics.Typeface;
+import android.view.View;
+
+/** Calque « vue du bot » : ce qu'il a repéré, où il touche, ce qu'il pense faire. */
+final class SightView extends View {
+    private final BotService b;
+    private final Paint st = new Paint(Paint.ANTI_ALIAS_FLAG), fill = new Paint(Paint.ANTI_ALIAS_FLAG), txt = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final int[] loc = new int[2];
+    private final RectF r = new RectF();
+
+    SightView(BotService b) {
+        super(b);
+        this.b = b;
+        st.setStyle(Paint.Style.STROKE);
+        st.setStrokeWidth(Ui.dp(b, 2.5f));
+        txt.setTypeface(Typeface.DEFAULT_BOLD);
+        txt.setTextSize(Ui.dp(b, 13));
+        txt.setTextAlign(Paint.Align.CENTER);
+    }
+
+    @Override
+    protected void onDraw(Canvas c) {
+        getLocationOnScreen(loc);
+        c.save();
+        c.translate(-loc[0], -loc[1]); // tout est en coordonnées écran
+        float d = Ui.dp(b, 1);
+        long now = BotService.now();
+
+        // Bandeau d'état en haut
+        String s = b.on ? "BOT · " + b.status : "BOT en pause";
+        float tw = txt.measureText(s) + d * 24, cx = b.sw / 2f, top = loc[1] + d * 8;
+        r.set(cx - tw / 2, top, cx + tw / 2, top + d * 26);
+        fill.setColor(b.on ? 0xE61C1503 : 0xCC121419);
+        c.drawRoundRect(r, d * 13, d * 13, fill);
+        txt.setColor(b.on ? Ui.AMBER : Ui.MUTE);
+        c.drawText(s, cx, top + d * 18, txt);
+        if (!b.on) { c.restore(); return; }
+
+        // Mon perso (centre supposé)
+        st.setColor(Ui.CYAN);
+        c.drawCircle(b.px, b.py, d * 20, st);
+
+        // Ennemis
+        st.setColor(Ui.CORAL);
+        float e = d * 10;
+        if (b.cfg.auto) for (float[] p : b.auto.enemies) { c.drawLine(p[0] - e, p[1] - e, p[0] + e, p[1] + e, st); c.drawLine(p[0] + e, p[1] - e, p[0] - e, p[1] + e, st); }
+        else for (Vision.Blob p : b.enemies) { c.drawLine(p.x - e, p.y - e, p.x + e, p.y + e, st); c.drawLine(p.x + e, p.y - e, p.x - e, p.y + e, st); }
+
+        // Butin
+        st.setColor(Ui.AMBER);
+        float k = d * 14;
+        if (b.cfg.auto) for (float[] p : b.auto.loot) c.drawRect(p[0] - k, p[1] - k, p[0] + k, p[1] + k, st);
+        else for (Vision.Blob p : b.chests) c.drawRect(p.x - k, p.y - k, p.x + k, p.y + k, st);
+
+        // Sorts repérés
+        st.setColor(0xFF9F8BFF);
+        for (float[] sp : b.cfg.spells) c.drawCircle(sp[0] * b.sw, sp[1] * b.sh, d * 30, st);
+
+        // Joystick tenu
+        if (b.cfg.joy != null) {
+            float jx = b.cfg.joy[0] * b.sw, jy = b.cfg.joy[1] * b.sh;
+            st.setColor(0x88FFFFFF);
+            c.drawCircle(jx, jy, d * 48, st);
+            if (b.joyWant != null) {
+                st.setColor(0xFFFFFFFF);
+                c.drawLine(jx, jy, b.joyWant[0], b.joyWant[1], st);
+                fill.setColor(0xFFFFFFFF);
+                c.drawCircle(b.joyWant[0], b.joyWant[1], d * 9, fill);
+            }
+        }
+
+        // Touchers récents (cercles qui s'effacent)
+        for (int i = b.tapsShown.size() - 1; i >= 0; i--) {
+            float[] t = b.tapsShown.get(i);
+            float a = 1f - (now - t[2]) / 600f;
+            if (a <= 0) continue;
+            st.setColor(((int) (a * 255) << 24) | 0xFFFFFF);
+            c.drawCircle(t[0], t[1], d * (8 + (1 - a) * 22), st);
+        }
+        c.restore();
+    }
+}
