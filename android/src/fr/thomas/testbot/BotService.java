@@ -1107,6 +1107,8 @@ public class BotService extends AccessibilityService {
 
     private void chooseGenre(String g) {
         remove(chooser); chooser = null;
+        // Les réglages devinés par le cerveau RPG (joystick, sorts, menus) ne valent rien pour du foot : on repart propre
+        if (g.equals("foot_voiture")) { cfg.joy = null; cfg.spells.clear(); cfg.avoid.clear(); cfg.calibrated = false; }
         cfg.genre = g;
         save();
         showBubble();
