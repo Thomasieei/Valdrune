@@ -42,6 +42,14 @@ public class CaptureService extends Service {
     /** D'où vient l'image : « écran » (capture Android) ou « secours » (captures d'accessibilité). */
     static volatile String source = "écran";
 
+    // Plusieurs façons de lire l'écran : selon les téléphones, l'une donne du noir et l'autre l'image.
+    static final String[] METHODS = {"standard", "lecture processeur", "pleine résolution"};
+    static volatile int method;
+    static volatile boolean allFailed;
+    private long lastGood, blackSince, methodStart;
+    private int tried;
+    private long lastProc;
+
     /** Publie une image (utilisé par la vue de secours). */
     static void publish(int[] px, int w, int h, String src) {
         long t = SystemClock.uptimeMillis();
@@ -79,7 +87,10 @@ public class CaptureService extends Service {
         mp.registerCallback(new MediaProjection.Callback() {
             @Override public void onStop() { shutdown(); }
         }, h);
+        method = Math.max(0, Math.min(METHODS.length - 1, getSharedPreferences("testbot", MODE_PRIVATE).getInt("cap_method", 0)));
+        allFailed = false; tried = 0;
         h.post(this::setup);
+        h.postDelayed(watch, 1000);
         inst = this;
         return START_NOT_STICKY;
     }
@@ -117,24 +128,55 @@ public class CaptureService extends Service {
         return m.densityDpi;
     }
 
+    /** Toutes les secondes : si la méthode actuelle ne donne que du noir (ou rien), on essaie la suivante. */
+    private final Runnable watch = new Runnable() {
+        @Override public void run() {
+            if (mp == null) return;
+            long t = SystemClock.uptimeMillis();
+            boolean noFrames = t - Math.max(lastGood, methodStart) > 2500 && (frame == null || t - frameTime > 2500 || muted);
+            boolean black = blackSince > 0 && t - blackSince > 2000;
+            if (!allFailed && t - methodStart > 2500 && (black || noFrames) && t - lastGood > 2500) {
+                tried++;
+                if (tried >= METHODS.length) {
+                    allFailed = true; // la vue de secours prendra le relais ; on continue d'écouter au cas où l'image revient
+                    method = 0; resizing = true; setup();
+                } else {
+                    method = (method + 1) % METHODS.length;
+                    resizing = true;
+                    setup();
+                }
+            }
+            h.postDelayed(this, 1000);
+        }
+    };
+
     private void setup() {
         if (mp == null) return;
         Point s = screen();
         curW = s.x; curH = s.y;
-        float k = 640f / Math.max(s.x, s.y);
+        methodStart = SystemClock.uptimeMillis(); blackSince = 0;
+        float k = method == 2 ? 1f : 640f / Math.max(s.x, s.y);
         final int w = Math.max(2, Math.round(s.x * k)), hh = Math.max(2, Math.round(s.y * k));
         ImageReader old = ir;
-        ir = ImageReader.newInstance(w, hh, PixelFormat.RGBA_8888, 3);
+        if (method >= 1 && Build.VERSION.SDK_INT >= 29) {
+            ir = ImageReader.newInstance(w, hh, PixelFormat.RGBA_8888, 3,
+                    android.hardware.HardwareBuffer.USAGE_CPU_READ_OFTEN | android.hardware.HardwareBuffer.USAGE_GPU_COLOR_OUTPUT);
+        } else {
+            ir = ImageReader.newInstance(w, hh, PixelFormat.RGBA_8888, 3);
+        }
         ir.setOnImageAvailableListener(r -> {
             Image img = null;
             try {
                 img = r.acquireLatestImage();
                 if (img == null) return;
                 long t = SystemClock.uptimeMillis();
-                if (muted || t - frameTime < 30) return; // jusqu'à ~30 images/s
+                if (t - frameTime < 30 && !muted) return; // jusqu'à ~30 images/s
+                if (muted && t - lastProc < 150) return; // en secours on vérifie juste si l'image revient
+                lastProc = t;
                 Image.Plane pl = img.getPlanes()[0];
                 ByteBuffer buf = pl.getBuffer();
-                int ps = pl.getPixelStride(), rs = pl.getRowStride(), iw = img.getWidth(), ih = img.getHeight();
+                int ps = pl.getPixelStride(), rs = pl.getRowStride();
+                int iw = img.getWidth(), ih = img.getHeight();
                 int[] out = new int[iw * ih];
                 if (ps == 4 && rs % 4 == 0) {
                     // Rapide : lecture directe en entiers (RGBA en mémoire = 0xAABBGGRR), puis R et B échangés
@@ -165,7 +207,21 @@ public class CaptureService extends Service {
                     }
                 }
                 }
-                fw = iw; fh = ih; frame = out; frameTime = t; source = "écran";
+                // Pleine résolution : on réduit nous-mêmes à ~640 px
+                if (method == 2 && Math.max(iw, ih) > 700) {
+                    int st = (int) Math.ceil(Math.max(iw, ih) / 640f), nw = iw / st, nh = ih / st;
+                    int[] small = new int[nw * nh];
+                    for (int y = 0; y < nh; y++) for (int x = 0; x < nw; x++) small[y * nw + x] = out[(y * st) * iw + x * st];
+                    out = small; iw = nw; ih = nh;
+                }
+                if (BotService.isBlack(out)) { if (blackSince == 0) blackSince = t; }
+                else {
+                    blackSince = 0; lastGood = t;
+                    if (allFailed) { allFailed = false; }
+                    if (tried > 0 || allFailed) { getSharedPreferences("testbot", MODE_PRIVATE).edit().putInt("cap_method", method).apply(); tried = 0; }
+                }
+                if (muted) return;
+                fw = iw; fh = ih; frame = out; frameTime = t; source = "écran (" + METHODS[method] + ")";
                 fpsN++;
                 if (t - fpsT >= 1000) { fps = fpsN; fpsN = 0; fpsT = t; }
             } catch (Exception ignored) {

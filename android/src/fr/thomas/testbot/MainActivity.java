@@ -35,6 +35,45 @@ public class MainActivity extends Activity {
     private static final int REQ_CAP = 7;
     private TextView s1, s2, sAi, model, b1, b2, gameNow, lastRep;
     private boolean aiOk;
+    private ImageView eyesImg;
+    private TextView eyesTxt;
+
+    /** Montre l'image que reçoit le bot, avec un verdict clair. */
+    private void testEyes() {
+        BotService bs = BotService.inst;
+        if (!CaptureService.running() && (bs == null || Build.VERSION.SDK_INT < 30)) {
+            eyesTxt.setTextColor(Ui.CORAL);
+            eyesTxt.setText("Autorise d'abord la vue de l'écran (bouton au-dessus), et active TestBot dans l'accessibilité.");
+            return;
+        }
+        eyesTxt.setTextColor(Ui.MUTE);
+        eyesTxt.setText("Je regarde l'écran… (si la capture donne du noir, j'essaie d'autres méthodes : jusqu'à 10 s)");
+        final long t0 = android.os.SystemClock.uptimeMillis();
+        h.postDelayed(new Runnable() {
+            @Override public void run() {
+                BotService b2 = BotService.inst;
+                if (CaptureService.allFailed || !CaptureService.running()) { if (b2 != null) b2.shotNow(); }
+                int[] f = CaptureService.frame;
+                boolean black = f == null || BotService.isBlack(f);
+                long waited = android.os.SystemClock.uptimeMillis() - t0;
+                if (black && waited < 10000) { h.postDelayed(this, 1000); return; }
+                if (f == null) {
+                    eyesImg.setVisibility(View.GONE);
+                    eyesTxt.setTextColor(Ui.CORAL);
+                    eyesTxt.setText("AUCUNE IMAGE : le bot est aveugle. Réautorise la vue de l'écran en choisissant « Écran entier », puis désactive/réactive TestBot dans l'accessibilité.");
+                    return;
+                }
+                try { eyesImg.setImageBitmap(android.graphics.Bitmap.createBitmap(f, CaptureService.fw, CaptureService.fh, android.graphics.Bitmap.Config.ARGB_8888)); eyesImg.setVisibility(View.VISIBLE); } catch (Exception ignored) {}
+                if (black) {
+                    eyesTxt.setTextColor(Ui.CORAL);
+                    eyesTxt.setText("NOIR avec toutes les méthodes : le bot ne voit rien sur ce téléphone. Envoie-moi la marque et la version d'Android.");
+                } else {
+                    eyesTxt.setTextColor(Ui.OK);
+                    eyesTxt.setText("OK, le bot voit l'écran : " + CaptureService.source + ", " + CaptureService.fps + " img/s. Tu peux lancer le test de ton jeu.");
+                }
+            }
+        }, 1500);
+    }
     private LinearLayout apps;
     private final Handler h = new Handler(Looper.getMainLooper());
 
@@ -78,6 +117,15 @@ public class MainActivity extends Activity {
         b2 = Ui.button(this, "Autoriser la vue de l'écran", Ui.CARD2, Ui.FG, Ui.LINE);
         b2.setOnClickListener(v -> askCapture());
         c2.addView(b2, Ui.margins(Ui.full(), this, 0, 10, 0, 0));
+        TextView testEyes = Ui.button(this, "Tester les yeux du bot", Ui.CARD2, Ui.CYAN, Ui.LINE);
+        eyesImg = new ImageView(this);
+        eyesImg.setAdjustViewBounds(true);
+        eyesImg.setVisibility(View.GONE);
+        eyesTxt = Ui.text(this, "", 13, Ui.MUTE, false);
+        testEyes.setOnClickListener(v -> testEyes());
+        c2.addView(testEyes, Ui.margins(Ui.full(), this, 0, 8, 0, 0));
+        c2.addView(eyesImg, Ui.margins(Ui.full(), this, 0, 8, 0, 0));
+        c2.addView(eyesTxt, Ui.margins(Ui.full(), this, 0, 6, 0, 0));
 
         // Cerveau IA (facultatif)
         LinearLayout cAi = card(root, "IA", "Cerveau IA (facultatif)",

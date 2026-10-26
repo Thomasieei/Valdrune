@@ -743,16 +743,21 @@ public class BotService extends AccessibilityService {
     private void eyesTick() {
         if (Build.VERSION.SDK_INT < 30) return;
         long t = now();
+        boolean mp = CaptureService.inst != null;
+        if (shotMode && mp && !CaptureService.allFailed) {
+            // La capture Android remarche (une autre méthode a fonctionné) : elle est plus rapide, on y revient
+            shotMode = false; CaptureService.muted = false;
+            event("La capture Android marche (méthode " + CaptureService.METHODS[CaptureService.method] + ")");
+            return;
+        }
         if (!shotMode) {
-            boolean mp = CaptureService.inst != null;
-            int[] f = CaptureService.frame;
-            boolean bad = !mp || f == null || isBlack(f);
+            boolean bad = !mp || CaptureService.allFailed;
             if (!bad) { eyesBlackSince = 0; return; }
             if (eyesBlackSince == 0) eyesBlackSince = t;
-            if (!mp || t - eyesBlackSince > 2000) {
+            if (!mp || t - eyesBlackSince > 500) {
                 shotMode = true;
                 CaptureService.muted = true;
-                event(mp ? "La capture Android ne renvoie que du noir : je passe à la vue de secours" : "Vue de l'écran non autorisée : j'utilise la vue de secours");
+                event(mp ? "Les " + CaptureService.METHODS.length + " méthodes de capture Android renvoient du noir : je passe à la vue de secours" : "Vue de l'écran non autorisée : j'utilise la vue de secours");
             }
             return;
         }
@@ -763,6 +768,9 @@ public class BotService extends AccessibilityService {
             if (t - shotBlackSince > 5000 && !bothBlackWarned) { bothBlackWarned = true; event("Même la vue de secours est noire : le jeu (ou le téléphone) bloque toute capture d'écran"); }
         } else shotBlackSince = 0;
     }
+
+    /** Pour le test des yeux depuis l'appli. */
+    void shotNow() { if (Build.VERSION.SDK_INT >= 30 && !shotPending) takeShot(now()); }
 
     private void takeShot(long t) {
         if (Build.VERSION.SDK_INT < 30) return;
