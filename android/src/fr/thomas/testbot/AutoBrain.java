@@ -42,8 +42,13 @@ final class AutoBrain {
     private Ph after = Ph.RUN;
 
     // Perception
-    final List<float[]> enemies = new ArrayList<>();
-    final List<float[]> loot = new ArrayList<>();
+    /** Remplacées d'un bloc par le fil de vision (jamais modifiées après publication). */
+    volatile List<float[]> enemies = new ArrayList<>();
+    volatile List<float[]> loot = new ArrayList<>();
+    private android.os.HandlerThread visionThread;
+    private android.os.Handler vision;
+    private volatile boolean busy;
+    private long lastFrameSeen;
     float hp = -1;
     private int hpMax;
     private boolean low, dead;
@@ -54,7 +59,7 @@ final class AutoBrain {
 
     // Décision
     private double heading = Math.random() * 6.283;
-    private long headingUntil, lootIgnoreUntil, lastTarget, lastSpell, lastScan;
+    private long headingUntil, lootIgnoreUntil, lastTarget, lastSpell;
     private float[] lootGoal;
     private long arriveT;
     private int[] lootColor;
@@ -74,7 +79,7 @@ final class AutoBrain {
     boolean calibrating() { return ph != Ph.RUN; }
 
     void begin(long t) {
-        enemies.clear(); loot.clear(); hp = -1; hpMax = 0; low = false; dead = false;
+        enemies = new ArrayList<>(); loot = new ArrayList<>(); hp = -1; hpMax = 0; low = false; dead = false;
         still = null; lootGoal = null; centerGoldBase = -1; goldHist.clear(); rescanDone = false;
         if (!b.cfg.calibrated) {
             ph = Ph.BASE; phT = t; snap = CaptureService.frame;
@@ -228,7 +233,7 @@ final class AutoBrain {
         float cx = b.sw / 2f, cy = b.sh / 2f;
 
         // Ennemis : barres rouges fines
-        enemies.clear();
+        List<float[]> enemies = new ArrayList<>();
         int minLen = Math.max(4, fw / 120), maxH = Math.max(3, fh / 70);
         for (float[] bar : Vision.redBars(f, fw, fh, 0, (int) (fh * 0.08f), fw, fh, minLen, maxH)) {
             float x = bar[0] * kx, y = bar[1] * ky;
@@ -245,7 +250,7 @@ final class AutoBrain {
         hp = hpMax >= Math.max(8, fw / 60) ? (float) run / hpMax : -1;
 
         // Butin : doré + couleurs déjà apprises
-        loot.clear();
+        List<float[]> loot = new ArrayList<>();
         List<int[]> cols = new ArrayList<>(GOLD);
         cols.addAll(b.cfg.chest);
         for (Vision.Blob bl : Vision.blobs(f, fw, fh, cols, 55, 4, kx, ky)) {
@@ -254,6 +259,9 @@ final class AutoBrain {
             if (Math.hypot(bl.x - cx, bl.y - cy) < md * 0.035f) continue;
             loot.add(new float[]{bl.x, bl.y});
         }
+
+        this.enemies = enemies;
+        this.loot = loot;
 
         // Pixels dorés au centre : sert à savoir si le butin a été ramassé
         int g = centerGold(f, fw, fh);
@@ -289,7 +297,18 @@ final class AutoBrain {
     // ------------------------------------------------------------------ décision
 
     private void run(long t, int[] f) {
-        if (t - lastScan > 280) { perceive(t, f); lastScan = t; }
+        // La vision tourne sur son propre fil, à chaque nouvelle image : l'affichage et les gestes ne rament plus
+        long ft = CaptureService.frameTime;
+        if (ft != lastFrameSeen && !busy) {
+            if (vision == null) {
+                visionThread = new android.os.HandlerThread("testbot-vision");
+                visionThread.start();
+                vision = new android.os.Handler(visionThread.getLooper());
+            }
+            busy = true; lastFrameSeen = ft;
+            final int[] ff = f; final long tt = t;
+            vision.post(() -> { try { perceive(tt, ff); } catch (Exception ignored) {} finally { busy = false; } });
+        }
         float md = minDim(), cx = b.sw / 2f, cy = b.sh / 2f;
         b.px = cx; b.py = cy;
 

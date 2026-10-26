@@ -33,6 +33,9 @@ public class CaptureService extends Service {
     static volatile int[] frame;
     static volatile int fw, fh;
     static volatile long frameTime;
+    /** Images analysées par seconde (pour l'affichage). */
+    static volatile int fps;
+    private static int fpsN; private static long fpsT;
 
     private MediaProjection mp;
     private VirtualDisplay vd;
@@ -113,7 +116,7 @@ public class CaptureService extends Service {
                 img = r.acquireLatestImage();
                 if (img == null) return;
                 long t = SystemClock.uptimeMillis();
-                if (t - frameTime < 110) return;
+                if (t - frameTime < 45) return;
                 Image.Plane pl = img.getPlanes()[0];
                 ByteBuffer buf = pl.getBuffer();
                 int ps = pl.getPixelStride(), rs = pl.getRowStride(), iw = img.getWidth(), ih = img.getHeight();
@@ -131,6 +134,8 @@ public class CaptureService extends Service {
                     }
                 }
                 fw = iw; fh = ih; frame = out; frameTime = t;
+                fpsN++;
+                if (t - fpsT >= 1000) { fps = fpsN; fpsN = 0; fpsT = t; }
             } catch (Exception ignored) {
             } finally {
                 if (img != null) img.close();

@@ -142,7 +142,7 @@ public class BotService extends AccessibilityService {
             } catch (Exception e) {
                 event("Erreur interne du bot : " + e.getClass().getSimpleName());
             }
-            h.postDelayed(this, 150);
+            h.postDelayed(this, 90);
         }
     };
 

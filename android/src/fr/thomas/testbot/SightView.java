@@ -32,12 +32,12 @@ final class SightView extends View {
         long now = BotService.now();
 
         // Bandeau d'état en haut
-        String s = b.on ? "BOT · " + b.status : "BOT en pause";
+        String s = (b.on ? "BOT · " + b.status : "BOT en pause") + "   ·   vue " + CaptureService.fps + " img/s";
         float tw = txt.measureText(s) + d * 24, cx = b.sw / 2f, top = loc[1] + d * 8;
         r.set(cx - tw / 2, top, cx + tw / 2, top + d * 26);
-        fill.setColor(b.on ? 0xE61C1503 : 0xCC121419);
+        fill.setColor(0xD9101216);
         c.drawRoundRect(r, d * 13, d * 13, fill);
-        txt.setColor(b.on ? Ui.AMBER : Ui.MUTE);
+        txt.setColor(b.on ? 0xFFFFFFFF : 0xFFB8BEC9);
         c.drawText(s, cx, top + d * 18, txt);
         if (!b.on) { c.restore(); return; }
 
@@ -45,14 +45,14 @@ final class SightView extends View {
         st.setColor(Ui.CYAN);
         c.drawCircle(b.px, b.py, d * 20, st);
 
-        // Ennemis
-        st.setColor(Ui.CORAL);
+        // Ennemis (blanc : jamais rouge, sinon le bot croirait voir une barre de vie)
+        st.setColor(0xFFFFFFFF);
         float e = d * 10;
         if (b.cfg.auto) for (float[] p : b.auto.enemies) { c.drawLine(p[0] - e, p[1] - e, p[0] + e, p[1] + e, st); c.drawLine(p[0] + e, p[1] - e, p[0] - e, p[1] + e, st); }
         else for (Vision.Blob p : b.enemies) { c.drawLine(p.x - e, p.y - e, p.x + e, p.y + e, st); c.drawLine(p.x + e, p.y - e, p.x - e, p.y + e, st); }
 
-        // Butin
-        st.setColor(Ui.AMBER);
+        // Butin (cyan : jamais doré, sinon le bot croirait voir du butin)
+        st.setColor(Ui.CYAN);
         float k = d * 14;
         if (b.cfg.auto) for (float[] p : b.auto.loot) c.drawRect(p[0] - k, p[1] - k, p[0] + k, p[1] + k, st);
         else for (Vision.Blob p : b.chests) c.drawRect(p.x - k, p.y - k, p.x + k, p.y + k, st);
