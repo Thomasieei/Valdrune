@@ -173,12 +173,12 @@ public class BotService extends AccessibilityService {
                 updateScreen();
                 if (on) think();
                 flush();
-                if (tick % 2 == 0) refreshUi();
+                if (tick % 4 == 0) refreshUi();
                 if (sight != null && sight.getWindowToken() != null) sight.invalidate();
             } catch (Exception e) {
                 event("Erreur interne du bot : " + e.getClass().getSimpleName());
             }
-            h.postDelayed(this, 90);
+            h.postDelayed(this, 50); // 20 décisions/s
         }
     };
 
@@ -595,13 +595,13 @@ public class BotService extends AccessibilityService {
                 if (Math.abs(tx - start[0]) + Math.abs(ty - start[1]) < 1.5f) tx += 2;
                 p.moveTo(start[0], start[1]);
                 p.lineTo(tx, ty);
-                f.stroke = new GestureDescription.StrokeDescription(p, 0, 120, true);
+                f.stroke = new GestureDescription.StrokeDescription(p, 0, 60, true);
                 f.sx = start[0]; f.sy = start[1];
             } else {
                 if (Math.abs(tx - f.lx) + Math.abs(ty - f.ly) < 1.5f) { f.wig = !f.wig; tx += f.wig ? 2 : -2; }
                 p.moveTo(f.lx, f.ly);
                 p.lineTo(tx, ty);
-                f.stroke = f.stroke.continueStroke(p, 0, 120, true);
+                f.stroke = f.stroke.continueStroke(p, 0, 60, true);
             }
             f.lx = tx; f.ly = ty;
             out.add(f.stroke);

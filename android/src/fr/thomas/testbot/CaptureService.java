@@ -25,6 +25,8 @@ import android.util.DisplayMetrics;
 import android.view.Display;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.IntBuffer;
 
 /** Regarde l'écran : copie réduite de l'écran (≈640 px) mise à jour plusieurs fois par seconde. */
 public class CaptureService extends Service {
@@ -44,6 +46,7 @@ public class CaptureService extends Service {
     private Handler h;
     private int curW, curH;
     private volatile boolean resizing;
+    private int[] tmp;
 
     @Override public IBinder onBind(Intent intent) { return null; }
 
@@ -109,18 +112,34 @@ public class CaptureService extends Service {
         float k = 640f / Math.max(s.x, s.y);
         final int w = Math.max(2, Math.round(s.x * k)), hh = Math.max(2, Math.round(s.y * k));
         ImageReader old = ir;
-        ir = ImageReader.newInstance(w, hh, PixelFormat.RGBA_8888, 2);
+        ir = ImageReader.newInstance(w, hh, PixelFormat.RGBA_8888, 3);
         ir.setOnImageAvailableListener(r -> {
             Image img = null;
             try {
                 img = r.acquireLatestImage();
                 if (img == null) return;
                 long t = SystemClock.uptimeMillis();
-                if (t - frameTime < 45) return;
+                if (t - frameTime < 30) return; // jusqu'à ~30 images/s
                 Image.Plane pl = img.getPlanes()[0];
                 ByteBuffer buf = pl.getBuffer();
                 int ps = pl.getPixelStride(), rs = pl.getRowStride(), iw = img.getWidth(), ih = img.getHeight();
                 int[] out = new int[iw * ih];
+                if (ps == 4 && rs % 4 == 0) {
+                    // Rapide : lecture directe en entiers (RGBA en mémoire = 0xAABBGGRR), puis R et B échangés
+                    buf.rewind();
+                    IntBuffer ib = buf.order(ByteOrder.LITTLE_ENDIAN).asIntBuffer();
+                    int rowInts = rs / 4, n = Math.min(ib.remaining(), rowInts * ih);
+                    if (tmp == null || tmp.length < n) tmp = new int[n];
+                    ib.get(tmp, 0, n);
+                    for (int y = 0; y < ih; y++) {
+                        int base = y * rowInts, o = y * iw;
+                        if (base + iw > n) break;
+                        for (int x = 0; x < iw; x++) {
+                            int c = tmp[base + x];
+                            out[o + x] = 0xFF000000 | ((c & 0xFF) << 16) | (c & 0xFF00) | ((c >> 16) & 0xFF);
+                        }
+                    }
+                } else {
                 byte[] row = new byte[rs];
                 for (int y = 0; y < ih; y++) {
                     buf.position(y * rs);
@@ -132,6 +151,7 @@ public class CaptureService extends Service {
                         if (i + 2 >= len) break;
                         out[o + x] = 0xFF000000 | ((row[i] & 255) << 16) | ((row[i + 1] & 255) << 8) | (row[i + 2] & 255);
                     }
+                }
                 }
                 fw = iw; fh = ih; frame = out; frameTime = t;
                 fpsN++;
