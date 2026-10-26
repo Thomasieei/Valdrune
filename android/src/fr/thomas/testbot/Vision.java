@@ -158,4 +158,34 @@ final class Vision {
         }
         return n == 0 ? 0 : (float) g / n;
     }
+
+    /** Sol dangereux : rouge-orangé vif (zones d'attaque de boss, souvent en fondu additif). */
+    static boolean danger(int c) {
+        int r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255;
+        return r > 150 && r > g * 1.35f && r > b * 1.6f;
+    }
+
+    /**
+     * Masque basse résolution des zones dangereuses (1 case = step x step pixels).
+     * Une case est dangereuse si au moins 40 % de ses pixels le sont ; les traits fins (barres de vie) sont retirés
+     * en exigeant qu'au moins une case voisine au-dessus ou au-dessous soit aussi dangereuse.
+     */
+    static boolean[] dangerMask(int[] px, int w, int h, int step) {
+        int gw = w / step, gh = h / step;
+        boolean[] raw = new boolean[gw * gh], out = new boolean[gw * gh];
+        int need = Math.max(1, step * step * 2 / 5);
+        for (int gy = 0; gy < gh; gy++) for (int gx = 0; gx < gw; gx++) {
+            int n = 0;
+            for (int y = gy * step; y < gy * step + step; y++) for (int x = gx * step; x < gx * step + step; x++) if (danger(px[y * w + x])) n++;
+            raw[gy * gw + gx] = n >= need;
+        }
+        for (int gy = 1; gy < gh - 1; gy++) for (int gx = 0; gx < gw; gx++) {
+            int i = gy * gw + gx;
+            if (raw[i] && (raw[i - gw] || raw[i + gw]) && (raw[i - gw] || raw[i + gw]) ) {
+                // au moins 3 cases de haut au total : une barre de vie fait 1 case
+                out[i] = (raw[i - gw] && raw[i + gw]) || (gy > 1 && raw[i - gw] && raw[i - 2 * gw]) || (gy < gh - 2 && raw[i + gw] && raw[i + 2 * gw]);
+            }
+        }
+        return out;
+    }
 }

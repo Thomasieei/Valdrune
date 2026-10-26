@@ -64,7 +64,7 @@ public class BotService extends AccessibilityService {
     // État de la session
     boolean on;
     private long t0, runMs;
-    int nSpells, nChests, nStuck, nPopups, nTaps, nDeaths;
+    int nSpells, nChests, nStuck, nPopups, nTaps, nDeaths, nDodges;
     final AutoBrain auto = new AutoBrain(this);
     final AiBrain ai = new AiBrain(this);
     final CarBrain foot = new CarBrain(this);
@@ -251,7 +251,7 @@ public class BotService extends AccessibilityService {
     }
 
     void resetStats() {
-        nSpells = nChests = nStuck = nPopups = nTaps = nDeaths = 0; events.clear();
+        nSpells = nChests = nStuck = nPopups = nTaps = nDeaths = nDodges = 0; events.clear();
         runMs = 0; if (on) t0 = now();
     }
 
@@ -670,6 +670,8 @@ public class BotService extends AccessibilityService {
         s.append("Popups fermées : ").append(nPopups).append('\n');
         s.append("Blocages : ").append(nStuck).append('\n');
         s.append("Morts du perso : ").append(nDeaths).append('\n');
+        s.append("Zones rouges esquivées : ").append(nDodges).append('\n');
+        s.append("Mini-carte : ").append(cfg.minimap == null ? "pas apprise" : auto.mini.last == null ? "apprise, pas encore lue" : "lue (" + auto.mini.last.enemies.size() + " monstre(s), " + auto.mini.last.pois.size() + " objectif(s))").append('\n');
         s.append("Cerveau : ").append(brainName(effectiveBrain())).append(cfg.brain.equals("auto") ? " (choisi automatiquement)" : "").append('\n');
         if (!cfg.aiDesc.isEmpty()) s.append("L'IA a compris : ").append(cfg.aiDesc).append('\n');
         if (!cfg.aiGoal.isEmpty()) s.append("Objectif selon l'IA : ").append(cfg.aiGoal).append('\n');

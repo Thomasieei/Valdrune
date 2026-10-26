@@ -80,6 +80,9 @@ final class AutoBrain {
     private double rotA, lastCmdA;
     private final List<float[]> poiBlack = new ArrayList<>(); // x, y (mini-carte), expiration
 
+    private volatile boolean[] dmask;
+    private volatile int dgw, dgh;
+    private long lastDodgeEvent;
     private int hpFull, wdN;
     private long lastGreyT, emptySince, deathOffUntil, deadT, progT, snapT, wdActUntil;
     private float greyBase = 0.5f;
@@ -218,6 +221,48 @@ final class AutoBrain {
         while (cand.size() > 12) cand.remove(cand.size() - 1);
     }
 
+    /** Y a-t-il du sol rouge à moins de r pixels écran de (x, y) ? (hors interface) */
+    private boolean dangerNear(float x, float y, float r) {
+        boolean[] dm = dmask; int gw = dgw, gh = dgh;
+        if (dm == null || gw == 0 || dm.length < gw * gh) return false;
+        float kx = gw / b.sw, ky = gh / b.sh;
+        int x0 = Math.max(0, (int) ((x - r) * kx)), x1 = Math.min(gw - 1, (int) ((x + r) * kx));
+        int y0 = Math.max(0, (int) ((y - r) * ky)), y1 = Math.min(gh - 1, (int) ((y + r) * ky));
+        for (int gy = y0; gy <= y1; gy++) for (int gx = x0; gx <= x1; gx++) {
+            if (!dm[gy * gw + gx]) continue;
+            float sx = (gx + .5f) / kx, sy = (gy + .5f) / ky;
+            if (Math.hypot(sx - x, sy - y) <= r && !hud(sx, sy)) return true;
+        }
+        return false;
+    }
+
+    /** Point sûr où fuir si une zone rouge me touche presque, sinon null. */
+    private float[] escape(float cx, float cy) {
+        float md = minDim();
+        if (!dangerNear(cx, cy, md * 0.13f)) return null;
+        // Centre de gravité du danger proche : je fuis à l'opposé, vers un point sans rouge
+        boolean[] dm = dmask; int gw = dgw, gh = dgh;
+        float kx = gw / b.sw, ky = gh / b.sh, sx = 0, sy = 0; int n = 0;
+        for (int gy = 0; gy < gh; gy++) for (int gx = 0; gx < gw; gx++) {
+            if (!dm[gy * gw + gx]) continue;
+            float x = (gx + .5f) / kx, y = (gy + .5f) / ky;
+            if (Math.hypot(x - cx, y - cy) < md * 0.35f && !hud(x, y)) { sx += x; sy += y; n++; }
+        }
+        double away = n == 0 ? Math.random() * 6.283 : Math.atan2(cy - sy / n, cx - sx / n);
+        double best = -1e9; float[] bp = null;
+        for (int i = 0; i < 16; i++) {
+            double a = i * Math.PI / 8;
+            float x1 = (float) (cx + Math.cos(a) * md * 0.15), y1 = (float) (cy + Math.sin(a) * md * 0.15);
+            float x2 = (float) (cx + Math.cos(a) * md * 0.32), y2 = (float) (cy + Math.sin(a) * md * 0.32);
+            if (x2 < 0 || y2 < 0 || x2 > b.sw || y2 > b.sh) continue;
+            double score = Math.cos(a - away);
+            if (dangerNear(x2, y2, md * 0.06f)) score -= 3;
+            if (dangerNear(x1, y1, md * 0.04f)) score -= 1;
+            if (score > best) { best = score; bp = new float[]{x2, y2}; }
+        }
+        return bp;
+    }
+
     private boolean nearList(List<float[]> l, float sx, float sy, float frac) {
         for (float[] p : l) if (Math.hypot(sx - p[0] * b.sw, sy - p[1] * b.sh) < minDim() * frac * 2) return true;
         return false;
@@ -314,6 +359,8 @@ final class AutoBrain {
         this.enemies = enemies;
         this.loot = loot;
         if (b.cfg.minimap != null) { try { mini.read(f, fw, fh, b.cfg.minimap, t); } catch (Exception ignored) {} }
+        dgw = fw / 4; dgh = fh / 4;
+        dmask = Vision.dangerMask(f, fw, fh, 4);
 
         // Pixels dorés au centre : sert à savoir si le butin a été ramassé
         int g = centerGold(f, fw, fh);
@@ -408,6 +455,15 @@ final class AutoBrain {
             if (dead) return;
         }
 
+        // 0. Zone rouge au sol près de moi : je sors, avant tout le reste
+        float[] esc = escape(cx, cy);
+        if (esc != null) {
+            b.status = "Esquive une zone rouge";
+            if (t - lastDodgeEvent > 1500) { b.nDodges++; lastDodgeEvent = t; }
+            go(t, esc[0], esc[1]);
+            return;
+        }
+
         float[] en = nearest(enemies, cx, cy);
         float de = en == null ? 1e9f : (float) Math.hypot(en[0] - cx, en[1] - cy);
         boolean lowNow = hp >= 0 && hp < 0.33f && t > deathOffUntil;
@@ -456,24 +512,26 @@ final class AutoBrain {
         if (mm != null) learnRot(t, mm);
         if (b.cfg.explore && mm != null && mm.terrain > 0.05f && t > mapDetourUntil) {
             for (int i = poiBlack.size() - 1; i >= 0; i--) if (t > poiBlack.get(i)[2]) poiBlack.remove(i);
-            float[] goal = null; String why = "Explore (mini-carte)";
-            if (b.cfg.autoChests) {
-                List<float[]> ok = new ArrayList<>();
-                for (float[] p : mm.pois) { boolean bl = false; for (float[] k : poiBlack) if (Math.hypot(k[0] - p[0], k[1] - p[1]) < 0.04) bl = true; if (!bl) ok.add(p); }
-                goal = nearest(ok, mm.px, mm.py);
-                if (goal != null) why = "Va vers un objectif (mini-carte)";
+            float[] goal = null, path = null; String why = "Explore les zones pas encore visitées";
+            // 1er choix : chasser le monstre atteignable le plus proche, en suivant les couloirs
+            if (b.cfg.hunt && mm.goEnemy != null) { path = mm.goEnemy; why = "Chasse un monstre (" + mm.enemySteps + " pas)"; }
+            // 2e : objectif (coffre, portail) pas encore écarté
+            if (path == null && b.cfg.autoChests && mm.goPoi != null) {
+                goal = nearest(mm.pois, mm.px, mm.py);
+                boolean bl = false;
+                if (goal != null) for (float[] k : poiBlack) if (Math.hypot(k[0] - goal[0], k[1] - goal[1]) < 0.04) bl = true;
+                if (!bl) { path = mm.goPoi; why = "Va vers un objectif (" + mm.poiSteps + " pas)"; } else goal = null;
             }
-            if (goal == null && b.cfg.hunt) { goal = nearest(mm.enemies, mm.px, mm.py); if (goal != null) why = "Va vers des monstres (mini-carte)"; }
-            float dx, dy;
             if (goal != null) {
-                dx = goal[0] - mm.px; dy = goal[1] - mm.py;
                 // Arrivé sur un objectif qui ne disparaît pas (portail, PNJ) : on l'oublie un moment
-                if (Math.hypot(dx, dy) < 0.035) {
+                if (Math.hypot(goal[0] - mm.px, goal[1] - mm.py) < 0.035) {
                     if (nearPoiSince == 0) nearPoiSince = t;
                     if (t - nearPoiSince > 3000) { poiBlack.add(new float[]{goal[0], goal[1], t + 30000}); nearPoiSince = 0; }
                 } else nearPoiSince = 0;
-            } else if (mm.explore != null) { dx = mm.explore[0]; dy = mm.explore[1]; }
-            else { dx = 0; dy = 0; }
+            }
+            // 3e : explorer là où je ne suis jamais allé
+            if (path == null) path = mm.explore;
+            float dx = path == null ? 0 : path[0], dy = path == null ? 0 : path[1];
             if (dx != 0 || dy != 0) {
                 double a = Math.atan2(dy, dx) - mini.rotation();
                 b.status = why;

@@ -17,7 +17,10 @@ final class MiniMap {
         float px, py;
         boolean playerSeen;
         final List<float[]> enemies = new ArrayList<>(), pois = new ArrayList<>();
-        float[] explore; // direction unitaire sur la mini-carte
+        float[] explore;  // direction (via le chemin) vers la zone la moins visitée
+        float[] goEnemy;  // direction (via le chemin) vers le monstre atteignable le plus proche
+        float[] goPoi;    // direction (via le chemin) vers l'objectif atteignable le plus proche
+        int enemySteps = -1, poiSteps = -1;
         float terrain;   // part du terrain reconnu (0..1) : sert à savoir si la lecture est fiable
     }
 
@@ -111,32 +114,92 @@ final class MiniMap {
             }
         }
 
-        // 4. Exploration : 16 rayons sur le terrain, le plus long et le plus neuf l'emporte
-        if (r.terrain > 0.05f) {
-            double best = -1; float[] bd = null;
-            int pxI = (int) (r.px * W), pyI = (int) (r.py * H);
-            for (int i = 0; i < 16; i++) {
-                double a = i * Math.PI / 8;
-                float dx = (float) Math.cos(a), dy = (float) Math.sin(a);
-                int len = 0, miss = 0;
-                for (int s = 2; s < Math.max(W, H); s++) {
-                    int x = Math.round(pxI + dx * s), y = Math.round(pyI + dy * s);
-                    if (x < 0 || y < 0 || x >= W || y >= H) break;
-                    if (terr[q(px[y * W + x])] || m[y * W + x] != 0) { len = s; miss = 0; }
-                    else if (++miss > 2) break;
-                }
-                if (len < 4) continue;
-                float ex = (pxI + dx * len) / W, ey = (pyI + dy * len) / H;
-                double nov = 1;
-                for (float[] v : visited) nov = Math.min(nov, Math.hypot(v[0] - ex, v[1] - ey) * 4);
-                double score = (len / (double) Math.max(W, H)) * (0.25 + nov);
-                if (score > best) { best = score; bd = new float[]{dx, dy}; }
-            }
-            r.explore = bd;
-        }
+        // 4. Chemins : grille du sol praticable, parcours en largeur depuis le joueur (contourne les murs)
+        if (r.terrain > 0.05f) plan(r, px, m, terr, W, H);
         last = r;
         return r;
     }
 
     private static int q(int c) { return ((c >> 20) & 15) << 8 | ((c >> 12) & 15) << 4 | ((c >> 4) & 15); }
+
+    private void plan(Read r, int[] px, byte[] m, boolean[] terr, int W, int H) {
+        int N = W * H;
+        boolean[] walk = new boolean[N];
+        for (int i = 0; i < N; i++) walk[i] = terr[q(px[i])] || m[i] != 0;
+        boolean[] safe = new boolean[N]; // à un pixel des murs : le perso ne frotte pas
+        for (int y = 1; y < H - 1; y++) for (int x = 1; x < W - 1; x++) {
+            int i = y * W + x;
+            safe[i] = walk[i] && walk[i - 1] && walk[i + 1] && walk[i - W] && walk[i + W];
+        }
+        int sx = Math.min(W - 1, (int) (r.px * W)), sy = Math.min(H - 1, (int) (r.py * H));
+        int start = -1; double bd = 1e9;
+        for (int y = Math.max(0, sy - 5); y <= Math.min(H - 1, sy + 5); y++) for (int x = Math.max(0, sx - 5); x <= Math.min(W - 1, sx + 5); x++) {
+            int i = y * W + x;
+            if (!walk[i]) continue;
+            double d = Math.hypot(x - sx, y - sy) - (safe[i] ? 0.5 : 0);
+            if (d < bd) { bd = d; start = i; }
+        }
+        if (start < 0) return;
+        boolean[] use = safe[start] ? safe : walk;
+        int[] dist = new int[N], par = new int[N];
+        java.util.Arrays.fill(dist, -1);
+        int[] qq = new int[N];
+        int h = 0, tl = 0;
+        qq[tl++] = start; dist[start] = 0; par[start] = start;
+        int[] DX = {1, -1, 0, 0, 1, 1, -1, -1}, DY = {0, 0, 1, -1, 1, -1, 1, -1};
+        while (h < tl) {
+            int c = qq[h++], x = c % W, y = c / W;
+            for (int k = 0; k < 8; k++) {
+                int nx = x + DX[k], ny = y + DY[k];
+                if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+                int n = ny * W + nx;
+                if (dist[n] >= 0 || !use[n]) continue;
+                if (k >= 4 && (!use[y * W + nx] || !use[ny * W + x])) continue; // pas de coupe en diagonale dans un coin
+                dist[n] = dist[c] + 1; par[n] = c; qq[tl++] = n;
+            }
+        }
+        // Monstre / objectif atteignable le plus proche (en pas de chemin)
+        int[] eg = nearestReach(r.enemies, dist, W, H);
+        if (eg != null) { r.goEnemy = dirAlong(eg[0], par, start, W); r.enemySteps = eg[1]; }
+        int[] pg = nearestReach(r.pois, dist, W, H);
+        if (pg != null) { r.goPoi = dirAlong(pg[0], par, start, W); r.poiSteps = pg[1]; }
+        // Exploration : la case atteignable la plus éloignée de tout ce que j'ai déjà visité, sans aller trop loin
+        double best = -1e9; int bc = -1;
+        for (int y = 0; y < H; y += 2) for (int x = 0; x < W; x += 2) {
+            int i = y * W + x;
+            if (dist[i] < 4) continue;
+            float fx = (x + .5f) / W, fy = (y + .5f) / H;
+            double nov = 0.5;
+            for (float[] v : visited) nov = Math.min(nov, Math.hypot(v[0] - fx, v[1] - fy));
+            double score = nov * 3 - dist[i] / (double) Math.max(W, H);
+            if (score > best) { best = score; bc = i; }
+        }
+        if (bc >= 0) r.explore = dirAlong(bc, par, start, W);
+    }
+
+    /** {case, pas} de la cible atteignable la plus proche (en suivant le chemin), ou null. */
+    private static int[] nearestReach(List<float[]> pts, int[] dist, int W, int H) {
+        int bestC = -1, bestD = Integer.MAX_VALUE;
+        for (float[] p : pts) {
+            int cx = (int) (p[0] * W), cy = (int) (p[1] * H);
+            for (int y = Math.max(0, cy - 3); y <= Math.min(H - 1, cy + 3); y++) for (int x = Math.max(0, cx - 3); x <= Math.min(W - 1, cx + 3); x++) {
+                int i = y * W + x;
+                if (dist[i] >= 0 && dist[i] < bestD) { bestD = dist[i]; bestC = i; }
+            }
+        }
+        return bestC < 0 ? null : new int[]{bestC, bestD};
+    }
+
+    /** Direction vers un point du chemin à ~6 pas devant moi (on suit les virages, pas la ligne droite). */
+    private static float[] dirAlong(int target, int[] par, int start, int W) {
+        java.util.ArrayList<Integer> path = new java.util.ArrayList<>();
+        int c = target, guard = 0;
+        while (c != start && guard++ < 100000) { path.add(c); c = par[c]; }
+        if (path.isEmpty()) return null;
+        java.util.Collections.reverse(path);
+        int wp = path.get(Math.min(path.size() - 1, 5));
+        float dx = (wp % W) - (start % W), dy = (wp / W) - (start / W);
+        float l = (float) Math.hypot(dx, dy);
+        return l < 0.01f ? null : new float[]{dx / l, dy / l};
+    }
 }
