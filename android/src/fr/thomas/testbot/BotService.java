@@ -78,7 +78,7 @@ public class BotService extends AccessibilityService {
             case "foot_voiture": return "foot";
             case "rpg": return "rpg";
             case "autre": return ai.hasKey() ? "ia" : "rpg";
-            default: return ai.hasKey() ? "attente" : "rpg";
+            default: return ai.hasKey() ? "attente" : "choisir";
         }
     }
 
@@ -88,6 +88,7 @@ public class BotService extends AccessibilityService {
             case "foot": return "foot-voiture";
             case "ia": return "IA qui joue";
             case "attente": return "en attente de l'IA";
+            case "choisir": return "genre à choisir";
             default: return "auto";
         }
     }
@@ -225,6 +226,10 @@ public class BotService extends AccessibilityService {
                 if (!pkg.equals(getPackageName()) && !pkg.equals("com.android.systemui")) setGame(pkg, null);
             }
         } catch (Exception ignored) {}
+        // Sans IA, le bot ne devine pas le genre : il le demande, puis il se fait montrer ce qui lui manque
+        String eb = effectiveBrain();
+        if (eb.equals("choisir")) { showGenreChooser(); return; }
+        if (eb.equals("foot") && !ai.hasKey() && !foot.missing().isEmpty()) { startWizard(); return; }
         on = true; t0 = now(); prog = false; kind = "explore";
         status = "Démarrage";
         ai.reset(); foot.begin();
@@ -375,6 +380,7 @@ public class BotService extends AccessibilityService {
         for (int i = black.size() - 1; i >= 0; i--) if (t > black.get(i)[2]) black.remove(i);
 
         String eb = effectiveBrain();
+        if (eb.equals("choisir")) { joyWant = null; holdStart = null; hold2 = null; status = "Dis-moi le genre du jeu"; return; }
         if (eb.equals("attente")) {
             joyWant = null; holdStart = null; hold2 = null;
             status = "L'IA découvre ton jeu…";
@@ -722,7 +728,7 @@ public class BotService extends AccessibilityService {
         refreshUi();
     }
 
-    void hideAll() { remove(bubble); remove(panel); remove(catcher); remove(sight); catcher = null; }
+    void hideAll() { remove(bubble); remove(panel); remove(catcher); remove(sight); remove(chooser); catcher = null; chooser = null; }
 
     boolean visible() { return (bubble != null && bubble.getWindowToken() != null) || (panel != null && panel.getWindowToken() != null); }
 
@@ -1060,7 +1066,90 @@ public class BotService extends AccessibilityService {
             {"joystick", "Touche le CENTRE du joystick"}, {"ignore", "Touche la zone à IGNORER"},
             {"ball", "Touche la BALLE"}, {"car", "Touche TA VOITURE (sur la couleur)"},
             {"jump", "Touche le bouton SAUT"}, {"boost", "Touche le bouton BOOST"},
-            {"left", "Touche le bouton GAUCHE"}, {"right", "Touche le bouton DROITE"}};
+            {"left", "Touche le bouton GAUCHE"}, {"right", "Touche le bouton DROITE"},
+            {"goal", "Touche la CAGE ADVERSE (où tu dois marquer)"}};
+
+    // ------------------------------------------------------------------ choix du genre + apprentissage guidé
+
+    private FrameLayout chooser;
+    private final java.util.ArrayDeque<String> wiz = new java.util.ArrayDeque<>();
+    private boolean wizardOn;
+    private int wizStep, wizTotal;
+
+    private void showGenreChooser() {
+        remove(panel); remove(bubble); remove(chooser);
+        chooser = new FrameLayout(this);
+        chooser.setBackgroundColor(0x99000000);
+        LinearLayout card = Ui.col(this);
+        card.setBackground(Ui.box(this, Ui.BG, 18, Ui.LINE));
+        int p = Ui.dp(this, 18);
+        card.setPadding(p, p, p, p);
+        card.addView(Ui.text(this, "C'est quel genre de jeu ?", 19, Ui.FG, true));
+        card.addView(Ui.text(this, "Sans clé IA, je ne devine pas : dis-le-moi une fois, je m'en souviens pour " + gameLabel + ".", 13, Ui.MUTE, false),
+                Ui.margins(Ui.full(), this, 0, 6, 0, 12));
+        TextView foot = Ui.button(this, "Foot-voiture (type Sideswipe)", Ui.AMBER, Ui.INK, 0);
+        foot.setOnClickListener(v -> chooseGenre("foot_voiture"));
+        TextView rpg = Ui.button(this, "RPG / aventure (type Albion)", Ui.CARD2, Ui.FG, Ui.LINE);
+        rpg.setOnClickListener(v -> chooseGenre("rpg"));
+        TextView cancel = Ui.text(this, "Annuler", 14, Ui.MUTE, true);
+        cancel.setGravity(Gravity.CENTER);
+        cancel.setPadding(0, Ui.dp(this, 12), 0, 0);
+        cancel.setOnClickListener(v -> { remove(chooser); chooser = null; showBubble(); });
+        card.addView(foot, Ui.full());
+        card.addView(rpg, Ui.margins(Ui.full(), this, 0, 8, 0, 0));
+        card.addView(cancel, Ui.full());
+        FrameLayout.LayoutParams cl = new FrameLayout.LayoutParams(Math.min(Ui.dp(this, 340), (int) (sw * 0.9f)), FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
+        chooser.addView(card, cl);
+        WindowManager.LayoutParams lp = overlayLp(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT);
+        lp.flags |= WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN;
+        add(chooser, lp);
+    }
+
+    private void chooseGenre(String g) {
+        remove(chooser); chooser = null;
+        cfg.genre = g;
+        save();
+        showBubble();
+        start();
+    }
+
+    /** Foot-voiture : 5 touches guidées (balle, voiture, direction, saut, boost), puis le bot démarre. */
+    private void startWizard() {
+        wiz.clear();
+        if (cfg.ball == null) wiz.add("ball");
+        if (cfg.car == null) wiz.add("car");
+        if (cfg.joy == null && (cfg.left == null || cfg.right == null)) wiz.add("joystick");
+        if (cfg.jump == null) wiz.add("jump");
+        if (cfg.boost == null) wiz.add("boost");
+        if (cfg.attack == 0) wiz.add("goal");
+        if (wiz.isEmpty()) return;
+        wizardOn = true; wizStep = 0; wizTotal = wiz.size();
+        toast("Montre-moi " + wizTotal + " choses, ensuite je joue");
+        wizStep++;
+        startLearn(wiz.poll());
+    }
+
+    private void nextLearn() {
+        if (wizardOn && !wiz.isEmpty()) {
+            remove(catcher); catcher = null;
+            wizStep++;
+            startLearn(wiz.poll());
+            return;
+        }
+        if (wizardOn) {
+            wizardOn = false; learn = null;
+            remove(catcher); catcher = null;
+            showBubble();
+            start();
+            return;
+        }
+        endLearn();
+    }
+
+    private void skipLearn() {
+        if ("joystick".equals(learn)) { wiz.addFirst("right"); wiz.addFirst("left"); wizTotal += 1; }
+        nextLearn();
+    }
 
     private void startLearn(String what) {
         boolean needsEyes = what.equals("chest") || what.equals("enemy") || what.equals("player") || what.equals("spell") || what.equals("ball") || what.equals("car");
@@ -1078,10 +1167,18 @@ public class BotService extends AccessibilityService {
         bar.setPadding(Ui.dp(this, 14), Ui.dp(this, 11), Ui.dp(this, 14), Ui.dp(this, 11));
         String txt = "";
         for (String[] l : LEARN_TXT) if (l[0].equals(what)) txt = l[1];
+        if (wizardOn) txt = wizStep + "/" + wizTotal + " · " + txt;
         bar.addView(Ui.text(this, txt, 15, Ui.INK, true), Ui.weight(1));
+        if (wizardOn && (what.equals("joystick") || what.equals("jump") || what.equals("boost"))) {
+            TextView skip = Ui.text(this, what.equals("joystick") ? "Pas de joystick" : "Il n'y en a pas", 14, Ui.INK, true);
+            skip.setPaintFlags(skip.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+            skip.setPadding(0, 0, Ui.dp(this, 14), 0);
+            skip.setOnClickListener(v -> skipLearn());
+            bar.addView(skip, Ui.wrap());
+        }
         TextView cancel = Ui.text(this, "Annuler", 14, Ui.INK, true);
         cancel.setPaintFlags(cancel.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
-        cancel.setOnClickListener(v -> endLearn());
+        cancel.setOnClickListener(v -> { wizardOn = false; wiz.clear(); endLearn(); });
         bar.addView(cancel, Ui.wrap());
         FrameLayout.LayoutParams blp = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.TOP);
         int m = Ui.dp(this, 14);
@@ -1108,6 +1205,7 @@ public class BotService extends AccessibilityService {
             case "joystick": cfg.joy = new float[]{fx, fy}; msg = "Joystick appris"; break;
             case "ignore": cfg.ignore.add(new float[]{fx, fy}); msg = "Zone ignorée"; break;
             case "jump": cfg.jump = new float[]{fx, fy}; msg = "Saut appris"; break;
+            case "goal": cfg.attack = fx > 0.5f ? 1 : -1; msg = "J'attaque vers la " + (cfg.attack > 0 ? "droite" : "gauche"); break;
             case "boost": cfg.boost = new float[]{fx, fy}; msg = "Boost appris"; break;
             case "left": cfg.left = new float[]{fx, fy}; msg = "Bouton gauche appris"; break;
             case "right": cfg.right = new float[]{fx, fy}; msg = "Bouton droite appris"; break;
@@ -1128,7 +1226,7 @@ public class BotService extends AccessibilityService {
         }
         save();
         toast(msg);
-        endLearn();
+        nextLearn();
     }
 
     private void endLearn() {
