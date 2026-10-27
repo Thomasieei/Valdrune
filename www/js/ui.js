@@ -1908,6 +1908,14 @@ UI.vueMission = (M) => {
   };
   dessiner();
 };
+// télékinésie : la cible flotte, tu choisis son sort
+UI.choixTK = (f) => {
+  let el = document.getElementById('choixTK');
+  if (!f) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('div'); el.id = 'choixTK'; $('#jeu').appendChild(el); el.addEventListener('pointerdown', (e) => e.stopPropagation()); }
+  el.innerHTML = `<div class="tkT">EMPRISE</div><button data-c="deposer">🪶<b>Déposer</b><small>en douceur</small></button><button data-c="ecraser">💥<b>Écraser</b><small>au sol</small></button><button data-c="projeter">🎯<b>Projeter</b><small>vise au joystick</small></button>`;
+  el.onclick = (e) => { const b = e.target.closest('[data-c]'); if (b) { api.son('select_001', 0.4); f(b.dataset.c); } };
+};
 // un exploit est accompli : bandeau doré, il entre dans ta légende
 UI.exploit = (texte, pts, titre) => {
   const d = document.createElement('div'); d.className = 'exploitB';

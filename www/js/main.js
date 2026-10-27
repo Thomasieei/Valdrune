@@ -1,6 +1,6 @@
 // ===== Brèche Écarlate — boucle de jeu =====
 import { THREE, G, initRendu, majCamera, rendre, majTorches, chargerAssets, chargerSons, son, ambiance, Acteur, cloner,
-  emettre, majParticules, majVfx, ajouterVfx, onde, lueurSol, arcTaille, faisceau, telegraphe, meshCarreau, meshBoule, DIR_HAUT, DIR_DROITE, projeter, creerArc, solY, cor, texRond, texRunes, redimensionner, appliquerNiveau, majQualiteAuto, majResolution, mesurerDemarches, musique, musiqueActive, musiquePause } from './engine.js';
+  emettre, majParticules, majVfx, ajouterVfx, onde, lueurSol, arcTaille, faisceau, telegraphe, meshCarreau, meshBoule, DIR_HAUT, DIR_DROITE, projeter, creerArc, solY, cor, texRond, texRunes, texFissures, redimensionner, appliquerNiveau, majQualiteAuto, majResolution, mesurerDemarches, musique, musiqueActive, musiquePause } from './engine.js';
 import { construireTaverne, construireGoulet, construireHub, construireDonjon, construireArene, construireIle, construireDomaine, nbEmplacements, majFeux, noeudReel, creerAssetsProc, construireSylve } from './world.js';
 import { UI, iconeObjet, bustePersonnage, TEINTES_OMBRE } from './ui.js';
 import { initGestes } from './gestes.js';
@@ -372,6 +372,7 @@ function majBots(dt) {
     if (proches.length) emoteBot(hasard(proches), ['salut', 'mdr', 'feu', 'bof', 'malin', 'diable', 'clown', 'gg', 'toi'], 1);
   }
   for (const b of bots) {
+    if (b.tk) { b.maj(dt); continue; }
     b.timer -= dt;
     if (groupe && b.nom === groupe.nom && joueur) { // le coéquipier suit le joueur sur la place
       const d = dist2D(b.pos, joueur.pos);
@@ -1837,6 +1838,7 @@ function creerServiteurs() {
 }
 function majServiteurs(dt) {
   for (const a of serviteurs) {
+    if (a.tk) { a.maj(dt); continue; }
     a.t -= dt;
     const P = a.P;
     if (P.pts) { // fermière et garde : elles vont de point en point (et travaillent à chaque arrêt)
@@ -2426,6 +2428,7 @@ function blesserJoueur(d, source = null) {
   if (source && source.combattant) d = facteurJcJ(source, joueur, d);
   if (goulet) d = modBG(source, joueur, d);
   { const T = joueur.st.tal || {}; if (T.reduc) d *= 1 - Math.min(0.5, T.reduc); if (T.survie && joueur.pv < joueur.st.pvMax * 0.3) d *= 1 - T.survie; }
+  if (lames.length) d = pareLame(d);
   joueur.pv -= d; joueur.frapper(); joueur.combatT = 4;
   UI.nombre(V(joueur.pos.x, 2.2, joueur.pos.z), Math.round(d), 'joueur');
   G.shake = Math.min(1, G.shake + d / joueur.st.pvMax * 3);
@@ -2502,6 +2505,7 @@ function attaquer(dt) {
     programmer(0.22, () => {
       if (joueur.armeType === 'arbalete') { tirerProjectile('carreau', couleur, c, 32, mult); son('drawKnife2', 0.35, 1.3); }
       else if (joueur.armeType === 'arc') { tirerProjectile('carreau', '#ff4a3a', c, 38, mult, { trainee: '#ff3a2a' }); son('drawKnife2', 0.35, 1.6); }
+      else if (joueur.armeType === 'esprit') { tirerProjectile('feu', '#c08aff', c, 24, mult); son('forceField_000', 0.15, 1.8); if (!c.boss) { const v = V(c.pos.x - joueur.pos.x, 0, c.pos.z - joueur.pos.z).normalize(); programmer(0.3, () => { if (!c.mort) c.pousse = { vx: v.x * 5, vz: v.z * 5, t: 0.2 }; }); } }
       else { tirerProjectile('feu', '#ff8a2a', c, 20, mult); son('thrusterFire_000', 0.18, 1.6); }
     });
   }
@@ -2536,6 +2540,9 @@ function lancerSort(k) {
   const def = joueur.def;
   const fin = () => joueur.jouer(def.idle);
   switch (s.id) {
+    case 'emprise': lancerEmprise(s); break;
+    case 'lames': ordreLames(); break;
+    case 'onde': ondeForce(s); break;
     case 'fente': {
       const { dir } = directionVisee(5); faireFace(dir);
       joueur.jouer('2H_Melee_Attack_Slice', { boucle: false, vitesse: 1.5, forcer: true, fin }); joueur.verrouT = 0.42;
@@ -2966,6 +2973,166 @@ function majJoueur(dt) {
   j.maj(dt);
 }
 
+// ======================= ESPRIT : TÉLÉKINÉSIE ET TROIS LAMES =======================
+let TK = null, lames = [], lamesMode = 'garde';
+function ciblesTK() { return [...ennemis.filter(e => !e.mort && !e.boss && !e.descendre), ...(modeActuel ? [] : bots), ...allies.filter(a => !a.mort && a !== joueur), ...serviteurs]; }
+function hostileTK(c) { return ennemis.includes(c); }
+function lancerEmprise(s) {
+  if (TK) return;
+  const portee = s.portee || 15;
+  let c = joueur.cible && !joueur.cible.mort && !joueur.cible.boss && dist2D(joueur.cible.pos, joueur.pos) < portee ? joueur.cible : null;
+  if (!c) { let bd = portee; const f = V(Math.sin(joueur.angle), 0, Math.cos(joueur.angle)); for (const e of ciblesTK()) { const d = dist2D(e.pos, joueur.pos); const v = V(e.pos.x - joueur.pos.x, 0, e.pos.z - joueur.pos.z).normalize(); const sc = d - v.dot(f) * 4; if (d < portee && sc < bd) { bd = sc; c = e; } } }
+  if (!c) { UI.toast('Personne à saisir à portée'); joueur.cds.Q = 0.5; return; }
+  if (ennemis.includes(c) && c.boss) { UI.toast('Trop massif pour ton esprit… pour l’instant'); return; }
+  c.tk = true; c.stunT = 0; TK = { c, t: 0, phase: 'monte', y0: c.root.position.y, rot: 0, mult: s.mult, hostile: hostileTK(c) };
+  if (TK.hostile && (c.etat === 'idle' || c.etat === 'dormant')) reveiller(c);
+  faireFace(V(c.pos.x - joueur.pos.x, 0, c.pos.z - joueur.pos.z).normalize());
+  joueur.jouer('Spellcast_Raise', { boucle: false, forcer: true, vitesse: 0.8, fin: () => TK && joueur.jouer('Spellcast_Long', { boucle: true }) });
+  c.jouer('Hit_A', { boucle: true, vitesse: 0.4, forcer: true });
+  son('forceField_000', 0.5, 0.7); onde(c.pos, '#b07aff', 3, 0.6);
+  UI.choixTK((ch) => finEmprise(ch));
+  if (!TK.hostile) UI.parole && UI.parole(c, hasard(['Hé ! Lâche-moi !', 'Mais… je vole ?!', 'Repose-moi tout de suite !', 'AAAAH !']));
+}
+function finEmprise(choix) {
+  if (!TK || TK.phase !== 'tenu' && TK.phase !== 'monte') return;
+  UI.choixTK(null);
+  if (choix === 'projeter') {
+    const c = TK.c, f = V(Math.sin(joueur.angle), 0, Math.cos(joueur.angle));
+    // visée assistée : l'ennemi le plus aligné devant toi (ou dans la direction du joystick)
+    const jx = entree.jx, jy = entree.jy; let dir = f;
+    if (Math.hypot(jx, jy) > 0.3) dir = DIR_DROITE.clone().multiplyScalar(jx).addScaledVector(DIR_HAUT, jy).normalize();
+    let best = null, bs = 1e9; for (const e of vivants()) { if (e === c || e.mort) continue; const v = V(e.pos.x - c.pos.x, 0, e.pos.z - c.pos.z), d = v.length(); if (d > 18 || d < 1) continue; v.normalize(); const al = v.dot(dir); if (al < 0.55) continue; const sc = d * (2 - al); if (sc < bs) { bs = sc; best = e; } }
+    const dest = best ? best.pos.clone() : c.pos.clone().addScaledVector(dir, 11);
+    TK.phase = 'vol'; TK.t = 0; TK.dep = c.pos.clone(); TK.dest = pointLibreProche(dest, 0.6) || dest; TK.duree = Math.max(0.35, dist2D(TK.dep, TK.dest) / 24); TK.touches = new Set();
+    joueur.jouer('Spellcast_Shoot', { boucle: false, forcer: true, fin: () => joueur.jouer(joueur.def.idle) }); son('thrusterFire_000', 0.4, 0.6);
+  } else if (choix === 'ecraser') { TK.phase = 'ecrase'; TK.t = 0; joueur.jouer('Spellcast_Shoot', { boucle: false, forcer: true, vitesse: 0.9, fin: () => joueur.jouer(joueur.def.idle) }); }
+  else { TK.phase = 'depose'; TK.t = 0; joueur.jouer(joueur.def.idle); }
+}
+function impactTK(p, force) {
+  G.shake = Math.max(G.shake || 0, 0.25 + force * 0.3); son('explosionCrunch_000', 0.5, 0.8); son('impactPlate_heavy_000', 0.5, 0.6);
+  onde(p, '#b07aff', 4 + force * 3, 0.7);
+  emettre(V(p.x, 0.3, p.z), { n: 50, c1: '#d8c8b0', c2: '#5a4a3a', vit: 7, vie: 0.9, taille: 0.45, grav: 10, hemi: true });
+  // le sol se fend, des éclats de pierre volent
+  const f = new THREE.Mesh(new THREE.PlaneGeometry(4 + force * 2, 4 + force * 2), new THREE.MeshBasicMaterial({ map: texFissures(), color: '#2a1a12', transparent: true, opacity: 0.85, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }));
+  f.rotation.x = -Math.PI / 2; f.rotation.z = Math.random() * 6; f.position.set(p.x, 0.06 + solY(p.x, p.z), p.z);
+  ajouterVfx(f, (t) => { if (t > 6) { f.material.opacity -= 0.02; if (f.material.opacity <= 0) return false; } });
+  if (G.assets.rubble_half) for (let k = 0; k < 5; k++) {
+    const m = cloner('rubble_half', p.x, 0.5, p.z, Math.random() * 6, 0.12 + Math.random() * 0.1); const a = Math.random() * 6.28, v = 3 + Math.random() * 4; let vy = 5 + Math.random() * 4;
+    ajouterVfx(m, (t, dt) => { dt = Math.min(dt || 0.016, 0.05); vy -= 20 * dt; m.position.x += Math.cos(a) * v * dt; m.position.z += Math.sin(a) * v * dt; m.position.y = Math.max(0.05, m.position.y + vy * dt); m.rotation.x += dt * 6; if (t > 3) { m.scale.multiplyScalar(0.92); if (m.scale.x < 0.01) return false; } });
+  }
+}
+function lacherTK(c, assomme) {
+  c.tk = false; c.root.position.y = c.hover || 0; c.root.rotation.x = 0; c.root.rotation.z = 0;
+  if (assomme && ennemis.includes(c) && !c.mort) c.stunT = Math.max(c.stunT || 0, 1.2);
+  if (!c.mort) c.jouer('Idle', { forcer: true });
+}
+function majTK(dt) {
+  if (!TK) return; const c = TK.c; TK.t += dt;
+  if (c.mort || !c.root.parent) { UI.choixTK(null); TK = null; return; }
+  if (TK.phase === 'monte' || TK.phase === 'tenu') {
+    const h = Math.min(1, TK.t / 0.6); if (h >= 1) TK.phase = 'tenu';
+    c.root.position.y = TK.y0 + (1 - Math.pow(1 - h, 3)) * 2.6 + Math.sin(TK.t * 2.4) * 0.15;
+    c.root.rotation.z = Math.sin(TK.t * 1.7) * 0.25; c.angle += dt * 0.8; c.root.rotation.y = c.angle;
+    if (Math.random() < 0.5) { const m = pointArme(); emettre(V(m.x + (c.pos.x - m.x) * Math.random(), m.y + (c.root.position.y + 1 - m.y) * Math.random(), m.z + (c.pos.z - m.z) * Math.random()), { n: 1, c1: '#f0e0ff', c2: '#7a3aff', vit: 0.5, vie: 0.4, taille: 0.25 }); }
+    if (TK.t > 7) finEmprise('deposer');
+    if (dist2D(c.pos, joueur.pos) > 22) finEmprise('deposer');
+  } else if (TK.phase === 'depose') {
+    const k = Math.min(1, TK.t / 0.9); c.root.position.y = TK.y0 + 2.6 * (1 - k); c.root.rotation.z *= 0.9;
+    if (k >= 1) { emettre(V(c.pos.x, 0.2, c.pos.z), { n: 12, c1: '#ffffff', c2: '#b07aff', vit: 1.5, vie: 0.6, taille: 0.3 }); lacherTK(c, false); TK = null; }
+  } else if (TK.phase === 'ecrase') {
+    if (TK.t < 0.25) c.root.position.y += dt * 8;
+    else { const y = c.root.position.y - dt * 40; c.root.position.y = y; c.root.rotation.x += dt * 8;
+      if (y <= TK.y0) { impactTK(c.pos, 1);
+        if (TK.hostile) { blesser(c, TK.mult, { stun: 1.4 }); zoneDegats(c.pos, 3.2, TK.mult * 0.35, { c1: '#d8c8ff' }); }
+        else { c.jouer('Death_A', { boucle: false, forcer: true }); const cc = c; programmer(2.2, () => { if (!cc.mort) { cc.jouer('Idle', { forcer: true }); UI.parole && UI.parole(cc, hasard(['Aïe… ça va pas la tête ?!', 'J’ai vu des étoiles…', 'Plus jamais ça.'])); } }); }
+        lacherTK(c, true); if (!TK.hostile) c.jouer('Death_A', { boucle: false, forcer: true }); TK = null; } }
+  } else if (TK.phase === 'vol') {
+    const k = Math.min(1, TK.t / TK.duree);
+    c.pos.x = TK.dep.x + (TK.dest.x - TK.dep.x) * k; c.pos.z = TK.dep.z + (TK.dest.z - TK.dep.z) * k;
+    c.root.position.y = TK.y0 + 2.6 * (1 - k) + Math.sin(k * Math.PI) * 2; c.root.rotation.x += dt * 14;
+    if (Math.random() < 0.8) emettre(V(c.pos.x, c.root.position.y + 1, c.pos.z), { n: 1, c1: '#ffffff', c2: '#9a5aff', vit: 0.3, vie: 0.4, taille: 0.35 });
+    // tout ce qui est sur sa trajectoire est percuté
+    for (const e of vivants()) if (e !== c && !TK.touches.has(e) && dist2D(e.pos, c.pos) < 1.6) { TK.touches.add(e); blesser(e, TK.mult * 0.6, { stun: 0.8, air: true }); const v = V(e.pos.x - c.pos.x, 0, e.pos.z - c.pos.z).normalize(); e.pousse = { vx: v.x * 9, vz: v.z * 9, t: 0.3 }; }
+    if (k >= 1) { impactTK(c.pos, 1.3); if (TK.hostile) blesser(c, TK.mult * 0.9, { stun: 1.2 }); zoneDegats(c.pos, 3.6, TK.mult * 0.45, { c1: '#d8c8ff' }); lacherTK(c, true); if (!TK.hostile && !c.mort) c.jouer('Death_A', { boucle: false, forcer: true }); TK = null; }
+  }
+}
+// ---- trois lames spectrales ----
+function statsLame() { const T = joueur.st.tal || {}; return { deg: joueur.st.degats * 0.45 * (1 + (T.lameDeg || 0)) * (1 + (T.s_lames || 0)), pv: joueur.st.pvMax * 0.25 * (1 + (T.lamePv || 0)), vit: 1 + (T.lameVit || 0) }; }
+function creerLame(i) {
+  const g = new THREE.Group();
+  const m = G.assets.Skeleton_Blade ? cloner('Skeleton_Blade', 0, 0, 0, 0, 1.3) : new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.2, 0.2), new THREE.MeshStandardMaterial());
+  m.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.color = new THREE.Color('#d8d0ff'); o.material.emissive = new THREE.Color('#7a4aff'); o.material.emissiveIntensity = 0.9; } });
+  m.rotation.x = Math.PI / 2; g.add(m);
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: texRond(), color: '#a07aff', blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0.6 })); halo.scale.setScalar(1.4); g.add(halo);
+  G.scene.add(g); const S = statsLame();
+  g.position.set(joueur.pos.x, 0.2, joueur.pos.z);
+  return { g, i, pv: S.pv, pvMax: S.pv, cible: null, coupT: 0, mort: false, respawnT: 0, a: i / 3 * Math.PI * 2 };
+}
+function invoquerLames() {
+  for (const L of lames) G.scene.remove(L.g);
+  lames = [0, 1, 2].map(creerLame); lamesMode = 'garde';
+  son('drawKnife2', 0.5, 0.8); son('forceField_000', 0.4, 1.2); onde(joueur.pos, '#a07aff', 4, 0.6);
+  UI.toast('Trois lames se lèvent autour de toi');
+}
+function ordreLames() {
+  if (!lames.length) return invoquerLames();
+  const modes = ['garde', 'assaut', ...(monde && (monde.type === 'donjon' || monde.type === 'sylve') ? ['exploration'] : [])];
+  lamesMode = modes[(modes.indexOf(lamesMode) + 1) % modes.length];
+  for (const L of lames) { L.cible = null; L.route = null; }
+  if (lamesMode === 'exploration') {
+    const salles = (monde.salles || []).map(x => (x.centre || x.c || x).clone ? (x.centre || x.c || x).clone() : null).filter(Boolean);
+    salles.sort((a, b) => dist2D(a, joueur.pos) - dist2D(b, joueur.pos));
+    lames.forEach((L, k) => { L.route = salles.filter((_, j) => j % 3 === k).slice(0, 6); L.tues = 0; });
+  }
+  UI.toast({ garde: 'Lames : garde rapprochée', assaut: 'Lames : à l’assaut des ennemis proches', exploration: 'Lames : exploration du donjon (10 % plus vite que toi)' }[lamesMode]);
+  son('select_001', 0.4);
+}
+function majLames(dt) {
+  if (!lames.length) return;
+  if (!joueur || joueur.armeType !== 'esprit') { for (const L of lames) G.scene.remove(L.g); lames = []; return; }
+  const S = statsLame(), T = G.t;
+  for (const L of lames) {
+    if (L.mort) { L.respawnT -= dt; L.g.visible = false; if (L.respawnT <= 0) { L.mort = false; L.pv = L.pvMax = S.pv; L.g.visible = true; L.g.position.set(joueur.pos.x, 0.2, joueur.pos.z); } continue; }
+    let but = null;
+    const vit = (lamesMode === 'exploration' ? vitesseJoueur() * 1.1 : 18) * S.vit;
+    if (lamesMode === 'exploration' && L.route) {
+      while (L.route.length && dist2D(L.g.position, L.route[0]) < 1.5) L.route.shift();
+      const proche = vivants().find(e => dist2D(e.pos, L.g.position) < 4);
+      if (proche) L.cible = proche;
+      if (!L.cible || L.cible.mort) but = L.route.length ? V(L.route[0].x, 1.4, L.route[0].z) : null;
+      if (!L.route.length && !L.cible) { if (!L.fini) { L.fini = true; if (lames.every(x => x.fini || x.mort)) { UI.toast(`Tes lames ont fini d’explorer : ${lames.reduce((a, x) => a + (x.tues || 0), 0)} ennemis abattus`); lamesMode = 'garde'; lames.forEach(x => { x.fini = false; x.route = null; }); } } }
+    } else if (lamesMode === 'assaut') {
+      if (!L.cible || L.cible.mort || dist2D(L.cible.pos, joueur.pos) > 18) { const pris = new Set(lames.map(x => x.cible)); let bd = 16; L.cible = null; for (const e of vivants()) { const d = dist2D(e.pos, joueur.pos); if (d < bd && !pris.has(e)) { bd = d; L.cible = e; } } if (!L.cible) { let bd2 = 16; for (const e of vivants()) { const d = dist2D(e.pos, joueur.pos); if (d < bd2) { bd2 = d; L.cible = e; } } } }
+    } else { // garde : elles tournent, et frappent ce qui approche à moins de 5 m
+      if (!L.cible || L.cible.mort || dist2D(L.cible.pos, joueur.pos) > 6) { L.cible = null; for (const e of vivants()) if (dist2D(e.pos, joueur.pos) < 5) { L.cible = e; break; } }
+      if (L.cible && L.coupT > 0.4) L.cible = null;
+    }
+    if (L.cible && !L.cible.mort) {
+      const c = L.cible, p = V(c.pos.x + Math.cos(T * 5 + L.i * 2) * 1.2, 1.3, c.pos.z + Math.sin(T * 5 + L.i * 2) * 1.2); but = p;
+      L.coupT -= dt;
+      if (L.coupT <= 0 && dist2D(L.g.position, c.pos) < 2.2) { L.coupT = 0.55; blesser(c, 0, { fixe: S.deg, c1: '#c8b0ff', silence: true }); arcTaille(c.pos, T * 3, 1.8, '#b07aff', Math.PI * 0.6, 0.15); son('knifeSlice', 0.18, 1.4 + Math.random() * 0.3); if (c.mort && lamesMode === 'exploration') L.tues = (L.tues || 0) + 1; }
+    } else if (!but) { L.a += dt * 1.6; but = V(joueur.pos.x + Math.cos(L.a) * 1.7, 1.5 + Math.sin(T * 2 + L.i) * 0.2, joueur.pos.z + Math.sin(L.a) * 1.7); }
+    const d = L.g.position.distanceTo(but), k = Math.min(1, vit * dt / Math.max(d, 1e-3));
+    const av = L.g.position.clone(); L.g.position.lerp(but, lamesMode === 'exploration' && !L.cible ? k : Math.min(1, dt * 9));
+    if (L.g.position.distanceToSquared(av) > 1e-5) L.g.lookAt(L.g.position.clone().add(L.g.position.clone().sub(av)));
+    if (Math.random() < 0.3) emettre(L.g.position, { n: 1, c1: '#ffffff', c2: '#8a5aff', vit: 0.2, vie: 0.3, taille: 0.2 });
+  }
+}
+// une lame en garde pare une partie des coups reçus, jusqu'à se briser (elle se reforme 25 s plus tard)
+function pareLame(d) {
+  if (lamesMode !== 'garde') return d;
+  const L = lames.find(x => !x.mort); if (!L) return d;
+  const a = d * 0.5; L.pv -= a; emettre(L.g.position, { n: 8, c1: '#ffffff', c2: '#b07aff', vit: 3, vie: 0.3, taille: 0.25 }); son('impactMetal_medium_001', 0.25, 1.3);
+  if (L.pv <= 0) { L.mort = true; L.respawnT = 25; emettre(L.g.position, { n: 40, c1: '#ffffff', c2: '#7a4aff', vit: 6, vie: 0.7, taille: 0.35 }); son('explosionCrunch_000', 0.3, 1.6); UI.toast('Une lame s’est brisée'); }
+  return d - a;
+}
+function ondeForce(s) {
+  joueur.jouer('Spellcast_Raise', { boucle: false, forcer: true, vitesse: 1.4, fin: () => joueur.jouer(joueur.def.idle) }); joueur.verrouT = 0.35;
+  programmer(0.2, () => {
+    onde(joueur.pos, '#c0a0ff', s.portee + 1, 0.8); onde(joueur.pos, '#ffffff', s.portee * 0.6, 0.5); G.shake = 0.35; son('lowFrequency_explosion_000', 0.45, 1.3);
+    for (const e of vivants()) { const d = dist2D(e.pos, joueur.pos); if (d > s.portee + e.rayon) continue; const v = V(e.pos.x - joueur.pos.x, 0, e.pos.z - joueur.pos.z).normalize(); blesser(e, s.mult, { stun: 0.6, air: true }); if (!e.boss) e.pousse = { vx: v.x * 14, vz: v.z * 14, t: 0.35 }; }
+  });
+}
 // ---------------- Ranger / sortir les armes ----------------
 // la lame disparaît dans un nuage d'étincelles ; on se bat aux sorts et à la magie pure, puis on la ressort quand on veut
 function noeudsArme() { const d = joueur.def; return [d.node, d.node2].filter(Boolean).map(n => joueur.nodes[n] || joueur.nodes[n.replace(/\./g, '')]).filter(Boolean); }
@@ -3141,6 +3308,8 @@ function majEnnemis(dt) {
       if (o.t <= 0) e.dots.splice(k, 1);
     }
     if (e.mort) continue;
+    if (e.tk) { e.maj(dt); continue; }
+    if (e.pousse) { const P = e.pousse; P.t -= dt; deplacer(e, P.vx * dt, P.vz * dt, Math.min(e.rayon * 0.8, 1.1)); if (P.t <= 0) e.pousse = null; }
     if (e.stunT > 0) { e.stunT -= dt; if (Math.random() < dt * 8) emettre(V(e.pos.x, e.hauteurPlaque, e.pos.z), { n: 1, c1: '#fff7a0', c2: '#ffd040', vit: 0.6, vie: 0.5, taille: 0.25, rayon: 0.4 }); e.maj(dt * 0.15); continue; }
     if (sautEnCours(e, dt)) continue;
     if (e.airT > 0) { e.airT -= dt; e.root.position.y = Math.sin((0.6 - e.airT) / 0.6 * Math.PI) * 1.6; e.maj(dt); continue; } else if (!e.boss && !e.sautT) e.root.position.y = e.hover;
@@ -3711,7 +3880,7 @@ function boucleCorps() {
     if (graveuse) graveuse.maj(dt);
     ileT -= dt; if (ileT <= 0) { ileT = 3; majProduction(); majDomaine(); majAssauts(); majRaids(); if (modeActuel && modeActuel.id === 'ile' && !monde.etranger && !(raid && raid.r)) journalIle(monde.ile); }
     if (monde.type === 'donjon') { majScenes(dt); majCrypte(dt); majAurasDonjon(dt); }
-    majRegards(); majAuras(dt); majPortes(dt); majVueOmbre();
+    majRegards(); majAuras(dt); majPortes(dt); majVueOmbre(); majTK(dt); majLames(dt);
     if (!modeActuel || modeActuel.id === 'ile') majParolesPNJ(dt);
     majRumeurs(dt); majFortune(dt);
     majEscouade(dt); majCommandeOmbres(dt); majAbime(dt); majMeuteJoueur(dt); if (taverne) majTaverne(dt); if (mission) majMission(dt); majEveil(dt); if (goulet) majGoulet(dt); if (!modeActuel) majPortailGoulet();
@@ -4170,7 +4339,7 @@ function majAllies(dt) {
   for (let i = allies.length - 1; i >= 0; i--) {
     const a = allies[i];
     if (a.vieT !== undefined && !a.mort) { a.vieT -= dt; if (a.vieT <= 0) { dissiper(a); continue; } if (a.vieT < 3 && Math.random() < dt * 8) emettre(V(a.pos.x, 1, a.pos.z), { n: 1, c1: '#c9a0ff', c2: '#1a0630', dir: V(0, 1, 0), vit: 1.5, rayon: 0.5, vie: 0.6, taille: 0.35 }); }
-    if (a.mort) { a.maj(dt); continue; }
+    if (a.mort || a.tk) { a.maj(dt); continue; }
     a.coupT = (a.coupT || 0) - dt;
     if (!a.invoc && a.coupT <= 0 && a.pv < a.pvMax) a.pv = Math.min(a.pvMax, a.pv + a.pvMax * (a.coupT < -4 ? 0.06 : 0.012) * dt);
     if (a.stunT > 0) { a.stunT -= dt; a.maj(dt * 0.15); continue; }
