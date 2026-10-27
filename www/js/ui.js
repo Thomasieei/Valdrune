@@ -1839,6 +1839,75 @@ UI.vueOmbre = (o) => {
   el.querySelector('.fermer').onclick = (e) => { e.stopPropagation(); o.fermer(); };
   el.querySelector('.suivO').onclick = (e) => { e.stopPropagation(); o.suivante(); };
 };
+// vision lointaine d'une ombre en mission : petite scène dessinée en direct, brouillard qui se lève sur son passage
+UI.vueMission = (M) => {
+  UI.vueOmbre({ nom: M.nom, fermer: M.fermer, suivante: M.suivante });
+  const el = document.getElementById('vueOmbre'); if (!el) return;
+  const cv = document.createElement('canvas'); cv.width = 400; cv.height = 250; cv.className = 'cvMission'; el.querySelector('.ecranO').appendChild(cv);
+  const g = cv.getContext('2d'), brume = document.createElement('canvas'); brume.width = 400; brume.height = 250; const gb = brume.getContext('2d');
+  let a = M.graine | 0; const rng = () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const W = 400, H = 250, type = M.type;
+  // décor de la mission
+  const salles = [], ennemis = [];
+  if (type === 'donjon' || type === 'secours' || type === 'vol') {
+    let x = 30, y = 60 + rng() * 120;
+    for (let k = 0; k < 7; k++) { const w = 34 + rng() * 22, h = 30 + rng() * 22; salles.push({ x, y, w, h }); const n = k === 6 ? 1 : 1 + Math.floor(rng() * 3); for (let e = 0; e < n; e++) ennemis.push({ x: x + rng() * w * 0.6 - w * 0.3, y: y + rng() * h * 0.6 - h * 0.3, k, boss: k === 6, mort: false }); x += 52 + rng() * 6; y = Math.max(40, Math.min(H - 40, y + (rng() - 0.5) * 110)); }
+  }
+  const pts = salles.map(s => [s.x, s.y]);
+  const posLe = (p) => { const n = pts.length - 1, f = Math.min(n - 1e-6, p * n), i = Math.floor(f), t = f - i; return [pts[i][0] + (pts[i + 1][0] - pts[i][0]) * t, pts[i][1] + (pts[i + 1][1] - pts[i][1]) * t, i]; };
+  const LIGNES = {
+    donjon: ['entre dans ' + M.lieu, 'avance dans les couloirs', 'tombe sur une ronde de squelettes', 'nettoie une salle', 'descend plus profond', 'sent la présence du gardien', 'affronte le gardien'],
+    secours: ['cherche le blessé dans ' + M.lieu, 'suit des traces de sang', 'repousse des squelettes', 'a trouvé le blessé', 'le porte vers la sortie', 'protège sa retraite', 'sort du donjon'],
+    vol: ['se glisse dans ' + M.lieu, 'évite une ronde', 'crochète une serrure', 'repère le coffre', 'remplit ses poches', 'disparaît dans l’ombre', 'repart avec le butin'],
+    arene: ['entre dans l’arène', 'observe son adversaire', 'premier échange de coups', 'esquive une charge', 'prend l’avantage', 'la foule hurle', 'porte le coup final'],
+    ile: ['monte la garde sur ' + M.lieu, 'fait sa ronde', 'surveille la côte', 'rien à signaler', 'vérifie les entrepôts', 'observe les ouvriers'],
+  }[type] || ['est en mission'];
+  const t0 = performance.now(); let trace = [];
+  const dessiner = () => {
+    if (!cv.isConnected) return;
+    const now = Date.now(), p = isFinite(M.fin) ? Math.max(0, Math.min(1, (now - M.debut) / (M.fin - M.debut))) : ((performance.now() - t0) / 40000) % 1, T = (performance.now() - t0) / 1000;
+    g.fillStyle = '#0c0814'; g.fillRect(0, 0, W, H);
+    let ox = 0, oy = 0;
+    if (salles.length) {
+      g.strokeStyle = '#3a2a24'; g.lineWidth = 12; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
+      for (const s of salles) { g.fillStyle = '#4a3a30'; g.fillRect(s.x - s.w / 2, s.y - s.h / 2, s.w, s.h); g.strokeStyle = '#6a5040'; g.lineWidth = 2; g.strokeRect(s.x - s.w / 2, s.y - s.h / 2, s.w, s.h); }
+      [ox, oy] = posLe(p); const salleI = posLe(p)[2];
+      for (const e of ennemis) { if (!e.mort && (e.k < salleI || (e.k === salleI && Math.hypot(e.x - ox, e.y - oy) < 8))) e.mort = true;
+        g.fillStyle = e.mort ? '#3a2a2a' : e.boss ? '#ff3a2a' : '#e8d8b8'; g.beginPath(); g.arc(e.x, e.y, e.boss ? 6 : 3, 0, 7); g.fill(); }
+      const proche = ennemis.find(e => !e.mort && Math.hypot(e.x - ox, e.y - oy) < 30);
+      if (proche && Math.sin(T * 9) > 0.6) { g.strokeStyle = '#d8a8ff'; g.lineWidth = 2; g.beginPath(); g.arc(proche.x, proche.y, 9, T * 6, T * 6 + 2); g.stroke(); }
+    } else if (type === 'arene') {
+      g.fillStyle = '#5a4630'; g.beginPath(); g.ellipse(200, 125, 150, 90, 0, 0, 7); g.fill(); g.strokeStyle = '#8a6a40'; g.lineWidth = 6; g.stroke();
+      for (let k = 0; k < 40; k++) { const an = k / 40 * 6.28; g.fillStyle = k % 3 ? '#6a5a7a' : '#8a5a5a'; g.beginPath(); g.arc(200 + Math.cos(an) * 172, 125 + Math.sin(an) * 108 + Math.sin(T * 6 + k) * 1.5, 3, 0, 7); g.fill(); }
+      const an = T * 1.3, r = 34 + Math.sin(T * 2.1) * 14; ox = 200 + Math.cos(an) * r; oy = 125 + Math.sin(an) * r * 0.6;
+      const ax = 200 - Math.cos(an) * r, ay = 125 - Math.sin(an) * r * 0.6;
+      g.fillStyle = '#ff7a4a'; g.beginPath(); g.arc(ax, ay, 6, 0, 7); g.fill();
+      if (Math.sin(T * 4) > 0.85) { g.strokeStyle = '#fff2c0'; g.lineWidth = 3; g.beginPath(); g.moveTo(ox, oy); g.lineTo(ax, ay); g.stroke(); }
+    } else { // île
+      g.fillStyle = '#1a3a5a'; g.fillRect(0, 0, W, H);
+      g.fillStyle = '#3a6a3a'; g.beginPath(); for (let k = 0; k < 6; k++) { const an = k / 6 * 6.28 + 0.5; g.lineTo(200 + Math.cos(an) * 120, 125 + Math.sin(an) * 85); } g.fill();
+      for (let k = 0; k < 6; k++) { g.fillStyle = '#a07a4a'; g.fillRect(150 + (k % 3) * 40, 95 + Math.floor(k / 3) * 45, 14, 12); }
+      const an = T * 0.4; ox = 200 + Math.cos(an) * 80; oy = 125 + Math.sin(an) * 55;
+    }
+    // l'ombre, sa traînée
+    trace.push([ox, oy]); if (trace.length > 60) trace.shift();
+    g.strokeStyle = '#9a5aff66'; g.lineWidth = 3; g.beginPath(); trace.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
+    const gl = g.createRadialGradient(ox, oy, 0, ox, oy, 14); gl.addColorStop(0, '#f0e0ff'); gl.addColorStop(0.4, '#9a5aff'); gl.addColorStop(1, '#9a5aff00'); g.fillStyle = gl; g.beginPath(); g.arc(ox, oy, 14, 0, 7); g.fill();
+    // brouillard : tout est sombre sauf ce que l'ombre a déjà parcouru et ce qu'elle voit
+    gb.globalCompositeOperation = 'source-over'; gb.fillStyle = '#05020ad0'; gb.fillRect(0, 0, W, H); gb.globalCompositeOperation = 'destination-out';
+    const trou = (x, y, r, k) => { const gr = gb.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(0,0,0,${k})`); gr.addColorStop(1, 'rgba(0,0,0,0)'); gb.fillStyle = gr; gb.beginPath(); gb.arc(x, y, r, 0, 7); gb.fill(); };
+    if (salles.length) for (let q = 0; q <= p; q += 0.03) { const [x, y] = posLe(q); trou(x, y, 40, 0.8); }
+    else trou(200, 125, 170, 0.6);
+    trou(ox, oy, 78, 1);
+    g.drawImage(brume, 0, 0);
+    // barre de progression et ce qu'elle fait
+    if (isFinite(M.fin)) { g.fillStyle = '#ffffff22'; g.fillRect(10, H - 10, W - 20, 4); g.fillStyle = '#b07aff'; g.fillRect(10, H - 10, (W - 20) * p, 4); }
+    const ligne = M.etat() || LIGNES[Math.min(LIGNES.length - 1, Math.floor(p * LIGNES.length))];
+    UI.vueOmbre({ maj: `${ligne}${isFinite(M.fin) ? ' · retour dans ' + Math.max(0, Math.ceil((M.fin - now) / 60000)) + ' min' : ''}` });
+    setTimeout(() => requestAnimationFrame(dessiner), 45);
+  };
+  dessiner();
+};
 // un exploit est accompli : bandeau doré, il entre dans ta légende
 UI.exploit = (texte, pts, titre) => {
   const d = document.createElement('div'); d.className = 'exploitB';

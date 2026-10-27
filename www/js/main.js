@@ -566,8 +566,19 @@ function suivreFormation(e, rang, dt, animCourse, animRepos, teleporter) {
 function vueOmbre(o) {
   if (!o) { G.vueOmbre = null; UI.vueOmbre(null); return; }
   G.vueOmbre = { acteur: o, rect: null };
-  UI.vueOmbre({ nom: o.nom, fermer: () => vueOmbre(null), suivante: () => { const l = escouade.filter(x => !x.sceneOmbre); if (l.length < 2) return; vueOmbre(l[(l.indexOf(o) + 1) % l.length]); } });
+  UI.vueOmbre({ nom: o.nom, fermer: () => vueOmbre(null), suivante: () => { vueOmbre(null); voirOmbre(((o.escIdx || 0) + 1) % ombresC().length); } });
   son('forceField_000', 0.25, 1.6);
+}
+// voir par les yeux d'une ombre : à tes côtés → vraie caméra 3D ; en mission (arène, donjon, île…) → sa vision lointaine en direct
+function voirOmbre(i) {
+  const R = ombresC(), r = R[i]; if (!r) return;
+  const o = ombreActeur(i);
+  const suivante = () => voirOmbre((i + 1) % R.length);
+  if (o && !r.mission) { vueOmbre(o); return; }
+  if (!r.mission) { UI.toast(`${r.nom} se repose dans l’ombre : rien à voir`); return; }
+  G.vueOmbre = null; son('forceField_000', 0.25, 1.6);
+  const M = r.mission, lieu = M.type === 'ile' ? (M.ile === -1 ? 'ton domaine' : (iles()[M.ile] || {}).nom || 'ton île') : M.type === 'arene' ? 'l’arène' : LIEUX[M.mode || 0];
+  UI.vueMission({ nom: r.nom, type: M.type, lieu, debut: M.debut, fin: M.fin, graine: (M.debut % 100000) + i * 7, etat: () => r.rapport ? 'Mission finie : elle revient faire son rapport' : !r.mission ? 'De retour auprès de toi' : null, fermer: () => UI.vueOmbre(null), suivante });
 }
 function majVueOmbre() {
   const V0 = G.vueOmbre; if (!V0) return;
@@ -710,11 +721,7 @@ function direOmbre(r, texte) { const o = ombreActeur(r.i); if (o) UI.parole(o, t
 function souvenir(r, s) { r.souvenirs.push({ s, t: Date.now() }); if (r.souvenirs.length > 8) r.souvenirs.shift(); }
 // ---- ordres ----
 function ordonner(cibles, ordre, extra = {}) {
-  if (ordre === 'vue') { // la première ombre choisie qui marche à tes côtés
-    const o = cibles.map(ombreActeur).find(Boolean) || escouade.find(x => !x.sceneOmbre);
-    if (o) { vueOmbre(o); UI.commandeOmbres(null); } else UI.toast('Aucune de ces ombres n’est à tes côtés pour l’instant');
-    return;
-  }
+  if (ordre === 'vue') { voirOmbre(cibles[0] ?? 0); UI.commandeOmbres(null); return; }
   const R = ombresC(); const now = Date.now();
   for (const i of cibles) {
     const r = R[i]; if (!r) continue;
