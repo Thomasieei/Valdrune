@@ -1932,7 +1932,7 @@ export function construireIleAnc({ r = 60, biome = 'foret', etape = 1, graine = 
     return h;
   };
   // le sol : une grande géométrie en relief ; turquoise en plaine, roche bleutée sur les pentes, sable mouillé au bord de l'eau
-  const T = 2 * r + 12, seg = 140, geo = new THREE.PlaneGeometry(T, T, seg, seg).rotateX(-Math.PI / 2);
+  const T = 2 * r + 12, seg = 110, geo = new THREE.PlaneGeometry(T, T, seg, seg).rotateX(-Math.PI / 2);
   const P = geo.attributes.position; for (let i = 0; i < P.count; i++) P.setY(i, hauteur(P.getX(i), P.getZ(i)));
   geo.computeVertexNormals();
   const N = geo.attributes.normal, col = new Float32Array(P.count * 3), c = new THREE.Color();
@@ -1973,6 +1973,7 @@ export function construireIleAnc({ r = 60, biome = 'foret', etape = 1, graine = 
   const lot = (nom, geo, mat, ombre) => lots[nom] || (lots[nom] = { geo, mat, ombre, l: [] });
   const poser = (nom, x, y, z, sx, sy, sz, ry, coul, rx = 0, rz = 0) => lots[nom].l.push({ x, y, z, sx, sy, sz, ry, rx, rz, coul });
   lot('couronne', geoCouronne, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.8 }), true);
+  lot('buisson', ICO, new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.85 }), false);
   lot('tronc', new THREE.CylinderGeometry(0.12, 0.22, 1, 6).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ color: '#3a2a2e', flatShading: true }), true);
   lot('trefle', geoTrefle, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, side: THREE.DoubleSide }), false);
   lot('herbe', geoHerbe, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, side: THREE.DoubleSide }), false);
@@ -1984,7 +1985,7 @@ export function construireIleAnc({ r = 60, biome = 'foret', etape = 1, graine = 
   const arbre = (x, z, s = 1) => { const h = hauteur(x, z), tr = R(1.5, 2.1) * s; poser('tronc', x, h, z, s * 1.3, tr, s * 1.3, 0);
     const n = 9 + Math.floor(rng() * 4); for (let i = 0; i < n; i++) { const a = rng() * 6.283, d = i ? R(0.35, 0.95) * s : 0; const k = (i ? R(0.32, 0.5) : 0.6) * s;
       poser('couronne', x + Math.cos(a) * d, h + tr + R(-0.1, 0.8) * s, z + Math.sin(a) * d, k * 1.1, k * 0.8, k * 1.1, rng() * 6, hasardF(rouges, rng)); } };
-  const buisson = (x, z, s = 1) => { const h = hauteur(x, z); for (let i = 0; i < 4; i++) poser('couronne', x + R(-0.6, 0.6) * s, h + 0.25 * s, z + R(-0.6, 0.6) * s, 0.4 * s, 0.32 * s, 0.4 * s, rng() * 6, hasardF(rouges, rng)); };
+  const buisson = (x, z, s = 1) => { const h = hauteur(x, z); for (let i = 0; i < 4; i++) poser('buisson', x + R(-0.6, 0.6) * s, h + 0.25 * s, z + R(-0.6, 0.6) * s, 0.4 * s, 0.32 * s, 0.4 * s, rng() * 6, hasardF(rouges, rng)); };
   const trefles = (x, z, n) => { for (let i = 0; i < n; i++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * 2.6, px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d, h = hauteur(px, pz); if (h < -0.2 || h > 0.6) continue;
     const k = R(0.3, 0.5); poser('trefle', px, h + 0.06, pz, k, k, k, rng() * 6, hasardF(['#3a9a62', '#2f8a56', '#46aa6e', '#2a7e50'], rng)); } };
   const rocher = (x, y, z, s, coul = '#ffffff') => poser('rocher' + Math.floor(rng() * 3), x, y, z, s * R(0.9, 1.3), s * R(0.6, 1), s * R(0.9, 1.3), rng() * 6, coul, R(-0.2, 0.2), R(-0.2, 0.2));
