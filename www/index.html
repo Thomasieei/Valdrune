@@ -163,6 +163,34 @@ body.cinema #jeu::before{top:0}body.cinema #jeu::after{bottom:0}
 #fileAttente .fa{display:flex;flex-direction:column;align-items:center;font:800 1.7vh var(--f-label)}#fileAttente .fa b{font:900 2.2vh var(--f-titre)}
 #fileAttente .fb{display:flex;gap:1vh}
 #btnReveler{position:absolute;right:calc(env(safe-area-inset-right,0px) + 26vh);bottom:50vh;z-index:22;display:flex;align-items:center;gap:.6vh;padding:.5vh 1.2vh;border-radius:2vh;border:1.5px solid #ff5a3a;background:#2a0806cc;color:#ffb08a;font:900 1.4vh var(--f-label);letter-spacing:.1vh;pointer-events:auto;box-shadow:0 0 1.4vh #ff2a1a66;animation:respireR 1.6s infinite alternate}
+#btnAura{position:absolute;right:calc(env(safe-area-inset-right,0px) + 26vh);bottom:56vh;z-index:22;display:flex;align-items:center;gap:.6vh;padding:.5vh 1.3vh;border-radius:2vh;border:1.5px solid var(--ac);background:#0a0408cc;color:#fff;font:900 1.4vh var(--f-label);letter-spacing:.15vh;pointer-events:auto;box-shadow:0 0 1.6vh var(--ac);animation:respireR 1.4s infinite alternate}
+#btnAura i{width:1.2vh;height:1.2vh;border-radius:50%;background:var(--ac);box-shadow:0 0 1vh var(--ac)}
+#dlgDomaine{position:absolute;inset:0;z-index:56;display:flex;align-items:center;justify-content:center;background:#000a}
+#dlgDomaine .boiteD{position:relative;width:min(95vw,120vh);max-height:92vh;overflow:auto;padding:2.4vh 2.8vh}
+#dlgDomaine h2{margin:0;text-align:center}#dlgDomaine .descD{text-align:center;margin:.4vh 0 1.4vh;font-size:1.8vh;opacity:.85}
+#dlgDomaine .tresorD,#dlgDomaine .agrandD{display:flex;gap:2vh;align-items:center;justify-content:space-between;padding:1.2vh 1.4vh;border-radius:1vh;background:#0000000d;margin-bottom:1vh}
+#dlgDomaine .tresorD > div,#dlgDomaine .agrandD > div{flex:1;display:flex;flex-direction:column;gap:.4vh;font-size:1.7vh}
+#dlgDomaine .barreD{height:1.3vh;border-radius:1vh;background:#0003;overflow:hidden}#dlgDomaine .barreD i{display:block;height:100%;background:linear-gradient(90deg,#c08a10,#ffd27a)}
+#dlgDomaine small{font-size:1.5vh;opacity:.85}#dlgDomaine .okD{color:#2a7a2a;font-weight:800}#dlgDomaine .koD{color:#a01a1a;font-weight:800}
+#dlgDomaine h3{margin:1.4vh 0 .8vh;font-size:2.1vh}
+#dlgDomaine .servD{display:grid;grid-template-columns:repeat(auto-fill,minmax(24vh,1fr));gap:1vh}
+#dlgDomaine .carteS{display:flex;flex-direction:column;gap:.4vh;padding:1vh 1.2vh;border-radius:1vh;border:2px solid #0002;background:#ffffff40}
+#dlgDomaine .carteS.on{border-color:#c08a10;background:#ffd27a33}#dlgDomaine .carteS b{font-size:1.9vh}#dlgDomaine .carteS em{font-size:1.5vh;color:#7a4a1a}
+#dlgDomaine .pris{font:800 1.5vh var(--f-label);color:#2a7a2a}#dlgDomaine .verrou{font:800 1.4vh var(--f-label);color:#8a6a4a}
+#dlgDomaine .journalD p{margin:.3vh 0;font-size:1.6vh;border-bottom:1px solid #0001;padding-bottom:.3vh}
+#dlgApparat{position:absolute;inset:0;z-index:57;display:flex;align-items:center;justify-content:center;background:radial-gradient(#200a0acc,#000e)}
+#dlgApparat .boiteAp{position:relative;width:min(94vw,120vh);max-height:92vh;overflow:auto;padding:2.4vh 2.6vh;border-radius:1.6vh;border:2px solid #ff5a3a;background:linear-gradient(#1c0c10f4,#0a0408f4);box-shadow:0 0 4vh #ff2a1a55;color:#f4e0d8}
+#dlgApparat h2{margin:0;text-align:center;font:900 3.4vh var(--f-titre);color:#ffb08a}
+#dlgApparat .sousAp{text-align:center;font-size:1.7vh;opacity:.9;margin:.5vh 0 1.6vh}#dlgApparat .sousAp b{color:#ffd27a}
+#dlgApparat .grilleAp{display:grid;grid-template-columns:repeat(auto-fill,minmax(30vh,1fr));gap:1.4vh}
+#dlgApparat .carteAp{display:flex;flex-direction:column;gap:.8vh;padding:1.4vh;border-radius:1.2vh;border:2px solid #ffffff1a;background:#ffffff08;text-align:center}
+#dlgApparat .carteAp.on{border-color:var(--a1);box-shadow:0 0 2vh var(--a1)}
+#dlgApparat .carteAp h3{margin:0;font:900 2.1vh var(--f-titre);color:var(--a3)}#dlgApparat .carteAp p{margin:0;font-size:1.6vh;opacity:.85}
+#dlgApparat .apercuAp{position:relative;height:16vh;border-radius:1vh;background:radial-gradient(circle at 50% 80%,var(--a2),#050205);overflow:hidden}
+#dlgApparat .apercuAp i{position:absolute;left:50%;bottom:12%;width:12vh;height:3vh;margin-left:-6vh;border-radius:50%;border:.4vh solid var(--a1);box-shadow:0 0 2vh var(--a1),inset 0 0 1.4vh var(--a1);animation:apA 1.6s ease-out infinite}
+#dlgApparat .apercuAp i:nth-child(2){animation-delay:.53s}#dlgApparat .apercuAp i:nth-child(3){animation-delay:1.06s}
+@keyframes apA{from{transform:scale(.4);opacity:1}to{transform:scale(1.9) translateY(-3vh);opacity:0}}
+.btn.rouge{background:linear-gradient(#c8322a,#7a0a0a);color:#fff;border-color:#4a0606}
 #btnReveler i{width:1.2vh;height:1.2vh;border-radius:50%;background:#ff3a1a;box-shadow:0 0 .8vh #ff3a1a}
 @keyframes respireR{to{box-shadow:0 0 2.4vh #ff2a1aaa}}
 .plaque.dissimule .ipb{opacity:.75;filter:grayscale(.6)}
@@ -188,6 +216,14 @@ body.cinema #jeu::before{top:0}body.cinema #jeu::after{bottom:0}
 #tabMissions .affiche p{margin:0;font:700 1.45vh var(--f-label);line-height:1.3;color:#4a3420}
 #tabMissions .cible{font:700 1.45vh var(--f-label)}#tabMissions .cible b{color:#8a0a0a}#tabMissions .cible small{color:#6a4a2a}
 #tabMissions .prime{font:900 1.8vh var(--f-titre);color:#7a4a00}
+#tabMissions .bandeauM{display:flex;flex-wrap:wrap;justify-content:center;gap:1.4vh 3vh;margin:-.6vh 0 1.6vh;font:700 1.6vh var(--f-label);color:#f0d8b0}#tabMissions .bandeauM b{color:#ffd27a}
+#tabMissions .sousT b{color:#ffd27a}
+#tabMissions .teteM{display:flex;gap:1vh;align-items:center}#tabMissions .teteM canvas{width:7vh;height:7vh;border-radius:.8vh;border:2px solid var(--c);background:#3a0a0a;flex:0 0 auto}
+#tabMissions .diffM{display:inline-block;margin-top:.3vh;padding:.2vh .9vh;border-radius:.6vh;color:#fff;font:900 1.35vh var(--f-label);letter-spacing:.1vh;text-transform:uppercase}
+#tabMissions .infosM{display:grid;grid-template-columns:repeat(3,1fr);gap:.4vh;padding:.6vh;border-radius:.6vh;background:#0000000f}
+#tabMissions .infosM div{display:flex;flex-direction:column;align-items:center;text-align:center}#tabMissions .infosM i{font:700 1.2vh var(--f-label);font-style:normal;color:#7a5a3a;text-transform:uppercase}#tabMissions .infosM b{font:900 1.45vh var(--f-label)}
+#tabMissions .okM{color:#2a7a2a}#tabMissions .koM{color:#a01a1a}
+#tabMissions .prime small{font:700 1.3vh var(--f-label);color:#6a4a2a}
 #tabMissions .choixM{display:flex;gap:.6vh;margin-top:auto}#tabMissions .choixM .btn{flex:1;padding:.7vh;font-size:1.5vh}
 @media (max-aspect-ratio:4/3){#tabMissions .affiches{grid-template-columns:repeat(2,1fr)}}
 </style>

@@ -504,3 +504,44 @@ PAROLES_PNJ.clients = {
 };
 // ce que les autres joueurs disent de toi dans le chat de la Place
 export const RUMEURS_CHAT = ['vous avez vu ? {nom} {exploit}', 'paraît que {nom} {exploit}, sérieux ?', '{nom} {exploit}… c’est quoi ce niveau', 'gg {nom}, j’ai vu que tu {exploit2}', 'qqn a le build de {nom} ? il {exploit}', 'on m’a dit que {nom} {exploit}, je demande des preuves', 'respect à {nom}, il {exploit}', '{nom} {exploit}, il faut qu’il nous carry', 'moi aussi un jour je serai comme {nom}', 'je viens de croiser {nom} sur la Place, c’est lui qui {exploit}'];
+
+// ---- Apparat : auras de prestige (cosmétiques, au prix fort) ----
+export const APPARAT = [
+  { id: 'ecarlate', nom: 'Aura meurtrière écarlate', desc: 'Une aura de sang qui fait trembler tout ce qui respire.', prix: 3000000, c1: '#ff2a2a', c2: '#3a0000', c3: '#ffb08a' },
+  { id: 'neant', nom: 'Aura du Néant', desc: 'Les ombres elles-mêmes reculent devant toi.', prix: 6000000, c1: '#b05aff', c2: '#12001e', c3: '#e8c8ff' },
+  { id: 'celeste', nom: 'Aura céleste', desc: 'La lumière des anciens rois. Rares sont ceux qui la portent.', prix: 12000000, c1: '#ffd27a', c2: '#5a3a00', c3: '#fff4d0' },
+];
+// ce que crient ceux qui voient l'aura se déployer
+export const CHOC_AURA = {
+  ennemi: ['Qu… quelle est cette puissance ?!', 'Mes jambes… elles ne bougent plus…', 'Ce n’est pas un humain…', 'Reculez ! RECULEZ !', 'Je… je ne veux pas mourir ici !', 'Le maître ne m’a jamais parlé de ça…'],
+  boss: ['Cette aura… impossible.', 'Enfin un adversaire digne de moi.', 'Tu caches bien ton jeu, mortel.', 'Même mon maître n’avait pas cette pression…'],
+  pnj: ['Par tous les dieux…', 'J’en ai renversé ma chope…', 'C’est donc ça, la puissance d’une légende ?', 'Je… je ferai un prix. Un très bon prix.', 'Mes runes tremblent…'],
+  bot: ['wtf c’est quoi cette aura', 'ok là je recule', 'il a payé combien pour ça ??', 'gg je fuis', 'mes oreilles sifflent…', 'respect.'],
+  ombre: ['Maître… tu es magnifique.', 'Voilà pourquoi nous te suivons.', 'Ils te craignent enfin comme il se doit.'],
+};
+
+// ======================= LE DOMAINE : château évolutif, ferme, serviteurs, trésor =======================
+export const DOMAINE_NIVEAUX = [
+  { nom: 'Campement', desc: 'Quelques tentes autour d’un feu. Tout commence ici.', revenu: 8000, cap: 80000, cout: 0, res: {} },
+  { nom: 'Fortin', desc: 'Une palissade, deux tours de guet et une grande salle.', revenu: 20000, cap: 260000, cout: 600000, res: { bois: 300 } },
+  { nom: 'Château', desc: 'Des murs de pierre, quatre tours et un donjon.', revenu: 50000, cap: 800000, cout: 2500000, res: { bois: 800, minerai: 500 } },
+  { nom: 'Forteresse', desc: 'Tours jumelles, braseros et bannières sur chaque rempart.', revenu: 110000, cap: 2000000, cout: 9000000, res: { bois: 1600, minerai: 1200, recolte: 800 } },
+  { nom: 'Citadelle', desc: 'Cristaux d’or et lumière des anciens rois. Une légende de pierre.', revenu: 240000, cap: 5000000, cout: 30000000, res: { bois: 3000, minerai: 2500, recolte: 2000 } },
+];
+export const PRIX_DOMAINE = 1000000;
+export const SERVITEURS = {
+  fermier: { nom: 'Lisette', role: 'Fermière', modele: 'Rogue', prix: 150000, niv: 0, desc: '+20 % de revenus : les champs nourrissent tout le domaine.' },
+  cuisinier: { nom: 'Margot', role: 'Cuisinière', modele: 'Rogue', prix: 300000, niv: 1, desc: 'Un festin à chaque visite : +8 % de vie pendant 30 min.' },
+  forgeron: { nom: 'Gunnar', role: 'Forgeron', modele: 'Barbarian', prix: 400000, niv: 1, desc: '+4 % de dégâts en permanence.' },
+  garde: { nom: 'Aldwin', role: 'Capitaine de la garde', modele: 'Knight', prix: 800000, niv: 2, desc: 'Repousse la plupart des voleurs de ton trésor.' },
+  intendant: { nom: 'Corvin', role: 'Intendant', modele: 'Mage', prix: 1200000, niv: 2, desc: '+30 % de revenus.' },
+  ecuyer: { nom: 'Elya', role: 'Écuyère', modele: 'Rogue_Hooded', prix: 2000000, niv: 3, desc: '+5 % de vitesse de déplacement.' },
+};
+export const PAROLES_SERVITEURS = {
+  fermier: ['Les carottes poussent bien cette saison, maître.', 'J’ai chassé trois corbeaux ce matin. Ils reviendront.', 'Le blé sent bon. C’est bon signe.', 'Si vous voulez du pain frais, il faudra attendre demain.', 'Le moulin grince. Il faudrait l’huiler.', 'La terre ici est riche. Comme vous, maître.'],
+  cuisinier: ['Asseyez-vous, maître, le ragoût est presque prêt.', 'J’ai mis double ration de viande pour vous.', 'Ne dites rien à Gunnar, il a déjà mangé deux fois.', 'Une bonne soupe vaut une bonne armure.', 'Goûtez ça. Non, ne demandez pas ce que c’est.', 'Le feu doit rester doux, sinon tout brûle.'],
+  forgeron: ['Ton arme a besoin d’un coup de marteau, maître.', 'Le fer chante quand il est bien chauffé.', 'J’ai forgé une lame pour un roi, autrefois. Il est mort quand même.', 'Encore trois coups et c’est fini.', 'Le charbon arrive demain. J’espère.', 'Chaque coup que tu donnes, je l’ai forgé un peu.'],
+  garde: ['Les remparts sont sûrs, maître.', 'Des voleurs rôdent parfois la nuit. Ils repartent les mains vides.', 'J’ai doublé la garde près du trésor.', 'Personne n’entre sans que je le sache.', 'Mes hommes s’entraînent à l’aube.', 'Le domaine dort tranquille grâce à vous… et un peu à moi.'],
+  intendant: ['Les comptes sont tenus au sou près, maître.', 'Le trésor grossit. Lentement, mais sûrement.', 'Je vous conseille d’agrandir les murs avant l’hiver.', 'Les marchands demandent votre sceau sur trois contrats.', 'Nous dépensons trop en chandelles. Je m’en occupe.', 'Votre renommée attire des travailleurs. C’est excellent pour les revenus.'],
+  ecuyer: ['Les montures sont prêtes, maître.', 'J’ai brossé ta cape. Elle en avait besoin.', 'Tu marches vite aujourd’hui. Bon signe.', 'Le palefrenier dit que tu es le meilleur maître du royaume.', 'J’ai graissé tes bottes. Tu iras plus loin.', 'Un jour, tu m’apprendras à me battre ?'],
+};

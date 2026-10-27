@@ -121,7 +121,7 @@ function cullActeurs() {
   const f = G.focus || G.camTarget;
   for (const a of G.acteurs) {
     if (!a.root.parent) { if (a._dansScene) G.acteurs.delete(a); continue; }
-    if (!a._dansScene) { a._dansScene = true; a.fusionner(); }
+    if (!a._dansScene) { a._dansScene = true; a.fusionner(); if (a.contour !== false && (HUMAINS.has(a.cle) || a.contour)) a.ajouterContour(); }
     const p = a.root.position;
     _sph.center.set(p.x, p.y + a.rayonVis * 0.6, p.z); _sph.radius = a.rayonVis + 2.5;
     const vis = _frustum.intersectsSphere(_sph);
@@ -338,6 +338,8 @@ function elargirFoulee(a, k) {
     j.b.quaternion.copy(j.rest).multiply(_qr);
   }
 }
+// mesurées pendant le chargement : pas d'à-coup la première fois qu'un modèle court
+export function mesurerDemarches(cles) { for (const c of cles) if (G.assets[c]) for (const clip of ['Running_A', 'Walking_A']) vitesseNaturelle({ cle: c }, clip); }
 // vitesse naturelle d'un cycle de course (pied au sol) mesurée une fois par modèle
 function vitesseNaturelle(a, clip) {
   const cle = a.cle + '|' + clip;
@@ -537,6 +539,25 @@ export class Acteur {
       ref.parent.add(m);
       for (const p of parts) { p.removeFromParent(); const i = this.mats.indexOf(p.material); if (i >= 0) this.mats.splice(i, 1); const j = this.meshes.indexOf(p); if (j >= 0) this.meshes.splice(j, 1); }
       this.mats.push(mat); this.meshes.push(m);
+    }
+  }
+  // contour stylisé (coque inversée) : les silhouettes se détachent nettement du décor
+  ajouterContour() {
+    if (this._contour || G.niveau < 1) return; this._contour = [];
+    let y0 = Infinity, y1 = -Infinity; const peaux = [];
+    for (const o of this.meshes) {
+      if (!o.isSkinnedMesh || !o.parent) continue; let v = true; for (let p = o; p; p = p.parent) if (!p.visible) { v = false; break; } if (!v || (o.material && o.material.transparent)) continue;
+      const g = o.geometry; if (!g.boundingBox) g.computeBoundingBox(); y0 = Math.min(y0, g.boundingBox.min.y); y1 = Math.max(y1, g.boundingBox.max.y); peaux.push(o);
+    }
+    if (!peaux.length || !(y1 > y0)) return;
+    const ep = (y1 - y0) * (this.contourK || 0.011);
+    const mat = new THREE.MeshBasicMaterial({ color: this.contourC || '#120810', side: THREE.BackSide });
+    mat.onBeforeCompile = (sh) => { sh.uniforms.uEp = { value: ep }; sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nuniform float uEp;').replace('#include <skinning_vertex>', '#include <skinning_vertex>\ntransformed += normalize(objectNormal) * uEp;'); };
+    mat.customProgramCacheKey = () => 'contour1';
+    for (const o of peaux) {
+      const c = new THREE.SkinnedMesh(o.geometry, mat); c.bind(o.skeleton, o.bindMatrix);
+      c.frustumCulled = false; c.castShadow = false; c.receiveShadow = false; c.userData.contour = true;
+      c.position.copy(o.position); c.quaternion.copy(o.quaternion); c.scale.copy(o.scale); o.parent.add(c); this._contour.push(c);
     }
   }
   maj(dt) {

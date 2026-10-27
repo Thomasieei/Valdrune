@@ -769,7 +769,7 @@ UI.mini = (monde, joueur, entites) => {
   let x0, z0, x1, z1;
   if (monde.type === 'hub') { x0 = monde.bornes.x0 - 4; x1 = monde.bornes.x1 + 4; z0 = monde.bornes.z0 - 4; z1 = monde.bornes.z1 + 4; }
   else if (monde.type === 'arene') { x0 = z0 = -monde.rayon - 3; x1 = z1 = monde.rayon + 3; }
-  else if (monde.type === 'ile') { x0 = z0 = -monde.rayonMonde - 14; x1 = z1 = monde.rayonMonde + 14; }
+  else if (monde.type === 'ile' || monde.type === 'domaine') { x0 = z0 = -monde.rayonMonde - 14; x1 = z1 = monde.rayonMonde + 14; }
   else if (monde.type === 'sylve' || monde.type === 'goulet') { x0 = monde.bornes.x0; x1 = monde.bornes.x1; z0 = monde.bornes.z0; z1 = monde.bornes.z1; }
   else { x0 = 0; z0 = 0; x1 = monde.grilleW * 4; z1 = monde.grilleH * 4; }
   const ech = 236 / Math.max(x1 - x0, z1 - z0), ox = 128 - (x0 + x1) / 2 * ech, oz = 128 - (z0 + z1) / 2 * ech;
@@ -789,6 +789,7 @@ UI.mini = (monde, joueur, entites) => {
       for (const [k, c, sx] of [['bleu', '#3a7aff', -1], ['rouge', '#ff3a3a', 1]]) { const [a, b] = P(sx > 0 ? 46 : -76, -18); f.fillStyle = c + '55'; f.fillRect(a, b, 30 * ech, 36 * ech); const cm = monde.bases[k].cimetiere; const [g1, g2] = P(cm.x, cm.z); f.fillStyle = '#d8f4ff'; f.fillRect(g1 - 2, g2 - 5, 4, 10); f.fillRect(g1 - 5, g2 - 2, 10, 4); }
       f.strokeStyle = '#e8dcc0'; f.lineWidth = Math.max(2, 1.6 * ech); f.lineCap = 'round'; for (const [x0, z0, x1, z1] of monde.murs) { f.beginPath(); f.moveTo(...P(x0, z0)); f.lineTo(...P(x1, z1)); f.stroke(); }
     }
+    else if (monde.type === 'domaine') { f.fillStyle = '#2a5a8a'; f.fillRect(0, 0, 256, 256); f.fillStyle = '#6aa85a'; f.beginPath(); f.arc(...P(0, 0), monde.rayonMonde * ech, 0, 7); f.fill(); const [a0, b0] = P(-16, -40); f.fillStyle = '#b8a888'; f.fillRect(a0, b0, 32 * ech, 26 * ech); f.fillStyle = '#7a5a3a'; for (const [x, z] of [[-24, 4], [-24, 14], [-36, 10]]) { const [a, b] = P(x - 4.5, z - 3); f.fillRect(a, b, 9 * ech, 6 * ech); } }
     else if (monde.type === 'arene') { f.fillStyle = '#5f5a8e'; f.beginPath(); f.arc(...P(0, 0), monde.rayon * ech, 0, 7); f.fill(); }
     else {
       for (let z = 0; z < monde.grilleH; z++) for (let x = 0; x < monde.grilleW; x++) {
@@ -986,8 +987,8 @@ const filtres = { cat: 'tout', niv: 'tout', q: 'tout', txt: '' };
 UI.dialogueMarchand = () => {
   const d = $('#dialogue');
   d.innerHTML = `<div class="boiteDial bois"><button class="fermer" data-x aria-label="Fermer">×</button><div class="visage"><canvas id="visageCv" width="128" height="128"></canvas></div>
-  <div><h3>Borin, marchand de la Place</h3><p>Bienvenue, voyageur. Le bronze et l'azur, je les ai. Le reste, faudra aller le chercher de l'autre côté de la Brèche… et revenir vivant pour me le revendre.</p>
-  <div class="choix"><button class="btn or" data-c="achat">Acheter</button><button class="btn" data-c="vente">Vendre</button><button class="btn violet" data-c="parch">Parchemins</button><button class="btn gris" data-c="infos">Parle-moi des tiers</button><button class="btn gris" data-x2>Au revoir</button></div></div></div>`;
+  <div><h3>Borin, marchand de la Place</h3><p>${api.parolePNJ ? api.parolePNJ('borin') : 'Bienvenue, voyageur.'}</p>
+  <div class="choix"><button class="btn or" data-c="achat">Acheter</button><button class="btn" data-c="vente">Vendre</button><button class="btn violet" data-c="parch">Parchemins</button><button class="btn rouge" data-c="apparat">Apparat ✦</button><button class="btn gris" data-c="infos">Parle-moi des tiers</button><button class="btn gris" data-x2>Au revoir</button></div></div></div>`;
   d.hidden = false; bustePersonnage('Barbarian', $('#visageCv'), '#8a5a2a');
   api.son('bookOpen', 0.5);
   const fermer = () => { d.hidden = true; };
@@ -998,6 +999,7 @@ UI.dialogueMarchand = () => {
       return;
     }
     if (b.dataset.c === 'parch') { fermer(); UI.boutiqueParchemins(); return; }
+    if (b.dataset.c === 'apparat') { fermer(); api.apparat(); return; }
     fermer(); ongletM = b.dataset.c; UI.ouvrirMarche();
   });
 };
@@ -1302,11 +1304,13 @@ UI.menuIles = (info) => {
     <div class="tailles">${ILE_TAILLES.map((t, i) => `<button class="taille" data-type="${k}" data-taille="${i}" ${info.argent < t.prix ? 'disabled' : ''}><b>${t.nom}</b><span>${fmtCourt(t.prix)}</span></button>`).join('')}</div></div>`).join('');
   p.innerHTML = `<div class="cadreP iles"><button class="fermer" data-x aria-label="Fermer">×</button>
     <h2>Les Îles d’Aldric</h2><div class="sous">Achète une île, construis, fais travailler tes ouvriers… et défends ton coffre. Ton argent : <b>${fmt(info.argent)}</b></div>
+    <h3 class="sec">Ton domaine</h3><div class="mesIles">${info.domaine ? `<div class="carteIle" style="--c:#ffd27a"><div class="txtIle"><b>🏰 Domaine de ${info.nomJ} · ${info.domaine.niveau}</b><small>Trésor : ${fmt(info.domaine.tresor)} ¤ · ${fmt(info.domaine.revenu)} ¤/h</small></div><button class="btn or" data-dom>Y aller</button></div>` : `<div class="carteIle" style="--c:#ffd27a"><div class="txtIle"><b>🏰 Fonder ton domaine</b><small>Un château qui grandit (campement → citadelle), une ferme, des serviteurs et un trésor qui se remplit tout seul. ${info.iles.length ? '' : 'Il te faut d’abord une île.'}</small></div><button class="btn or" data-dom ${info.iles.length && info.argent >= 1000000 ? '' : 'disabled'}>1 000 000 ¤</button></div>`}</div>
     <h3 class="sec">Tes îles</h3><div class="mesIles">${mes}</div>
     <h3 class="sec">Acheter une île</h3><div class="typesIle">${achat}</div>
     <div class="barreTroph pille"><div><b>Piller une île</b> — attaque l’île d’un autre joueur, élimine ses 3 gardes et son champion, puis vide son coffre.</div><button class="btn" data-piller>Partir piller (⚔ ${info.ip})</button></div></div>`;
   p.querySelector('[data-x]').onclick = () => (p.hidden = true);
   p.querySelectorAll('[data-aller]').forEach(b => b.onclick = () => { p.hidden = true; api.allerIle(b.dataset.aller); });
+  { const bd = p.querySelector('[data-dom]'); if (bd) bd.onclick = () => { p.hidden = true; api.domaine(); }; }
   p.querySelectorAll('[data-type]').forEach(b => b.onclick = () => {
     const t = ILE_TAILLES[+b.dataset.taille], T = ILE_TYPES[b.dataset.type];
     b.closest('.typeIle').querySelector('p').innerHTML = `<b>${t.nom} ${T.nom.replace('Île', '').trim()}</b> pour ${fmt(t.prix)} pièces. <button class="btn or" data-confirm>Confirmer l’achat</button>`;
@@ -1671,6 +1675,38 @@ UI.boutonReveler = (visible, cb) => {
   if (!b) { b = document.createElement('button'); b.id = 'btnReveler'; b.type = 'button'; b.innerHTML = '<i></i>RÉVÉLER'; b.addEventListener('pointerdown', (e) => { e.stopPropagation(); e.preventDefault(); b._cb && b._cb(); }); document.getElementById('hud').appendChild(b); }
   b._cb = cb;
 };
+// gouverner son domaine : trésor, agrandissement, serviteurs, journal
+UI.domaine = (I, f) => {
+  let m = document.getElementById('dlgDomaine');
+  if (!I) { if (m) m.remove(); return; }
+  if (!m) { m = document.createElement('div'); m.id = 'dlgDomaine'; $('#jeu').appendChild(m); m.addEventListener('pointerdown', (e) => e.stopPropagation()); }
+  const pc = Math.round(I.tresor / I.N.cap * 100), RL = { bois: 'bois', minerai: 'minerai', recolte: 'récoltes' };
+  const coutRes = I.S ? Object.entries(I.S.res).map(([r, v]) => `<span class="${I.res[r] >= v ? 'okD' : 'koD'}">${fmt(v)} ${RL[r]} (${fmt(I.res[r])})</span>`).join(' · ') : '';
+  const peut = I.S && I.argent >= I.S.cout && Object.entries(I.S.res).every(([r, v]) => I.res[r] >= v);
+  m.innerHTML = `<div class="boiteD parchemin"><button class="fermer" data-x aria-label="Fermer">×</button>
+    <h2>${I.N.nom}</h2><p class="descD">${I.N.desc}</p>
+    <div class="tresorD"><div><b>Trésor</b><span>${fmt(I.tresor)} / ${fmt(I.N.cap)} ¤</span><div class="barreD"><i style="width:${pc}%"></i></div><small>${fmt(I.revenu)} ¤ par heure, même quand tu n’es pas là</small></div><button class="btn or" data-c ${I.tresor > 0 ? '' : 'disabled'}>Collecter</button></div>
+    ${I.S ? `<div class="agrandD"><div><b>Agrandir : ${I.S.nom}</b><small>${I.S.desc}</small><small>Coût : <span class="${I.argent >= I.S.cout ? 'okD' : 'koD'}">${fmt(I.S.cout)} ¤</span>${coutRes ? ' · ' + coutRes : ''}</small></div><button class="btn ${peut ? 'or' : 'gris'}" data-a>Bâtir</button></div>` : '<div class="agrandD"><b>Ton domaine est à son apogée.</b></div>'}
+    <h3>Serviteurs</h3><div class="servD">${I.serviteurs.map(s => `<div class="carteS ${s.embauche ? 'on' : ''}"><b>${s.nom}</b><em>${s.role}</em><small>${s.desc}</small>${s.embauche ? '<span class="pris">À ton service</span>' : s.dispo ? `<button class="btn ${I.argent >= s.prix ? 'or' : 'gris'}" data-s="${s.k}">${fmt(s.prix)} ¤</button>` : `<span class="verrou">Niveau « ${['Campement', 'Fortin', 'Château', 'Forteresse', 'Citadelle'][s.niv]} »</span>`}</div>`).join('')}</div>
+    <h3>Chronique du domaine</h3><div class="journalD">${I.journal.map(j => `<p>${j.txt}</p>`).join('') || '<p>Rien à signaler.</p>'}</div></div>`;
+  m.onclick = (e) => { if (e.target.closest('[data-x]')) return UI.domaine(null); if (e.target.closest('[data-c]')) return f.collecter(); if (e.target.closest('[data-a]')) return f.agrandir(); const b = e.target.closest('[data-s]'); if (b) f.embaucher(b.dataset.s); };
+};
+// bouton « Aura » : déployer ton aura de prestige
+UI.boutonAura = (A, cb) => {
+  let b = document.getElementById('btnAura');
+  if (!A) { if (b) b.remove(); return; }
+  if (!b) { b = document.createElement('button'); b.id = 'btnAura'; b.type = 'button'; b.addEventListener('pointerdown', (e) => { e.stopPropagation(); e.preventDefault(); b._cb && b._cb(); }); document.getElementById('hud').appendChild(b); }
+  b.innerHTML = '<i></i>AURA'; b.style.setProperty('--ac', A.c1); b._cb = cb;
+};
+// boutique d'apparat (auras de prestige)
+UI.apparat = (liste, argent, cb) => {
+  let m = document.getElementById('dlgApparat'); if (m) m.remove();
+  m = document.createElement('div'); m.id = 'dlgApparat'; $('#jeu').appendChild(m); m.addEventListener('pointerdown', (e) => e.stopPropagation());
+  m.innerHTML = `<div class="boiteAp"><button class="fermer" data-x aria-label="Fermer">×</button><h2>Apparat</h2><p class="sousAp">Des auras de prestige. Quand tu la déploies, la caméra tourne autour de toi et tout ce qui t’entoure tremble de peur. Ton argent : <b>${fmt(argent)} ¤</b></p>
+    <div class="grilleAp">${liste.map(x => `<div class="carteAp ${x.equipe ? 'on' : ''}" style="--a1:${x.c1};--a2:${x.c2};--a3:${x.c3}"><div class="apercuAp"><i></i><i></i><i></i></div><h3>${x.nom}</h3><p>${x.desc}</p>
+      ${x.possede ? (x.equipe ? `<button class="btn gris" data-a="retirer" data-i="${x.id}">Retirer</button>` : `<button class="btn or" data-a="equiper" data-i="${x.id}">Équiper</button>`) : `<button class="btn ${argent >= x.prix ? 'or' : 'gris'}" data-a="acheter" data-i="${x.id}">${fmt(x.prix)} ¤</button>`}</div>`).join('')}</div></div>`;
+  m.onclick = (e) => { if (e.target.closest('[data-x]')) return m.remove(); const b = e.target.closest('[data-a]'); if (b) { api.son('select_001', 0.5); cb(b.dataset.i, b.dataset.a); } };
+};
 // dialogue avec un personnage de la taverne
 UI.dialogueTaverne = (d) => {
   let m = document.getElementById('dialTaverne');
@@ -1733,19 +1769,27 @@ UI.relique = (r, actuelle, cb) => {
   const c = r.rarete.color;
   m.innerHTML = `<div class="boiteR" style="--rc:${c}"><div class="halo"></div><div class="rangR">Relique ${r.rarete.nom.toLowerCase()}</div><h3>${r.nom}</h3>
     <div class="pouvR"><b>✦ ${r.pouvoir}</b><span>${r.desc}</span><small>Recharge ${r.cd} s · puissance ×${r.rarete.k}</small></div>
-    ${actuelle ? `<p class="actR">Relique liée actuellement : <b>${actuelle.nom}</b> (${actuelle.pouvoir}, ${actuelle.rarete.nom.toLowerCase()})</p>` : '<p class="actR">Une relique liée à ton âme te donne un pouvoir mystique sur le bouton ✦ (touche G au clavier).</p>'}
+    ${actuelle ? `<p class="actR">Relique liée actuellement : <b>${actuelle.nom}</b> (${actuelle.pouvoir}, ${actuelle.rarete.nom.toLowerCase()})</p>` : '<p class="actR">Une relique liée à ton âme te donne un pouvoir mystique : le bouton ✦ apparaît à gauche de tes sorts.</p>'}
     <div class="optsR"><button data-l="1">Lier à mon âme</button>${actuelle ? '<button data-l="0" class="sec">Garder l’ancienne</button>' : ''}</div></div>`;
   m.onclick = (e) => { const b = e.target.closest('[data-l]'); if (!b) return; api.son('select_001', 0.5); m.remove(); cb(b.dataset.l === '1'); };
 };
 // tableau des missions
-UI.tableauMissions = (offres, cb) => {
+UI.tableauMissions = (offres, cb, infos = {}) => {
   let m = document.getElementById('tabMissions');
   if (!offres) { if (m) m.remove(); return; }
   if (!m) { m = document.createElement('div'); m.id = 'tabMissions'; $('#jeu').appendChild(m); m.addEventListener('pointerdown', (e) => e.stopPropagation()); }
-  m.innerHTML = `<div class="planche"><button class="fermer" data-x aria-label="Fermer">×</button><h2>Tableau des missions</h2><p class="sousT">Ennemis d’élite à l’aura meurtrière. Pars seul, ou avec Kordath, Sylvane et Nyxara.</p>
-    <div class="affiches">${offres.map((o, i) => `<div class="affiche" style="--c:${o.couleur};--r:${(i % 2 ? 1 : -1) * (1 + i * 0.4)}deg"><div class="punaise"></div>
-      <div class="etoiles">${'★'.repeat(o.etoiles)}<span>${'★'.repeat(5 - o.etoiles)}</span></div><h3>${o.titre}</h3><p>${o.resume}</p>
-      <div class="cible">Cible : <b>${o.boss}</b><br><small>${o.faction}</small></div><div class="prime">Prime : ${fmt(o.recompense)} ¤</div>
-      <div class="choixM"><button class="btn gris" data-m="${i}" data-e="0">Seul</button><button class="btn or" data-m="${i}" data-e="1">En équipe</button></div></div>`).join('')}</div></div>`;
+  const DIFF = [['Accessible', '#3a8a3a'], ['Sérieuse', '#5a7a1a'], ['Dangereuse', '#a86a0a'], ['Redoutable', '#b03a0a'], ['Mortelle', '#8a0a2a']];
+  m.innerHTML = `<div class="planche"><button class="fermer" data-x aria-label="Fermer">×</button><h2>Tableau des missions</h2>
+    <p class="sousT">Ennemis d’élite à l’aura meurtrière. <b>Seul</b> : moins d’ennemis, toute la prime pour toi. <b>En équipe</b> : Kordath, Sylvane et Nyxara t’accompagnent et parlent en plein combat.</p>
+    <div class="bandeauM"><span>⚔ Ta puissance : <b>${fmt(infos.ip || 0)}</b></span><span>✔ Missions réussies : <b>${infos.reussies || 0}</b></span><span>↻ Nouvelles affiches après chaque mission</span></div>
+    <div class="affiches">${offres.map((o, i) => { const d = DIFF[o.etoiles - 1] || DIFF[2], ok = (infos.ip || 0) >= o.conseil;
+      return `<div class="affiche" style="--c:${o.couleur};--r:${(i % 2 ? 1 : -1) * (0.6 + i * 0.3)}deg"><div class="punaise"></div>
+      <div class="teteM"><canvas width="96" height="96" data-b="${i}"></canvas><div><div class="etoiles">${'★'.repeat(o.etoiles)}<span>${'★'.repeat(5 - o.etoiles)}</span></div><div class="diffM" style="background:${d[1]}">${d[0]}</div></div></div>
+      <h3>${o.titre}</h3><p>${o.resume}</p>
+      <div class="cible">Cible : <b>${o.boss}</b><br><small>${o.faction}</small></div>
+      <div class="infosM"><div><i>Conseillé</i><b class="${ok ? 'okM' : 'koM'}">⚔ ${fmt(o.conseil)}</b></div><div><i>Seul</i><b>${o.nbSolo} ennemis</b></div><div><i>Équipe</i><b>${o.nbEquipe} + 3 alliés</b></div></div>
+      <div class="prime">Prime : ${fmt(o.recompense)} ¤ <small>+ un objet</small></div>
+      <div class="choixM"><button class="btn gris" data-m="${i}" data-e="0">Seul</button><button class="btn or" data-m="${i}" data-e="1">En équipe</button></div></div>`; }).join('')}</div></div>`;
+  offres.forEach((o, i) => { const cv = m.querySelector(`[data-b="${i}"]`); if (cv && o.modele) { try { bustePersonnage(o.modele, cv, '#3a0a0a'); } catch (e) {} } });
   m.onclick = (e) => { if (e.target.closest('[data-x]')) return UI.tableauMissions(null); const b = e.target.closest('[data-m]'); if (b) { api.son('confirmation_001', 0.4); cb(offres[+b.dataset.m], b.dataset.e === '1'); } };
 };

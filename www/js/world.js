@@ -1595,3 +1595,104 @@ export function construireTaverne() {
     marche: (x, z) => x > X0 + 0.8 && x < X1 - 0.8 && z > Z0 + 0.8 && z < Z1 - 0.6,
   };
 }
+
+// ======================= LE DOMAINE =======================
+// Un plateau au bord de la mer : château qui grandit avec le niveau (campement → citadelle), ferme, village des serviteurs.
+export function construireDomaine(dom) {
+  const groupe = new THREE.Group();
+  G.torches = []; G.feux = []; G.anims = [];
+  const N = dom.niveau | 0, th = THEMES_DONJON[0], teinte = teinteDonjon(th);
+  const inst = new Instancieur(), nat = new Instancieur(), collisions = [];
+  const R = 56;
+  // sol : herbe, mer autour
+  const tH = texHerbe(); tH.repeat.set(26, 26);
+  const sol = new THREE.Mesh(new THREE.CircleGeometry(R + 4, 72), new THREE.MeshStandardMaterial({ map: tH, color: '#d8f0c0', roughness: 1 }));
+  sol.rotation.x = -Math.PI / 2; sol.receiveShadow = true; groupe.add(sol);
+  const bordure = new THREE.Mesh(new THREE.CylinderGeometry(R + 4, R + 1, 3, 72, 1, true), new THREE.MeshStandardMaterial({ color: '#7a6a52', roughness: 1, side: THREE.DoubleSide })); bordure.position.y = -1.5; groupe.add(bordure);
+  const mer = new THREE.Mesh(new THREE.CircleGeometry(300, 64), new THREE.ShaderMaterial({ uniforms: { uT: { value: 0 } },
+    vertexShader: 'varying vec2 vP; void main(){ vP=position.xy; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
+    fragmentShader: 'uniform float uT; varying vec2 vP; void main(){ float w=sin(vP.x*0.18+uT*0.8)*sin(vP.y*0.21-uT*0.6)+sin((vP.x+vP.y)*0.11+uT*0.5); vec3 c=mix(vec3(0.09,0.33,0.52),vec3(0.16,0.52,0.72),0.5+0.25*w); c+=vec3(0.7,0.85,1.0)*smoothstep(1.55,1.9,w)*0.25; float d=length(vP)/300.0; c=mix(c,vec3(0.07,0.18,0.32),smoothstep(0.3,1.0,d)); gl_FragColor=vec4(c,1.0);}' }));
+  mer.rotation.x = -Math.PI / 2; mer.position.y = -2.2; groupe.add(mer); G.anims.push((t) => { mer.material.uniforms.uT.value = t; });
+  // chemins pavés
+  const texPaves = texture('pavesIle', 256, 256, (g, w) => { g.fillStyle = '#9a8a6a'; g.fillRect(0, 0, w, w); for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { const ox = (y % 2) * 16; g.fillStyle = `hsl(${32 + Math.random() * 12},${14 + Math.random() * 10}%,${52 + Math.random() * 16}%)`; g.beginPath(); g.roundRect(x * 32 + ox + 2, y * 32 + 2, 28, 28, 6); g.fill(); } }, { repeat: true });
+  const chemin = (x0, z0, x1, z1, larg = 3) => { const L = Math.hypot(x1 - x0, z1 - z0); const t = texPaves.clone(); t.needsUpdate = true; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(larg / 2.4, L / 2.4); const m = new THREE.Mesh(new THREE.PlaneGeometry(larg, L), new THREE.MeshStandardMaterial({ map: t, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); m.rotation.set(-Math.PI / 2, 0, Math.atan2(x1 - x0, z1 - z0)); m.position.set((x0 + x1) / 2, 0.03, (z0 + z1) / 2); m.receiveShadow = true; groupe.add(m); };
+  chemin(0, 50, 0, -14, 4); chemin(0, 6, -22, 8); chemin(0, 2, 24, 6); chemin(-3, -14, -3, -28, 6.5); chemin(3, -14, 3, -28, 6.5);
+  // portail de retour
+  const portailPos = new THREE.Vector3(0, 0, 50);
+  construirePortail(groupe, portailPos, Math.PI, THEME_JAUNE, 0.45); collisions.push({ x: 0, z: 50, r: 1.4 });
+  // ---- le château ----
+  const X0 = -16, X1 = 16, Z0 = -40, Z1 = -14;
+  const pose = (k, x, z, rot, s = 1) => { const o = cloner(k, x, 0, z, rot, s); groupe.add(o); return o; };
+  const tour = (x, z, s) => { pose('b_tower_A', x, z, Math.atan2(-x, 30 - z), s); collisions.push({ x, z, r: s * 0.55 }); };
+  if (N === 0) { // campement
+    for (const [x, z, r] of [[-9, -30, 0.6], [9, -30, -0.6], [-11, -20, 1.2], [11, -20, -1.2], [-4, -36, 0.2], [4, -36, -0.2]]) { pose('tent', x, z, r, 6); collisions.push({ x, z, r: 1.6 }); }
+    nat.ajouter('n_campfire_stones', 0, 0, -24, 0, 4.4, 4.4, 4.4); G.feux.push({ pos: new THREE.Vector3(0, 0.3, -24), couleur: '#ff8a2a', force: 1.1 }); G.torches.push({ pos: new THREE.Vector3(0, 1.6, -24), color: '#ffa04a', int: 34, dist: 14 }); collisions.push({ x: 0, z: -24, r: 1.2 });
+    pose('flag_yellow', 0, -33, 0, 14);
+  } else if (N === 1) { // fortin : palissade, tours de guet, grande salle
+    for (let x = X0 + 2; x < X1; x += 4) { inst.ajouter('barrier', x, 0, Z0, 0, 1, 1.4, 1); if (Math.abs(x) > 4) inst.ajouter('barrier', x, 0, Z1, 0, 1, 1.4, 1); }
+    for (let z = Z0 + 2; z < Z1; z += 4) { inst.ajouter('barrier', X0, 0, z, Math.PI / 2, 1, 1.4, 1); inst.ajouter('barrier', X1, 0, z, Math.PI / 2, 1, 1.4, 1); }
+    tour(-16, -14, 3.2); tour(16, -14, 3.2);
+    pose('b_home_B', 0, -34, 0, 7); collisions.push({ x: 0, z: -34, r: 3.6 });
+  } else { // château et plus : murs de pierre, tours d'angle, donjon
+    for (let x = X0 + 2; x < X1; x += 4) { inst.ajouter(x % 8 === 2 && N >= 3 ? 'wall_arched' : 'wall', x, 0, Z0, 0); if (Math.abs(x) > 4) inst.ajouter('wall', x, 0, Z1, 0); }
+    for (let z = Z0 + 2; z < Z1; z += 4) { inst.ajouter('wall', X0, 0, z, Math.PI / 2); inst.ajouter('wall', X1, 0, z, Math.PI / 2); }
+    for (const dx of [-4.6, 4.6]) { inst.ajouter('pillar_decorated', dx, 0, Z1, 0, 1, 1.25, 1); collisions.push({ x: dx, z: Z1, r: 1.1 }); }
+    for (const [x, z] of [[X0, Z0], [X1, Z0], [X0, Z1], [X1, Z1]]) tour(x, z, 4.6 + (N >= 3 ? 0.8 : 0));
+    tour(0, -35, 7.5);
+    if (N >= 3) { tour(-8, -36, 5); tour(8, -36, 5); for (let x = X0 + 4; x < X1; x += 8) inst.ajouter(x > 0 ? 'banner_patternA_red' : 'banner_patternB_red', x, 0, Z0 + 0.6, 0); }
+    if (N >= 3) for (const [x, z] of [[-10, -18], [10, -18], [-10, -30], [10, -30]]) brasero(groupe, x, z, '#ff9a3a', 1);
+  }
+  if (N >= 1) { // remparts : collisions
+    for (let x = X0; x <= X1; x += 1.2) { collisions.push({ x, z: Z0, r: 0.8 }); if (Math.abs(x) > 4.4) collisions.push({ x, z: Z1, r: 0.8 }); }
+    for (let z = Z0; z <= Z1; z += 1.2) { collisions.push({ x: X0, z, r: 0.8 }); collisions.push({ x: X1, z, r: 0.8 }); }
+  }
+  // trône et trésor (dans la cour)
+  trone(groupe, th, 0, 0, -27.5, 0); collisions.push({ x: 0, z: -27.5, r: 1.6 });
+  const tresorPos = new THREE.Vector3(5, 0, -27);
+  if (N >= 4) { cristaux(groupe, { ...th, nom: 'or', cristal: '#ffd27a' }, -12, -17, 1.2); cristaux(groupe, { ...th, nom: 'or', cristal: '#ffd27a' }, 12, -17, 1.2); raiLumiere(groupe, 0, -26, '#fff0c0'); }
+  // ---- la ferme ----
+  const sillons = texture('sillons', 128, 128, (g, w) => { g.fillStyle = '#5a3a22'; g.fillRect(0, 0, w, w); for (let y = 0; y < w; y += 16) { g.fillStyle = '#6e4a2c'; g.fillRect(0, y, w, 9); g.fillStyle = 'rgba(0,0,0,0.2)'; g.fillRect(0, y + 9, w, 2); } }, { repeat: true });
+  const champs = [];
+  for (const [cx, cz] of [[-24, 4], [-24, 14], [-36, 10]]) {
+    const t = sillons.clone(); t.needsUpdate = true; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 1.4);
+    const ch = new THREE.Mesh(new THREE.PlaneGeometry(9, 6), new THREE.MeshStandardMaterial({ map: t, roughness: 1, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 })); ch.rotation.x = -Math.PI / 2; ch.position.set(cx, 0.025, cz); ch.receiveShadow = true; groupe.add(ch);
+    const k = pick(['crop_carrot', 'crop_pumpkin', 'crop_melon']);
+    for (let ix = -3; ix <= 3; ix += 1.5) for (let iz = -2; iz <= 2; iz += 1.3) inst.ajouter(k, cx + ix, 0, cz + iz, rnd(0, 6), 2.6, 2.6, 2.6);
+    champs.push(new THREE.Vector3(cx, 0, cz));
+  }
+  pose('b_windmill', -38, -4, 0.6, 5.5); collisions.push({ x: -38, z: -4, r: 3 });
+  { const m = groupe.children[groupe.children.length - 1]; const pale = m.getObjectByName('building_windmill_top_fan_yellow'); if (pale) G.anims.push((t, dt) => { pale.rotation.z -= (dt || 0.016) * 0.8; }); }
+  pose('b_well', -14, 20, 0, 4.5); collisions.push({ x: -14, z: 20, r: 1.7 });
+  for (const [x, z] of [[-30, 20], [-18, -2]]) { pose('sack', x, z, rnd(0, 6), 10); pose('barrel', x + 1.2, z + 0.6, 0, 6); }
+  // ---- le village des serviteurs ----
+  const maisons = [[18, 16], [26, 18], [34, 12], [36, 2], [30, -10], [20, -8]];
+  const postes = {};
+  maisons.forEach(([x, z], i) => { if (i < Math.max(2, (dom.serviteurs || []).length)) { pose('b_home_A', x, z, Math.atan2(-x, -z), 5); collisions.push({ x, z, r: 2.4 }); } });
+  // forge
+  { const fx = 24, fz = 2; const enclume = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.5, 0.6), new THREE.MeshStandardMaterial({ color: '#3a3a40', metalness: 0.7, roughness: 0.35 })); enclume.position.set(fx, 0.85, fz); enclume.castShadow = true; groupe.add(enclume);
+    const pied = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.45, 0.6, 8), new THREE.MeshStandardMaterial({ color: '#5a3a22' })); pied.position.set(fx, 0.3, fz); groupe.add(pied);
+    brasero(groupe, fx + 2.6, fz - 1, '#ff6a1a', 0.9); pose('Wood_Log_Stack', fx - 3, fz - 1.4, 0.4, 1.3); collisions.push({ x: fx, z: fz, r: 0.9 }, { x: fx - 3, z: fz - 1.4, r: 1.4 });
+    postes.forgeron = { pos: new THREE.Vector3(fx, 0, fz + 1.4), regard: new THREE.Vector3(fx, 0, fz) }; postes.enclume = new THREE.Vector3(fx, 1.2, fz); }
+  // cuisine
+  { const kx = 10, kz = 12; nat.ajouter('n_campfire_stones', kx, 0, kz, 0, 3.6, 3.6, 3.6); G.feux.push({ pos: new THREE.Vector3(kx, 0.3, kz), couleur: '#ff8a2a', force: 0.8 }); G.torches.push({ pos: new THREE.Vector3(kx, 1.6, kz), color: '#ffa04a', int: 22, dist: 10 });
+    const marmite = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.45, 0.7, 14), new THREE.MeshStandardMaterial({ color: '#2a2a2e', metalness: 0.6, roughness: 0.4 })); marmite.position.set(kx, 0.6, kz); groupe.add(marmite);
+    G.anims.push((t, dt) => { if (Math.random() < (dt || 0.016) * 3) emettre(new THREE.Vector3(kx, 1.1, kz), { n: 1, c1: '#ffffff', c2: '#c8c8c8', dir: new THREE.Vector3(0, 1, 0), vit: 0.8, vie: 1.6, taille: 0.5, grav: -0.3 }); });
+    collisions.push({ x: kx, z: kz, r: 1.2 }); postes.cuisinier = { pos: new THREE.Vector3(kx + 1.4, 0, kz + 0.6), regard: new THREE.Vector3(kx, 0, kz) }; }
+  // écurie
+  { pose('tent', 36, -16, -0.6, 7); collisions.push({ x: 36, z: -16, r: 2 }); pose('sack', 33, -13, 0, 12); pose('barrel', 39, -12, 0, 6); postes.ecuyer = { pos: new THREE.Vector3(34, 0, -12), regard: new THREE.Vector3(36, 0, -16) }; }
+  postes.fermier = { pts: champs.map(c => c.clone().add(new THREE.Vector3(0, 0, 3.6))) };
+  postes.intendant = { pos: tresorPos.clone().add(new THREE.Vector3(1.8, 0, 1.2)), regard: tresorPos.clone() };
+  postes.garde = { pts: [new THREE.Vector3(-12, 0, -17), new THREE.Vector3(12, 0, -17), new THREE.Vector3(12, 0, -36), new THREE.Vector3(-12, 0, -36)] };
+  // arbres tout autour
+  const rng = graineRng(dom.graine || 99);
+  for (let i = 0; i < 70; i++) { const a = rng() * 6.283, r = 44 + rng() * 10; const x = Math.cos(a) * r, z = Math.sin(a) * r; if (Math.abs(x) < 6 && z > 40) continue; inst.ajouter(pick(['Tree_1_A', 'Tree_2_B', 'Tree_3_A', 'Tree_4_A']), x, 0, z, rng() * 6, 0.9 + rng() * 0.3, 0.9 + rng() * 0.3, 0.9 + rng() * 0.3); collisions.push({ x, z, r: 1 }); }
+  for (let i = 0; i < 90; i++) { const a = rng() * 6.283, r = rng() * 42; const x = Math.cos(a) * r, z = Math.sin(a) * r; if (x > -18 && x < 18 && z > -42 && z < -12) continue; inst.ajouter(rng() < 0.7 ? 'Grass_1_A' : pick(['flower_yellowA', 'flower_redA', 'flower_purpleA']), x, 0, z, rng() * 6, 1.8, 1.8, 1.8); }
+  fusionnerStatiques(groupe);
+  inst.construire(groupe, { mat: teinte }); nat.construire(groupe, { mat: teinte });
+  G.scene.add(groupe);
+  return {
+    groupe, type: 'domaine', nom: 'Domaine', dom, spawn: new THREE.Vector3(0, 0, 44), portail: { pos: portailPos }, tresorPos, trone: new THREE.Vector3(0, 0, -27.5), postes, collisions,
+    rayonMonde: R, centre: new THREE.Vector3(0, 0, 0),
+    marche: (x, z) => Math.hypot(x, z) < R,
+  };
+}
