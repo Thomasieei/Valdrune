@@ -1891,6 +1891,48 @@ export function construireAncestrales() {
   };
 }
 
+// une île des Terres Ancestrales (une étape) : petite, dense, un coffre, un portail, un gardien
+export function construireIleAnc({ r = 34, biome = 'foret', etape = 1, graine = 1 } = {}) {
+  const groupe = new THREE.Group();
+  G.torches = []; G.feux = []; G.anims = [];
+  const inst = new Instancieur(), nat = new Instancieur(), collisions = [], rng = graineRng(graine * 97 + etape);
+  const COUL = { plaine: '#a0b868', foret: '#5a8a46', marais: '#7a6a8a', ruines: '#c8b088', givre: '#e8f0f8', cendres: '#7a5a52', cristaux: '#a8a0d8' };
+  const mer = new THREE.Mesh(new THREE.CircleGeometry(300, 40), new THREE.ShaderMaterial({ uniforms: { uT: { value: 0 } },
+    vertexShader: 'varying vec2 vP; void main(){ vP=position.xy; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
+    fragmentShader: 'uniform float uT; varying vec2 vP; void main(){ float w=sin(vP.x*0.12+uT*0.7)*sin(vP.y*0.15-uT*0.5); vec3 c=mix(vec3(0.05,0.16,0.26),vec3(0.1,0.3,0.42),0.5+0.3*w); gl_FragColor=vec4(c,1.0);} ' }));
+  mer.rotation.x = -Math.PI / 2; mer.position.y = -1.2; groupe.add(mer); G.anims.push((t) => { mer.material.uniforms.uT.value = t; });
+  const tH = texHerbe(); tH.repeat.set(10, 10);
+  const sol = new THREE.Mesh(new THREE.CircleGeometry(r, 56).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: COUL[biome], map: biome === 'givre' ? null : tH, roughness: 1 })); sol.receiveShadow = true; groupe.add(sol);
+  const falaise = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 0.9, 7, 56, 1, true), new THREE.MeshStandardMaterial({ color: '#5a4a3a', roughness: 1, side: THREE.DoubleSide })); falaise.position.y = -3.5; groupe.add(falaise);
+  const spawn = new THREE.Vector3(0, 0, r - 6), portail = new THREE.Vector3(0, 0, -r + 6), coffre = new THREE.Vector3(6, 0, -r + 10), boss = new THREE.Vector3(0, 0, -4);
+  const reserve = [spawn, portail, coffre, boss, new THREE.Vector3(0, 0, 0)];
+  const n = Math.round(r * r / 9);
+  for (let k = 0; k < n; k++) {
+    const a = rng() * 6.283, d = Math.sqrt(rng()) * (r - 3), x = Math.cos(a) * d, z = Math.sin(a) * d;
+    if (reserve.some(p => Math.hypot(p.x - x, p.z - z) < 7)) continue;
+    const p = rng();
+    if (biome === 'foret' && p < 0.3) { const s = 1.4 + rng(); nat.ajouter(rng() < 0.5 ? 'n_tree_fat_darkh' : 'n_tree_oak', x, 0, z, rng() * 6, s, s, s); collisions.push({ x, z, r: 0.7 }); }
+    else if (biome === 'givre' && p < 0.2) { inst.ajouter('Tree_Bare_2_A', x, 0, z, rng() * 6, 1.4, 1.4, 1.4); collisions.push({ x, z, r: 0.6 }); }
+    else if (biome === 'cendres' && p < 0.12) { nat.ajouter('n_rock_largeB', x, 0, z, rng() * 6, 2.2, 2.2, 2.2); collisions.push({ x, z, r: 1.4 }); }
+    else if (biome === 'marais' && p < 0.3) nat.ajouter(rng() < 0.5 ? 'n_mushroom_redTall' : 'n_mushroom_tanGroup', x, 0, z, rng() * 6, 2, 2, 2);
+    else if (biome === 'ruines' && p < 0.1) { inst.ajouter(rng() < 0.5 ? 'wall_broken' : 'pillar_decorated', x, 0, z, rng() * 6); collisions.push({ x, z, r: 1.3 }); }
+    else if (biome === 'cristaux' && p < 0.06) { cristaux(groupe, { nom: 'cristalA', cristal: '#b0a0ff' }, x, z, 1 + rng()); collisions.push({ x, z, r: 1.1 }); }
+    else if (p < 0.3 && biome !== 'givre' && biome !== 'cendres') inst.ajouter(rng() < 0.7 ? 'Grass_1_A' : 'Bush_2_C', x, 0, z, rng() * 6, 1.4, 1.4, 1.4);
+  }
+  if (biome === 'cendres') { const lave = new THREE.MeshBasicMaterial({ color: '#ff4a1a', transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }); for (let k = 0; k < 10; k++) { const a = rng() * 6.28, d = rng() * (r - 5); const f = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 6 + rng() * 6), lave); f.rotation.x = -Math.PI / 2; f.rotation.z = rng() * 6; f.position.set(Math.cos(a) * d, 0.05, Math.sin(a) * d); groupe.add(f); } }
+  if (biome === 'givre') G.anims.push((t, dt) => { if (Math.random() < (dt || 0.016) * 6) emettre(new THREE.Vector3(rnd(-r, r) * 0.7, 9, rnd(-r, r) * 0.7), { n: 1, c1: '#ffffff', c2: '#c8e0ff', dir: new THREE.Vector3(0, -1, 0), vit: 1.5, vie: 4, taille: 0.2 }); });
+  // portail éteint (il s'allume avec la pierre) : socle et anneau
+  const socle = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.8, 0.6, 24), new THREE.MeshStandardMaterial({ color: '#4a4a5a', roughness: 0.8 })); socle.position.set(portail.x, 0.3, portail.z); groupe.add(socle);
+  const anneau = new THREE.Mesh(new THREE.TorusGeometry(2, 0.22, 10, 40), new THREE.MeshStandardMaterial({ color: '#6a6a8a', emissive: '#000000' })); anneau.position.set(portail.x, 2.6, portail.z); groupe.add(anneau);
+  const voile = new THREE.Mesh(new THREE.CircleGeometry(1.85, 32), new THREE.MeshBasicMaterial({ color: '#7ab8ff', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); voile.position.copy(anneau.position); groupe.add(voile);
+  collisions.push({ x: portail.x, z: portail.z, r: 2.4 });
+  G.anims.push((t) => { anneau.rotation.z = t * (voile.material.opacity > 0.1 ? 2 : 0.2); voile.material.opacity = groupe.userData.portailActif ? 0.55 + 0.25 * Math.sin(t * 4) : 0; anneau.material.emissive.set(groupe.userData.portailActif ? '#3a8aff' : '#000000'); });
+  fusionnerStatiques(groupe); inst.construire(groupe); nat.construire(groupe); G.scene.add(groupe);
+  const carte = document.createElement('canvas'); carte.width = carte.height = 512; { const f = carte.getContext('2d'), RM = r + 12, k = 512 / (2 * RM); f.fillStyle = '#123448'; f.fillRect(0, 0, 512, 512); f.fillStyle = COUL[biome]; f.beginPath(); f.arc(RM * k, RM * k, r * k, 0, 7); f.fill(); }
+  return { groupe, type: 'terres', sousType: 'ileAnc', nom: 'Terres Ancestrales', spawn, portail, coffrePos: coffre, bossPos: boss, sorties: [], collisions, carte, rayonMonde: r + 12, campSur: new THREE.Vector3(0, 0, 999), rayonSur: 0,
+    marche: (x, z) => Math.hypot(x, z) < r - 2, biome: () => biome };
+}
+
 // ======================= LE DOMAINE =======================
 // Un plateau au bord de la mer : château qui grandit avec le niveau (campement → citadelle), ferme, village des serviteurs.
 export function construireDomaine(dom) {
