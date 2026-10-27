@@ -316,7 +316,7 @@ export function htmlCase(it, extra = '', style = '') {
 // cases vides du personnage : silhouette discrète (comme les emplacements pas encore utilisés)
 const SILHOUETTES = { sac: 'M30 40 C30 26 70 26 70 40 L74 80 L26 80 Z M40 34 C40 22 60 22 60 34', cape: 'M34 22 L66 22 L80 82 L50 72 L20 82 Z', main: 'M50 12 L56 20 L56 62 L44 62 L44 20 Z M36 62 L64 62 M50 62 L50 84', repas: 'M28 22 L28 50 M36 22 L36 50 M44 22 L44 50 M36 50 L36 84 M66 20 C56 34 56 52 66 56 L66 84' };
 function caseVide(k) { return `<div class="case vide2"><svg viewBox="0 0 100 100"><path d="${SILHOUETTES[k]}" fill="none" stroke="#8a6a4a" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity=".55"/></svg></div>`; }
-const TOUCHES = ['ATK', 'Q', 'W', 'E', 'R', 'D', 'F', 'POT', 'CIBLE'];
+const TOUCHES = ['ATK', 'Q', 'W', 'E', 'R', 'D', 'F', 'A', 'POT', 'CIBLE'];
 UI.boutonRefaire = (nom, fn, duree = 0) => {
   let b = document.getElementById('btnRefaire');
   clearTimeout(UI._refT);
@@ -542,6 +542,7 @@ UI.construireSorts = (joueur) => {
     else if (k === 'CIBLE') svg = svgSort('cible', '#ffcf9a', '#3a1a10', 'cib');
     else { const s = joueur.sorts[k]; svg = s ? svgSort(s.glyphe, s.couleur[0], s.couleur[1], k) : svgSort('', '#3a3440', '#141016', k); if (!s) b.classList.add('off'); }
     if (joueur.sorts[k] && joueur.sorts[k].vole) b.classList.add('vole');
+    if (k === 'A') { if (!joueur.sorts.A) continue; b.classList.add('relique'); b.style.setProperty('--rc', joueur.sorts.A.couleur[0]); lettre = '✦'; }
     const signe = '';
     if (signe && G.gestes !== false) b.classList.add('indic'); // en mode signes : le bouton montre le symbole à dessiner et la recharge
     b.innerHTML = `<div class="cadre"><div>${svg}<div class="cd"></div><div class="num"></div></div></div>${signe}${lettre && !signe ? `<span class="t">${lettre}</span>` : ''}${k === 'POT' ? '<span class="compte"></span>' : ''}`;
@@ -577,7 +578,7 @@ const cls = (el, c, on) => { if (!el) return; const m = el._c || (el._c = {}); i
 const els = {};
 const E = (id) => { const e = els[id]; if (e && e.isConnected) return e; return (els[id] = document.getElementById(id)); };
 UI.majSorts = (joueur) => {
-  for (const k of ['Q', 'W', 'E', 'R', 'D', 'F', 'POT']) {
+  for (const k of ['Q', 'W', 'E', 'R', 'D', 'F', 'A', 'POT']) {
     const b = E('s-' + k); if (!b) continue;
     const cd = joueur.cds[k] || 0, max = joueur.cdMax[k] || 1;
     const cdEl = b._cdEl || (b._cdEl = b.querySelector('.cd')), num = b._num || (b._num = b.querySelector('.num'));
@@ -791,8 +792,8 @@ UI.mini = (monde, joueur, entites) => {
     else if (monde.type === 'arene') { f.fillStyle = '#5f5a8e'; f.beginPath(); f.arc(...P(0, 0), monde.rayon * ech, 0, 7); f.fill(); }
     else {
       for (let z = 0; z < monde.grilleH; z++) for (let x = 0; x < monde.grilleW; x++) {
-        const v = monde.grille[z * monde.grilleW + x]; if (!v) continue;
-        f.fillStyle = v === 1 ? '#5f7fae' : '#4a6290'; const [a, b] = P(x * 4, z * 4); f.fillRect(a, b, 4 * ech + 0.6, 4 * ech + 0.6);
+        const v = monde.grille[z * monde.grilleW + x]; if (!v || (v >= 3 && !monde.crypteVue)) continue;
+        f.fillStyle = v === 3 ? '#8a5ab8' : v === 4 ? '#5a4280' : v === 1 ? '#5f7fae' : '#4a6290'; const [a, b] = P(x * 4, z * 4); f.fillRect(a, b, 4 * ech + 0.6, 4 * ech + 0.6);
       }
     }
     monde._fond = c;
@@ -1674,6 +1675,17 @@ UI.dialogueTaverne = (d) => {
     <div class="optsT">${d.options.map((o, i) => `<button class="optT" data-o="${i}" ${o.desactive ? 'disabled' : ''}><b>${o.label}</b>${o.sous ? `<small>${o.sous}</small>` : ''}</button>`).join('')}</div></div></div>`;
   try { bustePersonnage(d.modele || 'Rogue', m.querySelector('canvas'), '#2a1a10'); } catch (e) {}
   m.onclick = (e) => { if (e.target.closest('[data-x]')) return UI.dialogueTaverne(null); const o = e.target.closest('[data-o]'); if (o && !o.disabled) { api.son('select_001', 0.4); d.options[+o.dataset.o].action(); } };
+};
+// une relique est trouvée : la lier à son âme (bouton ✦) ou la garder
+UI.relique = (r, actuelle, cb) => {
+  let m = document.getElementById('dlgRelique'); if (m) m.remove();
+  m = document.createElement('div'); m.id = 'dlgRelique'; $('#jeu').appendChild(m); m.addEventListener('pointerdown', (e) => e.stopPropagation());
+  const c = r.rarete.color;
+  m.innerHTML = `<div class="boiteR" style="--rc:${c}"><div class="halo"></div><div class="rangR">Relique ${r.rarete.nom.toLowerCase()}</div><h3>${r.nom}</h3>
+    <div class="pouvR"><b>✦ ${r.pouvoir}</b><span>${r.desc}</span><small>Recharge ${r.cd} s · puissance ×${r.rarete.k}</small></div>
+    ${actuelle ? `<p class="actR">Relique liée actuellement : <b>${actuelle.nom}</b> (${actuelle.pouvoir}, ${actuelle.rarete.nom.toLowerCase()})</p>` : '<p class="actR">Une relique liée à ton âme te donne un pouvoir mystique sur le bouton ✦ (touche G au clavier).</p>'}
+    <div class="optsR"><button data-l="1">Lier à mon âme</button>${actuelle ? '<button data-l="0" class="sec">Garder l’ancienne</button>' : ''}</div></div>`;
+  m.onclick = (e) => { const b = e.target.closest('[data-l]'); if (!b) return; api.son('select_001', 0.5); m.remove(); cb(b.dataset.l === '1'); };
 };
 // tableau des missions
 UI.tableauMissions = (offres, cb) => {

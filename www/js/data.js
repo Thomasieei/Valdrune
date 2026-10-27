@@ -191,6 +191,53 @@ export const MOBS = {
   guerrier:{ nom: 'Squelette guerrier', model: 'Skeleton_Warrior', arme: 'Skeleton_Axe', hp: 1.7, dmg: 1.35, vitesse: 2.9, portee: 2.3, type: 'melee', atk: '2H_Melee_Attack_Chop' },
   archer:  { nom: 'Squelette archer', model: 'Skeleton_Rogue', arme: 'Skeleton_Crossbow', hp: 0.8, dmg: 1.1, vitesse: 3.2, portee: 10, type: 'ranged', atk: '2H_Ranged_Shoot' },
   mage:    { nom: 'Squelette mage', model: 'Skeleton_Mage', arme: 'Skeleton_Staff', hp: 0.75, dmg: 1.3, vitesse: 3.0, portee: 9.5, type: 'caster', atk: 'Spellcast_Shoot' },
+  // les vivants du donjon : des cultistes qui servent les gardiens (ils mangent, jouent aux dés, s'enfuient parfois)
+  cultiste:{ nom: 'Cultiste écarlate', model: 'Rogue_Hooded', humain: true, noeuds: ['Knife', 'Knife_Offhand'], cape: 'Rogue_Cape', hp: 0.95, dmg: 1.1, vitesse: 3.7, portee: 2.0, type: 'melee', atk: '1H_Melee_Attack_Slice_Diagonal' },
+  brute:   { nom: 'Brute du culte', model: 'Barbarian', humain: true, noeuds: ['2H_Axe'], cape: 'Barbarian_Cape', hp: 1.7, dmg: 1.4, vitesse: 3.1, portee: 2.4, type: 'melee', atk: '2H_Melee_Attack_Chop' },
+  pretresse:{ nom: 'Prêtresse de la Brèche', model: 'Mage', humain: true, noeuds: ['1H_Wand'], cape: 'Mage_Cape', hp: 0.8, dmg: 1.3, vitesse: 3.2, portee: 9.5, type: 'caster', atk: 'Spellcast_Shoot' },
+};
+
+// ---- Répliques du donjon vivant (tirées sans répétition) ----
+export const REPLIQUES = {
+  intrus: ['Intrusion ! Que fais-tu là, petit humain ?', 'Hé ! Toi ! Personne n’entre ici sans l’ordre du maître !', 'Un vivant ?! Aux armes !', 'On a de la visite… et elle respire encore.', 'Tu t’es perdu, l’ami ? Mauvaise porte.', 'Debout ! On nous attaque !', 'Je savais que j’avais entendu des pas…', 'Qui t’a laissé passer ? Les gardes dorment encore ?', 'Encore un aventurier. Ils ne retiennent jamais la leçon.'],
+  intrus_tablee: ['Lâchez les dés ! Un intrus !', 'Mon repas… tu vas me le payer !', 'On ne peut jamais manger tranquille ici !', 'Hé, c’est pas l’heure de la relève, ça…', 'Range ta chope, on a du travail.', 'Qui a invité ce rat à notre table ?'],
+  intrus_feu: ['Éteignez rien du tout, on a un invité !', 'Approche du feu, petit humain… de plus près.', 'Il a vu le camp ! Ne le laissez pas repartir !', 'Je me réchauffais à peine…'],
+  intrus_rituel: ['Le rituel est interrompu ! Tuez-le !', 'Ton sang complétera l’incantation.', 'Il a brisé le cercle ! Rattrapez-le !', 'Un profane devant l’orbe… blasphème !'],
+  intrus_ronde: ['Halte ! Qui va là ?', 'Toi. Ne bouge plus.', 'Patrouille ! J’ai un intrus !', 'Ah, enfin un peu d’action pendant ma ronde.', 'Les couloirs ne sont pas sûrs, petit. Surtout pour toi.'],
+  intrus_garde: ['On ne passe pas.', 'Le maître ne reçoit personne. Encore moins toi.', 'Recule, ou tu repartiras en morceaux.', 'Halte ! Cette salle est gardée.'],
+  intrus_cercle: ['Tiens, on parlait justement des humains…', 'Silence, les gars. On a de la compagnie.', 'Tu écoutais aux portes ? Mauvaise idée.'],
+  bav_tablee: ['Je te dis que le maître a encore réduit les rations.', 'Ta mise. Et ne triche pas cette fois.', 'T’as entendu ? Un humain aurait passé la Brèche.', 'Encore trois siècles de garde et je prends ma retraite.', 'Pourquoi c’est toujours nous qu’on met près de l’entrée ?', 'Ce ragoût a un goût de… non, mieux vaut pas savoir.', 'Paraît que la crypte du fond est maudite. Même pour nous.', 'Six ! Encore six ! Ces dés sont pipés !', 'Le Nécromancien m’a encore demandé un cœur frais. Où je trouve ça, moi ?'],
+  bav_feu: ['Il fait froid dans ces pierres. Toujours froid.', 'Raconte encore l’histoire du chevalier qui s’est perdu ici.', 'Tu crois que la Brèche se refermera un jour ?', 'Rajoute du bois. Ou des os, c’est pareil.', 'J’ai entendu un mur respirer, dans l’aile secrète…'],
+  bav_rituel: ['Encore un cercle… concentre-toi.', 'Le maître veut le sceau avant la lune rouge.', 'Ne prononce pas ce nom ici !', 'Sens-tu ? La Brèche respire.', 'L’orbe pulse plus fort ce soir.'],
+  bav_cercle: ['Rien à signaler… comme d’habitude.', 'Tu crois qu’on a encore une âme, nous ?', 'Le Gardien dort depuis des jours. Ça me rend nerveux.', 'Si un humain arrive, je le laisse passer. Je plaisante. Quoique…', 'Ma lame est émoussée. Comme moi.', 'J’entends des pas dans les couloirs… ou c’est le vent ?', 'Il paraît que l’Archère rate jamais. Jamais.'],
+  bav_garde: ['Rien à l’horizon.', 'Encore six heures de garde…', 'Si quelqu’un vient, c’est toi qui cries.', 'Le maître a dit : personne. Même pas le cuisinier.'],
+  bav_ronde: ['Ronde numéro mille… rien.', 'Gauche, droite, gauche…', 'Encore ce couloir. J’en rêve la nuit.', 'Si je croise ce rat encore une fois…', 'Tu as fermé la crypte, la dernière fois ?'],
+  moquerie: ['Ha ! Un gringalet. Ce sera rapide.', 'Tu tiens à peine ton arme, petit.', 'On t’a envoyé seul ? Quelle cruauté.', 'Regardez-moi ça… on dirait un apprenti.', 'Toi ? Contre nous ? Je vais bien rire.'],
+  fuite: ['Cette puissance… c’est un monstre ! Je me rends !', 'Je ne suis pas payé pour mourir ! Je pars !', 'Pitié ! Prends ce que tu veux !', 'Le maître se débrouillera sans moi !', 'Non non non… pas contre ça !', 'Je dépose les armes ! Ne me frappe pas !', 'Sauve qui peut !'],
+  loyal: ['Nous ne te laisserons pas passer ! Ne dérange pas le maître !', 'Pour le maître ! Jusqu’au dernier os !', 'Tu devras me briser pour avancer.', 'Le maître ne sera pas dérangé. Jamais.', 'Je sens ta force. Je reste quand même.', 'Fuir ? Je préfère mourir debout.'],
+  terre: ['Je… je ne bouge pas ! Promis !', 'Passe ton chemin, s’il te plaît…', 'Je n’ai rien vu, rien entendu.', 'Ne me regarde pas comme ça…'],
+  desespoir: ['Tant pis… je me défendrai !', 'Tu ne me laisses pas le choix !', 'Alors ce sera ensemble, dans la tombe !'],
+  boss_gardien: ['Hm… qui ose me réveiller ?', 'Mon sommeil durait depuis mille ans… et c’est toi qui l’interromps ?', 'Un vivant… dans MA salle du trône ?', 'Tu as fait trop de bruit, petit humain. Bien trop.'],
+  boss_archere: ['Tiens, une nouvelle cible pour mon entraînement.', 'Tu marches comme un sanglier. Je t’entends depuis l’entrée.', 'Ne bouge pas… ça ira plus vite.', 'Mes flèches s’ennuyaient. Merci d’être venu.'],
+  boss_necro: ['Qui ose troubler mes recherches ?!', 'Encore un sujet d’expérience qui vient à moi de lui-même…', 'Silence ! Tu as gâché trois siècles de calculs !', 'Approche, approche… j’ai justement besoin d’un cœur frais.'],
+  boss_horreur: ['… MORTEL. TU SENS LA PEUR.', 'QUI A TOUCHÉ À MON OR ?!', 'TU OSES ENTRER DANS MON ANTRE ?', 'JE T’AI SENTI DEPUIS LES ÉTAGES SUPÉRIEURS.'],
+  rech_necro: ['Non… la troisième rune est fausse.', 'Encore un peu d’essence d’ombre…', 'Fascinant. Absolument fascinant.', 'Si la Brèche s’ouvre encore d’un doigt…'],
+  crypte: ['Nul ne profanera la relique.', 'Mille ans de garde. Tu n’es qu’un instant de plus.', 'La relique a choisi ses gardiens. Pas toi.', 'Tu as trouvé le passage… tu ne trouveras pas la sortie.'],
+};
+
+// ---- Reliques : trouvées dans les cryptes cachées, elles donnent un pouvoir mystique (bouton dédié) ----
+export const ARTEFACTS = [
+  { id: 'meteore', nom: 'Cœur de l’Étoile morte', pouvoir: 'Chute d’astre', desc: 'Un astre s’écrase sur la zone visée : dégâts énormes, étourdissement et sol en feu.', cd: 70, glyphe: 'meteor', couleur: ['#ffe27a', '#7a1a00'] },
+  { id: 'avatar', nom: 'Masque du Roi oublié', pouvoir: 'Avatar spectral', desc: 'Le spectre géant d’un ancien roi combat à tes côtés pendant 20 s.', cd: 90, glyphe: 'titan', couleur: ['#d8c0ff', '#1a0630'] },
+  { id: 'temps', nom: 'Sablier des Abysses', pouvoir: 'Temps suspendu', desc: 'Fige tous les ennemis autour de toi (les boss moins longtemps).', cd: 75, glyphe: 'spin', couleur: ['#bfe8ff', '#0a2a4a'] },
+  { id: 'nova', nom: 'Larme de la Sainte', pouvoir: 'Nova sacrée', desc: 'Te soigne, te couvre d’un bouclier et repousse les ennemis proches.', cd: 80, glyphe: 'heart', couleur: ['#fff2a0', '#5a4a00'] },
+  { id: 'ailes', nom: 'Plume du Phénix', pouvoir: 'Ailes de cendre', desc: 'Pendant 6 s : bien plus rapide, intouchable 2 s, et chacun de tes coups enflamme.', cd: 60, glyphe: 'wing', couleur: ['#ffb07a', '#4a1000'] },
+];
+export const RARETES_RELIQUE = {
+  vert: { nom: 'Peu commune', k: 1, color: '#4fd16a' },
+  bleu: { nom: 'Rare', k: 1.3, color: '#3f9bff' },
+  violet: { nom: 'Épique', k: 1.7, color: '#b65bff' },
+  legendaire: { nom: 'Légendaire', k: 2.3, color: '#ffc23a' },
 };
 
 // ---- Joueurs du hub (simulés en attendant le serveur) ----

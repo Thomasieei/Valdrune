@@ -70,7 +70,7 @@ export function initRendu(canvas) {
 export function redimensionner() {
   const w = window.innerWidth, h = window.innerHeight;
   const tactile = matchMedia('(pointer: coarse)').matches;
-  const pr = Math.min(window.devicePixelRatio || 1, G.niveau >= 2 ? (tactile ? 1.6 : 1.75) : G.niveau === 1 ? (tactile ? 1.35 : 1.4) : 1.1); // même en qualité basse on reste au-dessus de 1 : plus d'image pixelisée
+  const pr = Math.max(0.85, Math.min(window.devicePixelRatio || 1, G.niveau >= 2 ? (tactile ? 1.6 : 1.75) : G.niveau === 1 ? (tactile ? 1.35 : 1.4) : 1.1) * (G.resK || 1)); // même en qualité basse on reste au-dessus de 1 : plus d'image pixelisée
   G.renderer.setPixelRatio(pr);
   G.renderer.setSize(w, h, false);
   G.composer.setPixelRatio(pr);
@@ -130,6 +130,17 @@ export function appliquerNiveau(n) {
   redimensionner();
   return avant !== n;
 }
+// résolution dynamique : si l'image rame en plein jeu, on baisse un peu la définition (invisible à l'œil), on la remonte dès que ça va mieux
+const dyn = { t: 0, n: 0, somme: 0, att: 0 };
+export function majResolution(dtReel, actif) {
+  if (!actif || dtReel > 0.5 || G.resFixe) { dyn.t = dyn.n = dyn.somme = 0; return; }
+  dyn.t += dtReel; dyn.n++; dyn.att = Math.max(0, dyn.att - dtReel);
+  if (dyn.t < 2.5) return;
+  const fps = dyn.n / dyn.t; dyn.t = dyn.n = 0;
+  const k = G.resK || 1;
+  if (fps < 44 && k > 0.72 && dyn.att <= 0) { G.resK = Math.max(0.72, k - 0.08); dyn.att = 3; redimensionner(); }
+  else if (fps > 57 && k < 1 && dyn.att <= 0) { G.resK = Math.min(1, k + 0.04); dyn.att = 6; redimensionner(); }
+}
 // mesure de fluidité : la qualité « auto » descend d’un cran si le jeu rame, et remonte si ça n’a rien changé
 const auto = { t: 0, n: 0, somme: 0, essai: null, fini: false };
 export function majQualiteAuto(dtReel, actif) {
@@ -146,9 +157,28 @@ export function majQualiteAuto(dtReel, actif) {
   if (fps >= 55) auto.fini = true;
   return null;
 }
+// ombres de contact douces sous chaque personnage (une seule passe pour tous) : les persos « tiennent » au sol
+let _blobs = null; const _bm = new THREE.Matrix4(), _bqI = new THREE.Quaternion(), _bs = new THREE.Vector3(), _bp = new THREE.Vector3();
+function majBlobs() {
+  if (!_blobs) {
+    const t = texture('blob', 64, 64, (g, w) => { const gr = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.55, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, w); });
+    _blobs = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#000000', map: t, transparent: true, opacity: 0.5, depthWrite: false }), 200);
+    _blobs.frustumCulled = false; _blobs.renderOrder = 1; _blobs.geometry.userData.partage = true;
+  }
+  if (_blobs.parent !== G.scene) G.scene.add(_blobs);
+  let n = 0;
+  for (const a of G.acteurs) {
+    if (n >= 200) break;
+    if (!a.vu || !a.root.parent || !a.root.visible || a.sansBlob || a.mort) continue;
+    const p = a.root.position, sol = G.solH ? G.solH(p.x, p.z) : 0, haut = Math.max(0, p.y - sol);
+    const r = Math.min(4.2, ((a.rayon || 0.5) * 1.15 + 0.25) * (a.root.scale.x || 1)) / (1 + haut * 0.35);
+    _bp.set(p.x, sol + 0.115, p.z); _bs.set(r * 2, 1, r * 2); _bm.compose(_bp, _bqI, _bs); _blobs.setMatrixAt(n++, _bm);
+  }
+  _blobs.count = n; _blobs.instanceMatrix.needsUpdate = true;
+}
 export function rendre() {
   G.renderer.info.reset();
-  cullActeurs();
+  cullActeurs(); majBlobs();
   G._img = (G._img || 0) + 1;
   if (G.renderer.shadowMap.enabled) G.renderer.shadowMap.needsUpdate = (G._img & 1) === 0;
   if (G.niveau >= 2) G.composer.render(); else G.renderer.render(G.scene, G.camera); // sans bloom : rendu direct, anticrénelé par le navigateur
@@ -254,12 +284,19 @@ const HUMAINS = new Set(['Knight', 'Barbarian', 'Mage', 'Rogue', 'Rogue_Hooded']
 const TENUE_GLSL = `
 vec3 _hsl2rgb(vec3 c){ vec3 rgb = clamp(abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0, 0.0, 1.0); return c.z + c.y * (rgb-0.5)*(1.0-abs(2.0*c.z-1.0)); }
 uniform vec4 uTenue;`;
-export function patchTenue(mat) {
+export function patchTenue(mat, peau = false) {
   if (!mat || !mat.isMeshStandardMaterial || mat.userData.uTenue) return;
   const u = mat.userData.uTenue = { value: new THREE.Vector4(0, 1, 1, 0) };
+  const ua = mat.userData.uAO = { value: new THREE.Vector2(0, 2.4) };
+  if (peau) mat.defines = { ...(mat.defines || {}), TENUE_AO: '' };
   mat.onBeforeCompile = (sh) => {
-    sh.uniforms.uTenue = u;
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + TENUE_GLSL).replace('#include <map_fragment>', `#include <map_fragment>
+    sh.uniforms.uTenue = u; sh.uniforms.uAO = ua;
+    // ombrage vertical doux (pieds plus sombres, buste et visage éclairés) : les persos gagnent du volume
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\n#ifdef TENUE_AO\nvarying float vHautT;\n#endif').replace('#include <skinning_vertex>', '#include <skinning_vertex>\n#ifdef TENUE_AO\nvHautT = transformed.y;\n#endif');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n#ifdef TENUE_AO\nvarying float vHautT; uniform vec2 uAO;\n#endif\n' + TENUE_GLSL).replace('#include <map_fragment>', `#include <map_fragment>
+      #ifdef TENUE_AO
+      { float _h = clamp((vHautT - uAO.x) / max(1e-3, uAO.y - uAO.x), 0.0, 1.0); diffuseColor.rgb *= mix(0.6, 1.06, smoothstep(0.02, 0.62, _h)); }
+      #endif
       if (uTenue.w > 0.5) { vec3 c = diffuseColor.rgb; float mx = max(c.r, max(c.g, c.b)), mn = min(c.r, min(c.g, c.b)), d = mx - mn, l = (mx + mn) * 0.5;
         float s = d < 1e-4 ? 0.0 : d / (1.0 - abs(2.0 * l - 1.0) + 1e-4); float h = 0.0;
         if (d > 1e-4) { if (mx == c.r) h = mod((c.g - c.b) / d, 6.0); else if (mx == c.g) h = (c.b - c.r) / d + 2.0; else h = (c.r - c.g) / d + 4.0; h /= 6.0; }
@@ -269,8 +306,11 @@ export function patchTenue(mat) {
       gl_FragColor.rgb += vec3(1.0, 0.9, 0.8) * _rim * 0.32;
       #include <dithering_fragment>`);
   };
-  mat.customProgramCacheKey = () => 'tenue2';
+  mat.customProgramCacheKey = () => 'tenue3' + (peau ? 'p' : '');
 }
+// animations manquantes sur certains modèles (squelettes / humains) : on joue la plus proche
+const ALIAS_ANIM = { Idle_Combat: ['2H_Melee_Idle', 'Idle'], Death_C_Skeletons: ['Death_A'], Spawn_Ground_Skeletons: ['Idle'], Spellcast_Summon: ['Spellcast_Raise', 'Spellcast_Shoot'], '1H_Melee_Attack_Jump_Chop': ['1H_Melee_Attack_Chop', '2H_Melee_Attack_Chop'], '1H_Ranged_Shoot': ['2H_Ranged_Shoot'], Sit_Floor_Idle: ['Idle'], Interact: ['Idle'], Walking_A: ['Running_A'], Cheer: ['Idle'], '2H_Melee_Attack_Spinning': ['2H_Melee_Attack_Chop'] };
+const _qd = new THREE.Quaternion(), _qd2 = new THREE.Quaternion(), _qp = new THREE.Quaternion(), _qpi = new THREE.Quaternion(), _axeY = new THREE.Vector3(0, 1, 0), _axeR = new THREE.Vector3();
 export class Acteur {
   constructor(cle, { hauteur = 2.0, echelle = 1 } = {}) {
     const src = G.assets[cle];
@@ -290,9 +330,15 @@ export class Acteur {
         o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; this.meshes.push(o);
         o.material = o.material.clone(); this.mats.push(o.material);
         o.material.userData.baseEmissive = o.material.emissive ? o.material.emissive.clone() : null;
-        if (HUMAINS.has(cle)) patchTenue(o.material);
+        if (HUMAINS.has(cle)) patchTenue(o.material, o.isSkinnedMesh);
       }
     });
+    if (HUMAINS.has(cle)) { // hauteur du corps (pose de référence) pour l'ombrage vertical
+      let y0 = Infinity, y1 = -Infinity;
+      for (const o of this.meshes) if (o.isSkinnedMesh) { const g = o.geometry; if (!g.boundingBox) g.computeBoundingBox(); y0 = Math.min(y0, g.boundingBox.min.y); y1 = Math.max(y1, g.boundingBox.max.y); }
+      if (y1 > y0) for (const m of this.mats) if (m.userData.uAO) m.userData.uAO.value.set(y0, y1);
+      this._aoY = [y0, y1];
+    }
     // proportions moins « chibi » pour les héros : tête plus petite, buste un peu plus long
     if (HUMAINS.has(cle)) { this.tete = this.nodes.head || null; this.buste = this.nodes.chest || null; const M = G.mince || [0.74, 1.08]; this.model.scale.x *= M[0]; this.model.scale.z *= M[0]; this.model.scale.y *= M[1]; }
     this.mixer = new THREE.AnimationMixer(this.model);
@@ -351,7 +397,9 @@ export class Acteur {
   // vitesse de l'animation de course calée sur la vitesse réelle (plus de pieds qui patinent)
   cadence(k) { if (this.bas) this.bas.timeScale = k; else if (this.courante && this.courante.loop === THREE.LoopRepeat) this.courante.timeScale = k; }
   jouer(nom, { fondu = 0.18, boucle = true, vitesse = 1, forcer = false, fin = null } = {}) {
-    const a = this.actions[nom]; if (!a) return;
+    let a = this.actions[nom];
+    if (!a && ALIAS_ANIM[nom]) for (const n of ALIAS_ANIM[nom]) if (this.actions[n]) { a = this.actions[n]; nom = n; break; }
+    if (!a) return;
     // en mouvement, une attaque ne joue que sur le haut du corps : les jambes continuent de courir
     if (!boucle && this.couches && this._jouerHaut(nom, { vitesse, fin, jambes: this.jambesNom })) return;
     if (this.haut && boucle) { // une attaque est en cours sur le haut du corps : on ne change que les jambes
@@ -390,7 +438,7 @@ export class Acteur {
     srcRoot.updateMatrix();
     const ajout = (src, parent) => {
       if (src.isSkinnedMesh) {
-        const m = new THREE.SkinnedMesh(src.geometry, src.material.clone()); m.material.userData = { baseEmissive: m.material.emissive ? m.material.emissive.clone() : null }; patchTenue(m.material); if (this._tenueV) m.material.userData.uTenue.value.copy(this._tenueV);
+        const m = new THREE.SkinnedMesh(src.geometry, src.material.clone()); m.material.userData = { baseEmissive: m.material.emissive ? m.material.emissive.clone() : null }; patchTenue(m.material, true); if (this._aoY) m.material.userData.uAO.value.set(...this._aoY); if (this._tenueV) m.material.userData.uTenue.value.copy(this._tenueV);
         m.position.copy(src.position); m.quaternion.copy(src.quaternion); m.scale.copy(src.scale);
         m.bind(ref.skeleton, src.bindMatrix); m.castShadow = true; m.frustumCulled = false;
         m.material.userData.baseEmissive = m.material.emissive ? m.material.emissive.clone() : null;
@@ -435,7 +483,7 @@ export class Acteur {
       const indexes = geos.every(g => g.index), aucun = geos.every(g => !g.index);
       if (!indexes && !aucun) continue;
       const geo = mergeGeometries(geos, false); if (!geo) continue;
-      const uT = ref.material.userData.uTenue; const mat = ref.material.clone(); mat.color.set('#ffffff'); mat.vertexColors = true; mat.userData = {}; if (uT) { patchTenue(mat); mat.userData.uTenue.value.copy(uT.value); }
+      const uT = ref.material.userData.uTenue; const mat = ref.material.clone(); mat.color.set('#ffffff'); mat.vertexColors = true; mat.userData = {}; if (uT) { patchTenue(mat, true); mat.userData.uTenue.value.copy(uT.value); if (ref.material.userData.uAO) mat.userData.uAO.value.copy(ref.material.userData.uAO.value); }
       mat.userData.baseEmissive = mat.emissive ? mat.emissive.clone() : null;
       const m = new THREE.SkinnedMesh(geo, mat);
       m.name = ref.name + '_fusion'; m.frustumCulled = false; m.castShadow = this._ombre; m.receiveShadow = false;
@@ -459,6 +507,20 @@ export class Acteur {
       if (this.buste) { this.buste.scale.x *= b[0]; this.buste.scale.y *= b[1]; this.buste.scale.z *= b[2]; }
       const bx = this.buste ? b[0] : 1, by = this.buste ? b[1] : 1, bz = this.buste ? b[2] : 1;
       this.tete.scale.x *= k / (M[0] * bx); this.tete.scale.y *= k / (M[1] * by); this.tete.scale.z *= k / (M[0] * bz);
+    }
+    // regard : la tête suit ce qui l'intéresse (cible, interlocuteur) ; tête basse quand on somnole
+    if (this.tete && (this.regard || this.teteBas || this._ry || this._rp)) {
+      let yaw = 0;
+      if (this.regard) { const dx = this.regard.x - this.root.position.x, dz = this.regard.z - this.root.position.z; let r = Math.atan2(dx, dz) - this.root.rotation.y; r = Math.atan2(Math.sin(r), Math.cos(r)); yaw = Math.abs(r) > 2.3 ? 0 : Math.max(-1.05, Math.min(1.05, r)); }
+      const k = Math.min(1, dt * 6);
+      this._ry = (this._ry || 0) + (yaw - (this._ry || 0)) * k; this._rp = (this._rp || 0) + ((this.teteBas ? 0.6 : 0) - (this._rp || 0)) * Math.min(1, dt * 2.5);
+      if (Math.abs(this._ry) < 0.002 && Math.abs(this._rp) < 0.002 && !this.regard && !this.teteBas) { this._ry = this._rp = 0; }
+      else {
+        const ay = this.root.rotation.y;
+        _qd.setFromAxisAngle(_axeY, this._ry); _qd2.setFromAxisAngle(_axeR.set(Math.cos(ay), 0, -Math.sin(ay)), this._rp); _qd.multiply(_qd2);
+        this.tete.parent.getWorldQuaternion(_qp); _qpi.copy(_qp).invert();
+        this.tete.quaternion.premultiply(_qp).premultiply(_qd).premultiply(_qpi);
+      }
     }
     if (this.flash > 0 || this._flashOn) {
       this.flash -= dt; const k = Math.max(0, this.flash) / 0.12; this._flashOn = k > 0;
@@ -484,7 +546,7 @@ export class Instancieur {
     this.par.get(cle).push(m);
   }
   // découpé en blocs de 24 m : la caméra ne dessine que les blocs visibles
-  construire(groupe, { ombre = false } = {}) {
+  construire(groupe, { ombre = false, mat = null } = {}) {
     const CELL = 36;
     for (const [cle, toutes] of this.par) {
       const src = G.assets[cle]; if (!src) continue;
@@ -495,7 +557,7 @@ export class Instancieur {
         if (!o.isMesh) return;
         const tmp = new THREE.Matrix4();
         for (const mats of blocs.values()) {
-          const im = new THREE.InstancedMesh(o.geometry, o.material, mats.length);
+          const im = new THREE.InstancedMesh(o.geometry, mat ? mat(o.material, cle) : o.material, mats.length);
           mats.forEach((m, i) => im.setMatrixAt(i, tmp.multiplyMatrices(m, o.matrixWorld)));
           im.computeBoundingSphere();
           im.receiveShadow = true; im.castShadow = ombre; im.matrixAutoUpdate = false;

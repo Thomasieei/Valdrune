@@ -29,15 +29,15 @@ function solAbysse(groupe, cx, cz, taille) {
   m.rotation.x = -Math.PI / 2; m.position.set(cx, -0.25, cz); m.receiveShadow = true; groupe.add(m);
 }
 
-function brasero(groupe, x, z, couleur = '#ff7a2a', echelle = 1) {
-  const col = cloner('column', x, 0, z, 0, 0.9 * echelle); groupe.add(col);
+function brasero(groupe, x, z, couleur = '#ff7a2a', echelle = 1, y0 = 0) {
+  const col = cloner('column', x, y0, z, 0, 0.9 * echelle); groupe.add(col);
   const bol = new THREE.Mesh(new THREE.CylinderGeometry(0.62 * echelle, 0.36 * echelle, 0.4 * echelle, 12, 1, true), new THREE.MeshStandardMaterial({ color: '#4a3a32', metalness: 0.6, roughness: 0.5, side: THREE.DoubleSide }));
-  bol.position.set(x, 1.38 * echelle, z); groupe.add(bol);
+  bol.position.set(x, y0 + 1.38 * echelle, z); groupe.add(bol);
   const braise = new THREE.Mesh(new THREE.CircleGeometry(0.55 * echelle, 16), new THREE.MeshBasicMaterial({ color: couleur }));
-  braise.rotation.x = -Math.PI / 2; braise.position.set(x, 1.5 * echelle, z); groupe.add(braise);
-  const p = new THREE.Vector3(x, 1.55 * echelle, z);
+  braise.rotation.x = -Math.PI / 2; braise.position.set(x, y0 + 1.5 * echelle, z); groupe.add(braise);
+  const p = new THREE.Vector3(x, y0 + 1.55 * echelle, z);
   G.feux.push({ pos: p, couleur, force: echelle });
-  G.torches.push({ pos: new THREE.Vector3(x, 2.4 * echelle, z), color: couleur, int: 30 * echelle, dist: 14 });
+  G.torches.push({ pos: new THREE.Vector3(x, y0 + 2.4 * echelle, z), color: couleur, int: 30 * echelle, dist: 14 });
 }
 
 function torcheMurale(inst, x, z, rotY) {
@@ -290,8 +290,8 @@ function texTapis(c1, c2, or) {
 function tapis(groupe, x, z, larg, long, rotY, style = 0) {
   const st = [['#4a0c10', '#7a1418', '#d8a84a'], ['#101a3a', '#1e2c5a', '#c8b070'], ['#2a0a3a', '#43165a', '#d8a8ff']][style % 3];
   const t = texTapis(...st); t.wrapT = THREE.RepeatWrapping;
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(larg, long), new THREE.MeshStandardMaterial({ map: t, roughness: 0.95 }));
-  m.rotation.set(-Math.PI / 2, 0, rotY); m.position.set(x, 0.05, z); m.receiveShadow = true; groupe.add(m);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(larg, long), new THREE.MeshStandardMaterial({ map: t, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  m.rotation.set(-Math.PI / 2, 0, rotY); m.position.set(x, 0.1, z); m.receiveShadow = true; groupe.add(m);
 }
 function sarcophage(groupe, x, z, rotY) {
   const g = new THREE.Group(); const p = matPierre();
@@ -317,7 +317,7 @@ function tache(groupe, x, z, r, couleur) {
   const mat = MATS_DECOR[cle] || (MATS_DECOR[cle] = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, color: couleur, map: texture('tache', 128, 128, (g) => {
     for (let i = 0; i < 26; i++) { const x0 = 64 + (Math.random() - 0.5) * 70, y0 = 64 + (Math.random() - 0.5) * 70, rr = 8 + Math.random() * 26; const gr = g.createRadialGradient(x0, y0, 0, x0, y0, rr); gr.addColorStop(0, 'rgba(255,255,255,0.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x0, y0, rr, 0, 7); g.fill(); }
   }) }));
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(r * 2, r * 2), mat); m.rotation.set(-Math.PI / 2, 0, Math.random() * 6); m.position.set(x, 0.06, z); groupe.add(m);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(r * 2, r * 2), mat); m.rotation.set(-Math.PI / 2, 0, Math.random() * 6); m.position.set(x, 0.085, z); groupe.add(m);
 }
 function os(groupe, x, z) {
   const mat = MATS_DECOR.os || (MATS_DECOR.os = new THREE.MeshStandardMaterial({ color: '#d8cfbc', roughness: 0.8 }));
@@ -331,14 +331,156 @@ function raiLumiere(groupe, x, z, couleur = '#ffe0b0') {
   const mat = new THREE.MeshBasicMaterial({ map: t, color: couleur, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   for (let k = 0; k < 2; k++) { const m = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 12), mat); m.position.set(x, 5.2, z); m.rotation.set(0.38, k * Math.PI / 2 + 0.6, 0.12); groupe.add(m); }
   const sol = new THREE.Mesh(new THREE.CircleGeometry(2.2, 24), new THREE.MeshBasicMaterial({ map: texRond(), color: couleur, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false }));
-  sol.rotation.x = -Math.PI / 2; sol.position.set(x - 1.2, 0.07, z + 2); groupe.add(sol);
+  sol.rotation.x = -Math.PI / 2; sol.position.set(x - 1.2, 0.095, z + 2); groupe.add(sol);
 }
-function decorerSalle(groupe, inst, collisions, s, type) {
+// ======================= DONJONS =======================
+// Chaque niveau de donjon a sa propre pierre, ses cristaux et sa lumière : fini les murs gris uniformes
+export const THEMES_DONJON = [
+  { nom: 'gres', mur: '#ecd6ae', sol: '#dcc49c', roche: '#e0d4b8', bloc: ['#9a8462', '#665238'], cristal: '#3affc0', lueur: '#ffc890', mousse: '#26401c', lave: null, brume: '#0e120c', hemi: '#d8e4c0', runes: '#5affc8' },
+  { nom: 'os', mur: '#f2ece2', sol: '#dcd4c6', roche: '#e8e4dc', bloc: ['#aaa296', '#767068'], cristal: '#5ab0ff', lueur: '#c0dcff', mousse: null, lave: null, brume: '#0c1018', hemi: '#c8d8f4', runes: '#7ac0ff' },
+  { nom: 'basalte', mur: '#bcaaa0', sol: '#ac9890', roche: '#c8b4a8', bloc: ['#6e4a40', '#40281f'], cristal: '#ff4a2a', lueur: '#ffc8a0', mousse: null, lave: '#ff5a10', brume: '#1a0a08', hemi: '#ecd0c4', runes: '#ff5a2a' },
+  { nom: 'abime', mur: '#a88690', sol: '#8c6a74', roche: '#b49aa2', bloc: ['#562434', '#2e0e18'], cristal: '#ff1a5a', lueur: '#ff9aa8', mousse: null, lave: '#ff1a3a', brume: '#1a0208', hemi: '#f0a8b4', runes: '#ff2a5a' },
+];
+function teinteDonjon(th) {
+  const cache = new Map(), cs = new THREE.Color(th.sol), cm = new THREE.Color(th.mur), cr = new THREE.Color(th.roche);
+  return (mat, cle) => {
+    const sol = /^(floor|stairs)/.test(cle), roc = /^n_(rock|stone|statue|campfire)/.test(cle), pierre = sol || roc || /^(wall|pillar|column|rubble|barrier)/.test(cle);
+    if (!pierre || !mat || !mat.color) return mat;
+    const k = mat.uuid + (sol ? 's' : roc ? 'r' : 'm');
+    if (!cache.has(k)) { const m = mat.clone(); if (roc) { m.color.lerp(cr, 0.55); m.roughness = 0.85; m.metalness = 0; } else m.color.multiply(sol ? cs : cm); cache.set(k, m); }
+    return cache.get(k);
+  };
+}
+// pierre taillée (façades des estrades)
+function texBlocs(th) {
+  return texture('blocs' + th.nom, 256, 256, (g, w) => {
+    g.fillStyle = th.bloc[1]; g.fillRect(0, 0, w, w);
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 5; c++) {
+      const x = c * 64 - (r % 2) * 32, y = r * 64;
+      g.fillStyle = th.bloc[0]; g.globalAlpha = 0.7 + Math.random() * 0.3; g.fillRect(x + 3, y + 3, 58, 58);
+      g.globalAlpha = 1; g.fillStyle = 'rgba(255,240,220,0.1)'; g.fillRect(x + 3, y + 3, 58, 4);
+      g.fillStyle = 'rgba(0,0,0,0.28)'; g.fillRect(x + 3, y + 56, 58, 5);
+    }
+    for (let i = 0; i < 1600; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '0,0,0' : '255,240,220'},${Math.random() * 0.1})`; g.fillRect(Math.random() * w, Math.random() * w, 2, 2); }
+  }, { repeat: true });
+}
+const MATS_FACE = new Map();
+function faceBlocs(groupe, th, x, y, z, larg, haut, rotY) {
+  const k = th.nom + Math.round(larg) + 'x' + Math.round(haut * 10);
+  if (!MATS_FACE.has(k)) { const t = texBlocs(th).clone(); t.needsUpdate = true; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(Math.max(1, Math.round(larg / 3)), Math.max(1, Math.round(haut / 1.4))); MATS_FACE.set(k, new THREE.MeshStandardMaterial({ map: t, roughness: 0.92 })); }
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(larg, haut), MATS_FACE.get(k));
+  m.position.set(x, y, z); m.rotation.y = rotY; m.receiveShadow = true; groupe.add(m); return m;
+}
+// estrade praticable : socle en pierre taillée, dallage, balustrade et un vrai escalier (le relief est suivi par G.solH)
+function estrade(groupe, inst, collisions, reliefs, th, o) {
+  const { x0, x1, z0, z1, h, cote, ouverts = [cote] } = o;
+  const w = x1 - x0, d = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+  for (let x = x0 + 2; x < x1; x += 4) for (let z = z0 + 2; z < z1; z += 4) inst.ajouter('floor_tile_large', x, h - 0.05, z, Math.floor(Math.random() * 4) * Math.PI / 2);
+  const coeur = new THREE.Mesh(new THREE.BoxGeometry(w - 0.06, h - 0.06, d - 0.06), new THREE.MeshStandardMaterial({ color: th.bloc[1], roughness: 1 }));
+  coeur.position.set(cx, (h - 0.06) / 2, cz); coeur.receiveShadow = true; groupe.add(coeur);
+  if (ouverts.includes('S')) faceBlocs(groupe, th, cx, h / 2 - 0.03, z1 + 0.01, w, h, 0);
+  if (ouverts.includes('N')) faceBlocs(groupe, th, cx, h / 2 - 0.03, z0 - 0.01, w, h, Math.PI);
+  if (ouverts.includes('E')) faceBlocs(groupe, th, x1 + 0.01, h / 2 - 0.03, cz, d, h, Math.PI / 2);
+  if (ouverts.includes('W')) faceBlocs(groupe, th, x0 - 0.01, h / 2 - 0.03, cz, d, h, -Math.PI / 2);
+  // l'escalier tombe pile entre deux segments de balustrade
+  const ex = x0 + 4 * Math.round((cx - x0) / 4), ez = z0 + 4 * Math.round((cz - z0) / 4);
+  const L = Math.max(2.6, h * 2.6), larg = 7.6, hw = larg / 2, sx = larg / 7;
+  let r;
+  if (cote === 'S') { inst.ajouter('stairs_wide', ex, 0, z1, 0, sx, h / 5.1, L / 4); r = { x0: ex - hw, x1: ex + hw, z0: z1, z1: z1 + L, axe: 'z', haut: z1 }; }
+  else if (cote === 'N') { inst.ajouter('stairs_wide', ex, 0, z0, Math.PI, sx, h / 5.1, L / 4); r = { x0: ex - hw, x1: ex + hw, z0: z0 - L, z1: z0, axe: 'z', haut: z0 }; }
+  else if (cote === 'W') { inst.ajouter('stairs_wide', x0, 0, ez, -Math.PI / 2, sx, h / 5.1, L / 4); r = { x0: x0 - L, x1: x0, z0: ez - hw, z1: ez + hw, axe: 'x', haut: x0 }; }
+  else { inst.ajouter('stairs_wide', x1, 0, ez, Math.PI / 2, sx, h / 5.1, L / 4); r = { x0: x1, x1: x1 + L, z0: ez - hw, z1: ez + hw, axe: 'x', haut: x1 }; }
+  reliefs.push({ type: 'plat', x0, x1, z0, z1, h }, { type: 'rampe', ...r, h, L });
+  const bords = { S: ['x', z1, 0], N: ['x', z0, 0], E: ['z', x1, Math.PI / 2], W: ['z', x0, Math.PI / 2] };
+  for (const c of ouverts) {
+    const [ax, fixe, rot] = bords[c]; const a0 = ax === 'x' ? x0 : z0, a1 = ax === 'x' ? x1 : z1, ce = ax === 'x' ? ex : ez;
+    for (let a = a0 + 2; a < a1; a += 4) if (!(c === cote && Math.abs(a - ce) < 2.5)) inst.ajouter('barrier', ax === 'x' ? a : fixe, h - 0.03, ax === 'x' ? fixe : a, rot, 1, 0.72, 1);
+    for (let a = a0 + 0.45; a < a1; a += 0.9) if (!(c === cote && Math.abs(a - ce) < hw + 0.1)) collisions.push(ax === 'x' ? { x: a, z: fixe, r: 0.5 } : { x: fixe, z: a, r: 0.5 });
+  }
+  return { ex, ez, L };
+}
+const GEO_CRISTAL = new THREE.OctahedronGeometry(0.5, 0);
+const MATS_CRISTAL = {};
+function cristaux(groupe, th, x, z, k = 1, y = 0) {
+  const mat = MATS_CRISTAL[th.nom] || (MATS_CRISTAL[th.nom] = new THREE.MeshStandardMaterial({ color: th.cristal, emissive: th.cristal, emissiveIntensity: 1.2, roughness: 0.15, metalness: 0.1, flatShading: true }));
+  for (let i = 0; i < 6; i++) {
+    const m = new THREE.Mesh(GEO_CRISTAL, mat); const a = i / 6 * 6.28 + Math.random(); const r = i ? (0.35 + Math.random() * 0.5) * k : 0; const s = (i ? 0.45 + Math.random() * 0.6 : 1.25) * k;
+    m.scale.set(s * 0.55, s * (1.8 + Math.random()), s * 0.55); m.position.set(x + Math.cos(a) * r, y + s * 0.55, z + Math.sin(a) * r);
+    m.rotation.set((Math.random() - 0.5) * 0.5 + (i ? Math.sin(a) * 0.4 : 0), Math.random() * 3, (i ? -Math.cos(a) * 0.4 : 0)); groupe.add(m);
+  }
+  G.torches.push({ pos: new THREE.Vector3(x, y + 1.8, z), color: th.cristal, int: 22 * k, dist: 11 });
+}
+function rochers(nat, collisions, x, z, n = 3, haut = false, r0 = 1.4) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * 6.28, r = i ? 0.7 + Math.random() * r0 : 0;
+    const px = x + Math.cos(a) * r, pz = z + Math.sin(a) * r;
+    if (haut && i < 2) { const s = 3.4 + Math.random() * 2; nat.ajouter(pick(['n_stone_tallB', 'n_stone_tallG']), px, -0.1, pz, Math.random() * 6, s, s * (1.1 + Math.random() * 0.6), s); }
+    else { const s = 2.4 + Math.random() * 2.4; nat.ajouter(pick(['n_rock_largeB', 'n_rock_largeC', 'n_stone_largeC']), px, -0.12, pz, Math.random() * 6, s, s * (0.8 + Math.random() * 0.9), s); }
+  }
+  collisions.push({ x, z, r: 1.3 + r0 * 0.4 });
+}
+function fissuresLave(groupe, th, x, z, taille = 7) {
+  const f = new THREE.Mesh(new THREE.PlaneGeometry(taille, taille), new THREE.MeshBasicMaterial({ map: texFissures(), color: th.lave, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.95 }));
+  f.rotation.x = -Math.PI / 2; f.rotation.z = Math.random() * 6; f.position.set(x, 0.1, z); f.renderOrder = 1; groupe.add(f);
+  G.feux.push({ pos: new THREE.Vector3(x, 0.2, z), couleur: th.lave, force: 0.35 });
+  G.torches.push({ pos: new THREE.Vector3(x, 1, z), color: th.lave, int: 16, dist: 9 });
+}
+// petite table basse et coussins (les cultistes s'assoient autour pour manger et jouer aux dés)
+function tableBasse(groupe, x, z) {
+  const bois = MATS_DECOR.boisT || (MATS_DECOR.boisT = new THREE.MeshStandardMaterial({ color: '#6a4228', roughness: 0.85 }));
+  const tissu = MATS_DECOR.coussin || (MATS_DECOR.coussin = new THREE.MeshStandardMaterial({ color: '#7a1a24', roughness: 1 }));
+  const plateau = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 0.12, 20), bois); plateau.position.set(x, 0.5, z); plateau.castShadow = true; groupe.add(plateau);
+  const pied = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.32, 0.46, 10), bois); pied.position.set(x, 0.23, z); groupe.add(pied);
+  for (let i = 0; i < 4; i++) { const a = i / 4 * 6.28 + 0.4; const c = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.55, 0.16, 12), tissu); c.position.set(x + Math.cos(a) * 1.75, 0.08, z + Math.sin(a) * 1.75); groupe.add(c); }
+  const metal = MATS_DECOR.chope || (MATS_DECOR.chope = new THREE.MeshStandardMaterial({ color: '#9a8a6a', metalness: 0.6, roughness: 0.4 }));
+  for (let i = 0; i < 4; i++) { const a = i / 4 * 6.28 + 0.4; const m = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.09, 0.2, 8), metal); m.position.set(x + Math.cos(a) * 0.75, 0.66, z + Math.sin(a) * 0.75); groupe.add(m); }
+  const de = MATS_DECOR.de || (MATS_DECOR.de = new THREE.MeshStandardMaterial({ color: '#efe6d0', roughness: 0.6 }));
+  for (let i = 0; i < 2; i++) { const m = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, 0.13), de); m.position.set(x + rnd(-0.3, 0.3), 0.63, z + rnd(-0.3, 0.3)); m.rotation.y = rnd(0, 3); groupe.add(m); }
+  const bougie = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.3, 8), new THREE.MeshBasicMaterial({ color: '#ffe0a0' })); bougie.position.set(x, 0.71, z); groupe.add(bougie);
+  G.torches.push({ pos: new THREE.Vector3(x, 1.4, z), color: '#ffb060', int: 14, dist: 8 });
+}
+// trône de pierre (salle du Gardien)
+function trone(groupe, th, x, y, z, rotY) {
+  const g = new THREE.Group(); const p = new THREE.MeshStandardMaterial({ map: texBlocs(th), roughness: 0.9 }); const rouge = new THREE.MeshStandardMaterial({ color: '#7a1020', roughness: 1 });
+  const b = (w, h, d, px, py, pz, m = p) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(px, py, pz); o.castShadow = true; g.add(o); };
+  b(2.6, 0.5, 2.2, 0, 0.25, 0); b(2.2, 0.35, 1.8, 0, 0.67, 0.1, rouge); b(2.6, 3.8, 0.45, 0, 2.2, -1.0); b(0.4, 1.1, 2.0, -1.2, 1.0, 0); b(0.4, 1.1, 2.0, 1.2, 1.0, 0);
+  b(1.6, 2.4, 0.08, 0, 2.3, -0.74, rouge); b(3.2, 0.4, 0.6, 0, 4.2, -1.0);
+  const crane = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), new THREE.MeshStandardMaterial({ color: '#e8dcc0', roughness: 0.7 })); crane.position.set(0, 4.65, -1.0); crane.scale.set(1, 0.9, 1.1); g.add(crane);
+  g.position.set(x, y, z); g.rotation.y = rotY; groupe.add(g);
+}
+// cible d'entraînement en paille (salle de l'Archère)
+function cibleTir(groupe, x, y, z, rotY) {
+  const t = texture('cibleTir', 128, 128, (g, w) => { const c = ['#e8d8a8', '#c03028', '#e8d8a8', '#c03028', '#ffd24a']; for (let i = 0; i < 5; i++) { g.fillStyle = c[i]; g.beginPath(); g.arc(64, 64, 62 - i * 12, 0, 7); g.fill(); } });
+  const d = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 0.25, 24), [new THREE.MeshStandardMaterial({ color: '#c8a868' }), new THREE.MeshStandardMaterial({ map: t }), new THREE.MeshStandardMaterial({ map: t })]);
+  d.rotation.set(Math.PI / 2, 0, 0); const g = new THREE.Group(); g.add(d); d.position.y = 1.5;
+  const pied = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.6, 0.12), new THREE.MeshStandardMaterial({ color: '#5a3a22' })); pied.position.set(0, 0.8, -0.2); pied.rotation.x = 0.25; g.add(pied);
+  g.position.set(x, y, z); g.rotation.y = rotY; groupe.add(g);
+}
+// bureau du Nécromancien : grimoire ouvert, crâne, fioles et runes qui flottent
+function bureau(groupe, th, x, y, z, rotY) {
+  const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rotY; groupe.add(g);
+  const bois = new THREE.MeshStandardMaterial({ color: '#4a2a1a', roughness: 0.8 });
+  const plateau = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.16, 1.5), bois); plateau.position.y = 1.0; plateau.castShadow = true; g.add(plateau);
+  for (const [px, pz] of [[-1.5, -0.6], [1.5, -0.6], [-1.5, 0.6], [1.5, 0.6]]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.0, 0.16), bois); p.position.set(px, 0.5, pz); g.add(p); }
+  const page = texture('pageGrimoire', 128, 64, (c, w, h) => { c.fillStyle = '#e8dcbc'; c.fillRect(0, 0, w, h); c.strokeStyle = '#6a1a2a'; for (let i = 0; i < 9; i++) { c.beginPath(); c.moveTo(8 + (i > 4 ? 64 : 0), 10 + (i % 5) * 10); c.lineTo(56 + (i > 4 ? 64 : 0), 10 + (i % 5) * 10); c.stroke(); } c.fillStyle = '#c0102a'; c.beginPath(); c.arc(96, 40, 9, 0, 7); c.fill(); });
+  const livre = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.55), new THREE.MeshStandardMaterial({ map: page, emissive: '#ff8a6a', emissiveIntensity: 0.25 })); livre.rotation.x = -Math.PI / 2; livre.position.set(0, 1.1, 0.1); g.add(livre);
+  const crane = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), new THREE.MeshStandardMaterial({ color: '#e8dcc0' })); crane.position.set(-1.1, 1.26, -0.2); g.add(crane);
+  for (let i = 0; i < 4; i++) { const f = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.1, 0.32, 8), new THREE.MeshStandardMaterial({ color: ['#5aff8a', '#ff3a6a', '#7a8aff', '#ffd24a'][i], emissive: ['#2aff6a', '#ff1a4a', '#4a5aff', '#ffaa1a'][i], emissiveIntensity: 1.2, transparent: true, opacity: 0.85 })); f.position.set(0.8 + i * 0.18, 1.24, -0.35 + (i % 2) * 0.2); g.add(f); }
+  const runes = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 2.2), new THREE.MeshBasicMaterial({ map: texRunes(th.runes), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.8 }));
+  runes.rotation.x = -Math.PI / 2; runes.position.set(0, 2.2, 0.1); runes.userData.dyn = true; g.add(runes);
+  G.anims.push((t) => { runes.rotation.z = t * 0.6; runes.position.y = 2.2 + Math.sin(t * 1.5) * 0.12; runes.material.opacity = 0.55 + 0.3 * Math.sin(t * 3); });
+  G.torches.push({ pos: new THREE.Vector3(x, y + 2.2, z), color: th.runes, int: 20, dist: 10 });
+}
+function decorerSalle(groupe, inst, nat, collisions, reliefs, th, s, type, solA) {
   const X0 = (s.cx - Math.floor(s.tx / 2)) * CELL, Z0 = (s.cz - Math.floor(s.tz / 2)) * CELL, X1 = X0 + s.tx * CELL, Z1 = Z0 + s.tz * CELL;
+  Object.assign(s, { X0, X1, Z0, Z1, deco: type });
   const cx = s.centre.x, cz = s.centre.z, porte = 7.5;
+  // une salle sur deux a une mezzanine au nord-est, desservie par un escalier
+  const mezz = type !== 'effondree' && Math.random() < 0.6;
+  const mW = s.tx >= 10 ? 12 : 8, mx0 = X1 - mW;
   const slotsN = [], slotsO = [];
-  for (let x = X0 + 2.6; x < X1 - 2; x += 3.4) if (Math.abs(x - cx) > porte) slotsN.push(x);
-  for (let z = Z0 + 2.6; z < Z1 - 2; z += 3.4) if (Math.abs(z - cz) > porte) slotsO.push(z);
+  for (let x = X0 + 2.6; x < X1 - 5.5; x += 3.4) if (Math.abs(x - cx) > porte && !(mezz && x > mx0 - 1.6)) slotsN.push(x);
+  for (let z = Z0 + 2.6; z < Z1 - 5.5; z += 3.4) if (Math.abs(z - cz) > porte) slotsO.push(z);
   const solN = (k, x, d = 1.3, sc = 1, col = 0.9) => { inst.ajouter(k, x, 0, Z0 + d, rnd(-0.08, 0.08), sc, sc, sc); if (col) collisions.push({ x, z: Z0 + d, r: col }); };
   const solO = (k, z, d = 1.3, sc = 1, col = 0.9) => { inst.ajouter(k, X0 + d, 0, z, Math.PI / 2 + rnd(-0.08, 0.08), sc, sc, sc); if (col) collisions.push({ x: X0 + d, z, r: col }); };
   const murN = (k, x, y, sc = 1) => inst.ajouter(k, x, y, Z0 + 0.25, 0, sc, sc, sc);
@@ -346,58 +488,100 @@ function decorerSalle(groupe, inst, collisions, s, type) {
   if (type === 'armurerie') {
     slotsN.forEach((x, i) => i % 2 ? solN(i % 4 === 1 ? 'crates_stacked' : 'barrel_large', x, 1.4, 0.85) : murN('sword_shield_broken', x, 1.9));
     slotsO.forEach((z, i) => solO(['chest', 'trunk_large_A', 'barrel_small_stack', 'chest_gold'][i % 4], z, 1.3, 1, 0.9));
-    tapis(groupe, cx, cz, 5, s.tx * CELL - 12, Math.PI / 2, 0);
+    tapis(groupe, cx, cz, 5, s.tx * CELL - 14, Math.PI / 2, 0);
   } else if (type === 'bibliotheque') {
     slotsN.forEach((x, i) => { murN('shelves', x, 0.4); if (i % 2) murN('shelf_small_candles', x, 2.6); });
     slotsO.forEach((z, i) => { murO('shelves', z, 0.4); if (i % 2 === 0) inst.ajouter('candle_triple', X0 + 1.3, 0, z + 1.7, 0); });
-    inst.ajouter('table_long_decorated_A', cx, 0, Z0 + 7.5, Math.PI / 2); collisions.push({ x: cx - 1.2, z: Z0 + 7.5, r: 1.2 }, { x: cx + 1.2, z: Z0 + 7.5, r: 1.2 });
-    for (const dx of [-3, 3]) inst.ajouter('candle_lit', cx + dx, 0, Z0 + 9.2, 0);
+    inst.ajouter('table_long_decorated_A', cx - 9, 0, Z0 + 7.5, Math.PI / 2); collisions.push({ x: cx - 10.2, z: Z0 + 7.5, r: 1.2 }, { x: cx - 7.8, z: Z0 + 7.5, r: 1.2 });
     tapis(groupe, cx, cz + 1, 4.5, 12, 0, 1);
   } else if (type === 'refectoire') {
-    for (const dx of [-5.5, 5.5]) { inst.ajouter('table_long_tablecloth_decorated_A', cx + dx, 0, Z0 + 8, Math.PI / 2); collisions.push({ x: cx + dx - 1.2, z: Z0 + 8, r: 1.2 }, { x: cx + dx + 1.2, z: Z0 + 8, r: 1.2 }); }
+    for (const dx of [-5.5, 5.5]) { inst.ajouter('table_long_tablecloth_decorated_A', cx + dx, 0, Z0 + 8.5, Math.PI / 2); collisions.push({ x: cx + dx - 1.2, z: Z0 + 8.5, r: 1.2 }, { x: cx + dx + 1.2, z: Z0 + 8.5, r: 1.2 }); }
     slotsO.forEach((z, i) => solO(i % 2 ? 'keg_decorated' : 'barrel_large', z, 1.6, 0.8, 1));
     slotsN.forEach((x, i) => { if (i % 2) murN(pick(['banner_patternA_red', 'banner_thin_red', 'banner_patternB_red']), x, 0); else solN('barrel_small_stack', x, 1.2, 0.9, 0.8); });
   } else if (type === 'crypte') {
     slotsN.forEach((x, i) => { sarcophage(groupe, x, Z0 + 1.9, 0); collisions.push({ x, z: Z0 + 1.9, r: 1.1 }); if (i % 2) inst.ajouter('candle_lit', x + 1.6, 0, Z0 + 0.8, 0); });
     slotsO.forEach((z, i) => { sarcophage(groupe, X0 + 1.9, z, Math.PI / 2); collisions.push({ x: X0 + 1.9, z, r: 1.1 }); if (i % 2) inst.ajouter('candle_triple', X0 + 0.9, 0, z + 1.7, 0); });
-    const runes = new THREE.Mesh(new THREE.CircleGeometry(5.5, 40), new THREE.MeshBasicMaterial({ map: texRunes('#9a5aff'), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.4 }));
-    runes.rotation.x = -Math.PI / 2; runes.position.set(cx, 0.07, cz); groupe.add(runes);
+    const runes = new THREE.Mesh(new THREE.CircleGeometry(5.5, 40), new THREE.MeshBasicMaterial({ map: texRunes(th.runes), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.4 }));
+    runes.rotation.x = -Math.PI / 2; runes.position.set(cx, 0.1, cz); groupe.add(runes);
     for (let k = 0; k < 3; k++) os(groupe, cx + rnd(-8, 8), cz + rnd(-8, 8));
-    G.torches.push({ pos: new THREE.Vector3(cx, 1.5, cz), color: '#9a5aff', int: 14, dist: 10 });
+    G.torches.push({ pos: new THREE.Vector3(cx, 1.5, cz), color: th.runes, int: 14, dist: 10 });
   } else if (type === 'hall') {
     slotsN.forEach((x, i) => { if (i % 2 === 0) { inst.ajouter('pillar_decorated', x, 0, Z0 + 4.2, 0, 0.85, 1.05, 0.85); collisions.push({ x, z: Z0 + 4.2, r: 0.95 }); } else murN(pick(['banner_patternA_red', 'banner_patternB_red']), x, 0); });
     slotsO.forEach((z, i) => { if (i % 2 === 0) { inst.ajouter('pillar_decorated', X0 + 4.2, 0, z, Math.PI / 2, 0.85, 1.05, 0.85); collisions.push({ x: X0 + 4.2, z, r: 0.95 }); } else murO('banner_thin_red', z, 0); });
-    tapis(groupe, cx, cz, 5.5, s.tx * CELL - 4, Math.PI / 2, 0);
-    for (const [dx, dz] of [[-4, -4], [4, -4]]) inst.ajouter('candle_triple', cx + dx, 0, cz + dz, 0);
-  } else { // effondrée
+    tapis(groupe, cx, cz, 5.5, s.tx * CELL - 10, Math.PI / 2, 0);
+  } else { // effondrée : éboulis, colonne couchée, fissures, un rai de jour
     inst.ajouter('rubble_large', X0 + 5, 0, Z0 + 2.4, 0.15, 0.9, 0.9, 0.9); collisions.push({ x: X0 + 3, z: Z0 + 2.4, r: 1.6 }, { x: X0 + 7, z: Z0 + 2.4, r: 1.6 });
-    inst.ajouter('rubble_half', X1 - 5, 0, Z0 + 2, -0.2, 0.8, 0.8, 0.8); collisions.push({ x: X1 - 5, z: Z0 + 2, r: 1.5 });
-    inst.ajouter('rubble_half', X0 + 2.2, 0, Z1 - 6, Math.PI / 2, 0.75, 0.75, 0.75); collisions.push({ x: X0 + 2.2, z: Z1 - 6, r: 1.4 });
-    inst.ajouter('pillar', cx + 6, 0.75, cz - 5, 0, 0.75, 1, 0.75); // colonne écroulée : on la couche
-    const f = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), new THREE.MeshBasicMaterial({ map: texFissures(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.85 }));
-    f.rotation.x = -Math.PI / 2; f.rotation.z = Math.random() * 6; f.position.set(cx, 0.09, cz); groupe.add(f);
-    G.torches.push({ pos: new THREE.Vector3(cx, 1.2, cz), color: '#ff4a10', int: 18, dist: 10 });
+    inst.ajouter('rubble_half', X1 - 7, 0, Z0 + 2, -0.2, 0.8, 0.8, 0.8); collisions.push({ x: X1 - 7, z: Z0 + 2, r: 1.5 });
+    inst.ajouter('rubble_half', X0 + 2.2, 0, Z1 - 8, Math.PI / 2, 0.75, 0.75, 0.75); collisions.push({ x: X0 + 2.2, z: Z1 - 8, r: 1.4 });
+    rochers(nat, collisions, cx + 7, cz - 6, 4, true, 1.8);
+    const f = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), new THREE.MeshBasicMaterial({ map: texFissures(), color: th.lave || '#ff6a2a', transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.85 }));
+    f.rotation.x = -Math.PI / 2; f.rotation.z = Math.random() * 6; f.position.set(cx, 0.1, cz); groupe.add(f);
+    G.torches.push({ pos: new THREE.Vector3(cx, 1.2, cz), color: th.lave || '#ff4a10', int: 18, dist: 10 });
     raiLumiere(groupe, cx - 4, cz - 3);
   }
-  // détails communs : toiles d'araignée dans l'angle, traces au sol, rai de lumière
+  // relief et minéral : stalagmites dans les angles du fond, rochers bas côté caméra, cristaux qui éclairent
+  if (!mezz) { rochers(nat, collisions, X1 - 3, Z0 + 3, 4, true, 1.2); cristaux(groupe, th, X1 - 6.5, Z0 + 2.4, 1.1); }
+  rochers(nat, collisions, X0 + 3, Z0 + 3, 3, true, 1);
+  rochers(nat, collisions, X0 + 3, Z1 - 3, 3, false, 1.2); cristaux(groupe, th, X0 + 6, Z1 - 2.2, 0.9);
+  rochers(nat, collisions, X1 - 3, Z1 - 3, 2, false, 1);
+  if (th.lave) for (let k = 0; k < 2; k++) fissuresLave(groupe, th, cx + rnd(-12, 12) * (k ? 1 : -1), cz + rnd(4, 12) * (k ? -1 : 1), rnd(5, 8));
+  if (th.mousse) for (let k = 0; k < 3; k++) tache(groupe, rnd(X0 + 3, X1 - 3), rnd(Z0 + 3, Z1 - 3), rnd(1.2, 2.2), th.mousse);
+  if (th.mousse) nat.ajouter(pick(['n_mushroom_tanGroup', 'n_mushroom_redGroup']), X0 + 1.6, 0, Z1 - 6, rnd(0, 6), 6, 6, 6);
+  // mezzanine
+  if (mezz) {
+    const h = 1.6;
+    const e = estrade(groupe, inst, collisions, reliefs, th, { x0: mx0, x1: X1, z0: Z0, z1: Z0 + 8, h, cote: 'S', ouverts: ['S', 'W'] });
+    cristaux(groupe, th, X1 - 2.2, Z0 + 2.2, 1.0, h);
+    inst.ajouter(type === 'bibliotheque' ? 'shelves' : 'chest', mx0 + 2.6, h, Z0 + 1.1, 0, 1, 1, 1); collisions.push({ x: mx0 + 2.6, z: Z0 + 1.4, r: 1 });
+    inst.ajouter('candle_triple', mx0 + 4.6, h, Z0 + 1.0, 0);
+    s.mezz = { pos: new THREE.Vector3(mx0 + mW / 2 - 1, 0, Z0 + 4.5), h, esc: new THREE.Vector3(e.ex, 0, Z0 + 8 + e.L + 1) };
+  }
+  // la scène de vie de la salle : qui l'occupe, et à faire quoi
+  const choix = { refectoire: ['tablee', 'tablee', 'cercle'], armurerie: ['tablee', 'cercle'], hall: ['cercle', 'tablee', 'rituel'], bibliotheque: ['rituel', 'tablee'], crypte: ['rituel', 'feu'], effondree: ['feu', 'feu', 'cercle'] }[type] || ['cercle'];
+  const sc = { type: pick(choix), centre: new THREE.Vector3(cx - 7, 0, cz + 6) };
+  if (sc.type === 'tablee') tableBasse(groupe, sc.centre.x, sc.centre.z), collisions.push({ x: sc.centre.x, z: sc.centre.z, r: 1.2 });
+  else if (sc.type === 'feu') {
+    nat.ajouter('n_campfire_stones', sc.centre.x, 0, sc.centre.z, 0, 4.4, 4.4, 4.4); collisions.push({ x: sc.centre.x, z: sc.centre.z, r: 1.1 });
+    G.feux.push({ pos: new THREE.Vector3(sc.centre.x, 0.3, sc.centre.z), couleur: '#ff8a2a', force: 1.1 });
+    G.torches.push({ pos: new THREE.Vector3(sc.centre.x, 1.4, sc.centre.z), color: '#ffa04a', int: 30, dist: 13 });
+  } else if (sc.type === 'rituel') {
+    sc.centre.set(cx, 0, cz + (type === 'bibliotheque' ? 7 : 0));
+    const r = new THREE.Mesh(new THREE.CircleGeometry(3.6, 40), new THREE.MeshBasicMaterial({ map: texRunes(th.runes), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.75 }));
+    r.rotation.x = -Math.PI / 2; r.position.set(sc.centre.x, 0.12, sc.centre.z); r.userData.dyn = true; groupe.add(r);
+    const orbe = new THREE.Mesh(new THREE.IcosahedronGeometry(0.42, 1), new THREE.MeshStandardMaterial({ color: th.cristal, emissive: th.cristal, emissiveIntensity: 2, flatShading: true }));
+    orbe.position.set(sc.centre.x, 1.6, sc.centre.z); orbe.userData.dyn = true; groupe.add(orbe);
+    G.anims.push((t) => { r.rotation.z = t * 0.25; orbe.position.y = 1.6 + Math.sin(t * 2) * 0.2; orbe.rotation.y = t; });
+    G.torches.push({ pos: new THREE.Vector3(sc.centre.x, 1.8, sc.centre.z), color: th.runes, int: 24, dist: 11 });
+    sc.orbe = orbe;
+  }
+  s.scene = sc;
+  // des gardes postés à une entrée de la salle, tournés vers le couloir
+  const cxC = Math.floor(cx / CELL), czC = Math.floor(cz / CELL);
+  const entrees = [];
+  if (solA(cxC, s.cz - Math.floor(s.tz / 2) - 1)) entrees.push({ p: new THREE.Vector3(cx, 0, Z0 + 3.5), dir: new THREE.Vector3(0, 0, -1) });
+  if (solA(cxC, s.cz - Math.floor(s.tz / 2) + s.tz)) entrees.push({ p: new THREE.Vector3(cx, 0, Z1 - 3.5), dir: new THREE.Vector3(0, 0, 1) });
+  if (solA(s.cx - Math.floor(s.tx / 2) - 1, czC)) entrees.push({ p: new THREE.Vector3(X0 + 3.5, 0, cz), dir: new THREE.Vector3(-1, 0, 0) });
+  if (solA(s.cx - Math.floor(s.tx / 2) + s.tx, czC)) entrees.push({ p: new THREE.Vector3(X1 - 3.5, 0, cz), dir: new THREE.Vector3(1, 0, 0) });
+  s.entrees = entrees;
   toile(groupe, X0 + 0.1, Z0 + 0.1, 3.2);
-  for (let k = 0; k < 5; k++) tache(groupe, rnd(X0 + 3, X1 - 3), rnd(Z0 + 3, Z1 - 3), rnd(1.5, 3.2), pick(['#1a1008', '#203018', '#3a0606']));
+  for (let k = 0; k < 4; k++) tache(groupe, rnd(X0 + 3, X1 - 3), rnd(Z0 + 3, Z1 - 3), rnd(1.5, 3.2), pick(['#1a1008', '#203018', '#3a0606']));
   if (type !== 'effondree' && Math.random() < 0.45) raiLumiere(groupe, cx + rnd(-6, 6), cz + rnd(-6, 2));
 }
 
 export function construireDonjon(mode) {
   const groupe = new THREE.Group();
   G.torches = []; G.feux = []; G.anims = [];
+  const th = THEMES_DONJON[Math.max(0, Math.min(3, mode.abime ? 3 : (mode.id | 0)))];
   const W = 74, H = 74;
-  const grille = new Uint8Array(W * H); // 0 vide, 1 sol, 2 couloir
+  const grille = new Uint8Array(W * H); // 0 vide, 1 salle, 2 couloir, 3 crypte cachée, 4 passage secret
   const zone = new Int16Array(W * H).fill(-1);
   const salles = [];
   const set = (x, z, v = 1) => { if (x >= 0 && z >= 0 && x < W && z < H && !grille[z * W + x]) grille[z * W + x] = v; };
   const solA = (x, z) => x >= 0 && z >= 0 && x < W && z < H && grille[z * W + x] > 0;
-  const salle = (cx, cz, tx, tz, type, extra = {}) => {
+  const salle = (cx, cz, tx, tz, type, extra = {}, v = 1) => {
     const s = { cx, cz, tx, tz, type, id: salles.length, ...extra };
     for (let x = cx - Math.floor(tx / 2); x < cx - Math.floor(tx / 2) + tx; x++)
-      for (let z = cz - Math.floor(tz / 2); z < cz - Math.floor(tz / 2) + tz; z++) { set(x, z, 1); zone[z * W + x] = s.id; }
+      for (let z = cz - Math.floor(tz / 2); z < cz - Math.floor(tz / 2) + tz; z++) { set(x, z, v); zone[z * W + x] = s.id; }
     s.centre = new THREE.Vector3(cx * CELL + 2 - (tx % 2 ? 0 : 2), 0, cz * CELL + 2 - (tz % 2 ? 0 : 2));
     salles.push(s); return s;
   };
@@ -405,19 +589,31 @@ export function construireDonjon(mode) {
     if (z1 === z2) for (let x = Math.min(x1, x2); x <= Math.max(x1, x2); x++) { set(x, z1, 2); set(x, z1 - 1, 2); set(x, z1 + 1, 2); }
     else for (let z = Math.min(z1, z2); z <= Math.max(z1, z2); z++) { set(x1, z, 2); set(x1 - 1, z, 2); set(x1 + 1, z, 2); }
   };
-  // 3x3 salles reliées en treillis
   const N = [22, 37, 52];
   const noeuds = [];
   for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) {
-    // grandes places plutôt que de longs couloirs
     const t = 9 + Math.floor(Math.random() * 3);
     noeuds.push(salle(N[i], N[j], t, 9 + Math.floor(Math.random() * 3), 'normale', { i, j }));
   }
-  // salle de départ (ouest) et 4 salles de boss
   const depart = salle(7, 52, 7, 7, 'depart');
   const bossPos = [[22, 7], [66, 22], [66, 52], [37, 66]];
   const bossSalles = bossPos.map(([x, z], k) => salle(x, z, 11, 11, 'boss', { boss: k }));
-  // couloirs
+  // la crypte cachée : derrière un mur fissuré, au bout d'un passage étroit (nord ou ouest selon les donjons)
+  let crypte;
+  {
+    const nord = Math.random() < 0.5;
+    if (nord) {
+      const n = noeuds[1]; const zMur = n.cz - Math.floor(n.tz / 2);
+      crypte = salle(40, 8, 7, 7, 'crypte', {}, 3);
+      for (let z = 12; z < zMur; z++) set(40, z, 4);
+      crypte.mur = { x: 40 * CELL + 2, z: zMur * CELL - 0.5, rot: 0, axe: 'x' };
+    } else {
+      const n = noeuds[3]; const xMur = n.cx - Math.floor(n.tx / 2);
+      crypte = salle(8, 38, 7, 7, 'crypte', {}, 3);
+      for (let x = 12; x < xMur; x++) set(x, 40, 4);
+      crypte.mur = { x: xMur * CELL - 0.5, z: 40 * CELL + 2, rot: Math.PI / 2, axe: 'z' };
+    }
+  }
   for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) {
     if (i < 2) couloir(N[i], N[j], N[i + 1], N[j]);
     if (j < 2) couloir(N[i], N[j], N[i], N[j + 1]);
@@ -425,12 +621,12 @@ export function construireDonjon(mode) {
   couloir(7, 52, 22, 52);
   couloir(22, 7, 22, 22); couloir(52, 22, 66, 22); couloir(52, 52, 66, 52); couloir(37, 52, 37, 66);
 
-  // --- Sol ---
-  const inst = new Instancieur();
+  // --- Sol : dalles nettes dans les salles (les tapis restent à plat), dalles cassées et rochers dans les couloirs ---
+  const inst = new Instancieur(), nat = new Instancieur();
   for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) {
     const v = grille[z * W + x]; if (!v) continue;
     const r = Math.random();
-    const k = v === 2 ? (r < 0.5 ? 'floor_dirt_large' : 'floor_tile_large') : (r < 0.8 ? 'floor_tile_large' : r < 0.9 ? 'floor_tile_large_rocks' : 'floor_dirt_large');
+    const k = (v === 2 || v === 4) ? (r < 0.4 ? 'floor_dirt_large' : r < 0.85 ? 'floor_tile_large' : 'floor_tile_large_rocks') : (r < 0.88 ? 'floor_tile_large' : 'floor_dirt_large');
     inst.ajouter(k, x * CELL + 2, 0, z * CELL + 2, Math.floor(Math.random() * 4) * Math.PI / 2);
   }
   solAbysse(groupe, W * 2, H * 2, 420);
@@ -442,14 +638,14 @@ export function construireDonjon(mode) {
   for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) {
     if (!solA(x, z)) continue;
     const enSalle = grille[z * W + x] === 1;
-    if (!solA(x, z - 1)) { // nord : mur haut
+    if (!solA(x, z - 1)) {
       const r = Math.random();
       inst.ajouter(r < 0.7 ? 'wall' : r < 0.85 ? 'wall_arched' : 'wall_broken', x * CELL + 2, 0, z * CELL - 0.5, 0);
       noterSommet(x, z, 'h'); noterSommet(x + 1, z, 'h');
       if (++compteur % 3 === 0) torchesPos.push([x * CELL + 2, z * CELL + 0.1, 0]);
       else if (enSalle && Math.random() < 0.18) inst.ajouter(pick(['banner_patternA_red', 'banner_thin_red', 'banner_patternB_red']), x * CELL + 2, 0, z * CELL, 0);
     }
-    if (!solA(x - 1, z)) { // ouest : mur haut
+    if (!solA(x - 1, z)) {
       const r = Math.random();
       inst.ajouter(r < 0.75 ? 'wall' : r < 0.9 ? 'wall_arched' : 'wall_broken', x * CELL - 0.5, 0, z * CELL + 2, Math.PI / 2);
       noterSommet(x, z, 'v'); noterSommet(x, z + 1, 'v');
@@ -461,60 +657,114 @@ export function construireDonjon(mode) {
   for (const [k, ds] of sommets) { if (ds.size === 2) { const [x, z] = k.split(',').map(Number); inst.ajouter('pillar', x * CELL - 0.3, 0, z * CELL - 0.3, 0, 0.75, 1.02, 0.75); } }
   for (const [x, z, r] of torchesPos) torcheMurale(inst, x, z, r);
 
-  // --- Décor des salles : chaque salle a une fonction (armurerie, bibliothèque, réfectoire, crypte, grand hall, salle effondrée) ---
-  const collisions = [];
+  const collisions = [], reliefs = [];
   const types = ['armurerie', 'bibliotheque', 'refectoire', 'crypte', 'hall', 'effondree', 'crypte', 'armurerie', 'hall'].sort(() => Math.random() - 0.5);
-  noeuds.forEach((s, i) => decorerSalle(groupe, inst, collisions, s, types[i % types.length]));
-  // couloirs : quelques os, tonneaux contre les murs, toiles d'araignée
+  noeuds.forEach((s, i) => decorerSalle(groupe, inst, nat, collisions, reliefs, th, s, types[i % types.length], solA));
+  // couloirs : rochers et stalagmites contre les murs, os, tonneaux, toiles d'araignée
   for (let z = 0; z < H; z++) for (let x = 0; x < W; x++) {
-    if (grille[z * W + x] !== 2 || Math.random() > 0.05) continue;
-    if (!solA(x, z - 1)) { if (Math.random() < 0.5) { inst.ajouter(pick(['barrel_large', 'barrel_small_stack']), x * CELL + 2, 0, z * CELL + 1.1, rnd(0, 6), 0.75, 0.75, 0.75); collisions.push({ x: x * CELL + 2, z: z * CELL + 1.1, r: 0.8 }); } else os(groupe, x * CELL + 2, z * CELL + 1.5); }
-    else if (!solA(x - 1, z)) toile(groupe, x * CELL + 0.1, z * CELL + 0.1, 2.4);
+    if (grille[z * W + x] !== 2 || Math.random() > 0.09) continue;
+    if (!solA(x, z - 1)) { const r = Math.random(); if (r < 0.35) { inst.ajouter(pick(['barrel_large', 'barrel_small_stack']), x * CELL + 2, 0, z * CELL + 1.1, rnd(0, 6), 0.75, 0.75, 0.75); collisions.push({ x: x * CELL + 2, z: z * CELL + 1.1, r: 0.8 }); } else if (r < 0.75) rochers(nat, collisions, x * CELL + 2, z * CELL + 1.2, 2, Math.random() < 0.5, 0.6); else os(groupe, x * CELL + 2, z * CELL + 1.5); }
+    else if (!solA(x - 1, z)) { if (Math.random() < 0.5) toile(groupe, x * CELL + 0.1, z * CELL + 0.1, 2.4); else rochers(nat, collisions, x * CELL + 1.2, z * CELL + 2, 2, true, 0.5); }
   }
-  // salles de boss : colonnes, braseros, cercle de runes
+  // --- Salles des gardiens : une estrade face à l'entrée, et un vrai lieu de vie pour chaque boss ---
   const coffresPos = [];
+  const COTES = ['N', 'E', 'E', 'S'];
   for (const s of bossSalles) {
-    const c = s.centre;
+    const c = s.centre, k = s.boss, cote = COTES[k];
+    const X0 = c.x - 22, X1 = c.x + 22, Z0 = c.z - 22, Z1 = c.z + 22;
+    const dir = { N: [0, -1], E: [1, 0], S: [0, 1] }[cote];
     for (let i = 0; i < 8; i++) {
-      const a = i / 8 * Math.PI * 2 + Math.PI / 8;
-      inst.ajouter('column', c.x + Math.cos(a) * 11, 0, c.z + Math.sin(a) * 11, 0, 1.3, 1.6, 1.3);
-      collisions.push({ x: c.x + Math.cos(a) * 11, z: c.z + Math.sin(a) * 11, r: 0.6 });
+      const a = i / 8 * Math.PI * 2 + Math.PI / 8; const ux = Math.cos(a), uz = Math.sin(a);
+      if (ux * dir[0] + uz * dir[1] > 0.45) continue; // pas de colonne devant l'estrade
+      inst.ajouter('column', c.x + ux * 12, 0, c.z + uz * 12, 0, 1.3, 1.6, 1.3);
+      collisions.push({ x: c.x + ux * 12, z: c.z + uz * 12, r: 0.6 });
     }
-    const runes = new THREE.Mesh(new THREE.CircleGeometry(7.5, 48), new THREE.MeshBasicMaterial({ map: texRunes('#ff3a2a'), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.55 }));
-    runes.rotation.x = -Math.PI / 2; runes.position.set(c.x, 0.08, c.z); runes.userData.dyn = true; groupe.add(runes);
+    const runes = new THREE.Mesh(new THREE.CircleGeometry(7.5, 48), new THREE.MeshBasicMaterial({ map: texRunes(th.runes), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.55 }));
+    runes.rotation.x = -Math.PI / 2; runes.position.set(c.x, 0.1, c.z); runes.userData.dyn = true; groupe.add(runes);
     G.anims.push((t) => { runes.rotation.z = t * 0.08; });
-    for (const [dx, dz] of [[-9, -9], [9, -9], [-9, 9], [9, 9]]) brasero(groupe, c.x + dx, c.z + dz, '#ff3a1a', 1.1);
-    // estrade du gardien au nord : marches, piliers sculptés, bannières et trésor
-    inst.ajouter('stairs_wide', c.x, 0, c.z - 19.5, 0, 1, 0.5, 1); collisions.push({ x: c.x - 2, z: c.z - 18, r: 1.8 }, { x: c.x + 2, z: c.z - 18, r: 1.8 });
-    for (const dx of [-5.5, 5.5]) { inst.ajouter('pillar_decorated', c.x + dx, 0, c.z - 18.5, 0, 1, 1.15, 1); collisions.push({ x: c.x + dx, z: c.z - 18.5, r: 1 }); inst.ajouter('banner_patternA_red', c.x + dx * 0.55, 0, c.z - 21.6, 0); }
-    inst.ajouter('coin_stack_large', c.x - 3.2, 0, c.z - 16.8, 0.4); inst.ajouter('chest_gold', c.x + 3.4, 0, c.z - 16.8, -0.3);
-    tapis(groupe, c.x, c.z - 7, 5, 16, 0, 0);
-    // le coffre se tient côté nord-ouest (bien visible)
+    for (const [dx, dz] of [[-9, -9], [9, -9], [-9, 9], [9, 9]]) if (dx * dir[0] + dz * dir[1] < 9) brasero(groupe, c.x + dx, c.z + dz, th.lueur === '#a8d4ff' ? '#6ab8ff' : '#ff3a1a', 1.1);
+    const h = 1.4;
+    let rect, ouverts;
+    if (cote === 'N') { rect = { x0: c.x - 10, x1: c.x + 10, z0: Z0, z1: Z0 + 8 }; ouverts = ['S', 'E', 'W']; }
+    else if (cote === 'E') { rect = { x0: X1 - 8, x1: X1, z0: c.z - 10, z1: c.z + 10 }; ouverts = ['W', 'N', 'S']; }
+    else { rect = { x0: c.x - 10, x1: c.x + 10, z0: Z1 - 8, z1: Z1 }; ouverts = ['N', 'E', 'W']; }
+    const opp = { N: 'S', E: 'W', S: 'N' }[cote];
+    const e = estrade(groupe, inst, collisions, reliefs, th, { ...rect, h, cote: opp, ouverts });
+    // tapis du centre de la salle jusqu'au pied de l'escalier
+    if (cote === 'E') tapis(groupe, (c.x + rect.x0 - e.L) / 2 + 0.5, e.ez, 4, rect.x0 - e.L - c.x - 1, Math.PI / 2, 0);
+    else { const zp = cote === 'N' ? rect.z1 + e.L : rect.z0 - e.L; tapis(groupe, e.ex, (c.z + zp) / 2, 4, Math.abs(zp - c.z) - 1, 0, 0); }
+    // lieu de vie
+    const R = { activite: 'dort', pos: null, angle: 0 };
+    if (k === 0) { // Gardien des Os : salle du trône, il somnole devant
+      trone(groupe, th, c.x, h, Z0 + 1.6, 0); collisions.push({ x: c.x, z: Z0 + 1.6, r: 1.6 });
+      brasero(groupe, c.x - 7, Z0 + 2.5, '#ff3a1a', 0.9, h); brasero(groupe, c.x + 7, Z0 + 2.5, '#ff3a1a', 0.9, h);
+      inst.ajouter('banner_triple_red' in G.assets ? 'banner_triple_red' : 'banner_patternA_red', c.x - 4, 0, Z0 + 0.1, 0); inst.ajouter('banner_patternA_red', c.x + 4, 0, Z0 + 0.1, 0);
+      Object.assign(R, { activite: 'dort', pos: new THREE.Vector3(c.x, 0, Z0 + 4.8), angle: 0 });
+    } else if (k === 1) { // Archère du Voile : salle d'entraînement, elle fait sa ronde et tire sur ses cibles
+      for (const dz of [-6, 0, 6]) cibleTir(groupe, X1 - 1.6, h, c.z + dz, -Math.PI / 2);
+      for (const dz of [-8.5, 8.5]) { inst.ajouter('sword_shield_broken', X1 - 0.4, h + 1.6, c.z + dz, -Math.PI / 2); inst.ajouter('barrel_small_stack', X1 - 1.4, h, c.z + dz + (dz > 0 ? -2 : 2), 0.4, 0.8, 0.8, 0.8); }
+      const pts = [new THREE.Vector3(c.x + 6, 0, c.z - 1), new THREE.Vector3(c.x - 6, 0, c.z - 8), new THREE.Vector3(c.x - 9, 0, c.z + 5), new THREE.Vector3(c.x + 3, 0, c.z + 9)];
+      Object.assign(R, { activite: 'ronde', pos: pts[0].clone(), angle: Math.PI / 2, ronde: pts, cible: new THREE.Vector3(X1 - 1.6, 0, c.z) });
+    } else if (k === 2) { // Nécromancien : son bureau de recherches sur l'estrade
+      bureau(groupe, th, X1 - 3.4, h, c.z, -Math.PI / 2); collisions.push({ x: X1 - 3.4, z: c.z - 1.2, r: 1 }, { x: X1 - 3.4, z: c.z + 1.2, r: 1 });
+      for (const dz of [-7, 7]) { inst.ajouter('shelves', X1 - 0.6, h - 0.4, c.z + dz, -Math.PI / 2); inst.ajouter('candle_triple', X1 - 1.6, h, c.z + dz * 0.6, 0); }
+      Object.assign(R, { activite: 'recherche', pos: new THREE.Vector3(X1 - 5.6, 0, c.z), angle: Math.PI / 2 });
+    } else { // Horreur infernale : elle dort sur son trésor
+      for (let i = 0; i < 9; i++) inst.ajouter('coin_stack_large', c.x + rnd(-8, 8), h, Z1 - rnd(1.4, 6.6), rnd(0, 6), 1.3, 1.3, 1.3);
+      inst.ajouter('chest_gold', c.x - 7.5, h, Z1 - 2, 0.3); inst.ajouter('chest_gold', c.x + 7.5, h, Z1 - 2, -0.3);
+      Object.assign(R, { activite: 'dort', pos: new THREE.Vector3(c.x, 0, Z1 - 4.2), angle: Math.PI });
+    }
+    s.repaire = R;
     coffresPos.push(new THREE.Vector3(c.x - 6.5, 0, c.z - 6.5));
-    collisions.push({ x: c.x - 6.5, z: c.z - 6.5, r: 1.2 });
+    const cp = coffresPos[coffresPos.length - 1]; collisions.push({ x: cp.x, z: cp.z, r: 1.2 });
+  }
+  // --- La crypte cachée ---
+  {
+    const s = crypte, c = s.centre;
+    const X0 = c.x - 14, X1 = c.x + 14, Z0 = c.z - 14, Z1 = c.z + 14;
+    for (const [x, z, r] of [[X0 + 3, Z0 + 3, 0.6], [X1 - 3, Z0 + 3, -0.6], [X0 + 3, Z1 - 3, 2.4], [X1 - 3, Z1 - 3, -2.4]]) { nat.ajouter('n_statue_head', x, 0, z, r, 3.2, 3.2, 3.2); collisions.push({ x, z, r: 1.2 }); }
+    for (const dx of [-7, 0, 7]) { sarcophage(groupe, c.x + dx, Z0 + 2.2, 0); collisions.push({ x: c.x + dx, z: Z0 + 2.2, r: 1.1 }); }
+    rochers(nat, collisions, X0 + 2.5, c.z, 3, true, 1); rochers(nat, collisions, X1 - 2.5, c.z + 4, 3, true, 1);
+    cristaux(groupe, th, X0 + 3, c.z + 7, 1); cristaux(groupe, th, X1 - 3, c.z - 7, 1);
+    const runes = new THREE.Mesh(new THREE.CircleGeometry(6.5, 48), new THREE.MeshBasicMaterial({ map: texRunes('#c08aff'), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.6 }));
+    runes.rotation.x = -Math.PI / 2; runes.position.set(c.x, 0.1, c.z); runes.userData.dyn = true; groupe.add(runes);
+    G.anims.push((t) => { runes.rotation.z = -t * 0.12; });
+    // le socle de la relique
+    const pm = new THREE.MeshStandardMaterial({ map: texBlocs(th), roughness: 0.85 });
+    const socle = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.4, 1.2, 8), pm); socle.position.set(c.x, 0.6, c.z); socle.castShadow = true; groupe.add(socle);
+    const dessus = new THREE.Mesh(new THREE.CylinderGeometry(1.25, 1.1, 0.2, 8), pm); dessus.position.set(c.x, 1.3, c.z); groupe.add(dessus);
+    collisions.push({ x: c.x, z: c.z, r: 1.4 });
+    for (let k = 0; k < 4; k++) os(groupe, c.x + rnd(-10, 10), c.z + rnd(-10, 10));
+    for (const [dx, dz] of [[-5, 5], [5, 5]]) inst.ajouter('candle_triple', c.x + dx, 0, c.z + dz, 0);
+    raiLumiere(groupe, c.x + 1.2, c.z - 2, '#d8c0ff');
+    s.socle = new THREE.Vector3(c.x, 0, c.z);
+    s.gardiens = [new THREE.Vector3(c.x - 4.5, 0, c.z + 3), new THREE.Vector3(c.x + 4.5, 0, c.z + 3)];
+  }
+  // le faux mur fissuré qui cache la crypte
+  const teinte = teinteDonjon(th);
+  {
+    const m = crypte.mur;
+    const mur = cloner('wall', m.x, 0, m.z, m.rot); mur.traverse(o => { if (o.isMesh) { o.material = teinte(o.material, 'wall'); o.castShadow = false; o.receiveShadow = true; } });
+    mur.userData.dyn = true; groupe.add(mur);
+    const fis = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 3.2), new THREE.MeshBasicMaterial({ map: texFissures(), color: '#c08aff', transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false }));
+    fis.position.set(m.x + (m.axe === 'z' ? 0.52 : 0), 1.8, m.z + (m.axe === 'x' ? 0.52 : 0)); fis.rotation.y = m.rot; fis.userData.dyn = true; groupe.add(fis);
+    G.anims.push((t) => { if (fis.parent) fis.material.opacity = 0.18 + 0.16 * Math.sin(t * 1.7); });
+    const cols = [-1.4, 0, 1.4].map(o => ({ x: m.x + (m.axe === 'x' ? o : 0), z: m.z + (m.axe === 'z' ? o : 0), r: 1.0, murSecret: true }));
+    collisions.push(...cols);
+    crypte.murObj = { mesh: mur, fissures: fis, cols, pos: new THREE.Vector3(m.x + (m.axe === 'z' ? 1.6 : 0), 0, m.z + (m.axe === 'x' ? 1.6 : 0)) };
   }
   fusionnerStatiques(groupe);
-  inst.construire(groupe);
+  inst.construire(groupe, { mat: teinte }); nat.construire(groupe, { mat: teinte });
   G.scene.add(groupe);
 
-  // --- Apparitions de monstres ---
-  const packs = [];
-  for (const s of noeuds) {
-    // grandes places : deux groupes par salle, combats plus intenses
-    for (let g = 0; g < 2; g++) {
-      const n = 3 + Math.floor(Math.random() * 3), ox = rnd(-9, 9), oz = rnd(-9, 9);
-      const pts = [];
-      for (let i = 0; i < n; i++) pts.push(new THREE.Vector3(s.centre.x + ox + rnd(-4, 4), 0, s.centre.z + oz + rnd(-4, 4)));
-      packs.push({ salle: s.id, pts });
-    }
-  }
-  // quelques squelettes isolés dans les couloirs
-  for (let k = 0; k < 6; k++) {
-    for (let essai = 0; essai < 40; essai++) {
-      const x = Math.floor(Math.random() * W), z = Math.floor(Math.random() * H);
-      if (grille[z * W + x] === 2) { packs.push({ salle: -1, pts: [new THREE.Vector3(x * CELL + 2, 0, z * CELL + 2)] }); break; }
-    }
-  }
+  // --- Rondes : 1 à 3 sentinelles marchent d'une salle à l'autre ---
+  const rondes = [];
+  const aretes = [];
+  for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) { if (i < 2) aretes.push([j * 3 + i, j * 3 + i + 1]); if (j < 2) aretes.push([j * 3 + i, (j + 1) * 3 + i]); }
+  aretes.sort(() => Math.random() - 0.5).slice(0, 5).forEach(([a, b]) => {
+    const A = noeuds[a].centre, B = noeuds[b].centre; const d = B.clone().sub(A).normalize(), p = new THREE.Vector3(-d.z, 0, d.x);
+    rondes.push({ pts: [A.clone().addScaledVector(p, 4).addScaledVector(d, 4), A.clone().addScaledVector(d, 16), B.clone().addScaledVector(d, -16), B.clone().addScaledVector(p, -4).addScaledVector(d, -4)] });
+  });
   const marche = (x, z) => {
     const cx = Math.floor(x / CELL), cz = Math.floor(z / CELL);
     if (!solA(cx, cz)) return false;
@@ -525,10 +775,19 @@ export function construireDonjon(mode) {
     if (fx > CELL - m && !solA(cx + 1, cz)) return false;
     return true;
   };
+  const solH = (x, z) => {
+    for (const r of reliefs) {
+      if (x < r.x0 || x > r.x1 || z < r.z0 || z > r.z1) continue;
+      if (r.type === 'plat') return r.h;
+      const t = r.axe === 'z' ? Math.abs(z - r.haut) : Math.abs(x - r.haut);
+      return r.h * Math.max(0, 1 - t / r.L);
+    }
+    return 0;
+  };
   return {
-    groupe, type: 'donjon', nom: mode.lieu, mode,
+    groupe, type: 'donjon', nom: mode.lieu, mode, theme: th,
     spawn: depart.centre.clone(), sortie: depart.centre.clone().add(new THREE.Vector3(-4, 0, 0)),
-    salles, bossSalles, packs, coffresPos, marche, collisions,
+    salles, noeuds, bossSalles, coffresPos, marche, collisions, rondes, crypte, solH,
     cellules: (x, z) => solA(x, z), grilleW: W, grilleH: H, grille,
     zoneDe: (x, z) => { const cx = Math.floor(x / CELL), cz = Math.floor(z / CELL); return (cx >= 0 && cz >= 0 && cx < W && cz < H) ? zone[cz * W + cx] : -1; },
   };
