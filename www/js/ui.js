@@ -593,6 +593,69 @@ UI.majSorts = (joueur) => {
   cls(E('s-CIBLE'), 'actif', !!joueur.cibleVerrou);
 };
 
+
+// ---------------- La bourse : l'argent se voit, s'entend et se sent ----------------
+// compteur qui roule, pièces qui volent jusqu'à la bourse, rang de fortune qui change l'allure de la bourse
+const RANGS_FORTUNE = [
+  { min: 0, nom: 'Bourse légère', cls: 'f0' }, { min: 50000, nom: 'Bourse garnie', cls: 'f1' }, { min: 500000, nom: 'Coffre lourd', cls: 'f2' },
+  { min: 5e6, nom: 'Fortune de seigneur', cls: 'f3' }, { min: 50e6, nom: 'Trésor de roi', cls: 'f4' }, { min: 500e6, nom: 'Richesse de légende', cls: 'f5' },
+];
+UI.rangFortune = (v) => { let r = RANGS_FORTUNE[0]; for (const x of RANGS_FORTUNE) if (v >= x.min) r = x; return r; };
+const BOURSE = { vu: null, cible: 0, rang: null, tick: 0 };
+const fmtB = (n) => fmt(n).replace(/[\u202f\u00a0]/g, ' ');
+UI.majBourse = (v) => {
+  BOURSE.cible = v;
+  if (BOURSE.vu === null) { BOURSE.vu = v; txt(E('argentTxt'), fmtB(v)); }
+  const r = UI.rangFortune(v), el = E('argent');
+  if (el && BOURSE.rang !== r.cls) {
+    const monte = BOURSE.rang && RANGS_FORTUNE.findIndex(x => x.cls === r.cls) > RANGS_FORTUNE.findIndex(x => x.cls === BOURSE.rang);
+    for (const x of RANGS_FORTUNE) el.classList.remove(x.cls); el.classList.add(r.cls); el.dataset.rang = r.nom;
+    if (monte) { UI.toast(`Ta fortune grandit : ${r.nom.toUpperCase()}`, true); api.son && api.son('jingle_legend', 0.45, 1.15); el.classList.remove('promu'); void el.offsetWidth; el.classList.add('promu'); }
+    BOURSE.rang = r.cls;
+  }
+};
+// appelé à chaque image : le chiffre « roule » vers la vraie valeur
+UI.roulerBourse = (dt) => {
+  if (BOURSE.vu === null) return;
+  const d = BOURSE.cible - BOURSE.vu;
+  if (Math.abs(d) < 1) { if (BOURSE.vu !== BOURSE.cible) { BOURSE.vu = BOURSE.cible; txt(E('argentTxt'), fmtB(BOURSE.vu)); } return; }
+  BOURSE.vu += d * Math.min(1, dt * 4.5) + Math.sign(d) * Math.min(Math.abs(d), 1);
+  txt(E('argentTxt'), fmtB(BOURSE.vu));
+  BOURSE.tick -= dt; if (d > 0 && BOURSE.tick <= 0) { BOURSE.tick = 0.09; api.son && api.son('handleCoins', 0.08, 1.6 + Math.random() * 0.3); }
+};
+// des pièces jaillissent d'un point de l'écran et volent jusqu'à la bourse
+UI.gainArgent = (delta, x, y) => {
+  const el = E('argent'); if (!el || delta <= 0) return;
+  const cible = el.querySelector('.piece').getBoundingClientRect();
+  const tx = cible.left + cible.width / 2, ty = cible.top + cible.height / 2;
+  const total = BOURSE.cible || 1, part = delta / Math.max(1, total - delta);
+  const n = Math.min(26, Math.max(3, Math.round(Math.log10(delta + 1) * 3.2 + part * 10)));
+  const couche = document.getElementById('piecesVol') || (() => { const d = document.createElement('div'); d.id = 'piecesVol'; document.getElementById('jeu').appendChild(d); return d; })();
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement('i'); p.className = 'pv';
+    const a = Math.random() * Math.PI * 2, r = 30 + Math.random() * 70, sx = x + Math.cos(a) * r * 0.4, sy = y + Math.sin(a) * r * 0.25;
+    p.style.left = sx + 'px'; p.style.top = sy + 'px';
+    couche.appendChild(p);
+    const mx = sx + Math.cos(a) * r, my = sy - 40 - Math.random() * 80, dur = 650 + Math.random() * 350, delai = i * 28;
+    p.animate([
+      { transform: 'translate(-50%,-50%) scale(.3) rotateY(0deg)', opacity: 0 },
+      { transform: `translate(calc(-50% + ${mx - sx}px), calc(-50% + ${my - sy}px)) scale(1.1) rotateY(360deg)`, opacity: 1, offset: 0.35 },
+      { transform: `translate(calc(-50% + ${tx - sx}px), calc(-50% + ${ty - sy}px)) scale(.55) rotateY(900deg)`, opacity: 0.9 },
+    ], { duration: dur, delay: delai, easing: 'cubic-bezier(.3,.1,.5,1)', fill: 'both' }).onfinish = () => p.remove();
+  }
+  // la bourse rebondit à l'arrivée des pièces, et le gain s'affiche à côté
+  setTimeout(() => { el.classList.remove('tinte'); void el.offsetWidth; el.classList.add('tinte'); }, 700);
+  const gros = delta >= 50000 && part > 0.04 || delta >= 1e6;
+  const g = document.createElement('div'); g.className = 'gainBourse' + (gros ? ' gros' : ''); g.textContent = '+' + fmt(delta);
+  el.appendChild(g); setTimeout(() => g.remove(), 2200);
+  if (gros) { api.son && api.son('jingle_loot', 0.4, 1.2); el.classList.remove('fortune'); void el.offsetWidth; el.classList.add('fortune'); }
+};
+UI.perteArgent = (delta) => {
+  const el = E('argent'); if (!el || delta <= 0) return;
+  const g = document.createElement('div'); g.className = 'gainBourse perte'; g.textContent = '−' + fmt(delta);
+  el.appendChild(g); setTimeout(() => g.remove(), 1800);
+};
+
 // ---------------- HUD ----------------
 UI.majHud = (j, st) => {
   sty(E('pvFill'), 'transform', `scaleX(${(Math.max(0, j.pv / st.pvMax)).toFixed(3)})`);
@@ -604,7 +667,7 @@ UI.majHud = (j, st) => {
   const ratio = j.pv / st.pvMax, k = j.mort ? 0 : Math.max(0, Math.min(1, (0.38 - ratio) / 0.3));
   const vg = E('vignetteVie'); if (vg) { sty(vg, 'opacity', k.toFixed(2)); sty(vg, '--v', '1'); }
   const et = api.etat();
-  txt(E('argentTxt'), fmt(et.argent));
+  UI.majBourse(et.argent);
   txt(E('trophTxt'), fmt(et.trophees || 0));
   const d = new Date(); txt(E('zHeure'), String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'));
   const buffs = [];
@@ -1102,19 +1165,34 @@ function svgCoffre(col) {
     <rect x="44" y="50" width="12" height="14" rx="2" fill="${col}" stroke="#1a1714" stroke-width="2"/><circle cx="50" cy="56" r="2.4" fill="#1a1714"/></svg>`;
 }
 function caseBourse(v) { return `<div class="case tiere bourse" style="--tc:#9aa0aa"><img src="${'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgButin('bourse'))}" alt=""><span class="nb">${fmtK(v)}</span></div>`; }
-UI.butin = (couleur, loot, cb) => {
+// le verdict du butin : on sait tout de suite si c'est une misère ou un trésor
+const VERDICTS = [[0, 'Maigre butin…', 'v0'], [2, 'Butin correct', 'v1'], [4, 'Belle prise !', 'v2'], [6, 'Butin remarquable !', 'v3'], [8, 'TRÉSOR LÉGENDAIRE', 'v4']];
+UI.butin = (couleur, loot, cb, opts = {}) => {
   const c = COFFRES.find(x => x.id === couleur) || { nom: 'Coffre', color: '#c9a052', desc: '' };
   const valeur = loot.argent + loot.objets.reduce((a, it) => a + valeurObjet(it) * (it.n || 1), 0);
   const bonus = (loot.bonus || []).map(b => `<div class="bonusL"><span class="icB" style="background:${b.c}">${b.i}</span>+${b.pct} % <small>${b.txt}</small></div>`).join('');
-  $('#butin').innerHTML = `<div class="lootCarte" style="--cc:${c.color}">
-    <div class="lcTete"><div class="medaille">${svgCoffre(c.color)}</div><div class="lcTitre"><small>Butin du</small><h2>${c.nom}</h2>${bonus}</div></div>
-    <div class="lcGrille">${loot.argent ? `<div class="lcItem" style="animation-delay:.15s">${caseBourse(loot.argent)}</div>` : ''}${loot.objets.map((it, i) => `<button class="lcItem" data-i="${i}" style="animation-delay:${0.25 + i * 0.12}s">${htmlCase(it, 'libre')}</button>`).join('')}</div>
+  const tMax = opts.mode && opts.mode.tiers ? opts.mode.tiers[1] : 99;
+  // du moins bon au meilleur : la plus belle pièce se dévoile en dernier
+  const ordre = loot.objets.map((it, i) => ({ it, i, v: valeurObjet(it) * (it.n || 1) + (it.q || 0) * 1e9 * (it.tier ? 1 : 0) })).sort((a, b) => a.v - b.v);
+  const meilleurQ = Math.max(0, ...loot.objets.filter(it => it.tier).map(it => it.q || 0));
+  const pepite = loot.objets.some(it => it.tier && (it.tier >= tMax && (it.q || 0) >= 2 || (it.q || 0) >= 4));
+  const score = ({ vert: 0, bleu: 1, violet: 2, legendaire: 3 }[couleur] || 0) + meilleurQ + (pepite ? 2 : 0);
+  let V = VERDICTS[0]; for (const v of VERDICTS) if (score >= v[0]) V = v;
+  const pas = couleur === 'legendaire' ? 0.22 : 0.12;
+  $('#butin').innerHTML = `${couleur === 'legendaire' || couleur === 'violet' ? `<div class="rayonsL" style="--cc:${c.color}"></div>` : ''}<div class="lootCarte cof-${couleur} ${V[2]}" style="--cc:${c.color}">
+    <div class="lcTete"><div class="medaille">${svgCoffre(c.color)}</div><div class="lcTitre"><small>Butin du</small><h2>${c.nom}</h2><div class="verdict">${V[1]}</div>${bonus}</div></div>
+    <div class="lcGrille">${loot.argent ? `<div class="lcItem" style="animation-delay:.15s">${caseBourse(loot.argent)}</div>` : ''}${ordre.map(({ it, i }, k) => { const top = k === ordre.length - 1 && it.tier && (it.q || 0) >= 3; const pep = it.tier && (it.tier >= tMax && (it.q || 0) >= 2 || (it.q || 0) >= 4); return `<button class="lcItem ${top ? 'top' : ''} ${pep ? 'pepite' : ''}" data-i="${i}" style="animation-delay:${0.25 + k * pas + (top ? 0.35 : 0)}s">${htmlCase(it, 'libre')}${pep ? '<span class="rubanP">★</span>' : ''}</button>`; }).join('')}</div>
     ${loot.allie ? `<div class="partAllie"><b>Part de ${loot.allie.nom}</b> · ${fmt(loot.allie.argent)} d’argent</div>` : ''}
-    <div class="lcPied"><div><small>Valeur marchande estimée :</small><b><span class="piece"></span>${fmtK(valeur)}</b></div><button class="btn or" data-ok>${loot.allie ? 'Prendre ma part' : 'Tout prendre'}</button></div></div>`;
+    <div class="lcPied"><div><small>Valeur marchande estimée :</small><b><span class="piece"></span><span class="valR" data-v="${Math.round(valeur)}">0</span></b></div><button class="btn or" data-ok>${loot.allie ? 'Prendre ma part' : 'Tout prendre'}</button></div></div>`;
   const b = $('#butin'); b.hidden = false;
+  // la valeur estimée « compte » jusqu'à son total
+  { const el = b.querySelector('.valR'), tot = +el.dataset.v, t0 = performance.now(), d = 900 + Math.min(1200, Math.log10(tot + 1) * 150);
+    const f = (now) => { if (!el.isConnected) return; const e = Math.min(1, (now - t0) / d); el.textContent = fmtK(tot * (1 - Math.pow(1 - e, 3))); if (e < 1) requestAnimationFrame(f); }; requestAnimationFrame(f); }
+  if (pepite) setTimeout(() => api.son && api.son('jingle_legend', 0.35, 1.3), (0.25 + ordre.length * pas + 0.35) * 1000);
   b.querySelectorAll('[data-i]').forEach(e => e.onclick = () => UI.fiche(loot.objets[+e.dataset.i], 'apercu'));
   b.querySelector('[data-ok]').onclick = () => { b.hidden = true; cb(); };
 };
+UI.flash = (couleur = '#ffffff') => { const d = document.createElement('div'); d.className = 'flashEcran'; d.style.background = couleur; $('#jeu').appendChild(d); setTimeout(() => d.remove(), 700); };
 
 UI.mort = (txt, cb) => {
   $('#mort').innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:2vh"><h2>Tu es tombé</h2><p>${txt}</p><button class="btn or" data-ok>Revenir sur la Place</button></div>`;
@@ -1153,8 +1231,12 @@ UI.reglages = () => {
 UI.depouille = (nom, ip, objets, argent, cb) => {
   const choix = new Set(objets.map(o => o.id));
   const b = $('#butin');
+  objets = objets.slice().sort((a, b2) => (a.tier + (a.q || 0)) - (b2.tier + (b2.q || 0)));
+  const sc = Math.max(0, ...objets.map(o => o.tier + (o.q || 0)));
+  const V = sc > 9 ? ['Dépouille LÉGENDAIRE', 'v4', '#ffc23a'] : sc > 7 ? ['Dépouille de champion', 'v3', '#b65bff'] : sc > 5 ? ['Dépouille honorable', 'v2', '#3f9bff'] : ['Dépouille de gueux', 'v0', '#8a7a6a'];
+  if (sc > 9) setTimeout(() => api.son('jingle_legend', 0.4, 1.2), 600);
   const rendre = () => {
-    b.innerHTML = `<div class="cadreB parchemin depouille" style="box-shadow:0 0 80px #ff2a2a66, inset 0 0 0 2px #b78f55"><h2 style="color:#8a1410">Dépouille de ${nom}</h2>
+    b.innerHTML = `<div class="cadreB parchemin depouille ${V[1]}" style="box-shadow:0 0 80px ${V[2]}88, inset 0 0 0 2px #b78f55"><h2 style="color:#8a1410">Dépouille de ${nom}</h2><div class="verdict">${V[0]}</div>
       <div style="font-size:2vh;color:#6a4a2e">Puissance ${ip} · Touche un objet pour le garder ou le laisser.</div>
       <div class="argentG"><span class="piece" style="width:3vh;height:3vh"></span>+ ${Math.round(argent).toLocaleString('fr-FR')}</div>
       <div class="lootGrille">${objets.map((it, i) => `<div class="item ${choix.has(it.id) ? 'on' : ''}" data-i="${i}" style="animation-delay:${0.15 + i * 0.15}s">${htmlCase(it)}<span style="color:${shade(couleurObjet(it))}">${nomObjet(it)} (${TIERS[it.tier].roman})</span><span class="coche">${choix.has(it.id) ? '✓ Je prends' : 'Je laisse'}</span><button class="det" data-d="${i}">Détails</button></div>`).join('')}</div>

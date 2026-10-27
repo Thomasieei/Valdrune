@@ -129,7 +129,7 @@ function programmer(delai, fn) { minuteries.push({ t: delai, fn }); }
 const ASSETS = [
   ['Knight', 'assets/chars/Knight.json'], ['Rogue_Hooded', 'assets/chars/Rogue_Hooded.json'], ['Mage', 'assets/chars/Mage.json'], ['Barbarian', 'assets/chars/Barbarian.json'], ['Rogue', 'assets/chars/Rogue.json'],
   ['Skeleton_Warrior', 'assets/chars/Skeleton_Warrior.json'], ['Skeleton_Minion', 'assets/chars/Skeleton_Minion.json'], ['Skeleton_Mage', 'assets/chars/Skeleton_Mage.json'], ['Skeleton_Rogue', 'assets/chars/Skeleton_Rogue.json'],
-  ['Dragon_Evolved', 'assets/chars/Dragon_Evolved.json'],
+  ['Dragon_Evolved', 'assets/chars/Dragon_Evolved.json'], ['d_wall_doorway', 'assets/chateau/d_wall_doorway.json'], ['d_coin', 'assets/chateau/d_coin.json'],
   ...['Skeleton_Blade', 'Skeleton_Axe', 'Skeleton_Staff', 'Skeleton_Crossbow', 'Skeleton_Shield_Large_A'].map(k => [k, `assets/props/${k}.json`]),
   ...['floor_tile_large', 'floor_tile_large_rocks', 'floor_dirt_large', 'wall', 'wall_corner', 'wall_arched', 'wall_broken', 'pillar', 'pillar_decorated', 'column', 'torch_mounted', 'banner_patternA_red', 'banner_thin_red', 'banner_patternB_red',
     'barrel_large', 'barrel_small_stack', 'box_stacked', 'crates_stacked', 'table_long_decorated_A', 'table_long_tablecloth_decorated_A', 'shelves', 'shelf_small_candles', 'candle_triple', 'candle_lit', 'coin_stack_large',
@@ -138,6 +138,11 @@ const ASSETS = [
     'Tree_1_A', 'Tree_2_B', 'Tree_3_A', 'Tree_4_A', 'Bush_2_C', 'Rock_1_A', 'Rock_3_C', 'Grass_1_A', 'Wood_Log_A', 'Wood_Log_Stack', 'Iron_Nuggets', 'Gold_Nuggets', 'Copper_Nuggets', 'Stone_Chunks_Large',
     'tool_axe', 'tool_pickaxe', 'tool_lantern', 'crop_carrot', 'crop_pumpkin', 'crop_melon', 'flower_redA', 'flower_yellowA', 'flower_purpleA', 'ground_pathTile'].map(k => [k, `assets/ile/${k}.json`]),
 ];
+// château du domaine (kits Kenney Castle / Fantasy Town et portes KayKit) : chargés à la première visite
+const ASSETS_CHATEAU = ['c_bridge_draw', 'c_flag_banner_long', 'c_flag_pennant', 'c_flag_wide', 'c_gate', 'c_metal_gate', 'c_rocks_large', 'c_siege_ballista', 'c_siege_catapult', 'c_stairs_stone', 'c_tower_base', 'c_tower_hexagon_base', 'c_tower_hexagon_mid', 'c_tower_hexagon_roof', 'c_tower_hexagon_top', 'c_tower_square_base', 'c_tower_square_mid', 'c_tower_square_mid_windows', 'c_tower_square_roof', 'c_tower_square_top_roof_high', 'c_tower_top', 'c_tree_large', 'c_wall', 'c_wall_corner', 'c_wall_doorway', 'c_wall_half', 'c_wall_pillar', 'c_bridge_straight', 'c_stairs_stone_square',
+  'd_banner_shield_red', 'd_banner_triple_red', 'd_coin_stack_medium', 'd_stairs_walled', 'd_sword_shield_gold', 'd_torch_lit', 'd_wall_window_open',
+  't_banner_red', 't_cart', 't_fountain_round', 't_fountain_round_detail', 't_hedge', 't_hedge_curved', 't_hedge_large', 't_lantern', 't_pillar_stone', 't_stairs_wide_stone_handrail', 't_stall_red'];
+let assetsChateauPrets = false;
 const ASSETS_SYLVE = ['n_statue_ring', 'n_statue_head', 'n_statue_obelisk', 'n_statue_column', 'n_statue_columnDamaged', 'n_mushroom_red', 'n_mushroom_redGroup', 'n_mushroom_redTall', 'n_mushroom_tan', 'n_mushroom_tanGroup', 'n_mushroom_tanTall', 'n_lily_large', 'n_lily_small', 'n_log_large', 'n_stump_old', 'n_plant_bushLarge', 'n_plant_bushDetailed', 'n_plant_flatTall', 'n_flower_purpleB', 'n_flower_purpleC', 'n_flower_redC', 'n_flower_yellowC', 'n_tree_oak', 'n_tree_detailed', 'n_tree_default', 'n_tree_fat_darkh', 'n_rock_largeB', 'n_rock_largeC', 'n_stone_tallB', 'n_stone_tallG', 'n_stone_largeC', 'n_campfire_stones', 'Bush_4_A', 'Bush_3_B', 'Tree_2_C', 'Tree_3_B', 'Rock_2_C'];
 const SONS = ['knifeSlice', 'knifeSlice2', 'drawKnife2', 'handleCoins', 'creak1', 'doorOpen_1', 'metalLatch', 'cloth1', 'bookOpen', 'impactPlate_heavy_000', 'impactMetal_medium_001', 'impactGeneric_light_000',
   'footstep_concrete_000', 'footstep_concrete_001', 'click_001', 'open_001', 'close_001', 'confirmation_001', 'error_001', 'select_001', 'maximize_001', 'thrusterFire_000', 'explosionCrunch_000', 'lowFrequency_explosion_000', 'forceField_000',
@@ -197,6 +202,15 @@ function prechauffer() {
   for (const o of objs) { o.position.copy(p); G.scene.add(o); }
   telegraphe(p, 2, 0.05, '#ff2a2a'); telegraphe(p, 2, 0.05, '#ff2a2a', null, { cone: 1 }); telegraphe(p, 4, 0.05, '#ff2a2a', null, { ligne: true, largeur: 2, angle: 0 });
   arcTaille(p, 0, 2, '#ffffff'); onde(p, '#ffffff'); lueurSol(p, '#ffffff', 2, 0.05);
+  // variantes courantes créées en plein jeu (bulle, icônes, éclats sans texture) : compilées une fois pour toutes
+  bulle({ pos: p, mort: false }, () => true);
+  const geoW = new THREE.PlaneGeometry(1, 1);
+  objs.push(new THREE.Sprite(new THREE.SpriteMaterial({ map: texRond(), transparent: true, depthWrite: false })),
+    new THREE.Mesh(geoW, new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.5, depthWrite: false })),
+    new THREE.Mesh(geoW, new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })),
+    new THREE.Mesh(geoW, new THREE.MeshBasicMaterial({ color: '#ffffff' })),
+    new THREE.Mesh(geoW, new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#ffffff', flatShading: true, metalness: 0.5, roughness: 0.3 })));
+  for (const o of objs) { o.position.copy(p); G.scene.add(o); }
   G.renderer.compile(G.scene, G.camera);
   for (const o of objs) G.scene.remove(o);
 }
@@ -527,6 +541,25 @@ function teleporterOmbre(o, p) {
   const q = pointLibrePres(p, 0.8, 1.8); o.pos.copy(q); o.chemin = null;
   fumeeOmbre(q); son('cloth1', 0.25, 1.6);
 }
+// formation derrière le joueur : chacun a sa place (3 de front, rangs de 1,9 m), on ne rejoint sa place que si on s'en écarte vraiment
+// (hystérésis), la vitesse suit la distance (pas d'arrêts nets), et au repos on regarde dans la même direction que le joueur
+function slotFormation(rang) {
+  const col = [0, -1, 1][rang % 3], ligne = Math.floor(rang / 3), ec = 1.9, rec = 2.4 + ligne * 1.9;
+  const fx = Math.sin(joueur.angle), fz = Math.cos(joueur.angle), rx = Math.cos(joueur.angle), rz = -Math.sin(joueur.angle);
+  return V(joueur.pos.x + rx * col * ec - fx * rec, 0, joueur.pos.z + rz * col * ec - fz * rec);
+}
+function suivreFormation(e, rang, dt, animCourse, animRepos, teleporter) {
+  let cible = slotFormation(rang);
+  if (!libre(cible.x, cible.z, 0.5)) cible = pointLibreProche(cible, 0.5) || joueur.pos.clone();
+  const d = dist2D(e.pos, cible);
+  if (d > 24) { if (teleporter) teleporter(cible); else e.pos.copy(cible); e._suit = false; return; }
+  if (!e._suit && d > 2.2) e._suit = true; else if (e._suit && d < 0.45) e._suit = false;
+  if (e._suit) {
+    const vv = Math.min(Math.max(joueur.st.vitesse, vitesseJoueur()) * 1.35, Math.max(1.6, d * 2.4));
+    e._vv = (e._vv || 0) + (vv - (e._vv || 0)) * Math.min(1, dt * 6);
+    allerVers(e, cible, dt, e._vv); e.jouer(e._vv < 2.4 ? 'Walking_A' : animCourse);
+  } else { e._vv = 0; e.jouer(animRepos); e.angle = tourner(e.angle, joueur.angle, dt * 3); e.root.rotation.y = e.angle; }
+}
 function majEscouade(dt) {
   { const b = $('#btnOmbres'); if (b && b.hidden === !!J.escouade) b.hidden = !J.escouade; }
   if (!J.escouade || !joueur || joueur.mort && !arene) { if (escouade.length && !J.escouade) viderEscouade(); return; }
@@ -574,12 +607,9 @@ function majEscouade(dt) {
       if (!cf.ouvert) { o.jouer('Interact', { boucle: false, forcer: true, fin: () => o.jouer(o.armeDef.idle) }); if (cf.depouille) ouvrirDepouille(cf, true); else ouvrirCoffre(cf, true); statsEscouade().coffres++; }
       o.escT = 0.25; continue;
     }
-    // 3) rien à faire : elles reviennent se déployer autour du joueur
-    const ang = o.escIdx / 6 * Math.PI * 2 + G.t * 0.3, cible = V(joueur.pos.x + Math.sin(ang) * 3, 0, joueur.pos.z + Math.cos(ang) * 3);
-    const d = dist2D(o.pos, cible);
-    if (d > 16) teleporterOmbre(o, cible);
-    else if (d > 1) { avancerVers(o, cible, dt, joueur.st.vitesse * 1.3); o.jouer(o.armeDef.run); }
-    else o.jouer(o.armeDef.idle);
+    // 3) rien à faire : elles marchent derrière toi, en formation (aucune ronde autour de toi)
+    const rang = allies.filter(x => x.invoc && !x.mort).length + escouade.filter(x => !x.sceneOmbre).indexOf(o);
+    suivreFormation(o, rang, dt, o.armeDef.run, o.armeDef.idle, (c) => teleporterOmbre(o, c));
     o.escT = 0;
   }
   // compteur à l'écran
@@ -1498,10 +1528,62 @@ function preparerCrypte() {
   G.torches.push({ pos: V(C.socle.x, 2.6, C.socle.z), color: R.color, int: 34, dist: 14 });
   G.anims.push((t) => { g.rotation.y = t * 0.9; g.position.y = 2.3 + Math.sin(t * 1.6) * 0.18; anneau.rotation.x = Math.sin(t) * 0.6; eclats.forEach((m, i) => { const a = t * 1.8 + i * 1.57; m.position.set(Math.cos(a) * 1.1, Math.sin(t * 2 + i) * 0.3, Math.sin(a) * 1.1); }); if (voile.parent) voile.material.opacity = 0.16 + 0.08 * Math.sin(t * 3); if (Math.random() < 0.25) emettre(V(C.socle.x + rnd(-1, 1), 1.4, C.socle.z + rnd(-1, 1)), { n: 1, c1: '#ffffff', c2: R.color, dir: V(0, 1, 0), vit: 1.2, vie: 1, taille: 0.25 }); });
   crypteEtat = { relique: { id: def.id, rarete: rar }, def, R, objet: g, aura, solA, voile, ouverte: false, gardiens: null, prise: false, indice: false };
+  try { sentierCrypte(); } catch (e) { console.warn('sentier crypte', e); }
+}
+// un fin sentier de lumière dessiné au sol, de l'entrée jusqu'au mur fissuré (puis jusqu'à la relique une fois le mur brisé).
+// Des vagues de lueur le parcourent vers la crypte, et un feu follet t'attend un peu plus loin quand tu t'en approches.
+function sentierCrypte() {
+  const C = monde.crypte, E = crypteEtat; if (!C || !C.murObj || !monde.spawn) return;
+  const a = cheminGrille(monde.spawn, C.murObj.pos), b = cheminGrille(C.murObj.pos, C.socle);
+  if (!a || a.length < 2) return;
+  // lissage (Chaikin) puis rééchantillonnage régulier tous les 1,05 m
+  let pts = [monde.spawn.clone(), ...a, C.murObj.pos.clone()];
+  const apresMur = b ? b : []; pts = pts.concat(apresMur, [C.socle.clone()]);
+  for (let it = 0; it < 2; it++) { const q = [pts[0]]; for (let i = 0; i < pts.length - 1; i++) { const p0 = pts[i], p1 = pts[i + 1]; q.push(p0.clone().lerp(p1, 0.25), p0.clone().lerp(p1, 0.75)); } q.push(pts[pts.length - 1]); pts = q; }
+  const Mu = C.mur, ech = []; let acc = 0, dist = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i], p1 = pts[i + 1], l = dist2D(p0, p1);
+    while (acc <= l) { const p = p0.clone().lerp(p1, l ? acc / l : 0); ech.push({ p, d: dist + acc, apres: (Mu.axe === 'x' ? p.z < Mu.z - 0.3 : p.x < Mu.x - 0.3) ? 1 : 0 }); acc += 0.8; }
+    acc -= l; dist += l;
+  }
+  // on ne commence pas collé à l'entrée : le sentier apparaît quelques mètres plus loin
+  const liste = ech.filter(e => e.d > 5);
+  const n = liste.length; if (!n) return;
+  const geo = new THREE.PlaneGeometry(0.7, 0.7).rotateX(-Math.PI / 2);
+  const aD = new Float32Array(n), aA = new Float32Array(n);
+  const mat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    uniforms: { uT: { value: 0 }, uOuv: { value: 0 }, uFin: { value: 1 }, uC: { value: new THREE.Color('#b8a4ff') } },
+    vertexShader: 'attribute float aD; attribute float aA; varying vec2 vU; varying float vD; varying float vA; void main(){ vU=uv; vD=aD; vA=aA; gl_Position=projectionMatrix*modelViewMatrix*instanceMatrix*vec4(position,1.0); }',
+    fragmentShader: 'uniform float uT; uniform float uOuv; uniform float uFin; uniform vec3 uC; varying vec2 vU; varying float vD; varying float vA; void main(){ float r=length(vU-0.5)*2.0; float f=smoothstep(1.0,0.0,r); f*=f; float vague=pow(max(0.0,sin(vD*0.32-uT*2.6)),14.0); float base=0.26+0.08*sin(vD*1.7+uT*1.3); float vis=mix(1.0,uOuv,vA)*uFin; gl_FragColor=vec4(uC*(base+vague*1.1), (base+vague*0.9)*f*vis); }' });
+  const im = new THREE.InstancedMesh(geo, mat, n); const m4 = new THREE.Matrix4(), q4 = new THREE.Quaternion(), sc = new THREE.Vector3();
+  liste.forEach((e, i) => { const y = solY(e.p.x, e.p.z) + 0.11; sc.setScalar(0.75 + Math.sin(i * 2.3) * 0.2); q4.setFromAxisAngle(V(0, 1, 0), i * 1.7); m4.compose(V(e.p.x + Math.sin(i * 3.1) * 0.12, y, e.p.z + Math.cos(i * 2.7) * 0.12), q4, sc); im.setMatrixAt(i, m4); aD[i] = e.d; aA[i] = e.apres; });
+  geo.setAttribute('aD', new THREE.InstancedBufferAttribute(aD, 1)); geo.setAttribute('aA', new THREE.InstancedBufferAttribute(aA, 1));
+  im.frustumCulled = false; im.renderOrder = 2; monde.groupe.add(im);
+  // feu follet
+  const follet = new THREE.Sprite(new THREE.SpriteMaterial({ map: texRond(), color: '#d8ccff', blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, opacity: 0 }));
+  follet.scale.setScalar(0.7); monde.groupe.add(follet);
+  E.sentier = { im, mat, liste, follet, i: 0, fp: liste[0].p.clone(), t: 0 };
+  G.anims.push((t, dt) => {
+    const S = E.sentier; if (!S || !S.im.parent) return;
+    mat.uniforms.uT.value = t;
+    mat.uniforms.uOuv.value += ((E.ouverte ? 1 : 0) - mat.uniforms.uOuv.value) * Math.min(1, dt * 2);
+    if (E.prise) mat.uniforms.uFin.value = Math.max(0, mat.uniforms.uFin.value - dt * 0.4);
+    if (!joueur) return;
+    S.t -= dt; if (S.t <= 0) { S.t = 0.2; let bi = 0, bd = Infinity; for (let i = 0; i < S.liste.length; i++) { const d = dist2D(S.liste[i].p, joueur.pos); if (d < bd) { bd = d; bi = i; } } S.i = bi; S.pres = bd; }
+    // le feu follet flotte ~7 m devant toi sur le sentier (il ne dépasse pas le mur tant qu'il est fermé)
+    let k = Math.min(S.liste.length - 1, S.i + 7); if (!E.ouverte) while (k > 0 && S.liste[k].apres) k--;
+    const cible = S.liste[k].p; S.fp.lerp(cible, Math.min(1, dt * 1.2));
+    const proche = S.pres < 9 && !E.prise ? 1 : 0;
+    follet.material.opacity += (proche * (0.75 + 0.2 * Math.sin(t * 5)) - follet.material.opacity) * Math.min(1, dt * 2);
+    follet.position.set(S.fp.x + Math.sin(t * 1.3) * 0.3, solY(S.fp.x, S.fp.z) + 1.3 + Math.sin(t * 2.1) * 0.25, S.fp.z + Math.cos(t * 1.1) * 0.3);
+    if (proche && Math.random() < 0.3) emettre(V(follet.position.x, follet.position.y, follet.position.z), { n: 1, c1: '#ffffff', c2: '#a890ff', vit: 0.4, vie: 0.9, taille: 0.18, grav: -0.6 });
+    if (S.pres < 14 && Math.random() < 0.12) { const e = S.liste[Math.min(S.liste.length - 1, S.i + Math.floor(Math.random() * 10))]; if (!e.apres || E.ouverte) emettre(V(e.p.x, solY(e.p.x, e.p.z) + 0.15, e.p.z), { n: 1, c1: '#e8e0ff', c2: '#8a70ff', dir: V(0, 1, 0), vit: 0.6, vie: 1.2, taille: 0.14 }); }
+  });
 }
 function majCrypte(dt) {
   const C = monde.crypte, E = crypteEtat; if (!C || !E || joueur.mort) return;
   const m = C.murObj;
+  if (!E.annonce && E.sentier && E.sentier.pres < 5) { E.annonce = true; UI.toast('Une traînée de lumière pâle serpente sur les dalles… un feu follet semble t’inviter à la suivre.'); }
   if (!E.ouverte && !E.indice && dist2D(joueur.pos, m.pos) < 7) { E.indice = true; UI.toast('Un courant d’air froid passe à travers ce mur fissuré…'); }
   if (E.ouverte && !E.gardiens && monde.zoneDe(joueur.pos.x, joueur.pos.z) === C.id) reveilGardiensCrypte();
   if (E.gardiens && !E.libre && E.gardiens.every(g => g.mort)) {
@@ -1664,11 +1746,12 @@ function fonderDomaine() {
 async function entrerDomaine() {
   const d = domaine(); if (!d) return;
   if (!assetsSylvePrets) { try { await chargerAssets(ASSETS_SYLVE.map(k => [k, `assets/sylve/${k}.json`]), () => {}); assetsSylvePrets = true; } catch (e) {} }
+  if (!assetsChateauPrets) { UI.toast('Les bannières se lèvent sur ton domaine…'); try { await chargerAssets(ASSETS_CHATEAU.map(k => [k, `assets/chateau/${k}.json`]), () => {}); assetsChateauPrets = true; } catch (e) { console.warn('château', e); } }
   fondu(() => {
     viderMonde(); invasion = null; arene = null; selection = null;
     majDomaine();
     modeActuel = { id: 'domaine', nom: 'Domaine', lieu: `Domaine de ${J.nom}`, argent: 0, xp: 0, tiers: [1, 1], mobTier: 1 };
-    monde = construireDomaine(d); grilleIle();
+    monde = construireDomaine(d); G.solH = monde.solH; grilleIle();
     construireJoueur(monde.spawn.clone()); joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax;
     G.camTarget.copy(joueur.pos);
     G.scene.background.set('#8fb8d8'); G.scene.fog.color.set('#a8c8dc'); G.scene.fog.density = 0.006; G.hemi.intensity = 1.35; G.sun.intensity = 1.7; G.sun.color.set('#fff2d8');
@@ -1916,6 +1999,24 @@ function majRumeurs(dt) {
   const b = hasard(bots.length ? bots : [{ nom: hasard(BOTS)[0] }]);
   UI.chat(b.nom, l.replace(/\{nom\}/g, J.nom).replace('{exploit2}', X.t2).replace('{exploit}', X.t3));
 }
+// la fortune se remarque : sur la Place, les joueurs parlent de ta bourse (jamais deux fois la même phrase de suite)
+const PAROLES_FORTUNE = [
+  [500000, ['{nom} vient de passer, sa bourse tintait à chaque pas', 'quelqu’un a vu le sac d’or de {nom} ? il est énorme', '{nom} paie toujours rubis sur l’ongle chez Borin', 'faut que je demande à {nom} comment il fait son or']],
+  [5e6, ['{nom} a plus d’or que la banque de la Place, sérieux', 'j’ai vu {nom} acheter sans même regarder le prix', 'si {nom} rachète la taverne je serais pas surpris', '{nom} c’est un seigneur maintenant, faut lui faire la révérence', 'les marchands se battent pour servir {nom}']],
+  [50e6, ['{nom} a une fortune de roi, on parle de lui jusqu’aux îles', 'paraît que {nom} dort sur des piles de pièces', 'le Trésor de {nom}… même les bandits n’osent plus y penser', 'quand {nom} arrive sur la Place, le prix des potions monte', 'je travaille pour {nom} le mois prochain, il paie en or massif']],
+];
+let fortuneT = 60, vuFortune = [];
+function majFortune(dt) {
+  if (modeActuel || !joueur) return;
+  fortuneT -= dt; if (fortuneT > 0) return; fortuneT = rnd(140, 260);
+  let lignes = null; for (const [min, l] of PAROLES_FORTUNE) if (J.argent >= min) lignes = l;
+  if (!lignes) return;
+  let l = hasard(lignes.filter(x => !vuFortune.includes(x))) || hasard(lignes); vuFortune.push(l); if (vuFortune.length > 6) vuFortune.shift();
+  const b = hasard(bots.length ? bots : [{ nom: hasard(BOTS)[0] }]);
+  UI.chat(b.nom, l.replace(/\{nom\}/g, J.nom));
+  // les passants proches se retournent sur toi un instant
+  for (const x of bots) if (x.root && dist2D(x.pos, joueur.pos) < 9) { x.regard = joueur.pos; programmer(rnd(2, 4), () => { if (x.regard === joueur.pos) x.regard = null; }); }
+}
 function ouvrirRenommee() {
   const T = titreRenom();
   UI.renommee({ nom: J.nom, pts: gloirePts(), titre: T, exploits: ((J.gloire && J.gloire.liste) || []).slice().reverse().map(e => ({ txt: `${J.nom} ${EXPLOITS[e.id] ? EXPLOITS[e.id].t3 : ''}`, pts: EXPLOITS[e.id] ? EXPLOITS[e.id].pts : 0, t: e.t })),
@@ -2003,17 +2104,83 @@ function creerBoss(bdef, pos, tierB, salle) {
   UI.plaque(b, { nom: bdef.nom, classe: 'ennemi', lettre: false });
   return b;
 }
+// chaque rareté a sa propre identité : taille, bois ou or, hauteur du faisceau, cercle runique, étincelles, son d'apparition
+const ALLURE_COFFRE = {
+  vert: { echelle: 1.25, faisceau: 5, larg: 0.55, op: 0.45, lumiere: 0, runes: false, terne: true },
+  bleu: { echelle: 1.5, faisceau: 12, larg: 0.85, op: 1, lumiere: 18, runes: false },
+  violet: { echelle: 1.75, faisceau: 20, larg: 1.05, op: 1, lumiere: 30, runes: true, etincelles: 0.25 },
+  legendaire: { echelle: 2.05, faisceau: 34, larg: 1.1, op: 0.8, lumiere: 32, runes: true, etincelles: 0.6, pieces: true },
+};
 function creerCoffre(pos, couleur, boss) {
-  const c = COFFRES.find(x => x.id === couleur);
-  const obj = cloner(couleur === 'legendaire' ? 'chest_gold' : 'chest', pos.x, 0, pos.z, Math.PI / 4, 1.5);
-  obj.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); if (couleur !== 'legendaire') { o.material.color = new THREE.Color('#ffffff').lerp(new THREE.Color(c.color), 0.55); } o.material.emissive = new THREE.Color(c.color); o.material.emissiveIntensity = 0.25; o.castShadow = true; } });
+  const c = COFFRES.find(x => x.id === couleur), A = ALLURE_COFFRE[couleur] || ALLURE_COFFRE.bleu;
+  const obj = cloner(couleur === 'legendaire' ? 'chest_gold' : 'chest', pos.x, 0, pos.z, Math.PI / 4, A.echelle);
+  obj.traverse(o => { if (o.isMesh) { o.material = o.material.clone();
+    if (A.terne) { o.material.color = new THREE.Color('#9a8a6a'); o.material.emissive = new THREE.Color('#1a2a10'); o.material.emissiveIntensity = 0.3; } // vieux coffre de bois, un peu moisi
+    else if (couleur !== 'legendaire') { o.material.color = new THREE.Color('#ffffff').lerp(new THREE.Color(c.color), 0.55); o.material.emissive = new THREE.Color(c.color); o.material.emissiveIntensity = couleur === 'violet' ? 0.45 : 0.25; }
+    else { o.material.emissive = new THREE.Color('#ffb43a'); o.material.emissiveIntensity = 0.35; o.material.metalness = Math.max(o.material.metalness || 0, 0.6); }
+    o.castShadow = true; } });
   G.scene.add(obj);
-  const beam = faisceau(V(pos.x, 0, pos.z), c.color, 16, 0.9); G.scene.add(beam);
-  const sol = new THREE.Mesh(new THREE.CircleGeometry(2.4, 32), new THREE.MeshBasicMaterial({ color: c.color, map: texRond(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const beam = faisceau(V(pos.x, 0, pos.z), c.color, A.faisceau, A.larg); G.scene.add(beam);
+  if (A.op < 1) beam.traverse(o => { if (o.material) { o.material = o.material.clone(); o.material.opacity = (o.material.opacity ?? 1) * A.op; } });
+  const sol = new THREE.Mesh(new THREE.CircleGeometry(1.4 + A.echelle * 0.6, 32), new THREE.MeshBasicMaterial({ color: c.color, map: texRond(), transparent: true, opacity: A.terne ? 0.35 : 1, blending: THREE.AdditiveBlending, depthWrite: false }));
   sol.rotation.x = -Math.PI / 2; sol.position.y = 0.1; beam.add(sol);
-  G.torches.push({ pos: V(pos.x, 2.5, pos.z), color: c.color, int: 28, dist: 12 });
+  let runes = null;
+  if (A.runes) {
+    runes = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: texRunes(c.color), color: c.color, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
+    runes.rotation.x = -Math.PI / 2; runes.position.y = 0.13; runes.scale.setScalar(couleur === 'legendaire' ? 6.2 : 4.6); beam.add(runes);
+  }
+  if (A.lumiere) G.torches.push({ pos: V(pos.x, 2.5, pos.z), color: c.color, int: A.lumiere, dist: 10 + A.echelle * 2 });
   const lid = obj.getObjectByName('chest_lid');
-  coffres.push({ obj, beam, couleur, def: c, boss, pos: pos.clone(), ouvert: false, lid });
+  const C = { obj, beam, couleur, def: c, boss, pos: pos.clone(), ouvert: false, lid, runes, allure: A };
+  coffres.push(C);
+  // vie du coffre : cercle qui tourne, étincelles qui montent, pièces d'or qui jaillissent du coffre légendaire
+  ajouterVfx(new THREE.Group(), (t, dt) => {
+    if (!coffres.includes(C) || !obj.parent) return false;
+    if (C.ouvert && !C.ceremonie) { if (!runes) return false; runes.material.opacity *= 0.96; return runes.material.opacity > 0.02; }
+    if (runes) { runes.rotation.z += (dt || 0.016) * (couleur === 'legendaire' ? 0.6 : 0.35); runes.material.opacity = 0.65 + 0.25 * Math.sin(t * 2.4); }
+    if (A.etincelles && Math.random() < A.etincelles) emettre(V(pos.x + rnd(-1, 1), 0.6, pos.z + rnd(-1, 1)), { n: 1, c1: '#ffffff', c2: c.color, dir: V(0, 1, 0), vit: 1.6 + Math.random(), vie: 1.4, taille: 0.22 });
+    if (A.pieces && Math.random() < 0.08) emettre(V(pos.x, 1.4, pos.z), { n: 3, c1: '#fff2b0', c2: '#ffb42a', vit: 3.5, vie: 1, taille: 0.3, grav: 9, monte: 4 });
+    if (couleur === 'legendaire' && !C.ouvert) { obj.position.y = Math.max(0, Math.sin(t * 2.2)) * 0.06; }
+  });
+  if (couleur === 'legendaire') { son('jingle_legend', 0.35, 1.25); onde(pos, '#ffc23a', 9, 1.2); G.shake = Math.max(G.shake || 0, 0.25); UI.toast('Un COFFRE LÉGENDAIRE vient d’apparaître !', true); }
+  else if (couleur === 'violet') { son('forceField_000', 0.25, 1.3); onde(pos, c.color, 6, 0.8); }
+}
+// l'ouverture est une petite cérémonie qui grandit avec la rareté (le coffre pourri s'ouvre en un clin d'œil, le légendaire fait trembler la salle)
+function ceremonieCoffre(c, fin) {
+  const k = c.couleur, col = c.def.color, p = c.pos;
+  const ouvrirCouvercle = (vit = 0.6) => { if (c.lid) ajouterVfx(new THREE.Group(), (t) => { c.lid.rotation.x = -Math.min(1, t / vit) * 1.9; if (t > vit + 0.1) return false; }); };
+  if (k === 'vert') { son('creak1', 0.6, 1.1); ouvrirCouvercle(0.35); emettre(V(p.x, 1, p.z), { n: 18, c1: '#d8d0b0', c2: '#6a7a4a', vit: 3, vie: 0.8, taille: 0.35, grav: 5 }); programmer(0.35, fin); return; }
+  if (k === 'bleu') { son('creak1', 0.7); son('jingle_loot', 0.45); ouvrirCouvercle(0.5); emettre(V(p.x, 1.2, p.z), { n: 60, c1: '#e8f4ff', c2: col, vit: 6, vie: 1.1, taille: 0.42, grav: 4, monte: 3 }); onde(p, col, 5, 0.7); programmer(0.55, fin); return; }
+  // rare et légendaire : le coffre tremble, la lumière monte… puis explose
+  c.ceremonie = true; const leg = k === 'legendaire', duree = leg ? 1.5 : 0.8, o = c.obj, x0 = o.position.x, z0 = o.position.z;
+  son('forceField_000', leg ? 0.5 : 0.35, leg ? 0.8 : 1.1); if (leg) { ralenti(duree + 0.3, 0.55); G.camZoom0 = G.camZoom || 1; G.camZoom = Math.max(0.62, (G.camZoom || 1) * 0.72); }
+  ajouterVfx(new THREE.Group(), (t) => {
+    const e = Math.min(1, t / duree);
+    o.position.x = x0 + Math.sin(t * 60) * 0.05 * e; o.position.z = z0 + Math.cos(t * 53) * 0.05 * e; o.position.y = leg ? e * e * 0.5 : 0;
+    if (Math.random() < 0.5 + e) emettre(V(p.x + rnd(-1.4, 1.4), 0.4, p.z + rnd(-1.4, 1.4)), { n: 1, c1: '#ffffff', c2: col, dir: V(0, 1, 0), vit: 2 + 6 * e, vie: 0.6, taille: 0.25 + 0.2 * e });
+    if (c.runes) { c.runes.scale.setScalar((leg ? 6.2 : 4.6) * (1 - e * 0.5)); c.runes.rotation.z += 0.02 + e * 0.25; }
+    if (t < duree) return;
+    o.position.set(x0, 0, z0); ouvrirCouvercle(0.25); c.ceremonie = false;
+    son('explosionCrunch_000', leg ? 0.6 : 0.4, leg ? 0.7 : 1); son(leg ? 'jingle_legend' : 'jingle_loot', 0.6);
+    emettre(V(p.x, 1.2, p.z), { n: leg ? 220 : 110, c1: '#ffffff', c2: col, vit: leg ? 13 : 9, vie: 1.4, taille: 0.5, grav: 3, monte: 5 });
+    onde(p, col, leg ? 12 : 7, 1); if (leg) { onde(p, '#ffffff', 8, 0.6); G.shake = 0.6; UI.flash && UI.flash('#ffe8a8'); pluiePieces(p, 40); G.camZoom = G.camZoom0 || 1; UI.titreManga('LÉGENDAIRE', 'Le coffre s’ouvre…'); } else G.shake = 0.3;
+    programmer(leg ? 0.9 : 0.5, fin); return false;
+  });
+}
+// une gerbe de vraies pièces d'or qui retombent et rebondissent
+function pluiePieces(p, n) {
+  if (!G.assets.d_coin) return;
+  for (let i = 0; i < n; i++) {
+    const m = cloner('d_coin', p.x, 1.4, p.z, 0, 1.6 + Math.random() * 0.6); m.traverse(o => { if (o.geometry) o.geometry.userData.partage = true; });
+    const a = Math.random() * 6.283, v = 2 + Math.random() * 5; let vx = Math.cos(a) * v, vz = Math.sin(a) * v, vy = 6 + Math.random() * 6, rebonds = 0;
+    const spin = V(rnd(-12, 12), rnd(-12, 12), rnd(-12, 12));
+    ajouterVfx(m, (t, dt) => {
+      dt = Math.min(dt || 0.016, 0.05); vy -= 22 * dt; m.position.x += vx * dt; m.position.y += vy * dt; m.position.z += vz * dt;
+      m.rotation.x += spin.x * dt; m.rotation.y += spin.y * dt; m.rotation.z += spin.z * dt;
+      if (m.position.y < 0.08) { m.position.y = 0.08; if (rebonds++ < 2 && vy < -2) { vy = -vy * 0.35; vx *= 0.6; vz *= 0.6; spin.multiplyScalar(0.5); if (rebonds === 1 && Math.random() < 0.15) son('handleCoins', 0.12, 1.5); } else { vy = 0; vx *= 0.9; vz *= 0.9; spin.multiplyScalar(0.85); m.rotation.x = Math.PI / 2 * Math.round(m.rotation.x / (Math.PI / 2)); } }
+      if (t > 3.5) { m.scale.multiplyScalar(0.9); if (m.scale.x < 0.05) return false; }
+    });
+  }
 }
 function creerSortie(pos) {
   const g = new THREE.Group(); g.position.copy(pos); g.rotation.y = Math.PI / 4;
@@ -2713,14 +2880,22 @@ function majJoueur(dt) {
   if (m > 0.12 && !bloque) {
     const dir = DIR_DROITE.clone().multiplyScalar(mx).addScaledVector(DIR_HAUT, my).normalize();
     let v = st.vitesse * (1 + bonusParch('vitesse')) * (j.orageT > 0 ? 1.4 : 1) * (j.sprintT > 0 ? 1.6 : 1) * (j.slowT > 0 ? 0.6 : 1) * (tourne ? 0.7 : 1) * (j.verrouAtk && j.verrouT > 0 ? 0.45 : 1) * (j.eveilT > 0 ? 1.15 : 1); // vitesse constante, peu importe l'inclinaison du joystick
-    deplacer(j, dir.x * v * dt, dir.z * v * dt);
+    // accélération douce (0,1 s) : le perso démarre et tourne avec du poids, sans à-coups
+    j.velo = j.velo || V(); { const kk = 1 - Math.exp(-dt * 13); j.velo.x += (dir.x * v - j.velo.x) * kk; j.velo.z += (dir.z * v - j.velo.z) * kk; }
+    deplacer(j, j.velo.x * dt, j.velo.z * dt);
     const vise = (entree.atk || entree.clavier[' ']) && j.cible && !j.cible.mort && dist2D(j.cible.pos, j.pos) - j.cible.rayon < st.portee + 0.5;
-    if (!tourne && !vise) { j.angle = tourner(j.angle, Math.atan2(dir.x, dir.z), dt * 14); j.root.rotation.y = j.angle; }
+    const a0 = j.angle;
+    if (!tourne && !vise) { j.angle = tourner(j.angle, Math.atan2(dir.x, dir.z), dt * 11); j.root.rotation.y = j.angle; }
+    { let da = j.angle - a0; da = Math.atan2(Math.sin(da), Math.cos(da)); const vit = Math.hypot(j.velo.x, j.velo.z); j.incl = { roulis: Math.max(-0.2, Math.min(0.2, -da / Math.max(dt, 1e-3) * 0.04)), tangage: Math.min(0.12, vit * 0.017) }; }
     // jambes toujours en course quand on bouge, même pendant une attaque (le haut du corps frappe)
     if (!tourne) { if (j.haut) j._jouerBas(j.def.run); else if (j.courante && j.courante.loop === THREE.LoopOnce && j.courante.isRunning()) { const n = j.courante.getClip().name, t = j.courante.time, ts = j.courante.timeScale, f = j._onFin; if (j._jouerHaut(n, { vitesse: ts, fin: f, jambes: j.def.run })) j.haut.time = t; } else j.jouer(j.def.run); }
-    j.cadence(Math.max(0.75, Math.min(1.7, v / 5.4)));
-    j.pasT -= dt * v; if (j.pasT <= 0) { j.pasT = 2.4; son(Math.random() < 0.5 ? 'footstep_concrete_000' : 'footstep_concrete_001', 0.12); }
-  } else if (j.haut) { j._jouerBas(j.def.idle); // on s'arrête pendant une attaque : les jambes se posent
+    j.pasT -= dt * v; if (j.pasT <= 0) { j.pasT = 2.4; son(Math.random() < 0.5 ? 'footstep_concrete_000' : 'footstep_concrete_001', 0.12); if (J.argent >= 5e6 && Math.random() < 0.3) son('handleCoins', 0.05, 1.7); } // une bourse bien pleine tinte en marchant
+  } else {
+    // on s'arrête en glissant un court instant (pas d'arrêt net)
+    if (j.velo && (j.velo.x || j.velo.z)) { j.velo.multiplyScalar(Math.exp(-dt * (bloque ? 30 : 15))); if (Math.hypot(j.velo.x, j.velo.z) > 0.25 && !bloque) deplacer(j, j.velo.x * dt, j.velo.z * dt); else j.velo.set(0, 0, 0); }
+    j.incl = { roulis: 0, tangage: 0 };
+  }
+  if (m > 0.12 && !bloque) {} else if (j.haut) { j._jouerBas(j.def.idle); // on s'arrête pendant une attaque : les jambes se posent
   } else if (!bloque && !tourne && !(j.animT > 0)) {
     const c = j.courante; const n = c ? c.getClip().name : '';
     if (n === j.def.run || n === 'Walking_A') j.jouer(j.def.idle);
@@ -2914,9 +3089,10 @@ function majEnnemis(dt) {
     e.maj(dt);
   }
 }
+const _dirAV = new THREE.Vector3();
 function avancerVers(e, cible, dt, vitesse) {
   if (e.racineT > 0 && e !== joueur) return; // entravé : ne peut plus bouger
-  const dir = V(cible.x - e.pos.x, 0, cible.z - e.pos.z); const l = dir.length(); if (l < 0.01) return;
+  const dir = _dirAV.set(cible.x - e.pos.x, 0, cible.z - e.pos.z); const l = dir.length(); if (l < 0.01) return;
   dir.divideScalar(l);
   // séparation
   for (let li = 0; li < (e.bg ? 2 : 1); li++) for (const o of (li ? allies : ennemis)) { if (o === e || o.mort || o.loup) continue; const dx = e.pos.x - o.pos.x, dz = e.pos.z - o.pos.z, dd = Math.hypot(dx, dz); const r = e.rayon + o.rayon + 0.3; if (dd < r && dd > 0.01) { dir.x += dx / dd * (r - dd) * 1.5; dir.z += dz / dd * (r - dd) * 1.5; } }
@@ -3240,11 +3416,10 @@ function majInteractions() {
 function ouvrirCoffre(c, auto = false) {
   if (c.final) return ouvrirCoffreFinal(c);
   c.ouvert = true; UI.action(null); if (c.couleur === 'legendaire') exploit('coffre_legende');
-  son('creak1', 0.7); son(c.couleur === 'legendaire' ? 'jingle_legend' : 'jingle_loot', 0.55);
-  const t0 = G.t;
-  if (c.lid) ajouterVfx(new THREE.Group(), (t) => { c.lid.rotation.x = -Math.min(1, t / 0.6) * 1.9; if (t > 0.7) return false; });
-  emettre(V(c.pos.x, 1.2, c.pos.z), { n: 90, c1: '#fff2c0', c2: c.def.color, vit: 7, vie: 1.2, taille: 0.45, grav: 4, monte: 4 });
-  onde(c.pos, c.def.color, 5, 0.8);
+  let pret = false, attente = null; const quandPret = (f) => { if (pret) f(); else attente = f; };
+  if (auto) { son('creak1', 0.6); if (c.lid) ajouterVfx(new THREE.Group(), (t) => { c.lid.rotation.x = -Math.min(1, t / 0.5) * 1.9; if (t > 0.6) return false; }); emettre(V(c.pos.x, 1.2, c.pos.z), { n: 60, c1: '#fff2c0', c2: c.def.color, vit: 6, vie: 1, taille: 0.4, grav: 4, monte: 3 }); pret = true; }
+  else ceremonieCoffre(c, () => { pret = true; if (attente) attente(); });
+  { const sp = projeter(V(c.pos.x, 1.2, c.pos.z)); G.sourceArgentCoffre = sp; }
   const loot = lootCoffre(c.couleur, modeActuel, c.mega ? 3 : c.boss.idx, rangK());
   if (MODES.includes(modeActuel) || modeActuel && modeActuel.sylve) loot.argent = Math.round(loot.argent * (1 + 0.25 * rangDe('donjon').i) * (1 + bonusParch('argent')));
   { const bd = bonusParch('drop'); if (bd > 0) { const extra = lootCoffre(c.couleur, modeActuel, c.boss.idx || 0).objets; for (const it of extra) if (Math.random() < bd * 1.6) loot.objets.push(it); if (extra.length && Math.random() < bd) loot.objets.push(extra[0]); } }
@@ -3269,9 +3444,7 @@ function ouvrirCoffre(c, auto = false) {
     J.argent += loot.argent; for (const it of loot.objets) ajouterSac(it, true); son('handleCoins', 0.5); c.beam.visible = false; sauver();
     UI.butinFlash(c.couleur, loot); return;
   }
-  setTimeout(() => {
-    UI.butin(c.couleur, loot, () => { J.argent += loot.argent; for (const it of loot.objets) ajouterSac(it, true); son('handleCoins', 0.6); sauver(); c.beam.visible = false; });
-  }, 700);
+  quandPret(() => UI.butin(c.couleur, loot, () => { G.sourceArgent = { x: innerWidth / 2, y: innerHeight * 0.42 }; J.argent += loot.argent; for (const it of loot.objets) ajouterSac(it, true); son('handleCoins', 0.6); sauver(); c.beam.visible = false; }, { mode: modeActuel }));
 }
 
 function interactionsIle() {
@@ -3403,14 +3576,38 @@ function initEntrees() {
   };
 }
 
+// ---------------- Portes : elles s'ouvrent quand quelqu'un approche, se referment derrière lui ----------------
+let porteT = 0;
+function majPortes(dt) {
+  const L = monde && monde.portes; if (!L || !L.length) return;
+  porteT -= dt;
+  if (porteT <= 0) {
+    porteT = 0.15;
+    for (const P of L) {
+      let pres = false;
+      for (const a of G.acteurs) { if (!a.root.parent) continue; const p = a.root.position; if (Math.abs(p.x - P.pos.x) + Math.abs(p.z - P.pos.z) < P.rayon * 1.3 && Math.hypot(p.x - P.pos.x, p.z - P.pos.z) < P.rayon) { pres = true; break; } }
+      if (pres && !P.ouvert) { son('doorOpen_1', 0.35, 0.95); P.ouvert = true; } else if (!pres && P.ouvert) { P.ouvert = false; P.fermeT = 0.9; }
+    }
+  }
+  for (const P of L) {
+    if (!P.battant) continue;
+    const but = P.ouvert ? 1 : 0, v = P.ouvert ? 3.2 : 1.8;
+    const avant = P.ouv; P.ouv += Math.sign(but - P.ouv) * Math.min(Math.abs(but - P.ouv), dt * v);
+    // petit rebond en fin de course : la porte « claque » doucement
+    const e = P.ouv < 1 ? 1 - Math.pow(1 - P.ouv, 3) : 1;
+    P.battant.rotation.y = P.sens * e * 1.75;
+    if (avant > 0.02 && P.ouv <= 0.02 && !P.ouvert) son('creak1', 0.25, 1.2);
+  }
+}
 // ---------------- Boucle ----------------
-let dernier = performance.now(), hudT = 0, miniT = 0, ileT = 2;
+let dernier = performance.now(), hudT = 0, miniT = 0, ileT = 2, argentVu = null;
 const ORBITE = V(0, 0, 0);
 // filet de sécurité : une erreur dans une mise à jour ne doit jamais figer le jeu (l'image continue, l'erreur est notée)
 let derniereErr = 0;
 function boucle() {
   requestAnimationFrame(boucle);
-  try { boucleCorps(); } catch (e) {
+  const t0m = G.mesure ? performance.now() : 0;
+  try { boucleCorps(); if (G.mesure) { G.mesure.push([G._tl - t0m, performance.now() - G._tl]); if (G.mesure.length > 4000) G.mesure.shift(); } } catch (e) {
     if (performance.now() - derniereErr > 5000) { derniereErr = performance.now(); console.error('Erreur de jeu :', e && e.stack || e); if (pontErreurs.length < 20) pontErreurs.push(String(e && e.message)); }
     try { if (!G.simRapide) rendre(); } catch (e2) {}
   }
@@ -3428,7 +3625,7 @@ function boucleCorps() {
   if (enJeu && joueur) {
     G.focus = joueur.pos;
     if (!transition) majJoueur(dt);
-    for (const x of [joueur, ...allies]) { if (!x._pp) x._pp = x.pos.clone(); x.vel = x.vel || V(); x.vel.set((x.pos.x - x._pp.x) / Math.max(dt, 0.001), 0, (x.pos.z - x._pp.z) / Math.max(dt, 0.001)); x._pp.copy(x.pos); }
+    for (let xi = -1; xi < allies.length; xi++) { const x = xi < 0 ? joueur : allies[xi]; if (!x._pp) x._pp = x.pos.clone(); x.vel = x.vel || V(); x.vel.set((x.pos.x - x._pp.x) / Math.max(dt, 0.001), 0, (x.pos.z - x._pp.z) / Math.max(dt, 0.001)); x._pp.copy(x.pos); }
     if (!modeActuel) { majBots(dt); for (const l of meute) if (l && !l.mort && allies.includes(l)) { majLoup(l, dt); l.maj(dt); } } else { majEnnemis(dt); majAllies(dt); majProjectiles(dt); majInvasion(dt); majArene(dt); }
     for (let i = dangers.length - 1; i >= 0; i--) { dangers[i].t -= dt; if (dangers[i].t <= 0) dangers.splice(i, 1); }
     if (modeActuel && modeActuel.sylve) { majSylve(dt); sylveMeterT = (sylveMeterT || 0) - dt; if (sylveMeterT <= 0) { sylveMeterT = 0.5; if (compteur) UI.majDegats(classement(compteur.total, 0, G.t - sylve.debut)); } }
@@ -3439,14 +3636,17 @@ function boucleCorps() {
     if (graveuse) graveuse.maj(dt);
     ileT -= dt; if (ileT <= 0) { ileT = 3; majProduction(); majDomaine(); majAssauts(); majRaids(); if (modeActuel && modeActuel.id === 'ile' && !monde.etranger && !(raid && raid.r)) journalIle(monde.ile); }
     if (monde.type === 'donjon') { majScenes(dt); majCrypte(dt); majAurasDonjon(dt); }
-    majRegards(); majAuras(dt);
+    majRegards(); majAuras(dt); majPortes(dt);
     if (!modeActuel || modeActuel.id === 'ile') majParolesPNJ(dt);
-    majRumeurs(dt);
+    majRumeurs(dt); majFortune(dt);
     majEscouade(dt); majCommandeOmbres(dt); majAbime(dt); majMeuteJoueur(dt); if (taverne) majTaverne(dt); if (mission) majMission(dt); majEveil(dt); if (goulet) majGoulet(dt); if (!modeActuel) majPortailGoulet();
     G.enCombat = joueur.combatT > 0 && !!modeActuel;
+    G.camAvance = joueur.velo;
     majCamera(dt, G.solH && !G.camCible ? V(joueur.pos.x, solY(joueur.pos.x, joueur.pos.z), joueur.pos.z) : (G.camCible || joueur.pos));
     majTorches(joueur.pos);
     if (joueur.comboT > 0) { joueur.comboT -= dt; if (joueur.comboT <= 0) joueur.combo = 0; }
+    if (argentVu !== null && J.argent !== argentVu) { const d = J.argent - argentVu; if (d > 0) { const sp = G.sourceArgent || projeter(V(joueur.pos.x, 1.8, joueur.pos.z)); UI.gainArgent(d, sp.x, sp.y); } else UI.perteArgent(-d); G.sourceArgent = null; UI.majBourse(J.argent); }
+    argentVu = J.argent; UI.roulerBourse(dtReel);
     hudT -= dt; if (hudT <= 0) { hudT = 0.08; UI.majCombo(joueur.def.assassin ? joueur.combo || 0 : -1); UI.majHud(joueur, joueur.st); UI.majSorts(joueur); majInteractions(); majCadreAutre(); majBarreRival(); }
     miniT -= dt; if (miniT <= 0) { miniT = 0.2; majBoutonTP(); majMini(); majParchemins(0.2); majMusique(0.2); }
     UI.majPlaques(joueur.pos);
@@ -3471,6 +3671,7 @@ function boucleCorps() {
   }
   majFeux(dt); majVfx(dt); majParticules(dt);
   const t1 = performance.now();
+  if (G.mesure) G._tl = performance.now();
   if (!G.simRapide) rendre();
   const t2 = performance.now(), P = G.perf || (G.perf = { upd: 0, rend: 0, max: 0, pics: 0 });
   P.upd = P.upd * 0.95 + (t1 - now) * 0.05; P.rend = P.rend * 0.95 + (t2 - t1) * 0.05;
@@ -3792,8 +3993,7 @@ function majCombattant(e, dt) {
       const dj = dist2D(e.pos, joueur.pos);
       if (e.invoc) { // les invocations collent au joueur, même quand il court ou sprinte
         if (dj > 16) { fumeeOmbre(e.pos); e.pos.copy(pointLibrePres(joueur.pos, 1.5, 3)); fumeeOmbre(e.pos); }
-        else if (dj > 2.8) { avancerVers(e, joueur.pos, dt, Math.max(e.st.vitesse, vitesseJoueur()) * (dj > 6 ? 1.3 : 1.05)); e.jouer(def.run); }
-        else e.jouer(def.idle);
+        else suivreFormation(e, allies.filter(x => x.invoc && !x.mort).indexOf(e), dt, def.run, def.idle);
       } else if (e.membreSylve) { autonomieSylve(e, dt); }
       else if (e.autonome && autonomieAllie(e, dt, dj)) { /* il fait sa vie */ }
       else if (dj > (e.autonome ? 7 : 3.5)) { if (e.ox === undefined) { e.ox = rnd(-3, 3); e.oz = rnd(-3, 3); } allerVers(e, e.autonome ? V(joueur.pos.x + e.ox, 0, joueur.pos.z + e.oz) : joueur.pos, dt, e.st.vitesse * (dj > 12 ? 1.1 : 0.85)); e.jouer(def.run); }
@@ -6158,7 +6358,7 @@ function dissiper(a) {
 }
 
 // accès de débogage (console)
-window.__jeu = { get modeActuel() { return modeActuel; }, bilan: () => MODES.map(m => {
+window.__jeu = { get modeActuel() { return modeActuel; }, domaineTest: (n = 4) => { if (!J.domaine) J.domaine = { niveau: n, serviteurs: [], tresor: 0, maj: Date.now(), graine: 7, journal: [] }; J.domaine.niveau = n; if (!iles().length) J.iles = J.iles || []; return entrerDomaine(); }, bilan: () => MODES.map(m => {
     const eq = genererEquipRival(m.ipConseil, 'epee'), niv = nivBot(eq), st = statsHeros(eq, niv), dps = st.degats * st.vitesseAtk * (1 + st.crit / 200);
     const mob = creerEnnemi(MOBS.guerrier, V(900, 0, 900), m.mobTier, -9), mi = creerEnnemi(MOBS.minion, V(900, 0, 900), m.mobTier, -9), b = creerBoss(BOSS[0], V(905, 0, 905), m.bossTier[0], null), b3 = creerBoss(BOSS[3], V(905, 0, 905), m.bossTier[3], null);
     const r = { mode: m.lieu, ip: m.ipConseil, niv, pv: Math.round(st.pvMax), dps: Math.round(dps), red: +st.reduction.toFixed(2), ttkMinion: +(mi.pvMax / dps).toFixed(1), ttkGuerrier: +(mob.pvMax / dps).toFixed(1), ttkBoss1: Math.round(b.pvMax / dps), ttkBoss4: Math.round(b3.pvMax / dps), coupsGuerrierPourMourir: +(st.pvMax / (mob.dmg * (1 - st.reduction))).toFixed(1), coupsBossPourMourir: +(st.pvMax / (b.dmg * (1 - st.reduction))).toFixed(1) };

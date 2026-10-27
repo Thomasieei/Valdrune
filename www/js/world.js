@@ -1533,8 +1533,13 @@ export function construireTaverne() {
   solAbysse(groupe, 0, 0, 120);
   // murs (nord et ouest hauts, sud et est bas pour la caméra)
   for (let x = X0 + 2; x < X1; x += 4) { inst.ajouter(x % 12 === 2 ? 'wall_arched' : 'wall', x, 0, Z0 - 0.5, 0); inst.ajouter('barrier', x, 0, Z1 + 0.25, 0); }
-  for (let z = Z0 + 2; z < Z1; z += 4) { inst.ajouter('wall', X0 - 0.5, 0, z, Math.PI / 2); inst.ajouter('barrier', X1 + 0.25, 0, z, Math.PI / 2); }
+  for (let z = Z0 + 2; z < Z1; z += 4) { if (z !== 6) inst.ajouter('wall', X0 - 0.5, 0, z, Math.PI / 2); inst.ajouter('barrier', X1 + 0.25, 0, z, Math.PI / 2); }
   for (const [x, z] of [[X0, Z0], [X1, Z0], [X0, Z1], [X1, Z1]]) inst.ajouter('pillar', x, 0, z, 0, 0.75, 1, 0.75);
+  // la vraie porte de la taverne (mur ouest) : elle s'ouvre quand on s'en approche
+  poserPorte(groupe, X0 - 0.5, 6, Math.PI / 2, 1, { sens: -1, rayon: 3.6 });
+  { const jour = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 3.6), new THREE.MeshBasicMaterial({ color: '#ffd9a0', transparent: true, opacity: 0.85 })); jour.position.set(X0 - 1.6, 1.8, 6); jour.rotation.y = Math.PI / 2; groupe.add(jour); }
+  inst.ajouter('torch_mounted', X0 + 0.1, 2.4, 3.2, Math.PI / 2); G.torches.push({ pos: new THREE.Vector3(X0 + 0.8, 2.6, 3.2), color: '#ffb46a', int: 10, dist: 6 });
+  { const tapis = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 3.4), new THREE.MeshStandardMaterial({ color: '#6a1a1a', roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); tapis.rotation.x = -Math.PI / 2; tapis.position.set(X0 + 1.9, 0.02, 6); groupe.add(tapis); }
   // poutres du plafond (suggérées) et lustres
   const bois = new THREE.MeshStandardMaterial({ color: '#3a2414', roughness: 0.9 });
   for (const x of [-7, 0, 7]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 3.2), bois); p.position.set(x, 3.9, Z0 + 1.6); groupe.add(p); }
@@ -1587,13 +1592,144 @@ export function construireTaverne() {
   G.scene.add(groupe);
   return {
     groupe, type: 'taverne', nom: 'Le Croc-Rouge', collisions,
-    spawn: new THREE.Vector3(0, 0, 8), sortie: new THREE.Vector3(0, 0, 9.3),
+    spawn: new THREE.Vector3(X0 + 2.6, 0, 6), sortie: new THREE.Vector3(X0 + 1.1, 0, 6), portes: groupe.userData.portes || [],
     comptoir: new THREE.Vector3(0, 0, -4.4), mira: new THREE.Vector3(0, 0, -8), tableau: new THREE.Vector3(X0 + 1.6, 0, -4.6), oracle: new THREE.Vector3(11.4, 0, -2.4),
     file: [new THREE.Vector3(0, 0, -4.4), new THREE.Vector3(0.4, 0, -3), new THREE.Vector3(0.2, 0, -1.6), new THREE.Vector3(0.6, 0, -0.2), new THREE.Vector3(0.3, 0, 1.2)],
     places: [[-6.5, 1.6], [-6.5, 4.8], [5.5, 2], [5.5, 5.2], [-1.5, 4.8], [-3.6, 6.4], [8.4, 6.8], [-10.6, 1.8], [11.6, 1.2]].map(([x, z]) => new THREE.Vector3(x, 0, z)),
     bornes: { x0: X0, x1: X1, z0: Z0, z1: Z1 },
     marche: (x, z) => x > X0 + 0.8 && x < X1 - 0.8 && z > Z0 + 0.8 && z < Z1 - 0.6,
   };
+}
+
+// une porte KayKit (mur + battant sur charnière) : le battant pivote quand on approche (animé dans main.js)
+export function poserPorte(groupe, x, z, rot, s = 1, opts = {}) {
+  const m = cloner('d_wall_doorway', x, opts.y || 0, z, rot, s); groupe.add(m);
+  if (opts.teinte) m.traverse(o => { if (o.isMesh) o.material = opts.teinte(o.material, 'wall'); });
+  const battant = m.getObjectByName('wall_doorway_door');
+  const P = { obj: m, battant, pos: new THREE.Vector3(x, 0, z), rot, ouv: 0, sens: opts.sens || 1, rayon: opts.rayon || 4.2 * s };
+  (groupe.userData.portes = groupe.userData.portes || []).push(P);
+  return P;
+}
+// Le château du domaine (niveau 2+) : enceinte crénelée, tours d'angle, châtelet d'entrée, douves et pont-levis,
+// cour pavée, tapis rouge, estrade du trône, donjon à étages, bannières, braseros, jardins et fontaine.
+function chateauDomaine(groupe, inst, collisions, reliefs, th, N) {
+  const ch = new Instancieur();
+  const S = 3.6, NX = 12, NZ = 10, X0 = -NX * S / 2, Z0 = -50.4, Z1 = Z0 + NZ * S; // cour : x ±21.6, z -50.4 → -14.4
+  const cx = i => X0 + S * (i + 0.5), cz = k => Z0 + S * (k + 0.5);
+  const H = 1.31 * S; // hauteur d'un rempart
+  // sol de la cour : dalles de pierre
+  const texDalles = texture('dallesCour', 256, 256, (g, w) => { g.fillStyle = '#8a8478'; g.fillRect(0, 0, w, w); for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) { const ox = (y % 2) * 32; g.fillStyle = `hsl(${30 + Math.random() * 14},${8 + Math.random() * 8}%,${48 + Math.random() * 12}%)`; g.fillRect(x * 64 + ox + 2, y * 64 + 2, 60, 60); g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(x * 64 + ox + 2, y * 64 + 2, 60, 4); } for (let k = 0; k < 160; k++) { g.fillStyle = `rgba(0,0,0,${Math.random() * 0.12})`; g.fillRect(Math.random() * w, Math.random() * w, 2 + Math.random() * 6, 1.5); } }, { repeat: true });
+  texDalles.repeat.set(NX * S / 5, NZ * S / 5);
+  const cour = new THREE.Mesh(new THREE.PlaneGeometry(NX * S, NZ * S), new THREE.MeshStandardMaterial({ map: texDalles, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+  cour.rotation.x = -Math.PI / 2; cour.position.set(0, 0.025, (Z0 + Z1) / 2); cour.receiveShadow = true; groupe.add(cour);
+  // --- enceinte ---
+  const porteI = [5, 6]; // ouverture du châtelet (devant, au centre)
+  for (let i = 1; i < NX - 1; i++) {
+    ch.ajouter('c_wall', cx(i), 0, cz(0), 0, S, S, S);
+    if (!porteI.includes(i) && i !== 4 && i !== 7) ch.ajouter('c_wall', cx(i), 0, cz(NZ - 1), Math.PI, S, S, S);
+  }
+  for (let k = 1; k < NZ - 1; k++) { ch.ajouter('c_wall', cx(0), 0, cz(k), Math.PI / 2, S, S, S); ch.ajouter('c_wall', cx(NX - 1), 0, cz(k), -Math.PI / 2, S, S, S); }
+  // collisions des remparts (sauf la porte)
+  for (let x = X0 + 0.9; x < X0 + NX * S; x += 1.2) { collisions.push({ x, z: cz(0), r: 1.6 }); if (Math.abs(x) > S + 0.6) collisions.push({ x, z: cz(NZ - 1), r: 1.6 }); }
+  for (let z = Z0 + 0.9; z < Z1; z += 1.2) { collisions.push({ x: cx(0), z, r: 1.6 }); collisions.push({ x: cx(NX - 1), z, r: 1.6 }); }
+  // tours d'angle hexagonales (plus hautes à chaque niveau)
+  const etages = N >= 4 ? 4 : N >= 3 ? 3 : 2, TS = S * 1.55;
+  const tourHex = (x, z, n, ts) => {
+    ch.ajouter('c_tower_hexagon_base', x, 0, z, 0, ts, ts, ts); let y = 1.31 * ts;
+    for (let e = 0; e < n; e++) { ch.ajouter('c_tower_hexagon_mid', x, y, z, 0, ts, ts, ts); y += 0.46 * ts; }
+    ch.ajouter('c_tower_hexagon_top', x, y, z, 0, ts, ts, ts); ch.ajouter('c_tower_hexagon_roof', x, y + 0.1 * ts, z, 0, ts, ts, ts);
+    ch.ajouter('c_flag_pennant', x, y + 0.83 * ts, z, Math.random() * 6, ts * 0.9, ts * 0.9, ts * 0.9);
+    collisions.push({ x, z, r: 0.5 * ts + 0.4 });
+  };
+  for (const [i, k] of [[0, 0], [NX - 1, 0], [0, NZ - 1], [NX - 1, NZ - 1]]) tourHex(cx(i), cz(k), etages, TS);
+  // châtelet : deux tours carrées et un linteau crénelé au-dessus du passage
+  const tourCarree = (x, z, rot, n, ts, sy = ts) => {
+    ch.ajouter('c_tower_square_base', x, 0, z, rot, ts, sy, ts); let y = 1.01 * sy;
+    for (let e = 0; e < n; e++) { ch.ajouter(e % 2 ? 'c_tower_square_mid' : 'c_tower_square_mid_windows', x, y, z, rot, ts, sy, ts); y += 1.01 * sy; }
+    ch.ajouter('c_tower_square_top_roof_high', x, y, z, rot, ts, sy, ts);
+    collisions.push({ x: x - ts * 0.3, z, r: ts * 0.45 }, { x: x + ts * 0.3, z, r: ts * 0.45 });
+    return y + 1.35 * sy;
+  };
+  const hG = tourCarree(cx(4), cz(NZ - 1), Math.PI, 1, S);
+  tourCarree(cx(7), cz(NZ - 1), Math.PI, 1, S);
+  { const l = cloner('c_wall', 0, H * 0.72, cz(NZ - 1), Math.PI); l.scale.set(S * 2, S * 0.3, S); groupe.add(l); }
+  // herse relevée (on la devine au-dessus du passage)
+  ch.ajouter('c_metal_gate', 0, H * 0.5, cz(NZ - 1) + S * 0.15, Math.PI / 2, S * 1.6, S * 0.6, S * 3.4);
+  // bannières sur la façade du châtelet
+  for (const x of [cx(4), cx(7)]) ch.ajouter('c_flag_banner_long', x, H * 0.55, cz(NZ - 1) + S * 0.52, -Math.PI / 2, S * 0.9, S * 0.9, S * 0.9);
+  // torches à l'entrée
+  for (const x of [-S - 0.6, S + 0.6]) { const t = cloner('d_torch_lit', x, 2.6, cz(NZ - 1) + S * 0.6, 0, 1.3); groupe.add(t); G.torches.push({ pos: new THREE.Vector3(x, 3.2, cz(NZ - 1) + S * 0.9), color: '#ffb05a', int: 14, dist: 9 }); }
+  // --- douves et pont-levis (forteresse +) ---
+  if (N >= 3) {
+    const L = 4, ex0 = X0 - 3.2, ex1 = X0 + NX * S + 3.2, ez0 = Z0 - 3.2, ez1 = Z1 + 3.2;
+    const eau = new THREE.MeshStandardMaterial({ color: '#2a5a72', roughness: 0.15, metalness: 0.3, transparent: true, opacity: 0.92, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+    const bord = new THREE.MeshStandardMaterial({ map: texBlocs(th), roughness: 0.9 });
+    const bande = (x0, z0, x1, z1) => {
+      const w = x1 - x0, d = z1 - z0, m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), eau); m.rotation.x = -Math.PI / 2; m.position.set((x0 + x1) / 2, 0.035, (z0 + z1) / 2); groupe.add(m);
+      const ombre = new THREE.Mesh(new THREE.PlaneGeometry(w + 0.01, d + 0.01), new THREE.MeshBasicMaterial({ color: '#0a1a22', transparent: true, opacity: 0.55, depthWrite: false })); ombre.rotation.x = -Math.PI / 2; ombre.position.set((x0 + x1) / 2, 0.03, (z0 + z1) / 2); groupe.add(ombre);
+      // margelles de pierre
+      for (const [bx, bz, bw, bd] of w > d ? [[(x0 + x1) / 2, z0, w, 0.5], [(x0 + x1) / 2, z1, w, 0.5]] : [[x0, (z0 + z1) / 2, 0.5, d], [x1, (z0 + z1) / 2, 0.5, d]]) { const b = new THREE.Mesh(new THREE.BoxGeometry(bw, 0.35, bd), bord); b.position.set(bx, 0.17, bz); b.receiveShadow = true; groupe.add(b); }
+    };
+    // façade (en deux morceaux autour du pont), fond, côtés
+    bande(ex0 - L, ez1, -3.2, ez1 + L); bande(3.2, ez1, ex1 + L, ez1 + L); bande(ex0 - L, ez0 - L, ex1 + L, ez0); bande(ex0 - L, ez0, ex0, ez1); bande(ex1, ez0, ex1 + L, ez1);
+    for (let x = ex0 - L; x <= ex1 + L; x += 1.3) { if (Math.abs(x) > 3.6) collisions.push({ x, z: ez1 + L / 2, r: 1.5 }); collisions.push({ x, z: ez0 - L / 2, r: 1.5 }); }
+    for (let z = ez0 - L; z <= ez1 + L; z += 1.3) { collisions.push({ x: ex0 - L / 2, z, r: 1.5 }); collisions.push({ x: ex1 + L / 2, z, r: 1.5 }); }
+    // pont-levis abaissé (planches + chaînes)
+    const pont = new THREE.Mesh(new THREE.BoxGeometry(6.2, 0.3, L + 1.2), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.95, map: texture('planchesPont', 64, 256, (g, w, h) => { for (let y = 0; y < h; y += 16) { g.fillStyle = `hsl(28,${42 + Math.random() * 10}%,${42 + Math.random() * 10}%)`; g.fillRect(0, y, w, 15); g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(0, y + 15, w, 1); } }) }));
+    pont.position.set(0, 0.16, ez1 + L / 2); pont.receiveShadow = true; groupe.add(pont);
+    for (const sx of [-3, 3]) { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 7.5, 5), new THREE.MeshStandardMaterial({ color: '#3a3a40', metalness: 0.8, roughness: 0.4 })); c.position.set(sx, 3.2, ez1 + 0.6); c.rotation.x = -0.95; groupe.add(c); }
+    // engins de siège qui gardent l'entrée
+    for (const [x, k, r] of [[-11, 'c_siege_ballista', -Math.PI / 2], [11, 'c_siege_catapult', -Math.PI / 2]]) { ch.ajouter(k, x, 0, ez1 + L + 4, r, 3, 3, 3); collisions.push({ x, z: ez1 + L + 4, r: 2.4 }); }
+  }
+  // --- tapis rouge du châtelet jusqu'à l'estrade ---
+  const tapisT = texture('tapisRoyal', 64, 256, (g, w, h) => { g.fillStyle = '#7a1020'; g.fillRect(0, 0, w, h); g.fillStyle = '#d8a03a'; g.fillRect(0, 0, 5, h); g.fillRect(w - 5, 0, 5, h); g.fillStyle = '#5a0818'; g.fillRect(8, 0, 2, h); g.fillRect(w - 10, 0, 2, h); for (let y = 16; y < h; y += 64) { g.fillStyle = '#c8902a'; g.beginPath(); g.moveTo(w / 2, y); g.lineTo(w / 2 + 8, y + 12); g.lineTo(w / 2, y + 24); g.lineTo(w / 2 - 8, y + 12); g.fill(); } }, { repeat: true });
+  const zEst = -28, longT = Z1 + 1 - zEst; tapisT.repeat.set(1, longT / 6);
+  const tapis = new THREE.Mesh(new THREE.PlaneGeometry(3, longT), new THREE.MeshStandardMaterial({ map: tapisT, roughness: 1, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+  tapis.rotation.x = -Math.PI / 2; tapis.position.set(0, 0.05, zEst + longT / 2); groupe.add(tapis);
+  // --- estrade du trône ---
+  const hE = 1.0;
+  const zD = Z0 + S + 9.6 / 2 - 0.5, zFace = zD + 9.6 / 2;
+  estrade(groupe, inst, collisions, reliefs, th, { x0: -8, x1: 8, z0: zFace - 0.2, z1: zEst, h: hE, cote: 'S', ouverts: ['S', 'E', 'W'] });
+  const trP = new THREE.Vector3(0, 0, zEst - 4.4);
+  trone(groupe, th, 0, hE, trP.z, 0); collisions.push({ x: 0, z: trP.z, r: 1.6 });
+  for (const x of [-5.5, 5.5]) brasero(groupe, x, zEst - 2, '#ff9a3a', 1, hE);
+  // --- donjon : grande tour à étages derrière le trône, porte qui s'ouvre ---
+  const etD = N >= 4 ? 3 : N >= 3 ? 2 : 1, DS = 9.6, DY = 6.4;
+  tourCarree(0, zD, 0, etD, DS, DY);
+  collisions.push({ x: 0, z: zD, r: DS * 0.55 }, { x: -DS * 0.35, z: zD + DS * 0.2, r: DS * 0.3 }, { x: DS * 0.35, z: zD + DS * 0.2, r: DS * 0.3 });
+  poserPorte(groupe, 0, zD + DS / 2 + 0.1, 0, 1.05, { y: hE, sens: 1 });
+  ch.ajouter('d_banner_triple_red', 0, hE + 3.4, zD + DS / 2 + 0.12, 0, 1.1, 1.1, 1.1);
+  for (const x of [-DS / 2 - 3.2, DS / 2 + 3.2]) tourHex(x, zD + 1, etD + 1, S * 1.25);
+  // bannières sur la face intérieure des remparts
+  for (let i = 2; i < NX - 2; i += 3) if (Math.abs(cx(i)) > DS / 2 + 5) ch.ajouter(i % 2 ? 'd_banner_shield_red' : 'd_banner_triple_red', cx(i), 0.6, cz(0) + S / 2 + 0.05, 0, 1, 1, 1);
+  for (let k = 2; k < NZ - 2; k += 3) { ch.ajouter('d_banner_shield_red', cx(0) + S / 2 + 0.05, 0.6, cz(k), Math.PI / 2, 1, 1, 1); ch.ajouter('d_banner_shield_red', cx(NX - 1) - S / 2 - 0.05, 0.6, cz(k), -Math.PI / 2, 1, 1, 1); }
+  // braseros et lanternes dans la cour
+  for (const [x, z] of [[-13, -19], [13, -19], [-13, -29], [13, -29]]) { if (N >= 3) brasero(groupe, x, z, '#ff9a3a', 1); else { ch.ajouter('t_lantern', x, 0, z, 0, 2.2, 2.2, 2.2); G.torches.push({ pos: new THREE.Vector3(x, 3.2, z), color: '#ffcf7a', int: 10, dist: 8 }); } collisions.push({ x, z, r: 0.7 }); }
+  // râteliers d'armes et tonneaux le long des murs
+  for (const [x, z, r] of [[-18, -22, Math.PI / 2], [-18, -27, Math.PI / 2], [18, -40, -Math.PI / 2]]) { const a = cloner('d_sword_shield_gold', x, 1.5, z, r, 1); groupe.add(a); }
+  for (const [x, z] of [[18.2, -18], [17.8, -20], [-18.2, -44]]) { inst.ajouter('barrel_large', x, 0, z, Math.random() * 6); collisions.push({ x, z, r: 0.9 }); }
+  // --- jardins et fontaine devant le château (forteresse +) ---
+  if (N >= 3) {
+    const fz = 2;
+    ch.ajouter('t_fountain_round_detail', 0, 0, fz, 0, 3.4, 3.4, 3.4); collisions.push({ x: 0, z: fz, r: 3.3 });
+    const jet = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.3, 2.2, 8, 1, true), new THREE.MeshBasicMaterial({ color: '#cfefff', transparent: true, opacity: 0.45, depthWrite: false })); jet.position.set(0, 1.9, fz); groupe.add(jet);
+    G.anims.push((t, dt) => { jet.scale.y = 1 + Math.sin(t * 6) * 0.08; if (Math.random() < (dt || 0.016) * 14) emettre(new THREE.Vector3(rnd(-0.3, 0.3), 2.8, fz + rnd(-0.3, 0.3)), { n: 1, c1: '#ffffff', c2: '#9ad8ff', vit: 1.6, vie: 0.8, taille: 0.22, grav: 5 }); });
+    for (const sx of [-1, 1]) for (let z = -6; z <= 20; z += 1.7) if (Math.abs(z - fz) > 5) inst.ajouter('Bush_2_C', sx * (3.6 + Math.random() * 0.3), 0, z, Math.random() * 6, 1.25, 1.1, 1.25);
+    for (const [x, z] of [[-7, -6], [7, -6], [-7, 10], [7, 10]]) { ch.ajouter('c_tree_large', x, 0, z, Math.random() * 6, 2.6, 2.6, 2.6); collisions.push({ x, z, r: 1 }); }
+    for (const [x, z] of [[-4.6, -10], [4.6, -10], [-4.6, 14], [4.6, 14]]) { ch.ajouter('t_lantern', x, 0, z, 0, 2.2, 2.2, 2.2); G.torches.push({ pos: new THREE.Vector3(x, 3.2, z), color: '#ffcf7a', int: 9, dist: 8 }); collisions.push({ x, z, r: 0.4 }); }
+  }
+  // --- citadelle : or des anciens rois ---
+  if (N >= 4) {
+    cristaux(groupe, { ...th, nom: 'or', cristal: '#ffd27a' }, -6.4, zEst - 7, 1, hE); cristaux(groupe, { ...th, nom: 'or', cristal: '#ffd27a' }, 6.4, zEst - 7, 1, hE);
+    raiLumiere(groupe, 0, trP.z, '#fff0c0');
+    for (const [x, z] of [[-12, -16.5], [12, -16.5]]) { const st = cloner('n_statue_obelisk', x, 0, z, 0, 3); groupe.add(st); collisions.push({ x, z, r: 1 }); }
+  }
+  // le trésor : coffre doré et piles de pièces à côté de l'estrade
+  const tresor = new THREE.Vector3(10.5, 0, zEst + 2);
+  groupe.add(cloner('chest_gold', tresor.x, 0, tresor.z, -Math.PI / 2, 1.2)); ch.ajouter('d_coin_stack_medium', tresor.x + 1.4, 0, tresor.z + 0.8, 0.4, 1.3, 1.3, 1.3); ch.ajouter('d_coin_stack_medium', tresor.x - 1.2, 0, tresor.z + 1, 2, 1, 1, 1);
+  collisions.push({ x: tresor.x, z: tresor.z, r: 1.1 });
+  ch.construire(groupe, { ombre: true });
+  return { trone: trP.clone().setY(0), tresor };
 }
 
 // ======================= LE DOMAINE =======================
@@ -1633,23 +1769,23 @@ export function construireDomaine(dom) {
     for (let z = Z0 + 2; z < Z1; z += 4) { inst.ajouter('barrier', X0, 0, z, Math.PI / 2, 1, 1.4, 1); inst.ajouter('barrier', X1, 0, z, Math.PI / 2, 1, 1.4, 1); }
     tour(-16, -14, 3.2); tour(16, -14, 3.2);
     pose('b_home_B', 0, -34, 0, 7); collisions.push({ x: 0, z: -34, r: 3.6 });
-  } else { // château et plus : murs de pierre, tours d'angle, donjon
-    for (let x = X0 + 2; x < X1; x += 4) { inst.ajouter(x % 8 === 2 && N >= 3 ? 'wall_arched' : 'wall', x, 0, Z0, 0); if (Math.abs(x) > 4) inst.ajouter('wall', x, 0, Z1, 0); }
+  } else if (!G.assets.c_wall) { // (secours si le kit du château n'a pas pu être chargé)
+    for (let x = X0 + 2; x < X1; x += 4) { inst.ajouter('wall', x, 0, Z0, 0); if (Math.abs(x) > 4) inst.ajouter('wall', x, 0, Z1, 0); }
     for (let z = Z0 + 2; z < Z1; z += 4) { inst.ajouter('wall', X0, 0, z, Math.PI / 2); inst.ajouter('wall', X1, 0, z, Math.PI / 2); }
-    for (const dx of [-4.6, 4.6]) { inst.ajouter('pillar_decorated', dx, 0, Z1, 0, 1, 1.25, 1); collisions.push({ x: dx, z: Z1, r: 1.1 }); }
-    for (const [x, z] of [[X0, Z0], [X1, Z0], [X0, Z1], [X1, Z1]]) tour(x, z, 4.6 + (N >= 3 ? 0.8 : 0));
+    for (const [x, z] of [[X0, Z0], [X1, Z0], [X0, Z1], [X1, Z1]]) tour(x, z, 4.6);
     tour(0, -35, 7.5);
-    if (N >= 3) { tour(-8, -36, 5); tour(8, -36, 5); for (let x = X0 + 4; x < X1; x += 8) inst.ajouter(x > 0 ? 'banner_patternA_red' : 'banner_patternB_red', x, 0, Z0 + 0.6, 0); }
-    if (N >= 3) for (const [x, z] of [[-10, -18], [10, -18], [-10, -30], [10, -30]]) brasero(groupe, x, z, '#ff9a3a', 1);
   }
-  if (N >= 1) { // remparts : collisions
+  if (N >= 1 && (N === 1 || !G.assets.c_wall)) { // remparts : collisions
     for (let x = X0; x <= X1; x += 1.2) { collisions.push({ x, z: Z0, r: 0.8 }); if (Math.abs(x) > 4.4) collisions.push({ x, z: Z1, r: 0.8 }); }
     for (let z = Z0; z <= Z1; z += 1.2) { collisions.push({ x: X0, z, r: 0.8 }); collisions.push({ x: X1, z, r: 0.8 }); }
   }
-  // trône et trésor (dans la cour)
-  trone(groupe, th, 0, 0, -27.5, 0); collisions.push({ x: 0, z: -27.5, r: 1.6 });
-  const tresorPos = new THREE.Vector3(5, 0, -27);
-  if (N >= 4) { cristaux(groupe, { ...th, nom: 'or', cristal: '#ffd27a' }, -12, -17, 1.2); cristaux(groupe, { ...th, nom: 'or', cristal: '#ffd27a' }, 12, -17, 1.2); raiLumiere(groupe, 0, -26, '#fff0c0'); }
+  let troneP = new THREE.Vector3(0, 0, -27.5), tresorPos = new THREE.Vector3(5, 0, -27), reliefs = [];
+  if (N >= 2 && G.assets.c_wall) {
+    const C = chateauDomaine(groupe, inst, collisions, reliefs, th, N);
+    troneP = C.trone; tresorPos = C.tresor;
+  } else {
+    trone(groupe, th, 0, 0, -27.5, 0); collisions.push({ x: 0, z: -27.5, r: 1.6 });
+  }
   // ---- la ferme ----
   const sillons = texture('sillons', 128, 128, (g, w) => { g.fillStyle = '#5a3a22'; g.fillRect(0, 0, w, w); for (let y = 0; y < w; y += 16) { g.fillStyle = '#6e4a2c'; g.fillRect(0, y, w, 9); g.fillStyle = 'rgba(0,0,0,0.2)'; g.fillRect(0, y + 9, w, 2); } }, { repeat: true });
   const champs = [];
@@ -1691,7 +1827,8 @@ export function construireDomaine(dom) {
   inst.construire(groupe, { mat: teinte }); nat.construire(groupe, { mat: teinte });
   G.scene.add(groupe);
   return {
-    groupe, type: 'domaine', nom: 'Domaine', dom, spawn: new THREE.Vector3(0, 0, 44), portail: { pos: portailPos }, tresorPos, trone: new THREE.Vector3(0, 0, -27.5), postes, collisions,
+    groupe, type: 'domaine', nom: 'Domaine', dom, spawn: new THREE.Vector3(0, 0, 44), portail: { pos: portailPos }, tresorPos, trone: troneP, postes, collisions, portes: groupe.userData.portes || [],
+    solH: reliefs.length ? (x, z) => { for (const r of reliefs) { if (x < r.x0 || x > r.x1 || z < r.z0 || z > r.z1) continue; if (r.type === 'plat') return r.h; const t = r.axe === 'z' ? Math.abs(z - r.haut) : Math.abs(x - r.haut); return r.h * Math.max(0, 1 - t / r.L); } return 0; } : null,
     rayonMonde: R, centre: new THREE.Vector3(0, 0, 0),
     marche: (x, z) => Math.hypot(x, z) < R,
   };
