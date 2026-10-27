@@ -163,7 +163,7 @@ async function demarrer() {
   try {
     await chargerAssets(ASSETS, (k, nom) => { $('#charge i').style.width = (k * 100) + '%'; $('#chargeTxt').textContent = 'Chargement… ' + Math.round(k * 100) + ' %'; });
     creerAssetsProc();
-    mesurerDemarches(['Knight', 'Rogue', 'Rogue_Hooded', 'Barbarian', 'Mage', 'Skeleton_Minion', 'Skeleton_Warrior', 'Skeleton_Rogue', 'Skeleton_Mage']);
+    if (0) mesurerDemarches(['Knight', 'Rogue', 'Rogue_Hooded', 'Barbarian', 'Mage', 'Skeleton_Minion', 'Skeleton_Warrior', 'Skeleton_Rogue', 'Skeleton_Mage']);
   } catch (e) { $('#chargeTxt').textContent = 'Un fichier du jeu n’a pas pu se charger (' + (e && e.message ? e.message : e) + '). Recharge la page.'; console.error(e); return; }
   monde = construireHub();
   G.scene.add(G.points);
@@ -2950,6 +2950,7 @@ function majJoueur(dt) {
     if (!tourne && !vise) { j.angle = tourner(j.angle, Math.atan2(dir.x, dir.z), dt * 14); j.root.rotation.y = j.angle; }
     // jambes toujours en course quand on bouge, même pendant une attaque (le haut du corps frappe)
     if (!tourne) { if (j.haut) j._jouerBas(j.def.run); else if (j.courante && j.courante.loop === THREE.LoopOnce && j.courante.isRunning()) { const n = j.courante.getClip().name, t = j.courante.time, ts = j.courante.timeScale, f = j._onFin; if (j._jouerHaut(n, { vitesse: ts, fin: f, jambes: j.def.run })) j.haut.time = t; } else j.jouer(j.def.run); }
+    j.cadence(Math.max(0.95, Math.min(1.25, v / 5.4)));
     j.pasT -= dt * v; if (j.pasT <= 0) { j.pasT = 2.4; son(Math.random() < 0.5 ? 'footstep_concrete_000' : 'footstep_concrete_001', 0.12); if (J.argent >= 5e6 && Math.random() < 0.3) son('handleCoins', 0.05, 1.7); } // une bourse bien pleine tinte en marchant
   } else if (j.haut) { j._jouerBas(j.def.idle); // on s'arrête pendant une attaque : les jambes se posent
   } else if (!bloque && !tourne && !(j.animT > 0)) {
