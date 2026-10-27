@@ -1,7 +1,7 @@
 // ===== Brèche Écarlate — boucle de jeu =====
 import { THREE, G, initRendu, majCamera, rendre, majTorches, chargerAssets, chargerSons, son, ambiance, Acteur, cloner,
   emettre, majParticules, majVfx, ajouterVfx, onde, lueurSol, arcTaille, faisceau, telegraphe, meshCarreau, meshBoule, DIR_HAUT, DIR_DROITE, projeter, creerArc, solY, cor, texRond, texRunes, texFissures, redimensionner, appliquerNiveau, majQualiteAuto, majResolution, mesurerDemarches, musique, musiqueActive, musiquePause } from './engine.js';
-import { construireTaverne, construireGoulet, construireHub, construireDonjon, construireArene, construireIle, construireDomaine, nbEmplacements, majFeux, noeudReel, creerAssetsProc, construireSylve } from './world.js';
+import { construireTerres, construireTaverne, construireGoulet, construireHub, construireDonjon, construireArene, construireIle, construireDomaine, nbEmplacements, majFeux, noeudReel, creerAssetsProc, construireSylve } from './world.js';
 import { UI, iconeObjet, bustePersonnage, TEINTES_OMBRE } from './ui.js';
 import { initGestes } from './gestes.js';
 import { Loup, portraitLoup } from './loups.js';
@@ -143,7 +143,7 @@ const ASSETS_CHATEAU = ['c_bridge_draw', 'c_flag_banner_long', 'c_flag_pennant',
   'd_banner_shield_red', 'd_banner_triple_red', 'd_coin_stack_medium', 'd_stairs_walled', 'd_sword_shield_gold', 'd_torch_lit', 'd_wall_window_open',
   't_banner_red', 't_cart', 't_fountain_round', 't_fountain_round_detail', 't_hedge', 't_hedge_curved', 't_hedge_large', 't_lantern', 't_pillar_stone', 't_stairs_wide_stone_handrail', 't_stall_red'];
 let assetsChateauPrets = false;
-const ASSETS_SYLVE = ['n_statue_ring', 'n_statue_head', 'n_statue_obelisk', 'n_statue_column', 'n_statue_columnDamaged', 'n_mushroom_red', 'n_mushroom_redGroup', 'n_mushroom_redTall', 'n_mushroom_tan', 'n_mushroom_tanGroup', 'n_mushroom_tanTall', 'n_lily_large', 'n_lily_small', 'n_log_large', 'n_stump_old', 'n_plant_bushLarge', 'n_plant_bushDetailed', 'n_plant_flatTall', 'n_flower_purpleB', 'n_flower_purpleC', 'n_flower_redC', 'n_flower_yellowC', 'n_tree_oak', 'n_tree_detailed', 'n_tree_default', 'n_tree_fat_darkh', 'n_rock_largeB', 'n_rock_largeC', 'n_stone_tallB', 'n_stone_tallG', 'n_stone_largeC', 'n_campfire_stones', 'Bush_4_A', 'Bush_3_B', 'Tree_2_C', 'Tree_3_B', 'Rock_2_C'];
+const ASSETS_SYLVE = ['n_statue_ring', 'n_statue_head', 'n_statue_obelisk', 'n_statue_column', 'n_statue_columnDamaged', 'n_mushroom_red', 'n_mushroom_redGroup', 'n_mushroom_redTall', 'n_mushroom_tan', 'n_mushroom_tanGroup', 'n_mushroom_tanTall', 'n_lily_large', 'n_lily_small', 'n_log_large', 'n_stump_old', 'n_plant_bushLarge', 'n_plant_bushDetailed', 'n_plant_flatTall', 'n_flower_purpleB', 'n_flower_purpleC', 'n_flower_redC', 'n_flower_yellowC', 'n_tree_oak', 'n_tree_detailed', 'n_tree_default', 'n_tree_fat_darkh', 'n_rock_largeB', 'n_rock_largeC', 'n_stone_tallB', 'n_stone_tallG', 'n_stone_largeC', 'n_campfire_stones', 'Bush_4_A', 'Bush_3_B', 'Tree_2_C', 'Tree_3_B', 'Rock_2_C', 'Tree_Bare_2_A'];
 const SONS = ['knifeSlice', 'knifeSlice2', 'drawKnife2', 'handleCoins', 'creak1', 'doorOpen_1', 'metalLatch', 'cloth1', 'bookOpen', 'impactPlate_heavy_000', 'impactMetal_medium_001', 'impactGeneric_light_000',
   'footstep_concrete_000', 'footstep_concrete_001', 'click_001', 'open_001', 'close_001', 'confirmation_001', 'error_001', 'select_001', 'maximize_001', 'thrusterFire_000', 'explosionCrunch_000', 'lowFrequency_explosion_000', 'forceField_000',
   'jingle_win', 'jingle_loot', 'jingle_legend', 'chop', 'impactMining_000', 'impactMining_001', 'impactPlank_medium_000', 'handleSmallLeather'].map(k => [k, `assets/audio/${k}.ogg`]);
@@ -422,7 +422,7 @@ function libererGPU(racines) {
 }
 function viderMonde() {
   for (const a of serviteurs) { G.scene.remove(a.root); UI.retirerPlaque(a); } serviteurs = [];
-  G.solH = null; G.murs = false; G.ecrans = null; TKS = []; possedes = []; UI.choixTK && UI.choixTK(null); G.camCible = null; G.camLibre = false; for (const v of auras.values()) G.scene.remove(v.g); auras.clear(); scenes = []; crypteEtat = null; if (sceneOmbre) { sceneOmbre = null; G.camCible = null; document.body.classList.remove('cinema'); UI.dialogueTaverne(null); }
+  G.solH = null; G.murs = false; G.ecrans = null; terres = null; TKS = []; possedes = []; UI.choixTK && UI.choixTK(null); G.camCible = null; G.camLibre = false; for (const v of auras.values()) G.scene.remove(v.g); auras.clear(); scenes = []; crypteEtat = null; if (sceneOmbre) { sceneOmbre = null; G.camCible = null; document.body.classList.remove('cinema'); UI.dialogueTaverne(null); }
   for (const e of ennemis) if (e.auraM && e.auraM.ring.parent) G.scene.remove(e.auraM.ring);
   if (taverne) { for (const c of taverne.clients) { G.scene.remove(c.root); UI.retirerPlaque(c); } taverne = null; UI.fileAttente(null); }
   mission = null; UI.manga(null);
@@ -2446,6 +2446,7 @@ function tuer(e) {
   if (e.mission) { mortEnnemiMission(e); return; }
   if (e.rival && e.gardienCrypte) { mortGardienCrypte(e); return; }
   if (e.rival && e.voleur) { finVoleur(e); return; }
+  if (e.rival && e.chasseur) { finChasseur(e); return; }
   if (e.rival) { if (arene) { setTimeout(() => { e.descendre = true; }, 4000); verifierArene(); } else if (e.bandit || e.gardeIle) finCombatIle(e); else victoireRival(e); return; }
   const part = coequipiers().length && !modeActuel.sylve ? 0.5 : 1;
   const loot = lootMonstre(modeActuel);
@@ -2507,6 +2508,7 @@ function mourirJoueur() {
   joueur.pv = 0; joueur.mort = true; joueur.jouer('Death_A', { boucle: false });
   if (goulet) return mortGoulet(joueur);
   if (modeActuel && modeActuel.mission) return echecMission();
+  if (modeActuel && modeActuel.id === 'terres' && terres) return mortTerres();
   // le « joueur » qui t'a tué te nargue
   const k = dernierAgresseur;
   if (k && k.combattant && !k.mort && k.camp === 'ennemi') { emoteBot(k, ['ez', 'mdr', 'clown', 'rip', 'toi', 'bof'], 1, 0.7); emoteBot(k, ['mdr', 'clown', 'diable'], 0.4, 3.2); }
@@ -3268,6 +3270,91 @@ function ondeForce(s) {
     for (const e of vivants()) { const d = dist2D(e.pos, joueur.pos); if (d > s.portee + e.rayon) continue; const v = V(e.pos.x - joueur.pos.x, 0, e.pos.z - joueur.pos.z).normalize(); blesser(e, s.mult, { stun: 0.6, air: true }); if (!e.boss) e.pousse = { vx: v.x * 14, vz: v.z * 14, t: 0.35 }; }
   });
 }
+// ======================= TERRES ÉCARLATES : monde ouvert, zone rouge =======================
+// Règle d'or : tout ce que tu gagnes ici n'est à toi qu'une fois sorti par un portail. Si tu meurs, tu perds ton équipement porté,
+// tout ce que tu as ramassé pendant l'expédition et 10 % de ta bourse. Des chasseurs (vrais « joueurs ») rôdent et te traquent.
+let terres = null;
+async function entrerTerres() {
+  if (!assetsSylvePrets) { UI.toast('Le voile des Terres Écarlates se déchire…'); try { await chargerAssets(ASSETS_SYLVE.map(k => [k, `assets/sylve/${k}.json`]), () => {}); assetsSylvePrets = true; } catch (e) {} }
+  memoriserMode('Terres Écarlates', () => entrerTerres());
+  fondu(() => {
+    viderMonde(); invasion = null; arene = null; selection = null;
+    const ipJ = statsHeros(J.equip).ip, t = Math.max(1, Math.min(7, Math.round((ipJ - 300) / 110) + 1));
+    modeActuel = { id: 'terres', nom: 'Terres Écarlates', lieu: 'Terres Écarlates', argent: 1.6, xp: 8, tiers: [t, Math.min(8, t + 1)], mobTier: t, bossTier: [t + 1, t + 1, t + 1, t + 1] };
+    monde = construireTerres(); G.solH = null;
+    construireJoueur(monde.spawn.clone()); joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax;
+    G.camTarget.copy(joueur.pos);
+    G.scene.background.set('#3a2228'); G.scene.fog.color.set('#4a2a2e'); G.scene.fog.density = 0.011; G.hemi.color.set('#ffd8c0'); G.hemi.groundColor.set('#3a2a22'); G.hemi.intensity = 1.45; G.sun.intensity = 1.9; G.sun.color.set('#ffc8a0');
+    terres = { argent0: J.argent, sac0: new Set(J.sac.map(i => i.id)), chasseT: rnd(45, 70), kills: 0, chasseursTues: 0, debut: G.t, avertiT: 0 };
+    // camps de monstres : plus on s'éloigne du camp de départ, plus ils sont nombreux et durs
+    monde.camps.forEach((cp, k) => {
+      const tier = Math.min(8, t + cp.danger), n = 3 + cp.danger * 2, liste = [];
+      const types = cp.biome === 'ruines' ? ['cultiste', 'brute', 'pretresse'] : cp.biome === 'foret' ? ['minion', 'archer', 'guerrier'] : ['guerrier', 'mage', 'brute'];
+      for (let i = 0; i < n; i++) { const p = pointLibrePres(V(cp.pos.x + rnd(-5, 5), 0, cp.pos.z + rnd(-5, 5)), 0, 3); const def = MOBS[hasard(types)] || MOBS.guerrier; liste.push(creerEnnemi(def, p, tier, 100 + k)); }
+      const chef = liste[0]; chef.pvMax *= 2.5; chef.pv = chef.pvMax; chef.root.scale.multiplyScalar(1.25);
+      const couleur = cp.danger >= 3 ? (Math.random() < 0.35 ? 'legendaire' : 'violet') : cp.danger === 2 ? (Math.random() < 0.5 ? 'violet' : 'bleu') : cp.danger === 1 ? 'bleu' : 'vert';
+      creerCoffre(pointLibrePres(V(cp.pos.x, 0, cp.pos.z + 3), 0.5, 2), couleur, chef);
+    });
+    const dr = creerBoss(BOSS[3], monde.dragon.clone(), Math.min(8, t + 2), null); dr.pvMax *= 1.6; dr.pv = dr.pvMax; terres.dragon = dr;
+    creerCoffre(pointLibrePres(V(monde.dragon.x - 6, 0, monde.dragon.z + 6), 0.5, 2), 'legendaire', dr);
+    UI.journal('Terres Écarlates', 'Zone rouge : meurs et tu perds ton équipement porté et tout ce que tu as ramassé. Ressors par un portail violet pour tout garder.', null);
+    UI.zone('Terres Écarlates', 'Zone rouge · PvP sans pitié');
+    $('#btnQuitter').hidden = true;
+    setTimeout(() => UI.manga([{ nom: 'Kael', titre: 'Ombre de ' + J.nom, modele: 'Rogue_Hooded', texte: 'Maître… ici, personne ne t’épargnera. Les chasseurs dépouillent les morts. Ce que tu ramasses n’est à toi qu’une fois sorti par un portail.', couleur: '#ff4a3a', choc: true }]), 900);
+    son('lowFrequency_explosion_000', 0.6, 0.6);
+  });
+}
+const GUILDES_CHASSE = ['LES CHACALS', 'CROCS NOIRS', 'SANG-FROID', 'LA MEUTE ROUGE', 'VAUTOURS', 'LAMES CREUSES'];
+function majTerres(dt) {
+  if (!terres || !modeActuel || modeActuel.id !== 'terres' || joueur.mort) return;
+  const sur = dist2D(joueur.pos, monde.campSur) < monde.rayonSur;
+  // les chasseurs : des groupes de 1 à 4 « joueurs » qui te traquent (jamais dans le camp)
+  terres.chasseT -= dt;
+  const actifs = ennemis.filter(e => e.chasseur && !e.mort);
+  if (terres.chasseT <= 0 && !sur && actifs.length < 6) {
+    terres.chasseT = rnd(60, 110) * (1 - Math.min(0.5, terres.kills * 0.02));
+    const ipJ = statsHeros(J.equip).ip, n = 1 + Math.floor(Math.random() * Math.min(4, 1 + terres.chasseursTues / 2 + Math.random() * 2)), guilde = hasard(GUILDES_CHASSE);
+    const a = Math.random() * 6.283, base = V(joueur.pos.x + Math.cos(a) * 42, 0, joueur.pos.z + Math.sin(a) * 42);
+    if (Math.hypot(base.x, base.z) < monde.rayonMonde - 10) for (let i = 0; i < n; i++) {
+      const d = calerSurJoueur(donneesBot(ipJ * rnd(0.85, 1.2), []), 3, 0); d.guilde = guilde;
+      const p = pointLibrePres(V(base.x + rnd(-3, 3), 0, base.z + rnd(-3, 3)), 0, 4);
+      const e = creerCombattant(p, d, 'ennemi'); e.chasseur = true; e.potions = 1; e.skill = Math.min(0.95, 0.6 + Math.random() * 0.35); e.etat = 'chasse';
+    }
+  }
+  for (const e of actifs) if (!e.annonce && dist2D(e.pos, joueur.pos) < 32) { e.annonce = true; if (!terres.avertiT || G.t - terres.avertiT > 20) { terres.avertiT = G.t; UI.toast(`☠ ${e.guilde || 'Des chasseurs'} t’ont repéré !`, true); son('lowFrequency_explosion_000', 0.4, 1.1); UI.chat(e.nom, hasard(['regardez qui se balade seul…', 'ton stuff est à moi', 'cours, petit', 'il est là ! sur lui !', 'pose ton sac et on te laisse partir… ou pas'])); } }
+  // dans le camp, les chasseurs n'entrent pas
+  if (sur) for (const e of actifs) if (dist2D(e.pos, monde.campSur) < monde.rayonSur + 4) { const v = V(e.pos.x - monde.campSur.x, 0, e.pos.z - monde.campSur.z).normalize(); e.pos.x += v.x * dt * 6; e.pos.z += v.z * dt * 6; }
+}
+function finChasseur(e) {
+  terres && terres.chasseursTues++;
+  victoireRival(e);
+  UI.journal('Terres Écarlates', `Tu as abattu ${e.nom} (${e.guilde}). Fouille sa dépouille — puis rentre vivant pour tout garder.`, null);
+}
+function mortTerres() {
+  const T = terres; terres = null;
+  const perdus = ['arme', 'casque', 'plastron', 'bottes'].map(s => J.equip[s]).filter(Boolean);
+  const type = J.equip.arme ? J.equip.arme.type : 'epee';
+  J.equip = { arme: creerArme(type === 'ombre' ? 'epee' : type, 1, 0), casque: null, plastron: null, bottes: null };
+  const avant = J.sac.length; J.sac = J.sac.filter(i => T.sac0.has(i.id)); const sacPerdu = avant - J.sac.length;
+  const gain = Math.max(0, J.argent - T.argent0); J.argent = Math.max(0, Math.min(J.argent, T.argent0)); const perte = Math.round(J.argent * 0.1); J.argent -= perte;
+  sauverMaintenant(); recalculer();
+  const k = dernierAgresseur, par = k && k.chasseur ? `${k.nom} (${k.guilde})` : 'les Terres';
+  if (k && k.chasseur && !k.mort) { emoteBot(k, ['ez', 'mdr', 'clown', 'rip'], 1, 0.6); UI.chat(k.nom, hasard(['merci pour le stuff', 'fallait rester au camp', 'ton arme est jolie, je la garde', 'gg ez'])); }
+  son('lowFrequency_explosion_000', 0.8, 0.45);
+  setTimeout(() => UI.mort(`Tué par ${par}. Ils t’ont tout pris : ${perdus.map(it => nomObjet(it)).join(', ') || 'rien sur le dos'}${sacPerdu ? `, ${sacPerdu} objet${sacPerdu > 1 ? 's' : ''} ramassé${sacPerdu > 1 ? 's' : ''}` : ''}, ${fmtN(gain)} ¤ gagnés pendant l’expédition et ${fmtN(perte)} ¤ de ta bourse. Tu repars avec une arme rouillée.`, () => fondu(() => lancerHub())), 1600);
+}
+function sortirTerres() {
+  const T = terres; terres = null;
+  const gain = Math.max(0, J.argent - T.argent0), objets = J.sac.filter(i => !T.sac0.has(i.id)).length;
+  sauver(); son('jingle_win', 0.6);
+  UI.toast(`Sorti vivant ! Tu gardes ${fmtN(gain)} ¤ et ${objets} objet${objets > 1 ? 's' : ''}`, true);
+  if (T.chasseursTues >= 3) exploit && exploit('chasseur_de_chasseurs');
+  fondu(() => lancerHub());
+}
+function interactionsTerres() {
+  for (const p of monde.sorties) if (dist2D(joueur.pos, p) < 3.4) return UI.action('Sortir par le portail (tout garder)', () => sortirTerres());
+  return null;
+}
 // ======================= MODE AGRESSION : tu peux frapper n'importe qui… mais on s'en souviendra =======================
 function passantsProches() { return [...(modeActuel ? [] : bots), ...(taverne ? taverne.clients : []), ...(modeActuel && modeActuel.id === 'domaine' ? [] : [])].filter(b => !b.mort && b.root && b.root.parent && b.root.visible !== false); }
 function estPassant(e) { return !ennemis.includes(e) && (bots.includes(e) || (taverne && taverne.clients.includes(e))); }
@@ -3745,6 +3832,7 @@ const API = {
   vendreButin: () => { let t = 0; J.sac = J.sac.filter(it => { if (it.cat === 'butin') { t += prixVente(it) * it.n; return false; } return true; }); J.argent += t; son('handleCoins', 0.7); UI.toast(`Butin vendu : +${t.toLocaleString('fr-FR')}`); sauver(); },
   rangerPotion: (id) => { const i = J.sac.findIndex(x => x.id == id); if (i >= 0) { J.potions += J.sac[i].n || 1; joueur.potions = J.potions; J.sac.splice(i, 1); sauver(); } },
   entrer: (id, hard) => entrerDonjon(id, { hard }),
+  terres: () => entrerTerres(),
   arene: (format, opts = {}) => entrerArene(format, opts),
   enchanter: (id) => enchanter(id),
   acheterRunes: (n) => { const prix = 5000 * n; if (J.argent < prix) { UI.toast('Pas assez d’argent'); son('error_001', 0.4); return false; } J.argent -= prix; ajouterSac(creerButin('rune', n), true); son('handleCoins', 0.5); sauver(); return true; },
@@ -3815,6 +3903,7 @@ function majInteractions() {
   if (arene) return UI.action(null);
   if (modeActuel && modeActuel.id === 'ile') return interactionsIle();
   if (modeActuel && modeActuel.id === 'domaine') return interactionsDomaine();
+  if (modeActuel && modeActuel.id === 'terres') { const r = interactionsTerres(); if (r !== null) return r; }
   if (!modeActuel) {
     if (monde.taverne && dist2D(joueur.pos, monde.taverne.porte) < 4) return UI.action('Entrer au Croc-Rouge', () => entrerTaverne());
     if (marchand && dist2D(joueur.pos, marchand.pos) < 5) return UI.action('Parler à Borin', () => UI.dialogueMarchand());
@@ -4103,6 +4192,7 @@ function boucleCorps() {
     if (modeActuel && modeActuel.sylve) { majSylve(dt); sylveMeterT = (sylveMeterT || 0) - dt; if (sylveMeterT <= 0) { sylveMeterT = 0.5; if (compteur) UI.majDegats(classement(compteur.total, 0, G.t - sylve.debut)); } }
     if (errant) majErrant(dt);
     if (modeActuel && modeActuel.id === 'domaine') majServiteurs(dt);
+    if (terres) majTerres(dt);
     if (modeActuel && modeActuel.id === 'ile') { majOuvriers(dt); majNoeuds(dt); majRecolteJoueur(dt); majPillard(dt); if (intendant) intendant.maj(dt); }
     if (passeur) passeur.maj(dt);
     if (graveuse) graveuse.maj(dt);
@@ -4180,6 +4270,10 @@ function majMini() {
     for (const c of coffres) if (!c.ouvert) ents.push({ type: 'coffre', x: c.pos.x, z: c.pos.z, c: c.def.color });
     if (sortie) ents.push({ type: 'portailV', x: sortie.pos.x, z: sortie.pos.z });
     ents.centre = joueur.pos;
+  } else if (monde.type === 'terres') {
+    for (const e of ennemis) if (!e.mort && dist2D(e.pos, joueur.pos) < 75) ents.push({ type: e.chasseur ? 'rouge' : e.boss ? 'boss' : 'mob', x: e.pos.x, z: e.pos.z });
+    for (const c of coffres) if (!c.ouvert && dist2D(c.pos, joueur.pos) < 75) ents.push({ type: 'coffre', x: c.pos.x, z: c.pos.z, c: c.def.color });
+    for (const p of monde.sorties) ents.push({ type: 'portailV', x: p.x, z: p.z });
   } else if (monde.type === 'goulet') {
     for (const a of allies) if (!a.mort && a.bg) ents.push({ type: 'allie', x: a.pos.x, z: a.pos.z });
     for (const e of ennemis) if (!e.mort && dist2D(e.pos, joueur.pos) < 30) ents.push({ type: 'rouge', x: e.pos.x, z: e.pos.z });
@@ -6907,7 +7001,7 @@ function dissiper(a) {
 }
 
 // accès de débogage (console)
-window.__jeu = { get modeActuel() { return modeActuel; }, dbgAggro: () => { const c = choisirCible(joueur.st.portee); return [c ? c.nom : null, passantsProches().length, G.agression]; }, domaineTest: (n = 4) => { if (!J.domaine) J.domaine = { niveau: n, serviteurs: [], tresor: 0, maj: Date.now(), graine: 7, journal: [] }; J.domaine.niveau = n; if (!iles().length) J.iles = J.iles || []; return entrerDomaine(); }, bilan: () => MODES.map(m => {
+window.__jeu = { get modeActuel() { return modeActuel; }, entrerTerres: () => entrerTerres(), get terres() { return terres; }, dbgAggro: () => { const c = choisirCible(joueur.st.portee); return [c ? c.nom : null, passantsProches().length, G.agression]; }, domaineTest: (n = 4) => { if (!J.domaine) J.domaine = { niveau: n, serviteurs: [], tresor: 0, maj: Date.now(), graine: 7, journal: [] }; J.domaine.niveau = n; if (!iles().length) J.iles = J.iles || []; return entrerDomaine(); }, bilan: () => MODES.map(m => {
     const eq = genererEquipRival(m.ipConseil, 'epee'), niv = nivBot(eq), st = statsHeros(eq, niv), dps = st.degats * st.vitesseAtk * (1 + st.crit / 200);
     const mob = creerEnnemi(MOBS.guerrier, V(900, 0, 900), m.mobTier, -9), mi = creerEnnemi(MOBS.minion, V(900, 0, 900), m.mobTier, -9), b = creerBoss(BOSS[0], V(905, 0, 905), m.bossTier[0], null), b3 = creerBoss(BOSS[3], V(905, 0, 905), m.bossTier[3], null);
     const r = { mode: m.lieu, ip: m.ipConseil, niv, pv: Math.round(st.pvMax), dps: Math.round(dps), red: +st.reduction.toFixed(2), ttkMinion: +(mi.pvMax / dps).toFixed(1), ttkGuerrier: +(mob.pvMax / dps).toFixed(1), ttkBoss1: Math.round(b.pvMax / dps), ttkBoss4: Math.round(b3.pvMax / dps), coupsGuerrierPourMourir: +(st.pvMax / (mob.dmg * (1 - st.reduction))).toFixed(1), coupsBossPourMourir: +(st.pvMax / (b.dmg * (1 - st.reduction))).toFixed(1) };

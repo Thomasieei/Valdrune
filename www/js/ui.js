@@ -836,12 +836,14 @@ UI.mini = (monde, joueur, entites) => {
   let x0, z0, x1, z1;
   if (monde.type === 'hub') { x0 = monde.bornes.x0 - 4; x1 = monde.bornes.x1 + 4; z0 = monde.bornes.z0 - 4; z1 = monde.bornes.z1 + 4; }
   else if (monde.type === 'arene') { x0 = z0 = -monde.rayon - 3; x1 = z1 = monde.rayon + 3; }
+  else if (monde.type === 'terres') { x0 = joueur.pos.x - 60; x1 = joueur.pos.x + 60; z0 = joueur.pos.z - 60; z1 = joueur.pos.z + 60; }
   else if (monde.type === 'ile' || monde.type === 'domaine') { x0 = z0 = -monde.rayonMonde - 14; x1 = z1 = monde.rayonMonde + 14; }
   else if (monde.type === 'sylve' || monde.type === 'goulet') { x0 = monde.bornes.x0; x1 = monde.bornes.x1; z0 = monde.bornes.z0; z1 = monde.bornes.z1; }
   else { x0 = 0; z0 = 0; x1 = monde.grilleW * 4; z1 = monde.grilleH * 4; }
   const ech = 236 / Math.max(x1 - x0, z1 - z0), ox = 128 - (x0 + x1) / 2 * ech, oz = 128 - (z0 + z1) / 2 * ech;
   const P = (x, z) => [ox + x * ech, oz + z * ech];
-  if (!monde._fond) {
+  if (monde.type === 'terres') { const R = monde.rayonMonde, k = 512 / (2 * R); g.drawImage(monde.carte, (x0 + R) * k, (z0 + R) * k, (x1 - x0) * k, (z1 - z0) * k, 0, 0, 256, 256); }
+  else if (!monde._fond) {
     const c = document.createElement('canvas'); c.width = c.height = 256; const f = c.getContext('2d');
     if (monde.type === 'hub') { f.fillStyle = '#4a5f8a'; const [a, b] = P(monde.bornes.x0, monde.bornes.z0); f.fillRect(a, b, (monde.bornes.x1 - monde.bornes.x0) * ech, (monde.bornes.z1 - monde.bornes.z0) * ech); f.fillStyle = '#6a80b0'; f.beginPath(); f.arc(...P(0, 0), 10 * ech, 0, 7); f.fill(); }
     else if (monde.type === 'sylve') {
@@ -866,7 +868,7 @@ UI.mini = (monde, joueur, entites) => {
     }
     monde._fond = c;
   }
-  g.drawImage(monde._fond, 0, 0);
+  if (monde._fond) g.drawImage(monde._fond, 0, 0);
   for (const e of entites) {
     const [a, b] = P(e.x, e.z);
     if (e.type === 'mob') { g.fillStyle = '#ff3a2a'; g.beginPath(); g.arc(a, b, 2.6, 0, 7); g.fill(); }
@@ -1143,6 +1145,12 @@ UI.menuPortail = () => {
     <button class="btn vert" data-sylve>Rechercher un groupe</button>`;
   $('#portailMenu .cadreP').appendChild(sy);
   sy.querySelector('[data-sylve]').onclick = () => { $('#portailMenu').hidden = true; api.sylve(); };
+  const tr = document.createElement('div'); tr.className = 'carteSylve carteTerres';
+  tr.innerHTML = `<div class="txtS"><div class="niv">MONDE OUVERT · ZONE ROUGE · PVP SANS PITIÉ</div><h3>Les Terres Écarlates</h3>
+    <p>Forêt sombre, ruines d’un royaume, champs de cendres et un dragon. Des chasseurs y traquent les imprudents. <b>Meurs et tu perds ton équipement porté, tout ce que tu as ramassé et 10 % de ta bourse.</b> Ressors par un portail violet pour tout garder.</p></div>
+    <button class="btn rouge" data-terres>Entrer à mes risques</button>`;
+  $('#portailMenu .cadreP').appendChild(tr);
+  tr.querySelector('[data-terres]').onclick = () => { $('#portailMenu').hidden = true; api.terres(); };
   const inv = document.createElement('div'); inv.className = 'invasion';
   inv.innerHTML = `<div><h4>Être envahi</h4><label class="bascule"><input type="checkbox" id="accInv" ${j.accepteInvasion ? 'checked' : ''}><span>Ouvrir mon monde aux invasions</span></label>
     <p>+25 % d’argent dans les coffres. Un joueur peut surgir dans ton donjon. S’il te tue, il emporte tout ton équipement porté.</p></div>

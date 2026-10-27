@@ -1732,6 +1732,78 @@ function chateauDomaine(groupe, inst, collisions, reliefs, th, N) {
   return { trone: trP.clone().setY(0), tresor };
 }
 
+// ======================= LES TERRES ÉCARLATES : monde ouvert, zone rouge (PvP punitif) =======================
+// 340 m de terres : forêt sombre (ouest), ruines d'un royaume (centre), champs de cendres et de lave (est), lac noir (sud-ouest).
+// Camp de départ au sud (zone sûre), deux portails de sortie, camps de monstres plus durs à mesure qu'on s'éloigne, un dragon dans les cendres.
+export function construireTerres() {
+  const groupe = new THREE.Group();
+  G.torches = []; G.feux = []; G.anims = [];
+  const R = 170, inst = new Instancieur(), nat = new Instancieur(), collisions = [];
+  const rng = graineRng(4242);
+  const biome = (x, z) => { const lac = Math.hypot(x + 75, z - 85) < 30; if (lac) return 'lac'; if (Math.hypot(x, z) < 42) return 'ruines'; if (x > 45 && z < 40) return 'cendres'; if (x < -35) return 'foret'; return 'plaine'; };
+  // sol en couleurs par sommet (une seule géométrie, très légère) + herbe en détail
+  const geo = new THREE.PlaneGeometry(2 * R + 40, 2 * R + 40, 110, 110).rotateX(-Math.PI / 2);
+  const pos = geo.attributes.position, col = new Float32Array(pos.count * 3), c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), z = pos.getZ(i), b = biome(x, z), n = rng() * 0.08;
+    c.set(b === 'foret' ? '#5a8a46' : b === 'ruines' ? '#c8b088' : b === 'cendres' ? '#7a5a52' : b === 'lac' ? '#a0b080' : '#a0b868'); c.offsetHSL(0, 0, n - 0.04); col.set([c.r, c.g, c.b], i * 3); }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const tH = texHerbe(); tH.repeat.set(60, 60);
+  const sol = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, map: tH, roughness: 1 })); sol.receiveShadow = true; groupe.add(sol);
+  // lac
+  const eau = new THREE.Mesh(new THREE.CircleGeometry(28, 48), new THREE.MeshStandardMaterial({ color: '#1a3a4a', roughness: 0.1, metalness: 0.4, transparent: true, opacity: 0.9, polygonOffset: true, polygonOffsetFactor: -2 }));
+  eau.rotation.x = -Math.PI / 2; eau.position.set(-75, 0.04, 85); groupe.add(eau);
+  for (let a = 0; a < 6.28; a += 0.08) collisions.push({ x: -75 + Math.cos(a) * 26, z: 85 + Math.sin(a) * 26, r: 2 });
+  // fissures de lave dans les cendres
+  const lave = new THREE.MeshBasicMaterial({ color: '#ff4a1a', transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false });
+  for (let k = 0; k < 40; k++) { const x = 55 + rng() * 105, z = -150 + rng() * 180; if (Math.hypot(x, z) > R - 8) continue; const m = new THREE.Mesh(new THREE.PlaneGeometry(0.5 + rng() * 0.6, 6 + rng() * 10), lave); m.rotation.x = -Math.PI / 2; m.rotation.z = rng() * 6; m.position.set(x, 0.05, z); groupe.add(m); }
+  G.anims.push((t) => { lave.opacity = 0.6 + Math.sin(t * 1.7) * 0.2; });
+  // bordure : falaises de rochers tout autour
+  for (let a = 0; a < 6.28; a += 0.045) { const r = R + rng() * 6; inst.ajouter(rng() < 0.5 ? 'Rock_1_A' : 'Rock_3_C', Math.cos(a) * r, 0, Math.sin(a) * r, rng() * 6, 3.5 + rng() * 2.5, 3 + rng() * 3, 3.5 + rng() * 2.5); }
+  // végétation et décor par biome
+  const libreDe = (x, z, m = 3) => !collisions.some(k => Math.abs(k.x - x) < m + k.r && Math.abs(k.z - z) < m + k.r);
+  const camp0 = new THREE.Vector3(0, 0, 148);
+  for (let k = 0; k < 2600; k++) {
+    const a = rng() * 6.283, r = Math.sqrt(rng()) * (R - 6), x = Math.cos(a) * r, z = Math.sin(a) * r, b = biome(x, z);
+    if (Math.hypot(x - camp0.x, z - camp0.z) < 18 || Math.abs(x) < 4 && z > 40) continue; // camp et route
+    if (b === 'foret' && rng() < 0.55) { const s = 1.6 + rng() * 1.4; nat.ajouter(rng() < 0.5 ? 'n_tree_fat_darkh' : rng() < 0.5 ? 'n_tree_detailed' : 'n_tree_oak', x, 0, z, rng() * 6, s, s, s); collisions.push({ x, z, r: 0.7 }); }
+    else if (b === 'foret' && rng() < 0.4) nat.ajouter(rng() < 0.5 ? 'n_mushroom_redGroup' : 'n_plant_bushLarge', x, 0, z, rng() * 6, 1.5, 1.5, 1.5);
+    else if (b === 'plaine' && rng() < 0.12) { inst.ajouter(rng() < 0.5 ? 'Tree_1_A' : 'Tree_3_A', x, 0, z, rng() * 6, 1.2, 1.2, 1.2); collisions.push({ x, z, r: 0.7 }); }
+    else if (b === 'plaine' && rng() < 0.3) inst.ajouter(rng() < 0.7 ? 'Grass_1_A' : 'Bush_2_C', x, 0, z, rng() * 6, 1.4, 1.4, 1.4);
+    else if (b === 'cendres' && rng() < 0.1) { inst.ajouter('Tree_Bare_2_A', x, 0, z, rng() * 6, 1.6, 1.6, 1.6); collisions.push({ x, z, r: 0.6 }); }
+    else if (b === 'cendres' && rng() < 0.08) { nat.ajouter(rng() < 0.5 ? 'n_rock_largeB' : 'n_rock_largeC', x, 0, z, rng() * 6, 2.5, 2.5, 2.5); collisions.push({ x, z, r: 1.6 }); }
+  }
+  // ruines du royaume déchu : murs effondrés, colonnes, statues, braseros
+  for (let k = 0; k < 26; k++) { const a = k / 26 * 6.283, r = 30 + (k % 3) * 4; const x = Math.cos(a) * r, z = Math.sin(a) * r; if (k % 5 === 0) continue;
+    inst.ajouter(k % 2 ? 'wall_broken' : 'wall', x, 0, z, -a + Math.PI / 2); collisions.push({ x, z, r: 1.6 }); }
+  for (let k = 0; k < 14; k++) { const a = rng() * 6.283, r = 8 + rng() * 18, x = Math.cos(a) * r, z = Math.sin(a) * r; inst.ajouter(rng() < 0.5 ? 'pillar_decorated' : 'column', x, 0, z, rng() * 6, 1.2, 1.2, 1.2); collisions.push({ x, z, r: 0.8 }); }
+  for (let k = 0; k < 20; k++) { const a = rng() * 6.283, r = rng() * 34; inst.ajouter(rng() < 0.5 ? 'rubble_large' : 'rubble_half', Math.cos(a) * r, 0, Math.sin(a) * r, rng() * 6, 0.45, 0.45, 0.45); }
+  nat.ajouter('n_statue_head', 0, 0, -6, 0, 3, 3, 3); collisions.push({ x: 0, z: -6, r: 2 });
+  for (const [x, z] of [[-10, 8], [10, 8], [-10, -16], [10, -16]]) brasero(groupe, x, z, '#ff5a2a', 1.2);
+  for (const [x, z] of [[-40, -120], [-120, -40], [95, 110], [-140, 60]]) { nat.ajouter('n_statue_obelisk', x, 0, z, rng() * 6, 3, 3, 3); collisions.push({ x, z, r: 1 }); }
+  // camp de départ (zone sûre) : tentes, feu, bannière
+  for (const [x, z, r] of [[-7, 146, 0.6], [7, 146, -0.6], [-5, 156, 0.2]]) { const t = cloner('tent', x, 0, z, r, 5); groupe.add(t); collisions.push({ x, z, r: 1.4 }); }
+  nat.ajouter('n_campfire_stones', 0, 0, 152, 0, 3.6, 3.6, 3.6); G.feux.push({ pos: new THREE.Vector3(0, 0.3, 152), couleur: '#ff8a2a', force: 1 }); G.torches.push({ pos: new THREE.Vector3(0, 1.6, 152), color: '#ffa04a', int: 30, dist: 14 });
+  const anneauSur = new THREE.Mesh(new THREE.RingGeometry(15.5, 16, 64), new THREE.MeshBasicMaterial({ color: '#7affb0', transparent: true, opacity: 0.35, depthWrite: false })); anneauSur.rotation.x = -Math.PI / 2; anneauSur.position.set(0, 0.06, 148); groupe.add(anneauSur);
+  // portails de sortie
+  const sorties = [new THREE.Vector3(0, 0, 160), new THREE.Vector3(-150, 0, -10), new THREE.Vector3(140, 0, 60)];
+  for (const p of sorties) { construirePortail(groupe, p, Math.atan2(-p.x, -p.z), THEME_VIOLET, 0.42); collisions.push({ x: p.x, z: p.z, r: 1.4 }); }
+  // camps de monstres (plus durs en s'éloignant du camp) et coffres
+  const camps = [[-80, 40], [-110, -60], [-60, -120], [-30, 70], [0, 0], [20, -40], [-20, -30], [80, -20], [110, -110], [60, 70], [130, 20], [-140, 120]].map(([x, z]) => ({ pos: new THREE.Vector3(x, 0, z), danger: Math.min(3, Math.floor(Math.hypot(x - camp0.x, z - camp0.z) / 70)), biome: biome(x, z) }));
+  for (const cp of camps) for (let k = 0; k < 2; k++) inst.ajouter('crates_stacked', cp.pos.x + (k ? 3 : -3), 0, cp.pos.z + 2.5, rng() * 6, 0.8, 0.8, 0.8);
+  const dragon = new THREE.Vector3(115, 0, -95);
+  fusionnerStatiques(groupe);
+  inst.construire(groupe); nat.construire(groupe);
+  G.scene.add(groupe);
+  // carte complète pour la mini-carte (on n'en affiche qu'un morceau autour du joueur)
+  const carte = document.createElement('canvas'); carte.width = carte.height = 512; { const f = carte.getContext('2d'), k = 512 / (2 * R);
+    for (let y = 0; y < 512; y += 4) for (let x = 0; x < 512; x += 4) { const wx = x / k - R, wz = y / k - R; const b = Math.hypot(wx, wz) > R ? 'bord' : biome(wx, wz); f.fillStyle = { foret: '#24402a', ruines: '#7a6a52', cendres: '#3a2626', lac: '#1a3a5a', plaine: '#4a5a32', bord: '#1a1410' }[b]; f.fillRect(x, y, 4, 4); }
+    f.fillStyle = '#7affb0'; f.beginPath(); f.arc((0 + R) * k, (148 + R) * k, 16 * k, 0, 7); f.fill(); }
+  return {
+    groupe, type: 'terres', nom: 'Terres Écarlates', spawn: new THREE.Vector3(0, 0, 145), sorties, camps, dragon, collisions, carte, rayonMonde: R, campSur: camp0, rayonSur: 16,
+    marche: (x, z) => Math.hypot(x, z) < R - 3, biome,
+  };
+}
+
 // ======================= LE DOMAINE =======================
 // Un plateau au bord de la mer : château qui grandit avec le niveau (campement → citadelle), ferme, village des serviteurs.
 export function construireDomaine(dom) {
