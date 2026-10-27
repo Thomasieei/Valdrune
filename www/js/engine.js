@@ -468,7 +468,7 @@ export class Acteur {
     this._tenueV = v; for (const m of this.mats) if (m.userData.uTenue) m.userData.uTenue.value.copy(v);
   }
   // vitesse de l'animation de course calée sur la vitesse réelle (plus de pieds qui patinent)
-  cadence(k) { if (this.bas) this.bas.timeScale = k; else if (this.courante && this.courante.loop === THREE.LoopRepeat) this.courante.timeScale = k; } // la cadence automatique (vitesse au sol) prime
+  cadence(k) { if (this.foulee) return; if (this.bas) this.bas.timeScale = k; else if (this.courante && this.courante.loop === THREE.LoopRepeat) this.courante.timeScale = k; } // la cadence automatique (vitesse au sol) prime
   jouer(nom, { fondu, boucle = true, vitesse = 1, forcer = false, fin = null } = {}) {
     let a = this.actions[nom];
     // fondus « intelligents » : attaques vives, retours au repos et changements d'allure tout en douceur
@@ -600,8 +600,9 @@ export class Acteur {
     this._vit = (this._vit || 0) + (Math.min(vs, 30) - (this._vit || 0)) * Math.min(1, dt * 10);
     const loco = this.bas || this.courante, nomL = loco && loco.getClip().name;
     const enMarche = nomL && LOCO.has(nomL) && this.foulee;
-    // (cadence automatique retirée : elle faisait pédaler les jambes jusqu'à ×2,7 → sautillements)
+    if (enMarche && this._vit > 0.25) { const n = vitesseNaturelle(this, nomL); if (n && n.v > 0.05) loco.timeScale = Math.max(0.55, Math.min(2.7, this._vit / (n.v * this.model.scale.z / n.sz))); }
     this.mixer.update(dt);
+    if (enMarche && (!this.haut || this.bas)) elargirFoulee(this, this.foulee);
 
     // pieds ancrés : en course, le pied d'appui reste collé au sol (plus de sautillement ni de corps qui flotte)
     let anc = 0;
