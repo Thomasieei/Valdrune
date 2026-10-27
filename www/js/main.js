@@ -279,6 +279,7 @@ function statsJoueur() {
   if (J.domaine) { if (J.domaine.serviteurs.includes('forgeron')) st.degats = Math.round(st.degats * 1.04); if (J.domaine.serviteurs.includes('ecuyer')) st.vitesse *= 1.05; }
   if (J.repasDomaine && Date.now() < J.repasDomaine) st.pvMax = Math.round(st.pvMax * 1.08);
   if (J.banquet && Date.now() < J.banquet) st.degats *= 1.1;
+  if (J.orbeT && Date.now() < J.orbeT) st.degats *= 1.15;
   st.dps = Math.round(st.degats * st.vitesseAtk * (1 + st.crit / 200));
   return st;
 }
@@ -2448,6 +2449,7 @@ function tuer(e) {
   if (e.rival && e.voleur) { finVoleur(e); return; }
   if (e.rival && e.chasseur) { finChasseur(e); return; }
   if (e.rival) { if (arene) { setTimeout(() => { e.descendre = true; }, 4000); verifierArene(); } else if (e.bandit || e.gardeIle) finCombatIle(e); else victoireRival(e); return; }
+  if (e.campA && terres) compterQueteAnc(e);
   const part = coequipiers().length && !modeActuel.sylve ? 0.5 : 1;
   const loot = lootMonstre(modeActuel);
   const gain = Math.max(1, Math.round(loot.argent * (e.boss ? 25 : 1) * (modeHard ? 3 : 1) * part * (1 + bonusParch('argent')) * (MODES.includes(modeActuel) ? 1 + 0.25 * rangDe('donjon').i : 1)));
@@ -3335,8 +3337,8 @@ function majCampsAncestraux(dt) {
     if (!cp.vivant && d < 62 && now >= cp.vide) { // le camp s'éveille
       cp.vivant = true; cp.mobs = [];
       const types = cp.biome === 'ruines' || cp.biome === 'cristaux' ? ['cultiste', 'brute', 'pretresse'] : cp.biome === 'foret' || cp.biome === 'plaine' ? ['minion', 'archer', 'guerrier'] : ['guerrier', 'mage', 'brute', 'archer'];
-      const n = 3 + cp.danger * 2;
-      for (let i = 0; i < n; i++) { const p = pointLibrePres(V(cp.pos.x + rnd(-5, 5), 0, cp.pos.z + rnd(-5, 5)), 0, 3); const e = creerEnnemi(MOBS[hasard(types)] || MOBS.guerrier, p, Math.min(8, t + cp.danger), 200 + monde.camps.indexOf(cp)); e.campA = cp; cp.mobs.push(e); }
+      const n = 5 + cp.danger * 2;
+      for (let i = 0; i < n; i++) { const p = pointLibrePres(V(cp.pos.x + rnd(-6, 6), 0, cp.pos.z + rnd(-6, 6)), 0, 3); const e = creerEnnemi(MOBS[hasard(types)] || MOBS.guerrier, p, Math.min(8, t + cp.danger), 200 + monde.camps.indexOf(cp)); e.campA = cp; cp.mobs.push(e); }
       if (cp.danger >= 1 && !cp.pille) { const couleur = cp.danger >= 3 ? (Math.random() < 0.3 ? 'legendaire' : 'violet') : cp.danger === 2 ? (Math.random() < 0.45 ? 'violet' : 'bleu') : 'bleu';
         const mobs = cp.mobs; creerCoffre(pointLibrePres(V(cp.pos.x, 0, cp.pos.z + 3), 0.5, 2), couleur, { get mort() { return mobs.every(e => e.mort || e.etat === 'possede'); }, boss: { nom: 'tous les gardiens du camp' }, idx: Math.min(3, cp.danger) }); cp.coffre = coffres[coffres.length - 1]; }
     } else if (cp.vivant) {
@@ -3351,12 +3353,98 @@ function majCampsAncestraux(dt) {
   }
   for (const g of monde.gardiens) {
     if (g.vivant || g.vaincu || dist2D(g.pos, joueur.pos) > 70) continue;
-    g.vivant = true; const I = monde.iles[g.ile], bd = BOSS[GARDIEN_BIOME[I.b] ?? 0];
-    const b = creerBoss({ ...bd, nom: `${bd.nom} de ${I.nom.split(' ').slice(-1)[0]}` }, g.pos.clone(), Math.min(8, t + g.danger), null); b.pvMax *= 1 + g.danger * 0.4; b.pv = b.pvMax; g.boss = b;
+    g.vivant = true; const I = monde.iles[g.ile];
+    const dragon = ['givre', 'cendres', 'marais', 'cristaux'].includes(I.b);
+    const bd = dragon ? { ...BOSS[3], nom: { givre: 'Dragon de Givre', cendres: 'Dragon de la Fournaise', marais: 'Dragon des Marais', cristaux: 'Dragon de Cristal' }[I.b], teinte: { givre: '#8ad0ff', cendres: '#ff5a1a', marais: '#8a3aaa', cristaux: '#b0a0ff' }[I.b] } : { ...BOSS[GARDIEN_BIOME[I.b] ?? 0] };
+    if (!dragon) bd.nom = `${bd.nom} de ${I.nom.split(' ').slice(-1)[0]}`;
+    const b = creerBoss(bd, g.pos.clone(), Math.min(8, t + g.danger), null); b.pvMax *= 1 + g.danger * 0.4; b.pv = b.pvMax; g.boss = b; g.dragon = dragon;
     creerCoffre(pointLibrePres(V(g.pos.x - 6, 0, g.pos.z + 5), 0.5, 2), g.danger >= 3 ? 'legendaire' : 'violet', b);
     UI.toast(`Le gardien de ${I.nom} se dresse devant toi !`, true); son('lowFrequency_explosion_000', 0.5, 0.8);
   }
-  for (const g of monde.gardiens) if (g.boss && g.boss.mort && !g.vaincu) { g.vaincu = true; exploit && exploit('gardien_ancestral'); }
+  for (const g of monde.gardiens) if (g.boss && g.boss.mort && !g.vaincu) {
+    g.vaincu = true; exploit && exploit('gardien_ancestral'); poserOrbe(g.boss.pos.clone(), g.dragon);
+    if (g.dragon) { terres.dragons = (terres.dragons || 0) + 1; UI.toast(`Dragon abattu : ${terres.dragons} / 4`, true);
+      if (terres.dragons >= 4 && !terres.ancestral) { terres.ancestral = true; programmer(4, invoquerDragonAncestral); } }
+  }
+  majEquipesIle(dt);
+  majQuetesAnc();
+}
+// ---- orbes de pouvoir lâchés par les gardiens ----
+function poserOrbe(p, dragon) {
+  const g = new THREE.Group(); g.position.set(p.x, 1.4, p.z);
+  const col = dragon ? '#ffcf4a' : '#7ab8ff';
+  const o = new THREE.Mesh(new THREE.SphereGeometry(0.55, 20, 14), new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 2.2, transparent: true, opacity: 0.9 })); g.add(o);
+  G.scene.add(g); const beam = faisceau(V(p.x, 0, p.z), col, 14, 0.8); G.scene.add(beam);
+  const O = { g, beam, pos: p, dragon, pris: false }; (terres.orbes = terres.orbes || []).push(O);
+  ajouterVfx(new THREE.Group(), (t) => { if (O.pris) { G.scene.remove(g); G.scene.remove(beam); return false; } g.position.y = 1.4 + Math.sin(t * 2) * 0.25; g.rotation.y = t; if (Math.random() < 0.3) emettre(V(p.x, 1.4, p.z), { n: 1, c1: '#ffffff', c2: col, vit: 1.5, vie: 0.8, taille: 0.25 }); });
+  UI.toast(dragon ? 'Une ORBE DORÉE est tombée !' : 'Une orbe de pouvoir est tombée', true);
+}
+function prendreOrbe(O) {
+  O.pris = true; son('jingle_legend', 0.55); onde(O.pos, O.dragon ? '#ffcf4a' : '#7ab8ff', 8, 1);
+  const gain = Math.round(lootCoffre(O.dragon ? 'legendaire' : 'violet', modeActuel, 3).argent * (O.dragon ? 6 : 3)); J.argent += gain;
+  J.orbeT = Date.now() + 5 * 60000; recalculer(); gagnerXPRelatif(O.dragon ? 0.08 : 0.04);
+  UI.toast(`Orbe absorbée : +${fmtN(gain)} ¤ et +15 % de dégâts pendant 5 min — les chasseurs la sentent sur toi !`, true);
+  terres.chasseT = Math.min(terres.chasseT, 15);
+}
+// ---- le Dragon Ancestral : quand les 4 dragons sont tombés ----
+function invoquerDragonAncestral() {
+  if (!terres || !monde.iles) return;
+  const c = monde.iles[3], p = V(c.x, 0, c.z);
+  const b = creerBoss({ ...BOSS[3], nom: 'Dragon Ancestral', hauteur: 9.5, teinte: '#3a0a0a', hpMult: 30, dmgMult: 3.2 }, p, 8, null); b.pvMax *= 4; b.pv = b.pvMax; b.etat = 'chasse';
+  creerCoffre(pointLibrePres(V(p.x - 9, 0, p.z + 6), 0.5, 2), 'legendaire', b); creerCoffre(pointLibrePres(V(p.x + 9, 0, p.z + 6), 0.5, 2), 'legendaire', b);
+  G.shake = 1; son('lowFrequency_explosion_000', 0.9, 0.4); UI.flashInvasion && UI.flashInvasion();
+  UI.titreManga('DRAGON ANCESTRAL', 'Il s’éveille au cœur des Ruines');
+  UI.chat('Système', 'Le Dragon Ancestral s’est éveillé au centre des Terres Ancestrales ! Toutes les équipes convergent…');
+  terres.chasseT = 5;
+}
+// ---- quêtes d'île : 20, 35, 45, 60, 80 monstres ----
+const PALIERS_QUETE = [20, 35, 45, 60, 80, 100];
+function ileDe(p) { return monde.iles ? monde.iles.findIndex(I => Math.hypot(p.x - I.x, p.z - I.z) < I.r + 3) : -1; }
+function compterQueteAnc(e) {
+  if (!terres || !monde.iles) return; const k = e.campA ? e.campA.ile : ileDe(e.pos); if (k < 0) return;
+  const Q = (terres.quetes = terres.quetes || {})[k] || (terres.quetes[k] = { etape: 0, kills: 0 });
+  Q.kills++;
+  const but = PALIERS_QUETE[Math.min(Q.etape, PALIERS_QUETE.length - 1)];
+  if (Q.kills >= but) {
+    Q.kills = 0; Q.etape++;
+    const gain = Math.round(lootCoffre('bleu', modeActuel, 2).argent * (2 + Q.etape)); J.argent += gain; gagnerXPRelatif(0.02 * Q.etape);
+    creerCoffre(pointLibrePres(V(joueur.pos.x + 3, 0, joueur.pos.z), 0.5, 3), Q.etape >= 4 ? 'legendaire' : Q.etape >= 2 ? 'violet' : 'bleu', { mort: true });
+    UI.toast(`Quête de ${monde.iles[k].nom} accomplie (${but} monstres) ! +${fmtN(gain)} ¤ et un coffre`, true); son('jingle_win', 0.6);
+  }
+}
+function majQuetesAnc() {
+  const k = ileDe(joueur.pos); if (k < 0) return;
+  const Q = (terres.quetes && terres.quetes[k]) || { etape: 0, kills: 0 }, but = PALIERS_QUETE[Math.min(Q.etape, PALIERS_QUETE.length - 1)];
+  const txt = `${monde.iles[k].nom} — tue ${but} monstres (${Q.kills}/${but})${terres.dragons ? ` · dragons ${terres.dragons}/4` : ''}`;
+  if (terres._qtxt !== txt) { terres._qtxt = txt; UI.journal('Terres Ancestrales', txt, Q.kills / but); }
+}
+// ---- équipes rivales : jusqu'à 6 par île (1 à 5 joueurs), elles se battent entre elles et contre les monstres ----
+function majEquipesIle(dt) {
+  const k = ileDe(joueur.pos); if (k <= 0) return; // pas sur le rivage de départ
+  terres.equipesIle = terres.equipesIle || {};
+  if (terres.equipesIle[k]) return; terres.equipesIle[k] = true;
+  const I = monde.iles[k], ipJ = statsHeros(J.equip).ip, nb = 6;
+  for (let q = 0; q < nb; q++) {
+    const taille = hasard([1, 2, 3, 3, 4, 5]), guilde = GUILDES_CHASSE[q % GUILDES_CHASSE.length], id = 'eq' + k + '_' + q;
+    const a = Math.random() * 6.283, r = I.r * (0.4 + Math.random() * 0.45), base = V(I.x + Math.cos(a) * r, 0, I.z + Math.sin(a) * r);
+    if (dist2D(base, joueur.pos) < 30) continue;
+    for (let i = 0; i < taille; i++) { const d = calerSurJoueur(donneesBot(ipJ * rnd(0.8, 1.15), []), 3, 0); d.guilde = guilde; const e = creerCombattant(pointLibrePres(V(base.x + rnd(-3, 3), 0, base.z + rnd(-3, 3)), 0, 4), d, 'ennemi'); e.chasseur = true; e.equipeId = id; e.potions = 1; e.skill = 0.6 + Math.random() * 0.3; e.etat = 'chasse'; }
+  }
+  UI.toast(`${nb} équipes rôdent sur ${I.nom}…`, true);
+}
+// combat « hors écran » entre équipes et contre les monstres (quand tu n'es pas tout près)
+function mortSilencieuse(e) { e.mort = true; e.pv = 0; e.jouer(e.actions && e.actions.Death_C_Skeletons ? 'Death_C_Skeletons' : 'Death_A', { boucle: false, forcer: true }); UI.retirerPlaque && 0; setTimeout(() => { e.descendre = true; }, 3000); }
+function escarmouche(e, dt) {
+  e.escT = (e.escT || 0) - dt;
+  if (!e.escCible || e.escCible.mort || e.escT < -6) { e.escT = 0; let best = null, bd = 45; for (const o of ennemis) { if (o === e || o.mort || o.tk || o.equipeId === e.equipeId || !o.equipeId && o.boss) continue; const d = dist2D(o.pos, e.pos); if (d < bd) { bd = d; best = o; } } e.escCible = best; }
+  const c = e.escCible; if (!c) { e.jouer(e.armeDef.idle); return; }
+  const d = dist2D(e.pos, c.pos);
+  if (d > 2.4) { avancerVers(e, c.pos, dt, e.st.vitesse * 0.9); e.jouer(e.armeDef.run); return; }
+  e.angle = tourner(e.angle, Math.atan2(c.pos.x - e.pos.x, c.pos.z - e.pos.z), dt * 10); e.root.rotation.y = e.angle;
+  e.coupE = (e.coupE || 0) - dt;
+  if (e.coupE <= 0) { e.coupE = 1.1; e.jouer(hasard(['1H_Melee_Attack_Chop', '2H_Melee_Attack_Slice', '1H_Melee_Attack_Slice_Diagonal']), { boucle: false, forcer: true, fin: () => e.jouer(e.armeDef.idle) });
+    c.pv -= (e.dmg || e.st.degats || 60) * 0.8; c.frapper && c.frapper();
+    if (c.pv <= 0 && !c.mort) mortSilencieuse(c); }
 }
 const GUILDES_CHASSE = ['LES CHACALS', 'CROCS NOIRS', 'SANG-FROID', 'LA MEUTE ROUGE', 'VAUTOURS', 'LAMES CREUSES'];
 function majTerres(dt) {
@@ -3407,6 +3495,7 @@ function sortirTerres() {
   fondu(() => lancerHub());
 }
 function interactionsTerres() {
+  for (const O of (terres && terres.orbes) || []) if (!O.pris && dist2D(joueur.pos, O.pos) < 3) return UI.action(O.dragon ? 'Absorber l’orbe dorée' : 'Absorber l’orbe', () => prendreOrbe(O));
   for (const p of monde.sorties) if (dist2D(joueur.pos, p) < 3.4) return UI.action('Sortir par le portail (tout garder)', () => sortirTerres());
   return null;
 }
@@ -3644,10 +3733,11 @@ function majEnnemis(dt) {
     if (majEnnemiVivant(e, d, dt)) continue;
     if (e.etat === 'idle') { if (d < 11 || allies.some(a => !a.mort && dist2D(a.pos, e.pos) < 8)) reveiller(e); e.maj(dt); continue; }
     if (e.etat === 'dormant') {
-      const zone = monde.zoneDe(joueur.pos.x, joueur.pos.z);
-      if (zone === e.salle.id || d < 13) reveiller(e);
+      const zone = monde.zoneDe ? monde.zoneDe(joueur.pos.x, joueur.pos.z) : null;
+      if ((e.salle && zone === e.salle.id) || d < 13) reveiller(e);
       e.maj(dt); continue;
     }
+    if (e.equipeId && d > 26 && terres) { escarmouche(e, dt); e.maj(dt); continue; }
     if (e.combattant) { majCombattant(e, dt); e.maj(dt); continue; }
     e.tc = cibleIA(e);
     if (!e.tc) { e.jouer(e.def.model === 'Dragon_Evolved' ? 'Flying_Idle' : 'Idle_Combat'); e.maj(dt); continue; }

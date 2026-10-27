@@ -1868,7 +1868,7 @@ export function construireAncestrales() {
   const depart = iles[0], camps = [], gardiens = [];
   iles.forEach((I, k) => {
     const danger = k === 0 ? 0 : k <= 2 ? 1 : k <= 5 ? 2 : 3;
-    const nb = k === 0 ? 3 : 7;
+    const nb = k === 0 ? 3 : 10;
     for (let c = 0; c < nb; c++) { const a = c / nb * 6.283 + rng(), r = I.r * (0.35 + rng() * 0.45); camps.push({ pos: new THREE.Vector3(I.x + Math.cos(a) * r, 0, I.z + Math.sin(a) * r), danger, biome: I.b, ile: k }); }
     if (k) gardiens.push({ pos: new THREE.Vector3(I.x + 12, 0, I.z - 10), ile: k, danger });
   });
