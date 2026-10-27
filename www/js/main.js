@@ -422,6 +422,7 @@ function libererGPU(racines) {
   });
 }
 function viderMonde() {
+  document.body.classList.remove('brumeAnc');
   for (const a of serviteurs) { G.scene.remove(a.root); UI.retirerPlaque(a); } serviteurs = [];
   G.solH = null; G.murs = false; G.ecrans = null; terres = null; TKS = []; possedes = []; UI.choixTK && UI.choixTK(null); G.camCible = null; G.camLibre = false; for (const v of auras.values()) G.scene.remove(v.g); auras.clear(); scenes = []; crypteEtat = null; if (sceneOmbre) { sceneOmbre = null; G.camCible = null; document.body.classList.remove('cinema'); UI.dialogueTaverne(null); }
   for (const e of ennemis) if (e.auraM && e.auraM.ring.parent) G.scene.remove(e.auraM.ring);
@@ -3323,7 +3324,7 @@ async function entrerAncestrales(equipe) {
 function chargerEtapeAnc(T, n) {
   const E = ETAPES_ANC[n], t = T.tier + n;
   fondu(() => {
-    viderMonde(); terres = T; invasion = null; arene = null; selection = null;
+    viderMonde(); document.body.classList.add('brumeAnc'); terres = T; invasion = null; arene = null; selection = null;
     T.anc.etape = n; T.anc.kills = 0; T.anc.pierre = false; T.anc.final = n === 2; T.anc.coffre = null;
     modeActuel = { id: 'terres', ancestrales: true, nom: 'Terres Ancestrales', lieu: `Terres Ancestrales · ${E.nom}`, argent: 2 + n, xp: 10 + n * 4, tiers: [Math.min(8, t), Math.min(8, t + 1)], mobTier: Math.min(8, t), bossTier: [t + 1, t + 1, t + 2, t + 2] };
     monde = construireIleAnc({ r: E.r, biome: hasard(E.biomes), etape: n, graine: Math.floor(Math.random() * 1e5) }); G.solH = monde.solH;

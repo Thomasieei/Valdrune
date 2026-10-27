@@ -1938,33 +1938,59 @@ export function construireIleAnc({ r = 60, biome = 'foret', etape = 1, graine = 
     if (ny < 0.72) c.set(y < -2 ? '#3e4e5c' : '#5d7280'); else if (y < -0.4) c.set('#1e4a50'); else c.set(tache > 0.5 ? pal[2] : tache < -0.4 ? pal[1] : pal[0]);
     if (ny < 0.72) c.offsetHSL(0, 0, (Math.sin(y * 2.3 + x) * 0.04)); c.offsetHSL(0, 0, (rng() - 0.5) * 0.04); col.set([c.r, c.g, c.b], i * 3); }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const sol = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, flatShading: true })); sol.receiveShadow = true; groupe.add(sol);
+  const texSol = texture('solAnc', 512, 512, (g, w, hh) => { g.fillStyle = '#f2f2f2'; g.fillRect(0, 0, w, hh);
+    for (let i = 0; i < 260; i++) { const x = Math.random() * w, y = Math.random() * hh, rr = 8 + Math.random() * 40; const d = g.createRadialGradient(x, y, 0, x, y, rr); const c = Math.random() < 0.5 ? '255,255,255' : '0,30,30'; d.addColorStop(0, `rgba(${c},${0.08 + Math.random() * 0.12})`); d.addColorStop(1, `rgba(${c},0)`); g.fillStyle = d; g.fillRect(x - rr, y - rr, rr * 2, rr * 2); }
+    g.lineCap = 'round'; for (let i = 0; i < 30; i++) { let x = Math.random() * w, y = Math.random() * hh, a = Math.random() * 6.28; g.strokeStyle = `rgba(20,50,45,${0.04 + Math.random() * 0.06})`; g.lineWidth = 1 + Math.random() * 2.5; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 6; k++) { a += (Math.random() - 0.5) * 0.9; x += Math.cos(a) * 9; y += Math.sin(a) * 9; g.lineTo(x, y); } g.stroke(); }
+    for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '255,255,255' : '0,40,35'},${0.1 + Math.random() * 0.15})`; g.fillRect(Math.random() * w, Math.random() * hh, 2, 2); } }, { repeat: true });
+  texSol.wrapS = texSol.wrapT = THREE.RepeatWrapping; texSol.repeat.set(T / 14, T / 14);
+  const sol = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, map: texSol, roughness: 0.95, flatShading: true })); sol.receiveShadow = true; groupe.add(sol);
   // éléments instanciés (peu d'appels de dessin)
   const ICO = new THREE.IcosahedronGeometry(1, 0), lots = {};
+  // modelage : on bosselle des formes de base avec un bruit fonction de la position (pas de fissures), et on peint des couleurs par sommet
+  const bruit3 = (x, y, z, f, s) => Math.sin(x * f + s) * Math.sin(y * f * 1.3 + s * 2) * Math.sin(z * f * 0.9 - s) + 0.5 * Math.sin(x * f * 2.1 - s) * Math.sin(z * f * 2.3 + y);
+  const sculpter = (g, amp, f, s, peindre) => { const P = g.attributes.position, C = new Float32Array(P.count * 3), cc = new THREE.Color();
+    for (let i = 0; i < P.count; i++) { const x = P.getX(i), y = P.getY(i), z = P.getZ(i), k = 1 + amp * bruit3(x, y, z, f, s); P.setXYZ(i, x * k, y * k, z * k); }
+    g.computeVertexNormals(); const N = g.attributes.normal;
+    for (let i = 0; i < P.count; i++) { peindre(cc, P.getX(i), P.getY(i), P.getZ(i), N.getY(i)); C.set([cc.r, cc.g, cc.b], i * 3); }
+    g.setAttribute('color', new THREE.BufferAttribute(C, 3)); return g; };
+  const geoRoche = (s) => sculpter(new THREE.IcosahedronGeometry(1, 1).scale(1, 0.72, 1), 0.28, 1.7, s, (cc, x, y, z, ny) => { cc.set(ny > 0.62 ? '#5c9886' : y < -0.35 ? '#56687a' : '#7f95a6'); if (ny > 0.62) cc.offsetHSL(0, 0, Math.sin(x * 5 + z * 4) * 0.03); });
+  const geoCouronne = sculpter(new THREE.IcosahedronGeometry(1, 1), 0.2, 2.2, 1.3, (cc, x, y, z, ny) => { const l = 0.62 + 0.5 * (y + 1) / 2 + (ny > 0.5 ? 0.12 : 0); cc.setRGB(l, l, l); });
+  const geoStele = (() => { const g = new THREE.BoxGeometry(1, 1, 1, 2, 4, 2).translate(0, 0.5, 0), P = g.attributes.position;
+    for (let i = 0; i < P.count; i++) { const y = P.getY(i), k = 1 - 0.3 * y; P.setX(i, P.getX(i) * k); P.setZ(i, P.getZ(i) * (1 - 0.15 * y)); if (y > 0.99) P.setY(i, 1 + 0.18 * Math.sin(P.getX(i) * 6 + P.getZ(i) * 3)); }
+    return sculpter(g, 0.07, 6, 0.7, (cc, x, y, z, ny) => { cc.set(ny > 0.6 || y > 0.92 ? '#5f9a86' : y < 0.12 ? '#4c5e6e' : '#8098aa'); }); })();
+  const geoTrefle = (() => { const pos = [], col = [];
+    for (let f = 0; f < 3; f++) { const a = f * 2.094, cx = Math.cos(a) * 0.42, cz = Math.sin(a) * 0.42;
+      for (let i = 0; i < 6; i++) { const b0 = i / 6 * 6.283, b1 = (i + 1) / 6 * 6.283; pos.push(cx, 0.08, cz, cx + Math.cos(b1) * 0.45, 0, cz + Math.sin(b1) * 0.45, cx + Math.cos(b0) * 0.45, 0, cz + Math.sin(b0) * 0.45); col.push(1, 1, 1, 0.7, 0.7, 0.7, 0.7, 0.7, 0.7); } }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.computeVertexNormals(); return g; })();
+  const geoHerbe = (() => { const pos = [], col = [];
+    for (let i = 0; i < 7; i++) { const a = i / 7 * 6.283 + Math.sin(i * 7.1), r0 = 0.12 + (i % 3) * 0.08, h = 0.9 + (i % 4) * 0.22, x = Math.cos(a) * r0, z = Math.sin(a) * r0, px = -Math.sin(a) * 0.07, pz = Math.cos(a) * 0.07, lx = Math.cos(a) * 0.45, lz = Math.sin(a) * 0.45;
+      pos.push(x - px, 0, z - pz, x + px, 0, z + pz, x + lx, h, z + lz); col.push(0.45, 0.45, 0.45, 0.45, 0.45, 0.45, 1.15, 1.15, 1.15); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.computeVertexNormals(); return g; })();
   const lot = (nom, geo, mat, ombre) => lots[nom] || (lots[nom] = { geo, mat, ombre, l: [] });
   const poser = (nom, x, y, z, sx, sy, sz, ry, coul, rx = 0, rz = 0) => lots[nom].l.push({ x, y, z, sx, sy, sz, ry, rx, rz, coul });
-  lot('couronne', ICO, new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.85 }), true);
+  lot('couronne', geoCouronne, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.8 }), true);
   lot('tronc', new THREE.CylinderGeometry(0.12, 0.22, 1, 6).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ color: '#3a2a2e', flatShading: true }), true);
-  lot('trefle', ICO, new THREE.MeshStandardMaterial({ flatShading: true, roughness: 1 }), false);
+  lot('trefle', geoTrefle, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, side: THREE.DoubleSide }), false);
+  lot('herbe', geoHerbe, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, side: THREE.DoubleSide }), false);
   lot('fleur', new THREE.OctahedronGeometry(1, 0), new THREE.MeshBasicMaterial({ color: '#ffffff' }), false);
   lot('dalle', new THREE.CylinderGeometry(1, 1.12, 1, 7), new THREE.MeshStandardMaterial({ color: '#7590a0', flatShading: true, roughness: 0.9 }), false);
-  lot('rocher', new THREE.DodecahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.95 }), true);
-  lot('stele', new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ color: '#71879a', flatShading: true, roughness: 0.9 }), true);
+  const matRoche = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 }); for (let v = 0; v < 3; v++) lot('rocher' + v, geoRoche(v * 2.1 + 0.4), matRoche, true);
+  lot('stele', geoStele, new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.9 }), true);
   const rouges = finale ? ['#c8283a', '#a01a3a', '#e04a4a'] : ['#e0503a', '#c8382e', '#f07048', '#d84a5a'];
-  const arbre = (x, z, s = 1) => { const h = hauteur(x, z), tr = R(1.3, 1.9) * s; poser('tronc', x, h, z, s, tr, s, 0);
-    const n = 4 + Math.floor(rng() * 3); for (let i = 0; i < n; i++) { const a = rng() * 6.283, d = i ? R(0.5, 1.1) * s : 0; const k = (i ? R(0.6, 0.9) : 1.05) * s;
-      poser('couronne', x + Math.cos(a) * d, h + tr + R(0, 0.9) * s, z + Math.sin(a) * d, k * 1.1, k * 0.85, k * 1.1, rng() * 6, hasardF(rouges, rng)); } };
-  const buisson = (x, z, s = 1) => { const h = hauteur(x, z); for (let i = 0; i < 3; i++) poser('couronne', x + R(-0.5, 0.5) * s, h + 0.3 * s, z + R(-0.5, 0.5) * s, 0.55 * s, 0.45 * s, 0.55 * s, rng() * 6, hasardF(rouges, rng)); };
+  const arbre = (x, z, s = 1) => { const h = hauteur(x, z), tr = R(1.5, 2.1) * s; poser('tronc', x, h, z, s * 1.3, tr, s * 1.3, 0);
+    const n = 9 + Math.floor(rng() * 4); for (let i = 0; i < n; i++) { const a = rng() * 6.283, d = i ? R(0.35, 0.95) * s : 0; const k = (i ? R(0.32, 0.5) : 0.6) * s;
+      poser('couronne', x + Math.cos(a) * d, h + tr + R(-0.1, 0.8) * s, z + Math.sin(a) * d, k * 1.1, k * 0.8, k * 1.1, rng() * 6, hasardF(rouges, rng)); } };
+  const buisson = (x, z, s = 1) => { const h = hauteur(x, z); for (let i = 0; i < 4; i++) poser('couronne', x + R(-0.6, 0.6) * s, h + 0.25 * s, z + R(-0.6, 0.6) * s, 0.4 * s, 0.32 * s, 0.4 * s, rng() * 6, hasardF(rouges, rng)); };
   const trefles = (x, z, n) => { for (let i = 0; i < n; i++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * 2.6, px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d, h = hauteur(px, pz); if (h < -0.2 || h > 0.6) continue;
-    const k = R(0.17, 0.28); poser('trefle', px, h + 0.03, pz, k, k * 0.4, k, rng() * 6, hasardF(['#23784a', '#1d6a42', '#2c8656', '#185c3c'], rng)); } };
-  const rocher = (x, y, z, s, coul = '#6a7e8c') => poser('rocher', x, y, z, s * R(0.9, 1.3), s * R(0.6, 1), s * R(0.9, 1.3), rng() * 6, coul, R(-0.2, 0.2), R(-0.2, 0.2));
+    const k = R(0.3, 0.5); poser('trefle', px, h + 0.06, pz, k, k, k, rng() * 6, hasardF(['#3a9a62', '#2f8a56', '#46aa6e', '#2a7e50'], rng)); } };
+  const rocher = (x, y, z, s, coul = '#ffffff') => poser('rocher' + Math.floor(rng() * 3), x, y, z, s * R(0.9, 1.3), s * R(0.6, 1), s * R(0.9, 1.3), rng() * 6, coul, R(-0.2, 0.2), R(-0.2, 0.2));
   // la mer de brume en contrebas : quelques pitons rocheux qui en sortent
-  for (let k = 0; k < 14; k++) { const a = rng() * 6.283, d = bord(a) + R(6, 40); rocher(Math.cos(a) * d, NIV_MER + R(0, 2), Math.sin(a) * d, R(1.5, 4), '#3e5260'); }
+  for (let k = 0; k < 14; k++) { const a = rng() * 6.283, d = bord(a) + R(6, 40); rocher(Math.cos(a) * d, NIV_MER + R(0, 2), Math.sin(a) * d, R(1.5, 4), '#8a9aa8'); }
   // le bord des falaises : gros rochers qui dépassent, buissons accrochés
   for (let a = 0; a < 6.283; a += R(0.08, 0.2)) { const b = bord(a); if (Math.abs(((a - aL + 9.42) % 6.283) - 3.14) < 0.12) continue;
-    rocher(Math.cos(a) * (b - 0.6), R(-2.5, -0.6), Math.sin(a) * (b - 0.6), R(1, 2.2), '#5d7280'); if (rng() < 0.3) buisson(Math.cos(a) * (b - 3), Math.sin(a) * (b - 3), R(0.8, 1.2)); }
+    rocher(Math.cos(a) * (b - 0.6), R(-2.5, -0.6), Math.sin(a) * (b - 0.6), R(1.4, 3)); if (rng() < 0.3) buisson(Math.cos(a) * (b - 3), Math.sin(a) * (b - 3), R(0.8, 1.2)); }
   // terrasses : roche, arbres rouges sur le dessus, éboulis au pied
-  for (const Tt of terrasses) { for (let i = 0; i < 4; i++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * Tt.R * 0.6; arbre(Tt.x + Math.cos(a) * d, Tt.z + Math.sin(a) * d, R(1, 1.5)); }
+  for (const Tt of terrasses) { for (let i = 0; i < 4; i++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * Tt.R * 0.6; arbre(Tt.x + Math.cos(a) * d, Tt.z + Math.sin(a) * d, R(1.3, 1.9)); }
     for (let a = 0; a < 6.283; a += R(0.35, 0.7)) { const d = Tt.R + R(1.8, 3); rocher(Tt.x + Math.cos(a) * d, hauteur(Tt.x + Math.cos(a) * d, Tt.z + Math.sin(a) * d) + 0.1, Tt.z + Math.sin(a) * d, R(0.6, 1.3)); } }
   // le lac, son ruisseau et la cascade qui tombe de la falaise
   const eauM = new THREE.MeshStandardMaterial({ color: finale ? '#2a6a8a' : '#2aa0b0', emissive: '#0a4a5a', emissiveIntensity: 0.5, roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.82 });
@@ -1978,11 +2004,15 @@ export function construireIleAnc({ r = 60, biome = 'foret', etape = 1, graine = 
     ch.position.set(chute.x + chute.ux * 0.8, NIV_MER / 2 - 0.1, chute.z + chute.uz * 0.8); ch.rotation.y = Math.atan2(chute.ux, chute.uz); groupe.add(ch);
     G.anims.push((t, dt) => { tc.offset.y += (dt || 0.016) * 1.4; if (Math.random() < 0.35) emettre(new THREE.Vector3(chute.x + chute.ux * 1.2, NIV_MER + 0.3, chute.z + chute.uz * 1.2), { n: 1, c1: '#ffffff', c2: '#9ad8ff', vit: 2.5, vie: 1, taille: 0.6, grav: 2, monte: 2 }); }); }
   // puits anciens : vasques de pierre où brille une eau bleue (comme les sources des Terres Ancestrales)
-  const vasque = (x, z, k = 1) => { const h = hauteur(x, z);
+  const texPuits = texture('puitsAnc', 4, 64, (g, w, hh) => { const d = g.createLinearGradient(0, 0, 0, hh); d.addColorStop(0, 'rgba(255,255,255,0)'); d.addColorStop(0.7, 'rgba(255,255,255,0.35)'); d.addColorStop(1, 'rgba(255,255,255,0.8)'); g.fillStyle = d; g.fillRect(0, 0, w, hh); });
+  const vasque = (x, z, k = 1) => { k *= 1.35; const h = hauteur(x, z);
+    const marg = new THREE.Mesh(new THREE.TorusGeometry(1.75 * k, 0.32 * k, 6, 14), new THREE.MeshStandardMaterial({ color: '#8aa2b4', flatShading: true, roughness: 0.85 })); marg.rotation.x = Math.PI / 2; marg.position.set(x, h + 0.75, z); groupe.add(marg);
+    const colonne = new THREE.Mesh(new THREE.CylinderGeometry(1.2 * k, 1.4 * k, 5, 16, 1, true), new THREE.MeshBasicMaterial({ map: texPuits, color: cRune, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); colonne.position.set(x, h + 3.2, z); groupe.add(colonne);
+    for (let i = 0; i < 4; i++) { const a = rng() * 6.283; rocher(x + Math.cos(a) * 2.7 * k, h + 0.1, z + Math.sin(a) * 2.7 * k, R(0.4, 0.8)); }
     const pierre = new THREE.Mesh(new THREE.CylinderGeometry(1.7 * k, 2.1 * k, 0.9, 12), new THREE.MeshStandardMaterial({ color: '#7088a0', flatShading: true, roughness: 0.85 })); pierre.position.set(x, h + 0.3, z); pierre.castShadow = true; groupe.add(pierre);
     const lum = new THREE.Mesh(new THREE.CircleGeometry(1.3 * k, 20), new THREE.MeshBasicMaterial({ color: cRune, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })); lum.rotation.x = -Math.PI / 2; lum.position.set(x, h + 0.77, z); groupe.add(lum);
-    G.torches.push({ pos: new THREE.Vector3(x, h + 1.6, z), color: cRune, int: 14, dist: 9 }); collisions.push({ x, z, r: 2 * k });
-    G.anims.push((t, dt) => { lum.material.opacity = 0.65 + 0.25 * Math.sin(t * 2 + x); if (Math.random() < (dt || 0.016) * 3) emettre(new THREE.Vector3(x + rnd(-0.8, 0.8), h + 0.9, z + rnd(-0.8, 0.8)), { n: 1, c1: '#ffffff', c2: cRune, dir: new THREE.Vector3(0, 1, 0), vit: 1.2, vie: 1.4, taille: 0.22 }); });
+    G.torches.push({ pos: new THREE.Vector3(x, h + 1.6, z), color: cRune, int: 8, dist: 8 }); collisions.push({ x, z, r: 2 * k });
+    G.anims.push((t, dt) => { lum.material.opacity = 0.32 + 0.12 * Math.sin(t * 2 + x); if (Math.random() < (dt || 0.016) * 3) emettre(new THREE.Vector3(x + rnd(-0.8, 0.8), h + 0.9, z + rnd(-0.8, 0.8)), { n: 1, c1: '#ffffff', c2: cRune, dir: new THREE.Vector3(0, 1, 0), vit: 1.2, vie: 1.4, taille: 0.22 }); });
     for (let i = 0; i < 6; i++) { const a = i * 1.05 + rng(); poser('fleur', x + Math.cos(a) * 2.6 * k, h + 0.35, z + Math.sin(a) * 2.6 * k, 0.12, 0.2, 0.12, rng(), '#8ad8ff'); } };
   const steles = (x, z, n, rayon, haut = 3.2) => { for (let i = 0; i < n; i++) { const a = i / n * 6.283 + R(-0.15, 0.15), px = x + Math.cos(a) * rayon, pz = z + Math.sin(a) * rayon;
     poser('stele', px, hauteur(px, pz) - 0.3, pz, R(1, 1.5), haut * R(0.75, 1.15), R(0.5, 0.7), -a + Math.PI / 2, null, R(-0.12, 0.12), R(0.05, 0.22)); collisions.push({ x: px, z: pz, r: 0.8 }); } };
@@ -2018,11 +2048,11 @@ export function construireIleAnc({ r = 60, biome = 'foret', etape = 1, graine = 
   // la végétation : arbres-coraux rouges en bosquets, tapis de trèfles, petites fleurs bleues lumineuses, herbes hautes
   for (let k = 0; k < Math.round(r * 0.55); k++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * r, x = Math.cos(a) * d, z = Math.sin(a) * d, h = hauteur(x, z);
     if (!dansIle(x, z, 4) || h < 0 || h > 0.8 || !loin(x, z, 0) || lieux.some(L => Math.hypot(L.x - x, L.z - z) < 6)) continue;
-    const n = 1 + Math.floor(rng() * 3); for (let i = 0; i < n; i++) { const px = x + R(-3, 3), pz = z + R(-3, 3); if (hauteur(px, pz) < 0) continue; arbre(px, pz, R(0.9, 1.4)); collisions.push({ x: px, z: pz, r: 0.6 }); }
-    for (let i = 0; i < 3; i++) buisson(x + R(-4, 4), z + R(-4, 4), R(0.7, 1.1)); }
+    const n = 1 + Math.floor(rng() * 3); for (let i = 0; i < n; i++) { const px = x + R(-3, 3), pz = z + R(-3, 3); if (hauteur(px, pz) < 0) continue; arbre(px, pz, R(1.3, 1.8)); collisions.push({ x: px, z: pz, r: 0.9 }); }
+    for (let i = 0; i < 3; i++) buisson(x + R(-4, 4), z + R(-4, 4), R(1, 1.6)); }
   for (let k = 0; k < Math.round(r * 1.1); k++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * r, x = Math.cos(a) * d, z = Math.sin(a) * d; if (!dansIle(x, z, 3) || Math.hypot(x - bossC.x, z - bossC.z) < 8.5) continue; trefles(x, z, 16 + Math.floor(rng() * 14)); }
-  for (let k = 0; k < r * 2; k++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * r, x = Math.cos(a) * d, z = Math.sin(a) * d, h = hauteur(x, z); if (!dansIle(x, z, 3) || h < -0.1 || h > 0.6) continue;
-    const p = rng(); if (p < 0.35) poser('fleur', x, h + 0.25, z, 0.1, 0.18, 0.1, rng(), hasardF(['#8ad8ff', '#6ab0ff', '#b8a0ff'], rng)); else if (p < 0.75) nat.ajouter('n_grass_large', x, h, z, rng() * 6, 1.8, 2.2, 1.8); else if (p < 0.85 && Math.hypot(x - bossC.x, z - bossC.z) > 11) { rocher(x, h, z, R(0.4, 0.9)); } }
+  for (let k = 0; k < r * 2.6; k++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * r, x = Math.cos(a) * d, z = Math.sin(a) * d, h = hauteur(x, z); if (!dansIle(x, z, 3) || h < -0.1 || h > 0.6) continue;
+    const p = rng(); if (p < 0.35) poser('fleur', x, h + 0.25, z, 0.1, 0.18, 0.1, rng(), hasardF(['#8ad8ff', '#6ab0ff', '#b8a0ff'], rng)); else if (p < 0.75) for (let i = 0; i < 6; i++) { const k = R(0.8, 1.3); poser('herbe', x + R(-1.4, 1.4), h, z + R(-1.4, 1.4), k, k * R(0.9, 1.3), k, rng() * 6, hasardF(['#4aa892', '#3e9a86', '#5ab8a0', '#6a9ad0'], rng)); } else if (p < 0.85 && Math.hypot(x - bossC.x, z - bossC.z) > 11) { rocher(x, h, z, R(0.4, 0.9)); } }
   if (finale) G.anims.push((t, dt) => { if (Math.random() < (dt || 0.016) * 6) emettre(new THREE.Vector3(rnd(-r, r) * 0.7, R(0.5, 3), rnd(-r, r) * 0.7), { n: 1, c1: '#ff8a6a', c2: '#ff2a3a', dir: new THREE.Vector3(0, 1, 0), vit: 0.6, vie: 3, taille: 0.18 }); });
   else G.anims.push((t, dt) => { if (Math.random() < (dt || 0.016) * 6) emettre(new THREE.Vector3(rnd(-r, r) * 0.7, R(0.5, 2.5), rnd(-r, r) * 0.7), { n: 1, c1: '#ffffff', c2: '#7ad8ff', dir: new THREE.Vector3(0, 1, 0), vit: 0.4, vie: 3, taille: 0.14 }); });
   // portail éteint (il s'allume avec la pierre) sur son socle ancien
