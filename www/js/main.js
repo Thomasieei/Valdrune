@@ -643,7 +643,7 @@ function majEscouade(dt) {
     // 1) une cible différente pour chaque ombre
     if (!o.escCible && !o.escCoffre && !passive) {
       // les coffres dont le gardien est tombé passent avant les petits monstres
-      const pret = coffres.find(x => !x.ouvert && !x.final && !coffresPris.has(x) && (!x.boss || x.boss.mort || !x.boss.pv));
+      const pret = coffres.find(x => !x.ouvert && !x.final && !coffresPris.has(x) && (!x.boss || x.boss.mort || !x.boss.pv || x.boss.etat === 'possede'));
       const resteBoss = ennemis.some(e => e.boss && !e.mort && !prises.has(e));
       if (pret && !resteBoss) { o.escCoffre = pret; coffresPris.add(pret); teleporterOmbre(o, pret.pos); o.escT = 0.2; continue; }
       const c = cibleLibre(o, prises);
@@ -3311,9 +3311,9 @@ async function entrerTerres() {
 // Sur chaque île : tue 20 monstres pour ouvrir le coffre, prends la pierre de téléportation, active le portail. Pas de retour.
 // À la fin, les équipes survivantes se retrouvent : le Dragon Ancestral, puis la dernière équipe en vie emporte le coffre.
 const ETAPES_ANC = [
-  { nom: 'Île de départ', r: 34, monstres: 30, boss: 'squelette', biomes: ['foret', 'marais', 'ruines', 'givre', 'plaine'] },
-  { nom: 'Île du Dragon', r: 40, monstres: 36, boss: 'dragon', biomes: ['cendres', 'givre'] },
-  { nom: 'Île du Dragon Ancestral', r: 48, monstres: 10, boss: 'ancestral', biomes: ['cristaux'] },
+  { nom: 'Île de départ', r: 58, monstres: 16, boss: 'squelette', biomes: ['foret', 'marais', 'ruines', 'givre', 'plaine'] },
+  { nom: 'Île du Dragon', r: 64, monstres: 20, boss: 'dragon', biomes: ['cendres', 'givre'] },
+  { nom: 'Île du Dragon Ancestral', r: 72, monstres: 8, boss: 'ancestral', biomes: ['cristaux'] },
 ];
 async function entrerAncestrales(equipe) {
   if (!assetsSylvePrets) { UI.toast('Les brumes ancestrales se lèvent…'); try { await chargerAssets(ASSETS_SYLVE.map(k => [k, `assets/sylve/${k}.json`]), () => {}); assetsSylvePrets = true; } catch (e) {} }
@@ -3330,23 +3330,26 @@ function chargerEtapeAnc(T, n) {
     viderMonde(); terres = T; invasion = null; arene = null; selection = null;
     T.anc.etape = n; T.anc.kills = 0; T.anc.pierre = false; T.anc.final = n === 2; T.anc.coffre = null;
     modeActuel = { id: 'terres', ancestrales: true, nom: 'Terres Ancestrales', lieu: `Terres Ancestrales · ${E.nom}`, argent: 2 + n, xp: 10 + n * 4, tiers: [Math.min(8, t), Math.min(8, t + 1)], mobTier: Math.min(8, t), bossTier: [t + 1, t + 1, t + 2, t + 2] };
-    monde = construireIleAnc({ r: E.r, biome: hasard(E.biomes), etape: n, graine: Math.floor(Math.random() * 1e5) }); G.solH = null;
+    monde = construireIleAnc({ r: E.r, biome: hasard(E.biomes), etape: n, graine: Math.floor(Math.random() * 1e5) }); G.solH = monde.solH;
     construireJoueur(monde.spawn.clone()); joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax; G.camTarget.copy(joueur.pos);
     G.scene.background.set('#2a3a48'); G.scene.fog.color.set('#4a5868'); G.scene.fog.density = 0.01; G.hemi.color.set('#e8ecff'); G.hemi.groundColor.set('#2a3a2a'); G.hemi.intensity = 1.4; G.sun.intensity = 1.8; G.sun.color.set('#fff0d8');
     // ton équipe (ceux qui ont survécu)
     for (let i = 0; i < T.anc.coequipiers; i++) { const d = calerSurJoueur(donneesBot(statsHeros(J.equip).ip * rnd(0.9, 1.05), []), 3, 0); d.guilde = 'CROW ZERO'; creerCombattant(pointLibrePres(V(rnd(-4, 4), 0, monde.spawn.z - 2), 0, 3), d, 'allie').membreAncestral = true; }
     // l'île grouille de monstres
     const types = ['minion', 'archer', 'guerrier', 'mage', 'cultiste', 'brute'];
-    for (let i = 0; i < E.monstres; i++) { const a = Math.random() * 6.283, d = 6 + Math.random() * (E.r - 10); const p = pointLibrePres(V(Math.cos(a) * d, 0, Math.sin(a) * d), 0, 3); if (dist2D(p, monde.spawn) < 9) continue; creerEnnemi(MOBS[hasard(types)] || MOBS.guerrier, p, Math.min(8, t), 300 + Math.floor(i / 5)).campA = { ile: n }; }
+    // packs de 2 à 3 monstres, bien espacés (E.monstres = nombre de packs)
+    monde.packs.slice(0, E.monstres).forEach((P, k) => { const nb = 2 + (Math.random() < 0.45 ? 1 : 0), type = hasard(types);
+      for (let i = 0; i < nb; i++) { const p = pointLibrePres(V(P.x + rnd(-1.8, 1.8), 0, P.z + rnd(-1.8, 1.8)), 0, 2); creerEnnemi(MOBS[i === 0 ? type : hasard(types)] || MOBS.guerrier, p, Math.min(8, t), 300 + k).campA = { ile: n }; } });
     // le gardien de l'île
     let boss;
     if (E.boss === 'ancestral') boss = creerBoss({ ...BOSS[3], nom: 'Dragon Ancestral', hauteur: 9.5, teinte: '#3a0a0a' }, monde.bossPos.clone(), 8, null);
     else if (E.boss === 'dragon') boss = creerBoss({ ...BOSS[3], nom: 'Dragon de ' + (monde.biome() === 'givre' ? 'Givre' : 'la Fournaise'), teinte: monde.biome() === 'givre' ? '#8ad0ff' : '#ff5a1a' }, monde.bossPos.clone(), Math.min(8, t + 1), null);
     else boss = creerBoss(hasard(BOSS.slice(0, 3)), monde.bossPos.clone(), Math.min(8, t + 1), null);
     boss.pvMax *= E.boss === 'ancestral' ? 5 : 1.5; boss.pv = boss.pvMax; T.anc.boss = boss;
+    auraMeurtriere(boss, E.boss === 'ancestral' ? '#ff2a1a' : E.boss === 'dragon' ? '#ff8a2a' : '#b05aff', E.boss === 'ancestral' ? 2.4 : 1.6); boss.contour = true;
     // le coffre : il s'ouvre après 20 monstres (sur l'île finale : quand le dragon ET toutes les équipes rivales sont tombés)
     const A = T.anc;
-    creerCoffre(monde.coffrePos.clone(), n === 2 ? 'legendaire' : n === 1 ? 'violet' : 'bleu', { get mort() { return A.final ? A.boss.mort && !ennemis.some(e => e.equipeId && !e.mort) : A.kills >= 20; }, boss: { nom: A.final ? 'le Dragon Ancestral et toutes les équipes rivales' : '20 monstres de l’île' }, idx: Math.min(3, n + 1) });
+    creerCoffre(monde.coffrePos.clone(), n === 2 ? 'legendaire' : n === 1 ? 'violet' : 'bleu', { get mort() { return A.final ? (A.boss.mort || A.boss.etat === 'possede') && !ennemis.some(e => e.equipeId && !e.mort) : A.kills >= 20; }, boss: { nom: A.final ? 'le Dragon Ancestral et toutes les équipes rivales' : '20 monstres de l’île' }, idx: Math.min(3, n + 1) });
     A.coffre = coffres[coffres.length - 1]; A.coffre.anc = true;
     // les équipes rivales qui ont survécu arrivent sur l'île finale (et une sur l'île du dragon)
     const ipJ = statsHeros(J.equip).ip;
@@ -3364,8 +3367,9 @@ function chargerEtapeAnc(T, n) {
 // progression : 20 monstres, la pierre, le portail ; les équipes rivales vivent leur vie entre deux étapes
 function majAnc() {
   const A = terres.anc; if (!A) return;
-  const txt = A.final ? `Dragon Ancestral ${A.boss.mort ? '✔' : '…'} · équipes rivales restantes : ${new Set(ennemis.filter(e => e.equipeId && !e.mort).map(e => e.equipeId)).size}` : A.pierre ? 'Pierre de téléportation en main : active le portail !' : `Tue 20 monstres pour ouvrir le coffre (${Math.min(20, A.kills)}/20)`;
-  if (terres._qtxt !== txt) { terres._qtxt = txt; UI.journal('Terres Ancestrales', txt, A.final ? (A.boss.mort ? 0.5 : 0) : Math.min(1, A.kills / 20)); }
+  { const b = A.boss; if (b && b.auraM) { const R = b.auraM; if (b.mort || b.etat === 'possede') { if (R.ring.parent) G.scene.remove(R.ring); } else { R.ring.position.set(b.pos.x, 0.08 + solY(b.pos.x, b.pos.z), b.pos.z); const k = (2.2 + Math.sin(G.t * 4) * 0.2) * R.k; R.ring.scale.set(k, k, k); if (Math.random() < 0.5) emettre(V(b.pos.x + rnd(-1.5, 1.5), 0.4, b.pos.z + rnd(-1.5, 1.5)), { n: 1, c1: R.couleur, c2: '#0a0000', dir: V(0, 1, 0), vit: 3 * R.k, vie: 0.9, taille: 0.45 }); } } }
+  const txt = A.final ? `Dragon Ancestral ${(A.boss.mort || A.boss.etat === 'possede') ? '✔' : '…'} · équipes rivales restantes : ${new Set(ennemis.filter(e => e.equipeId && !e.mort).map(e => e.equipeId)).size}` : A.pierre ? 'Pierre de téléportation en main : active le portail !' : `Tue 20 monstres pour ouvrir le coffre (${Math.min(20, A.kills)}/20)`;
+  if (terres._qtxt !== txt) { terres._qtxt = txt; UI.journal('Terres Ancestrales', txt, A.final ? ((A.boss.mort || A.boss.etat === 'possede') ? 0.5 : 0) : Math.min(1, A.kills / 20)); }
   if (A.coffre && A.coffre.ouvert && !A.pierre && !A.final) { A.pierre = true; monde.groupe.userData.portailActif = true; son('jingle_legend', 0.5, 1.2); UI.toast('Pierre de téléportation obtenue ! Active le portail au nord de l’île.', true); }
   if (A.final && A.coffre && A.coffre.ouvert && !A.gagne) { A.gagne = true; monde.groupe.userData.portailActif = true; exploit && exploit('gardien_ancestral'); UI.titreManga('VICTOIRE', 'Dernière équipe debout'); UI.toast('Tu as conquis les Terres Ancestrales ! Le portail te ramène avec tout ton butin.', true); }
   for (const e of ennemis) if (e.rivale && e.mort && !e._compte) { e._compte = true; if (!ennemis.some(x => x.rivale === e.rivale && !x.mort)) { e.rivale.vivante = false; UI.toast(`L’équipe ${e.rivale.guilde} est éliminée`, true); } }
@@ -4122,7 +4126,7 @@ function majInteractions() {
   for (const c of coffres) {
     if (c.ouvert || dist2D(joueur.pos, c.pos) > 3.6) continue;
     if (c.depouille) return UI.action('Fouiller la dépouille', () => ouvrirDepouille(c));
-    if (!c.boss.mort) return UI.action('Coffre scellé', () => UI.toast(`Bats ${(c.boss.boss && c.boss.boss.nom) || c.boss.nom || 'ses gardiens'} pour l’ouvrir`));
+    if (!(c.boss.mort || c.boss.etat === 'possede')) return UI.action('Coffre scellé', () => UI.toast(`Bats ${(c.boss.boss && c.boss.boss.nom) || c.boss.nom || 'ses gardiens'} pour l’ouvrir`));
     return UI.action('Ouvrir le ' + c.def.nom.toLowerCase(), () => ouvrirCoffre(c));
   }
   if (taverne) return actionTaverne();
