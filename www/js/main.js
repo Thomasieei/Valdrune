@@ -659,7 +659,7 @@ function majEscouade(dt) {
         UI.nombre(V(c.pos.x, 2.6, c.pos.z), 'EXÉCUTÉ', 'crit'); son('knifeSlice2', 0.4, 0.8 + Math.random() * 0.4);
         sansChoc(() => { c.pv = 0; tuer(c); }); const s = statsEscouade(); s.kills++;
       }
-      o.escT = 0.1 + Math.random() * 0.12; continue;
+      o.escT = 0.35 + Math.random() * 0.25; continue; // un rythme qui reste spectaculaire sans écraser le téléphone
     }
     if (o.escCoffre) { // ouvre le coffre et ramasse tout pour le joueur
       const cf = o.escCoffre; o.escCoffre = null;
@@ -3907,6 +3907,49 @@ function majPortes(dt) {
     if (avant > 0.02 && P.ouv <= 0.02 && !P.ouvert) son('creak1', 0.25, 1.2);
   }
 }
+// ---------------- Diagnostic de fluidité (Réglages → Afficher les FPS) ----------------
+// mesure le temps de chaque système du jeu : en cas de saccade, l'écran dit QUI a pris le temps
+let PROF_ON = false; const PROF = {}, PROF_MAX = {}; let profGel = '';
+function profNote(n, d) { PROF[n] = (PROF[n] || 0) + d; if (d > (PROF_MAX[n] || 0)) PROF_MAX[n] = d; }
+function instrumenter() {
+  if (PROF_ON) return; PROF_ON = true;
+  const W = (n, f) => function (...a) { const t = performance.now(); try { return f.apply(this, a); } finally { profNote(n, performance.now() - t); } };
+  majJoueur = W('majJoueur', majJoueur);
+  majEnnemis = W('majEnnemis', majEnnemis);
+  majAllies = W('majAllies', majAllies);
+  majProjectiles = W('majProjectiles', majProjectiles);
+  majBots = W('majBots', majBots);
+  majEscouade = W('majEscouade', majEscouade);
+  majCommandeOmbres = W('majCommandeOmbres', majCommandeOmbres);
+  majServiteurs = W('majServiteurs', majServiteurs);
+  majScenes = W('majScenes', majScenes);
+  majTK = W('majTK', majTK);
+  majLames = W('majLames', majLames);
+  majPortes = W('majPortes', majPortes);
+  majVueOmbre = W('majVueOmbre', majVueOmbre);
+  majInteractions = W('majInteractions', majInteractions);
+  majMini = W('majMini', majMini);
+  majParchemins = W('majParchemins', majParchemins);
+  sauverMaintenant = W('sauverMaintenant', sauverMaintenant);
+  majInvasion = W('majInvasion', majInvasion);
+  majArene = W('majArene', majArene);
+  majSylve = W('majSylve', majSylve);
+  majMission = W('majMission', majMission);
+  majRegards = W('majRegards', majRegards);
+  majAuras = W('majAuras', majAuras);
+  majDomaine = W('majDomaine', majDomaine);
+  majProduction = W('majProduction', majProduction);
+  majOuvriers = W('majOuvriers', majOuvriers);
+  majMeuteJoueur = W('majMeuteJoueur', majMeuteJoueur);
+  majTaverne = W('majTaverne', majTaverne);
+  majCrypte = W('majCrypte', majCrypte);
+  UI.majPlaques = W('plaques', UI.majPlaques); UI.majHud = W('hud', UI.majHud); UI.gainArgent = W('bourse', UI.gainArgent); UI.nombre = W('nombres', UI.nombre);
+}
+function rapportProf(n, dureeMs) {
+  const top = Object.entries(PROF).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, v]) => `${k.replace(/^maj/, '')} ${(v / n).toFixed(1)}ms (max ${Math.round(PROF_MAX[k] || 0)})`).join(' · ');
+  for (const k in PROF) { delete PROF[k]; delete PROF_MAX[k]; }
+  return top;
+}
 // ---------------- Boucle ----------------
 let dernier = performance.now(), hudT = 0, miniT = 0, ileT = 2, argentVu = null, gainCumul = 0, gainT = 0;
 const ORBITE = V(0, 0, 0);
@@ -3980,13 +4023,15 @@ function boucleCorps() {
   majFeux(dt); majVfx(dt); majParticules(dt);
   const t1 = performance.now();
   if (G.mesure) G._tl = performance.now();
-  if (!G.simRapide) rendre();
+  if (!G.simRapide) { const tr = PROF_ON ? performance.now() : 0; rendre(); if (PROF_ON) profNote('rendu (GPU)', performance.now() - tr); }
   const t2 = performance.now(), P = G.perf || (G.perf = { upd: 0, rend: 0, max: 0, pics: 0 });
   P.upd = P.upd * 0.95 + (t1 - now) * 0.05; P.rend = P.rend * 0.95 + (t2 - t1) * 0.05;
   if (t2 - now > 40) P.pics++; P.max = Math.max(P.max, t2 - now);
   if (G.perfOn) {
     P.n = (P.n || 0) + 1; P.acc = (P.acc || 0) + dtReel; P.pire = Math.max(P.pire || 0, dtReel);
-    if (P.acc >= 0.5) { UI.majPerf(`${Math.round(P.n / P.acc)} fps · pire ${Math.round(P.pire * 1000)} ms · ${G.renderer.info.render.calls} appels · qualité ${['basse', 'moyenne', 'haute'][G.niveau]}`); P.n = 0; P.acc = 0; P.pire = 0; }
+    if (G.perfOn && !PROF_ON) instrumenter();
+    if (P.pire > 0.06 && PROF_ON) { let k = '', v = 0; for (const n in PROF_MAX) if (PROF_MAX[n] > v) { v = PROF_MAX[n]; k = n; } profGel = v < P.pire * 300 ? `dernier gel ${Math.round(P.pire * 1000)} ms → hors du code du jeu (mémoire / affichage du navigateur)` : `dernier gel ${Math.round(P.pire * 1000)} ms → ${k.replace(/^maj/, '')} ${Math.round(v)} ms`; }
+    if (P.acc >= 0.5) { UI.majPerf(`${Math.round(P.n / P.acc)} fps · pire ${Math.round(P.pire * 1000)} ms · ${G.renderer.info.render.calls} appels · qualité ${['basse', 'moyenne', 'haute'][G.niveau]}${PROF_ON ? '\n' + rapportProf(P.n) + (profGel ? '\n' + profGel : '') : ''}`); P.n = 0; P.acc = 0; P.pire = 0; }
   }
 }
 let anneau = null;
