@@ -1331,6 +1331,10 @@ const texHerbe = () => texture('herbeSylve', 256, 256, (g, w) => {
   g.fillStyle = '#3f8a3a'; g.fillRect(0, 0, w, w);
   for (let i = 0; i < 2600; i++) { const x = Math.random() * w, y = Math.random() * w, l = 30 + Math.random() * 30; g.fillStyle = `hsl(${100 + Math.random() * 30},${45 + Math.random() * 20}%,${l}%)`; g.fillRect(x, y, 2, 3 + Math.random() * 4); }
   for (let i = 0; i < 40; i++) { const x = Math.random() * w, y = Math.random() * w; const gr = g.createRadialGradient(x, y, 0, x, y, 30); gr.addColorStop(0, 'rgba(20,60,20,.35)'); gr.addColorStop(1, 'rgba(20,60,20,0)'); g.fillStyle = gr; g.fillRect(x - 30, y - 30, 60, 60); }
+  // touche peinte : taches de lumière et de mousse, fines racines, petites fleurs
+  for (let i = 0; i < 26; i++) { const x = Math.random() * w, y = Math.random() * w, rr = 14 + Math.random() * 26; const gr = g.createRadialGradient(x, y, 0, x, y, rr); const cl = Math.random() < 0.5 ? '200,220,120' : '30,80,50'; gr.addColorStop(0, `rgba(${cl},.18)`); gr.addColorStop(1, `rgba(${cl},0)`); g.fillStyle = gr; g.fillRect(x - rr, y - rr, rr * 2, rr * 2); }
+  g.lineCap = 'round'; for (let i = 0; i < 8; i++) { let x = Math.random() * w, y = Math.random() * w, a = Math.random() * 6.28; g.strokeStyle = 'rgba(40,50,25,.13)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 5; k++) { a += (Math.random() - 0.5); x += Math.cos(a) * 7; y += Math.sin(a) * 7; g.lineTo(x, y); } g.stroke(); }
+  for (let i = 0; i < 30; i++) { g.fillStyle = ['#f4f0d0', '#f8d65a', '#c8a0f0', '#ffffff'][i % 4]; g.fillRect(Math.random() * w, Math.random() * w, 2, 2); }
 }, { repeat: true });
 const texChemin = () => texture('cheminSylve', 128, 256, (g, w, h) => {
   g.clearRect(0, 0, w, h);

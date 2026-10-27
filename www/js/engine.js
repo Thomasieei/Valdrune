@@ -274,6 +274,24 @@ async function chargerModele(url) {
   const dossier = url.slice(0, url.lastIndexOf('/') + 1);
   return await new Promise((ok, ko) => loader.parse(glb.buffer, dossier, ok, ko));
 }
+// rochers remodelés : on remplace le modèle d'origine par un rocher bosselé, moussu sur le dessus, à la même taille (mêmes collisions)
+const MAT_ROCHE = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 });
+function rocheSculptee(g, cle) {
+  let sd = 0; for (const ch of cle) sd = (sd * 31 + ch.charCodeAt(0)) % 997; sd = sd / 97;
+  const b = g.box, sx = (b.max.x - b.min.x) / 2, sy = b.max.y - b.min.y, sz = (b.max.z - b.min.z) / 2;
+  const geo = new THREE.IcosahedronGeometry(1, 1), P = geo.attributes.position;
+  const n3 = (x, y, z) => Math.sin(x * 1.7 + sd) * Math.sin(y * 2.2 + sd * 2) * Math.sin(z * 1.5 - sd) + 0.5 * Math.sin(x * 3.6 - sd) * Math.sin(z * 3.9 + y);
+  for (let i = 0; i < P.count; i++) { let x = P.getX(i), y = P.getY(i), z = P.getZ(i); const k = 1 + 0.26 * n3(x, y, z); x *= k; y *= k; z *= k; if (y < -0.2) y = -0.2 + (y + 0.2) * 0.3; P.setXYZ(i, x, y, z); }
+  geo.computeBoundingBox(); const bb = geo.boundingBox;
+  geo.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2);
+  geo.scale(sx * 2 / (bb.max.x - bb.min.x), sy / (bb.max.y - bb.min.y), sz * 2 / (bb.max.z - bb.min.z));
+  geo.translate((b.min.x + b.max.x) / 2, b.min.y, (b.min.z + b.max.z) / 2);
+  geo.computeVertexNormals(); const N = geo.attributes.normal, C = new Float32Array(P.count * 3), c = new THREE.Color();
+  for (let i = 0; i < P.count; i++) { const ny = N.getY(i), y = (P.getY(i) - b.min.y) / sy;
+    c.set(ny > 0.82 && y > 0.62 ? '#6a8a4c' : y < 0.18 ? '#5e6064' : '#9a9c9e'); c.offsetHSL(0, 0, Math.sin(P.getX(i) * 4 + P.getZ(i) * 3) * 0.035); C.set([c.r, c.g, c.b], i * 3); }
+  geo.setAttribute('color', new THREE.BufferAttribute(C, 3));
+  const m = new THREE.Mesh(geo, MAT_ROCHE); m.receiveShadow = true; const sc = new THREE.Group(); sc.add(m); sc.updateMatrixWorld(true); g.scene = sc;
+}
 export async function chargerAssets(liste, progres) {
   let fait = 0;
   await Promise.all(liste.map(async ([cle, url]) => {
@@ -283,6 +301,7 @@ export async function chargerAssets(liste, progres) {
     g.hauteur = box.max.y - box.min.y;
     g.box = box;
     g.scene.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; if (o.material) o.material.envMapIntensity = 0.6; } });
+    if (/^(Rock_|n_rock_large|n_stone_large)/.test(cle)) rocheSculptee(g, cle);
     G.assets[cle] = g;
     progres(++fait / liste.length, cle);
   }));

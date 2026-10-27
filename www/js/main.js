@@ -422,7 +422,7 @@ function libererGPU(racines) {
   });
 }
 function viderMonde() {
-  document.body.classList.remove('brumeAnc');
+  document.body.classList.remove('brumeAnc'); document.body.classList.add('vign');
   for (const a of serviteurs) { G.scene.remove(a.root); UI.retirerPlaque(a); } serviteurs = [];
   G.solH = null; G.murs = false; G.ecrans = null; terres = null; TKS = []; possedes = []; UI.choixTK && UI.choixTK(null); G.camCible = null; G.camLibre = false; for (const v of auras.values()) G.scene.remove(v.g); auras.clear(); scenes = []; crypteEtat = null; if (sceneOmbre) { sceneOmbre = null; G.camCible = null; document.body.classList.remove('cinema'); UI.dialogueTaverne(null); }
   for (const e of ennemis) if (e.auraM && e.auraM.ring.parent) G.scene.remove(e.auraM.ring);
