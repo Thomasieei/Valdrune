@@ -374,7 +374,7 @@ function majBots(dt) {
     if (proches.length) emoteBot(hasard(proches), ['salut', 'mdr', 'feu', 'bof', 'malin', 'diable', 'clown', 'gg', 'toi'], 1);
   }
   for (const b of bots) {
-    if (b.tk) { b.maj(dt); continue; }
+    if (b.tk || b.mort) { b.maj(dt); continue; }
     b.timer -= dt;
     if (groupe && b.nom === groupe.nom && joueur) { // le coéquipier suit le joueur sur la place
       const d = dist2D(b.pos, joueur.pos);
@@ -422,7 +422,7 @@ function libererGPU(racines) {
 }
 function viderMonde() {
   for (const a of serviteurs) { G.scene.remove(a.root); UI.retirerPlaque(a); } serviteurs = [];
-  G.solH = null; G.murs = false; G.ecrans = null; G.camCible = null; G.camLibre = false; for (const v of auras.values()) G.scene.remove(v.g); auras.clear(); scenes = []; crypteEtat = null; if (sceneOmbre) { sceneOmbre = null; G.camCible = null; document.body.classList.remove('cinema'); UI.dialogueTaverne(null); }
+  G.solH = null; G.murs = false; G.ecrans = null; TKS = []; possedes = []; UI.choixTK && UI.choixTK(null); G.camCible = null; G.camLibre = false; for (const v of auras.values()) G.scene.remove(v.g); auras.clear(); scenes = []; crypteEtat = null; if (sceneOmbre) { sceneOmbre = null; G.camCible = null; document.body.classList.remove('cinema'); UI.dialogueTaverne(null); }
   for (const e of ennemis) if (e.auraM && e.auraM.ring.parent) G.scene.remove(e.auraM.ring);
   if (taverne) { for (const c of taverne.clients) { G.scene.remove(c.root); UI.retirerPlaque(c); } taverne = null; UI.fileAttente(null); }
   mission = null; UI.manga(null);
@@ -2364,9 +2364,10 @@ const vivants = () => ennemis.filter(e => !e.mort && e.etat !== 'dormantCache');
 function choisirCible(portee) {
   if (joueur.cibleVerrou && !joueur.cibleVerrou.mort && dist2D(joueur.cibleVerrou.pos, joueur.pos) < portee + 8) return joueur.cibleVerrou;
   const c = joueur.cible; // on garde la cible tant qu'elle reste à portée : plus de demi-tours entre deux ennemis
-  if (c && !c.mort && ennemis.includes(c) && dist2D(c.pos, joueur.pos) - c.rayon < portee + 4) return c;
+  if (c && !c.mort && (ennemis.includes(c) || G.agression && estPassant(c)) && dist2D(c.pos, joueur.pos) - c.rayon < portee + 4) return c;
   let best = null, bd = portee + 3;
   for (const e of vivants()) { const d = dist2D(e.pos, joueur.pos) - e.rayon; if (d < bd) { bd = d; best = e; } }
+  if (!best && G.agression) for (const e of passantsProches()) { const d = dist2D(e.pos, joueur.pos) - 0.5; if (d < bd) { bd = d; best = e; e.rayon = e.rayon || 0.5; e.hauteurPlaque = e.hauteurPlaque || 2.5; } }
   return best;
 }
 function directionVisee(portee) {
@@ -2384,6 +2385,7 @@ function degatsJoueur(mult) {
 }
 function blesser(e, mult, opts = {}) {
   if (e.mort) return;
+  if (estPassant(e)) { if (G.agression) blesserPassant(e, opts.fixe || degatsJoueur(mult || 1).d); return; }
   e.coupJoueurT = G.t;
   let { d, crit } = degatsJoueur(mult);
   if (opts.fixe) { d = opts.fixe; crit = false; }
@@ -2608,6 +2610,7 @@ function lancerSort(k) {
     case 'emprise': lancerEmprise(s); break;
     case 'lames': ordreLames(); break;
     case 'onde': ondeForce(s); break;
+    case 'possession': lancerPossession(s); break;
     case 'fente': {
       const { dir } = directionVisee(5); faireFace(dir);
       joueur.jouer('2H_Melee_Attack_Slice', { boucle: false, vitesse: 1.5, forcer: true, fin }); joueur.verrouT = 0.42;
@@ -3038,86 +3041,154 @@ function majJoueur(dt) {
 }
 
 // ======================= ESPRIT : TÉLÉKINÉSIE ET TROIS LAMES =======================
-let TK = null, lames = [], lamesMode = 'garde';
-function ciblesTK() { return [...ennemis.filter(e => !e.mort && !e.boss && !e.descendre), ...(modeActuel ? [] : bots), ...allies.filter(a => !a.mort && a !== joueur), ...serviteurs]; }
+let TKS = [], lames = [], lamesMode = 'garde', possedes = [];
+function ciblesTK() { return [...ennemis.filter(e => !e.mort && !e.descendre && !e.tk), ...(modeActuel ? [] : bots.filter(b => !b.tk && !b.mort)), ...allies.filter(a => !a.mort && a !== joueur && !a.tk), ...serviteurs.filter(a => !a.tk)]; }
 function hostileTK(c) { return ennemis.includes(c); }
+// Emprise : soulève ta cible ET la personne la plus proche d'elle (2 à la fois), boss compris
 function lancerEmprise(s) {
-  if (TK) return;
-  const portee = s.portee || 15;
-  let c = joueur.cible && !joueur.cible.mort && !joueur.cible.boss && dist2D(joueur.cible.pos, joueur.pos) < portee ? joueur.cible : null;
-  if (!c) { let bd = portee; const f = V(Math.sin(joueur.angle), 0, Math.cos(joueur.angle)); for (const e of ciblesTK()) { const d = dist2D(e.pos, joueur.pos); const v = V(e.pos.x - joueur.pos.x, 0, e.pos.z - joueur.pos.z).normalize(); const sc = d - v.dot(f) * 4; if (d < portee && sc < bd) { bd = sc; c = e; } } }
+  if (TKS.length) return;
+  const portee = s.portee || 15, f = V(Math.sin(joueur.angle), 0, Math.cos(joueur.angle));
+  let c = joueur.cible && !joueur.cible.mort && dist2D(joueur.cible.pos, joueur.pos) < portee ? joueur.cible : null;
+  if (!c) { let bd = portee; for (const e of ciblesTK()) { const d = dist2D(e.pos, joueur.pos); const v = V(e.pos.x - joueur.pos.x, 0, e.pos.z - joueur.pos.z).normalize(); const sc = d - v.dot(f) * 4; if (d < portee && sc < bd) { bd = sc; c = e; } } }
   if (!c) { UI.toast('Personne à saisir à portée'); joueur.cds.Q = 0.5; return; }
-  if (ennemis.includes(c) && c.boss) { UI.toast('Trop massif pour ton esprit… pour l’instant'); return; }
-  c.tk = true; c.stunT = 0; TK = { c, t: 0, phase: 'monte', y0: c.root.position.y, rot: 0, mult: s.mult, hostile: hostileTK(c) };
-  if (TK.hostile && (c.etat === 'idle' || c.etat === 'dormant')) reveiller(c);
+  let c2 = null, b2 = 6; for (const e of ciblesTK()) { if (e === c) continue; const d = dist2D(e.pos, c.pos); if (d < b2) { b2 = d; c2 = e; } }
+  for (const x of [c, c2].filter(Boolean)) {
+    x.tk = true; x.stunT = 0;
+    const T = { c: x, t: 0, phase: 'monte', y0: x.root.position.y, mult: s.mult * (x.boss ? 0.6 : 1), hostile: hostileTK(x), haut: x.boss ? 3.4 : 2.6 };
+    if (T.hostile && (x.etat === 'idle' || x.etat === 'dormant')) { if (x.boss && x.repaire) x.etat = 'chasse'; else reveiller(x); }
+    x.jouer('Hit_A', { boucle: true, vitesse: 0.4, forcer: true });
+    onde(x.pos, '#b07aff', 3, 0.6);
+    if (!T.hostile) UI.parole && UI.parole(x, hasard(['Hé ! Lâche-moi !', 'Mais… je vole ?!', 'Repose-moi tout de suite !', 'AAAAH !']));
+    if (x.boss) UI.parole && UI.parole(x, hasard(['QUOI ?! Personne ne me soulève !', 'Lâche-moi, insecte !', 'Impossible…']), 'menace');
+    TKS.push(T);
+  }
   faireFace(V(c.pos.x - joueur.pos.x, 0, c.pos.z - joueur.pos.z).normalize());
-  joueur.jouer('Spellcast_Raise', { boucle: false, forcer: true, vitesse: 0.8, fin: () => TK && joueur.jouer('Spellcast_Long', { boucle: true }) });
-  c.jouer('Hit_A', { boucle: true, vitesse: 0.4, forcer: true });
-  son('forceField_000', 0.5, 0.7); onde(c.pos, '#b07aff', 3, 0.6);
+  joueur.jouer('Spellcast_Raise', { boucle: false, forcer: true, vitesse: 0.8, fin: () => TKS.length && joueur.jouer('Spellcast_Long', { boucle: true }) });
+  son('forceField_000', 0.5, 0.7); if (c2) son('forceField_000', 0.4, 0.9);
   UI.choixTK((ch) => finEmprise(ch));
-  if (!TK.hostile) UI.parole && UI.parole(c, hasard(['Hé ! Lâche-moi !', 'Mais… je vole ?!', 'Repose-moi tout de suite !', 'AAAAH !']));
 }
 function finEmprise(choix) {
-  if (!TK || TK.phase !== 'tenu' && TK.phase !== 'monte') return;
+  const tenus = TKS.filter(T => T.phase === 'tenu' || T.phase === 'monte'); if (!tenus.length) return;
   UI.choixTK(null);
-  if (choix === 'projeter') {
-    const c = TK.c, f = V(Math.sin(joueur.angle), 0, Math.cos(joueur.angle));
-    // visée assistée : l'ennemi le plus aligné devant toi (ou dans la direction du joystick)
-    const jx = entree.jx, jy = entree.jy; let dir = f;
-    if (Math.hypot(jx, jy) > 0.3) dir = DIR_DROITE.clone().multiplyScalar(jx).addScaledVector(DIR_HAUT, jy).normalize();
-    let best = null, bs = 1e9; for (const e of vivants()) { if (e === c || e.mort) continue; const v = V(e.pos.x - c.pos.x, 0, e.pos.z - c.pos.z), d = v.length(); if (d > 18 || d < 1) continue; v.normalize(); const al = v.dot(dir); if (al < 0.55) continue; const sc = d * (2 - al); if (sc < bs) { bs = sc; best = e; } }
-    const dest = best ? best.pos.clone() : c.pos.clone().addScaledVector(dir, 11);
-    TK.phase = 'vol'; TK.t = 0; TK.dep = c.pos.clone(); TK.dest = pointLibreProche(dest, 0.6) || dest; TK.duree = Math.max(0.35, dist2D(TK.dep, TK.dest) / 24); TK.touches = new Set();
-    joueur.jouer('Spellcast_Shoot', { boucle: false, forcer: true, fin: () => joueur.jouer(joueur.def.idle) }); son('thrusterFire_000', 0.4, 0.6);
-  } else if (choix === 'ecraser') { TK.phase = 'ecrase'; TK.t = 0; joueur.jouer('Spellcast_Shoot', { boucle: false, forcer: true, vitesse: 0.9, fin: () => joueur.jouer(joueur.def.idle) }); }
-  else { TK.phase = 'depose'; TK.t = 0; joueur.jouer(joueur.def.idle); }
+  const f = V(Math.sin(joueur.angle), 0, Math.cos(joueur.angle)); let dir = f;
+  if (Math.hypot(entree.jx, entree.jy) > 0.3) dir = DIR_DROITE.clone().multiplyScalar(entree.jx).addScaledVector(DIR_HAUT, entree.jy).normalize();
+  const visees = new Set();
+  for (const T of tenus) {
+    const c = T.c;
+    if (choix === 'projeter') {
+      let best = null, bs = 1e9; for (const e of vivants()) { if (TKS.some(x => x.c === e) || visees.has(e)) continue; const v = V(e.pos.x - c.pos.x, 0, e.pos.z - c.pos.z), d = v.length(); if (d > 18 || d < 1) continue; v.normalize(); const al = v.dot(dir); if (al < 0.5) continue; const sc = d * (2 - al); if (sc < bs) { bs = sc; best = e; } }
+      if (best) visees.add(best);
+      const dest = best ? best.pos.clone() : c.pos.clone().addScaledVector(dir, 11);
+      T.phase = 'vol'; T.t = 0; T.dep = c.pos.clone(); T.dest = pointLibreProche(dest, 0.6) || dest; T.duree = Math.max(0.35, dist2D(T.dep, T.dest) / 24); T.touches = new Set();
+    } else if (choix === 'ecraser') { T.phase = 'ecrase'; T.t = 0; }
+    else { T.phase = 'depose'; T.t = 0; }
+  }
+  if (choix === 'deposer') joueur.jouer(joueur.def.idle); else { joueur.jouer('Spellcast_Shoot', { boucle: false, forcer: true, fin: () => joueur.jouer(joueur.def.idle) }); son(choix === 'projeter' ? 'thrusterFire_000' : 'forceField_000', 0.4, 0.6); }
 }
 function impactTK(p, force) {
   G.shake = Math.max(G.shake || 0, 0.25 + force * 0.3); son('explosionCrunch_000', 0.5, 0.8); son('impactPlate_heavy_000', 0.5, 0.6);
   onde(p, '#b07aff', 4 + force * 3, 0.7);
   emettre(V(p.x, 0.3, p.z), { n: 50, c1: '#d8c8b0', c2: '#5a4a3a', vit: 7, vie: 0.9, taille: 0.45, grav: 10, hemi: true });
-  // le sol se fend, des éclats de pierre volent
   const f = new THREE.Mesh(new THREE.PlaneGeometry(4 + force * 2, 4 + force * 2), new THREE.MeshBasicMaterial({ map: texFissures(), color: '#2a1a12', transparent: true, opacity: 0.85, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -4 }));
   f.rotation.x = -Math.PI / 2; f.rotation.z = Math.random() * 6; f.position.set(p.x, 0.06 + solY(p.x, p.z), p.z);
   ajouterVfx(f, (t) => { if (t > 6) { f.material.opacity -= 0.02; if (f.material.opacity <= 0) return false; } });
   if (G.assets.rubble_half) for (let k = 0; k < 5; k++) {
-    const m = cloner('rubble_half', p.x, 0.5, p.z, Math.random() * 6, 0.12 + Math.random() * 0.1); const a = Math.random() * 6.28, v = 3 + Math.random() * 4; let vy = 5 + Math.random() * 4;
+    const m = cloner('rubble_half', p.x, 0.5, p.z, Math.random() * 6, 0.12 + Math.random() * 0.1); m.traverse(o => { if (o.geometry) o.geometry.userData.partage = true; }); const a = Math.random() * 6.28, v = 3 + Math.random() * 4; let vy = 5 + Math.random() * 4;
     ajouterVfx(m, (t, dt) => { dt = Math.min(dt || 0.016, 0.05); vy -= 20 * dt; m.position.x += Math.cos(a) * v * dt; m.position.z += Math.sin(a) * v * dt; m.position.y = Math.max(0.05, m.position.y + vy * dt); m.rotation.x += dt * 6; if (t > 3) { m.scale.multiplyScalar(0.92); if (m.scale.x < 0.01) return false; } });
   }
 }
 function lacherTK(c, assomme) {
   c.tk = false; c.root.position.y = c.hover || 0; c.root.rotation.x = 0; c.root.rotation.z = 0;
-  if (assomme && ennemis.includes(c) && !c.mort) c.stunT = Math.max(c.stunT || 0, 1.2);
+  if (assomme && ennemis.includes(c) && !c.mort) c.stunT = Math.max(c.stunT || 0, c.boss ? 0.6 : 1.2);
   if (!c.mort) c.jouer('Idle', { forcer: true });
 }
+function frapperNonHostile(c) {
+  if (G.agression && estPassant(c)) { blesserPassant(c, joueur.st.degats * 4); if (c.mort) return; } c.jouer('Death_A', { boucle: false, forcer: true }); const cc = c; programmer(2.2, () => { if (!cc.mort) { cc.jouer('Idle', { forcer: true }); UI.parole && UI.parole(cc, hasard(['Aïe… ça va pas la tête ?!', 'J’ai vu des étoiles…', 'Plus jamais ça.'])); } }); }
 function majTK(dt) {
-  if (!TK) return; const c = TK.c; TK.t += dt;
-  if (c.mort || !c.root.parent) { UI.choixTK(null); TK = null; return; }
-  if (TK.phase === 'monte' || TK.phase === 'tenu') {
-    const h = Math.min(1, TK.t / 0.6); if (h >= 1) TK.phase = 'tenu';
-    c.root.position.y = TK.y0 + (1 - Math.pow(1 - h, 3)) * 2.6 + Math.sin(TK.t * 2.4) * 0.15;
-    c.root.rotation.z = Math.sin(TK.t * 1.7) * 0.25; c.angle += dt * 0.8; c.root.rotation.y = c.angle;
-    if (Math.random() < 0.5) { const m = pointArme(); emettre(V(m.x + (c.pos.x - m.x) * Math.random(), m.y + (c.root.position.y + 1 - m.y) * Math.random(), m.z + (c.pos.z - m.z) * Math.random()), { n: 1, c1: '#f0e0ff', c2: '#7a3aff', vit: 0.5, vie: 0.4, taille: 0.25 }); }
-    if (TK.t > 7) finEmprise('deposer');
-    if (dist2D(c.pos, joueur.pos) > 22) finEmprise('deposer');
-  } else if (TK.phase === 'depose') {
-    const k = Math.min(1, TK.t / 0.9); c.root.position.y = TK.y0 + 2.6 * (1 - k); c.root.rotation.z *= 0.9;
-    if (k >= 1) { emettre(V(c.pos.x, 0.2, c.pos.z), { n: 12, c1: '#ffffff', c2: '#b07aff', vit: 1.5, vie: 0.6, taille: 0.3 }); lacherTK(c, false); TK = null; }
-  } else if (TK.phase === 'ecrase') {
-    if (TK.t < 0.25) c.root.position.y += dt * 8;
-    else { const y = c.root.position.y - dt * 40; c.root.position.y = y; c.root.rotation.x += dt * 8;
-      if (y <= TK.y0) { impactTK(c.pos, 1);
-        if (TK.hostile) { blesser(c, TK.mult, { stun: 1.4 }); zoneDegats(c.pos, 3.2, TK.mult * 0.35, { c1: '#d8c8ff' }); }
-        else { c.jouer('Death_A', { boucle: false, forcer: true }); const cc = c; programmer(2.2, () => { if (!cc.mort) { cc.jouer('Idle', { forcer: true }); UI.parole && UI.parole(cc, hasard(['Aïe… ça va pas la tête ?!', 'J’ai vu des étoiles…', 'Plus jamais ça.'])); } }); }
-        lacherTK(c, true); if (!TK.hostile) c.jouer('Death_A', { boucle: false, forcer: true }); TK = null; } }
-  } else if (TK.phase === 'vol') {
-    const k = Math.min(1, TK.t / TK.duree);
-    c.pos.x = TK.dep.x + (TK.dest.x - TK.dep.x) * k; c.pos.z = TK.dep.z + (TK.dest.z - TK.dep.z) * k;
-    c.root.position.y = TK.y0 + 2.6 * (1 - k) + Math.sin(k * Math.PI) * 2; c.root.rotation.x += dt * 14;
-    if (Math.random() < 0.8) emettre(V(c.pos.x, c.root.position.y + 1, c.pos.z), { n: 1, c1: '#ffffff', c2: '#9a5aff', vit: 0.3, vie: 0.4, taille: 0.35 });
-    // tout ce qui est sur sa trajectoire est percuté
-    for (const e of vivants()) if (e !== c && !TK.touches.has(e) && dist2D(e.pos, c.pos) < 1.6) { TK.touches.add(e); blesser(e, TK.mult * 0.6, { stun: 0.8, air: true }); const v = V(e.pos.x - c.pos.x, 0, e.pos.z - c.pos.z).normalize(); e.pousse = { vx: v.x * 9, vz: v.z * 9, t: 0.3 }; }
-    if (k >= 1) { impactTK(c.pos, 1.3); if (TK.hostile) blesser(c, TK.mult * 0.9, { stun: 1.2 }); zoneDegats(c.pos, 3.6, TK.mult * 0.45, { c1: '#d8c8ff' }); lacherTK(c, true); if (!TK.hostile && !c.mort) c.jouer('Death_A', { boucle: false, forcer: true }); TK = null; }
+  for (let i = TKS.length - 1; i >= 0; i--) {
+    const T = TKS[i], c = T.c; T.t += dt;
+    const fin = () => { TKS.splice(i, 1); if (!TKS.length) UI.choixTK(null); };
+    if (c.mort || !c.root.parent) { c.tk = false; fin(); continue; }
+    if (T.phase === 'monte' || T.phase === 'tenu') {
+      const h = Math.min(1, T.t / 0.6); if (h >= 1) T.phase = 'tenu';
+      c.root.position.y = T.y0 + (1 - Math.pow(1 - h, 3)) * T.haut + Math.sin(T.t * 2.4 + i) * 0.15;
+      c.root.rotation.z = Math.sin(T.t * 1.7 + i) * 0.25; c.angle += dt * 0.8; c.root.rotation.y = c.angle;
+      if (Math.random() < 0.4) { const m = pointArme(); emettre(V(m.x + (c.pos.x - m.x) * Math.random(), m.y + (c.root.position.y + 1 - m.y) * Math.random(), m.z + (c.pos.z - m.z) * Math.random()), { n: 1, c1: '#f0e0ff', c2: '#7a3aff', vit: 0.5, vie: 0.4, taille: 0.25 }); }
+      if (T.t > 7 || dist2D(c.pos, joueur.pos) > 24) finEmprise('deposer');
+    } else if (T.phase === 'depose') {
+      const k = Math.min(1, T.t / 0.9); c.root.position.y = T.y0 + T.haut * (1 - k); c.root.rotation.z *= 0.9;
+      if (k >= 1) { emettre(V(c.pos.x, 0.2, c.pos.z), { n: 12, c1: '#ffffff', c2: '#b07aff', vit: 1.5, vie: 0.6, taille: 0.3 }); lacherTK(c, false); fin(); }
+    } else if (T.phase === 'ecrase') {
+      if (T.t < 0.25) c.root.position.y += dt * 8;
+      else { const y = c.root.position.y - dt * 40; c.root.position.y = y; c.root.rotation.x += dt * 8;
+        if (y <= T.y0) { impactTK(c.pos, c.boss ? 1.6 : 1);
+          if (T.hostile) { blesser(c, T.mult, { stun: 1.4 }); zoneDegats(c.pos, 3.2, T.mult * 0.35, { c1: '#d8c8ff' }); }
+          lacherTK(c, true); if (!T.hostile) frapperNonHostile(c); fin(); } }
+    } else if (T.phase === 'vol') {
+      const k = Math.min(1, T.t / T.duree);
+      c.pos.x = T.dep.x + (T.dest.x - T.dep.x) * k; c.pos.z = T.dep.z + (T.dest.z - T.dep.z) * k;
+      c.root.position.y = T.y0 + T.haut * (1 - k) + Math.sin(k * Math.PI) * 2; c.root.rotation.x += dt * 14;
+      if (Math.random() < 0.7) emettre(V(c.pos.x, c.root.position.y + 1, c.pos.z), { n: 1, c1: '#ffffff', c2: '#9a5aff', vit: 0.3, vie: 0.4, taille: 0.35 });
+      for (const e of vivants()) if (e !== c && !e.tk && !T.touches.has(e) && dist2D(e.pos, c.pos) < 1.6) { T.touches.add(e); blesser(e, T.mult * 0.6, { stun: 0.8, air: true }); if (!e.boss) { const v = V(e.pos.x - c.pos.x, 0, e.pos.z - c.pos.z).normalize(); e.pousse = { vx: v.x * 9, vz: v.z * 9, t: 0.3 }; } }
+      if (k >= 1) { impactTK(c.pos, 1.3); if (T.hostile) blesser(c, T.mult * 0.9, { stun: 1.2 }); zoneDegats(c.pos, 3.6, T.mult * 0.45, { c1: '#d8c8ff' }); lacherTK(c, true); if (!T.hostile && !c.mort) frapperNonHostile(c); fin(); }
+    }
+  }
+}
+// ---- Possession (E) : tu envoûtes ta cible et tout son groupe ; un boss envoûté compte comme vaincu et se bat pour toi ----
+function lancerPossession(s) {
+  const c = joueur.cible && !joueur.cible.mort && ennemis.includes(joueur.cible) && !joueur.cible.rival && dist2D(joueur.cible.pos, joueur.pos) < s.portee ? joueur.cible : (() => { let b = null, bd = s.portee; for (const e of vivants()) { if (e.rival) continue; const d = dist2D(e.pos, joueur.pos); if (d < bd) { bd = d; b = e; } } return b; })();
+  if (!c) { UI.toast('Aucun esprit à envoûter à portée'); joueur.cds.E = 0.5; return; }
+  const groupe = c.boss ? [c] : [c, ...vivants().filter(e => e !== c && !e.boss && !e.rival && dist2D(e.pos, c.pos) < 6)].slice(0, 6);
+  joueur.jouer('Spellcast_Long', { boucle: false, forcer: true, vitesse: 1.2, fin: () => joueur.jouer(joueur.def.idle) }); joueur.verrouT = 0.5;
+  son('forceField_000', 0.6, 0.45); son('lowFrequency_explosion_000', 0.4, 1.4); UI.intention && UI.intention('#9a5aff');
+  for (const e of groupe) {
+    emettre(V(e.pos.x, 1.4, e.pos.z), { n: 40, c1: '#ffffff', c2: '#7a2aff', vit: 3, vie: 0.9, taille: 0.4, monte: 2 }); onde(e.pos, '#9a5aff', 3, 0.7);
+    programmer(0.5, () => envouter(e));
+  }
+  UI.toast(c.boss ? `${c.boss.nom} est sous ton emprise !` : `${groupe.length} esprit${groupe.length > 1 ? 's' : ''} envoûté${groupe.length > 1 ? 's' : ''}`, true);
+}
+function envouter(e) {
+  if (e.mort || !ennemis.includes(e)) return;
+  if (e.tk) { const i = TKS.findIndex(T => T.c === e); if (i >= 0) TKS.splice(i, 1); lacherTK(e, false); }
+  const nom = e.boss ? e.boss.nom : (e.def && e.def.nom) || 'Envoûté';
+  // il compte comme vaincu (butin, progression, coffre du gardien)…
+  sansChoc(() => { e.pv = 0; tuer(e); });
+  // …puis se relève à ton service
+  const i = ennemis.indexOf(e); if (i >= 0) ennemis.splice(i, 1);
+  e.mort = false; e.descendre = false; e.etat = 'possede'; e.stunT = 0; e.tk = false; e.root.position.y = e.hover || 0;
+  e.pvMax = Math.max(e.pvMax || 1000, joueur.st.pvMax * (e.boss ? 3 : 0.8)); e.pv = e.pvMax; e.vieT = e.boss ? 120 : 60;
+  e.degPet = Math.max(joueur.st.degats * (e.boss ? 2.2 : 0.9), (e.dmg || 0) * 2);
+  for (const m of e.mats || []) if (m.emissive) { m.emissive.set('#5a1aaa'); m.emissiveIntensity = 0.45; }
+  e.jouer('Idle', { forcer: true });
+  UI.retirerPlaque(e); UI.plaque(e, { nom: '✦ ' + nom, guilde: 'ENVOÛTÉ', classe: 'allie', vie: true, lettre: false });
+  possedes.push(e);
+}
+function majPossedes(dt) {
+  for (let i = possedes.length - 1; i >= 0; i--) {
+    const p = possedes[i];
+    if (!p.root.parent) { possedes.splice(i, 1); continue; }
+    p.vieT -= dt;
+    // il s'use en combattant : chaque ennemi au contact l'abîme
+    let cible = null, bd = 20;
+    for (const e of vivants()) { const d = dist2D(e.pos, p.pos); if (d < 2.5) p.pv -= (e.dmg || joueur.st.degats * 0.3) * dt * 0.6; const dj = dist2D(e.pos, joueur.pos); if (dj < bd) { bd = dj; cible = e; } }
+    if (p.pv <= 0 || p.vieT <= 0) {
+      possedes.splice(i, 1); p.etat = 'mort'; p.mort = true; p.jouer(p.def && p.def.model === 'Dragon_Evolved' ? 'Death' : 'Death_A', { boucle: false, forcer: true });
+      emettre(V(p.pos.x, 1.2, p.pos.z), { n: 50, c1: '#e8d0ff', c2: '#3a0a6a', vit: 4, vie: 1, taille: 0.45, monte: 2 }); UI.retirerPlaque(p);
+      const pp = p; programmer(2.5, () => { G.scene.remove(pp.root); }); continue;
+    }
+    if (Math.random() < dt * 3) emettre(V(p.pos.x, 0.4, p.pos.z), { n: 1, c1: '#c9a0ff', c2: '#2a0a4a', dir: V(0, 1, 0), vit: 1, vie: 0.6, taille: 0.3 });
+    if (cible) {
+      const d = dist2D(p.pos, cible.pos);
+      if (d > (cible.rayon || 0.6) + (p.rayon || 0.6) + 1) { avancerVers(p, cible.pos, dt, Math.max(4, vitesseJoueur())); p.jouer('Running_A'); }
+      else {
+        p.angle = tourner(p.angle, Math.atan2(cible.pos.x - p.pos.x, cible.pos.z - p.pos.z), dt * 10); p.root.rotation.y = p.angle;
+        p.coupT = (p.coupT || 0) - dt;
+        if (p.coupT <= 0) { p.coupT = p.boss ? 1.3 : 1;
+          p.jouer(hasard(['1H_Melee_Attack_Chop', '2H_Melee_Attack_Chop', '1H_Melee_Attack_Slice_Diagonal']), { boucle: false, forcer: true, fin: () => p.jouer('Idle') });
+          const c = cible; programmer(0.3, () => { if (c.mort) return; blesser(c, 0, { fixe: p.degPet, c1: '#c9a0ff' }); if (p.boss) { onde(c.pos, '#9a5aff', 3, 0.5); zoneDegats(c.pos, 2.5, 0, { fixe: p.degPet * 0.4 }); } son('impactPlate_heavy_000', 0.3, 0.9); }); }
+      }
+    } else { const d = dist2D(p.pos, joueur.pos); if (d > 4) { avancerVers(p, joueur.pos, dt, Math.max(4, vitesseJoueur() * 1.1)); p.jouer('Running_A'); } else p.jouer('Idle'); }
+    p.maj(dt);
   }
 }
 // ---- trois lames spectrales ----
@@ -3196,6 +3267,54 @@ function ondeForce(s) {
     onde(joueur.pos, '#c0a0ff', s.portee + 1, 0.8); onde(joueur.pos, '#ffffff', s.portee * 0.6, 0.5); G.shake = 0.35; son('lowFrequency_explosion_000', 0.45, 1.3);
     for (const e of vivants()) { const d = dist2D(e.pos, joueur.pos); if (d > s.portee + e.rayon) continue; const v = V(e.pos.x - joueur.pos.x, 0, e.pos.z - joueur.pos.z).normalize(); blesser(e, s.mult, { stun: 0.6, air: true }); if (!e.boss) e.pousse = { vx: v.x * 14, vz: v.z * 14, t: 0.35 }; }
   });
+}
+// ======================= MODE AGRESSION : tu peux frapper n'importe qui… mais on s'en souviendra =======================
+function passantsProches() { return [...(modeActuel ? [] : bots), ...(taverne ? taverne.clients : []), ...(modeActuel && modeActuel.id === 'domaine' ? [] : [])].filter(b => !b.mort && b.root && b.root.parent && b.root.visible !== false); }
+function estPassant(e) { return !ennemis.includes(e) && (bots.includes(e) || (taverne && taverne.clients.includes(e))); }
+function basculerAgression() {
+  G.agression = !G.agression; const b = $('#btnAggro'); if (b) b.classList.toggle('actif', G.agression);
+  UI.toast(G.agression ? '⚠ MODE AGRESSION : tu peux frapper n’importe qui. Chaque meurtre se paiera.' : 'Mode agression désactivé', G.agression);
+  son(G.agression ? 'lowFrequency_explosion_000' : 'click_001', 0.4, 1.2);
+}
+const CRIS_PASSANTS = ['AU MEURTRE !', 'Il est devenu fou !', 'Gardes ! GARDES !', 'Courez !!', 'Tu vas le payer, ' + '{nom} !', 'Ma famille te le fera payer…'];
+function blesserPassant(e, d) {
+  if (e.mort) return;
+  if (!e.pvMax) { e.pvMax = e.pv = Math.max(800, joueur.st.degats * 3.5); }
+  e.pv -= d; e.frapper && e.frapper(); UI.nombre(V(e.pos.x, 2.2, e.pos.z), Math.round(d), '');
+  emettre(V(e.pos.x, 1.2, e.pos.z), { n: 10, c1: '#ff6a5a', c2: '#5a0a0a', vit: 4, vie: 0.4, taille: 0.3, grav: 8 });
+  if (!e.crieT || G.t > e.crieT) { e.crieT = G.t + 3; UI.parole && UI.parole(e, hasard(['Aïe ! Mais t’es malade ?!', 'Arrête ! ARRÊTE !', 'Pourquoi tu fais ça ?!']), 'peur'); }
+  if (e.pv <= 0) tuerPassant(e);
+}
+function tuerPassant(e) {
+  e.mort = true; e.jouer('Death_A', { boucle: false, forcer: true }); son('impactGeneric_light_000', 0.5, 0.6);
+  J.haine = (J.haine || 0) + 1; J.victimes = [...(J.victimes || []), e.nom].slice(-20);
+  const temoins = passantsProches().filter(x => x !== e && dist2D(x.pos, e.pos) < 18);
+  for (const t of temoins.slice(0, 4)) { UI.parole && UI.parole(t, hasard(CRIS_PASSANTS).replace('{nom}', J.nom), 'peur'); t.regard = joueur.pos; }
+  UI.chat('Système', `${J.nom} a tué ${e.nom || 'un passant'} de sang-froid.`);
+  if (J.haine === 1) UI.toast('Les gens de la Place te regardent autrement… ils n’oublieront pas.', true);
+  if (J.haine >= 3 && domaine() && !J.vengeance) { J.vengeance = { t: Date.now() + rnd(90, 180) * 1000, n: Math.min(30, 5 * J.haine) }; UI.toast('On murmure qu’une bande prépare une vengeance contre ton royaume…', true); }
+  else if (J.vengeance) J.vengeance.n = Math.min(30, 5 * J.haine);
+  const ee = e; programmer(4, () => { if (taverne && taverne.clients.includes(ee)) { G.scene.remove(ee.root); UI.retirerPlaque(ee); taverne.clients.splice(taverne.clients.indexOf(ee), 1); } else { ee.root.visible = false; UI.retirerPlaque(ee); programmer(60, () => { ee.mort = false; ee.pv = ee.pvMax; ee.root.visible = true; ee.jouer('Idle', { forcer: true }); }); } });
+  sauver();
+}
+// la vengeance : une ombre vient te prévenir à genoux ; si tu n'es pas là pour défendre, ton royaume est pillé
+function majVengeance() {
+  const V0 = J.vengeance; if (!V0 || Date.now() < V0.t) return;
+  if (!V0.prevenu) { V0.prevenu = true; V0.t = Date.now() + 120000; UI.manga([{ nom: 'Kael', titre: 'Ombre de ' + J.nom, modele: 'Rogue_Hooded', texte: `Maître… ${V0.n} hommes marchent sur ton royaume pour venger leurs morts. Dépêche-toi de venir, ou ils pilleront tout !`, couleur: '#b07aff', choc: true }]); son('lowFrequency_explosion_000', 0.6, 0.7); return; }
+  if (modeActuel && modeActuel.id === 'domaine') { J.vengeance = null; attaqueVengeurs(V0.n); return; }
+  // personne pour défendre : pillage
+  J.vengeance = null; const d = domaine(); if (!d) return;
+  const perdu = Math.floor(d.tresor * 0.6); d.tresor -= perdu; const morts = (d.serviteurs || []).splice(0, Math.ceil((d.serviteurs || []).length / 2));
+  J.haine = Math.max(0, J.haine - 2); sauver();
+  UI.manga([{ nom: 'Kael', titre: 'Ombre de ' + J.nom, modele: 'Rogue_Hooded', texte: `Trop tard, maître… Ils ont pillé ${fmtN(perdu)} ¤ du trésor${morts.length ? ` et tué ${morts.length} de tes serviteurs. Il faudra les recruter à nouveau` : ''}.`, couleur: '#ff5a5a', choc: true }]);
+}
+function attaqueVengeurs(n) {
+  UI.toast(`LES VENGEURS ATTAQUENT : ${n} assaillants !`, true); UI.flashInvasion && UI.flashInvasion(); son('lowFrequency_explosion_000', 0.7, 0.7);
+  const ipJ = statsHeros(J.equip).ip, vagues = Math.ceil(n / 8); let reste = n;
+  const vague = (k) => { if (!modeActuel || modeActuel.id !== 'domaine') return; const nb = Math.min(8, reste); reste -= nb;
+    for (let i = 0; i < nb; i++) { const d = donneesBot(ipJ * rnd(0.55, 0.85)); d.guilde = 'VENGEURS'; const p = pointLibrePres(V(rnd(-20, 20), 0, 32), 0, 6); const v = creerCombattant(p, d, 'ennemi'); v.voleur = true; v.potions = 0; effetArrivee(p); }
+    if (reste > 0) programmer(25, () => vague(k + 1)); };
+  vague(0);
 }
 // ---------------- Ranger / sortir les armes ----------------
 // la lame disparaît dans un nuage d'étincelles ; on se bat aux sorts et à la magie pure, puis on la ressort quand on veut
@@ -3542,6 +3661,7 @@ function majProjectiles(dt) {
     if (p.type === 'feu') emettre(p.pos, { n: 2, c1: '#ffe08a', c2: p.couleur, vit: 0.6, vie: 0.35, taille: p.camp === 'joueur' ? 0.55 : 0.6 });
     else if (Math.random() < 0.6) emettre(p.pos, { n: 1, c1: p.couleur, c2: '#ffffff', vit: 0.2, vie: 0.25, taille: 0.2 });
     let fini = p.vie <= 0 || !monde.marche(p.pos.x, p.pos.z);
+    if (!fini && p.camp === 'joueur' && p.cible && G.agression && estPassant(p.cible) && dist2D(p.cible.pos, p.pos) < 1.1) { blesserPassant(p.cible, degatsJoueur(p.mult || 1).d); fini = true; }
     if (!fini && p.camp === 'joueur') {
       for (const e of vivants()) {
         if (p.touches.has(e)) continue;
@@ -3871,6 +3991,7 @@ function initEntrees() {
   $('#btnReg').onclick = () => UI.reglages();
   $('#btnOmbres').onclick = () => ouvrirCommandeOmbres();
   { const b = $('#btnArmes'); if (b) b.onclick = () => rangerArmes(); }
+  { const b = $('#btnAggro'); if (b) b.onclick = () => basculerAgression(); }
   $('#btnCam').onclick = () => { const vues = ['iso', 'heros', 'libre'], noms = { iso: 'Vue isométrique', heros: 'Vue héros : derrière ton personnage (glisse pour tourner)', libre: 'Vue libre : glisse pour tourner, pince pour zoomer' };
     G.camVue = vues[(vues.indexOf(G.camVue || 'iso') + 1) % 3]; if (G.camVue === 'heros' && joueur) G.camYaw = joueur.angle + Math.PI; try { localStorage.setItem('breche-vue', G.camVue); } catch (e) {} UI.toast(noms[G.camVue]); son('click_001', 0.4); };
   $('#avatarCv').parentElement.onclick = () => ouvrirRenommee(); $('#avatarCv').parentElement.style.cursor = 'pointer';
@@ -3985,9 +4106,9 @@ function boucleCorps() {
     if (modeActuel && modeActuel.id === 'ile') { majOuvriers(dt); majNoeuds(dt); majRecolteJoueur(dt); majPillard(dt); if (intendant) intendant.maj(dt); }
     if (passeur) passeur.maj(dt);
     if (graveuse) graveuse.maj(dt);
-    ileT -= dt; if (ileT <= 0) { ileT = 3; majProduction(); majDomaine(); majAssauts(); majRaids(); if (modeActuel && modeActuel.id === 'ile' && !monde.etranger && !(raid && raid.r)) journalIle(monde.ile); }
+    ileT -= dt; if (ileT <= 0) { ileT = 3; majVengeance(); majProduction(); majDomaine(); majAssauts(); majRaids(); if (modeActuel && modeActuel.id === 'ile' && !monde.etranger && !(raid && raid.r)) journalIle(monde.ile); }
     if (monde.type === 'donjon') { majScenes(dt); majCrypte(dt); majAurasDonjon(dt); }
-    majRegards(); majAuras(dt); majPortes(dt); majVueOmbre(); majTK(dt); majLames(dt);
+    majRegards(); majAuras(dt); majPortes(dt); majVueOmbre(); majTK(dt); majLames(dt); majPossedes(dt);
     if (!modeActuel || modeActuel.id === 'ile') majParolesPNJ(dt);
     majRumeurs(dt); majFortune(dt); majEchosArene(dt);
     majEscouade(dt); majCommandeOmbres(dt); majAbime(dt); majMeuteJoueur(dt); if (taverne) majTaverne(dt); if (mission) majMission(dt); majEveil(dt); if (goulet) majGoulet(dt); if (!modeActuel) majPortailGoulet();
@@ -6786,7 +6907,7 @@ function dissiper(a) {
 }
 
 // accès de débogage (console)
-window.__jeu = { get modeActuel() { return modeActuel; }, domaineTest: (n = 4) => { if (!J.domaine) J.domaine = { niveau: n, serviteurs: [], tresor: 0, maj: Date.now(), graine: 7, journal: [] }; J.domaine.niveau = n; if (!iles().length) J.iles = J.iles || []; return entrerDomaine(); }, bilan: () => MODES.map(m => {
+window.__jeu = { get modeActuel() { return modeActuel; }, dbgAggro: () => { const c = choisirCible(joueur.st.portee); return [c ? c.nom : null, passantsProches().length, G.agression]; }, domaineTest: (n = 4) => { if (!J.domaine) J.domaine = { niveau: n, serviteurs: [], tresor: 0, maj: Date.now(), graine: 7, journal: [] }; J.domaine.niveau = n; if (!iles().length) J.iles = J.iles || []; return entrerDomaine(); }, bilan: () => MODES.map(m => {
     const eq = genererEquipRival(m.ipConseil, 'epee'), niv = nivBot(eq), st = statsHeros(eq, niv), dps = st.degats * st.vitesseAtk * (1 + st.crit / 200);
     const mob = creerEnnemi(MOBS.guerrier, V(900, 0, 900), m.mobTier, -9), mi = creerEnnemi(MOBS.minion, V(900, 0, 900), m.mobTier, -9), b = creerBoss(BOSS[0], V(905, 0, 905), m.bossTier[0], null), b3 = creerBoss(BOSS[3], V(905, 0, 905), m.bossTier[3], null);
     const r = { mode: m.lieu, ip: m.ipConseil, niv, pv: Math.round(st.pvMax), dps: Math.round(dps), red: +st.reduction.toFixed(2), ttkMinion: +(mi.pvMax / dps).toFixed(1), ttkGuerrier: +(mob.pvMax / dps).toFixed(1), ttkBoss1: Math.round(b.pvMax / dps), ttkBoss4: Math.round(b3.pvMax / dps), coupsGuerrierPourMourir: +(st.pvMax / (mob.dmg * (1 - st.reduction))).toFixed(1), coupsBossPourMourir: +(st.pvMax / (b.dmg * (1 - st.reduction))).toFixed(1) };

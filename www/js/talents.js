@@ -66,18 +66,18 @@ export const SORTS_CL = {
   ombre: [S('legion', 'Légion d’ombres'), S('reflet', 'Reflet volé'), S('pasOmbre', 'Pas de l’ombre')],
   orage: [S('tornade', 'Œil du cyclone'), S('titan', 'Chute du Titan'), S('orage', 'Colère de l’Orage')],
   assassin: [S('triple', 'Triple entaille'), S('curee', 'Curée'), S('zephyr', 'Pas du zéphyr')],
-  esprit: [S('emprise', 'Emprise'), S('lames', 'Trois lames'), S('onde', 'Onde de force')],
+  esprit: [S('emprise', 'Emprise'), S('lames', 'Trois lames'), S('possession', 'Possession')],
 };
 export const ALTS = {
   epee: ['execution', 'vampirisme'], arbalete: ['tirMultiple', 'purge'], baton: ['novaGivre', 'purge'], arc: ['pluieEcarlate', 'vampirisme'],
-  ombre: ['execution', 'vampirisme'], orage: ['execution', 'purge'], assassin: ['vampirisme', 'purge'], esprit: ['purge', 'vampirisme'],
+  ombre: ['execution', 'vampirisme'], orage: ['execution', 'purge'], assassin: ['vampirisme', 'purge'], esprit: ['onde', 'purge'],
 };
 const NOMS_SPEC = { esprit: ['Télékinésiste', '#c08aff', 'Volonté pure'], epee: ['Champion', '#ffb04a', 'Puissance martiale'], arbalete: ['Tireur d’élite', '#7aff9a', 'Balistique'], baton: ['Pyromancien', '#ff7a2a', 'Puissance des flammes'], arc: ['Maître des bêtes', '#ff3a3a', 'Instinct sauvage'], ombre: ['Ombrelame', '#b07aff', 'Puissance des ombres'], orage: ['Seigneur de l’orage', '#7ab8ff', 'Puissance de la foudre'], assassin: ['Assassin', '#ff5a6a', 'Précision mortelle'] };
 
 // spécialisation des trois lames (remplace les deux nœuds « extra » de l'Esprit)
 const LAMES = [
-  { id: 'tranchant', nom: 'Lames affûtées', ic: 'epees', max: 5, rang: 3, col: 0, dep: 'k_purge', e: { lameDeg: 0.12 }, txt: P('+{lameDeg} % de dégâts de tes lames') },
-  { id: 'trempe', nom: 'Trempe spectrale', ic: 'bouclier', max: 5, rang: 3, col: 1, dep: 'c_onde', e: { lamePv: 0.15 }, txt: P('+{lamePv} % de solidité de tes lames (elles parent plus de coups)') },
+  { id: 'tranchant', nom: 'Lames affûtées', ic: 'epees', max: 5, rang: 3, col: 0, dep: 'k_onde', e: { lameDeg: 0.12 }, txt: P('+{lameDeg} % de dégâts de tes lames') },
+  { id: 'trempe', nom: 'Trempe spectrale', ic: 'bouclier', max: 5, rang: 3, col: 1, dep: 'c_possession', e: { lamePv: 0.15 }, txt: P('+{lamePv} % de solidité de tes lames (elles parent plus de coups)') },
   { id: 'vol', nom: 'Vol fulgurant', ic: 'aile', max: 3, rang: 4, col: 0, dep: 'tranchant', e: { lameVit: 0.1 }, txt: P('+{lameVit} % de vitesse de tes lames (assaut et exploration)') },
 ];
 // spécialisation de la meute (remplace les deux nœuds « extra »)

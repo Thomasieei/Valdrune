@@ -99,7 +99,7 @@ export const ARMES = {
     idle: 'Idle', run: 'Running_A',
     attaques: ['Spellcast_Shoot'],
     noms: ['', 'Carnet du rêveur', 'Grimoire de bronze', 'Codex des murmures', 'Livre d’azur', 'Psautier de braise', 'Somme solaire', 'Codex de l’abysse', 'Pensée céleste'],
-    sorts: ['emprise', 'lames', 'onde'],
+    sorts: ['emprise', 'lames', 'possession'],
   },
 };
 export const CHANCE_OMBRE = 0.001; // 0,1 %
@@ -159,6 +159,7 @@ export const SORTS = {
   // --- Esprit (télékinésie) ---
   emprise:   { nom: 'Emprise', desc: 'Soulève ta cible par la pensée — monstre, joueur ou passant. Ensuite, tu choisis : la déposer en douceur, l’écraser au sol (le décor éclate), ou la projeter où tu vises, sur d’autres ennemis.', cd: 6, energie: 24, mult: 4.2, portee: 15, type: 'tk', couleur: ['#f0e0ff', '#4a1a8a'], glyphe: 'main' },
   lames:     { nom: 'Trois lames', desc: 'Invoque trois lames spectrales qui tournent autour de toi et te défendent jusqu’à se briser. Relance pour leur donner un ordre : garde, assaut, ou exploration du donjon (10 % plus vite que toi). Elles grandissent avec ton tier et tes talents.', cd: 2, energie: 10, mult: 0.45, portee: 16, type: 'lames', couleur: ['#e8f0ff', '#3a2a8a'], glyphe: 'lames' },
+  possession:{ nom: 'Possession', desc: 'Tu envoûtes ta cible et tout son groupe (6 m). Un boss envoûté compte comme vaincu (butin, coffre) puis se bat à tes côtés jusqu’à sa mort.', cd: 30, energie: 45, mult: 0, portee: 14, type: 'possession', couleur: ['#e8c8ff', '#3a0a5a'], glyphe: 'oeil' },
   onde:      { nom: 'Onde de force', desc: 'Une vague de pure volonté repousse et soulève tout ce qui t’entoure (7 m), étourdit 0,6 s.', cd: 9, energie: 28, mult: 1.6, portee: 7, type: 'onde', couleur: ['#d8c8ff', '#2a0a5a'], glyphe: 'onde' },
   // --- Maître des bêtes ---
   tirArc:    { nom: 'Flèche écarlate', desc: 'Tire une flèche chargée qui traverse tout sur 20 m et inflige des dégâts énormes. Saigne 4 s.', cd: 20, energie: 30, mult: 7.5, portee: 20, type: 'ligne', couleur: ['#ff6a5a', '#3a0004'], glyphe: 'fleche' },
