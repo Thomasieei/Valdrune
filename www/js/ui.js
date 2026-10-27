@@ -1816,7 +1816,7 @@ UI.commandeOmbres = (liste, iles, f) => {
     <div class="cartesO"><button class="carteO tout ${nb === liste.filter(o => o.libre).length && nb ? 'on' : ''}" data-tout><b>Toutes</b><small>${liste.filter(o => o.libre).length} disponibles</small></button>
     ${liste.map(o => `<button class="carteO ${sel.has(o.i) ? 'on' : ''} ${o.libre ? '' : 'occupee'}" data-o="${o.i}"><b>${o.nom}</b><small>${PERSO_LBL[o.perso] || ''} · ${o.victoires} vict.</small><span class="loyO"><i style="width:${o.loyaute}%"></i></span><em>${o.etat}</em>${o.ile ? `<span class="rappelO" data-r="${o.i}">Rappeler</span>` : ''}</button>`).join('')}</div>
     <div class="ordresO ${nb ? '' : 'inactif'}">
-      <button data-ord="combat">⚔ Tout dégommer</button><button data-ord="garde">🛡 Me protéger</button><button data-ord="escorte">🚶 Escorte (sans attaquer)</button><button data-ord="vue" ${nb === 1 ? '' : 'disabled title="Choisis une seule ombre"'}>👁 Voir par ses yeux</button><button data-ord="repos">☾ Renvoyer dans l’ombre</button>
+      <button data-ord="combat">⚔ Tout dégommer</button><button data-ord="garde">🛡 Me protéger</button><button data-ord="escorte">🚶 Escorte (sans attaquer)</button><button data-ord="vue">👁 Voir par ses yeux</button><button data-ord="repos">☾ Renvoyer dans l’ombre</button>
       <button data-ord="arene">🏆 Arène · 3 min</button>
       <span class="grpO">☠ Donjon : ${['Cryptes · 4 min', 'Forteresse · 6 min', 'Gouffre · 8 min', 'Abîme · 10 min'].map((l, k) => `<button data-ord="donjon" data-m="${k}">${l}</button>`).join('')}</span>
       <span class="grpO">🏝 Garder : ${iles.length ? iles.map((n, k) => `<button data-ord="ile" data-ile="${k}">${n}</button>`).join('') : '<em>aucune île</em>'}</span>

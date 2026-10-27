@@ -213,7 +213,9 @@ function rendreVueOmbre() {
   const R = G.renderer, H = R.domElement.clientHeight, sm = R.shadowMap.needsUpdate;
   R.shadowMap.needsUpdate = false;
   R.setScissorTest(true); R.setScissor(r.x, H - r.y - r.h, r.w, r.h); R.setViewport(r.x, H - r.y - r.h, r.w, r.h);
+  const pv = G.points && G.points.visible; if (G.points) G.points.visible = false; // les particules sont dimensionnées pour l'écran principal : énormes ici
   R.render(G.scene, _camO);
+  if (G.points) G.points.visible = pv;
   R.setScissorTest(false); R.setViewport(0, 0, R.domElement.clientWidth, H);
   R.shadowMap.needsUpdate = sm;
   for (const x of _montres) x.model.visible = false;

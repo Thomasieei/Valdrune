@@ -710,13 +710,17 @@ function direOmbre(r, texte) { const o = ombreActeur(r.i); if (o) UI.parole(o, t
 function souvenir(r, s) { r.souvenirs.push({ s, t: Date.now() }); if (r.souvenirs.length > 8) r.souvenirs.shift(); }
 // ---- ordres ----
 function ordonner(cibles, ordre, extra = {}) {
+  if (ordre === 'vue') { // la première ombre choisie qui marche à tes côtés
+    const o = cibles.map(ombreActeur).find(Boolean) || escouade.find(x => !x.sceneOmbre);
+    if (o) { vueOmbre(o); UI.commandeOmbres(null); } else UI.toast('Aucune de ces ombres n’est à tes côtés pour l’instant');
+    return;
+  }
   const R = ombresC(); const now = Date.now();
   for (const i of cibles) {
     const r = R[i]; if (!r) continue;
     if (r.mission && ordre !== 'rappel') continue; // déjà partie : on attend son retour
     if (now < (r.blesseeJusqua || 0) && ordre !== 'repos') { UI.toast(`${r.nom} est blessée encore ${Math.ceil((r.blesseeJusqua - now) / 60000)} min`); continue; }
     if (ordre === 'rappel') continue;
-    if (ordre === 'vue') { const o = ombreActeur(i); if (o) { vueOmbre(o); UI.commandeOmbres(null); } else UI.toast(`${r.nom} n’est pas à tes côtés : rien à voir pour l’instant`); return; }
     if (['arene', 'donjon', 'secours', 'vol'].includes(ordre)) {
       const m = extra.mode ?? 0;
       const duree = { arene: 3, donjon: 4 + m * 2, secours: 4, vol: 5 }[ordre] * 60000;
