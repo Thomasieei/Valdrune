@@ -206,7 +206,7 @@ function construireJoueur(pos) {
   const arme = J.equip.arme || creerArme('epee', 1);
   const def = ARMES[arme.type];
   const a = new Acteur(def.model, { hauteur: 2.0 });
-  tenue(a);
+  tenue(a); a.tenueCouleur(def.ombre || def.assassin || !J.equip.plastron ? null : TENUE_TIER[J.equip.plastron.tier]);
   // ne montrer que l'arme portée
   const tous = Object.keys(a.nodes).filter(n => /Sword|Axe|Shield|Crossbow|Staff|Wand|Knife|Throwable|Mug|Spellbook/.test(n));
   a.montrerSeul([def.node, def.node2].filter(Boolean), tous);
@@ -1302,7 +1302,7 @@ function attaquer(dt) {
   const anim = def.attaques[Math.floor(Math.random() * def.attaques.length)];
   const vit = Math.max(1, st.vitesseAtk * joueur.duree(anim) * 0.95);
   joueur.jouer(anim, { boucle: false, vitesse: vit, forcer: true, fondu: 0.08, fin: () => joueur.jouer(def.idle) });
-  joueur.verrouT = 0.28; // l'attaque de base fige brièvement : choix voulu pour le PvP
+  joueur.verrouT = 0.28; joueur.verrouAtk = true; // l'attaque de base ralentit fortement le joueur (sans le figer net : plus de saccades)
   const couleur = TIERS[J.equip.arme.tier].color;
   if (def.assassin) { attaqueAssassin(c, vit); return; }
   if (!def.projectile) {
@@ -1344,6 +1344,7 @@ function lancerSort(k) {
   if ((joueur.cds[k] || 0) > 0) { son('error_001', 0.25); return; }
   if (joueur.energie < s.energie) { UI.toast('Pas assez d’énergie'); son('error_001', 0.25); return; }
   joueur.sortAttente = null;
+  if (joueur.verrouAtk) { joueur.verrouT = 0; joueur.verrouAtk = false; } // un sort peut couper la petite pause de l'attaque de base
   if (joueur.verrouT > 0.15 && !['rempart', 'souffle', 'ruee', 'purge', 'vampirisme', 'orage'].includes(s.id)) { joueur.sortAttente = { k, t: 0.7, force: viseeForcee }; return; }
   joueur.energie -= s.energie; joueur.cds[k] = joueur.cdMax[k] || s.cd; joueur.combatT = 4; joueur.debutAtk = G.t; joueur.animT = 0.5; // laisse l'animation du sort se jouer même en courant
   const def = joueur.def;
@@ -1747,18 +1748,23 @@ function majJoueur(dt) {
   const m = Math.min(1, Math.hypot(mx, my));
   const tourne = j.spinT > 0 || j.tornadeT > 0; // tempête d'acier / œil du cyclone : on garde l'animation de toupie
   if (j.animT > 0) j.animT -= dt;
-  const bloque = j.verrouT > 0 && !tourne;
+  if (j.verrouT <= 0) j.verrouAtk = false;
+  const bloque = j.verrouT > 0 && !tourne && !j.verrouAtk;
   let autoAtk = false;
   if (G.auto && pvpActif()) couperAuto('Mode auto désactivé : combat JcJ');
   if (G.auto && m <= 0.12 && !transition) autoAtk = modeAuto(j, dt, bloque);
+  j.couches = m > 0.12 && !bloque && !tourne; j.jambesNom = j.def.run;
   if (m > 0.12 && !bloque) {
     const dir = DIR_DROITE.clone().multiplyScalar(mx).addScaledVector(DIR_HAUT, my).normalize();
-    let v = st.vitesse * (1 + bonusParch('vitesse')) * (j.orageT > 0 ? 1.4 : 1) * (j.sprintT > 0 ? 1.6 : 1) * (j.slowT > 0 ? 0.6 : 1) * (tourne ? 0.7 : 1); // vitesse constante, peu importe l'inclinaison du joystick
+    let v = st.vitesse * (1 + bonusParch('vitesse')) * (j.orageT > 0 ? 1.4 : 1) * (j.sprintT > 0 ? 1.6 : 1) * (j.slowT > 0 ? 0.6 : 1) * (tourne ? 0.7 : 1) * (j.verrouAtk && j.verrouT > 0 ? 0.45 : 1); // vitesse constante, peu importe l'inclinaison du joystick
     deplacer(j, dir.x * v * dt, dir.z * v * dt);
     const vise = (entree.atk || entree.clavier[' ']) && j.cible && !j.cible.mort && dist2D(j.cible.pos, j.pos) - j.cible.rayon < st.portee + 0.5;
     if (!tourne && !vise) { j.angle = tourner(j.angle, Math.atan2(dir.x, dir.z), dt * 14); j.root.rotation.y = j.angle; }
-    if (!tourne && !(j.animT > 0) && (j.atkT < 0.1 || !entree.atk)) j.jouer(j.def.run);
+    // jambes toujours en course quand on bouge, même pendant une attaque (le haut du corps frappe)
+    if (!tourne) { if (j.haut) j._jouerBas(j.def.run); else if (j.courante && j.courante.loop === THREE.LoopOnce && j.courante.isRunning()) { const n = j.courante.getClip().name, t = j.courante.time, ts = j.courante.timeScale, f = j._onFin; if (j._jouerHaut(n, { vitesse: ts, fin: f, jambes: j.def.run })) j.haut.time = t; } else j.jouer(j.def.run); }
+    j.cadence(Math.max(0.75, Math.min(1.7, v / 5.4)));
     j.pasT -= dt * v; if (j.pasT <= 0) { j.pasT = 2.4; son(Math.random() < 0.5 ? 'footstep_concrete_000' : 'footstep_concrete_001', 0.12); }
+  } else if (j.haut) { j._jouerBas(j.def.idle); // on s'arrête pendant une attaque : les jambes se posent
   } else if (!bloque && !tourne && !(j.animT > 0)) {
     const c = j.courante; const n = c ? c.getClip().name : '';
     if (n === j.def.run || n === 'Walking_A') j.jouer(j.def.idle);
@@ -1802,7 +1808,7 @@ function bondStyle(c, apres) {
   if (!melee) { const ang = c ? Math.atan2(c.pos.x - dep.x, c.pos.z - dep.z) : joueur.angle; arr = pointLibreProche(V(dep.x - Math.sin(ang) * 2.6, 0, dep.z - Math.cos(ang) * 2.6), 0.6); if (c) { joueur.angle = ang; joueur.root.rotation.y = ang; } }
   if (!arr) { apres(); ralenti(0.06, 0.15); return; }
   const duree = melee ? 0.34 : 0.3, haut = melee ? 2.6 : 1.4;
-  joueur.verrouT = Math.max(joueur.verrouT, duree); joueur.invuln = Math.max(joueur.invuln, duree + 0.1);
+  joueur.verrouAtk = false; joueur.verrouT = Math.max(joueur.verrouT, duree); joueur.invuln = Math.max(joueur.invuln, duree + 0.1);
   if (melee) { joueur.angle = Math.atan2(arr.x - dep.x, arr.z - dep.z); joueur.root.rotation.y = joueur.angle; }
   joueur.jouer(melee ? 'Dodge_Forward' : 'Dodge_Backward', { boucle: false, forcer: true, vitesse: 1.7 });
   const coul = COUL_SIGNE[type] || '#ffd27a';
@@ -2559,6 +2565,9 @@ function pointLibrePres(centre, dMin, dMax, r = 0.7) {
 }
 // habille un personnage selon son équipement (couleur du tier sur l'arme, la cape, le casque, les jambes)
 // tenues : le chevalier troque son armure de plaques contre un équipement de cuir de rôdeur, le barbare enlève sa tête d'ours
+// couleurs des tuniques : celle du joueur dépend de son armure de torse, celles des autres joueurs sont variées
+const PALETTE_TENUES = ['#2a4a9a', '#7a1a2a', '#3a3a46', '#5a2a8a', '#6a4a24', '#1a5a4a', '#9a8a62', '#1c1c24', '#2a6a8a', '#8a3a1a', '#4a5a2a', '#5a1a5a'];
+const TENUE_TIER = [null, '#6a4a24', '#8a6a3a', '#1a5a4a', '#2a4a9a', '#7a1a2a', '#5a2a8a', '#1c1c24', '#e8e0d0'];
 function tenue(a) {
   if (a.cle === 'Knight' && !a._tenue) { a._tenue = true; for (const [c, s] of [['Knight_Body', 'Rogue_Body'], ['Knight_ArmLeft', 'Rogue_ArmLeft'], ['Knight_ArmRight', 'Rogue_ArmRight'], ['Knight_LegLeft', 'Rogue_LegLeft'], ['Knight_LegRight', 'Rogue_LegRight']]) a.remplacerPiece(c, 'Rogue', s); }
   if (a.cle === 'Barbarian' && a.nodes.Barbarian_Hat) a.nodes.Barbarian_Hat.visible = false;
@@ -2566,6 +2575,7 @@ function tenue(a) {
 }
 function habiller(a, equip, def) {
   tenue(a);
+  a.tenueCouleur(PALETTE_TENUES[Math.floor(Math.random() * PALETTE_TENUES.length)]);
   const arme = equip.arme;
   const tous = Object.keys(a.nodes).filter(n => /Sword|Axe|Shield|Crossbow|Staff|Wand|Knife|Throwable|Mug|Spellbook/.test(n));
   a.montrerSeul([def.node, def.node2].filter(Boolean), tous);
@@ -2675,7 +2685,7 @@ function infliger(src, c, d, opts = {}) {
   if (c === joueur) {
     blesserJoueur(d, src);
     if (opts.slow) joueur.slowT = Math.max(joueur.slowT, opts.slow);
-    if (opts.stun && joueur.invuln <= 0) { joueur.verrouT = Math.max(joueur.verrouT, opts.stun); UI.nombre(V(joueur.pos.x, 2.6, joueur.pos.z), 'Étourdi', 'info'); }
+    if (opts.stun && joueur.invuln <= 0) { joueur.verrouAtk = false; joueur.verrouT = Math.max(joueur.verrouT, opts.stun); UI.nombre(V(joueur.pos.x, 2.6, joueur.pos.z), 'Étourdi', 'info'); }
     return;
   }
   if (c.camp === 'allie') return blesserAllie(c, d, src, opts);

@@ -250,6 +250,27 @@ export function ambiance() {
 // ---------- Acteurs animés ----------
 const NOIR = new THREE.Color(0), BLANC = new THREE.Color('#ffffff');
 const HUMAINS = new Set(['Knight', 'Barbarian', 'Mage', 'Rogue', 'Rogue_Hooded']);
+// ---------- Tenues colorées : recolore le tissu vert des tuniques (peau, cheveux et cuir intacts) ----------
+const TENUE_GLSL = `
+vec3 _hsl2rgb(vec3 c){ vec3 rgb = clamp(abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0, 0.0, 1.0); return c.z + c.y * (rgb-0.5)*(1.0-abs(2.0*c.z-1.0)); }
+uniform vec4 uTenue;`;
+export function patchTenue(mat) {
+  if (!mat || !mat.isMeshStandardMaterial || mat.userData.uTenue) return;
+  const u = mat.userData.uTenue = { value: new THREE.Vector4(0, 1, 1, 0) };
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uTenue = u;
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + TENUE_GLSL).replace('#include <map_fragment>', `#include <map_fragment>
+      if (uTenue.w > 0.5) { vec3 c = diffuseColor.rgb; float mx = max(c.r, max(c.g, c.b)), mn = min(c.r, min(c.g, c.b)), d = mx - mn, l = (mx + mn) * 0.5;
+        float s = d < 1e-4 ? 0.0 : d / (1.0 - abs(2.0 * l - 1.0) + 1e-4); float h = 0.0;
+        if (d > 1e-4) { if (mx == c.r) h = mod((c.g - c.b) / d, 6.0); else if (mx == c.g) h = (c.b - c.r) / d + 2.0; else h = (c.r - c.g) / d + 4.0; h /= 6.0; }
+        if (h > 0.2 && h < 0.56 && s > 0.2) diffuseColor.rgb = _hsl2rgb(vec3(uTenue.x, clamp(s * uTenue.y, 0.0, 1.0), clamp(l * uTenue.z, 0.0, 0.95))); }`)
+      // lumière de contour : la silhouette se détache du décor
+      .replace('#include <dithering_fragment>', `float _rim = pow(1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0), 2.6);
+      gl_FragColor.rgb += vec3(1.0, 0.9, 0.8) * _rim * 0.32;
+      #include <dithering_fragment>`);
+  };
+  mat.customProgramCacheKey = () => 'tenue2';
+}
 export class Acteur {
   constructor(cle, { hauteur = 2.0, echelle = 1 } = {}) {
     const src = G.assets[cle];
@@ -269,6 +290,7 @@ export class Acteur {
         o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; this.meshes.push(o);
         o.material = o.material.clone(); this.mats.push(o.material);
         o.material.userData.baseEmissive = o.material.emissive ? o.material.emissive.clone() : null;
+        if (HUMAINS.has(cle)) patchTenue(o.material);
       }
     });
     // proportions moins « chibi » pour les héros : tête plus petite, buste un peu plus long
@@ -277,10 +299,66 @@ export class Acteur {
     this.actions = {};
     for (const c of src.animations) this.actions[c.name] = this.mixer.clipAction(c);
     this.courante = null; this.flash = 0;
-    this.mixer.addEventListener('finished', (e) => { if (this._onFin && e.action === this.courante) { const f = this._onFin; this._onFin = null; f(); } });
+    this.haut = null; this.bas = null; this.basNom = null; this.couches = false; this._src = src;
+    this.mixer.addEventListener('finished', (e) => {
+      if (e.action === this.haut) { // fin d'une attaque jouée sur le haut du corps : retour au corps entier
+        const f = this._onFinHaut; this._onFinHaut = null; this.haut = null; e.action.fadeOut(0.15);
+        const n = this.basNom; this.courante = null; if (this.bas) { this.bas.fadeOut(0.15); this.bas = null; this.basNom = null; }
+        if (this.couches && n) this.jouer(n, { fondu: 0.15 }); else if (f) f(); else if (n) this.jouer(n, { fondu: 0.15 }); return;
+      }
+      if (this._onFin && e.action === this.courante) { const f = this._onFin; this._onFin = null; f(); }
+    });
   }
+  // ---- animation par couches : jambes (course) + haut du corps (attaque, sort) ----
+  _osHaut() {
+    if (this._haut) return this._haut;
+    const s = new Set(), r = this.nodes.spine || this.nodes.chest;
+    if (r) r.traverse(o => s.add(o.name));
+    return (this._haut = s);
+  }
+  _couche(nom, partie) {
+    const cle = partie + ':' + nom; this._couches = this._couches || {};
+    if (this._couches[cle]) return this._couches[cle];
+    const c = this._src.animations.find(x => x.name === nom); if (!c) return null;
+    const H = this._osHaut(); if (!H.size) return null;
+    const pistes = c.tracks.filter(t => H.has(t.name.split('.')[0]) === (partie === 'haut'));
+    const clip = new THREE.AnimationClip(nom, c.duration, pistes);
+    return (this._couches[cle] = this.mixer.clipAction(clip));
+  }
+  _jouerBas(nom, fondu = 0.15) {
+    if (this.basNom === nom && this.bas) return;
+    const b = this._couche(nom, 'bas'); if (!b) return;
+    b.reset(); b.setLoop(THREE.LoopRepeat, Infinity); b.enabled = true; b.setEffectiveWeight(1); b.fadeIn(fondu); b.play();
+    if (this.bas && this.bas !== b) this.bas.fadeOut(fondu);
+    this.bas = b; this.basNom = nom;
+  }
+  _jouerHaut(nom, { vitesse = 1, fin = null, jambes = null } = {}) {
+    const a = this._couche(nom, 'haut'); if (!a) return false;
+    const plein = this.courante && this.courante !== this.haut ? this.courante : null;
+    a.reset(); a.timeScale = vitesse; a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; a.enabled = true; a.setEffectiveWeight(1); a.fadeIn(0.08); a.play();
+    if (this.haut && this.haut !== a) this.haut.fadeOut(0.08);
+    if (plein) plein.fadeOut(0.12);
+    this._jouerBas(jambes || this.basNom || 'Running_A', 0.12);
+    this.haut = a; this._onFinHaut = fin; this.courante = a; this._onFin = null;
+    return true;
+  }
+  // couleur de tunique (hex) ; null = couleur d'origine
+  tenueCouleur(hex) {
+    const v = new THREE.Vector4(0, 1, 1, 0);
+    if (hex) { const hsl = {}; new THREE.Color(hex).getHSL(hsl); v.set(hsl.h, Math.max(0.15, hsl.s / 0.55), Math.max(0.35, hsl.l / 0.28), 1); }
+    this._tenueV = v; for (const m of this.mats) if (m.userData.uTenue) m.userData.uTenue.value.copy(v);
+  }
+  // vitesse de l'animation de course calée sur la vitesse réelle (plus de pieds qui patinent)
+  cadence(k) { if (this.bas) this.bas.timeScale = k; else if (this.courante && this.courante.loop === THREE.LoopRepeat) this.courante.timeScale = k; }
   jouer(nom, { fondu = 0.18, boucle = true, vitesse = 1, forcer = false, fin = null } = {}) {
     const a = this.actions[nom]; if (!a) return;
+    // en mouvement, une attaque ne joue que sur le haut du corps : les jambes continuent de courir
+    if (!boucle && this.couches && this._jouerHaut(nom, { vitesse, fin, jambes: this.jambesNom })) return;
+    if (this.haut && boucle) { // une attaque est en cours sur le haut du corps : on ne change que les jambes
+      if (this.couches) { this._jouerBas(nom); return; }
+    }
+    if (this.haut) { this.haut.fadeOut(0.1); this.haut = null; this._onFinHaut = null; }
+    if (this.bas) { this.bas.fadeOut(fondu); this.bas = null; this.basNom = null; }
     if (this.courante === a && !forcer) { a.timeScale = vitesse; return; }
     a.reset(); a.timeScale = vitesse;
     a.setLoop(boucle ? THREE.LoopRepeat : THREE.LoopOnce, boucle ? Infinity : 1);
@@ -312,7 +390,7 @@ export class Acteur {
     srcRoot.updateMatrix();
     const ajout = (src, parent) => {
       if (src.isSkinnedMesh) {
-        const m = new THREE.SkinnedMesh(src.geometry, src.material.clone());
+        const m = new THREE.SkinnedMesh(src.geometry, src.material.clone()); m.material.userData = { baseEmissive: m.material.emissive ? m.material.emissive.clone() : null }; patchTenue(m.material); if (this._tenueV) m.material.userData.uTenue.value.copy(this._tenueV);
         m.position.copy(src.position); m.quaternion.copy(src.quaternion); m.scale.copy(src.scale);
         m.bind(ref.skeleton, src.bindMatrix); m.castShadow = true; m.frustumCulled = false;
         m.material.userData.baseEmissive = m.material.emissive ? m.material.emissive.clone() : null;
@@ -357,7 +435,7 @@ export class Acteur {
       const indexes = geos.every(g => g.index), aucun = geos.every(g => !g.index);
       if (!indexes && !aucun) continue;
       const geo = mergeGeometries(geos, false); if (!geo) continue;
-      const mat = ref.material.clone(); mat.color.set('#ffffff'); mat.vertexColors = true;
+      const uT = ref.material.userData.uTenue; const mat = ref.material.clone(); mat.color.set('#ffffff'); mat.vertexColors = true; mat.userData = {}; if (uT) { patchTenue(mat); mat.userData.uTenue.value.copy(uT.value); }
       mat.userData.baseEmissive = mat.emissive ? mat.emissive.clone() : null;
       const m = new THREE.SkinnedMesh(geo, mat);
       m.name = ref.name + '_fusion'; m.frustumCulled = false; m.castShadow = this._ombre; m.receiveShadow = false;
@@ -375,7 +453,13 @@ export class Acteur {
     if (this.tete) { this.tete.scale.set(1, 1, 1); if (this.buste) this.buste.scale.set(1, 1, 1); }
     this.model.position.y = G.solH ? G.solH(this.root.position.x, this.root.position.z) : 0;
     this.mixer.update(dt);
-    if (this.tete) { this.tete.scale.multiplyScalar(G.teteK || 0.49); if (this.buste) { const b = G.busteV || [0.85, 1.12, 0.82]; this.buste.scale.x *= b[0]; this.buste.scale.y *= b[1]; this.buste.scale.z *= b[2]; } }
+    if (this.tete) {
+      // tête : taille réduite mais proportions naturelles (on annule l'affinement du corps et du buste sur la tête)
+      const M = G.mince || [0.74, 1.08], b = G.busteV || [0.85, 1.12, 0.82], k = G.teteK || 0.55;
+      if (this.buste) { this.buste.scale.x *= b[0]; this.buste.scale.y *= b[1]; this.buste.scale.z *= b[2]; }
+      const bx = this.buste ? b[0] : 1, by = this.buste ? b[1] : 1, bz = this.buste ? b[2] : 1;
+      this.tete.scale.x *= k / (M[0] * bx); this.tete.scale.y *= k / (M[1] * by); this.tete.scale.z *= k / (M[0] * bz);
+    }
     if (this.flash > 0 || this._flashOn) {
       this.flash -= dt; const k = Math.max(0, this.flash) / 0.12; this._flashOn = k > 0;
       for (const m of this.mats) if (m.emissive) { m.emissive.copy(m.userData.baseEmissive || NOIR).lerp(BLANC, k * 0.8); }
