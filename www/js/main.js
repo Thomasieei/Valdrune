@@ -2340,23 +2340,19 @@ function pointLibreProche(p, r) {
 }
 function deplacer(ent, dx, dz, r = 0.5) {
   const p = ent.pos;
-  if (!libre(p.x, p.z, r * 0.6)) { // coincé dans un obstacle : on le dégage au plus près (1,2 m max, plus de grands sauts)
-    for (let d = 0.15; d <= 1.2; d += 0.15) for (let k = 0; k < 16; k++) { const a = k / 16 * 6.283, x = p.x + Math.cos(a) * d, z = p.z + Math.sin(a) * d; if (libre(x, z, r)) { p.x = x; p.z = z; return true; } }
-    const q = pointLibreProche(p, r); if (q) { p.x = q.x; p.z = q.z; } return true;
+  if (!libre(p.x, p.z, r * 0.6)) { const q = pointLibreProche(p, r); if (q) { p.x = q.x; p.z = q.z; } return true; }
+  if (libre(p.x + dx, p.z + dz, r)) { p.x += dx; p.z += dz; return true; }
+  if (libre(p.x + dx, p.z, r)) { p.x += dx; return true; }
+  if (libre(p.x, p.z + dz, r)) { p.z += dz; return true; }
+  // contourner l'obstacle : on essaie des directions voisines
+  const l = Math.hypot(dx, dz); if (l < 1e-5) return false;
+  const a0 = Math.atan2(dx, dz);
+  for (const k of [0.6, -0.6, 1.1, -1.1, 1.57, -1.57]) {
+    const a = a0 + k * (ent.contour || 1);
+    const nx = Math.sin(a) * l, nz = Math.cos(a) * l;
+    if (libre(p.x + nx, p.z + nz, r)) { p.x += nx; p.z += nz; if (k < 0) ent.contour = -(ent.contour || 1); return true; }
   }
-  const l = Math.hypot(dx, dz); if (l < 1e-6) return true;
-  // petits pas (0,25 m) : on ne traverse plus les obstacles à grande vitesse, et on glisse le long des murs axe par axe
-  const n = Math.min(12, Math.max(1, Math.ceil(l / 0.25))), sx = dx / n, sz = dz / n; let bouge = false;
-  for (let i = 0; i < n; i++) {
-    if (libre(p.x + sx, p.z + sz, r)) { p.x += sx; p.z += sz; bouge = true; continue; }
-    const okX = libre(p.x + sx, p.z, r), okZ = !okX && libre(p.x, p.z + sz, r);
-    if (okX) { p.x += sx; bouge = true; continue; } if (okZ) { p.z += sz; bouge = true; continue; }
-    // vraiment bloqué : on contourne en essayant des directions voisines (indispensable pour les monstres et les alliés)
-    const a0 = Math.atan2(sx, sz), ls = Math.hypot(sx, sz); let ok = false;
-    for (const k of [0.6, -0.6, 1.1, -1.1, 1.57, -1.57]) { const a = a0 + k * (ent.contour || 1), nx = Math.sin(a) * ls, nz = Math.cos(a) * ls; if (libre(p.x + nx, p.z + nz, r)) { p.x += nx; p.z += nz; if (k < 0) ent.contour = -(ent.contour || 1); ok = true; break; } }
-    if (!ok) break; bouge = true;
-  }
-  return bouge;
+  return false;
 }
 function tourner(a, cible, k) { let d = cible - a; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return a + d * Math.min(1, k); }
 
