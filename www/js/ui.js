@@ -1581,3 +1581,85 @@ UI.majDegats = (lignes) => {
   p.innerHTML = lignes.map((l, i) => `<div class="${l.moi ? 'moi' : ''}"><i style="width:${(l.degats / max * 100).toFixed(0)}%;background:${COUL_CLASSE[l.type] || '#aaa'}"></i><span>${i + 1}. ${l.nom}</span><b>${fmtK(l.degats)}</b></div>`).join('');
 };
 UI.emblemeHTML = (i, t) => emblemeRang(i, t);
+
+// ======================= TAVERNE, MANGA ET MISSIONS =======================
+// bulle de parole au-dessus d'un personnage
+UI.parole = (ent, texte, classe = '') => {
+  if (!ent || !texte) return;
+  const old = bulles.get(ent); if (old) old.d.remove();
+  const d = document.createElement('div'); d.className = 'paroleBulle ' + classe; d.innerHTML = `<span>${texte}</span>`;
+  $('#labels').appendChild(d);
+  const b = { d, h: (ent.hauteurPlaque || 2.5) + 1.0 }; bulles.set(ent, b);
+  setTimeout(() => { if (bulles.get(ent) === b) bulles.delete(ent); d.remove(); }, 3400);
+  if (ent.nom) UI.chat(ent.nom, texte);
+};
+// cases de manga : portrait, nom, réplique tapée lettre à lettre, lignes de vitesse
+let mangaFile = [], mangaFin = null, mangaTimer = null;
+UI.manga = (panneaux, fin = null) => {
+  let m = document.getElementById('manga');
+  if (!panneaux) { mangaFile = []; mangaFin = null; clearTimeout(mangaTimer); if (m) m.remove(); return; }
+  mangaFile.push(...panneaux); if (fin) mangaFin = fin;
+  if (!m) { m = document.createElement('div'); m.id = 'manga'; $('#jeu').appendChild(m); m.addEventListener('pointerdown', (e) => { e.stopPropagation(); suivant(); }); suivant(); }
+  function suivant() {
+    clearTimeout(mangaTimer);
+    const p = mangaFile.shift();
+    if (!p) { m.remove(); const f = mangaFin; mangaFin = null; if (f) f(); return; }
+    m.className = (p.choc ? 'choc ' : '') + (p.cote === 'd' ? 'droite' : '');
+    m.style.setProperty('--c', p.couleur || '#ffd27a');
+    m.innerHTML = `<div class="caseM"><div class="lignes"></div><div class="portraitM"><canvas width="160" height="160"></canvas></div><div class="texteM"><div class="nomM">${p.nom}${p.titre ? `<small>${p.titre}</small>` : ''}</div><div class="repl"></div></div></div>`;
+    try { bustePersonnage(p.modele || 'Knight', m.querySelector('canvas'), '#1a1014'); } catch (e) {}
+    const r = m.querySelector('.repl'); let i = 0; const txt = p.texte || '';
+    const tape = () => { r.textContent = txt.slice(0, ++i); if (i < txt.length) mangaTimer = setTimeout(tape, 22); else mangaTimer = setTimeout(suivant, Math.max(1600, txt.length * 55)); };
+    tape();
+  }
+};
+// carte-titre façon manga (nom de mission, nom d'ennemi)
+UI.titreManga = (titre, sous = '') => {
+  const d = document.createElement('div'); d.className = 'titreManga'; d.innerHTML = `<div class="tm">${titre}</div>${sous ? `<div class="ts">${sous}</div>` : ''}`;
+  $('#jeu').appendChild(d); setTimeout(() => d.remove(), 2600);
+};
+// pression meurtrière : l'écran se teinte et pulse
+UI.intention = (couleur = '#ff2a2a') => {
+  const d = document.createElement('div'); d.className = 'intention'; d.style.setProperty('--c', couleur); d.innerHTML = '<span>INTENTION MEURTRIÈRE</span>';
+  $('#jeu').appendChild(d); setTimeout(() => d.remove(), 1900);
+};
+// file d'attente au comptoir
+UI.fileAttente = (etat, actions) => {
+  let f = document.getElementById('fileAttente');
+  if (!etat) { if (f) f.remove(); return; }
+  if (!f) { f = document.createElement('div'); f.id = 'fileAttente'; $('#jeu').appendChild(f); f.addEventListener('pointerdown', (e) => { e.stopPropagation(); const b = e.target.closest('[data-a]'); if (b && f._act) f._act[b.dataset.a](); }); }
+  f._act = actions;
+  const h = `<div class="fa"><b>File d’attente</b><span>${etat.devant > 0 ? `${etat.devant} client${etat.devant > 1 ? 's' : ''} devant toi · ${etat.t} s` : 'C’est bientôt ton tour…'}</span></div>
+    <div class="fb">${etat.dissimule ? '<button class="btn rouge" data-a="reveler">Révéler ma puissance</button>' : ''}<button class="btn gris" data-a="quitter">Quitter la file</button></div>`;
+  if (f._h !== h) { f.innerHTML = h; f._h = h; }
+};
+// bouton discret « Révéler » quand ta puissance est dissimulée
+UI.boutonReveler = (visible, cb) => {
+  let b = document.getElementById('btnReveler');
+  if (!visible) { if (b) b.remove(); return; }
+  if (!b) { b = document.createElement('button'); b.id = 'btnReveler'; b.type = 'button'; b.innerHTML = '<i></i>RÉVÉLER'; b.addEventListener('pointerdown', (e) => { e.stopPropagation(); e.preventDefault(); b._cb && b._cb(); }); document.getElementById('hud').appendChild(b); }
+  b._cb = cb;
+};
+// dialogue avec un personnage de la taverne
+UI.dialogueTaverne = (d) => {
+  let m = document.getElementById('dialTaverne');
+  if (!d) { if (m) m.remove(); return; }
+  if (!m) { m = document.createElement('div'); m.id = 'dialTaverne'; $('#jeu').appendChild(m); m.addEventListener('pointerdown', (e) => e.stopPropagation()); }
+  m.innerHTML = `<div class="boiteT"><button class="fermer" data-x aria-label="Fermer">×</button><div class="visageT"><canvas width="160" height="160"></canvas></div>
+    <div class="corpsT2"><h3>${d.nom}<small>${d.titre || ''}</small></h3><p class="texteT">${d.texte}</p>
+    <div class="optsT">${d.options.map((o, i) => `<button class="optT" data-o="${i}" ${o.desactive ? 'disabled' : ''}><b>${o.label}</b>${o.sous ? `<small>${o.sous}</small>` : ''}</button>`).join('')}</div></div></div>`;
+  try { bustePersonnage(d.modele || 'Rogue', m.querySelector('canvas'), '#2a1a10'); } catch (e) {}
+  m.onclick = (e) => { if (e.target.closest('[data-x]')) return UI.dialogueTaverne(null); const o = e.target.closest('[data-o]'); if (o && !o.disabled) { api.son('select_001', 0.4); d.options[+o.dataset.o].action(); } };
+};
+// tableau des missions
+UI.tableauMissions = (offres, cb) => {
+  let m = document.getElementById('tabMissions');
+  if (!offres) { if (m) m.remove(); return; }
+  if (!m) { m = document.createElement('div'); m.id = 'tabMissions'; $('#jeu').appendChild(m); m.addEventListener('pointerdown', (e) => e.stopPropagation()); }
+  m.innerHTML = `<div class="planche"><button class="fermer" data-x aria-label="Fermer">×</button><h2>Tableau des missions</h2><p class="sousT">Ennemis d’élite à l’aura meurtrière. Pars seul, ou avec Kordath, Sylvane et Nyxara.</p>
+    <div class="affiches">${offres.map((o, i) => `<div class="affiche" style="--c:${o.couleur};--r:${(i % 2 ? 1 : -1) * (1 + i * 0.4)}deg"><div class="punaise"></div>
+      <div class="etoiles">${'★'.repeat(o.etoiles)}<span>${'★'.repeat(5 - o.etoiles)}</span></div><h3>${o.titre}</h3><p>${o.resume}</p>
+      <div class="cible">Cible : <b>${o.boss}</b><br><small>${o.faction}</small></div><div class="prime">Prime : ${fmt(o.recompense)} ¤</div>
+      <div class="choixM"><button class="btn gris" data-m="${i}" data-e="0">Seul</button><button class="btn or" data-m="${i}" data-e="1">En équipe</button></div></div>`).join('')}</div></div>`;
+  m.onclick = (e) => { if (e.target.closest('[data-x]')) return UI.tableauMissions(null); const b = e.target.closest('[data-m]'); if (b) { api.son('confirmation_001', 0.4); cb(offres[+b.dataset.m], b.dataset.e === '1'); } };
+};

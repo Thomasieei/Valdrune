@@ -335,3 +335,54 @@ export const DUREE_PARCH = 30 * 60;
 export const BOUTIQUE_PARCH_GRATUITE = true; // accès libre pendant la bêta
 
 export const CLASSES_BASE = ['epee', 'arbalete', 'baton', 'arc'];
+
+// ======================= TAVERNE DU CROC-ROUGE =======================
+// compagnons récurrents : ils se souviennent de toi (lien 0-100) et réagissent pendant les missions
+export const COMPAGNONS = [
+  { id: 'kordath', nom: 'Kordath', titre: 'le Roc', arme: 'epee', couleur: '#5a7aaa',
+    debut: ['…On y va. Reste derrière moi.', 'Pas de discours. On frappe, on rentre.'],
+    blesse: ['…C\'est rien. Continue.', 'Tch… ils frappent fort.'],
+    joueurBlesse: ['Recule ! Je les retiens !', 'Ne meurs pas maintenant, pas ici.'],
+    eveil: ['…Cette aura. Qui es-tu vraiment ?', 'Hm. J\'avais raison de te suivre.'],
+    boss: ['Celui-là… je le sens dans mes os.', 'Ensemble. Maintenant.'],
+    fin: ['…Bien joué.', 'On boira un verre. Toi et moi.'] },
+  { id: 'sylvane', nom: 'Sylvane', titre: 'Œil-de-Lynx', arme: 'arbalete', couleur: '#5aaa7a',
+    debut: ['Je couvre tes arrières, promis !', 'Le vent nous est favorable aujourd\'hui.'],
+    blesse: ['Aïe… je… je tiens encore !', 'Ne t\'occupe pas de moi, avance !'],
+    joueurBlesse: ['Non ! Tiens bon, je t\'en supplie !', 'Je vise ses yeux, recule !'],
+    eveil: ['Incroyable… tu… tu brilles !', 'Alors c\'était ça, ta vraie force…'],
+    boss: ['J\'ai peur… mais je ne fuirai pas.', 'Son aura… elle me glace le sang.'],
+    fin: ['On a réussi ! On a vraiment réussi !', 'Merci… d\'être resté avec nous.'] },
+  { id: 'nyxara', nom: 'Nyxara', titre: 'la Pyromane', arme: 'baton', couleur: '#aa5a8a',
+    debut: ['Enfin un peu d\'action ! J\'espère que tu suis, toi.', 'Essaie de ne pas te faire griller par mes flammes, hein.'],
+    blesse: ['Hé ! Personne ne touche à mes cheveux !', 'Ça… ça commence à piquer.'],
+    joueurBlesse: ['Déjà fatigué ? Allez, debout !', 'T\'avise pas de mourir, j\'ai parié sur toi !'],
+    eveil: ['Tu nous as caché ÇA depuis le début ?!', 'Ok… je retire tout ce que j\'ai dit sur toi.'],
+    boss: ['Ohoh… lui, il est pour moi.', 'Qu\'il vienne ! Je vais le réduire en cendres !'],
+    fin: ['Pas mal, pas mal… pour un débutant !', 'Tu me dois une tournée, héros.'] },
+];
+// clients de la taverne : moqueries quand tu sembles faible, respect une fois ta force révélée
+export const TAVERNE_LIGNES = {
+  moque: ['Hé le minus, t\'es perdu ?', 'Avec cette puissance, commande plutôt du lait.', 'Recule, tu sens la défaite.', 'Regardez-moi ce débutant… mdr.', 'Le bout de la file, c\'est là-bas, gamin.', 'T\'as pris ton arme au marché aux puces ?', 'Pousse-toi, j\'ai pas que ça à faire.', 'On m\'a dit que les rats aussi faisaient la queue ici.'],
+  passeDevant: ['Pousse-toi, minus. Les forts passent devant.', 'Je passe avant toi, ça te pose un problème ?', 'Les faibles attendent. C\'est la règle.'],
+  choc: ['… !', 'Qu… quoi ?!', 'C\'est… c\'est une blague ?', 'Cette aura… !', 'J\'ai… j\'ai rien dit, hein.'],
+  respect: ['Passe, je t\'en prie.', 'Pardon… je ne t\'avais pas reconnu.', 'Après toi, maître.', 'Je… je retourne au fond de la file.'],
+  salutRespect: ['Le voilà… personne ne le provoque.', 'C\'est lui, celui à l\'aura écarlate.', 'Salut, champion.', 'Une tournée pour la légende !'],
+  rire: ['Pfff, c\'est tout ?', 'Ahahah ! Tu m\'as fait peur… de rire.', 'Joli feu d\'artifice. Maintenant dégage.'],
+  ambiance: ['Le Gouffre a encore avalé trois groupes hier…', 'Paraît que l\'Ordre de la Lame Noire recrute.', 'Mira, remets-moi ça !', 'Quelqu\'un a vu Brakkus ? Il me doit 2 000 pièces.', 'J\'ai entendu un dragon rugir sous la Place.', 'Les missions de la Main Écarlate, c\'est du suicide.'],
+};
+export const RIVAL_TAVERNE = { nom: 'Brakkus', titre: 'le Colosse', guilde: '[FR] LA HORDE', arme: 'epee' };
+// missions d'aventure du tableau : ennemis d'élite à l'aura meurtrière
+export const FACTIONS = [
+  { nom: 'l\'Ordre de la Lame Noire', couleur: '#ff2a2a', tenue: '#140808', elites: ['Vesper', 'Kael', 'Riven', 'Morgath', 'Selka', 'Draven'], titres: ['aux Mille Lames', 'le Boucher', 'l\'Ombre Rouge', 'Lame-Sanglante'] },
+  { nom: 'les Chiens de Cendre', couleur: '#ff8a2a', tenue: '#2a1a0a', elites: ['Ashra', 'Grim', 'Toben', 'Raska', 'Vorn', 'Ilda'], titres: ['le Brûlé', 'Croc-de-Fer', 'la Cendreuse', 'le Chien Fou'] },
+  { nom: 'la Main Écarlate', couleur: '#d02aff', tenue: '#140a1a', elites: ['Nihil', 'Seraph', 'Oriane', 'Lucan', 'Myrr', 'Zhaal'], titres: ['l\'Exécuteur', 'aux Yeux Morts', 'le Sans-Visage', 'la Faucheuse'] },
+];
+export const MISSIONS = [
+  { id: 'convoi', titre: 'Le convoi disparu', resume: 'Un convoi d\'or a disparu sur la route de la forêt. Retrouve les responsables et récupère la cargaison.', boss: { nom: 'Varek', titre: 'Lame de l\'Abîme', arme: 'epee' }, intro: 'Tiens, tiens… des chiens envoyés par la Taverne ?', phase2: 'Tu m\'obliges à libérer ma vraie lame. Tu vas le regretter.', mort: 'Impossible… battu… par toi… ?' },
+  { id: 'pretresse', titre: 'La prêtresse captive', resume: 'Une prêtresse du Sanctuaire a été enlevée. Ses ravisseurs préparent un rituel au cœur des bois.', boss: { nom: 'Ysmera', titre: 'Sorcière du Voile', arme: 'baton' }, intro: 'Le rituel est presque achevé. Ton sang le complétera.', phase2: 'Assez joué ! Le Voile se déchire pour moi !', mort: 'Le Voile… se referme… non…' },
+  { id: 'chasse', titre: 'La chasse au traître', resume: 'Un ancien héros de la Place a trahi les siens. Il se cache avec ses mercenaires. Ramène sa tête.', boss: { nom: 'Orsen', titre: 'le Traître', arme: 'arbalete' }, intro: 'Ils t\'ont envoyé, toi ? Ils me sous-estiment toujours.', phase2: 'Fini de jouer. Je vais te montrer pourquoi on m\'appelait le Héros.', mort: 'J\'étais… comme toi… avant…' },
+  { id: 'gouffre', titre: 'Le gardien du gouffre', resume: 'Une créature humanoïde sort du gouffre la nuit et dévore les voyageurs. Arrête-la avant l\'aube.', boss: { nom: 'Morrigar', titre: 'le Dévoreur', arme: 'orage' }, intro: 'Mmmh… de la chair qui sent la peur.', phase2: 'GRAAAAH ! Je vais te broyer les os !', mort: 'La faim… s\'arrête… enfin…' },
+  { id: 'tournoi', titre: 'Le tournoi sanglant', resume: 'Une guilde organise des combats clandestins. Infiltre-toi et fais tomber son champion.', boss: { nom: 'Dame Kesha', titre: 'Championne invaincue', arme: 'assassin' }, intro: 'Un nouveau jouet ? Essaie de durer plus de dix secondes.', phase2: 'Personne ne m\'a jamais forcée à sortir mes deux lames.', mort: 'Invaincue… jusqu\'à aujourd\'hui…' },
+  { id: 'relique', titre: 'La relique maudite', resume: 'Des pillards ont volé une relique qui corrompt ceux qui la portent. Leur chef n\'est plus humain.', boss: { nom: 'Haldor', titre: 'le Corrompu', arme: 'baton' }, intro: 'La relique… me parle… elle veut ton âme.', phase2: 'Elle me donne TOUT son pouvoir !', mort: 'Merci… de m\'avoir… libéré…' },
+];

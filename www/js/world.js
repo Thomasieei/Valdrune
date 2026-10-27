@@ -81,7 +81,7 @@ export function construireHub() {
   inst.ajouter('pillar', X0 * CELL, 0, (Z1 + 1) * CELL, 0, 0.8, 0.5, 0.8);
   inst.ajouter('pillar', (X1 + 1) * CELL, 0, Z0 * CELL, 0, 0.8, 1, 0.8);
   // décor
-  const deco = [['barrel_large', -24, 18], ['barrel_small_stack', -21.5, 19.5], ['crates_stacked', -24, -6], ['rubble_half', 20, 19], ['sword_shield_broken', 8, -20], ['trunk_large_A', 3, -21]];
+  const deco = [['barrel_large', -24, 18], ['barrel_small_stack', -21.5, 19.5], ['crates_stacked', -24, -6], ['rubble_half', 20, 19]];
   for (const [k, x, z] of deco) inst.ajouter(k, x, 0, z, rnd(0, 6.28));
   inst.construire(groupe);
 
@@ -157,9 +157,19 @@ export function construireHub() {
   const portailGoulet = construirePortail(groupe, PB, 0.7, THEME_GOULET, 0.55); portailGoulet.groupe.visible = false;
   for (const [k, x, z, r2, s2] of [['barrel_large', 21.8, 16.8, 0, 0.7], ['crates_stacked', 22.5, 9.6, 0.4, 0.7]]) groupe.add(cloner(k, x, 0, z, r2, s2));
 
+  // ---- La Taverne du Croc-Rouge (nord, contre le rempart) ----
+  const TV = new THREE.Vector3(1, 0, -19.6);
+  groupe.add(cloner('b_tavern', TV.x, 0, TV.z, Math.PI, 6.4));
+  { const enseigne = texture('enseigne_croc', 256, 128, (g, w2, h2) => { g.fillStyle = '#3a2414'; g.fillRect(0, 0, w2, h2); g.strokeStyle = '#d8a84a'; g.lineWidth = 6; g.strokeRect(6, 6, w2 - 12, h2 - 12); g.fillStyle = '#ffd27a'; g.font = 'bold 34px serif'; g.textAlign = 'center'; g.fillText('Le Croc-Rouge', w2 / 2, 56); g.font = 'italic 22px serif'; g.fillStyle = '#e8c8a0'; g.fillText('taverne · missions', w2 / 2, 94); });
+    const pl = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.7), new THREE.MeshStandardMaterial({ map: enseigne, roughness: 0.8, emissive: '#2a1408', emissiveIntensity: 0.6 })); pl.position.set(TV.x + 3.2, 4.2, TV.z + 5.2); pl.rotation.y = -0.2; groupe.add(pl);
+    const potence = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 1.4), new THREE.MeshStandardMaterial({ color: '#2a1a10' })); potence.position.set(TV.x + 3.2, 5.15, TV.z + 4.6); groupe.add(potence);
+    for (const dx of [-2.4, 2.4]) { const l = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8), new THREE.MeshBasicMaterial({ color: '#ffcf7a' })); l.position.set(TV.x + dx, 3.1, TV.z + 5.4); groupe.add(l); G.torches.push({ pos: new THREE.Vector3(TV.x + dx, 3, TV.z + 5.6), color: '#ffb05a', int: 26, dist: 12 }); }
+    for (const [k, dx, dz, s] of [['barrel_large', -4.6, 5.2, 0.7], ['barrel_small_stack', 5.2, 5, 0.8], ['keg_decorated', -5.6, 3.4, 0.6]]) groupe.add(cloner(k, TV.x + dx, 0, TV.z + dz, 0.3, s));
+  }
   G.scene.add(groupe);
   // Collisions
   const collisions = [
+    { x: TV.x - 2.6, z: TV.z, r: 3.4 }, { x: TV.x + 2.6, z: TV.z, r: 3.4 }, { x: TV.x, z: TV.z - 2, r: 3.4 }, { x: TV.x - 4.6, z: TV.z + 5.2, r: 0.8 }, { x: TV.x + 5.2, z: TV.z + 5, r: 0.8 },
     { x: 0, z: 0, r: 2.8 }, ...[[7, 7], [-7, 7], [7, -7], [-7, -7]].map(([x, z]) => ({ x, z, r: 0.7 })),
     { x: M.x, z: M.z, r: 2.4 }, { x: M.x - 1.6, z: M.z - 1.6, r: 2.4 }, { x: M.x + 1.6, z: M.z - 1.6, r: 2.4 }, { x: M.x - 2.4, z: M.z - 2.4, r: 2.6 },
     { x: P.x, z: P.z, r: 3.2 }, { x: PA.x, z: PA.z, r: 3.2 }, { x: PI.x, z: PI.z, r: 1.8 }, { x: 21.8, z: 16.8, r: 0.9 }, { x: 22.5, z: 9.6, r: 1.0 }, { x: -24, z: 18, r: 1.2 }, { x: -24, z: -6, r: 1.3 },
@@ -168,7 +178,7 @@ export function construireHub() {
     groupe, type: 'hub', nom: 'Place des Cendres',
     spawn: new THREE.Vector3(0, 0, 9),
     marchand: { pos: M.clone().add(new THREE.Vector3(-1.4, 0, -1.4)), rot: Math.PI / 4, comptoir: M.clone() },
-    portail, portailArene, portailIle, portailGoulet, passeur,
+    portail, portailArene, portailIle, portailGoulet, passeur, taverne: { porte: new THREE.Vector3(TV.x, 0, TV.z + 5.4) },
     marche: (x, z) => x > X0 * CELL + 0.8 && x < (X1 + 1) * CELL - 0.8 && z > Z0 * CELL + 0.8 && z < (Z1 + 1) * CELL - 0.8,
     collisions,
     bornes: { x0: X0 * CELL, x1: (X1 + 1) * CELL, z0: Z0 * CELL, z1: (Z1 + 1) * CELL },
@@ -1207,5 +1217,85 @@ export function construireSylve() {
     groupe, type: 'sylve', nom: 'Sanctuaire d’Émeraude', spawn, sortie: P(-5, 0), salles, troncons, segs, packs, barrieres, collisions, marche,
     rayonMonde: 160, bornes: { x0: -12, x1: 310, z0: -48, z1: 30 },
     zoneDe: (x, z) => { const s = dansSalle(x, z); return s ? 'S' + s.id : -1; },
+  };
+}
+
+// ======================= INTÉRIEUR DE LA TAVERNE =======================
+export function construireTaverne() {
+  const groupe = new THREE.Group();
+  G.torches = []; G.feux = []; G.anims = [];
+  const X0 = -14, X1 = 14, Z0 = -10, Z1 = 10;
+  const inst = new Instancieur(), collisions = [];
+  // parquet en planches
+  const planches = texture('parquet', 512, 512, (g, w2, h2) => {
+    for (let y = 0; y < h2; y += 32) { const l = 22 + Math.random() * 8; g.fillStyle = `hsl(25,${38 + Math.random() * 10}%,${l}%)`; g.fillRect(0, y, w2, 32); g.fillStyle = 'rgba(0,0,0,0.35)'; g.fillRect(0, y, w2, 2); for (let x = (y / 32 % 2) * 128; x < w2; x += 256) g.fillRect(x, y, 2, 32);
+      for (let k = 0; k < 30; k++) { g.fillStyle = `rgba(${Math.random() < 0.5 ? '0,0,0' : '255,220,170'},${Math.random() * 0.08})`; g.fillRect(Math.random() * w2, y + Math.random() * 30, 20 + Math.random() * 60, 1.5); } }
+  }, { repeat: true });
+  planches.repeat.set(5, 4);
+  const sol = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0, Z1 - Z0), new THREE.MeshStandardMaterial({ map: planches, roughness: 0.85 }));
+  sol.rotation.x = -Math.PI / 2; sol.receiveShadow = true; groupe.add(sol);
+  solAbysse(groupe, 0, 0, 120);
+  // murs (nord et ouest hauts, sud et est bas pour la caméra)
+  for (let x = X0 + 2; x < X1; x += 4) { inst.ajouter(x % 12 === 2 ? 'wall_arched' : 'wall', x, 0, Z0 - 0.5, 0); inst.ajouter('barrier', x, 0, Z1 + 0.25, 0); }
+  for (let z = Z0 + 2; z < Z1; z += 4) { inst.ajouter('wall', X0 - 0.5, 0, z, Math.PI / 2); inst.ajouter('barrier', X1 + 0.25, 0, z, Math.PI / 2); }
+  for (const [x, z] of [[X0, Z0], [X1, Z0], [X0, Z1], [X1, Z1]]) inst.ajouter('pillar', x, 0, z, 0, 0.75, 1, 0.75);
+  // poutres du plafond (suggérées) et lustres
+  const bois = new THREE.MeshStandardMaterial({ color: '#3a2414', roughness: 0.9 });
+  for (const x of [-7, 0, 7]) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 3.2), bois); p.position.set(x, 3.9, Z0 + 1.6); groupe.add(p); }
+  for (const [x, z] of [[-6, 0], [6, 0]]) {
+    const lustre = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.08, 6, 20), bois); lustre.rotation.x = Math.PI / 2; lustre.position.set(x, 3.6, z); groupe.add(lustre);
+    for (let i = 0; i < 6; i++) { const a = i / 6 * 6.28; inst.ajouter('candle_lit', x + Math.cos(a) * 0.9, 3.55, z + Math.sin(a) * 0.9, 0, 0.5, 0.5, 0.5); }
+    G.torches.push({ pos: new THREE.Vector3(x, 3.2, z), color: '#ffb46a', int: 34, dist: 14 });
+  }
+  // le comptoir de Mira (nord) et l'arrière-bar
+  for (const x of [-4, 0, 4]) inst.ajouter('table_long_decorated_A', x, 0, -6.2, Math.PI / 2);
+  for (let x = -5; x <= 5; x += 1.4) collisions.push({ x, z: -6.2, r: 1.0 });
+  for (const x of [-6, -2, 2, 6]) inst.ajouter('shelves', x, 0.5, Z0 + 0.3, 0);
+  for (const x of [-4, 0, 4]) inst.ajouter('shelf_small_candles', x, 2.7, Z0 + 0.3, 0);
+  for (const x of [-10, 9.5]) { inst.ajouter('keg_decorated', x, 0, -8.2, 0, 0.85, 0.85, 0.85); collisions.push({ x: x - 1, z: -8.2, r: 1 }, { x: x + 1, z: -8.2, r: 1 }); }
+  inst.ajouter('banner_patternA_red', -8, 0, Z0 + 0.1, 0); inst.ajouter('banner_patternB_red', 8, 0, Z0 + 0.1, 0);
+  // grande cheminée (ouest)
+  const pierre = pierreMat('#6a5a50', '#4a3e36');
+  const chem = new THREE.Mesh(new THREE.BoxGeometry(1.6, 3.6, 4.4), pierre); chem.position.set(X0 + 0.6, 1.8, 2); chem.castShadow = true; groupe.add(chem);
+  const foyer = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.4, 2.4), new THREE.MeshBasicMaterial({ color: '#1a0804' })); foyer.position.set(X0 + 1.45, 0.7, 2); groupe.add(foyer);
+  const braises = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 2.2), new THREE.MeshBasicMaterial({ color: '#ff7a1a', transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, map: texRond() })); braises.rotation.set(-Math.PI / 2, 0, Math.PI / 2); braises.position.set(X0 + 1.9, 0.12, 2); groupe.add(braises);
+  G.feux.push({ pos: new THREE.Vector3(X0 + 1.9, 0.4, 2), couleur: '#ff7a2a', force: 1.2 });
+  G.torches.push({ pos: new THREE.Vector3(X0 + 2.6, 1.4, 2), color: '#ff8a3a', int: 40, dist: 14 });
+  collisions.push({ x: X0 + 1, z: 0.5, r: 1.2 }, { x: X0 + 1, z: 3.5, r: 1.2 });
+  // tapis devant la cheminée
+  const tapisT = texture('tapisTaverne', 256, 256, (g, w2) => { g.fillStyle = '#5a1418'; g.fillRect(0, 0, w2, w2); g.strokeStyle = '#d8a84a'; g.lineWidth = 8; g.strokeRect(12, 12, w2 - 24, w2 - 24); g.fillStyle = '#7a2a1a'; g.beginPath(); g.arc(w2 / 2, w2 / 2, 70, 0, 7); g.fill(); g.strokeStyle = '#d8a84a'; g.lineWidth = 4; g.stroke(); });
+  const tapis = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 5), new THREE.MeshStandardMaterial({ map: tapisT, roughness: 1 })); tapis.rotation.x = -Math.PI / 2; tapis.position.set(X0 + 4.5, 0.03, 2); groupe.add(tapis);
+  // tables et tonneaux en guise de tabourets
+  const tables = [[-6.5, 3.2], [5.5, 3.6], [-1.5, 6.4], [9.6, -2.4]];
+  for (const [x, z] of tables) {
+    inst.ajouter('table_long_tablecloth_decorated_A', x, 0, z, Math.PI / 2, 0.9, 0.9, 0.9);
+    collisions.push({ x: x - 1.1, z, r: 1.0 }, { x: x + 1.1, z, r: 1.0 });
+    for (const dz of [-1.6, 1.6]) inst.ajouter('barrel_small_stack', x + (Math.random() - 0.5), 0, z + dz, Math.random() * 6, 0.45, 0.45, 0.45);
+  }
+  // le tableau des missions (mur ouest, près de l'entrée de la salle)
+  const notes = texture('tableau_missions', 256, 192, (g, w2, h2) => {
+    g.fillStyle = '#4a2e18'; g.fillRect(0, 0, w2, h2); g.strokeStyle = '#2a180a'; g.lineWidth = 10; g.strokeRect(5, 5, w2 - 10, h2 - 10);
+    const cols = ['#f0e0b8', '#e8d0a0', '#f4e8c8', '#e0c890'];
+    for (let i = 0; i < 6; i++) { const x = 22 + (i % 3) * 76, y = 22 + Math.floor(i / 3) * 82; g.save(); g.translate(x + 30, y + 32); g.rotate((Math.random() - 0.5) * 0.25); g.fillStyle = cols[i % 4]; g.fillRect(-30, -32, 60, 64); g.fillStyle = 'rgba(60,40,20,0.7)'; for (let l = 0; l < 5; l++) g.fillRect(-22, -20 + l * 9, 30 + Math.random() * 14, 3); g.fillStyle = '#b02020'; g.beginPath(); g.arc(0, -28, 4, 0, 7); g.fill(); g.restore(); }
+  });
+  const tableau = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 2.4), new THREE.MeshStandardMaterial({ map: notes, roughness: 0.9 }));
+  tableau.position.set(X0 + 0.15, 2.1, -4.6); tableau.rotation.y = Math.PI / 2; groupe.add(tableau);
+  G.torches.push({ pos: new THREE.Vector3(X0 + 1.5, 2.6, -4.6), color: '#ffd28a', int: 18, dist: 7 });
+  inst.ajouter('candle_triple', X0 + 0.9, 0, -2.8, 0); inst.ajouter('torch_mounted', X0 + 0.1, 2.4, -7.2, Math.PI / 2);
+  // le coin de l'oracle (est) : boule de cristal
+  const boule = new THREE.Mesh(new THREE.SphereGeometry(0.32, 20, 14), new THREE.MeshStandardMaterial({ color: '#c8a0ff', emissive: '#7a3aff', emissiveIntensity: 1.6, transparent: true, opacity: 0.85 }));
+  boule.position.set(9.6, 1.25, -2.4); groupe.add(boule); G.anims.push((t) => { boule.material.emissiveIntensity = 1.3 + Math.sin(t * 2.5) * 0.5; });
+  G.torches.push({ pos: new THREE.Vector3(9.6, 2, -2.4), color: '#a070ff', int: 16, dist: 7 });
+  for (const [k, x, z, r] of [['crates_stacked', 12, 7.5, 0.3], ['barrel_large', 12.4, 4.8, 0], ['chest', -11.5, 8, 0.5]]) { inst.ajouter(k, x, 0, z, r, 0.8, 0.8, 0.8); collisions.push({ x, z, r: 1.1 }); }
+  inst.construire(groupe);
+  G.scene.add(groupe);
+  return {
+    groupe, type: 'taverne', nom: 'Le Croc-Rouge', collisions,
+    spawn: new THREE.Vector3(0, 0, 8), sortie: new THREE.Vector3(0, 0, 9.3),
+    comptoir: new THREE.Vector3(0, 0, -4.4), mira: new THREE.Vector3(0, 0, -8), tableau: new THREE.Vector3(X0 + 1.6, 0, -4.6), oracle: new THREE.Vector3(11.4, 0, -2.4),
+    file: [new THREE.Vector3(0, 0, -4.4), new THREE.Vector3(0.4, 0, -3), new THREE.Vector3(0.2, 0, -1.6), new THREE.Vector3(0.6, 0, -0.2), new THREE.Vector3(0.3, 0, 1.2)],
+    places: [[-6.5, 1.6], [-6.5, 4.8], [5.5, 2], [5.5, 5.2], [-1.5, 4.8], [-3.6, 6.4], [8.4, 6.8], [-10.6, 1.8], [11.6, 1.2]].map(([x, z]) => new THREE.Vector3(x, 0, z)),
+    bornes: { x0: X0, x1: X1, z0: Z0, z1: Z1 },
+    marche: (x, z) => x > X0 + 0.8 && x < X1 - 0.8 && z > Z0 + 0.8 && z < Z1 - 0.6,
   };
 }
