@@ -34,7 +34,7 @@ export function initRendu(canvas) {
   G.scene.add(G.hemi);
   G.sun = new THREE.DirectionalLight('#c9b8ff', 1.25);
   G.sun.castShadow = true;
-  G.sun.shadow.mapSize.set(1024, 1024);
+  G.sun.shadow.mapSize.set(matchMedia('(pointer: coarse)').matches ? 768 : 1024, matchMedia('(pointer: coarse)').matches ? 768 : 1024);
   const sc = G.sun.shadow.camera; sc.left = -22; sc.right = 22; sc.top = 22; sc.bottom = -22; sc.near = 1; sc.far = 80;
   G.sun.shadow.bias = -0.0008; G.sun.shadow.normalBias = 0.03;
   G.scene.add(G.sun, G.sun.target);
@@ -57,7 +57,8 @@ export function initRendu(canvas) {
   G.composer.addPass(sortie); G.etalon = sortie;
   // Pool de lumières ponctuelles (torches)
   G.lightPool = [];
-  for (let i = 0; i < 4; i++) {
+  const TACTILE = matchMedia('(pointer: coarse)').matches; G.tactile = TACTILE;
+  for (let i = 0; i < (TACTILE ? 2 : 4); i++) { // téléphone : 2 torches allumées à la fois (chaque lumière se recalcule sur chaque pixel)
     const l = new THREE.PointLight('#ff9a4a', 0, 13, 1.6);
     G.scene.add(l); G.lightPool.push(l);
   }
@@ -132,6 +133,8 @@ function cullActeurs() {
     if (vis) {
       const ombre = G.niveau > 0 && Math.abs(p.x - f.x) + Math.abs(p.z - f.z) < 20; // ombres des persos proches seulement
       if (ombre !== a._ombre) { a._ombre = ombre; for (const m of a.meshes) m.castShadow = ombre; }
+      const proche = Math.abs(p.x - f.x) + Math.abs(p.z - f.z) < 16; // contour seulement sur les persos proches (de loin il ne se voit pas)
+      if (a._contour && proche !== a._cv) { a._cv = proche; for (const c of a._contour) c.visible = proche && !a._fantome; }
     }
   }
 }
@@ -195,7 +198,7 @@ export function rendre() {
   G.renderer.info.reset();
   cullActeurs(); majBlobs();
   G._img = (G._img || 0) + 1;
-  if (G.renderer.shadowMap.enabled) G.renderer.shadowMap.needsUpdate = (G._img & 1) === 0;
+  if (G.renderer.shadowMap.enabled) G.renderer.shadowMap.needsUpdate = G._img % (G.tactile ? 3 : 2) === 0;
   if (G.niveau >= 2) G.composer.render(); else G.renderer.render(G.scene, G.camera); // sans bloom : rendu direct, anticrénelé par le navigateur
   if (G.vueOmbre && G.vueOmbre.rect) rendreVueOmbre();
   if (G.ecrans && (G._img % 4 === 0)) { const E = G.ecrans, R = G.renderer, sm = R.shadowMap.needsUpdate; R.shadowMap.needsUpdate = false; for (const m of E.meshes) m.visible = false; const pv = G.points && G.points.visible; if (G.points) G.points.visible = false; R.setRenderTarget(E.rt); R.render(G.scene, E.cam); R.setRenderTarget(null); for (const m of E.meshes) m.visible = true; if (G.points) G.points.visible = pv; R.shadowMap.needsUpdate = sm; }

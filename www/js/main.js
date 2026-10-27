@@ -1160,7 +1160,7 @@ function mortGoulet(x) {
   programmer(2.2, () => { if (!goulet || goulet.fini || !x.mort || !goulet.morts.has(x)) return; const cm = monde.bases[c].cimetiere; x.pos.copy(pointLibrePres(V(cm.x, 0, cm.z - 0.5), 0, 3.5)); x.root.position.y = 0; fantome(x, true); x.jouer('Sit_Floor_Idle', { forcer: true }); emettre(V(x.pos.x, 1, x.pos.z), { n: 20, c1: '#ffffff', c2: '#9ad8ff', vit: 2, vie: 0.8, taille: 0.35, grav: -2 }); if (x === joueur) G.camTarget.copy(x.pos); });
 }
 function fantome(x, on) {
-  if (x._contour) for (const c of x._contour) c.visible = !on;
+  x._fantome = on; x._cv = undefined; if (x._contour) for (const c of x._contour) c.visible = !on;
   for (const m of x.mats || []) { if (on) { if (!m.userData.op0) m.userData.op0 = [m.transparent, m.opacity]; m.transparent = true; m.opacity = 0.42; } else if (m.userData.op0) { [m.transparent, m.opacity] = m.userData.op0; m.userData.op0 = null; } }
 }
 function relever(x) {
