@@ -40,7 +40,7 @@ export function initRendu(canvas) {
   G.scene.add(G.sun, G.sun.target);
   // Composer + bloom
   // rendu intermédiaire avec anticrénelage (MSAA) : sans ça, les contours des persos sont pixelisés dès que le bloom est actif
-  const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
+  const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: matchMedia('(pointer: coarse)').matches ? 2 : 4 }); // téléphone : 2 échantillons suffisent (la carte graphique saturait)
   G.composer = new EffectComposer(r, rt);
   G.composer.addPass(new RenderPass(G.scene, G.camera));
   G.bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 0.75, 0.45, 0.78);
@@ -70,12 +70,12 @@ export function initRendu(canvas) {
 export function redimensionner() {
   const w = window.innerWidth, h = window.innerHeight;
   const tactile = matchMedia('(pointer: coarse)').matches;
-  const pr = Math.max(0.85, Math.min(window.devicePixelRatio || 1, G.niveau >= 2 ? (tactile ? 1.6 : 1.75) : G.niveau === 1 ? (tactile ? 1.35 : 1.4) : 1.1) * (G.resK || 1)); // même en qualité basse on reste au-dessus de 1 : plus d'image pixelisée
+  const pr = Math.max(0.85, Math.min(window.devicePixelRatio || 1, G.niveau >= 2 ? (tactile ? 1.2 : 1.75) : G.niveau === 1 ? (tactile ? 1.1 : 1.4) : 1.0) * (G.resK || 1)); // même en qualité basse on reste au-dessus de 1 : plus d'image pixelisée
   G.renderer.setPixelRatio(pr);
   G.renderer.setSize(w, h, false);
   G.composer.setPixelRatio(pr);
   G.composer.setSize(w, h);
-  G.bloom.resolution.set(w * pr * 0.5, h * pr * 0.5);
+  G.bloom.resolution.set(w * pr * 0.35, h * pr * 0.35);
   G.camera.aspect = w / h;
   // en portrait on recule pour garder la scène lisible
   G.camera.fov = G.fovBase = G._fov = w < h ? 55 : 38;
