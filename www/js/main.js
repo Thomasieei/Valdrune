@@ -3293,7 +3293,7 @@ async function entrerTerres() {
       for (let i = 0; i < n; i++) { const p = pointLibrePres(V(cp.pos.x + rnd(-5, 5), 0, cp.pos.z + rnd(-5, 5)), 0, 3); const def = MOBS[hasard(types)] || MOBS.guerrier; liste.push(creerEnnemi(def, p, tier, 100 + k)); }
       const chef = liste[0]; chef.pvMax *= 2.5; chef.pv = chef.pvMax; chef.root.scale.multiplyScalar(1.25);
       const couleur = cp.danger >= 3 ? (Math.random() < 0.35 ? 'legendaire' : 'violet') : cp.danger === 2 ? (Math.random() < 0.5 ? 'violet' : 'bleu') : cp.danger === 1 ? 'bleu' : 'vert';
-      creerCoffre(pointLibrePres(V(cp.pos.x, 0, cp.pos.z + 3), 0.5, 2), couleur, chef);
+      creerCoffre(pointLibrePres(V(cp.pos.x, 0, cp.pos.z + 3), 0.5, 2), couleur, { get mort() { return liste.every(e => e.mort || e.etat === 'possede'); }, boss: { nom: 'tous les gardiens du camp' }, idx: Math.min(3, cp.danger) });
     });
     const dr = creerBoss(BOSS[3], monde.dragon.clone(), Math.min(8, t + 2), null); dr.pvMax *= 1.6; dr.pv = dr.pvMax; terres.dragon = dr;
     creerCoffre(pointLibrePres(V(monde.dragon.x - 6, 0, monde.dragon.z + 6), 0.5, 2), 'legendaire', dr);
@@ -3922,7 +3922,7 @@ function majInteractions() {
   for (const c of coffres) {
     if (c.ouvert || dist2D(joueur.pos, c.pos) > 3.6) continue;
     if (c.depouille) return UI.action('Fouiller la dépouille', () => ouvrirDepouille(c));
-    if (!c.boss.mort) return UI.action('Coffre scellé', () => UI.toast(`Bats ${c.boss.boss.nom} pour l’ouvrir`));
+    if (!c.boss.mort) return UI.action('Coffre scellé', () => UI.toast(`Bats ${(c.boss.boss && c.boss.boss.nom) || c.boss.nom || 'ses gardiens'} pour l’ouvrir`));
     return UI.action('Ouvrir le ' + c.def.nom.toLowerCase(), () => ouvrirCoffre(c));
   }
   if (taverne) return actionTaverne();
@@ -4018,7 +4018,9 @@ function initEntrees() {
     entree.jx = dx / r; entree.jy = -dy / r;
   });
   const fin = (e) => { if (e.pointerId !== id) return; id = null; entree.jx = entree.jy = 0; stick.style.transform = ''; joy.style.left = ''; joy.style.bottom = ''; };
-  zone.addEventListener('pointerup', fin); zone.addEventListener('pointercancel', fin);
+  zone.addEventListener('pointerup', fin); zone.addEventListener('pointercancel', fin); zone.addEventListener('lostpointercapture', fin);
+  // filet de sécurité : si le doigt est levé ailleurs (une fenêtre s'est ouverte par-dessus), le joystick se relâche quand même
+  window.addEventListener('pointerup', fin, true); window.addEventListener('pointercancel', fin, true);
   // tap sur la scène : choisir une cible ou interagir ; un tracé dessine un signe de sort
   initGestes($('#scene'), {
     actif: () => enJeu && joueur && !joueur.mort && !!modeActuel && G.gestes !== false,
