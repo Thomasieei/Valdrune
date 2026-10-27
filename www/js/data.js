@@ -91,6 +91,16 @@ export const ARMES = {
     noms: ['', 'Surins émoussés', 'Crocs de vipère', 'Épines du silence', 'Lames du crépuscule', 'Sang-froid', 'Murmure écarlate', 'Dernier soupir', 'Fin de partie'],
     sorts: ['triple', 'curee', 'zephyr'],
   },
+  // classe de style « puissance monstrueuse » : télékinésie (soulever, écraser, projeter) et trois lames spectrales
+  esprit: {
+    label: 'Grimoire de l’Esprit', court: 'Esprit', model: 'Mage', node: 'Spellbook_open', rare: true, esprit: true,
+    helmet: null, cape: 'Mage_Cape', legs: ['Mage_LegLeft', 'Mage_LegRight'], body: 'Mage_Body',
+    portee: 11, vitesse: 0.9, base: 38, projectile: 'esprit',
+    idle: 'Idle', run: 'Running_A',
+    attaques: ['Spellcast_Shoot'],
+    noms: ['', 'Carnet du rêveur', 'Grimoire de bronze', 'Codex des murmures', 'Livre d’azur', 'Psautier de braise', 'Somme solaire', 'Codex de l’abysse', 'Pensée céleste'],
+    sorts: ['emprise', 'lames', 'onde'],
+  },
 };
 export const CHANCE_OMBRE = 0.001; // 0,1 %
 export const CODES_BETA = { 'BRECHE-OMBRE': { arme: 'ombre', tier: 1, texte: 'Accès bêta : Dagues des Ombres T1' }, 'BRECHE-ORAGE': { arme: 'orage', tous: true, reutilisable: true, texte: 'Haches de l’Orage T1 à T8 ajoutées (maîtrise niveau 90)' }, 'BRECHE-ASSASSIN': { arme: 'assassin', tous: true, reutilisable: true, texte: 'Lames de l’Assassin T1 à T8 ajoutées (maîtrise niveau 90)' } };
@@ -146,6 +156,10 @@ export const SORTS = {
   triple:    { nom: 'Triple entaille', desc: 'Sans recharge. Fonds sur ta cible (6 m) et enchaîne 3 coups éclair. +3 points de combo.', cd: 0, energie: 22, mult: 0.55, portee: 6, type: 'cible', couleur: ['#ff8a8a', '#3a0008'], glyphe: 'triple' },
   curee:     { nom: 'Curée', desc: 'Finisher automatique sur la cible la plus proche : consomme tous les points de combo. Dégâts énormes par point ; à 5 points, tu disparais 1 s.', cd: 7, energie: 28, mult: 0.8, portee: 9, type: 'cible', couleur: ['#ffd0d0', '#8a0010'], glyphe: 'curee' },
   zephyr:    { nom: 'Pas du zéphyr', desc: '3 dashs foudroyants en 5 s qui traversent et entaillent les ennemis (+1 combo chacun), et +40 % de vitesse pendant 5 s.', cd: 15, energie: 22, mult: 0.55, portee: 8, type: 'dash', couleur: ['#e0fff0', '#0a5a3a'], glyphe: 'zephyr' },
+  // --- Esprit (télékinésie) ---
+  emprise:   { nom: 'Emprise', desc: 'Soulève ta cible par la pensée — monstre, joueur ou passant. Ensuite, tu choisis : la déposer en douceur, l’écraser au sol (le décor éclate), ou la projeter où tu vises, sur d’autres ennemis.', cd: 6, energie: 24, mult: 4.2, portee: 15, type: 'tk', couleur: ['#f0e0ff', '#4a1a8a'], glyphe: 'main' },
+  lames:     { nom: 'Trois lames', desc: 'Invoque trois lames spectrales qui tournent autour de toi et te défendent jusqu’à se briser. Relance pour leur donner un ordre : garde, assaut, ou exploration du donjon (10 % plus vite que toi). Elles grandissent avec ton tier et tes talents.', cd: 2, energie: 10, mult: 0.45, portee: 16, type: 'lames', couleur: ['#e8f0ff', '#3a2a8a'], glyphe: 'lames' },
+  onde:      { nom: 'Onde de force', desc: 'Une vague de pure volonté repousse et soulève tout ce qui t’entoure (7 m), étourdit 0,6 s.', cd: 9, energie: 28, mult: 1.6, portee: 7, type: 'onde', couleur: ['#d8c8ff', '#2a0a5a'], glyphe: 'onde' },
   // --- Maître des bêtes ---
   tirArc:    { nom: 'Flèche écarlate', desc: 'Tire une flèche chargée qui traverse tout sur 20 m et inflige des dégâts énormes. Saigne 4 s.', cd: 20, energie: 30, mult: 7.5, portee: 20, type: 'ligne', couleur: ['#ff6a5a', '#3a0004'], glyphe: 'fleche' },
   meute:     { nom: 'Appel de la meute', desc: 'Invoque tes loups démoniaques (3 au total). Tant que la meute est complète, ce sort devient un enchaînement : Entrave bestiale → Rugissement de la meute → Bond meurtrier.', cd: 20, energie: 30, mult: 0, portee: 0, type: 'invocation', couleur: ['#ff4a3a', '#2a0006'], glyphe: 'loup' },
@@ -265,7 +279,7 @@ export const CHAT = [
 // ---- Maîtrise : niveau requis par tier ----
 export const NIVEAU_REQUIS = [0, 1, 15, 40, 50, 60, 70, 80, 90];
 export const MAITRISES = [
-  { id: 'epee', nom: 'Épée à deux mains', cat: 'arme' }, { id: 'arbalete', nom: 'Arbalète lourde', cat: 'arme' }, { id: 'baton', nom: 'Bâton de feu', cat: 'arme' }, { id: 'arc', nom: 'Arc du Maître des bêtes', cat: 'arme' }, { id: 'ombre', nom: 'Dagues des Ombres', cat: 'arme', rare: true }, { id: 'orage', nom: 'Haches de l’Orage', cat: 'arme', rare: true }, { id: 'assassin', nom: 'Lames de l’Assassin', cat: 'arme', rare: true },
+  { id: 'epee', nom: 'Épée à deux mains', cat: 'arme' }, { id: 'arbalete', nom: 'Arbalète lourde', cat: 'arme' }, { id: 'baton', nom: 'Bâton de feu', cat: 'arme' }, { id: 'arc', nom: 'Arc du Maître des bêtes', cat: 'arme' }, { id: 'ombre', nom: 'Dagues des Ombres', cat: 'arme', rare: true }, { id: 'orage', nom: 'Haches de l’Orage', cat: 'arme', rare: true }, { id: 'assassin', nom: 'Lames de l’Assassin', cat: 'arme', rare: true }, { id: 'esprit', nom: 'Grimoire de l’Esprit', cat: 'arme', rare: true },
   { id: 'casque', nom: 'Armure de tête', cat: 'armure' }, { id: 'plastron', nom: 'Armure de poitrine', cat: 'armure' }, { id: 'bottes', nom: 'Armure de pieds', cat: 'armure' },
 ];
 

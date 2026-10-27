@@ -169,6 +169,18 @@ function svgHaches(tier) {
   return `<defs>${defsBase(P, id)}</defs>${P.halo ? `<circle cx="128" cy="128" r="118" fill="url(#${id}h)"/>` : ''}
     <g transform="rotate(30 128 140)">${hache}</g><g transform="translate(256,0) scale(-1,1) rotate(30 128 140)">${hache}</g>${P.gemme ? gemme(128, 160, 9, id) : ''}`;
 }
+function svgGrimoire(tier) {
+  const P = palette(tier), id = 'g' + tier;
+  return `<defs>${defsBase(P, id)}</defs>${P.halo ? `<circle cx="128" cy="128" r="118" fill="url(#${id}h)"/>` : ''}
+    ${forme('M40,70 C80,52 110,56 128,74 C146,56 176,52 216,70 L216,206 C176,190 146,192 128,210 C110,192 80,190 40,206 Z', `url(#${id}c)`, P, id)}
+    ${forme('M52,78 C84,64 110,68 124,82 L124,196 C108,182 84,180 52,192 Z', '#f2e6cc', P, id, '', true)}
+    ${forme('M204,78 C172,64 146,68 132,82 L132,196 C148,182 172,180 204,192 Z', '#efe0c2', P, id, '', true)}
+    ${trait('M66,100 C84,94 100,94 112,100 M66,120 C84,114 100,114 112,120 M66,140 C84,134 100,134 112,140', '#5a3a6a', 3, 0.55)}
+    ${trait('M144,100 C156,94 172,94 190,100 M144,120 C156,114 172,114 190,120', '#5a3a6a', 3, 0.55)}
+    <circle cx="168" cy="152" r="16" fill="none" stroke="${P.tc}" stroke-width="4" opacity=".9"/>${trait('M168,136 L168,168 M152,152 L184,152', P.tc, 3, 0.9)}
+    <circle cx="128" cy="38" r="14" fill="${clair(P.tc, 0.4)}" opacity=".85"/><circle cx="92" cy="30" r="6" fill="${clair(P.tc, 0.5)}" opacity=".7"/><circle cx="164" cy="28" r="7" fill="${clair(P.tc, 0.5)}" opacity=".7"/>
+    ${P.gemme ? gemme(128, 222, 9, id) : ''}`;
+}
 export function svgObjet(cat, type, tier) {
   let corps = '';
   if (cat === 'armure') corps = type === 'casque' ? svgCasque(tier) : type === 'plastron' ? svgPlastron(tier) : svgBottes(tier);
@@ -178,6 +190,7 @@ export function svgObjet(cat, type, tier) {
   else if (type === 'ombre') corps = svgDagues(tier, '#3a2a5a');
   else if (type === 'assassin') corps = svgDagues(tier, '#8a1a2a');
   else if (type === 'orage') corps = svgHaches(tier);
+  else if (type === 'esprit') corps = svgGrimoire(tier);
   else return null;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="14 10 228 232" width="192" height="192">${corps}</svg>`;
 }

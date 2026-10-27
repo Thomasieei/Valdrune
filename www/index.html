@@ -913,9 +913,17 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 .carteTP{display:flex;align-items:center;gap:2vh;margin-top:2vh;padding:1.4vh 2vh;border-radius:1.2vh;background:linear-gradient(90deg,#3a0a06,#1a0806);border:2px solid #ff7a3a;box-shadow:0 0 22px #ff3a2a44;color:#ffe6d0}
 .carteTP h4{margin:0;font:800 2.6vh var(--f-titre);color:#ffb347}.carteTP small{display:block;font-size:1.7vh;color:#e8c8b0;margin-top:.4vh}.carteTP em{display:block;margin-top:.6vh;color:#7dff9b;font:700 1.7vh var(--f-label)}
 .carteTP>div{flex:1}
-#escHud{position:absolute;right:1.5vh;bottom:2vh;z-index:20;pointer-events:none;display:flex;flex-direction:column;gap:.35vh;min-width:22vh;padding:1vh 1.4vh;border-radius:1vh;background:linear-gradient(#1a0c2aee,#0a0614ee);border:1px solid #9a5aff88;box-shadow:0 0 18px #6a2aff44;color:#e8dcff;font:700 1.6vh var(--f-label)}
-#escHud b{font:900 1.7vh var(--f-label);letter-spacing:.08em;color:#c9a0ff;text-transform:uppercase}
-#escHud em{font-style:normal;color:#9dff8a;margin-left:.6vh;font-size:1.4vh}
+#escHud{position:absolute;right:1.5vh;top:37vh;z-index:20;pointer-events:none;display:flex;flex-direction:column;gap:.15vh;max-width:30vh;padding:.6vh 1vh;font-size:1.35vh!important;opacity:.92;border-radius:1vh;background:linear-gradient(#1a0c2aee,#0a0614ee);border:1px solid #9a5aff88;box-shadow:0 0 18px #6a2aff44;color:#e8dcff;font:700 1.6vh var(--f-label)}
+#escHud b{font:900 1.35vh var(--f-label);letter-spacing:.08em;color:#c9a0ff;text-transform:uppercase}
+#escHud em{font-style:normal;color:#9dff8a;margin-left:.6vh;font-size:1.2vh}
+#btnArmes.actif{box-shadow:0 0 0 .3vh #b07aff,0 0 1.6vh #9a5aff}#btnArmes.actif svg{fill:#c9a0ff}
+#vueOmbre{position:absolute;left:25vw;top:13vh;width:min(34vh,30vw);aspect-ratio:16/10;z-index:22;border-radius:1.2vh;border:.25vh solid #9a5aff;box-shadow:0 0 2.4vh #6a2affaa,0 .6vh 1.6vh #000a;overflow:hidden;animation:apparaitE .3s ease-out}
+#vueOmbre .ecranO{position:absolute;inset:0}
+#vueOmbre .brumeO{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 62% 58% at 50% 55%,transparent 45%,#0a0414cc 82%,#05020aee),repeating-radial-gradient(circle at 30% 40%,#ffffff05 0 2px,transparent 2px 5px);mix-blend-mode:normal}
+#vueOmbre .titreO{position:absolute;left:1vh;top:.6vh;font:900 1.5vh var(--f-label);color:#e8d8ff;text-shadow:0 .2vh .4vh #000;letter-spacing:.05em}
+#vueOmbre .titreO small{display:block;font:600 1.2vh var(--f-texte);color:#b8a0e0}
+#vueOmbre .fermer{position:absolute;right:.5vh;top:.5vh;width:3.6vh;height:3.6vh;border-radius:50%;border:0;background:#1a0a2acc;color:#fff;font-size:2.4vh;line-height:1}
+#vueOmbre .suivO{position:absolute;right:.5vh;bottom:.5vh;width:3.6vh;height:3.6vh;border-radius:50%;border:0;background:#1a0a2acc;color:#d8c0ff;font-size:2vh}
 #butinFlash{position:absolute;left:50%;top:9vh;transform:translateX(-50%);z-index:21;pointer-events:none;display:flex;flex-direction:column;gap:.6vh;align-items:center}
 #butinFlash .bf{display:flex;align-items:center;gap:1.2vh;padding:.6vh 1.2vh;border-radius:1vh;background:#0d0806e6;border:2px solid var(--c);box-shadow:0 0 16px color-mix(in srgb,var(--c) 50%,transparent);animation:apparaitE .3s ease-out;transition:opacity .4s,transform .4s}
 #butinFlash .bf.part{opacity:0;transform:translateY(-1vh)}
@@ -1072,6 +1080,7 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
     <div id="colonne">
       <button class="rond metal" id="btnInv" aria-label="Inventaire"><svg viewBox="0 0 24 24" fill="#f2cd78"><path d="M7 7V6a5 5 0 0110 0v1h2.5l1 14h-17l1-14zm2 0h6V6a3 3 0 00-6 0zm-1 4a1 1 0 102 0 1 1 0 00-2 0zm6 0a1 1 0 102 0 1 1 0 00-2 0z"/></svg></button>
       <button class="rond metal" id="btnQuitter" aria-label="Quitter le donjon" hidden><svg viewBox="0 0 24 24" fill="#ff8a7a"><path d="M10 3h9v18h-9v-2h7V5h-7zM8.5 7l1.4 1.4L7.3 11H15v2H7.3l2.6 2.6L8.5 17 3.5 12z"/></svg></button>
+      <button class="rond metal" id="btnArmes" aria-label="Ranger ou sortir les armes"><svg viewBox="0 0 24 24" fill="#e8d8b0"><path d="M14.5 3l6.5.1-.1 6.4-9.6 9.6 1.4 1.4-1.4 1.4-2.1-2.1-3 3-1.4-1.4 3-3-2.1-2.1 1.4-1.4 1.4 1.4zm1 2l-8.3 8.3 1.4 1.4L16.9 6.4z"/></svg></button>
       <button class="rond metal" id="btnCam" aria-label="Changer de vue"><svg viewBox="0 0 24 24" fill="#d8d0e0"><path d="M9 4l-1.5 2H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-3.5L15 4H9zm3 4.5a4.5 4.5 0 110 9 4.5 4.5 0 010-9zm0 2a2.5 2.5 0 100 5 2.5 2.5 0 000-5z"/></svg></button>
       <button class="rond metal" id="btnOmbres" aria-label="Commander les ombres" hidden><svg viewBox="0 0 24 24" fill="#c8a8ff"><path d="M12 2c-3 3-7 4-7 10a7 7 0 0014 0c0-6-4-7-7-10zm-2.5 11a1.2 1.2 0 110-2.4 1.2 1.2 0 010 2.4zm5 0a1.2 1.2 0 110-2.4 1.2 1.2 0 010 2.4z"/></svg></button>
       <button class="rond metal" id="btnReg" aria-label="Réglages"><svg viewBox="0 0 24 24" fill="#d8d0e0"><path d="M19.4 13a7.6 7.6 0 000-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 00-1.7-1L15 3h-4l-.4 2.7a7.4 7.4 0 00-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 000 2l-2.1 1.6 2 3.5 2.5-1c.5.4 1.1.7 1.7 1L11 21h4l.4-2.7c.6-.3 1.2-.6 1.7-1l2.5 1 2-3.5zM13 15.5A3.5 3.5 0 1113 8.5a3.5 3.5 0 010 7z"/></svg></button>

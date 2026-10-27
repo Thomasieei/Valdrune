@@ -87,13 +87,7 @@ const _off = new THREE.Vector3();
 const CAM_K = { proche: 0.66, normale: 0.82, large: 1 };
 const _avT = new THREE.Vector3();
 export function majCamera(dt, cible) {
-  // suivi « ressort » : à plat on suit vite, la hauteur (marches, estrades) est lissée plus lentement,
-  // et on anticipe légèrement la direction de course pour voir où l'on va
-  const av = G.camAvance, _a = G._camAv || (G._camAv = new THREE.Vector3());
-  if (av && !G.camCible) _a.lerp(_avT.set(Math.max(-2.2, Math.min(2.2, av.x * 0.32)), 0, Math.max(-2.2, Math.min(2.2, av.z * 0.32))), 1 - Math.exp(-dt * 1.6));
-  else _a.multiplyScalar(Math.exp(-dt * 3));
-  const kx = 1 - Math.exp(-dt * 7.5), ky = 1 - Math.exp(-dt * 3.5);
-  G.camTarget.x += (cible.x + _a.x - G.camTarget.x) * kx; G.camTarget.z += (cible.z + _a.z - G.camTarget.z) * kx; G.camTarget.y += (cible.y - G.camTarget.y) * ky;
+  G.camTarget.lerp(cible, 1 - Math.exp(-dt * 8));
   // caméra rapprochée (réglable, pincer pour zoomer) : on resserre encore un peu en plein combat
   // trois vues : isométrique (classique), héros (derrière le perso, à la World of Warcraft), libre (tu tournes au doigt)
   const vue = G.camCible ? 'iso' : (G.camVue || 'iso');
@@ -114,10 +108,7 @@ export function majCamera(dt, cible) {
     G.camera.position.x += (Math.sin(t * 37.1) + Math.sin(t * 23.7) * 0.6) * s * 0.5; G.camera.position.y += (Math.sin(t * 41.3 + 1) + Math.sin(t * 19.1) * 0.5) * s * 0.4; G.camera.position.z += (Math.sin(t * 31.9 + 2) + Math.sin(t * 27.3) * 0.6) * s * 0.5;
   }
   G.camera.lookAt(G.camTarget.x, G.camTarget.y + (vue === 'heros' ? 1.6 : 1), G.camTarget.z);
-  // très léger élargissement du champ de vision en course (sensation de vitesse, sans déformer)
-  const vit = av && !G.camCible ? Math.hypot(av.x, av.z) : 0, fov = (G.fovBase || (G.fovBase = G.camera.fov)) + Math.min(3, vit * 0.45);
-  G._fov = (G._fov ?? fov) + (fov - (G._fov ?? fov)) * Math.min(1, dt * 2);
-  if (Math.abs(G.camera.fov - G._fov) > 0.02) { G.camera.fov = G._fov; G.camera.updateProjectionMatrix(); }
+
   G.sun.position.set(cible.x - 10, 26, cible.z + 6);
   G.sun.target.position.copy(cible);
 }
@@ -205,6 +196,27 @@ export function rendre() {
   G._img = (G._img || 0) + 1;
   if (G.renderer.shadowMap.enabled) G.renderer.shadowMap.needsUpdate = (G._img & 1) === 0;
   if (G.niveau >= 2) G.composer.render(); else G.renderer.render(G.scene, G.camera); // sans bloom : rendu direct, anticrénelé par le navigateur
+  if (G.vueOmbre && G.vueOmbre.rect) rendreVueOmbre();
+}
+// petite fenêtre « par les yeux de l'ombre » : seconde caméra rendue dans un coin de l'écran (même image, zone découpée)
+const _camO = new THREE.PerspectiveCamera(60, 1.6, 0.3, 120), _oc = new THREE.Vector3(), _ol = new THREE.Vector3(), _montres = [];
+function rendreVueOmbre() {
+  const V0 = G.vueOmbre, o = V0.acteur, r = V0.rect; if (!o || !o.root.parent || r.w < 10) return;
+  const a = o.root.rotation.y, p = o.root.position;
+  _oc.set(p.x - Math.sin(a) * 3.6, p.y + 2.9, p.z - Math.cos(a) * 3.6); _ol.set(p.x + Math.sin(a) * 3, p.y + 1.1, p.z + Math.cos(a) * 3);
+  if (!V0.init) { V0.init = true; _camO.position.copy(_oc); V0.regard = _ol.clone(); }
+  _camO.position.lerp(_oc, 0.18); V0.regard.lerp(_ol, 0.2); _camO.lookAt(V0.regard);
+  _camO.aspect = r.w / r.h; _camO.updateProjectionMatrix();
+  // les persos hors de l'écran principal ont été masqués : on montre ceux qui sont près de l'ombre
+  _montres.length = 0;
+  for (const x of G.acteurs) if (!x.model.visible && x.root.parent && Math.abs(x.root.position.x - p.x) + Math.abs(x.root.position.z - p.z) < 40) { x.model.visible = true; _montres.push(x); }
+  const R = G.renderer, H = R.domElement.clientHeight, sm = R.shadowMap.needsUpdate;
+  R.shadowMap.needsUpdate = false;
+  R.setScissorTest(true); R.setScissor(r.x, H - r.y - r.h, r.w, r.h); R.setViewport(r.x, H - r.y - r.h, r.w, r.h);
+  R.render(G.scene, _camO);
+  R.setScissorTest(false); R.setViewport(0, 0, R.domElement.clientWidth, H);
+  R.shadowMap.needsUpdate = sm;
+  for (const x of _montres) x.model.visible = false;
 }
 
 // ---------- Torches : on allume les plus proches ----------
@@ -458,7 +470,7 @@ export class Acteur {
   jouer(nom, { fondu, boucle = true, vitesse = 1, forcer = false, fin = null } = {}) {
     let a = this.actions[nom];
     // fondus « intelligents » : attaques vives, retours au repos et changements d'allure tout en douceur
-    if (fondu === undefined) { const c = this.courante; fondu = !boucle ? 0.1 : c && c.loop === THREE.LoopOnce ? 0.3 : LOCO.has(nom) && c && LOCO.has(c.getClip().name) ? 0.22 : 0.26; }
+    if (fondu === undefined) fondu = 0.18;
     if (!a && ALIAS_ANIM[nom]) for (const n of ALIAS_ANIM[nom]) if (this.actions[n]) { a = this.actions[n]; nom = n; break; }
     if (!a) return;
     // en mouvement, une attaque ne joue que sur le haut du corps : les jambes continuent de courir
@@ -591,19 +603,19 @@ export class Acteur {
     if (enMarche && (!this.haut || this.bas)) elargirFoulee(this, this.foulee);
     // pieds ancrés : en course, le pied d'appui reste collé au sol (plus de sautillement ni de corps qui flotte)
     let anc = 0;
-    if (enMarche && this.vu !== false) {
+    if (false) {
       if (!this._pieds) this._pieds = ['foot.l', 'foot.r'].map(n => os2(this, n)).filter(Boolean);
       const n = vitesseNaturelle(this, nomL);
       if (n && n.pied !== undefined && this._pieds.length === 2) {
         let mn = Infinity; for (const f of this._pieds) { f.getWorldPosition(_vf); mn = Math.min(mn, _vf.y); }
         const sol = this.root.position.y + this.model.position.y, repos = n.pied * this.model.scale.y / n.sy;
-        anc = Math.max(-0.3, Math.min(0.06, sol + repos - mn));
+        anc = Math.max(-0.04, Math.min(0.05, sol + repos - mn));
       }
     }
-    this._anc = (this._anc || 0) + (anc - (this._anc || 0)) * Math.min(1, dt * (enMarche ? 22 : 8));
+    this._anc = (this._anc || 0) + (anc - (this._anc || 0)) * Math.min(1, dt * (enMarche ? 30 : 10));
     this.model.position.y += this._anc;
     // inclinaison du buste : dans les virages et vers l'avant en courant
-    if (this.buste && (this.incl || this._iR || this._iP)) {
+    if (false) {
       const tr = (this.incl && this.incl.roulis) || 0, tp = (this.incl && this.incl.tangage) || 0;
       this._iR = (this._iR || 0) + (tr - (this._iR || 0)) * Math.min(1, dt * 7); this._iP = (this._iP || 0) + (tp - (this._iP || 0)) * Math.min(1, dt * 5);
       if (Math.abs(this._iR) + Math.abs(this._iP) > 0.002) {

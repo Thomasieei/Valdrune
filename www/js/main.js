@@ -151,7 +151,7 @@ const SONS = ['knifeSlice', 'knifeSlice2', 'drawKnife2', 'handleCoins', 'creak1'
 async function demarrer() {
   initRendu($('#scene'));
   try { const dc = localStorage.getItem('breche-decal'); if (dc !== null) document.documentElement.style.setProperty('--decalSorts', dc + 'vw'); } catch (e) {}
-  try { G.camVue = localStorage.getItem('breche-vue') || 'iso'; G.camMode = localStorage.getItem('breche-cam') || 'proche'; G.ombresParole = localStorage.getItem('breche-ombres') || 'normal'; G.camZoom = +(localStorage.getItem('breche-zoom') || 1); } catch (e) {}
+  try { if (!localStorage.getItem('breche-v161')) { localStorage.setItem('breche-v161', '1'); localStorage.setItem('breche-vue', 'iso'); localStorage.setItem('breche-zoom', '1'); } G.camVue = localStorage.getItem('breche-vue') || 'iso'; G.camMode = localStorage.getItem('breche-cam') || 'proche'; G.ombresParole = localStorage.getItem('breche-ombres') || 'normal'; G.camZoom = +(localStorage.getItem('breche-zoom') || 1); } catch (e) {}
   try { const q = localStorage.getItem('breche-qualite'); if (q) G.qualite = q; G.perfOn = !!localStorage.getItem('breche-perf'); } catch (e) {}
   if (G.perfOn) UI.perf(true);
   try { G.musiqueOn = localStorage.getItem('breche-musique') !== '0'; } catch (e) {}
@@ -217,6 +217,7 @@ function prechauffer() {
 
 // ---------------- Joueur ----------------
 function construireJoueur(pos) {
+  { const b = document.getElementById('btnArmes'); if (b) b.classList.remove('actif'); }
   const ancienPos = pos || (joueur ? joueur.root.position.clone() : V());
   const ancienAngle = joueur ? joueur.angle : Math.PI * 1.25;
   if (joueur) { G.scene.remove(joueur.root); UI.retirerPlaque(joueur); try { libererGPU([joueur.root]); } catch (e) {} }
@@ -260,6 +261,7 @@ function construireJoueur(pos) {
   bustePersonnage(def.model, $('#avatarCv'), def.ombre ? '#3a1a5a' : '#5a3a5a', def.ombre ? TEINTES_OMBRE : null);
   joueur.root.rotation.y = joueur.angle;
   assurerMeute(); UI.majBoutonTalents && UI.majBoutonTalents(); majBoutonAura();
+  if (G.armesRangees) { joueur.rangee = true; for (const n of noeudsArme()) n.visible = false; joueur.jouer('Idle'); const b = $('#btnArmes'); if (b) b.classList.add('actif'); }
 }
 function recalculer() { joueur.st = statsJoueur(); joueur.pv = Math.min(joueur.pv, joueur.st.pvMax); }
 // statistiques du héros + effets de l'arbre de talents de sa classe
@@ -510,7 +512,7 @@ function statsEscouade() {
   if (!J.escStats) J.escStats = { debut: Date.now(), argent0: J.argent, xp: 0, kills: 0, coffres: 0 };
   return J.escStats;
 }
-function viderEscouade() { for (const o of escouade) { G.scene.remove(o.root); UI.retirerPlaque(o); } escouade = []; }
+function viderEscouade() { if (G.vueOmbre) vueOmbre(null); for (const o of escouade) { G.scene.remove(o.root); UI.retirerPlaque(o); } escouade = []; }
 function creerOmbreEscouade(i) {
   const ang = i / 6 * Math.PI * 2;
   const pos = pointLibrePres(V(joueur.pos.x + Math.sin(ang) * 2.6, 0, joueur.pos.z + Math.cos(ang) * 2.6), 0, 1.2);
@@ -560,6 +562,47 @@ function suivreFormation(e, rang, dt, animCourse, animRepos, teleporter) {
     allerVers(e, cible, dt, e._vv); e.jouer(e._vv < 2.4 ? 'Walking_A' : animCourse);
   } else { e._vv = 0; e.jouer(animRepos); e.angle = tourner(e.angle, joueur.angle, dt * 3); e.root.rotation.y = e.angle; }
 }
+// ---- voir par les yeux d'une ombre (petite fenêtre, brouillard sombre sur les bords) ----
+function vueOmbre(o) {
+  if (!o) { G.vueOmbre = null; UI.vueOmbre(null); return; }
+  G.vueOmbre = { acteur: o, rect: null };
+  UI.vueOmbre({ nom: o.nom, fermer: () => vueOmbre(null), suivante: () => { const l = escouade.filter(x => !x.sceneOmbre); if (l.length < 2) return; vueOmbre(l[(l.indexOf(o) + 1) % l.length]); } });
+  son('forceField_000', 0.25, 1.6);
+}
+function majVueOmbre() {
+  const V0 = G.vueOmbre; if (!V0) return;
+  if (!V0.acteur.root.parent || !escouade.includes(V0.acteur)) { const l = escouade.filter(x => !x.sceneOmbre); return vueOmbre(l[0] || null); }
+  const el = document.getElementById('vueOmbre'); if (!el) return;
+  const r = el.querySelector('.ecranO').getBoundingClientRect(); V0.rect = { x: r.left, y: r.top, w: r.width, h: r.height };
+  const etat = V0.acteur.escCible ? 'exécute une cible' : V0.acteur.gardeCible ? 'te protège' : V0.acteur.escCoffre ? 'ouvre un coffre' : 'marche derrière toi';
+  UI.vueOmbre({ maj: etat });
+}
+// ce que font les ombres ne doit jamais secouer ta caméra ni figer ton personnage (ralentis, tremblements)
+function sansChoc(f) { const s0 = G.shake || 0, d0 = G.camDist; G._parOmbre = true; try { f(); } finally { G._parOmbre = false; G.shake = s0; G.camDist = d0; } }
+// ordre « Protéger » : elle reste près de toi et frappe ce qui s'approche à moins de 9 m (sans nettoyer tout le donjon)
+function majOmbreGarde(o, dt) {
+  let c = o.gardeCible;
+  if (!c || c.mort || dist2D(c.pos, joueur.pos) > 13) {
+    c = null; let bd = 9;
+    for (const e of ennemis) { if (e.mort || e.descendre || e.etat === 'idle' && !e.tc) continue; const d = dist2D(e.pos, joueur.pos); if (d < bd) { bd = d; c = e; } }
+    o.gardeCible = c;
+  }
+  if (!c) return false;
+  const d = dist2D(o.pos, c.pos);
+  if (d > 8) { teleporterOmbre(o, c.pos); return true; }
+  if (d > (c.rayon || 0.6) + 1.3) { allerVers(o, c.pos, dt, joueur.st.vitesse * 1.3); o.jouer(o.armeDef.run); return true; }
+  o.angle = tourner(o.angle, Math.atan2(c.pos.x - o.pos.x, c.pos.z - o.pos.z), dt * 12); o.root.rotation.y = o.angle;
+  o.coupT = (o.coupT || 0) - dt;
+  if (o.coupT <= 0) {
+    o.coupT = 0.75 + Math.random() * 0.3;
+    o.jouer(hasard(['1H_Melee_Attack_Chop', '1H_Melee_Attack_Slice_Diagonal', '1H_Melee_Attack_Stab']), { boucle: false, forcer: true, vitesse: 1.4, fin: () => o.jouer(o.armeDef.idle) });
+    programmer(0.22, () => { if (c.mort) return; arcTaille(c.pos, o.angle - Math.PI / 2, 2.2, '#b07aff', Math.PI * 0.7, 0.2);
+      const dmg = Math.max(1, joueur.st.degats * 1.6 * (c.boss ? 0.6 : 1));
+      sansChoc(() => { if (c.pv - dmg <= 0) { c.pv = 0; tuer(c); statsEscouade().kills++; } else { c.pv -= dmg; c.flash = 0.12; UI.nombre(V(c.pos.x, 2.3, c.pos.z), fmtN(Math.round(dmg)), ''); if (c.etat === 'idle' || c.etat === 'dormant') reveiller(c); } });
+      son('knifeSlice', 0.25, 1.1 + Math.random() * 0.3); });
+  }
+  return true;
+}
 function majEscouade(dt) {
   { const b = $('#btnOmbres'); if (b && b.hidden === !!J.escouade) b.hidden = !J.escouade; }
   if (!J.escouade || !joueur || joueur.mort && !arene) { if (escouade.length && !J.escouade) viderEscouade(); return; }
@@ -574,8 +617,9 @@ function majEscouade(dt) {
   for (const o of escouade) {
     o.maj(dt);
     if (o.sceneOmbre) continue;
-    const rec = R[o.escIdx], passive = rec && rec.ordre === 'escorte';
+    const rec = R[o.escIdx], passive = rec && rec.ordre === 'escorte', garde = rec && rec.ordre === 'garde';
     if (passive) { o.escCible = null; o.escCoffre = null; }
+    if (garde) { if (majOmbreGarde(o, dt)) continue; o.escCible = null; o.escCoffre = null; }
     o.escT -= dt;
     if (o.escCible && o.escCible.mort) o.escCible = null;
     if (o.escT > 0) continue;
@@ -598,7 +642,7 @@ function majEscouade(dt) {
       if (!c.mort) {
         arcTaille(c.pos, o.angle - Math.PI / 2, 2.6, '#b07aff', Math.PI * 0.8, 0.25); emettre(V(c.pos.x, 1.2, c.pos.z), { n: 30, c1: '#e0c8ff', c2: '#3a0a6a', vit: 6, vie: 0.6, taille: 0.45 });
         UI.nombre(V(c.pos.x, 2.6, c.pos.z), 'EXÉCUTÉ', 'crit'); son('knifeSlice2', 0.4, 0.8 + Math.random() * 0.4);
-        c.pv = 0; tuer(c); const s = statsEscouade(); s.kills++;
+        sansChoc(() => { c.pv = 0; tuer(c); }); const s = statsEscouade(); s.kills++;
       }
       o.escT = 0.1 + Math.random() * 0.12; continue;
     }
@@ -647,7 +691,7 @@ const PAROLES_OMBRE = {
   oui: ['Merci, maître.', 'Ce sera fait.', 'Je ne te décevrai pas.', 'Ton ombre obéit.', 'Considère que c’est fait.'],
   non_silencieux: ['…', 'Bien, maître.'], non_fier: ['Tu me retiens encore… Comme tu voudras.', 'Hm. Une autre fois, alors.'], non_avide: ['Dommage… c’était de l’or facile.', 'Tu laisses filer une fortune, maître.'],
   non_joueuse: ['Oh, rabat-joie ! Bon… d’accord.', 'Tu ne t’amuses jamais, maître !'], non_prudent: ['Sage décision, peut-être.', 'Tu as sans doute raison.'], non_ambitieux: ['Tu brides mon ambition, maître. Je m’en souviendrai.', 'Comme tu voudras. Pour l’instant.'],
-  o_combat: ['À tes côtés.', 'Je chasse pour toi.', 'Montre-moi qui frapper.'], o_escorte: ['Je reste près de toi, lame rangée.', 'Je ne frapperai pas sans ton ordre.', 'Je marche dans ton ombre.'],
+  o_combat: ['À tes côtés.', 'Je chasse pour toi.', 'Montre-moi qui frapper.'], o_garde: ['Personne ne t’approchera, maître.', 'Je reste à portée de lame.', 'Qu’ils viennent. Ils tomberont à tes pieds.'], o_escorte: ['Je reste près de toi, lame rangée.', 'Je ne frapperai pas sans ton ordre.', 'Je marche dans ton ombre.'],
   o_repos: ['Je retourne dans l’ombre.', 'Appelle-moi quand tu veux.', 'Je me retire, maître.'], o_arene: ['L’arène… enfin.', 'Je reviens victorieuse. Ou pas du tout.', 'Ils vont apprendre ton nom.'],
   o_donjon: ['Je descends dans {lieu}.', 'Les gardiens de {lieu} vont me connaître.', 'Je te rapporterai leurs trésors.'], o_ile: ['Personne ne touchera à ton île.', 'Je veille sur tes ouvriers, maître.', 'Les pillards n’ont qu’à bien se tenir.'],
   souvenir_non: ['Tu as refusé la dernière fois… mais cette fois, c’est différent.', 'Je te le redemande, maître. Je sais que tu as dit non avant.'],
@@ -659,7 +703,7 @@ function ombresC() {
   return J.ombresC;
 }
 const NOM_O = (r) => `${r.nom} ${r.ep}`;
-function presenteOmbre(r) { return !r.mission && (r.ordre === 'combat' || r.ordre === 'escorte') && Date.now() > (r.blesseeJusqua || 0) && !r.rapport; }
+function presenteOmbre(r) { return !r.mission && (r.ordre === 'combat' || r.ordre === 'escorte' || r.ordre === 'garde') && Date.now() > (r.blesseeJusqua || 0) && !r.rapport; }
 const LIEUX = ['les Cryptes Oubliées', 'la Forteresse des Ossements', 'le Gouffre Écarlate', 'l’Abîme Écarlate'];
 function ombreActeur(i) { return escouade.find(o => o.escIdx === i && !o.sceneOmbre) || null; }
 function direOmbre(r, texte) { const o = ombreActeur(r.i); if (o) UI.parole(o, texte); else UI.chat(NOM_O(r), texte); }
@@ -672,6 +716,7 @@ function ordonner(cibles, ordre, extra = {}) {
     if (r.mission && ordre !== 'rappel') continue; // déjà partie : on attend son retour
     if (now < (r.blesseeJusqua || 0) && ordre !== 'repos') { UI.toast(`${r.nom} est blessée encore ${Math.ceil((r.blesseeJusqua - now) / 60000)} min`); continue; }
     if (ordre === 'rappel') continue;
+    if (ordre === 'vue') { const o = ombreActeur(i); if (o) { vueOmbre(o); UI.commandeOmbres(null); } else UI.toast(`${r.nom} n’est pas à tes côtés : rien à voir pour l’instant`); return; }
     if (['arene', 'donjon', 'secours', 'vol'].includes(ordre)) {
       const m = extra.mode ?? 0;
       const duree = { arene: 3, donjon: 4 + m * 2, secours: 4, vol: 5 }[ordre] * 60000;
@@ -691,7 +736,7 @@ function ombreGardeIle(ile) { if (!J.escouade || !J.ombresC) return null; const 
 function ouvrirCommandeOmbres() {
   const R = ombresC(), now = Date.now();
   UI.commandeOmbres(R.map(r => {
-    let etat = r.ordre === 'escorte' ? 'Escorte (n’attaque pas)' : r.ordre === 'repos' ? 'Renvoyée dans l’ombre' : 'Combat à tes côtés';
+    let etat = r.ordre === 'escorte' ? 'Escorte (n’attaque pas)' : r.ordre === 'garde' ? 'Te protège (frappe ce qui t’approche)' : r.ordre === 'repos' ? 'Renvoyée dans l’ombre' : 'Combat à tes côtés';
     if (now < (r.blesseeJusqua || 0)) etat = `Blessée · ${Math.ceil((r.blesseeJusqua - now) / 60000)} min`;
     if (r.mission) etat = r.mission.type === 'ile' ? `Garde ${r.mission.ile === -1 ? 'ton domaine' : (iles()[r.mission.ile] || {}).nom || 'ton île'}` : `${{ arene: 'À l’arène', donjon: 'En donjon : ' + LIEUX[r.mission.mode], secours: 'Secours : ' + LIEUX[r.mission.mode], vol: 'Vol chez ' + (r.mission.cible || '?') }[r.mission.type]} · ${Math.max(0, Math.ceil((r.mission.fin - now) / 60000))} min`;
     if (r.rapport) etat = 'Revient faire son rapport';
@@ -2404,14 +2449,14 @@ function mourirJoueur() {
 // ---------------- Attaque de base ----------------
 function attaquer(dt) {
   if (joueur.verrouT > 0 || joueur.mort || joueur.spinT > 0 || joueur.tornadeT > 0) return;
-  const def = joueur.def, st = joueur.st;
-  const c = choisirCible(st.portee);
+  const def = joueur.def, st = joueur.st, mains = joueur.rangee && !def.projectile, portee = mains ? 9 : st.portee;
+  const c = choisirCible(portee);
   if (!c) return;
   joueur.cible = c;
   const d = dist2D(c.pos, joueur.pos) - c.rayon;
   const dir = V(c.pos.x - joueur.pos.x, 0, c.pos.z - joueur.pos.z).normalize();
   const ang = Math.atan2(dir.x, dir.z);
-  if (d > st.portee) {
+  if (d > portee) {
     if (Math.abs(entree.jx) + Math.abs(entree.jy) < 0.1) { // s'approche tout seul
       deplacer(joueur, dir.x * st.vitesse * dt, dir.z * st.vitesse * dt);
       joueur.angle = tourner(joueur.angle, ang, dt * 12); joueur.root.rotation.y = joueur.angle; joueur.jouer(def.run);
@@ -2421,6 +2466,13 @@ function attaquer(dt) {
   if (joueur.atkT > 0) { joueur.angle = tourner(joueur.angle, ang, dt * 14); joueur.root.rotation.y = joueur.angle; return; }
   faireFace(dir);
   joueur.atkT = 1 / st.vitesseAtk / (joueur.orageT > 0 ? 1.7 : 1) / (joueur.frenesieT > 0 ? 1.3 : 1); joueur.debutAtk = G.t;
+  if (mains) { // armes rangées : on frappe à mains nues… avec de la magie pure
+    joueur.atkT *= 1.15;
+    joueur.jouer(Math.random() < 0.5 ? 'Spellcast_Shoot' : 'Spellcast_Raise', { boucle: false, vitesse: 1.7, forcer: true, fondu: 0.08, fin: () => joueur.jouer(joueur.rangee ? 'Idle' : def.idle) });
+    joueur.verrouT = 0.22;
+    programmer(0.2, () => { if (c.mort) return; tirerProjectile('feu', '#c08aff', c, 24, 0.8); son('forceField_000', 0.15, 1.9); });
+    return;
+  }
   const anim = def.attaques[Math.floor(Math.random() * def.attaques.length)];
   const vit = Math.max(1, st.vitesseAtk * joueur.duree(anim) * 0.95);
   joueur.jouer(anim, { boucle: false, vitesse: vit, forcer: true, fondu: 0.08, fin: () => joueur.jouer(def.idle) });
@@ -2881,38 +2933,48 @@ function majJoueur(dt) {
     const dir = DIR_DROITE.clone().multiplyScalar(mx).addScaledVector(DIR_HAUT, my).normalize();
     let v = st.vitesse * (1 + bonusParch('vitesse')) * (j.orageT > 0 ? 1.4 : 1) * (j.sprintT > 0 ? 1.6 : 1) * (j.slowT > 0 ? 0.6 : 1) * (tourne ? 0.7 : 1) * (j.verrouAtk && j.verrouT > 0 ? 0.45 : 1) * (j.eveilT > 0 ? 1.15 : 1); // vitesse constante, peu importe l'inclinaison du joystick
     // accélération douce (0,1 s) : le perso démarre et tourne avec du poids, sans à-coups
-    j.velo = j.velo || V(); { const kk = 1 - Math.exp(-dt * 13); j.velo.x += (dir.x * v - j.velo.x) * kk; j.velo.z += (dir.z * v - j.velo.z) * kk; }
-    deplacer(j, j.velo.x * dt, j.velo.z * dt);
+    deplacer(j, dir.x * v * dt, dir.z * v * dt);
     const vise = (entree.atk || entree.clavier[' ']) && j.cible && !j.cible.mort && dist2D(j.cible.pos, j.pos) - j.cible.rayon < st.portee + 0.5;
     const a0 = j.angle;
-    if (!tourne && !vise) { j.angle = tourner(j.angle, Math.atan2(dir.x, dir.z), dt * 11); j.root.rotation.y = j.angle; }
-    { let da = j.angle - a0; da = Math.atan2(Math.sin(da), Math.cos(da)); const vit = Math.hypot(j.velo.x, j.velo.z); j.incl = { roulis: Math.max(-0.2, Math.min(0.2, -da / Math.max(dt, 1e-3) * 0.04)), tangage: Math.min(0.12, vit * 0.017) }; }
+    if (!tourne && !vise) { j.angle = tourner(j.angle, Math.atan2(dir.x, dir.z), dt * 14); j.root.rotation.y = j.angle; }
     // jambes toujours en course quand on bouge, même pendant une attaque (le haut du corps frappe)
     if (!tourne) { if (j.haut) j._jouerBas(j.def.run); else if (j.courante && j.courante.loop === THREE.LoopOnce && j.courante.isRunning()) { const n = j.courante.getClip().name, t = j.courante.time, ts = j.courante.timeScale, f = j._onFin; if (j._jouerHaut(n, { vitesse: ts, fin: f, jambes: j.def.run })) j.haut.time = t; } else j.jouer(j.def.run); }
     j.pasT -= dt * v; if (j.pasT <= 0) { j.pasT = 2.4; son(Math.random() < 0.5 ? 'footstep_concrete_000' : 'footstep_concrete_001', 0.12); if (J.argent >= 5e6 && Math.random() < 0.3) son('handleCoins', 0.05, 1.7); } // une bourse bien pleine tinte en marchant
-  } else {
-    // on s'arrête en glissant un court instant (pas d'arrêt net)
-    if (j.velo && (j.velo.x || j.velo.z)) { j.velo.multiplyScalar(Math.exp(-dt * (bloque ? 30 : 15))); if (Math.hypot(j.velo.x, j.velo.z) > 0.25 && !bloque) deplacer(j, j.velo.x * dt, j.velo.z * dt); else j.velo.set(0, 0, 0); }
-    j.incl = { roulis: 0, tangage: 0 };
-  }
-  if (m > 0.12 && !bloque) {} else if (j.haut) { j._jouerBas(j.def.idle); // on s'arrête pendant une attaque : les jambes se posent
+  } else if (j.haut) { j._jouerBas(j.def.idle); // on s'arrête pendant une attaque : les jambes se posent
   } else if (!bloque && !tourne && !(j.animT > 0)) {
     const c = j.courante; const n = c ? c.getClip().name : '';
     if (n === j.def.run || n === 'Walking_A') j.jouer(j.def.idle);
     // posture : garde haute en combat, détendue au calme
-    const garde = j.combatT > 0 && j.actions['2H_Melee_Idle'] && ['epee', 'orage', 'ombre', 'assassin'].includes(j.armeType);
-    const voulu = garde ? '2H_Melee_Idle' : j.def.idle;
-    if ((n === j.def.idle || n === '2H_Melee_Idle') && n !== voulu) j.jouer(voulu, { fondu: 0.35 });
+    const garde = !j.rangee && j.combatT > 0 && j.actions['2H_Melee_Idle'] && ['epee', 'orage', 'ombre', 'assassin'].includes(j.armeType);
+    const voulu = garde ? '2H_Melee_Idle' : j.rangee ? 'Idle' : j.def.idle;
+    if ((n === j.def.idle || n === '2H_Melee_Idle' || n === 'Idle') && n !== voulu) j.jouer(voulu, { fondu: 0.35 });
   }
   if (j.sortAttente) { j.sortAttente.t -= dt; if (j.sortAttente.t <= 0) j.sortAttente = null; else if (j.verrouT <= 0.15) { const sa = j.sortAttente; j.sortAttente = null; viseeForcee = sa.force; lancerSort(sa.k); viseeForcee = null; } }
   if ((entree.atk || entree.clavier[' '] || autoAtk) && !(arene && arene.t > 0) && !j.sortAttente) attaquer(dt);
   j.maj(dt);
 }
 
+// ---------------- Ranger / sortir les armes ----------------
+// la lame disparaît dans un nuage d'étincelles ; on se bat aux sorts et à la magie pure, puis on la ressort quand on veut
+function noeudsArme() { const d = joueur.def; return [d.node, d.node2].filter(Boolean).map(n => joueur.nodes[n] || joueur.nodes[n.replace(/\./g, '')]).filter(Boolean); }
+function rangerArmes(ranger = !joueur.rangee) {
+  if (!joueur || joueur.mort) return;
+  joueur.rangee = ranger; G.armesRangees = ranger;
+  const main = noeudsArme()[0], p = V(); if (main) main.getWorldPosition(p); else p.set(joueur.pos.x, 1.2, joueur.pos.z);
+  joueur.jouer('Interact', { boucle: false, forcer: true, vitesse: 1.5, fin: () => joueur.jouer(ranger ? 'Idle' : joueur.def.idle) });
+  programmer(0.28, () => {
+    for (const n of noeudsArme()) n.visible = !ranger;
+    if (main) main.getWorldPosition(p);
+    emettre(p, { n: 26, c1: '#fff2c0', c2: ranger ? '#9a6aff' : TIERS[J.equip.arme.tier].color, vit: 3.2, vie: 0.6, taille: 0.3 });
+    son(ranger ? 'cloth1' : 'drawKnife2', 0.45, ranger ? 1.2 : 1);
+  });
+  UI.toast(ranger ? 'Armes rangées : tu combats à la magie' : 'Armes en main');
+  const b = $('#btnArmes'); if (b) b.classList.toggle('actif', ranger);
+}
 // ---------------- Sorts par signes ----------------
 const COUL_SIGNE = { epee: '#ffd27a', arbalete: '#9aff7a', baton: '#ff8a3a', ombre: '#b07aff', orage: '#7ab8ff', assassin: '#ff4a5a' };
 G.gestes = false; // sorts par signes retirés : boutons classiques
-function ralenti(duree, k) { G.ralentiT = Math.max(G.ralentiT || 0, duree); G.ralentiK = k; }
+function ralenti(duree, k) { if (G._parOmbre) return; G.ralentiT = Math.max(G.ralentiT || 0, duree); G.ralentiK = k; }
 function cibleEcran(x, y, rayon) {
   let best = null, bd = rayon;
   for (const en of vivants()) { const s = projeter(V(en.pos.x, 1.2, en.pos.z)); if (!s.visible) continue; const d = Math.hypot(s.x - x, s.y - y); if (d < bd) { bd = d; best = en; } }
@@ -3322,7 +3384,7 @@ const API = {
   enchanter: (id) => enchanter(id),
   acheterRunes: (n) => { const prix = 5000 * n; if (J.argent < prix) { UI.toast('Pas assez d’argent'); son('error_001', 0.4); return false; } J.argent -= prix; ajouterSac(creerButin('rune', n), true); son('handleCoins', 0.5); sauver(); return true; },
   nbRunes: () => J.sac.filter(i => i.cat === 'butin' && i.type === 'rune').reduce((a, i) => a + (i.n || 1), 0),
-  raresDebloques: () => ['ombre', 'orage', 'assassin'].filter(t => (t === 'ombre' && J.codes && J.codes.includes('BRECHE-OMBRE')) || J.equip.arme?.type === t || J.sac.some(i => i.type === t) || (J.debloques || []).includes(t)),
+  raresDebloques: () => ['ombre', 'orage', 'assassin', 'esprit'].filter(t => (t === 'ombre' && J.codes && J.codes.includes('BRECHE-OMBRE')) || J.equip.arme?.type === t || J.sac.some(i => i.type === t) || (J.debloques || []).includes(t)),
   ombreDebloquee: () => !!((J.codes && J.codes.length) || J.equip.arme?.type === 'ombre' || J.sac.some(i => i.type === 'ombre')),
   acheterIle: (type, taille) => acheterIle(type, taille),
   allerIle: (id) => { const ile = iles().find(i => i.id === id); if (ile) entrerIle(ile); },
@@ -3563,6 +3625,7 @@ function initEntrees() {
   };
   $('#btnReg').onclick = () => UI.reglages();
   $('#btnOmbres').onclick = () => ouvrirCommandeOmbres();
+  { const b = $('#btnArmes'); if (b) b.onclick = () => rangerArmes(); }
   $('#btnCam').onclick = () => { const vues = ['iso', 'heros', 'libre'], noms = { iso: 'Vue isométrique', heros: 'Vue héros : derrière ton personnage (glisse pour tourner)', libre: 'Vue libre : glisse pour tourner, pince pour zoomer' };
     G.camVue = vues[(vues.indexOf(G.camVue || 'iso') + 1) % 3]; if (G.camVue === 'heros' && joueur) G.camYaw = joueur.angle + Math.PI; try { localStorage.setItem('breche-vue', G.camVue); } catch (e) {} UI.toast(noms[G.camVue]); son('click_001', 0.4); };
   $('#avatarCv').parentElement.onclick = () => ouvrirRenommee(); $('#avatarCv').parentElement.style.cursor = 'pointer';
@@ -3636,12 +3699,11 @@ function boucleCorps() {
     if (graveuse) graveuse.maj(dt);
     ileT -= dt; if (ileT <= 0) { ileT = 3; majProduction(); majDomaine(); majAssauts(); majRaids(); if (modeActuel && modeActuel.id === 'ile' && !monde.etranger && !(raid && raid.r)) journalIle(monde.ile); }
     if (monde.type === 'donjon') { majScenes(dt); majCrypte(dt); majAurasDonjon(dt); }
-    majRegards(); majAuras(dt); majPortes(dt);
+    majRegards(); majAuras(dt); majPortes(dt); majVueOmbre();
     if (!modeActuel || modeActuel.id === 'ile') majParolesPNJ(dt);
     majRumeurs(dt); majFortune(dt);
     majEscouade(dt); majCommandeOmbres(dt); majAbime(dt); majMeuteJoueur(dt); if (taverne) majTaverne(dt); if (mission) majMission(dt); majEveil(dt); if (goulet) majGoulet(dt); if (!modeActuel) majPortailGoulet();
     G.enCombat = joueur.combatT > 0 && !!modeActuel;
-    G.camAvance = joueur.velo;
     majCamera(dt, G.solH && !G.camCible ? V(joueur.pos.x, solY(joueur.pos.x, joueur.pos.z), joueur.pos.z) : (G.camCible || joueur.pos));
     majTorches(joueur.pos);
     if (joueur.comboT > 0) { joueur.comboT -= dt; if (joueur.comboT <= 0) joueur.combo = 0; }
@@ -5951,6 +6013,9 @@ async function entrerMission(offre, equipe) {
     modeActuel = { id: 'mission', mission: true, nom: 'Mission', lieu: M.titre, argent: 1, xp: 6 + offre.etoiles * 3, tiers: [t, t], mobTier: t, prophetie: !!J.prophetie };
     if (J.prophetie) { J.prophetie = false; sauver(); }
     monde = construireSylve();
+    // en mission, pas de gardiens du Sanctuaire : les ronces de passage n'ont pas lieu d'être (elles bloquaient la suite)
+    for (const b of monde.barrieres || []) b.groupe.removeFromParent();
+    monde.collisions = monde.collisions.filter(c => c.barriere === undefined); monde._cg = null; monde.barrieres = [];
     if (!G.scene.background || !G.scene.background.isColor) G.scene.background = new THREE.Color();
     G.scene.background.set('#2a1a2a'); G.scene.fog.color.set('#3a2030'); G.scene.fog.density = 0.016;
     G.hemi.color.set('#ffc8b0'); G.hemi.groundColor.set('#2a1a22'); G.hemi.intensity = 1.05; G.sun.intensity = 1.35; G.sun.color.set('#ffb08a');

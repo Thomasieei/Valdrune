@@ -14,6 +14,10 @@ UI.init = (a) => { api = a; };
 
 // ---------------- Icônes de sorts (SVG) ----------------
 const GLYPHES = {
+  main: '<path d="M30 92 C24 74 20 62 22 50 C23 44 30 44 31 50 L33 60 L33 26 C33 20 41 20 41 26 L41 52 L43 18 C43 12 51 12 51 18 L51 52 L54 22 C54 16 62 16 62 22 L61 54 L65 34 C66 28 74 29 73 36 L68 70 C66 82 60 90 54 92 Z"/><circle cx="50" cy="10" r="5" opacity=".7"/><circle cx="76" cy="16" r="3.5" opacity=".6"/><circle cx="22" cy="20" r="3.5" opacity=".6"/>',
+  lames: '<path d="M50 6 L56 52 L50 60 L44 52 Z"/><path d="M14 30 L52 58 L48 66 L40 64 Z" opacity=".8"/><path d="M86 30 L48 58 L52 66 L60 64 Z" opacity=".8"/><circle cx="50" cy="76" r="14" fill="none" stroke="#fff" stroke-width="5"/>',
+  onde: '<circle cx="50" cy="50" r="10"/><circle cx="50" cy="50" r="24" fill="none" stroke="#fff" stroke-width="6"/><circle cx="50" cy="50" r="38" fill="none" stroke="#fff" stroke-width="5" opacity=".6"/>',
+  esprit: '<path d="M20 22 C34 16 44 18 50 26 C56 18 66 16 80 22 L80 80 C66 74 56 76 50 84 C44 76 34 74 20 80 Z"/><path d="M50 26 L50 84" stroke="#000" stroke-opacity=".35" stroke-width="3"/><circle cx="50" cy="12" r="6" opacity=".8"/>',
   assassin: '<path d="M22 84 L58 30 L64 34 L28 88 Z"/><path d="M58 30 L80 10 L66 38 Z"/><path d="M78 84 L42 30 L36 34 L72 88 Z" opacity=".75"/><path d="M42 30 L20 10 L34 38 Z" opacity=".75"/><circle cx="50" cy="60" r="5" fill="#ff4a5a"/>',
   triple: '<path d="M14 30 L60 16 L56 24 Z"/><path d="M14 52 L72 38 L68 46 Z"/><path d="M14 74 L86 60 L80 70 Z" fill="#ff8a8a"/>',
   curee: '<path d="M50 8 L58 60 L50 92 L42 60 Z"/><circle cx="50" cy="66" r="10" fill="#ff2a3a"/><path d="M30 26 h40" stroke="#fff" stroke-width="5"/>',
@@ -1092,7 +1096,7 @@ UI.rendreMarche = () => {
       <input id="rech" placeholder="Recherche…" value="${filtres.txt}" aria-label="Rechercher un objet">
       <div class="solde">${A ? '<span class="troph" style="font-size:3vh">🏆</span>' : '<span class="piece" style="width:3vh;height:3vh"></span>'}${fmt(solde)}</div></div>
     <div class="filtres">
-      <select id="fCat" aria-label="Catégorie">${opt('tout', 'Catégorie : tout', filtres.cat)}${opt('arme', 'Toutes les armes', filtres.cat)}${opt('arme:epee', '— Épées à deux mains', filtres.cat)}${opt('arme:arbalete', '— Arbalètes lourdes', filtres.cat)}${opt('arme:baton', '— Bâtons de feu', filtres.cat)}${opt('arme:arc', '— Arcs du Maître des bêtes', filtres.cat)}${api.raresDebloques().includes('ombre') ? opt('arme:ombre', '— Dagues des Ombres', filtres.cat) : ''}${api.raresDebloques().includes('orage') ? opt('arme:orage', '— Haches de l’Orage', filtres.cat) : ''}${opt('casque', 'Armure de tête', filtres.cat)}${opt('plastron', 'Armure de poitrine', filtres.cat)}${opt('bottes', 'Armure de pieds', filtres.cat)}${opt('potion', 'Consommable', filtres.cat)}${opt('butin', 'Butin', filtres.cat)}</select>
+      <select id="fCat" aria-label="Catégorie">${opt('tout', 'Catégorie : tout', filtres.cat)}${opt('arme', 'Toutes les armes', filtres.cat)}${opt('arme:epee', '— Épées à deux mains', filtres.cat)}${opt('arme:arbalete', '— Arbalètes lourdes', filtres.cat)}${opt('arme:baton', '— Bâtons de feu', filtres.cat)}${opt('arme:arc', '— Arcs du Maître des bêtes', filtres.cat)}${api.raresDebloques().includes('ombre') ? opt('arme:ombre', '— Dagues des Ombres', filtres.cat) : ''}${api.raresDebloques().includes('orage') ? opt('arme:orage', '— Haches de l’Orage', filtres.cat) : ''}${api.raresDebloques().includes('esprit') ? opt('arme:esprit', '— Grimoires de l’Esprit', filtres.cat) : ''}${opt('casque', 'Armure de tête', filtres.cat)}${opt('plastron', 'Armure de poitrine', filtres.cat)}${opt('bottes', 'Armure de pieds', filtres.cat)}${opt('potion', 'Consommable', filtres.cat)}${opt('butin', 'Butin', filtres.cat)}</select>
       <select id="fNiv" aria-label="Niveau">${opt('tout', 'Niveau : tout', filtres.niv)}${[1, 2, 3, 4, 5, 6, 7, 8].map(n => opt(n, 'Niveau ' + n, filtres.niv)).join('')}</select>
       <select id="fQ" aria-label="Qualité">${opt('tout', 'Qualité : toute', filtres.q)}${QUALITES.map(q => opt(q.id, q.nom, filtres.q)).join('')}</select>
     </div>
@@ -1482,7 +1486,7 @@ UI.rapport = (titre, lignes) => {
 };
 
 // ---------------- Sanctuaire d'Émeraude ----------------
-const COUL_CLASSE = { epee: '#ff6a5a', arbalete: '#5aff9a', baton: '#ffab3a', ombre: '#b07aff', arc: '#ff3a3a', orage: '#7ab8ff', assassin: '#ff5a6a' };
+const COUL_CLASSE = { epee: '#ff6a5a', arbalete: '#5aff9a', baton: '#ffab3a', ombre: '#b07aff', arc: '#ff3a3a', orage: '#7ab8ff', assassin: '#ff5a6a', esprit: '#c08aff' };
 const fmtK = (n) => n >= 1e6 ? (n / 1e6).toFixed(2).replace('.', ',') + ' M' : n >= 1e4 ? (n / 1e3).toFixed(1).replace('.', ',') + ' k' : fmt(n);
 const fmtT = (s) => `${Math.floor(s / 60)} min ${String(Math.floor(s % 60)).padStart(2, '0')}`;
 UI.rechercheGroupe = (membres, cb) => {
@@ -1812,7 +1816,7 @@ UI.commandeOmbres = (liste, iles, f) => {
     <div class="cartesO"><button class="carteO tout ${nb === liste.filter(o => o.libre).length && nb ? 'on' : ''}" data-tout><b>Toutes</b><small>${liste.filter(o => o.libre).length} disponibles</small></button>
     ${liste.map(o => `<button class="carteO ${sel.has(o.i) ? 'on' : ''} ${o.libre ? '' : 'occupee'}" data-o="${o.i}"><b>${o.nom}</b><small>${PERSO_LBL[o.perso] || ''} · ${o.victoires} vict.</small><span class="loyO"><i style="width:${o.loyaute}%"></i></span><em>${o.etat}</em>${o.ile ? `<span class="rappelO" data-r="${o.i}">Rappeler</span>` : ''}</button>`).join('')}</div>
     <div class="ordresO ${nb ? '' : 'inactif'}">
-      <button data-ord="combat">⚔ Combattre avec moi</button><button data-ord="escorte">🛡 Escorte (sans attaquer)</button><button data-ord="repos">☾ Renvoyer dans l’ombre</button>
+      <button data-ord="combat">⚔ Tout dégommer</button><button data-ord="garde">🛡 Me protéger</button><button data-ord="escorte">🚶 Escorte (sans attaquer)</button><button data-ord="vue" ${nb === 1 ? '' : 'disabled title="Choisis une seule ombre"'}>👁 Voir par ses yeux</button><button data-ord="repos">☾ Renvoyer dans l’ombre</button>
       <button data-ord="arene">🏆 Arène · 3 min</button>
       <span class="grpO">☠ Donjon : ${['Cryptes · 4 min', 'Forteresse · 6 min', 'Gouffre · 8 min', 'Abîme · 10 min'].map((l, k) => `<button data-ord="donjon" data-m="${k}">${l}</button>`).join('')}</span>
       <span class="grpO">🏝 Garder : ${iles.length ? iles.map((n, k) => `<button data-ord="ile" data-ile="${k}">${n}</button>`).join('') : '<em>aucune île</em>'}</span>
@@ -1824,6 +1828,16 @@ UI.commandeOmbres = (liste, iles, f) => {
     const c = e.target.closest('[data-o]'); if (c) { const i = +c.dataset.o; sel.has(i) ? sel.delete(i) : sel.add(i); api.son('click_001', 0.3); return UI.commandeOmbres(liste, iles, f); }
     const b = e.target.closest('[data-ord]'); if (b && sel.size) { api.son('select_001', 0.4); f.ordonner([...sel], b.dataset.ord, { mode: +(b.dataset.m || 0), ile: +(b.dataset.ile || 0) }); }
   };
+};
+// fenêtre « par les yeux de l'ombre »
+UI.vueOmbre = (o) => {
+  let el = document.getElementById('vueOmbre');
+  if (!o) { if (el) el.remove(); return; }
+  if (o.maj !== undefined) { if (el) { const e = el.querySelector('.etatO'); if (e && e.textContent !== o.maj) e.textContent = o.maj; } return; }
+  if (!el) { el = document.createElement('div'); el.id = 'vueOmbre'; $('#jeu').appendChild(el); el.addEventListener('pointerdown', (e) => e.stopPropagation()); }
+  el.innerHTML = `<div class="ecranO"></div><div class="brumeO"></div><div class="titreO">👁 ${o.nom}<small class="etatO"></small></div><button class="fermer" aria-label="Fermer">×</button><button class="suivO" aria-label="Ombre suivante">⟳</button>`;
+  el.querySelector('.fermer').onclick = (e) => { e.stopPropagation(); o.fermer(); };
+  el.querySelector('.suivO').onclick = (e) => { e.stopPropagation(); o.suivante(); };
 };
 // un exploit est accompli : bandeau doré, il entre dans ta légende
 UI.exploit = (texte, pts, titre) => {
