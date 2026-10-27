@@ -197,11 +197,13 @@ export function rendre() {
   if (G.renderer.shadowMap.enabled) G.renderer.shadowMap.needsUpdate = (G._img & 1) === 0;
   if (G.niveau >= 2) G.composer.render(); else G.renderer.render(G.scene, G.camera); // sans bloom : rendu direct, anticrénelé par le navigateur
   if (G.vueOmbre && G.vueOmbre.rect) rendreVueOmbre();
+  if (G.ecrans && (G._img % 3 === 0)) { const E = G.ecrans, R = G.renderer, sm = R.shadowMap.needsUpdate; R.shadowMap.needsUpdate = false; for (const m of E.meshes) m.visible = false; const pv = G.points && G.points.visible; if (G.points) G.points.visible = false; R.setRenderTarget(E.rt); R.render(G.scene, E.cam); R.setRenderTarget(null); for (const m of E.meshes) m.visible = true; if (G.points) G.points.visible = pv; R.shadowMap.needsUpdate = sm; }
 }
 // petite fenêtre « par les yeux de l'ombre » : seconde caméra rendue dans un coin de l'écran (même image, zone découpée)
 const _camO = new THREE.PerspectiveCamera(60, 1.6, 0.3, 120), _oc = new THREE.Vector3(), _ol = new THREE.Vector3(), _montres = [];
 function rendreVueOmbre() {
   const V0 = G.vueOmbre, o = V0.acteur, r = V0.rect; if (!o || !o.root.parent || r.w < 10) return;
+  if (V0.cam) { const R = G.renderer, H = R.domElement.clientHeight, sm = R.shadowMap.needsUpdate; R.shadowMap.needsUpdate = false; const pv = G.points && G.points.visible; if (G.points) G.points.visible = false; V0.cam.aspect = r.w / r.h; V0.cam.updateProjectionMatrix(); R.setScissorTest(true); R.setScissor(r.x, H - r.y - r.h, r.w, r.h); R.setViewport(r.x, H - r.y - r.h, r.w, r.h); R.render(G.scene, V0.cam); R.setScissorTest(false); R.setViewport(0, 0, R.domElement.clientWidth, H); R.shadowMap.needsUpdate = sm; if (G.points) G.points.visible = pv; V0.cam.aspect = 16 / 9; V0.cam.updateProjectionMatrix(); return; }
   const a = o.root.rotation.y, p = o.root.position;
   _oc.set(p.x - Math.sin(a) * 3.6, p.y + 2.9, p.z - Math.cos(a) * 3.6); _ol.set(p.x + Math.sin(a) * 3, p.y + 1.1, p.z + Math.cos(a) * 3);
   if (!V0.init) { V0.init = true; _camO.position.copy(_oc); V0.regard = _ol.clone(); }

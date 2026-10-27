@@ -420,7 +420,7 @@ function libererGPU(racines) {
 }
 function viderMonde() {
   for (const a of serviteurs) { G.scene.remove(a.root); UI.retirerPlaque(a); } serviteurs = [];
-  G.solH = null; G.murs = false; G.camCible = null; G.camLibre = false; for (const v of auras.values()) G.scene.remove(v.g); auras.clear(); scenes = []; crypteEtat = null; if (sceneOmbre) { sceneOmbre = null; G.camCible = null; document.body.classList.remove('cinema'); UI.dialogueTaverne(null); }
+  G.solH = null; G.murs = false; G.ecrans = null; G.camCible = null; G.camLibre = false; for (const v of auras.values()) G.scene.remove(v.g); auras.clear(); scenes = []; crypteEtat = null; if (sceneOmbre) { sceneOmbre = null; G.camCible = null; document.body.classList.remove('cinema'); UI.dialogueTaverne(null); }
   for (const e of ennemis) if (e.auraM && e.auraM.ring.parent) G.scene.remove(e.auraM.ring);
   if (taverne) { for (const c of taverne.clients) { G.scene.remove(c.root); UI.retirerPlaque(c); } taverne = null; UI.fileAttente(null); }
   mission = null; UI.manga(null);
@@ -583,6 +583,7 @@ function voirOmbre(i) {
 }
 function majVueOmbre() {
   const V0 = G.vueOmbre; if (!V0) return;
+  if (V0.cam) { if (!arene || !G.ecrans) return vueOmbre(null); const el = document.getElementById('vueOmbre'); if (el) { const r = el.querySelector('.ecranO').getBoundingClientRect(); V0.rect = { x: r.left, y: r.top, w: r.width, h: r.height }; } return; }
   if (!V0.acteur.root.parent || !escouade.includes(V0.acteur)) { const l = escouade.filter(x => !x.sceneOmbre); return vueOmbre(l[0] || null); }
   const el = document.getElementById('vueOmbre'); if (!el) return;
   const r = el.querySelector('.ecranO').getBoundingClientRect(); V0.rect = { x: r.left, y: r.top, w: r.width, h: r.height };
@@ -2064,6 +2065,14 @@ const PAROLES_FORTUNE = [
   [50e6, ['{nom} a une fortune de roi, on parle de lui jusqu’aux îles', 'paraît que {nom} dort sur des piles de pièces', 'le Trésor de {nom}… même les bandits n’osent plus y penser', 'quand {nom} arrive sur la Place, le prix des potions monte', 'je travaille pour {nom} le mois prochain, il paie en or massif']],
 ];
 let fortuneT = 60, vuFortune = [];
+let echoT = 90;
+function majEchosArene(dt) {
+  if (modeActuel && modeActuel.id !== 'taverne' || !J.echosArene || !J.echosArene.length) return;
+  echoT -= dt; if (echoT > 0) return; echoT = rnd(110, 220);
+  const E = hasard(J.echosArene.slice(-3));
+  const l = hasard(E.rang ? [`${J.nom} est passé ${E.rang} à l’arène, Orvald l’a crié dans toutes les tribunes`, `t’as entendu ? ${J.nom} monte ${E.rang}, ça commence à faire peur`] : [`paraît que ${E.txt}`, `j’étais en tribune : ${E.txt}, quel match`, `${E.txt}… Orvald en parle encore`, `on raconte que ${E.txt}, faut que je voie ça`]);
+  const b = hasard(bots.length ? bots : [{ nom: hasard(BOTS)[0] }]); UI.chat(b.nom, l);
+}
 function majFortune(dt) {
   if (modeActuel || !joueur) return;
   fortuneT -= dt; if (fortuneT > 0) return; fortuneT = rnd(140, 260);
@@ -3881,7 +3890,7 @@ function boucleCorps() {
     if (monde.type === 'donjon') { majScenes(dt); majCrypte(dt); majAurasDonjon(dt); }
     majRegards(); majAuras(dt); majPortes(dt); majVueOmbre(); majTK(dt); majLames(dt);
     if (!modeActuel || modeActuel.id === 'ile') majParolesPNJ(dt);
-    majRumeurs(dt); majFortune(dt);
+    majRumeurs(dt); majFortune(dt); majEchosArene(dt);
     majEscouade(dt); majCommandeOmbres(dt); majAbime(dt); majMeuteJoueur(dt); if (taverne) majTaverne(dt); if (mission) majMission(dt); majEveil(dt); if (goulet) majGoulet(dt); if (!modeActuel) majPortailGoulet();
     G.enCombat = joueur.combatT > 0 && !!modeActuel;
     majCamera(dt, G.solH && !G.camCible ? V(joueur.pos.x, solY(joueur.pos.x, joueur.pos.z), joueur.pos.z) : (G.camCible || joueur.pos));
@@ -4467,10 +4476,79 @@ function entrerArene(format, opts = {}) {
     $('#btnQuitter').hidden = false;
     son('forceField_000', 0.6, 0.6);
     G.renderer.compile(G.scene, G.camera);
+    arene.presentation = true; programmer(0.8, presenterArene);
+    ecransArene(true);
+    G.vueOmbre = { acteur: joueur, rect: null, cam: G.ecrans.cam }; UI.vueOmbre({ nom: '📺 En direct de l’Arène', fermer: () => vueOmbre(null), suivante: () => {} });
   });
 }
-function majArene(dt) {
+// ---- le présentateur de l'Arène des Échos : il annonce les champions avec leurs vrais chiffres, puis le chrono démarre ----
+const PRESENTATEUR = { nom: 'Orvald', titre: 'la Voix des Échos', modele: 'Barbarian', couleur: '#ffcf4a' };
+function statsArene(nom, ip) {
+  if (nom === J.nom) { J.areneStats = J.areneStats || { v: 0, d: 0, serie: 0 }; return J.areneStats; }
+  J.areneBots = J.areneBots || {};
+  if (!J.areneBots[nom]) { const n = Math.floor(rnd(4, 40) + (ip || 300) / 40); const v = Math.floor(n * rnd(0.35, 0.75)); J.areneBots[nom] = { v, d: n - v, serie: Math.random() < 0.5 ? Math.floor(rnd(1, 6)) : -Math.floor(rnd(1, 3)) }; const k = Object.keys(J.areneBots); if (k.length > 120) delete J.areneBots[k[0]]; }
+  return J.areneBots[nom];
+}
+function ficheChampion(nom, ip, rang) {
+  const S = statsArene(nom, ip), tot = S.v + S.d;
+  const serie = S.serie >= 3 ? `INVAINCU depuis ${S.serie} duels !` : S.serie > 0 ? `sur une série de ${S.serie} victoire${S.serie > 1 ? 's' : ''}` : S.serie <= -3 ? `qui reste sur ${-S.serie} défaites… il a soif de revanche` : S.serie < 0 ? 'qui vient de mordre la poussière et veut se racheter' : 'qui fait ses débuts ici';
+  return tot ? `${S.v} victoire${S.v > 1 ? 's' : ''}, ${S.d} défaite${S.d > 1 ? 's' : ''}, ${serie}${rang ? ' — rang ' + rang : ''} !` : `Un nouveau venu ! Aucun combat dans cette arène… montre-nous ce que tu vaux !`;
+}
+function presenterArene() {
   if (!arene || arene.fini) return;
+  const moi = [joueur, ...allies.filter(a => !a.invoc && !a.loup)], eux = ennemis.filter(e => e.rival);
+  const rg = rangDe('arene').r.nom;
+  const P = (texte, choc) => ({ nom: PRESENTATEUR.nom, titre: PRESENTATEUR.titre, modele: PRESENTATEUR.modele, texte, couleur: PRESENTATEUR.couleur, choc });
+  const pan = [P(hasard(['Mesdames et messieurs… BIENVENUE à l’Arène des Échos !', 'Silence dans les tribunes ! Le sang va couler ce soir !', 'Peuple de la Brèche, levez-vous ! Le duel commence !']))];
+  pan.push(P(`À ma gauche… ${moi.map(x => x.nom || J.nom).join(' et ')} ! ${ficheChampion(J.nom, joueur.st.ip, rg)}`, (J.areneStats || {}).serie >= 3));
+  for (const e of eux) pan.push({ ...P(`À ma droite… ${e.nom}, ⚔ ${e.ip} ! ${ficheChampion(e.nom, e.ip)}`), cote: 'd' });
+  if (arene.letale) pan.push(P('Et attention… c’est une arène LÉTALE ! Le perdant repartira sans rien sur le dos !', true));
+  pan.push(P(hasard(['Combattants… en position ! Que le meilleur gagne !', 'Que les Échos retiennent vos noms… COMBATTEZ !', 'Trois… deux… non, attendez le signal !']), true));
+  son('jingle_win', 0.35, 0.8);
+  for (const e of eux) programmer(2.5, () => !e.mort && e.jouer('Cheer', { boucle: false, forcer: true }));
+  joueur.jouer('Cheer', { boucle: false, forcer: true, fin: () => joueur.jouer(joueur.def.idle) });
+  UI.manga(pan, () => { if (arene) { arene.presentation = false; arene.t = 3.6; arene.dernier = 4; } });
+}
+// annonce finale : vainqueur, série, changement de rang ; le vaincu quitte l'arène
+function annonceFinArene(victoire, rangAvant, rangApres) {
+  const moi = J.areneStats, P = (texte, choc) => ({ nom: PRESENTATEUR.nom, titre: PRESENTATEUR.titre, modele: PRESENTATEUR.modele, texte, couleur: PRESENTATEUR.couleur, choc });
+  const r = ennemis.find(e => e.rival), nomR = r ? r.nom : 'son adversaire';
+  const pan = [P(victoire ? `VICTOIRE DE ${J.nom.toUpperCase()} ! ${moi.serie >= 3 ? `${moi.serie} victoires d’affilée, toujours invaincu !` : `Sa ${moi.v}ᵉ victoire dans l’arène !`}` : `${nomR} l’emporte ! ${J.nom} tombe… ${moi.d} défaite${moi.d > 1 ? 's' : ''} au compteur.`, victoire)];
+  if (rangAvant && rangApres && rangApres.i !== rangAvant.i) pan.push(P(rangApres.i > rangAvant.i ? `Et écoutez-moi bien : ${J.nom} passe de ${rangAvant.r.nom} à ${rangApres.r.nom.toUpperCase()} !` : `Aïe… ${J.nom} redescend de ${rangAvant.r.nom} à ${rangApres.r.nom}.`, rangApres.i > rangAvant.i));
+  UI.manga(pan);
+  const txt = victoire ? `${J.nom} a battu ${nomR} à l’arène${moi.serie >= 3 ? ` (${moi.serie} victoires d’affilée)` : ''}` : `${nomR} a battu ${J.nom} à l’arène`;
+  J.echosArene = [...(J.echosArene || []), { txt, t: Date.now(), rang: rangApres && rangAvant && rangApres.i > rangAvant.i ? rangApres.r.nom : null }].slice(-6);
+  // le vaincu se relève et quitte l'arène par sa porte
+  if (victoire) for (const e of ennemis.filter(x => x.rival)) programmer(2.2, () => {
+    if (!e.root.parent) return; e.descendre = false; e._sortie = true; e.jouer('Walking_A', { forcer: true });
+    const porte = V(20, 0, e.pos.z * 0.2); ajouterVfx(new THREE.Group(), (t, dt) => { if (!e.root.parent) return false; e.descendre = false; const d = dist2D(e.pos, porte); if (d < 0.8 || t > 8) { G.scene.remove(e.root); UI.retirerPlaque(e); return false; } const v = V(porte.x - e.pos.x, 0, porte.z - e.pos.z).normalize(); e.pos.x += v.x * dt * 1.6; e.pos.z += v.z * dt * 1.6; e.angle = Math.atan2(v.x, v.z); e.root.rotation.y = e.angle; e.root.position.y = 0; e.maj(dt); });
+  });
+}
+// les deux grands écrans au-dessus des tribunes retransmettent le duel en direct
+function ecransArene(on) {
+  if (!on) { G.ecrans = null; return; }
+  const rt = new THREE.WebGLRenderTarget(384, 216); rt.texture.colorSpace = THREE.SRGBColorSpace;
+  const cam = new THREE.PerspectiveCamera(42, 16 / 9, 0.5, 120), meshes = [];
+  for (const s of [-1, 1]) {
+    const cadre = new THREE.Mesh(new THREE.BoxGeometry(9.4, 5.6, 0.4), new THREE.MeshStandardMaterial({ color: '#2a1a12', roughness: 0.8 }));
+    const ecran = new THREE.Mesh(new THREE.PlaneGeometry(8.8, 4.95), new THREE.MeshBasicMaterial({ map: rt.texture, toneMapped: false }));
+    const g = new THREE.Group(); g.add(cadre); ecran.position.z = 0.21; g.add(ecran);
+    g.position.set(0, 13, s * 31); g.rotation.y = s > 0 ? Math.PI : 0; monde.groupe.add(g); meshes.push(g);
+  }
+  G.ecrans = { rt, cam, meshes, a: 0 };
+}
+function majEcransArene(dt) {
+  const E = G.ecrans; if (!E || !arene) return;
+  const c = ennemis.find(e => e.rival && !e.mort) || ennemis[0];
+  const m = c ? V((joueur.pos.x + c.pos.x) / 2, 1, (joueur.pos.z + c.pos.z) / 2) : joueur.pos.clone();
+  E.a += dt * 0.15; const d = 9 + (c ? Math.min(8, dist2D(joueur.pos, c.pos) * 0.5) : 0);
+  E.cam.position.set(m.x + Math.cos(E.a) * d, 4.2, m.z + Math.sin(E.a) * d); E.cam.lookAt(m.x, 1.1, m.z);
+}
+
+
+function majArene(dt) {
+  majEcransArene(dt);
+  if (!arene || arene.fini || arene.presentation) return;
   if (arene.t > 0) {
     arene.t -= dt;
     const n = Math.ceil(arene.t);
@@ -4503,7 +4581,11 @@ function finArene(victoire) {
     lignes.push(`Arène létale : tu perds tout ton équipement porté (${perdus.map(it => nomObjet(it)).join(', ') || 'rien'}). Il te reste ton argent et ton sac.`);
   }
   if (arene.letale && victoire) lignes.push('Arène létale : fouille la dépouille des perdants avant de partir.');
+  const rangAvant = rangDe('arene');
   if (!arene.duel) changerRang('arene', victoire ? GAIN_RANG * (arene.letale ? 1.5 : 1) : -PERTE_RANG, victoire ? 'Victoire en arène' : 'Défaite en arène');
+  { const S = statsArene(J.nom); if (victoire) { S.v++; S.serie = Math.max(0, S.serie) + 1; } else { S.d++; S.serie = Math.min(0, S.serie) - 1; }
+    for (const e of ennemis.filter(x => x.rival)) { const R = statsArene(e.nom, e.ip); if (victoire) { R.d++; R.serie = Math.min(0, R.serie) - 1; } else { R.v++; R.serie = Math.max(0, R.serie) + 1; } }
+    annonceFinArene(victoire, rangAvant, rangDe('arene')); }
   const xp = gagnerXPRelatif(victoire ? (arene.duel ? 0.05 : 0.12) : 0.03);
   setTimeout(() => montrerXP(victoire ? 'Victoire en arène' : 'Combat d’arène'), 400);
   lignes.push(`+ ${fmtN(xp)} XP de maîtrise sur ton équipement porté`);
@@ -4523,7 +4605,7 @@ function finArene(victoire) {
     const morts = ennemis.filter(e => e.rival);
     const suivant = (i) => { if (i >= morts.length) return finir(); const r = morts[i]; UI.depouille(r.nom, r.ip, Object.values(r.equip).filter(Boolean), r.argent, (pris) => { J.argent += r.argent; for (const it of pris) ajouterSac(it, true); son('handleCoins', 0.6); sauver(); suivant(i + 1); }); };
     setTimeout(() => suivant(0), 2600);
-  } else setTimeout(finir, 2200);
+  } else setTimeout(finir, 6500);
 }
 
 // ---------------- Invasions ----------------
