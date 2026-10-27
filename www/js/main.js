@@ -596,7 +596,7 @@ function majPortailGoulet() {
   const e = etatPortailGoulet();
   if (pg.groupe.visible !== e.ouvert) {
     pg.groupe.visible = e.ouvert;
-    if (e.ouvert) { UI.toast('LE GOULET DES BRAISES EST OUVERT', true); UI.toast('Portail bleu et rouge à l’ouest de la Place · 10 contre 10'); son('jingle_legend', 0.5, 0.8); onde(pg.pos, '#7ab8ff', 6, 1); }
+    if (e.ouvert) { UI.toast('LE GOULET DES BRAISES EST OUVERT', true); UI.toast('Portail bleu et rouge à l’est de la Place · 10 contre 10'); son('jingle_legend', 0.5, 0.8); onde(pg.pos, '#7ab8ff', 6, 1); }
   }
 }
 // listes des équipes, calculées une seule fois par image (évite des milliers de petits tableaux → pas d'à-coups du ramasse-miettes)
@@ -4521,7 +4521,7 @@ const ipAffiche = () => J.dissimule ? Math.max(100, Math.round(ipReel() * 0.3)) 
 function majAffichagePuissance() {
   if (!joueur) return;
   UI.retirerPlaque(joueur);
-  UI.plaque(joueur, { nom: J.nom, guilde: 'CROW ZERO', classe: 'allie' + (J.dissimule ? ' dissimule' : ''), vie: false, ip: ipAffiche() });
+  joueur.estJoueur = true; UI.plaque(joueur, { nom: J.nom, guilde: 'CROW ZERO', classe: 'allie' + (J.dissimule ? ' dissimule' : ''), vie: false, ip: ipAffiche() });
   $('#ipHud').textContent = `Niv. ${niveauHeros(J.equip)} · ⚔ ${J.dissimule ? ipAffiche() + ' ?' : ipReel()}`;
   UI.boutonReveler(!!J.dissimule, () => revelerPuissance());
 }

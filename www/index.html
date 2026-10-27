@@ -146,6 +146,7 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 /* ---------- étiquettes et chiffres ---------- */
 #labels,#nombres{position:absolute;inset:0;pointer-events:none;overflow:hidden}
 .plaque{position:absolute;left:0;top:0;will-change:transform;contain:layout style;backface-visibility:hidden;transform:translate(-50%,-100%);text-align:center;white-space:nowrap;font-family:var(--f-label);font-weight:700;line-height:1}
+.plaque{transition:opacity .25s}.plaque.cachee{opacity:0}
 .plaque .n{font-size:clamp(11px,1.9vh,15px);color:#fff}
 .plaque .n b{display:inline-block;background:#e9c241;color:#2a1a05;padding:0 3px;margin-right:2px;border-radius:2px}
 .plaque .gd{font-size:clamp(9px,1.4vh,11px);color:#7fb2ff;letter-spacing:.04em}

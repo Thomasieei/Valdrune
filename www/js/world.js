@@ -55,9 +55,16 @@ export function construireHub() {
   const inst = new Instancieur();
   const X0 = -7, X1 = 6, Z0 = -6, Z1 = 5; // cellules
   const sol = (x, z) => x >= X0 && x <= X1 && z >= Z0 && z <= Z1;
+  // plan de la Place : chaque lieu a son emplacement réservé (rien ne doit s'y superposer)
+  const M = new THREE.Vector3(-17, 0, 9), P = new THREE.Vector3(15, 0, -14), PA = new THREE.Vector3(-17, 0, -13);
+  const PI = new THREE.Vector3(18, 0, 13), PB = new THREE.Vector3(22.5, 0, -0.5), TV = new THREE.Vector3(1, 0, -19.6);
+  const reserve = [[0, 0, 11], [M.x, M.z, 8], [P.x, P.z, 6.5], [PA.x, PA.z, 6.5], [PI.x, PI.z, 5.5], [PB.x, PB.z, 5.5], [TV.x, TV.z, 10], [-4, 15, 4.5], [0, 9, 3], [13.2, 15.6, 2.5]];
+  const libre = (x, z, m = 0) => reserve.every(([cx, cz, r]) => Math.hypot(x - cx, z - cz) > r + m);
   for (let x = X0; x <= X1; x++) for (let z = Z0; z <= Z1; z++) {
-    const r = Math.random();
-    inst.ajouter(r < 0.82 ? 'floor_tile_large' : r < 0.92 ? 'floor_tile_large_rocks' : 'floor_dirt_large', x * CELL + 2, 0, z * CELL + 2, Math.floor(Math.random() * 4) * Math.PI / 2);
+    const r = Math.random(), cx = x * CELL + 2, cz = z * CELL + 2;
+    // les dalles à gravats (gros cailloux) seulement dans les zones vides, jamais sous un portail ou une échoppe
+    const k = r < 0.82 ? 'floor_tile_large' : r < 0.92 ? (libre(cx, cz, 3) ? 'floor_tile_large_rocks' : 'floor_tile_large') : 'floor_dirt_large';
+    inst.ajouter(k, cx, 0, cz, Math.floor(Math.random() * 4) * Math.PI / 2);
   }
   solAbysse(groupe, 0, 0, 200);
   // Murs : nord et ouest hauts (derrière), sud et est bas (devant la caméra)
@@ -81,7 +88,7 @@ export function construireHub() {
   inst.ajouter('pillar', X0 * CELL, 0, (Z1 + 1) * CELL, 0, 0.8, 0.5, 0.8);
   inst.ajouter('pillar', (X1 + 1) * CELL, 0, Z0 * CELL, 0, 0.8, 1, 0.8);
   // décor
-  const deco = [['barrel_large', -24, 18], ['barrel_small_stack', -21.5, 19.5], ['crates_stacked', -24, -6], ['rubble_half', 20, 19]];
+  const deco = [['barrel_large', -24, 18], ['barrel_small_stack', -21.5, 19.5], ['crates_stacked', -25.5, -8], ['rubble_half', 25, 21]];
   for (const [k, x, z] of deco) inst.ajouter(k, x, 0, z, rnd(0, 6.28));
   inst.construire(groupe);
 
@@ -117,7 +124,6 @@ export function construireHub() {
   for (const [x, z] of [[7, 7], [-7, 7], [7, -7], [-7, -7]]) brasero(groupe, x, z, '#ff7a2a', 1);
 
   // ---- Échoppe du marchand (sud-ouest, à gauche de l'écran) ----
-  const M = new THREE.Vector3(-17, 0, 9);
   const echoppe = new THREE.Group(); echoppe.position.copy(M); echoppe.rotation.y = Math.PI / 4; groupe.add(echoppe);
   const ajouter = (k, x, y, z, r = 0, s = 1) => { const o = cloner(k, x, y, z, r, s); echoppe.add(o); return o; };
   ajouter('table_long_tablecloth_decorated_A', 0, 0, 0, Math.PI / 2);
@@ -143,42 +149,41 @@ export function construireHub() {
   G.torches.push({ pos: M.clone().add(new THREE.Vector3(1.2, 3.6, 1.2)), color: '#ffc27a', int: 34, dist: 14 });
 
   // ---- Le Portail Écarlate (nord-est, à droite de l'écran) ----
-  const P = new THREE.Vector3(15, 0, -14);
   const portail = construirePortail(groupe, P, 0.1, THEME_ROUGE);
   // ---- Le Portail de l'Arène (nord-ouest) ----
-  const PA = new THREE.Vector3(-17, 0, -13);
   const portailArene = construirePortail(groupe, PA, 0.35, THEME_VIOLET);
   // ---- Le petit portail doré des Îles (sud-est) et son passeur ----
-  const PI = new THREE.Vector3(18, 0, 13);
   const portailIle = construirePortail(groupe, PI, -0.5, THEME_JAUNE, 0.5);
   const passeur = { pos: new THREE.Vector3(13.2, 0, 15.6), rot: -0.9 };
   // ---- Le portail du Goulet des Braises (10 contre 10), qui s'ouvre toutes les 5 minutes ----
-  const PB = new THREE.Vector3(-15, 0, 12);
-  const portailGoulet = construirePortail(groupe, PB, 0.7, THEME_GOULET, 0.55); portailGoulet.groupe.visible = false;
-  for (const [k, x, z, r2, s2] of [['barrel_large', 21.8, 16.8, 0, 0.7], ['crates_stacked', 22.5, 9.6, 0.4, 0.7]]) groupe.add(cloner(k, x, 0, z, r2, s2));
+  const portailGoulet = construirePortail(groupe, PB, -0.75, THEME_GOULET, 0.55); portailGoulet.groupe.visible = false;
+  for (const [k, x, z, r2, s2] of [['barrel_large', 24.5, 17.5, 0, 0.7], ['crates_stacked', 25, 7.5, 0.4, 0.7]]) groupe.add(cloner(k, x, 0, z, r2, s2));
 
   // ---- La Taverne du Croc-Rouge (nord, contre le rempart) ----
-  const TV = new THREE.Vector3(1, 0, -19.6);
-  groupe.add(cloner('b_tavern', TV.x, 0, TV.z, Math.PI, 6.4));
+  const bat = cloner('b_tavern', TV.x, 0, TV.z, Math.PI, 6.4); groupe.add(bat);
+  // emprise réelle du bâtiment : l'enseigne et les tonneaux se placent autour, jamais dedans
+  const bb = new THREE.Box3().setFromObject(bat); const AV = bb.max.z, DL = (bb.max.x - bb.min.x) / 2, CX = (bb.min.x + bb.max.x) / 2, CZ = (bb.min.z + bb.max.z) / 2, PR = Math.min(3.6, (bb.max.z - bb.min.z) / 2);
+  const TONNEAUX = [['barrel_large', CX - DL - 1.3, AV - 2.8, 0.7], ['keg_decorated', CX - DL - 1.4, AV - 4.8, 0.6], ['barrel_small_stack', CX + DL + 1.1, AV - 2.6, 0.8]];
   { const enseigne = texture('enseigne_croc', 256, 128, (g, w2, h2) => { g.fillStyle = '#3a2414'; g.fillRect(0, 0, w2, h2); g.strokeStyle = '#d8a84a'; g.lineWidth = 6; g.strokeRect(6, 6, w2 - 12, h2 - 12); g.fillStyle = '#ffd27a'; g.font = 'bold 34px serif'; g.textAlign = 'center'; g.fillText('Le Croc-Rouge', w2 / 2, 56); g.font = 'italic 22px serif'; g.fillStyle = '#e8c8a0'; g.fillText('taverne · missions', w2 / 2, 94); });
-    const pl = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.7), new THREE.MeshStandardMaterial({ map: enseigne, roughness: 0.8, emissive: '#2a1408', emissiveIntensity: 0.6 })); pl.position.set(TV.x + 3.2, 4.2, TV.z + 5.2); pl.rotation.y = -0.2; groupe.add(pl);
-    const potence = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 1.4), new THREE.MeshStandardMaterial({ color: '#2a1a10' })); potence.position.set(TV.x + 3.2, 5.15, TV.z + 4.6); groupe.add(potence);
-    for (const dx of [-2.4, 2.4]) { const l = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8), new THREE.MeshBasicMaterial({ color: '#ffcf7a' })); l.position.set(TV.x + dx, 3.1, TV.z + 5.4); groupe.add(l); G.torches.push({ pos: new THREE.Vector3(TV.x + dx, 3, TV.z + 5.6), color: '#ffb05a', int: 26, dist: 12 }); }
-    for (const [k, dx, dz, s] of [['barrel_large', -4.6, 5.2, 0.7], ['barrel_small_stack', 5.2, 5, 0.8], ['keg_decorated', -5.6, 3.4, 0.6]]) groupe.add(cloner(k, TV.x + dx, 0, TV.z + dz, 0.3, s));
+    const pl = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.7), new THREE.MeshStandardMaterial({ map: enseigne, roughness: 0.8, emissive: '#2a1408', emissiveIntensity: 0.6 })); pl.position.set(CX - DL - 1.9, 3.5, AV + 1.3); pl.rotation.y = 0.45; groupe.add(pl);
+    const bois2 = new THREE.MeshStandardMaterial({ color: '#2a1a10', roughness: 0.9 }); const potence = new THREE.Mesh(new THREE.BoxGeometry(0.22, 4.8, 0.22), bois2); potence.position.set(CX - DL - 1.9 - Math.cos(0.45) * 1.9, 2.4, AV + 1.3 + Math.sin(0.45) * 1.9 - 0.15); potence.castShadow = true; groupe.add(potence);
+    const potence2 = new THREE.Mesh(new THREE.BoxGeometry(0.22, 4.8, 0.22), bois2); potence2.position.set(CX - DL - 1.9 + Math.cos(0.45) * 1.9, 2.4, AV + 1.3 - Math.sin(0.45) * 1.9 - 0.15); potence2.castShadow = true; groupe.add(potence2);
+    for (const dx of [-DL * 0.36, DL * 0.36]) { const l = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8), new THREE.MeshBasicMaterial({ color: '#ffcf7a' })); l.position.set(CX + dx, 3.1, AV + 0.3); groupe.add(l); G.torches.push({ pos: new THREE.Vector3(CX + dx, 3, AV + 0.8), color: '#ffb05a', int: 26, dist: 12 }); }
+    for (const [k, x, z, s] of TONNEAUX) groupe.add(cloner(k, x, 0, z, 0.3, s));
   }
   G.scene.add(groupe);
   // Collisions
   const collisions = [
-    { x: TV.x - 2.6, z: TV.z, r: 3.4 }, { x: TV.x + 2.6, z: TV.z, r: 3.4 }, { x: TV.x, z: TV.z - 2, r: 3.4 }, { x: TV.x - 4.6, z: TV.z + 5.2, r: 0.8 }, { x: TV.x + 5.2, z: TV.z + 5, r: 0.8 },
+    ...Array.from({ length: Math.max(2, Math.ceil(DL * 2 / PR)) }, (_, i, n) => ({ x: bb.min.x + PR * 0.8 + i * (DL * 2 - PR * 1.6) / Math.max(1, Math.max(2, Math.ceil(DL * 2 / PR)) - 1), z: AV - PR, r: PR })), ...TONNEAUX.map(([, x, z]) => ({ x, z, r: 0.8 })),
     { x: 0, z: 0, r: 2.8 }, ...[[7, 7], [-7, 7], [7, -7], [-7, -7]].map(([x, z]) => ({ x, z, r: 0.7 })),
     { x: M.x, z: M.z, r: 2.4 }, { x: M.x - 1.6, z: M.z - 1.6, r: 2.4 }, { x: M.x + 1.6, z: M.z - 1.6, r: 2.4 }, { x: M.x - 2.4, z: M.z - 2.4, r: 2.6 },
-    { x: P.x, z: P.z, r: 3.2 }, { x: PA.x, z: PA.z, r: 3.2 }, { x: PI.x, z: PI.z, r: 1.8 }, { x: 21.8, z: 16.8, r: 0.9 }, { x: 22.5, z: 9.6, r: 1.0 }, { x: -24, z: 18, r: 1.2 }, { x: -24, z: -6, r: 1.3 },
+    { x: P.x, z: P.z, r: 3.2 }, { x: PA.x, z: PA.z, r: 3.2 }, { x: PI.x, z: PI.z, r: 1.8 }, { x: 24.5, z: 17.5, r: 0.9 }, { x: 25, z: 7.5, r: 1.0 }, { x: -24, z: 18, r: 1.2 }, { x: -25.5, z: -8, r: 1.3 }, { x: PB.x, z: PB.z, r: 1.8 },
   ];
   return {
     groupe, type: 'hub', nom: 'Place des Cendres',
     spawn: new THREE.Vector3(0, 0, 9),
     marchand: { pos: M.clone().add(new THREE.Vector3(-1.4, 0, -1.4)), rot: Math.PI / 4, comptoir: M.clone() },
-    portail, portailArene, portailIle, portailGoulet, passeur, taverne: { porte: new THREE.Vector3(TV.x, 0, TV.z + 5.4) },
+    portail, portailArene, portailIle, portailGoulet, passeur, taverne: { porte: new THREE.Vector3(CX, 0, AV + 1.4), emprise: { x0: bb.min.x, x1: bb.max.x, z0: bb.min.z, z1: AV } },
     marche: (x, z) => x > X0 * CELL + 0.8 && x < (X1 + 1) * CELL - 0.8 && z > Z0 * CELL + 0.8 && z < (Z1 + 1) * CELL - 0.8,
     collisions,
     bornes: { x0: X0 * CELL, x1: (X1 + 1) * CELL, z0: Z0 * CELL, z1: (Z1 + 1) * CELL },

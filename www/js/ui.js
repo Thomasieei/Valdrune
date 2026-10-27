@@ -711,7 +711,9 @@ UI.plaque = (ent, { nom, guilde = '', classe = '', vie = true, lettre = true, ip
   const d = document.createElement('div'); d.className = 'plaque contour ' + classe;
   const ini = lettre ? `<b>${nom[0]}</b>` : '';
   d.innerHTML = `<div class="n">${ini}${lettre ? nom.slice(1) : nom}</div>${guilde || ip ? `<div class="gd">${guilde}${niv ? `<span class="nivb">Niv. ${niv}</span>` : ''}${ip ? `<span class="ipb">⚔ ${ip}</span>` : ''}</div>` : ''}${vie ? '<div class="vie"><i></i></div>' : ''}`;
-  $('#labels').appendChild(d); plaques.set(ent, { d, barre: d.querySelector('.vie i'), h: ent.hauteurPlaque || 2.5 });
+  // les plaques « sociales » (sans barre de vie) s'effacent quand elles se chevauchent ; les barres de combat restent toujours visibles
+  const prio = !vie ? (/pnj/.test(classe) ? 2 : 1) : 0;
+  $('#labels').appendChild(d); plaques.set(ent, { d, barre: d.querySelector('.vie i'), h: ent.hauteurPlaque || 2.5, prio });
 };
 UI.retirerPlaque = (ent) => { const p = plaques.get(ent); if (p) { p.d.remove(); plaques.delete(ent); } };
 UI.viderPlaques = () => { for (const p of plaques.values()) p.d.remove(); plaques.clear(); for (const b of bulles.values()) b.d.remove(); bulles.clear(); };
@@ -734,8 +736,30 @@ UI.majPlaques = (centre) => {
       if (t !== p.t) { p.t = t; const g = p.gd || (p.gd = p.d.querySelector('.gd')); if (g) { g.textContent = `⏳ ${t} s`; g.classList.toggle('urgent', t <= 5); } }
     }
   }
+  degager(centre);
   if (bulles.size) majBulles();
 };
+// anti-superposition : le joueur, puis les PNJ, puis les plus proches gardent leur plaque ; les autres s'estompent
+const _soc = [];
+function degager(centre) {
+  _soc.length = 0;
+  for (const [ent, p] of plaques) {
+    if (!p.prio || !p.vis) { if (p.cache) { p.cache = false; p.d.classList.remove('cachee'); } continue; }
+    const pos = ent.pos || ent.root.position;
+    p.rang = (ent.estJoueur ? 100 : p.prio * 10) - Math.hypot(pos.x - centre.x, pos.z - centre.z) * 0.1;
+    if (p.lw === undefined || G.t - (p.lwT || 0) > 2) { p.lw = p.d.offsetWidth || 120; p.lh = p.d.offsetHeight || 30; p.lwT = G.t; }
+    _soc.push(p);
+  }
+  _soc.sort((a, b) => b.rang - a.rang);
+  for (let i = 0; i < _soc.length; i++) {
+    const a = _soc[i]; let gene = false;
+    for (let j = 0; j < i && !gene; j++) {
+      const b = _soc[j]; if (b.cache) continue;
+      gene = Math.abs(a.x - b.x) < (a.lw + b.lw) / 2 - 6 && Math.abs(a.y - b.y) < (a.lh + b.lh) / 2 - 2;
+    }
+    if (gene !== !!a.cache) { a.cache = gene; a.d.classList.toggle('cachee', gene); }
+  }
+}
 
 // ---------------- Mini-carte ----------------
 UI.mini = (monde, joueur, entites) => {
