@@ -1916,6 +1916,30 @@ UI.choixTK = (f) => {
   el.innerHTML = `<div class="tkT">EMPRISE</div><button data-c="deposer">🪶<b>Déposer</b><small>en douceur</small></button><button data-c="ecraser">💥<b>Écraser</b><small>au sol</small></button><button data-c="projeter">🎯<b>Projeter</b><small>vise au joystick</small></button>`;
   el.onclick = (e) => { const b = e.target.closest('[data-c]'); if (b) { api.son('select_001', 0.4); f(b.dataset.c); } };
 };
+// atelier du domaine : forge et cuisine
+UI.atelier = (A, choisir) => {
+  let m = document.getElementById('dlgAtelier'); if (m) m.remove();
+  m = document.createElement('div'); m.id = 'dlgAtelier'; m.className = 'calque'; $('#jeu').appendChild(m); m.addEventListener('pointerdown', (e) => e.stopPropagation());
+  const st = A.stock, ok = (c) => Object.entries(c).every(([k, v]) => (st[k] || 0) >= v);
+  const cout = (c) => Object.entries(c).map(([k, v]) => `<span class="${(st[k] || 0) >= v ? 'ok' : 'ko'}">${{ bois: '🪵', minerai: '⛏', recolte: '🌾', argent: '¤' }[k]} ${fmtCourt(v)}</span>`).join('');
+  m.innerHTML = `<div class="boiteA"><button class="fermer" data-x>×</button><h2>${A.type === 'forge' ? '⚒ Forge du domaine' : '🍲 Cuisine du domaine'}</h2>
+    <p class="sousA">Stock de tes îles : 🪵 ${fmtCourt(st.bois)} · ⛏ ${fmtCourt(st.minerai)} · 🌾 ${fmtCourt(st.recolte)} · ¤ ${fmtCourt(st.argent)}${A.type === 'forge' ? ' — plus ton domaine grandit, plus le tier forgeable monte' : ''}</p>
+    <div class="listeA">${A.recettes.map((r, i) => `<button class="recA ${ok(r.cout) ? '' : 'manque'}" data-i="${i}"><b>${r.nom}</b><small>${r.desc}</small><span class="coutA">${cout(r.cout)}</span></button>`).join('')}</div></div>`;
+  m.onclick = (e) => { if (e.target.closest('[data-x]')) return m.remove(); const b = e.target.closest('[data-i]'); if (b) { m.remove(); choisir(A.recettes[+b.dataset.i]); } };
+};
+// mini-jeu du marteau : 3 coups, frappe quand l'aiguille passe dans la zone dorée
+UI.forge = (fin, coup) => {
+  const m = document.createElement('div'); m.id = 'dlgForge'; $('#jeu').appendChild(m);
+  m.innerHTML = `<div class="boiteF"><h2>Frappe le métal !</h2><div class="jaugeF"><i class="zoneF"></i><i class="zoneP"></i><b class="aigF"></b></div><div class="coupsF"><span></span><span></span><span></span></div><button class="btn or grand" data-f>⚒ FRAPPER</button></div>`;
+  const aig = m.querySelector('.aigF'), pts = m.querySelectorAll('.coupsF span'); let t0 = performance.now(), n = 0, total = 0, vit = 1.1, fini = false;
+  const pos = () => (Math.sin((performance.now() - t0) / 1000 * Math.PI * vit) + 1) / 2;
+  const anim = () => { if (fini) return; aig.style.left = (pos() * 100) + '%'; requestAnimationFrame(anim); }; anim();
+  const frapper = (e) => { e.stopPropagation(); if (fini) return; const d = Math.abs(pos() - 0.5); const sc = d < 0.04 ? 1 : d < 0.1 ? 0.75 : d < 0.2 ? 0.4 : 0.1; total += sc;
+    pts[n].className = sc >= 1 ? 'parfait' : sc >= 0.75 ? 'bon' : sc >= 0.4 ? 'moyen' : 'rate'; pts[n].textContent = sc >= 1 ? 'PARFAIT' : sc >= 0.75 ? 'Bien' : sc >= 0.4 ? 'Moyen' : 'Raté';
+    coup(sc); n++; vit += 0.35; t0 = performance.now() - Math.random() * 800;
+    if (n >= 3) { fini = true; setTimeout(() => { m.remove(); fin(total); }, 700); } };
+  m.querySelector('[data-f]').addEventListener('pointerdown', frapper); m.addEventListener('pointerdown', (e) => e.stopPropagation());
+};
 // un exploit est accompli : bandeau doré, il entre dans ta légende
 UI.exploit = (texte, pts, titre) => {
   const d = document.createElement('div'); d.className = 'exploitB';

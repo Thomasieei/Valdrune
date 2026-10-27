@@ -151,7 +151,8 @@ const SONS = ['knifeSlice', 'knifeSlice2', 'drawKnife2', 'handleCoins', 'creak1'
 async function demarrer() {
   initRendu($('#scene'));
   try { const dc = localStorage.getItem('breche-decal'); if (dc !== null) document.documentElement.style.setProperty('--decalSorts', dc + 'vw'); } catch (e) {}
-  try { if (!localStorage.getItem('breche-v161')) { localStorage.setItem('breche-v161', '1'); localStorage.setItem('breche-vue', 'iso'); localStorage.setItem('breche-zoom', '1'); } G.camVue = localStorage.getItem('breche-vue') || 'iso'; G.camMode = localStorage.getItem('breche-cam') || 'proche'; G.ombresParole = localStorage.getItem('breche-ombres') || 'normal'; G.camZoom = +(localStorage.getItem('breche-zoom') || 1); } catch (e) {}
+  try { if (!localStorage.getItem('breche-v169')) { localStorage.setItem('breche-v169', '1'); localStorage.setItem('breche-qualite', 'haute'); localStorage.setItem('breche-cam', 'normale'); localStorage.setItem('breche-vue', 'iso'); localStorage.setItem('breche-zoom', '1'); } } catch (e) {}
+  try { if (!localStorage.getItem('breche-v161')) { localStorage.setItem('breche-v161', '1'); localStorage.setItem('breche-vue', 'iso'); localStorage.setItem('breche-zoom', '1'); } G.camVue = localStorage.getItem('breche-vue') || 'iso'; G.camMode = localStorage.getItem('breche-cam') || 'normale'; G.ombresParole = localStorage.getItem('breche-ombres') || 'normal'; G.camZoom = +(localStorage.getItem('breche-zoom') || 1); } catch (e) {}
   try { const q = localStorage.getItem('breche-qualite'); if (q) G.qualite = q; G.perfOn = !!localStorage.getItem('breche-perf'); } catch (e) {}
   if (G.perfOn) UI.perf(true);
   try { G.musiqueOn = localStorage.getItem('breche-musique') !== '0'; } catch (e) {}
@@ -277,6 +278,7 @@ function statsJoueur() {
   if (J.repas && Date.now() < J.repas) { st.pvMax = Math.round(st.pvMax * 1.1); st.degats = Math.round(st.degats * 1.1); }
   if (J.domaine) { if (J.domaine.serviteurs.includes('forgeron')) st.degats = Math.round(st.degats * 1.04); if (J.domaine.serviteurs.includes('ecuyer')) st.vitesse *= 1.05; }
   if (J.repasDomaine && Date.now() < J.repasDomaine) st.pvMax = Math.round(st.pvMax * 1.08);
+  if (J.banquet && Date.now() < J.banquet) st.degats *= 1.1;
   st.dps = Math.round(st.degats * st.vitesseAtk * (1 + st.crit / 200));
   return st;
 }
@@ -1912,8 +1914,58 @@ function interactionsDomaine() {
   if (dist2D(joueur.pos, monde.trone) < 3.6) return UI.action('Gouverner ton domaine', () => ouvrirDomaine());
   if (dist2D(joueur.pos, monde.tresorPos) < 3.2) return UI.action(`Trésor : ${fmtN(Math.floor(domaine().tresor))} ¤`, () => ouvrirDomaine());
   for (const a of serviteurs) if (dist2D(a.pos, joueur.pos) < 3) return UI.action(`Parler à ${SERVITEURS[a.role].nom}`, () => { UI.parole(a, hasard(PAROLES_SERVITEURS[a.role])); if (a.role === 'intendant') ouvrirDomaine(); });
+  if (monde.postes && monde.postes.enclume && dist2D(joueur.pos, monde.postes.enclume) < 3) return UI.action('Forger à l’enclume', () => ouvrirAtelier('forge'));
+  if (monde.postes && monde.postes.cuisinier && dist2D(joueur.pos, monde.postes.cuisinier.pos) < 3.2) return UI.action('Cuisiner', () => ouvrirAtelier('cuisine'));
   if (sortie && dist2D(joueur.pos, sortie.pos) < 3.2) return UI.action('Retourner sur la Place', () => fondu(() => lancerHub()));
   return UI.action(null);
+}
+// ---- atelier du domaine : forger son équipement soi-même (mini-jeu au marteau) et cuisiner ----
+function stockRes(r) { return iles().reduce((a, i) => a + (i.coffre[r] || 0), 0); }
+function prendreRes(cout) {
+  for (const r in cout) if (r !== 'argent' && stockRes(r) < cout[r]) { UI.toast(`Il te manque ${fmtN(cout[r] - stockRes(r))} ${r} (tes îles le produisent)`); son('error_001', 0.4); return false; }
+  if ((cout.argent || 0) > J.argent) { UI.toast('Pas assez d’argent'); son('error_001', 0.4); return false; }
+  for (const r in cout) { if (r === 'argent') { J.argent -= cout.argent; continue; } let reste = cout[r]; for (const i of iles()) { const p = Math.min(reste, i.coffre[r] || 0); i.coffre[r] -= p; reste -= p; if (!reste) break; } }
+  return true;
+}
+function recettesAtelier(type) {
+  const N = domaine() ? domaine().niveau : 0, tMax = Math.min(8, 3 + N);
+  if (type === 'cuisine') return [
+    { id: 'potions', nom: '5 potions de soin', desc: 'Margot ou toi : marmite, herbes, et ça repart.', cout: { recolte: 120, argent: 5000 } },
+    { id: 'banquet', nom: 'Banquet de guerre', desc: '+10 % de dégâts pendant 30 minutes.', cout: { recolte: 300, bois: 80, argent: 40000 } },
+    { id: 'festin', nom: 'Festin du seigneur', desc: '+8 % de vie pendant 60 minutes.', cout: { recolte: 220, argent: 25000 } },
+  ];
+  const cl = J.equip.arme ? J.equip.arme.type : 'epee', R = [];
+  for (let t = Math.max(2, tMax - 2); t <= tMax; t++) {
+    const k = Math.pow(t, 1.6);
+    R.push({ id: 'arme', t, nom: `${ARMES[cl].court} T${t}`, desc: 'Ta propre arme, forgée de tes mains. Plus tes coups de marteau sont justes, meilleure est la qualité.', cout: { minerai: Math.round(60 * k), bois: Math.round(30 * k), argent: Math.round(8000 * t * t) } });
+    for (const sl of ['casque', 'plastron', 'bottes']) R.push({ id: sl, t, nom: `${sl[0].toUpperCase() + sl.slice(1)} T${t}`, desc: 'Une pièce d’armure à ta mesure.', cout: { minerai: Math.round(45 * k), bois: Math.round(15 * k), argent: Math.round(6000 * t * t) } });
+  }
+  R.push({ id: 'runes', nom: '5 runes d’enchantement', desc: 'Gravées à la forge, pour Ysolde.', cout: { minerai: 400, argent: 15000 } });
+  return R;
+}
+function ouvrirAtelier(type) {
+  if (!iles().length) return UI.toast('Il te faut une île pour fournir le bois, le minerai et les récoltes');
+  UI.atelier({ type, stock: { bois: stockRes('bois'), minerai: stockRes('minerai'), recolte: stockRes('recolte'), argent: J.argent }, recettes: recettesAtelier(type), domaineNiv: domaine() ? DOMAINE_NIVEAUX[domaine().niveau].nom : '' }, (rec) => {
+    if (!prendreRes(rec.cout)) return;
+    if (rec.id === 'potions') { J.potions = (J.potions || 0) + 5; UI.toast('+5 potions'); son('confirmation_001', 0.5); }
+    else if (rec.id === 'banquet') { J.banquet = Date.now() + 30 * 60000; recalculer(); UI.toast('Banquet de guerre : +10 % de dégâts (30 min)', true); son('jingle_win', 0.5); }
+    else if (rec.id === 'festin') { J.repasDomaine = Date.now() + 60 * 60000; recalculer(); UI.toast('Festin : +8 % de vie (60 min)', true); son('jingle_win', 0.5); }
+    else if (rec.id === 'runes') { ajouterSac(creerButin('rune', 5), true); UI.toast('+5 runes d’enchantement'); son('impactMining_000', 0.6); }
+    else { // mini-jeu du marteau
+      joueur.jouer('1H_Melee_Attack_Chop', { boucle: false, forcer: true, fin: () => joueur.jouer(joueur.def.idle) });
+      UI.forge((score) => {
+        const q = score >= 2.7 ? 4 : score >= 2.2 ? 3 : score >= 1.6 ? 2 : score >= 0.9 ? 1 : 0;
+        const cl = J.equip.arme ? J.equip.arme.type : 'epee';
+        const it = rec.id === 'arme' ? creerArme(cl, rec.t, q) : creerArmure(rec.id, rec.t, q);
+        it.forge = J.nom; ajouterSac(it, true);
+        const e = monde.postes.enclume; emettre(V(e.x, 1.3, e.z), { n: 80, c1: '#fff2c0', c2: '#ff7a1a', vit: 6, vie: 0.9, taille: 0.35, grav: 6 });
+        son(q >= 3 ? 'jingle_legend' : 'jingle_loot', 0.55); UI.toast(`Tu as forgé : ${nomObjet(it)} — ${['Normal', 'Bon', 'Remarquable', 'Excellent', 'Chef-d’œuvre'][q]}`, q >= 3);
+        if (q >= 4) exploit && exploit('chef_oeuvre');
+        sauver();
+      }, (coup) => { const e = monde.postes.enclume; emettre(V(e.x, 1.25, e.z), { n: 14 + coup * 10, c1: '#fff8d0', c2: '#ff8a2a', vit: 4 + coup * 3, vie: 0.5, taille: 0.25, grav: 8 }); son('impactMetal_medium_001', 0.5, 0.8 + coup * 0.2); G.shake = 0.1 + coup * 0.1; joueur.jouer('1H_Melee_Attack_Chop', { boucle: false, forcer: true, vitesse: 1.4, fin: () => joueur.jouer(joueur.def.idle) }); });
+    }
+    sauver();
+  });
 }
 
 // ======================= APPARAT : l'aura meurtrière (cosmétique au prix fort) =======================
@@ -2287,19 +2339,23 @@ function pointLibreProche(p, r) {
 }
 function deplacer(ent, dx, dz, r = 0.5) {
   const p = ent.pos;
-  if (!libre(p.x, p.z, r * 0.6)) { const q = pointLibreProche(p, r); if (q) { p.x = q.x; p.z = q.z; } return true; }
-  if (libre(p.x + dx, p.z + dz, r)) { p.x += dx; p.z += dz; return true; }
-  if (libre(p.x + dx, p.z, r)) { p.x += dx; return true; }
-  if (libre(p.x, p.z + dz, r)) { p.z += dz; return true; }
-  // contourner l'obstacle : on essaie des directions voisines
-  const l = Math.hypot(dx, dz); if (l < 1e-5) return false;
-  const a0 = Math.atan2(dx, dz);
-  for (const k of [0.6, -0.6, 1.1, -1.1, 1.57, -1.57]) {
-    const a = a0 + k * (ent.contour || 1);
-    const nx = Math.sin(a) * l, nz = Math.cos(a) * l;
-    if (libre(p.x + nx, p.z + nz, r)) { p.x += nx; p.z += nz; if (k < 0) ent.contour = -(ent.contour || 1); return true; }
+  if (!libre(p.x, p.z, r * 0.6)) { // coincé dans un obstacle : on le dégage au plus près (1,2 m max, plus de grands sauts)
+    for (let d = 0.15; d <= 1.2; d += 0.15) for (let k = 0; k < 16; k++) { const a = k / 16 * 6.283, x = p.x + Math.cos(a) * d, z = p.z + Math.sin(a) * d; if (libre(x, z, r)) { p.x = x; p.z = z; return true; } }
+    const q = pointLibreProche(p, r); if (q) { p.x = q.x; p.z = q.z; } return true;
   }
-  return false;
+  const l = Math.hypot(dx, dz); if (l < 1e-6) return true;
+  // petits pas (0,25 m) : on ne traverse plus les obstacles à grande vitesse, et on glisse le long des murs axe par axe
+  const n = Math.min(12, Math.max(1, Math.ceil(l / 0.25))), sx = dx / n, sz = dz / n; let bouge = false;
+  for (let i = 0; i < n; i++) {
+    if (libre(p.x + sx, p.z + sz, r)) { p.x += sx; p.z += sz; bouge = true; continue; }
+    const okX = libre(p.x + sx, p.z, r), okZ = !okX && libre(p.x, p.z + sz, r);
+    if (okX) { p.x += sx; bouge = true; continue; } if (okZ) { p.z += sz; bouge = true; continue; }
+    // vraiment bloqué : on contourne en essayant des directions voisines (indispensable pour les monstres et les alliés)
+    const a0 = Math.atan2(sx, sz), ls = Math.hypot(sx, sz); let ok = false;
+    for (const k of [0.6, -0.6, 1.1, -1.1, 1.57, -1.57]) { const a = a0 + k * (ent.contour || 1), nx = Math.sin(a) * ls, nz = Math.cos(a) * ls; if (libre(p.x + nx, p.z + nz, r)) { p.x += nx; p.z += nz; if (k < 0) ent.contour = -(ent.contour || 1); ok = true; break; } }
+    if (!ok) break; bouge = true;
+  }
+  return bouge;
 }
 function tourner(a, cible, k) { let d = cible - a; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return a + d * Math.min(1, k); }
 
@@ -4478,7 +4534,6 @@ function entrerArene(format, opts = {}) {
     G.renderer.compile(G.scene, G.camera);
     arene.presentation = true; programmer(0.8, presenterArene);
     ecransArene(true);
-    G.vueOmbre = { acteur: joueur, rect: null, cam: G.ecrans.cam }; UI.vueOmbre({ nom: '📺 En direct de l’Arène', fermer: () => vueOmbre(null), suivante: () => {} });
   });
 }
 // ---- le présentateur de l'Arène des Échos : il annonce les champions avec leurs vrais chiffres, puis le chrono démarre ----
@@ -4527,7 +4582,7 @@ function annonceFinArene(victoire, rangAvant, rangApres) {
 // les deux grands écrans au-dessus des tribunes retransmettent le duel en direct
 function ecransArene(on) {
   if (!on) { G.ecrans = null; return; }
-  const rt = new THREE.WebGLRenderTarget(384, 216); rt.texture.colorSpace = THREE.SRGBColorSpace;
+  const rt = new THREE.WebGLRenderTarget(320, 180); rt.texture.colorSpace = THREE.SRGBColorSpace;
   const cam = new THREE.PerspectiveCamera(42, 16 / 9, 0.5, 120), meshes = [];
   for (const s of [-1, 1]) {
     const cadre = new THREE.Mesh(new THREE.BoxGeometry(9.4, 5.6, 0.4), new THREE.MeshStandardMaterial({ color: '#2a1a12', roughness: 0.8 }));

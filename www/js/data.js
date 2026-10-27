@@ -451,6 +451,7 @@ export const MISSIONS = [
 // ======================= RENOMMÉE : exploits réels du joueur, titres, et ce qu'en disent les PNJ =======================
 // t3 : à la 3e personne (« Thomas a… »), t2 : à la 2e (« tu as… »)
 export const EXPLOITS = {
+  chef_oeuvre:    { pts: 40, t3: 'a forgé de ses propres mains un chef-d’œuvre', t2: 'as forgé un chef-d’œuvre de tes mains' },
   premier_boss:   { pts: 10, t3: 'a abattu son premier gardien de la Brèche', t2: 'as abattu ton premier gardien de la Brèche' },
   cryptes:        { pts: 15, t3: 'a vidé les Cryptes Oubliées de leurs quatre gardiens', t2: 'as vidé les Cryptes Oubliées' },
   cryptes_solo:   { pts: 25, t3: 'a nettoyé seul les Cryptes Oubliées', t2: 'as nettoyé seul les Cryptes Oubliées' },

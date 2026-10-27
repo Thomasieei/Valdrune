@@ -10,7 +10,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 export { THREE };
 export const G = {
-  assets: {}, sounds: {}, t: 0, dt: 0, vfx: [], qualite: 'auto', niveau: 2, son: true, acteurs: new Set(), focus: null,
+  assets: {}, sounds: {}, t: 0, dt: 0, vfx: [], qualite: 'haute', niveau: 2, son: true, acteurs: new Set(), focus: null,
   camYaw: Math.PI / 4, camDist: 25, camPitch: 0.98, shake: 0, camTarget: new THREE.Vector3(),
 };
 
@@ -147,6 +147,7 @@ export function appliquerNiveau(n) {
 // résolution dynamique : si l'image rame en plein jeu, on baisse un peu la définition (invisible à l'œil), on la remonte dès que ça va mieux
 const dyn = { t: 0, n: 0, somme: 0, att: 0 };
 export function majResolution(dtReel, actif) {
+  return; // résolution fixe : chaque changement réallouait les tampons d'image (petit gel) et pixelisait l'écran
   if (!actif || dtReel > 0.5 || G.resFixe) { dyn.t = dyn.n = dyn.somme = 0; return; }
   dyn.t += dtReel; dyn.n++; dyn.att = Math.max(0, dyn.att - dtReel);
   if (dyn.t < 2.5) return;
@@ -197,7 +198,7 @@ export function rendre() {
   if (G.renderer.shadowMap.enabled) G.renderer.shadowMap.needsUpdate = (G._img & 1) === 0;
   if (G.niveau >= 2) G.composer.render(); else G.renderer.render(G.scene, G.camera); // sans bloom : rendu direct, anticrénelé par le navigateur
   if (G.vueOmbre && G.vueOmbre.rect) rendreVueOmbre();
-  if (G.ecrans && (G._img % 3 === 0)) { const E = G.ecrans, R = G.renderer, sm = R.shadowMap.needsUpdate; R.shadowMap.needsUpdate = false; for (const m of E.meshes) m.visible = false; const pv = G.points && G.points.visible; if (G.points) G.points.visible = false; R.setRenderTarget(E.rt); R.render(G.scene, E.cam); R.setRenderTarget(null); for (const m of E.meshes) m.visible = true; if (G.points) G.points.visible = pv; R.shadowMap.needsUpdate = sm; }
+  if (G.ecrans && (G._img % 4 === 0)) { const E = G.ecrans, R = G.renderer, sm = R.shadowMap.needsUpdate; R.shadowMap.needsUpdate = false; for (const m of E.meshes) m.visible = false; const pv = G.points && G.points.visible; if (G.points) G.points.visible = false; R.setRenderTarget(E.rt); R.render(G.scene, E.cam); R.setRenderTarget(null); for (const m of E.meshes) m.visible = true; if (G.points) G.points.visible = pv; R.shadowMap.needsUpdate = sm; }
 }
 // petite fenêtre « par les yeux de l'ombre » : seconde caméra rendue dans un coin de l'écran (même image, zone découpée)
 const _camO = new THREE.PerspectiveCamera(60, 1.6, 0.3, 120), _oc = new THREE.Vector3(), _ol = new THREE.Vector3(), _montres = [];
