@@ -1,7 +1,7 @@
 // ===== Brèche Écarlate — boucle de jeu =====
 import { THREE, G, initRendu, majCamera, rendre, majTorches, chargerAssets, chargerSons, son, ambiance, Acteur, cloner,
   emettre, majParticules, majVfx, ajouterVfx, onde, lueurSol, arcTaille, faisceau, telegraphe, meshCarreau, meshBoule, DIR_HAUT, DIR_DROITE, projeter, creerArc, solY, cor, texRond, texRunes, texFissures, redimensionner, appliquerNiveau, majQualiteAuto, majResolution, mesurerDemarches, musique, musiqueActive, musiquePause } from './engine.js';
-import { construireTerres, construireTaverne, construireGoulet, construireHub, construireDonjon, construireArene, construireIle, construireDomaine, nbEmplacements, majFeux, noeudReel, creerAssetsProc, construireSylve } from './world.js';
+import { construireTerres, construireAncestrales, construireTaverne, construireGoulet, construireHub, construireDonjon, construireArene, construireIle, construireDomaine, nbEmplacements, majFeux, noeudReel, creerAssetsProc, construireSylve } from './world.js';
 import { UI, iconeObjet, bustePersonnage, TEINTES_OMBRE } from './ui.js';
 import { initGestes } from './gestes.js';
 import { Loup, portraitLoup } from './loups.js';
@@ -3304,18 +3304,73 @@ async function entrerTerres() {
     son('lowFrequency_explosion_000', 0.6, 0.6);
   });
 }
+// ---- Terres Ancestrales : archipel, solo ou équipe de 5, camps qui s'éveillent à ton approche ----
+async function entrerAncestrales(equipe) {
+  if (!assetsSylvePrets) { UI.toast('Les brumes ancestrales se lèvent…'); try { await chargerAssets(ASSETS_SYLVE.map(k => [k, `assets/sylve/${k}.json`]), () => {}); assetsSylvePrets = true; } catch (e) {} }
+  memoriserMode('Terres Ancestrales' + (equipe ? ' · équipe' : ''), () => entrerAncestrales(equipe));
+  fondu(() => {
+    viderMonde(); invasion = null; arene = null; selection = null;
+    const ipJ = statsHeros(J.equip).ip, t = Math.max(1, Math.min(7, Math.round((ipJ - 300) / 110) + 1));
+    modeActuel = { id: 'terres', ancestrales: true, nom: 'Terres Ancestrales', lieu: 'Terres Ancestrales', argent: 2, xp: 10, tiers: [t, Math.min(8, t + 1)], mobTier: t, bossTier: [t + 1, t + 1, t + 2, t + 2] };
+    monde = construireAncestrales(); G.solH = null;
+    construireJoueur(monde.spawn.clone()); joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax; G.camTarget.copy(joueur.pos);
+    G.scene.background.set('#2a3a48'); G.scene.fog.color.set('#4a5868'); G.scene.fog.density = 0.009; G.hemi.color.set('#e8ecff'); G.hemi.groundColor.set('#2a3a2a'); G.hemi.intensity = 1.4; G.sun.intensity = 1.8; G.sun.color.set('#fff0d8');
+    terres = { argent0: J.argent, sac0: new Set(J.sac.map(i => i.id)), chasseT: rnd(50, 80), kills: 0, chasseursTues: 0, debut: G.t, avertiT: 0, campT: 0, equipe: !!equipe, tier: t };
+    for (const cp of monde.camps) { cp.vivant = false; cp.vide = 0; }
+    for (const g of monde.gardiens) { g.vivant = false; g.vaincu = false; }
+    if (equipe) for (let i = 0; i < 4; i++) { const d = calerSurJoueur(donneesBot(ipJ * rnd(0.9, 1.05), []), 3, 0); d.guilde = J.guilde || 'CROW ZERO'; const a = creerCombattant(pointLibrePres(V(rnd(-4, 4), 0, 238 + rnd(-3, 3)), 0, 3), d, 'allie'); a.membreAncestral = true; }
+    UI.journal('Terres Ancestrales', `Sept îles, des centaines de monstres, six gardiens. ${equipe ? 'Ton équipe de 5 est avec toi.' : 'Tu es seul.'} Zone rouge : meurs et tu perds tout ce que tu portes et ramasses. Sors par un portail violet pour tout garder.`, null);
+    UI.zone('Terres Ancestrales', equipe ? 'Équipe de 5 · PvP sans pitié' : 'Solo · PvP sans pitié');
+    $('#btnQuitter').hidden = true;
+    setTimeout(() => UI.manga([{ nom: 'Kael', titre: 'Ombre de ' + J.nom, modele: 'Rogue_Hooded', texte: 'Maître… les Terres Ancestrales. Des équipes entières chassent ici, jusqu’à cinq à la fois. Chaque île a son gardien, et la Citadelle de Cristal au sud abrite le pire.', couleur: '#7ab8ff', choc: true }]), 900);
+    son('lowFrequency_explosion_000', 0.6, 0.6);
+  });
+}
+const GARDIEN_BIOME = { foret: 0, marais: 2, ruines: 0, givre: 1, cendres: 3, cristaux: 2 };
+function majCampsAncestraux(dt) {
+  terres.campT -= dt; if (terres.campT > 0) return; terres.campT = 0.5;
+  const t = terres.tier, now = G.t;
+  for (const cp of monde.camps) {
+    const d = dist2D(cp.pos, joueur.pos);
+    if (!cp.vivant && d < 62 && now >= cp.vide) { // le camp s'éveille
+      cp.vivant = true; cp.mobs = [];
+      const types = cp.biome === 'ruines' || cp.biome === 'cristaux' ? ['cultiste', 'brute', 'pretresse'] : cp.biome === 'foret' || cp.biome === 'plaine' ? ['minion', 'archer', 'guerrier'] : ['guerrier', 'mage', 'brute', 'archer'];
+      const n = 3 + cp.danger * 2;
+      for (let i = 0; i < n; i++) { const p = pointLibrePres(V(cp.pos.x + rnd(-5, 5), 0, cp.pos.z + rnd(-5, 5)), 0, 3); const e = creerEnnemi(MOBS[hasard(types)] || MOBS.guerrier, p, Math.min(8, t + cp.danger), 200 + monde.camps.indexOf(cp)); e.campA = cp; cp.mobs.push(e); }
+      if (cp.danger >= 1 && !cp.pille) { const couleur = cp.danger >= 3 ? (Math.random() < 0.3 ? 'legendaire' : 'violet') : cp.danger === 2 ? (Math.random() < 0.45 ? 'violet' : 'bleu') : 'bleu';
+        const mobs = cp.mobs; creerCoffre(pointLibrePres(V(cp.pos.x, 0, cp.pos.z + 3), 0.5, 2), couleur, { get mort() { return mobs.every(e => e.mort || e.etat === 'possede'); }, boss: { nom: 'tous les gardiens du camp' }, idx: Math.min(3, cp.danger) }); cp.coffre = coffres[coffres.length - 1]; }
+    } else if (cp.vivant) {
+      const tous = cp.mobs.every(e => e.mort || e.etat === 'possede');
+      if (tous && !cp.nettoye) { cp.nettoye = true; terres.kills += cp.mobs.length; cp.vide = now + 300; }
+      if (d > 120) { // trop loin : le camp se rendort (les morts restent morts 5 minutes)
+        for (const e of cp.mobs) if (ennemis.includes(e)) { G.scene.remove(e.root); UI.retirerPlaque(e); ennemis.splice(ennemis.indexOf(e), 1); }
+        if (cp.coffre) { if (cp.coffre.ouvert) cp.pille = true; const i = coffres.indexOf(cp.coffre); if (i >= 0) { G.scene.remove(cp.coffre.obj); G.scene.remove(cp.coffre.beam); coffres.splice(i, 1); } cp.coffre = null; }
+        cp.vivant = false; cp.nettoye = false; cp.mobs = [];
+      }
+    }
+  }
+  for (const g of monde.gardiens) {
+    if (g.vivant || g.vaincu || dist2D(g.pos, joueur.pos) > 70) continue;
+    g.vivant = true; const I = monde.iles[g.ile], bd = BOSS[GARDIEN_BIOME[I.b] ?? 0];
+    const b = creerBoss({ ...bd, nom: `${bd.nom} de ${I.nom.split(' ').slice(-1)[0]}` }, g.pos.clone(), Math.min(8, t + g.danger), null); b.pvMax *= 1 + g.danger * 0.4; b.pv = b.pvMax; g.boss = b;
+    creerCoffre(pointLibrePres(V(g.pos.x - 6, 0, g.pos.z + 5), 0.5, 2), g.danger >= 3 ? 'legendaire' : 'violet', b);
+    UI.toast(`Le gardien de ${I.nom} se dresse devant toi !`, true); son('lowFrequency_explosion_000', 0.5, 0.8);
+  }
+  for (const g of monde.gardiens) if (g.boss && g.boss.mort && !g.vaincu) { g.vaincu = true; exploit && exploit('gardien_ancestral'); }
+}
 const GUILDES_CHASSE = ['LES CHACALS', 'CROCS NOIRS', 'SANG-FROID', 'LA MEUTE ROUGE', 'VAUTOURS', 'LAMES CREUSES'];
 function majTerres(dt) {
   if (!terres || !modeActuel || modeActuel.id !== 'terres' || joueur.mort) return;
+  if (modeActuel.ancestrales) majCampsAncestraux(dt);
   const sur = dist2D(joueur.pos, monde.campSur) < monde.rayonSur;
   // les chasseurs : des groupes de 1 à 4 « joueurs » qui te traquent (jamais dans le camp)
   terres.chasseT -= dt;
   const actifs = ennemis.filter(e => e.chasseur && !e.mort);
-  if (terres.chasseT <= 0 && !sur && actifs.length < 6) {
+  if (terres.chasseT <= 0 && !sur && actifs.length < (modeActuel.ancestrales ? 10 : 6)) {
     terres.chasseT = rnd(60, 110) * (1 - Math.min(0.5, terres.kills * 0.02));
-    const ipJ = statsHeros(J.equip).ip, n = 1 + Math.floor(Math.random() * Math.min(4, 1 + terres.chasseursTues / 2 + Math.random() * 2)), guilde = hasard(GUILDES_CHASSE);
+    const ipJ = statsHeros(J.equip).ip, n = modeActuel.ancestrales ? hasard(terres.equipe ? [3, 4, 5, 5, 5] : [1, 2, 3, 3, 5]) : 1 + Math.floor(Math.random() * Math.min(4, 1 + terres.chasseursTues / 2 + Math.random() * 2)), guilde = hasard(GUILDES_CHASSE);
     const a = Math.random() * 6.283, base = V(joueur.pos.x + Math.cos(a) * 42, 0, joueur.pos.z + Math.sin(a) * 42);
-    if (Math.hypot(base.x, base.z) < monde.rayonMonde - 10) for (let i = 0; i < n; i++) {
+    if (monde.marche(base.x, base.z) || !modeActuel.ancestrales && Math.hypot(base.x, base.z) < monde.rayonMonde - 10) for (let i = 0; i < n; i++) {
       const d = calerSurJoueur(donneesBot(ipJ * rnd(0.85, 1.2), []), 3, 0); d.guilde = guilde;
       const p = pointLibrePres(V(base.x + rnd(-3, 3), 0, base.z + rnd(-3, 3)), 0, 4);
       const e = creerCombattant(p, d, 'ennemi'); e.chasseur = true; e.potions = 1; e.skill = Math.min(0.95, 0.6 + Math.random() * 0.35); e.etat = 'chasse';
@@ -3833,6 +3888,7 @@ const API = {
   rangerPotion: (id) => { const i = J.sac.findIndex(x => x.id == id); if (i >= 0) { J.potions += J.sac[i].n || 1; joueur.potions = J.potions; J.sac.splice(i, 1); sauver(); } },
   entrer: (id, hard) => entrerDonjon(id, { hard }),
   terres: () => entrerTerres(),
+  ancestrales: (eq) => entrerAncestrales(eq),
   arene: (format, opts = {}) => entrerArene(format, opts),
   enchanter: (id) => enchanter(id),
   acheterRunes: (n) => { const prix = 5000 * n; if (J.argent < prix) { UI.toast('Pas assez d’argent'); son('error_001', 0.4); return false; } J.argent -= prix; ajouterSac(creerButin('rune', n), true); son('handleCoins', 0.5); sauver(); return true; },
@@ -7003,7 +7059,7 @@ function dissiper(a) {
 }
 
 // accès de débogage (console)
-window.__jeu = { get modeActuel() { return modeActuel; }, entrerTerres: () => entrerTerres(), get terres() { return terres; }, dbgAggro: () => { const c = choisirCible(joueur.st.portee); return [c ? c.nom : null, passantsProches().length, G.agression]; }, domaineTest: (n = 4) => { if (!J.domaine) J.domaine = { niveau: n, serviteurs: [], tresor: 0, maj: Date.now(), graine: 7, journal: [] }; J.domaine.niveau = n; if (!iles().length) J.iles = J.iles || []; return entrerDomaine(); }, bilan: () => MODES.map(m => {
+window.__jeu = { get modeActuel() { return modeActuel; }, entrerTerres: () => entrerTerres(), entrerAncestrales: (e) => entrerAncestrales(e), get terres() { return terres; }, dbgAggro: () => { const c = choisirCible(joueur.st.portee); return [c ? c.nom : null, passantsProches().length, G.agression]; }, domaineTest: (n = 4) => { if (!J.domaine) J.domaine = { niveau: n, serviteurs: [], tresor: 0, maj: Date.now(), graine: 7, journal: [] }; J.domaine.niveau = n; if (!iles().length) J.iles = J.iles || []; return entrerDomaine(); }, bilan: () => MODES.map(m => {
     const eq = genererEquipRival(m.ipConseil, 'epee'), niv = nivBot(eq), st = statsHeros(eq, niv), dps = st.degats * st.vitesseAtk * (1 + st.crit / 200);
     const mob = creerEnnemi(MOBS.guerrier, V(900, 0, 900), m.mobTier, -9), mi = creerEnnemi(MOBS.minion, V(900, 0, 900), m.mobTier, -9), b = creerBoss(BOSS[0], V(905, 0, 905), m.bossTier[0], null), b3 = creerBoss(BOSS[3], V(905, 0, 905), m.bossTier[3], null);
     const r = { mode: m.lieu, ip: m.ipConseil, niv, pv: Math.round(st.pvMax), dps: Math.round(dps), red: +st.reduction.toFixed(2), ttkMinion: +(mi.pvMax / dps).toFixed(1), ttkGuerrier: +(mob.pvMax / dps).toFixed(1), ttkBoss1: Math.round(b.pvMax / dps), ttkBoss4: Math.round(b3.pvMax / dps), coupsGuerrierPourMourir: +(st.pvMax / (mob.dmg * (1 - st.reduction))).toFixed(1), coupsBossPourMourir: +(st.pvMax / (b.dmg * (1 - st.reduction))).toFixed(1) };

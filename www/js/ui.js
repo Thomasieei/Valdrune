@@ -1151,6 +1151,12 @@ UI.menuPortail = () => {
     <button class="btn rouge" data-terres>Entrer à mes risques</button>`;
   $('#portailMenu .cadreP').appendChild(tr);
   tr.querySelector('[data-terres]').onclick = () => { $('#portailMenu').hidden = true; api.terres(); };
+  const an = document.createElement('div'); an.className = 'carteSylve carteTerres carteAnc';
+  an.innerHTML = `<div class="txtS"><div class="niv">ARCHIPEL · ZONE ROUGE · SOLO OU ÉQUIPE DE 5</div><h3>Les Terres Ancestrales</h3>
+    <p>Sept grandes îles reliées par des ponts, des centaines de monstres, six gardiens, et des équipes de chasseurs jusqu’à 5. Mêmes règles : meurs et tu perds tout ce que tu portes.</p></div>
+    <div style="display:flex;flex-direction:column;gap:.8vh"><button class="btn rouge" data-anc="0">Solo</button><button class="btn rouge" data-anc="1">Équipe de 5</button></div>`;
+  $('#portailMenu .cadreP').appendChild(an);
+  an.querySelectorAll('[data-anc]').forEach(b => b.onclick = () => { $('#portailMenu').hidden = true; api.ancestrales(b.dataset.anc === '1'); });
   const inv = document.createElement('div'); inv.className = 'invasion';
   inv.innerHTML = `<div><h4>Être envahi</h4><label class="bascule"><input type="checkbox" id="accInv" ${j.accepteInvasion ? 'checked' : ''}><span>Ouvrir mon monde aux invasions</span></label>
     <p>+25 % d’argent dans les coffres. Un joueur peut surgir dans ton donjon. S’il te tue, il emporte tout ton équipement porté.</p></div>

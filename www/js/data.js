@@ -452,6 +452,7 @@ export const MISSIONS = [
 // ======================= RENOMMÉE : exploits réels du joueur, titres, et ce qu'en disent les PNJ =======================
 // t3 : à la 3e personne (« Thomas a… »), t2 : à la 2e (« tu as… »)
 export const EXPLOITS = {
+  gardien_ancestral: { pts: 45, t3: 'a terrassé un gardien des Terres Ancestrales', t2: 'as terrassé un gardien des Terres Ancestrales' },
   chasseur_de_chasseurs: { pts: 60, t3: 'est ressorti vivant des Terres Écarlates après avoir abattu trois chasseurs', t2: 'es ressorti vivant des Terres Écarlates avec trois chasseurs à ton tableau' },
   chef_oeuvre:    { pts: 40, t3: 'a forgé de ses propres mains un chef-d’œuvre', t2: 'as forgé un chef-d’œuvre de tes mains' },
   premier_boss:   { pts: 10, t3: 'a abattu son premier gardien de la Brèche', t2: 'as abattu ton premier gardien de la Brèche' },

@@ -1804,6 +1804,93 @@ export function construireTerres() {
   };
 }
 
+// ======================= TERRES ANCESTRALES : archipel de grandes îles reliées par des ponts =======================
+// 7 îles (forêt, ruines, cendres, givre, marais, cristaux, citadelle), chacune avec ses camps et son gardien ; les camps
+// s'éveillent quand on approche (le monde paraît plein sans écraser le téléphone).
+export function construireAncestrales() {
+  const groupe = new THREE.Group();
+  G.torches = []; G.feux = []; G.anims = [];
+  const inst = new Instancieur(), nat = new Instancieur(), collisions = [], rng = graineRng(777);
+  const iles = [
+    { x: 0, z: 230, r: 55, b: 'plaine', nom: 'Rivage du Départ' }, { x: -170, z: 120, r: 70, b: 'foret', nom: 'Bois des Ancêtres' },
+    { x: 160, z: 110, r: 62, b: 'marais', nom: 'Marais Pourpre' }, { x: 0, z: 30, r: 75, b: 'ruines', nom: 'Ruines d’Ancienne Couronne' },
+    { x: -190, z: -110, r: 64, b: 'givre', nom: 'Crêtes de Givre' }, { x: 190, z: -110, r: 66, b: 'cendres', nom: 'Fournaise' },
+    { x: 0, z: -210, r: 80, b: 'cristaux', nom: 'Citadelle de Cristal' },
+  ];
+  const ponts = [[0, 3], [0, 1], [0, 2], [1, 3], [2, 3], [1, 4], [2, 5], [3, 4], [3, 5], [4, 6], [5, 6], [3, 6]];
+  const COUL = { plaine: '#a0b868', foret: '#5a8a46', marais: '#7a6a8a', ruines: '#c8b088', givre: '#e8f0f8', cendres: '#7a5a52', cristaux: '#a8a0d8' };
+  // mer
+  const mer = new THREE.Mesh(new THREE.CircleGeometry(520, 48), new THREE.ShaderMaterial({ uniforms: { uT: { value: 0 } },
+    vertexShader: 'varying vec2 vP; void main(){ vP=position.xy; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
+    fragmentShader: 'uniform float uT; varying vec2 vP; void main(){ float w=sin(vP.x*0.12+uT*0.7)*sin(vP.y*0.15-uT*0.5); vec3 c=mix(vec3(0.05,0.16,0.26),vec3(0.1,0.3,0.42),0.5+0.3*w); gl_FragColor=vec4(c,1.0);} ' }));
+  mer.rotation.x = -Math.PI / 2; mer.position.y = -1.2; groupe.add(mer); G.anims.push((t) => { mer.material.uniforms.uT.value = t; });
+  const tH = texHerbe(); tH.repeat.set(18, 18);
+  for (const I of iles) {
+    const geo = new THREE.CircleGeometry(I.r, 56, 0, Math.PI * 2).rotateX(-Math.PI / 2);
+    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: COUL[I.b], map: I.b === 'givre' ? null : tH, roughness: 1 })); m.position.set(I.x, 0, I.z); m.receiveShadow = true; groupe.add(m);
+    const falaise = new THREE.Mesh(new THREE.CylinderGeometry(I.r, I.r * 0.92, 6, 56, 1, true), new THREE.MeshStandardMaterial({ color: '#5a4a3a', roughness: 1, side: THREE.DoubleSide })); falaise.position.set(I.x, -3, I.z); groupe.add(falaise);
+    // décor selon l'île
+    const n = Math.round(I.r * I.r / 18);
+    for (let k = 0; k < n; k++) {
+      const a = rng() * 6.283, r = Math.sqrt(rng()) * (I.r - 4), x = I.x + Math.cos(a) * r, z = I.z + Math.sin(a) * r;
+      if (r < 10) continue;
+      const p = rng();
+      if (I.b === 'foret' && p < 0.45) { const s = 1.5 + rng() * 1.4; nat.ajouter(rng() < 0.5 ? 'n_tree_fat_darkh' : 'n_tree_oak', x, 0, z, rng() * 6, s, s, s); collisions.push({ x, z, r: 0.7 }); }
+      else if (I.b === 'givre' && p < 0.25) { inst.ajouter('Tree_Bare_2_A', x, 0, z, rng() * 6, 1.5, 1.5, 1.5); collisions.push({ x, z, r: 0.6 }); }
+      else if (I.b === 'givre' && p < 0.35) { nat.ajouter('n_stone_tallB', x, 0, z, rng() * 6, 2, 2, 2); collisions.push({ x, z, r: 1 }); }
+      else if (I.b === 'marais' && p < 0.3) nat.ajouter(rng() < 0.5 ? 'n_mushroom_redTall' : 'n_mushroom_tanGroup', x, 0, z, rng() * 6, 2, 2, 2);
+      else if (I.b === 'marais' && p < 0.42) { nat.ajouter('n_lily_large', x, 0.05, z, rng() * 6, 3, 3, 3); }
+      else if (I.b === 'cendres' && p < 0.15) { nat.ajouter(rng() < 0.5 ? 'n_rock_largeB' : 'n_rock_largeC', x, 0, z, rng() * 6, 2.4, 2.4, 2.4); collisions.push({ x, z, r: 1.5 }); }
+      else if (I.b === 'cendres' && p < 0.25) { inst.ajouter('Tree_Bare_2_A', x, 0, z, rng() * 6, 1.4, 1.4, 1.4); collisions.push({ x, z, r: 0.6 }); }
+      else if (I.b === 'ruines' && p < 0.08) { inst.ajouter(rng() < 0.5 ? 'wall_broken' : 'pillar_decorated', x, 0, z, rng() * 6); collisions.push({ x, z, r: 1.4 }); }
+      else if (I.b === 'ruines' && p < 0.14) inst.ajouter('rubble_half', x, 0, z, rng() * 6, 0.5, 0.5, 0.5);
+      else if (I.b === 'cristaux' && p < 0.07) { cristaux(groupe, { nom: 'cristalA', cristal: '#b0a0ff' }, x, z, 1 + rng()); collisions.push({ x, z, r: 1.2 }); }
+      else if (I.b === 'cristaux' && p < 0.12) { nat.ajouter('n_statue_columnDamaged', x, 0, z, rng() * 6, 2.4, 2.4, 2.4); collisions.push({ x, z, r: 1 }); }
+      else if (I.b === 'plaine' && p < 0.12) { inst.ajouter(rng() < 0.5 ? 'Tree_1_A' : 'Tree_3_A', x, 0, z, rng() * 6, 1.2, 1.2, 1.2); collisions.push({ x, z, r: 0.7 }); }
+      else if (p < 0.35 && I.b !== 'givre' && I.b !== 'cendres') inst.ajouter(rng() < 0.7 ? 'Grass_1_A' : 'Bush_2_C', x, 0, z, rng() * 6, 1.4, 1.4, 1.4);
+    }
+    if (I.b === 'cendres') { const lave = new THREE.MeshBasicMaterial({ color: '#ff4a1a', transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }); for (let k = 0; k < 14; k++) { const a = rng() * 6.28, r = rng() * (I.r - 6); const f = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 8 + rng() * 8), lave); f.rotation.x = -Math.PI / 2; f.rotation.z = rng() * 6; f.position.set(I.x + Math.cos(a) * r, 0.05, I.z + Math.sin(a) * r); groupe.add(f); } G.anims.push((t) => { lave.opacity = 0.6 + Math.sin(t * 1.7) * 0.2; }); }
+    if (I.b === 'givre') G.anims.push((t, dt) => { if (Math.random() < (dt || 0.016) * 6) emettre(new THREE.Vector3(I.x + rnd(-I.r, I.r) * 0.7, 9, I.z + rnd(-I.r, I.r) * 0.7), { n: 1, c1: '#ffffff', c2: '#c8e0ff', dir: new THREE.Vector3(0, -1, 0), vit: 1.5, vie: 4, taille: 0.2 }); });
+    // brasero et obélisque au centre de chaque île
+    brasero(groupe, I.x + 4, I.z, I.b === 'cristaux' ? '#9a7aff' : '#ff7a2a', 1.2); nat.ajouter('n_statue_obelisk', I.x - 3, 0, I.z, 0, 3, 3, 3); collisions.push({ x: I.x - 3, z: I.z, r: 1 });
+  }
+  // ponts de bois entre les îles
+  const bois = new THREE.MeshStandardMaterial({ color: '#7a5434', roughness: 0.9 }), corde = new THREE.MeshStandardMaterial({ color: '#4a3020' });
+  const lignes = [];
+  for (const [a, b] of ponts) {
+    const A = iles[a], B = iles[b], d = Math.hypot(B.x - A.x, B.z - A.z), ux = (B.x - A.x) / d, uz = (B.z - A.z) / d;
+    const x0 = A.x + ux * (A.r - 3), z0 = A.z + uz * (A.r - 3), x1 = B.x - ux * (B.r - 3), z1 = B.z - uz * (B.r - 3), L = Math.hypot(x1 - x0, z1 - z0), ang = Math.atan2(x1 - x0, z1 - z0);
+    const p = new THREE.Mesh(new THREE.BoxGeometry(5, 0.4, L), bois); p.position.set((x0 + x1) / 2, 0.05, (z0 + z1) / 2); p.rotation.y = ang; p.receiveShadow = true; groupe.add(p);
+    for (const s of [-1, 1]) { const r = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, L), corde); r.position.set((x0 + x1) / 2 + Math.cos(ang) * s * 2.5, 1, (z0 + z1) / 2 - Math.sin(ang) * s * 2.5); r.rotation.y = ang; groupe.add(r); }
+    lignes.push({ x0, z0, x1, z1, L });
+  }
+  // camps (6 à 8 par île, plus durs vers la citadelle) et gardiens
+  const depart = iles[0], camps = [], gardiens = [];
+  iles.forEach((I, k) => {
+    const danger = k === 0 ? 0 : k <= 2 ? 1 : k <= 5 ? 2 : 3;
+    const nb = k === 0 ? 3 : 7;
+    for (let c = 0; c < nb; c++) { const a = c / nb * 6.283 + rng(), r = I.r * (0.35 + rng() * 0.45); camps.push({ pos: new THREE.Vector3(I.x + Math.cos(a) * r, 0, I.z + Math.sin(a) * r), danger, biome: I.b, ile: k }); }
+    if (k) gardiens.push({ pos: new THREE.Vector3(I.x + 12, 0, I.z - 10), ile: k, danger });
+  });
+  // portails : sortie au départ et dans la citadelle
+  const sorties = [new THREE.Vector3(0, 0, 268), new THREE.Vector3(0, 0, -270)];
+  for (const p of sorties) { construirePortail(groupe, p, Math.atan2(-p.x, -p.z), THEME_VIOLET, 0.42); collisions.push({ x: p.x, z: p.z, r: 1.4 }); }
+  for (const [x, z, r] of [[-8, 236, 0.6], [8, 236, -0.6]]) { const t = cloner('tent', x, 0, z, r, 5); groupe.add(t); collisions.push({ x, z, r: 1.4 }); }
+  nat.ajouter('n_campfire_stones', 0, 0, 242, 0, 3.6, 3.6, 3.6); G.feux.push({ pos: new THREE.Vector3(0, 0.3, 242), couleur: '#ff8a2a', force: 1 }); G.torches.push({ pos: new THREE.Vector3(0, 1.6, 242), color: '#ffa04a', int: 30, dist: 14 });
+  fusionnerStatiques(groupe);
+  inst.construire(groupe); nat.construire(groupe);
+  G.scene.add(groupe);
+  const surIle = (x, z) => iles.some(I => Math.hypot(x - I.x, z - I.z) < I.r - 2.5);
+  const surPont = (x, z) => lignes.some(l => { const vx = l.x1 - l.x0, vz = l.z1 - l.z0, t = Math.max(0, Math.min(1, ((x - l.x0) * vx + (z - l.z0) * vz) / (l.L * l.L))); return Math.hypot(x - (l.x0 + vx * t), z - (l.z0 + vz * t)) < 2.2; });
+  const RM = 320, carte = document.createElement('canvas'); carte.width = carte.height = 512; { const f = carte.getContext('2d'), k = 512 / (2 * RM); f.fillStyle = '#123448'; f.fillRect(0, 0, 512, 512);
+    f.strokeStyle = '#8a6a44'; f.lineWidth = 4 * k; for (const l of lignes) { f.beginPath(); f.moveTo((l.x0 + RM) * k, (l.z0 + RM) * k); f.lineTo((l.x1 + RM) * k, (l.z1 + RM) * k); f.stroke(); }
+    for (const I of iles) { f.fillStyle = COUL[I.b]; f.beginPath(); f.arc((I.x + RM) * k, (I.z + RM) * k, I.r * k, 0, 7); f.fill(); } }
+  return {
+    groupe, type: 'terres', sousType: 'ancestrales', nom: 'Terres Ancestrales', iles, spawn: new THREE.Vector3(0, 0, 238), sorties, camps, gardiens, collisions, carte, rayonMonde: RM, campSur: new THREE.Vector3(0, 0, 238), rayonSur: 14,
+    marche: (x, z) => surIle(x, z) || surPont(x, z), biome: (x, z) => { const I = iles.find(I => Math.hypot(x - I.x, z - I.z) < I.r); return I ? I.b : 'mer'; },
+  };
+}
+
 // ======================= LE DOMAINE =======================
 // Un plateau au bord de la mer : château qui grandit avec le niveau (campement → citadelle), ferme, village des serviteurs.
 export function construireDomaine(dom) {

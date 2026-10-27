@@ -268,7 +268,7 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 #hud > *{pointer-events:auto}
 .metal{background:radial-gradient(circle at 35% 30%,#4d4256,#1d1623 70%);border:3px solid #8d8394;box-shadow:inset 0 0 0 2px #1b141f,0 2px 6px #000a}
 #hudG{position:absolute;left:calc(env(safe-area-inset-left,0px) + 1.5vh);top:1.2vh;display:flex;flex-direction:column;gap:2.6vh;pointer-events:none;z-index:3}
-#hudG .rangee{display:flex;gap:1.6vh;align-items:flex-start;pointer-events:auto}
+#hudG .rangee{display:flex;gap:1.6vh;align-items:flex-start;pointer-events:none}#hudG .rangee>*{pointer-events:auto}#colonne{pointer-events:none!important}#colonne>*{pointer-events:auto}
 #portrait{display:flex;align-items:center;pointer-events:none}
 #hudD{position:absolute;right:calc(env(safe-area-inset-right,0px) + 1.6vh);top:1.2vh;display:flex;flex-direction:column;align-items:center;pointer-events:none}
 #carteCadre{width:28vh;height:28vh;display:grid;place-items:center;margin-top:1vh}
@@ -286,7 +286,7 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 #buffs{display:flex;gap:.5vh;margin-top:.3vh;min-height:3.4vh}
 .buff{width:3.4vh;height:3.4vh;border-radius:50%;border:2px solid #7a6e80;display:grid;place-items:center;font-size:1.3vh;font-weight:800}
 
-#colonne{display:flex;flex-direction:column;gap:1.4vh;margin-left:1.1vh}
+#colonne{display:flex;flex-direction:column;gap:1vh;margin-left:1.1vh}#colonne .rond{width:5.8vh;height:5.8vh}
 .rond{width:6.6vh;height:6.6vh;border-radius:50%;display:grid;place-items:center;padding:0}
 .rond svg{width:58%;height:58%}
 #journal{width:31vh;max-width:34vw;background:linear-gradient(#2a2131ee,#1d1623ee);border:1px solid #4e4356;border-radius:4px;overflow:hidden}
@@ -687,6 +687,7 @@ button:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 #perfHud{position:fixed;left:50%;top:.6vh;transform:translateX(-50%);z-index:80;pointer-events:none;white-space:pre-line;text-align:center;line-height:1.3;font:700 1.5vh monospace;color:#9effa0;background:#000a;padding:.5vh 1vh;border-radius:4px}
 
 /* Sanctuaire d'Émeraude */
+.carteAnc{background:linear-gradient(120deg,#08182a,#123a5a 50%,#06101a)!important;border-color:#5ab0ff!important;box-shadow:0 0 30px #3a8aff55!important}.carteAnc .niv{color:#9ad0ff!important}
 .carteTerres{background:linear-gradient(120deg,#2a0806,#4a120a 50%,#1a0404)!important;border-color:#ff3a2a!important;box-shadow:0 0 30px #ff2a1a66,inset 0 0 40px #ff2a1a22!important}.carteTerres .niv{color:#ff8a6a!important}.btn.rouge{background:linear-gradient(#c0281a,#7a0a0a);color:#fff;border-color:#ff6a4a}
 .carteSylve{position:relative;display:flex;align-items:center;gap:2vh;margin-top:1.6vh;padding:1.6vh 2vh;border-radius:8px;overflow:hidden;background:linear-gradient(120deg,#0a2a18,#123a22 50%,#0a2414);border:2px solid #3affa0;box-shadow:0 0 30px #3affa055,inset 0 0 40px #3affa022}
 .carteSylve .feuilles{position:absolute;inset:0;background:radial-gradient(circle at 15% 30%,#5aff9a33,transparent 30%),radial-gradient(circle at 80% 70%,#c97aff22,transparent 35%);pointer-events:none}
