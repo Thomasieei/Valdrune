@@ -625,7 +625,7 @@ UI.roulerBourse = (dt) => {
   if (Math.abs(d) < 1) { if (BOURSE.vu !== BOURSE.cible) { BOURSE.vu = BOURSE.cible; txt(E('argentTxt'), fmtB(BOURSE.vu)); } return; }
   BOURSE.vu += d * Math.min(1, dt * 4.5) + Math.sign(d) * Math.min(Math.abs(d), 1);
   txt(E('argentTxt'), fmtB(BOURSE.vu));
-  BOURSE.tick -= dt; if (d > 0 && BOURSE.tick <= 0) { BOURSE.tick = 0.09; api.son && api.son('handleCoins', 0.08, 1.6 + Math.random() * 0.3); }
+  BOURSE.tick -= dt; if (d > 0 && BOURSE.tick <= 0) { BOURSE.tick = 0.25; api.son && api.son('handleCoins', 0.08, 1.6 + Math.random() * 0.3); }
 };
 // des pièces jaillissent d'un point de l'écran et volent jusqu'à la bourse
 UI.gainArgent = (delta, x, y) => {
@@ -633,7 +633,7 @@ UI.gainArgent = (delta, x, y) => {
   const cible = el.querySelector('.piece').getBoundingClientRect();
   const tx = cible.left + cible.width / 2, ty = cible.top + cible.height / 2;
   const total = BOURSE.cible || 1, part = delta / Math.max(1, total - delta);
-  const n = Math.min(26, Math.max(3, Math.round(Math.log10(delta + 1) * 3.2 + part * 10)));
+  const n = Math.min(12, Math.max(3, Math.round(Math.log10(delta + 1) * 1.6 + part * 6)));
   const couche = document.getElementById('piecesVol') || (() => { const d = document.createElement('div'); d.id = 'piecesVol'; document.getElementById('jeu').appendChild(d); return d; })();
   for (let i = 0; i < n; i++) {
     const p = document.createElement('i'); p.className = 'pv';

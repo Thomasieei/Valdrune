@@ -21,7 +21,7 @@ const CLE = 'breche-ecarlate-v1';
 // sauvegarde groupée : au plus une écriture toutes les 1,5 s (l’écriture disque fait des micro-freezes sur Android)
 let sauverT = null, efface = false;
 function sauverMaintenant() { if (efface) return; if (sauverT) { clearTimeout(sauverT); sauverT = null; } try { localStorage.setItem(CLE, JSON.stringify(J)); } catch (e) {} }
-function sauver() { if (!sauverT) sauverT = setTimeout(sauverMaintenant, 1500); }
+function sauver() { if (!sauverT) sauverT = setTimeout(sauverMaintenant, 6000); }
 addEventListener('pagehide', sauverMaintenant); document.addEventListener('visibilitychange', () => { try { if (G.audio) document.hidden ? G.audio.suspend() : G.audio.resume(); } catch (e) {} musiquePause(document.hidden); }); document.addEventListener('visibilitychange', () => { if (document.hidden) sauverMaintenant(); });
 function charger() { try { const s = localStorage.getItem(CLE); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
 function nouvellePartie(nom, arme) {
@@ -559,7 +559,7 @@ function suivreFormation(e, rang, dt, animCourse, animRepos, teleporter) {
   if (e._suit) {
     const vv = Math.min(Math.max(joueur.st.vitesse, vitesseJoueur()) * 1.35, Math.max(1.6, d * 2.4));
     e._vv = (e._vv || 0) + (vv - (e._vv || 0)) * Math.min(1, dt * 6);
-    allerVers(e, cible, dt, e._vv); e.jouer(e._vv < 2.4 ? 'Walking_A' : animCourse);
+    avancerVers(e, cible, dt, e._vv); e.jouer(e._vv < 2.4 ? 'Walking_A' : animCourse); // ligne droite : pas de recalcul de chemin à chaque image (c'était la cause des gels)
   } else { e._vv = 0; e.jouer(animRepos); e.angle = tourner(e.angle, joueur.angle, dt * 3); e.root.rotation.y = e.angle; }
 }
 // ---- voir par les yeux d'une ombre (petite fenêtre, brouillard sombre sur les bords) ----
@@ -1990,7 +1990,7 @@ function exploit(id) {
   J.gloire = J.gloire || { pts: 0, liste: [] };
   if (aExploit(id)) return;
   const avant = titreRenom();
-  J.gloire.liste.push({ id, t: Date.now() }); J.gloire.pts += X.pts;
+  J.gloire.liste.push({ id, t: Date.now() }); if (J.gloire.liste.length > 150) J.gloire.liste.splice(0, J.gloire.liste.length - 150); J.gloire.pts += X.pts;
   const apres = titreRenom();
   sauver();
   setTimeout(() => {
@@ -3663,7 +3663,7 @@ function majPortes(dt) {
   }
 }
 // ---------------- Boucle ----------------
-let dernier = performance.now(), hudT = 0, miniT = 0, ileT = 2, argentVu = null;
+let dernier = performance.now(), hudT = 0, miniT = 0, ileT = 2, argentVu = null, gainCumul = 0, gainT = 0;
 const ORBITE = V(0, 0, 0);
 // filet de sécurité : une erreur dans une mise à jour ne doit jamais figer le jeu (l'image continue, l'erreur est notée)
 let derniereErr = 0;
@@ -3707,7 +3707,8 @@ function boucleCorps() {
     majCamera(dt, G.solH && !G.camCible ? V(joueur.pos.x, solY(joueur.pos.x, joueur.pos.z), joueur.pos.z) : (G.camCible || joueur.pos));
     majTorches(joueur.pos);
     if (joueur.comboT > 0) { joueur.comboT -= dt; if (joueur.comboT <= 0) joueur.combo = 0; }
-    if (argentVu !== null && J.argent !== argentVu) { const d = J.argent - argentVu; if (d > 0) { const sp = G.sourceArgent || projeter(V(joueur.pos.x, 1.8, joueur.pos.z)); UI.gainArgent(d, sp.x, sp.y); } else UI.perteArgent(-d); G.sourceArgent = null; UI.majBourse(J.argent); }
+    if (argentVu !== null && J.argent !== argentVu) { const d = J.argent - argentVu; if (d > 0) gainCumul += d; else UI.perteArgent(-d); UI.majBourse(J.argent); }
+    gainT -= dtReel; if (gainCumul > 0 && gainT <= 0) { gainT = 0.9; const sp = G.sourceArgent || projeter(V(joueur.pos.x, 1.8, joueur.pos.z)); UI.gainArgent(gainCumul, sp.x, sp.y); gainCumul = 0; G.sourceArgent = null; }
     argentVu = J.argent; UI.roulerBourse(dtReel);
     hudT -= dt; if (hudT <= 0) { hudT = 0.08; UI.majCombo(joueur.def.assassin ? joueur.combo || 0 : -1); UI.majHud(joueur, joueur.st); UI.majSorts(joueur); majInteractions(); majCadreAutre(); majBarreRival(); }
     miniT -= dt; if (miniT <= 0) { miniT = 0.2; majBoutonTP(); majMini(); majParchemins(0.2); majMusique(0.2); }
