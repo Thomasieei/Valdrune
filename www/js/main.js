@@ -3328,7 +3328,7 @@ function chargerEtapeAnc(T, n) {
     modeActuel = { id: 'terres', ancestrales: true, nom: 'Terres Ancestrales', lieu: `Terres Ancestrales · ${E.nom}`, argent: 2 + n, xp: 10 + n * 4, tiers: [Math.min(8, t), Math.min(8, t + 1)], mobTier: Math.min(8, t), bossTier: [t + 1, t + 1, t + 2, t + 2] };
     monde = construireIleAnc({ r: E.r, biome: hasard(E.biomes), etape: n, graine: Math.floor(Math.random() * 1e5) }); G.solH = monde.solH;
     construireJoueur(monde.spawn.clone()); joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax; G.camTarget.copy(joueur.pos);
-    G.scene.background.set('#2a3a48'); G.scene.fog.color.set('#4a5868'); G.scene.fog.density = 0.01; G.hemi.color.set('#e8ecff'); G.hemi.groundColor.set('#2a3a2a'); G.hemi.intensity = 1.4; G.sun.intensity = 1.8; G.sun.color.set('#fff0d8');
+    G.scene.background.set(n === 2 ? '#1a1a28' : '#0f2c34'); G.scene.fog.color.set(n === 2 ? '#2a2236' : '#1c4c54'); G.scene.fog.density = 0.011; G.hemi.color.set('#d8f0ff'); G.hemi.groundColor.set('#1a3a3a'); G.hemi.intensity = 1.5; G.sun.intensity = 1.7; G.sun.color.set('#fff4e0');
     // ton équipe (ceux qui ont survécu)
     for (let i = 0; i < T.anc.coequipiers; i++) { const d = calerSurJoueur(donneesBot(statsHeros(J.equip).ip * rnd(0.9, 1.05), []), 3, 0); d.guilde = 'CROW ZERO'; creerCombattant(pointLibrePres(V(rnd(-4, 4), 0, monde.spawn.z - 2), 0, 3), d, 'allie').membreAncestral = true; }
     // l'île grouille de monstres

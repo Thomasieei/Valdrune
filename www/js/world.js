@@ -1891,90 +1891,168 @@ export function construireAncestrales() {
   };
 }
 
-// une île des Terres Ancestrales (une étape) : grande (≈ 40 s pour en faire le tour), plateaux avec escaliers,
-// étangs et cascades, sanctuaire du gardien sur une estrade runique, emplacements de packs de 2-3 monstres bien espacés
+// une île des Terres Ancestrales (une étape) — style « Ancient Lands » : plateau turquoise bordé de falaises qui plongent dans la brume,
+// arbres-coraux rouges, tapis de trèfles, puits anciens à eau bleue lumineuse, pierres levées, ruisseau qui se jette de la falaise, ponts vers les autres îles.
 export function construireIleAnc({ r = 60, biome = 'foret', etape = 1, graine = 1 } = {}) {
   const groupe = new THREE.Group();
   G.torches = []; G.feux = []; G.anims = [];
-  const inst = new Instancieur(), nat = new Instancieur(), collisions = [], reliefs = [], rng = graineRng(graine * 97 + etape);
-  const th = THEMES_DONJON[biome === 'givre' ? 1 : biome === 'cendres' ? 2 : 0];
-  const COUL = { plaine: '#a0b868', foret: '#5a8a46', marais: '#7a6a8a', ruines: '#c8b088', givre: '#e8f0f8', cendres: '#7a5a52', cristaux: '#a8a0d8' };
-  const mer = new THREE.Mesh(new THREE.CircleGeometry(340, 40), new THREE.ShaderMaterial({ uniforms: { uT: { value: 0 } },
+  const nat = new Instancieur(), collisions = [], rng = graineRng(graine * 97 + etape), R = (a, b) => a + rng() * (b - a);
+  const finale = etape === 2, cRune = finale ? '#ff4a3a' : '#5ad8ff';
+  const NIV_MER = -8;
+  const mer = new THREE.Mesh(new THREE.CircleGeometry(420, 40), new THREE.ShaderMaterial({ uniforms: { uT: { value: 0 } }, fog: false,
     vertexShader: 'varying vec2 vP; void main(){ vP=position.xy; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);} ',
-    fragmentShader: 'uniform float uT; varying vec2 vP; void main(){ float w=sin(vP.x*0.12+uT*0.7)*sin(vP.y*0.15-uT*0.5); vec3 c=mix(vec3(0.05,0.16,0.26),vec3(0.1,0.3,0.42),0.5+0.3*w); gl_FragColor=vec4(c,1.0);} ' }));
-  mer.rotation.x = -Math.PI / 2; mer.position.y = -1.2; groupe.add(mer); G.anims.push((t) => { mer.material.uniforms.uT.value = t; });
-  // côte irrégulière (l'île n'est pas un rond parfait)
-  const bord = (a) => r * (0.86 + 0.1 * Math.sin(a * 3 + graine) + 0.05 * Math.sin(a * 7 + graine * 2));
-  const forme = new THREE.Shape(); for (let k = 0; k <= 72; k++) { const a = k / 72 * Math.PI * 2, d = bord(a); k ? forme.lineTo(Math.cos(a) * d, Math.sin(a) * d) : forme.moveTo(Math.cos(a) * d, Math.sin(a) * d); }
-  const tH = texHerbe(); tH.repeat.set(0.25, 0.25);
-  const sol = new THREE.Mesh(new THREE.ShapeGeometry(forme, 72).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: COUL[biome], map: biome === 'givre' ? null : tH, roughness: 1, side: THREE.DoubleSide })); sol.receiveShadow = true; groupe.add(sol);
-  const plage = new THREE.Mesh(new THREE.ShapeGeometry(forme, 72).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: biome === 'givre' ? '#c8d8e8' : '#c8b088', roughness: 1, side: THREE.DoubleSide })); plage.scale.setScalar(1.06); plage.position.y = -0.25; groupe.add(plage);
-  for (let k = 0; k < 90; k++) { const a = k / 90 * 6.283, d = bord(a) * 1.04; nat.ajouter(rng() < 0.5 ? 'n_rock_largeB' : 'n_rock_largeC', Math.cos(a) * d, -0.6, Math.sin(a) * d, rng() * 6, 1.6 + rng() * 1.4, 1 + rng(), 1.6 + rng() * 1.4); }
-  const dedans = (x, z, m = 3) => Math.hypot(x, z) < bord(Math.atan2(z, x)) - m;
-  // repères : départ (sud), portail (nord-ouest), coffre, sanctuaire du gardien (nord)
-  const spawn = new THREE.Vector3(0, 0, r * 0.72), portail = new THREE.Vector3(-r * 0.42, 0, -r * 0.55), bossC = new THREE.Vector3(r * 0.08, 0, -r * 0.5), coffre = new THREE.Vector3(bossC.x + 7, 0, bossC.z + 9);
-  const zones = [{ x: spawn.x, z: spawn.z, r: 9 }, { x: portail.x, z: portail.z, r: 7 }, { x: bossC.x, z: bossC.z, r: 15 }];
-  // sanctuaire du gardien : estrade de pierre, escalier, runes au sol, piliers et braseros
-  const hB = 1.4, demi = 9;
-  estrade(groupe, inst, collisions, reliefs, th, { x0: bossC.x - demi, x1: bossC.x + demi, z0: bossC.z - demi, z1: bossC.z + demi, h: hB, cote: 'S', ouverts: ['S', 'E', 'W', 'N'] });
-  const runes = new THREE.Mesh(new THREE.CircleGeometry(7, 48), new THREE.MeshBasicMaterial({ map: texRunes(biome === 'cendres' ? '#ff5a2a' : biome === 'givre' ? '#7ac8ff' : '#c07aff'), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.8 }));
-  runes.rotation.x = -Math.PI / 2; runes.position.set(bossC.x, hB + 0.06, bossC.z); groupe.add(runes); G.anims.push((t) => { runes.rotation.z = t * 0.15; runes.material.opacity = 0.55 + 0.25 * Math.sin(t * 1.6); });
-  for (const [dx, dz] of [[-7.5, -7.5], [7.5, -7.5], [-7.5, 7.5], [7.5, 7.5]]) { inst.ajouter('pillar_decorated', bossC.x + dx, hB, bossC.z + dz, 0, 1.2, 1.5, 1.2); collisions.push({ x: bossC.x + dx, z: bossC.z + dz, r: 0.9 }); }
-  for (const [dx, dz] of [[-5, 8.4], [5, 8.4]]) brasero(groupe, bossC.x + dx, bossC.z + dz, biome === 'givre' ? '#7ac8ff' : '#ff6a2a', 1.1, hB);
-  // plateaux avec escaliers ailleurs sur l'île
-  const plateaux = [];
-  for (let k = 0; k < 3; k++) { for (let essai = 0; essai < 20; essai++) { const a = rng() * 6.283, d = r * (0.25 + rng() * 0.4), x = Math.cos(a) * d, z = Math.sin(a) * d, w = 7 + rng() * 4;
-    if (!dedans(x, z, 12) || zones.some(Z => Math.hypot(Z.x - x, Z.z - z) < Z.r + w + 4) || plateaux.some(P => Math.hypot(P.x - x, P.z - z) < 22)) continue;
-    const h = 1 + rng() * 1.2; estrade(groupe, inst, collisions, reliefs, th, { x0: x - w, x1: x + w, z0: z - w, z1: z + w, h, cote: hasardF(['S', 'N', 'E', 'W'], rng), ouverts: ['S', 'N', 'E', 'W'] });
-    plateaux.push({ x, z, w, h }); zones.push({ x, z, r: w + 2 }); break; } }
-  // étangs et petites cascades qui tombent d'un rocher
-  const eauMat = new THREE.MeshStandardMaterial({ color: biome === 'cendres' ? '#ff5a1a' : '#2a6a8a', emissive: biome === 'cendres' ? '#ff3a0a' : '#000000', emissiveIntensity: biome === 'cendres' ? 0.8 : 0, roughness: 0.1, metalness: 0.3, transparent: true, opacity: 0.88, polygonOffset: true, polygonOffsetFactor: -2 });
-  const texChute = texture('cascade', 64, 256, (g, w, hh) => { for (let y = 0; y < hh; y += 4) { g.fillStyle = `rgba(${200 + Math.random() * 55},${230 + Math.random() * 25},255,${0.4 + Math.random() * 0.5})`; g.fillRect(Math.random() * 8, y, w - Math.random() * 16, 4); } }, { repeat: true });
-  for (let k = 0; k < 2; k++) { for (let essai = 0; essai < 25; essai++) { const a = rng() * 6.283, d = r * (0.3 + rng() * 0.45), x = Math.cos(a) * d, z = Math.sin(a) * d, rp = 4.5 + rng() * 2;
-    if (!dedans(x, z, rp + 6) || zones.some(Z => Math.hypot(Z.x - x, Z.z - z) < Z.r + rp + 4)) continue;
-    const etang = new THREE.Mesh(new THREE.CircleGeometry(rp, 32), eauMat); etang.rotation.x = -Math.PI / 2; etang.position.set(x, 0.05, z); groupe.add(etang);
-    for (let a2 = 0; a2 < 6.28; a2 += 0.5) collisions.push({ x: x + Math.cos(a2) * rp * 0.7, z: z + Math.sin(a2) * rp * 0.7, r: rp * 0.45 });
-    const ra = Math.atan2(-z, -x) + Math.PI, rx = x + Math.cos(ra) * (rp + 1.5), rz = z + Math.sin(ra) * (rp + 1.5);
-    nat.ajouter('n_rock_largeC', rx, 0, rz, rng() * 6, 4.5, 4, 4.5); collisions.push({ x: rx, z: rz, r: 3 });
-    if (biome !== 'cendres') { const tc = texChute.clone(); tc.needsUpdate = true; tc.wrapS = tc.wrapT = THREE.RepeatWrapping;
-      const chute = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 4.6), new THREE.MeshBasicMaterial({ map: tc, transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide }));
-      chute.position.set(x + Math.cos(ra) * (rp - 0.2), 2.3, z + Math.sin(ra) * (rp - 0.2)); chute.rotation.y = -ra + Math.PI / 2; groupe.add(chute);
-      G.anims.push((t, dt) => { tc.offset.y += (dt || 0.016) * 1.8; if (Math.random() < 0.4) emettre(new THREE.Vector3(chute.position.x, 0.3, chute.position.z), { n: 1, c1: '#ffffff', c2: '#9ad8ff', vit: 1.6, vie: 0.6, taille: 0.3, grav: 4, monte: 2 }); }); }
-    zones.push({ x, z, r: rp + 3 }); break; } }
-  // décor : végétation et pierres selon le biome, statues et ruines éparses
-  const n = Math.round(r * r / 7);
-  for (let k = 0; k < n; k++) {
-    const a = rng() * 6.283, d = Math.sqrt(rng()) * r, x = Math.cos(a) * d, z = Math.sin(a) * d;
-    if (!dedans(x, z, 2) || zones.some(Z => Math.hypot(Z.x - x, Z.z - z) < Z.r)) continue;
-    const p = rng();
-    if ((biome === 'foret' || biome === 'plaine' || biome === 'marais') && p < 0.16) { const s = 1.3 + rng(); nat.ajouter(biome === 'marais' ? 'n_tree_default' : rng() < 0.5 ? 'n_tree_fat_darkh' : 'n_tree_oak', x, 0, z, rng() * 6, s, s, s); collisions.push({ x, z, r: 0.7 }); }
-    else if (biome === 'givre' && p < 0.12) { inst.ajouter('Tree_Bare_2_A', x, 0, z, rng() * 6, 1.4, 1.4, 1.4); collisions.push({ x, z, r: 0.6 }); }
-    else if (p < 0.2) { nat.ajouter(rng() < 0.5 ? 'n_rock_largeB' : 'n_stone_tallB', x, 0, z, rng() * 6, 1.4 + rng(), 1.4 + rng(), 1.4 + rng()); collisions.push({ x, z, r: 1.1 }); }
-    else if (p < 0.235) { inst.ajouter(rng() < 0.5 ? 'wall_broken' : 'column', x, 0, z, rng() * 6); collisions.push({ x, z, r: 1.2 }); }
-    else if (p < 0.25) { nat.ajouter(rng() < 0.5 ? 'n_statue_columnDamaged' : 'n_statue_obelisk', x, 0, z, rng() * 6, 2.4, 2.4, 2.4); collisions.push({ x, z, r: 1 }); }
-    else if (biome === 'cristaux' && p < 0.29) { cristaux(groupe, { nom: 'cristalA', cristal: '#b0a0ff' }, x, z, 0.8 + rng()); collisions.push({ x, z, r: 1 }); }
-    else if (biome !== 'givre' && biome !== 'cendres' && p < 0.5) inst.ajouter(rng() < 0.6 ? 'Grass_1_A' : rng() < 0.5 ? 'Bush_2_C' : 'flower_redA', x, 0, z, rng() * 6, 1.4, 1.4, 1.4);
-    else if (biome === 'marais' && p < 0.6) nat.ajouter(rng() < 0.5 ? 'n_mushroom_redTall' : 'n_lily_large', x, 0.03, z, rng() * 6, 2, 2, 2);
-  }
-  if (biome === 'cendres') { const lave = new THREE.MeshBasicMaterial({ color: '#ff4a1a', transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }); for (let k = 0; k < 18; k++) { const a = rng() * 6.28, d = rng() * r * 0.8; const f = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 6 + rng() * 6), lave); f.rotation.x = -Math.PI / 2; f.rotation.z = rng() * 6; f.position.set(Math.cos(a) * d, 0.05, Math.sin(a) * d); groupe.add(f); } G.anims.push((t) => { lave.opacity = 0.6 + Math.sin(t * 1.7) * 0.2; }); }
-  if (biome === 'givre') G.anims.push((t, dt) => { if (Math.random() < (dt || 0.016) * 8) emettre(new THREE.Vector3(rnd(-r, r) * 0.6, 10, rnd(-r, r) * 0.6), { n: 1, c1: '#ffffff', c2: '#c8e0ff', dir: new THREE.Vector3(0, -1, 0), vit: 1.5, vie: 5, taille: 0.2 }); });
-  // portail éteint (il s'allume avec la pierre)
-  const socle = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.8, 0.6, 24), new THREE.MeshStandardMaterial({ color: '#4a4a5a', roughness: 0.8 })); socle.position.set(portail.x, 0.3, portail.z); groupe.add(socle);
-  const anneau = new THREE.Mesh(new THREE.TorusGeometry(2, 0.22, 10, 40), new THREE.MeshStandardMaterial({ color: '#6a6a8a', emissive: '#000000' })); anneau.position.set(portail.x, 2.6, portail.z); groupe.add(anneau);
+    fragmentShader: 'uniform float uT; varying vec2 vP; void main(){ float w=sin(vP.x*0.08+uT*0.5)*sin(vP.y*0.09-uT*0.4); float d=length(vP); vec3 c=mix(vec3(0.03,0.13,0.17),vec3(0.07,0.26,0.3),0.5+0.35*w); c=mix(c,vec3(0.05,0.16,0.19),smoothstep(60.0,260.0,d)); gl_FragColor=vec4(c,1.0);} ' }));
+  mer.rotation.x = -Math.PI / 2; mer.position.y = NIV_MER; groupe.add(mer); G.anims.push((t) => { mer.material.uniforms.uT.value = t; });
+  const bord = (a) => r * (0.84 + 0.09 * Math.sin(a * 3 + graine) + 0.05 * Math.sin(a * 7 + graine * 2) + 0.025 * Math.sin(a * 13 + graine));
+  const dansIle = (x, z, m = 0) => Math.hypot(x, z) < bord(Math.atan2(z, x)) - m;
+  const lisse = (t) => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
+  // repères
+  const spawn = new THREE.Vector3(0, 0, r * 0.52), portail = new THREE.Vector3(-r * 0.36, 0, -r * 0.38), bossC = new THREE.Vector3(r * 0.12, 0, -r * 0.3);
+  const aL = rng() < 0.5 ? R(-0.5, 0.4) : Math.PI + R(-0.4, 0.5), lacR = 7.5, lacD = bord(aL) - lacR - 5;
+  const lac = { x: Math.cos(aL) * lacD, z: Math.sin(aL) * lacD, R: lacR };
+  const chute = { x: Math.cos(aL) * bord(aL), z: Math.sin(aL) * bord(aL), ux: Math.cos(aL), uz: Math.sin(aL) };
+  const loin = (x, z, m) => Math.hypot(x - spawn.x, z - spawn.z) > 12 + m && Math.hypot(x - portail.x, z - portail.z) > 7 + m && Math.hypot(x - bossC.x, z - bossC.z) > 13 + m && Math.hypot(x - lac.x, z - lac.z) > lac.R + 4 + m;
+  // terrasses rocheuses (falaises intérieures, non praticables) — le relief de l'île
+  const terrasses = [];
+  for (let e = 0; e < 200 && terrasses.length < 3 + (r > 62 ? 1 : 0); e++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * r * 0.7, x = Math.cos(a) * d, z = Math.sin(a) * d, Rt = R(5, 8.5);
+    if (!dansIle(x, z, Rt + 6) || !loin(x, z, Rt + 2) || terrasses.some(T => Math.hypot(T.x - x, T.z - z) < T.R + Rt + 9)) continue; terrasses.push({ x, z, R: Rt, h: R(2.8, 4.6), s: rng() * 6 }); }
+  const H0 = (x, z) => 0.16 * Math.sin(x * 0.13 + graine) * Math.sin(z * 0.11 - graine) + 0.08 * Math.sin(x * 0.37 + z * 0.29);
+  const distSeg = (x, z) => { const vx = chute.x - lac.x, vz = chute.z - lac.z, L2 = vx * vx + vz * vz; const t = Math.max(0, Math.min(1, ((x - lac.x) * vx + (z - lac.z) * vz) / L2)); return Math.hypot(x - lac.x - vx * t, z - lac.z - vz * t); };
+  const hauteur = (x, z) => {
+    const d = Math.hypot(x, z), b = bord(Math.atan2(z, x)); if (d > b + 0.6) return NIV_MER - 1;
+    let h = H0(x, z);
+    for (const T of terrasses) { const q = Math.hypot(x - T.x, z - T.z), Rr = T.R * (1 + 0.16 * Math.sin(Math.atan2(z - T.z, x - T.x) * 3 + T.s)); if (q < Rr + 2.4) h = Math.max(h, T.h * lisse((Rr + 2.4 - q) / 2.4) + (q < Rr ? 0.25 * Math.sin(x * 0.7) * Math.sin(z * 0.6) : 0)); }
+    const ql = Math.hypot(x - lac.x, z - lac.z); if (ql < lac.R + 2) h = Math.min(h, -1.3 + 1.3 * lisse((ql - lac.R + 1.5) / 3.5));
+    const qs = distSeg(x, z); if (qs < 2.6) h = Math.min(h, -0.7 + 0.7 * lisse((qs - 1) / 1.6));
+    const e = b - d; if (e < 3.2) h = h * lisse(e / 3.2) + (NIV_MER - 0.5) * (1 - lisse(e / 3.2)) + (e < 1.5 ? Math.sin(x * 1.3) * Math.sin(z * 1.1) * 0.4 : 0);
+    return h;
+  };
+  // le sol : une grande géométrie en relief ; turquoise en plaine, roche bleutée sur les pentes, sable mouillé au bord de l'eau
+  const T = 2 * r + 12, seg = 140, geo = new THREE.PlaneGeometry(T, T, seg, seg).rotateX(-Math.PI / 2);
+  const P = geo.attributes.position; for (let i = 0; i < P.count; i++) P.setY(i, hauteur(P.getX(i), P.getZ(i)));
+  geo.computeVertexNormals();
+  const N = geo.attributes.normal, col = new Float32Array(P.count * 3), c = new THREE.Color();
+  const pal = finale ? ['#245a5a', '#1c4a4e', '#2f6a64'] : ['#2b7a72', '#22655f', '#3a8f80'];
+  for (let i = 0; i < P.count; i++) { const x = P.getX(i), z = P.getZ(i), y = P.getY(i), ny = N.getY(i);
+    const tache = Math.sin(x * 0.19 + graine) * Math.sin(z * 0.17) + 0.5 * Math.sin(x * 0.5 - z * 0.43);
+    if (ny < 0.72) c.set(y < -2 ? '#3e4e5c' : '#5d7280'); else if (y < -0.4) c.set('#1e4a50'); else c.set(tache > 0.5 ? pal[2] : tache < -0.4 ? pal[1] : pal[0]);
+    if (ny < 0.72) c.offsetHSL(0, 0, (Math.sin(y * 2.3 + x) * 0.04)); c.offsetHSL(0, 0, (rng() - 0.5) * 0.04); col.set([c.r, c.g, c.b], i * 3); }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const sol = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, flatShading: true })); sol.receiveShadow = true; groupe.add(sol);
+  // éléments instanciés (peu d'appels de dessin)
+  const ICO = new THREE.IcosahedronGeometry(1, 0), lots = {};
+  const lot = (nom, geo, mat, ombre) => lots[nom] || (lots[nom] = { geo, mat, ombre, l: [] });
+  const poser = (nom, x, y, z, sx, sy, sz, ry, coul, rx = 0, rz = 0) => lots[nom].l.push({ x, y, z, sx, sy, sz, ry, rx, rz, coul });
+  lot('couronne', ICO, new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.85 }), true);
+  lot('tronc', new THREE.CylinderGeometry(0.12, 0.22, 1, 6).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ color: '#3a2a2e', flatShading: true }), true);
+  lot('trefle', ICO, new THREE.MeshStandardMaterial({ flatShading: true, roughness: 1 }), false);
+  lot('fleur', new THREE.OctahedronGeometry(1, 0), new THREE.MeshBasicMaterial({ color: '#ffffff' }), false);
+  lot('dalle', new THREE.CylinderGeometry(1, 1.12, 1, 7), new THREE.MeshStandardMaterial({ color: '#7590a0', flatShading: true, roughness: 0.9 }), false);
+  lot('rocher', new THREE.DodecahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ flatShading: true, roughness: 0.95 }), true);
+  lot('stele', new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), new THREE.MeshStandardMaterial({ color: '#71879a', flatShading: true, roughness: 0.9 }), true);
+  const rouges = finale ? ['#c8283a', '#a01a3a', '#e04a4a'] : ['#e0503a', '#c8382e', '#f07048', '#d84a5a'];
+  const arbre = (x, z, s = 1) => { const h = hauteur(x, z), tr = R(1.3, 1.9) * s; poser('tronc', x, h, z, s, tr, s, 0);
+    const n = 4 + Math.floor(rng() * 3); for (let i = 0; i < n; i++) { const a = rng() * 6.283, d = i ? R(0.5, 1.1) * s : 0; const k = (i ? R(0.6, 0.9) : 1.05) * s;
+      poser('couronne', x + Math.cos(a) * d, h + tr + R(0, 0.9) * s, z + Math.sin(a) * d, k * 1.1, k * 0.85, k * 1.1, rng() * 6, hasardF(rouges, rng)); } };
+  const buisson = (x, z, s = 1) => { const h = hauteur(x, z); for (let i = 0; i < 3; i++) poser('couronne', x + R(-0.5, 0.5) * s, h + 0.3 * s, z + R(-0.5, 0.5) * s, 0.55 * s, 0.45 * s, 0.55 * s, rng() * 6, hasardF(rouges, rng)); };
+  const trefles = (x, z, n) => { for (let i = 0; i < n; i++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * 2.6, px = x + Math.cos(a) * d, pz = z + Math.sin(a) * d, h = hauteur(px, pz); if (h < -0.2 || h > 0.6) continue;
+    const k = R(0.17, 0.28); poser('trefle', px, h + 0.03, pz, k, k * 0.4, k, rng() * 6, hasardF(['#23784a', '#1d6a42', '#2c8656', '#185c3c'], rng)); } };
+  const rocher = (x, y, z, s, coul = '#6a7e8c') => poser('rocher', x, y, z, s * R(0.9, 1.3), s * R(0.6, 1), s * R(0.9, 1.3), rng() * 6, coul, R(-0.2, 0.2), R(-0.2, 0.2));
+  // la mer de brume en contrebas : quelques pitons rocheux qui en sortent
+  for (let k = 0; k < 14; k++) { const a = rng() * 6.283, d = bord(a) + R(6, 40); rocher(Math.cos(a) * d, NIV_MER + R(0, 2), Math.sin(a) * d, R(1.5, 4), '#3e5260'); }
+  // le bord des falaises : gros rochers qui dépassent, buissons accrochés
+  for (let a = 0; a < 6.283; a += R(0.08, 0.2)) { const b = bord(a); if (Math.abs(((a - aL + 9.42) % 6.283) - 3.14) < 0.12) continue;
+    rocher(Math.cos(a) * (b - 0.6), R(-2.5, -0.6), Math.sin(a) * (b - 0.6), R(1, 2.2), '#5d7280'); if (rng() < 0.3) buisson(Math.cos(a) * (b - 3), Math.sin(a) * (b - 3), R(0.8, 1.2)); }
+  // terrasses : roche, arbres rouges sur le dessus, éboulis au pied
+  for (const Tt of terrasses) { for (let i = 0; i < 4; i++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * Tt.R * 0.6; arbre(Tt.x + Math.cos(a) * d, Tt.z + Math.sin(a) * d, R(1, 1.5)); }
+    for (let a = 0; a < 6.283; a += R(0.35, 0.7)) { const d = Tt.R + R(1.8, 3); rocher(Tt.x + Math.cos(a) * d, hauteur(Tt.x + Math.cos(a) * d, Tt.z + Math.sin(a) * d) + 0.1, Tt.z + Math.sin(a) * d, R(0.6, 1.3)); } }
+  // le lac, son ruisseau et la cascade qui tombe de la falaise
+  const eauM = new THREE.MeshStandardMaterial({ color: finale ? '#2a6a8a' : '#2aa0b0', emissive: '#0a4a5a', emissiveIntensity: 0.5, roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.82 });
+  const eau = new THREE.Mesh(new THREE.CircleGeometry(lac.R + 0.6, 40), eauM); eau.rotation.x = -Math.PI / 2; eau.position.set(lac.x, -0.4, lac.z); groupe.add(eau);
+  const Ls = Math.hypot(chute.x - lac.x, chute.z - lac.z), ruis = new THREE.Mesh(new THREE.PlaneGeometry(2.4, Ls), eauM); ruis.rotation.order = 'YXZ'; ruis.rotation.set(-Math.PI / 2, Math.atan2(chute.ux, chute.uz), 0);
+  ruis.position.set((lac.x + chute.x) / 2, -0.4, (lac.z + chute.z) / 2); groupe.add(ruis);
+  for (let k = 0; k < 7; k++) rocher(lac.x + Math.cos(k * 0.9 + 1) * (lac.R + 1.2), -0.3, lac.z + Math.sin(k * 0.9 + 1) * (lac.R + 1.2), R(0.6, 1.1));
+  { const tc = texture('cascadeAnc', 64, 256, (g, w, hh) => { for (let y = 0; y < hh; y += 4) { g.fillStyle = `rgba(${190 + Math.random() * 65},${235 + Math.random() * 20},255,${0.4 + Math.random() * 0.55})`; g.fillRect(Math.random() * 8, y, w - Math.random() * 16, 4); } }, { repeat: true });
+    tc.wrapS = tc.wrapT = THREE.RepeatWrapping; tc.repeat.set(1, 2);
+    const ch = new THREE.Mesh(new THREE.PlaneGeometry(3, -NIV_MER + 0.6), new THREE.MeshBasicMaterial({ map: tc, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
+    ch.position.set(chute.x + chute.ux * 0.8, NIV_MER / 2 - 0.1, chute.z + chute.uz * 0.8); ch.rotation.y = Math.atan2(chute.ux, chute.uz); groupe.add(ch);
+    G.anims.push((t, dt) => { tc.offset.y += (dt || 0.016) * 1.4; if (Math.random() < 0.35) emettre(new THREE.Vector3(chute.x + chute.ux * 1.2, NIV_MER + 0.3, chute.z + chute.uz * 1.2), { n: 1, c1: '#ffffff', c2: '#9ad8ff', vit: 2.5, vie: 1, taille: 0.6, grav: 2, monte: 2 }); }); }
+  // puits anciens : vasques de pierre où brille une eau bleue (comme les sources des Terres Ancestrales)
+  const vasque = (x, z, k = 1) => { const h = hauteur(x, z);
+    const pierre = new THREE.Mesh(new THREE.CylinderGeometry(1.7 * k, 2.1 * k, 0.9, 12), new THREE.MeshStandardMaterial({ color: '#7088a0', flatShading: true, roughness: 0.85 })); pierre.position.set(x, h + 0.3, z); pierre.castShadow = true; groupe.add(pierre);
+    const lum = new THREE.Mesh(new THREE.CircleGeometry(1.3 * k, 20), new THREE.MeshBasicMaterial({ color: cRune, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })); lum.rotation.x = -Math.PI / 2; lum.position.set(x, h + 0.77, z); groupe.add(lum);
+    G.torches.push({ pos: new THREE.Vector3(x, h + 1.6, z), color: cRune, int: 14, dist: 9 }); collisions.push({ x, z, r: 2 * k });
+    G.anims.push((t, dt) => { lum.material.opacity = 0.65 + 0.25 * Math.sin(t * 2 + x); if (Math.random() < (dt || 0.016) * 3) emettre(new THREE.Vector3(x + rnd(-0.8, 0.8), h + 0.9, z + rnd(-0.8, 0.8)), { n: 1, c1: '#ffffff', c2: cRune, dir: new THREE.Vector3(0, 1, 0), vit: 1.2, vie: 1.4, taille: 0.22 }); });
+    for (let i = 0; i < 6; i++) { const a = i * 1.05 + rng(); poser('fleur', x + Math.cos(a) * 2.6 * k, h + 0.35, z + Math.sin(a) * 2.6 * k, 0.12, 0.2, 0.12, rng(), '#8ad8ff'); } };
+  const steles = (x, z, n, rayon, haut = 3.2) => { for (let i = 0; i < n; i++) { const a = i / n * 6.283 + R(-0.15, 0.15), px = x + Math.cos(a) * rayon, pz = z + Math.sin(a) * rayon;
+    poser('stele', px, hauteur(px, pz) - 0.3, pz, R(1, 1.5), haut * R(0.75, 1.15), R(0.5, 0.7), -a + Math.PI / 2, null, R(-0.12, 0.12), R(0.05, 0.22)); collisions.push({ x: px, z: pz, r: 0.8 }); } };
+  // le sanctuaire du gardien : grand disque de pierre ancienne, cercle de stèles penchées, deux vasques lumineuses
+  const dais = new THREE.Mesh(new THREE.CylinderGeometry(7.5, 8, 0.5, 28), new THREE.MeshStandardMaterial({ color: '#6a8090', flatShading: true, roughness: 0.9 })); dais.position.set(bossC.x, 0.1, bossC.z); dais.receiveShadow = true; groupe.add(dais);
+  const anneauP = new THREE.Mesh(new THREE.TorusGeometry(7.6, 0.35, 6, 32), new THREE.MeshStandardMaterial({ color: '#56687a', flatShading: true })); anneauP.rotation.x = Math.PI / 2; anneauP.position.set(bossC.x, 0.35, bossC.z); groupe.add(anneauP);
+  const runes = new THREE.Mesh(new THREE.CircleGeometry(6.4, 48), new THREE.MeshBasicMaterial({ map: texRunes(finale ? '#ff4a3a' : '#7ad8ff'), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.8 }));
+  runes.rotation.x = -Math.PI / 2; runes.position.set(bossC.x, 0.37, bossC.z); groupe.add(runes); G.anims.push((t) => { runes.rotation.z = t * 0.12; runes.material.opacity = 0.5 + 0.25 * Math.sin(t * 1.4); });
+  for (let i = 0; i < 9; i++) { if (i === 4) continue; const a = i / 9 * 6.283 + 1.2, px = bossC.x + Math.cos(a) * 10, pz = bossC.z + Math.sin(a) * 10;
+    poser('stele', px, -0.3, pz, 1.6, R(3.6, 5), 0.8, -a + Math.PI / 2, null, 0, R(0.08, 0.2)); collisions.push({ x: px, z: pz, r: 1 }); }
+  vasque(bossC.x - 9.5, bossC.z + 6.5, 0.8); vasque(bossC.x + 9.5, bossC.z + 6.5, 0.8);
+  // ailleurs sur l'île : vasques, petits cercles de stèles, chemins de dalles
+  const lieux = [];
+  for (let e = 0; e < 300 && lieux.length < 4; e++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * r * 0.75, x = Math.cos(a) * d, z = Math.sin(a) * d;
+    if (!dansIle(x, z, 7) || !loin(x, z, 2) || terrasses.some(Tt => Math.hypot(Tt.x - x, Tt.z - z) < Tt.R + 6) || lieux.some(L => Math.hypot(L.x - x, L.z - z) < 18)) continue; lieux.push({ x, z }); }
+  lieux.forEach((L, i) => { vasque(L.x, L.z, 1); if (i % 2 === 0) steles(L.x, L.z, 5, 4.6, 2.6); });
+  const chemin = (A, B) => { const L = Math.hypot(B.x - A.x, B.z - A.z); for (let t = 0; t < L; t += R(2.6, 3.6)) { const x = A.x + (B.x - A.x) * t / L + R(-0.8, 0.8), z = A.z + (B.z - A.z) * t / L + R(-0.8, 0.8), h = hauteur(x, z);
+    if (h < -0.3 || h > 0.7) continue; const k = R(0.38, 0.62); poser('dalle', x, h + 0.02, z, k, 0.16, k * R(0.8, 1.1), rng() * 6, null); } };
+  chemin(spawn, bossC); chemin(spawn, portail); chemin(bossC, portail); lieux.forEach(L => chemin(L, spawn));
+  // ponts suspendus vers les îles voisines (celles des autres équipes) — perdus dans la brume
+  const bois = new THREE.MeshStandardMaterial({ color: '#6a4a32', flatShading: true, roughness: 0.9 }), planche = new THREE.BoxGeometry(2.4, 0.14, 0.55), poteau = new THREE.CylinderGeometry(0.1, 0.12, 1.4, 5);
+  const planches = [], poteaux = [];
+  for (const da of [0.9, 2.6, 4.4, 5.6]) { const a = aL + da, b = bord(a), D = b + R(30, 38), sx = Math.cos(a), sz = Math.sin(a);
+    const ile = new THREE.Mesh(new THREE.CylinderGeometry(13, 3, 16, 9), new THREE.MeshStandardMaterial({ color: '#4c6070', flatShading: true })); ile.position.set(sx * (D + 11), -8, sz * (D + 11)); groupe.add(ile);
+    const dessus = new THREE.Mesh(new THREE.CircleGeometry(12.6, 9), new THREE.MeshStandardMaterial({ color: pal[0], flatShading: true })); dessus.rotation.x = -Math.PI / 2; dessus.position.set(sx * (D + 11), 0.02, sz * (D + 11)); groupe.add(dessus);
+    for (let i = 0; i < 4; i++) { const q = R(0, 6.283), dd = R(2, 9); const x = sx * (D + 11) + Math.cos(q) * dd, z = sz * (D + 11) + Math.sin(q) * dd; poser('tronc', x, 0, z, 1.2, 1.8, 1.2, 0); for (let j = 0; j < 4; j++) poser('couronne', x + R(-1, 1), 2.2 + R(0, 1), z + R(-1, 1), 1, 0.85, 1, rng() * 6, hasardF(rouges, rng)); }
+    const n = Math.floor((D - b + 2) / 0.75); for (let i = 0; i <= n; i++) { const t = i / n, d = b - 1 + (D - b + 2) * t, y = -0.05 - Math.sin(t * Math.PI) * 1.6;
+      planches.push(new THREE.Matrix4().compose(new THREE.Vector3(sx * d, y, sz * d), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -a + Math.PI / 2 + R(-0.05, 0.05)), new THREE.Vector3(1, 1, 1)));
+      if (i % 4 === 0) for (const cote of [-1, 1]) poteaux.push(new THREE.Matrix4().makeTranslation(sx * d - sz * 1.15 * cote, y + 0.6, sz * d + sx * 1.15 * cote)); }
+    for (const cote of [-1, 1]) { const px = sx * (b - 2) - sz * 1.6 * cote, pz = sz * (b - 2) + sx * 1.6 * cote; poser('stele', px, -0.2, pz, 0.8, 3, 0.8, -a, null); collisions.push({ x: px, z: pz, r: 0.7 }); } }
+  const imP = new THREE.InstancedMesh(planche, bois, planches.length); planches.forEach((m, i) => imP.setMatrixAt(i, m)); imP.computeBoundingSphere(); groupe.add(imP);
+  const imQ = new THREE.InstancedMesh(poteau, bois, poteaux.length); poteaux.forEach((m, i) => imQ.setMatrixAt(i, m)); imQ.computeBoundingSphere(); groupe.add(imQ);
+  // la végétation : arbres-coraux rouges en bosquets, tapis de trèfles, petites fleurs bleues lumineuses, herbes hautes
+  for (let k = 0; k < Math.round(r * 0.55); k++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * r, x = Math.cos(a) * d, z = Math.sin(a) * d, h = hauteur(x, z);
+    if (!dansIle(x, z, 4) || h < 0 || h > 0.8 || !loin(x, z, 0) || lieux.some(L => Math.hypot(L.x - x, L.z - z) < 6)) continue;
+    const n = 1 + Math.floor(rng() * 3); for (let i = 0; i < n; i++) { const px = x + R(-3, 3), pz = z + R(-3, 3); if (hauteur(px, pz) < 0) continue; arbre(px, pz, R(0.9, 1.4)); collisions.push({ x: px, z: pz, r: 0.6 }); }
+    for (let i = 0; i < 3; i++) buisson(x + R(-4, 4), z + R(-4, 4), R(0.7, 1.1)); }
+  for (let k = 0; k < Math.round(r * 1.1); k++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * r, x = Math.cos(a) * d, z = Math.sin(a) * d; if (!dansIle(x, z, 3) || Math.hypot(x - bossC.x, z - bossC.z) < 8.5) continue; trefles(x, z, 16 + Math.floor(rng() * 14)); }
+  for (let k = 0; k < r * 2; k++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * r, x = Math.cos(a) * d, z = Math.sin(a) * d, h = hauteur(x, z); if (!dansIle(x, z, 3) || h < -0.1 || h > 0.6) continue;
+    const p = rng(); if (p < 0.35) poser('fleur', x, h + 0.25, z, 0.1, 0.18, 0.1, rng(), hasardF(['#8ad8ff', '#6ab0ff', '#b8a0ff'], rng)); else if (p < 0.75) nat.ajouter('n_grass_large', x, h, z, rng() * 6, 1.8, 2.2, 1.8); else if (p < 0.85 && Math.hypot(x - bossC.x, z - bossC.z) > 11) { rocher(x, h, z, R(0.4, 0.9)); } }
+  if (finale) G.anims.push((t, dt) => { if (Math.random() < (dt || 0.016) * 6) emettre(new THREE.Vector3(rnd(-r, r) * 0.7, R(0.5, 3), rnd(-r, r) * 0.7), { n: 1, c1: '#ff8a6a', c2: '#ff2a3a', dir: new THREE.Vector3(0, 1, 0), vit: 0.6, vie: 3, taille: 0.18 }); });
+  else G.anims.push((t, dt) => { if (Math.random() < (dt || 0.016) * 6) emettre(new THREE.Vector3(rnd(-r, r) * 0.7, R(0.5, 2.5), rnd(-r, r) * 0.7), { n: 1, c1: '#ffffff', c2: '#7ad8ff', dir: new THREE.Vector3(0, 1, 0), vit: 0.4, vie: 3, taille: 0.14 }); });
+  // portail éteint (il s'allume avec la pierre) sur son socle ancien
+  const hP = 0;
+  const socle = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 3, 0.6, 12), new THREE.MeshStandardMaterial({ color: '#6a8090', flatShading: true })); socle.position.set(portail.x, hP + 0.2, portail.z); groupe.add(socle);
+  steles(portail.x, portail.z, 4, 4.2, 2.2);
+  const anneau = new THREE.Mesh(new THREE.TorusGeometry(2, 0.24, 8, 32), new THREE.MeshStandardMaterial({ color: '#7088a0', emissive: '#000000', flatShading: true })); anneau.position.set(portail.x, hP + 2.8, portail.z); groupe.add(anneau);
   const voile = new THREE.Mesh(new THREE.CircleGeometry(1.85, 32), new THREE.MeshBasicMaterial({ color: '#7ab8ff', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); voile.position.copy(anneau.position); groupe.add(voile);
-  collisions.push({ x: portail.x, z: portail.z, r: 2.4 });
+  collisions.push({ x: portail.x, z: portail.z, r: 2.6 });
   G.anims.push((t) => { anneau.rotation.z = t * (groupe.userData.portailActif ? 2 : 0.2); voile.material.opacity = groupe.userData.portailActif ? 0.55 + 0.25 * Math.sin(t * 4) : 0; anneau.material.emissive.set(groupe.userData.portailActif ? '#3a8aff' : '#000000'); });
-  // emplacements de packs : 2 à 3 monstres, au moins 10 m entre deux packs
+  const coffre = new THREE.Vector3(bossC.x + 4.5, 0, bossC.z + 3.5);
+  // construction des lots instanciés
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e3 = new THREE.Euler();
+  for (const nom in lots) { const L = lots[nom]; if (!L.l.length) continue; const im = new THREE.InstancedMesh(L.geo, L.mat, L.l.length);
+    L.l.forEach((o, i) => { e3.set(o.rx, o.ry, o.rz, 'YXZ'); q.setFromEuler(e3); m4.compose(new THREE.Vector3(o.x, o.y, o.z), q, new THREE.Vector3(o.sx, o.sy, o.sz)); im.setMatrixAt(i, m4);
+      if (o.coul) { c.set(o.coul); c.offsetHSL(0, 0, (rng() - 0.5) * 0.06); im.setColorAt(i, c); } else if (im.instanceColor || L.l.some(z => z.coul)) im.setColorAt(i, c.set('#ffffff')); });
+    if (im.instanceColor) im.instanceColor.needsUpdate = true; im.castShadow = L.ombre; im.receiveShadow = true; im.computeBoundingSphere(); groupe.add(im); }
+  // emplacements de packs : en terrain plat, 10 m entre deux packs
   const packs = [];
-  for (let essai = 0; essai < 600 && packs.length < 26; essai++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * r, x = Math.cos(a) * d, z = Math.sin(a) * d;
-    if (!dedans(x, z, 5) || Math.hypot(x - spawn.x, z - spawn.z) < 16 || Math.hypot(x - bossC.x, z - bossC.z) < 13 || packs.some(P => Math.hypot(P.x - x, P.z - z) < 10)) continue;
+  for (let essai = 0; essai < 900 && packs.length < 26; essai++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * r, x = Math.cos(a) * d, z = Math.sin(a) * d; const h = hauteur(x, z);
+    if (!dansIle(x, z, 5) || h > 0.6 || h < -0.1 || terrasses.some(Tt => Math.hypot(Tt.x - x, Tt.z - z) < Tt.R + 4) || Math.hypot(x - spawn.x, z - spawn.z) < 16 || Math.hypot(x - bossC.x, z - bossC.z) < 13 || packs.some(Q => Math.hypot(Q.x - x, Q.z - z) < 10)) continue;
     packs.push(new THREE.Vector3(x, 0, z)); }
-  fusionnerStatiques(groupe); inst.construire(groupe, { mat: teinteDonjon(th) }); nat.construire(groupe); G.scene.add(groupe);
-  const solH = (x, z) => { for (const q of reliefs) { if (x < q.x0 || x > q.x1 || z < q.z0 || z > q.z1) continue; if (q.type === 'plat') return q.h; const t = q.axe === 'z' ? Math.abs(z - q.haut) : Math.abs(x - q.haut); return q.h * Math.max(0, 1 - t / q.L); } return 0; };
-  const RM = r + 14, carte = document.createElement('canvas'); carte.width = carte.height = 512; { const f = carte.getContext('2d'), k = 512 / (2 * RM); f.fillStyle = '#123448'; f.fillRect(0, 0, 512, 512); f.fillStyle = COUL[biome]; f.beginPath(); for (let i = 0; i <= 72; i++) { const a = i / 72 * 6.283, d = bord(a); f.lineTo((Math.cos(a) * d + RM) * k, (Math.sin(a) * d + RM) * k); } f.fill();
-    f.fillStyle = '#c8b088'; for (const P of plateaux) f.fillRect((P.x - P.w + RM) * k, (P.z - P.w + RM) * k, P.w * 2 * k, P.w * 2 * k); f.fillStyle = '#7a3aaa'; f.fillRect((bossC.x - demi + RM) * k, (bossC.z - demi + RM) * k, demi * 2 * k, demi * 2 * k); }
-  return { groupe, type: 'terres', sousType: 'ileAnc', nom: 'Terres Ancestrales', spawn, portail, coffrePos: coffre, bossPos: bossC.clone().setY(0), bossH: hB, packs, sorties: [], collisions, carte, rayonMonde: RM, campSur: new THREE.Vector3(0, 0, 9999), rayonSur: 0, solH,
-    marche: (x, z) => dedans(x, z, 1.5), biome: () => biome };
+  nat.construire(groupe); G.scene.add(groupe);
+  const RM = r + 14, carte = document.createElement('canvas'); carte.width = carte.height = 512;
+  { const f = carte.getContext('2d'), k = 512 / (2 * RM); f.fillStyle = '#0d2a30'; f.fillRect(0, 0, 512, 512);
+    for (let y = 0; y < 512; y += 4) for (let x = 0; x < 512; x += 4) { const h = hauteur(x / k - RM, y / k - RM); if (h < NIV_MER) continue; f.fillStyle = h < -2 ? '#3e5260' : h < -0.3 ? '#2aa0b0' : h > 1.2 ? '#5d7280' : '#2b7a72'; f.fillRect(x, y, 4, 4); }
+    f.fillStyle = finale ? '#ff4a3a' : '#9a5aff'; f.beginPath(); f.arc((bossC.x + RM) * k, (bossC.z + RM) * k, 7.5 * k, 0, 7); f.fill(); }
+  const surDais = (x, z) => Math.hypot(x - bossC.x, z - bossC.z) < 7.6 ? 0.35 : 0;
+  return { groupe, type: 'terres', sousType: 'ileAnc', nom: 'Terres Ancestrales', spawn: spawn.setY(0), portail, coffrePos: coffre, bossPos: bossC.clone(), packs, sorties: [], collisions, carte, rayonMonde: RM, campSur: new THREE.Vector3(0, 0, 9999), rayonSur: 0,
+    solH: (x, z) => Math.max(surDais(x, z), Math.min(1.2, hauteur(x, z))), marche: (x, z) => { if (!dansIle(x, z, 2.2)) return false; const h = hauteur(x, z); return h > -0.35 && h < 1.2; }, biome: () => biome };
 }
 function hasardF(l, rng) { return l[Math.floor(rng() * l.length)]; }
 
