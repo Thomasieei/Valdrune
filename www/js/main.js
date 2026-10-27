@@ -6,7 +6,7 @@ import { UI, iconeObjet, bustePersonnage, TEINTES_OMBRE } from './ui.js';
 import { initGestes } from './gestes.js';
 import { Loup, portraitLoup } from './loups.js';
 import { arbreDe, effetsTalents, pointsTotaux, pointsDepenses, ALTS } from './talents.js';
-import { REPLIQUES, ARTEFACTS, RARETES_RELIQUE, COMPAGNONS, TAVERNE_LIGNES, RIVAL_TAVERNE, FACTIONS, MISSIONS, CLASSES_BASE, TIERS, ARMES, ARMURES, SORTS, MODES, COFFRES, BOSS, MOBS, BOTS, CHAT, tf, MAITRISES, NIVEAU_REQUIS, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT, RESSOURCES, CHANCE_OMBRE, CODES_BETA, CHANCE_ORAGE, MOBS_SYLVE, BOSS_SYLVE, TRAITS, RANGS, PTS_RANG, GAIN_RANG, PERTE_RANG, BOSS_ERRANT, PARCHEMINS, COULEURS_PARCH, DUREE_PARCH, BOUTIQUE_PARCH_GRATUITE } from './data.js';
+import { EXPLOITS, TITRES_RENOM, PAROLES_PNJ, RUMEURS_CHAT, REPLIQUES, ARTEFACTS, RARETES_RELIQUE, COMPAGNONS, TAVERNE_LIGNES, RIVAL_TAVERNE, FACTIONS, MISSIONS, CLASSES_BASE, TIERS, ARMES, ARMURES, SORTS, MODES, COFFRES, BOSS, MOBS, BOTS, CHAT, tf, MAITRISES, NIVEAU_REQUIS, ILE_TYPES, ILE_TAILLES, ILE_NIVEAUX, BATIMENTS, GARDES_ILE, CHAMPION_ILE, HEURE_ASSAUT, RESSOURCES, CHANCE_OMBRE, CODES_BETA, CHANCE_ORAGE, MOBS_SYLVE, BOSS_SYLVE, TRAITS, RANGS, PTS_RANG, GAIN_RANG, PERTE_RANG, BOSS_ERRANT, PARCHEMINS, COULEURS_PARCH, DUREE_PARCH, BOUTIQUE_PARCH_GRATUITE } from './data.js';
 import { creerParchemin, creerArme, creerArmure, creerPotion, statsHeros, nomObjet, valeurObjet, prixVente, lootCoffre, lootMonstre, tirerCouleurCoffre, ETAT, coutEnchant, ENCH_MAX, creerButin, xpPour, peutPorter, niveauRequis, niveauDe, sortsArme, prixTrophees, bonusMaitrise, niveauHeros } from './items.js';
 
 const $ = (s) => document.querySelector(s);
@@ -146,6 +146,7 @@ const SONS = ['knifeSlice', 'knifeSlice2', 'drawKnife2', 'handleCoins', 'creak1'
 async function demarrer() {
   initRendu($('#scene'));
   try { const dc = localStorage.getItem('breche-decal'); if (dc !== null) document.documentElement.style.setProperty('--decalSorts', dc + 'vw'); } catch (e) {}
+  try { G.camVue = localStorage.getItem('breche-vue') || 'iso'; G.camMode = localStorage.getItem('breche-cam') || 'proche'; G.ombresParole = localStorage.getItem('breche-ombres') || 'normal'; G.camZoom = +(localStorage.getItem('breche-zoom') || 1); } catch (e) {}
   try { const q = localStorage.getItem('breche-qualite'); if (q) G.qualite = q; G.perfOn = !!localStorage.getItem('breche-perf'); } catch (e) {}
   if (G.perfOn) UI.perf(true);
   try { G.musiqueOn = localStorage.getItem('breche-musique') !== '0'; } catch (e) {}
@@ -398,7 +399,7 @@ function libererGPU(racines) {
   });
 }
 function viderMonde() {
-  G.solH = null; scenes = []; crypteEtat = null;
+  G.solH = null; G.murs = false; scenes = []; crypteEtat = null; if (sceneOmbre) { sceneOmbre = null; G.camCible = null; document.body.classList.remove('cinema'); UI.dialogueTaverne(null); }
   for (const e of ennemis) if (e.auraM && e.auraM.ring.parent) G.scene.remove(e.auraM.ring);
   if (taverne) { for (const c of taverne.clients) { G.scene.remove(c.root); UI.retirerPlaque(c); } taverne = null; UI.fileAttente(null); }
   mission = null; UI.manga(null);
@@ -499,7 +500,7 @@ function creerOmbreEscouade(i) {
   allies.splice(allies.indexOf(a), 1); // hors des alliés : personne ne la cible, elle ne compte pas dans le groupe
   UI.retirerPlaque(a);
   a.root.scale.setScalar(0.95); teinteSpectrale(a, '#140c20', 0.8);
-  UI.plaque(a, { nom: 'Ombre ' + 'ⅠⅡⅢⅣⅤⅥ'[i], guilde: 'ESCOUADE', classe: 'allie', vie: false, lettre: false });
+  const rec = ombresC()[i]; if (rec) a.nom = rec.nom; UI.plaque(a, { nom: rec ? rec.nom : 'Ombre ' + 'ⅠⅡⅢⅣⅤⅥ'[i], guilde: 'OMBRE DE ' + J.nom.toUpperCase(), classe: 'allie', vie: false, lettre: false });
   Object.assign(a, { escIdx: i, escCible: null, escT: 0.3 + i * 0.08, escPhase: 0 });
   fumeeOmbre(pos); a.jouer('Spellcast_Raise', { boucle: false, fin: () => a.jouer(a.armeDef.idle) });
   return a;
@@ -523,20 +524,27 @@ function teleporterOmbre(o, p) {
   fumeeOmbre(q); son('cloth1', 0.25, 1.6);
 }
 function majEscouade(dt) {
+  { const b = $('#btnOmbres'); if (b && b.hidden === !!J.escouade) b.hidden = !J.escouade; }
   if (!J.escouade || !joueur || joueur.mort && !arene) { if (escouade.length && !J.escouade) viderEscouade(); return; }
   if (transition) return;
   const enAttente = arene && arene.t > 0;
-  while (escouade.length < 6) escouade.push(creerOmbreEscouade(escouade.length));
+  // seules les ombres présentes (ni en mission, ni blessées, ni renvoyées) marchent avec toi
+  const R = ombresC();
+  for (let k = escouade.length - 1; k >= 0; k--) { const o = escouade[k]; if (o.sceneOmbre) continue; if (!presenteOmbre(R[o.escIdx])) { fumeeOmbre(o.pos); G.scene.remove(o.root); UI.retirerPlaque(o); escouade.splice(k, 1); } }
+  for (const r of R) if (presenteOmbre(r) && !escouade.some(o => o.escIdx === r.i)) escouade.push(creerOmbreEscouade(r.i));
   const prises = new Set(escouade.map(o => o.escCible).filter(c => c && !c.mort));
   const coffresPris = new Set(escouade.map(o => o.escCoffre).filter(Boolean));
   for (const o of escouade) {
     o.maj(dt);
+    if (o.sceneOmbre) continue;
+    const rec = R[o.escIdx], passive = rec && rec.ordre === 'escorte';
+    if (passive) { o.escCible = null; o.escCoffre = null; }
     o.escT -= dt;
     if (o.escCible && o.escCible.mort) o.escCible = null;
     if (o.escT > 0) continue;
     if (enAttente) { o.escT = 0.2; continue; }
     // 1) une cible différente pour chaque ombre
-    if (!o.escCible && !o.escCoffre) {
+    if (!o.escCible && !o.escCoffre && !passive) {
       // les coffres dont le gardien est tombé passent avant les petits monstres
       const pret = coffres.find(x => !x.ouvert && !x.final && !coffresPris.has(x) && (!x.boss || x.boss.mort || !x.boss.pv));
       const resteBoss = ennemis.some(e => e.boss && !e.mort && !prises.has(e));
@@ -576,6 +584,233 @@ function majEscouade(dt) {
     UI.escouadeHud({ duree: Date.now() - s.debut, argent: J.argent - s.argent0, parHeure: Math.round((J.argent - s.argent0) / h), xp: s.xp, xpH: Math.round(s.xp / h), kills: s.kills, coffres: s.coffres }); }
 }
 let escHudT = 0;
+
+// ======================= COMMANDEMENT DES OMBRES (code THOMAS83) =======================
+// Six ombres avec un caractère, une loyauté et une mémoire. Tu leur donnes des ordres (toutes ou une seule) ;
+// elles partent en mission hors de l'écran et reviennent faire leur rapport à genoux. Elles ne te sollicitent
+// que sur de vrais événements du jeu (relique puissante, coffre légendaire, rumeur…), jamais en boucle.
+const OMBRES_DEF = [
+  { nom: 'Kael', ep: 'le Silencieux', perso: 'silencieux' }, { nom: 'Vesna', ep: 'la Fière', perso: 'fier' },
+  { nom: 'Morrow', ep: 'l’Avide', perso: 'avide' }, { nom: 'Ilyr', ep: 'la Rieuse', perso: 'joueuse' },
+  { nom: 'Dusk', ep: 'le Prudent', perso: 'prudent' }, { nom: 'Sabre', ep: 'l’Ambitieux', perso: 'ambitieux' },
+];
+// affinités : quelles envies chaque caractère a le plus souvent
+const AFF_OMBRE = {
+  silencieux: { relique: 1.4, coffre: 1.1, secours: 1.2, vol: 0.6, arene: 0.6, parole: 0.35 },
+  fier: { relique: 0.9, coffre: 0.8, secours: 0.7, vol: 0.6, arene: 1.9, parole: 0.9 },
+  avide: { relique: 1.1, coffre: 1.8, secours: 0.5, vol: 1.9, arene: 0.7, parole: 0.8 },
+  joueuse: { relique: 0.9, coffre: 1, secours: 1, vol: 1.2, arene: 1.1, parole: 1.6 },
+  prudent: { relique: 1.2, coffre: 1.1, secours: 1.5, vol: 0.5, arene: 0.6, parole: 0.8 },
+  ambitieux: { relique: 1.1, coffre: 1, secours: 0.7, vol: 1, arene: 1.7, parole: 0.9 },
+};
+const PAROLES_OMBRE = {
+  req_relique: ['Maître… je sens une relique {rar} derrière un mur de ce donjon. Me laisses-tu te guider jusqu’à elle ?', 'Une relique {rar} respire quelque part dans ces pierres, maître. Je connais le passage.', 'Il y a un mur qui ment, ici. Derrière, une relique {rar}. Tu veux que je te montre ?'],
+  req_coffre: ['Maître, un coffre légendaire attend dans la salle d’un gardien. Je peux t’y mener et le surveiller.', 'Je sens de l’or ancien près d’un gardien, maître. Un coffre légendaire. Je t’y conduis ?', 'Un coffre comme on en voit une fois par lune dort dans ce donjon. Tu veux le voir ?'],
+  req_secours: ['Maître, j’ai entendu parler d’un blessé dans {lieu}. Un aventurier, seul. M’envoies-tu le chercher ?', 'Quelqu’un appelle à l’aide dans {lieu}, maître. Je l’entends d’ici. Puis-je y aller ?', 'Un marchand a été attaqué près de {lieu}. Il vit encore… pour l’instant. J’y vais ?', 'Un enfant de la Place s’est perdu dans {lieu}, maître. Laisse-moi le ramener.'],
+  req_vol: ['Maître, l’île de {cible} cache un coffre {rar}. Ses gardes dorment mal. Je peux le dérober cette nuit.', '{cible} a laissé son coffre sans surveillance. Un mot de toi et il est à nous.', 'J’ai repéré un trésor sur l’île de {cible}. Risqué… mais tentant. Tu me laisses faire ?'],
+  req_arene: ['Maître, laisse-moi combattre dans l’arène. Je veux qu’on respecte ton nom.', 'Les autres ombres disent que je suis la plus faible. Envoie-moi à l’arène, je leur prouverai le contraire.', 'L’arène m’appelle, maître. Quelques victoires, et ton rang montera.', 'On rit de ton blason à l’arène, maître. Laisse-moi les faire taire.'],
+  parole: ['Maître… parfois je me souviens d’avant. Puis ça passe.', 'Les autres ombres te craignent. Moi, je t’observe. Tu deviens fort.', 'Tu crois que les ombres rêvent ? Moi oui. De lumière.', 'Kael ne parle jamais. Mais il t’écoute toujours.', 'Je déteste les squelettes. Ils sentent la poussière.', 'Si un jour tu tombes, maître, je tomberai avec toi.', 'Vesna dit qu’elle est la meilleure. Elle a tort.', 'J’ai vu une étoile filante dans le Gouffre. Je l’ai gardée pour toi.', 'Un jour, je voudrais voir la mer des Îles. Juste la voir.', 'Les gens de la Place murmurent ton nom. J’aime ça.', 'Pourquoi m’as-tu choisie, maître ? Ne réponds pas. Je préfère deviner.', 'Je compte tes victoires. Il m’en manque des doigts.'],
+  oui: ['Merci, maître.', 'Ce sera fait.', 'Je ne te décevrai pas.', 'Ton ombre obéit.', 'Considère que c’est fait.'],
+  non_silencieux: ['…', 'Bien, maître.'], non_fier: ['Tu me retiens encore… Comme tu voudras.', 'Hm. Une autre fois, alors.'], non_avide: ['Dommage… c’était de l’or facile.', 'Tu laisses filer une fortune, maître.'],
+  non_joueuse: ['Oh, rabat-joie ! Bon… d’accord.', 'Tu ne t’amuses jamais, maître !'], non_prudent: ['Sage décision, peut-être.', 'Tu as sans doute raison.'], non_ambitieux: ['Tu brides mon ambition, maître. Je m’en souviendrai.', 'Comme tu voudras. Pour l’instant.'],
+  o_combat: ['À tes côtés.', 'Je chasse pour toi.', 'Montre-moi qui frapper.'], o_escorte: ['Je reste près de toi, lame rangée.', 'Je ne frapperai pas sans ton ordre.', 'Je marche dans ton ombre.'],
+  o_repos: ['Je retourne dans l’ombre.', 'Appelle-moi quand tu veux.', 'Je me retire, maître.'], o_arene: ['L’arène… enfin.', 'Je reviens victorieuse. Ou pas du tout.', 'Ils vont apprendre ton nom.'],
+  o_donjon: ['Je descends dans {lieu}.', 'Les gardiens de {lieu} vont me connaître.', 'Je te rapporterai leurs trésors.'], o_ile: ['Personne ne touchera à ton île.', 'Je veille sur tes ouvriers, maître.', 'Les pillards n’ont qu’à bien se tenir.'],
+  souvenir_non: ['Tu as refusé la dernière fois… mais cette fois, c’est différent.', 'Je te le redemande, maître. Je sais que tu as dit non avant.'],
+};
+const _dkO = {};
+function ligneOmbre(cat, rep = {}) { const src = PAROLES_OMBRE[cat] || PAROLES_OMBRE.oui; let d = _dkO[cat]; if (!d || !d.length) d = _dkO[cat] = [...src].sort(() => Math.random() - 0.5); let l = d.pop(); for (const k in rep) l = l.split('{' + k + '}').join(rep[k]); return l; }
+function ombresC() {
+  if (!J.ombresC) J.ombresC = OMBRES_DEF.map((d, i) => ({ i, nom: d.nom, ep: d.ep, perso: d.perso, loyaute: 65 + Math.round(rnd(0, 15)), ordre: 'combat', mission: null, blesseeJusqua: 0, rapport: null, souvenirs: [], respect: 0, victoires: 0 }));
+  return J.ombresC;
+}
+const NOM_O = (r) => `${r.nom} ${r.ep}`;
+function presenteOmbre(r) { return !r.mission && (r.ordre === 'combat' || r.ordre === 'escorte') && Date.now() > (r.blesseeJusqua || 0) && !r.rapport; }
+const LIEUX = ['les Cryptes Oubliées', 'la Forteresse des Ossements', 'le Gouffre Écarlate', 'l’Abîme Écarlate'];
+function ombreActeur(i) { return escouade.find(o => o.escIdx === i && !o.sceneOmbre) || null; }
+function direOmbre(r, texte) { const o = ombreActeur(r.i); if (o) UI.parole(o, texte); else UI.chat(NOM_O(r), texte); }
+function souvenir(r, s) { r.souvenirs.push({ s, t: Date.now() }); if (r.souvenirs.length > 8) r.souvenirs.shift(); }
+// ---- ordres ----
+function ordonner(cibles, ordre, extra = {}) {
+  const R = ombresC(); const now = Date.now();
+  for (const i of cibles) {
+    const r = R[i]; if (!r) continue;
+    if (r.mission && ordre !== 'rappel') continue; // déjà partie : on attend son retour
+    if (now < (r.blesseeJusqua || 0) && ordre !== 'repos') { UI.toast(`${r.nom} est blessée encore ${Math.ceil((r.blesseeJusqua - now) / 60000)} min`); continue; }
+    if (ordre === 'rappel') continue;
+    if (['arene', 'donjon', 'secours', 'vol'].includes(ordre)) {
+      const m = extra.mode ?? 0;
+      const duree = { arene: 3, donjon: 4 + m * 2, secours: 4, vol: 5 }[ordre] * 60000;
+      r.mission = { type: ordre, mode: m, cible: extra.cible || null, debut: now, fin: now + duree };
+      direOmbre(r, ligneOmbre('o_' + (ordre === 'secours' || ordre === 'vol' ? 'donjon' : ordre), { lieu: LIEUX[m] }));
+      const o = ombreActeur(i); if (o) { o.jouer('Cheer', { boucle: false, forcer: true }); programmer(1.2, () => { fumeeOmbre(o.pos); }); }
+      souvenir(r, ordre);
+    } else if (ordre === 'ile') {
+      r.mission = { type: 'ile', ile: extra.ile ?? 0, debut: now, fin: Infinity };
+      direOmbre(r, ligneOmbre('o_ile'));
+    } else { r.ordre = ordre; direOmbre(r, ligneOmbre('o_' + ordre)); }
+  }
+  sauver(); UI.commandeOmbres && document.getElementById('cmdOmbres') && ouvrirCommandeOmbres();
+}
+function rappelerIle(i) { const r = ombresC()[i]; if (r && r.mission && r.mission.type === 'ile') { r.mission = null; r.ordre = 'combat'; sauver(); UI.toast(`${r.nom} quitte ton île et revient vers toi`); } }
+function ombreGardeIle(ile) { if (!J.escouade || !J.ombresC) return null; const k = iles().indexOf(ile); return J.ombresC.find(r => r.mission && r.mission.type === 'ile' && r.mission.ile === k) || null; }
+function ouvrirCommandeOmbres() {
+  const R = ombresC(), now = Date.now();
+  UI.commandeOmbres(R.map(r => {
+    let etat = r.ordre === 'escorte' ? 'Escorte (n’attaque pas)' : r.ordre === 'repos' ? 'Renvoyée dans l’ombre' : 'Combat à tes côtés';
+    if (now < (r.blesseeJusqua || 0)) etat = `Blessée · ${Math.ceil((r.blesseeJusqua - now) / 60000)} min`;
+    if (r.mission) etat = r.mission.type === 'ile' ? `Garde ${(iles()[r.mission.ile] || {}).nom || 'ton île'}` : `${{ arene: 'À l’arène', donjon: 'En donjon : ' + LIEUX[r.mission.mode], secours: 'Secours : ' + LIEUX[r.mission.mode], vol: 'Vol chez ' + (r.mission.cible || '?') }[r.mission.type]} · ${Math.max(0, Math.ceil((r.mission.fin - now) / 60000))} min`;
+    if (r.rapport) etat = 'Revient faire son rapport';
+    return { i: r.i, nom: NOM_O(r), perso: r.perso, loyaute: r.loyaute, etat, libre: !r.mission && !r.rapport && now >= (r.blesseeJusqua || 0), ile: r.mission && r.mission.type === 'ile', victoires: r.victoires };
+  }), iles().map(x => x.nom), { ordonner, rappelerIle });
+}
+// ---- retour de mission : le résultat se décide là, avec le hasard et le caractère ----
+function resoudreMission(r) {
+  const m = r.mission, P = puissanceReelleJoueur(), tierA = (J.equip.arme || { tier: 1 }).tier, loy = r.loyaute / 100;
+  const bonus = { fier: 0.06, ambitieux: 0.04, prudent: -0.02, joueuse: 0.02, silencieux: 0.03, avide: 0 }[r.perso] || 0;
+  const rap = { type: m.type, lignes: [], gains: { argent: 0, objets: [], trophees: 0 }, succes: true, blessee: false, mode: m.mode, cible: m.cible };
+  if (m.type === 'arene') {
+    const n = 3; let v = 0; for (let k = 0; k < n; k++) if (Math.random() < 0.42 + loy * 0.3 + bonus) v++;
+    rap.victoires = v; rap.succes = v >= 2;
+    rap.gains.argent = Math.round(v * 26000 * (1 + tierA * 0.18)); rap.gains.trophees = v * 60;
+    r.victoires += v; r.respect += v * 10; if (v === 0 && Math.random() < 0.4) rap.blessee = true;
+  } else if (m.type === 'donjon') {
+    const p = 0.88 - m.mode * 0.13 + loy * 0.12 + bonus; rap.succes = Math.random() < p;
+    const L = lootCoffre(tirerCouleurCoffre(), MODES[m.mode], 3);
+    rap.gains.argent = Math.round(L.argent * (rap.succes ? 1 : 0.3)); rap.gains.objets = rap.succes ? L.objets.slice(0, 2) : [];
+    if (!rap.succes) rap.blessee = true;
+  } else if (m.type === 'secours') {
+    rap.succes = Math.random() < 0.82 + bonus; rap.gains.argent = rap.succes ? Math.round(18000 * (m.mode + 1) * (1 + tierA * 0.1)) : 0;
+    if (rap.succes) { J.potions = (J.potions || 0) + 2; rap.lignes.push('+2 potions offertes par le rescapé'); r.loyaute = Math.min(100, r.loyaute + 4); } else rap.blessee = Math.random() < 0.5;
+  } else if (m.type === 'vol') {
+    const p = 0.48 + ({ avide: 0.14, prudent: 0.06, joueuse: 0.05 }[r.perso] || 0) + loy * 0.1; rap.succes = Math.random() < p;
+    if (rap.succes) { rap.gains.argent = Math.round(120000 * (1 + tierA * 0.22) * rnd(0.7, 1.3)); if (Math.random() < 0.5) rap.gains.objets.push(Math.random() < 0.5 ? creerArme(hasard(CLASSES_BASE), Math.min(8, tierA), 2 + (Math.random() < 0.3 ? 1 : 0)) : creerArmure(hasard(['casque', 'plastron', 'bottes']), Math.min(8, tierA), 2)); }
+    else rap.blessee = true;
+  }
+  if (rap.succes) r.loyaute = Math.min(100, r.loyaute + 2); else r.loyaute = Math.max(0, r.loyaute - 2);
+  r.mission = null; r.rapport = rap; souvenir(r, m.type + (rap.succes ? '+' : '-'));
+  sauver();
+}
+function texteRapport(r, rap) {
+  const lieu = LIEUX[rap.mode] || '';
+  if (rap.type === 'arene') return rap.victoires >= 2 ? hasard([`Maître, je reviens de l’arène : ${rap.victoires} victoires sur 3. Ton nom monte.`, `${rap.victoires} combats gagnés, maître. Ils ont scandé ton nom.`, `L’arène est à nous, maître. ${rap.victoires} victoires.`]) : hasard([`J’ai perdu, maître… ${rap.victoires} victoire seulement. Je recommencerai.`, `Ils étaient plus forts aujourd’hui, maître. Pardonne-moi.`]);
+  if (rap.type === 'donjon') return rap.succes ? hasard([`${lieu[0].toUpperCase() + lieu.slice(1)} est vidé, maître. Voici ce que j’ai rapporté.`, `Les gardiens de ${lieu} sont tombés. Ce butin est à toi.`, `Mission accomplie dans ${lieu}, maître.`]) : hasard([`${lieu[0].toUpperCase() + lieu.slice(1)} était trop dangereux… J’ai fui avec ce que j’ai pu.`, 'Ils m’ont eue, maître. J’ai besoin de repos.']);
+  if (rap.type === 'secours') return rap.succes ? hasard(['Le blessé est sauvé, maître. Il m’a donné ceci pour toi.', 'Je l’ai ramené vivant. Il te bénit, maître.', 'Sauvé. Il voulait connaître ton nom. Je le lui ai dit.']) : 'Trop tard, maître… Il n’a pas survécu.';
+  if (rap.type === 'vol') return rap.succes ? hasard([`Le coffre de ${rap.cible} est à toi, maître. Il ne s’est rendu compte de rien.`, `Fait. ${rap.cible} va pleurer demain matin.`]) : `Les gardes de ${rap.cible} m’ont repérée, maître. Je suis blessée.`;
+  return 'Je suis revenue, maître.';
+}
+// ---- le moment où une ombre vient te parler : à genoux, caméra centrée, de vrais choix ----
+let sceneOmbre = null, derniereSceneO = -999, prochaineInitiative = 0;
+function calmeOmbres() {
+  if (!joueur || joueur.mort || transition || arene || goulet || sceneOmbre || !J.escouade) return false;
+  if (joueur.combatT > 0 || G.t - derniereSceneO < 25) return false;
+  if (document.querySelector('#dialTaverne,#dlgRelique,#dlgRenom,#cmdOmbres,#tabMissions') || !$('#butin').hidden || !$('#regl').hidden) return false;
+  for (const e of ennemis) if (!e.mort && e.etat === 'chasse' && dist2D(e.pos, joueur.pos) < 26) return false;
+  return true;
+}
+function scenePresente(r, texte, options, fini) {
+  sceneOmbre = { r };
+  let o = ombreActeur(r.i), temp = false;
+  const devant = V(joueur.pos.x + Math.sin(joueur.angle) * 2.4, 0, joueur.pos.z + Math.cos(joueur.angle) * 2.4);
+  const p = pointLibrePres(devant, 0, 1.5);
+  if (!o) { o = creerOmbreEscouade(r.i); o.sceneOmbre = true; escouade.push(o); temp = true; }
+  teleporterOmbre(o, p); o.pos.copy(p);
+  o.angle = Math.atan2(joueur.pos.x - o.pos.x, joueur.pos.z - o.pos.z); o.root.rotation.y = o.angle;
+  joueur.angle = Math.atan2(o.pos.x - joueur.pos.x, o.pos.z - joueur.pos.z); joueur.root.rotation.y = joueur.angle; joueur.jouer(joueur.def.idle);
+  // à genoux : on fige l'animation de ramassage au point le plus bas
+  o.sceneOmbre = true; o.jouer('PickUp', { boucle: false, forcer: true, vitesse: 1.2 }); programmer(0.42, () => { const a = o.actions.PickUp; if (a && sceneOmbre) a.paused = true; });
+  sceneOmbre.o = o; sceneOmbre.temp = temp;
+  sceneOmbre.cam = { d: G.camDist }; G.camCible = V((o.pos.x + joueur.pos.x) / 2, 0, (o.pos.z + joueur.pos.z) / 2); G.camDist = 15; document.body.classList.add('cinema');
+  son('cloth1', 0.4, 0.7);
+  programmer(0.6, () => UI.dialogueTaverne({ nom: NOM_O(r), titre: `Ombre de ${J.nom} · loyauté ${r.loyaute}`, modele: 'Rogue_Hooded', ombre: true, texte, options: options.map(op => ({ ...op, action: () => { UI.dialogueTaverne(null); finScene(op.reponse, () => { op.action && op.action(); fini && fini(); }); } })) }));
+}
+function finScene(reponse, apres) {
+  const S = sceneOmbre; if (!S) return;
+  const o = S.o; const a = o.actions.PickUp; if (a) a.paused = false;
+  if (reponse) UI.parole(o, reponse);
+  o.jouer(o.armeDef.idle, { fondu: 0.5 });
+  programmer(1.6, () => {
+    G.camCible = null; G.camDist = S.cam.d; document.body.classList.remove('cinema');
+    if (S.temp || !presenteOmbre(S.r)) { fumeeOmbre(o.pos); G.scene.remove(o.root); UI.retirerPlaque(o); escouade.splice(escouade.indexOf(o), 1); }
+    else o.sceneOmbre = false;
+    sceneOmbre = null; derniereSceneO = G.t; apres && apres();
+  });
+}
+function livrerRapport(r) {
+  const rap = r.rapport; r.rapport = null;
+  const g = rap.gains; J.argent += g.argent; if (g.trophees) J.trophees = (J.trophees || 0) + g.trophees;
+  for (const it of g.objets) ajouterSac(it, true);
+  if (rap.blessee) r.blesseeJusqua = Date.now() + (rap.type === 'vol' ? 15 : 10) * 60000;
+  if (rap.type === 'arene' && rap.victoires) { changerRang('arene', 4 * rap.victoires, `Victoires de ${r.nom}`); if (r.victoires >= 3) exploit('ombre_arene'); }
+  if (rap.type === 'vol') { const v = rap.cible; setTimeout(() => UI.chat(v, rap.succes ? hasard(['QUI A VIDÉ MON COFFRE ??', 'je me fais voler mon coffre pendant que je farm… sérieux', 'si je trouve le voleur…']) : hasard(['haha une ombre a essayé de me voler, pas aujourd’hui', 'mes gardes ont attrapé une ombre cette nuit lol'])), 4000); }
+  sauver();
+  const lignes = [g.argent ? `+ ${fmtN(g.argent)} d’argent` : '', g.trophees ? `+ ${g.trophees} trophées` : '', ...g.objets.map(it => nomObjet(it)), ...rap.lignes, rap.blessee ? `${r.nom} est blessée : ${rap.type === 'vol' ? 15 : 10} min de repos` : ''].filter(Boolean);
+  const texte = texteRapport(r, rap) + (lignes.length ? `<br><small style="opacity:.85">${lignes.join(' · ')}</small>` : '');
+  if (G.ombresParole === 'silence' || !calmeOmbres()) { UI.chat(NOM_O(r), texteRapport(r, rap)); if (lignes.length) UI.toast(`${r.nom} : ${lignes.join(' · ')}`); son('handleCoins', 0.5); return; }
+  scenePresente(r, texte, [{ label: 'Bien joué', sous: 'Elle reprend son poste', reponse: hasard(['Merci, maître.', 'Toujours pour toi.', 'Ton ombre est fière.']), action: () => { son('handleCoins', 0.5); r.loyaute = Math.min(100, r.loyaute + 1); } },
+    { label: 'Repose-toi', sous: 'Elle retourne dans l’ombre', reponse: 'Merci, maître. Je me retire.', action: () => { r.ordre = 'repos'; son('handleCoins', 0.5); } }]);
+}
+// ---- l'IA des ombres : des envies réelles, pondérées par leur caractère, leur loyauté et ce qui se passe dans le jeu ----
+function initiativesOmbres() {
+  const R = ombresC(), now = Date.now(), cands = [];
+  const dispo = R.filter(r => !r.mission && !r.rapport && now >= (r.blesseeJusqua || 0) && r.ordre !== 'repos');
+  if (!dispo.length) return null;
+  const E = crypteEtat;
+  if (monde && monde.type === 'donjon' && E && !E.ouverte && ['violet', 'legendaire'].includes(E.relique.rarete)) cands.push({ type: 'relique', base: 3 });
+  if (monde && monde.type === 'donjon' && coffres.some(c => !c.ouvert && c.couleur === 'legendaire')) cands.push({ type: 'coffre', base: 2.5 });
+  if (!modeActuel || modeActuel.id === 'ile') { cands.push({ type: 'secours', base: 0.5 }, { type: 'arene', base: 0.6 }); if (iles().length) cands.push({ type: 'vol', base: 0.45 }); cands.push({ type: 'parole', base: 0.35 }); }
+  else cands.push({ type: 'parole', base: 0.2 });
+  let best = null, bs = 0;
+  for (const c of cands) for (const r of dispo) {
+    const aff = (AFF_OMBRE[r.perso] || {})[c.type] || 1;
+    const deja = r.souvenirs.filter(s => s.s.startsWith('req_' + c.type) && now - s.t < 30 * 60000).length;
+    const egoisme = (c.type === 'arene' || c.type === 'vol') ? 1 + (100 - r.loyaute) / 120 : 1;
+    const score = c.base * aff * egoisme / (1 + deja * 1.5) * (0.4 + Math.random() * 1.2);
+    if (score > bs) { bs = score; best = { ...c, r }; }
+  }
+  return bs > 0.6 ? best : null;
+}
+function lancerInitiative(c) {
+  const r = c.r, aRefuse = r.souvenirs.some(s => s.s === 'refus_' + c.type);
+  souvenir(r, 'req_' + c.type);
+  const prefixe = aRefuse && c.type !== 'parole' ? ligneOmbre('souvenir_non') + ' ' : '';
+  const refuser = { label: 'Refuser', reponse: ligneOmbre('non_' + r.perso), action: () => { r.loyaute = Math.max(0, r.loyaute - (r.perso === 'fier' || r.perso === 'ambitieux' ? 5 : 2)); souvenir(r, 'refus_' + c.type); sauver(); } };
+  const accepter = (fn, sous) => ({ label: 'J’accepte', sous, reponse: ligneOmbre('oui'), action: () => { r.loyaute = Math.min(100, r.loyaute + 4); fn(); sauver(); } });
+  if (c.type === 'relique') {
+    const C = monde.crypte, rar = RARETES_RELIQUE[crypteEtat.relique.rarete].nom.toLowerCase();
+    scenePresente(r, prefixe + ligneOmbre('req_relique', { rar }), [accepter(() => { monde.crypteVue = true; monde._fond = null; crypteEtat.indice = true; UI.toast(`${r.nom} t’attend devant le mur fissuré`, true); programmer(2, () => { const o = ombreActeur(r.i); if (o) teleporterOmbre(o, C.murObj.pos); }); }, 'Elle te montre le passage secret'), refuser]);
+  } else if (c.type === 'coffre') {
+    const cf = coffres.find(x => !x.ouvert && x.couleur === 'legendaire');
+    scenePresente(r, prefixe + ligneOmbre('req_coffre'), [accepter(() => { UI.toast('Le coffre légendaire est marqué : suis son rayon doré', true); if (cf) { cf.beam.scale.set(2, 1.6, 2); programmer(2, () => { const o = ombreActeur(r.i); if (o) teleporterOmbre(o, cf.pos); }); } }, 'Elle te guide vers le coffre'), refuser]);
+  } else if (c.type === 'secours') {
+    const m = Math.floor(Math.random() * 3);
+    scenePresente(r, prefixe + ligneOmbre('req_secours', { lieu: LIEUX[m] }), [accepter(() => ordonner([r.i], 'secours', { mode: m }), 'Elle part 4 min'), refuser]);
+  } else if (c.type === 'vol') {
+    const cible = hasard(BOTS)[0], rar = hasard(['richement garni', 'rare', 'légendaire']);
+    scenePresente(r, prefixe + ligneOmbre('req_vol', { cible, rar }), [accepter(() => ordonner([r.i], 'vol', { cible }), 'Risqué : elle peut revenir blessée'), refuser]);
+  } else if (c.type === 'arene') {
+    scenePresente(r, prefixe + ligneOmbre('req_arene'), [accepter(() => ordonner([r.i], 'arene'), 'Elle combat 3 fois : argent, trophées et rang'), refuser]);
+  } else {
+    scenePresente(r, ligneOmbre('parole'), [{ label: '…', reponse: '', action: () => {} }, { label: 'Merci de ta loyauté', reponse: hasard(['…Merci, maître.', 'Toujours.', 'Je sais.']), action: () => { r.loyaute = Math.min(100, r.loyaute + 2); } }]);
+  }
+}
+let ombresT = 0;
+function majCommandeOmbres(dt) {
+  if (!J.escouade) return;
+  ombresT -= dt; if (ombresT > 0) return; ombresT = 1;
+  const R = ombresC(), now = Date.now();
+  for (const r of R) if (r.mission && r.mission.fin <= now) resoudreMission(r);
+  const rr = R.find(r => r.rapport);
+  if (rr && (calmeOmbres() || G.ombresParole === 'silence')) { livrerRapport(rr); return; }
+  if (!prochaineInitiative) prochaineInitiative = now + rnd(3, 5) * 60000;
+  if (G.ombresParole === 'silence' || now < prochaineInitiative || !calmeOmbres()) return;
+  const c = initiativesOmbres();
+  const gap = G.ombresParole === 'rare' ? rnd(15, 25) : rnd(6, 10);
+  if (!c) { prochaineInitiative = now + 60000; return; } // rien d'intéressant : on réessaie dans une minute
+  prochaineInitiative = now + gap * 60000;
+  lancerInitiative(c);
+}
+
 // ---------------- Le Goulet des Braises (champ de bataille 10 contre 10, règles du Goulet des Chanteguerres) ----------------
 // 20 minutes, 3 captures ; égalité départagée par la dernière capture ; drapeaux remis en place 20 s après une capture ;
 // drapeau lâché : rendu d'un contact par sa propre équipe ou de lui-même au bout de 10 s ; celui qui l'a lâché ne peut le reprendre qu'après 3 s ;
@@ -821,7 +1056,7 @@ function mortGoulet(x) {
   if (tueur) {
     scoreDe(tueur).kb++;
     const ct = campDe(tueur);
-    for (const m of membresGoulet(ct)) if (m && (m === tueur || (x._agg && G.t - (x._agg.get(m) || -99) < 12) || (!m.mort && dist2D(m.pos, x.pos) < 25))) { scoreDe(m).hk++; if (m === joueur) UI.nombre(V(x.pos.x, 2.9, x.pos.z), m === tueur ? 'Coup fatal · +11 renommée' : 'Victoire honorable · +3', 'info'); }
+    for (const m of membresGoulet(ct)) if (m && (m === tueur || (x._agg && G.t - (x._agg.get(m) || -99) < 12) || (!m.mort && dist2D(m.pos, x.pos) < 25))) { scoreDe(m).hk++; if (m === joueur) UI.nombre(V(x.pos.x, 2.9, x.pos.z), m === tueur ? 'Coup fatal · +11 honneur' : 'Victoire honorable · +3', 'info'); }
   }
   x._agg = null; x.dernierCoup = null;
   x.resT = 20;
@@ -901,7 +1136,7 @@ function majGoulet(dt) {
         const gardien = membresGoulet(F.camp).find(x => x && !x.loup && !x.mort && dist2D(x.pos, pos) < 2.2);
         if (gardien || F.t <= 0) {
           F.etat = 'base'; F.sol = null;
-          if (gardien) { scoreDe(gardien).ret++; if (gardien === joueur) UI.nombre(V(joueur.pos.x, 2.8, joueur.pos.z), 'Drapeau ramené · +15 renommée', 'info'); }
+          if (gardien) { scoreDe(gardien).ret++; if (gardien === joueur) UI.nombre(V(joueur.pos.x, 2.8, joueur.pos.z), 'Drapeau ramené · +15 honneur', 'info'); }
           UI.toast(gardien ? `${gardien === joueur ? 'Tu as' : gardien.nom + ' a'} ramené le drapeau ${F.camp} !` : `Le drapeau ${F.camp} est rentré au château`); cor('retour');
         }
       }
@@ -912,6 +1147,7 @@ function majGoulet(dt) {
           goulet.score[sonCamp]++; goulet.dernierCap = sonCamp; p.drapeauPorte = null; F.porteur = null;
           for (const D of Object.values(goulet.drapeaux)) { D.etat = 'attente'; D.t = 20; D.porteur = null; D.sol = null; }
           scoreDe(p).caps++;
+          if (p === joueur && sonCamp === 'bleu') exploit('goulet_capture');
           UI.toast(sonCamp === 'bleu' ? `${p === joueur ? 'TU AS CAPTURÉ' : p.nom.toUpperCase() + ' A CAPTURÉ'} LE DRAPEAU ROUGE ! ${goulet.score.bleu} – ${goulet.score.rouge}` : `${p.nom} a capturé ton drapeau… ${goulet.score.bleu} – ${goulet.score.rouge}`, true);
           UI.toast('Les drapeaux reviennent dans 20 secondes');
           cor(sonCamp === 'bleu' ? 'capture' : 'perdu'); onde(bases[sonCamp].pos, COUL_CAMP[sonCamp], 10, 1.2); G.shake = 0.6;
@@ -953,6 +1189,7 @@ function ciblerPorteur(camp) {
   if (F.etat === 'porte' && F.porteur && campDe(F.porteur) !== 'bleu') { joueur.cibleVerrou = F.porteur; UI.toast(`Cible : ${F.porteur.nom}`); son('click_001', 0.3); }
 }
 function finGoulet(victoire) {
+  if (victoire) exploit('goulet_victoire');
   goulet.fini = true; UI.scoreGoulet(null); UI.flechesDrapeau([]);
   for (const x of [...membresGoulet('bleu'), ...membresGoulet('rouge')]) if (x) { finBuffs(x); x.drapeauPorte = null; fantome(x, false); }
   for (const F of Object.values(goulet.drapeaux)) { F.rayon.visible = false; F.cercle.visible = false; }
@@ -964,7 +1201,7 @@ function finGoulet(victoire) {
   gagnerXP(Math.round(8 * 14 * (victoire ? 60 : 25)));
   if (victoire !== null) changerRang('arene', victoire ? 12 : -8, victoire ? 'Victoire au Goulet' : 'Défaite au Goulet');
   sauver();
-  const lignes = [`Score final : 🔵 ${goulet.score.bleu} – ${goulet.score.rouge} 🔴`, `Coups fatals : ${s.kb} · victoires honorables : ${s.hk} · captures : ${s.caps} · drapeaux ramenés : ${s.ret} · morts : ${s.morts}`, `✦ +${renom} renommée (total ${fmtN(J.renom)})`, `+ ${fmtN(gainA)} d’argent`];
+  const lignes = [`Score final : 🔵 ${goulet.score.bleu} – ${goulet.score.rouge} 🔴`, `Coups fatals : ${s.kb} · victoires honorables : ${s.hk} · captures : ${s.caps} · drapeaux ramenés : ${s.ret} · morts : ${s.morts}`, `✦ +${renom} honneur (total ${fmtN(J.renom)})`, `+ ${fmtN(gainA)} d’argent`];
   const rows = lignesClassement(); const moiR = rows.find(r => r.moi); if (moiR) moiR.renom = renom;
   const titre = victoire === null ? 'Égalité' : (victoire ? 'L’ÉQUIPE BLEUE L’EMPORTE' : 'L’ÉQUIPE ROUGE L’EMPORTE');
   setTimeout(() => UI.classementGoulet({ rows, fin: true, titre, victoire, score: goulet.score }, () =>
@@ -1269,7 +1506,7 @@ function prendreRelique() {
   E.objet.removeFromParent(); E.aura.removeFromParent(); E.solA.removeFromParent();
   son('jingle_legend', 0.6); onde(monde.crypte.socle, E.R.color, 8, 1); G.shake = 0.4;
   emettre(V(joueur.pos.x, 1.4, joueur.pos.z), { n: 120, c1: '#ffffff', c2: E.R.color, vit: 7, vie: 1.2, taille: 0.45, monte: 4 });
-  J.reliques = J.reliques || []; J.reliques.push(E.relique);
+  J.reliques = J.reliques || []; J.reliques.push(E.relique); exploit('relique'); if (E.relique.rarete === 'legendaire') exploit('relique_legende');
   const avant = J.relique;
   UI.relique({ ...E.def, rarete: E.R, rareteId: E.relique.rarete }, avant ? { ...ARTEFACTS.find(a => a.id === avant.id), rarete: RARETES_RELIQUE[avant.rarete] } : null, (lier) => {
     if (lier || !avant) { J.relique = E.relique; construireJoueur(); UI.toast(`${E.def.pouvoir} lié à ton âme · touche ✦`, true); }
@@ -1349,6 +1586,75 @@ function majRegards() {
   if (!modeActuel) for (const b of bots) b.regard = b.etat === 'idle' && dist2D(b.pos, joueur.pos) < 7 ? joueur.pos : null;
   if (taverne) for (const cl of taverne.clients) cl.regard = dist2D(cl.pos, joueur.pos) < 6 ? joueur.pos : null;
 }
+// ======================= RENOMMÉE : tes vrais exploits, ton titre, et ce que le monde en dit =======================
+function gloirePts() { return (J.gloire && J.gloire.pts) || 0; }
+function titreRenom(p = gloirePts()) { let i = 0; TITRES_RENOM.forEach((x, k) => { if (p >= x[0]) i = k; }); const t = TITRES_RENOM[i]; return { i, nom: t[1], c: t[2], seuil: t[0], suivant: TITRES_RENOM[i + 1] || null }; }
+function aExploit(id) { return !!(J.gloire && J.gloire.liste.some(e => e.id === id)); }
+function exploit(id) {
+  const X = EXPLOITS[id]; if (!X) return;
+  J.gloire = J.gloire || { pts: 0, liste: [] };
+  if (aExploit(id)) return;
+  const avant = titreRenom();
+  J.gloire.liste.push({ id, t: Date.now() }); J.gloire.pts += X.pts;
+  const apres = titreRenom();
+  sauver();
+  setTimeout(() => {
+    UI.exploit(`${J.nom} ${X.t3}`, X.pts, apres);
+    UI.chat('Système', `${J.nom} ${X.t3} !`);
+    if (apres.i > avant.i) setTimeout(() => annonceRare(`Renommée : ${apres.nom}`, 'Ton nom circule désormais bien au-delà de la Place'), 2600);
+    majAffichagePuissance();
+  }, 1100);
+}
+function exploitDonjon() {
+  const solo = !groupe && !coequipiers().length && !J.escouade;
+  const ids = [['cryptes', 'cryptes_solo'], ['forteresse', 'forteresse_solo'], ['gouffre', 'gouffre_solo'], ['abime', 'abime_solo']][modeActuel.id];
+  if (!ids) return;
+  exploit(ids[0]); if (solo) exploit(ids[1]);
+}
+function exploitNiveau() { const n = niveauHeros(J.equip); if (n >= 25) exploit('niveau_25'); if (n >= 50) exploit('niveau_50'); if (n >= 80) exploit('niveau_80'); }
+// ce que dit un PNJ : jamais la même réplique deux fois de suite, plus de chances de parler de tes exploits récents
+function parolePNJ(cle) {
+  const P = PAROLES_PNJ[cle]; if (!P) return '';
+  const T = titreRenom(), ex = (J.gloire && J.gloire.liste) || [], cands = [];
+  for (const l of P.general) cands.push({ l, w: 1 });
+  for (const l of (P.renom[T.i] || [])) cands.push({ l, w: 1.4 });
+  for (const e of ex.slice(-5)) { const X = EXPLOITS[e.id]; if (!X) continue; const recent = Date.now() - e.t < 6 * 3.6e6; for (const l of P.exploit) cands.push({ l: l.replace('{exploit3}', X.t3).replace('{exploit}', X.t2), w: recent ? 2.2 : 0.8 }); }
+  J.vuPNJ = J.vuPNJ || {}; const vus = J.vuPNJ[cle] || (J.vuPNJ[cle] = []);
+  let pool = cands.filter(c => !vus.includes(c.l)); if (!pool.length) { vus.length = 0; pool = cands; }
+  let r = Math.random() * pool.reduce((s, c) => s + c.w, 0), choix = pool[0];
+  for (const c of pool) { r -= c.w; if (r <= 0) { choix = c; break; } }
+  vus.push(choix.l); if (vus.length > 16) vus.shift();
+  return choix.l.replace(/\{nom\}/g, J.nom);
+}
+// les PNJ t'interpellent quand tu passes près d'eux (jamais en boucle)
+let parolePNJT = 0;
+function majParolesPNJ(dt) {
+  parolePNJT -= dt; if (parolePNJT > 0) return;
+  for (const [a, cle] of [[marchand, 'borin'], [graveuse, 'ysolde'], [passeur, 'aldric'], [intendant, 'oswin']]) {
+    if (!a) continue; const d = dist2D(a.pos, joueur.pos);
+    if (d > 13) a._salue = false;
+    if (d < 7 && !a._salue && G.t > (a._parleT || 0)) { a._salue = true; a._parleT = G.t + 45; parolePNJT = 6; UI.parole(a, parolePNJ(cle)); return; }
+  }
+}
+// les autres joueurs parlent de toi dans le chat de la Place (rarement, jamais la même phrase)
+let rumeurT = rnd(70, 140);
+function majRumeurs(dt) {
+  if (modeActuel || !J.gloire || !J.gloire.liste.length) return;
+  rumeurT -= dt; if (rumeurT > 0) return;
+  rumeurT = rnd(110, 220) / (1 + titreRenom().i * 0.25);
+  const e = hasard(J.gloire.liste.slice(-6)), X = EXPLOITS[e.id]; if (!X) return;
+  J.vuRumeur = J.vuRumeur || []; let l = hasard(RUMEURS_CHAT.filter(x => !J.vuRumeur.includes(x)));
+  if (!l) { J.vuRumeur = []; l = hasard(RUMEURS_CHAT); }
+  J.vuRumeur.push(l); if (J.vuRumeur.length > 7) J.vuRumeur.shift();
+  const b = hasard(bots.length ? bots : [{ nom: hasard(BOTS)[0] }]);
+  UI.chat(b.nom, l.replace(/\{nom\}/g, J.nom).replace('{exploit2}', X.t2).replace('{exploit}', X.t3));
+}
+function ouvrirRenommee() {
+  const T = titreRenom();
+  UI.renommee({ nom: J.nom, pts: gloirePts(), titre: T, exploits: ((J.gloire && J.gloire.liste) || []).slice().reverse().map(e => ({ txt: `${J.nom} ${EXPLOITS[e.id] ? EXPLOITS[e.id].t3 : ''}`, pts: EXPLOITS[e.id] ? EXPLOITS[e.id].pts : 0, t: e.t })),
+    rumeurs: [['Borin', parolePNJ('borin')], ['Mira', parolePNJ('mira')], ['Ysolde', parolePNJ('ysolde')]] });
+}
+
 // ---------------- Donjon ----------------
 let modeHard = false;
 async function entrerDonjon(id, opts = {}) {
@@ -1361,7 +1667,7 @@ async function entrerDonjon(id, opts = {}) {
     viderMonde();
     modeActuel = MODES[id]; bossVaincus = 0; modeHard = !!opts.hard; G.abimeT = 2;
     invasion = opts.envahir ? { mode: 'menee', t: 4, rival: null } : (J.accepteInvasion && Math.random() < 0.8 ? { mode: 'subie', t: rnd(40, 100), rival: null } : null);
-    monde = construireDonjon(modeActuel); G.solH = monde.solH;
+    monde = construireDonjon(modeActuel); G.solH = monde.solH; G.murs = true;
     construireJoueur(monde.spawn.clone());
     joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax;
     G.camTarget.copy(joueur.pos); G.scene.fog.density = 0.024; G.hemi.intensity = 1.0; G.sun.intensity = 0.9;
@@ -1600,6 +1906,7 @@ function tuer(e) {
     if (modeActuel.id >= 2) tirageOrage(Math.random() < 0.5 ? 7 : 8);
     for (const a of allies) if (!a.mort && !a.invoc && !a.garde) emoteBot(a, ['gg', 'feu', 'merci'], 0.6, 1);
     bossVaincus++; UI.boss(null); G.shake = 1;
+    exploit('premier_boss'); if (bossVaincus >= 4 && MODES.includes(modeActuel)) exploitDonjon();
     if (MODES.includes(modeActuel)) changerRang('donjon', 5, 'Gardien vaincu');
     gagnerXPRelatif(0.02); setTimeout(() => montrerXP(e.boss.nom), 1500);
     { const cf = coffres.find(c => c.boss === e); if (cf) for (const a of allies) if (a.autonome && !a.mort && !a.lootCible && dist2D(a.pos, cf.pos) < 45) a.lootCible = cf; }
@@ -2304,7 +2611,7 @@ function majEnnemis(dt) {
       continue;
     }
     const proche = d < 42 || e.combattant;
-    e.root.visible = d < 36;
+    e.root.visible = d < (G.camVue && G.camVue !== 'iso' ? 58 : 36);
     if (!proche) continue;
     // effets
     for (let k = e.dots.length - 1; k >= 0; k--) {
@@ -2590,7 +2897,7 @@ const API = {
   infosIle: (i) => infosIle(i),
   acheterArene: (it) => {
     const prix = prixTrophees(it);
-    if ((J.trophees || 0) + (J.renom || 0) < prix) { UI.toast('Pas assez de trophées ni de renommée'); son('error_001', 0.3); return; }
+    if ((J.trophees || 0) + (J.renom || 0) < prix) { UI.toast('Pas assez de trophées ni d’honneur'); son('error_001', 0.3); return; }
     if (J.sac.length >= 40) { UI.toast('Sac plein'); return; }
     { const r1 = Math.min(J.renom || 0, prix); J.renom = (J.renom || 0) - r1; J.trophees -= prix - r1; } // la renommée du Goulet paie en premier ajouterSac({ ...it, id: Date.now() + Math.floor(Math.random() * 1e6) }, true);
     son('jingle_loot', 0.5); UI.toast('Acheté : ' + nomObjet(it)); sauver();
@@ -2656,7 +2963,7 @@ function majInteractions() {
 }
 function ouvrirCoffre(c, auto = false) {
   if (c.final) return ouvrirCoffreFinal(c);
-  c.ouvert = true; UI.action(null);
+  c.ouvert = true; UI.action(null); if (c.couleur === 'legendaire') exploit('coffre_legende');
   son('creak1', 0.7); son(c.couleur === 'legendaire' ? 'jingle_legend' : 'jingle_loot', 0.55);
   const t0 = G.t;
   if (c.lid) ajouterVfx(new THREE.Group(), (t) => { c.lid.rotation.x = -Math.min(1, t / 0.6) * 1.9; if (t > 0.7) return false; });
@@ -2774,12 +3081,31 @@ function initEntrees() {
     const k = e.key.toUpperCase();
     if (['Q', 'W', 'E', 'R', 'D', 'F'].includes(k)) API.touche(k, true);
     if (k === 'G') API.touche('A', true);
+    if (k === 'O' && J.escouade) ouvrirCommandeOmbres();
     if (k === '1') API.touche('POT', true);
     if (k === 'I') UI.ouvrirInventaire();
     if (e.key === 'Tab' && goulet) { e.preventDefault(); UI.classementGoulet(UI.classementOuvert() ? null : { live: true }); }
     if (k === 'T') API.touche('CIBLE', true);
   });
   window.addEventListener('keyup', (e) => { entree.clavier[e.key] = false; });
+  // zoom : molette, ou deux doigts sur la scène (pincer)
+  const zoomer = (f) => { G.camZoom = Math.max(0.7, Math.min(1.6, (G.camZoom || 1) * f)); try { localStorage.setItem('breche-zoom', G.camZoom.toFixed(2)); } catch (er) {} };
+  window.addEventListener('wheel', (e) => { if (e.target.closest && e.target.closest('#regl,#inv,#butin,.parchemin,#dlgRelique,#dialTaverne,#tabMissions,#cmdOmbres')) return; zoomer(e.deltaY > 0 ? 1.06 : 0.94); }, { passive: true });
+  let pince = null;
+  const scene = $('#scene');
+  { let dr = null;
+    scene.addEventListener('pointerdown', (e) => { if (e.button === 1) return; dr = { id: e.pointerId, x: e.clientX, y: e.clientY, bouge: false }; });
+    scene.addEventListener('pointermove', (e) => {
+      if (!dr || e.pointerId !== dr.id || pince) return; const vue = G.camVue || 'iso'; if (vue === 'iso') return;
+      const dx = e.clientX - dr.x, dy = e.clientY - dr.y; if (!dr.bouge && Math.hypot(dx, dy) < 12) return; dr.bouge = true;
+      G.camYaw -= dx * 0.009; if (vue === 'libre') G.camPitchLibre = Math.max(0.28, Math.min(1.3, (G.camPitchLibre ?? 0.78) + dy * 0.005));
+      dr.x = e.clientX; dr.y = e.clientY; G.dragT = G.t;
+    });
+    const finDr = (e) => { if (dr && e.pointerId === dr.id) dr = null; }; scene.addEventListener('pointerup', finDr); scene.addEventListener('pointercancel', finDr);
+  }
+  scene.addEventListener('touchstart', (e) => { if (e.touches.length === 2) pince = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); }, { passive: true });
+  scene.addEventListener('touchmove', (e) => { if (e.touches.length !== 2 || !pince) return; const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); if (Math.abs(d - pince) > 8) { zoomer(pince / d > 1 ? 1.04 : 0.96); pince = d; } }, { passive: true });
+  scene.addEventListener('touchend', () => { pince = null; }, { passive: true });
   $('#btnInv').onclick = () => UI.ouvrirInventaire();
   $('#cadreAutre').onclick = () => {
     const d = selection ? selection.data : groupe || (allies[0] && allies[0].data);
@@ -2787,6 +3113,10 @@ function initEntrees() {
     UI.menuJoueur(d, !!(groupe && groupe.nom === d.nom), !!groupe);
   };
   $('#btnReg').onclick = () => UI.reglages();
+  $('#btnOmbres').onclick = () => ouvrirCommandeOmbres();
+  $('#btnCam').onclick = () => { const vues = ['iso', 'heros', 'libre'], noms = { iso: 'Vue isométrique', heros: 'Vue héros : derrière ton personnage (glisse pour tourner)', libre: 'Vue libre : glisse pour tourner, pince pour zoomer' };
+    G.camVue = vues[(vues.indexOf(G.camVue || 'iso') + 1) % 3]; if (G.camVue === 'heros' && joueur) G.camYaw = joueur.angle + Math.PI; try { localStorage.setItem('breche-vue', G.camVue); } catch (e) {} UI.toast(noms[G.camVue]); son('click_001', 0.4); };
+  $('#avatarCv').parentElement.onclick = () => ouvrirRenommee(); $('#avatarCv').parentElement.style.cursor = 'pointer';
   $('#btnChat').onclick = () => UI.chat(J.nom, 'Salut tout le monde !');
   $('#btnEmote').onclick = (ev) => { ev.stopPropagation(); son('click_001', 0.4); UI.panneauEmotes(); };
   let quitConf = 0;
@@ -2833,7 +3163,10 @@ function boucleCorps() {
     ileT -= dt; if (ileT <= 0) { ileT = 3; majProduction(); majAssauts(); majRaids(); if (modeActuel && modeActuel.id === 'ile' && !monde.etranger && !(raid && raid.r)) journalIle(monde.ile); }
     if (monde.type === 'donjon') { majScenes(dt); majCrypte(dt); majAurasDonjon(dt); }
     majRegards();
-    majEscouade(dt); majAbime(dt); majMeuteJoueur(dt); if (taverne) majTaverne(dt); if (mission) majMission(dt); majEveil(dt); if (goulet) majGoulet(dt); if (!modeActuel) majPortailGoulet();
+    if (!modeActuel || modeActuel.id === 'ile') majParolesPNJ(dt);
+    majRumeurs(dt);
+    majEscouade(dt); majCommandeOmbres(dt); majAbime(dt); majMeuteJoueur(dt); if (taverne) majTaverne(dt); if (mission) majMission(dt); majEveil(dt); if (goulet) majGoulet(dt); if (!modeActuel) majPortailGoulet();
+    G.enCombat = joueur.combatT > 0 && !!modeActuel;
     majCamera(dt, G.solH && !G.camCible ? V(joueur.pos.x, solY(joueur.pos.x, joueur.pos.z), joueur.pos.z) : (G.camCible || joueur.pos));
     majTorches(joueur.pos);
     if (joueur.comboT > 0) { joueur.comboT -= dt; if (joueur.comboT <= 0) joueur.combo = 0; }
@@ -2850,7 +3183,15 @@ function boucleCorps() {
     majBots(dt);
     UI.majPlaques(ORBITE);
   }
-  if (enJeu && !G.camLibre) G.camYaw = Math.PI / 4;
+  if (enJeu && !G.camLibre && joueur) {
+    const vue = G.camCible ? 'iso' : (G.camVue || 'iso');
+    if (vue === 'iso') G.camYaw = Math.PI / 4;
+    else if (vue === 'heros' && G.t - (G.dragT || -9) > 1.4 && Math.hypot(entree.jx, entree.jy) > 0.2 && entree.jy > -0.35) {
+      // la caméra se replace doucement derrière toi quand tu avances
+      let dy = joueur.angle + Math.PI - G.camYaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); G.camYaw += dy * Math.min(1, G.dt * 1.5);
+    }
+    const mc = $('#carteMini'); if (mc) { const r = vue === 'iso' ? null : G.camYaw; if (mc._r !== r) { mc._r = r; mc.style.transform = r === null ? '' : `rotate(${r}rad)`; mc.classList.toggle('rond', r !== null); } }
+  }
   majFeux(dt); majVfx(dt); majParticules(dt);
   const t1 = performance.now();
   if (!G.simRapide) rendre();
@@ -3362,6 +3703,7 @@ function gagnerXP(base) {
   let monte = false;
   for (const t of typesPortes()) monte = gainXP(t, base) || monte;
   UI.nombre(V(joueur.pos.x, 2.9, joueur.pos.z), `+${fmtN(base)} XP`, 'xp');
+  if (monte) exploitNiveau();
   if (monte) { recalculer(); $('#ipHud').textContent = `Niv. ${niveauHeros(J.equip)} · ⚔ ${joueur.st.ip}`; }
   sauver();
 }
@@ -3425,6 +3767,8 @@ function verifierArene() {
 function finArene(victoire) {
   arene.fini = true; UI.boss(null);
   if (victoire && !arene.duel) { const t = J.equip.arme ? J.equip.arme.tier : 1; tirageOmbre(Math.max(1, t - 1), Math.min(8, t + 1), 'pvp'); }
+  if (victoire && !arene.duel) { J.victoiresArene = (J.victoiresArene || 0) + 1; if (J.victoiresArene >= 10) exploit('arene_10'); if (J.victoiresArene >= 50) exploit('arene_50'); }
+  if (victoire && arene.duel && arene.duel.nom === RIVAL_TAVERNE.nom) exploit('duel_brakkus');
   const lignes = [];
   if (arene.duel) {
     if (victoire) { J.argent += arene.mise * 2; lignes.push(arene.mise ? `+ ${fmtN(arene.mise * 2)} d’argent (mises remportées)` : 'Duel amical remporté'); }
@@ -3525,7 +3869,7 @@ function victoireRival(e) {
   sauver();
 }
 function ouvrirDepouille(c, auto = false) {
-  c.ouvert = true; UI.action(null);
+  c.ouvert = true; UI.action(null); if (c.couleur === 'legendaire') exploit('coffre_legende');
   son('creak1', 0.7); son('jingle_legend', 0.5);
   if (c.lid) ajouterVfx(new THREE.Group(), (t) => { c.lid.rotation.x = -Math.min(1, t / 0.6) * 1.9; if (t > 0.7) return false; });
   emettre(V(c.pos.x, 1.2, c.pos.z), { n: 90, c1: '#ffe0c0', c2: '#ff2a3a', vit: 7, vie: 1.2, taille: 0.45, grav: 4, monte: 4 });
@@ -3579,7 +3923,7 @@ function majProduction() {
     ile.maj = now;
     const n = Math.min(ile.ouvriers || 0, maxOuvriers(ile));
     if (!n || !dt) continue;
-    ile.reste = (ile.reste || 0) + n * vitesseIle(ile) * dt / 8;
+    ile.reste = (ile.reste || 0) + n * vitesseIle(ile) * dt / 8 * (ombreGardeIle(ile) ? 1.15 : 1); // une ombre surveille les ouvriers : +15 %
     const entier = Math.floor(ile.reste); ile.reste -= entier;
     if (entier) ajouterRes(ile, ILE_TYPES[ile.type].res, entier);
   }
@@ -3616,6 +3960,7 @@ function entrerIle(ile, opts = {}) {
     const etr = ile.id === 'bot';
     modeActuel = { id: 'ile', nom: ile.nom, lieu: ile.nom, argent: 0, xp: 0, tiers: [1, 1], mobTier: 1 };
     monde = construireIle(ile, etr);
+    grilleIle();
     construireJoueur(monde.spawn.clone());
     joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax;
     G.camTarget.copy(joueur.pos);
@@ -3636,6 +3981,8 @@ function entrerIle(ile, opts = {}) {
       if (champ) { g.root.scale.setScalar(1.25); g.hauteurPlaque = 3.1; g.pvMax = g.pv = g.pvMax * 1.6; }
       g.jouer(g.armeDef.idle);
     }
+    // l'ombre de garde patrouille entre les ouvriers et le coffre
+    { const go = !etr && ombreGardeIle(ile); if (go) { const pp = pointLibrePres(monde.coffrePos.clone().add(V(0, 0, 4)), 0, 3); const g = creerCombattant(pp, { nom: go.nom, guilde: 'OMBRE DE GARDE', equip: J.equip, modele: 'Rogue_Hooded', sansRecalage: true }, 'allie'); g.garde = true; g.poste = pp.clone(); g.pvMax = g.pv = Math.round(joueur.st.pvMax * 1.2); g.dmg = joueur.st.degats * 0.9; teinteSpectrale(g, '#140c20', 0.8); g.jouer(g.armeDef.idle); programmer(1.5, () => UI.parole(g, hasard(['Rien à signaler, maître. Tes ouvriers travaillent bien.', 'Des voiles au loin cette nuit. Elles ont fait demi-tour.', 'Ton île est calme, maître. Grâce à moi.', 'J’ai compté les tonneaux deux fois. Rien ne manque.']))); } }
     if (!etr) {
       intendant = new Acteur('Mage', { hauteur: 2.0 });
       habiller(intendant, genererEquipRival(300, 'baton'), ARMES.baton);
@@ -3678,6 +4025,12 @@ function creerOuvrier(ile, i) {
   UI.plaque(a, { nom: hasard(['Bram', 'Lutz', 'Ivo', 'Mara', 'Tibo', 'Nell', 'Gus', 'Odile', 'Pip', 'Rune']), guilde: 'OUVRIER', classe: 'pnj', vie: false, lettre: false });
   ouvriers.push(a);
 }
+// grille de marche de l'île (1,5 m) : ouvriers, gardes et bandits contournent les bâtiments au lieu de s'y coller
+function grilleIle() {
+  const C = 1.5, Rm = monde.rayonMonde + 14, W = Math.ceil(Rm * 2 / C), g = new Uint8Array(W * W), saveG = monde.grille; monde.grille = null;
+  for (let z = 0; z < W; z++) for (let x = 0; x < W; x++) { const px = -Rm + x * C + C / 2, pz = -Rm + z * C + C / 2; g[z * W + x] = libre(px, pz, 0.55) ? 1 : 0; }
+  Object.assign(monde, { grille: g, grilleW: W, grilleH: W, grilleC: C, grilleX0: -Rm, grilleZ0: -Rm });
+}
 function majOuvriers(dt) {
   const ile = monde.ile; if (!ile) return;
   for (const o of ouvriers) {
@@ -3689,14 +4042,13 @@ function majOuvriers(dt) {
     } else if (o.etat === 'va' || o.etat === 'retour') {
       const but = o.etat === 'va' ? o.cible.pos : monde.coffrePos;
       const d = dist2D(o.pos, but);
-      if (d < (o.etat === 'va' ? o.cible.rayon + 1.0 : 2.2)) {
+      if (d < (o.etat === 'va' ? o.cible.rayon + 1.6 : 2.6)) { o.butLibre = null;
         if (o.etat === 'va') { o.etat = 'recolte'; o.t = rnd(4, 7); o.jouer(ile.type === 'cueillette' ? 'PickUp' : '1H_Melee_Attack_Chop', { vitesse: ile.type === 'cueillette' ? 0.8 : 0.9 }); }
         else { o.etat = 'depose'; o.t = 1.2; o.jouer('Interact'); if (o.charge) { o.charge.removeFromParent(); o.charge = null; } }
         o.angle = Math.atan2(but.x - o.pos.x, but.z - o.pos.z); o.root.rotation.y = o.angle;
       } else {
-        const dir = V(but.x - o.pos.x, 0, but.z - o.pos.z).normalize();
-        deplacer(o, dir.x * 2.6 * dt, dir.z * 2.6 * dt, 0.45);
-        o.angle = tourner(o.angle, Math.atan2(dir.x, dir.z), dt * 8); o.root.rotation.y = o.angle;
+        if (!o.butLibre || o.butPour !== but) { o.butPour = but; o.butLibre = pointLibrePres(but, o.etat === 'va' ? o.cible.rayon + 0.6 : 1.2, o.etat === 'va' ? o.cible.rayon + 1.4 : 2.2, 0.5); o.chemin = null; }
+        allerVers(o, o.butLibre, dt, 2.6);
       }
     } else if (o.etat === 'recolte') {
       if (Math.random() < dt * 1.3) effetRecolte(o.cible, ile.type, 0.4);
@@ -3837,7 +4189,7 @@ function finCombatIle(e) {
   if (restants.length) return;
   if (assaut && !assaut.fini) {
     assaut.fini = true; const b = butinBandits(assaut.ile);
-    J.argent += b; son('jingle_win', 0.6); UI.toast('Assaut repoussé !', true); UI.toast(`Le coffre des bandits : +${fmtN(b)}`);
+    J.argent += b; son('jingle_win', 0.6); UI.toast('Assaut repoussé !', true); exploit('defense_ile'); UI.toast(`Le coffre des bandits : +${fmtN(b)}`);
     gagnerXPRelatif(0.06); journalIle(assaut.ile); sauver();
   } else if (monde.etranger) {
     UI.toast('Le coffre est sans défense !', true); son('jingle_win', 0.6);
@@ -3855,7 +4207,9 @@ function majAssauts() {
     if (monde.type === 'ile' && monde.ile === ile && !assaut) { lancerAssaut(ile); continue; }
     // absent : les gardes s'en chargent, sinon les bandits pillent 70 % du coffre
     const lignes = [];
-    if ((ile.gardes || 0) > 0 || ile.champion) {
+    const gOmbre = ombreGardeIle(ile);
+    if (gOmbre) { const b = Math.round(butinBandits(ile) * 0.35); J.argent += b; lignes.push(`${NOM_O(gOmbre)} a repoussé les bandits sur ${ile.nom}.`, `Ta part de leur coffre (35 %) : +${fmtN(b)}`); exploit('defense_ile'); }
+    else if ((ile.gardes || 0) > 0 || ile.champion) {
       const b = Math.round(butinBandits(ile) * 0.1); J.argent += b;
       lignes.push(`Tes gardes ont repoussé les bandits sur ${ile.nom}.`, `Ta part de leur coffre (10 %) : +${fmtN(b)}`, 'Sois présent à 21 h pour récupérer 100 % du butin.');
     } else {
@@ -3883,7 +4237,7 @@ function majRaids() {
 function resoudreRaidGardes(ile, d) {
   raid = null;
   const ipJ = statsHeros(J.equip).ip;
-  const defense = (ile.gardes || 0) * 0.32 * ipJ + (ile.champion ? 0.55 * ipJ : 0);
+  const defense = (ile.gardes || 0) * 0.32 * ipJ + (ile.champion ? 0.55 * ipJ : 0) + (ombreGardeIle(ile) ? 1.2 * ipJ : 0); // une ombre de garde pèse lourd
   const lignes = [];
   if (defense > 0 && defense * rnd(0.75, 1.25) > d.ip * 0.8) {
     const b = Math.round(60 * Math.pow(2.3, d.equip.arme.tier - 1)); J.argent += b;
@@ -4440,6 +4794,7 @@ function finBossSylve(e) {
   for (const o of ennemis) if (!o.mort && o.invoque) { o.pv = 0; tuer(o); }
   for (const z of zonesSol) z.fin = 0;
   const k = e.idxSylve; const derniere = k === 3;
+  if (derniere) exploit('sanctuaire');
   // butin du gardien (le joueur le voit dans le tableau des scores)
   // le coffre du gardien est commun : sa valeur est partagée entre les 5 joueurs, où qu'ils soient
   const nb = 1 + allies.filter(a => a.membreSylve).length;
@@ -4487,7 +4842,7 @@ function classement(map, dureeBoss, dureeSeg) {
   }).sort((x, y) => y.degats - x.degats);
 }
 function ouvrirCoffreFinal(c) {
-  c.ouvert = true; UI.action(null);
+  c.ouvert = true; UI.action(null); if (c.couleur === 'legendaire') exploit('coffre_legende');
   son('creak1', 0.7); son('jingle_legend', 0.7);
   if (c.lid) ajouterVfx(new THREE.Group(), (t) => { c.lid.rotation.x = -Math.min(1, t / 0.6) * 1.9; if (t > 0.7) return false; });
   emettre(V(c.pos.x, 1.4, c.pos.z), { n: 160, c1: '#eaffd0', c2: '#3affa0', vit: 9, vie: 1.5, taille: 0.5, grav: 4, monte: 5 }); onde(c.pos, '#3affa0', 7, 1);
@@ -4718,6 +5073,7 @@ function changerRang(mode, delta, raison) {
   const avant = rangDe(mode); delta = delta >= 0 ? Math.max(1, Math.round(delta * GAIN_K[avant.i])) : Math.round(delta * PERTE_K[avant.i]); J.rang[mode] = Math.max(0, Math.round(J.rang[mode] + delta)); const apres = rangDe(mode); sauver();
   UI.changementRang(avant, apres, Math.round(delta), raison);
   if (apres.i > avant.i) son('jingle_legend', 0.6); else if (apres.i < avant.i) son('lowFrequency_explosion_000', 0.6, 0.6);
+  if (apres.i > avant.i && apres.i > 0) exploit('rang_' + RANGS[apres.i].id);
 }
 // les autres joueurs du rang : leurs points bougent au fil de la journée
 function classementRang(mode) {
@@ -4881,7 +5237,7 @@ function tirageOmbre(tMin, tMax, source) {
   const it = creerArme('ombre', t, Math.random() < 0.5 ? 1 : 2);
   J.maitrise.ombre = J.maitrise.ombre || { niv: 1, xp: 0 };
   setTimeout(() => {
-    ajouterSac(it, true); sauver();
+    ajouterSac(it, true); sauver(); setTimeout(() => exploit('ombre_rare'), 5000);
     annonceRare(`${nomObjet(it)} · T${t}`, source === 'pvp' ? 'Arraché à un adversaire : une chance sur mille' : 'Tombé d’un boss : une chance sur mille');
     UI.chat('Système', `${J.nom} vient d’obtenir ${nomObjet(it)} (T${t}) !`);
   }, 1200);
@@ -4907,7 +5263,7 @@ const ipAffiche = () => J.dissimule ? Math.max(100, Math.round(ipReel() * 0.3)) 
 function majAffichagePuissance() {
   if (!joueur) return;
   UI.retirerPlaque(joueur);
-  joueur.estJoueur = true; UI.plaque(joueur, { nom: J.nom, guilde: 'CROW ZERO', classe: 'allie' + (J.dissimule ? ' dissimule' : ''), vie: false, ip: ipAffiche() });
+  const tR = titreRenom(); joueur.estJoueur = true; UI.plaque(joueur, { nom: J.nom, guilde: 'CROW ZERO' + (tR.i ? ` · <span class="titreR" style="color:${tR.c}">${tR.nom}</span>` : ''), classe: 'allie' + (J.dissimule ? ' dissimule' : ''), vie: false, ip: ipAffiche() });
   $('#ipHud').textContent = `Niv. ${niveauHeros(J.equip)} · ⚔ ${J.dissimule ? ipAffiche() + ' ?' : ipReel()}`;
   UI.boutonReveler(!!J.dissimule, () => revelerPuissance());
 }
@@ -4994,7 +5350,7 @@ function entrerTaverne() {
     $('#btnQuitter').hidden = true;
     // accueil selon ta réputation
     const respecte = Object.values(J.taverne.respect).reduce((a, b) => a + b, 0) >= 3;
-    programmer(1.2, () => { const c = taverne && taverne.clients.find(x => !x.pnj && !x.rivalTaverne); if (c) UI.parole(c, respecte && !J.dissimule ? hasard(TAVERNE_LIGNES.salutRespect) : J.dissimule || ipAffiche() < ipReel() ? hasard(TAVERNE_LIGNES.moque) : hasard(TAVERNE_LIGNES.ambiance)); });
+    programmer(1.2, () => { const c = taverne && taverne.clients.find(x => !x.pnj && !x.rivalTaverne); if (c) UI.parole(c, !J.dissimule && titreRenom().i >= 1 && Math.random() < 0.65 ? parolePNJ('clients') : respecte && !J.dissimule ? hasard(TAVERNE_LIGNES.salutRespect) : J.dissimule || ipAffiche() < ipReel() ? hasard(TAVERNE_LIGNES.moque) : hasard(TAVERNE_LIGNES.ambiance)); });
     musique('fond');
   });
 }
@@ -5051,7 +5407,7 @@ function servirJoueur() {
 const prixTaverne = (base) => Math.round(base * Math.max(1, Math.pow((J.equip.arme || { tier: 1 }).tier, 1.6)));
 function dialogueMira() {
   const now = Date.now();
-  UI.dialogueTaverne({ nom: 'Mira', titre: 'Tavernière du Croc-Rouge', modele: 'Rogue', texte: J.taverne.respect.Mira ? 'Te revoilà, toi ! Les autres parlent encore de ton aura… Qu’est-ce que je te sers ?' : 'Qu’est-ce que je te sers, l’ami ? Et ne fais pas attention aux grandes gueules du fond.',
+  UI.dialogueTaverne({ nom: 'Mira', titre: 'Tavernière du Croc-Rouge', modele: 'Rogue', texte: parolePNJ('mira') + ' Qu’est-ce que je te sers ?',
     options: [
       { label: `Ragoût du Croc-Rouge · ${fmtN(prixTaverne(4000))} ¤`, sous: '+10 % de vie et de dégâts pendant 20 min' + (J.repas > now ? ` (actif ${Math.ceil((J.repas - now) / 60000)} min)` : ''), action: () => acheterTaverne(prixTaverne(4000), () => { J.repas = Date.now() + 20 * 60000; recalculer(); }, 'Ragoût avalé : +10 % de vie et de dégâts') },
       { label: `Hydromel de l’aventurier · ${fmtN(prixTaverne(3000))} ¤`, sous: '+20 % d’expérience pendant 20 min' + (J.hydromel > now ? ` (actif ${Math.ceil((J.hydromel - now) / 60000)} min)` : ''), action: () => acheterTaverne(prixTaverne(3000), () => { J.hydromel = Date.now() + 20 * 60000; }, 'Hydromel bu : +20 % d’expérience') },
@@ -5196,7 +5552,7 @@ function mortEnnemiMission(e) {
 }
 function victoireMission() {
   document.querySelectorAll('.titreManga').forEach(n => n.remove());
-  const Mi = mission; Mi.fini = true;
+  const Mi = mission; Mi.fini = true; if (Mi.offre && Mi.offre.etoiles >= 5) exploit('mission_5');
   ralenti(1.2, 0.25); G.shake = 1; UI.boss(null);
   for (const e of ennemis) if (!e.mort && e.mission) { e.pv = 0; tuer(e); }
   const base = recompenseMission(Mi.offre), gain = Math.round(base * (modeActuel.prophetie ? 1.4 : 1));
@@ -5524,7 +5880,7 @@ function dissiper(a) {
 }
 
 // accès de débogage (console)
-window.__jeu = { get modeActuel() { return modeActuel; }, entrerTaverne: () => entrerTaverne(), rejoindreFile: () => rejoindreFile(), dissimuler: (o) => dissimuler(o), reveler: () => revelerPuissance(), ouvrirMissions: () => ouvrirMissions(), entrerMission: (o, e) => entrerMission(o, e), get mission() { return mission; }, get taverne() { return taverne; }, tuerJoueur: () => { joueur.pv = 0; mourirJoueur(); }, get meute() { return meute; }, envoyerLoup: (i, x, y) => { loupChoisi = meute[i]; envoyerLoup(x, y); }, entrerGoulet: () => entrerGoulet(), get goulet() { return goulet; }, get dangers() { return dangers; }, creerCoffre: (p, c, b) => creerCoffre(p, c, b), entrerArene, construireJoueur: () => construireJoueur(joueur.pos.clone()), get entree() { return entree; }, API, G, UI, tirageOrage, changerRang, apparitionErrant, get errant() { return errant; }, tuerUn: (e) => { e.pv = 0; tuer(e); }, groupeTest: () => { groupe = donneesBot(statsHeros(J.equip).ip); return groupe.nom; }, trahir: () => allies.forEach(a => a.autonome && trahir(a)), invasionTest: () => { invasion = { mode: "subie", t: 0, rival: null }; lancerInvasion(); }, entrerSylve: (o) => entrerSylve(o), get sylve() { return sylve; }, invoquerOmbres, tirageOmbre, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
+window.__jeu = { get modeActuel() { return modeActuel; }, ombres: () => ombresC(), cmdOmbres: () => ouvrirCommandeOmbres(), exploit: (i) => exploit(i), renommee: () => ouvrirRenommee(), forcerInitiative: () => { prochaineInitiative = 1; derniereSceneO = -999; ombresT = 0; }, acheterIle: (t, ta) => acheterIle(t, ta), get sceneOmbre() { return sceneOmbre; }, entrerTaverne: () => entrerTaverne(), rejoindreFile: () => rejoindreFile(), dissimuler: (o) => dissimuler(o), reveler: () => revelerPuissance(), ouvrirMissions: () => ouvrirMissions(), entrerMission: (o, e) => entrerMission(o, e), get mission() { return mission; }, get taverne() { return taverne; }, tuerJoueur: () => { joueur.pv = 0; mourirJoueur(); }, get meute() { return meute; }, envoyerLoup: (i, x, y) => { loupChoisi = meute[i]; envoyerLoup(x, y); }, entrerGoulet: () => entrerGoulet(), get goulet() { return goulet; }, get dangers() { return dangers; }, creerCoffre: (p, c, b) => creerCoffre(p, c, b), entrerArene, construireJoueur: () => construireJoueur(joueur.pos.clone()), get entree() { return entree; }, API, G, UI, tirageOrage, changerRang, apparitionErrant, get errant() { return errant; }, tuerUn: (e) => { e.pv = 0; tuer(e); }, groupeTest: () => { groupe = donneesBot(statsHeros(J.equip).ip); return groupe.nom; }, trahir: () => allies.forEach(a => a.autonome && trahir(a)), invasionTest: () => { invasion = { mode: "subie", t: 0, rival: null }; lancerInvasion(); }, entrerSylve: (o) => entrerSylve(o), get sylve() { return sylve; }, invoquerOmbres, tirageOmbre, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
 
 initEntrees();
 demarrer();

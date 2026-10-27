@@ -943,22 +943,55 @@ export function construireIle(ile, etranger = false) {
   G.torches.push({ pos: coffrePos.clone().setY(3), color: '#ffd27a', int: 18, dist: 12 });
   const tasRes = cloner(T.icone === 'Wood_Log_Stack' ? 'Wood_Log_Stack' : T.icone === 'Iron_Nuggets' ? 'Stone_Chunks_Large' : 'sack', coffrePos.x + 2.4, 0, coffrePos.z - 0.6, 0.5, T.icone === 'crop_pumpkin' ? 10 : 1.6); groupe.add(tasRes);
 
-  // emplacements de construction
-  const libres = terre.filter(t => t.d >= 1 && !(t.q === bord.q && t.r === bord.r));
-  const ordre = libres.sort((a, b) => a.d - b.d || Math.atan2(a.p.z, a.p.x) - Math.atan2(b.p.z, b.p.x));
-  const nPlots = Math.min(nbEmplacements(ile), ordre.length - 4);
+  // ---- plan du village : une place dégagée au centre, des bâtiments jamais collés (une tuile libre entre deux),
+  // une allée du ponton à la place et un chemin pavé de la place à chaque bâtiment ----
+  const surAllee = (p) => { const ab = centre.clone().sub(bord.p), ap = p.clone().sub(bord.p); const k = Math.max(0, Math.min(1, ap.dot(ab) / ab.lengthSq())); return ap.sub(ab.multiplyScalar(k)).length() < 4.6; };
+  const VOIS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]], cleH = (q, r) => q + ',' + r;
+  const cands = terre.filter(t => t.d >= 2 && !(t.q === bord.q && t.r === bord.r) && !surAllee(t.p)).sort((x, y) => x.d - y.d || Math.atan2(x.p.z, x.p.x) - Math.atan2(y.p.z, y.p.x));
+  const besoin = nbEmplacements(ile), pris = new Set(), ordre = [];
+  for (const t of cands) { if (ordre.length >= besoin) break; if (VOIS.some(([dq, dr]) => pris.has(cleH(t.q + dq, t.r + dr)))) continue; pris.add(cleH(t.q, t.r)); ordre.push(t); }
+  for (const t of cands) { if (ordre.length >= besoin) break; const k = cleH(t.q, t.r); if (pris.has(k) || VOIS.filter(([dq, dr]) => pris.has(cleH(t.q + dq, t.r + dr))).length > 1) continue; pris.add(k); ordre.push(t); }
+  for (const t of cands) { if (ordre.length >= besoin) break; const k = cleH(t.q, t.r); if (!pris.has(k)) { pris.add(k); ordre.push(t); } } // île pleine : on serre (rare)
+  const nPlots = ordre.length;
   const plots = [];
   const collisions = [{ x: centre.x, z: centre.z, r: 4.2 }, { x: coffrePos.x, z: coffrePos.z, r: 1.4 }, { x: portailPos.x, z: portailPos.z, r: 1.4 }];
   const anneauMat = new THREE.MeshBasicMaterial({ color: '#ffd25a', transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false });
+  // pavés de la place et des chemins (texture dessinée, posée à plat sur l'herbe)
+  const texPaves = texture('pavesIle', 256, 256, (g, w) => {
+    g.fillStyle = '#9a8a6a'; g.fillRect(0, 0, w, w);
+    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { const ox = (y % 2) * 16; g.fillStyle = `hsl(${32 + Math.random() * 12},${14 + Math.random() * 10}%,${52 + Math.random() * 16}%)`; g.beginPath(); g.roundRect(x * 32 + ox + 2, y * 32 + 2, 28, 28, 6); g.fill(); g.fillStyle = 'rgba(0,0,0,0.12)'; g.fillRect(x * 32 + ox + 4, y * 32 + 24, 24, 4); }
+  }, { repeat: true });
+  const matPave = new THREE.MeshStandardMaterial({ map: texPaves, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const chemin = (x0, z0, x1, z1, larg = 2.4) => { const L = Math.hypot(x1 - x0, z1 - z0); if (L < 0.5) return; const t = texPaves.clone(); t.needsUpdate = true; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(larg / 2.4, L / 2.4); const m = new THREE.Mesh(new THREE.PlaneGeometry(larg, L), new THREE.MeshStandardMaterial({ map: t, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); m.rotation.set(-Math.PI / 2, 0, Math.atan2(x1 - x0, z1 - z0)); m.position.set((x0 + x1) / 2, 0.03, (z0 + z1) / 2); m.receiveShadow = true; groupe.add(m); };
+  { texPaves.wrapS = texPaves.wrapT = THREE.RepeatWrapping; texPaves.repeat.set(6, 6); const place = new THREE.Mesh(new THREE.RingGeometry(5.6, 8.4, 56), matPave); place.rotation.x = -Math.PI / 2; place.position.set(centre.x, 0.03, centre.z); place.receiveShadow = true; groupe.add(place); }
+  chemin(centre.x + dirOut.x * 8, centre.z + dirOut.z * 8, bord.p.x, bord.p.z, 2.8);
   for (let i = 0; i < nPlots; i++) {
     const t = ordre[i]; const b = ile.batiments.find(x => x.plot === i);
     const plot = { idx: i, pos: t.p.clone(), bati: b ? b.t : null, tuile: t };
+    // chemin de la place jusqu'au bâtiment
+    const dirP = t.p.clone().sub(centre).setY(0); const L = dirP.length(); dirP.normalize();
+    chemin(centre.x + dirP.x * 8.2, centre.z + dirP.z * 8.2, centre.x + dirP.x * (L - 3.4), centre.z + dirP.z * (L - 3.4));
     if (b) {
       const def = BATIMENTS[b.t];
-      const rot = Math.atan2(-t.p.x, -t.p.z) + (rng() - 0.5) * 0.4;
-      if (b.t === 'route') { for (const [dx, dz] of [[-1.4, -1.4], [1.4, -1.4], [-1.4, 1.4], [1.4, 1.4]]) inst.ajouter('ground_pathTile', t.p.x + dx, 0.04, t.p.z + dz, 0, 2.8, 2.8, 2.8); groupe.add(cloner('tool_lantern', t.p.x + 2.6, 0, t.p.z + 2.6, 0, 1.6)); G.torches.push({ pos: t.p.clone().add(new THREE.Vector3(2.6, 1.4, 2.6)), color: '#ffcf7a', int: 10, dist: 8 }); }
+      const rot = Math.atan2(-t.p.x, -t.p.z);
+      if (b.t === 'route') { for (const [dx, dz] of [[-1.4, -1.4], [1.4, -1.4], [-1.4, 1.4], [1.4, 1.4]]) inst.ajouter('ground_pathTile', t.p.x + dx, 0.05, t.p.z + dz, 0, 2.8, 2.8, 2.8); groupe.add(cloner('tool_lantern', t.p.x + 2.6, 0, t.p.z + 2.6, 0, 1.6)); G.torches.push({ pos: t.p.clone().add(new THREE.Vector3(2.6, 1.4, 2.6)), color: '#ffcf7a', int: 10, dist: 8 }); }
       else if (b.t === 'jardin') { for (let k = 0; k < 9; k++) groupe.add(cloner(['flower_redA', 'flower_yellowA', 'flower_purpleA'][k % 3], t.p.x + (rng() - 0.5) * 6, 0, t.p.z + (rng() - 0.5) * 6, rng() * 6, 5)); groupe.add(cloner('barrel', t.p.x + 1.5, 0, t.p.z - 1.2, 0, 7)); groupe.add(cloner('sack', t.p.x - 1.5, 0, t.p.z + 1.2, 1, 10)); }
-      else { const modele = b.t === 'atelier' ? T.atelier : def.modele; groupe.add(cloner(modele, t.p.x, 0, t.p.z, rot, def.ech)); collisions.push({ x: t.p.x, z: t.p.z, r: b.t === 'tour' ? 2.4 : 3.0 }); }
+      else {
+        const modele = b.t === 'atelier' ? T.atelier : def.modele;
+        const obj = cloner(modele, t.p.x, 0, t.p.z, rot, def.ech);
+        // le bâtiment tient dans sa tuile : jamais plus de 6,4 m de large
+        obj.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(obj); const larg = Math.max(bb.max.x - bb.min.x, bb.max.z - bb.min.z);
+        if (larg > 6.4) obj.scale.multiplyScalar(6.4 / larg);
+        groupe.add(obj);
+        collisions.push({ x: t.p.x, z: t.p.z, r: Math.min(3.0, Math.min(larg, 6.4) * 0.4) });
+        // un peu de vie : lanterne à la porte, fumée de cheminée, ailes du moulin et scie qui tournent
+        const porte = t.p.clone().addScaledVector(dirP, -3.4);
+        groupe.add(cloner('tool_lantern', porte.x + dirP.z * 1.8, 0, porte.z - dirP.x * 1.8, rot, 0.9));
+        G.torches.push({ pos: porte.clone().setY(1.6), color: '#ffcf7a', int: 9, dist: 7 });
+        if (b.t === 'maison' || b.t === 'atelier') { const fumee = t.p.clone().setY(6.2); G.anims.push((tt, dt) => { if (Math.random() < (dt || 0.016) * 2.2) emettre(fumee.clone().add(new THREE.Vector3((Math.random() - 0.5) * 0.4, 0, (Math.random() - 0.5) * 0.4)), { n: 1, c1: '#e8e4dc', c2: '#8a8680', dir: new THREE.Vector3(0.2, 1, 0.1), vit: 0.9, vie: 2.6, taille: 0.9, grav: -0.3 }); }); }
+        const pale = obj.getObjectByName('building_windmill_top_fan_yellow') || obj.getObjectByName('building_lumbermill_saw_yellow');
+        if (pale) { pale.userData.dyn = true; G.anims.push((tt, dt) => { pale.rotation.z -= (dt || 0.016) * (b.t === 'moulin' ? 0.9 : 3); }); }
+      }
     } else if (!etranger) {
       const ring = new THREE.Mesh(new THREE.RingGeometry(3.3, 3.7, 6), anneauMat); ring.rotation.x = -Math.PI / 2; ring.rotation.z = Math.PI / 6; ring.position.set(t.p.x, 0.06, t.p.z); groupe.add(ring);
       const pl = new THREE.Mesh(new THREE.CircleGeometry(3.3, 6), new THREE.MeshBasicMaterial({ color: '#ffd25a', transparent: true, opacity: 0.08, depthWrite: false })); pl.rotation.x = -Math.PI / 2; pl.rotation.z = Math.PI / 6; pl.position.set(t.p.x, 0.05, t.p.z); groupe.add(pl);
@@ -968,11 +1001,10 @@ export function construireIle(ile, etranger = false) {
   }
   G.anims.push((t) => { anneauMat.opacity = 0.35 + 0.25 * Math.sin(t * 2.5); });
 
-  // nœuds de ressource sur les tuiles restantes
+  // nœuds de ressource : sur les tuiles libres, jamais sur la place, l'allée ou un chemin de bâtiment
   const noeuds = [];
-  // une allée dégagée du ponton jusqu'au centre, puis un nœud bien rangé au milieu de chaque tuile restante
-  const surAllee = (p) => { const ab = centre.clone().sub(bord.p), ap = p.clone().sub(bord.p); const k = Math.max(0, Math.min(1, ap.dot(ab) / ab.lengthSq())); return ap.sub(ab.multiplyScalar(k)).length() < 4.2; };
-  const reste = ordre.slice(nPlots).filter(t => !(t.q === bord.q && t.r === bord.r) && !surAllee(t.p));
+  const surChemin = (p) => ordre.some(t => { const ab = t.p.clone().sub(centre), ap = p.clone().sub(centre); const k = Math.max(0, Math.min(1, ap.dot(ab) / ab.lengthSq())); return ap.sub(ab.multiplyScalar(k)).length() < 2.6; });
+  const reste = terre.filter(t => t.d >= 2 && !pris.has(cleH(t.q, t.r)) && !(t.q === bord.q && t.r === bord.r) && !surAllee(t.p) && !surChemin(t.p));
   const minerais = ['Iron_Nuggets', 'Copper_Nuggets', 'Iron_Nuggets', 'Gold_Nuggets'];
   for (const t of reste) {
     const n = 1;

@@ -413,7 +413,7 @@ UI.classementGoulet = (opts, fini) => {
   if (!opts) { clOpts = null; clearInterval(clTimer); if (m) m.remove(); return; }
   clOpts = { ...opts, fini };
   if (!m) { m = document.createElement('div'); m.id = 'classementBG'; $('#jeu').appendChild(m); }
-  const COLS = [['nom', 'Nom'], ['kb', 'Coups fatals'], ['morts', 'Morts'], ['hk', 'Vict. honorables'], ['caps', 'Drapeaux pris'], ['ret', 'Drapeaux ramenés'], ['deg', 'Dégâts'], ['soin', 'Soins'], ['renom', 'Renommée']];
+  const COLS = [['nom', 'Nom'], ['kb', 'Coups fatals'], ['morts', 'Morts'], ['hk', 'Vict. honorables'], ['caps', 'Drapeaux pris'], ['ret', 'Drapeaux ramenés'], ['deg', 'Dégâts'], ['soin', 'Soins'], ['renom', 'Honneur']];
   const rendre = () => {
     const rows = (clOpts.rows || api.classementGoulet() || []).filter(r => clFiltre === 'tous' || r.camp === clFiltre);
     rows.sort((a, b) => clTri === 'nom' ? a.nom.localeCompare(b.nom) : (b[clTri] - a[clTri]) || (b.deg - a.deg));
@@ -1126,6 +1126,9 @@ UI.reglages = () => {
     <label>Sons <input type="checkbox" id="rS" ${G.son ? 'checked' : ''} style="width:3vh;height:3vh"></label>
     <label>Position des sorts <input type="range" id="rDec" min="0" max="35" step="1" value="${parseInt(getComputedStyle(document.documentElement).getPropertyValue('--decalSorts')) || 18}" style="width:22vh"></label>
     <label>Musique <input type="checkbox" id="rM" ${G.musiqueOn !== false ? 'checked' : ''} style="width:3vh;height:3vh"></label>
+    <label>Vue <select id="rVue" class="btn gris">${[['iso', 'Isométrique (classique)'], ['heros', 'Héros : derrière ton perso'], ['libre', 'Libre : tu tournes au doigt']].map(([v, l]) => `<option value="${v}" ${(G.camVue || 'iso') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    <label>Distance <select id="rCam" class="btn gris">${[['proche', 'Proche : combat intense'], ['normale', 'Normale'], ['large', 'Large : vue d’ensemble']].map(([v, l]) => `<option value="${v}" ${(G.camMode || 'proche') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    <label>Paroles des ombres <select id="rOmb" class="btn gris">${[['normal', 'Normales (de temps en temps)'], ['rare', 'Rares'], ['silence', 'Silence : elles ne me parlent plus']].map(([v, l]) => `<option value="${v}" ${(G.ombresParole || 'normal') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <label>Afficher les FPS <input type="checkbox" id="rP" ${G.perfOn ? 'checked' : ''} style="width:3vh;height:3vh"></label>
     <label>Plein écran <button class="btn gris" id="rF">Activer</button></label>
     <label>Sauvegarde <button class="btn" id="rR">Effacer et recommencer</button></label>
@@ -1136,6 +1139,9 @@ UI.reglages = () => {
   r.querySelector('#rDec').oninput = (e) => { document.documentElement.style.setProperty('--decalSorts', e.target.value + 'vw'); try { localStorage.setItem('breche-decal', e.target.value); } catch (er) {} };
   r.querySelector('#rM').onchange = (e) => { api.musique(e.target.checked); try { localStorage.setItem('breche-musique', e.target.checked ? '1' : '0'); } catch (er) {} };
   r.querySelector('#rS').onchange = (e) => { G.son = e.target.checked; if (G.master) G.master.gain.value = G.son ? 0.6 : 0; };
+  r.querySelector('#rVue').onchange = (e) => { G.camVue = e.target.value; try { localStorage.setItem('breche-vue', G.camVue); } catch (er) {} };
+  r.querySelector('#rCam').onchange = (e) => { G.camMode = e.target.value; G.camZoom = 1; try { localStorage.setItem('breche-cam', G.camMode); } catch (er) {} };
+  r.querySelector('#rOmb').onchange = (e) => { G.ombresParole = e.target.value; try { localStorage.setItem('breche-ombres', G.ombresParole); } catch (er) {} };
   r.querySelector('#rP').onchange = (e) => { G.perfOn = e.target.checked; UI.perf(G.perfOn); try { localStorage.setItem('breche-perf', G.perfOn ? '1' : ''); } catch (er) {} };
   r.querySelector('#rF').onclick = () => { document.documentElement.requestFullscreen?.().catch(() => {}); };
   let n = 0; r.querySelector('#rR').onclick = () => { if (++n === 1) { r.querySelector('#rConf').hidden = false; return; } api.reset(); };
@@ -1210,7 +1216,7 @@ UI.menuArene = (groupe) => {
     </div>
     <div class="letale"><div><div class="niv">ARÈNE LÉTALE</div><h3>Ton stuff est en jeu</h3><p>Le perdant repart à poil : il perd tout son équipement porté (il garde son argent et son sac). Le gagnant fouille les dépouilles et gagne 🏆 200 trophées.</p></div>
       <div class="boutonsL"><button class="btn rouge" data-l="1v1">1 contre 1</button><button class="btn rouge" data-l="2v2">2 contre 2</button></div></div>
-    <div class="barreTroph"><div><span class="troph" style="font-size:3.4vh">🏆</span><b>${fmt(j.trophees || 0)}</b> trophées · <b style="color:#c9a0ff">✦ ${fmt(j.renom || 0)}</b> renommée</div><button class="btn" data-shop>Boutique des trophées</button></div></div>`;
+    <div class="barreTroph"><div><span class="troph" style="font-size:3.4vh">🏆</span><b>${fmt(j.trophees || 0)}</b> trophées · <b style="color:#c9a0ff">✦ ${fmt(j.renom || 0)}</b> honneur</div><button class="btn" data-shop>Boutique des trophées</button></div></div>`;
   p.hidden = false; api.son('forceField_000', 0.5, 0.8);
   p.querySelector('[data-x]').onclick = () => (p.hidden = true);
   p.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { p.hidden = true; api.arene(b.dataset.f); });
@@ -1673,8 +1679,52 @@ UI.dialogueTaverne = (d) => {
   m.innerHTML = `<div class="boiteT"><button class="fermer" data-x aria-label="Fermer">×</button><div class="visageT"><canvas width="160" height="160"></canvas></div>
     <div class="corpsT2"><h3>${d.nom}<small>${d.titre || ''}</small></h3><p class="texteT">${d.texte}</p>
     <div class="optsT">${d.options.map((o, i) => `<button class="optT" data-o="${i}" ${o.desactive ? 'disabled' : ''}><b>${o.label}</b>${o.sous ? `<small>${o.sous}</small>` : ''}</button>`).join('')}</div></div></div>`;
-  try { bustePersonnage(d.modele || 'Rogue', m.querySelector('canvas'), '#2a1a10'); } catch (e) {}
+  try { bustePersonnage(d.modele || 'Rogue', m.querySelector('canvas'), d.ombre ? '#1a0a2a' : '#2a1a10', d.ombre ? TEINTES_OMBRE : null); } catch (e) {}
   m.onclick = (e) => { if (e.target.closest('[data-x]')) return UI.dialogueTaverne(null); const o = e.target.closest('[data-o]'); if (o && !o.disabled) { api.son('select_001', 0.4); d.options[+o.dataset.o].action(); } };
+};
+// commandement des ombres : choisir une, plusieurs ou toutes, puis donner l'ordre
+const PERSO_LBL = { silencieux: 'Silencieux', fier: 'Fière', avide: 'Avide', joueuse: 'Rieuse', prudent: 'Prudent', ambitieux: 'Ambitieux' };
+let selOmbres = null;
+UI.commandeOmbres = (liste, iles, f) => {
+  let m = document.getElementById('cmdOmbres');
+  if (!liste) { if (m) m.remove(); return; }
+  if (!m) { m = document.createElement('div'); m.id = 'cmdOmbres'; $('#jeu').appendChild(m); m.addEventListener('pointerdown', (e) => e.stopPropagation()); selOmbres = new Set(liste.filter(o => o.libre).map(o => o.i)); }
+  const sel = selOmbres, nb = sel.size;
+  m.innerHTML = `<div class="boiteO"><button class="fermer" data-x aria-label="Fermer">×</button><h2>Tes ombres</h2><p class="sousO">Choisis une ombre, plusieurs ou toutes, puis donne ton ordre. Elles partent en mission et reviennent faire leur rapport.</p>
+    <div class="cartesO"><button class="carteO tout ${nb === liste.filter(o => o.libre).length && nb ? 'on' : ''}" data-tout><b>Toutes</b><small>${liste.filter(o => o.libre).length} disponibles</small></button>
+    ${liste.map(o => `<button class="carteO ${sel.has(o.i) ? 'on' : ''} ${o.libre ? '' : 'occupee'}" data-o="${o.i}"><b>${o.nom}</b><small>${PERSO_LBL[o.perso] || ''} · ${o.victoires} vict.</small><span class="loyO"><i style="width:${o.loyaute}%"></i></span><em>${o.etat}</em>${o.ile ? `<span class="rappelO" data-r="${o.i}">Rappeler</span>` : ''}</button>`).join('')}</div>
+    <div class="ordresO ${nb ? '' : 'inactif'}">
+      <button data-ord="combat">⚔ Combattre avec moi</button><button data-ord="escorte">🛡 Escorte (sans attaquer)</button><button data-ord="repos">☾ Renvoyer dans l’ombre</button>
+      <button data-ord="arene">🏆 Arène · 3 min</button>
+      <span class="grpO">☠ Donjon : ${['Cryptes · 4 min', 'Forteresse · 6 min', 'Gouffre · 8 min', 'Abîme · 10 min'].map((l, k) => `<button data-ord="donjon" data-m="${k}">${l}</button>`).join('')}</span>
+      <span class="grpO">🏝 Garder : ${iles.length ? iles.map((n, k) => `<button data-ord="ile" data-ile="${k}">${n}</button>`).join('') : '<em>aucune île</em>'}</span>
+    </div></div>`;
+  m.onclick = (e) => {
+    if (e.target.closest('[data-x]')) return UI.commandeOmbres(null);
+    const rp = e.target.closest('[data-r]'); if (rp) { e.stopPropagation(); f.rappelerIle(+rp.dataset.r); return UI.commandeOmbres(liste, iles, f); }
+    if (e.target.closest('[data-tout]')) { const libres = liste.filter(o => o.libre).map(o => o.i); if (sel.size === libres.length) sel.clear(); else libres.forEach(i => sel.add(i)); return UI.commandeOmbres(liste, iles, f); }
+    const c = e.target.closest('[data-o]'); if (c) { const i = +c.dataset.o; sel.has(i) ? sel.delete(i) : sel.add(i); api.son('click_001', 0.3); return UI.commandeOmbres(liste, iles, f); }
+    const b = e.target.closest('[data-ord]'); if (b && sel.size) { api.son('select_001', 0.4); f.ordonner([...sel], b.dataset.ord, { mode: +(b.dataset.m || 0), ile: +(b.dataset.ile || 0) }); }
+  };
+};
+// un exploit est accompli : bandeau doré, il entre dans ta légende
+UI.exploit = (texte, pts, titre) => {
+  const d = document.createElement('div'); d.className = 'exploitB';
+  d.innerHTML = `<small>Exploit</small><b>${texte}</b><span>+${pts} renommée · ${titre.nom}</span>`;
+  $('#jeu').appendChild(d); setTimeout(() => d.remove(), 5200); api.son('jingle_legend', 0.45);
+};
+// panneau de renommée (toucher son portrait)
+UI.renommee = (r) => {
+  let m = document.getElementById('dlgRenom'); if (m) m.remove();
+  m = document.createElement('div'); m.id = 'dlgRenom'; $('#jeu').appendChild(m); m.addEventListener('pointerdown', (e) => e.stopPropagation());
+  const s = r.titre.suivant, pc = s ? Math.min(100, Math.round((r.pts - r.titre.seuil) / (s[0] - r.titre.seuil) * 100)) : 100;
+  const date = (t) => new Date(t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  m.innerHTML = `<div class="boiteRn parchemin"><button class="fermer" data-x aria-label="Fermer">×</button><h2>Renommée de ${r.nom}</h2>
+    <div class="titreRn" style="color:${r.titre.c}">${r.titre.nom}</div>
+    <div class="barreRn"><i style="width:${pc}%;background:${r.titre.c}"></i></div><div class="sousRn">${r.pts} points${s ? ` · prochain titre : ${s[1]} (${s[0]})` : ' · titre le plus haut'}</div>
+    <h3>Ce qu’on dit de toi</h3><div class="rumeursRn">${r.rumeurs.map(([n, l]) => `<p><b>${n} :</b> « ${l} »</p>`).join('')}</div>
+    <h3>Tes exploits</h3><div class="listeRn">${r.exploits.length ? r.exploits.map(e => `<div><span>${e.txt}</span><em>+${e.pts} · ${date(e.t)}</em></div>`).join('') : '<p class="videRn">Aucun exploit pour l’instant. Les gardiens, les cryptes cachées, l’arène et le Goulet n’attendent que toi.</p>'}</div></div>`;
+  m.onclick = (e) => { if (e.target.closest('[data-x]') || e.target === m) m.remove(); };
 };
 // une relique est trouvée : la lier à son âme (bouton ✦) ou la garder
 UI.relique = (r, actuelle, cb) => {

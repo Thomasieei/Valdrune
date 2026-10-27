@@ -84,9 +84,20 @@ export function redimensionner() {
 }
 
 const _off = new THREE.Vector3();
+const CAM_K = { proche: 0.66, normale: 0.82, large: 1 };
 export function majCamera(dt, cible) {
   G.camTarget.lerp(cible, 1 - Math.exp(-dt * 8));
-  const d = G.camDist, p = G.camPitch;
+  // caméra rapprochée (réglable, pincer pour zoomer) : on resserre encore un peu en plein combat
+  // trois vues : isométrique (classique), héros (derrière le perso, à la World of Warcraft), libre (tu tournes au doigt)
+  const vue = G.camCible ? 'iso' : (G.camVue || 'iso');
+  const base = vue === 'heros' ? 0.5 : vue === 'libre' ? 0.62 : (CAM_K[G.camMode || 'proche'] || 0.66);
+  const k = base * (G.camZoom || 1) * (G.enCombat ? 0.92 : 1);
+  G._camK = (G._camK || k) + (k - (G._camK || k)) * Math.min(1, dt * 2.5);
+  const pCible = vue === 'heros' ? (G.murs ? 0.66 : 0.5) : vue === 'libre' ? (G.camPitchLibre ?? 0.78) : G.camPitch - (1 - Math.min(1, G._camK)) * 0.32;
+  G._camP = (G._camP ?? pCible) + (pCible - (G._camP ?? pCible)) * Math.min(1, dt * 4);
+  const d = G.camDist * G._camK, p = G._camP;
+  // le joystick suit toujours l'orientation de la caméra
+  DIR_HAUT.set(-Math.sin(G.camYaw), 0, -Math.cos(G.camYaw)); DIR_DROITE.set(Math.cos(G.camYaw), 0, -Math.sin(G.camYaw));
   const off = _off.set(Math.sin(G.camYaw) * Math.cos(p) * d, Math.sin(p) * d, Math.cos(G.camYaw) * Math.cos(p) * d);
   G.camera.position.copy(G.camTarget).add(off);
   if (G.shake > 0) {
@@ -94,7 +105,7 @@ export function majCamera(dt, cible) {
     const s = G.shake * G.shake * 0.6;
     G.camera.position.x += (Math.random() - 0.5) * s; G.camera.position.y += (Math.random() - 0.5) * s; G.camera.position.z += (Math.random() - 0.5) * s;
   }
-  G.camera.lookAt(G.camTarget.x, G.camTarget.y + 1, G.camTarget.z);
+  G.camera.lookAt(G.camTarget.x, G.camTarget.y + (vue === 'heros' ? 1.6 : 1), G.camTarget.z);
   G.sun.position.set(cible.x - 10, 26, cible.z + 6);
   G.sun.target.position.copy(cible);
 }
@@ -311,6 +322,38 @@ export function patchTenue(mat, peau = false) {
 // animations manquantes sur certains modèles (squelettes / humains) : on joue la plus proche
 const ALIAS_ANIM = { Idle_Combat: ['2H_Melee_Idle', 'Idle'], Death_C_Skeletons: ['Death_A'], Spawn_Ground_Skeletons: ['Idle'], Spellcast_Summon: ['Spellcast_Raise', 'Spellcast_Shoot'], '1H_Melee_Attack_Jump_Chop': ['1H_Melee_Attack_Chop', '2H_Melee_Attack_Chop'], '1H_Ranged_Shoot': ['2H_Ranged_Shoot'], Sit_Floor_Idle: ['Idle'], Interact: ['Idle'], Walking_A: ['Running_A'], Cheer: ['Idle'], '2H_Melee_Attack_Spinning': ['2H_Melee_Attack_Chop'] };
 const _qd = new THREE.Quaternion(), _qd2 = new THREE.Quaternion(), _qp = new THREE.Quaternion(), _qpi = new THREE.Quaternion(), _axeY = new THREE.Vector3(0, 1, 0), _axeR = new THREE.Vector3();
+// ---- démarche : la cadence suit la vitesse réelle au sol et la foulée est élargie (fini l'effet « je glisse / je vole ») ----
+const LOCO = new Set(['Running_A', 'Running_B', 'Walking_A', 'Walking_B', 'Walking_C']);
+const NAT = {};
+const _qr = new THREE.Quaternion(), _vf = new THREE.Vector3();
+function os2(a, n) { return a.nodes[n] || a.nodes[n.replace(/\./g, '')]; }
+function elargirFoulee(a, k) {
+  if (!a._jambes) return;
+  for (const j of a._jambes) {
+    _qr.copy(j.restI).multiply(j.b.quaternion); // écart avec la pose de repos
+    if (_qr.w < 0) { _qr.x = -_qr.x; _qr.y = -_qr.y; _qr.z = -_qr.z; _qr.w = -_qr.w; }
+    const ang = 2 * Math.acos(Math.min(1, _qr.w)); if (ang < 1e-4) continue;
+    const sn = Math.sin(ang / 2), na = Math.min(2.6, ang * k);
+    _qr.set(_qr.x / sn * Math.sin(na / 2), _qr.y / sn * Math.sin(na / 2), _qr.z / sn * Math.sin(na / 2), Math.cos(na / 2));
+    j.b.quaternion.copy(j.rest).multiply(_qr);
+  }
+}
+// vitesse naturelle d'un cycle de course (pied au sol) mesurée une fois par modèle
+function vitesseNaturelle(a, clip) {
+  const cle = a.cle + '|' + clip;
+  if (NAT[cle] !== undefined) return NAT[cle];
+  NAT[cle] = null;
+  try {
+    const t = new Acteur(a.cle, { hauteur: 2 }); G.acteurs.delete(t);
+    const act = t.actions[clip], pied = os2(t, 'foot.l'); if (!act || !pied) return null;
+    act.reset().play(); const D = act.getClip().duration, N = 90, pts = [];
+    for (let i = 0; i <= N; i++) { t.mixer.setTime(D * i / N); if (t.foulee) elargirFoulee(t, t.foulee); t.model.updateMatrixWorld(true); pied.getWorldPosition(_vf); pts.push([_vf.y, _vf.z]); }
+    const ymin = Math.min(...pts.map(p => p[0])); let sm = 0, n = 0;
+    for (let i = 1; i <= N; i++) if (pts[i][0] < ymin + 0.07 && pts[i - 1][0] < ymin + 0.07) { sm += Math.abs(pts[i][1] - pts[i - 1][1]); n++; }
+    NAT[cle] = n > 3 ? { v: (sm / n) / (D / N), sz: t.model.scale.z } : null;
+  } catch (e) { NAT[cle] = null; }
+  return NAT[cle];
+}
 export class Acteur {
   constructor(cle, { hauteur = 2.0, echelle = 1 } = {}) {
     const src = G.assets[cle];
@@ -323,6 +366,7 @@ export class Acteur {
     this.nodes = {};
     this.mats = []; this.meshes = [];
     this.rayonVis = hauteur * echelle * 0.75 + 0.8; this.vu = true; this._ombre = true; this._acc = 0;
+    this.foulee = HUMAINS.has(cle) ? 1.55 : /^Skeleton/.test(cle) ? 1.2 : 0;
     G.acteurs.add(this);
     this.model.traverse(o => {
       this.nodes[o.name] = o;
@@ -341,6 +385,7 @@ export class Acteur {
     }
     // proportions moins « chibi » pour les héros : tête plus petite, buste un peu plus long
     if (HUMAINS.has(cle)) { this.tete = this.nodes.head || null; this.buste = this.nodes.chest || null; const M = G.mince || [0.74, 1.08]; this.model.scale.x *= M[0]; this.model.scale.z *= M[0]; this.model.scale.y *= M[1]; }
+    if (this.foulee) this._jambes = ['upperleg.l', 'upperleg.r', 'lowerleg.l', 'lowerleg.r'].map(n => os2(this, n)).filter(Boolean).map(b => ({ b, rest: b.quaternion.clone(), restI: b.quaternion.clone().invert() })); // pose de repos des jambes
     this.mixer = new THREE.AnimationMixer(this.model);
     this.actions = {};
     for (const c of src.animations) this.actions[c.name] = this.mixer.clipAction(c);
@@ -395,7 +440,7 @@ export class Acteur {
     this._tenueV = v; for (const m of this.mats) if (m.userData.uTenue) m.userData.uTenue.value.copy(v);
   }
   // vitesse de l'animation de course calée sur la vitesse réelle (plus de pieds qui patinent)
-  cadence(k) { if (this.bas) this.bas.timeScale = k; else if (this.courante && this.courante.loop === THREE.LoopRepeat) this.courante.timeScale = k; }
+  cadence(k) { if (this.foulee) return; if (this.bas) this.bas.timeScale = k; else if (this.courante && this.courante.loop === THREE.LoopRepeat) this.courante.timeScale = k; } // la cadence automatique (vitesse au sol) prime
   jouer(nom, { fondu = 0.18, boucle = true, vitesse = 1, forcer = false, fin = null } = {}) {
     let a = this.actions[nom];
     if (!a && ALIAS_ANIM[nom]) for (const n of ALIAS_ANIM[nom]) if (this.actions[n]) { a = this.actions[n]; nom = n; break; }
@@ -500,7 +545,15 @@ export class Acteur {
     this._acc = 0;
     if (this.tete) { this.tete.scale.set(1, 1, 1); if (this.buste) this.buste.scale.set(1, 1, 1); }
     this.model.position.y = G.solH ? G.solH(this.root.position.x, this.root.position.z) : 0;
+    // vitesse réelle au sol (lissée)
+    const rp = this.root.position; if (!this._pp) this._pp = rp.clone();
+    const vs = Math.hypot(rp.x - this._pp.x, rp.z - this._pp.z) / Math.max(dt, 1e-3); this._pp.copy(rp);
+    this._vit = (this._vit || 0) + (Math.min(vs, 30) - (this._vit || 0)) * Math.min(1, dt * 10);
+    const loco = this.bas || this.courante, nomL = loco && loco.getClip().name;
+    const enMarche = nomL && LOCO.has(nomL) && this.foulee;
+    if (enMarche && this._vit > 0.25) { const n = vitesseNaturelle(this, nomL); if (n && n.v > 0.05) loco.timeScale = Math.max(0.55, Math.min(2.7, this._vit / (n.v * this.model.scale.z / n.sz))); }
     this.mixer.update(dt);
+    if (enMarche && (!this.haut || this.bas)) elargirFoulee(this, this.foulee);
     if (this.tete) {
       // tête : taille réduite mais proportions naturelles (on annule l'affinement du corps et du buste sur la tête)
       const M = G.mince || [0.74, 1.08], b = G.busteV || [0.85, 1.12, 0.82], k = G.teteK || 0.55;
