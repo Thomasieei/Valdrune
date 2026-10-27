@@ -720,3 +720,34 @@ export function fusionnerStatiques(groupe) {
   for (const o of aRetirer) o.removeFromParent();
   return n;
 }
+
+// ---------- Cors du champ de bataille (synthétisés) : drapeau pris, volé, capturé, ramené, lâché ----------
+const MOTIFS_COR = {
+  pris: [[392, 0, 0.32], [523.3, 0.26, 0.32], [659.3, 0.52, 0.7]],       // on prend leur drapeau : appel héroïque montant
+  vole: [[233, 0, 0.45], [207.7, 0.4, 0.45], [155.6, 0.8, 0.9]],         // ils prennent le nôtre : cor grave et inquiétant
+  capture: [[523.3, 0, 0.18], [659.3, 0.16, 0.18], [784, 0.32, 0.18], [1046.5, 0.48, 0.9]], // fanfare
+  perdu: [[311.1, 0, 0.5], [233, 0.45, 0.5], [174.6, 0.9, 1.1]],
+  retour: [[659.3, 0, 0.35], [880, 0.22, 0.6]],
+  lache: [[440, 0, 0.25], [392, 0.18, 0.4]],
+};
+export function cor(motif) {
+  const ac = G.audio; if (!G.son || !ac) return;
+  const notes = MOTIFS_COR[motif]; if (!notes) return;
+  const t0 = ac.currentTime + 0.02, doux = motif === 'retour';
+  const sortie = ac.createGain(); sortie.gain.value = 0.32; sortie.connect(G.master);
+  const filtre = ac.createBiquadFilter(); filtre.type = 'lowpass'; filtre.frequency.value = doux ? 2600 : 1500; filtre.Q.value = 2; filtre.connect(sortie);
+  for (const [f, d, dur] of notes) {
+    for (const [type, det, v] of doux ? [['sine', 0, 0.6], ['triangle', 1200, 0.15]] : [['sawtooth', 0, 0.35], ['square', -7, 0.18], ['sine', -1200, 0.35]]) {
+      const o = ac.createOscillator(); o.type = type; o.frequency.value = f; o.detune.value = det;
+      const g = ac.createGain(); const a = t0 + d;
+      g.gain.setValueAtTime(0.0001, a); g.gain.exponentialRampToValueAtTime(v, a + 0.05); g.gain.setValueAtTime(v, a + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, a + dur);
+      o.connect(g); g.connect(filtre); o.start(a); o.stop(a + dur + 0.05);
+    }
+  }
+  // coup de tambour sous les cors importants
+  if (motif === 'pris' || motif === 'vole' || motif === 'capture' || motif === 'perdu') {
+    const o = ac.createOscillator(), g = ac.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(110, t0); o.frequency.exponentialRampToValueAtTime(42, t0 + 0.35);
+    g.gain.setValueAtTime(0.9, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.45); o.connect(g); g.connect(sortie); o.start(t0); o.stop(t0 + 0.5);
+  }
+  setTimeout(() => { try { sortie.disconnect(); } catch (e) {} }, 3500);
+}

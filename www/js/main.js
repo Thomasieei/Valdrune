@@ -1,6 +1,6 @@
 // ===== Brèche Écarlate — boucle de jeu =====
 import { THREE, G, initRendu, majCamera, rendre, majTorches, chargerAssets, chargerSons, son, ambiance, Acteur, cloner,
-  emettre, majParticules, majVfx, ajouterVfx, onde, lueurSol, arcTaille, faisceau, telegraphe, meshCarreau, meshBoule, DIR_HAUT, DIR_DROITE, projeter, creerArc, solY, texRond, texRunes, redimensionner, appliquerNiveau, majQualiteAuto, musique, musiqueActive, musiquePause } from './engine.js';
+  emettre, majParticules, majVfx, ajouterVfx, onde, lueurSol, arcTaille, faisceau, telegraphe, meshCarreau, meshBoule, DIR_HAUT, DIR_DROITE, projeter, creerArc, solY, cor, texRond, texRunes, redimensionner, appliquerNiveau, majQualiteAuto, musique, musiqueActive, musiquePause } from './engine.js';
 import { construireGoulet, construireHub, construireDonjon, construireArene, construireIle, nbEmplacements, majFeux, noeudReel, creerAssetsProc, construireSylve } from './world.js';
 import { UI, iconeObjet, bustePersonnage, TEINTES_OMBRE } from './ui.js';
 import { initGestes } from './gestes.js';
@@ -802,7 +802,7 @@ function finBuffs(x) {
 function lacherDrapeaux(x) {
   for (const F of Object.values(goulet.drapeaux)) if (F.porteur === x) {
     F.porteur = null; F.etat = 'sol'; F.sol = V(x.pos.x, 0, x.pos.z); F.t = 10; x.dropT = G.t + 3; x.drapeauPorte = null;
-    UI.toast(`Drapeau ${F.camp} lâché !`, campDe(x) === 'bleu' ? false : true); onde(F.sol, COUL_CAMP[F.camp], 4, 0.6); son('impactPlank_medium_000', 0.5);
+    UI.toast(`Drapeau ${F.camp} lâché !`, campDe(x) === 'bleu' ? false : true); onde(F.sol, COUL_CAMP[F.camp], 4, 0.6); cor('lache');
   }
 }
 function mortGoulet(x) {
@@ -890,14 +890,14 @@ function majGoulet(dt) {
         F.etat = 'porte'; F.porteur = voleur; F.sol = null; voleur.drapeauPorte = F.camp;
         const amis = campDe(voleur) === 'bleu';
         UI.toast(voleur === joueur ? 'TU AS LE DRAPEAU ! Ramène-le à ton socle' : amis ? `${voleur.nom} a pris le drapeau rouge !` : `${voleur.nom} a volé ton drapeau !`, true);
-        son(amis ? 'jingle_legend' : 'lowFrequency_explosion_000', 0.45, amis ? 1.2 : 0.8);
+        cor(amis ? 'pris' : 'vole');
       } else if (F.etat === 'sol') {
         F.t -= dt;
         const gardien = membresGoulet(F.camp).find(x => x && !x.loup && !x.mort && dist2D(x.pos, pos) < 2.2);
         if (gardien || F.t <= 0) {
           F.etat = 'base'; F.sol = null;
           if (gardien) { scoreDe(gardien).ret++; if (gardien === joueur) UI.nombre(V(joueur.pos.x, 2.8, joueur.pos.z), 'Drapeau ramené · +15 renommée', 'info'); }
-          UI.toast(gardien ? `${gardien === joueur ? 'Tu as' : gardien.nom + ' a'} ramené le drapeau ${F.camp} !` : `Le drapeau ${F.camp} est rentré au château`); son('confirmation_001', 0.4);
+          UI.toast(gardien ? `${gardien === joueur ? 'Tu as' : gardien.nom + ' a'} ramené le drapeau ${F.camp} !` : `Le drapeau ${F.camp} est rentré au château`); cor('retour');
         }
       }
     } else if (F.etat === 'porte') {
@@ -909,7 +909,7 @@ function majGoulet(dt) {
           scoreDe(p).caps++;
           UI.toast(sonCamp === 'bleu' ? `${p === joueur ? 'TU AS CAPTURÉ' : p.nom.toUpperCase() + ' A CAPTURÉ'} LE DRAPEAU ROUGE ! ${goulet.score.bleu} – ${goulet.score.rouge}` : `${p.nom} a capturé ton drapeau… ${goulet.score.bleu} – ${goulet.score.rouge}`, true);
           UI.toast('Les drapeaux reviennent dans 20 secondes');
-          son(sonCamp === 'bleu' ? 'jingle_win' : 'lowFrequency_explosion_000', 0.6); onde(bases[sonCamp].pos, COUL_CAMP[sonCamp], 10, 1.2); G.shake = 0.6;
+          cor(sonCamp === 'bleu' ? 'capture' : 'perdu'); onde(bases[sonCamp].pos, COUL_CAMP[sonCamp], 10, 1.2); G.shake = 0.6;
           if (goulet.score[sonCamp] >= 3) return finGoulet(sonCamp === 'bleu');
         } else if (!p._msgBloque || G.t - p._msgBloque > 6) { p._msgBloque = G.t; if (p === joueur) UI.toast('Impossible de marquer : ton drapeau a été volé ! Tes alliés doivent le récupérer'); }
       }
@@ -1149,13 +1149,14 @@ function blesser(e, mult, opts = {}) {
   let { d, crit } = degatsJoueur(mult);
   if (opts.fixe) { d = opts.fixe; crit = false; }
   if (e.reduction) d *= 1 - e.reduction * 0.6;
+  if (e.combattant) d = facteurJcJ(auteurCoup || joueur, e, d); // résilience JcJ (avant les vols de vie)
   if (e.bouclierIA > 0) { const a = Math.min(e.bouclierIA, d); e.bouclierIA -= a; d -= a; emettre(V(e.pos.x, 1.2, e.pos.z), { n: 5, c1: '#bfe6ff', c2: '#4a9aff', vit: 3, vie: 0.4, taille: 0.3 }); if (d <= 0) { UI.nombre(V(e.pos.x, e.hauteurPlaque * 0.8, e.pos.z), 'Absorbé', 'info'); return; } }
   if (e.combattant && !opts.fixe && joueur.st.pvp) d *= 1 + joueur.st.pvp / 200;
-  if (!opts.fixe && joueur.vampT > 0 && !joueur.mort) { joueur.pv = Math.min(joueur.st.pvMax, joueur.pv + d * 0.35); if (Math.random() < 0.5) emettre(V(joueur.pos.x, 1.2, joueur.pos.z), { n: 4, c1: '#ff8aa0', c2: '#c0103a', vit: 1.5, vie: 0.5, taille: 0.3 }); }
+  if (!opts.fixe && joueur.vampT > 0 && !joueur.mort) { joueur.pv = Math.min(joueur.st.pvMax, joueur.pv + d * (e.combattant ? 0.12 : 0.35)); if (Math.random() < 0.5) emettre(V(joueur.pos.x, 1.2, joueur.pos.z), { n: 4, c1: '#ff8aa0', c2: '#c0103a', vit: 1.5, vie: 0.5, taille: 0.3 }); }
   if (goulet && e.bg) d = modBG(auteurCoup || joueur, e, d);
   const T = joueur.st.tal || {};
   if (T.achev && e.pv < e.pvMax * 0.35) d *= 1 + T.achev;
-  if (T.volVie && !joueur.mort && (!auteurCoup || auteurCoup === joueur)) joueur.pv = Math.min(joueur.st.pvMax, joueur.pv + d * T.volVie);
+  if (T.volVie && !joueur.mort && (!auteurCoup || auteurCoup === joueur)) joueur.pv = Math.min(joueur.st.pvMax, joueur.pv + d * T.volVie * (e.combattant ? 0.4 : 1));
   if (auteurCoup && auteurCoup.loup && auteurCoup.frenesieT > 0) auteurCoup.pv = Math.min(auteurCoup.pvMax, auteurCoup.pv + d * 0.2);
   e.pv -= d; e.frapper();
   if (compteur) noterDegats(auteurCoup || joueur, Math.min(d, d + e.pv));
@@ -1163,10 +1164,17 @@ function blesser(e, mult, opts = {}) {
   if (!opts.silence) emettre(V(e.pos.x, 1.2 * (e.boss ? e.boss.scale * 0.7 : 1), e.pos.z), { n: crit ? 14 : 7, c1: opts.c1 || '#fff2d0', c2: opts.c2 || '#d8c8a0', vit: 4, vie: 0.35, taille: 0.25, grav: 6 });
   if (crit) son('impactPlate_heavy_000', 0.35);
   if (e.etat === 'idle' || e.etat === 'dormant') reveiller(e);
-  if (opts.stun) e.stunT = Math.max(e.stunT, e.boss ? opts.stun * 0.35 : opts.stun);
+  if (opts.stun) {
+    let st = e.boss ? opts.stun * 0.35 : opts.stun;
+    if (e.combattant) { // rendements décroissants en JcJ : chaque contrôle dans les 12 s dure moitié moins, puis immunité
+      if (G.t > (e.drT || 0)) e.drN = 0;
+      st *= [1, 0.5, 0.25, 0][Math.min(3, e.drN || 0)]; e.drN = (e.drN || 0) + 1; e.drT = G.t + 12;
+    }
+    if (st > 0) e.stunT = Math.max(e.stunT, st);
+  }
   if (opts.slow) e.slowT = Math.max(e.slowT, opts.slow);
   if (opts.dot) e.dots.push({ ...opts.dot });
-  if (opts.air && !e.boss) e.airT = 0.6;
+  if (opts.air && !e.boss && !(e.combattant && G.t < (e.airCd || 0))) { e.airT = 0.6; if (e.combattant) e.airCd = G.t + 6; }
   joueur.combatT = 4;
   if (e.pv <= 0) tuer(e);
 }
@@ -1238,6 +1246,7 @@ function blesserJoueur(d, source = null) {
   if (joueur.bouclier > 0) { const a = Math.min(joueur.bouclier, d); joueur.bouclier -= a; d -= a; emettre(V(joueur.pos.x, 1.2, joueur.pos.z), { n: 6, c1: '#bfe6ff', c2: '#4a9aff', vit: 3, vie: 0.4, taille: 0.3 }); }
   if (d <= 0) return;
   if (source) dernierAgresseur = source;
+  if (source && source.combattant) d = facteurJcJ(source, joueur, d);
   if (goulet) d = modBG(source, joueur, d);
   { const T = joueur.st.tal || {}; if (T.reduc) d *= 1 - Math.min(0.5, T.reduc); if (T.survie && joueur.pv < joueur.st.pvMax * 0.3) d *= 1 - T.survie; }
   joueur.pv -= d; joueur.frapper(); joueur.combatT = 4;
@@ -2580,6 +2589,37 @@ function habitOmbre(a, def) {
   a.teinter(def.cape, '#5a1ad0', 0.75, 0.35);
   def.legs.forEach(l => a.teinter(l, '#1c1428', 0.75, 0));
 }
+// puissance réelle du joueur : dégâts par seconde (attaque + sorts + bonus de classe) et vie effective (vie / part de dégâts encaissés)
+const BONUS_CLASSE = { orage: 1.7, ombre: 1.45, assassin: 1.4, arc: 1.3 }; // classes à invocations / zone : plus fortes que leur fiche
+function puissanceReelleJoueur() {
+  const st = joueur && joueur.st || statsJoueur(); const type = (J.equip.arme || {}).type || 'epee';
+  let sorts = 0; for (const k of ['Q', 'W', 'E']) { const s = joueur && joueur.sorts && joueur.sorts[k]; if (s && s.mult && s.cd) sorts += s.mult / Math.max(2, s.cd); }
+  const dps = st.degats * (st.vitesseAtk * (1 + st.crit / 200) + sorts) * (BONUS_CLASSE[type] || 1);
+  const T = st.tal || {};
+  const ehp = st.pvMax / Math.max(0.15, (1 - st.reduction) * (1 - Math.min(0.5, T.reduc || 0)));
+  return { dps, ehp, ip: st.ip };
+}
+// matchmaking JcJ sur la puissance réelle : chaque bot est recalé pour valoir le joueur (× la difficulté du rang)
+function recalerBot(a, camp) {
+  if (!joueur || !joueur.st) return;
+  const P = puissanceReelleJoueur();
+  let sorts = 0; for (const id of sortsArme(a.equip.arme)) { const s = SORTS[id]; if (s && s.mult && s.cd) sorts += s.mult / Math.max(2, s.cd); }
+  const dpsB = a.dmg * (a.st.vitesseAtk * (1 + a.st.crit / 200) + sorts);
+  const ehpB = a.pvMax / Math.max(0.15, 1 - a.reduction);
+  const k = camp === 'ennemi' ? 1 : 0.92; // les coéquipiers sont un peu en dessous du joueur : c'est toi qui portes l'équipe
+  const kd = Math.max(0.25, Math.min(6, P.dps / Math.max(1, dpsB) * k * rnd(0.92, 1.08)));
+  const ke = Math.max(0.25, Math.min(6, P.ehp / Math.max(1, ehpB) * k * rnd(0.92, 1.08)));
+  a.dmg *= kd * (camp === 'ennemi' ? kdg(camp) : 1); a.pvMax = Math.round(a.pvMax * ke * (camp === 'ennemi' ? kpv(camp) : 1)); a.pv = a.pvMax;
+  a.ip = Math.max(100, Math.round(P.ip + rnd(-35, 35) + (camp === 'ennemi' ? 12 * rangK() : 0)));
+  if (a.data) a.data.ip = a.ip;
+  a._dps = dpsB * kd * (camp === 'ennemi' ? kdg(camp) : 1); a._ehp = a.pvMax / Math.max(0.15, 1 - a.reduction);
+}
+// résilience JcJ : entre joueurs, un affrontement dure environ 12 s quelle que soit la puissance (plus de mort en un coup)
+const TTK_JCJ = 12;
+function puissanceJ() { if (!joueur._P || G.t - joueur._PT > 2) { joueur._P = puissanceReelleJoueur(); joueur._PT = G.t; } return joueur._P; }
+function dpsDe(x) { if (!x) return 0; if (x === joueur || x.invoc) return puissanceJ().dps; return x._dps || 0; }
+function ehpDe(x) { if (x === joueur) return puissanceJ().ehp; if (x._ehp) return x._ehp; return (x.pvMax || 1) / Math.max(0.15, 1 - (x.reduction || 0)); }
+function facteurJcJ(att, cible, d) { const dps = dpsDe(att); if (!(dps > 0)) return d; return d * Math.min(1, ehpDe(cible) / (dps * TTK_JCJ)); }
 function creerCombattant(pos, data, camp = 'ennemi') {
   const equip = data.equip, arme = equip.arme, def = ARMES[arme.type];
   const a = new Acteur(data.modele || def.model, { hauteur: 2.0 });
@@ -2596,6 +2636,8 @@ function creerCombattant(pos, data, camp = 'ennemi') {
     specT: rnd(3, 5), potions: 2, potionT: 0, esquiveT: 2, dashT: 0, strafe: Math.random() < 0.5 ? 1 : -1, chatT: rnd(10, 18), tc: null,
     argent: Math.round(rnd(0.7, 1.4) * 60 * Math.pow(2.3, arme.tier - 1)),
   });
+  // en JcJ (arène, Goulet, invasions, coéquipiers) : force réelle calée sur celle du joueur
+  if (!data.sansRecalage) { a.pvMax = Math.round(st.pvMax); a.dmg = st.degats * 1.05; recalerBot(a, camp); }
   a.jouer('Cheer', { boucle: false, fin: () => a.jouer(def.idle) });
   UI.plaque(a, { nom: data.nom, guilde: data.guilde, classe: camp === 'ennemi' ? 'rival' : 'allie', ip: a.ip, niv: data.niv, vie: true });
   if (camp === 'ennemi') { a.skill = data.skill ?? rnd(0.35, 0.8); a.specFacteur = 0.7 + a.skill * 0.6; }
@@ -2652,6 +2694,7 @@ function blesserAllie(a, d, src, opts = {}) {
   d = d * (1 - a.reduction) * rnd(0.92, 1.08) * (a.invoc ? 1 : 1.3);
   a.coupT = 5;
   if (a.bouclierIA > 0) { const b = Math.min(a.bouclierIA, d); a.bouclierIA -= b; d -= b; if (d <= 0) return; }
+  if (src && src.combattant && (a.combattant || a.loup)) d = facteurJcJ(src, a, d);
   if (goulet && a.bg) d = modBG(src, a, d);
   a.pv -= d; a.frapper();
   UI.nombre(V(a.pos.x, 2.2, a.pos.z), Math.round(d), 'allie');
