@@ -19,6 +19,7 @@ const GLYPHES = {
   onde: '<circle cx="50" cy="50" r="10"/><circle cx="50" cy="50" r="24" fill="none" stroke="#fff" stroke-width="6"/><circle cx="50" cy="50" r="38" fill="none" stroke="#fff" stroke-width="5" opacity=".6"/>',
   esprit: '<path d="M20 22 C34 16 44 18 50 26 C56 18 66 16 80 22 L80 80 C66 74 56 76 50 84 C44 76 34 74 20 80 Z"/><path d="M50 26 L50 84" stroke="#000" stroke-opacity=".35" stroke-width="3"/><circle cx="50" cy="12" r="6" opacity=".8"/>',
   assassin: '<path d="M22 84 L58 30 L64 34 L28 88 Z"/><path d="M58 30 L80 10 L66 38 Z"/><path d="M78 84 L42 30 L36 34 L72 88 Z" opacity=".75"/><path d="M42 30 L20 10 L34 38 Z" opacity=".75"/><circle cx="50" cy="60" r="5" fill="#ff4a5a"/>',
+  demon: '<path d="M22 84 L58 30 L64 34 L28 88 Z"/><path d="M58 30 L80 10 L66 38 Z"/><path d="M78 84 L42 30 L36 34 L72 88 Z" opacity=".75"/><path d="M42 30 L20 10 L34 38 Z" opacity=".75"/><circle cx="50" cy="60" r="5" fill="#ff4a5a"/>',
   triple: '<path d="M14 30 L60 16 L56 24 Z"/><path d="M14 52 L72 38 L68 46 Z"/><path d="M14 74 L86 60 L80 70 Z" fill="#ff8a8a"/>',
   curee: '<path d="M50 8 L58 60 L50 92 L42 60 Z"/><circle cx="50" cy="66" r="10" fill="#ff2a3a"/><path d="M30 26 h40" stroke="#fff" stroke-width="5"/>',
   zephyr: '<path d="M10 64 C30 40 56 34 90 36 C70 42 56 50 46 64 Z"/><path d="M16 80 C34 64 56 60 80 62 C64 68 52 74 44 82 Z" opacity=".7"/><path d="M60 14 l14 10 -16 6z"/>',
@@ -1513,7 +1514,7 @@ UI.rapport = (titre, lignes) => {
 };
 
 // ---------------- Sanctuaire d'Émeraude ----------------
-const COUL_CLASSE = { epee: '#ff6a5a', arbalete: '#5aff9a', baton: '#ffab3a', ombre: '#b07aff', arc: '#ff3a3a', orage: '#7ab8ff', assassin: '#ff5a6a', esprit: '#c08aff' };
+const COUL_CLASSE = { epee: '#ff6a5a', arbalete: '#5aff9a', baton: '#ffab3a', ombre: '#b07aff', arc: '#ff3a3a', orage: '#7ab8ff', assassin: '#ff5a6a', esprit: '#c08aff', demon: '#ff2a3a' };
 const fmtK = (n) => n >= 1e6 ? (n / 1e6).toFixed(2).replace('.', ',') + ' M' : n >= 1e4 ? (n / 1e3).toFixed(1).replace('.', ',') + ' k' : fmt(n);
 const fmtT = (s) => `${Math.floor(s / 60)} min ${String(Math.floor(s % 60)).padStart(2, '0')}`;
 UI.rechercheGroupe = (membres, cb) => {

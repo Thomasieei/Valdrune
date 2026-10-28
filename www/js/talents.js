@@ -66,13 +66,14 @@ export const SORTS_CL = {
   ombre: [S('legion', 'Légion d’ombres'), S('reflet', 'Reflet volé'), S('pasOmbre', 'Pas de l’ombre')],
   orage: [S('tornade', 'Œil du cyclone'), S('titan', 'Chute du Titan'), S('orage', 'Colère de l’Orage')],
   assassin: [S('triple', 'Triple entaille'), S('curee', 'Curée'), S('zephyr', 'Pas du zéphyr')],
+  demon: [S('zephyr', 'Ruée du damné'), S('curee', 'Curée'), S('demon', 'Éveil du démon')],
   esprit: [S('emprise', 'Emprise'), S('lames', 'Trois lames'), S('possession', 'Possession')],
 };
 export const ALTS = {
   epee: ['execution', 'vampirisme'], arbalete: ['tirMultiple', 'purge'], baton: ['novaGivre', 'purge'], arc: ['pluieEcarlate', 'vampirisme'],
-  ombre: ['execution', 'vampirisme'], orage: ['execution', 'purge'], assassin: ['vampirisme', 'purge'], esprit: ['onde', 'purge'],
+  ombre: ['execution', 'vampirisme'], orage: ['execution', 'purge'], assassin: ['vampirisme', 'purge'], esprit: ['onde', 'purge'], demon: ['vampirisme', 'execution'],
 };
-const NOMS_SPEC = { esprit: ['Télékinésiste', '#c08aff', 'Volonté pure'], epee: ['Champion', '#ffb04a', 'Puissance martiale'], arbalete: ['Tireur d’élite', '#7aff9a', 'Balistique'], baton: ['Pyromancien', '#ff7a2a', 'Puissance des flammes'], arc: ['Maître des bêtes', '#ff3a3a', 'Instinct sauvage'], ombre: ['Ombrelame', '#b07aff', 'Puissance des ombres'], orage: ['Seigneur de l’orage', '#7ab8ff', 'Puissance de la foudre'], assassin: ['Assassin', '#ff5a6a', 'Précision mortelle'] };
+const NOMS_SPEC = { demon: ['Possédé', '#ff2a3a', 'Faim du démon'], esprit: ['Télékinésiste', '#c08aff', 'Volonté pure'], epee: ['Champion', '#ffb04a', 'Puissance martiale'], arbalete: ['Tireur d’élite', '#7aff9a', 'Balistique'], baton: ['Pyromancien', '#ff7a2a', 'Puissance des flammes'], arc: ['Maître des bêtes', '#ff3a3a', 'Instinct sauvage'], ombre: ['Ombrelame', '#b07aff', 'Puissance des ombres'], orage: ['Seigneur de l’orage', '#7ab8ff', 'Puissance de la foudre'], assassin: ['Assassin', '#ff5a6a', 'Précision mortelle'] };
 
 // spécialisation des trois lames (remplace les deux nœuds « extra » de l'Esprit)
 const LAMES = [

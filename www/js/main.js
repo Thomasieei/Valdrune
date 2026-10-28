@@ -238,6 +238,7 @@ function construireJoueur(pos) {
   if (J.equip.plastron && def.cape) a.teinter(def.cape, TIERS[J.equip.plastron.tier].color, 0.42, 0);
   if (def.ombre) habitOmbre(a, def);
   if (def.assassin) habitAssassin(a, def);
+  if (def.demon) a.tenueCouleur('#3a0008');
   G.scene.add(a.root);
   a.root.position.copy(ancienPos);
   const st = statsJoueur();
@@ -2634,6 +2635,7 @@ function lancerSort(k) {
     case 'lames': ordreLames(); break;
     case 'onde': ondeForce(s); break;
     case 'possession': lancerPossession(s); break;
+    case 'demon': basculerDemon(); break;
     case 'fente': {
       const { dir } = directionVisee(5); faireFace(dir);
       joueur.jouer('2H_Melee_Attack_Slice', { boucle: false, vitesse: 1.5, forcer: true, fin }); joueur.verrouT = 0.42;
@@ -3055,7 +3057,7 @@ function majJoueur(dt) {
     const c = j.courante; const n = c ? c.getClip().name : '';
     if (n === j.def.run || n === 'Walking_A') j.jouer(j.def.idle);
     // posture : garde haute en combat, détendue au calme
-    const garde = !j.rangee && j.combatT > 0 && j.actions['2H_Melee_Idle'] && ['epee', 'orage', 'ombre', 'assassin'].includes(j.armeType);
+    const garde = !j.rangee && j.combatT > 0 && j.actions['2H_Melee_Idle'] && ['epee', 'orage', 'ombre', 'assassin', 'demon'].includes(j.armeType);
     const voulu = garde ? '2H_Melee_Idle' : j.rangee ? 'Idle' : j.def.idle;
     if ((n === j.def.idle || n === '2H_Melee_Idle' || n === 'Idle') && n !== voulu) j.jouer(voulu, { fondu: 0.35 });
   }
@@ -3700,7 +3702,7 @@ function rangerArmes(ranger = !joueur.rangee) {
   const b = $('#btnArmes'); if (b) b.classList.toggle('actif', ranger);
 }
 // ---------------- Sorts par signes ----------------
-const COUL_SIGNE = { epee: '#ffd27a', arbalete: '#9aff7a', baton: '#ff8a3a', ombre: '#b07aff', orage: '#7ab8ff', assassin: '#ff4a5a' };
+const COUL_SIGNE = { epee: '#ffd27a', arbalete: '#9aff7a', baton: '#ff8a3a', ombre: '#b07aff', orage: '#7ab8ff', assassin: '#ff4a5a', demon: '#ff1a2a' };
 G.gestes = false; // sorts par signes retirés : boutons classiques
 function ralenti(duree, k) { if (G._parOmbre) return; G.ralentiT = Math.max(G.ralentiT || 0, duree); G.ralentiK = k; }
 function cibleEcran(x, y, rayon) {
@@ -3726,7 +3728,7 @@ function lancerParSigne(cle, debut, centre) {
 // saut acrobatique avant le sort : les combattants bondissent sur la cible, les tireurs font une vrille en arrière
 function bondStyle(c, apres) {
   const type = J.equip.arme ? J.equip.arme.type : 'epee';
-  const melee = ['epee', 'orage', 'assassin', 'ombre'].includes(type);
+  const melee = ['epee', 'orage', 'assassin', 'ombre', 'demon'].includes(type);
   const dep = joueur.pos.clone();
   let arr = null;
   if (c && melee) { const d = dist2D(c.pos, dep); if (d > 3.2 && d < 16) { const dir = V(c.pos.x - dep.x, 0, c.pos.z - dep.z).normalize(); arr = pointLibreProche(V(c.pos.x - dir.x * (c.rayon + 1.4), 0, c.pos.z - dir.z * (c.rayon + 1.4)), 0.6); } }
@@ -4118,7 +4120,7 @@ const API = {
   enchanter: (id) => enchanter(id),
   acheterRunes: (n) => { const prix = 5000 * n; if (J.argent < prix) { UI.toast('Pas assez d’argent'); son('error_001', 0.4); return false; } J.argent -= prix; ajouterSac(creerButin('rune', n), true); son('handleCoins', 0.5); sauver(); return true; },
   nbRunes: () => J.sac.filter(i => i.cat === 'butin' && i.type === 'rune').reduce((a, i) => a + (i.n || 1), 0),
-  raresDebloques: () => ['ombre', 'orage', 'assassin', 'esprit'].filter(t => (t === 'ombre' && J.codes && J.codes.includes('BRECHE-OMBRE')) || J.equip.arme?.type === t || J.sac.some(i => i.type === t) || (J.debloques || []).includes(t)),
+  raresDebloques: () => ['ombre', 'orage', 'assassin', 'esprit', 'demon'].filter(t => (t === 'ombre' && J.codes && J.codes.includes('BRECHE-OMBRE')) || J.equip.arme?.type === t || J.sac.some(i => i.type === t) || (J.debloques || []).includes(t)),
   ombreDebloquee: () => !!((J.codes && J.codes.length) || J.equip.arme?.type === 'ombre' || J.sac.some(i => i.type === 'ombre')),
   acheterIle: (type, taille) => acheterIle(type, taille),
   allerIle: (id) => { const ile = iles().find(i => i.id === id); if (ile) entrerIle(ile); },
@@ -4665,7 +4667,7 @@ function habitOmbre(a, def) {
   def.legs.forEach(l => a.teinter(l, '#1c1428', 0.75, 0));
 }
 // puissance réelle du joueur : dégâts par seconde (attaque + sorts + bonus de classe) et vie effective (vie / part de dégâts encaissés)
-const BONUS_CLASSE = { orage: 1.7, ombre: 1.45, assassin: 1.4, arc: 1.3 }; // classes à invocations / zone : plus fortes que leur fiche
+const BONUS_CLASSE = { demon: 1.5, orage: 1.7, ombre: 1.45, assassin: 1.4, arc: 1.3 }; // classes à invocations / zone : plus fortes que leur fiche
 function puissanceReelleJoueur() {
   const st = joueur && joueur.st || statsJoueur(); const type = (J.equip.arme || {}).type || 'epee';
   let sorts = 0; for (const k of ['Q', 'W', 'E']) { const s = joueur && joueur.sorts && joueur.sorts[k]; if (s && s.mult && s.cd) sorts += s.mult / Math.max(2, s.cd); }
@@ -7300,7 +7302,7 @@ function dissiper(a) {
 }
 
 // accès de débogage (console)
-window.__jeu = { get modeActuel() { return modeActuel; }, demon: () => basculerDemon(), entrerTerres: () => entrerTerres(), entrerAncestrales: (e) => entrerAncestrales(e), get terres() { return terres; }, dbgAggro: () => { const c = choisirCible(joueur.st.portee); return [c ? c.nom : null, passantsProches().length, G.agression]; }, domaineTest: (n = 4) => { if (!J.domaine) J.domaine = { niveau: n, serviteurs: [], tresor: 0, maj: Date.now(), graine: 7, journal: [] }; J.domaine.niveau = n; if (!iles().length) J.iles = J.iles || []; return entrerDomaine(); }, bilan: () => MODES.map(m => {
+window.__jeu = { get modeActuel() { return modeActuel; }, demon: () => basculerDemon(), code: (c) => utiliserCode(c), get J() { return J; }, entrerTerres: () => entrerTerres(), entrerAncestrales: (e) => entrerAncestrales(e), get terres() { return terres; }, dbgAggro: () => { const c = choisirCible(joueur.st.portee); return [c ? c.nom : null, passantsProches().length, G.agression]; }, domaineTest: (n = 4) => { if (!J.domaine) J.domaine = { niveau: n, serviteurs: [], tresor: 0, maj: Date.now(), graine: 7, journal: [] }; J.domaine.niveau = n; if (!iles().length) J.iles = J.iles || []; return entrerDomaine(); }, bilan: () => MODES.map(m => {
     const eq = genererEquipRival(m.ipConseil, 'epee'), niv = nivBot(eq), st = statsHeros(eq, niv), dps = st.degats * st.vitesseAtk * (1 + st.crit / 200);
     const mob = creerEnnemi(MOBS.guerrier, V(900, 0, 900), m.mobTier, -9), mi = creerEnnemi(MOBS.minion, V(900, 0, 900), m.mobTier, -9), b = creerBoss(BOSS[0], V(905, 0, 905), m.bossTier[0], null), b3 = creerBoss(BOSS[3], V(905, 0, 905), m.bossTier[3], null);
     const r = { mode: m.lieu, ip: m.ipConseil, niv, pv: Math.round(st.pvMax), dps: Math.round(dps), red: +st.reduction.toFixed(2), ttkMinion: +(mi.pvMax / dps).toFixed(1), ttkGuerrier: +(mob.pvMax / dps).toFixed(1), ttkBoss1: Math.round(b.pvMax / dps), ttkBoss4: Math.round(b3.pvMax / dps), coupsGuerrierPourMourir: +(st.pvMax / (mob.dmg * (1 - st.reduction))).toFixed(1), coupsBossPourMourir: +(st.pvMax / (b.dmg * (1 - st.reduction))).toFixed(1) };
