@@ -443,6 +443,7 @@ function libererGPU(racines) {
   });
 }
 function viderMonde() {
+  if (demon) finDemon(null);
   document.body.classList.remove('brumeAnc'); document.body.classList.add('vign');
   for (const a of serviteurs) { G.scene.remove(a.root); UI.retirerPlaque(a); } serviteurs = [];
   G.solH = null; G.murs = false; G.ecrans = null; terres = null; TKS = []; possedes = []; UI.choixTK && UI.choixTK(null); G.camCible = null; G.camLibre = false; for (const v of auras.values()) G.scene.remove(v.g); auras.clear(); scenes = []; crypteEtat = null; if (sceneOmbre) { sceneOmbre = null; G.camCible = null; document.body.classList.remove('cinema'); UI.dialogueTaverne(null); }
@@ -3002,6 +3003,7 @@ function majJoueur(dt) {
   for (const k in j.cds) j.cds[k] = Math.max(0, j.cds[k] - dt);
   j.atkT -= dt; j.verrouT -= dt; j.invuln -= dt; j.combatT -= dt;
   if (j.mort) { j.maj(dt); return; }
+  if (demon) { majDemon(dt); return; }
   // régénération
   j.energie = Math.min(st.energieMax, j.energie + dt * (6 + st.energieMax * 0.012) * (1 + (st.tal && st.tal.enRegen || 0)));
   const regen = j.combatT > 0 ? st.regen * 0.25 : st.regen * 3;
@@ -3577,6 +3579,63 @@ function interactionsTerres() {
 }
 // ======================= MODE AGRESSION : tu peux frapper n'importe qui… mais on s'en souviendra =======================
 function passantsProches() { return [...(modeActuel ? [] : bots), ...(taverne ? taverne.clients : []), ...(modeActuel && modeActuel.id === 'domaine' ? [] : [])].filter(b => !b.mort && b.root && b.root.parent && b.root.visible !== false); }
+// ---------------- Possession démoniaque ----------------
+// le démon prend le corps : il fonce à la vitesse de la lumière des ténèbres sur chaque ennemi et le pulvérise d'un coup, puis rafle les coffres.
+// il se nourrit de ta vie : chaque exécution coûte un peu, et si la puissance totale des ennemis dépasse la tienne, il te ronge chaque seconde.
+let demon = null;
+const ANIMS_DEMON = ['2H_Melee_Attack_Spin', '1H_Melee_Attack_Slice_Diagonal', '2H_Melee_Attack_Slice', '1H_Melee_Attack_Chop', 'Unarmed_Melee_Attack_Kick', 'Unarmed_Melee_Attack_Punch_A'];
+function basculerDemon() {
+  if (demon) return finDemon('Le démon relâche ton corps…');
+  if (!modeActuel || joueur.mort) return UI.toast('Le démon ne s’éveille qu’au combat : donjon, île, terres…');
+  if (joueur.pv < joueur.st.pvMax * 0.5) return UI.toast('Pas assez de vie : le démon dévorerait ce qu’il te reste (50 % minimum)');
+  demon = { pause: 0.9, combo: 0, drainT: 0, drainAcc: 0, hudT: 0 };
+  document.body.classList.add('demon'); const b = $('#btnDemon'); if (b) b.classList.add('actif');
+  ralenti(0.7, 0.2); onde(joueur.pos, '#ff1a2a', 7, 0.8); onde(joueur.pos, '#1a0004', 4, 0.6);
+  emettre(V(joueur.pos.x, 1, joueur.pos.z), { n: 90, c1: '#ff2a3a', c2: '#000000', dir: V(0, 1, 0), vit: 9, disp: 2, rayon: 1.2, vie: 1.1, taille: 0.6 });
+  son('impactGeneric_light_000', 0.8, 0.45); annonce('demon', 'POSSESSION DÉMONIAQUE', true);
+  UI.chat(J.nom, hasard(['…il est là', 'je ne contrôle plus rien', 'COURS.']));
+  UI.demon && UI.demon({ on: true });
+}
+function finDemon(msg) {
+  demon = null; document.body.classList.remove('demon'); const b = $('#btnDemon'); if (b) b.classList.remove('actif');
+  UI.demon && UI.demon(null); if (joueur && !joueur.mort) { joueur.invuln = Math.max(joueur.invuln, 0.6); joueur.jouer('Idle'); }
+  if (msg) UI.toast(msg);
+}
+function proieDemon(e) { return !e.mort && e.etat !== 'possede' && !e.tk && !estPassant(e) && dist2D(e.pos, joueur.pos) < 75; }
+function majDemon(dt) {
+  const j = joueur, st = j.st;
+  // puissance : la tienne contre celle de tous les ennemis de la zone
+  const Pj = Math.round(st.pvMax * 6); let Pe = 0; for (const e of ennemis) if (proieDemon(e)) Pe += e.pvMax; Pe = Math.round(Pe);
+  if (Pe > Pj) { const d = st.pvMax * Math.min(0.2, 0.035 * Pe / Pj) * dt; j.pv -= d; demon.drainAcc += d; demon.drainT -= dt;
+    if (demon.drainT <= 0) { demon.drainT = 0.5; UI.nombre(V(j.pos.x, 2.4, j.pos.z), '-' + Math.round(demon.drainAcc), 'joueur'); demon.drainAcc = 0; emettre(V(j.pos.x, 1.2, j.pos.z), { n: 8, c1: '#ff2a3a', c2: '#000', dir: V(0, 1, 0), vit: 3, vie: 0.6, taille: 0.35 }); } }
+  if (j.pv <= 0) { finDemon(null); UI.toast('Le démon t’a consumé…', true); mourirJoueur(); return; }
+  demon.hudT -= dt; if (demon.hudT <= 0) { demon.hudT = 0.25; UI.demon && UI.demon({ on: true, Pj, Pe, combo: demon.combo, pv: j.pv / st.pvMax }); }
+  if (Math.random() < dt * 25) emettre(V(j.pos.x + rnd(-0.4, 0.4), 0.4, j.pos.z + rnd(-0.4, 0.4)), { n: 1, c1: '#ff2a3a', c2: '#000000', dir: V(0, 1, 0), vit: 2.5, vie: 0.6, taille: 0.45 });
+  if (demon.pause > 0) { demon.pause -= dt; j.maj(dt); return; }
+  // cible : l'ennemi le plus proche, sinon un coffre libéré
+  let c = null, bd = Infinity;
+  for (const e of ennemis) if (proieDemon(e)) { const d = dist2D(e.pos, j.pos); if (d < bd) { bd = d; c = e; } }
+  let coffre = null;
+  if (!c) for (const k of coffres) if (!k.ouvert && !k.final && (!k.boss || k.boss.mort || k.boss.etat === 'possede')) { const d = dist2D(k.pos, j.pos); if (d < 75 && d < bd) { bd = d; coffre = k; } }
+  if (!c && !coffre) { j.jouer('Idle'); j.maj(dt); demon.pause = 0.3; return; }
+  const cible = c ? c.pos : coffre.pos, de = j.pos.clone();
+  const vers = pointLibrePres(cible, c ? 1.1 + (c.rayon || 0.5) : 1.4, c ? 1.8 + (c.rayon || 0.5) : 2.2);
+  // la ruée : une traînée d'ombre et de sang, des silhouettes laissées derrière
+  traineeRouge(de, vers, '#ff1a2a');
+  const n = Math.max(3, Math.round(de.distanceTo(vers) / 2.5)); for (let i = 1; i < n; i++) { const p = de.clone().lerp(vers, i / n); emettre(V(p.x, 1.1, p.z), { n: 2, c1: '#000000', c2: '#3a0008', vit: 0.4, rayon: 0.3, vie: 0.5, taille: 1.1 }); }
+  j.pos.copy(vers); j.angle = Math.atan2(cible.x - vers.x, cible.z - vers.z); j.root.rotation.y = j.angle; j.invuln = Math.max(j.invuln, 0.35);
+  const anim = ANIMS_DEMON.find(a => j.actions[a]); if (anim) j.jouer(anim, { boucle: false, forcer: true, fondu: 0.05 });
+  son('impactMetal_medium_001', 0.5, 0.6 + Math.random() * 0.3);
+  if (c) {
+    const cout = st.pvMax * (c.boss ? 0.09 : Math.min(0.03, 0.004 * Math.sqrt(c.pvMax / st.pvMax * 8)));
+    j.pv -= cout; UI.nombre(V(c.pos.x, 2.8, c.pos.z), c.boss ? 'EXÉCUTÉ' : Math.round(c.pv), 'crit');
+    onde(c.pos, '#ff2a3a', c.boss ? 7 : 3.2, 0.35); emettre(V(c.pos.x, 1.2, c.pos.z), { n: c.boss ? 120 : 40, c1: '#ff3a4a', c2: '#000000', vit: c.boss ? 12 : 7, disp: 1, vie: 0.7, taille: 0.45 });
+    c.pv = 0; tuer(c); demon.combo++;
+    if (c.boss) { ralenti(0.9, 0.12); G.shake = Math.min(1, G.shake + 0.5); demon.pause = 0.55; annonce('demon' + demon.combo, `${(c.boss && c.boss.nom) || 'Boss'} exécuté`, true); }
+    else { demon.pause = rnd(0.1, 0.18); if (demon.combo % 6 === 0) ralenti(0.25, 0.3); }
+  } else { ouvrirCoffre(coffre, true); demon.pause = 0.35; }
+  j.maj(dt);
+}
 function estPassant(e) { return !ennemis.includes(e) && (bots.includes(e) || (taverne && taverne.clients.includes(e))); }
 function basculerAgression() {
   G.agression = !G.agression; const b = $('#btnAggro'); if (b) b.classList.toggle('actif', G.agression);
@@ -4305,6 +4364,7 @@ function initEntrees() {
   $('#btnOmbres').onclick = () => ouvrirCommandeOmbres();
   { const b = $('#btnArmes'); if (b) b.onclick = () => rangerArmes(); }
   { const b = $('#btnAggro'); if (b) b.onclick = () => basculerAgression(); }
+  { const b = $('#btnDemon'); if (b) b.onclick = () => basculerDemon(); }
   $('#btnCam').onclick = () => { const vues = ['iso', 'heros', 'libre'], noms = { iso: 'Vue isométrique', heros: 'Vue héros : derrière ton personnage (glisse pour tourner)', libre: 'Vue libre : glisse pour tourner, pince pour zoomer' };
     G.camVue = vues[(vues.indexOf(G.camVue || 'iso') + 1) % 3]; if (G.camVue === 'heros' && joueur) G.camYaw = joueur.angle + Math.PI; try { localStorage.setItem('breche-vue', G.camVue); } catch (e) {} UI.toast(noms[G.camVue]); son('click_001', 0.4); };
   $('#avatarCv').parentElement.onclick = () => ouvrirRenommee(); $('#avatarCv').parentElement.style.cursor = 'pointer';
@@ -7240,7 +7300,7 @@ function dissiper(a) {
 }
 
 // accès de débogage (console)
-window.__jeu = { get modeActuel() { return modeActuel; }, entrerTerres: () => entrerTerres(), entrerAncestrales: (e) => entrerAncestrales(e), get terres() { return terres; }, dbgAggro: () => { const c = choisirCible(joueur.st.portee); return [c ? c.nom : null, passantsProches().length, G.agression]; }, domaineTest: (n = 4) => { if (!J.domaine) J.domaine = { niveau: n, serviteurs: [], tresor: 0, maj: Date.now(), graine: 7, journal: [] }; J.domaine.niveau = n; if (!iles().length) J.iles = J.iles || []; return entrerDomaine(); }, bilan: () => MODES.map(m => {
+window.__jeu = { get modeActuel() { return modeActuel; }, demon: () => basculerDemon(), entrerTerres: () => entrerTerres(), entrerAncestrales: (e) => entrerAncestrales(e), get terres() { return terres; }, dbgAggro: () => { const c = choisirCible(joueur.st.portee); return [c ? c.nom : null, passantsProches().length, G.agression]; }, domaineTest: (n = 4) => { if (!J.domaine) J.domaine = { niveau: n, serviteurs: [], tresor: 0, maj: Date.now(), graine: 7, journal: [] }; J.domaine.niveau = n; if (!iles().length) J.iles = J.iles || []; return entrerDomaine(); }, bilan: () => MODES.map(m => {
     const eq = genererEquipRival(m.ipConseil, 'epee'), niv = nivBot(eq), st = statsHeros(eq, niv), dps = st.degats * st.vitesseAtk * (1 + st.crit / 200);
     const mob = creerEnnemi(MOBS.guerrier, V(900, 0, 900), m.mobTier, -9), mi = creerEnnemi(MOBS.minion, V(900, 0, 900), m.mobTier, -9), b = creerBoss(BOSS[0], V(905, 0, 905), m.bossTier[0], null), b3 = creerBoss(BOSS[3], V(905, 0, 905), m.bossTier[3], null);
     const r = { mode: m.lieu, ip: m.ipConseil, niv, pv: Math.round(st.pvMax), dps: Math.round(dps), red: +st.reduction.toFixed(2), ttkMinion: +(mi.pvMax / dps).toFixed(1), ttkGuerrier: +(mob.pvMax / dps).toFixed(1), ttkBoss1: Math.round(b.pvMax / dps), ttkBoss4: Math.round(b3.pvMax / dps), coupsGuerrierPourMourir: +(st.pvMax / (mob.dmg * (1 - st.reduction))).toFixed(1), coupsBossPourMourir: +(st.pvMax / (b.dmg * (1 - st.reduction))).toFixed(1) };

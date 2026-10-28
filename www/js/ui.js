@@ -604,6 +604,15 @@ const RANGS_FORTUNE = [
   { min: 0, nom: 'Bourse légère', cls: 'f0' }, { min: 50000, nom: 'Bourse garnie', cls: 'f1' }, { min: 500000, nom: 'Coffre lourd', cls: 'f2' },
   { min: 5e6, nom: 'Fortune de seigneur', cls: 'f3' }, { min: 50e6, nom: 'Trésor de roi', cls: 'f4' }, { min: 500e6, nom: 'Richesse de légende', cls: 'f5' },
 ];
+UI.demon = (o) => {
+  let el = document.getElementById('hudDemon');
+  if (!o) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('div'); el.id = 'hudDemon'; document.getElementById('jeu').appendChild(el); }
+  if (o.Pj == null) { el.innerHTML = '<b>POSSÉDÉ</b>'; return; }
+  const trop = o.Pe > o.Pj;
+  el.className = trop ? 'trop' : '';
+  el.innerHTML = `<b>POSSÉDÉ</b> · ×${o.combo}<div class="pd"><span>Toi ${abrege(o.Pj)}</span><i style="width:${Math.min(100, o.Pe / Math.max(1, o.Pj) * 50)}%"></i><span>Eux ${abrege(o.Pe)}</span></div>${trop ? '<em>Le démon te dévore !</em>' : ''}`;
+};
 UI.rangFortune = (v) => { let r = RANGS_FORTUNE[0]; for (const x of RANGS_FORTUNE) if (v >= x.min) r = x; return r; };
 const BOURSE = { vu: null, cible: 0, rang: null, tick: 0 };
 // argent abrégé : 950 · 12,4 k · 4,02 M · 4,02 Mld · 1,5 Bn (3 chiffres significatifs, toujours court)
