@@ -91,6 +91,16 @@ export const ARMES = {
     noms: ['', 'Surins émoussés', 'Crocs de vipère', 'Épines du silence', 'Lames du crépuscule', 'Sang-froid', 'Murmure écarlate', 'Dernier soupir', 'Fin de partie'],
     sorts: ['triple', 'curee', 'zephyr'],
   },
+  // classe d'invocation : téléportation où tu veux + gacha d'anges et de démons payé en pièces (de plus en plus cher)
+  invocateur: {
+    label: 'Sceptre de l’Invocateur', court: 'Invocateur', model: 'Mage', node: '2H_Staff', rare: true, invocateur: true,
+    helmet: null, cape: 'Mage_Cape', legs: ['Mage_LegLeft', 'Mage_LegRight'], body: 'Mage_Body',
+    portee: 12, vitesse: 0.85, base: 30, projectile: 'feu',
+    idle: 'Idle', run: 'Running_A',
+    attaques: ['Spellcast_Shoot'],
+    noms: ['', 'Sceptre de l’apprenti', 'Verge des pactes', 'Sceptre des deux cieux', 'Clé des portes', 'Sceptre du jugement', 'Main du destin', 'Sceptre de l’Abîme et du Ciel', 'Volonté des Dieux'],
+    sorts: ['transfert', 'gacha', 'onde'],
+  },
   // classe « possédée » : un assassin habité par un démon — combos, ruées, et l'éveil du démon qui exécute tout à la vitesse de la lumière
   demon: {
     label: 'Lames du Possédé', court: 'Possédé', model: 'Rogue', node: 'Knife', node2: 'Knife_Offhand', rare: true, assassin: true, demon: true,
@@ -113,7 +123,7 @@ export const ARMES = {
   },
 };
 export const CHANCE_OMBRE = 0.001; // 0,1 %
-export const CODES_BETA = { 'BRECHE-OMBRE': { arme: 'ombre', tier: 1, texte: 'Accès bêta : Dagues des Ombres T1' }, 'BRECHE-ORAGE': { arme: 'orage', tous: true, reutilisable: true, texte: 'Haches de l’Orage T1 à T8 ajoutées (maîtrise niveau 90)' }, 'BRECHE-DEMON': { arme: 'demon', tous: true, reutilisable: true, texte: 'Lames du Possédé T1 à T8 ajoutées (maîtrise niveau 90)' }, 'BRECHE-ESPRIT': { arme: 'esprit', tous: true, reutilisable: true, texte: 'Grimoire de l’Esprit T1 à T8 ajouté (maîtrise niveau 90)' }, 'BRECHE-ASSASSIN': { arme: 'assassin', tous: true, reutilisable: true, texte: 'Lames de l’Assassin T1 à T8 ajoutées (maîtrise niveau 90)' } };
+export const CODES_BETA = { 'BRECHE-OMBRE': { arme: 'ombre', tier: 1, texte: 'Accès bêta : Dagues des Ombres T1' }, 'BRECHE-ORAGE': { arme: 'orage', tous: true, reutilisable: true, texte: 'Haches de l’Orage T1 à T8 ajoutées (maîtrise niveau 90)' }, 'BRECHE-INVOC': { arme: 'invocateur', tous: true, reutilisable: true, texte: 'Sceptres de l’Invocateur T1 à T8 ajoutés (maîtrise niveau 90)' }, 'BRECHE-DEMON': { arme: 'demon', tous: true, reutilisable: true, texte: 'Lames du Possédé T1 à T8 ajoutées (maîtrise niveau 90)' }, 'BRECHE-ESPRIT': { arme: 'esprit', tous: true, reutilisable: true, texte: 'Grimoire de l’Esprit T1 à T8 ajouté (maîtrise niveau 90)' }, 'BRECHE-ASSASSIN': { arme: 'assassin', tous: true, reutilisable: true, texte: 'Lames de l’Assassin T1 à T8 ajoutées (maîtrise niveau 90)' } };
 export const CHANCE_ORAGE = 0.01;
 
 export const ARMURES = {
@@ -169,6 +179,8 @@ export const SORTS = {
   // --- Esprit (télékinésie) ---
   emprise:   { nom: 'Emprise', desc: 'Soulève ta cible par la pensée — monstre, joueur ou passant. Ensuite, tu choisis : la déposer en douceur, l’écraser au sol (le décor éclate), ou la projeter où tu vises, sur d’autres ennemis.', cd: 6, energie: 24, mult: 4.2, portee: 15, type: 'tk', couleur: ['#f0e0ff', '#4a1a8a'], glyphe: 'main' },
   lames:     { nom: 'Trois lames', desc: 'Invoque trois lames spectrales qui tournent autour de toi et te défendent jusqu’à se briser. Relance pour leur donner un ordre : garde, assaut, ou exploration du donjon (10 % plus vite que toi). Elles grandissent avec ton tier et tes talents.', cd: 2, energie: 10, mult: 0.45, portee: 16, type: 'lames', couleur: ['#e8f0ff', '#3a2a8a'], glyphe: 'lames' },
+  transfert: { nom: 'Transfert', desc: 'Tu te téléportes là où tu vises (14 m), à travers tout. Vise en glissant le bouton.', cd: 5, energie: 18, mult: 0, portee: 14, type: 'dash', couleur: ['#e0f0ff', '#3a5aff'], glyphe: 'zephyr' },
+  gacha:     { nom: 'Pacte d’invocation', desc: 'Tu paies en pièces pour invoquer un ange ou un démon au hasard : commun, rare, épique ou LÉGENDAIRE. Chaque invocation coûte plus cher que la précédente (remise à zéro chaque jour). Légendaire garanti au 25e tirage sans légendaire.', cd: 3, energie: 10, mult: 0, portee: 0, type: 'buff', couleur: ['#fff2c0', '#5a0008'], glyphe: 'curee' },
   demon:     { nom: 'Éveil du démon', desc: 'Le démon prend ton corps : il fonce à la vitesse de la lumière sur chaque ennemi et l’exécute d’un coup, puis rafle les coffres. Il se nourrit de ta vie — si les ennemis sont plus puissants que toi, il te ronge chaque seconde. Relance pour le chasser.', cd: 2, energie: 0, mult: 0, portee: 0, type: 'buff', couleur: ['#ff8a8a', '#3a0008'], glyphe: 'curee' },
   possession:{ nom: 'Possession', desc: 'Tu envoûtes ta cible et tout son groupe (6 m). Un boss envoûté compte comme vaincu (butin, coffre) puis se bat à tes côtés jusqu’à sa mort.', cd: 30, energie: 45, mult: 0, portee: 14, type: 'possession', couleur: ['#e8c8ff', '#3a0a5a'], glyphe: 'oeil' },
   onde:      { nom: 'Onde de force', desc: 'Une vague de pure volonté repousse et soulève tout ce qui t’entoure (7 m), étourdit 0,6 s.', cd: 9, energie: 28, mult: 1.6, portee: 7, type: 'onde', couleur: ['#d8c8ff', '#2a0a5a'], glyphe: 'onde' },
@@ -291,7 +303,7 @@ export const CHAT = [
 // ---- Maîtrise : niveau requis par tier ----
 export const NIVEAU_REQUIS = [0, 1, 15, 40, 50, 60, 70, 80, 90];
 export const MAITRISES = [
-  { id: 'epee', nom: 'Épée à deux mains', cat: 'arme' }, { id: 'arbalete', nom: 'Arbalète lourde', cat: 'arme' }, { id: 'baton', nom: 'Bâton de feu', cat: 'arme' }, { id: 'arc', nom: 'Arc du Maître des bêtes', cat: 'arme' }, { id: 'ombre', nom: 'Dagues des Ombres', cat: 'arme', rare: true }, { id: 'orage', nom: 'Haches de l’Orage', cat: 'arme', rare: true }, { id: 'assassin', nom: 'Lames de l’Assassin', cat: 'arme', rare: true }, { id: 'esprit', nom: 'Grimoire de l’Esprit', cat: 'arme', rare: true }, { id: 'demon', nom: 'Lames du Possédé', cat: 'arme', rare: true },
+  { id: 'epee', nom: 'Épée à deux mains', cat: 'arme' }, { id: 'arbalete', nom: 'Arbalète lourde', cat: 'arme' }, { id: 'baton', nom: 'Bâton de feu', cat: 'arme' }, { id: 'arc', nom: 'Arc du Maître des bêtes', cat: 'arme' }, { id: 'ombre', nom: 'Dagues des Ombres', cat: 'arme', rare: true }, { id: 'orage', nom: 'Haches de l’Orage', cat: 'arme', rare: true }, { id: 'assassin', nom: 'Lames de l’Assassin', cat: 'arme', rare: true }, { id: 'esprit', nom: 'Grimoire de l’Esprit', cat: 'arme', rare: true }, { id: 'demon', nom: 'Lames du Possédé', cat: 'arme', rare: true }, { id: 'invocateur', nom: 'Sceptre de l’Invocateur', cat: 'arme', rare: true },
   { id: 'casque', nom: 'Armure de tête', cat: 'armure' }, { id: 'plastron', nom: 'Armure de poitrine', cat: 'armure' }, { id: 'bottes', nom: 'Armure de pieds', cat: 'armure' },
 ];
 

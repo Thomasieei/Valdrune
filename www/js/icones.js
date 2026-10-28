@@ -190,6 +190,7 @@ export function svgObjet(cat, type, tier) {
   else if (type === 'ombre') corps = svgDagues(tier, '#3a2a5a');
   else if (type === 'assassin') corps = svgDagues(tier, '#8a1a2a');
   else if (type === 'demon') corps = svgDagues(tier, '#2a0006');
+  else if (type === 'invocateur') corps = svgBaton(tier);
   else if (type === 'orage') corps = svgHaches(tier);
   else if (type === 'esprit') corps = svgGrimoire(tier);
   else return null;

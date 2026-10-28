@@ -2636,6 +2636,8 @@ function lancerSort(k) {
     case 'onde': ondeForce(s); break;
     case 'possession': lancerPossession(s); break;
     case 'demon': basculerDemon(); break;
+    case 'transfert': transfert(); break;
+    case 'gacha': if (!pacteInvocation()) joueur.cds.W = 0.5; break;
     case 'fente': {
       const { dir } = directionVisee(5); faireFace(dir);
       joueur.jouer('2H_Melee_Attack_Slice', { boucle: false, vitesse: 1.5, forcer: true, fin }); joueur.verrouT = 0.42;
@@ -3638,6 +3640,52 @@ function majDemon(dt) {
   } else { ouvrirCoffre(coffre, true); demon.pause = 0.35; }
   j.maj(dt);
 }
+// ---------------- Invocateur : transfert + pacte (gacha) ----------------
+function transfert() {
+  const v = directionVisee(14), de = joueur.pos.clone();
+  let p = v.cible ? v.point.clone().addScaledVector(v.dir, -1.6) : joueur.pos.clone().addScaledVector(v.dir, viseeForcee ? 14 : 10);
+  if (monde.marche && !monde.marche(p.x, p.z)) { for (let k = 13; k > 1 && !monde.marche(p.x, p.z); k--) p = de.clone().addScaledVector(v.dir, k); }
+  p = pointLibrePres(p, 0, 1.5);
+  emettre(V(de.x, 1, de.z), { n: 40, c1: '#ffffff', c2: '#3a5aff', vit: 5, disp: 0.6, vie: 0.5, taille: 0.4 }); onde(de, '#6a8aff', 2.5, 0.3);
+  joueur.pos.copy(p); faireFace(v.dir); joueur.invuln = Math.max(joueur.invuln, 0.25);
+  emettre(V(p.x, 1, p.z), { n: 50, c1: '#ffffff', c2: '#3a5aff', dir: V(0, 1, 0), vit: 6, disp: 0.8, vie: 0.6, taille: 0.45 }); onde(p, '#9ab8ff', 3.5, 0.35);
+  son('forceField_000', 0.4, 1.6); joueur.jouer('Spellcast_Raise', { boucle: false, forcer: true, fin: () => joueur.jouer(joueur.def.idle) });
+}
+const PACTE = [
+  { r: 'Légendaire', p: 0.03, k: 3.2, vie: 120, s: 1.4, c: '#ffb020', ange: 'Archange Séraphiel', demon: 'Bélial, Prince des Enfers' },
+  { r: 'Épique', p: 0.12, k: 1.7, vie: 85, s: 1.15, c: '#c06aff', ange: 'Séraphin du Jugement', demon: 'Seigneur des Abîmes' },
+  { r: 'Rare', p: 0.30, k: 1.05, vie: 65, s: 1.0, c: '#4aa8ff', ange: 'Valkyrie céleste', demon: 'Succube de cendre' },
+  { r: 'Commun', p: 1, k: 0.6, vie: 45, s: 0.85, c: '#c8c8c8', ange: 'Chérubin', demon: 'Diablotin' },
+];
+function coutPacte() { const g = J.pacte || (J.pacte = { n: 0, jour: '', sec: 0 }); const j = new Date().toDateString(); if (g.jour !== j) { g.jour = j; g.n = 0; } return Math.round(800 * Math.pow(1.45, g.n) * (1 + ((J.equip.arme || {}).tier || 1) * 0.35)); }
+function pacteInvocation() {
+  if (!modeActuel) { UI.toast('Les pactes ne se scellent qu’au combat'); return false; }
+  const cout = coutPacte();
+  if (J.argent < cout) { UI.toast(`Le pacte exige ${UI.abrege ? UI.abrege(cout) : cout} pièces`); return false; }
+  J.argent -= cout; J.pacte.n++; J.pacte.sec = (J.pacte.sec || 0) + 1; UI.majBourse && UI.majBourse(J.argent); sauver();
+  let t = Math.random(), R = PACTE[3];
+  if (J.pacte.sec >= 25) R = PACTE[0]; else for (const x of PACTE) { if (t < x.p) { R = x; break; } t -= x.p; }
+  if (R === PACTE[0]) J.pacte.sec = 0;
+  const ange = Math.random() < 0.5, nom = ange ? R.ange : R.demon, coul = ange ? '#fff2c0' : '#ff2a1a';
+  const vivants = allies.filter(x => x.invoc === 'pacte' && !x.mort); if (vivants.length >= 4) dissiper(vivants[0]);
+  const ang = joueur.angle + rnd(-1.2, 1.2), pos = pointLibrePres(V(joueur.pos.x + Math.sin(ang) * 3, 0, joueur.pos.z + Math.cos(ang) * 3), 0, 1.5);
+  // mise en scène : colonne de lumière (ange) ou de flammes (démon), couleur de la rareté
+  onde(pos, R.c, 3 + R.k, 0.6); onde(pos, coul, 2, 0.4);
+  emettre(V(pos.x, 0.5, pos.z), { n: 40 + R.k * 40, c1: coul, c2: R.c, dir: V(0, 1, 0), vit: 8 + R.k * 3, disp: 0.6, rayon: 0.8, vie: 1.2, taille: 0.5 });
+  if (R.k >= 1.7) { ralenti(0.8, 0.25); annonce('pacte' + J.pacte.n, `${R.r.toUpperCase()} : ${nom}`, true); }
+  son(R.k >= 3 ? 'jingle_legend' : 'forceField_000', R.k >= 3 ? 0.6 : 0.35, ange ? 1.4 : 0.7);
+  const ipJ = statsHeros(J.equip).ip, st = joueur.st;
+  const a = creerCombattant(pos, { nom, guilde: R.r.toUpperCase(), equip: genererEquipRival(ipJ, ange ? 'epee' : 'epee'), modele: ange ? 'Knight' : 'Barbarian' }, 'allie');
+  UI.retirerPlaque(a);
+  Object.assign(a, { invoc: 'pacte', vieT: R.vie, potions: 0, cdRempart: 1e9, specT: rnd(1, 3), ip: undefined, autonome: false });
+  a.pvMax = a.pv = Math.round(st.pvMax * R.k); a.dmg = st.degats * R.k; a.reduction = Math.min(0.6, st.reduction * 0.8);
+  a.root.scale.setScalar(R.s); teinteSpectrale(a, ange ? '#fff0b0' : '#5a0008', R.k >= 1.7 ? 0.65 : 0.45);
+  UI.plaque(a, { nom: (ange ? '✦ ' : '♆ ') + nom, guilde: `${R.r} · ${R.vie} s`, classe: 'allie pacte', vie: true, lettre: false });
+  { const pl = a.root; const d = document.querySelector('#labels .plaque:last-child .n'); if (d) d.style.color = R.c; }
+  a.jouer('Spellcast_Raise', { boucle: false, fin: () => a.jouer(a.armeDef.idle) });
+  UI.toast(`${R.r} ! ${nom} répond à ton pacte · prochain : ${UI.abrege ? UI.abrege(coutPacte()) : coutPacte()} pièces`, R.k >= 1.7);
+  return true;
+}
 function estPassant(e) { return !ennemis.includes(e) && (bots.includes(e) || (taverne && taverne.clients.includes(e))); }
 function basculerAgression() {
   G.agression = !G.agression; const b = $('#btnAggro'); if (b) b.classList.toggle('actif', G.agression);
@@ -3702,7 +3750,7 @@ function rangerArmes(ranger = !joueur.rangee) {
   const b = $('#btnArmes'); if (b) b.classList.toggle('actif', ranger);
 }
 // ---------------- Sorts par signes ----------------
-const COUL_SIGNE = { epee: '#ffd27a', arbalete: '#9aff7a', baton: '#ff8a3a', ombre: '#b07aff', orage: '#7ab8ff', assassin: '#ff4a5a', demon: '#ff1a2a' };
+const COUL_SIGNE = { epee: '#ffd27a', arbalete: '#9aff7a', baton: '#ff8a3a', ombre: '#b07aff', orage: '#7ab8ff', assassin: '#ff4a5a', demon: '#ff1a2a', invocateur: '#ffe08a' };
 G.gestes = false; // sorts par signes retirés : boutons classiques
 function ralenti(duree, k) { if (G._parOmbre) return; G.ralentiT = Math.max(G.ralentiT || 0, duree); G.ralentiK = k; }
 function cibleEcran(x, y, rayon) {
@@ -4120,7 +4168,7 @@ const API = {
   enchanter: (id) => enchanter(id),
   acheterRunes: (n) => { const prix = 5000 * n; if (J.argent < prix) { UI.toast('Pas assez d’argent'); son('error_001', 0.4); return false; } J.argent -= prix; ajouterSac(creerButin('rune', n), true); son('handleCoins', 0.5); sauver(); return true; },
   nbRunes: () => J.sac.filter(i => i.cat === 'butin' && i.type === 'rune').reduce((a, i) => a + (i.n || 1), 0),
-  raresDebloques: () => ['ombre', 'orage', 'assassin', 'esprit', 'demon'].filter(t => (t === 'ombre' && J.codes && J.codes.includes('BRECHE-OMBRE')) || J.equip.arme?.type === t || J.sac.some(i => i.type === t) || (J.debloques || []).includes(t)),
+  raresDebloques: () => ['ombre', 'orage', 'assassin', 'esprit', 'demon', 'invocateur'].filter(t => (t === 'ombre' && J.codes && J.codes.includes('BRECHE-OMBRE')) || J.equip.arme?.type === t || J.sac.some(i => i.type === t) || (J.debloques || []).includes(t)),
   ombreDebloquee: () => !!((J.codes && J.codes.length) || J.equip.arme?.type === 'ombre' || J.sac.some(i => i.type === 'ombre')),
   acheterIle: (type, taille) => acheterIle(type, taille),
   allerIle: (id) => { const ile = iles().find(i => i.id === id); if (ile) entrerIle(ile); },
@@ -4667,7 +4715,7 @@ function habitOmbre(a, def) {
   def.legs.forEach(l => a.teinter(l, '#1c1428', 0.75, 0));
 }
 // puissance réelle du joueur : dégâts par seconde (attaque + sorts + bonus de classe) et vie effective (vie / part de dégâts encaissés)
-const BONUS_CLASSE = { demon: 1.5, orage: 1.7, ombre: 1.45, assassin: 1.4, arc: 1.3 }; // classes à invocations / zone : plus fortes que leur fiche
+const BONUS_CLASSE = { invocateur: 1.5, demon: 1.5, orage: 1.7, ombre: 1.45, assassin: 1.4, arc: 1.3 }; // classes à invocations / zone : plus fortes que leur fiche
 function puissanceReelleJoueur() {
   const st = joueur && joueur.st || statsJoueur(); const type = (J.equip.arme || {}).type || 'epee';
   let sorts = 0; for (const k of ['Q', 'W', 'E']) { const s = joueur && joueur.sorts && joueur.sorts[k]; if (s && s.mult && s.cd) sorts += s.mult / Math.max(2, s.cd); }
@@ -7302,7 +7350,7 @@ function dissiper(a) {
 }
 
 // accès de débogage (console)
-window.__jeu = { get modeActuel() { return modeActuel; }, demon: () => basculerDemon(), code: (c) => utiliserCode(c), get J() { return J; }, entrerTerres: () => entrerTerres(), entrerAncestrales: (e) => entrerAncestrales(e), get terres() { return terres; }, dbgAggro: () => { const c = choisirCible(joueur.st.portee); return [c ? c.nom : null, passantsProches().length, G.agression]; }, domaineTest: (n = 4) => { if (!J.domaine) J.domaine = { niveau: n, serviteurs: [], tresor: 0, maj: Date.now(), graine: 7, journal: [] }; J.domaine.niveau = n; if (!iles().length) J.iles = J.iles || []; return entrerDomaine(); }, bilan: () => MODES.map(m => {
+window.__jeu = { get modeActuel() { return modeActuel; }, demon: () => basculerDemon(), pacte: () => pacteInvocation(), transfert: () => transfert(), code: (c) => utiliserCode(c), get J() { return J; }, entrerTerres: () => entrerTerres(), entrerAncestrales: (e) => entrerAncestrales(e), get terres() { return terres; }, dbgAggro: () => { const c = choisirCible(joueur.st.portee); return [c ? c.nom : null, passantsProches().length, G.agression]; }, domaineTest: (n = 4) => { if (!J.domaine) J.domaine = { niveau: n, serviteurs: [], tresor: 0, maj: Date.now(), graine: 7, journal: [] }; J.domaine.niveau = n; if (!iles().length) J.iles = J.iles || []; return entrerDomaine(); }, bilan: () => MODES.map(m => {
     const eq = genererEquipRival(m.ipConseil, 'epee'), niv = nivBot(eq), st = statsHeros(eq, niv), dps = st.degats * st.vitesseAtk * (1 + st.crit / 200);
     const mob = creerEnnemi(MOBS.guerrier, V(900, 0, 900), m.mobTier, -9), mi = creerEnnemi(MOBS.minion, V(900, 0, 900), m.mobTier, -9), b = creerBoss(BOSS[0], V(905, 0, 905), m.bossTier[0], null), b3 = creerBoss(BOSS[3], V(905, 0, 905), m.bossTier[3], null);
     const r = { mode: m.lieu, ip: m.ipConseil, niv, pv: Math.round(st.pvMax), dps: Math.round(dps), red: +st.reduction.toFixed(2), ttkMinion: +(mi.pvMax / dps).toFixed(1), ttkGuerrier: +(mob.pvMax / dps).toFixed(1), ttkBoss1: Math.round(b.pvMax / dps), ttkBoss4: Math.round(b3.pvMax / dps), coupsGuerrierPourMourir: +(st.pvMax / (mob.dmg * (1 - st.reduction))).toFixed(1), coupsBossPourMourir: +(st.pvMax / (b.dmg * (1 - st.reduction))).toFixed(1) };

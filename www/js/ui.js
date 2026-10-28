@@ -46,6 +46,7 @@ const GLYPHES = {
   epee: '<path d="M80 12 L88 20 L46 62 L38 54 Z"/><path d="M30 50 L50 70 L44 76 L24 56 Z"/><path d="M36 64 L20 80 L26 86 L42 70 Z"/><circle cx="18" cy="84" r="5"/>',
   arbalete: '<path d="M14 40 C40 24 60 24 86 40 L84 46 C60 32 40 32 16 46 Z"/><path d="M47 30 h6 v56 h-6 z"/><path d="M50 26 L56 36 L44 36 Z"/><path d="M16 44 L50 60 L84 44" stroke="#fff" stroke-width="2" fill="none"/>',
   baton: '<path d="M30 90 L62 34 L68 37 L36 93 Z"/><circle cx="68" cy="26" r="12"/><path d="M68 8 C74 16 80 18 78 26 C76 34 60 34 58 26 C58 20 64 18 68 8 Z" fill="#ffd27a"/>',
+  invocateur: '<path d="M30 90 L62 34 L68 37 L36 93 Z"/><circle cx="68" cy="26" r="12"/><path d="M68 8 C74 16 80 18 78 26 C76 34 60 34 58 26 C58 20 64 18 68 8 Z" fill="#ffd27a"/>',
   potion: '<path d="M40 10 h20 v8 h-4 v14 C70 38 78 50 78 62 C78 80 66 90 50 90 C34 90 22 80 22 62 C22 50 30 38 44 32 V18 h-4 z"/><path d="M28 62 C34 58 44 66 50 62 C58 58 66 62 72 60 C72 76 62 84 50 84 C38 84 28 76 28 62 Z" fill="#ff3a4a"/>',
   cible: '<circle cx="50" cy="50" r="28" fill="none" stroke="#fff" stroke-width="7"/><path d="M50 8 V30 M50 70 V92 M8 50 H30 M70 50 H92" stroke="#fff" stroke-width="7"/><circle cx="50" cy="50" r="6"/>',
 };
@@ -1514,7 +1515,7 @@ UI.rapport = (titre, lignes) => {
 };
 
 // ---------------- Sanctuaire d'Émeraude ----------------
-const COUL_CLASSE = { epee: '#ff6a5a', arbalete: '#5aff9a', baton: '#ffab3a', ombre: '#b07aff', arc: '#ff3a3a', orage: '#7ab8ff', assassin: '#ff5a6a', esprit: '#c08aff', demon: '#ff2a3a' };
+const COUL_CLASSE = { epee: '#ff6a5a', arbalete: '#5aff9a', baton: '#ffab3a', ombre: '#b07aff', arc: '#ff3a3a', orage: '#7ab8ff', assassin: '#ff5a6a', esprit: '#c08aff', demon: '#ff2a3a', invocateur: '#ffe08a' };
 const fmtK = (n) => n >= 1e6 ? (n / 1e6).toFixed(2).replace('.', ',') + ' M' : n >= 1e4 ? (n / 1e3).toFixed(1).replace('.', ',') + ' k' : fmt(n);
 const fmtT = (s) => `${Math.floor(s / 60)} min ${String(Math.floor(s % 60)).padStart(2, '0')}`;
 UI.rechercheGroupe = (membres, cb) => {
