@@ -363,10 +363,12 @@ function creerBots() {
     G.scene.add(a.root);
     Object.assign(a, { pos: a.root.position, nom, etat: 'idle', timer: rnd(0, 4), cible: null, vitesse: rnd(1.8, 2.6), hauteurPlaque: 2.55, angle: a.root.rotation.y });
     a.jouer(Math.random() < 0.25 ? 'Sit_Floor_Idle' : 'Idle');
-    UI.plaque(a, { nom, guilde: a.data.guilde, classe: 'allie', vie: false, ip: a.data.ip, niv: a.data.niv });
+    UI.plaque(a, { nom, guilde: a.data.guilde, classe: 'allie joueur', vie: false, ip: a.data.ip, niv: a.data.niv });
     bots.push(a);
   }
 }
+const DISCUSSIONS = ['t’as drop quoi ?', 'mdr', 'on fait la crypte ?', 'ce boss est cheat', 'je suis full T6 bientôt', 'grp donjon ?', 'gg hier', 'quelqu’un a un heal ?', 'non jsuis à court d’argent', 'trop bien ce stuff', 'j’arrive 2 min', 'on part en terres ancestrales ?', 'ouais', 'attends je vends', 'il est fort lui', 'ma guilde recrute', 'xD', 'jsuis mort 3 fois', 'go arène', 'regarde mon arme'];
+const SALUTS_JOUEUR = ['salut {n} !', 'yo {n}', 'joli stuff {n}', '{n} tu viens en donjon ?', 'c’est toi {n} de CROW ZERO ?', 'wesh {n}', 'gg pour l’arène {n}'];
 function majBots(dt) {
   emoteHubT -= dt;
   if (emoteHubT <= 0) {
@@ -384,16 +386,32 @@ function majBots(dt) {
       b.etat = 'idle'; b.timer = 2; b.maj(dt); continue;
     }
     if (majVieBot(b, dt)) { if (!b.mort && joueur && b.pos.distanceTo(joueur.pos) < 45) b.maj(dt); continue; }
-    if (b.etat === 'idle' && b.timer <= 0 && Math.random() < 0.55) { const dst = destinationBot(b); if (dst) { b.but = dst; b.etat = 'but'; continue; } }
-    if (b.etat === 'idle' && b.timer <= 0) {
-      const r = Math.random();
-      if (r < 0.65) { let p; let n = 0; do { p = V(rnd(-24, 22), 0, rnd(-20, 20)); } while (!libre(p.x, p.z, 0.6) && ++n < 20); b.cible = p; b.etat = 'marche'; b.jouer(Math.random() < 0.3 ? 'Running_A' : 'Walking_A'); b.course = b.courante === b.actions.Running_A; }
-      else if (r < 0.8) { b.jouer('Cheer', { boucle: false, fin: () => b.jouer('Idle') }); b.timer = rnd(3, 6); }
-      else if (r < 0.9) { b.jouer('Sit_Floor_Idle'); b.timer = rnd(8, 16); }
-      else { b.jouer('Idle'); b.timer = rnd(3, 8); }
+    if (b.etat === 'idle' && b.timer <= 0 && Math.random() < 0.4) { const dst = destinationBot(b); if (dst) { b.but = dst; b.etat = 'but'; continue; } }
+    if (b.etat === 'parle') { // en discussion : face au groupe, gestes, quelques phrases
+      if (b.timer <= 0 || !b.cercle || b.cercle.fin < G.t) { b.etat = 'idle'; b.timer = rnd(0.5, 2); b.cercle = null; b.jouer('Idle'); }
+      else { b.angle = tourner(b.angle, Math.atan2(b.cercle.x - b.pos.x, b.cercle.z - b.pos.z), dt * 6); b.root.rotation.y = b.angle;
+        if (Math.random() < dt / 7) { b.jouer(Math.random() < 0.5 ? 'Interact' : 'Cheer', { boucle: false, fin: () => b.jouer('Idle') }); if (joueur && dist2D(b.pos, joueur.pos) < 18) UI.parole(b, hasard(DISCUSSIONS)); } }
+    } else if (b.etat === 'idle' && b.timer <= 0) {
+      const r = Math.random(); b.cercle = null; b.voirJoueur = false;
+      const allerA = (p, course) => { b.cible = p; b.etat = 'marche'; b.course = course; b.jouer(course ? 'Running_A' : 'Walking_A'); };
+      const pointLibre = () => { let p, n = 0; do { p = V(rnd(-26, 24), 0, rnd(-22, 22)); } while ((!libre(p.x, p.z, 0.6) || bots.some(o => o !== b && dist2D(o.pos, p) < 2.5)) && ++n < 25); return p; };
+      if (r < 0.42) allerA(pointLibre(), Math.random() < 0.72); // les vrais joueurs courent presque tout le temps
+      else if (r < 0.58) { // rejoindre ou lancer une discussion à 2-4
+        const c = bots.find(o => o !== b && o.cercle && o.cercle.fin > G.t + 6 && o.cercle.n < 4 && dist2D(o.pos, b.pos) < 20);
+        if (c) { const C = c.cercle; C.n++; const a = C.a0 + C.n * 6.283 / 4 + rnd(-0.3, 0.3); b.cercle = C; allerA(V(C.x + Math.cos(a) * 1.7, 0, C.z + Math.sin(a) * 1.7), dist2D(b.pos, C) > 6); }
+        else { const p = pointLibre(); b.cercle = { x: p.x, z: p.z, a0: rnd(0, 6.283), n: 0, fin: G.t + rnd(18, 40) }; allerA(V(p.x + Math.cos(b.cercle.a0) * 1.7, 0, p.z + Math.sin(b.cercle.a0) * 1.7), Math.random() < 0.6); }
+      }
+      else if (r < 0.64 && joueur && dist2D(b.pos, joueur.pos) < 26) { const a = rnd(0, 6.283); b.voirJoueur = true; allerA(V(joueur.pos.x + Math.cos(a) * 3.2, 0, joueur.pos.z + Math.sin(a) * 3.2), true); }
+      else if (r < 0.72) { b.jouer('Idle'); b.timer = rnd(20, 55); } // AFK, téléphone à la main
+      else if (r < 0.8) { b.jouer('Sit_Floor_Idle'); b.timer = rnd(10, 25); }
+      else if (r < 0.86) { b.jouer('Cheer', { boucle: false, fin: () => b.jouer('Idle') }); b.timer = rnd(3, 6); }
+      else { b.jouer('Idle'); b.timer = rnd(2, 6); b.angle += rnd(-1.5, 1.5); b.root.rotation.y = b.angle; }
     } else if (b.etat === 'marche') {
       const d = dist2D(b.pos, b.cible);
-      if (d < 0.5) { b.etat = 'idle'; b.timer = rnd(2, 7); b.jouer('Idle'); continue; }
+      if (d < 0.5) {
+        if (b.cercle) { b.etat = 'parle'; b.timer = b.cercle.fin - G.t; b.jouer('Idle'); continue; }
+        if (b.voirJoueur && joueur) { b.voirJoueur = false; b.angle = Math.atan2(joueur.pos.x - b.pos.x, joueur.pos.z - b.pos.z); b.root.rotation.y = b.angle; b.jouer('Cheer', { boucle: false, fin: () => b.jouer('Idle') }); UI.parole(b, hasard(SALUTS_JOUEUR).replace('{n}', J.nom)); b.etat = 'idle'; b.timer = rnd(3, 7); continue; }
+        b.etat = 'idle'; b.timer = Math.random() < 0.5 ? rnd(0.2, 1.5) : rnd(3, 8); b.jouer('Idle'); continue; }
       const dir = V(b.cible.x - b.pos.x, 0, b.cible.z - b.pos.z).normalize();
       const v = (b.course ? 4.8 : b.vitesse) * dt;
       const nx = b.pos.x + dir.x * v, nz = b.pos.z + dir.z * v;
@@ -4633,7 +4651,7 @@ function creerCombattant(pos, data, camp = 'ennemi') {
   // en JcJ (arène, Goulet, invasions, coéquipiers) : force réelle calée sur celle du joueur
   if (!data.sansRecalage) { a.pvMax = Math.round(st.pvMax); a.dmg = st.degats * 1.05; recalerBot(a, camp); }
   a.jouer('Cheer', { boucle: false, fin: () => a.jouer(def.idle) });
-  UI.plaque(a, { nom: data.nom, guilde: data.guilde, classe: camp === 'ennemi' ? 'rival' : 'allie', ip: a.ip, niv: data.niv, vie: true });
+  UI.plaque(a, { nom: data.nom, guilde: data.guilde, classe: (camp === 'ennemi' ? 'rival' : 'allie') + ' joueur', ip: a.ip, niv: data.niv, vie: true });
   if (camp === 'ennemi') { a.skill = data.skill ?? rnd(0.35, 0.8); a.specFacteur = 0.7 + a.skill * 0.6; }
   if (camp === 'ennemi') ennemis.push(a); else allies.push(a);
   return a;
@@ -5598,11 +5616,14 @@ const PHRASES_RETOUR = ['coffre violet !!', 'le dragon m’a eu…', 'facile ce 
 function destinationBot(b) {
   const r = Math.random();
   const devant = (p, d = 4.5) => { const v = p.clone().setY(0); return v.addScaledVector(v.clone().negate().normalize(), d); };
-  if (r < 0.18 && marchand) return { type: 'marchand', p: marchand.pos.clone().add(V(2.4, 0, 2.4)) };
-  if (r < 0.32) return { type: 'portail', p: devant(monde.portail.pos), porte: monde.portail.pos };
-  if (r < 0.42) return { type: 'portail', p: devant(monde.portailArene.pos), porte: monde.portailArene.pos };
-  if (r < 0.50) return { type: 'portail', p: devant(monde.portailIle.pos, 2.5), porte: monde.portailIle.pos };
-  if (r < 0.58) return { type: 'fontaine', p: V(Math.cos(r * 40) * 3.6, 0, Math.sin(r * 40) * 3.6) };
+  const autour = (p, r0, r1) => { const a = rnd(0, 6.283), d = rnd(r0, r1); return p.clone().add(V(Math.cos(a) * d, 0, Math.sin(a) * d)); };
+  const ecart = (p) => { const q = p.clone(); q.x += rnd(-2.6, 2.6); q.z += rnd(-2.6, 2.6); return q; };
+  const occupe = (p) => bots.some(o => o !== b && o.but && dist2D(o.but.p, p) < 1.4);
+  if (r < 0.12 && marchand) { let p, n = 0; do { p = autour(marchand.pos, 2.2, 4.2); } while ((occupe(p) || !libre(p.x, p.z, 0.6)) && ++n < 12); if (n < 12) return { type: 'marchand', p }; return null; }
+  if (r < 0.26) return { type: 'portail', p: ecart(devant(monde.portail.pos)), porte: monde.portail.pos };
+  if (r < 0.36) return { type: 'portail', p: ecart(devant(monde.portailArene.pos)), porte: monde.portailArene.pos };
+  if (r < 0.44) return { type: 'portail', p: ecart(devant(monde.portailIle.pos, 2.5)), porte: monde.portailIle.pos };
+  if (r < 0.5) { const a = rnd(0, 6.283); const p = V(Math.cos(a) * 3.6, 0, Math.sin(a) * 3.6); if (!occupe(p)) return { type: 'fontaine', p }; }
   return null;
 }
 function majVieBot(b, dt) {
@@ -5932,7 +5953,7 @@ function trahir(a) {
     if (a.mort || !allies.includes(a)) return;
     allies.splice(allies.indexOf(a), 1); ennemis.push(a);
     Object.assign(a, { camp: 'ennemi', rival: true, autonome: false, potions: 2, tc: joueur, specT: 1, chasseur: true });
-    UI.retirerPlaque(a); UI.plaque(a, { nom: a.nom, guilde: a.guilde, classe: 'rival', ip: a.ip, niv: a.data && a.data.niv, vie: true });
+    UI.retirerPlaque(a); UI.plaque(a, { nom: a.nom, guilde: a.guilde, classe: 'rival joueur', ip: a.ip, niv: a.data && a.data.niv, vie: true });
     if (groupe && groupe.nom === a.nom) groupe = null;
     invasion = invasion && !invasion.fini ? invasion : { mode: 'subie', t: 0, rival: null, rivaux: [] };
     invasion.rivaux = [...(invasion.rivaux || []), a]; invasion.rival = invasion.rival && !invasion.rival.mort ? invasion.rival : a; invasion.revealT = 10; invasion.revele = 0;
@@ -6583,7 +6604,7 @@ const ipAffiche = () => J.dissimule ? Math.max(100, Math.round(ipReel() * 0.3)) 
 function majAffichagePuissance() {
   if (!joueur) return;
   UI.retirerPlaque(joueur);
-  const tR = titreRenom(); joueur.estJoueur = true; UI.plaque(joueur, { nom: J.nom, guilde: 'CROW ZERO' + (tR.i ? ` · <span class="titreR" style="color:${tR.c}">${tR.nom}</span>` : ''), classe: 'allie' + (J.dissimule ? ' dissimule' : ''), vie: false, ip: ipAffiche() });
+  const tR = titreRenom(); joueur.estJoueur = true; UI.plaque(joueur, { nom: J.nom, guilde: 'CROW ZERO' + (tR.i ? ` · <span class="titreR" style="color:${tR.c}">${tR.nom}</span>` : ''), classe: 'allie joueur moi' + (J.dissimule ? ' dissimule' : ''), vie: false, ip: ipAffiche() });
   $('#ipHud').textContent = `Niv. ${niveauHeros(J.equip)} · ⚔ ${J.dissimule ? ipAffiche() + ' ?' : ipReel()}`;
   UI.boutonReveler(!!J.dissimule, () => revelerPuissance());
 }
@@ -6635,7 +6656,7 @@ function creerClient(data, pos, angle) {
   a.root.position.copy(pos); a.root.rotation.y = angle; G.scene.add(a.root);
   Object.assign(a, { pos: a.root.position, angle, nom: data.nom, data, ip: data.ip, client: true, hauteurPlaque: 2.55, dest: null, ligneT: rnd(3, 12) });
   a.jouer('Idle');
-  UI.plaque(a, { nom: data.nom, guilde: data.guilde, classe: 'allie', vie: false, ip: data.ip, niv: data.niv });
+  UI.plaque(a, { nom: data.nom, guilde: data.guilde, classe: 'allie joueur', vie: false, ip: data.ip, niv: data.niv });
   return a;
 }
 function entrerTaverne() {
