@@ -21,7 +21,9 @@ const CLE = 'breche-ecarlate-v1';
 // sauvegarde groupée : au plus une écriture toutes les 1,5 s (l’écriture disque fait des micro-freezes sur Android)
 let sauverT = null, efface = false;
 function sauverMaintenant() { if (efface) return; if (sauverT) { clearTimeout(sauverT); sauverT = null; } try { localStorage.setItem(CLE, JSON.stringify(J)); } catch (e) {} }
-function sauver() { if (!sauverT) sauverT = setTimeout(sauverMaintenant, 6000); }
+function sauver() { if (sauverT) return; let essais = 0;
+  const go = () => { if (G.enCombat && ++essais < 6) { sauverT = setTimeout(go, 5000); return; } if (window.requestIdleCallback) requestIdleCallback(sauverMaintenant, { timeout: 3000 }); else sauverMaintenant(); };
+  sauverT = setTimeout(go, 12000); }
 addEventListener('pagehide', sauverMaintenant); document.addEventListener('visibilitychange', () => { try { if (G.audio) document.hidden ? G.audio.suspend() : G.audio.resume(); } catch (e) {} musiquePause(document.hidden); }); document.addEventListener('visibilitychange', () => { if (document.hidden) sauverMaintenant(); });
 function charger() { try { const s = localStorage.getItem(CLE); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
 function nouvellePartie(nom, arme) {
@@ -369,6 +371,8 @@ function creerBots() {
 }
 const DISCUSSIONS = ['t’as drop quoi ?', 'mdr', 'on fait la crypte ?', 'ce boss est cheat', 'je suis full T6 bientôt', 'grp donjon ?', 'gg hier', 'quelqu’un a un heal ?', 'non jsuis à court d’argent', 'trop bien ce stuff', 'j’arrive 2 min', 'on part en terres ancestrales ?', 'ouais', 'attends je vends', 'il est fort lui', 'ma guilde recrute', 'xD', 'jsuis mort 3 fois', 'go arène', 'regarde mon arme'];
 const SALUTS_JOUEUR = ['salut {n} !', 'yo {n}', 'joli stuff {n}', '{n} tu viens en donjon ?', 'c’est toi {n} de CROW ZERO ?', 'wesh {n}', 'gg pour l’arène {n}'];
+// un bot qui ne se rapproche plus de sa destination depuis 2,5 s abandonne (au lieu de glisser/gigoter sur place)
+function coinceBot(b, d, dt) { if (b._dMin == null || d < b._dMin - 0.4) { b._dMin = d; b._coinceT = 0; return true; } b._coinceT = (b._coinceT || 0) + dt; if (b._coinceT > 2.5) { b._dMin = null; b._coinceT = 0; return false; } return true; }
 function majBots(dt) {
   emoteHubT -= dt;
   if (emoteHubT <= 0) {
@@ -386,14 +390,14 @@ function majBots(dt) {
       b.etat = 'idle'; b.timer = 2; b.maj(dt); continue;
     }
     if (majVieBot(b, dt)) { if (!b.mort && joueur && b.pos.distanceTo(joueur.pos) < 45) b.maj(dt); continue; }
-    if (b.etat === 'idle' && b.timer <= 0 && Math.random() < 0.4) { const dst = destinationBot(b); if (dst) { b.but = dst; b.etat = 'but'; continue; } }
+    if (b.etat === 'idle' && b.timer <= 0 && Math.random() < 0.4) { const dst = destinationBot(b); if (dst) { b._dMin = null; b.but = dst; b.etat = 'but'; continue; } }
     if (b.etat === 'parle') { // en discussion : face au groupe, gestes, quelques phrases
       if (b.timer <= 0 || !b.cercle || b.cercle.fin < G.t) { b.etat = 'idle'; b.timer = rnd(0.5, 2); b.cercle = null; b.jouer('Idle'); }
       else { b.angle = tourner(b.angle, Math.atan2(b.cercle.x - b.pos.x, b.cercle.z - b.pos.z), dt * 6); b.root.rotation.y = b.angle;
         if (Math.random() < dt / 7) { b.jouer(Math.random() < 0.5 ? 'Interact' : 'Cheer', { boucle: false, fin: () => b.jouer('Idle') }); if (joueur && dist2D(b.pos, joueur.pos) < 18) UI.parole(b, hasard(DISCUSSIONS)); } }
     } else if (b.etat === 'idle' && b.timer <= 0) {
       const r = Math.random(); b.cercle = null; b.voirJoueur = false;
-      const allerA = (p, course) => { b.cible = p; b.etat = 'marche'; b.course = course; b.jouer(course ? 'Running_A' : 'Walking_A'); };
+      const allerA = (p, course) => { b._dMin = null; b.cible = p; b.etat = 'marche'; b.course = course; b.jouer(course ? 'Running_A' : 'Walking_A'); };
       const pointLibre = () => { let p, n = 0; do { p = V(rnd(-26, 24), 0, rnd(-22, 22)); } while ((!libre(p.x, p.z, 0.6) || bots.some(o => o !== b && dist2D(o.pos, p) < 2.5)) && ++n < 25); return p; };
       if (r < 0.42) allerA(pointLibre(), Math.random() < 0.72); // les vrais joueurs courent presque tout le temps
       else if (r < 0.58) { // rejoindre ou lancer une discussion à 2-4
@@ -414,8 +418,7 @@ function majBots(dt) {
         b.etat = 'idle'; b.timer = Math.random() < 0.5 ? rnd(0.2, 1.5) : rnd(3, 8); b.jouer('Idle'); continue; }
       const dir = V(b.cible.x - b.pos.x, 0, b.cible.z - b.pos.z).normalize();
       const v = (b.course ? 4.8 : b.vitesse) * dt;
-      const nx = b.pos.x + dir.x * v, nz = b.pos.z + dir.z * v;
-      if (libre(nx, nz, 0.5)) { b.pos.x = nx; b.pos.z = nz; } else { b.etat = 'idle'; b.timer = 1; b.jouer('Idle'); }
+      if (!coinceBot(b, d, dt) || !deplacer(b, dir.x * v, dir.z * v, 0.5)) { b.etat = 'idle'; b.timer = rnd(0.5, 1.5); b.cercle = null; b.voirJoueur = false; b.jouer('Idle'); continue; }
       b.angle = tourner(b.angle, Math.atan2(dir.x, dir.z), dt * 8); b.root.rotation.y = b.angle;
     }
     if (b.pos.distanceTo(joueur ? joueur.pos : ORBITE) < 45) b.maj(dt);
@@ -5654,6 +5657,7 @@ function majVieBot(b, dt) {
     } else { b.etat = 'idle'; b.timer = rnd(6, 14); b.jouer('Sit_Floor_Idle'); }
     return true;
   }
+  if (!coinceBot(b, d, dt)) { b.etat = 'idle'; b.timer = 1; b.but = null; b.jouer('Idle'); return true; }
   const dir = V(b.but.p.x - b.pos.x, 0, b.but.p.z - b.pos.z).normalize();
   const v = 4.6 * dt;
   if (!deplacer(b, dir.x * v, dir.z * v, 0.5)) { b.bloque = (b.bloque || 0) + dt; if (b.bloque > 2) { b.etat = 'idle'; b.timer = 1; b.bloque = 0; b.jouer('Idle'); } }
