@@ -1946,6 +1946,31 @@ UI.choixTK = (f) => {
   el.onclick = (e) => { const b = e.target.closest('[data-c]'); if (b) { api.son('select_001', 0.4); f(b.dataset.c); } };
 };
 // atelier du domaine : forge et cuisine
+UI.autel = (etat, act) => {
+  let m = document.getElementById('dlgAutel'); if (m) m.remove();
+  m = document.createElement('div'); m.id = 'dlgAutel'; m.className = 'calque'; $('#jeu').appendChild(m); m.addEventListener('pointerdown', (e) => e.stopPropagation());
+  let choix = null;
+  const carte = (c, petit = false) => `<div class="carteP r${c.R.r[0]} ${c.ange ? 'ange' : 'dem'} ${c.n === 0 && c.n !== undefined ? 'vide' : ''} ${petit ? 'petite' : ''}" data-id="${c.id}">
+      <div class="art"><span>${c.ange ? '✦' : '♆'}</span></div><div class="nomC">${c.nom}</div><div class="rarC">${c.R.r}</div><div class="etoiles">${'★'.repeat(c.niv || 0)}${c.n > 1 ? ` <small>×${c.n}</small>` : ''}</div></div>`;
+  const rendu = () => { const E0 = etat(), byId = (id) => E0.cartes.find(c => c.id === id);
+    m.innerHTML = `<div class="boiteP"><button class="fermer" data-x>×</button><h2>Autel des pactes</h2>
+      <p class="sousP">¤ ${fmtCourt(E0.argent)} · légendaire garanti dans ${E0.pitie} tirages · le prix monte à chaque tirage (remise à zéro chaque jour)</p>
+      <div class="tirages"><button data-t="1">Tirer ×1<br><b>¤ ${fmtCourt(E0.c1)}</b></button><button data-t="10" class="dix">Tirer ×10<br><b>¤ ${fmtCourt(E0.c10)}</b><small>−10 % · 1 épique garantie</small></button></div>
+      <h3>Deck (3 cartes invoquées au combat)</h3><div class="deckP">${E0.deck.map((id, i) => `<div class="slot ${choix !== null ? 'pret' : ''}" data-s="${i}">${id ? carte({ ...byId(id) }, true) : '<span>+</span>'}</div>`).join('')}</div>
+      <h3>Collection ${choix ? '— touche un emplacement du deck' : '— touche une carte pour la placer'}</h3><div class="collP">${E0.cartes.map(c => carte(c)).join('')}</div></div>`;
+    m.querySelector('[data-x]').onclick = () => m.remove();
+    m.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { const r = act.tirer(+b.dataset.t); if (r) revele(r); });
+    m.querySelectorAll('.collP .carteP:not(.vide)').forEach(d => d.onclick = () => { choix = d.dataset.id; rendu(); });
+    m.querySelectorAll('.slot').forEach(d => d.onclick = () => { if (choix) { act.placer(+d.dataset.s, choix); choix = null; } else act.placer(+d.dataset.s, null); rendu(); });
+  };
+  const revele = (res) => {
+    const v = document.createElement('div'); v.className = 'revelation'; m.appendChild(v);
+    v.innerHTML = `<div class="grilleR ${res.length > 1 ? 'dix' : ''}">${res.map((c, i) => `<div class="dos" style="animation-delay:${i * 0.18}s"><div class="face">${carte({ ...c, n: 1 })}${c.nouveau ? '<em>NOUVEAU</em>' : c.monte ? `<em>★${c.niv} !</em>` : ''}</div></div>`).join('')}</div><p>Touche pour continuer</p>`;
+    const top = res.reduce((a, c) => c.R.k > a.R.k ? c : a); if (top.R.k >= 1.7) v.classList.add(top.R.k >= 3 ? 'flashL' : 'flashE');
+    v.onclick = () => { v.remove(); rendu(); };
+  };
+  rendu();
+};
 UI.atelier = (A, choisir) => {
   let m = document.getElementById('dlgAtelier'); if (m) m.remove();
   m = document.createElement('div'); m.id = 'dlgAtelier'; m.className = 'calque'; $('#jeu').appendChild(m); m.addEventListener('pointerdown', (e) => e.stopPropagation());
