@@ -383,7 +383,7 @@ function majBots(dt) {
   for (const b of bots) {
     if (b.tk || b.mort) { b.maj(dt); continue; }
     b.timer -= dt;
-    if (groupe && b.nom === groupe.nom && joueur) { // le coéquipier suit le joueur sur la place
+    if (false) { // (ancien : le coéquipier suivait le joueur sur la place)
       const d = dist2D(b.pos, joueur.pos);
       if (d > 3.2) { const dir = V(joueur.pos.x - b.pos.x, 0, joueur.pos.z - b.pos.z).normalize(); const v = (d > 7 ? 6.5 : 4.6) * dt; deplacer(b, dir.x * v, dir.z * v, 0.5); b.angle = tourner(b.angle, Math.atan2(dir.x, dir.z), dt * 10); b.root.rotation.y = b.angle; b.jouer('Running_A'); }
       else { const c = b.courante ? b.courante.getClip().name : ''; if (c === 'Running_A' || c === 'Walking_A' || c === 'Sit_Floor_Idle') b.jouer('Idle'); }
@@ -3352,7 +3352,7 @@ function chargerEtapeAnc(T, n) {
     construireJoueur(monde.spawn.clone()); joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax; G.camTarget.copy(joueur.pos);
     G.scene.background.set(n === 2 ? '#1a1a28' : '#0f2c34'); G.scene.fog.color.set(n === 2 ? '#2a2236' : '#1c4c54'); G.scene.fog.density = 0.011; G.hemi.color.set('#d8f0ff'); G.hemi.groundColor.set('#1a3a3a'); G.hemi.intensity = 1.5; G.sun.intensity = 1.7; G.sun.color.set('#fff4e0');
     // ton équipe (ceux qui ont survécu)
-    for (let i = 0; i < T.anc.coequipiers; i++) { const d = calerSurJoueur(donneesBot(statsHeros(J.equip).ip * rnd(0.9, 1.05), []), 3, 0); d.guilde = 'CROW ZERO'; creerCombattant(pointLibrePres(V(rnd(-4, 4), 0, monde.spawn.z - 2), 0, 3), d, 'allie').membreAncestral = true; }
+    for (let i = 0; i < T.anc.coequipiers; i++) { const d = calerSurJoueur(donneesBot(statsHeros(J.equip).ip * rnd(0.9, 1.05), []), 3, 0); d.guilde = 'CROW ZERO'; creerCombattant(pointLibrePres(V(rnd(-4, 4), 0, monde.spawn.z - 2), 0, 3), d, 'allie').membreAncestral = true; { const m = allies[allies.length - 1]; if (m) Object.assign(m, { autonome: true, perso: 'loyal', modeA: 'explorer', modeT: 20 }); } }
     // l'île grouille de monstres
     const types = ['minion', 'archer', 'guerrier', 'mage', 'cultiste', 'brute'];
     // packs de 2 à 3 monstres, bien espacés (E.monstres = nombre de packs)
@@ -5306,7 +5306,7 @@ function entrerIle(ile, opts = {}) {
     joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax;
     G.camTarget.copy(joueur.pos);
     G.scene.background.set('#8fb8d8'); G.scene.fog.color.set('#9cc2dc'); G.scene.fog.density = 0.006; G.hemi.intensity = 1.35; G.sun.intensity = 1.7; G.sun.color.set('#fff2d8');
-    if (groupe) creerCombattant(pointLibrePres(monde.spawn, 1.5, 3), groupe, 'allie');
+    if (groupe) Object.assign(creerCombattant(pointLibrePres(monde.spawn, 1.5, 3), groupe, 'allie'), { autonome: true, perso: 'loyal', modeA: 'explorer', modeT: 20 });
     // gardes de l'île : sur ton île ils te défendent, chez les autres ils défendent le coffre
     const ipJ = statsHeros(J.equip).ip;
     const postes = [[-5, 3], [3, -5], [-6, -6], [6, 6]];
@@ -5918,18 +5918,29 @@ const PHRASES_EXPLO = ['je vais clean à côté', 'je prends la salle là-bas', 
 function autonomieAllie(e, dt, dj) {
   if (allerLooter(e, dt)) return true;
   if (traitVivant(e, dt)) return true;
-  e.modeT -= dt;
-  if (e.modeT <= 0) {
-    e.modeT = rnd(18, 34);
-    const avant = e.modeA; e.modeA = e.trait === 'protecteur' ? 'suivre' : Math.random() < (e.trait === 'tranquille' ? 0.4 : 0.75) ? 'explorer' : 'suivre';
-    if (e.modeA !== avant) { if (e.modeA === 'explorer') { UI.chat(e.nom, hasard(PHRASES_EXPLO)); emoteBot(e, ['toi', 'feu', 'malin'], 0.3); } else if (dj > 15) UI.chat(e.nom, hasard(['j’arrive', 'attends-moi', 'je reviens vers toi'])); }
+  // il vient t'aider s'il te voit en difficulté ou en plein combat pas trop loin
+  const c = joueur.cible && !joueur.cible.mort ? joueur.cible : null;
+  if (c && dj < 32 && (joueur.pv < joueur.st.pvMax * 0.5 || (G.enCombat && (c.boss || dj < 20)))) {
+    if (e.modeA !== 'aider') { e.modeA = 'aider'; if (Math.random() < 0.5) UI.chat(e.nom, hasard(['j’arrive !', 'tiens bon', 'je t’aide', 'focus le gros', 'heal toi je tank'])); }
+    allerVers(e, c.pos, dt, e.st.vitesse * 1.05 * (e.vitTrait || 1)); e.jouer(e.armeDef.run); return true;
   }
-  if (e.modeA !== 'explorer') return false;
-  if (!e.objectif || e.objectif.mort || e.objectif.etat === 'chasse' && dist2D(e.objectif.pos, e.pos) > 30) {
-    e.objectif = choisirProie(e, x => !x.boss);
+  if (e.modeA === 'aider') e.modeA = 'explorer';
+  // il chasse ses propres monstres (pas ceux que tu tapes)
+  if (!e.objectif || e.objectif.mort || (e.objectif.etat === 'chasse' && dist2D(e.objectif.pos, e.pos) > 30)) {
+    e.objectif = choisirProie(e, x => !x.boss || dist2D(x.pos, joueur.pos) < 20);
+    if (e.objectif && Math.random() < 0.15) UI.chat(e.nom, hasard(PHRASES_EXPLO));
   }
-  if (!e.objectif) { e.modeA = 'suivre'; return false; }
-  allerVers(e, e.objectif.pos, dt, e.st.vitesse * 0.95 * (e.vitTrait || 1)); e.jouer(e.armeDef.run);
+  if (e.objectif) { allerVers(e, e.objectif.pos, dt, e.st.vitesse * 0.95 * (e.vitTrait || 1)); e.jouer(e.armeDef.run); return true; }
+  // plus rien à chasser : il se balade, fouille les coins, s'arrête de temps en temps
+  e.baladeT = (e.baladeT || 0) - dt;
+  if (!e.balade || e.baladeT <= 0 || dist2D(e.pos, e.balade) < 1.2) {
+    if (e.balade && dist2D(e.pos, e.balade) < 1.2 && !e.pause) { e.pause = rnd(1.5, 5); }
+    if (e.pause > 0) { e.pause -= dt; e.jouer(e.armeDef.idle); if (e.pause > 0) return true; }
+    e.pause = 0; e.baladeT = rnd(8, 16);
+    let p = null; for (let n = 0; n < 10 && !p; n++) { const q = pointLibrePres(Math.random() < 0.3 ? joueur.pos : e.pos, 6, 22); if (!monde.marche || monde.marche(q.x, q.z)) p = q; }
+    e.balade = p || pointLibrePres(e.pos, 2, 6);
+  }
+  allerVers(e, e.balade, dt, e.st.vitesse * 0.8); e.jouer(e.armeDef.run);
   return true;
 }
 function reactionApresBoss(a) {

@@ -606,7 +606,11 @@ const RANGS_FORTUNE = [
 ];
 UI.rangFortune = (v) => { let r = RANGS_FORTUNE[0]; for (const x of RANGS_FORTUNE) if (v >= x.min) r = x; return r; };
 const BOURSE = { vu: null, cible: 0, rang: null, tick: 0 };
-const fmtB = (n) => fmt(n).replace(/[\u202f\u00a0]/g, ' ');
+// argent abrégé : 950 · 12,4 k · 4,02 M · 4,02 Mld · 1,5 Bn (3 chiffres significatifs, toujours court)
+const ABREV = [[1e15, 'Bd'], [1e12, 'Bn'], [1e9, 'Mld'], [1e6, 'M'], [1e3, 'k']];
+const abrege = (n) => { n = Math.round(n); const a = Math.abs(n); for (const [v, u] of ABREV) if (a >= v) { const x = n / v; return x.toLocaleString('fr-FR', { maximumFractionDigits: Math.abs(x) < 10 ? 2 : Math.abs(x) < 100 ? 1 : 0 }) + ' ' + u; } return String(n); };
+UI.abrege = abrege;
+const fmtB = (n) => abrege(n).replace(/[\u202f\u00a0]/g, ' ');
 UI.majBourse = (v) => {
   BOURSE.cible = v;
   if (BOURSE.vu === null) { BOURSE.vu = v; txt(E('argentTxt'), fmtB(v)); }
@@ -1390,7 +1394,7 @@ export function iconeModele(cle) {
 const RES_ICO = { bois: 'Wood_Log_Stack', minerai: 'Iron_Nuggets', recolte: 'proc_citrouille' };
 const RES_NOM = { bois: 'Bois', minerai: 'Minerai', recolte: 'Récoltes' };
 const ICO_TYPE = { bois: 'Tree_1_A', mine: 'Gold_Nuggets', cueillette: 'proc_baies' };
-const fmtCourt = (n) => n >= 1e6 ? (n / 1e6).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' M' : n >= 1e3 ? Math.round(n / 1e3).toLocaleString('fr-FR') + ' k' : fmt(n);
+const fmtCourt = (n) => abrege(n);
 function dans(ts) { const m = Math.max(0, Math.round((ts - Date.now()) / 60000)); return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m} min`; }
 function ouvrir(id) { const p = $(id); p.hidden = false; p.onclick = (e) => { if (e.target === p) p.hidden = true; }; return p; }
 
