@@ -2007,7 +2007,7 @@ export function construireIleAnc({ r = 60, biome = 'foret', etape = 1, graine = 
     tc.wrapS = tc.wrapT = THREE.RepeatWrapping; tc.repeat.set(1, 2);
     const ch = new THREE.Mesh(new THREE.PlaneGeometry(3, -NIV_MER + 0.6), new THREE.MeshBasicMaterial({ map: tc, transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide }));
     ch.position.set(chute.x + chute.ux * 0.8, NIV_MER / 2 - 0.1, chute.z + chute.uz * 0.8); ch.rotation.y = Math.atan2(chute.ux, chute.uz); groupe.add(ch);
-    G.anims.push((t, dt) => { tc.offset.y += (dt || 0.016) * 1.4; if (Math.random() < 0.35) emettre(new THREE.Vector3(chute.x + chute.ux * 1.2, NIV_MER + 0.3, chute.z + chute.uz * 1.2), { n: 1, c1: '#ffffff', c2: '#9ad8ff', vit: 2.5, vie: 1, taille: 0.6, grav: 2, monte: 2 }); }); }
+    G.anims.push((t, dt) => { tc.offset.y += (dt || 0.016) * 1.4; if (Math.random() < (dt || 0.016) * 12) emettre(new THREE.Vector3(chute.x + chute.ux * 1.2, NIV_MER + 0.3, chute.z + chute.uz * 1.2), { n: 1, c1: '#ffffff', c2: '#9ad8ff', vit: 2.5, vie: 1, taille: 0.6, grav: 2, monte: 2 }); }); }
   // puits anciens : vasques de pierre où brille une eau bleue (comme les sources des Terres Ancestrales)
   const texPuits = texture('puitsAnc', 4, 64, (g, w, hh) => { const d = g.createLinearGradient(0, 0, 0, hh); d.addColorStop(0, 'rgba(255,255,255,0)'); d.addColorStop(0.7, 'rgba(255,255,255,0.35)'); d.addColorStop(1, 'rgba(255,255,255,0.8)'); g.fillStyle = d; g.fillRect(0, 0, w, hh); });
   const vasque = (x, z, k = 1) => { k *= 1.35; const h = hauteur(x, z);
@@ -2033,6 +2033,7 @@ export function construireIleAnc({ r = 60, biome = 'foret', etape = 1, graine = 
   const lieux = [];
   for (let e = 0; e < 300 && lieux.length < 4; e++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * r * 0.75, x = Math.cos(a) * d, z = Math.sin(a) * d;
     if (!dansIle(x, z, 7) || !loin(x, z, 2) || terrasses.some(Tt => Math.hypot(Tt.x - x, Tt.z - z) < Tt.R + 6) || lieux.some(L => Math.hypot(L.x - x, L.z - z) < 18)) continue; lieux.push({ x, z }); }
+  const libreDeco = (x, z, m = 0) => Math.hypot(x - bossC.x, z - bossC.z) > 12.5 + m && Math.hypot(x - portail.x, z - portail.z) > 6.5 + m && Math.hypot(x - spawn.x, z - spawn.z) > 7 + m && !lieux.some(L => Math.hypot(L.x - x, L.z - z) < 6 + m) && hauteur(x, z) > -0.05;
   lieux.forEach((L, i) => { vasque(L.x, L.z, 1); if (i % 2 === 0) steles(L.x, L.z, 5, 4.6, 2.6); });
   const chemin = (A, B) => { const L = Math.hypot(B.x - A.x, B.z - A.z); for (let t = 0; t < L; t += R(2.6, 3.6)) { const x = A.x + (B.x - A.x) * t / L + R(-0.8, 0.8), z = A.z + (B.z - A.z) * t / L + R(-0.8, 0.8), h = hauteur(x, z);
     if (h < -0.3 || h > 0.7) continue; const k = R(0.38, 0.62); poser('dalle', x, h + 0.02, z, k, 0.16, k * R(0.8, 1.1), rng() * 6, null); } };
@@ -2053,8 +2054,8 @@ export function construireIleAnc({ r = 60, biome = 'foret', etape = 1, graine = 
   // la végétation : arbres-coraux rouges en bosquets, tapis de trèfles, petites fleurs bleues lumineuses, herbes hautes
   for (let k = 0; k < Math.round(r * 0.55); k++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * r, x = Math.cos(a) * d, z = Math.sin(a) * d, h = hauteur(x, z);
     if (!dansIle(x, z, 4) || h < 0 || h > 0.8 || !loin(x, z, 0) || lieux.some(L => Math.hypot(L.x - x, L.z - z) < 6)) continue;
-    const n = 1 + Math.floor(rng() * 3); for (let i = 0; i < n; i++) { const px = x + R(-3, 3), pz = z + R(-3, 3); if (hauteur(px, pz) < 0) continue; arbre(px, pz, R(1.3, 1.8)); collisions.push({ x: px, z: pz, r: 0.9 }); }
-    for (let i = 0; i < 3; i++) buisson(x + R(-4, 4), z + R(-4, 4), R(1, 1.6)); }
+    const n = 1 + Math.floor(rng() * 3); for (let i = 0; i < n; i++) { const px = x + R(-3, 3), pz = z + R(-3, 3); if (!libreDeco(px, pz, 1.5) || hauteur(px, pz) > 0.8) continue; arbre(px, pz, R(1.3, 1.8)); collisions.push({ x: px, z: pz, r: 0.9 }); }
+    for (let i = 0; i < 3; i++) { const bx = x + R(-4, 4), bz = z + R(-4, 4); if (libreDeco(bx, bz) && hauteur(bx, bz) < 0.8) buisson(bx, bz, R(1, 1.6)); } }
   for (let k = 0; k < Math.round(r * 1.1); k++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * r, x = Math.cos(a) * d, z = Math.sin(a) * d; if (!dansIle(x, z, 3) || Math.hypot(x - bossC.x, z - bossC.z) < 8.5) continue; trefles(x, z, 16 + Math.floor(rng() * 14)); }
   for (let k = 0; k < r * 2.6; k++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * r, x = Math.cos(a) * d, z = Math.sin(a) * d, h = hauteur(x, z); if (!dansIle(x, z, 3) || h < -0.1 || h > 0.6) continue;
     const p = rng(); if (p < 0.35) poser('fleur', x, h + 0.25, z, 0.1, 0.18, 0.1, rng(), hasardF(['#8ad8ff', '#6ab0ff', '#b8a0ff'], rng)); else if (p < 0.75) for (let i = 0; i < 6; i++) { const k = R(0.8, 1.3); poser('herbe', x + R(-1.4, 1.4), h, z + R(-1.4, 1.4), k, k * R(0.9, 1.3), k, rng() * 6, hasardF(['#4aa892', '#3e9a86', '#5ab8a0', '#6a9ad0'], rng)); } else if (p < 0.85 && Math.hypot(x - bossC.x, z - bossC.z) > 11) { rocher(x, h, z, R(0.4, 0.9)); } }
@@ -2074,7 +2075,7 @@ export function construireIleAnc({ r = 60, biome = 'foret', etape = 1, graine = 
   for (const nom in lots) { const L = lots[nom]; if (!L.l.length) continue; const im = new THREE.InstancedMesh(L.geo, L.mat, L.l.length);
     L.l.forEach((o, i) => { e3.set(o.rx, o.ry, o.rz, 'YXZ'); q.setFromEuler(e3); m4.compose(new THREE.Vector3(o.x, o.y, o.z), q, new THREE.Vector3(o.sx, o.sy, o.sz)); im.setMatrixAt(i, m4);
       if (o.coul) { c.set(o.coul); c.offsetHSL(0, 0, (rng() - 0.5) * 0.06); im.setColorAt(i, c); } else if (im.instanceColor || L.l.some(z => z.coul)) im.setColorAt(i, c.set('#ffffff')); });
-    if (im.instanceColor) im.instanceColor.needsUpdate = true; im.castShadow = L.ombre; im.receiveShadow = true; im.computeBoundingSphere(); groupe.add(im); }
+    if (im.instanceColor) im.instanceColor.needsUpdate = true; im.castShadow = L.ombre && !(G.tactile && (nom === 'couronne' || nom.startsWith('rocher'))); im.receiveShadow = true; im.computeBoundingSphere(); groupe.add(im); }
   // emplacements de packs : en terrain plat, 10 m entre deux packs
   const packs = [];
   for (let essai = 0; essai < 900 && packs.length < 26; essai++) { const a = rng() * 6.283, d = Math.sqrt(rng()) * r, x = Math.cos(a) * d, z = Math.sin(a) * d; const h = hauteur(x, z);
