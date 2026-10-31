@@ -3688,8 +3688,16 @@ function ouvrirAutel() {
 function invoquerDeck() {
   etatCartes(); const deck = J.deck.filter(Boolean);
   if (!deck.length) { UI.toast('Ton deck est vide : place tes cartes à l’Autel des pactes', true); ouvrirAutel(); return false; }
-  for (const x of allies.filter(x => x.invoc === 'pacte' && !x.mort)) dissiper(x);
-  deck.forEach((id, i) => setTimeout(() => { const c = CARTES.find(x => x.id === id); if (c && joueur && !joueur.mort && modeActuel) invoquerCarte(c, niveauCarte(id), i); }, i * 450));
+  const vivantes = allies.filter(x => x.invoc === 'pacte' && !x.mort);
+  if (vivantes.length) { // déjà là : W change leur ordre
+    J.ordrePacte = J.ordrePacte === 'garde' ? 'chasse' : 'garde';
+    UI.toast(J.ordrePacte === 'garde' ? 'Ordre : PROTÉGEZ-MOI — tes sbires reviennent autour de toi' : 'Ordre : CHASSEZ — tes sbires partent tuer tout ce qu’ils trouvent', true);
+    for (const x of vivantes) { x.objectif = null; onde(x.pos, J.ordrePacte === 'garde' ? '#9ad8ff' : '#ff4a3a', 1.6, 0.3); }
+    joueur.cds.W = 1; return true;
+  }
+  J.ordrePacte = 'chasse';
+  deck.forEach((id, i) => { const c = CARTES.find(x => x.id === id); if (c) invoquerCarte(c, niveauCarte(id), i); });
+  UI.toast('Tes sbires partent chasser · relance W pour les rappeler (ou les renvoyer)', true);
   return true;
 }
 function coutPacte() { const g = J.pacte || (J.pacte = { n: 0, jour: '', sec: 0 }); const j = new Date().toDateString(); if (g.jour !== j) { g.jour = j; g.n = 0; } return Math.round(800 * Math.pow(1.45, g.n) * (1 + ((J.equip.arme || {}).tier || 1) * 0.35)); }
@@ -3705,7 +3713,7 @@ function invoquerCarte(C, niv, i) {
   const ipJ = statsHeros(J.equip).ip, st = joueur.st;
   const a = creerCombattant(pos, { nom, guilde: R.r.toUpperCase(), equip: genererEquipRival(ipJ, ange ? 'epee' : 'epee'), modele: ange ? 'Knight' : 'Barbarian' }, 'allie');
   UI.retirerPlaque(a);
-  Object.assign(a, { invoc: 'pacte', vieT: R.vie, potions: 0, cdRempart: 1e9, specT: rnd(1, 3), ip: undefined, autonome: false });
+  Object.assign(a, { invoc: 'pacte', vieT: R.vie, potions: 0, cdRempart: 1e9, specT: rnd(1, 3), ip: undefined, autonome: true, perso: 'loyal', modeA: 'explorer', modeT: 1e9, trait: 'tranquille', parlerT: 1e9, st: { ...a.st, vitesse: (a.st && a.st.vitesse || 5) * 1.35 } });
   a.pvMax = a.pv = Math.round(st.pvMax * R.k * bonus); a.dmg = st.degats * R.k * bonus; a.reduction = Math.min(0.6, st.reduction * 0.8);
   a.root.scale.setScalar(R.s); teinteSpectrale(a, ange ? '#fff0b0' : '#5a0008', R.k >= 1.7 ? 0.65 : 0.45);
   UI.plaque(a, { nom: (ange ? '✦ ' : '♆ ') + nom, guilde: `${'★'.repeat(niv)} ${R.r} · ${R.vie} s`, classe: 'allie pacte', vie: true, lettre: false });
@@ -4811,6 +4819,7 @@ function cibleIA(e) {
   if (e.poste && e.camp === 'allie') liste = vivants().filter(x => dist2D(x.pos, e.poste) < 24);
   else if (e.poste) liste = equipeJoueur().filter(x => dist2D(x.pos, e.poste) < 20);
   else if (e.camp === 'allie' && e.membreSylve) liste = vivants().filter(x => x.etat !== 'dormant' && (x.etat === 'chasse' ? dist2D(x.pos, e.pos) < 20 : dist2D(x.pos, e.pos) < 11));
+  else if (e.camp === 'allie' && e.invoc === 'pacte') liste = J.ordrePacte === 'garde' ? vivants().filter(x => x.etat !== 'dormant' && dist2D(x.pos, joueur.pos) < 12) : vivants().filter(x => x.etat !== 'dormant' && dist2D(x.pos, e.pos) < 16);
   else if (e.camp === 'allie') liste = arene ? vivants() : e.autonome ? vivants().filter(x => x.etat !== 'dormant' && (dist2D(x.pos, e.pos) < 12 || (dist2D(x.pos, joueur.pos) < 15 && x.etat !== 'idle')) && (!x.boss || dist2D(x.pos, joueur.pos) < 22)) : vivants().filter(x => x.etat !== 'dormant' && dist2D(x.pos, joueur.pos) < 15 && (x.etat !== 'idle' || dist2D(x.pos, e.pos) < 8));
   else liste = equipeJoueur();
   if (!liste.length) return null;
@@ -4921,7 +4930,8 @@ function majCombattant(e, dt) {
       if (dist2D(e.pos, e.poste) > 1.5) { avancerVers(e, e.poste, dt, e.st.vitesse * 0.8); e.jouer(def.run); } else e.jouer(def.idle);
     } else if (e.camp === 'allie') { // suit le joueur
       const dj = dist2D(e.pos, joueur.pos);
-      if (e.invoc) { // les invocations collent au joueur, même quand il court ou sprinte
+      if (e.invoc === 'pacte' && J.ordrePacte !== 'garde' && autonomieAllie(e, dt, dj)) { /* le sbire part chasser seul */ }
+      else if (e.invoc) { // les invocations collent au joueur, même quand il court ou sprinte
         if (dj > 16) { fumeeOmbre(e.pos); e.pos.copy(pointLibrePres(joueur.pos, 1.5, 3)); fumeeOmbre(e.pos); }
         else suivreFormation(e, allies.filter(x => x.invoc && !x.mort).indexOf(e), dt, def.run, def.idle);
       } else if (e.membreSylve) { autonomieSylve(e, dt); }
