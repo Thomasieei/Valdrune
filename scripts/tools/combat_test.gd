@@ -16,6 +16,13 @@ func _check(cond: bool, label: String) -> void:
 		log_lines.append("ÉCHEC " + label)
 	print(log_lines[-1])
 
+func _until(f: Callable, tmax: float) -> bool:
+	var t := 0.0
+	while not f.call() and t < tmax:
+		await get_tree().create_timer(0.1, true, false, true).timeout
+		t += 0.1
+	return f.call()
+
 func _wait(t: float) -> void:
 	await get_tree().create_timer(t).timeout
 
@@ -225,7 +232,7 @@ func _ready() -> void:
 	pc.cooldowns.clear()
 	pc.mana = prog.max_mana()
 	pc.begin_charge("nova_givre")
-	await get_tree().create_timer(1.6, true, false, true).timeout
+	await _until(func(): return pc.charge_level() >= 1.0, 6.0)
 	pc.release_charge()
 	await _wait(0.3)
 	var fe := 0

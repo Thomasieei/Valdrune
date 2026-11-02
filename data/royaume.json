@@ -1128,6 +1128,16 @@
      "Merci de m'avoir sauvé, sur la route. Je n'oublie pas.",
      "Si vous m'envoyez en mission, je ferai de mon mieux. Promis."
     ]
+   },
+   "crieur": {
+    "titre": "Crieur public",
+    "soi": [
+     "Je crie les nouvelles et les primes depuis vingt ans. J'ai la voix d'un bœuf et la mémoire d'un notaire."
+    ],
+    "discuter": [
+     "Les primes, c'est le roi qui les paie. Moi je ne fais que les crier… et prendre ma petite part.",
+     "Plus on nettoie les repaires, plus les caravanes passent. Et plus les caravanes passent, plus je crie de bonnes nouvelles."
+    ]
    }
   }
  },

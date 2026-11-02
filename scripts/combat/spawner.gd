@@ -32,6 +32,12 @@ const ZONES := [
 	{"id": "camp_bandits_chef", "kind": "chef_bandit", "pos": Vector2(-57, 143), "n": 1, "r": 3, "label": "Chef des bandits (élite)"},
 	{"id": "rodeurs_ouest", "kind": "bandit", "pos": Vector2(-75, -60), "n": 2, "r": 10, "label": "Rôdeurs des collines ouest"},
 	{"id": "deserteur", "kind": "deserteur", "pos": Vector2(90, -80), "n": 1, "r": 14, "label": "Déserteur solitaire (élite)"},
+	{"id": "chasseurs_est", "kind": "puglin", "pos": Vector2(140, 85), "n": 4, "r": 11, "label": "Chasseurs puglins (plaine est)"},
+	{"id": "brigands_est", "kind": "bandit", "pos": Vector2(210, 40), "n": 3, "r": 9, "label": "Brigands des collines est"},
+	{"id": "brigands_est_merc", "kind": "mercenaire", "pos": Vector2(213, 44), "n": 1, "r": 3, "label": "Mercenaire de Vargas"},
+	{"id": "lanceurs_sud", "kind": "lanceur", "pos": Vector2(-85, 202), "n": 2, "r": 8, "label": "Lanceurs de la lande sud"},
+	{"id": "lanceurs_sud_b", "kind": "bandit", "pos": Vector2(-81, 206), "n": 2, "r": 8, "label": "Coupe-jarrets de la lande sud"},
+	{"id": "crypte_ouest", "kind": "zombie", "pos": Vector2(-200, 0), "n": 5, "r": 12, "label": "Crypte de l'ouest"},
 	{"id": "portail_brute", "kind": "imp_brute", "pos": Vector2(5, 228), "n": 1, "r": 3, "label": "Brute infernale (élite)"},
 ]
 
@@ -115,6 +121,18 @@ func _spawn_one() -> void:
 		_alive.append(m)
 		return
 
+var one_shot := false   # groupe d'événement : pas de réapparition, disparaît une fois vaincu
+var kills := 0
+signal cleared
+
 func on_monster_died(m: Node) -> void:
 	_alive.erase(m)
+	kills += 1
+	Contracts.on_kill(zone_id)
+	if one_shot:
+		if _alive.is_empty():
+			cleared.emit()
+			liberated = true
+			queue_free()
+		return
 	_timers.append(respawn)

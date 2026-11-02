@@ -102,9 +102,11 @@ func _ready() -> void:
 	_check(world.hud.btn_attack.visible and world.hud.btn_attack.pulse, "Le bouton d'épée apparaît et s'illumine")
 	await _wait(2.0)
 	await _shot("04_embuscade")
-	for i in 3:
+	for i in 8:   # rendu logiciel lent : un coup peut tomber pendant le précédent
 		p.combat.attack()
 		await _wait(0.7)
+		if world.hud.hint_key() == "combo" or gs.flag("tuto_epee"):
+			break
 	await _wait(0.3)
 	_check(world.hud.hint_key() == "combo" or gs.flag("tuto_epee"), "Après trois coups, le tutoriel passe au combo")
 	# attaque dangereuse : ralenti et esquive

@@ -198,6 +198,61 @@ func _ready() -> void:
 	Justice.banish(v2, "Tu m'as trahi")
 	_check(int(Kingdom.res("population")) == pop0 - 1 and Array(gs.flags["bannis"]).size() >= 2, "Bannissement : l'habitant s'en va, la population baisse")
 	_check(String(gs.reports[0]["t"]).find("banni") >= 0, "L'acte est consigné dans les rapports")
+	# ---------------------------------------------------------------- bourg complet
+	_check(Town.houses.size() - Town.gardens.size() >= 20 and Town.gardens.size() >= 6, "Bourg : %d maisons alignées sur les rues, %d potagers clôturés" % [Town.houses.size() - Town.gardens.size(), Town.gardens.size()])
+	var merch := 0
+	var crieur: Villager = null
+	for n in get_tree().get_nodes_in_group("pnj"):
+		if n.has_meta("talk"):
+			if n.get_meta("talk")["role"] == "marchand": merch += 1
+			if n.get_meta("talk")["role"] == "crieur": crieur = n
+	_check(merch >= 4, "Un marchand à chaque étal (%d)" % merch)
+	var inside := 0
+	for n in get_tree().get_nodes_in_group("pnj"):
+		if n is Villager and n.visible and not n.captive and Place.blocked(n.global_position):
+			inside += 1
+	_check(inside == 0, "Aucun habitant coincé dans le décor (%d)" % inside)
+	# ---------------------------------------------------------------- contrats de primes
+	_check(crieur != null, "Le crieur public est sur la place")
+	var cv := Talk.build(crieur)
+	_check(cv["nodes"].has("contrats") and cv["nodes"]["contrats"]["choices"].size() >= 2, "Le crieur propose des contrats de primes")
+	var z: Dictionary = Contracts.offers()[0]
+	Contracts.accept(z)
+	var sp := Spawner.by_id(z["id"])
+	var zp: Vector2 = z["pos"]
+	_place(zp + Vector2(6, 6), 220)
+	var spawned := await _until(func(): return sp._alive.size() > 0, 15.0)
+	var need := int(Contracts._st()["actifs"][z["id"]]["need"])
+	var g1 := Progression.get_inst().gold
+	var guard := 0
+	while Contracts._st()["actifs"].has(z["id"]) and guard < 40:
+		guard += 1
+		for m in sp._alive.duplicate():
+			if Combat.alive(m):
+				m.cbt.take_damage(99999, p, "magie")
+		await _wait(0.6)
+		if sp._alive.is_empty():
+			sp._timers = [0.0]
+	_check(spawned and z["id"] in Contracts._st()["faits"] and Progression.get_inst().gold > g1, "Contrat rempli (%s, %d cibles) : prime versée (+%d or)" % [z["label"], need, Progression.get_inst().gold - g1])
+	# ---------------------------------------------------------------- événement du monde
+	_place(Vector2(-60, 40), 180)
+	await _wait(0.5)
+	var ev: Spawner = world.events.trigger(p.global_position, Vector3(0, 0, 1))
+	_check(ev != null, "Un événement surgit près du joueur hors du bourg")
+	var root: Node = ev.get_parent()
+	var all_sp := root.get_children().filter(func(c): return c is Spawner)
+	await _until(func(): return all_sp.all(func(s): return not is_instance_valid(s) or s._alive.size() > 0), 10.0)
+	var g2 := Progression.get_inst().gold
+	for k in 30:
+		for s in all_sp:
+			if is_instance_valid(s):
+				for m in s._alive.duplicate():
+					if Combat.alive(m):
+						m.cbt.take_damage(99999, p, "magie")
+		await _wait(0.4)
+		if Progression.get_inst().gold > g2:
+			break
+	_check(Progression.get_inst().gold > g2, "Événement repoussé : récompense versée (+%d or)" % (Progression.get_inst().gold - g2))
 	# ---------------------------------------------------------------- caravane
 	if Vie.inst.caravan and is_instance_valid(Vie.inst.caravan):
 		Vie.inst.caravan.queue_free()
@@ -218,8 +273,8 @@ func _ready() -> void:
 	await _shot("09_caravane")
 	# ---------------------------------------------------------------- sauvegarde
 	gs.save_game()
-	var g2 := GameState.new()
-	g2.load_game()
-	_check(Array(g2.flags.get("bannis", [])).size() == Array(gs.flags["bannis"]).size() and g2.values["crainte"] == gs.values["crainte"], "Sauvegarde : bannis et jauges conservés")
+	var gsv := GameState.new()
+	gsv.load_game()
+	_check(Array(gsv.flags.get("bannis", [])).size() == Array(gs.flags["bannis"]).size() and gsv.values["crainte"] == gs.values["crainte"], "Sauvegarde : bannis et jauges conservés")
 	print("RÉSULTAT : %d réussis, %d échecs" % [ok, ko])
 	get_tree().quit()

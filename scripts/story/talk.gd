@@ -44,17 +44,50 @@ static func setup(world: Node3D) -> void:
 				jailed = true
 		if gone.has(id) or jailed:
 			n.queue_free()
-	# deux marchands derrière les étals de la place
-	for k in 2:
-		var a := TAU * (k * 2) / 4.0 + PI / 4.0
+	# un marchand derrière chaque étal de la place
+	for k in 4:
+		var a := TAU * k / 4.0 + PI / 4.0
 		var q := Layout.TOWN + Vector2(cos(a), sin(a)) * 10.4
 		var v := Villager.new()
-		v.spec = {"outfit": "paysan_h" if k == 0 else "paysan_f", "female": k == 1, "hair": "Hair_Buns" if k == 1 else "Hair_SimpleParted", "beard": k == 0, "tint": Color(1.0, 0.85, 0.7)}
-		v.anim_name = "Idle_Talking" if k == 0 else "Idle"
+		var fem := k % 2 == 1
+		v.spec = {"outfit": "paysan_f" if fem else "paysan_h", "female": fem, "hair": "Hair_Buns" if fem else "Hair_SimpleParted", "beard": k == 0, "tint": [Color(1.0, 0.85, 0.7), Color(0.85, 0.9, 1.0), Color(0.9, 1.0, 0.85), Color(1.0, 0.95, 0.8)][k]}
+		v.anim_name = "Idle_Talking" if k % 2 == 0 else "Idle"
 		v.position = Vector3(q.x, Terrain.height_at(q.x, q.y), q.y)
 		v.rotation.y = atan2(-cos(a), -sin(a))
 		world.add_child(v)
-		v.set_meta("talk", {"id": "marchand_%d" % k, "nom": ["Bertrand", "Mahaut"][k], "role": "marchand"})
+		v.set_meta("talk", {"id": "marchand_%d" % k, "nom": ["Bertrand", "Mahaut", "Godefroy", "Aelis"][k], "role": "marchand"})
+	# le crieur public et son tableau des primes
+	var cq := Layout.TOWN + Vector2(0, 8.0)
+	var cr := Villager.new()
+	cr.spec = {"outfit": "paysan_h", "hair": "Hair_Buzzed", "beard": true, "tint": Color(0.8, 0.75, 1.0)}
+	cr.anim_name = "Idle_Talking"
+	cr.position = Vector3(cq.x, Terrain.height_at(cq.x, cq.y), cq.y)
+	cr.rotation.y = PI
+	world.add_child(cr)
+	cr.set_meta("talk", {"id": "crieur", "nom": "Thibaut", "role": "crieur"})
+	_board(world, Layout.TOWN + Vector2(1.6, 9.4))
+
+## Tableau d'affichage des contrats : deux poteaux, un panneau, des avis cloués
+static func _board(world: Node3D, p: Vector2) -> void:
+	var root := Node3D.new()
+	root.name = "TableauPrimes"
+	world.add_child(root)
+	root.position = Vector3(p.x, Terrain.height_at(p.x, p.y), p.y)
+	var wood := StandardMaterial3D.new()
+	wood.albedo_texture = load("res://assets/textures/bois_sombre.png")
+	var paper := StandardMaterial3D.new()
+	paper.albedo_color = Color(0.86, 0.80, 0.64)
+	for part in [[Vector3(-0.9, 1.1, 0), Vector3(0.14, 2.2, 0.14), wood], [Vector3(0.9, 1.1, 0), Vector3(0.14, 2.2, 0.14), wood],
+			[Vector3(0, 1.45, 0), Vector3(2.0, 1.1, 0.08), wood], [Vector3(0, 2.1, 0), Vector3(2.3, 0.12, 0.35), wood],
+			[Vector3(-0.5, 1.55, -0.05), Vector3(0.45, 0.6, 0.01), paper], [Vector3(0.15, 1.35, -0.05), Vector3(0.4, 0.5, 0.01), paper],
+			[Vector3(0.6, 1.6, -0.05), Vector3(0.35, 0.45, 0.01), paper]]:
+		var mi := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = part[1]
+		mi.mesh = bm
+		mi.material_override = part[2]
+		mi.position = part[0]
+		root.add_child(mi)
 
 ## PNJ le plus proche à qui l'on peut parler
 static func nearest(pos: Vector3, tree: SceneTree) -> Node3D:
@@ -200,6 +233,8 @@ static func build(n: Node3D) -> Dictionary:
 		choices.append({"text": "Ouvre la marche (éclaireur)", "next": "END", "callback": func(): Escort.set_mode(sd, Soldier.M.ECLAIREUR)})
 		choices.append({"text": "Monte la garde ici", "next": "END", "callback": func(): Escort.set_mode(sd, Soldier.M.GARDER)})
 		choices.append({"text": "Retourne à ton poste", "next": "END", "callback": func(): Escort.dismiss(sd)})
+	if role == "crieur":
+		Contracts.add_options(nodes, choices, who, label)
 	choices.append({"text": "Au revoir", "next": "END"})
 	nodes["menu"] = {"who": who, "nom": label, "text": greet, "choices": choices}
 	if n is Villager or n is Guard or role == "prisonnier":

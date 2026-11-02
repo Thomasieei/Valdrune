@@ -34,6 +34,8 @@ static func build(parent: Node3D) -> void:
 	C.resize(verts * verts)
 	var N := PackedVector3Array()
 	N.resize(verts * verts)
+	var S := PackedVector2Array()
+	S.resize(verts * verts)
 	for j in verts:
 		for i in verts:
 			var x := -Layout.HALF + i * STEP
@@ -50,6 +52,7 @@ static func build(parent: Node3D) -> void:
 			var nm := Vector3(hl - hr, 2.0 * STEP, hu - hd).normalized()
 			N[j * verts + i] = nm
 			C[j * verts + i] = _color(-Layout.HALF + i * STEP, -Layout.HALF + j * STEP, H[j * verts + i], nm)
+			S[j * verts + i] = _splat(-Layout.HALF + i * STEP, -Layout.HALF + j * STEP, H[j * verts + i], nm)
 
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://shaders/terrain.gdshader")
@@ -61,6 +64,9 @@ static func build(parent: Node3D) -> void:
 	fn.frequency = 0.02
 	nt.noise = fn
 	mat.set_shader_parameter("noise_tex", nt)
+	for t in ["herbe", "terre", "roche"]:
+		mat.set_shader_parameter(t, load("res://assets/textures/sol_%s.png" % t))
+		mat.set_shader_parameter(t + "_n", load("res://assets/textures/sol_%s_n.png" % t))
 
 	var chunks := n / CHUNK
 	for cj in chunks:
@@ -71,6 +77,7 @@ static func build(parent: Node3D) -> void:
 				for i in range(ci * CHUNK, (ci + 1) * CHUNK + 1):
 					var k := j * verts + i
 					st.set_color(C[k])
+					st.set_uv2(S[k])
 					st.set_normal(N[k])
 					st.add_vertex(Vector3(-Layout.HALF + i * STEP, H[k], -Layout.HALF + j * STEP))
 			var w := CHUNK + 1
@@ -102,12 +109,27 @@ static func build(parent: Node3D) -> void:
 
 	_build_water(parent, H, verts)
 
+## Poids des matières du sol : x = terre (chemins, berges, champs, cour), y = roche (pentes, montagne)
+static func _splat(x: float, z: float, h: float, nm: Vector3) -> Vector2:
+	var p := Vector2(x, z)
+	var slope := 1.0 - nm.y
+	var rock := maxf(smoothstep(0.14, 0.30, slope), smoothstep(26.0, 36.0, h))
+	var dirt := 1.0 - smoothstep(-0.8, 1.6, Layout.road_dist(p))
+	dirt = maxf(dirt, 1.0 - smoothstep(0.6, 1.6, h - Layout.WATER))
+	if Layout.in_fields(p, 0.0):
+		dirt = maxf(dirt, 0.75)
+	if Layout.in_castle(p, -2.0):
+		dirt = maxf(dirt, 0.45)
+	if p.distance_to(Layout.TOWN) < 16.0:
+		dirt = maxf(dirt, 0.8)
+	return Vector2(dirt, rock)
+
 static func _color(x: float, z: float, h: float, nm: Vector3) -> Color:
 	var p := Vector2(x, z)
 	var n1 := Layout._n().get_noise_2d(x * 2.3, z * 2.3)
-	var grass_a := Color(0.30, 0.47, 0.20)
-	var grass_b := Color(0.40, 0.54, 0.23)
-	var dry := Color(0.55, 0.55, 0.30)
+	var grass_a := Color(0.27, 0.39, 0.17)
+	var grass_b := Color(0.35, 0.44, 0.20)
+	var dry := Color(0.50, 0.47, 0.29)
 	var c := grass_a.lerp(grass_b, clampf(n1 * 0.8 + 0.5, 0.0, 1.0))
 	c = c.lerp(dry, clampf((n1 - 0.25) * 2.0, 0.0, 0.45))
 	# prairies fleuries plus claires autour du bourg

@@ -26,6 +26,9 @@ func _ready() -> void:
 		["15_portail", Vector2(33, 212), 180.0, -12.0, 9.0, false],
 		["16_vue_chateau_loin", Vector2(20, -10), 350.0, -8.0, 12.0, false],
 	]
+	if only == "audit":
+		_audit()
+		return
 	if only != "":
 		var keys: Array = Array(only.split(","))
 		stops = stops.filter(func(s): return keys.any(func(k): return k in s[0]))
@@ -58,4 +61,57 @@ func _run() -> void:
 		var draws := RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME)
 		var objs := RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)
 		print("SHOT ", s[0], " triangles=", prims, " draws=", draws, " objets=", objs)
+	get_tree().quit()
+
+## Vues d'audit (caméra libre) : vues aériennes et au sol du bourg et des lieux habités
+func _audit() -> void:
+	while world.player == null:
+		await get_tree().process_frame
+	for f in 3: await get_tree().process_frame
+	var cams := [
+		["A_bourg_ciel", Vector3(0, 95, 25), Vector3(0, 0, -20)],
+		["A_bourg_sud", Vector3(10, 30, 60), Vector3(5, 0, 0)],
+		["A_route_sud", Vector3(40, 45, 80), Vector3(15, 0, 40)],
+		["A_ferme", Vector3(95, 50, 40), Vector3(100, 0, -10)],
+		["A_bucherons", Vector3(-120, 40, 25), Vector3(-120, 0, -10)],
+		["A_mine", Vector3(170, 45, -130), Vector3(172, 0, -170)],
+		["S_place", Vector3(14, 6, -8), Vector3(0, 3, -22)],
+		["S_rue_est", Vector3(30, 5, -14), Vector3(10, 3, -20)],
+		["S_rue_ouest", Vector3(-30, 5, -26), Vector3(-10, 3, -18)],
+		["S_maisons_sud", Vector3(18, 5, 40), Vector3(10, 3, 20)],
+		["S_route_pont", Vector3(30, 5, 75), Vector3(22, 2, 55)],
+		["S_vers_chateau", Vector3(4, 6, -40), Vector3(0, 10, -80)],
+		["C_entree_cachots", Vector3(-24, 16.5, -94), Vector3(-33, 11, -106)],
+		["C_escalier", Vector3(-33, 13.6, -100.5), Vector3(-33, 8.0, -116)],
+		["C_interieur", Vector3(-29.0, 10.6, -115.6), Vector3(-35, 8.2, -123)],
+		["C_cellules", Vector3(-33, 9.4, -116.2), Vector3(-33, 8.4, -125)],
+	]
+	for key in ["auberge", "forge"]:
+		if Town.specials.has(key):
+			var dp: Vector2 = Town.specials[key][0]
+			var dd: Vector2 = Town.specials[key][1]
+			var sd := Vector2(dd.y, -dd.x)
+			var e: Vector2 = dp + dd * 11.0 + sd * 5.0
+			cams.append(["S_" + key, Vector3(e.x, 3.2, e.y), Vector3(dp.x + dd.x * 2.5, 1.0, dp.y + dd.y * 2.5)])
+	var args := OS.get_cmdline_user_args()
+	if args.size() > 2:
+		cams = cams.filter(func(c): return c[0].begins_with(args[2]))
+	var cam := Camera3D.new()
+	cam.far = 1500.0
+	world.add_child(cam)
+	cam.current = true
+	world.player.global_position = Vector3(0, -50, 0)
+	for c in cams:
+		var pos: Vector3 = c[1]
+		var tgt: Vector3 = c[2]
+		pos.y += Terrain.height_at(pos.x, pos.z) if c[0].begins_with("S_") else 0.0
+		tgt.y += Terrain.height_at(tgt.x, tgt.z)
+		cam.global_position = pos
+		cam.look_at(tgt, Vector3.UP)
+		world.player.global_position = Vector3(tgt.x, Terrain.height_at(tgt.x, tgt.z) - 30.0, tgt.z)
+		world.set_cellar(c[0] == "C_interieur" or c[0] == "C_cellules")
+		world._cull_npcs()
+		for f in 10: await get_tree().process_frame
+		get_viewport().get_texture().get_image().save_png("res://shots/%s.png" % c[0])
+		print("SHOT ", c[0])
 	get_tree().quit()

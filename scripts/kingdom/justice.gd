@@ -4,11 +4,19 @@ class_name Justice
 ## puis libération, procès, travaux forcés ou exécution. Chaque acte pèse sur les jauges
 ## (bienveillance, autorité, crainte, confiance des habitants) et est consigné dans les rapports.
 
-const CELL := Vector3(-31.0, 12.0, -119.0)     # cellule de la prison (cour du château, côté caserne)
-const CELL_DOOR := Vector3(-31.0, 12.0, -115.4)
+const Y0 := 12.0
+const FL := 7.4                                   # sol des cachots (4,6 m sous la cour)
+const ROOM_MIN := Vector2(-38.0, -125.0)          # salle souterraine sous la cour, côté caserne
+const ROOM_MAX := Vector2(-28.0, -115.0)
+const STAIR_X := Vector2(-34.6, -31.4)            # escalier (tranchée) de la cour vers les cachots
+const STAIR_TOP_Z := -104.0
+const CELL_DOOR := Vector3(-33.0, 7.4, -118.6)    # couloir devant les cellules
+const STAIR_TOP := Vector3(-33.0, 12.0, -101.5)
+const STAIR_BOTTOM := Vector3(-33.0, 7.4, -116.0)
 const EXIT_SOUTH := [Vector2(0, -20), Vector2(6, 20), Vector2(24, 62), Vector2(28, 90)]
 
 static var _built := false
+static var lights: Array = []
 
 static func world() -> Node3D:
 	return (Engine.get_main_loop() as SceneTree).current_scene
@@ -16,56 +24,183 @@ static func world() -> Node3D:
 static func act(text: String) -> void:
 	GameState.get_inst().report(text, "acte")
 
-# ------------------------------------------------------------------ la prison (vrai bâtiment)
+## Zone creusée dans le relief (Layout.height) : salle + tranchée de l'escalier, avec une marge pour les pentes du maillage
+static func dug(p: Vector2) -> bool:
+	var room := p.x > ROOM_MIN.x - 3.0 and p.x < ROOM_MAX.x + 3.0 and p.y > ROOM_MIN.y - 3.0 and p.y < ROOM_MAX.y + 3.0
+	var trench := p.x > STAIR_X.x - 3.0 and p.x < STAIR_X.y + 3.0 and p.y > ROOM_MAX.y and p.y < STAIR_TOP_Z + 2.5
+	return room or trench
+
+static func in_cellar(p: Vector3) -> bool:
+	return p.y < Y0 - 1.2 and dug(Vector2(p.x, p.z))
+
+# ------------------------------------------------------------------ les cachots (sous la cour du château)
 static func build_prison(parent: Node3D) -> void:
 	if _built:
 		return
 	_built = true
 	var root := Node3D.new()
-	root.name = "Prison"
+	root.name = "Cachots"
 	parent.add_child(root)
 	var stone := _tri("pierre_base", 0.35)
-	var roofm := _tri("ardoise", 0.3)
+	var wallm := _tri("pierre", 0.3)
+	var floorm := _tri("dallage", 0.35)
+	var vault := _tri("pierre", 0.25)
+	var paving := _tri("paves", 0.3)
 	var iron := StandardMaterial3D.new()
-	iron.albedo_color = Color(0.16, 0.16, 0.18)
-	iron.metallic = 0.3
-	iron.roughness = 0.6
+	iron.albedo_color = Color(0.13, 0.13, 0.15)
+	iron.metallic = 0.4
+	iron.roughness = 0.55
 	var body := StaticBody3D.new()
 	body.collision_layer = 2
 	root.add_child(body)
-	var c := CELL
-	var boxes := [
-		[Vector3(0, 0.1, 0), Vector3(6.4, 0.2, 7.4), stone],          # dalle
-		[Vector3(0, 1.6, -3.5), Vector3(6.4, 3.2, 0.4), stone],        # mur du fond
-		[Vector3(-3.0, 1.6, 0), Vector3(0.4, 3.2, 7.4), stone],        # côtés
-		[Vector3(3.0, 1.6, 0), Vector3(0.4, 3.2, 7.4), stone],
-		[Vector3(0, 3.35, 0), Vector3(6.8, 0.3, 7.8), roofm],          # toit
-		[Vector3(0, 3.6, 3.75), Vector3(2.6, 0.5, 0.15), _tri("bois_sombre", 0.5)],   # enseigne
-		[Vector3(0, 0.25, 3.6), Vector3(6.0, 0.15, 0.25), iron],       # traverse basse
-		[Vector3(0, 3.05, 3.6), Vector3(6.0, 0.15, 0.25), iron],       # traverse haute
-	]
-	for b in boxes:
-		_box(root, body, c + b[0], b[1], b[2], true)
-	# barreaux de la façade (la porte est au milieu)
-	for i in 21:
-		var x := -2.8 + i * 0.28
-		_box(root, body, c + Vector3(x, 1.65, 3.6), Vector3(0.07, 2.8, 0.07), iron, true)
+	var cx := (ROOM_MIN.x + ROOM_MAX.x) * 0.5
+	var cz := (ROOM_MIN.y + ROOM_MAX.y) * 0.5
+	var w := ROOM_MAX.x - ROOM_MIN.x
+	var d := ROOM_MAX.y - ROOM_MIN.y
+	var hh := Y0 - FL
+	var t := 0.6
+	# sol, murs, plafond de la salle
+	_box(root, body, Vector3(cx, FL - 0.2, cz), Vector3(w + 2 * t, 0.4, d + 2 * t), floorm, true)
+	_box(root, body, Vector3(ROOM_MIN.x - t * 0.5, FL + hh * 0.5, cz), Vector3(t, hh, d + 2 * t), wallm, true)
+	_box(root, body, Vector3(ROOM_MAX.x + t * 0.5, FL + hh * 0.5, cz), Vector3(t, hh, d + 2 * t), wallm, true)
+	_box(root, body, Vector3(cx, FL + hh * 0.5, ROOM_MIN.y - t * 0.5), Vector3(w, hh, t), wallm, true)
+	# mur sud percé pour l'escalier
+	var lw := STAIR_X.x - ROOM_MIN.x
+	_box(root, body, Vector3(ROOM_MIN.x + lw * 0.5, FL + hh * 0.5, ROOM_MAX.y + t * 0.5), Vector3(lw, hh, t), wallm, true)
+	var rw := ROOM_MAX.x - STAIR_X.y
+	_box(root, body, Vector3(STAIR_X.y + rw * 0.5, FL + hh * 0.5, ROOM_MAX.y + t * 0.5), Vector3(rw, hh, t), wallm, true)
+	# voûte : dalle pavée au niveau de la cour, couvrant toute la zone creusée sauf l'escalier
+	var dmin := Vector2(ROOM_MIN.x - 3.2, ROOM_MIN.y - 3.2)
+	var dmax := Vector2(ROOM_MAX.x + 3.2, ROOM_MAX.y + 3.2)
+	_box(root, body, Vector3((dmin.x + dmax.x) * 0.5, Y0 - 0.25, (dmin.y + ROOM_MAX.y) * 0.5), Vector3(dmax.x - dmin.x, 0.5, ROOM_MAX.y - dmin.y), paving, true)
+	var tz0 := ROOM_MAX.y
+	var tz1 := STAIR_TOP_Z + 2.7
+	for side in [[dmin.x, STAIR_X.x - 0.5], [STAIR_X.y + 0.5, dmax.x]]:
+		_box(root, body, Vector3((side[0] + side[1]) * 0.5, Y0 - 0.25, (tz0 + tz1) * 0.5), Vector3(side[1] - side[0], 0.5, tz1 - tz0), paving, true)
+	_box(root, body, Vector3((STAIR_X.x + STAIR_X.y) * 0.5, Y0 - 0.25, (STAIR_TOP_Z + tz1) * 0.5), Vector3(STAIR_X.y - STAIR_X.x + 1.0, 0.5, tz1 - STAIR_TOP_Z), paving, true)
+	# voûte de pierre vue d'en dessous
+	_box(root, body, Vector3(cx, Y0 - 0.56, cz), Vector3(w + 2 * t, 0.12, d + 2 * t), vault, false)
+	for k in 4:
+		_box(root, body, Vector3(cx, Y0 - 0.85, ROOM_MIN.y + 1.0 + k * 2.7), Vector3(w, 0.45, 0.5), stone, false)
+	# murs de la tranchée + parapet bien visible depuis la cour
+	var tlen := STAIR_TOP_Z - ROOM_MAX.y
+	for x in [STAIR_X.x - 0.25, STAIR_X.y + 0.25]:
+		_box(root, body, Vector3(x, (FL + Y0 + 0.9) * 0.5, (ROOM_MAX.y + STAIR_TOP_Z) * 0.5), Vector3(0.5, Y0 + 0.9 - FL, tlen), wallm, true)
+		_box(root, body, Vector3(x, Y0 + 1.0, (ROOM_MAX.y + STAIR_TOP_Z) * 0.5), Vector3(0.65, 0.2, tlen + 0.2), stone, false)
+	_box(root, body, Vector3((STAIR_X.x + STAIR_X.y) * 0.5, Y0 + 0.45, ROOM_MAX.y - 0.1), Vector3(STAIR_X.y - STAIR_X.x + 1.0, 0.9, 0.5), wallm, true)
+	# escalier : marches visibles + rampe invisible pour marcher sans accroc
+	var steps := 16
+	var run := tlen / steps
+	var rise := hh / steps
+	for i in steps:
+		var z := ROOM_MAX.y + (i + 0.5) * run
+		var top := FL + (i + 1) * rise
+		_box(root, body, Vector3((STAIR_X.x + STAIR_X.y) * 0.5, top - 0.5 * (top - FL + 0.2) + 0.0, z), Vector3(STAIR_X.y - STAIR_X.x, top - FL + 0.2, run), stone, false)
+	var ramp := CollisionShape3D.new()
+	var rs := BoxShape3D.new()
+	var rl := sqrt(tlen * tlen + hh * hh)
+	rs.size = Vector3(STAIR_X.y - STAIR_X.x, 0.3, rl + 0.4)
+	ramp.shape = rs
+	ramp.position = Vector3((STAIR_X.x + STAIR_X.y) * 0.5, (FL + Y0) * 0.5 - 0.1, (ROOM_MAX.y + STAIR_TOP_Z) * 0.5)
+	ramp.rotation.x = atan2(hh, tlen)
+	body.add_child(ramp)
+	# portique d'entrée et enseigne
+	for x in [STAIR_X.x - 0.45, STAIR_X.y + 0.45]:
+		_box(root, body, Vector3(x, Y0 + 1.6, STAIR_TOP_Z + 0.2), Vector3(0.8, 3.2, 0.8), stone, true)
+	_box(root, body, Vector3((STAIR_X.x + STAIR_X.y) * 0.5, Y0 + 3.4, STAIR_TOP_Z + 0.2), Vector3(STAIR_X.y - STAIR_X.x + 2.0, 0.6, 0.9), stone, false)
 	var lbl := Label3D.new()
-	lbl.text = "PRISON"
+	lbl.text = "CACHOTS"
 	lbl.font_size = 96
 	lbl.outline_size = 18
-	lbl.pixel_size = 0.004
+	lbl.pixel_size = 0.0045
 	lbl.modulate = Color(1, 0.88, 0.6)
 	lbl.outline_modulate = Color(0.1, 0.06, 0.03)
-	lbl.position = c + Vector3(0, 3.6, 3.85)
+	lbl.position = Vector3((STAIR_X.x + STAIR_X.y) * 0.5, Y0 + 3.4, STAIR_TOP_Z + 0.7)
 	root.add_child(lbl)
-	# un seul maillage par matériau (une trentaine de pièces → 3 appels de rendu)
+	# cellules : murs de séparation, barreaux espacés, portes à barreaux
+	var cell_w := w / 3.0
+	var bars_z := ROOM_MIN.y + 4.0
+	for k in [1, 2]:
+		var x: float = ROOM_MIN.x + k * cell_w
+		_box(root, body, Vector3(x, FL + hh * 0.5, (ROOM_MIN.y + bars_z) * 0.5), Vector3(0.35, hh, bars_z - ROOM_MIN.y), wallm, true)
+	_box(root, body, Vector3(cx, FL + 0.08, bars_z), Vector3(w, 0.16, 0.22), iron, false)
+	_box(root, body, Vector3(cx, FL + 2.7, bars_z), Vector3(w, 0.16, 0.22), iron, false)
+	var bar_col := CollisionShape3D.new()
+	var bcs := BoxShape3D.new()
+	bcs.size = Vector3(w, 2.8, 0.2)
+	bar_col.shape = bcs
+	bar_col.position = Vector3(cx, FL + 1.4, bars_z)
+	body.add_child(bar_col)
+	var nb := int(w / 0.34)
+	for i in nb + 1:
+		var x := ROOM_MIN.x + i * (w / nb)
+		_box(root, body, Vector3(x, FL + 1.4, bars_z), Vector3(0.07, 2.7, 0.07), iron, false)
+	for k in 3:
+		var dx := ROOM_MIN.x + (k + 0.5) * cell_w
+		for x in [dx - 0.6, dx + 0.6]:
+			_box(root, body, Vector3(x, FL + 1.4, bars_z + 0.06), Vector3(0.14, 2.8, 0.14), iron, false)
+		_box(root, body, Vector3(dx, FL + 1.3, bars_z + 0.08), Vector3(0.18, 0.18, 0.08), iron, false)
+		# paillasse dans chaque cellule
+		_box(root, body, Vector3(dx - 0.6, FL + 0.12, ROOM_MIN.y + 1.0), Vector3(1.4, 0.2, 0.9), _tri("bois", 0.6), false)
+	# mobilier du geôlier
+	Kit.dungeon(root, "Table_Small", Vector3(-30.0, FL, -116.6), 0.0, 1.0)
+	Kit.dungeon(root, "Bench", Vector3(-36.5, FL, -116.4), 0.0, 1.0)
+	Kit.dungeon(root, "Bucket", Vector3(-37.2, FL, -118.0), 0.0, 1.0)
+	Kit.dungeon(root, "Key_Rusty", Vector3(-30.0, FL + 0.82, -116.6), 0.4, 1.4)
+	# torches murales et lumière chaude (allumées seulement quand on descend)
+	lights.clear()
+	for tp in [Vector3(-37.6, FL + 2.2, -117.5), Vector3(-28.4, FL + 2.2, -117.5), Vector3(-33.0, FL + 2.4, -115.4)]:
+		var tw := Kit.dungeon(root, "Torch_Wall", tp, 0.0, 1.0)
+		if tp.x < -35.0:
+			tw.rotation.y = PI / 2.0
+		elif tp.x > -30.0:
+			tw.rotation.y = -PI / 2.0
+		var f := FX.particles("flame_01", 8, 0.5, [Color(1, 0.8, 0.4, 0.9), Color(1, 0.35, 0.1, 0)], 0.35, false)
+		f.direction = Vector3.UP
+		f.initial_velocity_min = 0.3
+		f.initial_velocity_max = 0.7
+		f.gravity = Vector3.ZERO
+		root.add_child(f)
+		f.position = tp + Vector3.UP * 0.45
+		f.emitting = true
+		var l := OmniLight3D.new()
+		l.light_color = Color(1.0, 0.65, 0.35)
+		l.light_energy = 2.2
+		l.omni_range = 9.0
+		l.shadow_enabled = false
+		l.position = tp + Vector3.UP * 0.5
+		l.visible = false
+		root.add_child(l)
+		lights.append(l)
+	for x in [STAIR_X.x - 0.45, STAIR_X.y + 0.45]:
+		var tt := Kit.dungeon(root, "Torch", Vector3(x, Y0 + 3.2, STAIR_TOP_Z + 0.65), 0.0, 1.0)
+	# un seul maillage par matériau
 	var vis := Node3D.new()
 	root.add_child(vis)
 	for c2 in root.get_children():
 		if c2 is MeshInstance3D:
 			c2.reparent(vis)
 	Batcher.merge(vis, false)
+	# zone : en descendant, caméra rapprochée et éclairage souterrain
+	var area := Area3D.new()
+	area.name = "ZoneCachots"
+	area.collision_layer = 0
+	area.collision_mask = 8
+	var acs := CollisionShape3D.new()
+	var abs := BoxShape3D.new()
+	abs.size = Vector3(w, hh - 0.8, d + 6.0)
+	acs.shape = abs
+	acs.position = Vector3(cx, FL + (hh - 0.8) * 0.5, cz + 3.0)
+	area.add_child(acs)
+	root.add_child(area)
+	area.body_entered.connect(func(b): if b == Combat.player and world().has_method("set_cellar"): world().set_cellar(true))
+	area.body_exited.connect(func(b): if b == Combat.player and world().has_method("set_cellar"): world().set_cellar(false))
+	# le geôlier
+	var jailer := Guard.new()
+	jailer.position = Vector3(-29.4, FL, -117.2)
+	jailer.rotation.y = PI * 0.85
+	parent.add_child(jailer)
+	jailer.set_meta("talk", {"id": "geolier", "nom": "Mathis le geôlier", "role": "garde"})
 	# les prisonniers enregistrés reprennent leur place
 	for pr in Kingdom.k()["prisonniers"]:
 		_spawn_prisoner(pr)
@@ -93,8 +228,10 @@ static func _box(root: Node3D, body: StaticBody3D, pos: Vector3, size: Vector3, 
 		cs.position = pos
 		body.add_child(cs)
 
+## Place dans les cellules (3 cellules, 2 rangs), assez près des barreaux pour parler depuis le couloir
 static func _cell_spot(i: int) -> Vector3:
-	return CELL + Vector3(-1.8 + (i % 3) * 1.8, 0.2, 2.4 - float(i / 3) * 1.3)
+	var cell_w := (ROOM_MAX.x - ROOM_MIN.x) / 3.0
+	return Vector3(ROOM_MIN.x + ((i % 3) + 0.5) * cell_w + (0.5 if i >= 3 else -0.3), FL + 0.05, ROOM_MIN.y + 2.9 - float(i / 3 % 2) * 1.3)
 
 static func _spawn_prisoner(pr: Dictionary) -> Villager:
 	var v := Villager.new()
@@ -256,8 +393,10 @@ static func _path_to_prison(from: Vector3) -> Array:
 		for q in [Vector2(0, -48), Vector2(0, -70), Vector2(0, -92)]:
 			if from.z > q.y:
 				pts.append(Vector3(q.x, Terrain.height_at(q.x, q.y), q.y))
-	pts.append(Vector3(-20, 12.0, -110))
-	pts.append(CELL_DOOR + Vector3(0, 0, 1.5))
+	pts.append(Vector3(-20, 12.0, -106))
+	pts.append(STAIR_TOP)
+	pts.append(STAIR_BOTTOM)
+	pts.append(CELL_DOOR)
 	return pts
 
 static func _walk_escort(guards: Array, path: Array, i: int, n: Node3D, rec: Dictionary) -> void:
@@ -306,10 +445,10 @@ static func release(n: Node3D) -> void:
 	var m := gs.mem(t["id"])
 	m["relation"] = int(m.get("relation", 0)) + 3
 	FX.bark(n, "Merci… merci, {titre}.".replace("{titre}", gs.titre), 2.3, 3.0)
-	n.global_position = CELL_DOOR + Vector3(0, 0, 1.0)
+	n.global_position = STAIR_TOP
 	n.set_meta("talk", {"id": t["id"], "nom": t["nom"], "role": String(pr.get("role", "habitant"))})
 	if n is Villager:
-		n.leave([Vector2(-20, -110), Vector2(0, -92), Vector2(0, -60), Vector2(2, -30)])
+		n.leave([Vector2(-20, -100), Vector2(0, -92), Vector2(0, -60), Vector2(2, -30)])
 	act("Vous avez libéré %s." % t["nom"])
 
 static func forced_labor(n: Node3D) -> void:
@@ -323,8 +462,8 @@ static func forced_labor(n: Node3D) -> void:
 		Kingdom.add("pierre", 15)
 	FX.bark(n, "La mine… pour combien de temps ?", 2.3, 3.0)
 	if n is Villager:
-		n.global_position = CELL_DOOR + Vector3(0, 0, 1.0)
-		n.leave([Vector2(-20, -110), Vector2(0, -92), Vector2(30, -92), Vector2(58, -120), Vector2(125, -140)])
+		n.global_position = STAIR_TOP
+		n.leave([Vector2(-20, -100), Vector2(0, -92), Vector2(30, -92), Vector2(58, -120), Vector2(125, -140)])
 	act("%s est condamné(e) aux travaux forcés à la mine." % t["nom"])
 
 static func execute(n: Node3D) -> void:
@@ -342,8 +481,8 @@ static func execute(n: Node3D) -> void:
 	n.remove_meta("talk")
 	# mise en scène sobre : les gardes l'emmènent, il disparaît dans l'ombre de la caserne
 	if n is Villager:
-		n.global_position = CELL_DOOR + Vector3(0, 0, 1.0)
-		n.leave([Vector2(-36, -108), Vector2(-40, -104)])
+		n.global_position = STAIR_TOP
+		n.leave([Vector2(-40, -100), Vector2(-44, -97)])
 	act("Vous avez ordonné l'exécution de %s. Le bourg l'apprendra." % t["nom"])
 
 static func exile_prisoner(n: Node3D) -> void:
@@ -359,8 +498,8 @@ static func exile_prisoner(n: Node3D) -> void:
 	gs.flags["bannis"] = bl
 	n.remove_meta("talk")
 	if n is Villager:
-		n.global_position = CELL_DOOR + Vector3(0, 0, 1.0)
-		var pts := [Vector2(-20, -110), Vector2(0, -92)]
+		n.global_position = STAIR_TOP
+		var pts := [Vector2(-20, -100), Vector2(0, -92)]
 		pts.append_array(EXIT_SOUTH)
 		n.leave(pts)
 	act("%s est exilé(e) de Valmont après son procès." % t["nom"])

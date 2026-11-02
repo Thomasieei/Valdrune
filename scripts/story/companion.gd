@@ -330,8 +330,8 @@ func _move_or_unstick(delta: float, wants_move: bool) -> void:
 	if now < _ghost_until:
 		global_position.x += velocity.x * delta
 		global_position.z += velocity.z * delta
-		var g := Terrain.height_at(global_position.x, global_position.z)
-		global_position.y = maxf(g, global_position.y - 4.0 * delta) if global_position.y > g + 0.5 else g
+		var g := Powers.ground(global_position + Vector3.UP * 0.5)
+		global_position.y = g if absf(global_position.y - g) < 1.5 else lerpf(global_position.y, g, clampf(delta * 6.0, 0, 1))
 		return
 	velocity.y = velocity.y - gravity * delta if not is_on_floor() else -0.5
 	move_and_slide()

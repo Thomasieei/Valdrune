@@ -18,6 +18,7 @@ var prisoner: Node3D = null
 var free_on_return := true
 var spectral := false             # guerrier spectral (Légion du souverain) : temporaire, sans effet sur la garnison
 var lifetime := 0.0
+var _route: Array = []
 var cbt: Combatant
 var _ap: AnimationPlayer
 var _cur := ""
@@ -176,8 +177,11 @@ func _physics_process(delta: float) -> void:
 					move = to
 					spd = 5.2 if mode != M.ESCORTE_PRISONNIER else 2.4
 				elif mode == M.RETOUR:
-					_back_home()
-					return
+					if _route.size() > 0:
+						goal = _route.pop_front()
+					else:
+						_back_home()
+						return
 				elif mode == M.ALLER or mode == M.ESCORTE_PRISONNIER:
 					arrived.emit()
 					if mode == M.ALLER:
@@ -232,6 +236,11 @@ func _face(dir: Vector3, delta: float, rate: float) -> void:
 func send_home() -> void:
 	mode = M.RETOUR
 	goal = home
+	_route.clear()
+	# depuis les cachots : remonter l'escalier au lieu de traverser les murs
+	if Justice.in_cellar(global_position):
+		_route = [Justice.STAIR_TOP, home]
+		goal = Justice.STAIR_BOTTOM
 
 func _back_home() -> void:
 	if is_instance_valid(source_guard):
@@ -279,8 +288,8 @@ func _move_or_unstick(delta: float, wants_move: bool) -> void:
 	if now < _ghost_until:
 		global_position.x += velocity.x * delta
 		global_position.z += velocity.z * delta
-		var g := Terrain.height_at(global_position.x, global_position.z)
-		global_position.y = maxf(g, global_position.y - 4.0 * delta) if global_position.y > g + 0.5 else g
+		var g := Powers.ground(global_position + Vector3.UP * 0.5)
+		global_position.y = g if absf(global_position.y - g) < 1.5 else lerpf(global_position.y, g, clampf(delta * 6.0, 0, 1))
 		return
 	velocity.y = velocity.y - gravity * delta if not is_on_floor() else -0.5
 	move_and_slide()

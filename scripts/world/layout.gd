@@ -152,6 +152,9 @@ static func height(x: float, z: float) -> float:
 	var pv := paved_dist(p)
 	if pv < 1.5:
 		h -= 0.12 * (1.0 - smoothstep(-1.0, 1.5, pv))
+	# cachots creusés sous la cour du château (recouverts par leur voûte)
+	if Justice.dug(p):
+		h = PLATEAU_H - 5.0
 	return h
 
 static func _box_dist(p: Vector2, mn: Vector2, mx: Vector2) -> float:
@@ -186,4 +189,16 @@ static func reserved(p: Vector2, margin := 0.0) -> bool:
 		return true
 	if p.distance_to(LUMBER) < 16.0 + margin:
 		return true
+	for h in Town.houses:
+		if (h[0] as Vector2).distance_to(p) < (h[1] as float) + 1.0 + margin:
+			return true
 	return false
+
+## Abscisse de la polyligne à une profondeur z donnée (routes nord-sud)
+static func poly_point_x(pts: Array, z: float) -> float:
+	for i in pts.size() - 1:
+		var a: Vector2 = pts[i]
+		var b: Vector2 = pts[i + 1]
+		if (z - a.y) * (z - b.y) <= 0.0 and a.y != b.y:
+			return lerpf(a.x, b.x, (z - a.y) / (b.y - a.y))
+	return pts[0].x

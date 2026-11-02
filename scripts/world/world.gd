@@ -4,6 +4,7 @@ extends Node3D
 var player: Player
 var rig: CameraRig
 var hud: Hud
+var events: WorldEvents
 var dlg: Dialogue
 var kui: KingdomUI
 var aui: ArcanesUI
@@ -215,10 +216,17 @@ func _spawn() -> void:
 		_talking = null)
 	Talk.setup(self)
 	Justice.build_prison(self)
+	events = WorldEvents.new()
+	events.name = "Evenements"
+	add_child(events)
 	var vie := Vie.new()
 	vie.name = "Vie"
 	vie.world = self
 	add_child(vie)
+	# plus aucun personnage coincé dans un mur ou un objet
+	await get_tree().physics_frame
+	Place.fix_all(get_tree())
+	print("PNJ replacés hors du décor : ", Place.moved)
 	var zone := find_child("ZoneDonjon", true, false) as Area3D
 	if zone:
 		zone.body_entered.connect(func(b): if b == player: _set_inside(true))
@@ -368,6 +376,31 @@ func _apply_quality() -> void:
 ## Intérieur / extérieur : on n'affiche que ce qui peut être vu.
 const OUTSIDE_ONLY := ["Vegetation", "Bourg", "BourgDecor", "Champs", "Lieux", "LieuxDecor", "Gisements", "Ponts", "RoutesPavees", "Eau"]
 const INSIDE_ONLY := ["DonjonInterieur", "Mobilier"]
+
+## Dans les cachots : caméra rapprochée, monde extérieur masqué, torches allumées, soleil et ciel atténués
+var _cellar := false
+func set_cellar(v: bool) -> void:
+	if v == _cellar:
+		return
+	_cellar = v
+	if rig:
+		rig.inside = v or _inside
+	for nm in OUTSIDE_ONLY:
+		var n := get_node_or_null(nm) as Node3D
+		if n: n.visible = not v
+	for l in Justice.lights:
+		l.visible = v
+	var sun := find_child("Soleil", false, false) as DirectionalLight3D
+	if sun:
+		if not sun.has_meta("e0"):
+			sun.set_meta("e0", sun.light_energy)
+		sun.light_energy = float(sun.get_meta("e0")) * (0.08 if v else 1.0)
+	var we := find_children("*", "WorldEnvironment", true, false)
+	if we.size() > 0 and we[0].environment:
+		var env: Environment = we[0].environment
+		if not env.has_meta("a0"):
+			env.set_meta("a0", env.ambient_light_energy)
+		env.ambient_light_energy = float(env.get_meta("a0")) * (0.25 if v else 1.0)
 
 func _set_inside(v: bool) -> void:
 	_inside = v
