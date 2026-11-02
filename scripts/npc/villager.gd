@@ -13,6 +13,7 @@ var _cur := ""
 var _wait := 0.0
 
 func _ready() -> void:
+	add_to_group("pnj")
 	var m := CharBuilder.build(spec)
 	add_child(m)
 	_ap = m.get_node("AnimationPlayer")

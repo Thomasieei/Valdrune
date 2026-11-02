@@ -21,6 +21,7 @@ func _ready() -> void:
 		["Les champs", func(): Fields.build(self)],
 		["La ferme, la mine et le portail", func(): Places.build(self)],
 		["Les forêts", func(): Vegetation.build(self)],
+		["Optimisation du décor", func(): _batch()],
 	]
 	for i in steps.size():
 		_step_label.text = steps[i][0] + "…"
@@ -29,10 +30,54 @@ func _ready() -> void:
 		await get_tree().process_frame
 		steps[i][1].call()
 	print("monde construit en ", Time.get_ticks_msec() - t0, " ms")
+	_step_label.text = "Préparation des effets visuels…"
+	_bar.value = 95.0
+	await _warmup()
 	_bar.value = 100.0
 	_spawn()
+	_set_inside(false)
 	await get_tree().process_frame
 	_loading.queue_free()
+
+## Préchauffage des shaders : on fait voir TOUT le monde (extérieur, intérieur éclairé, personnages)
+## à une caméra cachée derrière l'écran de chargement, pour que les shaders soient compilés
+## pendant le chargement et pas en pleine partie (c'était la cause des gros pics de ms).
+func _warmup() -> void:
+	var saved := {}
+	for n in find_children("*", "GeometryInstance3D", true, false):
+		saved[n] = [n.visibility_range_begin, n.visibility_range_end]
+		n.visibility_range_begin = 0.0
+		n.visibility_range_end = 0.0
+	var cam := Camera3D.new()
+	cam.far = 2000.0
+	add_child(cam)
+	cam.current = true
+	var views := [
+		[Vector3(0, 420, 120), Vector3(0, 0, -20)],
+		[Vector3(0, Castle.FLOOR + 6.0, -131.0), Vector3(0, Castle.FLOOR + 2.0, -150.0)],
+		[Vector3(14, Castle.FLOOR + 4.0, -131.0), Vector3(14, Castle.FLOOR, -150.0)],
+		[Vector3(-14, Castle.FLOOR + 4.0, -131.0), Vector3(-14, Castle.FLOOR, -150.0)],
+		[Vector3(0, 20, -40), Vector3(0, 12, -100)],
+		[Vector3(80, 25, 30), Vector3(110, 3, -10)],
+	]
+	for l in Castle.interior_lights:
+		l.visible = true
+	for v in views:
+		cam.position = v[0]
+		cam.look_at(v[1])
+		await get_tree().process_frame
+		await get_tree().process_frame
+	for n in saved:
+		if is_instance_valid(n):
+			n.visibility_range_begin = saved[n][0]
+			n.visibility_range_end = saved[n][1]
+	cam.queue_free()
+
+func _batch() -> void:
+	for nm in ["Mobilier", "CourDecor", "BourgDecor", "LieuxDecor"]:
+		var n := get_node_or_null(nm) as Node3D
+		if n:
+			Batcher.merge(n)
 
 func _show_loading() -> void:
 	_loading = CanvasLayer.new()
@@ -109,44 +154,70 @@ func _spawn() -> void:
 		tour.world = self
 		add_child(tour)
 
-## Qualité adaptative : si le téléphone peine (< 26 FPS pendant 4 s), on allège par paliers.
+## Qualité adaptative : si le téléphone peine (< 28 FPS pendant 3 s), on allège par paliers.
 var quality := 0
 var _q_acc := 0.0
 var _q_low := 0.0
+var _npc_acc := 0.0
 
 func _process(delta: float) -> void:
-	if player == null or "--tour" in OS.get_cmdline_user_args():
+	if player == null:
+		return
+	_npc_acc += delta
+	if _npc_acc > 0.3:
+		_npc_acc = 0.0
+		_cull_npcs()
+	if "--tour" in OS.get_cmdline_user_args():
 		return
 	_q_acc += delta
 	if _q_acc < 1.0:
 		return
 	_q_acc = 0.0
 	var fps := Engine.get_frames_per_second()
-	_q_low = _q_low + 1.0 if fps < 26 else 0.0
-	if _q_low >= 4.0 and quality < 3:
+	_q_low = _q_low + 1.0 if fps < 28 else 0.0
+	if _q_low >= 3.0 and quality < 4:
 		_q_low = 0.0
 		quality += 1
 		_apply_quality()
 
+## Les PNJ loin du joueur (ou de l'autre côté des murs du donjon) ne sont ni affichés ni animés.
+func _cull_npcs() -> void:
+	var pp := player.global_position
+	for n in get_tree().get_nodes_in_group("pnj"):
+		var inside_keep: bool = n.global_position.y > Castle.FLOOR - 0.2 and n.global_position.y < Castle.FLOOR + 3.0 and Layout.in_castle(Vector2(n.global_position.x, n.global_position.z)) and n.global_position.z < Castle.K_MAX.y and n.global_position.z > Castle.K_MIN.y and absf(n.global_position.x) < Castle.K_MAX.x
+		var show: bool = pp.distance_to(n.global_position) < 65.0 and inside_keep == _inside
+		if n.visible != show:
+			n.visible = show
+			n.process_mode = Node.PROCESS_MODE_INHERIT if show else Node.PROCESS_MODE_DISABLED
+
 func _apply_quality() -> void:
 	var sun := find_child("Soleil", false, false) as DirectionalLight3D
-	var we: WorldEnvironment
-	for c in get_children():
-		if c is WorldEnvironment:
-			we = c
+	var vp := get_viewport()
 	match quality:
-		1:
-			if sun: sun.directional_shadow_max_distance = 40.0
-			if we: we.environment.glow_enabled = false
+		1: vp.scaling_3d_scale = 0.65
 		2:
 			if sun: sun.shadow_enabled = false
 		3:
 			for n in find_child("Vegetation", true, false).get_children():
-				n.visibility_range_end *= 0.6
+				n.visibility_range_end *= 0.75
+		4: vp.scaling_3d_scale = 0.55
 	print("qualité réduite → niveau ", quality)
+
+## Intérieur / extérieur : on n'affiche que ce qui peut être vu.
+const OUTSIDE_ONLY := ["Vegetation", "Bourg", "BourgDecor", "Champs", "Lieux", "LieuxDecor", "Gisements", "Ponts", "RoutesPavees", "Eau"]
+const INSIDE_ONLY := ["DonjonInterieur", "Mobilier"]
 
 func _set_inside(v: bool) -> void:
 	_inside = v
-	rig.inside = v
+	if rig:
+		rig.inside = v
 	for l in Castle.interior_lights:
 		l.visible = v
+	for nm in OUTSIDE_ONLY:
+		var n := get_node_or_null(nm) as Node3D
+		if n: n.visible = not v
+	for nm in INSIDE_ONLY:
+		var n := get_node_or_null(nm) as Node3D
+		if n: n.visible = v
+	if player:
+		_cull_npcs()

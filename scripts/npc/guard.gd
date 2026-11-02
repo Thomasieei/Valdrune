@@ -11,6 +11,7 @@ var _cur := ""
 var _spear: Node3D
 
 func _ready() -> void:
+	add_to_group("pnj")
 	var m := CharBuilder.build({"outfit": "rodeur_h", "skin_light": randf() > 0.4, "tint": Color(0.55, 0.62, 0.95)})
 	add_child(m)
 	_ap = m.get_node("AnimationPlayer")

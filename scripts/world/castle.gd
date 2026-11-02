@@ -364,8 +364,6 @@ static func _mobilier(parent: Node3D) -> void:
 	root.name = "Mobilier"
 	parent.add_child(root)
 	# trône sur l'estrade
-	# herse relevée dans le passage de la porte
-	Kit.dungeon(root, "Portcullis_Metal", Vector3(0, Y0 + 4.9, C.y + H.y + 2.5), 0.0, 1.5)
 	Kit.dungeon(root, "Throne", Vector3(0, y + 0.9, -158.2), 0.0, 1.8)
 	# bannières aux murs de la salle (entre les piliers)
 	for k in 4:
@@ -426,13 +424,18 @@ static func _mobilier(parent: Node3D) -> void:
 		Kit.dungeon(root, "Barrel_Closed", p, randf() * TAU, 1.0)
 	Kit.dungeon(root, "ChestSmall", Vector3(17.5, y + 0.0, -134.6), 0.4, 1.6)
 	Kit.dungeon(root, "Key_Golden", Vector3(17.6, y + 0.3, -134.6), 0.0, 2.0)
-	# --- cour : tonneaux, caisses, charrettes, foin
+	# --- cour : tonneaux, caisses, charrettes, foin (hors du donjon)
+	root = Node3D.new()
+	root.name = "CourDecor"
+	parent.add_child(root)
+	# herse relevée dans le passage de la porte
+	Kit.dungeon(root, "Portcullis_Metal", Vector3(0, Y0 + 4.9, C.y + H.y + 2.5), 0.0, 1.5)
 	for p in [Vector3(-40, Y0, -100), Vector3(-38.5, Y0, -101.5), Vector3(40, Y0, -122), Vector3(41.2, Y0, -123.5)]:
 		Kit.dungeon(root, "Barrel_Closed", p, randf() * TAU, 1.1)
 	Kit.village(root, "Prop_Cart_1_Hay", Vector3(36, Y0, -98), 2.2, 1.3)
 	Kit.village(root, "Prop_Crate_1", Vector3(-36, Y0, -118), 0.3, 1.3)
 	Kit.village(root, "Prop_Hay_1", Vector3(42, Y0, -106), 0.0, 1.3)
-	_lumieres(root)
+	_lumieres(parent.get_node("Mobilier"))
 
 static func _lumieres(root: Node3D) -> void:
 	var y = FLOOR

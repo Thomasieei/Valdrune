@@ -4,7 +4,10 @@ class_name Places
 
 static var portal_mat: ShaderMaterial
 
-static func build(parent: Node3D) -> void:
+static func build(world: Node3D) -> void:
+	var parent = Node3D.new()
+	parent.name = "LieuxDecor"
+	world.add_child(parent)
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 404
 	var g = Geo.new()
@@ -13,7 +16,7 @@ static func build(parent: Node3D) -> void:
 	_mine(g, parent, rng)
 	_pier(g, parent)
 	_portal(g, parent)
-	g.commit(parent, "Lieux")
+	g.commit(world, "Lieux")
 	_cliffs(parent, rng)
 	_ores(parent, rng)
 

@@ -13,6 +13,29 @@ const OUTFITS := {
 const HAIR_DIR := "res://assets/chars/hair/"
 
 static var _libs := {}
+static var _mats := {}
+
+## Matériau mobile partagé : teinte éventuelle, sans normal map ni spéculaire (moins cher, quasi invisible à cette distance).
+static func _mobile_mat(m: Material, tint: Color = Color.WHITE, tex: Texture2D = null) -> Material:
+	if not (m is StandardMaterial3D):
+		return m
+	var key := "%d|%s|%d" % [m.get_instance_id(), tint.to_html(), tex.get_instance_id() if tex else 0]
+	if not _mats.has(key):
+		var d: StandardMaterial3D = m.duplicate()
+		if tint != Color.WHITE:
+			d.albedo_color = tint
+		if tex:
+			d.albedo_texture = tex
+		d.normal_enabled = false
+		d.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+		d.roughness_texture = null
+		d.metallic_texture = null
+		d.metallic = 0.0
+		d.roughness = 0.85
+		d.ao_enabled = false
+		d.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		_mats[key] = d
+	return _mats[key]
 static var _heads := {}
 
 ## Ne garde que la tête et le cou du corps de base (le reste est sous la tenue),
@@ -85,9 +108,7 @@ static func build(opts: Dictionary) -> Node3D:
 				for i in mi.mesh.get_surface_count():
 					var m = mi.mesh.surface_get_material(i)
 					if m is StandardMaterial3D and not String(m.resource_name).contains("Regular"):
-						var d: StandardMaterial3D = m.duplicate()
-						d.albedo_color = tint
-						mi.set_surface_override_material(i, d)
+						mi.set_surface_override_material(i, _mobile_mat(m, tint))
 	var hair: String = opts.get("hair", "Hair_SimpleParted" if not female else "Hair_Long")
 	var hc: Color = opts.get("hair_color", [Color(0.28, 0.18, 0.10), Color(0.12, 0.09, 0.07), Color(0.62, 0.45, 0.22), Color(0.45, 0.20, 0.10)][randi() % 4])
 	var hair_meshes := []
@@ -103,19 +124,129 @@ static func build(opts: Dictionary) -> Node3D:
 		for i in mi.mesh.get_surface_count():
 			var m = mi.mesh.surface_get_material(i)
 			if m is StandardMaterial3D:
-				var d: StandardMaterial3D = m.duplicate()
-				d.albedo_color = hc
-				mi.set_surface_override_material(i, d)
+				mi.set_surface_override_material(i, _mobile_mat(m, hc))
 	if opts.get("skin_light", false) and outfit == "":
 		var body := skel.find_child("SuperHero_*", false, false) as MeshInstance3D
 		if body:
-			var m: StandardMaterial3D = body.mesh.surface_get_material(0).duplicate()
 			var tex := "res://assets/chars/base/T_Superhero_Female_Light_BaseColor.png" if female else "res://assets/chars/base/T_Superhero_Male_Ligh.png"
-			m.albedo_texture = load(tex)
-			body.set_surface_override_material(0, m)
+			body.set_surface_override_material(0, _mobile_mat(body.mesh.surface_get_material(0), Color.WHITE, load(tex)))
+	_merge(skel, opts.get("hero", false))
 	var ap := AnimationPlayer.new()
 	ap.name = "AnimationPlayer"
 	root.add_child(ap)
-	ap.add_animation_library("", _lib("res://assets/anims/UAL1_Standard.glb").duplicate())
+	ap.add_animation_library("", _lib("res://assets/anims/UAL1_Standard.glb"))
 	ap.add_animation_library("b", _lib("res://assets/anims/UAL2_Standard.glb"))
 	return root
+
+
+## Fusionne toutes les pièces du personnage (tête, tenue, cheveux…) en UN maillage skinné,
+## une surface par matériau : ~12 appels de rendu par personnage deviennent ~4.
+static func _merge(skel: Skeleton3D, hero := false) -> void:
+	var pieces: Array = []
+	for c in skel.get_children():
+		if c is MeshInstance3D and c.mesh != null and c.skin != null:
+			pieces.append(c)
+	if pieces.size() < 2:
+		return
+	var nb := skel.get_bone_count()
+	var binds: Array = []
+	binds.resize(nb)
+	var maps := {}
+	for mi in pieces:
+		var sk: Skin = mi.skin
+		var mp := PackedInt32Array()
+		mp.resize(sk.get_bind_count())
+		for i in sk.get_bind_count():
+			var b := sk.get_bind_bone(i)
+			var nm := String(sk.get_bind_name(i))
+			if nm != "":
+				b = skel.find_bone(nm)
+			mp[i] = maxi(b, 0)
+			if b >= 0 and binds[b] == null:
+				binds[b] = sk.get_bind_pose(i)
+		maps[mi] = mp
+	var skin := Skin.new()
+	for b in nb:
+		skin.add_bind(b, binds[b] if binds[b] != null else skel.get_bone_global_rest(b).affine_inverse())
+	var groups := {}   # clé -> {mat, use8, v, n, uv, bones, weights, idx}
+	for mi in pieces:
+		var mesh: Mesh = mi.mesh
+		var mp: PackedInt32Array = maps[mi]
+		for si in mesh.get_surface_count():
+			var arr: Array = mesh.surface_get_arrays(si)
+			if arr[Mesh.ARRAY_BONES] == null:
+				continue
+			var fmt: int = mesh.surface_get_format(si)
+			var use8: bool = (fmt & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS) != 0
+			var mat: Material = mi.get_active_material(si)
+			var key := "%d|%s" % [mat.get_instance_id() if mat else 0, use8]
+			if not groups.has(key):
+				groups[key] = {"mat": mat, "use8": use8, "v": PackedVector3Array(), "n": PackedVector3Array(), "uv": PackedVector2Array(), "b": PackedInt32Array(), "w": PackedFloat32Array(), "i": PackedInt32Array()}
+			var g: Dictionary = groups[key]
+			var base: int = g["v"].size()
+			var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+			g["v"].append_array(v)
+			var nrm = arr[Mesh.ARRAY_NORMAL]
+			if nrm != null and nrm.size() == v.size():
+				g["n"].append_array(nrm)
+			else:
+				for k in v.size(): g["n"].append(Vector3.UP)
+			var uv = arr[Mesh.ARRAY_TEX_UV]
+			if uv != null and uv.size() == v.size():
+				g["uv"].append_array(uv)
+			else:
+				for k in v.size(): g["uv"].append(Vector2.ZERO)
+			var bones: PackedInt32Array = arr[Mesh.ARRAY_BONES]
+			for k in bones.size():
+				var bi := bones[k]
+				bones[k] = mp[bi] if bi < mp.size() else 0
+			g["b"].append_array(bones)
+			g["w"].append_array(arr[Mesh.ARRAY_WEIGHTS])
+			var idx = arr[Mesh.ARRAY_INDEX]
+			if idx == null or idx.size() == 0:
+				idx = PackedInt32Array(range(v.size()))
+			for k in idx.size():
+				g["i"].append(idx[k] + base)
+	var im := ImporterMesh.new()
+	var mats: Array = []
+	for key in groups:
+		var g: Dictionary = groups[key]
+		var a := []
+		a.resize(Mesh.ARRAY_MAX)
+		a[Mesh.ARRAY_VERTEX] = g["v"]
+		a[Mesh.ARRAY_NORMAL] = g["n"]
+		a[Mesh.ARRAY_TEX_UV] = g["uv"]
+		a[Mesh.ARRAY_BONES] = g["b"]
+		a[Mesh.ARRAY_WEIGHTS] = g["w"]
+		a[Mesh.ARRAY_INDEX] = g["i"]
+		var flags := Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS if g["use8"] else 0
+		im.add_surface(Mesh.PRIMITIVE_TRIANGLES, a, [], {}, null, "", flags)
+		mats.append(_mobile_mat(g["mat"]) if g["mat"] else null)
+	# niveaux de détail automatiques : le personnage se simplifie avec la distance
+	var bone_xf: Array = []
+	for b in nb:
+		bone_xf.append(skel.get_bone_global_rest(b))
+	im.generate_lods(25.0, 60.0, bone_xf)
+	var am: ArrayMesh = im.get_mesh()
+	if not hero:
+		# PNJ : on part directement du premier niveau simplifié (~moitié des triangles)
+		var light := ArrayMesh.new()
+		for si in im.get_surface_count():
+			var a: Array = im.get_surface_arrays(si)
+			if im.get_surface_lod_count(si) > 0:
+				a[Mesh.ARRAY_INDEX] = im.get_surface_lod_indices(si, 0)
+			light.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, a, [], {}, im.get_surface_format(si))
+		am = light
+	for mi in pieces:
+		skel.remove_child(mi)
+		mi.queue_free()
+	var out := MeshInstance3D.new()
+	out.name = "Corps"
+	out.mesh = am
+	for i in mats.size():
+		out.set_surface_override_material(i, mats[i])
+	out.skin = skin
+	skel.add_child(out)
+	out.skeleton = NodePath("..")
+	if not hero:
+		out.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

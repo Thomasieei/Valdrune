@@ -82,6 +82,7 @@ static func build(parent: Node3D) -> void:
 			var mi := MeshInstance3D.new()
 			mi.mesh = st.commit()
 			mi.material_override = mat
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			mi.name = "Sol_%d_%d" % [ci, cj]
 			parent.add_child(mi)
 

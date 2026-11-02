@@ -23,16 +23,12 @@ static func setup(parent: Node, interior := false) -> DirectionalLight3D:
 	env.tonemap_white = 6.0
 	env.fog_enabled = not interior
 	env.fog_light_color = Color(0.74, 0.82, 0.90)
-	env.fog_density = 0.0019
+	env.fog_density = 0.0024
 	env.fog_sky_affect = 0.25
-	env.fog_aerial_perspective = 0.25
-	env.glow_enabled = true
-	env.glow_intensity = 0.35
-	env.glow_bloom = 0.04
-	env.glow_hdr_threshold = 1.1
-	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.0
-	env.adjustment_contrast = 1.06
+	env.fog_aerial_perspective = 0.0
+	# mobile : pas de glow ni d'ajustements (passes plein écran coûteuses)
+	env.glow_enabled = false
+	env.adjustment_enabled = false
 	var we := WorldEnvironment.new()
 	we.environment = env
 	parent.add_child(we)
@@ -44,8 +40,8 @@ static func setup(parent: Node, interior := false) -> DirectionalLight3D:
 	sun.shadow_enabled = true
 	sun.shadow_bias = 0.04
 	sun.shadow_normal_bias = 1.2
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
-	sun.directional_shadow_max_distance = 70.0
-	sun.directional_shadow_blend_splits = true
+	# une seule cascade, ombres limitées aux 45 m autour de la caméra
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+	sun.directional_shadow_max_distance = 45.0
 	parent.add_child(sun)
 	return sun

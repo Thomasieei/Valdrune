@@ -79,7 +79,9 @@ static func mat(name: String) -> Material:
 			m.albedo_color = Color(0.92, 0.90, 0.85)
 		_:
 			m.albedo_color = Color.MAGENTA
-	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	if not (name in ["or", "fer", "cuivre", "cristal"]):
+		m.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
 	_mats[name] = m
 	return m
 

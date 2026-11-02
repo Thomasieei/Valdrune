@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cx0oc0uajn7mj"
-path="res://.godot/imported/mdvl_nature_bank_01_mdvl_palette.png-b44385177edbceae80693e2679fc1090.ctex"
+path.s3tc="res://.godot/imported/mdvl_nature_bank_01_mdvl_palette.png-b44385177edbceae80693e2679fc1090.s3tc.ctex"
+path.etc2="res://.godot/imported/mdvl_nature_bank_01_mdvl_palette.png-b44385177edbceae80693e2679fc1090.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "b6154cd81c53f78152331b15dea28cc7"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/nature/mdvl_nature_bank_01_mdvl_palette.png"
-dest_files=["res://.godot/imported/mdvl_nature_bank_01_mdvl_palette.png-b44385177edbceae80693e2679fc1090.ctex"]
+dest_files=["res://.godot/imported/mdvl_nature_bank_01_mdvl_palette.png-b44385177edbceae80693e2679fc1090.s3tc.ctex", "res://.godot/imported/mdvl_nature_bank_01_mdvl_palette.png-b44385177edbceae80693e2679fc1090.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/hdr_compression=1

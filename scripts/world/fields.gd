@@ -62,7 +62,7 @@ static func _crops(root: Node3D, plot: Dictionary, rng: RandomNumberGenerator) -
 	var c: Vector2 = plot["c"]
 	var s: Vector2 = plot["size"]
 	var mesh: Mesh = CropMeshes.wheat() if plot["kind"] == "ble" else CropMeshes.cabbage()
-	var step = Vector2(0.6, 0.6) if plot["kind"] == "ble" else Vector2(1.1, 1.5)
+	var step = Vector2(0.7, 0.7) if plot["kind"] == "ble" else Vector2(1.1, 1.5)
 	var xs = []
 	var z = c.y - s.y * 0.5 + step.y * 0.5
 	while z < c.y + s.y * 0.5:
@@ -85,7 +85,7 @@ static func _crops(root: Node3D, plot: Dictionary, rng: RandomNumberGenerator) -
 	mat.set_shader_parameter("kind", 0.0 if plot["kind"] == "ble" else 1.0)
 	mmi.material_override = mat
 	plot["mat"] = mat
-	mmi.visibility_range_end = 170.0
+	mmi.visibility_range_end = 75.0
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(mmi)
 	plot["mmi"] = mmi

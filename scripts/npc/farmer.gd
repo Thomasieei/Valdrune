@@ -12,6 +12,7 @@ var _work_left := 0.0
 const SPEED := 1.4
 
 func _ready() -> void:
+	add_to_group("pnj")
 	var m := CharBuilder.build(spec)
 	add_child(m)
 	_ap = m.get_node("AnimationPlayer")

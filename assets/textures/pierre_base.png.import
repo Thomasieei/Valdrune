@@ -3,25 +3,27 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://8oqpb7i82kx4"
-path="res://.godot/imported/pierre_base.png-2debeb49330956a9a3c385643b1b4b8a.ctex"
+path.s3tc="res://.godot/imported/pierre_base.png-2debeb49330956a9a3c385643b1b4b8a.s3tc.ctex"
+path.etc2="res://.godot/imported/pierre_base.png-2debeb49330956a9a3c385643b1b4b8a.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/pierre_base.png"
-dest_files=["res://.godot/imported/pierre_base.png-2debeb49330956a9a3c385643b1b4b8a.ctex"]
+dest_files=["res://.godot/imported/pierre_base.png-2debeb49330956a9a3c385643b1b4b8a.s3tc.ctex", "res://.godot/imported/pierre_base.png-2debeb49330956a9a3c385643b1b4b8a.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=false
+mipmaps/generate=true
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""

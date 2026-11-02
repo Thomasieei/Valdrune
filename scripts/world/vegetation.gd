@@ -2,14 +2,18 @@ class_name Vegetation
 ## Forêts, bosquets, arbres isolés, rochers et herbes — en MultiMesh par bloc (culling + distance de vue).
 ## Les zones réservées (routes, eau, bâtiments, champs) restent toujours dégagées.
 
-const CELL := 80.0
+const CELL := 40.0          # blocs fins : meilleur culling
+const FAR_CELL := 80.0
+const NEAR_TREE := 75.0     # au-delà : arbres simplifiés
+const FAR_TREE := 230.0
 
 static var _bins := {}   # clé "type|cx|cz" -> Array[Transform3D]
 static var _trunks: Array = []   # [pos, rayon]
 
 static func _add(kind: String, t: Transform3D) -> void:
-	var cx := int(floor((t.origin.x + Layout.HALF) / CELL))
-	var cz := int(floor((t.origin.z + Layout.HALF) / CELL))
+	var cell: float = CELL if kind in ["oak", "pine", "birch"] else FAR_CELL
+	var cx := int(floor((t.origin.x + Layout.HALF) / cell))
+	var cz := int(floor((t.origin.z + Layout.HALF) / cell))
 	var key := "%s|%d|%d" % [kind, cx, cz]
 	if not _bins.has(key):
 		_bins[key] = []
@@ -100,7 +104,7 @@ static func build(parent: Node3D) -> void:
 		if k == "boulder" or k == "rocks":
 			_trunks.append([Vector3(px, h, pz), 0.55 * s])
 	# herbes hautes et fleurs (visibles de près seulement)
-	for i in 9000:
+	for i in 7000:
 		var px := rng.randf_range(-260, 260)
 		var pz := rng.randf_range(-260, 260)
 		var p := Vector2(px, pz)
@@ -109,39 +113,84 @@ static func build(parent: Node3D) -> void:
 		var h := Layout.height(px, pz)
 		if h < Layout.WATER + 0.6 or h > 26.0:
 			continue
-		var k := "grass"
-		if rng.randf() < 0.18 and Layout.river_dist(p) > 12:
-			k = "flowers"
-		_add(k, _xf(px, pz, rng.randf_range(1.2, 2.0), rng.randf() * TAU, 0.02))
+		var k := "touffe"
+		if rng.randf() < 0.15 and Layout.river_dist(p) > 12:
+			k = "fleurs"
+		_add(k, _xf(px, pz, rng.randf_range(0.9, 1.4), rng.randf() * TAU, 0.02))
 	_emit(parent)
 	_collisions(parent)
+
+static var _mats := {}
+
+## Matériau allégé (sans spéculaire) partagé par type
+static func _light_mat(kind: String, mesh: Mesh) -> Material:
+	if not _mats.has(kind):
+		var m = mesh.surface_get_material(0)
+		if m is StandardMaterial3D:
+			m = m.duplicate()
+			m.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+			m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		_mats[kind] = m
+	return _mats[kind]
 
 static func _emit(parent: Node3D) -> void:
 	var root := Node3D.new()
 	root.name = "Vegetation"
 	parent.add_child(root)
+	var far_bins := {}
 	for key in _bins:
 		var kind: String = key.split("|")[0]
 		var arr: Array = _bins[key]
-		var mesh := Kit.mesh_of(Kit.NATURE % kind)
-		if mesh == null:
-			continue
-		var mm := MultiMesh.new()
-		mm.transform_format = MultiMesh.TRANSFORM_3D
-		mm.mesh = mesh
-		mm.instance_count = arr.size()
-		for i in arr.size():
-			mm.set_instance_transform(i, arr[i])
-		var mmi := MultiMeshInstance3D.new()
-		mmi.multimesh = mm
-		var small := kind in ["grass", "flowers", "fern", "pebbles", "mushrooms"]
+		var is_tree := kind in ["oak", "pine", "birch"]
+		var mesh: Mesh
+		var mat: Material = null
+		if kind == "touffe":
+			mesh = LowMeshes.grass()
+			mat = LowMeshes.vc_material(true)
+		elif kind == "fleurs":
+			mesh = LowMeshes.flowers()
+			mat = LowMeshes.vc_material(true)
+		else:
+			mesh = Kit.mesh_of(Kit.NATURE % kind)
+			if mesh == null:
+				continue
+			mat = _light_mat(kind, mesh)
+		var small := kind in ["touffe", "fleurs", "fern", "pebbles", "mushrooms"]
 		var mid := kind in ["bush", "log", "stump", "rock_mossy", "slab", "rocks"]
-		mmi.visibility_range_end = 55.0 if small else (130.0 if mid else 260.0)
-		mmi.visibility_range_end_margin = 10.0
-		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
-		if small:
+		var mmi := _mm(mesh, arr)
+		mmi.material_override = mat
+		mmi.visibility_range_end = 38.0 if small else (90.0 if mid else NEAR_TREE)
+		mmi.visibility_range_end_margin = 6.0
+		if not is_tree:
 			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		root.add_child(mmi)
+		if is_tree:
+			var c: PackedStringArray = key.split("|")
+			var fk := "%s|%d|%d" % [kind, int(c[1]) / 2, int(c[2]) / 2]
+			if not far_bins.has(fk):
+				far_bins[fk] = []
+			far_bins[fk].append_array(arr)
+	# arbres lointains : silhouettes simplifiées (≈ 40 triangles), sans ombre
+	for fk in far_bins:
+		var kind: String = fk.split("|")[0]
+		var mmi := _mm(LowMeshes.tree_proxy(kind), far_bins[fk])
+		mmi.material_override = LowMeshes.vc_material(false)
+		mmi.visibility_range_begin = NEAR_TREE
+		mmi.visibility_range_begin_margin = 6.0
+		mmi.visibility_range_end = FAR_TREE
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(mmi)
+
+static func _mm(mesh: Mesh, arr: Array) -> MultiMeshInstance3D:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.mesh = mesh
+	mm.instance_count = arr.size()
+	for i in arr.size():
+		mm.set_instance_transform(i, arr[i])
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	return mmi
 
 static func _collisions(parent: Node3D) -> void:
 	var body := StaticBody3D.new()

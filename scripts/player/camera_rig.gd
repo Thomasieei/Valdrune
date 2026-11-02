@@ -27,7 +27,7 @@ func _ready() -> void:
 	cam = Camera3D.new()
 	cam.fov = 62.0
 	cam.near = 0.15
-	cam.far = 900.0
+	cam.far = 420.0
 	arm.add_child(cam)
 	cam.current = true
 	if target:
@@ -63,6 +63,6 @@ func _process(delta: float) -> void:
 	arm.spring_length = dist
 	# empêcher la caméra de passer sous le terrain
 	var cp := cam.global_position
-	var gh := Layout.height(cp.x, cp.z) + 0.6
+	var gh := Terrain.height_at(cp.x, cp.z) + 0.6
 	if cp.y < gh and not inside:
 		pitch = lerpf(pitch, pitch - 0.02, 0.5)

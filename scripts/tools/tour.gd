@@ -54,5 +54,8 @@ func _run() -> void:
 		rig._last_manual = Time.get_ticks_msec() / 1000.0 + 100.0
 		for f in 8: await get_tree().process_frame
 		get_viewport().get_texture().get_image().save_png("res://shots/%s.png" % s[0])
-		print("SHOT ", s[0], " fps=", Engine.get_frames_per_second())
+		var prims := RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME)
+		var draws := RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME)
+		var objs := RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)
+		print("SHOT ", s[0], " triangles=", prims, " draws=", draws, " objets=", objs)
 	get_tree().quit()

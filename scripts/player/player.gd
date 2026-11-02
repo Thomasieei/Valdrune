@@ -28,7 +28,7 @@ func _ready() -> void:
 	cs.shape = cap
 	cs.position.y = 0.9
 	add_child(cs)
-	model = CharBuilder.build({"outfit": "rodeur_h", "skin_light": true, "tint": Color(0.82, 0.88, 1.0)})
+	model = CharBuilder.build({"hero": true, "outfit": "rodeur_h", "skin_light": true, "tint": Color(0.82, 0.88, 1.0)})
 	add_child(model)
 	anim = model.get_node("AnimationPlayer")
 	_play("Idle")
@@ -81,7 +81,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		_play("Sprint", 0.2, sp / 7.2)
 	# sécurité : ne jamais tomber sous le sol
-	var ground := Layout.height(global_position.x, global_position.z)
+	var ground := Terrain.height_at(global_position.x, global_position.z)
 	if global_position.y < ground - 2.0:
 		global_position.y = ground + 0.5
 		velocity = Vector3.ZERO

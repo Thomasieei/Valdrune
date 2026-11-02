@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, cull_back, diffuse_lambert, specular_schlick_ggx;
+render_mode cull_back, diffuse_lambert, specular_schlick_ggx, shadows_disabled;
 uniform vec3 shallow : source_color = vec3(0.36, 0.70, 0.72);
 uniform vec3 deep : source_color = vec3(0.10, 0.33, 0.48);
 varying vec3 wpos;
@@ -22,7 +22,6 @@ void fragment() {
 	ROUGHNESS = 0.08;
 	METALLIC = 0.0;
 	SPECULAR = 0.7;
-	ALPHA = mix(0.55, 0.92, smoothstep(0.0, 0.5, d));
 	// écume sur la berge
 	float foam = (1.0 - smoothstep(0.02, 0.12, d)) * (0.6 + 0.4 * sin(t * 2.0 + p.x * 1.3 + p.y));
 	ALBEDO = mix(ALBEDO, vec3(0.92, 0.96, 0.97), foam * 0.7);

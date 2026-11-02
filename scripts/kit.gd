@@ -18,6 +18,7 @@ static func lpd_material() -> StandardMaterial3D:
 		_lpd_mat = StandardMaterial3D.new()
 		_lpd_mat.albedo_texture = load("res://assets/dungeon/LPD_Texture.png")
 		_lpd_mat.roughness = 0.9
+		_lpd_mat.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
 		_lpd_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	return _lpd_mat
 

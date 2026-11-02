@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c15ckyf3lwh1"
-path="res://.godot/imported/mdvl_nature_cliff_corner_01_mdvl_palette.png-9e809a6a12a828e51ab94b35b3e193cc.ctex"
+path.s3tc="res://.godot/imported/mdvl_nature_cliff_corner_01_mdvl_palette.png-9e809a6a12a828e51ab94b35b3e193cc.s3tc.ctex"
+path.etc2="res://.godot/imported/mdvl_nature_cliff_corner_01_mdvl_palette.png-9e809a6a12a828e51ab94b35b3e193cc.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "6168e9154b7e888b60c46b331cc69eb7"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/nature/mdvl_nature_cliff_corner_01_mdvl_palette.png"
-dest_files=["res://.godot/imported/mdvl_nature_cliff_corner_01_mdvl_palette.png-9e809a6a12a828e51ab94b35b3e193cc.ctex"]
+dest_files=["res://.godot/imported/mdvl_nature_cliff_corner_01_mdvl_palette.png-9e809a6a12a828e51ab94b35b3e193cc.s3tc.ctex", "res://.godot/imported/mdvl_nature_cliff_corner_01_mdvl_palette.png-9e809a6a12a828e51ab94b35b3e193cc.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/hdr_compression=1
