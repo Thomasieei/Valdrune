@@ -28,6 +28,9 @@ func _ready() -> void:
 	floor_max_angle = deg_to_rad(48)
 	floor_snap_length = 0.6
 	platform_floor_layers = 1 | 2      # ne jamais « chevaucher » une créature comme une plateforme
+	var aura := HeroAura.new()
+	aura.name = "Aura"
+	add_child(aura)
 	var cs := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
 	cap.radius = 0.35

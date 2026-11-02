@@ -225,6 +225,7 @@ func _ready() -> void:
 		pc.cast("trait_feu")
 		await _wait(0.2)
 	await _shot("8_melee_portail")
+	var n_portail := Combat.monsters.filter(func(g): return Combat.alive(g)).size()
 	# peur : nova chargée à fond au milieu des diablotins
 	for g in Combat.monsters:
 		if Combat.alive(g):
@@ -244,7 +245,7 @@ func _ready() -> void:
 				fe += 1
 	await _shot("9_peur")
 	_check(fe > 0, "Démonstration de puissance : %d ennemi(s) sur %d prennent la fuite" % [fe, tot])
-	_check(Combat.monsters.size() >= 3, "Diablotins et brute présents au portail (%d)" % Combat.monsters.size())
+	_check(n_portail >= 3, "Diablotins et brute présents au portail (%d)" % n_portail)
 	_finish()
 
 func _finish() -> void:

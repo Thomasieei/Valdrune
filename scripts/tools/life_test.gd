@@ -269,6 +269,134 @@ func _ready() -> void:
 		if Progression.get_inst().gold > g2:
 			break
 	_check(Progression.get_inst().gold > g2, "Événement repoussé : récompense versée (+%d or)" % (Progression.get_inst().gold - g2))
+	# ---------------------------------------------------------------- quêtes personnelles
+	var giver: Villager = null
+	for n in get_tree().get_nodes_in_group("pnj"):
+		if n is Villager and Quests.can_offer(n) and Vector2(n.global_position.x, n.global_position.z).distance_to(Layout.TOWN) < 60.0:
+			giver = n
+			break
+	_check(giver != null, "Un habitant a du travail pour le seigneur (« ! » doré)")
+	await _wait(0.6)
+	_place(Vector2(giver.global_position.x + 3.0, giver.global_position.z), 0)
+	await _wait(0.8)
+	_check(world.quests._marks.has(giver) and world.quests._marks[giver].visible and world.quests._marks[giver].text == "!", "Le « ! » flotte au-dessus du donneur de quête")
+	var qc := Talk.build(giver)
+	_check(qc["nodes"].has("q_offre"), "Il propose une quête dans le dialogue")
+	# forcer chaque type de quête et les jouer réellement
+	var types_ok := {}
+	for qt in ["chasse", "livraison", "recuperation", "escorte"]:
+		var q: Dictionary = {}
+		for k in 12:
+			var cand := Quests.make(giver)
+			if cand["type"] == qt:
+				q = cand
+				break
+			Quests._st()["faites"] = int(Quests._st()["faites"]) + 1
+		if q.is_empty():
+			print("   (type %s non généré)" % qt)
+			continue
+		Quests.actives().clear()
+		Quests.accept(q)
+		await _wait(0.5)
+		match qt:
+			"chasse":
+				var qsp := Spawner.by_id(q["zone"])
+				var qzp: Vector2 = Spawner.ZONES.filter(func(z): return z["id"] == q["zone"])[0]["pos"]
+				_place(qzp + Vector2(5, 5), 0)
+				await _until(func(): return qsp._alive.size() > 0, 12.0)
+				for k in 30:
+					for m in qsp._alive.duplicate():
+						if Combat.alive(m):
+							m.cbt.take_damage(99999, p, "magie")
+					await _wait(0.5)
+					if q["state"] == "a_rendre":
+						break
+					if qsp._alive.is_empty():
+						qsp._timers = [0.0]
+			"livraison":
+				var to := Talk.node_of(q["to_id"])
+				var cv2 := Talk.build(to)
+				for ch in cv2["nodes"]["menu"]["choices"]:
+					if ch.get("next", "") == "q_livre":
+						ch["callback"].call()
+			"recuperation":
+				_place(Vector2(float(q["pos"][0]) + 4.0, float(q["pos"][1])), 0)
+				await _wait(1.0)
+				if qt == "recuperation":
+					await _shot("10_quete_objet")
+				_place(Vector2(float(q["pos"][0]), float(q["pos"][1])), 0)
+				await _until(func(): return q["state"] == "a_rendre", 6.0)
+			"escorte":
+				await _wait(0.6)
+				var fol: Villager = world.quests._followers.get(q["id"])
+				_check(fol != null, "Escorte : le fils du donneur suit le seigneur")
+				var dest := Vector2(float(q["pos"][0]), float(q["pos"][1]))
+				_place(dest + Vector2(3, 3), 0)
+				await _wait(1.2)
+				_place(dest + Vector2(1, 1), 0)
+				await _until(func(): return q["state"] == "a_rendre", 10.0)
+				for m in Combat.monsters.duplicate():
+					if is_instance_valid(m) and m.global_position.distance_to(p.global_position) < 60.0 and Combat.alive(m):
+						m.cbt.take_damage(99999, p, "magie")
+		var gq0 := Progression.get_inst().gold
+		var back := Talk.build(giver)
+		var ok_back := false
+		for ch in back["nodes"]["menu"]["choices"]:
+			if ch.get("next", "") == "q_rendre":
+				ch["callback"].call()
+				ok_back = true
+		types_ok[qt] = q["state"] == "a_rendre" and ok_back and Progression.get_inst().gold > gq0
+		_check(types_ok[qt], "Quête « %s » accomplie et récompensée (%s)" % [qt, q["titre"]])
+		Quests._st()["donneurs"].erase(giver.get_meta("talk")["id"])
+	# ---------------------------------------------------------------- capture
+	_place(Vector2(-60, 60), 0)
+	await _wait(0.4)
+	var bdt := Monster.new()
+	bdt.kind = "bandit"
+	bdt.no_respawn = true
+	world.add_child(bdt)
+	bdt.global_position = p.global_position + Vector3(0, 0.3, 2.0)
+	await _wait(0.4)
+	bdt.stun(6.0, false)
+	bdt.cbt.hp = bdt.cbt.max_hp * 0.2
+	await _wait(0.8)
+	if false: print("   (capture : dist %.1f, pv %d/%d, capturable %s, nearest %s, capt %s, label %s, dlg %s)" % [bdt.global_position.distance_to(p.global_position), bdt.cbt.hp, bdt.cbt.max_hp, Capture.capturable(bdt), Capture.nearest(p.global_position), world._capt, world.hud.btn_talk.label, Dialogue.active])
+	_check(world._capt == bdt and world.hud.btn_talk.label.begins_with("Capturer"), "Bandit affaibli : bouton « Capturer »")
+	var np0: int = Kingdom.k()["prisonniers"].size()
+	world._talk()
+	await _wait(2.2)
+	_check(not is_instance_valid(bdt) and Kingdom.k()["prisonniers"].size() == np0 + 1, "Le bandit se rend et part aux cachots")
+	Kingdom.k()["soldats"] = Kingdom.max_soldiers() - 1
+	var cap: Dictionary = Kingdom.k()["prisonniers"][-1]
+	var cn := Talk.node_of(cap["id"])
+	var cc := Talk.build(cn)
+	_check(cc["nodes"].has("interro") and cc["nodes"].has("rancon") and cc["nodes"].has("enrole"), "Au captif : interroger, rançon, enrôler")
+	var sold0 := int(Kingdom.res("soldats"))
+	for ch in cc["nodes"]["menu"]["choices"]:
+		if ch.get("next", "") == "enrole":
+			ch["callback"].call()
+	_check(int(Kingdom.res("soldats")) == sold0 + 1 and Justice.prisoner_record(cap["id"]).is_empty(), "Le captif enrôlé rejoint la garde")
+	# ---------------------------------------------------------------- serviteurs : appel et retour de mission
+	_place(Vector2(10, -30), 0)
+	await _wait(0.5)
+	world.kui.open("personnages")
+	await _wait(0.8)
+	await _shot("11_serviteurs")
+	Portraits.get_tex("elian").get_image().save_png("res://shots/vie_portrait_elian.png")
+	world.kui.close_ui()
+	await _wait(0.3)
+	MissionReturn.summon("elian")
+	var came := await _until(func(): return Dialogue.active, 15.0)
+	_check(came, "Appel : Elian accourt et attend les ordres")
+	await _shot("12_appel")
+	world.dlg._close()
+	await _until(func(): return not Dialogue.active, 3.0)
+	Kingdom.inst.mission_done.emit({"agent": "elian", "statut": "reussie", "rapport": "Mission d'essai — RÉUSSITE.\nGains : +50 or"})
+	var rep := await _until(func(): return Dialogue.active, 15.0)
+	_check(rep, "Retour de mission : l'agent revient, salue et fait son rapport")
+	await _shot("13_rapport")
+	world.dlg._close()
+	await _wait(0.3)
 	# ---------------------------------------------------------------- caravane
 	if Vie.inst.caravan and is_instance_valid(Vie.inst.caravan):
 		Vie.inst.caravan.queue_free()

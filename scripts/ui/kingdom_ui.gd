@@ -6,8 +6,8 @@ extends Control
 static var inst: KingdomUI
 
 const TABS := [
-	["economie", "Économie"], ["population", "Population"], ["territoire", "Territoire"], ["batiments", "Bâtiments"],
-	["armee", "Armée"], ["diplomatie", "Diplomatie"], ["personnages", "Personnages"], ["missions", "Missions"], ["rapports", "Rapports"],
+	["personnages", "Serviteurs"], ["economie", "Économie"], ["population", "Population"], ["territoire", "Territoire"], ["batiments", "Bâtiments"],
+	["armee", "Armée"], ["diplomatie", "Diplomatie"], ["missions", "Missions"], ["rapports", "Rapports"],
 ]
 const RES_NAMES := {"tresor": "Or", "nourriture": "Nourriture", "bois": "Bois", "pierre": "Pierre", "minerai": "Minerai"}
 const ACCENT := Color(1, 0.82, 0.45)
@@ -391,34 +391,64 @@ func _stance(v: int) -> String:
 	if v > -50: return "hostile"
 	return "ennemi juré"
 
+## Serviteurs : une carte par personne (portrait, nom, rôle, état, loyauté) et trois gestes simples
 func _tab_personnages() -> void:
 	var gs := GameState.get_inst()
+	var intro := _label("Vos serviteurs. Touchez « Appeler » : il accourt jusqu'à vous.", 21, Color(0.85, 0.85, 0.8), true)
+	_content.add_child(intro)
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 14)
+	_content.add_child(grid)
 	for id in gs.companions:
-		var c: Dictionary = gs.companions[id]
-		var etat: String = c.get("etat", "present")
-		if etat == "mort":
-			var v0 := _section("%s — tombé en mission" % c["nom"], "personnages")
-			_row(v0, "Mort au service de Valmont.")
-			continue
-		var st: String = {"present": "disponible", "mission": "en mission", "blesse": "blessé"}.get(etat, etat)
-		if etat == "blesse":
-			st += " (encore %d min)" % maxi(1, int((float(c.get("blessure_fin", 0)) - Time.get_unix_time_from_system()) / 60.0) + 1)
-		var v := _section("%s — %s — niveau %d (%s)" % [c["nom"], c.get("role", ""), c["niveau"], st], "personnages")
-		if String(c.get("personnalite", "")) != "":
-			_row(v, "Caractère : %s" % c["personnalite"])
-		if String(c.get("apparence", "")) != "":
-			_row(v, "Apparence : %s" % c["apparence"])
-		_row(v, "Expérience : %d / %d" % [c["xp"], Companion.xp_to_next(int(c["niveau"]))])
-		_bar(v, float(c["xp"]) / Companion.xp_to_next(int(c["niveau"])), Color(1, 0.8, 0.3))
-		_row(v, "Loyauté : %d  ·  Relation : %d" % [c.get("loyaute", 0), c.get("relation", 0)])
-		var comp: Dictionary = c["competences"]
-		var parts := []
-		for k in comp:
-			parts.append("%s %d" % [String(k).capitalize(), comp[k]])
-		_row(v, "Compétences : " + "  ·  ".join(parts))
-	var r := _section("Cour royale", "personnages")
-	_row(r, "Aldric III, roi de Valmont — relation : %d" % int(gs.mem("roi").get("relation", 0)))
-	_row(r, "Recrutez des agents en parlant aux habitants et aux gardes (option « Rejoins-moi »).")
+		grid.add_child(_card(id, gs.companions[id]))
+	var r := _section("Recruter", "personnages")
+	_row(r, "Parlez aux habitants et aux gardes (option « Rejoins-moi ») pour agrandir votre maison.")
+
+func _card(id: String, c: Dictionary) -> Control:
+	var etat: String = c.get("etat", "present")
+	var col := {"present": Color(0.45, 0.85, 0.5), "mission": Color(0.55, 0.75, 1.0), "blesse": Color(1.0, 0.55, 0.45), "mort": Color(0.5, 0.5, 0.5)}.get(etat, Color.WHITE) as Color
+	var p := PanelContainer.new()
+	p.custom_minimum_size = Vector2(250, 0)
+	p.add_theme_stylebox_override("panel", _box(Color(0.12, 0.11, 0.12), col.darkened(0.2), 2, 12))
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	p.add_child(v)
+	var tr := TextureRect.new()
+	tr.texture = Portraits.get_tex(id)
+	tr.custom_minimum_size = Vector2(220, 200)
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	if etat == "mort":
+		tr.modulate = Color(0.4, 0.4, 0.4)
+	v.add_child(tr)
+	v.add_child(_label(String(c["nom"]), 28, ACCENT))
+	v.add_child(_label("%s · niveau %d" % [c.get("role", "Agent"), int(c.get("niveau", 1))], 19, Color(0.85, 0.85, 0.82)))
+	var st: String = {"present": "● Disponible", "mission": "● En mission", "blesse": "● Blessé", "mort": "✝ Tombé en mission"}.get(etat, etat)
+	if etat == "blesse":
+		st += " (%d min)" % maxi(1, int((float(c.get("blessure_fin", 0)) - Time.get_unix_time_from_system()) / 60.0) + 1)
+	if etat == "mission":
+		for r in GameState.get_inst().missions:
+			if r["statut"] == "en_cours" and r["agent"] == id:
+				var left := maxf(0.0, float(r["fin"]) - Time.get_unix_time_from_system())
+				st += " — retour %d:%02d" % [int(left) / 60, int(left) % 60]
+	v.add_child(_label(st, 20, col))
+	v.add_child(_label("Loyauté %d" % int(c.get("loyaute", 0)), 18, Color(0.8, 0.8, 0.8)))
+	_bar(v, (float(c.get("loyaute", 0)) + 100.0) / 200.0, Color(1.0, 0.75, 0.3))
+	if etat == "present":
+		var b1 := _button("Appeler", Color(0.6, 1.0, 0.65))
+		_act(b1, func():
+			close_ui()
+			MissionReturn.summon(id)
+			return "")
+		v.add_child(b1)
+		var b2 := _button("Confier une mission")
+		_act(b2, func():
+			show_tab("missions")
+			return "")
+		v.add_child(b2)
+	return p
 
 func _tab_missions() -> void:
 	var gs := GameState.get_inst()

@@ -237,7 +237,7 @@ static func _cell_spot(i: int) -> Vector3:
 
 static func _spawn_prisoner(pr: Dictionary) -> Villager:
 	var v := Villager.new()
-	v.spec = {"female": pr.get("fem", false), "outfit": pr.get("outfit", "paysan_h"), "tint": Color(0.75, 0.72, 0.68)}
+	v.spec = {"female": pr.get("fem", false), "outfit": pr.get("outfit", "paysan_h"), "tint": Color(0.75, 0.72, 0.68), "beard": pr.get("captif", false)}
 	v.anim_name = "Idle"
 	world().add_child(v)
 	var i: int = Kingdom.k()["prisonniers"].find(pr)
@@ -522,6 +522,7 @@ static func add_options(nodes: Dictionary, choices: Array, who: String, label: S
 		choices.append({"text": "Aux travaux forcés, à la mine.", "tone": "autorite", "next": "END", "callback": func(): forced_labor(n)})
 		choices.append({"text": "Qu'on l'exécute.", "tone": "arrogance", "next": "exec"})
 		choices.append({"text": "Pourrir ici te fera réfléchir.", "tone": "indifference", "next": "END"})
+		Capture.add_options(nodes, choices, n, pr)
 		nodes["proces"] = {"who": "conseil", "nom": "Procès devant le bourg", "text": "Les habitants se rassemblent dans la cour. %s est accusé(e) : %s. Le verdict vous appartient." % [t["nom"], pr.get("raison", "")],
 			"choices": [
 				{"text": "Innocent. Il est libre.", "tone": "bienveillance", "next": "END", "callback": func():

@@ -319,10 +319,14 @@ func _ready() -> void:
 	await _talk([labels.find("Commerce"), 0, 2, labels.size() - 1])
 	_check(Progression.get_inst().potions_soin == pots + 1 and Progression.get_inst().gold < gold, "Achat d'une potion de soin")
 	var said := Array(gs.mem("marchand_0").get("sujets", [])).size()
-	world.dlg.start(Talk.build(merchant))
-	await _talk([0, 99])
-	world.dlg.start(Talk.build(merchant))
-	await _talk([0, 99])
+	for rep in 2:
+		var cvm := Talk.build(merchant)
+		var di := 0
+		for ci in cvm["nodes"]["menu"]["choices"].size():
+			if cvm["nodes"]["menu"]["choices"][ci]["text"] == "Discuter":
+				di = ci
+		world.dlg.start(cvm)
+		await _talk([di, 99])
 	_check(Array(gs.mem("marchand_0")["sujets"]).size() >= said + 2 and int(gs.mem("marchand_0")["vu"]) >= 3, "Le PNJ se souvient (rencontres, sujets déjà abordés)")
 	world.dlg.start(Talk.build(merchant))
 	await _wait(0.6)

@@ -139,15 +139,23 @@ static func fireball() -> Node3D:
 	var n := Node3D.new()
 	var core := MeshInstance3D.new()
 	var s := SphereMesh.new()
-	s.radius = 0.22
-	s.height = 0.44
+	s.radius = 0.3
+	s.height = 0.6
 	s.radial_segments = 8
 	s.rings = 4
 	core.mesh = s
 	core.material_override = solid(Color(1.0, 0.75, 0.3), 4.0)
 	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	n.add_child(core)
-	var halo := particles("light_01", 1, 0.2, [Color(1, 0.55, 0.15, 0.9), Color(1, 0.4, 0.1, 0.9)], 1.3, false)
+	var shell := MeshInstance3D.new()
+	var ss := SphereMesh.new()
+	ss.radius = 0.55
+	ss.height = 1.1
+	shell.mesh = ss
+	shell.material_override = Magic.energy(Color(1.0, 0.5, 0.12), 0.35, 0.0, 1.0)
+	shell.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	n.add_child(shell)
+	var halo := particles("light_01", 1, 0.2, [Color(1, 0.55, 0.15, 0.9), Color(1, 0.4, 0.1, 0.9)], 2.2, false)
 	halo.local_coords = true
 	halo.gravity = Vector3.ZERO
 	n.add_child(halo)
@@ -166,6 +174,8 @@ static func fireball() -> Node3D:
 	return n
 
 static func explosion(pos: Vector3, radius: float) -> void:
+	Magic.burst(pos, Color(1.0, 0.55, 0.15), clampf(radius * 0.6, 0.6, 2.5), radius > 1.5)
+	_scorch_mark(pos, radius)
 	var flash := particles("light_01", 1, 0.3, [Color(1, 0.9, 0.6, 1), Color(1, 0.4, 0.1, 0)], radius * 2.6)
 	flash.gravity = Vector3.ZERO
 	_add(flash, pos)
@@ -283,7 +293,15 @@ static func power_burst(target: Node3D, col: Color) -> void:
 	impact_light(pos, col, 6.0, 14.0)
 
 # ---------------------------------------------------------------- GIVRE
+static func _scorch_mark(pos: Vector3, r: float) -> void:
+	var g := pos
+	g.y = Powers.ground(pos)
+	Powers._scorch(g, clampf(r, 0.8, 4.0))
+
 static func frost_nova(pos: Vector3, r: float) -> void:
+	Magic.rune(pos, r, Color(0.55, 0.85, 1.0), 1.2, 1.4)
+	Magic.burst(pos, Color(0.6, 0.9, 1.0), clampf(r * 0.35, 0.8, 2.0), false)
+	_ice_spikes(pos, r)
 	var ring := MeshInstance3D.new()
 	var q := QuadMesh.new()
 	q.size = Vector2(2, 2)
@@ -341,6 +359,34 @@ static func frost_nova(pos: Vector3, r: float) -> void:
 	impact_light(Vector3(pos.x, gy, pos.z), Color(0.55, 0.85, 1.0), 4.0, r * 2.5)
 
 ## Givre persistant sur une cible ralentie
+## Pics de glace qui jaillissent en couronne puis fondent
+static func _ice_spikes(pos: Vector3, r: float) -> void:
+	var ice := Magic.energy(Color(0.7, 0.92, 1.0), 0.6, 0.0, 1.0)
+	var n := 12
+	for i in n:
+		var a := TAU * i / n + randf() * 0.3
+		var d := r * randf_range(0.45, 0.85)
+		var p := pos + Vector3(cos(a) * d, 0, sin(a) * d)
+		p.y = Powers.ground(p)
+		var mi := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.0
+		cm.bottom_radius = randf_range(0.18, 0.32)
+		cm.height = randf_range(0.9, 1.7)
+		cm.radial_segments = 5
+		cm.rings = 1
+		mi.mesh = cm
+		mi.material_override = ice
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(mi)
+		mi.global_position = p + Vector3.DOWN * 0.8
+		mi.rotation = Vector3(randf_range(-0.4, 0.4), randf() * TAU, randf_range(-0.4, 0.4))
+		var tw := mi.create_tween()
+		tw.tween_property(mi, "global_position:y", p.y + cm.height * 0.4, 0.12).set_ease(Tween.EASE_OUT)
+		tw.tween_interval(1.0 + randf() * 0.4)
+		tw.tween_property(mi, "scale", Vector3(0.1, 0.1, 0.1), 0.4)
+		tw.tween_callback(mi.queue_free)
+
 static func frost_mark(target: Node3D, dur: float) -> void:
 	var p := particles("star_06", 6, 0.8, [Color(0.85, 0.95, 1, 0.9), Color(0.6, 0.85, 1, 0)], 0.25, false)
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
@@ -373,9 +419,7 @@ void fragment() {
 	s.radial_segments = 16
 	s.rings = 8
 	bubble.mesh = s
-	var sm := ShaderMaterial.new()
-	sm.shader = _shield_shader
-	bubble.material_override = sm
+	bubble.material_override = Magic.energy(Color(0.4, 0.8, 1.0), 0.05, 1.0, 1.0)
 	bubble.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	bubble.position = Vector3.UP * 1.0
 	n.add_child(bubble)

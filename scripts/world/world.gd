@@ -5,6 +5,7 @@ var player: Player
 var rig: CameraRig
 var hud: Hud
 var events: WorldEvents
+var quests: Quests
 var dlg: Dialogue
 var kui: KingdomUI
 var aui: ArcanesUI
@@ -110,7 +111,7 @@ func _warmup() -> void:
 		tele.queue_free()
 
 func _batch() -> void:
-	for nm in ["Mobilier", "CourDecor", "BourgDecor", "LieuxDecor", "Potagers"]:
+	for nm in ["Mobilier", "CourDecor", "BourgDecor", "LieuxDecor", "Potagers", "CampsDecor"]:
 		var n := find_child(nm, true, false) as Node3D
 		if n:
 			Batcher.merge(n, nm != "Potagers")
@@ -179,6 +180,7 @@ func _spawn() -> void:
 	add_child(rig)
 	player.rig = rig
 	Spawner.build(self)
+	Camps.build(self)
 	var ui := CanvasLayer.new()
 	add_child(ui)
 	hud = Hud.new()
@@ -216,6 +218,12 @@ func _spawn() -> void:
 		_talking = null)
 	Talk.setup(self)
 	Justice.build_prison(self)
+	quests = Quests.new()
+	quests.name = "Quetes"
+	add_child(quests)
+	var mr := MissionReturn.new()
+	mr.name = "RetourMission"
+	add_child(mr)
 	events = WorldEvents.new()
 	events.name = "Evenements"
 	add_child(events)
@@ -296,8 +304,11 @@ func _process(delta: float) -> void:
 		PlayerCombat.practice = ArcanesUI.in_chamber(player.global_position)
 		if was and not PlayerCombat.practice:
 			ArcanesUI.clear_dummies()   # on quitte la chambre : fin de l'entraînement
-		hud.btn_talk.visible = n != null or _arc_near
-		if _arc_near:
+		_capt = Capture.nearest(player.global_position) if Story.done() and not Dialogue.active and not player.cbt.dead else null
+		hud.btn_talk.visible = n != null or _arc_near or _capt != null
+		if _capt:
+			hud.btn_talk.label = "Capturer : " + String(_capt.def["nom"])
+		elif _arc_near:
 			hud.btn_talk.label = "Chambre des Arcanes"
 		elif n:
 			hud.btn_talk.label = "Parler à " + String(Talk.info(n)["nom"])
@@ -328,8 +339,14 @@ func focus_on(n: Node3D) -> void:
 	if rig:
 		rig.yaw = player.rotation.y + PI
 
+var _capt: Node3D = null
 func _talk() -> void:
 	if Dialogue.active:
+		return
+	if _capt and Capture.capturable(_capt):
+		Capture.capture(_capt)
+		_capt = null
+		hud.btn_talk.visible = false
 		return
 	if _arc_near:
 		aui.open()
@@ -382,7 +399,7 @@ func _apply_quality() -> void:
 	print("qualité réduite → niveau ", quality)
 
 ## Intérieur / extérieur : on n'affiche que ce qui peut être vu.
-const OUTSIDE_ONLY := ["Vegetation", "Bourg", "BourgDecor", "Potagers", "Champs", "Lieux", "LieuxDecor", "Gisements", "Ponts", "RoutesPavees", "Eau"]
+const OUTSIDE_ONLY := ["Vegetation", "Bourg", "BourgDecor", "Potagers", "Camps", "CampsDecor", "Champs", "Lieux", "LieuxDecor", "Gisements", "Ponts", "RoutesPavees", "Eau"]
 const INSIDE_ONLY := ["DonjonInterieur", "Mobilier"]
 
 ## Dans les cachots : caméra rapprochée, monde extérieur masqué, torches allumées, soleil et ciel atténués

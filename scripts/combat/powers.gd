@@ -8,18 +8,9 @@ static var _mats := {}
 static var eye_until := 0.0
 
 # ------------------------------------------------------------------ briques communes
-static func spectral_mat(col: Color, alpha := 0.6) -> StandardMaterial3D:
-	var key := "%s|%.2f" % [col.to_html(), alpha]
-	if not _mats.has(key):
-		var m := StandardMaterial3D.new()
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		# mélange normal (pas additif) : en plein jour un effet additif sature en blanc et perd sa couleur
-		m.cull_mode = BaseMaterial3D.CULL_DISABLED
-		m.albedo_color = Color(col.r, col.g, col.b, alpha)
-		m.rim_enabled = false
-		_mats[key] = m
-	return _mats[key]
+static func spectral_mat(col: Color, alpha := 0.6) -> Material:
+	# énergie translucide animée (veines, contour lumineux) au lieu d'une matière opaque « en pâte »
+	return Magic.energy(col, alpha * 0.55)
 
 static func solid(col: Color, emit := 0.0) -> StandardMaterial3D:
 	var key := "s|%s|%.1f" % [col.to_html(), emit]
@@ -145,9 +136,12 @@ static func _beam(from: Node3D, to: Node3D, col: Color, t: float) -> void:
 	var bm := BoxMesh.new()
 	bm.size = Vector3(0.12, 0.12, 1.0)
 	b.mesh = bm
-	b.material_override = spectral_mat(col, 0.7)
+	b.material_override = Magic.energy(col, 0.6, 0.0, 1.0)
 	b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	FX.root.add_child(b)
+	if is_instance_valid(to):
+		Magic.halo(to.global_position + Vector3.UP, 3.0, col, 0.5)
+		Magic.sparks(to.global_position + Vector3.UP, col, 16, 5.0)
 	var tw := b.create_tween()
 	tw.tween_method(func(_k: float):
 		if not is_instance_valid(from) or not is_instance_valid(to):
@@ -237,6 +231,8 @@ static func spawn_props(world: Node3D) -> void:
 
 static func _ecrasement(pc: PlayerCombat, power: float, at: Vector3, r: float, dur: float, el: String) -> void:
 	var n := _node(at)
+	Magic.rune(at, r * 1.1, Color(0.6, 0.3, 1.0), dur, 1.2)
+	Magic.burst(at, Color(0.6, 0.3, 1.0), 1.4, true)
 	var ring := _ring(n, r, Color(0.45, 0.2, 0.8, 0.9), "twirl_02")
 	var tw := ring.create_tween()
 	tw.set_loops(int(dur / 0.6) + 1)
@@ -284,6 +280,7 @@ static func _arsenal(pc: PlayerCombat, power: float, count: int, el: String) -> 
 			mi.material_override = spectral_mat(Color(0.5, 0.8, 1.0), 0.75)
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		s.rotation_degrees = Vector3(180, 0, 0)
+		Magic.trail(holder, Color(0.5, 0.8, 1.0), 0.35, "spark_04", 14)
 		holder.scale = Vector3.ONE * 0.05
 		swords.append(holder)
 	# les épées apparaissent en couronne au-dessus du souverain, pointe vers le bas
@@ -300,6 +297,7 @@ static func _arsenal(pc: PlayerCombat, power: float, count: int, el: String) -> 
 			h.global_position = pl.global_position + Vector3(cos(a) * 1.6, 2.4 + sin(a * 2.0) * 0.15, sin(a) * 1.6), 0.0, 1.0, 0.55 + k * 0.12)
 		tw.tween_callback(func(): _launch_sword(pc, h, power, el))
 	FX.cast_glow(pl, Color(0.5, 0.8, 1.0))
+	Magic.rune(pl.global_position, 2.6, Color(0.5, 0.8, 1.0), 1.6, 1.5)
 	Sfx.play("ok", -4.0)
 
 static func _launch_sword(pc: PlayerCombat, h: Node3D, power: float, el: String) -> void:
@@ -311,9 +309,10 @@ static func _launch_sword(pc: PlayerCombat, h: Node3D, power: float, el: String)
 	var tw := h.create_tween()
 	tw.tween_property(h, "global_position", dest, 0.18)
 	tw.tween_callback(func():
+		Magic.halo(dest, 2.5, Color(0.6, 0.85, 1.0), 0.25)
 		if t and Combat.alive(t):
 			_hurt(t, power, pc, el)
-			FX.hit_spark(dest, Color(0.6, 0.85, 1.0))
+			Magic.sparks(dest, Color(0.6, 0.85, 1.0), 14, 7.0)
 			Sfx.play("touche", -6.0)
 		h.queue_free())
 
@@ -335,7 +334,7 @@ static func _projection(pc: PlayerCombat, power: float, t: Node3D, el: String) -
 			t._ground_ref = Powers.ground(t.global_position)
 			t.throw(Vector3(0, -26.0, 0), power, pl)
 			_after(0.18, func():
-				FX.shockwave(Vector3(dest.x, Powers.ground(dest), dest.z), 3.0)
+				Magic.burst(Vector3(dest.x, Powers.ground(dest), dest.z), Color(0.85, 0.5, 1.0), 1.6, true)
 				pl.shake(0.4)
 				FX.hitstop(0.08)
 				for m in Combat.in_radius(dest, 3.0):
@@ -361,6 +360,21 @@ static func _singularite(pc: PlayerCombat, power: float, at: Vector3, r: float, 
 	n.add_child(halo)
 	var ring := _ring(n, r, Color(0.5, 0.2, 0.9, 0.6), "twirl_02")
 	ring.position.y = -1.1
+	# disque d'accrétion : anneau d'énergie qui tourne vite autour du cœur noir
+	var disc := MeshInstance3D.new()
+	var tmh := TorusMesh.new()
+	tmh.inner_radius = 0.9
+	tmh.outer_radius = 2.2
+	tmh.rings = 24
+	tmh.ring_segments = 8
+	disc.mesh = tmh
+	disc.material_override = Magic.energy(Color(0.75, 0.35, 1.0), 0.45, 0.0, 1.0)
+	disc.scale = Vector3(1, 0.12, 1)
+	disc.rotation.x = 0.35
+	n.add_child(disc)
+	var td := disc.create_tween()
+	td.tween_property(disc, "rotation:y", TAU * dur * 1.5, dur)
+	Magic.rune(at, r, Color(0.6, 0.3, 1.0), dur, -1.5)
 	var suck := FX.particles("spark_04", 50, 0.7, [Color(0.8, 0.6, 1, 1), Color(0.4, 0.1, 0.8, 0)], 0.2, false)
 	suck.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 	suck.emission_sphere_radius = r
@@ -387,7 +401,7 @@ static func _singularite(pc: PlayerCombat, power: float, at: Vector3, r: float, 
 	pc.player.shake(0.2)
 	_after(dur, func():
 		FX.explosion(at + Vector3.UP, r * 0.6)
-		FX.shockwave(at, r)
+		Magic.burst(at, Color(0.7, 0.4, 1.0), 2.2, true)
 		FX.impact_light(at, Color(0.6, 0.3, 1.0), 7.0, r * 3.0)
 		FX.hitstop(0.08)
 		if Combat.player:
@@ -411,18 +425,9 @@ static func _dome(pc: PlayerCombat, r: float, dur: float) -> void:
 	sm.radial_segments = 24
 	sm.rings = 12
 	sph.mesh = sm
-	var sh := Shader.new()
-	sh.code = """shader_type spatial;
-render_mode unshaded, cull_disabled, depth_draw_never, shadows_disabled, blend_add;
-uniform vec4 col : source_color = vec4(1.0, 0.8, 0.35, 1.0);
-void fragment() {
-	float f = pow(1.0 - abs(dot(NORMAL, VIEW)), 2.5);
-	float hex = step(0.92, fract(UV.x * 24.0)) + step(0.92, fract(UV.y * 12.0));
-	ALBEDO = col.rgb * (f * 1.4 + hex * 0.25 + 0.05);
-}"""
-	var m := ShaderMaterial.new()
-	m.shader = sh
-	sph.material_override = m
+	sph.material_override = Magic.energy(Color(1.0, 0.82, 0.4), 0.06, 1.0, 1.0)
+	Magic.rune(pl.global_position, r, Color(1.0, 0.8, 0.4), dur, 0.4)
+	Magic.halo(pl.global_position + Vector3.UP, r * 2.0, Color(1.0, 0.85, 0.5), 0.4)
 	sph.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	n.add_child(sph)
 	sph.position.y = 0.6
@@ -465,8 +470,10 @@ static func _mur(pc: PlayerCombat, power: float, aim: Vector3, dur: float, el: S
 	stone.uv1_scale = Vector3.ONE * 0.4
 	_box(body, size, stone, Vector3(0, size.y * 0.5, 0))
 	for k in 5:
-		_box(body, Vector3(0.5, 0.5, 0.95), spectral_mat(Color(1.0, 0.8, 0.4), 0.9), Vector3(-3.6 + k * 1.8, size.y * 0.65, 0))
-	_box(body, Vector3(9.2, 0.25, 1.0), spectral_mat(Color(1.0, 0.75, 0.35), 0.6), Vector3(0, size.y + 0.05, 0))
+		_box(body, Vector3(0.55, 0.9, 0.95), Magic.energy(Color(1.0, 0.75, 0.3), 0.8, 0.0, 1.0), Vector3(-3.6 + k * 1.8, size.y * 0.6, 0))
+	_box(body, Vector3(9.2, 0.12, 0.96), Magic.energy(Color(1.0, 0.75, 0.35), 0.7, 0.0, 1.0), Vector3(0, size.y * 0.3, 0))
+	for k in 4:
+		Magic.debris(at + Vector3(fwd.z, 0, -fwd.x) * (-3.4 + k * 2.3), 6, 7.0)
 	var tw := body.create_tween()
 	tw.tween_property(body, "global_position:y", at.y, 0.35).set_ease(Tween.EASE_OUT)
 	FX.shockwave(at, 4.5)
@@ -492,7 +499,7 @@ static func _reflet(pc: PlayerCombat, dur: float) -> void:
 	n.position.y = 1.1
 	for k in 6:
 		var a := TAU * k / 6.0
-		var shard := _box(n, Vector3(0.9, 1.4, 0.05), spectral_mat(Color(0.7, 0.95, 1.0), 0.45), Vector3(cos(a) * 1.3, 0, sin(a) * 1.3))
+		var shard := _box(n, Vector3(0.9, 1.4, 0.05), Magic.energy(Color(0.7, 0.95, 1.0), 0.2, 1.0, 1.0), Vector3(cos(a) * 1.3, 0, sin(a) * 1.3))
 		shard.rotation.y = -a + PI / 2.0
 	var tw := n.create_tween()
 	tw.tween_property(n, "rotation:y", TAU * dur * 0.5, dur)
@@ -508,7 +515,8 @@ static func _arret(pc: PlayerCombat, r: float, dur: float) -> void:
 	sm.radius = 1.0
 	sm.height = 2.0
 	sph.mesh = sm
-	sph.material_override = spectral_mat(Color(0.75, 0.8, 1.0), 0.18)
+	sph.material_override = Magic.energy(Color(0.75, 0.85, 1.0), 0.05, 0.0, 1.0)
+	Magic.rune(at, r, Color(0.75, 0.85, 1.0), dur, 0.15)
 	n.add_child(sph)
 	var tw := sph.create_tween()
 	tw.tween_property(sph, "scale", Vector3.ONE * r, 0.4).set_ease(Tween.EASE_OUT)
@@ -565,7 +573,9 @@ static func _chaines(pc: PlayerCombat, power: float, at: Vector3, r: float, dur:
 				var tw := lk.create_tween()
 				tw.tween_interval(i * 0.03)
 				tw.tween_property(lk, "scale", Vector3.ONE, 0.12)
-		FX.shockwave(m.global_position, 1.8)
+		Magic.rune(m.global_position, 2.0, Color(1.0, 0.75, 0.35), dur, 0.8)
+		Magic.halo(m.global_position + Vector3.UP, 3.0, Color(1.0, 0.8, 0.4), 0.4)
+		Magic.sparks(m.global_position + Vector3.UP, Color(1.0, 0.75, 0.3), 16, 6.0)
 		_fade_free(holder, dur, 0.3)
 	FX.impact_light(at, Color(1.0, 0.75, 0.35), 4.0, r * 2.0)
 	Sfx.play("racines", -2.0)
@@ -591,8 +601,27 @@ static func _meteore(pc: PlayerCombat, power: float, at: Vector3, r: float, el: 
 	sm.radial_segments = 10
 	sm.rings = 6
 	core.mesh = sm
-	core.material_override = solid(Color(1.0, 0.45, 0.12), 3.0)
+	var lava := StandardMaterial3D.new()
+	lava.albedo_color = Color(0.2, 0.08, 0.04)
+	lava.emission_enabled = true
+	lava.emission = Color(1.0, 0.4, 0.1)
+	lava.emission_energy_multiplier = 2.5
+	lava.emission_texture = load("res://assets/fx/fx_noise.png")
+	core.material_override = lava
 	rock.add_child(core)
+	var shell := MeshInstance3D.new()
+	var sm2 := SphereMesh.new()
+	sm2.radius = 1.8
+	sm2.height = 3.6
+	shell.mesh = sm2
+	shell.material_override = Magic.energy(Color(1.0, 0.5, 0.15), 0.25, 0.0, 1.0)
+	rock.add_child(shell)
+	var smoke := FX.particles("smoke_02", 24, 1.4, [Color(0.25, 0.2, 0.18, 0.8), Color(0.1, 0.1, 0.1, 0)], 3.0, false, false)
+	smoke.local_coords = false
+	smoke.gravity = Vector3(0, 1, 0)
+	rock.add_child(smoke)
+	smoke.emitting = true
+	Magic.rune(at, r, Color(1.0, 0.5, 0.15), 1.1, 1.0)
 	var trail := FX.particles("fire_01", 30, 0.6, [Color(1, 0.9, 0.5, 1), Color(1, 0.35, 0.1, 0.7), Color(0.2, 0.1, 0.05, 0)], 2.0, false)
 	trail.gravity = Vector3.ZERO
 	trail.spread = 20.0
@@ -604,8 +633,10 @@ static func _meteore(pc: PlayerCombat, power: float, at: Vector3, r: float, el: 
 	tw.tween_property(rock, "global_position", at, 0.9).set_ease(Tween.EASE_IN)
 	tw.tween_callback(func():
 		FX.explosion(at + Vector3.UP * 0.5, r)
-		FX.shockwave(at, r * 1.2)
+		Magic.burst(at, Color(1.0, 0.5, 0.15), 2.8, true)
+		Magic.debris(at, 22, 12.0)
 		FX.impact_light(at, Color(1, 0.55, 0.2), 9.0, r * 4.0)
+		_scorch(at, r * 1.3)
 		FX.hitstop(0.1)
 		if Combat.player:
 			Combat.player.shake(0.7)
@@ -649,7 +680,10 @@ static func _piliers(pc: PlayerCombat, power: float, at: Vector3, r: float, el: 
 		tw.tween_interval(1.4)
 		tw.tween_property(pil, "global_position:y", p.y - 1.8, 0.5)
 		tw.tween_callback(pil.queue_free)
+		Magic.debris(p, 8, 8.0)
+		Magic.sparks(p + Vector3.UP * 0.3, Color(1.0, 0.7, 0.4), 10, 6.0)
 		FX.shockwave(p, 1.5)
+	Magic.rune(at, r, Color(1.0, 0.65, 0.3), 1.6, 0.9)
 	for i in victims.size():
 		var m: Node3D = victims[i]
 		_after(i * 0.08, func():
@@ -661,25 +695,27 @@ static func _piliers(pc: PlayerCombat, power: float, at: Vector3, r: float, el: 
 	Sfx.play("lourd", -2.0)
 
 static func _bolt(at: Vector3) -> void:
-	var n := _node(at)
-	var mat := spectral_mat(Color(0.75, 0.85, 1.0), 1.0)
-	var p := Vector3(randf_range(-1.5, 1.5), 18.0, randf_range(-1.5, 1.5))
-	var segs := 8
-	for i in segs:
-		var q := Vector3(randf_range(-0.9, 0.9), 18.0 * (1.0 - float(i + 1) / segs), randf_range(-0.9, 0.9)) if i < segs - 1 else Vector3(0, 0.1, 0)
-		var seg := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = Vector3(0.18, 0.18, p.distance_to(q))
-		seg.mesh = bm
-		seg.material_override = mat
-		seg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		n.add_child(seg)
-		seg.position = (p + q) * 0.5
-		seg.look_at_from_position(seg.position, q, Vector3.FORWARD if absf((q - p).normalized().y) > 0.99 else Vector3.UP)
-		p = q
-	FX.impact_light(at, Color(0.7, 0.85, 1.0), 8.0, 16.0)
-	FX.hit_spark(at + Vector3.UP * 0.3, Color(0.8, 0.9, 1.0))
-	_fade_free(n, 0.12, 0.08)
+	var top := at + Vector3(randf_range(-2.0, 2.0), 20.0, randf_range(-2.0, 2.0))
+	Magic.lightning(top, at + Vector3.UP * 0.1, Color(0.6, 0.75, 1.0), 0.16, 0.16)
+	Magic.burst(at, Color(0.65, 0.8, 1.0), 0.8, false)
+	FX.impact_light(at, Color(0.7, 0.85, 1.0), 9.0, 18.0)
+	_scorch(at, 1.4)
+
+## Trace brûlée au sol (s'efface lentement)
+static func _scorch(at: Vector3, r: float) -> void:
+	var mi := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(r * 2.0, r * 2.0)
+	mi.mesh = q
+	mi.material_override = FX.pmat("scorch_02", false, false, Color(0.05, 0.04, 0.03, 0.85))
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	FX.root.add_child(mi)
+	mi.global_position = at + Vector3.UP * 0.06
+	mi.rotation = Vector3(-PI / 2.0, randf() * TAU, 0)
+	var tw := mi.create_tween()
+	tw.tween_interval(5.0)
+	tw.tween_property(mi, "transparency", 1.0, 2.0)
+	tw.tween_callback(mi.queue_free)
 
 static func _orage(pc: PlayerCombat, power: float, at: Vector3, r: float, dur: float, c: float, el: String) -> void:
 	var strikes := 6 + int(round(3.0 * c))
@@ -690,6 +726,7 @@ static func _orage(pc: PlayerCombat, power: float, at: Vector3, r: float, dur: f
 	cl.gravity = Vector3.ZERO
 	cloud.add_child(cl)
 	cl.emitting = true
+	Magic.rune(at, r, Color(0.6, 0.75, 1.0), dur + 0.4, 0.7)
 	_fade_free(cloud, dur + 0.8, 0.5)
 	for k in strikes:
 		_after(0.25 + dur * k / strikes, func():
@@ -712,7 +749,8 @@ static func _orage(pc: PlayerCombat, power: float, at: Vector3, r: float, dur: f
 
 static func _main_titan(pc: PlayerCombat, power: float, at: Vector3, r: float, el: String) -> void:
 	var hand := _node(at + Vector3.UP * 12.0)
-	var mat := spectral_mat(Color(0.5, 0.75, 1.0), 0.55)
+	var mat := Magic.energy(Color(0.45, 0.7, 1.0), 0.3, 0.0, 1.0)
+	Magic.rune(at, r * 1.15, Color(0.5, 0.75, 1.0), 1.6, 1.0)
 	_box(hand, Vector3(3.4, 0.7, 3.2), mat)
 	for f in 4:
 		var finger := _box(hand, Vector3(0.6, 0.55, 2.6), mat, Vector3(-1.2 + f * 0.8, -0.2, 2.6))
@@ -742,7 +780,7 @@ static func _main_titan(pc: PlayerCombat, power: float, at: Vector3, r: float, e
 					m.throw(Vector3(0, -30, 0), power, pc.player)
 				else:
 					_hurt(m, power, pc, el)
-		FX.shockwave(at, r * 1.3)
+		Magic.burst(at, Color(0.55, 0.75, 1.0), 2.4, true)
 		FX.impact_light(at, Color(0.55, 0.75, 1.0), 8.0, r * 3.0)
 		FX.hitstop(0.1)
 		if Combat.player:
@@ -783,6 +821,8 @@ void fragment() {
 	tw.tween_property(rift, "scale", Vector3(1, 1, 1), 0.3)
 	tw.tween_property(cross, "scale", Vector3(1, 1, 1), 0.3)
 	_ring(n, r, Color(1.0, 0.25, 0.6, 0.5), "twirl_02")
+	Magic.rune(at, r * 1.1, Color(1.0, 0.3, 0.65), dur + 0.3, -1.2)
+	Magic.debris(at, 10, 6.0)
 	var tw2 := n.create_tween()
 	tw2.tween_method(func(_k: float):
 		var dt := FX.root.get_process_delta_time()
@@ -790,7 +830,7 @@ void fragment() {
 			e.pull(at, 8.0, dt), 0.0, 1.0, dur)
 	tw2.tween_callback(func():
 		FX.explosion(at + Vector3.UP * 1.5, r * 0.7)
-		FX.shockwave(at, r * 1.4)
+		Magic.burst(at, Color(1.0, 0.3, 0.65), 2.6, true)
 		FX.impact_light(at, Color(1.0, 0.3, 0.65), 10.0, r * 4.0)
 		FX.hitstop(0.12)
 		if Combat.player:
@@ -822,6 +862,8 @@ static func _legion(pc: PlayerCombat, count: int, dur: float) -> void:
 		s.mode = Soldier.M.ESCORTE
 		var tw := s.create_tween()
 		tw.tween_property(s, "global_position:y", p.y + 0.1, 0.5).set_ease(Tween.EASE_OUT)
+		Magic.pillar(p, Color(0.5, 0.75, 1.0), 7.0, 0.8, 1.0)
+		Magic.rune(p, 1.6, Color(0.5, 0.75, 1.0), 1.2, 1.5)
 		FX.shockwave(p, 1.5)
 		var col := FX.particles("light_01", 6, 0.6, [Color(0.6, 0.8, 1, 0.9), Color(0.3, 0.5, 1, 0)], 1.4)
 		col.direction = Vector3.UP
@@ -854,6 +896,8 @@ static func _presence(pc: PlayerCombat, r: float, dur: float) -> void:
 	n.add_child(aura)
 	aura.emitting = true
 	FX.power_burst(pl, Color(0.9, 0.25, 0.2))
+	Magic.rune(pl.global_position, r, Color(1.0, 0.2, 0.2), 1.4, 0.6)
+	Magic.halo(pl.global_position + Vector3.UP, 7.0, Color(1.0, 0.25, 0.2), 0.5)
 	pl.shake(0.3)
 	var done := {}
 	var tw2 := n.create_tween()
@@ -889,6 +933,7 @@ static func _transposition(pc: PlayerCombat, power: float, aim: Vector3, rng: fl
 	var t := aim_target(pc, aim, rng)
 	var from := pl.global_position
 	FX.shockwave(from, 1.5)
+	Magic.pillar(from, Color(0.65, 0.45, 1.0), 4.0, 0.45, 0.8)
 	FX.impact_light(from, Color(0.6, 0.4, 1.0), 4.0, 8.0)
 	pl.cbt.invulnerable_until = Combatant.now() + 0.4
 	if t and not t.is_boss():
@@ -896,6 +941,7 @@ static func _transposition(pc: PlayerCombat, power: float, aim: Vector3, rng: fl
 		# la créature d'abord, sinon le seigneur se retrouve juché sur elle et emporté avec
 		t.global_position = from
 		pl.global_position = tp + Vector3.UP * 0.2
+		Magic.pillar(tp, Color(0.65, 0.45, 1.0), 4.0, 0.45, 0.8)
 		_hurt(t, power, pc, el)
 		t.stun(0.7, false)
 		FX.shockwave(tp, 1.5)
@@ -946,6 +992,9 @@ static func _incarnation(pc: PlayerCombat, dur: float) -> void:
 	n.add_child(l)
 	l.position.y = 1.5
 	FX.power_burst(pl, Color(1.0, 0.8, 0.35))
+	Magic.pillar(pl.global_position, Color(1.0, 0.8, 0.35), 14.0, 0.9, 2.2)
+	Magic.rune(pl.global_position, 4.5, Color(1.0, 0.8, 0.35), 2.0, 0.8)
+	Magic.burst(pl.global_position, Color(1.0, 0.8, 0.35), 2.0, true)
 	FX.hitstop(0.12)
 	pl.shake(0.6)
 	Sfx.play("niveau", 0.0)

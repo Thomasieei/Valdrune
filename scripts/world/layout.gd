@@ -184,6 +184,9 @@ static func reserved(p: Vector2, margin := 0.0) -> bool:
 		return true
 	if p.distance_to(TOWN) < 20.0 + margin:
 		return true
+	for z in Spawner.ZONES:
+		if p.distance_to(z["pos"]) < float(z["r"]) + 6.0 + margin:
+			return true
 	if in_fields(p, 6.0 + margin):
 		return true
 	if p.distance_to(PORTAL) < 28.0 + margin:

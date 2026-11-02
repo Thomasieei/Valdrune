@@ -52,7 +52,7 @@ static func build(world: Node3D) -> void:
 	for z in ZONES:
 		var s := Spawner.new()
 		s.kind = z["kind"]
-		s.count = z["n"]
+		s.count = int(z["n"]) + (1 if not MonsterDB.DEFS[z["kind"]].get("elite", false) else 0)
 		s.radius = z["r"]
 		s.label = z["label"]
 		s.zone_id = z["id"]
@@ -92,6 +92,13 @@ func _process(delta: float) -> void:
 		_timers.clear()
 	if not _active:
 		return
+	# les occupants parlent quand le seigneur approche
+	_bark_t -= dt
+	if _bark_t <= 0.0 and d < 30.0 and _alive.size() > 0:
+		_bark_t = randf_range(5.0, 9.0)
+		var m: Node3D = _alive[randi() % _alive.size()]
+		if Combat.alive(m):
+			Camps.bark(kind, m)
 	for i in range(_timers.size() - 1, -1, -1):
 		_timers[i] -= dt
 		if _timers[i] <= 0.0:
@@ -121,6 +128,7 @@ func _spawn_one() -> void:
 		_alive.append(m)
 		return
 
+var _bark_t := 2.0
 var one_shot := false   # groupe d'événement : pas de réapparition, disparaît une fois vaincu
 var kills := 0
 signal cleared
@@ -129,6 +137,7 @@ func on_monster_died(m: Node) -> void:
 	_alive.erase(m)
 	kills += 1
 	Contracts.on_kill(zone_id)
+	Quests.on_kill(zone_id)
 	if one_shot:
 		if _alive.is_empty():
 			cleared.emit()

@@ -127,9 +127,9 @@ static func _splat(x: float, z: float, h: float, nm: Vector3) -> Vector2:
 static func _color(x: float, z: float, h: float, nm: Vector3) -> Color:
 	var p := Vector2(x, z)
 	var n1 := Layout._n().get_noise_2d(x * 2.3, z * 2.3)
-	var grass_a := Color(0.27, 0.39, 0.17)
-	var grass_b := Color(0.35, 0.44, 0.20)
-	var dry := Color(0.50, 0.47, 0.29)
+	var grass_a := Color(0.23, 0.32, 0.15)
+	var grass_b := Color(0.31, 0.37, 0.18)
+	var dry := Color(0.45, 0.42, 0.27)
 	var c := grass_a.lerp(grass_b, clampf(n1 * 0.8 + 0.5, 0.0, 1.0))
 	c = c.lerp(dry, clampf((n1 - 0.25) * 2.0, 0.0, 0.45))
 	# prairies fleuries plus claires autour du bourg

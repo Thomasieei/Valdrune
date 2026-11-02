@@ -235,6 +235,7 @@ static func build(n: Node3D) -> Dictionary:
 		choices.append({"text": "Retourne à ton poste", "next": "END", "callback": func(): Escort.dismiss(sd)})
 	if role == "crieur":
 		Contracts.add_options(nodes, choices, who, label)
+	Quests.add_options(nodes, choices, who, label, n, id)
 	choices.append({"text": "Au revoir", "next": "END"})
 	nodes["menu"] = {"who": who, "nom": label, "text": greet, "choices": choices}
 	if n is Villager or n is Guard or role == "prisonnier":
