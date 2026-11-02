@@ -173,6 +173,27 @@ func _ready() -> void:
 	await _shot("09_garde")
 	await _talk([0])
 	_check(await _wait_step("roi"), "La porte s'ouvre, direction la salle du trône")
+	# vraie marche (sans téléportation) de la cour jusque dans la salle du trône : le passage doit être libre
+	_place(Vector2(0, -116), 180)
+	st.elian.teleport(Vector3(1.5, Terrain.height_at(1.5, -114) + 0.3, -114))
+	var tw0 := 0.0
+	for tc in world.find_children("*", "TouchControls", true, false):
+		tc.set_process(false)
+	while p.global_position.z > -140.0 and tw0 < 14.0:
+		world.rig.yaw = 0.0
+		p.cam_yaw = 0.0
+		p.input_dir = Vector2(0, -1)
+		await get_tree().physics_frame
+		tw0 += get_physics_process_delta_time()
+	p.input_dir = Vector2.ZERO
+	for tc in world.find_children("*", "TouchControls", true, false):
+		tc.set_process(true)
+	_check(p.global_position.z < -140.0 and absf(p.global_position.y - Castle.FLOOR) < 1.0, "Le joueur entre à pied dans la salle du trône (z=%.1f)" % p.global_position.z)
+	await _wait(3.0)
+	var ez := st.elian.global_position.z
+	print("   Elian : mode %d, point %d/%d, pos %s, vitesse %s" % [st.elian.mode, st.elian.wp_i, st.elian.waypoints.size(), st.elian.global_position, st.elian.velocity])
+	_check(ez < -130.0, "Elian entre aussi dans le donjon (z=%.1f)" % ez)
+	await _shot("09b_entree_donjon")
 	_place(Vector2(0, -150), 180, Castle.FLOOR + 0.3)
 	st.elian.teleport(Vector3(-2.5, Castle.FLOOR + 0.3, -147))
 	world._set_inside(true)
@@ -284,7 +305,7 @@ func _ready() -> void:
 	_check(world.hud.btn_talk.visible, "Le bouton « Parler » apparaît près d'un PNJ")
 	var gold := Progression.get_inst().gold
 	var pots := Progression.get_inst().potions_soin
-	world._talk()
+	world.dlg.start(Talk.build(merchant))
 	await _wait(0.8)
 	await _shot("17_marchand")
 	# menu : Discuter(0) Parlez-moi de vous(1) Royaume(2) Nouvelles(3) Commerce(4)…

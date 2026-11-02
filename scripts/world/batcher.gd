@@ -105,6 +105,10 @@ static func _collider(body: StaticBody3D, mi: MeshInstance3D, xf: Transform3D) -
 	var sz := aabb.size * xf.basis.get_scale()
 	if sz.y < 0.3 or (sz.x < 0.3 and sz.z < 0.3):
 		return
+	# grands maillages (falaises, géométrie déjà fusionnée) : une boîte englobante bloquerait des zones entières
+	# (c'est ce qui fermait l'entrée du donjon) — ils ont leurs propres collisions ou n'en ont pas besoin
+	if sz.x > 12.0 or sz.z > 12.0:
+		return
 	if world_aabb.position.y > gy + 2.2:
 		return
 	var cs := CollisionShape3D.new()
@@ -112,4 +116,5 @@ static func _collider(body: StaticBody3D, mi: MeshInstance3D, xf: Transform3D) -
 	bs.size = aabb.size
 	cs.shape = bs
 	cs.transform = xf * Transform3D(Basis(), aabb.get_center())
+	cs.name = "C_" + String(mi.name)
 	body.add_child(cs)

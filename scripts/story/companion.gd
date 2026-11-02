@@ -132,6 +132,13 @@ func say(text: String, dur := 3.2) -> void:
 func guide(points: Array, wait := 9.0) -> void:
 	waypoints = points
 	wp_i = 0
+	# reprend au point de passage le plus proche (pas de demi-tour inutile)
+	var bd := INF
+	for i in points.size():
+		var d: float = (points[i] as Vector3).distance_to(global_position)
+		if d < bd:
+			bd = d
+			wp_i = i
 	wait_dist = wait
 	mode = M.GUIDER
 
@@ -230,6 +237,9 @@ func _physics_process(delta: float) -> void:
 				if to.length() > 45.0:
 					teleport(behind + Vector3.UP * 0.5)
 			M.GUIDER:
+				# point de passage déjà dépassé (raccourci, téléportation) : on passe au suivant
+				while wp_i < waypoints.size() - 1 and global_position.distance_to(waypoints[wp_i + 1]) < global_position.distance_to(waypoints[wp_i]):
+					wp_i += 1
 				if wp_i < waypoints.size():
 					var w: Vector3 = waypoints[wp_i]
 					var to := w - global_position
@@ -238,7 +248,7 @@ func _physics_process(delta: float) -> void:
 					if to.length() < 1.2:
 						arrived.emit(wp_i)
 						wp_i += 1
-					elif pd > wait_dist:
+					elif pd > wait_dist and _player_behind(p):
 						# il attend le joueur en se retournant vers lui
 						_face(p.global_position - global_position, delta, 6.0)
 						if _bark_cd <= 0.0 and pd > wait_dist + 6.0:
@@ -246,7 +256,7 @@ func _physics_process(delta: float) -> void:
 							say(["Par ici !", "Suivez-moi, ce n'est plus très loin !", "Ne traînez pas !"][randi() % 3], 2.5)
 					else:
 						move = to
-						spd = 4.6
+						spd = 4.6 if pd < wait_dist else 6.5
 			M.IMMOBILE:
 				var to := stand_at - global_position
 				to.y = 0
@@ -269,6 +279,11 @@ func _physics_process(delta: float) -> void:
 		if _cur != "Sword_Attack" or not _ap.is_playing():
 			_play("Sword_Idle" if fighting else "Idle")
 	_gravity(delta)
+
+## Le joueur est-il en retard sur le trajet ? (sinon Elian ne l'attend pas : il le rattrape)
+func _player_behind(p: Node3D) -> bool:
+	var last: Vector3 = waypoints[waypoints.size() - 1]
+	return p.global_position.distance_to(last) > global_position.distance_to(last) - 2.0
 
 func _gravity(delta: float) -> void:
 	velocity.y = velocity.y - gravity * delta if not is_on_floor() else -0.5

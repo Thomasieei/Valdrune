@@ -24,18 +24,47 @@ static func spawn(parent: Node, pos: Vector3, yaw: float, shp: String, dur: floa
 	t.length = l
 	t.width = w
 	parent.add_child(t)
-	var gy := Terrain.height_at(pos.x, pos.z)
-	if pos.y > gy + 0.6:
-		gy = pos.y - 0.05   # sols du château
-	t.global_position = Vector3(pos.x, gy + 0.09, pos.z)
 	t.rotation.y = yaw
+	# hauteur : le point le plus haut du sol sous toute la zone (terrain, routes pavées, escaliers, sols du château),
+	# sinon la zone s'enfonce dans les pentes et le décor et devient invisible
+	var fwd := Vector3(sin(yaw), 0, cos(yaw))
+	var side := Vector3(fwd.z, 0, -fwd.x)
+	var pts: Array = [Vector3.ZERO]
+	match shp:
+		"cercle":
+			for k in 8:
+				var a := TAU * k / 8.0
+				pts.append(Vector3(cos(a), 0, sin(a)) * r * 0.85)
+				pts.append(Vector3(cos(a), 0, sin(a)) * r * 0.45)
+		"cone":
+			for k in 5:
+				var a := deg_to_rad(ang * 0.5) * (k / 2.0 - 1.0)
+				var d := fwd.rotated(Vector3.UP, a)
+				pts.append(d * r * 0.5)
+				pts.append(d * r * 0.95)
+		"ligne":
+			for k in 6:
+				var f := l * (k + 1) / 6.0
+				pts.append(fwd * f + side * w * 0.4)
+				pts.append(fwd * f - side * w * 0.4)
+	var space := t.get_world_3d().direct_space_state
+	var top := -INF
+	for o in pts:
+		var q: Vector3 = pos + o
+		var gy := Terrain.height_at(q.x, q.z)
+		var ray := PhysicsRayQueryParameters3D.create(Vector3(q.x, maxf(pos.y, gy) + 2.5, q.z), Vector3(q.x, minf(pos.y, gy) - 1.5, q.z), 1 | 2)
+		var hit := space.intersect_ray(ray)
+		if hit:
+			gy = maxf(gy, hit.position.y) if hit.position.y < pos.y + 1.5 else gy
+		top = maxf(top, gy)
+	t.global_position = Vector3(pos.x, top + 0.14, pos.z)
 	return t
 
 func _ready() -> void:
 	if _shader == null:
 		_shader = Shader.new()
 		_shader.code = """shader_type spatial;
-render_mode unshaded, cull_disabled, depth_draw_never, shadows_disabled, blend_mix;
+render_mode unshaded, cull_disabled, depth_draw_never, shadows_disabled, blend_mix, fog_disabled;
 uniform float fill = 0.0;
 uniform int shape = 0;      // 0 cercle, 1 cône, 2 ligne
 uniform float half_angle = 0.6;
