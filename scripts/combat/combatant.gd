@@ -40,6 +40,8 @@ func speed_mult() -> float:
 func is_rooted() -> bool:
 	return now() < rooted_until
 
+var hp_floor := 0.0   # duel d'honneur : on ne descend pas sous ce seuil (le vaincu se rend)
+
 func take_damage(amount: float, source: Node = null, kind := "physique") -> float:
 	if dead or now() < invulnerable_until:
 		return 0.0
@@ -63,7 +65,7 @@ func take_damage(amount: float, source: Node = null, kind := "physique") -> floa
 			FX.damage_number(body().global_position + Vector3.UP * 2.0, "-%d" % absorbed, Color(0.55, 0.85, 1.0))
 	if dmg <= 0.0:
 		return 0.0
-	hp -= dmg
+	hp = maxf(hp - dmg, hp_floor)
 	var col := Color(1.0, 0.35, 0.3) if team == "joueur" else (Color(1.0, 0.85, 0.3) if kind == "physique" else Color(1.0, 0.6, 0.25))
 	FX.damage_number(body().global_position + Vector3.UP * 2.0, str(int(dmg)), col)
 	damaged.emit(dmg, source)

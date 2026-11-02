@@ -71,6 +71,7 @@ func _audit() -> void:
 	var cams := [
 		["A_bourg_ciel", Vector3(0, 95, 25), Vector3(0, 0, -20)],
 		["A_bourg_oblique", Vector3(45, 38, 30), Vector3(0, 0, -20)],
+		["S_eglise", Vector3(10, 4, -2), Vector3(-19, 6, 4)],
 		["P_portail", Vector3(52, 16, 205), Vector3(35, 4, 235)],
 		["K_bandits", Vector3(-42, 14, 120), Vector3(-60, 2, 140)],
 		["K_puglins", Vector3(120, 12, 62), Vector3(140, 2, 85)],

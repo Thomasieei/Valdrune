@@ -11,6 +11,8 @@ static var on_special: Callable = Callable()
 var force_target: Node3D = null
 var force_until := 0.0
 var no_respawn := false
+var peaceful := false      # camp en pourparlers : n'attaque pas à vue (frappé → tout le camp devient hostile)
+var duel := false          # en duel d'honneur avec le souverain : seuls eux deux se battent
 var _sp: Dictionary = {}
 var _tele: Telegraph
 var _sp_cool := {}
@@ -236,7 +238,7 @@ func _physics_process(delta: float) -> void:
 			move = (_wander - global_position)
 			if _t < 2.5:
 				move = Vector3.ZERO
-			if not p_dead and dist < def["detection"]:
+			if not p_dead and dist < def["detection"] and not peaceful:
 				_aggro()
 		S.POURSUITE:
 			spd = def["course"]
@@ -583,6 +585,8 @@ func _on_damaged(_amount: float, _src: Node) -> void:
 	_last_hit = _now()
 	if state == S.MORT:
 		return
+	if peaceful:
+		CampParley.provoked(self)
 	if state == S.ETOURDI or state == S.SOULEVE or state == S.PROJETE:
 		return
 	_aggro()

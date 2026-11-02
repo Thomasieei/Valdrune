@@ -15,6 +15,9 @@ var goal := Vector3.ZERO          # destination (ALLER / GARDER)
 var slot := 0                     # place dans la formation d'escorte
 var source_guard: Node3D = null   # garde décoratif remplacé (réaffiché au retour)
 var prisoner: Node3D = null
+var passive := false          # ordre « ne pas attaquer » : il suit sans engager le combat
+var patrol: Array = []        # ronde : points (Vector3) parcourus en boucle en mode GARDER
+var _patrol_i := 0
 var free_on_return := true
 var spectral := false             # guerrier spectral (Légion du souverain) : temporaire, sans effet sur la garnison
 var lifetime := 0.0
@@ -175,7 +178,7 @@ func _physics_process(delta: float) -> void:
 				to.y = 0
 				if to.length() > 0.9:
 					move = to
-					spd = 5.2 if mode != M.ESCORTE_PRISONNIER else 2.4
+					spd = 2.4 if mode == M.ESCORTE_PRISONNIER or (mode == M.GARDER and patrol.size() > 1) else 5.2
 				elif mode == M.RETOUR:
 					if _route.size() > 0:
 						goal = _route.pop_front()
@@ -186,6 +189,9 @@ func _physics_process(delta: float) -> void:
 					arrived.emit()
 					if mode == M.ALLER:
 						mode = M.GARDER
+				elif mode == M.GARDER and patrol.size() > 1:
+					_patrol_i = (_patrol_i + 1) % patrol.size()
+					goal = patrol[_patrol_i]
 				elif mode == M.GARDER and p:
 					_face(p.global_position - global_position, delta, 2.0)
 	move.y = 0
@@ -212,6 +218,8 @@ func _physics_process(delta: float) -> void:
 		prisoner.rotation.y = rotation.y
 
 func _pick_target() -> Node3D:
+	if passive:
+		return null
 	var center := global_position
 	var r := 14.0
 	if (mode == M.ESCORTE or mode == M.ECLAIREUR) and Combat.player:
@@ -223,6 +231,8 @@ func _pick_target() -> Node3D:
 		if not Combat.alive(m):
 			continue
 		var d: float = m.global_position.distance_to(center)
+		if m.peaceful or m.duel:
+			continue
 		if d < bd and (m.state != Monster.S.ERRANCE or d < 8.0):
 			bd = d
 			best = m

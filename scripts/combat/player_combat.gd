@@ -553,7 +553,10 @@ func _respawn() -> void:
 	player.cbt.hp = player.cbt.max_hp
 	mana = prog.max_mana()
 	var p := respawn_point
-	player.global_position = Vector3(p.x, Terrain.height_at(p.x, p.y) + 0.3, p.y)
+	if DwarfRealm.inside:
+		player.global_position = DwarfRealm.arrival() + Vector3.UP * 0.5
+	else:
+		player.global_position = Vector3(p.x, Terrain.height_at(p.x, p.y) + 0.3, p.y)
 	player.velocity = Vector3.ZERO
 	player.end_action()
 	message.emit(respawn_text, Color(0.9, 0.9, 1))

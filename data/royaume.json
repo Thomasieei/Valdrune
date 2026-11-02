@@ -1138,6 +1138,39 @@
      "Les primes, c'est le roi qui les paie. Moi je ne fais que les crier… et prendre ma petite part.",
      "Plus on nettoie les repaires, plus les caravanes passent. Et plus les caravanes passent, plus je crie de bonnes nouvelles."
     ]
+   },
+   "nain": {
+    "titre": "Nain de Karak Dûm",
+    "soi": [
+     "Je forge depuis cent vingt hivers. Mon père forgeait avant moi, et son père avant lui.",
+     "Je suis née sous la Montagne et j'y mourrai. Le ciel, c'est pour les oiseaux et les humains.",
+     "Je garde les registres du roi. Chaque lingot, chaque pièce, chaque dette. Surtout les dettes."
+    ],
+    "discuter": [
+     "Un humain dans la cour ! On n'avait pas vu ça depuis l'Âge du Fer.",
+     "Vargas a pillé la mine des Ancêtres. Le roi ne dort plus.",
+     "Notre bière est la meilleure du monde. Ne crois jamais un humain qui dit le contraire.",
+     "Écoute les marteaux : c'est le cœur de la Montagne qui bat.",
+     "Le froid ? Quel froid ? Ça, c'est une brise, humain."
+    ]
+   },
+   "garde_nain": {
+    "titre": "Garde de la porte",
+    "soi": [
+     "Je garde cette porte depuis quarante ans. Rien n'est passé sans ma permission. Rien."
+    ],
+    "discuter": [
+     "Avance tranquillement, humain. Et garde tes mains loin de ton épée."
+    ]
+   },
+   "roi_nain": {
+    "titre": "Roi sous la Montagne",
+    "soi": [
+     "Je suis Thorvald, fils de Thrain, roi de Karak Dûm."
+    ],
+    "discuter": [
+     "La Montagne se souvient de tout."
+    ]
    }
   }
  },

@@ -291,14 +291,17 @@ func _player_behind(p: Node3D) -> bool:
 func _gravity(delta: float) -> void:
 	_move_or_unstick(delta, Vector2(velocity.x, velocity.z).length() > 0.5)
 
+var passive := false
 func _pick_target() -> Node3D:
+	if passive:
+		return null
 	var p := Combat.player
 	var best: Node3D = null
 	var bd := 16.0
 	for m in Combat.monsters:
 		if not Combat.alive(m):
 			continue
-		if m.state == Monster.S.ERRANCE or m.state == Monster.S.RETOUR:
+		if m.state == Monster.S.ERRANCE or m.state == Monster.S.RETOUR or m.peaceful or m.duel:
 			continue
 		var d: float = m.global_position.distance_to(p.global_position)
 		if d < bd:

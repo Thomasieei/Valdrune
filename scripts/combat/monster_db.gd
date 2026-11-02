@@ -37,6 +37,14 @@ const DEFS := {
 		"elite": true,
 	},
 	# ---------------- Mercenaires de Vargas (histoire)
+	"champion_nain": {
+		"nom": "Champion nain", "model": "humain:paysan_h", "teinte": Color(0.6, 0.64, 0.76), "arme": "Sword", "barbe": true,
+		"couleur_cheveux": Color(0.55, 0.25, 0.1), "elite": true,
+		"scale": 0.92, "rayon": 0.45, "hp": 260, "degats": 12, "defense": 3, "vitesse": 2.2, "course": 4.2,
+		"detection": 30.0, "portee": 1.9, "cadence": 1.5, "impact": 0.45,
+		"comportement": "agressif", "xp": 90, "or": [20, 40], "butin": {"soin": 0.5, "mana": 0.3},
+		"anims": {"attente": "b/Idle_Shield", "marche": "Walk", "course": "Jog_Fwd", "attaque": "Sword_Attack", "touche": "Hit_Chest", "mort": "Death01"},
+	},
 	"mercenaire": {
 		"nom": "Mercenaire de Vargas", "model": "humain:rodeur_h", "teinte": Color(0.62, 0.3, 0.26), "arme": "Sword",
 		"scale": 1.0, "rayon": 0.4, "hp": 55, "degats": 9, "defense": 1, "vitesse": 2.4, "course": 4.6,

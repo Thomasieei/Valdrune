@@ -48,7 +48,7 @@ static func best_target(pos: Vector3, forward: Vector3, max_dist: float, cone_de
 	var best_score := INF
 	var f := Vector3(forward.x, 0, forward.z).normalized()
 	for m in monsters:
-		if not alive(m):
+		if not alive(m) or m.peaceful:
 			continue
 		var d: Vector3 = m.global_position - pos
 		d.y = 0

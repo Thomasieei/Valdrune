@@ -138,8 +138,8 @@ static func make(n: Node3D) -> Dictionary:
 		else:
 			var lieu := String(best["label"]).get_slice("(", 1).trim_suffix(")") if String(best["label"]).contains("(") else String(best["label"]).to_lower()
 			q["type"] = "chasse"
-			q["zone"] = best["id"]
-			q["need"] = mini(int(best["n"]) + 1, 5)
+			q["zone"] = Spawner.group_of(best["id"])
+			q["need"] = mini(Spawner.group_count(Spawner.group_of(best["id"])), 6)   # exactement la population du camp : jamais d'attente de réapparition
 			q["done"] = 0
 			q["titre"] = "Chasse : %s" % best["label"]
 			q["texte"] = CHASSE_TXT.get(best["kind"], "Des créatures menacent %s. Aidez-nous !") % lieu
@@ -267,7 +267,7 @@ static func complete(q: Dictionary) -> void:
 
 static func on_kill(zone_id: String) -> void:
 	for q in actives():
-		if q.get("type", "") == "chasse" and q.get("zone", "") == zone_id and q["state"] == "en_cours":
+		if q.get("type", "") == "chasse" and Spawner.group_of(String(q.get("zone", ""))) == Spawner.group_of(zone_id) and q["state"] == "en_cours":
 			q["done"] = int(q["done"]) + 1
 			if int(q["done"]) >= int(q["need"]):
 				q["state"] = "a_rendre"

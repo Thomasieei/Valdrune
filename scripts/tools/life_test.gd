@@ -398,6 +398,86 @@ func _ready() -> void:
 	await _shot("13_rapport")
 	world.dlg._close()
 	await _wait(0.3)
+	# ---------------------------------------------------------------- pourparlers d'un camp + duel d'honneur
+	var gid := "camp_bandits"
+	CampParley.set_status(gid, "neutre")
+	var cz: Vector2 = CampParley.zone(gid)["pos"]
+	_place(cz + Vector2(0, 40), 180)
+	await _until(func(): return CampParley.members(gid).size() >= 3, 15.0)
+	var mem := CampParley.members(gid)
+	_check(mem.size() >= 3 and mem.all(func(m): return m.peaceful), "Camp de bandits : %d occupants, personne n'attaque à vue" % mem.size())
+	_place(cz + Vector2(0, 19), 180)
+	var hailed := await _until(func(): return Dialogue.active, 12.0)
+	var mlabels := []
+	if hailed:
+		for ch in world.dlg._convo["nodes"]["menu"]["choices"]:
+			mlabels.append(ch["text"])
+	_check(hailed and mlabels.size() >= 6, "« Halte ! Qui va là ? » : le chef vient parlementer (%d choix)" % mlabels.size())
+	await _shot("10_pourparlers")
+	world.dlg.choose(3)   # duel d'honneur
+	await _wait(0.6)
+	var chef: Node3D = CampParley.inst.duel_chef
+	_check(chef != null and chef.duel and CampParley.members(gid).filter(func(m): return m != chef).all(func(m): return m.peaceful), "Duel d'honneur : le chef seul contre le souverain, ses hommes regardent")
+	var sold_c := int(Kingdom.res("soldats"))
+	for k in 30:
+		if Dialogue.active or not Combat.alive(chef):
+			break
+		chef.cbt.take_damage(60.0, p, "magie")
+		await _wait(0.4)
+	_check(Combat.alive(chef) and Dialogue.active, "Vaincu, le chef se rend au lieu de mourir")
+	world.dlg.choose(0)   # tu me serviras
+	await _wait(0.5)
+	_check(String(CampParley._st().get(gid, "")) == "allie" and CampParley.members(gid).is_empty() == false or String(CampParley._st().get(gid, "")) == "allie", "Le camp se rallie au souverain (%d → %d soldats, caserne max %d)" % [sold_c, int(Kingdom.res("soldats")), Kingdom.max_soldiers()])
+	# ---------------------------------------------------------------- royaume des nains
+	_place(Layout.PORTAL + Vector2(0, -8), 180)
+	await _wait(0.5)
+	DwarfRealm.travel(world)
+	await _until(func(): return DwarfRealm.inside, 15.0)
+	await _wait(0.8)
+	print("   (Karak : dedans=%s pos=%s mort=%s)" % [DwarfRealm.inside, p.global_position, p.cbt.dead])
+	_check(DwarfRealm.inside and p.global_position.y > 190.0 and not p.cbt.dead, "Le portail mène à Karak Dûm (vallée enneigée)")
+	await _wait(1.0)
+	_check(absf(p.global_position.y - DwarfRealm.ground(p.global_position.x - DwarfRealm.O.x, p.global_position.z - DwarfRealm.O.z)) < 1.2, "On tient debout sur la neige (pas de chute)")
+	await _shot("11_karak_arrivee")
+	_place(Vector2(DwarfRealm.O.x, DwarfRealm.O.z + DwarfRealm.GATE_Z + 14.0), 180, DwarfRealm.O.y + 0.4)
+	var halted := await _until(func(): return Dialogue.active, 8.0)
+	_check(halted, "Le capitaine nain arrête le souverain devant la porte")
+	await _shot("12_karak_porte")
+	Progression.get_inst().add_gold(500)
+	world.dlg.choose(1)   # présent pour le roi
+	await _wait(3.5)
+	_check(DwarfRealm.inst.gate_open, "Un présent : la porte de bronze s'ouvre")
+	var king := Talk.node_of("roi_nain")
+	var kc := Talk.build(king)
+	var klabels := []
+	for ch in kc["nodes"]["menu"]["choices"]:
+		klabels.append(ch["text"])
+	_check(klabels.size() >= 5 and String(klabels[0]).contains("alliance"), "Audience du roi Thorvald : alliance, acier, guerriers, Vargas")
+	_place(Vector2(DwarfRealm.O.x + 2.0, DwarfRealm.O.z - 104.0), 180, DwarfRealm.O.y + 0.4)
+	world.rig.yaw = 0.0
+	await _wait(1.0)
+	await _shot("13_karak_cour")
+	DwarfRealm.inst.leave()
+	await _until(func(): return not DwarfRealm.inside, 10.0)
+	await _wait(0.5)
+	_check(not DwarfRealm.inside and p.global_position.y < 60.0, "Retour à Valmont par le portail")
+	# ---------------------------------------------------------------- commandement rapide
+	var cu: CommandUI = CommandUI.inst
+	cu.open()
+	var n0 := Escort.members.size()
+	cu.order("portail")
+	await _wait(0.6)
+	_check(Escort.members.size() >= n0 + 2 and Escort.members.all(func(s): return s.global_position.distance_to(p.global_position) < 8.0), "Portail : deux gardes apparaissent à vos côtés")
+	await _shot("14_commandement")
+	cu.order("patrouille")
+	_check(Escort.members.all(func(s): return s.patrol.size() == 4 and s.mode == Soldier.M.GARDER), "« Patrouillez ici » : ronde autour du point choisi")
+	cu.order("passif")
+	_check(Escort.members.all(func(s): return s.passive and s._pick_target() == null), "« Ne pas attaquer » : la garde n'engage plus le combat")
+	cu.order("renvoi")
+	cu.close()
+	await _wait(0.5)
+	_check(Escort.members.is_empty(), "« Rentrez » : la garde retourne au château")
+	_check(WorkersView != null and world.find_child("Ouvriers", false, false) != null, "Ouvriers visibles sur les chantiers")
 	# ---------------------------------------------------------------- caravane
 	if Vie.inst.caravan and is_instance_valid(Vie.inst.caravan):
 		Vie.inst.caravan.queue_free()

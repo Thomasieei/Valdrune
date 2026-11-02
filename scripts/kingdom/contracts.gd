@@ -12,7 +12,7 @@ static func _st() -> Dictionary:
 static func reward_of(z: Dictionary) -> Dictionary:
 	var d: Dictionary = MonsterDB.DEFS[z["kind"]]
 	var unit := float(d["xp"])
-	var need := int(z["n"]) + (0 if d.get("elite", false) else 1)
+	var need := Spawner.group_count(Spawner.group_of(z["id"]))
 	return {"need": need, "or": int(unit * need * 2.2 / 5.0) * 5 + 20, "xp": int(unit * need * 0.8)}
 
 ## Contrats proposés : repaires pas encore traités, du plus proche au plus lointain du bourg
@@ -21,8 +21,8 @@ static func offers() -> Array:
 	var out := []
 	for z in Spawner.ZONES:
 		var id: String = z["id"]
-		if st["actifs"].has(id) or id in st["faits"]:
-			continue
+		if st["actifs"].has(id) or id in st["faits"] or Spawner.group_of(id) != id:
+			continue   # les annexes (chef, mercenaire…) font partie du contrat du camp
 		var sp := Spawner.by_id(id)
 		if sp and sp.liberated:
 			continue
@@ -37,6 +37,7 @@ static func accept(z: Dictionary) -> void:
 	_hud_hint("Contrat accepté : %s (0/%d)" % [z["label"], r["need"]])
 
 static func on_kill(zone_id: String) -> void:
+	zone_id = Spawner.group_of(zone_id)
 	var st := _st()
 	if not st["actifs"].has(zone_id):
 		return

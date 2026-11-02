@@ -41,6 +41,21 @@ const ZONES := [
 	{"id": "portail_brute", "kind": "imp_brute", "pos": Vector2(5, 228), "n": 1, "r": 3, "label": "Brute infernale (élite)"},
 ]
 
+## Un camp = un repaire principal + ses annexes (chef, mercenaire, seconde bande) : même groupe
+static func group_of(id: String) -> String:
+	for suf in ["_chef", "_merc", "_b"]:
+		if id.ends_with(suf):
+			return id.substr(0, id.length() - suf.length())
+	return id
+
+## Population totale d'un camp (toutes annexes comprises)
+static func group_count(gid: String) -> int:
+	var n := 0
+	for z in ZONES:
+		if group_of(z["id"]) == gid:
+			n += int(z["n"])
+	return n
+
 static func by_id(id: String) -> Spawner:
 	for s in spawners:
 		if s.zone_id == id:
@@ -105,9 +120,16 @@ func _process(delta: float) -> void:
 			_timers.remove_at(i)
 			_spawn_one()
 
+## Les occupants arrivent un par un (0,25 s d'écart) : jamais plusieurs personnages construits
+## dans la même image — c'était une source de pics de ms à l'approche d'un camp.
 func _fill(_now: bool) -> void:
+	var k := 0
 	while _alive.size() + _timers.size() < count:
-		_spawn_one()
+		if k == 0:
+			_spawn_one()
+		else:
+			_timers.append(0.25 * k)
+		k += 1
 
 func _spawn_one() -> void:
 	for attempt in 12:
@@ -124,6 +146,7 @@ func _spawn_one() -> void:
 		m.leash = radius + 26.0
 		m.position = Vector3(x, h + 0.2, z)
 		get_parent().add_child(m)
+		m.peaceful = CampParley.is_peaceful(zone_id)
 		m.rotation.y = randf() * TAU
 		_alive.append(m)
 		return

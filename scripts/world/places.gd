@@ -271,13 +271,15 @@ static func _portal(g: Geo, parent: Node3D) -> void:
 	zone.position = Vector3(c.x, y + 1.5, c.y)
 	parent.add_child(zone)
 	zone.body_entered.connect(func(b):
-		if b == Combat.player:
+		if b == Combat.player and not DwarfRealm.inside:
 			var w := parent.get_tree().current_scene
-			if w.get("hud"):
-				w.hud.hint("Le voile résiste : le portail des nains est scellé. Il faudra gagner leur confiance.", "", 4.0))
+			if Story.done():
+				DwarfRealm.travel(w)
+			elif w.get("hud"):
+				w.hud.hint("Le voile résiste encore… Il faudra d'abord sauver Valmont.", "", 4.0))
 	# panneau
 	var sign := Label3D.new()
-	sign.text = "Royaume des Nains\nPortail scellé"
+	sign.text = "Royaume des Nains\nKarak Dûm"
 	sign.font_size = 64
 	sign.outline_size = 12
 	sign.modulate = Color(1.0, 0.95, 0.8)

@@ -73,7 +73,7 @@ func _release_all() -> void:
 func _input(e: InputEvent) -> void:
 	var w := get_viewport_rect().size.x
 	# pendant un dialogue ou dans le bureau royal, l'interface reçoit les touchers, pas le personnage
-	if Dialogue.active or KingdomUI.is_open() or ArcanesUI.is_open():
+	if Dialogue.active or KingdomUI.is_open() or ArcanesUI.is_open() or CommandUI.is_open():
 		if _stick_id != -1 or not _btn_touch.is_empty():
 			_release_all()
 		if e is InputEventKey and e.pressed and not e.echo and Dialogue.active and Dialogue.inst:
@@ -195,7 +195,7 @@ func _process(delta: float) -> void:
 	if k.length() > 0:
 		v = k.normalized()
 	if player:
-		if Dialogue.active or KingdomUI.is_open() or ArcanesUI.is_open():
+		if Dialogue.active or KingdomUI.is_open() or ArcanesUI.is_open() or CommandUI.is_open():
 			v = Vector2.ZERO
 		player.input_dir = v
 		player.sprint = Input.is_physical_key_pressed(KEY_SHIFT)

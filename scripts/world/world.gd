@@ -94,6 +94,17 @@ func _warmup() -> void:
 	FX.cast_glow(dummy, Color(1, 0.5, 0.2))
 	FX.damage_number(fxp, "12", Color.WHITE)
 	FX.bark(dummy, "…")
+	# effets des pouvoirs (runes, halos, éclairs, débris, piliers, énergie, traces) : sinon gel au premier usage
+	Magic.rune(fxp + Vector3(2, 0, 2), 1.5, Color(1, 0.8, 0.4), 1.0)
+	Magic.halo(fxp, 2.0, Color(0.7, 0.5, 1.0), 0.5)
+	Magic.sparks(fxp, Color(1, 0.9, 0.5), 8)
+	Magic.debris(fxp, 6)
+	Magic.burst(fxp, Color(0.8, 0.6, 1.0), 1.0, true)
+	Magic.lightning(fxp, fxp + Vector3(0, 4, 0), Color(0.7, 0.85, 1.0))
+	Magic.pillar(fxp + Vector3(-2, 0, 2), Color(1, 0.8, 0.4), 4.0, 0.6)
+	Magic.trail(dummy, Color(0.75, 0.55, 1.0))
+	FX._scorch_mark(fxp, 1.5)
+	FX.impact_light(fxp, Color(1, 0.8, 0.4), 2.0, 4.0)
 	var tele := Telegraph.spawn(self, fxp + Vector3(0, 0, 3), 0.0, "cercle", 1.5, 3.0)
 	views.push_front([fxp + Vector3(0, 4, 12), fxp])
 	for v in views:
@@ -205,6 +216,8 @@ func _spawn() -> void:
 	kl.add_child(kui)
 	aui = ArcanesUI.new()
 	kl.add_child(aui)
+	var cui := CommandUI.new()
+	kl.add_child(cui)
 	var mob := get_node_or_null("Mobilier") as Node3D
 	ArcanesUI.build_chamber(mob if mob else self)
 	Powers.spawn_props(self)
@@ -223,6 +236,12 @@ func _spawn() -> void:
 	quests = Quests.new()
 	quests.name = "Quetes"
 	add_child(quests)
+	var wv := WorkersView.new()
+	wv.name = "Ouvriers"
+	add_child(wv)
+	var cp := CampParley.new()
+	cp.name = "Pourparlers"
+	add_child(cp)
 	var ag := AuraGuard.new()
 	ag.name = "ParadeAura"
 	add_child(ag)
@@ -297,7 +316,7 @@ func _process(delta: float) -> void:
 	_talk_acc += delta
 	if _talk_acc > 0.25 and hud:
 		_talk_acc = 0.0
-		var foes := Combat.in_radius(player.global_position, 14.0).filter(func(m): return m.kind != "mannequin")
+		var foes := Combat.in_radius(player.global_position, 14.0).filter(func(m): return m.kind != "mannequin" and not m.peaceful)
 		var can := not Dialogue.active and not player.cbt.dead and foes.is_empty()
 		if story and story.step in ["debut", "suivre", "embuscade", "colosse", "alerte", "assaut"]:
 			can = false

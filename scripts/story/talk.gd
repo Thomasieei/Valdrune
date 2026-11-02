@@ -238,8 +238,10 @@ static func build(n: Node3D) -> Dictionary:
 	Quests.add_options(nodes, choices, who, label, n, id)
 	choices.append({"text": "Au revoir", "next": "END"})
 	nodes["menu"] = {"who": who, "nom": label, "text": greet, "choices": choices}
-	if n is Villager or n is Guard or role == "prisonnier":
+	if (n is Villager or n is Guard or role == "prisonnier") and not role.ends_with("nain"):
 		Justice.add_options(nodes, choices, who, label, n, role)
+	if role == "roi_nain":
+		DwarfDiplomacy.add_options(nodes, choices, who, label, role)
 	return {"start": "menu", "nodes": nodes, "fermable": true}
 
 static func _short(t: String) -> String:
