@@ -239,6 +239,55 @@ func _ready() -> void:
 		var res: bool = t[2].call()
 		_check(res, t[3])
 		await _wait(2.5 if id == "singularite" else 0.3)   # laisser l'implosion finir avant le test suivant
+	# ---------------------------------------------------------------- Emprise à choix
+	for pick in [[1, "Écraser"], [0, "Projeter"]]:
+		_reset_foes(5.0, 1.6)
+		pc.cooldowns.clear()
+		pc.mana = prog.max_mana()
+		await _wait(0.4)
+		var h0 := _hp_sum()
+		_cast("main_invisible")
+		await _wait(0.6)
+		var lifted := _count_state(Monster.S.SOULEVE)
+		_check(lifted >= 2 and world.hud.choice_btns.size() == 3, "Emprise : deux ennemis suspendus, trois choix à l'écran (%d soulevés)" % lifted)
+		if pick[0] == 1:
+			await _shot("p_emprise_choix")
+		world.hud.choose(pick[0])
+		await _wait(1.6)
+		_check(_hp_sum() > h0 and _count_state(Monster.S.SOULEVE) == 0, "Emprise → %s : dégâts à l'impact, plus personne en l'air" % pick[1])
+	# ---------------------------------------------------------------- cercle des pouvoirs
+	world.hud.toggle_grimoire()
+	await _wait(0.3)
+	var nt: int = world.hud.grim_tiles.size()
+	_check(world.hud.grimoire_open and nt >= 15 and world.hud.spell_of(world.hud.grim_tiles[0]) != "", "Cercle des pouvoirs : grille de %d pouvoirs en plus de la roue" % nt)
+	await _shot("p_cercle_pouvoirs")
+	var gid: String = world.hud.spell_of(world.hud.grim_tiles[0])
+	pc.cooldowns.clear()
+	_reset_foes(5.0)
+	var ok_charge := pc.begin_charge(gid)
+	await _wait(0.4)
+	_check(ok_charge and pc.charging == gid and world.hud.grim_tiles[0].charge > 0.0, "Un pouvoir du cercle se charge en restant appuyé (%s)" % gid)
+	pc.cancel_charge()
+	world.hud.toggle_grimoire()
+	_check(not world.hud.grimoire_open and world.hud.grim_tiles.is_empty(), "Le cercle se referme")
+	# ---------------------------------------------------------------- parade de l'aura + plaquage
+	AuraGuard.enabled = true
+	AuraGuard.inst.ready_at = 0.0
+	_reset_foes(1.6)
+	await _wait(0.3)
+	var hp_before := p.cbt.hp
+	var victim: Monster = foes[1]
+	var blocked := AuraGuard.try_block(victim)
+	_check(blocked and Engine.time_scale < 0.5 and world.hud.btn_prompt.visible, "Coup d'épée : le temps ralentit, l'aura arrête la lame, « PLAQUER » apparaît")
+	world.hud.btn_prompt.pressed.emit()
+	await get_tree().create_timer(0.8, true, false, true).timeout
+	_check(AuraGuard.inst.pinned == victim and Dialogue.active and world.rig.cine and Engine.time_scale == 1.0, "Plaqué contre un obstacle : dialogue d'interrogatoire, caméra de cinéma")
+	await _shot("p_plaquage")
+	await _wait(0.3)
+	Dialogue.inst.choose(3)   # bandit : interroger, soumettre, relâcher, ACHEVER
+	await _wait(1.0)
+	_check(not Combat.alive(victim) and not world.rig.cine and AuraGuard.inst.pinned == null and p.cbt.hp >= hp_before - 1.0, "Achever : l'ennemi tombe, la caméra revient, aucun dégât reçu")
+	AuraGuard.enabled = false
 	# transposition : échange avec la cible
 	_reset_foes(7.0)
 	await _wait(0.3)

@@ -21,8 +21,8 @@ static func nearest(pos: Vector3) -> Node3D:
 				best = m
 	return best
 
-static func capture(m: Node3D) -> void:
-	if not capturable(m):
+static func capture(m: Node3D, force := false) -> void:
+	if not (capturable(m) or (force and Combat.alive(m) and m.kind in HUMAINS)):
 		return
 	var p := m.global_position
 	m.kneel_cc(3.0)

@@ -93,6 +93,17 @@ func _text(p: Vector2, t: String, fs: int, col: Color) -> void:
 
 func _icon(c: Vector2, s: float, col: Color) -> void:
 	match icon:
+		"grimoire":
+			# cercle runique : anneau, six gemmes, étoile intérieure
+			draw_arc(c, s * 0.82, 0, TAU, 32, col, s * 0.1, true)
+			for k in 6:
+				var a := TAU * k / 6.0 - PI / 2.0
+				draw_circle(c + Vector2(cos(a), sin(a)) * s * 0.82, s * 0.16, col)
+			for k in 3:
+				var a1 := TAU * k / 3.0 - PI / 2.0
+				var a2 := a1 + PI
+				draw_line(c + Vector2(cos(a1), sin(a1)) * s * 0.5, c + Vector2(cos(a1 + TAU / 3.0), sin(a1 + TAU / 3.0)) * s * 0.5, col, s * 0.08, true)
+				draw_line(c + Vector2(cos(a2), sin(a2)) * s * 0.5, c + Vector2(cos(a2 + TAU / 3.0), sin(a2 + TAU / 3.0)) * s * 0.5, col, s * 0.08, true)
 		"epee":
 			draw_line(c + Vector2(-0.7, 0.7) * s, c + Vector2(0.75, -0.75) * s, col, s * 0.2, true)
 			draw_line(c + Vector2(-0.75, 0.25) * s, c + Vector2(-0.25, 0.75) * s, col, s * 0.16, true)

@@ -24,6 +24,18 @@ var btn_dodge: ActionButton
 var btn_spells := {}          # sort équipé -> bouton (reconstruit quand l'équipement change)
 var btn_slots: Array = []     # les 4 emplacements de pouvoirs
 var eye: EyePanels
+var btn_grimoire: ActionButton  # cercle de pouvoirs : ouvre la grille de tous les autres pouvoirs
+var grimoire_open := false
+var btn_prompt: ActionButton      # action contextuelle géante (« PLAQUER » pendant le ralenti…)
+var choice_btns: Array = []       # choix rapides (Emprise : Projeter / Écraser / Déposer)
+var _choice_cbs: Array = []
+var _choice_until := 0.0
+var _choice_timeout: Callable
+var _prompt_cb: Callable
+var _prompt_until := 0.0
+var grim_tiles: Array = []
+var _grim_bg: Panel
+var _grim_title: Label
 var btn_potion_soin: ActionButton
 var btn_potion_mana: ActionButton
 var _msg: Label
@@ -43,7 +55,23 @@ func _ready() -> void:
 	refresh_slots()
 	btn_potion_soin = ActionButton.new().setup("potion_soin", 32.0, Color(1, 0.45, 0.45))
 	btn_potion_mana = ActionButton.new().setup("potion_mana", 32.0, Color(0.45, 0.65, 1))
-	for b in [btn_attack, btn_dodge, btn_potion_soin, btn_potion_mana] + btn_slots:
+	btn_grimoire = ActionButton.new().setup("grimoire", 40.0, Color(0.75, 0.6, 1.0))
+	_grim_bg = Panel.new()
+	var gs := StyleBoxFlat.new()
+	gs.bg_color = Color(0.05, 0.04, 0.09, 0.82)
+	gs.border_color = Color(0.6, 0.45, 1.0, 0.8)
+	gs.set_border_width_all(2)
+	gs.set_corner_radius_all(18)
+	gs.shadow_color = Color(0.4, 0.2, 0.9, 0.35)
+	gs.shadow_size = 14
+	_grim_bg.add_theme_stylebox_override("panel", gs)
+	_grim_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_grim_bg.visible = false
+	add_child(_grim_bg)
+	_grim_title = _mk_label(20, Color(0.85, 0.78, 1.0))
+	_grim_title.text = "Cercle des pouvoirs — maintenir pour charger, glisser sur « Annuler » pour relâcher sans lancer"
+	_grim_title.visible = false
+	for b in [btn_attack, btn_dodge, btn_potion_soin, btn_potion_mana, btn_grimoire] + btn_slots:
 		add_child(b)
 	eye = EyePanels.new()
 	add_child(eye)
@@ -85,6 +113,16 @@ func _ready() -> void:
 	btn_cancel.label = "Annuler"
 	btn_cancel.visible = false
 	add_child(btn_cancel)
+	btn_grimoire.pressed.connect(toggle_grimoire)
+	btn_prompt = ActionButton.new().setup("main", 62.0, Color(1.0, 0.82, 0.35))
+	btn_prompt.visible = false
+	btn_prompt.pulse = true
+	add_child(btn_prompt)
+	btn_prompt.pressed.connect(func():
+		var cb := _prompt_cb
+		hide_prompt()
+		if cb.is_valid():
+			cb.call())
 	btn_potion_soin.pressed.connect(func(): pc.drink("soin"))
 	btn_potion_mana.pressed.connect(func(): pc.drink("mana"))
 
@@ -135,8 +173,89 @@ func bind(p: Player) -> void:
 	pc = p.combat
 	pc.message.connect(show_message)
 
+## Choix rapides à l'écran : [[icône, texte, Callable], …] ; à l'expiration, on_timeout est appelé
+func show_choices(items: Array, dur: float, on_timeout := Callable()) -> void:
+	hide_choices()
+	for it in items:
+		var b := ActionButton.new().setup(it[0], 48.0, it[3] if it.size() > 3 else Color(0.85, 0.7, 1.0))
+		b.label = it[1]
+		b.pulse = true
+		add_child(b)
+		choice_btns.append(b)
+		_choice_cbs.append(it[2])
+		var idx := choice_btns.size() - 1
+		b.pressed.connect(func():
+			var cb: Callable = _choice_cbs[idx]
+			_choice_timeout = Callable()
+			hide_choices()
+			if cb.is_valid():
+				cb.call())
+	_choice_until = Time.get_ticks_msec() / 1000.0 + dur
+	_choice_timeout = on_timeout
+
+func hide_choices() -> void:
+	for b in choice_btns:
+		b.queue_free()
+	choice_btns.clear()
+	_choice_cbs.clear()
+	_choice_until = 0.0
+
+func choose(i: int) -> void:
+	if i < choice_btns.size():
+		(choice_btns[i] as ActionButton).pressed.emit()
+
 func buttons() -> Array:
-	return [btn_attack, btn_dodge, btn_potion_soin, btn_potion_mana, btn_talk, btn_kingdom] + btn_slots
+	return choice_btns + [btn_prompt, btn_attack, btn_dodge, btn_potion_soin, btn_potion_mana, btn_talk, btn_kingdom, btn_grimoire] + btn_slots + grim_tiles
+
+## Bouton d'action contextuelle (temps réel, même au ralenti)
+func show_prompt(icon: String, text: String, cb: Callable, dur: float) -> void:
+	btn_prompt.icon = icon
+	btn_prompt.label = text
+	btn_prompt._sig = ""
+	btn_prompt.visible = true
+	_prompt_cb = cb
+	_prompt_until = Time.get_ticks_msec() / 1000.0 + dur
+
+func hide_prompt() -> void:
+	btn_prompt.visible = false
+	_prompt_cb = Callable()
+	_prompt_until = 0.0
+
+func prompt_active() -> bool:
+	return btn_prompt.visible
+
+## Pouvoirs du cercle : tout ce qui est appris, sauf ce qui est déjà sur la roue
+func grimoire_ids() -> Array:
+	var out := []
+	var sl: Array = Progression.get_inst().slots
+	for id in SpellDB.DEFS:
+		if sl.has(id) or id == "mannequin":
+			continue
+		var d: Dictionary = SpellDB.DEFS[id]
+		var owned: bool = Progression.get_inst().pouvoirs.has(id) if SpellDB.is_power(id) else Progression.get_inst().level >= int(d.get("niveau", 1))
+		if owned:
+			out.append(id)
+	return out
+
+func toggle_grimoire() -> void:
+	grimoire_open = not grimoire_open
+	for t in grim_tiles:
+		t.queue_free()
+	grim_tiles.clear()
+	refresh_slots()
+	if grimoire_open:
+		for id in grimoire_ids():
+			var d: Dictionary = SpellDB.DEFS[id]
+			var b := ActionButton.new().setup(d["icone"], 36.0, d["couleur"])
+			b.label = String(d["nom"]).split(" ")[0]
+			add_child(b)
+			grim_tiles.append(b)
+			btn_spells[id] = b
+		if grim_tiles.is_empty():
+			show_message("Aucun autre pouvoir appris : rendez-vous à la Chambre des Arcanes", Color(0.8, 0.7, 1.0))
+			grimoire_open = false
+		Sfx.play("ok", -10.0)
+	btn_grimoire.held = grimoire_open
 
 ## Met à jour les 4 boutons selon les pouvoirs équipés (Chambre des Arcanes)
 func refresh_slots() -> void:
@@ -182,6 +301,28 @@ func _layout() -> void:
 		var a := deg_to_rad(-172.0 + i * 31.0)
 		var p := ac + Vector2(cos(a), sin(a)) * 162.0
 		btn_slots[i].position = p - btn_slots[i].size * 0.5
+	var ag := deg_to_rad(-172.0 + 4 * 31.0)
+	btn_grimoire.position = ac + Vector2(cos(ag), sin(ag)) * 162.0 - btn_grimoire.size * 0.5
+	# grille du cercle de pouvoirs : en bas au centre, deux rangées au plus
+	if grimoire_open and grim_tiles.size() > 0:
+		var cols := mini(grim_tiles.size(), 7)
+		var rows := int(ceil(grim_tiles.size() / float(cols)))
+		var cw := 96.0
+		var rh := 104.0
+		var w := cols * cw + 28.0
+		var h := rows * rh + 52.0
+		var org := Vector2(clampf(s.x * 0.5 - w * 0.5 - 150.0, 20.0, s.x - w - 420.0), s.y - h - 18.0)
+		_grim_bg.position = org
+		_grim_bg.size = Vector2(w, h)
+		_grim_title.position = org + Vector2(0, 6)
+		_grim_title.size = Vector2(w, 26)
+		_grim_title.add_theme_font_size_override("font_size", 15)
+		for i in grim_tiles.size():
+			var t: ActionButton = grim_tiles[i]
+			var cpos := org + Vector2(14.0 + (i % cols + 0.5) * cw, 40.0 + (i / cols) * rh + 40.0)
+			t.position = cpos - t.size * 0.5
+	_grim_bg.visible = grimoire_open and not Dialogue.active
+	_grim_title.visible = _grim_bg.visible
 	btn_potion_soin.position = Vector2(s.x - 60, 120) - btn_potion_soin.size * 0.5
 	btn_potion_mana.position = Vector2(s.x - 60, 196) - btn_potion_mana.size * 0.5
 	_msg.position = Vector2(s.x * 0.5 - 400, s.y * 0.5)
@@ -192,6 +333,19 @@ func _layout() -> void:
 	if btn_cancel.visible:
 		btn_talk.visible = false
 	btn_kingdom.position = Vector2(470, 78) - btn_kingdom.size * 0.5
+	btn_prompt.position = Vector2(s.x - 360, s.y * 0.5 - 40) - btn_prompt.size * 0.5
+	for i in choice_btns.size():
+		var cb: ActionButton = choice_btns[i]
+		cb.position = Vector2(s.x * 0.5 + (i - (choice_btns.size() - 1) * 0.5) * 150.0, s.y * 0.62) - cb.size * 0.5
+		cb.refresh()
+	if choice_btns.size() > 0 and Time.get_ticks_msec() / 1000.0 > _choice_until:
+		var to := _choice_timeout
+		_choice_timeout = Callable()
+		hide_choices()
+		if to.is_valid():
+			to.call()
+	if btn_prompt.visible and Time.get_ticks_msec() / 1000.0 > _prompt_until:
+		hide_prompt()
 	_hint.position = Vector2(s.x * 0.5 - _hint.size.x * 0.5, 84)
 	_objective.position = Vector2(26, 150)
 	_objective.size = Vector2(620, 40)
@@ -206,6 +360,7 @@ func _layout() -> void:
 	btn_potion_mana.visible = shown["potions"] and on
 	for id in btn_spells:
 		btn_spells[id].visible = shown["sorts"] and on
+	btn_grimoire.visible = shown["sorts"] and on
 	_hint.modulate.a = 0.0 if Dialogue.active else 1.0
 
 func _process(delta: float) -> void:
@@ -224,7 +379,7 @@ func _process(delta: float) -> void:
 		b.refresh()
 	btn_potion_soin.count = prog.potions_soin
 	btn_potion_mana.count = prog.potions_mana
-	for b in [btn_potion_soin, btn_potion_mana, btn_attack, btn_dodge, btn_talk, btn_kingdom, btn_cancel]:
+	for b in [btn_potion_soin, btn_potion_mana, btn_attack, btn_dodge, btn_talk, btn_kingdom, btn_cancel, btn_grimoire, btn_prompt]:
 		b.refresh()
 	if _hint_t > 0.0:
 		_hint_t -= delta

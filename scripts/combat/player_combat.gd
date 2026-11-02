@@ -421,6 +421,42 @@ func _face_target(max_d: float) -> void:
 		if d.length() < max_d:
 			player.rotation.y = atan2(d.x, d.z)
 
+## Charge « manga » : plus on maintient, plus l'aura enfle, la caméra recule, le sol vibre et se fend
+var _manga_on := false
+var _manga_t := 0.0
+var _manga_dist0 := 8.0
+var _manga_full := false
+func _manga_charge(delta: float) -> void:
+	var c := charge_level()
+	var w := Justice.world()
+	var rig = w.get("rig") if w else null
+	if is_instance_valid(_charge_fx):
+		_charge_fx.scale = Vector3.ONE * (1.0 + c * 1.4)
+	if c < 0.35 or rig == null:
+		return
+	if not _manga_on:
+		_manga_on = true
+		_manga_dist0 = rig.dist_goal
+	rig.dist_goal = lerpf(_manga_dist0, minf(_manga_dist0 + 4.5, rig.max_dist), c)
+	rig.shake(0.04 + 0.1 * c)
+	_manga_t += delta
+	if _manga_t > (0.5 - 0.3 * c):
+		_manga_t = 0.0
+		var col: Color = SpellDB.DEFS[charging]["couleur"]
+		Magic.sparks(player.global_position + Vector3.UP * 0.2, col, int(6 + 14 * c), 3.0 + 5.0 * c, 0.5)
+		if c >= 1.0 and not _manga_full:
+			_manga_full = true   # pleine puissance : une seule onde, pas de saturation
+			FX.shockwave(player.global_position, 1.8)
+			Magic.halo(player.global_position + Vector3.UP, 2.6, col, 0.5)
+			Sfx.play("lourd", -6.0)
+
+func _manga_off() -> void:
+	_manga_on = false
+	_manga_full = false
+	var w := Justice.world()
+	if w and w.get("rig"):
+		w.rig.dist_goal = _manga_dist0
+
 func _process(delta: float) -> void:
 	if player == null:
 		return
@@ -442,6 +478,9 @@ func _process(delta: float) -> void:
 	mana = minf(prog.max_mana(), mana + prog.mana_regen() * delta)
 	if charging != "":
 		_update_reticle()
+		_manga_charge(delta)
+	elif _manga_on:
+		_manga_off()
 	if player.model:
 		var lift := 0.0
 		if incarnated():

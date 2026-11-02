@@ -211,6 +211,8 @@ func _spawn() -> void:
 	hud.btn_talk.pressed.connect(_talk)
 	hud.btn_kingdom.pressed.connect(func(): if not Dialogue.active: kui.open())
 	dlg.finished.connect(func(a):
+		if rig and not is_instance_valid(AuraGuard.inst.pinned if AuraGuard.inst else null):
+			rig.cine_off()
 		if a == "ouvrir_missions":
 			kui.open("missions")
 		if is_instance_valid(_talking) and _talking is Companion and Story.done():
@@ -221,6 +223,9 @@ func _spawn() -> void:
 	quests = Quests.new()
 	quests.name = "Quetes"
 	add_child(quests)
+	var ag := AuraGuard.new()
+	ag.name = "ParadeAura"
+	add_child(ag)
 	var mr := MissionReturn.new()
 	mr.name = "RetourMission"
 	add_child(mr)
@@ -361,6 +366,8 @@ func _talk() -> void:
 	if n is Companion:
 		n.stand(n.global_position)
 	focus_on(n)
+	if rig:
+		rig.frame_talk(player, n)
 	dlg.start(Talk.build(n))
 
 func _notification(what: int) -> void:

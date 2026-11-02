@@ -261,8 +261,11 @@ func _physics_process(delta: float) -> void:
 				if p and not p_dead and dist <= float(def["portee"]) + 0.7:
 					var fwd := global_transform.basis.z
 					if fwd.dot(to_p.normalized()) > 0.3:
-						p.cbt.take_damage(def["degats"], self)
-						Sfx.play("touche", -4.0)
+						if p == Combat.player and AuraGuard.try_block(self):
+							pass   # l'aura du souverain arrête la lame (ralenti)
+						else:
+							p.cbt.take_damage(def["degats"], self)
+							Sfx.play("touche", -4.0)
 			if _t >= dur:
 				_cool = def["cadence"]
 				_go(S.POURSUITE)
@@ -466,6 +469,8 @@ func lift(h: float, d: float) -> bool:
 	return true
 
 ## Projeté : trajectoire balistique, dégâts et onde au sol à l'impact
+signal landed(pos: Vector3)
+
 func throw(v: Vector3, dmg: float, src: Node3D) -> void:
 	if state == S.MORT:
 		return
@@ -517,6 +522,7 @@ func _cc_process(delta: float) -> void:
 					cbt.take_damage(impact_damage, impact_source, "physique")
 				FX.shockwave(global_position, 1.6 * float(def["scale"]))
 				Sfx.play("lourd", -8.0)
+				landed.emit(global_position)
 				state = S.ETOURDI
 				_stun_end = now + 0.9
 				_ap.speed_scale = 0.4

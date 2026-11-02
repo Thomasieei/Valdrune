@@ -57,6 +57,7 @@ func _face(p: Player, m: Node3D) -> void:
 	world.rig.yaw = p.rotation.y + PI
 
 func _ready() -> void:
+	AuraGuard.enabled = false   # parade de l'aura testée à part (pouvoirs)
 	while world.player == null:
 		await get_tree().process_frame
 	var p: Player = world.player

@@ -71,7 +71,8 @@ func _ready() -> void:
 	while world.player == null or world.story == null:
 		await get_tree().process_frame
 	p = world.player
-	Engine.max_physics_steps_per_frame = 40   # rendu logiciel très lent : la simulation garde le temps réel
+	Engine.max_physics_steps_per_frame = 40
+	AuraGuard.enabled = false   # parade de l'aura testée à part (pouvoirs)   # rendu logiciel très lent : la simulation garde le temps réel
 	st = world.story
 	gs = GameState.get_inst()
 	await _wait(1.0)
@@ -327,6 +328,7 @@ func _ready() -> void:
 				di = ci
 		world.dlg.start(cvm)
 		await _talk([di, 99])
+	print("   (mémoire marchand : sujets %d → %d, vu %d)" % [said, Array(gs.mem("marchand_0")["sujets"]).size(), int(gs.mem("marchand_0")["vu"])])
 	_check(Array(gs.mem("marchand_0")["sujets"]).size() >= said + 2 and int(gs.mem("marchand_0")["vu"]) >= 3, "Le PNJ se souvient (rencontres, sujets déjà abordés)")
 	world.dlg.start(Talk.build(merchant))
 	await _wait(0.6)

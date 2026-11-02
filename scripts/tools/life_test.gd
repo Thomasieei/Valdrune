@@ -59,7 +59,8 @@ func _ready() -> void:
 	while world.player == null or world.story == null:
 		await get_tree().process_frame
 	p = world.player
-	Engine.max_physics_steps_per_frame = 40   # rendu logiciel très lent : la simulation garde le temps réel
+	Engine.max_physics_steps_per_frame = 40
+	AuraGuard.enabled = false   # parade de l'aura testée à part (pouvoirs)   # rendu logiciel très lent : la simulation garde le temps réel
 	gs = GameState.get_inst()
 	await _wait(1.5)
 	_check(Story.done() and Kingdom.inst != null, "Partie en mode libre, royaume actif")

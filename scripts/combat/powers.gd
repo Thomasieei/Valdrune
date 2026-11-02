@@ -163,16 +163,28 @@ static func _main_invisible(pc: PlayerCombat, power: float, c: float, aim: Vecto
 	if t:
 		pl.rotation.y = atan2(t.global_position.x - pl.global_position.x, t.global_position.z - pl.global_position.z)
 		fwd = pl.forward()
-		_beam(pl, t, Color(0.7, 0.5, 1.0), 0.75)
-		if t.lift(2.4 + c, 0.7):
-			FX.cast_glow(t, Color(0.7, 0.5, 1.0))
-			_after(0.7, func():
-				if Combat.alive(t) and t.state == Monster.S.SOULEVE:
-					t.throw(fwd * (11.0 + 10.0 * c) + Vector3.UP * 4.0, power, pl)
-					Sfx.play("lourd", -8.0))
-		else:
+		# Emprise : la cible ET son voisin le plus proche, suspendus ; le souverain choisit leur sort
+		var held: Array = []
+		for m in [t, _neighbour(t)]:
+			if m and m.lift(2.6 + c * 0.8, 8.0):
+				held.append(m)
+				_beam(pl, m, Color(0.7, 0.5, 1.0), 0.9)
+				FX.cast_glow(m, Color(0.7, 0.5, 1.0))
+				Magic.trail(m, Color(0.75, 0.55, 1.0), 0.45, "spark_04", 18)
+				FX.bark(m, _lift_line(m), 2.4, 2.2)
+		if held.is_empty():
+			if t.is_boss():
+				FX.bark(t, ["QUOI ?! Personne ne me soulève !", "Tu crois pouvoir me soulever, insecte ?"][randi() % 2], 3.4, 2.4)
 			_hurt(t, power, pc, el)
+			return
 		Sfx.play("ok", -6.0)
+		pl.action("Spellcast_Long", 8.0, 1.0)
+		if Hud.inst:
+			Hud.inst.show_choices([
+				["projection", "Projeter", func(): _tk_throw(pc, held, power, c, fwd)],
+				["gravite", "Écraser", func(): _tk_slam(pc, held, power, c)],
+				["main", "Déposer", func(): _tk_drop(pc, held)],
+			], 6.0, func(): _tk_drop(pc, held))
 		return
 	# aucun ennemi : un objet du décor (tonneau, caisse) dans la direction visée
 	var best: RigidBody3D = null
@@ -195,6 +207,86 @@ static func _main_invisible(pc: PlayerCombat, power: float, c: float, aim: Vecto
 			obj.apply_central_impulse((fwd * (14.0 + 10.0 * c) + Vector3.UP * 2.0) * obj.mass))
 	else:
 		pc.message.emit("Rien à saisir", Color(0.8, 0.75, 1.0))
+
+static func _neighbour(t: Node3D) -> Node3D:
+	var best: Node3D = null
+	var bd := 6.5
+	for m in Combat.in_radius(t.global_position, 6.5):
+		if m != t and not m.is_boss():
+			var d: float = m.global_position.distance_to(t.global_position)
+			if d < bd:
+				bd = d
+				best = m
+	return best
+
+static func _lift_line(m: Node3D) -> String:
+	if Capture.HUMAINS.has(m.kind):
+		return ["Hé ! Lâchez-moi !", "Mais… je vole ?!", "Reposez-moi tout de suite !", "AAAAH !", "Sorcellerie !"][randi() % 5]
+	return ["Grrraaah ?!", "Kiii !", "…!"][randi() % 3]
+
+static func _held_alive(held: Array) -> Array:
+	return held.filter(func(m): return Combat.alive(m) and m.state == Monster.S.SOULEVE)
+
+## Projeter : chaque prisonnier de l'emprise est lancé sur un autre ennemi et renverse ceux qu'il croise
+static func _tk_throw(pc: PlayerCombat, held: Array, power: float, c: float, fwd: Vector3) -> void:
+	var pl := pc.player
+	var used := {}
+	pl.action("Spellcast_Shoot", 0.6, 1.0)
+	for m in _held_alive(held):
+		var dest: Vector3 = m.global_position + fwd * 11.0
+		var bd := 18.0
+		for o in Combat.in_radius(m.global_position, 18.0):
+			if o == m or held.has(o) or used.has(o):
+				continue
+			var d: float = o.global_position.distance_to(m.global_position)
+			if d > 1.5 and d < bd:
+				bd = d
+				dest = o.global_position
+				used[o] = true
+		var dv: Vector3 = dest - m.global_position
+		var flat := Vector3(dv.x, 0, dv.z)
+		var tt := clampf(flat.length() / 22.0, 0.3, 0.8)
+		var v: Vector3 = flat / tt + Vector3.UP * (10.0 * tt - (m.global_position.y - dest.y) / tt)
+		m.throw(v, power * 1.2, pl)
+		Magic.trail(m, Color(1.0, 0.95, 1.0), 0.6, "spark_04", 24)
+		m.landed.connect(func(at: Vector3): _tk_impact(pc, at, power, 1.3, m), CONNECT_ONE_SHOT)
+	Sfx.play("lourd", -6.0)
+
+## Écraser : remontée brève, puis chute fulgurante — le sol se fend
+static func _tk_slam(pc: PlayerCombat, held: Array, power: float, c: float) -> void:
+	pc.player.action("Spellcast_Shoot", 0.6, 1.0)
+	for m in _held_alive(held):
+		m.throw(Vector3(0, 7.0, 0), 0.0, null)
+		var mm: Node3D = m
+		_after(0.22, func():
+			if Combat.alive(mm):
+				mm.throw(Vector3(0, -34.0, 0), power * 1.6, pc.player)
+				mm.landed.connect(func(at: Vector3): _tk_impact(pc, at, power, 1.0 + c * 0.6, mm), CONNECT_ONE_SHOT))
+
+static func _tk_drop(pc: PlayerCombat, held: Array) -> void:
+	for m in _held_alive(held):
+		m.throw(Vector3(0, -3.0, 0), 0.0, null)
+		FX.bark(m, ["Merci… merci…", "Il m'a… épargné ?", "…"][randi() % 3], 2.3, 1.8)
+	pc.player.end_action()
+
+## Impact : onde, débris, fissure, tremblement ; les ennemis proches sont renversés
+static func _tk_impact(pc: PlayerCombat, at: Vector3, power: float, force: float, src: Node3D) -> void:
+	FX.shockwave(at, 2.6 * force)
+	Magic.debris(at, int(10 + 8 * force), 6.0 + force * 2.0)
+	Magic.burst(at, Color(0.8, 0.6, 1.0), 0.9 * force, true)
+	FX._scorch_mark(at, 1.6 * force)
+	FX.impact_light(at, Color(0.75, 0.55, 1.0), 3.0, 7.0)
+	var w := Justice.world()
+	if w and w.get("rig"):
+		w.rig.shake(0.3 + force * 0.25)
+	for o in Combat.in_radius(at, 3.2 * force):
+		if o == src:
+			continue
+		_hurt(o, power * 0.45, pc, "physique")
+		if Combat.alive(o) and not o.is_boss():
+			var d: Vector3 = o.global_position - at
+			d.y = 0.0
+			o.knockback(d.normalized() * 7.0 + Vector3.UP * 3.0)
 
 ## Objets que la télékinésie peut saisir (corps physiques ; ils blessent les ennemis qu'ils percutent)
 static func spawn_props(world: Node3D) -> void:
