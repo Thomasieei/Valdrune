@@ -3,19 +3,90 @@ class_name SpellDB
 ## Tous les sorts se chargent en maintenant le bouton (plus de puissance, de rayon et de durée, coût +60 % à pleine charge).
 ## niveau : niveau requis · mana · recharge (s) · portee (m) · incantation (s, interrompue si on est frappé)
 
-const ORDER := ["trait_feu", "egide", "nova_givre", "racines"]
+const ORDER := ["trait_feu", "egide", "nova_givre", "racines"]   # équipement par défaut (4 emplacements)
+## Les sorts d'origine se débloquent avec le niveau ; les pouvoirs du souverain (cout_or) s'achètent
+## à la Chambre des Arcanes (bibliothèque du château), où l'on choisit aussi les 4 pouvoirs équipés.
+const CATS := {"base": "Sorts d'origine", "telekinesie": "Télékinésie et domination", "defense": "Défense et contrôle",
+	"destruction": "Destruction élémentaire", "souverain": "Invocation et pouvoirs souverains"}
 
 const DEFS := {
 	"trait_feu": {"nom": "Trait de feu", "niveau": 1, "mana": 10, "recharge": 1.1, "portee": 24.0, "incantation": 0.0,
 		"degats": 16.0, "ratio": 1.6, "rayon": 2.2, "couleur": Color(1.0, 0.55, 0.15), "icone": "feu",
-		"desc": "Comète de feu qui explose à l'impact et brûle les ennemis proches."},
+		"desc": "Comète de feu qui explose à l'impact et brûle les ennemis proches.", "cat": "base", "element": "feu"},
 	"egide": {"nom": "Égide", "niveau": 2, "mana": 18, "recharge": 14.0, "portee": 0.0, "incantation": 0.0,
 		"absorbe": 30.0, "ratio": 3.0, "duree": 8.0, "couleur": Color(0.35, 0.8, 1.0), "icone": "bouclier",
-		"desc": "Bulle runique qui absorbe les dégâts pendant 8 s."},
+		"desc": "Bulle runique qui absorbe les dégâts pendant 8 s.", "cat": "base", "element": "arcane"},
 	"nova_givre": {"nom": "Nova de givre", "niveau": 3, "mana": 22, "recharge": 8.0, "portee": 6.5, "incantation": 0.0,
 		"degats": 12.0, "ratio": 1.0, "ralenti": 0.45, "duree": 4.0, "couleur": Color(0.6, 0.9, 1.0), "icone": "givre",
-		"desc": "Onde de glace autour de vous : dégâts et ralentissement de 55 % pendant 4 s."},
+		"desc": "Onde de glace autour de vous : dégâts et ralentissement de 55 % pendant 4 s.", "cat": "base", "element": "givre"},
 	"racines": {"nom": "Racines", "niveau": 4, "mana": 16, "recharge": 11.0, "portee": 16.0, "incantation": 0.0,
 		"degats": 5.0, "ratio": 0.5, "duree": 3.0, "couleur": Color(0.5, 0.85, 0.3), "icone": "racines",
-		"desc": "Des racines immobilisent la cible 3 s et l'étouffent."},
+		"desc": "Des racines immobilisent la cible 3 s et l'étouffent.", "cat": "base", "element": "nature"},
+	# ================= TÉLÉKINÉSIE ET DOMINATION
+	"main_invisible": {"nom": "Main invisible", "cat": "telekinesie", "niveau": 2, "cout_or": 60, "mana": 14, "recharge": 4.0, "portee": 16.0, "incantation": 0.0,
+		"degats": 14.0, "ratio": 1.2, "duree": 1.2, "couleur": Color(0.7, 0.55, 1.0), "icone": "main", "element": "arcane", "anim": "Spell_Simple_Shoot",
+		"desc": "Saisit à distance un ennemi ou un objet (tonneau, caisse), le soulève puis le projette. Chargé : projection plus violente."},
+	"ecrasement": {"nom": "Écrasement gravitationnel", "cat": "telekinesie", "niveau": 3, "cout_or": 90, "mana": 24, "recharge": 10.0, "portee": 14.0, "incantation": 0.0,
+		"degats": 10.0, "ratio": 0.6, "duree": 2.5, "rayon": 4.0, "couleur": Color(0.55, 0.3, 0.9), "icone": "gravite", "element": "arcane", "anim": "b/NinjaJump_Land",
+		"desc": "Une pression écrasante plaque les ennemis au sol : ils sont immobilisés et broyés pendant 2,5 s."},
+	"arsenal": {"nom": "Arsenal spectral", "cat": "telekinesie", "niveau": 4, "cout_or": 120, "mana": 26, "recharge": 9.0, "portee": 20.0, "incantation": 0.0,
+		"degats": 12.0, "ratio": 0.7, "duree": 0.0, "couleur": Color(0.6, 0.85, 1.0), "icone": "arsenal", "element": "arcane", "anim": "Spell_Simple_Shoot",
+		"desc": "Des épées spectrales apparaissent autour de vous puis fondent une à une sur les ennemis. Chargé : plus d'épées."},
+	"projection": {"nom": "Projection absolue", "cat": "telekinesie", "niveau": 5, "cout_or": 150, "mana": 22, "recharge": 8.0, "portee": 18.0, "incantation": 0.0,
+		"degats": 30.0, "ratio": 1.8, "duree": 1.5, "couleur": Color(0.85, 0.5, 1.0), "icone": "projection", "element": "arcane", "anim": "b/OverhandThrow",
+		"desc": "Arrache un ennemi du sol, l'attire devant vous et l'écrase au sol dans une onde de choc."},
+	"singularite": {"nom": "Singularité", "cat": "telekinesie", "niveau": 7, "cout_or": 240, "mana": 34, "recharge": 16.0, "portee": 16.0, "incantation": 0.0,
+		"degats": 20.0, "ratio": 2.2, "duree": 2.4, "rayon": 7.0, "couleur": Color(0.35, 0.15, 0.6), "icone": "vortex", "element": "arcane", "anim": "Spell_Simple_Shoot",
+		"desc": "Un vortex aspire ennemis et objets pendant 2,4 s avant d'imploser."},
+	# ================= DÉFENSE ET CONTRÔLE
+	"dome": {"nom": "Dôme souverain", "cat": "defense", "niveau": 3, "cout_or": 80, "mana": 24, "recharge": 18.0, "portee": 0.0, "incantation": 0.0,
+		"degats": 0.0, "ratio": 0.0, "duree": 5.0, "rayon": 4.5, "couleur": Color(1.0, 0.85, 0.4), "icone": "dome", "element": "arcane", "anim": "Spell_Simple_Shoot",
+		"desc": "Une sphère dorée se forme autour de vous : aucune attaque ne la traverse et les ennemis en sont repoussés."},
+	"mur": {"nom": "Mur impérial", "cat": "defense", "niveau": 4, "cout_or": 100, "mana": 20, "recharge": 14.0, "portee": 12.0, "incantation": 0.0,
+		"degats": 18.0, "ratio": 0.8, "duree": 8.0, "couleur": Color(0.9, 0.8, 0.55), "icone": "mur", "element": "physique", "anim": "b/NinjaJump_Land",
+		"desc": "Un rempart magique surgit du sol devant vous : il projette les ennemis et bloque réellement le passage."},
+	"reflet": {"nom": "Reflet du souverain", "cat": "defense", "niveau": 5, "cout_or": 130, "mana": 18, "recharge": 15.0, "portee": 0.0, "incantation": 0.0,
+		"degats": 0.0, "ratio": 0.0, "duree": 4.0, "couleur": Color(0.7, 0.95, 1.0), "icone": "reflet", "element": "arcane", "anim": "b/Sword_Block",
+		"desc": "Pendant 4 s, vous encaissez 70 % de dégâts en moins et renvoyez le coup à son auteur."},
+	"arret_temps": {"nom": "Arrêt temporel", "cat": "defense", "niveau": 8, "cout_or": 280, "mana": 40, "recharge": 28.0, "portee": 0.0, "incantation": 0.0,
+		"degats": 0.0, "ratio": 0.0, "duree": 3.0, "rayon": 14.0, "couleur": Color(0.85, 0.85, 1.0), "icone": "sablier", "element": "arcane", "anim": "Spell_Simple_Shoot",
+		"desc": "Le temps se fige autour de vous : ennemis et attaques suspendus 3 s. Les boss sont seulement ralentis."},
+	"chaines": {"nom": "Chaînes du jugement", "cat": "defense", "niveau": 4, "cout_or": 110, "mana": 22, "recharge": 12.0, "portee": 14.0, "incantation": 0.0,
+		"degats": 12.0, "ratio": 0.9, "duree": 3.5, "rayon": 6.0, "couleur": Color(1.0, 0.75, 0.35), "icone": "chaines", "element": "arcane", "anim": "b/NinjaJump_Land",
+		"desc": "Des chaînes jaillissent du sol et entravent jusqu'à 5 ennemis pendant 3,5 s."},
+	# ================= DESTRUCTION
+	"meteore": {"nom": "Chute céleste", "cat": "destruction", "niveau": 6, "cout_or": 200, "mana": 36, "recharge": 18.0, "portee": 18.0, "incantation": 0.0,
+		"degats": 55.0, "ratio": 2.6, "duree": 0.0, "rayon": 5.0, "couleur": Color(1.0, 0.45, 0.15), "icone": "meteore", "element": "feu", "anim": "Spell_Simple_Shoot",
+		"desc": "Un météore s'écrase sur la zone visée après un court instant. Dégâts massifs et onde de choc."},
+	"piliers": {"nom": "Jugement terrestre", "cat": "destruction", "niveau": 5, "cout_or": 140, "mana": 28, "recharge": 12.0, "portee": 14.0, "incantation": 0.0,
+		"degats": 26.0, "ratio": 1.4, "duree": 1.0, "rayon": 6.0, "couleur": Color(0.75, 0.6, 0.4), "icone": "piliers", "element": "physique", "anim": "b/NinjaJump_Land",
+		"desc": "Des piliers de roche surgissent sous les ennemis et les projettent en l'air."},
+	"orage": {"nom": "Orage du conquérant", "cat": "destruction", "niveau": 6, "cout_or": 190, "mana": 32, "recharge": 14.0, "portee": 16.0, "incantation": 0.0,
+		"degats": 18.0, "ratio": 1.0, "duree": 2.2, "rayon": 7.0, "couleur": Color(0.65, 0.8, 1.0), "icone": "eclair", "element": "foudre", "anim": "Spell_Simple_Shoot",
+		"desc": "Une série d'éclairs frappe les ennemis de la zone et les étourdit brièvement."},
+	"main_titan": {"nom": "Main du titan", "cat": "destruction", "niveau": 9, "cout_or": 320, "mana": 42, "recharge": 24.0, "portee": 14.0, "incantation": 0.0,
+		"degats": 60.0, "ratio": 2.8, "duree": 1.6, "rayon": 5.0, "couleur": Color(0.55, 0.75, 1.0), "icone": "main", "element": "arcane", "anim": "b/OverhandThrow",
+		"desc": "Une immense main spectrale descend, saisit les ennemis de la zone et les écrase au sol."},
+	"faille": {"nom": "Faille d'annihilation", "cat": "destruction", "niveau": 10, "cout_or": 380, "mana": 48, "recharge": 30.0, "portee": 14.0, "incantation": 0.0,
+		"degats": 75.0, "ratio": 3.2, "duree": 2.0, "rayon": 8.0, "couleur": Color(0.85, 0.2, 0.55), "icone": "faille", "element": "arcane", "anim": "Spell_Simple_Shoot",
+		"desc": "Une faille dans le monde aspire les ennemis puis explose dans un éclair dévastateur."},
+	# ================= SOUVERAIN
+	"legion": {"nom": "Légion du souverain", "cat": "souverain", "niveau": 7, "cout_or": 260, "mana": 40, "recharge": 40.0, "portee": 0.0, "incantation": 0.0,
+		"degats": 0.0, "ratio": 0.0, "duree": 18.0, "couleur": Color(0.5, 0.75, 1.0), "icone": "legion", "element": "arcane", "anim": "b/NinjaJump_Land",
+		"desc": "Trois guerriers spectraux sortent de terre et combattent à vos côtés pendant 18 s. Chargé : quatre."},
+	"presence": {"nom": "Présence écrasante", "cat": "souverain", "niveau": 3, "cout_or": 70, "mana": 16, "recharge": 15.0, "portee": 0.0, "incantation": 0.0,
+		"degats": 0.0, "ratio": 0.0, "duree": 6.0, "rayon": 10.0, "couleur": Color(0.9, 0.2, 0.25), "icone": "couronne", "element": "arcane", "anim": "b/Idle_FoldArms",
+		"desc": "Votre aura domine le champ de bataille : les faibles fuient ou s'agenouillent, les forts sont ralentis."},
+	"oeil": {"nom": "Œil du souverain", "cat": "souverain", "niveau": 2, "cout_or": 40, "mana": 8, "recharge": 6.0, "portee": 30.0, "incantation": 0.0,
+		"degats": 0.0, "ratio": 0.0, "duree": 10.0, "couleur": Color(0.4, 0.9, 1.0), "icone": "oeil", "element": "arcane", "anim": "Spell_Simple_Shoot",
+		"desc": "Des panneaux magiques révèlent niveau, puissance, faiblesses, résistances et états des ennemis proches."},
+	"transposition": {"nom": "Transposition", "cat": "souverain", "niveau": 4, "cout_or": 100, "mana": 12, "recharge": 6.0, "portee": 16.0, "incantation": 0.0,
+		"degats": 10.0, "ratio": 0.5, "duree": 0.0, "couleur": Color(0.6, 0.4, 1.0), "icone": "transpo", "element": "arcane", "anim": "Spell_Simple_Shoot",
+		"desc": "Échange votre position avec l'ennemi visé, ou bondit de 9 m dans la direction visée."},
+	"incarnation": {"nom": "Incarnation souveraine", "cat": "souverain", "niveau": 12, "cout_or": 500, "mana": 50, "recharge": 90.0, "portee": 0.0, "incantation": 0.0,
+		"degats": 0.0, "ratio": 0.0, "duree": 12.0, "couleur": Color(1.0, 0.8, 0.35), "icone": "incarnation", "element": "arcane", "anim": "b/NinjaJump_Land",
+		"desc": "Pouvoir ultime : vous lévitez, entouré d'une aura ; -50 % de dégâts subis, pouvoirs +50 %, recharges et coût en mana réduits pendant 12 s."},
 }
+
+static func is_power(id: String) -> bool:
+	return DEFS[id].has("cout_or")

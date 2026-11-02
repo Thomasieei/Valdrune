@@ -16,6 +16,8 @@ static func drop(m: Node3D) -> void:
 	var pos := m.global_position + Vector3.UP * 0.8
 	var range_or: Array = def["or"]
 	var n := randi_range(range_or[0], range_or[1])
+	if n <= 0 and def["butin"].is_empty():
+		return
 	var piles := clampi(n / 4 + 1, 1, 5)
 	for i in piles:
 		_spawn(pos, "or", n / piles + (n % piles if i == 0 else 0))

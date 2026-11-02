@@ -2,7 +2,7 @@ class_name Monster
 extends CharacterBody3D
 ## Créature générique pilotée par MonsterDB : errance, détection, poursuite, attaque, fuite, retour au repaire, mort et butin.
 
-enum S { ERRANCE, POURSUITE, ATTAQUE, TOUCHE, FUITE, RETOUR, MORT, SPECIALE, RECUP, ESQUIVE }
+enum S { ERRANCE, POURSUITE, ATTAQUE, TOUCHE, FUITE, RETOUR, MORT, SPECIALE, RECUP, ESQUIVE, ETOURDI, SOULEVE, PROJETE }
 
 signal mort(m: Monster)
 
@@ -19,6 +19,15 @@ var _dodge_dir := Vector3.ZERO
 var _charge_from := Vector3.ZERO
 var _charge_to := Vector3.ZERO
 var _kb := Vector3.ZERO
+var _cc_immune := 0.0
+var _stun_end := 0.0
+var _lift_y := 0.0
+var _lift_h := 0.0
+var _ground_ref := 0.0
+var _thrown := Vector3.ZERO
+var impact_damage := 0.0
+var impact_source: Node3D
+var _last_hit := 0.0
 var _fear_until := 0.0
 
 var kind := "puglin"
@@ -62,6 +71,7 @@ func _ready() -> void:
 	cbt.hp = def["hp"]
 	cbt.defense = def["defense"]
 	cbt.display_name = def["nom"]
+	cbt.elem = def.get("elements", {})
 	add_child(cbt)
 	cbt.damaged.connect(_on_damaged)
 	cbt.died.connect(_on_died)
@@ -187,6 +197,23 @@ func _player() -> Node3D:
 
 func _physics_process(delta: float) -> void:
 	if state == S.MORT:
+		return
+	if state == S.ETOURDI or state == S.SOULEVE or state == S.PROJETE:
+		_cc_process(delta)
+		_bar_mat.set_shader_parameter("fill", cbt.hp / cbt.max_hp)
+		_bar.visible = cbt.hp < cbt.max_hp
+		return
+	if def.get("immobile", false):
+		# mannequin d'entraînement : ne bouge pas, se régénère
+		if _now() - _last_hit > 3.0:
+			cbt.heal(cbt.max_hp * 0.25 * delta)
+		_bar_mat.set_shader_parameter("fill", cbt.hp / cbt.max_hp)
+		_bar.visible = cbt.hp < cbt.max_hp
+		if state != S.TOUCHE or _t > 0.4:
+			_play("attente")
+		_t += delta
+		velocity = Vector3(0, -0.5, 0)
+		move_and_slide()
 		return
 	_t += delta
 	_cool -= delta
@@ -375,6 +402,132 @@ func _resolve_special(tele: Telegraph) -> void:
 		Combat.player.shake(0.35)
 	_go(S.RECUP)
 
+# ------------------------------------------------------------------ contrôles (pouvoirs du souverain)
+func _now() -> float:
+	return Time.get_ticks_msec() / 1000.0
+
+func is_boss() -> bool:
+	return def.get("boss", false)
+
+## Durée effective d'un contrôle : les élites résistent, les boss n'y cèdent que brièvement puis deviennent immunisés 6 s
+func cc_time(d: float) -> float:
+	if is_boss():
+		if _now() < _cc_immune:
+			return 0.0
+		_cc_immune = _now() + 6.0
+		return d * 0.3
+	if def.get("elite", false):
+		return d * 0.6
+	return d
+
+## Étourdi / figé (arrêt du temps, chaînes, écrasement). Renvoie false si le boss a résisté (il est alors ralenti).
+func stun(d: float, freeze := true) -> bool:
+	if state == S.MORT:
+		return false
+	var t := cc_time(d)
+	if t <= 0.05:
+		cbt.apply_slow(0.55, d)
+		return false
+	if is_instance_valid(_tele):
+		_tele.queue_free()   # attaque spéciale interrompue
+	state = S.ETOURDI
+	_t = 0.0
+	_stun_end = _now() + t
+	velocity = Vector3.ZERO
+	_ap.speed_scale = 0.0 if freeze else 0.35
+	return true
+
+## Agenouillement (Présence écrasante) : les humains posent un genou à terre
+func kneel_cc(d: float) -> void:
+	if stun(d, false) and String(def["model"]).begins_with("humain:") and _ap.has_animation("Fixing_Kneeling"):
+		_cur = "Fixing_Kneeling"
+		_ap.play("Fixing_Kneeling", 0.2)
+		_ap.speed_scale = 1.0
+		FX.bark(self, ["Pitié…", "Je me rends !", "Grâce, seigneur !"][randi() % 3], 2.3 * float(def["scale"]), 1.8)
+
+## Soulevé par télékinésie (les boss sont trop lourds : simple déséquilibre)
+func lift(h: float, d: float) -> bool:
+	if state == S.MORT:
+		return false
+	if is_boss():
+		stun(0.6, false)
+		return false
+	if is_instance_valid(_tele):
+		_tele.queue_free()
+	state = S.SOULEVE
+	_t = 0.0
+	_ground_ref = global_position.y
+	_lift_y = global_position.y
+	_lift_h = h
+	_stun_end = _now() + d
+	velocity = Vector3.ZERO
+	_ap.play("Hit_Chest", 0.1)
+	_ap.speed_scale = 0.15
+	return true
+
+## Projeté : trajectoire balistique, dégâts et onde au sol à l'impact
+func throw(v: Vector3, dmg: float, src: Node3D) -> void:
+	if state == S.MORT:
+		return
+	state = S.PROJETE
+	_t = 0.0
+	_thrown = v
+	impact_damage = dmg
+	impact_source = src
+
+## Attiré vers un point (singularité, faille, main du titan)
+func pull(point: Vector3, strength: float, delta: float) -> void:
+	if state == S.MORT:
+		return
+	var d := point - global_position
+	d.y = 0
+	var l := d.length()
+	if l < 0.4:
+		return
+	var k := 0.25 if is_boss() else (0.6 if def.get("elite", false) else 1.0)
+	global_position += d / l * minf(strength * k * delta, l - 0.3)
+
+func _cc_process(delta: float) -> void:
+	_t += delta
+	var now := _now()
+	match state:
+		S.ETOURDI:
+			velocity.x = 0
+			velocity.z = 0
+			velocity.y = velocity.y - gravity * delta if not is_on_floor() else -0.5
+			move_and_slide()
+			if now >= _stun_end:
+				_ap.speed_scale = 1.0
+				_cur = ""
+				_go(S.POURSUITE)
+		S.SOULEVE:
+			_lift_y = lerpf(_lift_y, _ground_ref + _lift_h, clampf(delta * 6.0, 0, 1))
+			global_position.y = _lift_y + sin(_t * 6.0) * 0.06
+			rotation.y += delta * 1.2
+			if now >= _stun_end:
+				throw(Vector3(0, -4, 0), 0.0, null)
+		S.PROJETE:
+			_thrown.y -= 20.0 * delta
+			global_position += _thrown * delta
+			var gy := maxf(Terrain.height_at(global_position.x, global_position.z), _ground_ref - 0.3) if _ground_ref > Terrain.height_at(global_position.x, global_position.z) + 0.6 else Terrain.height_at(global_position.x, global_position.z)
+			if global_position.y <= gy and _t > 0.05:
+				global_position.y = gy + 0.05
+				_ground_ref = gy
+				if impact_damage > 0.0:
+					cbt.take_damage(impact_damage, impact_source, "physique")
+				FX.shockwave(global_position, 1.6 * float(def["scale"]))
+				Sfx.play("lourd", -8.0)
+				state = S.ETOURDI
+				_stun_end = now + 0.9
+				_ap.speed_scale = 0.4
+				if not cbt.dead:
+					_ap.play("Hit_Knockback" if _ap.has_animation("Hit_Knockback") else "Hit_Chest", 0.05)
+				else:
+					_on_died_land()
+
+func _on_died_land() -> void:
+	_play("mort", 0.1)
+
 ## Recul physique (explosions, onde de l'égide). Les géants résistent.
 func knockback(v: Vector3) -> void:
 	if state == S.MORT:
@@ -411,7 +564,7 @@ func _go(s: int) -> void:
 			_play("touche", 0.08)
 
 func _aggro() -> void:
-	if state == S.MORT:
+	if state == S.MORT or def.get("immobile", false):
 		return
 	if state == S.ERRANCE or state == S.RETOUR:
 		_go(S.POURSUITE)
@@ -421,7 +574,10 @@ func _aggro() -> void:
 					o._aggro()
 
 func _on_damaged(_amount: float, _src: Node) -> void:
+	_last_hit = _now()
 	if state == S.MORT:
+		return
+	if state == S.ETOURDI or state == S.SOULEVE or state == S.PROJETE:
 		return
 	_aggro()
 	# certaines créatures esquivent les assauts répétés
@@ -450,6 +606,9 @@ func _on_damaged(_amount: float, _src: Node) -> void:
 		tw.tween_property(_model, "scale", Vector3.ONE * sc, 0.1)
 
 func _on_died(_src: Node) -> void:
+	if state == S.SOULEVE or state == S.PROJETE:
+		global_position.y = maxf(Terrain.height_at(global_position.x, global_position.z), _ground_ref)
+	_ap.speed_scale = 1.0
 	state = S.MORT
 	_bar.visible = false
 	collision_layer = 0

@@ -40,6 +40,10 @@ var _aim_used := Vector3.ZERO
 var _reticle: MeshInstance3D
 var _ret_mat: ShaderMaterial
 var _charge_fx: Node3D
+var incarnation_until := 0.0
+var cd_total := {}               # durée de recharge effective par sort (affichage)
+## Chambre des Arcanes : entraînement libre (mana gratuit, recharge courte)
+static var practice := false
 static var respawn_text := "Vous reprenez vos esprits aux portes du château"
 
 const COMBO := [
@@ -75,6 +79,8 @@ func busy() -> bool:
 	return now() < _attack_until or now() < _dodge_until or _cast_spell != "" or player.cbt.dead
 
 func spell_unlocked(id: String) -> bool:
+	if SpellDB.is_power(id):
+		return prog.pouvoirs.has(id)
 	return prog.level >= int(SpellDB.DEFS[id]["niveau"])
 
 func cooldown_left(id: String) -> float:
@@ -148,6 +154,21 @@ func dodge() -> void:
 func cast(id: String) -> void:
 	_cast_with(id, 0.0, Vector3.ZERO)
 
+func incarnated() -> bool:
+	return now() < incarnation_until
+
+func mana_cost(id: String, c: float) -> float:
+	if practice:
+		return 0.0
+	var m := float(SpellDB.DEFS[id]["mana"]) * (1.0 + 0.6 * c)
+	return m * (0.7 if incarnated() else 1.0)
+
+func recharge_of(id: String) -> float:
+	if practice:
+		return 0.4
+	var r := float(SpellDB.DEFS[id]["recharge"]) * (1.0 - 0.1 * (prog.rank(id) - 1))
+	return r * (0.6 if incarnated() else 1.0)
+
 func can_cast(id: String, feedback := true) -> bool:
 	var d: Dictionary = SpellDB.DEFS[id]
 	if player.cbt.dead or charging != "":
@@ -159,7 +180,7 @@ func can_cast(id: String, feedback := true) -> bool:
 		return false
 	if cooldown_left(id) > 0.0:
 		return false
-	if mana < d["mana"]:
+	if mana < mana_cost(id, 0.0):
 		if feedback:
 			message.emit("Pas assez de mana", Color(0.5, 0.7, 1.0))
 			Sfx.play("erreur", -6.0)
@@ -199,9 +220,9 @@ func release_charge() -> void:
 	var c := charge_level()
 	var d: Dictionary = SpellDB.DEFS[id]
 	# la charge coûte du mana : on charge seulement ce qu'on peut payer
-	var extra := float(d["mana"]) * 0.6
+	var extra := mana_cost(id, 1.0) - mana_cost(id, 0.0)
 	if extra > 0.0:
-		c = minf(c, maxf(0.0, (mana - float(d["mana"])) / extra))
+		c = minf(c, maxf(0.0, (mana - mana_cost(id, 0.0)) / extra))
 	_stop_charge()
 	if not _cast_with(id, c, aim):
 		player.end_action()
@@ -240,10 +261,11 @@ func _cast_with(id: String, c: float, aim_dir: Vector3) -> bool:
 			Sfx.play("erreur", -6.0)
 			return false
 	_attack_until = 0.0
-	mana -= float(d["mana"]) * (1.0 + 0.6 * c)
+	mana -= mana_cost(id, c)
 	_c = c
 	_aim_used = aim_dir
-	cooldowns[id] = now() + d["recharge"]
+	cd_total[id] = recharge_of(id)
+	cooldowns[id] = now() + cd_total[id]
 	FX.cast_glow(player, d["couleur"])
 	if c >= 0.9:
 		_intimidate(d["couleur"])
@@ -259,6 +281,9 @@ func _effect(id: String) -> void:
 	var d: Dictionary = SpellDB.DEFS[id]
 	var c := _c
 	var power: float = (d.get("degats", 0.0) + prog.spell_power() * d["ratio"]) * (1.0 + 1.2 * c)
+	power *= 1.0 + 0.25 * (prog.rank(id) - 1)
+	if incarnated():
+		power *= 1.5
 	stats["sorts"] += 1
 	if c >= 0.9:
 		stats["sorts_charges"] = int(stats.get("sorts_charges", 0)) + 1
@@ -305,7 +330,7 @@ func _effect(id: String) -> void:
 			player.shake(0.25 + 0.3 * c)
 			var hit := 0
 			for m in Combat.in_radius(player.global_position, r):
-				m.cbt.take_damage(power, player, "magie")
+				m.cbt.take_damage(power, player, "givre")
 				m.cbt.apply_slow(d["ralenti"] * (1.0 - 0.4 * c), float(d["duree"]) * (1.0 + 0.5 * c))
 				FX.frost_mark(m, float(d["duree"]) * (1.0 + 0.5 * c))
 				hit += 1
@@ -324,13 +349,15 @@ func _effect(id: String) -> void:
 							victims.append(m)
 				for v in victims:
 					v.cbt.apply_root(dur)
-					v.cbt.take_damage(power, player, "magie")
+					v.cbt.take_damage(power, player, "nature")
 					FX.roots(v, dur)
 					var tgt: Node3D = v
 					for k in 3:
 						get_tree().create_timer(0.8 * (k + 1)).timeout.connect(func(): if Combat.alive(tgt): tgt.cbt.take_damage(power * 0.5, player, "magie"))
 				Sfx.play("racines", -2.0)
 				player.shake(0.1 + 0.2 * c)
+		_:
+			Powers.exec(self, id, power, c, _aim_used)
 
 ## Démonstration de puissance (sort chargé à fond) : les ennemis faibles prennent peur et fuient
 func _intimidate(col: Color) -> void:
@@ -415,6 +442,11 @@ func _process(delta: float) -> void:
 	mana = minf(prog.max_mana(), mana + prog.mana_regen() * delta)
 	if charging != "":
 		_update_reticle()
+	if player.model:
+		var lift := 0.0
+		if incarnated():
+			lift = 0.55 + sin(t * 2.5) * 0.08
+		player.model.position.y = lerpf(player.model.position.y, lift, clampf(delta * 5.0, 0, 1))
 	if not player.cbt.has_shield() and is_instance_valid(_shield_fx):
 		_shield_fx.queue_free()
 		_shield_fx = null

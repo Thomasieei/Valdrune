@@ -16,6 +16,9 @@ var potions_mana := 1
 var force := 5
 var intel := 5
 var vitalite := 5
+var pouvoirs: Array = []          # pouvoirs du souverain débloqués (Chambre des Arcanes)
+var rangs := {}                   # id -> rang 1..3
+var slots: Array = ["trait_feu", "egide", "nova_givre", "racines"]   # 4 emplacements équipés
 var _dirty := false
 
 static func get_inst() -> Progression:
@@ -75,7 +78,7 @@ func save_if_dirty() -> void:
 	if f == null:
 		return
 	f.store_string(JSON.stringify({"level": level, "xp": xp, "gold": gold, "ps": potions_soin, "pm": potions_mana,
-		"force": force, "intel": intel, "vit": vitalite}))
+		"force": force, "intel": intel, "vit": vitalite, "pouvoirs": pouvoirs, "rangs": rangs, "slots": slots}))
 
 func load_game() -> void:
 	if not FileAccess.file_exists(SAVE):
@@ -94,8 +97,23 @@ func load_game() -> void:
 	force = int(d.get("force", 5))
 	intel = int(d.get("intel", 5))
 	vitalite = int(d.get("vit", 5))
+	pouvoirs = d.get("pouvoirs", [])
+	rangs = d.get("rangs", {})
+	var sl: Array = d.get("slots", [])
+	if sl.size() == 4:
+		slots = sl
 
 func reset() -> void:
 	level = 1; xp = 0; gold = 0; potions_soin = 2; potions_mana = 1; force = 5; intel = 5; vitalite = 5
+	pouvoirs = []
+	rangs = {}
+	slots = ["trait_feu", "egide", "nova_givre", "racines"]
 	_dirty = true
 	changed.emit()
+
+func mark() -> void:
+	_dirty = true
+	changed.emit()
+
+func rank(id: String) -> int:
+	return int(rangs.get(id, 1))

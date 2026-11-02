@@ -564,7 +564,7 @@ func _pick_event() -> String:
 func _try_present_event(dt: float) -> void:
 	if _pending_event == "":
 		return
-	if Dialogue.active or KingdomUI.is_open() or Dialogue.inst == null:
+	if Dialogue.active or KingdomUI.is_open() or ArcanesUI.is_open() or Dialogue.inst == null:
 		return
 	var p := Combat.player
 	if p == null or p.cbt.dead or Combat.in_radius(p.global_position, 25.0).size() > 0:

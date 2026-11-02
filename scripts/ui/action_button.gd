@@ -146,3 +146,90 @@ func _icon(c: Vector2, s: float, col: Color) -> void:
 		"annuler":
 			draw_line(c + Vector2(-0.55, -0.55) * s, c + Vector2(0.55, 0.55) * s, Color(1, 0.5, 0.45, col.a), s * 0.22, true)
 			draw_line(c + Vector2(0.55, -0.55) * s, c + Vector2(-0.55, 0.55) * s, Color(1, 0.5, 0.45, col.a), s * 0.22, true)
+		_:
+			_icon_power(c, s, col)
+
+## Icônes des pouvoirs du souverain
+func _icon_power(c: Vector2, s: float, col: Color) -> void:
+	var k := Color(accent.r, accent.g, accent.b, col.a)
+	var w := Color(1, 1, 1, col.a)
+	match icon:
+		"main":
+			draw_rect(Rect2(c + Vector2(-0.45, -0.1) * s, Vector2(0.9, 0.8) * s), k)
+			for f in 4:
+				draw_rect(Rect2(c + Vector2(-0.45 + f * 0.235, -0.75) * s, Vector2(0.18, 0.65) * s), k)
+			draw_rect(Rect2(c + Vector2(0.45, 0.05) * s, Vector2(0.3, 0.18) * s), k)
+		"gravite":
+			for r in [0.75, 0.5, 0.25]:
+				draw_arc(c, s * r, 0, TAU, 24, k, s * 0.1)
+			draw_line(c + Vector2(0, -0.95) * s, c + Vector2(0, -0.1) * s, w, s * 0.1)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-0.2, -0.25) * s, c + Vector2(0.2, -0.25) * s, c]), w)
+		"arsenal":
+			for f in 3:
+				var x := (-0.5 + f * 0.5) * s
+				draw_line(c + Vector2(x, 0.8 * s), c + Vector2(x, -0.6 * s), k, s * 0.14)
+				draw_line(c + Vector2(x - 0.2 * s, 0.45 * s), c + Vector2(x + 0.2 * s, 0.45 * s), w, s * 0.1)
+		"projection":
+			draw_circle(c + Vector2(0, -0.45) * s, s * 0.25, k)
+			draw_line(c + Vector2(0, -0.2) * s, c + Vector2(0, 0.45) * s, k, s * 0.14)
+			draw_line(c + Vector2(-0.8, 0.8) * s, c + Vector2(0.8, 0.8) * s, w, s * 0.12)
+			draw_arc(c + Vector2(0, 0.6) * s, s * 0.6, PI, TAU, 12, w, s * 0.06)
+		"vortex":
+			for i in 3:
+				draw_arc(c, s * (0.3 + i * 0.22), i * 1.4, i * 1.4 + PI * 1.3, 16, k, s * 0.1)
+			draw_circle(c, s * 0.18, Color(0.05, 0, 0.1, col.a))
+		"dome":
+			draw_arc(c + Vector2(0, 0.4) * s, s * 0.8, PI, TAU, 20, k, s * 0.14)
+			draw_line(c + Vector2(-0.9, 0.4) * s, c + Vector2(0.9, 0.4) * s, k, s * 0.12)
+			draw_circle(c + Vector2(0, 0.1) * s, s * 0.15, w)
+		"mur":
+			for row in 3:
+				for b in 3:
+					var off := 0.0 if row % 2 == 0 else 0.25
+					draw_rect(Rect2(c + Vector2(-0.8 + off + b * 0.5, 0.3 - row * 0.4) * s, Vector2(0.42, 0.32) * s), k)
+		"reflet":
+			draw_colored_polygon(PackedVector2Array([c + Vector2(0, -0.8) * s, c + Vector2(0.65, 0) * s, c + Vector2(0, 0.8) * s, c + Vector2(-0.65, 0) * s]), k)
+			draw_line(c + Vector2(-0.9, -0.6) * s, c + Vector2(-0.2, -0.1) * s, w, s * 0.08)
+			draw_line(c + Vector2(0.2, 0.1) * s, c + Vector2(0.9, 0.6) * s, w, s * 0.08)
+		"sablier":
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-0.55, -0.8) * s, c + Vector2(0.55, -0.8) * s, c, ]), k)
+			draw_colored_polygon(PackedVector2Array([c, c + Vector2(0.55, 0.8) * s, c + Vector2(-0.55, 0.8) * s]), k)
+			draw_line(c + Vector2(-0.7, -0.85) * s, c + Vector2(0.7, -0.85) * s, w, s * 0.1)
+			draw_line(c + Vector2(-0.7, 0.85) * s, c + Vector2(0.7, 0.85) * s, w, s * 0.1)
+		"chaines":
+			for i in 4:
+				var p := c + Vector2(-0.6 + i * 0.4, -0.6 + i * 0.4) * s
+				draw_arc(p, s * 0.22, 0, TAU, 12, k, s * 0.1)
+		"meteore":
+			draw_circle(c + Vector2(0.3, 0.3) * s, s * 0.35, k)
+			for i in 3:
+				draw_line(c + Vector2(0.1 - i * 0.15, 0.05 + i * 0.12) * s, c + Vector2(-0.7 - i * 0.1, -0.7 + i * 0.15) * s, Color(1, 0.8, 0.4, col.a), s * 0.08)
+		"piliers":
+			for i in 3:
+				var h := 0.5 + i * 0.3 if i < 2 else 1.1
+				draw_rect(Rect2(c + Vector2(-0.75 + i * 0.55, 0.8 - h) * s, Vector2(0.4, h) * s), k)
+		"eclair":
+			draw_colored_polygon(PackedVector2Array([c + Vector2(0.15, -0.9) * s, c + Vector2(-0.45, 0.1) * s, c + Vector2(-0.05, 0.1) * s, c + Vector2(-0.2, 0.9) * s, c + Vector2(0.45, -0.15) * s, c + Vector2(0.05, -0.15) * s]), k)
+		"faille":
+			draw_colored_polygon(PackedVector2Array([c + Vector2(0, -0.9) * s, c + Vector2(0.25, 0) * s, c + Vector2(0, 0.9) * s, c + Vector2(-0.25, 0) * s]), k)
+			draw_line(c + Vector2(0, -0.6) * s, c + Vector2(0, 0.6) * s, w, s * 0.08)
+		"legion":
+			for i in 3:
+				var x := (-0.55 + i * 0.55) * s
+				draw_circle(c + Vector2(x, -0.35 * s), s * 0.17, k)
+				draw_rect(Rect2(c + Vector2(x - 0.18 * s, -0.15 * s), Vector2(0.36, 0.75) * s), k)
+		"oeil":
+			draw_arc(c, s * 0.75, PI * 0.15, PI * 0.85, 16, k, s * 0.12)
+			draw_arc(c, s * 0.75, PI * 1.15, PI * 1.85, 16, k, s * 0.12)
+			draw_circle(c, s * 0.3, k)
+			draw_circle(c, s * 0.12, Color(0.02, 0.05, 0.1, col.a))
+		"transpo":
+			draw_arc(c, s * 0.65, -0.3, PI - 0.3, 14, k, s * 0.12)
+			draw_arc(c, s * 0.65, PI - 0.3, TAU - 0.3, 14, w, s * 0.12)
+			draw_circle(c + Vector2(-0.65, 0) * s, s * 0.14, k)
+			draw_circle(c + Vector2(0.65, 0) * s, s * 0.14, w)
+		"incarnation":
+			for i in 8:
+				var a := TAU * i / 8.0
+				draw_line(c + Vector2(cos(a), sin(a)) * s * 0.35, c + Vector2(cos(a), sin(a)) * s * 0.85, k, s * 0.1)
+			draw_circle(c, s * 0.3, w)

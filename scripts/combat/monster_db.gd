@@ -8,13 +8,14 @@ const DEFS := {
 		"nom": "Puglin pillard", "model": "bestiary:Puglin", "skins": ["T_Puglin_BaseColor_1", "T_Puglin_BaseColor_2", "T_Puglin_BaseColor_3"],
 		"scale": 1.0, "rayon": 0.35, "hp": 34, "degats": 6, "defense": 0, "vitesse": 3.6, "course": 5.4,
 		"detection": 13.0, "portee": 1.5, "cadence": 1.3, "impact": 0.45,
+		"elements": {"foudre": 1.3, "feu": 1.1},
 		"comportement": "lache", "xp": 14, "or": [2, 6], "butin": {"soin": 0.12, "mana": 0.08},
 		"anims": {"attente": "Idle", "marche": "Walk", "course": "Jog_Fwd", "attaque": "Punch_Jab", "touche": "Hit_Chest", "mort": "Death01"},
 	},
 	"zombie": {
 		"nom": "Mort errant", "model": "humain:paysan_h", "teinte": Color(0.55, 0.68, 0.5),
 		"scale": 1.0, "rayon": 0.4, "hp": 60, "degats": 10, "defense": 1, "vitesse": 1.3, "course": 2.3,
-		"detection": 11.0, "portee": 1.6, "cadence": 1.8, "impact": 0.55,
+		"detection": 11.0, "portee": 1.6, "cadence": 1.8, "impact": 0.55, "elements": {"feu": 1.6, "givre": 0.7, "nature": 0.8},
 		"comportement": "agressif", "xp": 22, "or": [3, 9], "butin": {"soin": 0.15, "mana": 0.12},
 		"anims": {"attente": "b/Zombie_Idle", "marche": "b/Zombie_Walk_Fwd", "course": "b/Zombie_Walk_Fwd", "attaque": "b/Zombie_Scratch", "touche": "Hit_Chest", "mort": "Death01"},
 	},
@@ -22,6 +23,7 @@ const DEFS := {
 		"nom": "Diablotin", "model": "bestiary:Imp", "skins": ["T_Imp_BaseColor_1", "T_Imp_BaseColor_2"],
 		"scale": 1.0, "rayon": 0.4, "hp": 75, "degats": 13, "defense": 2, "vitesse": 2.6, "course": 5.0,
 		"detection": 15.0, "portee": 1.9, "cadence": 1.5, "impact": 0.5,
+		"elements": {"givre": 1.5, "feu": 0.5},
 		"comportement": "meute", "xp": 34, "or": [5, 14], "butin": {"soin": 0.2, "mana": 0.15},
 		"anims": {"attente": "Idle", "marche": "Walk", "course": "Jog_Fwd", "attaque": "Sword_Attack", "touche": "Hit_Chest", "mort": "Death01"},
 	},
@@ -29,6 +31,7 @@ const DEFS := {
 		"nom": "Brute infernale", "model": "bestiary:Imp", "skins": ["T_Imp_BaseColor_3"],
 		"scale": 1.6, "rayon": 0.65, "hp": 260, "degats": 24, "defense": 4, "vitesse": 2.0, "course": 3.6,
 		"detection": 16.0, "portee": 2.8, "cadence": 2.2, "impact": 0.6,
+		"elements": {"givre": 1.4, "feu": 0.5},
 		"comportement": "agressif", "xp": 120, "or": [30, 60], "butin": {"soin": 0.8, "mana": 0.6},
 		"anims": {"attente": "Idle", "marche": "Walk", "course": "Walk", "attaque": "Sword_Attack", "touche": "Hit_Chest", "mort": "Death01"},
 		"elite": true,
@@ -72,6 +75,7 @@ const DEFS := {
 	"colosse": {
 		"nom": "Brokk le Colosse", "model": "humain:paysan_h", "pieces": ["Legs", "Feet"], "teinte": Color(0.45, 0.35, 0.3),
 		"barbe": true, "cheveux": "Hair_Buzzed", "couleur_cheveux": Color(0.15, 0.1, 0.08), "arme": "Sword", "arme_echelle": 2.2,
+		"elements": {"foudre": 1.25, "physique": 0.85},
 		"scale": 1.75, "rayon": 0.75, "hp": 620, "degats": 22, "defense": 3, "vitesse": 1.9, "course": 3.4,
 		"detection": 40.0, "portee": 3.0, "cadence": 2.4, "impact": 0.6, "esquive": 0.22,
 		"comportement": "agressif", "xp": 200, "or": [60, 90], "butin": {"soin": 1.0, "mana": 1.0}, "elite": true, "boss": true,
@@ -116,5 +120,13 @@ const DEFS := {
 			{"id": "ruee", "forme": "ligne", "longueur": 8.0, "largeur": 2.2, "avert": 1.1, "degats": 26, "recharge": 8.0, "min": 3.0, "max": 9.0,
 				"anim_prep": "b/Idle_Shield", "anim": "b/Shield_Dash", "charge": true, "fx": "poussiere", "cri": "Pour moi seul !"},
 		],
+	},
+	# ---------------- Mannequin d'entraînement (Chambre des Arcanes)
+	"mannequin": {
+		"nom": "Mannequin d'entraînement", "model": "humain:paysan_h", "teinte": Color(0.85, 0.72, 0.42), "immobile": true,
+		"scale": 1.0, "rayon": 0.4, "hp": 4000, "degats": 0, "defense": 0, "vitesse": 0.0, "course": 0.0,
+		"detection": 0.0, "portee": 0.0, "cadence": 99.0, "impact": 0.5,
+		"comportement": "agressif", "xp": 0, "or": [0, 0], "butin": {},
+		"anims": {"attente": "Idle", "marche": "Idle", "course": "Idle", "attaque": "Idle", "touche": "Hit_Chest", "mort": "Death01"},
 	},
 }

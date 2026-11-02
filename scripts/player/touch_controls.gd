@@ -73,7 +73,7 @@ func _release_all() -> void:
 func _input(e: InputEvent) -> void:
 	var w := get_viewport_rect().size.x
 	# pendant un dialogue ou dans le bureau royal, l'interface reçoit les touchers, pas le personnage
-	if Dialogue.active or KingdomUI.is_open():
+	if Dialogue.active or KingdomUI.is_open() or ArcanesUI.is_open():
 		if _stick_id != -1 or not _btn_touch.is_empty():
 			_release_all()
 		if e is InputEventKey and e.pressed and not e.echo and Dialogue.active and Dialogue.inst:
@@ -167,16 +167,16 @@ func _input(e: InputEvent) -> void:
 			rig.zoom_by(1.1)
 	elif e is InputEventKey and not e.pressed and player and e.physical_keycode in [KEY_1, KEY_2, KEY_3, KEY_4]:
 		var i: int = e.physical_keycode - KEY_1
-		if player.combat.charging == SpellDB.ORDER[i]:
+		if player.combat.charging == Progression.get_inst().slots[i]:
 			player.combat.release_charge()
 	elif e is InputEventKey and e.pressed and not e.echo and player:
 		match e.physical_keycode:
 			KEY_J: player.combat.attack()
 			KEY_K: player.combat.dodge()
-			KEY_1: player.combat.begin_charge(SpellDB.ORDER[0])
-			KEY_2: player.combat.begin_charge(SpellDB.ORDER[1])
-			KEY_3: player.combat.begin_charge(SpellDB.ORDER[2])
-			KEY_4: player.combat.begin_charge(SpellDB.ORDER[3])
+			KEY_1: player.combat.begin_charge(Progression.get_inst().slots[0])
+			KEY_2: player.combat.begin_charge(Progression.get_inst().slots[1])
+			KEY_3: player.combat.begin_charge(Progression.get_inst().slots[2])
+			KEY_4: player.combat.begin_charge(Progression.get_inst().slots[3])
 			KEY_X: player.combat.cancel_charge()
 			KEY_H: player.combat.drink("soin")
 			KEY_G: player.combat.drink("mana")
@@ -195,7 +195,7 @@ func _process(delta: float) -> void:
 	if k.length() > 0:
 		v = k.normalized()
 	if player:
-		if Dialogue.active or KingdomUI.is_open():
+		if Dialogue.active or KingdomUI.is_open() or ArcanesUI.is_open():
 			v = Vector2.ZERO
 		player.input_dir = v
 		player.sprint = Input.is_physical_key_pressed(KEY_SHIFT)

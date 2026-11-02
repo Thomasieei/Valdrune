@@ -41,7 +41,7 @@ func _explode(direct: Node3D) -> void:
 	var hits := 0
 	for m in Combat.in_radius(global_position, splash):
 		var dmg := damage if m == direct else damage * 0.5
-		m.cbt.take_damage(dmg, source, "magie")
+		m.cbt.take_damage(dmg, source, "feu")
 		hits += 1
 		# souffle de l'explosion : repousse d'autant plus que le sort était chargé
 		var dv: Vector3 = m.global_position - global_position

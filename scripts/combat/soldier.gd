@@ -16,6 +16,8 @@ var slot := 0                     # place dans la formation d'escorte
 var source_guard: Node3D = null   # garde décoratif remplacé (réaffiché au retour)
 var prisoner: Node3D = null
 var free_on_return := true
+var spectral := false             # guerrier spectral (Légion du souverain) : temporaire, sans effet sur la garnison
+var lifetime := 0.0
 var cbt: Combatant
 var _ap: AnimationPlayer
 var _cur := ""
@@ -70,6 +72,14 @@ func _ready() -> void:
 	FX.blob_shadow(self, 1.1)
 	Combat.add_ally(self)
 	all.append(self)
+	if spectral:
+		var sm := Powers.spectral_mat(Color(0.45, 0.75, 1.0), 0.55)
+		for mi in find_children("*", "MeshInstance3D", true, false):
+			mi.material_override = sm
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		cbt.max_hp *= 0.8
+		cbt.hp = cbt.max_hp
+		remove_from_group("soldat")
 	set_meta("talk", {"id": "soldat_" + nom.to_lower(), "nom": nom, "role": "soldat"})
 	_play("Idle")
 
@@ -100,6 +110,11 @@ func _now() -> float:
 func _physics_process(delta: float) -> void:
 	if cbt.dead:
 		return
+	if spectral:
+		lifetime -= delta
+		if lifetime <= 0.0:
+			_dissolve()
+			return
 	var p := Combat.player
 	var now := _now()
 	_atk_cd -= delta
@@ -229,7 +244,18 @@ func _back_home() -> void:
 	else:
 		mode = M.POSTE
 
+func _dissolve() -> void:
+	cbt.dead = true
+	Combat.remove_ally(self)
+	FX.shockwave(global_position, 1.2)
+	var tw := create_tween()
+	tw.tween_property(self, "scale", Vector3(0.05, 1.6, 0.05), 0.35)
+	tw.tween_callback(queue_free)
+
 func _on_died(_src: Node) -> void:
+	if spectral:
+		_dissolve()
+		return
 	velocity = Vector3.ZERO
 	_play("Death01", 0.1)
 	collision_layer = 0

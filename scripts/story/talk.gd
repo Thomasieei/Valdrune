@@ -204,7 +204,7 @@ static func build(n: Node3D) -> Dictionary:
 	nodes["menu"] = {"who": who, "nom": label, "text": greet, "choices": choices}
 	if n is Villager or n is Guard or role == "prisonnier":
 		Justice.add_options(nodes, choices, who, label, n, role)
-	return {"start": "menu", "nodes": nodes}
+	return {"start": "menu", "nodes": nodes, "fermable": true}
 
 static func _short(t: String) -> String:
 	var first := t.split("\n")[0]

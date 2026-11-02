@@ -17,6 +17,11 @@ var slow_factor := 1.0
 var slow_until := 0.0
 var rooted_until := 0.0
 var display_name := ""
+var elem := {}                 # multiplicateurs élémentaires reçus (faiblesses > 1, résistances < 1)
+var reflect_until := 0.0       # Reflet du souverain : dégâts réduits et renvoyés
+var reflect_ratio := 1.0
+var incoming_mult := 1.0       # Incarnation souveraine : dégâts subis réduits
+var incoming_until := 0.0
 
 static func now() -> float:
 	return Time.get_ticks_msec() / 1000.0
@@ -39,6 +44,16 @@ func take_damage(amount: float, source: Node = null, kind := "physique") -> floa
 	if dead or now() < invulnerable_until:
 		return 0.0
 	var dmg := maxf(1.0, amount - defense) if kind == "physique" else amount
+	if elem.has(kind):
+		dmg *= float(elem[kind])
+	if now() < incoming_until:
+		dmg *= incoming_mult
+	if now() < reflect_until:
+		var back := dmg * reflect_ratio
+		dmg *= 0.3
+		if source and is_instance_valid(source) and "cbt" in source and source.cbt != self and source.cbt.team != team:
+			source.cbt.take_damage(back, body(), "arcane")
+			FX.hit_spark(body().global_position + Vector3.UP * 1.2, Color(0.7, 0.95, 1.0))
 	dmg = roundf(dmg * randf_range(0.9, 1.1))
 	if shield > 0.0 and now() < shield_until:
 		var absorbed := minf(shield, dmg)

@@ -38,7 +38,9 @@ var _last_action := ""
 var _panel: Panel
 var _name: Label
 var _text: RichTextLabel
-var _choices: VBoxContainer
+var _choices: GridContainer
+var _scroll: ScrollContainer
+var _close_btn: Button
 var _cont: Label
 
 static func data() -> Dictionary:
@@ -71,9 +73,32 @@ func _ready() -> void:
 	_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_text.scroll_active = false
 	_panel.add_child(_text)
-	_choices = VBoxContainer.new()
-	_choices.add_theme_constant_override("separation", 10)
-	_panel.add_child(_choices)
+	# les réponses défilent si elles sont nombreuses (sinon « Au revoir » sortait de l'écran)
+	_scroll = ScrollContainer.new()
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_panel.add_child(_scroll)
+	_choices = GridContainer.new()
+	_choices.add_theme_constant_override("h_separation", 8)
+	_choices.add_theme_constant_override("v_separation", 8)
+	_choices.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scroll.add_child(_choices)
+	# bouton de fermeture toujours visible pour les conversations libres (PNJ)
+	_close_btn = Button.new()
+	_close_btn.text = "Fermer  X"
+	_close_btn.focus_mode = Control.FOCUS_NONE
+	_close_btn.add_theme_font_size_override("font_size", 22)
+	var cb := StyleBoxFlat.new()
+	cb.bg_color = Color(0.25, 0.08, 0.07, 0.95)
+	cb.border_color = Color(1, 0.5, 0.4)
+	cb.set_border_width_all(2)
+	cb.set_corner_radius_all(10)
+	cb.content_margin_left = 14
+	cb.content_margin_right = 14
+	_close_btn.add_theme_stylebox_override("normal", cb)
+	_close_btn.add_theme_stylebox_override("hover", cb)
+	_close_btn.add_theme_stylebox_override("pressed", cb)
+	_close_btn.pressed.connect(func(): if active: _close())
+	_panel.add_child(_close_btn)
 	_cont = Label.new()
 	_cont.text = "Toucher pour continuer ▸"
 	_cont.add_theme_font_size_override("font_size", 22)
@@ -88,11 +113,16 @@ func _layout() -> void:
 	_panel.size = Vector2(s.x - 60, h)
 	_name.position = Vector2(28, 14)
 	var has_choices := _choices.get_child_count() > 0
+	_scroll.visible = has_choices
 	var tw := (_panel.size.x * 0.48) if has_choices else _panel.size.x - 56
 	_text.position = Vector2(28, 58)
 	_text.size = Vector2(tw, h - 80)
-	_choices.position = Vector2(_panel.size.x * 0.52, 20)
-	_choices.size = Vector2(_panel.size.x * 0.46, h - 40)
+	_scroll.position = Vector2(_panel.size.x * 0.52, 16)
+	_scroll.size = Vector2(_panel.size.x * 0.46, h - 32)
+	_choices.custom_minimum_size = Vector2(_scroll.size.x - 12, 0)
+	_close_btn.position = Vector2(_panel.size.x - 150, -52)
+	_close_btn.size = Vector2(140, 46)
+	_close_btn.visible = bool(_convo.get("fermable", false))
 	_cont.position = Vector2(_panel.size.x - 300, h - 40)
 
 ## Ouvre une conversation du fichier de données, ou un dictionnaire construit à la volée.
@@ -130,11 +160,9 @@ func _goto(id: String) -> void:
 	_shown = 0.0
 	_text.text = ""
 	for c in _choices.get_children():
+		_choices.remove_child(c)
 		c.queue_free()
-	_choices.get_parent().remove_child(_choices)
-	_choices = VBoxContainer.new()
-	_choices.add_theme_constant_override("separation", 10)
-	_panel.add_child(_choices)
+	_scroll.scroll_vertical = 0
 	var visible_choices := 0
 	for ch in n.get("choices", []):
 		if ch.has("cond") and not cond(ch["cond"]):
@@ -145,8 +173,9 @@ func _goto(id: String) -> void:
 		b.text = ("[%s]  " % tone[0] if tone[0] != "" else "") + String(ch["text"])
 		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.custom_minimum_size = Vector2(0, 64)
-		b.add_theme_font_size_override("font_size", 22)
+		b.custom_minimum_size = Vector2(0, 56)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.add_theme_font_size_override("font_size", 20)
 		var bs := StyleBoxFlat.new()
 		bs.bg_color = Color(0.14, 0.13, 0.16, 0.95)
 		bs.border_color = tone[1]
@@ -163,6 +192,7 @@ func _goto(id: String) -> void:
 		var choice: Dictionary = ch
 		b.pressed.connect(func(): _pick(choice))
 		_choices.add_child(b)
+	_choices.columns = 2 if visible_choices > 4 else 1
 	_cont.visible = visible_choices == 0
 	_choices.visible = false
 	_layout()

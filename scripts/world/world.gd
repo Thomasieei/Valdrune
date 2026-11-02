@@ -6,6 +6,8 @@ var rig: CameraRig
 var hud: Hud
 var dlg: Dialogue
 var kui: KingdomUI
+var aui: ArcanesUI
+var _arc_near := false
 var story: Story
 var _talking: Node3D
 var _talk_acc := 0.0
@@ -198,6 +200,11 @@ func _spawn() -> void:
 	add_child(kl)
 	kui = KingdomUI.new()
 	kl.add_child(kui)
+	aui = ArcanesUI.new()
+	kl.add_child(aui)
+	var mob := get_node_or_null("Mobilier") as Node3D
+	ArcanesUI.build_chamber(mob if mob else self)
+	Powers.spawn_props(self)
 	hud.btn_talk.pressed.connect(_talk)
 	hud.btn_kingdom.pressed.connect(func(): if not Dialogue.active: kui.open())
 	dlg.finished.connect(func(a):
@@ -222,7 +229,7 @@ func _spawn() -> void:
 			GameState.get_inst().reset()
 			Progression.get_inst().reset()
 			Spawner.paused = true
-		if args.size() > 0 and args[0] == "--vie":
+		if args.size() > 0 and args[0] in ["--vie", "--pouvoirs"]:
 			GameState.get_inst().reset()
 			Progression.get_inst().reset()
 			GameState.get_inst().story = "libre"
@@ -232,6 +239,10 @@ func _spawn() -> void:
 		add_child(story)
 		story.setup(self, player, hud, dlg)
 		player.cbt.died.connect(func(_s): story.on_player_died())
+	if args.size() > 0 and args[0] == "--pouvoirs":
+		var pt = load("res://scripts/tools/powers_test.gd").new()
+		pt.world = self
+		add_child(pt)
 	if args.size() > 0 and args[0] == "--vie":
 		var lt = load("res://scripts/tools/life_test.gd").new()
 		lt.world = self
@@ -271,11 +282,15 @@ func _process(delta: float) -> void:
 		var n: Node3D = Talk.nearest(player.global_position, get_tree()) if can else null
 		if n and n.has_meta("talk") and n.get_meta("talk")["role"] == "roi" and not Story.done():
 			n = null
-		hud.btn_talk.visible = n != null
-		if n:
+		_arc_near = can and Story.done() and ArcanesUI.near(player.global_position) and (n == null or n.global_position.distance_to(player.global_position) > 2.0)
+		PlayerCombat.practice = ArcanesUI.in_chamber(player.global_position)
+		hud.btn_talk.visible = n != null or _arc_near
+		if _arc_near:
+			hud.btn_talk.label = "Chambre des Arcanes"
+		elif n:
 			hud.btn_talk.label = "Parler à " + String(Talk.info(n)["nom"])
 	var a := OS.get_cmdline_user_args()
-	if "--tour" in a or "--combat" in a or "--story" in a or "--vie" in a:
+	if "--tour" in a or "--combat" in a or "--story" in a or "--vie" in a or "--pouvoirs" in a:
 		return
 	_q_acc += delta
 	if _q_acc < 1.0:
@@ -303,6 +318,9 @@ func focus_on(n: Node3D) -> void:
 
 func _talk() -> void:
 	if Dialogue.active:
+		return
+	if _arc_near:
+		aui.open()
 		return
 	var n := Talk.nearest(player.global_position, get_tree())
 	if n == null:

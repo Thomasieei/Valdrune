@@ -322,6 +322,12 @@ func _ready() -> void:
 	world.dlg.start(Talk.build(merchant))
 	await _talk([0, 99])
 	_check(Array(gs.mem("marchand_0")["sujets"]).size() >= said + 2 and int(gs.mem("marchand_0")["vu"]) >= 3, "Le PNJ se souvient (rencontres, sujets déjà abordés)")
+	world.dlg.start(Talk.build(merchant))
+	await _wait(0.6)
+	_check(world.dlg._close_btn.visible, "Bouton « Fermer » visible dans les conversations avec les PNJ")
+	world.dlg._close_btn.pressed.emit()
+	await _wait(0.2)
+	_check(not Dialogue.active, "« Fermer » termine la conversation")
 	var g := Talk.node_of("garric")
 	_check(g != null, "Le garde Garric est identifiable par son nom")
 	# ---------------------------------------------------------------- 8. sauvegarde
