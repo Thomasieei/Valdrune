@@ -85,4 +85,36 @@ const DEFS := {
 				"anim_prep": "Sword_Idle", "anim": "b/Sword_Dash", "charge": true, "fx": "poussiere", "cri": "ÉCRASÉ !"},
 		],
 	},
+	# ---------------- Bandits (raids et camps)
+	"bandit": {
+		"nom": "Bandit", "model": "humain:paysan_h", "teinte": Color(0.42, 0.36, 0.3), "arme": "Sword", "arme_echelle": 0.9,
+		"cheveux": "Hair_Buzzed", "barbe": true,
+		"scale": 1.0, "rayon": 0.4, "hp": 48, "degats": 8, "defense": 1, "vitesse": 2.6, "course": 5.0,
+		"detection": 18.0, "portee": 1.8, "cadence": 1.5, "impact": 0.45,
+		"comportement": "lache", "xp": 22, "or": [5, 14], "butin": {"soin": 0.2, "mana": 0.1},
+		"anims": {"attente": "Sword_Idle", "marche": "Walk", "course": "Jog_Fwd", "attaque": "Sword_Attack", "touche": "Hit_Chest", "mort": "Death01"},
+	},
+	"chef_bandit": {
+		"nom": "Chef des bandits", "model": "humain:rodeur_h", "teinte": Color(0.3, 0.26, 0.24), "arme": "Sword", "arme_echelle": 1.2,
+		"barbe": true, "cheveux": "Hair_SimpleParted", "couleur_cheveux": Color(0.25, 0.12, 0.08),
+		"scale": 1.12, "rayon": 0.45, "hp": 190, "degats": 15, "defense": 2, "vitesse": 2.4, "course": 4.8,
+		"detection": 22.0, "portee": 2.0, "cadence": 1.7, "impact": 0.5, "esquive": 0.2,
+		"comportement": "agressif", "xp": 90, "or": [30, 60], "butin": {"soin": 0.8, "mana": 0.5}, "elite": true,
+		"anims": {"attente": "Sword_Idle", "marche": "Walk", "course": "Jog_Fwd", "attaque": "Sword_Attack", "touche": "Hit_Chest", "mort": "Death01"},
+		"speciales": [
+			{"id": "tourbillon", "forme": "cercle", "rayon": 3.2, "avert": 1.0, "degats": 24, "recharge": 8.0, "min": 0.0, "max": 3.0,
+				"anim_prep": "Sword_Idle", "anim": "b/Sword_Regular_Combo", "fx": "impact", "cri": "Personne ne m'échappe !"},
+		],
+	},
+	"deserteur": {
+		"nom": "Déserteur de Vargas", "model": "humain:rodeur_h", "teinte": Color(0.6, 0.25, 0.22), "arme": "Sword", "bouclier": true,
+		"scale": 1.08, "rayon": 0.45, "hp": 160, "degats": 14, "defense": 3, "vitesse": 2.2, "course": 4.6,
+		"detection": 16.0, "portee": 2.0, "cadence": 1.6, "impact": 0.45, "esquive": 0.25,
+		"comportement": "agressif", "xp": 70, "or": [20, 40], "butin": {"soin": 0.6, "mana": 0.4}, "elite": true,
+		"anims": {"attente": "b/Idle_Shield", "marche": "Walk", "course": "Jog_Fwd", "attaque": "Sword_Attack", "touche": "Hit_Chest", "mort": "Death01"},
+		"speciales": [
+			{"id": "ruee", "forme": "ligne", "longueur": 8.0, "largeur": 2.2, "avert": 1.1, "degats": 26, "recharge": 8.0, "min": 3.0, "max": 9.0,
+				"anim_prep": "b/Idle_Shield", "anim": "b/Shield_Dash", "charge": true, "fx": "poussiere", "cri": "Pour moi seul !"},
+		],
+	},
 }

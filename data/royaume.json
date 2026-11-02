@@ -1,233 +1,1226 @@
 {
-  "missions": [
-    {"id": "liberer_berge", "cat": "conquete", "nom": "Libérer la berge ouest", "desc": "Chasser les pillards puglins qui rançonnent les pêcheurs de la berge ouest.",
-      "duree": 300, "difficulte": 2, "competence": "combat", "territoire": "berge_ouest", "cond": "",
-      "recompenses": {"k_tresor": 40, "k_moral": 4, "faction_gobelins": -5, "xp_agent": 60},
-      "risques": "Blessure possible ; les puglins sont nombreux mais lâches.",
-      "recits_ok": ["Les puglins ont fui vers le sud en abandonnant leur butin.", "Les pêcheurs ont prêté main-forte à la fin du combat."],
-      "recits_ko": ["Les puglins étaient deux fois plus nombreux que prévu.", "Une embuscade près des roseaux a forcé la retraite."]},
-    {"id": "liberer_collines", "cat": "conquete", "nom": "Reprendre les collines de la mine", "desc": "Un camp puglin menace la route de la mine. Le chasser rendra toute sa production à la mine.",
-      "duree": 420, "difficulte": 3, "competence": "combat", "territoire": "collines_mine", "cond": "",
-      "recompenses": {"k_tresor": 60, "k_minerai": 20, "k_moral": 3, "xp_agent": 90},
-      "risques": "Blessure probable en cas d'échec.",
-      "recits_ok": ["Le camp a été incendié ; les mineurs ont repris le travail le soir même.", "Le chef puglin a été chassé jusqu'aux falaises."],
-      "recits_ko": ["Le camp était fortifié de pieux ; impossible de passer.", "Les puglins ont tendu un piège dans les éboulis."]},
-    {"id": "purifier_bois", "cat": "conquete", "nom": "Purifier le Bois des Morts", "desc": "Des morts errants hantent les bois de l'ouest. Les bûcherons refusent d'y aller.",
-      "duree": 480, "difficulte": 4, "competence": "combat", "territoire": "bois_morts", "cond": "",
-      "recompenses": {"k_bois": 40, "k_moral": 6, "xp_agent": 120},
-      "risques": "Dangereux : blessure grave, voire mort d'un agent peu aguerri.",
-      "recits_ok": ["Les tombes profanées ont été refermées et bénies.", "Les bûcherons ont suivi l'expédition avec des torches."],
-      "recits_ko": ["Les morts se relevaient sans fin.", "Le brouillard a séparé l'expédition."]},
-    {"id": "purifier_clairiere", "cat": "conquete", "nom": "Nettoyer la clairière maudite", "desc": "Une clairière où les morts se rassemblent la nuit.",
-      "duree": 420, "difficulte": 4, "competence": "combat", "territoire": "clairiere_maudite", "cond": "flag:territoire_bois_morts",
-      "recompenses": {"k_bois": 30, "k_moral": 4, "xp_agent": 110},
-      "risques": "Dangereux : blessure grave, voire mort d'un agent peu aguerri.",
-      "recits_ok": ["La clairière est silencieuse depuis.", "Un vieux cercle de pierres a été retrouvé et brisé."],
-      "recits_ko": ["Des mains sortaient de la terre à chaque pas."]},
-    {"id": "eclaireurs_vargas", "cat": "recherche", "nom": "Espionner le camp de Vargas", "desc": "Savoir combien d'hommes compte Vargas et d'où il tire son or.",
-      "duree": 360, "difficulte": 3, "competence": "recherche", "cond": "",
-      "recompenses": {"flag": "info_vargas", "k_moral": 2, "xp_agent": 80},
-      "risques": "Capture possible : l'agent reviendrait blessé.",
-      "recits_ok": ["Vargas paie ses hommes avec l'or de mines volées aux nains.", "Le camp principal est à trois jours de marche au sud-ouest."],
-      "recits_ko": ["Les sentinelles de Vargas ont repéré l'éclaireur."]},
-    {"id": "etudier_portail", "cat": "recherche", "nom": "Étudier le portail scellé", "desc": "Le portail d'où vous êtes sorti n'avait pas brillé depuis un siècle. Que cache-t-il ?",
-      "duree": 300, "difficulte": 2, "competence": "recherche", "cond": "",
-      "recompenses": {"flag": "portail_etudie", "faction_nains": 5, "xp_agent": 70},
-      "risques": "Les diablotins rôdent autour des pierres.",
-      "recits_ok": ["Les runes sont naines : le portail mène au royaume de Khazdur, sous la montagne.", "Un mécanisme de clé runique semble manquer."],
-      "recits_ko": ["Les diablotins ont chassé l'expédition avant la nuit."]},
-    {"id": "plans_muraille", "cat": "recherche", "nom": "Retrouver les plans de la muraille", "desc": "Les archives de la bibliothèque parlent d'anciens plans de fortification.",
-      "duree": 240, "difficulte": 1, "competence": "recherche", "cond": "",
-      "recompenses": {"flag": "plans_muraille", "xp_agent": 50},
-      "risques": "Aucun risque majeur.",
-      "recits_ok": ["Les plans étaient cachés dans un coffre sous l'escalier de la bibliothèque."],
-      "recits_ko": ["Les archives sont dans un désordre indescriptible."]},
-    {"id": "ambassade_marchands", "cat": "diplomatique", "nom": "Ambassade à la guilde marchande", "desc": "Convaincre la guilde de reprendre ses caravanes vers Valmont.",
-      "duree": 300, "difficulte": 2, "competence": "diplomatie", "cond": "",
-      "recompenses": {"faction_marchands": 15, "k_tresor": 30, "xp_agent": 70},
-      "risques": "Échec = relation dégradée avec la guilde.",
-      "risques_fx": {"faction_marchands": -5},
-      "recits_ok": ["La guilde enverra une caravane par semaine.", "Le maître de guilde a apprécié la franchise de l'émissaire."],
-      "recits_ko": ["La guilde exige d'abord que la route du sud soit sûre."]},
-    {"id": "ambassade_nains", "cat": "diplomatique", "nom": "Message au royaume nain", "desc": "Envoyer un message par le portail étudié vers le royaume de Khazdur.",
-      "duree": 420, "difficulte": 3, "competence": "diplomatie", "cond": "flag:portail_etudie",
-      "recompenses": {"faction_nains": 20, "flag": "contact_nains", "xp_agent": 100},
-      "risques": "Les nains se méfient des humains.",
-      "risques_fx": {"faction_nains": -5},
-      "recits_ok": ["Une réponse gravée sur une plaque de bronze est revenue : « Nous écoutons. »"],
-      "recits_ko": ["Le message est resté sans réponse."]},
-    {"id": "treve_gobelins", "cat": "diplomatique", "nom": "Proposer une trêve aux puglins", "desc": "Les puglins volent par faim. Un accord pourrait calmer les pillages.",
-      "duree": 300, "difficulte": 3, "competence": "diplomatie", "cond": "",
-      "recompenses": {"faction_gobelins": 25, "k_moral": -2, "xp_agent": 80},
-      "risques": "Les habitants n'aiment pas qu'on traite avec des pillards.",
-      "risques_fx": {"faction_gobelins": -10},
-      "recits_ok": ["Contre un peu de grain, les puglins laisseront les pêcheurs en paix."],
-      "recits_ko": ["L'émissaire a été accueilli à coups de pierres."]},
-    {"id": "recolte_foret", "cat": "recolte", "nom": "Coupe de bois en forêt profonde", "desc": "Accompagner les bûcherons au-delà des sentiers sûrs.",
-      "duree": 180, "difficulte": 1, "competence": "recolte", "cond": "",
-      "recompenses": {"k_bois": 45, "xp_agent": 40},
-      "risques": "Faible.",
-      "recits_ok": ["Trois chariots de chêne sont rentrés au camp."], "recits_ko": ["Un orage a interrompu la coupe."]},
-    {"id": "recolte_minerai", "cat": "recolte", "nom": "Filon profond de la mine", "desc": "Explorer une galerie abandonnée riche en minerai.",
-      "duree": 240, "difficulte": 2, "competence": "recolte", "cond": "",
-      "recompenses": {"k_minerai": 30, "k_pierre": 25, "xp_agent": 55},
-      "risques": "Éboulement possible.",
-      "recits_ok": ["Un filon de fer d'une pureté rare a été découvert."], "recits_ko": ["Un éboulement a bouché la galerie."]},
-    {"id": "recolte_herbes", "cat": "recolte", "nom": "Cueillette d'herbes de soin", "desc": "Récolter les plantes nécessaires aux potions.",
-      "duree": 150, "difficulte": 1, "competence": "recolte", "cond": "",
-      "recompenses": {"potions_soin": 2, "potions_mana": 1, "xp_agent": 35},
-      "risques": "Faible.",
-      "recits_ok": ["Les paniers sont revenus pleins d'achillée et de sauge."], "recits_ko": ["Les plantes avaient été piétinées par des sangliers."]},
-    {"id": "escorte_caravane", "cat": "generale", "nom": "Escorter une caravane", "desc": "Protéger les marchands jusqu'au gué de la Claire.",
-      "duree": 240, "difficulte": 2, "competence": "combat", "cond": "",
-      "recompenses": {"k_tresor": 55, "faction_marchands": 5, "xp_agent": 60},
-      "risques": "Attaque de bandits possible.",
-      "recits_ok": ["La caravane est arrivée sans une égratignure."], "recits_ko": ["Des bandits ont emporté deux chariots."]},
-    {"id": "patrouille", "cat": "generale", "nom": "Patrouiller les villages", "desc": "Rassurer les habitants et décourager les voleurs.",
-      "duree": 180, "difficulte": 1, "competence": "commandement", "cond": "",
-      "recompenses": {"k_moral": 6, "confiance_habitants": 2, "xp_agent": 40},
-      "risques": "Faible.",
-      "recits_ok": ["Les habitants ont offert du pain et de la bière à la patrouille."], "recits_ko": ["La patrouille s'est perdue dans le brouillard."]},
-    {"id": "former_milice", "cat": "generale", "nom": "Former la milice", "desc": "Entraîner des volontaires du bourg au maniement de la lance.",
-      "duree": 300, "difficulte": 2, "competence": "commandement", "cond": "",
-      "recompenses": {"k_soldats": 3, "xp_agent": 60},
-      "risques": "Faible.",
-      "recits_ok": ["Trois volontaires tiennent désormais la lance correctement."], "recits_ko": ["Les volontaires se sont dispersés au premier exercice."]}
-  ],
-  "batiments": {
-    "ferme": {"nom": "Fermes", "desc": "Produisent la nourriture.", "prod": "nourriture", "base": 1.5, "par_niv": 0.4, "ouvriers_max": 10, "cout": {"tresor": 60, "bois": 40}},
-    "scierie": {"nom": "Camp de bûcherons", "desc": "Produit le bois.", "prod": "bois", "base": 0.9, "par_niv": 0.3, "ouvriers_max": 6, "cout": {"tresor": 50, "pierre": 20}},
-    "mine": {"nom": "Mine", "desc": "Produit pierre et minerai.", "prod": "pierre", "base": 0.7, "par_niv": 0.25, "ouvriers_max": 6, "cout": {"tresor": 70, "bois": 40}},
-    "marche": {"nom": "Marché", "desc": "Rapporte de l'or grâce au commerce.", "prod": "tresor", "base": 1.5, "par_niv": 0.6, "ouvriers_max": 5, "cout": {"tresor": 80, "bois": 30, "pierre": 20}},
-    "maisons": {"nom": "Logements", "desc": "Augmentent la population maximale.", "prod": "", "base": 0, "par_niv": 0, "ouvriers_max": 0, "cout": {"tresor": 50, "bois": 50, "pierre": 20}},
-    "caserne": {"nom": "Caserne", "desc": "Augmente l'effectif maximal et l'efficacité de l'armée.", "prod": "", "base": 0, "par_niv": 0, "ouvriers_max": 0, "cout": {"tresor": 90, "bois": 30, "pierre": 40}},
-    "muraille": {"nom": "Muraille", "desc": "Protège des raids et rassure les habitants.", "prod": "", "base": 0, "par_niv": 0, "ouvriers_max": 0, "cout": {"tresor": 120, "pierre": 80}, "requis_niv2": "flag:plans_muraille"}
+ "missions": [
+  {
+   "id": "liberer_berge",
+   "cat": "conquete",
+   "nom": "Libérer la berge ouest",
+   "desc": "Chasser les pillards puglins qui rançonnent les pêcheurs de la berge ouest.",
+   "duree": 300,
+   "difficulte": 2,
+   "competence": "combat",
+   "territoire": "berge_ouest",
+   "cond": "",
+   "recompenses": {
+    "k_tresor": 40,
+    "k_moral": 4,
+    "faction_gobelins": -5,
+    "xp_agent": 60
+   },
+   "risques": "Blessure possible ; les puglins sont nombreux mais lâches.",
+   "recits_ok": [
+    "Les puglins ont fui vers le sud en abandonnant leur butin.",
+    "Les pêcheurs ont prêté main-forte à la fin du combat."
+   ],
+   "recits_ko": [
+    "Les puglins étaient deux fois plus nombreux que prévu.",
+    "Une embuscade près des roseaux a forcé la retraite."
+   ]
   },
-  "territoires": {
-    "bourg": {"nom": "Bourg de Valmont", "etat": "controle"},
-    "ferme": {"nom": "Fermes de l'est", "etat": "controle"},
-    "scierie": {"nom": "Camp de bûcherons", "etat": "controle"},
-    "collines_mine": {"nom": "Collines de la mine", "etat": "menace", "mission": "liberer_collines"},
-    "berge_ouest": {"nom": "Berge ouest", "etat": "infeste", "mission": "liberer_berge"},
-    "bois_morts": {"nom": "Bois des Morts", "etat": "infeste", "mission": "purifier_bois"},
-    "clairiere_maudite": {"nom": "Clairière maudite", "etat": "infeste", "mission": "purifier_clairiere"},
-    "portail": {"nom": "Portail scellé", "etat": "infeste", "note": "Gardé par des diablotins et une brute infernale (à vaincre vous-même)."}
+  {
+   "id": "liberer_collines",
+   "cat": "conquete",
+   "nom": "Reprendre les collines de la mine",
+   "desc": "Un camp puglin menace la route de la mine. Le chasser rendra toute sa production à la mine.",
+   "duree": 420,
+   "difficulte": 3,
+   "competence": "combat",
+   "territoire": "collines_mine",
+   "cond": "",
+   "recompenses": {
+    "k_tresor": 60,
+    "k_minerai": 20,
+    "k_moral": 3,
+    "xp_agent": 90
+   },
+   "risques": "Blessure probable en cas d'échec.",
+   "recits_ok": [
+    "Le camp a été incendié ; les mineurs ont repris le travail le soir même.",
+    "Le chef puglin a été chassé jusqu'aux falaises."
+   ],
+   "recits_ko": [
+    "Le camp était fortifié de pieux ; impossible de passer.",
+    "Les puglins ont tendu un piège dans les éboulis."
+   ]
   },
-  "factions": {
-    "couronne": {"nom": "Couronne de Valmont", "desc": "Le roi Aldric III et sa cour."},
-    "marchands": {"nom": "Guilde marchande", "desc": "Caravanes, prix et commerce."},
-    "nains": {"nom": "Royaume nain de Khazdur", "desc": "Au-delà du portail scellé. Encore inconnu."},
-    "gobelins": {"nom": "Clans puglins", "desc": "Pillards affamés des berges et collines."},
-    "vargas": {"nom": "Armée de Vargas", "desc": "Le Brise-Bannières et ses mercenaires."}
+  {
+   "id": "purifier_bois",
+   "cat": "conquete",
+   "nom": "Purifier le Bois des Morts",
+   "desc": "Des morts errants hantent les bois de l'ouest. Les bûcherons refusent d'y aller.",
+   "duree": 480,
+   "difficulte": 4,
+   "competence": "combat",
+   "territoire": "bois_morts",
+   "cond": "",
+   "recompenses": {
+    "k_bois": 40,
+    "k_moral": 6,
+    "xp_agent": 120
+   },
+   "risques": "Dangereux : blessure grave, voire mort d'un agent peu aguerri.",
+   "recits_ok": [
+    "Les tombes profanées ont été refermées et bénies.",
+    "Les bûcherons ont suivi l'expédition avec des torches."
+   ],
+   "recits_ko": [
+    "Les morts se relevaient sans fin.",
+    "Le brouillard a séparé l'expédition."
+   ]
   },
-  "evenements": [
-    {"id": "refugies", "titre": "Des réfugiés aux portes", "cond": "", "recharge": 6,
-      "convo": {"start": "a", "nodes": {
-        "a": {"who": "conseil", "nom": "Elian", "text": "Intendant, une vingtaine de familles fuient les villages brûlés par Vargas. Elles demandent asile à Valmont.",
-          "choices": [
-            {"text": "Ouvrez les portes. Valmont protège les siens.", "tone": "bienveillance", "fx": {"bienveillance": 2, "k_population": 14, "k_nourriture": -25, "k_moral": 3, "confiance_habitants": 3}, "next": "ok"},
-            {"text": "Seulement ceux qui peuvent travailler.", "tone": "autorite", "fx": {"autorite": 2, "k_population": 8, "k_nourriture": -12}, "next": "tri"},
-            {"text": "Nous n'avons pas de quoi nourrir des bouches de plus.", "tone": "indifference", "fx": {"bienveillance": -2, "k_moral": -4, "reputation": -2}, "next": "non"}
-          ]},
-        "ok": {"who": "conseil", "nom": "Elian", "text": "Ils s'installeront dans le bourg. Vous verrez de nouveaux visages sur la place."},
-        "tri": {"who": "conseil", "nom": "Elian", "text": "Les plus forts entrent. Les autres… reprendront la route."},
-        "non": {"who": "conseil", "nom": "Elian", "text": "… Je leur dirai. Certains habitants ne vont pas apprécier."}
-      }}},
-    {"id": "disette", "titre": "Greniers presque vides", "cond": "k_nourriture<30", "recharge": 4,
-      "convo": {"start": "a", "nodes": {
-        "a": {"who": "conseil", "nom": "L'intendant des greniers", "text": "Les greniers sont presque vides. Si rien n'est fait, la faim gagnera le bourg.",
-          "choices": [
-            {"text": "Achetez du grain aux marchands, quel qu'en soit le prix.", "tone": "bienveillance", "fx": {"k_tresor": -60, "k_nourriture": 50}, "cond": "k_tresor>=60", "next": "fin"},
-            {"text": "Rationnez la garnison avant les habitants.", "tone": "bienveillance", "fx": {"k_nourriture": 15, "k_moral": 2, "k_soldats": -1}, "next": "fin"},
-            {"text": "Réquisitionnez les réserves privées.", "tone": "autorite", "fx": {"k_nourriture": 35, "k_moral": -8, "autorite": 2, "confiance_habitants": -3}, "next": "fin"}
-          ]},
-        "fin": {"who": "conseil", "nom": "L'intendant des greniers", "text": "Ce sera fait."}
-      }}},
-    {"id": "marchand_etranger", "titre": "Un marchand étranger", "cond": "", "recharge": 5,
-      "convo": {"start": "a", "nodes": {
-        "a": {"who": "conseil", "nom": "Ysolde la marchande", "text": "Je transporte du fer nain et des herbes rares. Je peux vous faire un prix… si Valmont me garantit un emplacement au marché.",
-          "choices": [
-            {"text": "Marché conclu : un emplacement contre un bon prix.", "tone": "diplomatie", "fx": {"k_tresor": -40, "k_minerai": 25, "faction_marchands": 5, "potions_soin": 1}, "cond": "k_tresor>=40", "next": "ok"},
-            {"text": "Vos prix sont trop hauts. Divisez-les par deux.", "tone": "negociation", "fx": {"k_tresor": -20, "k_minerai": 15, "faction_marchands": -3}, "cond": "autorite>=4", "next": "nego"},
-            {"text": "Pas aujourd'hui.", "tone": "indifference", "next": "non"}
-          ]},
-        "ok": {"who": "conseil", "nom": "Ysolde la marchande", "text": "Un plaisir de traiter avec Valmont."},
-        "nego": {"who": "conseil", "nom": "Ysolde la marchande", "text": "Vous êtes dur en affaires… Soit. Mais on se souviendra de vous à la guilde."},
-        "non": {"who": "conseil", "nom": "Ysolde la marchande", "text": "Dommage. Je reviendrai peut-être."}
-      }}},
-    {"id": "raid_vargas", "titre": "Raid sur les fermes", "cond": "!flag:raid_repousse", "recharge": 7,
-      "convo": {"start": "a", "nodes": {
-        "a": {"who": "garde", "nom": "Capitaine de la garde", "text": "Des cavaliers de Vargas ont incendié une grange à l'est ! Ils seront repartis avant que nous arrivions.",
-          "choices": [
-            {"text": "Envoyez la garde les poursuivre.", "tone": "autorite", "fx": {"k_soldats": -1, "k_moral": 3, "faction_vargas": -5, "flag": "raid_repousse"}, "cond": "k_soldats>=4", "next": "ok"},
-            {"text": "Aidez les fermiers à reconstruire.", "tone": "bienveillance", "fx": {"k_bois": -20, "k_moral": 4, "confiance_habitants": 2}, "next": "aide"},
-            {"text": "Doublez les gardes aux fermes, le reste attendra.", "tone": "mefiance", "fx": {"k_tresor": -20, "mefiance": 1}, "next": "fin"}
-          ]},
-        "ok": {"who": "garde", "nom": "Capitaine de la garde", "text": "Nous les avons rattrapés au gué. Un des nôtres n'est pas revenu… mais ils y réfléchiront à deux fois."},
-        "aide": {"who": "garde", "nom": "Capitaine de la garde", "text": "Les fermiers n'oublieront pas que vous êtes venu."},
-        "fin": {"who": "garde", "nom": "Capitaine de la garde", "text": "À vos ordres."}
-      }}},
-    {"id": "fete_moisson", "titre": "La fête des moissons", "cond": "k_moral>=50", "recharge": 8,
-      "convo": {"start": "a", "nodes": {
-        "a": {"who": "conseil", "nom": "La doyenne du bourg", "text": "Intendant, les habitants voudraient fêter la moisson, comme avant la guerre. Il faudrait un peu de vin et de viande.",
-          "choices": [
-            {"text": "Valmont mérite une fête. La couronne paie.", "tone": "bienveillance", "fx": {"k_tresor": -35, "k_nourriture": -15, "k_moral": 12, "confiance_habitants": 4}, "cond": "k_tresor>=35", "next": "ok"},
-            {"text": "Une fête, oui, mais chacun apporte sa part.", "tone": "diplomatie", "fx": {"k_moral": 5}, "next": "ok"},
-            {"text": "Pas de fête tant que Vargas rôde.", "tone": "autorite", "fx": {"k_moral": -5, "autorite": 1}, "next": "non"}
-          ]},
-        "ok": {"who": "conseil", "nom": "La doyenne du bourg", "text": "On chantera votre nom ce soir !"},
-        "non": {"who": "conseil", "nom": "La doyenne du bourg", "text": "Je comprends… les gens seront déçus."}
-      }}},
-    {"id": "deserteur", "titre": "Un déserteur de Vargas", "cond": "", "recharge": 9,
-      "convo": {"start": "a", "nodes": {
-        "a": {"who": "garde", "nom": "Capitaine de la garde", "text": "Nous avons arrêté un mercenaire de Vargas. Il dit avoir déserté et propose de nous dire ce qu'il sait.",
-          "choices": [
-            {"text": "Écoutons-le, puis laissons-le partir.", "tone": "bienveillance", "fx": {"flag": "info_vargas", "bienveillance": 1}, "next": "info"},
-            {"text": "Qu'il rejoigne notre garde. On a besoin de bras.", "tone": "diplomatie", "fx": {"k_soldats": 1, "k_moral": -2}, "next": "rec"},
-            {"text": "Un traître trahit deux fois. Au cachot.", "tone": "mefiance", "fx": {"mefiance": 2, "k_moral": 1}, "next": "fin"}
-          ]},
-        "info": {"who": "garde", "nom": "Capitaine de la garde", "text": "Il dit que Vargas paie ses hommes avec de l'or nain volé. Intéressant…"},
-        "rec": {"who": "garde", "nom": "Capitaine de la garde", "text": "Je le garderai à l'œil."},
-        "fin": {"who": "garde", "nom": "Capitaine de la garde", "text": "Il ne verra plus le soleil avant longtemps."}
-      }}},
-    {"id": "greve_mine", "titre": "Colère à la mine", "cond": "k_impot>=2", "recharge": 6,
-      "convo": {"start": "a", "nodes": {
-        "a": {"who": "conseil", "nom": "Le contremaître", "text": "Les mineurs refusent de descendre. Ils disent que l'impôt les étrangle pendant qu'ils risquent leur vie.",
-          "choices": [
-            {"text": "Ils ont raison. Baissez l'impôt.", "tone": "bienveillance", "fx": {"k_impot": -1, "k_moral": 6, "confiance_habitants": 3}, "next": "ok"},
-            {"text": "Une prime pour ceux qui descendent.", "tone": "diplomatie", "fx": {"k_tresor": -30, "k_moral": 2}, "cond": "k_tresor>=30", "next": "ok"},
-            {"text": "Ceux qui refusent seront remplacés.", "tone": "autorite", "fx": {"k_moral": -8, "autorite": 3, "confiance_habitants": -4}, "next": "dur"}
-          ]},
-        "ok": {"who": "conseil", "nom": "Le contremaître", "text": "Ils reprendront demain à l'aube."},
-        "dur": {"who": "conseil", "nom": "Le contremaître", "text": "… Comme vous voudrez. Mais on s'en souviendra."}
-      }}}
-  ],
-  "pnj": {
-    "noms_h": ["Garric", "Bertrand", "Odon", "Mathis", "Aubin", "Guérin", "Hugues", "Lothaire", "Renaud", "Thibault", "Anselme", "Baudouin"],
-    "noms_f": ["Ysolde", "Mahaut", "Aliénor", "Berthe", "Ermengarde", "Clémence", "Adèle", "Héloïse"],
-    "roles": {
-      "garde": {"titre": "Garde royal", "soi": ["Je sers Valmont depuis l'hiver du grand gel. On était trente à l'époque… on n'est plus que quelques-uns.", "Mon père était garde, son père aussi. Je n'ai jamais su faire autre chose que tenir une lance."],
-        "discuter": ["Les nuits sont longues sur les remparts. On guette les torches de Vargas.", "Le capitaine dit qu'on manque d'acier. Les lances sont vieilles comme le roi.", "Si on avait la moitié de votre bras, Vargas ne serait jamais venu jusqu'ici.", "On dit que le portail du sud brille la nuit, depuis votre arrivée."],
-        "recrue": "soldat"},
-      "habitant": {"titre": "Habitant du bourg", "soi": ["Je tiens l'échoppe près du puits. Enfin… quand il y a quelque chose à vendre.", "Je suis né ici, comme toute ma famille. On ne partira pas, quoi qu'il arrive."],
-        "discuter": ["Le pain a doublé de prix depuis le début de la guerre.", "Ma voisine dit que vous êtes sorti du portail. C'est vrai ?", "Les enfants jouent aux chevaliers dans la rue. Depuis la bataille de la cour, c'est vous qu'ils imitent.", "Le puits de la place a une eau délicieuse, vous savez."],
-        "recrue": "ouvrier"},
-      "paysan": {"titre": "Paysan", "soi": ["Je travaille ces champs depuis que je sais marcher.", "Ma terre n'est pas grande, mais elle nourrit trois familles."],
-        "discuter": ["Le blé pousse bien cette saison. Si les pillards nous laissent tranquilles…", "Il nous faudrait plus de bras pour la moisson.", "Les corbeaux sont pires que les puglins, je vous le dis."],
-        "recrue": "ouvrier"},
-      "bucheron": {"titre": "Bûcheron", "soi": ["Trente ans que je coupe du bois. Je connais chaque arbre de cette forêt."],
-        "discuter": ["On n'ose plus aller vers l'ouest, à cause des morts qui marchent.", "Le chêne du nord fait les meilleures poutres du royaume."],
-        "recrue": "ouvrier"},
-      "mineur": {"titre": "Mineur", "soi": ["Je descends dans la mine depuis mes douze ans."],
-        "discuter": ["Les puglins rôdent sur les collines. On remonte avant la nuit.", "Il y a des galeries anciennes, plus profondes. Personne n'ose y aller."],
-        "recrue": "ouvrier"},
-      "marchand": {"titre": "Marchand", "soi": ["Je vends un peu de tout : potions, cordes, épices. Surtout des potions, ces temps-ci."],
-        "discuter": ["Les caravanes ne viennent plus depuis que la route du sud est dangereuse.", "Un bon marchand sait quand baisser ses prix… et quand les monter."],
-        "commerce": true},
-      "roi": {"titre": "Roi de Valmont", "soi": ["J'ai été un roi guerrier, autrefois. Aujourd'hui je ne suis qu'un vieil homme qui compte ses soldats.", "Mon fils Edric aurait dû me succéder. Vargas l'a tué au gué de la Claire."],
-        "discuter": ["Gouverner, c'est choisir qui l'on déçoit.", "Le peuple vous regarde, Intendant. Ce que vous faites compte plus que ce que vous dites.", "Vargas ne s'arrêtera pas. Préparez Valmont."]},
-      "elian": {"titre": "Messager du roi, votre bras droit", "soi": ["Je suis messager depuis deux ans. Avant, j'aidais ma mère à l'auberge du Gué.", "Je n'aime pas me battre… mais je n'aime pas encore plus qu'on s'en prenne aux gens d'ici."],
-        "discuter": ["Je me demande d'où vous venez vraiment. Le portail était scellé depuis cent ans.", "Merci de m'avoir sauvé, sur la route. Je n'oublie pas.", "Si vous m'envoyez en mission, je ferai de mon mieux. Promis."]}
-    }
+  {
+   "id": "purifier_clairiere",
+   "cat": "conquete",
+   "nom": "Nettoyer la clairière maudite",
+   "desc": "Une clairière où les morts se rassemblent la nuit.",
+   "duree": 420,
+   "difficulte": 4,
+   "competence": "combat",
+   "territoire": "clairiere_maudite",
+   "cond": "flag:territoire_bois_morts",
+   "recompenses": {
+    "k_bois": 30,
+    "k_moral": 4,
+    "xp_agent": 110
+   },
+   "risques": "Dangereux : blessure grave, voire mort d'un agent peu aguerri.",
+   "recits_ok": [
+    "La clairière est silencieuse depuis.",
+    "Un vieux cercle de pierres a été retrouvé et brisé."
+   ],
+   "recits_ko": [
+    "Des mains sortaient de la terre à chaque pas."
+   ]
+  },
+  {
+   "id": "demanteler_camp",
+   "cat": "conquete",
+   "nom": "Démanteler le camp de bandits",
+   "desc": "Un camp de bandits et leur chef rançonnent les voyageurs au sud-ouest. Le détruire mettra fin aux raids venus de là.",
+   "duree": 420,
+   "difficulte": 3,
+   "competence": "combat",
+   "territoire": "camp_bandits",
+   "cond": "",
+   "recompenses": {
+    "k_tresor": 70,
+    "k_moral": 5,
+    "xp_agent": 100
+   },
+   "risques": "Le chef des bandits est redoutable.",
+   "recits_ok": [
+    "Le camp a été incendié et le butin rapporté au trésor.",
+    "Le chef a fui vers les marais, abandonnant ses hommes."
+   ],
+   "recits_ko": [
+    "Les bandits avaient été prévenus de l'attaque.",
+    "Le chef des bandits a tendu une embuscade au gué."
+   ]
+  },
+  {
+   "id": "chasser_rodeurs",
+   "cat": "conquete",
+   "nom": "Chasser les rôdeurs de l'ouest",
+   "desc": "Des rôdeurs détroussent les bûcherons sur les collines de l'ouest.",
+   "duree": 240,
+   "difficulte": 2,
+   "competence": "combat",
+   "territoire": "rodeurs_ouest",
+   "cond": "",
+   "recompenses": {
+    "k_tresor": 30,
+    "k_bois": 20,
+    "xp_agent": 60
+   },
+   "risques": "Blessure possible.",
+   "recits_ok": [
+    "Les rôdeurs ont été chassés jusqu'à la rivière."
+   ],
+   "recits_ko": [
+    "Les rôdeurs se sont dispersés dans les bois avant l'assaut."
+   ]
+  },
+  {
+   "id": "eclaireurs_vargas",
+   "cat": "recherche",
+   "nom": "Espionner le camp de Vargas",
+   "desc": "Savoir combien d'hommes compte Vargas et d'où il tire son or.",
+   "duree": 360,
+   "difficulte": 3,
+   "competence": "recherche",
+   "cond": "",
+   "recompenses": {
+    "flag": "info_vargas",
+    "k_moral": 2,
+    "xp_agent": 80
+   },
+   "risques": "Capture possible : l'agent reviendrait blessé.",
+   "recits_ok": [
+    "Vargas paie ses hommes avec l'or de mines volées aux nains.",
+    "Le camp principal est à trois jours de marche au sud-ouest."
+   ],
+   "recits_ko": [
+    "Les sentinelles de Vargas ont repéré l'éclaireur."
+   ]
+  },
+  {
+   "id": "etudier_portail",
+   "cat": "recherche",
+   "nom": "Étudier le portail scellé",
+   "desc": "Le portail d'où vous êtes sorti n'avait pas brillé depuis un siècle. Que cache-t-il ?",
+   "duree": 300,
+   "difficulte": 2,
+   "competence": "recherche",
+   "cond": "",
+   "recompenses": {
+    "flag": "portail_etudie",
+    "faction_nains": 5,
+    "xp_agent": 70
+   },
+   "risques": "Les diablotins rôdent autour des pierres.",
+   "recits_ok": [
+    "Les runes sont naines : le portail mène au royaume de Khazdur, sous la montagne.",
+    "Un mécanisme de clé runique semble manquer."
+   ],
+   "recits_ko": [
+    "Les diablotins ont chassé l'expédition avant la nuit."
+   ]
+  },
+  {
+   "id": "plans_muraille",
+   "cat": "recherche",
+   "nom": "Retrouver les plans de la muraille",
+   "desc": "Les archives de la bibliothèque parlent d'anciens plans de fortification.",
+   "duree": 240,
+   "difficulte": 1,
+   "competence": "recherche",
+   "cond": "",
+   "recompenses": {
+    "flag": "plans_muraille",
+    "xp_agent": 50
+   },
+   "risques": "Aucun risque majeur.",
+   "recits_ok": [
+    "Les plans étaient cachés dans un coffre sous l'escalier de la bibliothèque."
+   ],
+   "recits_ko": [
+    "Les archives sont dans un désordre indescriptible."
+   ]
+  },
+  {
+   "id": "ambassade_marchands",
+   "cat": "diplomatique",
+   "nom": "Ambassade à la guilde marchande",
+   "desc": "Convaincre la guilde de reprendre ses caravanes vers Valmont.",
+   "duree": 300,
+   "difficulte": 2,
+   "competence": "diplomatie",
+   "cond": "",
+   "recompenses": {
+    "faction_marchands": 15,
+    "k_tresor": 30,
+    "xp_agent": 70
+   },
+   "risques": "Échec = relation dégradée avec la guilde.",
+   "risques_fx": {
+    "faction_marchands": -5
+   },
+   "recits_ok": [
+    "La guilde enverra une caravane par semaine.",
+    "Le maître de guilde a apprécié la franchise de l'émissaire."
+   ],
+   "recits_ko": [
+    "La guilde exige d'abord que la route du sud soit sûre."
+   ]
+  },
+  {
+   "id": "ambassade_nains",
+   "cat": "diplomatique",
+   "nom": "Message au royaume nain",
+   "desc": "Envoyer un message par le portail étudié vers le royaume de Khazdur.",
+   "duree": 420,
+   "difficulte": 3,
+   "competence": "diplomatie",
+   "cond": "flag:portail_etudie",
+   "recompenses": {
+    "faction_nains": 20,
+    "flag": "contact_nains",
+    "xp_agent": 100
+   },
+   "risques": "Les nains se méfient des humains.",
+   "risques_fx": {
+    "faction_nains": -5
+   },
+   "recits_ok": [
+    "Une réponse gravée sur une plaque de bronze est revenue : « Nous écoutons. »"
+   ],
+   "recits_ko": [
+    "Le message est resté sans réponse."
+   ]
+  },
+  {
+   "id": "treve_gobelins",
+   "cat": "diplomatique",
+   "nom": "Proposer une trêve aux puglins",
+   "desc": "Les puglins volent par faim. Un accord pourrait calmer les pillages.",
+   "duree": 300,
+   "difficulte": 3,
+   "competence": "diplomatie",
+   "cond": "",
+   "recompenses": {
+    "faction_gobelins": 25,
+    "k_moral": -2,
+    "xp_agent": 80
+   },
+   "risques": "Les habitants n'aiment pas qu'on traite avec des pillards.",
+   "risques_fx": {
+    "faction_gobelins": -10
+   },
+   "recits_ok": [
+    "Contre un peu de grain, les puglins laisseront les pêcheurs en paix."
+   ],
+   "recits_ko": [
+    "L'émissaire a été accueilli à coups de pierres."
+   ]
+  },
+  {
+   "id": "recolte_foret",
+   "cat": "recolte",
+   "nom": "Coupe de bois en forêt profonde",
+   "desc": "Accompagner les bûcherons au-delà des sentiers sûrs.",
+   "duree": 180,
+   "difficulte": 1,
+   "competence": "recolte",
+   "cond": "",
+   "recompenses": {
+    "k_bois": 45,
+    "xp_agent": 40
+   },
+   "risques": "Faible.",
+   "recits_ok": [
+    "Trois chariots de chêne sont rentrés au camp."
+   ],
+   "recits_ko": [
+    "Un orage a interrompu la coupe."
+   ]
+  },
+  {
+   "id": "recolte_minerai",
+   "cat": "recolte",
+   "nom": "Filon profond de la mine",
+   "desc": "Explorer une galerie abandonnée riche en minerai.",
+   "duree": 240,
+   "difficulte": 2,
+   "competence": "recolte",
+   "cond": "",
+   "recompenses": {
+    "k_minerai": 30,
+    "k_pierre": 25,
+    "xp_agent": 55
+   },
+   "risques": "Éboulement possible.",
+   "recits_ok": [
+    "Un filon de fer d'une pureté rare a été découvert."
+   ],
+   "recits_ko": [
+    "Un éboulement a bouché la galerie."
+   ]
+  },
+  {
+   "id": "recolte_herbes",
+   "cat": "recolte",
+   "nom": "Cueillette d'herbes de soin",
+   "desc": "Récolter les plantes nécessaires aux potions.",
+   "duree": 150,
+   "difficulte": 1,
+   "competence": "recolte",
+   "cond": "",
+   "recompenses": {
+    "potions_soin": 2,
+    "potions_mana": 1,
+    "xp_agent": 35
+   },
+   "risques": "Faible.",
+   "recits_ok": [
+    "Les paniers sont revenus pleins d'achillée et de sauge."
+   ],
+   "recits_ko": [
+    "Les plantes avaient été piétinées par des sangliers."
+   ]
+  },
+  {
+   "id": "escorte_caravane",
+   "cat": "generale",
+   "nom": "Escorter une caravane",
+   "desc": "Protéger les marchands jusqu'au gué de la Claire.",
+   "duree": 240,
+   "difficulte": 2,
+   "competence": "combat",
+   "cond": "",
+   "recompenses": {
+    "k_tresor": 55,
+    "faction_marchands": 5,
+    "xp_agent": 60
+   },
+   "risques": "Attaque de bandits possible.",
+   "recits_ok": [
+    "La caravane est arrivée sans une égratignure."
+   ],
+   "recits_ko": [
+    "Des bandits ont emporté deux chariots."
+   ]
+  },
+  {
+   "id": "patrouille",
+   "cat": "generale",
+   "nom": "Patrouiller les villages",
+   "desc": "Rassurer les habitants et décourager les voleurs.",
+   "duree": 180,
+   "difficulte": 1,
+   "competence": "commandement",
+   "cond": "",
+   "recompenses": {
+    "k_moral": 6,
+    "confiance_habitants": 2,
+    "xp_agent": 40
+   },
+   "risques": "Faible.",
+   "recits_ok": [
+    "Les habitants ont offert du pain et de la bière à la patrouille."
+   ],
+   "recits_ko": [
+    "La patrouille s'est perdue dans le brouillard."
+   ]
+  },
+  {
+   "id": "former_milice",
+   "cat": "generale",
+   "nom": "Former la milice",
+   "desc": "Entraîner des volontaires du bourg au maniement de la lance.",
+   "duree": 300,
+   "difficulte": 2,
+   "competence": "commandement",
+   "cond": "",
+   "recompenses": {
+    "k_soldats": 3,
+    "xp_agent": 60
+   },
+   "risques": "Faible.",
+   "recits_ok": [
+    "Trois volontaires tiennent désormais la lance correctement."
+   ],
+   "recits_ko": [
+    "Les volontaires se sont dispersés au premier exercice."
+   ]
   }
+ ],
+ "batiments": {
+  "ferme": {
+   "nom": "Fermes",
+   "desc": "Produisent la nourriture.",
+   "prod": "nourriture",
+   "base": 1.5,
+   "par_niv": 0.4,
+   "ouvriers_max": 10,
+   "cout": {
+    "tresor": 60,
+    "bois": 40
+   }
+  },
+  "scierie": {
+   "nom": "Camp de bûcherons",
+   "desc": "Produit le bois.",
+   "prod": "bois",
+   "base": 0.9,
+   "par_niv": 0.3,
+   "ouvriers_max": 6,
+   "cout": {
+    "tresor": 50,
+    "pierre": 20
+   }
+  },
+  "mine": {
+   "nom": "Mine",
+   "desc": "Produit pierre et minerai.",
+   "prod": "pierre",
+   "base": 0.7,
+   "par_niv": 0.25,
+   "ouvriers_max": 6,
+   "cout": {
+    "tresor": 70,
+    "bois": 40
+   }
+  },
+  "marche": {
+   "nom": "Marché",
+   "desc": "Rapporte de l'or grâce au commerce.",
+   "prod": "tresor",
+   "base": 1.5,
+   "par_niv": 0.6,
+   "ouvriers_max": 5,
+   "cout": {
+    "tresor": 80,
+    "bois": 30,
+    "pierre": 20
+   }
+  },
+  "maisons": {
+   "nom": "Logements",
+   "desc": "Augmentent la population maximale.",
+   "prod": "",
+   "base": 0,
+   "par_niv": 0,
+   "ouvriers_max": 0,
+   "cout": {
+    "tresor": 50,
+    "bois": 50,
+    "pierre": 20
+   }
+  },
+  "caserne": {
+   "nom": "Caserne",
+   "desc": "Augmente l'effectif maximal et l'efficacité de l'armée.",
+   "prod": "",
+   "base": 0,
+   "par_niv": 0,
+   "ouvriers_max": 0,
+   "cout": {
+    "tresor": 90,
+    "bois": 30,
+    "pierre": 40
+   }
+  },
+  "muraille": {
+   "nom": "Muraille",
+   "desc": "Protège des raids et rassure les habitants.",
+   "prod": "",
+   "base": 0,
+   "par_niv": 0,
+   "ouvriers_max": 0,
+   "cout": {
+    "tresor": 120,
+    "pierre": 80
+   },
+   "requis_niv2": "flag:plans_muraille"
+  }
+ },
+ "territoires": {
+  "bourg": {
+   "nom": "Bourg de Valmont",
+   "etat": "controle"
+  },
+  "ferme": {
+   "nom": "Fermes de l'est",
+   "etat": "controle"
+  },
+  "scierie": {
+   "nom": "Camp de bûcherons",
+   "etat": "controle"
+  },
+  "collines_mine": {
+   "nom": "Collines de la mine",
+   "etat": "menace",
+   "mission": "liberer_collines"
+  },
+  "berge_ouest": {
+   "nom": "Berge ouest",
+   "etat": "infeste",
+   "mission": "liberer_berge"
+  },
+  "bois_morts": {
+   "nom": "Bois des Morts",
+   "etat": "infeste",
+   "mission": "purifier_bois"
+  },
+  "clairiere_maudite": {
+   "nom": "Clairière maudite",
+   "etat": "infeste",
+   "mission": "purifier_clairiere"
+  },
+  "portail": {
+   "nom": "Portail scellé",
+   "etat": "infeste",
+   "note": "Gardé par des diablotins et une brute infernale (à vaincre vous-même)."
+  },
+  "camp_bandits": {
+   "nom": "Camp de bandits du sud-ouest",
+   "etat": "infeste",
+   "mission": "demanteler_camp"
+  },
+  "rodeurs_ouest": {
+   "nom": "Collines de l'ouest",
+   "etat": "menace",
+   "mission": "chasser_rodeurs"
+  }
+ },
+ "factions": {
+  "couronne": {
+   "nom": "Couronne de Valmont",
+   "desc": "Le roi Aldric III et sa cour."
+  },
+  "marchands": {
+   "nom": "Guilde marchande",
+   "desc": "Caravanes, prix et commerce."
+  },
+  "nains": {
+   "nom": "Royaume nain de Khazdur",
+   "desc": "Au-delà du portail scellé. Encore inconnu."
+  },
+  "gobelins": {
+   "nom": "Clans puglins",
+   "desc": "Pillards affamés des berges et collines."
+  },
+  "vargas": {
+   "nom": "Armée de Vargas",
+   "desc": "Le Brise-Bannières et ses mercenaires."
+  }
+ },
+ "evenements": [
+  {
+   "id": "refugies",
+   "titre": "Des réfugiés aux portes",
+   "cond": "",
+   "recharge": 6,
+   "convo": {
+    "start": "a",
+    "nodes": {
+     "a": {
+      "who": "conseil",
+      "nom": "Elian",
+      "text": "Intendant, une vingtaine de familles fuient les villages brûlés par Vargas. Elles demandent asile à Valmont.",
+      "choices": [
+       {
+        "text": "Ouvrez les portes. Valmont protège les siens.",
+        "tone": "bienveillance",
+        "fx": {
+         "bienveillance": 2,
+         "k_population": 14,
+         "k_nourriture": -25,
+         "k_moral": 3,
+         "confiance_habitants": 3
+        },
+        "next": "ok"
+       },
+       {
+        "text": "Seulement ceux qui peuvent travailler.",
+        "tone": "autorite",
+        "fx": {
+         "autorite": 2,
+         "k_population": 8,
+         "k_nourriture": -12
+        },
+        "next": "tri"
+       },
+       {
+        "text": "Nous n'avons pas de quoi nourrir des bouches de plus.",
+        "tone": "indifference",
+        "fx": {
+         "bienveillance": -2,
+         "k_moral": -4,
+         "reputation": -2
+        },
+        "next": "non"
+       }
+      ]
+     },
+     "ok": {
+      "who": "conseil",
+      "nom": "Elian",
+      "text": "Ils s'installeront dans le bourg. Vous verrez de nouveaux visages sur la place."
+     },
+     "tri": {
+      "who": "conseil",
+      "nom": "Elian",
+      "text": "Les plus forts entrent. Les autres… reprendront la route."
+     },
+     "non": {
+      "who": "conseil",
+      "nom": "Elian",
+      "text": "… Je leur dirai. Certains habitants ne vont pas apprécier."
+     }
+    }
+   }
+  },
+  {
+   "id": "disette",
+   "titre": "Greniers presque vides",
+   "cond": "k_nourriture<30",
+   "recharge": 4,
+   "convo": {
+    "start": "a",
+    "nodes": {
+     "a": {
+      "who": "conseil",
+      "nom": "L'intendant des greniers",
+      "text": "Les greniers sont presque vides. Si rien n'est fait, la faim gagnera le bourg.",
+      "choices": [
+       {
+        "text": "Achetez du grain aux marchands, quel qu'en soit le prix.",
+        "tone": "bienveillance",
+        "fx": {
+         "k_tresor": -60,
+         "k_nourriture": 50
+        },
+        "cond": "k_tresor>=60",
+        "next": "fin"
+       },
+       {
+        "text": "Rationnez la garnison avant les habitants.",
+        "tone": "bienveillance",
+        "fx": {
+         "k_nourriture": 15,
+         "k_moral": 2,
+         "k_soldats": -1
+        },
+        "next": "fin"
+       },
+       {
+        "text": "Réquisitionnez les réserves privées.",
+        "tone": "autorite",
+        "fx": {
+         "k_nourriture": 35,
+         "k_moral": -8,
+         "autorite": 2,
+         "confiance_habitants": -3
+        },
+        "next": "fin"
+       }
+      ]
+     },
+     "fin": {
+      "who": "conseil",
+      "nom": "L'intendant des greniers",
+      "text": "Ce sera fait."
+     }
+    }
+   }
+  },
+  {
+   "id": "marchand_etranger",
+   "titre": "Un marchand étranger",
+   "cond": "",
+   "recharge": 5,
+   "convo": {
+    "start": "a",
+    "nodes": {
+     "a": {
+      "who": "conseil",
+      "nom": "Ysolde la marchande",
+      "text": "Je transporte du fer nain et des herbes rares. Je peux vous faire un prix… si Valmont me garantit un emplacement au marché.",
+      "choices": [
+       {
+        "text": "Marché conclu : un emplacement contre un bon prix.",
+        "tone": "diplomatie",
+        "fx": {
+         "k_tresor": -40,
+         "k_minerai": 25,
+         "faction_marchands": 5,
+         "potions_soin": 1
+        },
+        "cond": "k_tresor>=40",
+        "next": "ok"
+       },
+       {
+        "text": "Vos prix sont trop hauts. Divisez-les par deux.",
+        "tone": "negociation",
+        "fx": {
+         "k_tresor": -20,
+         "k_minerai": 15,
+         "faction_marchands": -3
+        },
+        "cond": "autorite>=4",
+        "next": "nego"
+       },
+       {
+        "text": "Pas aujourd'hui.",
+        "tone": "indifference",
+        "next": "non"
+       }
+      ]
+     },
+     "ok": {
+      "who": "conseil",
+      "nom": "Ysolde la marchande",
+      "text": "Un plaisir de traiter avec Valmont."
+     },
+     "nego": {
+      "who": "conseil",
+      "nom": "Ysolde la marchande",
+      "text": "Vous êtes dur en affaires… Soit. Mais on se souviendra de vous à la guilde."
+     },
+     "non": {
+      "who": "conseil",
+      "nom": "Ysolde la marchande",
+      "text": "Dommage. Je reviendrai peut-être."
+     }
+    }
+   }
+  },
+  {
+   "id": "raid_vargas",
+   "titre": "Raid sur les fermes",
+   "cond": "!flag:raid_repousse",
+   "recharge": 7,
+   "convo": {
+    "start": "a",
+    "nodes": {
+     "a": {
+      "who": "garde",
+      "nom": "Capitaine de la garde",
+      "text": "Des cavaliers de Vargas ont incendié une grange à l'est ! Ils seront repartis avant que nous arrivions.",
+      "choices": [
+       {
+        "text": "Envoyez la garde les poursuivre.",
+        "tone": "autorite",
+        "fx": {
+         "k_soldats": -1,
+         "k_moral": 3,
+         "faction_vargas": -5,
+         "flag": "raid_repousse"
+        },
+        "cond": "k_soldats>=4",
+        "next": "ok"
+       },
+       {
+        "text": "Aidez les fermiers à reconstruire.",
+        "tone": "bienveillance",
+        "fx": {
+         "k_bois": -20,
+         "k_moral": 4,
+         "confiance_habitants": 2
+        },
+        "next": "aide"
+       },
+       {
+        "text": "Doublez les gardes aux fermes, le reste attendra.",
+        "tone": "mefiance",
+        "fx": {
+         "k_tresor": -20,
+         "mefiance": 1
+        },
+        "next": "fin"
+       }
+      ]
+     },
+     "ok": {
+      "who": "garde",
+      "nom": "Capitaine de la garde",
+      "text": "Nous les avons rattrapés au gué. Un des nôtres n'est pas revenu… mais ils y réfléchiront à deux fois."
+     },
+     "aide": {
+      "who": "garde",
+      "nom": "Capitaine de la garde",
+      "text": "Les fermiers n'oublieront pas que vous êtes venu."
+     },
+     "fin": {
+      "who": "garde",
+      "nom": "Capitaine de la garde",
+      "text": "À vos ordres."
+     }
+    }
+   }
+  },
+  {
+   "id": "fete_moisson",
+   "titre": "La fête des moissons",
+   "cond": "k_moral>=50",
+   "recharge": 8,
+   "convo": {
+    "start": "a",
+    "nodes": {
+     "a": {
+      "who": "conseil",
+      "nom": "La doyenne du bourg",
+      "text": "Intendant, les habitants voudraient fêter la moisson, comme avant la guerre. Il faudrait un peu de vin et de viande.",
+      "choices": [
+       {
+        "text": "Valmont mérite une fête. La couronne paie.",
+        "tone": "bienveillance",
+        "fx": {
+         "k_tresor": -35,
+         "k_nourriture": -15,
+         "k_moral": 12,
+         "confiance_habitants": 4
+        },
+        "cond": "k_tresor>=35",
+        "next": "ok"
+       },
+       {
+        "text": "Une fête, oui, mais chacun apporte sa part.",
+        "tone": "diplomatie",
+        "fx": {
+         "k_moral": 5
+        },
+        "next": "ok"
+       },
+       {
+        "text": "Pas de fête tant que Vargas rôde.",
+        "tone": "autorite",
+        "fx": {
+         "k_moral": -5,
+         "autorite": 1
+        },
+        "next": "non"
+       }
+      ]
+     },
+     "ok": {
+      "who": "conseil",
+      "nom": "La doyenne du bourg",
+      "text": "On chantera votre nom ce soir !"
+     },
+     "non": {
+      "who": "conseil",
+      "nom": "La doyenne du bourg",
+      "text": "Je comprends… les gens seront déçus."
+     }
+    }
+   }
+  },
+  {
+   "id": "deserteur",
+   "titre": "Un déserteur de Vargas",
+   "cond": "",
+   "recharge": 9,
+   "convo": {
+    "start": "a",
+    "nodes": {
+     "a": {
+      "who": "garde",
+      "nom": "Capitaine de la garde",
+      "text": "Nous avons arrêté un mercenaire de Vargas. Il dit avoir déserté et propose de nous dire ce qu'il sait.",
+      "choices": [
+       {
+        "text": "Écoutons-le, puis laissons-le partir.",
+        "tone": "bienveillance",
+        "fx": {
+         "flag": "info_vargas",
+         "bienveillance": 1
+        },
+        "next": "info"
+       },
+       {
+        "text": "Qu'il rejoigne notre garde. On a besoin de bras.",
+        "tone": "diplomatie",
+        "fx": {
+         "k_soldats": 1,
+         "k_moral": -2
+        },
+        "next": "rec"
+       },
+       {
+        "text": "Un traître trahit deux fois. Au cachot.",
+        "tone": "mefiance",
+        "fx": {
+         "mefiance": 2,
+         "k_moral": 1
+        },
+        "next": "fin"
+       }
+      ]
+     },
+     "info": {
+      "who": "garde",
+      "nom": "Capitaine de la garde",
+      "text": "Il dit que Vargas paie ses hommes avec de l'or nain volé. Intéressant…"
+     },
+     "rec": {
+      "who": "garde",
+      "nom": "Capitaine de la garde",
+      "text": "Je le garderai à l'œil."
+     },
+     "fin": {
+      "who": "garde",
+      "nom": "Capitaine de la garde",
+      "text": "Il ne verra plus le soleil avant longtemps."
+     }
+    }
+   }
+  },
+  {
+   "id": "greve_mine",
+   "titre": "Colère à la mine",
+   "cond": "k_impot>=2",
+   "recharge": 6,
+   "convo": {
+    "start": "a",
+    "nodes": {
+     "a": {
+      "who": "conseil",
+      "nom": "Le contremaître",
+      "text": "Les mineurs refusent de descendre. Ils disent que l'impôt les étrangle pendant qu'ils risquent leur vie.",
+      "choices": [
+       {
+        "text": "Ils ont raison. Baissez l'impôt.",
+        "tone": "bienveillance",
+        "fx": {
+         "k_impot": -1,
+         "k_moral": 6,
+         "confiance_habitants": 3
+        },
+        "next": "ok"
+       },
+       {
+        "text": "Une prime pour ceux qui descendent.",
+        "tone": "diplomatie",
+        "fx": {
+         "k_tresor": -30,
+         "k_moral": 2
+        },
+        "cond": "k_tresor>=30",
+        "next": "ok"
+       },
+       {
+        "text": "Ceux qui refusent seront remplacés.",
+        "tone": "autorite",
+        "fx": {
+         "k_moral": -8,
+         "autorite": 3,
+         "confiance_habitants": -4
+        },
+        "next": "dur"
+       }
+      ]
+     },
+     "ok": {
+      "who": "conseil",
+      "nom": "Le contremaître",
+      "text": "Ils reprendront demain à l'aube."
+     },
+     "dur": {
+      "who": "conseil",
+      "nom": "Le contremaître",
+      "text": "… Comme vous voudrez. Mais on s'en souviendra."
+     }
+    }
+   }
+  }
+ ],
+ "pnj": {
+  "noms_h": [
+   "Garric",
+   "Bertrand",
+   "Odon",
+   "Mathis",
+   "Aubin",
+   "Guérin",
+   "Hugues",
+   "Lothaire",
+   "Renaud",
+   "Thibault",
+   "Anselme",
+   "Baudouin"
+  ],
+  "noms_f": [
+   "Ysolde",
+   "Mahaut",
+   "Aliénor",
+   "Berthe",
+   "Ermengarde",
+   "Clémence",
+   "Adèle",
+   "Héloïse"
+  ],
+  "roles": {
+   "garde": {
+    "titre": "Garde royal",
+    "soi": [
+     "Je sers Valmont depuis l'hiver du grand gel. On était trente à l'époque… on n'est plus que quelques-uns.",
+     "Mon père était garde, son père aussi. Je n'ai jamais su faire autre chose que tenir une lance."
+    ],
+    "discuter": [
+     "Les nuits sont longues sur les remparts. On guette les torches de Vargas.",
+     "Le capitaine dit qu'on manque d'acier. Les lances sont vieilles comme le roi.",
+     "Si on avait la moitié de votre bras, Vargas ne serait jamais venu jusqu'ici.",
+     "On dit que le portail du sud brille la nuit, depuis votre arrivée."
+    ],
+    "recrue": "soldat"
+   },
+   "habitant": {
+    "titre": "Habitant du bourg",
+    "soi": [
+     "Je tiens l'échoppe près du puits. Enfin… quand il y a quelque chose à vendre.",
+     "Je suis né ici, comme toute ma famille. On ne partira pas, quoi qu'il arrive."
+    ],
+    "discuter": [
+     "Le pain a doublé de prix depuis le début de la guerre.",
+     "Ma voisine dit que vous êtes sorti du portail. C'est vrai ?",
+     "Les enfants jouent aux chevaliers dans la rue. Depuis la bataille de la cour, c'est vous qu'ils imitent.",
+     "Le puits de la place a une eau délicieuse, vous savez."
+    ],
+    "recrue": "ouvrier"
+   },
+   "paysan": {
+    "titre": "Paysan",
+    "soi": [
+     "Je travaille ces champs depuis que je sais marcher.",
+     "Ma terre n'est pas grande, mais elle nourrit trois familles."
+    ],
+    "discuter": [
+     "Le blé pousse bien cette saison. Si les pillards nous laissent tranquilles…",
+     "Il nous faudrait plus de bras pour la moisson.",
+     "Les corbeaux sont pires que les puglins, je vous le dis."
+    ],
+    "recrue": "ouvrier"
+   },
+   "bucheron": {
+    "titre": "Bûcheron",
+    "soi": [
+     "Trente ans que je coupe du bois. Je connais chaque arbre de cette forêt."
+    ],
+    "discuter": [
+     "On n'ose plus aller vers l'ouest, à cause des morts qui marchent.",
+     "Le chêne du nord fait les meilleures poutres du royaume."
+    ],
+    "recrue": "ouvrier"
+   },
+   "mineur": {
+    "titre": "Mineur",
+    "soi": [
+     "Je descends dans la mine depuis mes douze ans."
+    ],
+    "discuter": [
+     "Les puglins rôdent sur les collines. On remonte avant la nuit.",
+     "Il y a des galeries anciennes, plus profondes. Personne n'ose y aller."
+    ],
+    "recrue": "ouvrier"
+   },
+   "marchand": {
+    "titre": "Marchand",
+    "soi": [
+     "Je vends un peu de tout : potions, cordes, épices. Surtout des potions, ces temps-ci."
+    ],
+    "discuter": [
+     "Les caravanes ne viennent plus depuis que la route du sud est dangereuse.",
+     "Un bon marchand sait quand baisser ses prix… et quand les monter."
+    ],
+    "commerce": true
+   },
+   "roi": {
+    "titre": "Roi de Valmont",
+    "soi": [
+     "J'ai été un roi guerrier, autrefois. Aujourd'hui je ne suis qu'un vieil homme qui compte ses soldats.",
+     "Mon fils Edric aurait dû me succéder. Vargas l'a tué au gué de la Claire."
+    ],
+    "discuter": [
+     "Gouverner, c'est choisir qui l'on déçoit.",
+     "Le peuple vous regarde, Intendant. Ce que vous faites compte plus que ce que vous dites.",
+     "Vargas ne s'arrêtera pas. Préparez Valmont."
+    ]
+   },
+   "elian": {
+    "titre": "Messager du roi, votre bras droit",
+    "soi": [
+     "Je suis messager depuis deux ans. Avant, j'aidais ma mère à l'auberge du Gué.",
+     "Je n'aime pas me battre… mais je n'aime pas encore plus qu'on s'en prenne aux gens d'ici."
+    ],
+    "discuter": [
+     "Je me demande d'où vous venez vraiment. Le portail était scellé depuis cent ans.",
+     "Merci de m'avoir sauvé, sur la route. Je n'oublie pas.",
+     "Si vous m'envoyez en mission, je ferai de mon mieux. Promis."
+    ]
+   }
+  }
+ },
+ "barks": {
+  "adore": [
+   "Longue vie à {titre} !",
+   "C'est lui… le héros de la cour !",
+   "Mes enfants parlent de vous tous les soirs, {titre}.",
+   "Valmont respire depuis que vous êtes là.",
+   "Bénis soient vos pas, {titre} !",
+   "Si vous avez faim, ma porte est ouverte !"
+  ],
+  "bon": [
+   "Bonjour, {titre}.",
+   "Belle journée, {titre} !",
+   "Le {titre} en personne… bonjour !",
+   "On dit que vous avez abattu un géant. Respect.",
+   "Merci pour ce que vous faites."
+  ],
+  "neutre": [
+   "…Bonjour.",
+   "C'est le nouveau {titre}, non ?",
+   "On verra bien ce qu'il vaut, celui-là.",
+   "Hm.",
+   "Encore un qui promet monts et merveilles…"
+  ],
+  "craint": [
+   "Baissez les yeux, c'est lui…",
+   "Ne le regarde pas, il pourrait t'arrêter.",
+   "Bon… bonjour, {titre}. Je n'ai rien fait !",
+   "Chut. Le seigneur passe.",
+   "Pitié, pas d'ennuis aujourd'hui…"
+  ],
+  "deteste": [
+   "Voilà le tyran…",
+   "Profite tant que tu peux, {titre}.",
+   "Un jour, ça se paiera.",
+   "On était mieux sous les mercenaires.",
+   "*crache par terre*"
+  ],
+  "garde_bon": [
+   "Mon seigneur.",
+   "À vos ordres, {titre} !",
+   "Rien à signaler, {titre}.",
+   "Garde à vous ! Le {titre} passe !"
+  ],
+  "garde_craint": [
+   "…Mon seigneur.",
+   "Oui, {titre}. Tout de suite, {titre}.",
+   "Rien à signaler… rien du tout."
+  ],
+  "peur_bandits": "J'ose à peine le dire, {titre}… la nuit, j'entends des bandits rôder près de ma maison. J'ai peur pour ma famille."
+ },
+ "raids": [
+  {
+   "id": "ferme",
+   "nom": "la ferme de l'est",
+   "pos": [
+    92,
+    4
+   ]
+  },
+  {
+   "id": "bucherons",
+   "nom": "le camp des bûcherons",
+   "pos": [
+    -114,
+    -2
+   ]
+  },
+  {
+   "id": "mine",
+   "nom": "l'entrée de la mine",
+   "pos": [
+    168,
+    -164
+   ]
+  },
+  {
+   "id": "bourg_est",
+   "nom": "les maisons à l'est du bourg",
+   "pos": [
+    38,
+    -12
+   ]
+  },
+  {
+   "id": "champs",
+   "nom": "les champs du nord",
+   "pos": [
+    120,
+    -30
+   ]
+  }
+ ]
 }

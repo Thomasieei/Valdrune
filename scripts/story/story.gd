@@ -106,6 +106,7 @@ func _resume() -> void:
 			hud.btn_kingdom.visible = true
 			step = "libre"
 			Kingdom.start(world)
+			Escort.restore()
 
 func _place_player(p: Vector2, yaw: float) -> void:
 	player.global_position = Vector3(p.x, Terrain.height_at(p.x, p.y) + 0.3, p.y)
@@ -403,7 +404,7 @@ func _on_enemy_dead(_m: Monster) -> void:
 		_first_kill = true
 		if step == "embuscade" and not gs.flag("tuto_sort"):
 			_tuto_show("sorts")
-			hud.hint("Vous avez aussi la magie : touchez la flamme pour lancer un Trait de feu", "sort")
+			hud.hint("La magie : touchez la flamme pour un Trait de feu.\nMaintenez pour le charger, glissez pour viser, relâchez sur la croix pour annuler", "sort")
 			hud.pulse(hud.btn_spells[SpellDB.ORDER[0]])
 
 ## Mort du joueur pendant un combat scénarisé : l'ennemi reprend des forces, c'est dur mais juste.
@@ -444,7 +445,7 @@ func _tutorial_tick() -> void:
 		"sort":
 			if st["sorts"] >= 1:
 				gs.set_flag("tuto_sort")
-				hud.hint("Chaque sort coûte du mana (barre bleue) et a un temps de recharge", "sort2", 5.0)
+				hud.hint("Chargé à fond, un sort coûte plus de mana mais frappe bien plus fort… et peut effrayer les ennemis", "sort2", 6.0)
 				hud.pulse(null)
 		"esquive":
 			if st["esquives"] >= 1:
@@ -466,7 +467,7 @@ func _tutorial_tick() -> void:
 
 ## Première attaque dangereuse qui vise le joueur : ralenti, le bouton d'esquive s'illumine.
 func _on_special(m: Monster, tele: Telegraph) -> void:
-	if _slowmo_done or gs.flag("tuto_esquive_ok") or Combat.player == null:
+	if _slowmo_done or gs.flag("tuto_esquive_ok") or Combat.player == null or Story.done():
 		return
 	if not tele.contains(Combat.player.global_position):
 		return

@@ -11,6 +11,9 @@ var _i := 0
 var _ap: AnimationPlayer
 var _cur := ""
 var _wait := 0.0
+var captive := false        # tenu par des gardes / en prison : ne suit plus sa routine
+var _anim_until := 0.0
+var _leave: Array = []      # trajet de départ (bannissement), puis disparition
 
 func _ready() -> void:
 	add_to_group("pnj")
@@ -32,7 +35,48 @@ func _play(a: String) -> void:
 		_cur = a
 		_ap.play(a, 0.3)
 
+## Petites réactions sociales réutilisables
+func react(a: String, dur: float) -> void:
+	if not _ap.has_animation(a):
+		return
+	_cur = a
+	_ap.play(a, 0.2)
+	_anim_until = Time.get_ticks_msec() / 1000.0 + dur
+
+func kneel(dur := 5.0) -> void:
+	react("Fixing_Kneeling", dur)
+
+func nod() -> void:
+	react("b/Yes", 2.0)
+
+func leave(points: Array) -> void:
+	_leave = points
+	captive = true
+	path = []
+
 func _process(delta: float) -> void:
+	if _leave.size() > 0:
+		var t3: Vector2 = _leave[0]
+		var here3 := Vector2(position.x, position.z)
+		var d3 := t3 - here3
+		if d3.length() < 0.6:
+			_leave.remove_at(0)
+			if _leave.is_empty():
+				queue_free()
+			return
+		_play("Walk")
+		here3 += d3.normalized() * speed * 1.2 * delta
+		position = Vector3(here3.x, Terrain.height_at(here3.x, here3.y), here3.y)
+		rotation.y = atan2(d3.x, d3.y)
+		return
+	if _anim_until > 0.0:
+		if Time.get_ticks_msec() / 1000.0 < _anim_until:
+			return
+		_anim_until = 0.0
+		_cur = ""
+		_play(anim_name if path.size() < 2 else "Walk")
+	if captive:
+		return
 	if path.size() < 2:
 		return
 	if _wait > 0.0:

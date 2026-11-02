@@ -78,7 +78,8 @@ static func particles(texname: String, amount: int, life: float, cols: Array, si
 
 static func _free_after(n: Node, t: float) -> void:
 	if n.is_inside_tree():
-		n.get_tree().create_timer(t).timeout.connect(func(): if is_instance_valid(n): n.queue_free())
+		# connexion à la méthode du nœud : si le nœud disparaît avant, la connexion disparaît avec lui
+		n.get_tree().create_timer(t).timeout.connect(n.queue_free)
 
 static func _add(n: Node3D, pos: Vector3) -> Node3D:
 	root.add_child(n)
@@ -202,6 +203,84 @@ static func explosion(pos: Vector3, radius: float) -> void:
 	_free_after(flash, 0.5)
 	_free_after(fire, 0.9)
 	_free_after(smoke, 1.8)
+	# braises projetées et éclair de lumière : l'impact se sent
+	var emb := particles("spark_04", 18, 0.8, [Color(1, 0.9, 0.5, 1), Color(1, 0.4, 0.1, 0)], 0.25)
+	emb.spread = 180.0
+	emb.initial_velocity_min = radius * 2.0
+	emb.initial_velocity_max = radius * 4.5
+	emb.gravity = Vector3(0, -9, 0)
+	_add(emb, pos)
+	emb.emitting = true
+	_free_after(emb, 1.0)
+	impact_light(pos, Color(1, 0.6, 0.25), 3.0 + radius, radius * 4.0)
+
+static var _light: OmniLight3D
+## Un seul éclair lumineux réutilisé (pas de lumières qui s'accumulent)
+static func impact_light(pos: Vector3, col: Color, energy: float, rng: float) -> void:
+	if root == null:
+		return
+	if _light == null or not is_instance_valid(_light):
+		_light = OmniLight3D.new()
+		_light.shadow_enabled = false
+		root.add_child(_light)
+	_light.global_position = pos + Vector3.UP * 0.8
+	_light.light_color = col
+	_light.omni_range = rng
+	_light.light_energy = energy
+	_light.visible = true
+	var tw := _light.create_tween()
+	tw.tween_property(_light, "light_energy", 0.0, 0.35)
+	tw.tween_callback(func(): _light.visible = false)
+
+## Arrêt sur image très bref à l'impact (sensation de poids)
+static func hitstop(dur: float) -> void:
+	if root == null or Engine.time_scale < 1.0:
+		return
+	Engine.time_scale = 0.06
+	root.get_tree().create_timer(dur, true, false, true).timeout.connect(func():
+		if Engine.time_scale < 0.1:
+			Engine.time_scale = 1.0)
+
+## Aura de charge d'un sort : anneau au sol qui grandit + particules aspirées vers le lanceur
+static func charge_aura(target: Node3D, col: Color) -> Node3D:
+	var n := Node3D.new()
+	n.name = "AuraCharge"
+	target.add_child(n)
+	var ring := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(2.4, 2.4)
+	ring.mesh = q
+	ring.material_override = pmat("circle_05", true, false, col)
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ring.rotation = Vector3(-PI / 2.0, 0, 0)
+	ring.position = Vector3.UP * 0.1
+	n.add_child(ring)
+	var tw := ring.create_tween()
+	tw.set_loops()
+	tw.tween_property(ring, "scale", Vector3.ONE * 1.6, 0.55)
+	tw.tween_property(ring, "scale", Vector3.ONE * 0.8, 0.0)
+	var p := particles("spark_04", 24, 0.6, [Color(col.r, col.g, col.b, 0), Color(1, 1, 1, 1)], 0.18, false)
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = 1.6
+	p.radial_accel_min = -9.0
+	p.radial_accel_max = -6.0
+	p.gravity = Vector3.ZERO
+	p.local_coords = true
+	n.add_child(p)
+	p.position = Vector3.UP * 1.1
+	p.emitting = true
+	return n
+
+## Libération d'un sort chargé à fond : colonne de lumière et onde
+static func power_burst(target: Node3D, col: Color) -> void:
+	var pos := target.global_position
+	shockwave(pos, 5.0)
+	var p := particles("light_01", 1, 0.45, [Color(1, 1, 1, 1), Color(col.r, col.g, col.b, 0)], 7.0)
+	p.gravity = Vector3.ZERO
+	_add(p, pos + Vector3.UP * 1.2)
+	p.emitting = true
+	_free_after(p, 0.6)
+	impact_light(pos, col, 6.0, 14.0)
 
 # ---------------------------------------------------------------- GIVRE
 static func frost_nova(pos: Vector3, r: float) -> void:
@@ -259,6 +338,7 @@ static func frost_nova(pos: Vector3, r: float) -> void:
 	_add(snow, Vector3(pos.x, gy + 0.4, pos.z))
 	snow.emitting = true
 	_free_after(snow, 1.4)
+	impact_light(Vector3(pos.x, gy, pos.z), Color(0.55, 0.85, 1.0), 4.0, r * 2.5)
 
 ## Givre persistant sur une cible ralentie
 static func frost_mark(target: Node3D, dur: float) -> void:

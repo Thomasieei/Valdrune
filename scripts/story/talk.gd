@@ -36,6 +36,14 @@ static func setup(world: Node3D) -> void:
 			id = "garric"
 		n.set_meta("talk", {"id": id, "nom": nm, "role": role})
 		i += 1
+		# bannis et prisonniers ne sont plus à leur place d'origine
+		var gone: Array = GameState.get_inst().flags.get("bannis", [])
+		var jailed := false
+		for pr in GameState.get_inst().kingdom.get("prisonniers", []):
+			if pr["id"] == id:
+				jailed = true
+		if gone.has(id) or jailed:
+			n.queue_free()
 	# deux marchands derrière les étals de la place
 	for k in 2:
 		var a := TAU * (k * 2) / 4.0 + PI / 4.0
@@ -59,6 +67,13 @@ static func nearest(pos: Vector3, tree: SceneTree) -> Node3D:
 		if d < bd:
 			bd = d
 			best = n
+	for sd in tree.get_nodes_in_group("soldat"):
+		if sd.cbt.dead or not sd.has_meta("talk"):
+			continue
+		var d2: float = sd.global_position.distance_to(pos)
+		if d2 < bd:
+			bd = d2
+			best = sd
 	var c = Combat.companion
 	if c and is_instance_valid(c) and c.present() and c.global_position.distance_to(pos) < bd and Story.done():
 		best = c
@@ -105,6 +120,8 @@ static func build(n: Node3D) -> Dictionary:
 	else:
 		greet = "Ah, %s ! Toujours un plaisir." % gs.titre if rel >= 3 else "Rebonjour, %s." % gs.titre
 	m["vu"] = vu + 1
+	if vu == 0 and Story.done() and role in ["habitant", "paysan", "bucheron"]:
+		m["peur"] = randf() < 0.3
 	gs.mark()
 	var nodes := {}
 	var choices := []
@@ -171,8 +188,22 @@ static func build(n: Node3D) -> Dictionary:
 	if role == "roi" and Story.done():
 		nodes["conseil"] = {"who": who, "nom": label, "text": _king_advice(), "next": "menu"}
 		choices.append({"text": "Un conseil, Majesté ?", "next": "conseil"})
+	# --- garde rapprochée
+	if role == "garde" and Story.done() and n is Guard and Escort.available() > 0:
+		nodes["escorte"] = {"who": who, "nom": label, "text": "Vous accompagner ? À vos ordres, %s !" % gs.titre, "next": "END"}
+		choices.append({"text": "Rejoins ma garde rapprochée", "next": "escorte", "callback": func(): Escort.take_guard(n)})
+	if role == "soldat" and n is Soldier:
+		var sd: Soldier = n
+		greet = "%s, %s. Ordres ?" % ["Mon seigneur" if gs.val("crainte") < 15 else "…Mon seigneur", gs.titre]
+		choices.clear()
+		choices.append({"text": "Reste près de moi", "next": "END", "callback": func(): Escort.set_mode(sd, Soldier.M.ESCORTE)})
+		choices.append({"text": "Ouvre la marche (éclaireur)", "next": "END", "callback": func(): Escort.set_mode(sd, Soldier.M.ECLAIREUR)})
+		choices.append({"text": "Monte la garde ici", "next": "END", "callback": func(): Escort.set_mode(sd, Soldier.M.GARDER)})
+		choices.append({"text": "Retourne à ton poste", "next": "END", "callback": func(): Escort.dismiss(sd)})
 	choices.append({"text": "Au revoir", "next": "END"})
 	nodes["menu"] = {"who": who, "nom": label, "text": greet, "choices": choices}
+	if n is Villager or n is Guard or role == "prisonnier":
+		Justice.add_options(nodes, choices, who, label, n, role)
 	return {"start": "menu", "nodes": nodes}
 
 static func _short(t: String) -> String:

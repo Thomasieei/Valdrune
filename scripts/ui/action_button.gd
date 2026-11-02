@@ -16,6 +16,7 @@ var dim := false
 var held := false
 var pulse := false           # mise en avant (tutoriel)
 var label := ""              # petite légende sous le bouton
+var charge := 0.0            # charge du sort maintenu (0..1)
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -31,7 +32,7 @@ var _sig := ""
 
 ## Ne redessine que si l'état affiché a changé (économise le processeur du téléphone).
 func refresh() -> void:
-	var sig := "%d|%s|%s|%d|%s|%s|%s" % [int(cooldown * 40.0), cd_text, locked_text, count, dim, held, label]
+	var sig := "%d|%s|%s|%d|%s|%s|%s|%d" % [int(cooldown * 80.0), cd_text, locked_text, count, dim, held, label, int(charge * 30.0)]
 	if pulse:
 		sig += str(Time.get_ticks_msec() / 50)
 	if sig != _sig:
@@ -52,16 +53,25 @@ func _draw() -> void:
 	var ring := accent if locked_text == "" else Color(0.5, 0.5, 0.5)
 	if dim:
 		ring = Color(0.45, 0.55, 0.85)
+	if cooldown > 0.0 and locked_text == "":
+		ring = Color(0.3, 0.3, 0.32)
 	draw_arc(c, radius - 2.0, 0, TAU, 48, Color(ring.r, ring.g, ring.b, 0.95), 3.0, true)
+	if charge > 0.0:
+		draw_arc(c, radius + 6.0, -PI / 2.0, -PI / 2.0 + TAU * charge, 40, Color(1, 0.95, 0.6, 0.95), 6.0, true)
 	var ic := Color(1, 1, 1, 0.95) if locked_text == "" and not dim else Color(0.75, 0.75, 0.8, 0.55)
 	_icon(c, radius * 0.52, ic)
 	if cooldown > 0.0 and locked_text == "":
-		var pts := PackedVector2Array([c])
-		var n := 32
-		for i in n + 1:
-			var a := -PI / 2.0 + TAU * cooldown * i / n
-			pts.append(c + Vector2(cos(a), sin(a)) * (radius - 3.0))
-		draw_colored_polygon(pts, Color(0, 0, 0, 0.55))
+		# secteur sombre dessiné triangle par triangle : un seul polygone en éventail devient invalide
+		# près de 100 % (le centre touche le bord) et n'était alors plus dessiné du tout
+		var n := maxi(2, int(40 * cooldown))
+		var prev := c + Vector2(0, -(radius - 3.0))
+		for i in range(1, n + 1):
+			var a := -PI / 2.0 + TAU * minf(cooldown, 0.999) * i / n
+			var cur := c + Vector2(cos(a), sin(a)) * (radius - 3.0)
+			draw_colored_polygon(PackedVector2Array([c, prev, cur]), Color(0, 0, 0, 0.55))
+			prev = cur
+		# anneau de progression : se remplit jusqu'au bout quand le sort est prêt
+		draw_arc(c, radius - 2.0, -PI / 2.0, -PI / 2.0 + TAU * (1.0 - cooldown), 40, Color(accent.r, accent.g, accent.b, 0.95), 4.0, true)
 		if cd_text != "":
 			_text(c, cd_text, int(radius * 0.5), Color.WHITE)
 	if locked_text != "":
@@ -133,3 +143,6 @@ func _icon(c: Vector2, s: float, col: Color) -> void:
 			draw_colored_polygon(PackedVector2Array([c + Vector2(-0.75, 0.5) * s, c + Vector2(-0.75, -0.35) * s, c + Vector2(-0.38, 0.05) * s, c + Vector2(0, -0.6) * s, c + Vector2(0.38, 0.05) * s, c + Vector2(0.75, -0.35) * s, c + Vector2(0.75, 0.5) * s]), g)
 			draw_rect(Rect2(c + Vector2(-0.75, 0.55) * s, Vector2(1.5, 0.22) * s), g)
 			draw_circle(c + Vector2(0, 0.25) * s, s * 0.12, Color(0.85, 0.2, 0.25, col.a))
+		"annuler":
+			draw_line(c + Vector2(-0.55, -0.55) * s, c + Vector2(0.55, 0.55) * s, Color(1, 0.5, 0.45, col.a), s * 0.22, true)
+			draw_line(c + Vector2(0.55, -0.55) * s, c + Vector2(-0.55, 0.55) * s, Color(1, 0.5, 0.45, col.a), s * 0.22, true)

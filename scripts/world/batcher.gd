@@ -4,7 +4,7 @@ class_name Batcher
 
 const CELL := 64.0
 
-static func merge(root: Node3D) -> void:
+static func merge(root: Node3D, colliders := true) -> void:
 	var groups := {}   # "cx|cz" -> {material -> SurfaceTool}
 	var victims: Array = []
 	var body := StaticBody3D.new()
@@ -30,6 +30,11 @@ static func merge(root: Node3D) -> void:
 				groups[key] = {}
 			var g: Dictionary = groups[key]
 			var mesh: Mesh = mi.mesh
+			if mesh is PrimitiveMesh:
+				var am := ArrayMesh.new()
+				am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, (mesh as PrimitiveMesh).get_mesh_arrays())
+				am.surface_set_material(0, mesh.material)
+				mesh = am
 			for si in mesh.get_surface_count():
 				if mesh.surface_get_primitive_type(si) != Mesh.PRIMITIVE_TRIANGLES:
 					continue
@@ -44,7 +49,8 @@ static func merge(root: Node3D) -> void:
 				var st: SurfaceTool = g[mat]
 				_append(st, arrays, xf)
 			victims.append(mi)
-			_collider(body, mi, xf)
+			if colliders:
+				_collider(body, mi, xf)
 	root.add_child(body)
 	for mi in victims:
 		mi.get_parent().remove_child(mi)

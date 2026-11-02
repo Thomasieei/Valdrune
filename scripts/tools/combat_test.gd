@@ -147,16 +147,63 @@ func _ready() -> void:
 		await _wait(0.5)
 		_check(r.cbt.is_rooted() or r.cbt.dead, "Racines immobilisent la cible")
 		await _shot("7_racines")
-	# 9) Le joueur subit des dégâts et un sort en incantation est interrompu
+	# 9) Nova de givre : lancement instantané, même sous les coups (plus d'incantation interrompue)
 	p.cbt.shield = 0.0
 	var hpp: float = p.cbt.hp
 	pc.mana = prog.max_mana()
 	pc.cooldowns.erase("nova_givre")
-	pc.cast("nova_givre")
+	var s0: int = pc.stats["sorts"]
 	p.cbt.take_damage(10, null)
-	await _wait(0.6)
+	pc.cast("nova_givre")
+	await _wait(0.3)
 	_check(p.cbt.hp < hpp, "Le joueur subit des dégâts")
-	_check(pc._cast_spell == "", "Incantation interrompue par un coup")
+	_check(pc.stats["sorts"] == s0 + 1 and pc._cast_spell == "", "Nova lancée instantanément malgré le coup reçu")
+	# 9b) Annulation : aucun mana dépensé, pas de recharge
+	pc.cooldowns.clear()
+	pc.mana = prog.max_mana()
+	var mana0: float = pc.mana
+	_check(pc.begin_charge("nova_givre"), "Maintenir le bouton commence la charge")
+	await _wait(0.4)
+	pc.cancel_charge()
+	_check(absf(pc.mana - mana0) < 2.0 and pc.cooldown_left("nova_givre") == 0.0 and pc.charging == "", "Annuler : ni mana dépensé ni recharge")
+	# 9c) Sort chargé à fond + visée + peur
+	for g in Combat.monsters:
+		if Combat.alive(g):
+			g.global_position = p.global_position + Vector3(randf_range(-3, 3), 0.3, randf_range(-3, 3))
+			g._aggro()
+	pc.mana = prog.max_mana()
+	pc.begin_charge("trait_feu")
+	pc.set_aim(Vector2(0, -1))
+	await get_tree().create_timer(1.6, true, false, true).timeout
+	_check(pc.charge_level() >= 0.95, "Charge complète après 1,1 s (%.2f)" % pc.charge_level())
+	await _shot("6b_charge_visee")
+	var sc0: int = pc.stats.get("sorts_charges", 0)
+	pc.release_charge()
+	await _wait(0.1)
+	_check(int(pc.stats.get("sorts_charges", 0)) == sc0 + 1, "Trait de feu chargé à fond lancé")
+	var feared := 0
+	for g in Combat.monsters:
+		if Combat.alive(g) and g.state == Monster.S.FUITE:
+			feared += 1
+	print("   (ennemis effrayés : %d / %d)" % [feared, Combat.monsters.size()])
+	await _wait(0.4)
+	await _shot("6c_impact_charge")
+	# 9d) Nova lancée 8 fois de suite : pas de gel, joueur jamais bloqué
+	var worst := 0.0
+	for k in 8:
+		pc.cooldowns.clear()
+		pc.mana = prog.max_mana()
+		pc.begin_charge("nova_givre")
+		await _wait(0.2)
+		var t0 := Time.get_ticks_usec()
+		pc.release_charge()
+		worst = maxf(worst, (Time.get_ticks_usec() - t0) / 1000.0)
+		await _wait(0.5)
+	print("   (pire coût processeur d'un lancement de nova : %.1f ms)" % worst)
+	_check(not pc.busy() and pc.charging == "", "Après 8 novas, le joueur n'est pas bloqué")
+	pc.cooldowns["nova_givre"] = pc.now() + 4.0
+	await _wait(0.2)
+	await _shot("6d_recharge_bouton")
 	# 10) Brute élite + diablotins près du portail (scène de combat chargée)
 	_place(p, Vector2(30, 200), 30.0)
 	await _wait(2.5)
@@ -171,6 +218,25 @@ func _ready() -> void:
 		pc.cast("trait_feu")
 		await _wait(0.2)
 	await _shot("8_melee_portail")
+	# peur : nova chargée à fond au milieu des diablotins
+	for g in Combat.monsters:
+		if Combat.alive(g):
+			g.global_position = p.global_position + Vector3(randf_range(-3, 3), 0.3, randf_range(-3, 3))
+	pc.cooldowns.clear()
+	pc.mana = prog.max_mana()
+	pc.begin_charge("nova_givre")
+	await get_tree().create_timer(1.6, true, false, true).timeout
+	pc.release_charge()
+	await _wait(0.3)
+	var fe := 0
+	var tot := 0
+	for g in Combat.monsters:
+		if Combat.alive(g):
+			tot += 1
+			if g.state == Monster.S.FUITE:
+				fe += 1
+	await _shot("9_peur")
+	_check(fe > 0, "Démonstration de puissance : %d ennemi(s) sur %d prennent la fuite" % [fe, tot])
 	_check(Combat.monsters.size() >= 3, "Diablotins et brute présents au portail (%d)" % Combat.monsters.size())
 	_finish()
 

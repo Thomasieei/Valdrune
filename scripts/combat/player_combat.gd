@@ -30,6 +30,16 @@ var _potion_cd := 0.0
 var stats := {"coups": 0, "combo": 0, "esquives": 0, "sorts": 0, "potions": 0, "morts": 0}
 ## Point de réapparition (l'histoire le déplace pendant l'introduction)
 static var respawn_point := Vector2(0, -70)
+## Sorts chargés : maintenir le bouton charge le sort (puissance, rayon, coût), glisser vise, « Annuler » annule.
+const CHARGE_TIME := 1.1
+var charging := ""
+var _charge_t0 := 0.0
+var aim := Vector3.ZERO          # direction visée (monde), ZERO = visée automatique
+var _c := 0.0                    # charge du sort en cours de résolution
+var _aim_used := Vector3.ZERO
+var _reticle: MeshInstance3D
+var _ret_mat: ShaderMaterial
+var _charge_fx: Node3D
 static var respawn_text := "Vous reprenez vos esprits aux portes du château"
 
 const COMBO := [
@@ -134,83 +144,207 @@ func dodge() -> void:
 	Sfx.play("esquive")
 
 # ------------------------------------------------------------------ SORTS
+## Lancement immédiat (appui court, clavier, tests)
 func cast(id: String) -> void:
+	_cast_with(id, 0.0, Vector3.ZERO)
+
+func can_cast(id: String, feedback := true) -> bool:
 	var d: Dictionary = SpellDB.DEFS[id]
-	if player.cbt.dead:
-		return
+	if player.cbt.dead or charging != "":
+		return false
 	if not spell_unlocked(id):
-		message.emit("%s : débloqué au niveau %d" % [d["nom"], d["niveau"]], Color(1, 0.8, 0.4))
-		Sfx.play("erreur", -6.0)
-		return
+		if feedback:
+			message.emit("%s : débloqué au niveau %d" % [d["nom"], d["niveau"]], Color(1, 0.8, 0.4))
+			Sfx.play("erreur", -6.0)
+		return false
 	if cooldown_left(id) > 0.0:
-		return
+		return false
 	if mana < d["mana"]:
-		message.emit("Pas assez de mana", Color(0.5, 0.7, 1.0))
-		Sfx.play("erreur", -6.0)
+		if feedback:
+			message.emit("Pas assez de mana", Color(0.5, 0.7, 1.0))
+			Sfx.play("erreur", -6.0)
+		return false
+	return true
+
+## Début de charge (bouton maintenu)
+func begin_charge(id: String) -> bool:
+	if not can_cast(id):
+		return false
+	charging = id
+	_charge_t0 = now()
+	aim = Vector3.ZERO
+	_attack_until = 0.0
+	player.action("Spell_Simple_Idle", 60.0, 1.0)
+	_charge_fx = FX.charge_aura(player, SpellDB.DEFS[id]["couleur"])
+	Sfx.play("ok", -14.0)
+	_show_reticle(true)
+	return true
+
+func charge_level() -> float:
+	if charging == "":
+		return 0.0
+	return clampf((now() - _charge_t0) / CHARGE_TIME, 0.0, 1.0)
+
+## Visée : vecteur de glissé du doigt (repère écran, -1..1) → direction monde selon la caméra
+func set_aim(v: Vector2) -> void:
+	if v.length() < 0.3:
+		aim = Vector3.ZERO
+	else:
+		aim = Vector3(v.x, 0, v.y).normalized().rotated(Vector3.UP, player.cam_yaw)
+
+func release_charge() -> void:
+	if charging == "":
 		return
+	var id := charging
+	var c := charge_level()
+	var d: Dictionary = SpellDB.DEFS[id]
+	# la charge coûte du mana : on charge seulement ce qu'on peut payer
+	var extra := float(d["mana"]) * 0.6
+	if extra > 0.0:
+		c = minf(c, maxf(0.0, (mana - float(d["mana"])) / extra))
+	_stop_charge()
+	if not _cast_with(id, c, aim):
+		player.end_action()
+
+func cancel_charge() -> void:
+	if charging == "":
+		return
+	_stop_charge()
+	player.end_action()
+	message.emit("Sort annulé", Color(0.8, 0.8, 0.85))
+	Sfx.play("erreur", -12.0)
+
+func _stop_charge() -> void:
+	charging = ""
+	_show_reticle(false)
+	if is_instance_valid(_charge_fx):
+		_charge_fx.queue_free()
+	_charge_fx = null
+
+func _cast_with(id: String, c: float, aim_dir: Vector3) -> bool:
+	var d: Dictionary = SpellDB.DEFS[id]
+	if not can_cast(id):
+		return false
 	if busy() and now() < _dodge_until:
-		return
+		return false
+	if aim_dir != Vector3.ZERO and id in ["trait_feu", "racines"]:
+		var t := Combat.best_target(player.global_position, aim_dir, float(d["portee"]), 30.0)
+		if t:
+			target = t
+		player.rotation.y = atan2(aim_dir.x, aim_dir.z)
 	if id == "racines":
-		_refresh_target(false)
+		if aim_dir == Vector3.ZERO:
+			_refresh_target(false)
 		if target == null or target.global_position.distance_to(player.global_position) > d["portee"]:
 			message.emit("Aucune cible à portée", Color(1, 0.8, 0.4))
 			Sfx.play("erreur", -6.0)
-			return
+			return false
 	_attack_until = 0.0
-	mana -= d["mana"]
+	mana -= float(d["mana"]) * (1.0 + 0.6 * c)
+	_c = c
+	_aim_used = aim_dir
 	cooldowns[id] = now() + d["recharge"]
 	FX.cast_glow(player, d["couleur"])
+	if c >= 0.9:
+		_intimidate(d["couleur"])
 	if d["incantation"] > 0.0:
 		_cast_spell = id
 		_cast_end = now() + d["incantation"]
 		player.action("Spell_Simple_Enter", d["incantation"] + 0.1, 1.0)
 	else:
 		_effect(id)
+	return true
 
 func _effect(id: String) -> void:
 	var d: Dictionary = SpellDB.DEFS[id]
-	var power: float = d.get("degats", 0.0) + prog.spell_power() * d["ratio"]
+	var c := _c
+	var power: float = (d.get("degats", 0.0) + prog.spell_power() * d["ratio"]) * (1.0 + 1.2 * c)
 	stats["sorts"] += 1
+	if c >= 0.9:
+		stats["sorts_charges"] = int(stats.get("sorts_charges", 0)) + 1
 	match id:
 		"trait_feu":
-			_refresh_target(false)
-			_face_target(30.0)
+			if _aim_used == Vector3.ZERO:
+				_refresh_target(false)
+				_face_target(30.0)
 			player.action("Spell_Simple_Shoot", 0.45, 1.3)
 			var bolt := Projectile.new()
 			bolt.damage = power
-			bolt.splash = d["rayon"]
+			bolt.splash = float(d["rayon"]) * (1.0 + 0.7 * c)
+			bolt.charge = c
 			bolt.source = player
-			bolt.target = target if target and target.global_position.distance_to(player.global_position) < d["portee"] else null
+			bolt.target = target if target and Combat.alive(target) and target.global_position.distance_to(player.global_position) < d["portee"] else null
 			bolt.dir = player.forward()
 			FX.root.add_child(bolt)
 			bolt.global_position = player.global_position + Vector3.UP * 1.35 + player.forward() * 0.8
-			Sfx.play("feu", -4.0)
+			Sfx.play("feu", -4.0 + 4.0 * c, 0.05)
+			player.shake(0.1 + 0.25 * c)
 		"egide":
 			player.action("Spell_Simple_Shoot", 0.4, 1.0)
-			player.cbt.give_shield(power, d["duree"])
+			player.cbt.give_shield(power, float(d["duree"]) * (1.0 + 0.5 * c))
 			if is_instance_valid(_shield_fx):
 				_shield_fx.queue_free()
 			_shield_fx = FX.shield(player)
 			Sfx.play("bouclier", -6.0)
+			if c >= 0.6:
+				# égide chargée : l'onde repousse les ennemis proches
+				FX.shockwave(player.global_position, 3.5 + 2.0 * c)
+				for m in Combat.in_radius(player.global_position, 3.5 + 2.0 * c):
+					var dv: Vector3 = m.global_position - player.global_position
+					dv.y = 0
+					m.knockback(dv.normalized() * (6.0 + 6.0 * c))
+				player.shake(0.3)
 		"nova_givre":
-			player.action("Spell_Simple_Shoot", 0.4, 1.0)
-			FX.frost_nova(player.global_position, d["portee"])
-			Sfx.play("givre", -3.0)
-			for m in Combat.in_radius(player.global_position, d["portee"]):
+			# frappe au sol : le seigneur retombe genou à terre, la glace jaillit autour de lui
+			player.action("b/NinjaJump_Land", 0.6, 1.4)
+			var r := float(d["portee"]) * (1.0 + 0.5 * c)
+			FX.frost_nova(player.global_position, r)
+			FX.shockwave(player.global_position, r * 0.8)
+			Sfx.play("givre", -3.0 + 3.0 * c)
+			Sfx.play("lourd", -8.0 + 4.0 * c)
+			player.shake(0.25 + 0.3 * c)
+			var hit := 0
+			for m in Combat.in_radius(player.global_position, r):
 				m.cbt.take_damage(power, player, "magie")
-				m.cbt.apply_slow(d["ralenti"], d["duree"])
-				FX.frost_mark(m, d["duree"])
+				m.cbt.apply_slow(d["ralenti"] * (1.0 - 0.4 * c), float(d["duree"]) * (1.0 + 0.5 * c))
+				FX.frost_mark(m, float(d["duree"]) * (1.0 + 0.5 * c))
+				hit += 1
+			if hit > 0:
+				FX.hitstop(0.05 + 0.07 * c)
 		"racines":
 			if target and Combat.alive(target):
 				_face_target(30.0)
 				player.action("Spell_Simple_Shoot", 0.45, 1.0)
-				target.cbt.apply_root(d["duree"])
-				target.cbt.take_damage(power, player, "magie")
-				FX.roots(target, d["duree"])
+				var dur := float(d["duree"]) * (1.0 + 0.6 * c)
+				# chargées, les racines saisissent aussi les ennemis proches de la cible
+				var victims := [target]
+				if c >= 0.6:
+					for m in Combat.in_radius(target.global_position, 2.5 + 2.0 * c):
+						if m != target:
+							victims.append(m)
+				for v in victims:
+					v.cbt.apply_root(dur)
+					v.cbt.take_damage(power, player, "magie")
+					FX.roots(v, dur)
+					var tgt: Node3D = v
+					for k in 3:
+						get_tree().create_timer(0.8 * (k + 1)).timeout.connect(func(): if Combat.alive(tgt): tgt.cbt.take_damage(power * 0.5, player, "magie"))
 				Sfx.play("racines", -2.0)
-				var tgt := target
-				for k in 3:
-					get_tree().create_timer(0.8 * (k + 1)).timeout.connect(func(): if Combat.alive(tgt): tgt.cbt.take_damage(power * 0.5, player, "magie"))
+				player.shake(0.1 + 0.2 * c)
+
+## Démonstration de puissance (sort chargé à fond) : les ennemis faibles prennent peur et fuient
+func _intimidate(col: Color) -> void:
+	FX.power_burst(player, col)
+	var lv := prog.level
+	for m in Combat.in_radius(player.global_position, 14.0):
+		if m.def.get("boss", false):
+			continue
+		var chance := 0.15 if m.def.get("elite", false) else 0.45
+		chance += clampf((lv * 20.0 - float(m.def["xp"])) / 200.0, 0.0, 0.35)
+		if m.cbt.hp < m.cbt.max_hp * 0.5:
+			chance += 0.2
+		if randf() < chance:
+			m.frighten(3.0 + randf() * 2.0)
 
 func _on_hurt(_amount: float, _src: Node) -> void:
 	if _cast_spell != "":
@@ -220,7 +354,7 @@ func _on_hurt(_amount: float, _src: Node) -> void:
 		_cast_spell = ""
 		message.emit("Sort interrompu !", Color(1, 0.5, 0.4))
 		player.action("Hit_Chest", 0.35, 1.0)
-	elif not busy():
+	elif not busy() and charging == "":
 		player.action("Hit_Chest", 0.3, 1.2)
 	player.shake(0.2)
 
@@ -279,6 +413,8 @@ func _process(delta: float) -> void:
 		_cast_spell = ""
 		_effect(id)
 	mana = minf(prog.max_mana(), mana + prog.mana_regen() * delta)
+	if charging != "":
+		_update_reticle()
 	if not player.cbt.has_shield() and is_instance_valid(_shield_fx):
 		_shield_fx.queue_free()
 		_shield_fx = null
@@ -310,6 +446,8 @@ func dodge_velocity() -> Vector3:
 func move_scale() -> float:
 	if _cast_spell != "":
 		return 0.0
+	if charging != "":
+		return 0.45
 	if now() < _attack_until:
 		return 0.15
 	return 1.0
@@ -329,6 +467,8 @@ func _on_level_up(lv: int) -> void:
 
 func _on_death(_src: Node) -> void:
 	stats["morts"] += 1
+	if charging != "":
+		_stop_charge()
 	_dead_until = now() + 4.0
 	_cast_spell = ""
 	player.action("Death01", 4.0, 1.0)
@@ -346,3 +486,74 @@ func _respawn() -> void:
 	player.velocity = Vector3.ZERO
 	player.end_action()
 	message.emit(respawn_text, Color(0.9, 0.9, 1))
+
+# ------------------------------------------------------------------ réticule de visée au sol
+func _show_reticle(v: bool) -> void:
+	if _reticle == null:
+		_reticle = MeshInstance3D.new()
+		var q := QuadMesh.new()
+		q.orientation = PlaneMesh.FACE_Y
+		q.size = Vector2(1, 1)
+		_reticle.mesh = q
+		var sh := Shader.new()
+		sh.code = """shader_type spatial;
+render_mode unshaded, cull_disabled, depth_draw_never, shadows_disabled, fog_disabled;
+uniform vec4 col : source_color = vec4(0.5, 0.8, 1.0, 1.0);
+uniform int shape = 0; // 0 cercle, 1 ligne
+uniform float t = 0.0;
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float a = 0.0;
+	if (shape == 0) {
+		float r = length(p);
+		a = step(r, 1.0) * (0.12 + smoothstep(0.88, 0.97, r) * 0.7);
+		a += step(r, 1.0) * step(abs(r - fract(t) ), 0.03) * 0.5;
+	} else {
+		float along = 1.0 - UV.y;
+		a = 0.12 + smoothstep(0.8, 0.95, abs(p.x)) * 0.6;
+		a += step(abs(along - fract(t)), 0.03) * 0.5;
+		a *= smoothstep(1.0, 0.9, along) * 0.7 + 0.3;
+	}
+	ALBEDO = col.rgb;
+	ALPHA = clamp(a, 0.0, 1.0);
+}"""
+		_ret_mat = ShaderMaterial.new()
+		_ret_mat.shader = sh
+		_reticle.material_override = _ret_mat
+		_reticle.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		FX.root.add_child(_reticle)
+	_reticle.visible = v
+
+func _update_reticle() -> void:
+	var d: Dictionary = SpellDB.DEFS[charging]
+	var c := charge_level()
+	var pp := player.global_position
+	var y := pp.y + 0.12
+	_ret_mat.set_shader_parameter("col", (d["couleur"] as Color).lerp(Color(1, 1, 0.8), c * 0.5))
+	_ret_mat.set_shader_parameter("t", now() * (0.8 + c * 1.5))
+	var dir := aim if aim != Vector3.ZERO else player.forward()
+	match charging:
+		"trait_feu":
+			_ret_mat.set_shader_parameter("shape", 1)
+			var l := float(d["portee"])
+			_reticle.scale = Vector3(1.2 + c, 1, l)
+			_reticle.global_position = Vector3(pp.x, y, pp.z) + dir * l * 0.5
+			_reticle.rotation = Vector3(0, atan2(dir.x, dir.z), 0)
+			if aim != Vector3.ZERO:
+				player.rotation.y = atan2(aim.x, aim.z)
+		"nova_givre", "egide":
+			_ret_mat.set_shader_parameter("shape", 0)
+			var r := float(d["portee"]) * (1.0 + 0.5 * c) if charging == "nova_givre" else 3.5 + 2.0 * c
+			_reticle.scale = Vector3(r * 2.0, 1, r * 2.0)
+			_reticle.global_position = Vector3(pp.x, y, pp.z)
+			_reticle.rotation = Vector3.ZERO
+		"racines":
+			_ret_mat.set_shader_parameter("shape", 0)
+			var t: Node3D = Combat.best_target(pp, dir, float(d["portee"]), 30.0) if aim != Vector3.ZERO else (target if target and Combat.alive(target) else Combat.best_target(pp, player.forward(), float(d["portee"])))
+			if t:
+				var r := 1.2 if c < 0.6 else 2.5 + 2.0 * c
+				_reticle.scale = Vector3(r * 2.0, 1, r * 2.0)
+				_reticle.global_position = Vector3(t.global_position.x, t.global_position.y + 0.12, t.global_position.z)
+				_reticle.visible = true
+			else:
+				_reticle.visible = false

@@ -18,6 +18,8 @@ var _dodge_cd := 0.0
 var _dodge_dir := Vector3.ZERO
 var _charge_from := Vector3.ZERO
 var _charge_to := Vector3.ZERO
+var _kb := Vector3.ZERO
+var _fear_until := 0.0
 
 var kind := "puglin"
 var def: Dictionary
@@ -173,11 +175,15 @@ func _play(key: String, blend := 0.2, speed := 1.0) -> void:
 func _player() -> Node3D:
 	if force_target and is_instance_valid(force_target) and Time.get_ticks_msec() / 1000.0 < force_until and not force_target.cbt.dead:
 		return force_target
-	var p := Combat.player
-	var c := Combat.companion
-	if c and is_instance_valid(c) and c.visible and not c.cbt.dead and (p == null or p.cbt.dead):
-		return c
-	return p
+	# cible : le plus proche du camp de Valmont (le joueur est légèrement privilégié)
+	var best: Node3D = Combat.player
+	var bd := INF
+	for f in Combat.friends():
+		var d: float = f.global_position.distance_to(global_position) * (0.8 if f == Combat.player else 1.0)
+		if d < bd:
+			bd = d
+			best = f
+	return best
 
 func _physics_process(delta: float) -> void:
 	if state == S.MORT:
@@ -252,7 +258,7 @@ func _physics_process(delta: float) -> void:
 		S.FUITE:
 			spd = def["course"]
 			move = -to_p
-			if _t > 4.0:
+			if _t > 4.0 and Time.get_ticks_msec() / 1000.0 > _fear_until:
 				_go(S.POURSUITE if dist < def["detection"] else S.RETOUR)
 		S.RETOUR:
 			spd = def["course"]
@@ -287,6 +293,10 @@ func _physics_process(delta: float) -> void:
 			var l := d.length()
 			if l < 1.0 and l > 0.01:
 				velocity += d / l * (1.0 - l) * 3.0
+	if _kb.length() > 0.2:
+		velocity.x += _kb.x
+		velocity.z += _kb.z
+		_kb = _kb.lerp(Vector3.ZERO, clampf(delta * 6.0, 0, 1))
 	velocity.y = velocity.y - gravity * delta if not is_on_floor() else -0.5
 	move_and_slide()
 	var gy := Terrain.height_at(global_position.x, global_position.z)
@@ -352,8 +362,8 @@ func _resolve_special(tele: Telegraph) -> void:
 		_ap.play(a, 0.05)
 		_ap.seek(float(_sp.get("anim_seek", 0.0)), true)
 		_ap.speed_scale = 1.4
-	for t in [Combat.player, Combat.companion]:
-		if t and is_instance_valid(t) and t.visible and not t.cbt.dead and tele.contains(t.global_position):
+	for t in Combat.friends():
+		if tele.contains(t.global_position):
 			t.cbt.take_damage(float(_sp["degats"]), self)
 	match String(_sp.get("fx", "poussiere")):
 		"poussiere":
@@ -364,6 +374,25 @@ func _resolve_special(tele: Telegraph) -> void:
 	if Combat.player and Combat.player.global_position.distance_to(tele.global_position) < 14.0:
 		Combat.player.shake(0.35)
 	_go(S.RECUP)
+
+## Recul physique (explosions, onde de l'égide). Les géants résistent.
+func knockback(v: Vector3) -> void:
+	if state == S.MORT:
+		return
+	var sc: float = def["scale"]
+	var res := 0.25 if def.get("boss", false) else (0.6 if def.get("elite", false) else 1.0)
+	_kb = v * res / maxf(1.0, sc * 0.8)
+
+## Peur : l'ennemi fuit quelques secondes devant une démonstration de puissance
+func frighten(dur: float) -> void:
+	if state == S.MORT or state == S.SPECIALE:
+		return
+	_go(S.FUITE)
+	_fear_until = Time.get_ticks_msec() / 1000.0 + dur
+	var cry := "!!"
+	if String(def["model"]).begins_with("humain:"):
+		cry = ["Fuyez !", "C'est un démon !", "Repliez-vous !", "Pitié !"][randi() % 4]
+	FX.bark(self, cry, 2.3 * float(def["scale"]), 1.6)
 
 func _face(dir: Vector3, delta: float, rate: float) -> void:
 	if dir.length() < 0.01:
@@ -410,6 +439,8 @@ func _on_damaged(_amount: float, _src: Node) -> void:
 		return
 	if state == S.SPECIALE or state == S.ESQUIVE:
 		return
+	if state == S.FUITE and Time.get_ticks_msec() / 1000.0 < _fear_until:
+		return   # terrorisé : il continue de fuir même s'il est touché
 	if not def.get("elite", false) and state != S.ATTAQUE:
 		_go(S.TOUCHE)
 	if _model:

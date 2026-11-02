@@ -4,6 +4,26 @@ class_name Combat
 static var monsters: Array = []
 static var player: Node3D
 static var companion: Node3D
+static var allies: Array = []     # soldats alliés (le compagnon est géré à part)
+
+static func add_ally(n: Node3D) -> void:
+	if not allies.has(n):
+		allies.append(n)
+
+static func remove_ally(n: Node3D) -> void:
+	allies.erase(n)
+
+## Tous les combattants du camp du joueur susceptibles d'être pris pour cible
+static func friends() -> Array:
+	var out := []
+	if player and is_instance_valid(player) and not player.cbt.dead:
+		out.append(player)
+	if companion and is_instance_valid(companion) and companion.visible and not companion.cbt.dead:
+		out.append(companion)
+	for a in allies:
+		if is_instance_valid(a) and a.visible and not a.cbt.dead:
+			out.append(a)
+	return out
 
 static func register(m: Node3D) -> void:
 	if not monsters.has(m):

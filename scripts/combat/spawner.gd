@@ -28,6 +28,10 @@ const ZONES := [
 	{"id": "bois_morts", "kind": "zombie", "pos": Vector2(-165, 60), "n": 4, "r": 12, "label": "Bois des Morts errants"},
 	{"id": "clairiere_maudite", "kind": "zombie", "pos": Vector2(-130, 150), "n": 3, "r": 10, "label": "Clairière maudite"},
 	{"id": "portail_diablotins", "kind": "imp", "pos": Vector2(70, 205), "n": 3, "r": 9, "label": "Diablotins du portail"},
+	{"id": "camp_bandits", "kind": "bandit", "pos": Vector2(-60, 140), "n": 3, "r": 8, "label": "Camp de bandits (sud-ouest)"},
+	{"id": "camp_bandits_chef", "kind": "chef_bandit", "pos": Vector2(-57, 143), "n": 1, "r": 3, "label": "Chef des bandits (élite)"},
+	{"id": "rodeurs_ouest", "kind": "bandit", "pos": Vector2(-75, -60), "n": 2, "r": 10, "label": "Rôdeurs des collines ouest"},
+	{"id": "deserteur", "kind": "deserteur", "pos": Vector2(90, -80), "n": 1, "r": 14, "label": "Déserteur solitaire (élite)"},
 	{"id": "portail_brute", "kind": "imp_brute", "pos": Vector2(5, 228), "n": 1, "r": 3, "label": "Brute infernale (élite)"},
 ]
 

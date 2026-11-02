@@ -32,7 +32,23 @@ func _play(a: String) -> void:
 		_cur = a
 		_ap.play(a, 0.25)
 
+var _anim_until := 0.0
+
+func react(a: String, dur: float) -> void:
+	if not _ap.has_animation(a):
+		return
+	_cur = a
+	_ap.play(a, 0.2)
+	_anim_until = Time.get_ticks_msec() / 1000.0 + dur
+
+func nod() -> void:
+	react("b/Yes", 1.6)
+
 func _process(delta: float) -> void:
+	if _anim_until > 0.0 and Time.get_ticks_msec() / 1000.0 > _anim_until:
+		_anim_until = 0.0
+		_cur = ""
+		_play("Walk" if patrol.size() >= 2 else "Idle")
 	# lance toujours droite, tenue dans la main (suit la main, pas sa rotation)
 	if _spear:
 		_spear.global_basis = Basis(Vector3.UP, global_rotation.y).scaled(Vector3.ONE * 1.3)

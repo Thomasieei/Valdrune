@@ -6,6 +6,7 @@ static var inst: Hud
 
 var player: Player
 var btn_talk: ActionButton
+var btn_cancel: ActionButton
 var btn_kingdom: ActionButton
 var _hint: Label
 var _hint_key := ""
@@ -75,9 +76,11 @@ func _ready() -> void:
 	_disc_sub.modulate.a = 0.0
 	btn_attack.pressed.connect(func(): pc.attack())
 	btn_dodge.pressed.connect(func(): pc.dodge())
-	for id in btn_spells:
-		var sid: String = id
-		btn_spells[id].pressed.connect(func(): pc.cast(sid))
+	# les sorts se lancent au relâcher (maintenir = charger, glisser = viser) : voir TouchControls
+	btn_cancel = ActionButton.new().setup("annuler", 40.0, Color(1, 0.45, 0.4))
+	btn_cancel.label = "Annuler"
+	btn_cancel.visible = false
+	add_child(btn_cancel)
 	btn_potion_soin.pressed.connect(func(): pc.drink("soin"))
 	btn_potion_mana.pressed.connect(func(): pc.drink("mana"))
 
@@ -131,6 +134,13 @@ func bind(p: Player) -> void:
 func buttons() -> Array:
 	return [btn_attack, btn_dodge, btn_potion_soin, btn_potion_mana, btn_talk, btn_kingdom] + btn_spells.values()
 
+## Identifiant du sort dont c'est le bouton ("" sinon)
+func spell_of(b: ActionButton) -> String:
+	for id in btn_spells:
+		if btn_spells[id] == b:
+			return id
+	return ""
+
 func set_shown(k: String, v: bool) -> void:
 	shown[k] = v
 
@@ -161,6 +171,10 @@ func _layout() -> void:
 	_msg.position = Vector2(s.x * 0.5 - 400, s.y * 0.5)
 	_msg.size = Vector2(800, 120)
 	btn_talk.position = Vector2(s.x - 330, s.y - 380) - btn_talk.size * 0.5
+	btn_cancel.position = Vector2(s.x - 150, s.y - 420) - btn_cancel.size * 0.5
+	btn_cancel.visible = pc != null and pc.charging != ""
+	if btn_cancel.visible:
+		btn_talk.visible = false
 	btn_kingdom.position = Vector2(470, 78) - btn_kingdom.size * 0.5
 	_hint.position = Vector2(s.x * 0.5 - _hint.size.x * 0.5, 84)
 	_objective.position = Vector2(26, 150)
@@ -190,10 +204,11 @@ func _process(delta: float) -> void:
 		b.cd_text = ("%.0f" % ceilf(left)) if left > 1.0 else ""
 		b.locked_text = "" if pc.spell_unlocked(id) else "Niv %d" % d["niveau"]
 		b.dim = pc.mana < float(d["mana"]) and b.locked_text == ""
+		b.charge = pc.charge_level() if pc.charging == id else 0.0
 		b.refresh()
 	btn_potion_soin.count = prog.potions_soin
 	btn_potion_mana.count = prog.potions_mana
-	for b in [btn_potion_soin, btn_potion_mana, btn_attack, btn_dodge, btn_talk, btn_kingdom]:
+	for b in [btn_potion_soin, btn_potion_mana, btn_attack, btn_dodge, btn_talk, btn_kingdom, btn_cancel]:
 		b.refresh()
 	if _hint_t > 0.0:
 		_hint_t -= delta

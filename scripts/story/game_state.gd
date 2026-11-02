@@ -15,7 +15,7 @@ var story := "debut"          # étape de l'histoire
 var flags := {}               # drapeaux narratifs
 var values := {               # personnalité et réputation du joueur (−100..100 environ)
 	"bienveillance": 0, "arrogance": 0, "autorite": 0, "mefiance": 0,
-	"reputation": 0, "confiance_habitants": 0,
+	"reputation": 0, "confiance_habitants": 0, "crainte": 0,
 }
 var titre := "Étranger"
 var npc := {}                 # id -> {"vu": n, "sujets": [..], "relation": int, "promesses": [..]}

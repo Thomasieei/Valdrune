@@ -484,11 +484,11 @@ static func _gardes(parent: Node3D) -> void:
 		guards.append(gd)
 	# deux patrouilles dans la cour
 	var p1 = Guard.new()
-	p1.patrol = [Vector3(-30, Y0, -96), Vector3(-30, Y0, -122), Vector3(-26, Y0, -124), Vector3(-26, Y0, -96)]
+	p1.patrol = [Vector3(-22, Y0, -96), Vector3(-22, Y0, -108), Vector3(-19, Y0, -108), Vector3(-19, Y0, -96)]
 	p1.add_to_group("garde_cour")
 	parent.add_child(p1)
 	var p2 = Guard.new()
-	p2.patrol = [Vector3(28, Y0, -124), Vector3(28, Y0, -97), Vector3(12, Y0, -97), Vector3(12, Y0, -124)]
+	p2.patrol = [Vector3(34, Y0, -124), Vector3(34, Y0, -97), Vector3(31, Y0, -97), Vector3(31, Y0, -124)]
 	p2.add_to_group("garde_cour")
 	parent.add_child(p2)
 

@@ -36,6 +36,9 @@ var _down_until := 0.0
 var _hit_at := -1.0
 var _think := 0.0
 var gravity := 12.0
+var _stuck_t := 0.0
+var _stuck_from := Vector3.ZERO
+var _ghost_until := 0.0
 
 static func data(cid: String) -> Dictionary:
 	var gs := GameState.get_inst()
@@ -286,11 +289,7 @@ func _player_behind(p: Node3D) -> bool:
 	return p.global_position.distance_to(last) > global_position.distance_to(last) - 2.0
 
 func _gravity(delta: float) -> void:
-	velocity.y = velocity.y - gravity * delta if not is_on_floor() else -0.5
-	move_and_slide()
-	var gy := Terrain.height_at(global_position.x, global_position.z)
-	if global_position.y < gy - 1.0:
-		global_position.y = gy + 0.2
+	_move_or_unstick(delta, Vector2(velocity.x, velocity.z).length() > 0.5)
 
 func _pick_target() -> Node3D:
 	var p := Combat.player
@@ -323,3 +322,29 @@ func _on_down(_src: Node) -> void:
 	for m in Combat.monsters:
 		if is_instance_valid(m) and m.force_target == self:
 			m.force_target = null
+
+## Déplacement avec déblocage : sans pathfinding, un personnage peut buter contre une maison ;
+## s'il n'avance plus pendant 1,5 s, il traverse l'obstacle quelques instants au lieu de rester coincé.
+func _move_or_unstick(delta: float, wants_move: bool) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	if now < _ghost_until:
+		global_position.x += velocity.x * delta
+		global_position.z += velocity.z * delta
+		var g := Terrain.height_at(global_position.x, global_position.z)
+		global_position.y = maxf(g, global_position.y - 4.0 * delta) if global_position.y > g + 0.5 else g
+		return
+	velocity.y = velocity.y - gravity * delta if not is_on_floor() else -0.5
+	move_and_slide()
+	var gy := Terrain.height_at(global_position.x, global_position.z)
+	if global_position.y < gy - 1.0:
+		global_position.y = gy + 0.2
+	if wants_move:
+		_stuck_t += delta
+		if _stuck_t > 1.5:
+			if Vector2(global_position.x - _stuck_from.x, global_position.z - _stuck_from.z).length() < 0.6:
+				_ghost_until = now + 1.2
+			_stuck_t = 0.0
+			_stuck_from = global_position
+	else:
+		_stuck_t = 0.0
+		_stuck_from = global_position

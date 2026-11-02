@@ -49,6 +49,15 @@ static func k() -> Dictionary:
 	if gs.kingdom.is_empty() or not gs.kingdom.has("batiments"):
 		gs.kingdom = default_state()
 		gs.mark()
+	elif not gs.kingdom.has("_v2"):
+		# anciennes sauvegardes : nouveaux territoires et listes
+		var td: Dictionary = data()["territoires"]
+		for id in td:
+			if not gs.kingdom["territoires"].has(id):
+				gs.kingdom["territoires"][id] = td[id]["etat"]
+		gs.kingdom["_v2"] = true
+	if not gs.kingdom.has("prisonniers"):
+		gs.kingdom["prisonniers"] = []
 	return gs.kingdom
 
 static func default_state() -> Dictionary:
@@ -181,6 +190,7 @@ func _ready() -> void:
 			gs.report("Pendant votre absence, le royaume a vécu %d jour(s)." % maxi(1, ticks / TICKS_PER_DAY), "info")
 	_check_missions()
 	_refresh_world()
+	changed.connect(func(): if Vie.inst: Vie.inst.refresh_training())
 
 func _process(delta: float) -> void:
 	_acc += delta
@@ -231,6 +241,10 @@ func _new_day(silent: bool) -> void:
 	# un événement par jour au plus (pas pendant le rattrapage)
 	if not silent and _pending_event == "" and randf() < 0.6:
 		_pending_event = _pick_event()
+	# raids de bandits (moins fréquents si le camp de bandits est démantelé et la muraille solide)
+	var raid_p := 0.3 - (0.12 if territory_ok("camp_bandits") else 0.0) - (int(bld("muraille")["niv"]) - 1) * 0.04
+	if not silent and Vie.inst and Story.done() and randf() < raid_p:
+		Vie.inst.start_raid()
 	_refresh_world()
 
 func _trim_workers() -> void:
@@ -621,11 +635,15 @@ func _refresh_world() -> void:
 		_extra_people.pop_back().queue_free()
 	# repaires libérés : plus de créatures, une bannière de Valmont plantée sur place
 	for id in s["territoires"]:
-		var sp := Spawner.by_id(id)
+		var sp: Spawner = null
+		var free := String(s["territoires"][id]) == "controle"
+		for z in Spawner.spawners:
+			if z.zone_id == id or z.zone_id.begins_with(id + "_"):
+				z.liberated = free
+				if z.zone_id == id:
+					sp = z
 		if sp == null:
 			continue
-		var free := String(s["territoires"][id]) == "controle"
-		sp.liberated = free
 		if free and not _banners.has(id):
 			var b := Node3D.new()
 			world.add_child(b)

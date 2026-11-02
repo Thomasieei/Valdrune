@@ -68,6 +68,30 @@ func _warmup() -> void:
 	]
 	for l in Castle.interior_lights:
 		l.visible = true
+	# tous les effets de combat (sorts, impacts, zones d'attaque) compilés pendant le chargement :
+	# sinon le premier lancer de chaque sort provoque un gel sur téléphone
+	FX.root = self
+	var fxp := Vector3(0, 80, 0)
+	var dummy := Node3D.new()
+	add_child(dummy)
+	dummy.global_position = fxp
+	FX.explosion(fxp, 3.0)
+	FX.frost_nova(fxp + Vector3(3, 0, 0), 5.0)
+	FX.shockwave(fxp + Vector3(-3, 0, 0), 4.0)
+	FX.frost_mark(dummy, 1.5)
+	FX.roots(dummy, 1.5)
+	var sh := FX.shield(dummy)
+	var fb := FX.fireball()
+	dummy.add_child(fb)
+	FX.charge_aura(dummy, Color(1, 0.6, 0.2))
+	FX.power_burst(dummy, Color(0.6, 0.9, 1))
+	FX.hit_spark(fxp)
+	FX.slash(fxp, 0.0)
+	FX.cast_glow(dummy, Color(1, 0.5, 0.2))
+	FX.damage_number(fxp, "12", Color.WHITE)
+	FX.bark(dummy, "…")
+	var tele := Telegraph.spawn(self, fxp + Vector3(0, 0, 3), 0.0, "cercle", 1.5, 3.0)
+	views.push_front([fxp + Vector3(0, 4, 12), fxp])
 	for v in views:
 		cam.position = v[0]
 		cam.look_at(v[1])
@@ -78,6 +102,9 @@ func _warmup() -> void:
 			n.visibility_range_begin = saved[n][0]
 			n.visibility_range_end = saved[n][1]
 	cam.queue_free()
+	dummy.queue_free()
+	if is_instance_valid(tele):
+		tele.queue_free()
 
 func _batch() -> void:
 	for nm in ["Mobilier", "CourDecor", "BourgDecor", "LieuxDecor"]:
@@ -180,6 +207,11 @@ func _spawn() -> void:
 			_talking.follow()
 		_talking = null)
 	Talk.setup(self)
+	Justice.build_prison(self)
+	var vie := Vie.new()
+	vie.name = "Vie"
+	vie.world = self
+	add_child(vie)
 	var zone := find_child("ZoneDonjon", true, false) as Area3D
 	if zone:
 		zone.body_entered.connect(func(b): if b == player: _set_inside(true))
@@ -190,11 +222,20 @@ func _spawn() -> void:
 			GameState.get_inst().reset()
 			Progression.get_inst().reset()
 			Spawner.paused = true
+		if args.size() > 0 and args[0] == "--vie":
+			GameState.get_inst().reset()
+			Progression.get_inst().reset()
+			GameState.get_inst().story = "libre"
+			GameState.get_inst().titre = "Intendant de Valmont"
 		story = Story.new()
 		story.name = "Histoire"
 		add_child(story)
 		story.setup(self, player, hud, dlg)
 		player.cbt.died.connect(func(_s): story.on_player_died())
+	if args.size() > 0 and args[0] == "--vie":
+		var lt = load("res://scripts/tools/life_test.gd").new()
+		lt.world = self
+		add_child(lt)
 	if args.size() > 0 and args[0] == "--story":
 		var stt = load("res://scripts/tools/story_test.gd").new()
 		stt.world = self
@@ -234,7 +275,7 @@ func _process(delta: float) -> void:
 		if n:
 			hud.btn_talk.label = "Parler à " + String(Talk.info(n)["nom"])
 	var a := OS.get_cmdline_user_args()
-	if "--tour" in a or "--combat" in a or "--story" in a:
+	if "--tour" in a or "--combat" in a or "--story" in a or "--vie" in a:
 		return
 	_q_acc += delta
 	if _q_acc < 1.0:

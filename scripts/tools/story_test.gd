@@ -71,6 +71,7 @@ func _ready() -> void:
 	while world.player == null or world.story == null:
 		await get_tree().process_frame
 	p = world.player
+	Engine.max_physics_steps_per_frame = 40   # rendu logiciel très lent : la simulation garde le temps réel
 	st = world.story
 	gs = GameState.get_inst()
 	await _wait(1.0)

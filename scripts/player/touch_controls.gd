@@ -14,6 +14,8 @@ var _look := {}         # index -> dernière position
 var _btn_touch := {}    # index -> bouton tenu
 var _pinch_d := 0.0
 var _hold_acc := 0.0
+var _spell_touch := -1          # doigt qui charge un sort
+var _spell_origin := Vector2.ZERO
 const R := 90.0
 
 var _base: Panel
@@ -56,6 +58,9 @@ func _button_at(pos: Vector2) -> ActionButton:
 	return null
 
 func _release_all() -> void:
+	if _spell_touch != -1 and player:
+		player.combat.cancel_charge()
+	_spell_touch = -1
 	for k in _btn_touch:
 		_btn_touch[k].held = false
 	_btn_touch.clear()
@@ -81,6 +86,17 @@ func _input(e: InputEvent) -> void:
 		if e.pressed:
 			var b := _button_at(e.position)
 			if b:
+				var sid := hud.spell_of(b)
+				if sid != "":
+					# sort : maintenir charge, glisser vise, relâcher sur « Annuler » annule
+					if _spell_touch == -1 and player.combat.begin_charge(sid):
+						_spell_touch = e.index
+						_spell_origin = b.global_position + b.size * 0.5
+						b.held = true
+						_btn_touch[e.index] = b
+					return
+				if b == hud.btn_cancel:
+					return
 				_btn_touch[e.index] = b
 				b.held = true
 				b.pressed.emit()
@@ -97,6 +113,12 @@ func _input(e: InputEvent) -> void:
 			else:
 				_look[e.index] = e.position
 		else:
+			if e.index == _spell_touch:
+				_spell_touch = -1
+				if hud.btn_cancel.hit(e.position):
+					player.combat.cancel_charge()
+				else:
+					player.combat.release_charge()
 			if _btn_touch.has(e.index):
 				_btn_touch[e.index].held = false
 				_btn_touch.erase(e.index)
@@ -108,6 +130,13 @@ func _input(e: InputEvent) -> void:
 			_look.erase(e.index)
 			_pinch_d = 0.0
 	elif e is InputEventScreenDrag:
+		if e.index == _spell_touch:
+			var v: Vector2 = (e.position - _spell_origin) / 130.0
+			if hud.btn_cancel.hit(e.position):
+				v = Vector2.ZERO
+			player.combat.set_aim(v.limit_length(1.0))
+			hud.btn_cancel.held = hud.btn_cancel.hit(e.position)
+			return
 		if _btn_touch.has(e.index):
 			return
 		if e.index == _stick_id:
@@ -136,14 +165,19 @@ func _input(e: InputEvent) -> void:
 			rig.zoom_by(0.9)
 		elif rig and e.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			rig.zoom_by(1.1)
+	elif e is InputEventKey and not e.pressed and player and e.physical_keycode in [KEY_1, KEY_2, KEY_3, KEY_4]:
+		var i: int = e.physical_keycode - KEY_1
+		if player.combat.charging == SpellDB.ORDER[i]:
+			player.combat.release_charge()
 	elif e is InputEventKey and e.pressed and not e.echo and player:
 		match e.physical_keycode:
 			KEY_J: player.combat.attack()
 			KEY_K: player.combat.dodge()
-			KEY_1: player.combat.cast(SpellDB.ORDER[0])
-			KEY_2: player.combat.cast(SpellDB.ORDER[1])
-			KEY_3: player.combat.cast(SpellDB.ORDER[2])
-			KEY_4: player.combat.cast(SpellDB.ORDER[3])
+			KEY_1: player.combat.begin_charge(SpellDB.ORDER[0])
+			KEY_2: player.combat.begin_charge(SpellDB.ORDER[1])
+			KEY_3: player.combat.begin_charge(SpellDB.ORDER[2])
+			KEY_4: player.combat.begin_charge(SpellDB.ORDER[3])
+			KEY_X: player.combat.cancel_charge()
 			KEY_H: player.combat.drink("soin")
 			KEY_G: player.combat.drink("mana")
 			KEY_E:

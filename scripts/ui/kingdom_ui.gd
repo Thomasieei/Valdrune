@@ -280,7 +280,8 @@ func _tab_population() -> void:
 	_bar(m, float(s["moral"]) / 100.0, Color(0.4, 0.8, 0.4) if float(s["moral"]) >= 50 else Color(0.9, 0.5, 0.3))
 	_row(m, "Le moral dépend de l'impôt, de la nourriture, de la sécurité (soldats, muraille, territoires libérés) et de la confiance des habitants. Au-dessus de 60 %, de nouvelles familles s'installent ; sous 30 %, des habitants partent.")
 	var r := _section("Votre réputation", "personnages")
-	for k in [["reputation", "Réputation"], ["confiance_habitants", "Confiance des habitants"], ["bienveillance", "Bienveillance"], ["arrogance", "Arrogance"], ["autorite", "Autorité"], ["mefiance", "Méfiance"]]:
+	_row(r, "Ce que le peuple pense de vous : %s" % {"adore": "il vous adore", "bon": "il vous apprécie", "neutre": "il vous observe", "craint": "il vous craint", "deteste": "il vous déteste"}[Vie.tier()])
+	for k in [["reputation", "Réputation"], ["confiance_habitants", "Confiance des habitants"], ["bienveillance", "Bienveillance"], ["crainte", "Crainte inspirée"], ["arrogance", "Arrogance"], ["autorite", "Autorité"], ["mefiance", "Méfiance"]]:
 		_row(r, "%s : %d" % [k[1], gs.val(k[0])])
 		_bar(r, (gs.val(k[0]) + 50.0) / 100.0, Color(0.55, 0.7, 1.0))
 
@@ -338,6 +339,29 @@ func _tab_armee() -> void:
 	var ec := Kingdom.equip_cost()
 	_row(v, "Améliorer l'équipement : %d or, %d minerai" % [ec["tresor"], ec["minerai"]], [_act(_button("Forger", ACCENT, int(s["equipement"]) < 5), func(): return Kingdom.equip())])
 	_row(v, "Solde : %.0f or / jour." % Kingdom.army_upkeep())
+	var e := _section("Garde rapprochée (%d / %d)" % [Escort.members.size(), Escort.MAX], "armee")
+	_row(e, "Vos gardes du corps vous suivent partout, combattent à vos côtés et peuvent ouvrir la marche ou garder un lieu. Vous pouvez aussi prendre un garde à son poste en lui parlant.")
+	for sd in Escort.members.duplicate():
+		if not is_instance_valid(sd):
+			continue
+		var s2: Soldier = sd
+		_row(e, "%s — %s — %d PV" % [s2.nom, Escort.mode_name(s2.mode), int(s2.cbt.hp)], [
+			_act(_button("Escorte"), func(): Escort.set_mode(s2, Soldier.M.ESCORTE)),
+			_act(_button("Éclaireur"), func(): Escort.set_mode(s2, Soldier.M.ECLAIREUR)),
+			_act(_button("Renvoyer"), func(): Escort.dismiss(s2)),
+		])
+	_row(e, "Appeler deux gardes depuis le château (%d disponibles)" % Escort.available(), [_act(_button("Appeler", ACCENT, Escort.available() > 0), func():
+		if Escort.call_guards(2) == 0:
+			return "Aucun soldat disponible (la garnison garde toujours deux hommes)"
+		return "")])
+	if Escort.members.size() > 0:
+		_row(e, "", [_act(_button("Renvoyer toute la garde"), func(): Escort.dismiss_all())])
+	var pr: Array = Kingdom.k()["prisonniers"]
+	var j := _section("Prison du château (%d)" % pr.size(), "armee")
+	if pr.is_empty():
+		_row(j, "Aucun prisonnier. La prison se trouve dans la cour, près de la caserne.")
+	for p in pr:
+		_row(j, "%s — %s — depuis le jour %d. Allez lui parler à la prison pour décider de son sort." % [p["nom"], p["raison"], p["jour"]])
 
 func _tab_diplomatie() -> void:
 	var gs := GameState.get_inst()
