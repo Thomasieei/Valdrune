@@ -1,0 +1,22 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://dajagmkjmtah5"
+path="res://.godot/imported/Stucco_Block.obj-29bb3aa4729b35b5afa9a19b6fbfb010.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Stucco_Block.obj-29bb3aa4729b35b5afa9a19b6fbfb010.mesh"]
+
+source_file="res://assets/village/Stucco_Block.obj"
+dest_files=["res://.godot/imported/Stucco_Block.obj-29bb3aa4729b35b5afa9a19b6fbfb010.mesh", "res://.godot/imported/Stucco_Block.obj-29bb3aa4729b35b5afa9a19b6fbfb010.mesh"]
+
+[params]
+
+generate_tangents=true
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+optimize_mesh=true
+force_disable_mesh_compression=false

@@ -1,0 +1,17 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://kvj6gxg0s8ui"
+
+[deps]
+
+files=["res://assets/nature/_doc/Contents.group.translation", "res://assets/nature/_doc/Contents.edition.translation", "res://assets/nature/_doc/Contents.width.translation", "res://assets/nature/_doc/Contents.depth.translation", "res://assets/nature/_doc/Contents.height.translation", "res://assets/nature/_doc/Contents.triangles.translation"]
+
+source_file="res://assets/nature/_doc/Contents.csv"
+dest_files=["res://assets/nature/_doc/Contents.group.translation", "res://assets/nature/_doc/Contents.edition.translation", "res://assets/nature/_doc/Contents.width.translation", "res://assets/nature/_doc/Contents.depth.translation", "res://assets/nature/_doc/Contents.height.translation", "res://assets/nature/_doc/Contents.triangles.translation"]
+
+[params]
+
+compress=true
+delimiter=0

@@ -1,0 +1,22 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://hxe671q7pcll"
+path="res://.godot/imported/Waterwheel_Flume_Support_Pillar.obj-112158389230996e3cd8053478e2ceeb.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Waterwheel_Flume_Support_Pillar.obj-112158389230996e3cd8053478e2ceeb.mesh"]
+
+source_file="res://assets/village/Waterwheel_Flume_Support_Pillar.obj"
+dest_files=["res://.godot/imported/Waterwheel_Flume_Support_Pillar.obj-112158389230996e3cd8053478e2ceeb.mesh", "res://.godot/imported/Waterwheel_Flume_Support_Pillar.obj-112158389230996e3cd8053478e2ceeb.mesh"]
+
+[params]
+
+generate_tangents=true
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+optimize_mesh=true
+force_disable_mesh_compression=false

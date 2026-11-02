@@ -1,0 +1,22 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://c842uf6w0mnwr"
+path="res://.godot/imported/Stone_Curb_3.obj-57655bbc80d65785b08034025c6ea52b.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Stone_Curb_3.obj-57655bbc80d65785b08034025c6ea52b.mesh"]
+
+source_file="res://assets/village/Stone_Curb_3.obj"
+dest_files=["res://.godot/imported/Stone_Curb_3.obj-57655bbc80d65785b08034025c6ea52b.mesh", "res://.godot/imported/Stone_Curb_3.obj-57655bbc80d65785b08034025c6ea52b.mesh"]
+
+[params]
+
+generate_tangents=true
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+optimize_mesh=true
+force_disable_mesh_compression=false

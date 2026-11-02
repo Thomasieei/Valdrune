@@ -1,0 +1,22 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://b4532xii2juit"
+path="res://.godot/imported/Canopy_Top.obj-1920319ba53239ce3025d85a95b3691c.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Canopy_Top.obj-1920319ba53239ce3025d85a95b3691c.mesh"]
+
+source_file="res://assets/village/Canopy_Top.obj"
+dest_files=["res://.godot/imported/Canopy_Top.obj-1920319ba53239ce3025d85a95b3691c.mesh", "res://.godot/imported/Canopy_Top.obj-1920319ba53239ce3025d85a95b3691c.mesh"]
+
+[params]
+
+generate_tangents=true
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+optimize_mesh=true
+force_disable_mesh_compression=false

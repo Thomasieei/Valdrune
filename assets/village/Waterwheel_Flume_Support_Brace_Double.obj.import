@@ -1,0 +1,22 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://oa6gtg5h48bv"
+path="res://.godot/imported/Waterwheel_Flume_Support_Brace_Double.obj-91366c88cfba1dd562f0886370d82a9f.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Waterwheel_Flume_Support_Brace_Double.obj-91366c88cfba1dd562f0886370d82a9f.mesh"]
+
+source_file="res://assets/village/Waterwheel_Flume_Support_Brace_Double.obj"
+dest_files=["res://.godot/imported/Waterwheel_Flume_Support_Brace_Double.obj-91366c88cfba1dd562f0886370d82a9f.mesh", "res://.godot/imported/Waterwheel_Flume_Support_Brace_Double.obj-91366c88cfba1dd562f0886370d82a9f.mesh"]
+
+[params]
+
+generate_tangents=true
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+optimize_mesh=true
+force_disable_mesh_compression=false

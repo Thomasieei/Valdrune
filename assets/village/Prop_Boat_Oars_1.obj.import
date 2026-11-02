@@ -1,0 +1,22 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://cj6660m7wqutb"
+path="res://.godot/imported/Prop_Boat_Oars_1.obj-a1fc5f4173cd966804aab12c365c6adc.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Prop_Boat_Oars_1.obj-a1fc5f4173cd966804aab12c365c6adc.mesh"]
+
+source_file="res://assets/village/Prop_Boat_Oars_1.obj"
+dest_files=["res://.godot/imported/Prop_Boat_Oars_1.obj-a1fc5f4173cd966804aab12c365c6adc.mesh", "res://.godot/imported/Prop_Boat_Oars_1.obj-a1fc5f4173cd966804aab12c365c6adc.mesh"]
+
+[params]
+
+generate_tangents=true
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+optimize_mesh=true
+force_disable_mesh_compression=false

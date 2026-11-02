@@ -1,0 +1,22 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://5jy7p2od4nwm"
+path="res://.godot/imported/Roof_Convex_Corner_Outer_Eave.obj-c1cb70ca9718121f0baf3c4f6d067e60.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Roof_Convex_Corner_Outer_Eave.obj-c1cb70ca9718121f0baf3c4f6d067e60.mesh"]
+
+source_file="res://assets/village/Roof_Convex_Corner_Outer_Eave.obj"
+dest_files=["res://.godot/imported/Roof_Convex_Corner_Outer_Eave.obj-c1cb70ca9718121f0baf3c4f6d067e60.mesh", "res://.godot/imported/Roof_Convex_Corner_Outer_Eave.obj-c1cb70ca9718121f0baf3c4f6d067e60.mesh"]
+
+[params]
+
+generate_tangents=true
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+optimize_mesh=true
+force_disable_mesh_compression=false

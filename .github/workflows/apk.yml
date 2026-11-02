@@ -1,0 +1,60 @@
+name: APK Royaume
+on:
+  push:
+    branches: [royaume]
+  workflow_dispatch:
+permissions:
+  contents: write
+env:
+  GODOT_VERSION: 4.3
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Installer Godot et les modèles d'export
+        run: |
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          unzip -q Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 /usr/local/bin/godot
+          mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          unzip -q Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          mv templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+          godot --headless --version
+      - name: Configurer le SDK Android pour Godot
+        run: |
+          godot --headless --editor --quit || true
+          F=$(ls ~/.config/godot/editor_settings-4*.tres | head -1)
+          echo "export/android/android_sdk_path = \"$ANDROID_SDK_ROOT\"" >> "$F"
+          echo "export/android/java_sdk_path = \"$JAVA_HOME\"" >> "$F"
+          tail -3 "$F"
+      - name: Importer les ressources
+        run: godot --headless --path . --import || godot --headless --path . --editor --quit || true
+      - name: Exporter l'APK
+        env:
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ github.workspace }}/android/royaume.keystore
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: royaume
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: royaume2026
+        run: |
+          sed -i "s/^version\/code=.*/version\/code=${{ github.run_number }}/; s/^version\/name=.*/version\/name=\"0.1.${{ github.run_number }}\"/" export_presets.cfg
+          mkdir -p out
+          godot --headless --path . --export-release "Android" out/Royaume.apk
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Royaume-apk
+          path: out/Royaume.apk
+      - name: Publier la Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: royaume-v0.1.${{ github.run_number }}
+          name: Royaume v0.1.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          make_latest: false
+          body: APK Android du Royaume (première zone). Télécharge Royaume.apk depuis ton téléphone et installe-le.
+          files: out/Royaume.apk

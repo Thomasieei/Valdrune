@@ -1,0 +1,22 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://cnkybjcs4xldx"
+path="res://.godot/imported/Canopy_Full.obj-6010bb53c5085554e0d7678a051642a5.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Canopy_Full.obj-6010bb53c5085554e0d7678a051642a5.mesh"]
+
+source_file="res://assets/village/Canopy_Full.obj"
+dest_files=["res://.godot/imported/Canopy_Full.obj-6010bb53c5085554e0d7678a051642a5.mesh", "res://.godot/imported/Canopy_Full.obj-6010bb53c5085554e0d7678a051642a5.mesh"]
+
+[params]
+
+generate_tangents=true
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+optimize_mesh=true
+force_disable_mesh_compression=false

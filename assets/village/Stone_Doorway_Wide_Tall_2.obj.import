@@ -1,0 +1,22 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://6jskjy3g21ku"
+path="res://.godot/imported/Stone_Doorway_Wide_Tall_2.obj-538a47f3a979dfd3975b149fcbc9d7ce.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Stone_Doorway_Wide_Tall_2.obj-538a47f3a979dfd3975b149fcbc9d7ce.mesh"]
+
+source_file="res://assets/village/Stone_Doorway_Wide_Tall_2.obj"
+dest_files=["res://.godot/imported/Stone_Doorway_Wide_Tall_2.obj-538a47f3a979dfd3975b149fcbc9d7ce.mesh", "res://.godot/imported/Stone_Doorway_Wide_Tall_2.obj-538a47f3a979dfd3975b149fcbc9d7ce.mesh"]
+
+[params]
+
+generate_tangents=true
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+optimize_mesh=true
+force_disable_mesh_compression=false

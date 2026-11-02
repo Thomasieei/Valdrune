@@ -1,0 +1,22 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://buiynnwhgen20"
+path="res://.godot/imported/Stucco_Prop_Support_Angled_Small.obj-4461175ffb802cbe4c4b693fdd7c1e14.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Stucco_Prop_Support_Angled_Small.obj-4461175ffb802cbe4c4b693fdd7c1e14.mesh"]
+
+source_file="res://assets/village/Stucco_Prop_Support_Angled_Small.obj"
+dest_files=["res://.godot/imported/Stucco_Prop_Support_Angled_Small.obj-4461175ffb802cbe4c4b693fdd7c1e14.mesh", "res://.godot/imported/Stucco_Prop_Support_Angled_Small.obj-4461175ffb802cbe4c4b693fdd7c1e14.mesh"]
+
+[params]
+
+generate_tangents=true
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+optimize_mesh=true
+force_disable_mesh_compression=false

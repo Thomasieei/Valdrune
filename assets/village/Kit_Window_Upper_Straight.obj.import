@@ -1,0 +1,22 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://dhlnfsonsbqgy"
+path="res://.godot/imported/Kit_Window_Upper_Straight.obj-91dcc739d6a31036a6f28b5fae4e16fd.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Kit_Window_Upper_Straight.obj-91dcc739d6a31036a6f28b5fae4e16fd.mesh"]
+
+source_file="res://assets/village/Kit_Window_Upper_Straight.obj"
+dest_files=["res://.godot/imported/Kit_Window_Upper_Straight.obj-91dcc739d6a31036a6f28b5fae4e16fd.mesh", "res://.godot/imported/Kit_Window_Upper_Straight.obj-91dcc739d6a31036a6f28b5fae4e16fd.mesh"]
+
+[params]
+
+generate_tangents=true
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+optimize_mesh=true
+force_disable_mesh_compression=false

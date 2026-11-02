@@ -1,0 +1,22 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://by617i1x6sgis"
+path="res://.godot/imported/Wood_Rope_Straight.obj-e737db86f29fdd4e44635da03647c360.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Wood_Rope_Straight.obj-e737db86f29fdd4e44635da03647c360.mesh"]
+
+source_file="res://assets/village/Wood_Rope_Straight.obj"
+dest_files=["res://.godot/imported/Wood_Rope_Straight.obj-e737db86f29fdd4e44635da03647c360.mesh", "res://.godot/imported/Wood_Rope_Straight.obj-e737db86f29fdd4e44635da03647c360.mesh"]
+
+[params]
+
+generate_tangents=true
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+optimize_mesh=true
+force_disable_mesh_compression=false

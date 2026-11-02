@@ -1,0 +1,22 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://b2xgg8r2lpt47"
+path="res://.godot/imported/Prop_Well_Dirt.obj-afdae111976ca0c480dbcd24b63ff12b.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Prop_Well_Dirt.obj-afdae111976ca0c480dbcd24b63ff12b.mesh"]
+
+source_file="res://assets/village/Prop_Well_Dirt.obj"
+dest_files=["res://.godot/imported/Prop_Well_Dirt.obj-afdae111976ca0c480dbcd24b63ff12b.mesh", "res://.godot/imported/Prop_Well_Dirt.obj-afdae111976ca0c480dbcd24b63ff12b.mesh"]
+
+[params]
+
+generate_tangents=true
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+optimize_mesh=true
+force_disable_mesh_compression=false

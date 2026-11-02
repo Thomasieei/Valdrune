@@ -1,0 +1,22 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://ds0aud0lsbeup"
+path="res://.godot/imported/Wall_Prop_Bell_1.obj-0f4a597db6425903d226e6d4e3df9e8d.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Wall_Prop_Bell_1.obj-0f4a597db6425903d226e6d4e3df9e8d.mesh"]
+
+source_file="res://assets/village/Wall_Prop_Bell_1.obj"
+dest_files=["res://.godot/imported/Wall_Prop_Bell_1.obj-0f4a597db6425903d226e6d4e3df9e8d.mesh", "res://.godot/imported/Wall_Prop_Bell_1.obj-0f4a597db6425903d226e6d4e3df9e8d.mesh"]
+
+[params]
+
+generate_tangents=true
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+optimize_mesh=true
+force_disable_mesh_compression=false

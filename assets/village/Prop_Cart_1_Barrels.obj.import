@@ -1,0 +1,22 @@
+[remap]
+
+importer="wavefront_obj"
+importer_version=1
+type="Mesh"
+uid="uid://t03e0bwev2ev"
+path="res://.godot/imported/Prop_Cart_1_Barrels.obj-32fdcf6da8bf20e1c36cd8065a2a8b2a.mesh"
+
+[deps]
+
+files=["res://.godot/imported/Prop_Cart_1_Barrels.obj-32fdcf6da8bf20e1c36cd8065a2a8b2a.mesh"]
+
+source_file="res://assets/village/Prop_Cart_1_Barrels.obj"
+dest_files=["res://.godot/imported/Prop_Cart_1_Barrels.obj-32fdcf6da8bf20e1c36cd8065a2a8b2a.mesh", "res://.godot/imported/Prop_Cart_1_Barrels.obj-32fdcf6da8bf20e1c36cd8065a2a8b2a.mesh"]
+
+[params]
+
+generate_tangents=true
+scale_mesh=Vector3(1, 1, 1)
+offset_mesh=Vector3(0, 0, 0)
+optimize_mesh=true
+force_disable_mesh_compression=false
