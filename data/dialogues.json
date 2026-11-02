@@ -1,0 +1,136 @@
+{
+  "intro": {
+    "start": "a1",
+    "nodes": {
+      "a1": {"who": "elian", "text": "Étranger ! Je vous en prie, vous devez nous aider ! Des hommes armés approchent du royaume !",
+        "choices": [
+          {"text": "Calme-toi. Je suis là. Dis-moi ce qui se passe.", "tone": "bienveillance", "fx": {"bienveillance": 3, "relation_elian": 6}, "next": "a2_bien"},
+          {"text": "Des hommes armés ? Et en quoi cela me regarde-t-il ?", "tone": "arrogance", "fx": {"arrogance": 3, "relation_elian": -4}, "next": "a2_arro"},
+          {"text": "Qui es-tu, d'abord ? Et pourquoi courir vers un inconnu ?", "tone": "mefiance", "fx": {"mefiance": 3, "relation_elian": -1}, "next": "a2_mef"},
+          {"text": "Reprends ton souffle et parle clairement. Combien sont-ils ?", "tone": "autorite", "fx": {"autorite": 3, "relation_elian": 3}, "next": "a2_auto"},
+          {"text": "Ce n'est pas mon royaume.", "tone": "indifference", "fx": {"bienveillance": -2, "reputation": -1, "relation_elian": -6}, "next": "a2_ind"}
+        ]},
+      "a2_bien": {"who": "elian", "text": "Merci… merci ! Je m'appelle Elian, messager du roi Aldric de Valmont. Les mercenaires de Vargas ont été vus sur la route du sud. Ils marchent vers le bourg.", "next": "a3"},
+      "a2_arro": {"who": "elian", "text": "Je… pardon, messire. Je m'appelle Elian, messager du roi Aldric. Si les mercenaires de Vargas prennent Valmont, ils prendront aussi cette route. Et la vôtre.", "next": "a3"},
+      "a2_mef": {"who": "elian", "text": "Elian, messager du roi Aldric de Valmont. Je ne vous connais pas, c'est vrai… mais vous portez une épée, et vous venez de sortir du vieux portail. Personne n'en sort jamais.", "next": "a3"},
+      "a2_auto": {"who": "elian", "text": "Oui, messire ! Une douzaine, peut-être plus. Les mercenaires de Vargas. Je suis Elian, messager du roi Aldric. Ils remontent la route vers le bourg de Valmont.", "next": "a3"},
+      "a2_ind": {"who": "elian", "text": "Ce sera le vôtre aussi quand ils vous trouveront sur leur chemin. Je m'appelle Elian. Je retourne prévenir le roi… avec ou sans vous.", "next": "a3"},
+      "a3": {"who": "elian", "text": "Vous… vous êtes vraiment sorti du portail scellé ? Les anciens disent qu'il ne s'est pas ouvert depuis cent ans.",
+        "choices": [
+          {"text": "Je ne sais pas comment je suis arrivé ici. Mais je vais t'aider.", "tone": "bienveillance", "fx": {"bienveillance": 2, "relation_elian": 4}, "next": "a4_go"},
+          {"text": "Les légendes ne m'intéressent pas. Montre-moi ces mercenaires.", "tone": "autorite", "fx": {"autorite": 2}, "next": "a4_go"},
+          {"text": "Si je t'aide, ton roi me le revaudra.", "tone": "arrogance", "fx": {"arrogance": 2, "flag": "veut_recompense"}, "next": "a4_paie"},
+          {"text": "Garde tes questions. Avance, je te suis… de loin.", "tone": "mefiance", "fx": {"mefiance": 2}, "next": "a4_go"}
+        ]},
+      "a4_go": {"who": "elian", "text": "Alors suivez-moi ! Restez près de moi, la route longe la forêt.", "action": "suivre_elian"},
+      "a4_paie": {"who": "elian", "text": "Le roi est généreux avec ceux qui servent Valmont. Je vous le promets. Venez !", "fx": {"promesse_elian": 1}, "action": "suivre_elian"}
+    }
+  },
+  "apres_colosse": {
+    "start": "b1",
+    "nodes": {
+      "b1": {"who": "elian", "text": "Vous… vous avez abattu le Colosse de Vargas ! Personne n'avait jamais tenu face à lui.",
+        "text_if": [{"cond": "relation_elian<=-5", "text": "Vous l'avez abattu… Je ne vous apprécie pas beaucoup, mais je dois l'admettre : sans vous, j'étais mort."}],
+        "choices": [
+          {"text": "Tu t'es bien battu, toi aussi.", "tone": "bienveillance", "fx": {"bienveillance": 2, "relation_elian": 8, "loyaute_elian": 5}, "next": "b2"},
+          {"text": "C'était facile.", "tone": "arrogance", "fx": {"arrogance": 2, "relation_elian": -2}, "next": "b2"},
+          {"text": "Pourquoi Vargas envoie-t-il un tel monstre contre un simple messager ?", "tone": "mefiance", "fx": {"mefiance": 1}, "next": "b2_pourquoi"},
+          {"text": "Assez parlé. Conduis-moi à ton roi.", "tone": "autorite", "fx": {"autorite": 2}, "next": "b3"}
+        ]},
+      "b2_pourquoi": {"who": "elian", "text": "Ce n'est pas moi qu'il cherchait… Je porte le sceau du roi. Sans lui, la garnison du nord ne peut pas être rappelée. Vargas voulait isoler Valmont.", "fx": {"flag": "sait_sceau"}, "next": "b3"},
+      "b2": {"who": "elian", "text": "Le roi doit savoir que Vargas envoie ses champions si près du bourg.", "next": "b3"},
+      "b3": {"who": "elian", "text": "Suivez-moi jusqu'au château. Vous verrez Valmont… ce n'est pas grand-chose, mais c'est chez nous.", "action": "guidage"}
+    }
+  },
+  "garde_porte": {
+    "start": "c1",
+    "nodes": {
+      "c1": {"who": "garde", "text": "Halte ! Qui va là ? … Elian ? Et qui est cet étranger armé ?",
+        "next": "c2"},
+      "c2": {"who": "elian", "text": "Il m'a sauvé la vie, Garric. Le Colosse de Vargas est mort sur la route du sud. Le roi doit le recevoir.",
+        "choices": [
+          {"text": "Je viens en ami.", "tone": "bienveillance", "fx": {"bienveillance": 1, "confiance_habitants": 2}, "next": "c3_ok"},
+          {"text": "Écarte-toi, soldat.", "tone": "autorite", "fx": {"autorite": 2, "relation_garric": -3}, "next": "c3_dur"},
+          {"text": "Ta garde est bien mince pour un royaume en guerre.", "tone": "arrogance", "fx": {"arrogance": 2, "relation_garric": -5}, "next": "c3_dur"}
+        ]},
+      "c3_ok": {"who": "garde", "text": "Le Colosse ? Par les dieux… Passez. Le roi est dans la grande salle.", "fx": {"relation_garric": 4}, "action": "porte_ouverte"},
+      "c3_dur": {"who": "garde", "text": "… Hm. Si Elian répond de vous, passez. Mais je vous ai à l'œil.", "action": "porte_ouverte"}
+    }
+  },
+  "roi": {
+    "start": "r1",
+    "nodes": {
+      "r1": {"who": "roi", "text": "Elian m'a tout raconté. Un étranger sorti du portail scellé, qui terrasse le champion de Vargas… Approchez. Laissez-moi vous regarder.",
+        "choices": [
+          {"text": "(Vous inclinez la tête) Votre Majesté.", "tone": "respect", "fx": {"bienveillance": 1, "faction_couronne": 6, "relation_roi": 6}, "next": "r2_resp"},
+          {"text": "Regardez bien, alors. Vous n'en reverrez pas deux comme moi.", "tone": "arrogance", "fx": {"arrogance": 3, "relation_roi": -6}, "next": "r2_arro"},
+          {"text": "Je n'ai pas choisi d'arriver ici. Mais je ne fuis pas un combat.", "tone": "diplomatie", "fx": {"autorite": 1, "relation_roi": 3}, "next": "r2_dip"},
+          {"text": "Vous semblez bien fatigué pour un roi.", "tone": "provocation", "fx": {"arrogance": 1, "mefiance": 1, "relation_roi": -3}, "next": "r2_prov"}
+        ]},
+      "r2_resp": {"who": "roi", "text": "Des manières… On n'en voit plus guère à cette cour. Je suis Aldric, troisième du nom, roi de Valmont. Ou de ce qu'il en reste.", "next": "r3"},
+      "r2_arro": {"who": "roi", "text": "L'arrogance est le luxe de ceux qui n'ont encore rien perdu. Je suis Aldric de Valmont. J'ai perdu un fils et la moitié de mes terres. Gardez vos bravades pour Vargas.", "next": "r3"},
+      "r2_dip": {"who": "roi", "text": "Voilà une réponse honnête. Je suis Aldric de Valmont. J'ai besoin de gens qui ne fuient pas.", "next": "r3"},
+      "r2_prov": {"who": "roi", "text": "Fatigué ? J'ai enterré mon fils il y a deux hivers. Depuis, Vargas grignote mon royaume village après village. Oui, étranger. Je suis fatigué.", "fx": {"flag": "roi_blesse"}, "next": "r3"},
+      "r3": {"who": "roi", "text": "Vargas le Brise-Bannières n'était qu'un capitaine de mercenaires. Aujourd'hui il commande une armée. Ma garnison est au nord, mon trésor est vide, mes gardes sont des enfants.",
+        "text_if": [{"cond": "flag:sait_sceau", "text": "Elian vous a parlé du sceau, je crois. Sans lui, ma garnison du nord reste bloquée. Vargas le savait. Mes gardes ici sont des enfants, et mon trésor est vide."}],
+        "choices": [
+          {"text": "Que voulez-vous de moi ?", "tone": "diplomatie", "next": "r4"},
+          {"text": "Pourquoi ne pas négocier avec Vargas ?", "tone": "mefiance", "fx": {"mefiance": 1}, "next": "r3_neg"},
+          {"text": "Un roi qui se plaint ne gagne pas de guerre.", "tone": "provocation", "fx": {"arrogance": 2, "relation_roi": -4, "autorite": 1}, "next": "r3_plainte"}
+        ]},
+      "r3_neg": {"who": "roi", "text": "J'ai essayé. Il a renvoyé mon émissaire… en morceaux. Vargas ne veut pas d'accord. Il veut mon trône.", "next": "r4"},
+      "r3_plainte": {"who": "roi", "text": "… Vous avez raison. Et c'est précisément pourquoi vous êtes ici.", "next": "r4"},
+      "r4": {"who": "roi", "text": "Je ne vous demande pas de mourir pour Valmont. Je vous propose de le servir. Restez. Aidez-moi à tenir ces terres, et je vous donnerai une place à ma cour.",
+        "choices": [
+          {"text": "J'accepte. Valmont mérite d'être défendu.", "tone": "bienveillance", "fx": {"bienveillance": 2, "relation_roi": 5, "faction_couronne": 5}, "next": "r5_ok"},
+          {"text": "Une place ? Je veux un titre, de l'or, et le commandement.", "tone": "negociation", "fx": {"arrogance": 1, "autorite": 2}, "next": "r5_nego"},
+          {"text": "Je ne sers personne. Mais j'ai mes raisons de rester.", "tone": "mefiance", "fx": {"mefiance": 2, "relation_roi": -2}, "next": "r5_libre"},
+          {"text": "Elian m'a promis une récompense.", "tone": "negociation", "cond": "flag:veut_recompense", "fx": {"relation_elian": -2}, "next": "r5_promesse"}
+        ]},
+      "r5_ok": {"who": "roi", "text": "Alors soyez le bienvenu, ami de Valmont.", "fx": {"titre": "Ami de Valmont"}, "next": "r6"},
+      "r5_nego": {"who": "roi", "text": "Vous ne manquez pas d'audace… Soit. Cent pièces d'or tout de suite. Le reste, vous le mériterez.",
+        "choices": [
+          {"text": "Cent pièces, c'est une insulte. Deux cents.", "tone": "negociation", "cond": "autorite>=4", "fx": {"or": 200, "relation_roi": -4, "autorite": 1}, "next": "r5_nego2"},
+          {"text": "Marché conclu.", "tone": "diplomatie", "fx": {"or": 100, "relation_roi": 2}, "next": "r6"}
+        ]},
+      "r5_nego2": {"who": "roi", "text": "Deux cents… Vous saignez un royaume déjà exsangue. Prenez-les. Et prouvez qu'ils valaient ce prix.", "fx": {"titre": "Mercenaire du roi"}, "next": "r6"},
+      "r5_libre": {"who": "roi", "text": "Un homme libre qui choisit de rester… cela vaut peut-être mieux qu'un serment.", "fx": {"titre": "Libre épée"}, "next": "r6"},
+      "r5_promesse": {"who": "roi", "text": "Elian promet trop facilement. Mais une promesse faite en mon nom est une dette de la couronne. Voici cinquante pièces.", "fx": {"or": 50, "relation_roi": 1, "promesse_elian": -1}, "next": "r6"},
+      "r6": {"who": "roi", "text": "Maintenant, parlons de Vargas. Il…", "action": "assaut"}
+    }
+  },
+  "alerte": {
+    "start": "d1",
+    "nodes": {
+      "d1": {"who": "garde", "text": "Majesté ! Les mercenaires de Vargas ont escaladé la muraille est ! Ils sont dans la cour !",
+        "next": "d2"},
+      "d2": {"who": "roi", "text": "Déjà… Étranger, si vos paroles valent quelque chose, c'est maintenant qu'il faut le montrer. Défendez la cour !",
+        "choices": [
+          {"text": "Elian, avec moi !", "tone": "autorite", "fx": {"autorite": 2, "loyaute_elian": 3}, "action": "defendre", "next": "END"},
+          {"text": "Restez à l'abri, Majesté. Je m'en occupe.", "tone": "bienveillance", "fx": {"bienveillance": 2, "relation_roi": 4}, "action": "defendre", "next": "END"},
+          {"text": "Vous me devrez une fière chandelle.", "tone": "arrogance", "fx": {"arrogance": 2}, "action": "defendre", "next": "END"}
+        ]}
+    }
+  },
+  "roi_apres": {
+    "start": "e1",
+    "nodes": {
+      "e1": {"who": "roi", "text": "La cour est tenue. Mes gardes parlent déjà de vous dans les tavernes… Valmont vous doit sa survie.",
+        "text_if": [
+          {"cond": "arrogance>=6", "text": "La cour est tenue. On dit que vous vous êtes battu comme un lion… et que vous l'avez fait savoir à tout le monde. Valmont vous doit pourtant sa survie."},
+          {"cond": "bienveillance>=6", "text": "La cour est tenue. Mes gardes disent que vous avez protégé les blessés avant de poursuivre les fuyards. Valmont vous doit sa survie."}
+        ],
+        "next": "e2"},
+      "e2": {"who": "roi", "text": "Je suis vieux, étranger. Je n'ai plus d'héritier. Valmont a besoin de quelqu'un pour le relever : percevoir l'impôt, bâtir, armer, négocier. Je vous nomme Intendant du royaume.",
+        "choices": [
+          {"text": "J'accepte cet honneur, Majesté.", "tone": "respect", "fx": {"relation_roi": 5, "confiance_habitants": 4, "titre": "Intendant de Valmont"}, "next": "e3"},
+          {"text": "Intendant ? Dites plutôt régent. C'est moi qui gouvernerai.", "tone": "autorite", "fx": {"autorite": 4, "relation_roi": -3, "confiance_habitants": -2, "titre": "Régent de Valmont"}, "next": "e3"},
+          {"text": "Je le ferai pour ces gens, pas pour la couronne.", "tone": "bienveillance", "fx": {"bienveillance": 3, "confiance_habitants": 6, "titre": "Protecteur de Valmont"}, "next": "e3"}
+        ]},
+      "e3": {"who": "roi", "text": "Elian sera votre bras droit. Il connaît chaque sentier et chaque marchand du royaume. Le bureau royal, dans la salle du conseil, est désormais le vôtre.", "next": "e4"},
+      "e4": {"who": "elian", "text": "À vos ordres… Intendant. Je ne vous décevrai pas.",
+        "text_if": [{"cond": "relation_elian<=-5", "text": "À vos ordres. Je ferai mon devoir… même si nous ne sommes pas toujours d'accord."}],
+        "action": "fin_intro"}
+    }
+  }
+}

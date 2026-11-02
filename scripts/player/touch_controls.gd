@@ -55,8 +55,28 @@ func _button_at(pos: Vector2) -> ActionButton:
 			return b
 	return null
 
+func _release_all() -> void:
+	for k in _btn_touch:
+		_btn_touch[k].held = false
+	_btn_touch.clear()
+	_stick_id = -1
+	_stick_vec = Vector2.ZERO
+	_base.visible = false
+	_knob.visible = false
+	_look.clear()
+
 func _input(e: InputEvent) -> void:
 	var w := get_viewport_rect().size.x
+	# pendant un dialogue ou dans le bureau royal, l'interface reçoit les touchers, pas le personnage
+	if Dialogue.active or KingdomUI.is_open():
+		if _stick_id != -1 or not _btn_touch.is_empty():
+			_release_all()
+		if e is InputEventKey and e.pressed and not e.echo and Dialogue.active and Dialogue.inst:
+			if e.physical_keycode in [KEY_SPACE, KEY_ENTER, KEY_E]:
+				Dialogue.inst.advance()
+			elif e.physical_keycode >= KEY_1 and e.physical_keycode <= KEY_5:
+				Dialogue.inst.choose_visible(e.physical_keycode - KEY_1)
+		return
 	if e is InputEventScreenTouch:
 		if e.pressed:
 			var b := _button_at(e.position)
@@ -126,6 +146,12 @@ func _input(e: InputEvent) -> void:
 			KEY_4: player.combat.cast(SpellDB.ORDER[3])
 			KEY_H: player.combat.drink("soin")
 			KEY_G: player.combat.drink("mana")
+			KEY_E:
+				if hud and hud.btn_talk.visible:
+					hud.btn_talk.pressed.emit()
+			KEY_TAB:
+				if hud and hud.btn_kingdom.visible:
+					hud.btn_kingdom.pressed.emit()
 
 func _process(delta: float) -> void:
 	var k := Vector2(
@@ -135,6 +161,8 @@ func _process(delta: float) -> void:
 	if k.length() > 0:
 		v = k.normalized()
 	if player:
+		if Dialogue.active or KingdomUI.is_open():
+			v = Vector2.ZERO
 		player.input_dir = v
 		player.sprint = Input.is_physical_key_pressed(KEY_SHIFT)
 		if rig:

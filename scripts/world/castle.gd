@@ -472,18 +472,24 @@ static func _gardes(parent: Node3D) -> void:
 		[Vector3(5.0, Y0 + 17.0, gate_z + 4.0), 0.0],
 	]
 	spots[8] = [Vector3(10.6, FLOOR, -137.0), -PI / 2]
-	for s in spots:
+	guards.clear()
+	for i in spots.size():
+		var s = spots[i]
 		var gd = Guard.new()
 		gd.position = s[0]
 		gd.rotation.y = s[1]
+		if i >= 2 and i <= 5:
+			gd.add_to_group("garde_cour")
 		parent.add_child(gd)
 		guards.append(gd)
 	# deux patrouilles dans la cour
 	var p1 = Guard.new()
 	p1.patrol = [Vector3(-30, Y0, -96), Vector3(-30, Y0, -122), Vector3(-26, Y0, -124), Vector3(-26, Y0, -96)]
+	p1.add_to_group("garde_cour")
 	parent.add_child(p1)
 	var p2 = Guard.new()
 	p2.patrol = [Vector3(28, Y0, -124), Vector3(28, Y0, -97), Vector3(12, Y0, -97), Vector3(12, Y0, -124)]
+	p2.add_to_group("garde_cour")
 	parent.add_child(p2)
 
 static func _zone_interieure(parent: Node3D) -> void:

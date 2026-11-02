@@ -26,6 +26,11 @@ var _marker: MeshInstance3D
 var _target_acc := 0.0
 var _dead_until := 0.0
 var _potion_cd := 0.0
+## Compteurs d'actions (le tutoriel narratif s'en sert pour savoir ce que le joueur a appris)
+var stats := {"coups": 0, "combo": 0, "esquives": 0, "sorts": 0, "potions": 0, "morts": 0}
+## Point de réapparition (l'histoire le déplace pendant l'introduction)
+static var respawn_point := Vector2(0, -70)
+static var respawn_text := "Vous reprenez vos esprits aux portes du château"
 
 const COMBO := [
 	{"anim": "b/Sword_Regular_A", "dur": 0.55, "hit": 0.22, "mult": 1.0},
@@ -86,6 +91,9 @@ func _start_swing() -> void:
 	_hit_at = now() + c["hit"]
 	_hit_pending = true
 	_queued = false
+	stats["coups"] += 1
+	if _combo == 2:
+		stats["combo"] += 1
 	Sfx.play("coup", -3.0)
 
 func _resolve_hit() -> void:
@@ -122,6 +130,7 @@ func dodge() -> void:
 	_attack_until = 0.0
 	player.cbt.invulnerable_until = now() + 0.42
 	player.action("Roll", 0.5, 1.35)
+	stats["esquives"] += 1
 	Sfx.play("esquive")
 
 # ------------------------------------------------------------------ SORTS
@@ -161,6 +170,7 @@ func cast(id: String) -> void:
 func _effect(id: String) -> void:
 	var d: Dictionary = SpellDB.DEFS[id]
 	var power: float = d.get("degats", 0.0) + prog.spell_power() * d["ratio"]
+	stats["sorts"] += 1
 	match id:
 		"trait_feu":
 			_refresh_target(false)
@@ -232,6 +242,7 @@ func drink(kind: String) -> void:
 		prog.potions_mana -= 1
 		mana = minf(prog.max_mana(), mana + prog.max_mana() * 0.6)
 	_potion_cd = now() + 1.0
+	stats["potions"] += 1
 	prog.changed.emit()
 	Sfx.play("potion")
 	FX.cast_glow(player, Color(1, 0.4, 0.4) if kind == "soin" else Color(0.4, 0.6, 1))
@@ -317,6 +328,7 @@ func _on_level_up(lv: int) -> void:
 	prog.save_if_dirty()
 
 func _on_death(_src: Node) -> void:
+	stats["morts"] += 1
 	_dead_until = now() + 4.0
 	_cast_spell = ""
 	player.action("Death01", 4.0, 1.0)
@@ -329,8 +341,8 @@ func _respawn() -> void:
 	player.cbt.dead = false
 	player.cbt.hp = player.cbt.max_hp
 	mana = prog.max_mana()
-	var p := Vector2(0, -70)
+	var p := respawn_point
 	player.global_position = Vector3(p.x, Terrain.height_at(p.x, p.y) + 0.3, p.y)
 	player.velocity = Vector3.ZERO
 	player.end_action()
-	message.emit("Vous reprenez vos esprits aux portes du château", Color(0.9, 0.9, 1))
+	message.emit(respawn_text, Color(0.9, 0.9, 1))

@@ -3,6 +3,7 @@ class_name Combat
 
 static var monsters: Array = []
 static var player: Node3D
+static var companion: Node3D
 
 static func register(m: Node3D) -> void:
 	if not monsters.has(m):

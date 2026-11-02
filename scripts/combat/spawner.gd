@@ -16,16 +16,26 @@ var _active := false
 var _acc := 0.0
 
 static var spawners: Array = []
+## Suspendus pendant l'introduction (aucun repaire actif tant que l'histoire guide le joueur)
+static var paused := false
+var zone_id := ""
+var liberated := false
 
 ## Repaires du royaume : chaque peuple a son territoire et son récit
 const ZONES := [
-	{"kind": "puglin", "pos": Vector2(-25, 100), "n": 3, "r": 9, "label": "Pillards puglins (berge ouest)"},
-	{"kind": "puglin", "pos": Vector2(150, -115), "n": 4, "r": 11, "label": "Camp puglin (collines de la mine)"},
-	{"kind": "zombie", "pos": Vector2(-165, 60), "n": 4, "r": 12, "label": "Bois des Morts errants"},
-	{"kind": "zombie", "pos": Vector2(-130, 150), "n": 3, "r": 10, "label": "Clairière maudite"},
-	{"kind": "imp", "pos": Vector2(70, 205), "n": 3, "r": 9, "label": "Diablotins du portail"},
-	{"kind": "imp_brute", "pos": Vector2(5, 228), "n": 1, "r": 3, "label": "Brute infernale (élite)"},
+	{"id": "berge_ouest", "kind": "puglin", "pos": Vector2(-25, 100), "n": 3, "r": 9, "label": "Pillards puglins (berge ouest)"},
+	{"id": "collines_mine", "kind": "puglin", "pos": Vector2(150, -115), "n": 4, "r": 11, "label": "Camp puglin (collines de la mine)"},
+	{"id": "bois_morts", "kind": "zombie", "pos": Vector2(-165, 60), "n": 4, "r": 12, "label": "Bois des Morts errants"},
+	{"id": "clairiere_maudite", "kind": "zombie", "pos": Vector2(-130, 150), "n": 3, "r": 10, "label": "Clairière maudite"},
+	{"id": "portail_diablotins", "kind": "imp", "pos": Vector2(70, 205), "n": 3, "r": 9, "label": "Diablotins du portail"},
+	{"id": "portail_brute", "kind": "imp_brute", "pos": Vector2(5, 228), "n": 1, "r": 3, "label": "Brute infernale (élite)"},
 ]
+
+static func by_id(id: String) -> Spawner:
+	for s in spawners:
+		if s.zone_id == id:
+			return s
+	return null
 
 static func build(world: Node3D) -> void:
 	spawners.clear()
@@ -35,6 +45,7 @@ static func build(world: Node3D) -> void:
 		s.count = z["n"]
 		s.radius = z["r"]
 		s.label = z["label"]
+		s.zone_id = z["id"]
 		if MonsterDB.DEFS[s.kind].get("elite", false):
 			s.respawn = 120.0
 		var p: Vector2 = z["pos"]
@@ -49,7 +60,14 @@ func _process(delta: float) -> void:
 	var dt := _acc
 	_acc = 0.0
 	var p := Combat.player
-	if p == null:
+	if p == null or paused or liberated:
+		if (paused or liberated) and _active:
+			_active = false
+			for m in _alive:
+				if is_instance_valid(m):
+					m.queue_free()
+			_alive.clear()
+			_timers.clear()
 		return
 	var d := p.global_position.distance_to(global_position)
 	if not _active and d < activate:

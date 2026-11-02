@@ -73,7 +73,7 @@ static func _lib(path: String) -> AnimationLibrary:
 		s.free()
 	return _libs[path]
 
-static func _graft(skel: Skeleton3D, scene_path: String) -> Array:
+static func _graft(skel: Skeleton3D, scene_path: String, only: Array = []) -> Array:
 	var added := []
 	var s: Node = load(scene_path).instantiate()
 	var src: Skeleton3D = s.find_child("Skeleton3D", true, false)
@@ -82,6 +82,13 @@ static func _graft(skel: Skeleton3D, scene_path: String) -> Array:
 		return added
 	for c in src.get_children():
 		if c is MeshInstance3D:
+			if not only.is_empty():
+				var keep := false
+				for o in only:
+					if String(c.name).contains(o):
+						keep = true
+				if not keep:
+					continue
 			c.owner = null
 			src.remove_child(c)
 			skel.add_child(c)
@@ -99,9 +106,10 @@ static func build(opts: Dictionary) -> Node3D:
 	var outfit: String = opts.get("outfit", "")
 	if outfit != "":
 		var bodymi := skel.find_child("SuperHero_*", false, false) as MeshInstance3D
-		if bodymi:
+		var only: Array = opts.get("pieces", [])
+		if bodymi and only.is_empty():
 			bodymi.mesh = _head_only(bodymi.mesh)
-		var pieces := _graft(skel, OUTFITS[outfit])
+		var pieces := _graft(skel, OUTFITS[outfit], only)
 		var tint: Color = opts.get("tint", Color.WHITE)
 		if tint != Color.WHITE:
 			for mi in pieces:

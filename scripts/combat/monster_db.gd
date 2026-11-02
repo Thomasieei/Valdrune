@@ -33,4 +33,56 @@ const DEFS := {
 		"anims": {"attente": "Idle", "marche": "Walk", "course": "Walk", "attaque": "Sword_Attack", "touche": "Hit_Chest", "mort": "Death01"},
 		"elite": true,
 	},
+	# ---------------- Mercenaires de Vargas (histoire)
+	"mercenaire": {
+		"nom": "Mercenaire de Vargas", "model": "humain:rodeur_h", "teinte": Color(0.62, 0.3, 0.26), "arme": "Sword",
+		"scale": 1.0, "rayon": 0.4, "hp": 55, "degats": 9, "defense": 1, "vitesse": 2.4, "course": 4.6,
+		"detection": 22.0, "portee": 1.9, "cadence": 1.6, "impact": 0.45,
+		"comportement": "agressif", "xp": 25, "or": [4, 10], "butin": {"soin": 0.25, "mana": 0.15},
+		"anims": {"attente": "Sword_Idle", "marche": "Walk", "course": "Jog_Fwd", "attaque": "Sword_Attack", "touche": "Hit_Chest", "mort": "Death01"},
+		"speciales": [
+			{"id": "estoc", "forme": "ligne", "longueur": 4.5, "largeur": 1.6, "avert": 1.0, "degats": 22, "recharge": 9.0, "min": 1.5, "max": 4.0,
+				"anim_prep": "Sword_Idle", "anim": "b/Sword_Dash", "charge": true, "fx": "impact", "cri": "Prends ça !"},
+		],
+	},
+	"lanceur": {
+		"nom": "Lanceur de haches", "model": "humain:paysan_h", "teinte": Color(0.5, 0.32, 0.26),
+		"scale": 1.0, "rayon": 0.4, "hp": 40, "degats": 6, "defense": 0, "vitesse": 2.4, "course": 4.0,
+		"detection": 26.0, "portee": 1.6, "cadence": 1.6, "impact": 0.45,
+		"comportement": "lache", "xp": 22, "or": [3, 9], "butin": {"soin": 0.2, "mana": 0.25},
+		"anims": {"attente": "Idle", "marche": "Walk", "course": "Jog_Fwd", "attaque": "Punch_Jab", "touche": "Hit_Chest", "mort": "Death01"},
+		"speciales": [
+			{"id": "hache", "forme": "cercle", "rayon": 2.2, "centre": "cible", "avert": 1.1, "degats": 16, "recharge": 3.2, "min": 4.0, "max": 18.0,
+				"anim_prep": "b/Idle_FoldArms", "anim": "b/OverhandThrow", "fx": "poussiere"},
+		],
+	},
+	"lieutenant": {
+		"nom": "Lieutenant Harsk", "model": "humain:rodeur_h", "teinte": Color(0.35, 0.3, 0.32), "arme": "Sword", "bouclier": true,
+		"scale": 1.15, "rayon": 0.45, "hp": 220, "degats": 16, "defense": 3, "vitesse": 2.2, "course": 4.2,
+		"detection": 30.0, "portee": 2.1, "cadence": 1.8, "impact": 0.5, "esquive": 0.15,
+		"comportement": "agressif", "xp": 110, "or": [40, 70], "butin": {"soin": 1.0, "mana": 0.6}, "elite": true,
+		"anims": {"attente": "b/Idle_Shield", "marche": "Walk", "course": "Jog_Fwd", "attaque": "Sword_Attack", "touche": "Hit_Chest", "mort": "Death01"},
+		"speciales": [
+			{"id": "charge", "forme": "ligne", "longueur": 9.0, "largeur": 2.4, "avert": 1.2, "degats": 30, "recharge": 7.0, "min": 3.0, "max": 10.0,
+				"anim_prep": "b/Idle_Shield", "anim": "b/Shield_Dash", "charge": true, "fx": "poussiere", "cri": "Pour Vargas !"},
+			{"id": "fracas", "forme": "cercle", "rayon": 3.5, "avert": 1.0, "degats": 26, "recharge": 9.0, "min": 0.0, "max": 3.0,
+				"anim_prep": "b/Idle_Shield", "anim": "b/Shield_OneShot", "fx": "poussiere"},
+		],
+	},
+	"colosse": {
+		"nom": "Brokk le Colosse", "model": "humain:paysan_h", "pieces": ["Legs", "Feet"], "teinte": Color(0.45, 0.35, 0.3),
+		"barbe": true, "cheveux": "Hair_Buzzed", "couleur_cheveux": Color(0.15, 0.1, 0.08), "arme": "Sword", "arme_echelle": 2.2,
+		"scale": 1.75, "rayon": 0.75, "hp": 620, "degats": 22, "defense": 3, "vitesse": 1.9, "course": 3.4,
+		"detection": 40.0, "portee": 3.0, "cadence": 2.4, "impact": 0.6, "esquive": 0.22,
+		"comportement": "agressif", "xp": 200, "or": [60, 90], "butin": {"soin": 1.0, "mana": 1.0}, "elite": true, "boss": true,
+		"anims": {"attente": "Sword_Idle", "marche": "Walk", "course": "Walk", "attaque": "Sword_Attack", "touche": "Hit_Chest", "mort": "Death01"},
+		"speciales": [
+			{"id": "seisme", "forme": "cercle", "rayon": 4.5, "avert": 1.4, "degats": 42, "recharge": 10.0, "min": 0.0, "max": 4.0,
+				"anim_prep": "b/Sword_Block", "anim": "b/Sword_Heavy_Combo", "anim_seek": 0.6, "fx": "poussiere", "cri": "À GENOUX !"},
+			{"id": "balayage", "forme": "cone", "rayon": 5.5, "angle": 110.0, "avert": 1.0, "degats": 32, "recharge": 6.0, "min": 0.0, "max": 5.0,
+				"anim_prep": "Sword_Idle", "anim": "b/Sword_Regular_C", "fx": "impact", "suivre": true},
+			{"id": "ruee", "forme": "ligne", "longueur": 12.0, "largeur": 3.0, "avert": 1.3, "degats": 38, "recharge": 9.0, "min": 5.0, "max": 13.0,
+				"anim_prep": "Sword_Idle", "anim": "b/Sword_Dash", "charge": true, "fx": "poussiere", "cri": "ÉCRASÉ !"},
+		],
+	},
 }

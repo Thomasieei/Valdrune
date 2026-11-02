@@ -3,6 +3,12 @@ extends Node3D
 
 var player: Player
 var rig: CameraRig
+var hud: Hud
+var dlg: Dialogue
+var kui: KingdomUI
+var story: Story
+var _talking: Node3D
+var _talk_acc := 0.0
 var _inside := false
 
 var _loading: CanvasLayer
@@ -145,7 +151,7 @@ func _spawn() -> void:
 	Spawner.build(self)
 	var ui := CanvasLayer.new()
 	add_child(ui)
-	var hud := Hud.new()
+	hud = Hud.new()
 	ui.add_child(hud)
 	hud.bind(player)
 	var tc := TouchControls.new()
@@ -153,10 +159,46 @@ func _spawn() -> void:
 	tc.rig = rig
 	tc.hud = hud
 	ui.add_child(tc)
+	# dialogues (au-dessus du HUD) et bureau royal (au-dessus de tout)
+	var dl := CanvasLayer.new()
+	dl.layer = 2
+	add_child(dl)
+	dlg = Dialogue.new()
+	dl.add_child(dlg)
+	var kl := CanvasLayer.new()
+	kl.layer = 3
+	kl.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(kl)
+	kui = KingdomUI.new()
+	kl.add_child(kui)
+	hud.btn_talk.pressed.connect(_talk)
+	hud.btn_kingdom.pressed.connect(func(): if not Dialogue.active: kui.open())
+	dlg.finished.connect(func(a):
+		if a == "ouvrir_missions":
+			kui.open("missions")
+		if is_instance_valid(_talking) and _talking is Companion and Story.done():
+			_talking.follow()
+		_talking = null)
+	Talk.setup(self)
 	var zone := find_child("ZoneDonjon", true, false) as Area3D
 	if zone:
 		zone.body_entered.connect(func(b): if b == player: _set_inside(true))
 		zone.body_exited.connect(func(b): if b == player: _set_inside(false))
+	var test_mode := args.size() > 0 and args[0] in ["--combat", "--tour"]
+	if not test_mode:
+		if args.size() > 0 and args[0] == "--story":
+			GameState.get_inst().reset()
+			Progression.get_inst().reset()
+			Spawner.paused = true
+		story = Story.new()
+		story.name = "Histoire"
+		add_child(story)
+		story.setup(self, player, hud, dlg)
+		player.cbt.died.connect(func(_s): story.on_player_died())
+	if args.size() > 0 and args[0] == "--story":
+		var stt = load("res://scripts/tools/story_test.gd").new()
+		stt.world = self
+		add_child(stt)
 	if args.size() > 0 and args[0] == "--combat":
 		var ct = load("res://scripts/tools/combat_test.gd").new()
 		ct.world = self
@@ -179,8 +221,20 @@ func _process(delta: float) -> void:
 	if _npc_acc > 0.3:
 		_npc_acc = 0.0
 		_cull_npcs()
+	_talk_acc += delta
+	if _talk_acc > 0.25 and hud:
+		_talk_acc = 0.0
+		var can := not Dialogue.active and not player.cbt.dead and Combat.in_radius(player.global_position, 14.0).is_empty()
+		if story and story.step in ["debut", "suivre", "embuscade", "colosse", "alerte", "assaut"]:
+			can = false
+		var n: Node3D = Talk.nearest(player.global_position, get_tree()) if can else null
+		if n and n.has_meta("talk") and n.get_meta("talk")["role"] == "roi" and not Story.done():
+			n = null
+		hud.btn_talk.visible = n != null
+		if n:
+			hud.btn_talk.label = "Parler à " + String(Talk.info(n)["nom"])
 	var a := OS.get_cmdline_user_args()
-	if "--tour" in a or "--combat" in a:
+	if "--tour" in a or "--combat" in a or "--story" in a:
 		return
 	_q_acc += delta
 	if _q_acc < 1.0:
@@ -192,6 +246,42 @@ func _process(delta: float) -> void:
 		_q_low = 0.0
 		quality += 1
 		_apply_quality()
+
+## Le joueur se tourne vers son interlocuteur, la caméra se place derrière lui
+func focus_on(n: Node3D) -> void:
+	if n == null or player == null:
+		return
+	var d := n.global_position - player.global_position
+	d.y = 0
+	if d.length() < 0.1:
+		return
+	player.rotation.y = atan2(d.x, d.z)
+	player.velocity = Vector3.ZERO
+	if rig:
+		rig.yaw = player.rotation.y + PI
+
+func _talk() -> void:
+	if Dialogue.active:
+		return
+	var n := Talk.nearest(player.global_position, get_tree())
+	if n == null:
+		return
+	_talking = n
+	# le PNJ se tourne vers le joueur
+	var d := player.global_position - n.global_position
+	n.rotation.y = atan2(d.x, d.z)
+	if n is Companion:
+		n.stand(n.global_position)
+	focus_on(n)
+	dlg.start(Talk.build(n))
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		if player:
+			var a := OS.get_cmdline_user_args()
+			if not ("--tour" in a or "--combat" in a):
+				GameState.get_inst().save_game()
+				Progression.get_inst().save_if_dirty()
 
 ## Les PNJ loin du joueur (ou de l'autre côté des murs du donjon) ne sont ni affichés ni animés.
 func _cull_npcs() -> void:

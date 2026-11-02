@@ -2,7 +2,22 @@ class_name Monster
 extends CharacterBody3D
 ## Créature générique pilotée par MonsterDB : errance, détection, poursuite, attaque, fuite, retour au repaire, mort et butin.
 
-enum S { ERRANCE, POURSUITE, ATTAQUE, TOUCHE, FUITE, RETOUR, MORT }
+enum S { ERRANCE, POURSUITE, ATTAQUE, TOUCHE, FUITE, RETOUR, MORT, SPECIALE, RECUP, ESQUIVE }
+
+signal mort(m: Monster)
+
+## Appelé quand une créature lance une attaque spéciale télégraphiée (le tutoriel s'y branche)
+static var on_special: Callable = Callable()
+var force_target: Node3D = null
+var force_until := 0.0
+var no_respawn := false
+var _sp: Dictionary = {}
+var _tele: Telegraph
+var _sp_cool := {}
+var _dodge_cd := 0.0
+var _dodge_dir := Vector3.ZERO
+var _charge_from := Vector3.ZERO
+var _charge_to := Vector3.ZERO
 
 var kind := "puglin"
 var def: Dictionary
@@ -63,8 +78,24 @@ func _build_model() -> void:
 	var m: String = def["model"]
 	var sc: float = def["scale"]
 	if m.begins_with("humain:"):
-		_model = CharBuilder.build({"outfit": m.get_slice(":", 1), "hair": "Hair_Buzzed", "tint": def.get("teinte", Color.WHITE), "hair_color": Color(0.2, 0.22, 0.18)})
+		var spec := {"outfit": m.get_slice(":", 1), "hair": def.get("cheveux", "Hair_Buzzed"), "tint": def.get("teinte", Color.WHITE), "hair_color": def.get("couleur_cheveux", Color(0.2, 0.22, 0.18)), "beard": def.get("barbe", false)}
+		if def.has("pieces"):
+			spec["pieces"] = def["pieces"]
+		_model = CharBuilder.build(spec)
 		_ap = _model.get_node("AnimationPlayer")
+		var skel: Skeleton3D = _model.get_node("Armature/Skeleton3D")
+		if def.has("arme"):
+			var att := BoneAttachment3D.new()
+			att.bone_name = "hand_r"
+			skel.add_child(att)
+			var w := Kit.dungeon(att, def["arme"], Vector3.ZERO, 0.0, def.get("arme_echelle", 1.1))
+			w.rotation_degrees = Vector3(-90, 0, 0)
+		if def.has("bouclier"):
+			var att2 := BoneAttachment3D.new()
+			att2.bone_name = "lowerarm_l"
+			skel.add_child(att2)
+			var sh := Kit.dungeon(att2, "Shield", Vector3(0.0, 0.18, 0.08), 0.0, 1.8)
+			sh.rotation_degrees = Vector3(0, 90, 90)
 	else:
 		var file := m.get_slice(":", 1)
 		_model = load("res://assets/monsters/%s.glb" % file).instantiate()
@@ -140,7 +171,13 @@ func _play(key: String, blend := 0.2, speed := 1.0) -> void:
 		_ap.seek(0.0, true)
 
 func _player() -> Node3D:
-	return Combat.player
+	if force_target and is_instance_valid(force_target) and Time.get_ticks_msec() / 1000.0 < force_until and not force_target.cbt.dead:
+		return force_target
+	var p := Combat.player
+	var c := Combat.companion
+	if c and is_instance_valid(c) and c.visible and not c.cbt.dead and (p == null or p.cbt.dead):
+		return c
+	return p
 
 func _physics_process(delta: float) -> void:
 	if state == S.MORT:
@@ -175,6 +212,8 @@ func _physics_process(delta: float) -> void:
 				_go(S.RETOUR)
 			elif global_position.distance_to(home) > leash:
 				_go(S.RETOUR)
+			elif _try_special(p, dist):
+				pass
 			elif dist <= def["portee"] and _cool <= 0.0:
 				_go(S.ATTAQUE)
 			elif dist <= def["portee"]:
@@ -194,6 +233,19 @@ func _physics_process(delta: float) -> void:
 			if _t >= dur:
 				_cool = def["cadence"]
 				_go(S.POURSUITE)
+		S.SPECIALE:
+			if is_instance_valid(_tele) and _sp.get("suivre", false):
+				_face(to_p, delta, 2.0)
+		S.RECUP:
+			if _sp.get("charge", false) and _t < 0.3:
+				global_position = _charge_from.lerp(_charge_to, clampf(_t / 0.3, 0.0, 1.0))
+			if _t > float(_sp.get("recup", 0.7)):
+				_go(S.POURSUITE)
+		S.ESQUIVE:
+			move = _dodge_dir
+			spd = 7.0
+			if _t > 0.45:
+				_go(S.POURSUITE)
 		S.TOUCHE:
 			if _t > 0.38:
 				_go(S.POURSUITE if def["comportement"] != "lache" or cbt.hp > cbt.max_hp * 0.35 else S.FUITE)
@@ -212,6 +264,10 @@ func _physics_process(delta: float) -> void:
 				_go(S.ERRANCE)
 	move.y = 0
 	var mult := cbt.speed_mult()
+	if state == S.ESQUIVE:
+		mult = 1.0
+	if state == S.SPECIALE or (state == S.RECUP and _sp.get("charge", false)):
+		move = Vector3.ZERO
 	if move.length() > 0.2 and mult > 0.0:
 		var dir := move.normalized()
 		_face(dir, delta, 8.0)
@@ -221,7 +277,7 @@ func _physics_process(delta: float) -> void:
 	else:
 		velocity.x = 0
 		velocity.z = 0
-		if state != S.ATTAQUE and state != S.TOUCHE:
+		if state != S.ATTAQUE and state != S.TOUCHE and state != S.SPECIALE and state != S.RECUP and state != S.ESQUIVE:
 			_play("attente")
 	# éviter de s'empiler sur les congénères
 	for o in Combat.monsters:
@@ -238,6 +294,76 @@ func _physics_process(delta: float) -> void:
 		global_position.y = gy + 0.2
 	_bar_mat.set_shader_parameter("fill", cbt.hp / cbt.max_hp)
 	_bar.visible = cbt.hp < cbt.max_hp
+
+## Attaques spéciales définies dans MonsterDB ("speciales") : zone au sol, temps d'avertissement, frappe.
+func _try_special(p: Node3D, dist: float) -> bool:
+	if p == null or not def.has("speciales"):
+		return false
+	var now := Time.get_ticks_msec() / 1000.0
+	for sp in def["speciales"]:
+		var id: String = sp["id"]
+		if now < float(_sp_cool.get(id, 0.0)):
+			continue
+		if dist < float(sp.get("min", 0.0)) or dist > float(sp.get("max", 99.0)):
+			continue
+		_sp_cool[id] = now + float(sp["recharge"])
+		_start_special(sp, p)
+		return true
+	return false
+
+func _start_special(sp: Dictionary, tgt: Node3D) -> void:
+	_sp = sp
+	var to := tgt.global_position - global_position
+	to.y = 0
+	var yaw := atan2(to.x, to.z)
+	rotation.y = yaw
+	var shp: String = sp["forme"]
+	var center := global_position
+	if sp.get("centre", "soi") == "cible":
+		center = tgt.global_position
+	var l: float = sp.get("longueur", 8.0)
+	_tele = Telegraph.spawn(FX.root, center, yaw, shp, sp["avert"], sp.get("rayon", 3.0), sp.get("angle", 80.0), l, sp.get("largeur", 2.4))
+	_tele.struck.connect(_resolve_special.bind(_tele))
+	if sp.get("charge", false):
+		_charge_from = global_position
+		var end := global_position + Vector3(sin(yaw), 0, cos(yaw)) * (l - 0.5)
+		end.y = Terrain.height_at(end.x, end.z) + 0.1
+		if global_position.y > end.y + 0.6:
+			end.y = global_position.y
+		_charge_to = end
+	_go(S.SPECIALE)
+	velocity = Vector3.ZERO
+	var prep: String = sp.get("anim_prep", "")
+	if prep != "" and _ap.has_animation(prep):
+		_cur = prep
+		_ap.play(prep, 0.15)
+		_ap.speed_scale = 0.6
+	if sp.has("cri"):
+		FX.damage_number(global_position + Vector3.UP * 3.0 * float(def["scale"]), String(sp["cri"]), Color(1, 0.5, 0.35))
+	if on_special.is_valid():
+		on_special.call(self, _tele)
+
+func _resolve_special(tele: Telegraph) -> void:
+	if state == S.MORT:
+		return
+	var a: String = _sp.get("anim", "")
+	if a != "" and _ap.has_animation(a):
+		_cur = a
+		_ap.play(a, 0.05)
+		_ap.seek(float(_sp.get("anim_seek", 0.0)), true)
+		_ap.speed_scale = 1.4
+	for t in [Combat.player, Combat.companion]:
+		if t and is_instance_valid(t) and t.visible and not t.cbt.dead and tele.contains(t.global_position):
+			t.cbt.take_damage(float(_sp["degats"]), self)
+	match String(_sp.get("fx", "poussiere")):
+		"poussiere":
+			FX.shockwave(tele.global_position, float(_sp.get("rayon", 2.0)) if _sp["forme"] == "cercle" else 2.0)
+		"impact":
+			FX.hit_spark(tele.global_position + Vector3.UP * 0.5, Color(1, 0.7, 0.4))
+	Sfx.play("lourd", -2.0)
+	if Combat.player and Combat.player.global_position.distance_to(tele.global_position) < 14.0:
+		Combat.player.shake(0.35)
+	_go(S.RECUP)
 
 func _face(dir: Vector3, delta: float, rate: float) -> void:
 	if dir.length() < 0.01:
@@ -269,6 +395,21 @@ func _on_damaged(_amount: float, _src: Node) -> void:
 	if state == S.MORT:
 		return
 	_aggro()
+	# certaines créatures esquivent les assauts répétés
+	var now := Time.get_ticks_msec() / 1000.0
+	if def.has("esquive") and state == S.POURSUITE and now > _dodge_cd and randf() < float(def["esquive"]):
+		_dodge_cd = now + 3.0
+		var side := global_transform.basis.x * (1.0 if randf() > 0.5 else -1.0)
+		_dodge_dir = (side - global_transform.basis.z * 0.6).normalized()
+		cbt.invulnerable_until = now + 0.4
+		_go(S.ESQUIVE)
+		if _ap.has_animation("Roll"):
+			_cur = "Roll"
+			_ap.play("Roll", 0.05)
+			_ap.speed_scale = 1.3
+		return
+	if state == S.SPECIALE or state == S.ESQUIVE:
+		return
 	if not def.get("elite", false) and state != S.ATTAQUE:
 		_go(S.TOUCHE)
 	if _model:
@@ -284,11 +425,14 @@ func _on_died(_src: Node) -> void:
 	velocity = Vector3.ZERO
 	_play("mort", 0.1)
 	Combat.unregister(self)
+	if is_instance_valid(_tele):
+		_tele.queue_free()
+	mort.emit(self)
 	var prog := Progression.get_inst()
 	prog.add_xp(def["xp"])
 	FX.damage_number(global_position + Vector3.UP * 2.4, "+%d XP" % def["xp"], Color(0.6, 0.9, 1.0))
 	Loot.drop(self)
-	if spawner:
+	if spawner and not no_respawn:
 		spawner.on_monster_died(self)
 	var tw := create_tween()
 	tw.tween_interval(3.0)

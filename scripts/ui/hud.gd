@@ -2,7 +2,20 @@ class_name Hud
 extends Control
 ## Interface de combat : vie / mana / expérience, or, cible, messages, et la grappe de boutons d'action.
 
+static var inst: Hud
+
 var player: Player
+var btn_talk: ActionButton
+var btn_kingdom: ActionButton
+var _hint: Label
+var _hint_key := ""
+var _hint_t := 0.0
+var _objective: Label
+var _disc_title: Label
+var _disc_sub: Label
+var _disc_t := 0.0
+## Boutons visibles (le tutoriel les dévoile au fil de l'histoire)
+var shown := {"attaque": true, "esquive": true, "sorts": true, "potions": true}
 var pc: PlayerCombat
 var prog: Progression
 var btn_attack: ActionButton
@@ -16,6 +29,7 @@ var _target_name := ""
 var _sig := ""
 
 func _ready() -> void:
+	inst = self
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	prog = Progression.get_inst()
@@ -35,6 +49,30 @@ func _ready() -> void:
 	_msg.add_theme_constant_override("outline_size", 10)
 	_msg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_msg)
+	btn_talk = ActionButton.new().setup("parler", 40.0, Color(0.6, 0.9, 1.0))
+	btn_talk.label = "Parler"
+	btn_talk.visible = false
+	add_child(btn_talk)
+	btn_kingdom = ActionButton.new().setup("couronne", 34.0, Color(1.0, 0.82, 0.4))
+	btn_kingdom.visible = false
+	add_child(btn_kingdom)
+	_hint = _mk_label(30, Color(1, 0.95, 0.8))
+	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var hb := StyleBoxFlat.new()
+	hb.bg_color = Color(0.04, 0.04, 0.06, 0.6)
+	hb.set_corner_radius_all(12)
+	hb.content_margin_left = 22
+	hb.content_margin_right = 22
+	hb.content_margin_top = 8
+	hb.content_margin_bottom = 8
+	_hint.add_theme_stylebox_override("normal", hb)
+	_hint.visible = false
+	_objective = _mk_label(22, Color(1, 0.88, 0.55))
+	_objective.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_disc_title = _mk_label(64, Color(1, 0.88, 0.55))
+	_disc_sub = _mk_label(28, Color(0.92, 0.92, 0.95))
+	_disc_title.modulate.a = 0.0
+	_disc_sub.modulate.a = 0.0
 	btn_attack.pressed.connect(func(): pc.attack())
 	btn_dodge.pressed.connect(func(): pc.dodge())
 	for id in btn_spells:
@@ -43,13 +81,64 @@ func _ready() -> void:
 	btn_potion_soin.pressed.connect(func(): pc.drink("soin"))
 	btn_potion_mana.pressed.connect(func(): pc.drink("mana"))
 
+func _mk_label(fs: int, col: Color) -> Label:
+	var l := Label.new()
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_font_size_override("font_size", fs)
+	l.add_theme_color_override("font_color", col)
+	l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+	l.add_theme_constant_override("outline_size", 8)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(l)
+	return l
+
+## Conseil du tutoriel : discret, en haut de l'écran, ne bloque jamais le jeu.
+func hint(text: String, key := "", dur := 0.0) -> void:
+	_hint_key = key
+	_hint.text = text
+	var f := get_theme_default_font()
+	var w := 0.0
+	for line in text.split("\n"):
+		w = maxf(w, f.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x)
+	_hint.custom_minimum_size = Vector2(minf(w + 50.0, 900.0), 0)
+	_hint.size = Vector2(_hint.custom_minimum_size.x, 0)
+	_hint.visible = text != ""
+	_hint_t = dur
+
+func clear_hint(key := "") -> void:
+	if key == "" or key == _hint_key:
+		_hint.visible = false
+		_hint_key = ""
+
+func hint_key() -> String:
+	return _hint_key if _hint.visible else ""
+
+func objective(text: String) -> void:
+	_objective.text = ("» " + text) if text != "" else ""
+
+## Titre de découverte d'un lieu (fondu)
+func discover(title: String, sub := "") -> void:
+	_disc_title.text = title
+	_disc_sub.text = sub
+	_disc_t = 4.5
+	Sfx.play("ok", -12.0)
+
 func bind(p: Player) -> void:
 	player = p
 	pc = p.combat
 	pc.message.connect(show_message)
 
 func buttons() -> Array:
-	return [btn_attack, btn_dodge, btn_potion_soin, btn_potion_mana] + btn_spells.values()
+	return [btn_attack, btn_dodge, btn_potion_soin, btn_potion_mana, btn_talk, btn_kingdom] + btn_spells.values()
+
+func set_shown(k: String, v: bool) -> void:
+	shown[k] = v
+
+func pulse(b: ActionButton, on := true) -> void:
+	for x in buttons():
+		x.pulse = false
+	if b:
+		b.pulse = on
 
 func show_message(t: String, col: Color) -> void:
 	_msg.text = t
@@ -69,8 +158,25 @@ func _layout() -> void:
 		i += 1
 	btn_potion_soin.position = Vector2(s.x - 60, 120) - btn_potion_soin.size * 0.5
 	btn_potion_mana.position = Vector2(s.x - 60, 196) - btn_potion_mana.size * 0.5
-	_msg.position = Vector2(s.x * 0.5 - 400, s.y * 0.2)
+	_msg.position = Vector2(s.x * 0.5 - 400, s.y * 0.5)
 	_msg.size = Vector2(800, 120)
+	btn_talk.position = Vector2(s.x - 330, s.y - 380) - btn_talk.size * 0.5
+	btn_kingdom.position = Vector2(470, 78) - btn_kingdom.size * 0.5
+	_hint.position = Vector2(s.x * 0.5 - _hint.size.x * 0.5, 84)
+	_objective.position = Vector2(26, 150)
+	_objective.size = Vector2(620, 40)
+	_disc_title.position = Vector2(0, s.y * 0.28)
+	_disc_title.size = Vector2(s.x, 80)
+	_disc_sub.position = Vector2(0, s.y * 0.28 + 82)
+	_disc_sub.size = Vector2(s.x, 40)
+	var on := not Dialogue.active
+	btn_attack.visible = shown["attaque"] and on
+	btn_dodge.visible = shown["esquive"] and on
+	btn_potion_soin.visible = shown["potions"] and on
+	btn_potion_mana.visible = shown["potions"] and on
+	for id in btn_spells:
+		btn_spells[id].visible = shown["sorts"] and on
+	_hint.modulate.a = 0.0 if Dialogue.active else 1.0
 
 func _process(delta: float) -> void:
 	if pc == null:
@@ -87,8 +193,17 @@ func _process(delta: float) -> void:
 		b.refresh()
 	btn_potion_soin.count = prog.potions_soin
 	btn_potion_mana.count = prog.potions_mana
-	for b in [btn_potion_soin, btn_potion_mana, btn_attack, btn_dodge]:
+	for b in [btn_potion_soin, btn_potion_mana, btn_attack, btn_dodge, btn_talk, btn_kingdom]:
 		b.refresh()
+	if _hint_t > 0.0:
+		_hint_t -= delta
+		if _hint_t <= 0.0:
+			_hint.visible = false
+	if _disc_t > 0.0:
+		_disc_t -= delta
+		var a := clampf(minf(4.5 - _disc_t, _disc_t) * 1.2, 0.0, 1.0)
+		_disc_title.modulate.a = a
+		_disc_sub.modulate.a = a
 	if _msg_t > 0.0:
 		_msg_t -= delta
 		_msg.modulate.a = clampf(_msg_t, 0.0, 1.0)

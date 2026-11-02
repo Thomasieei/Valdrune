@@ -14,6 +14,8 @@ var locked_text := ""
 var count := -1
 var dim := false
 var held := false
+var pulse := false           # mise en avant (tutoriel)
+var label := ""              # petite légende sous le bouton
 
 func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -29,7 +31,9 @@ var _sig := ""
 
 ## Ne redessine que si l'état affiché a changé (économise le processeur du téléphone).
 func refresh() -> void:
-	var sig := "%d|%s|%s|%d|%s|%s" % [int(cooldown * 40.0), cd_text, locked_text, count, dim, held]
+	var sig := "%d|%s|%s|%d|%s|%s|%s" % [int(cooldown * 40.0), cd_text, locked_text, count, dim, held, label]
+	if pulse:
+		sig += str(Time.get_ticks_msec() / 50)
 	if sig != _sig:
 		_sig = sig
 		queue_redraw()
@@ -39,6 +43,10 @@ func hit(p: Vector2) -> bool:
 
 func _draw() -> void:
 	var c := size * 0.5
+	if pulse:
+		var k := fmod(Time.get_ticks_msec() / 900.0, 1.0)
+		draw_arc(c, radius * (1.05 + k * 0.45), 0, TAU, 48, Color(1, 0.9, 0.45, 0.9 * (1.0 - k)), 5.0, true)
+		draw_arc(c, radius + 3.0, 0, TAU, 48, Color(1, 0.9, 0.45, 0.8), 3.0, true)
 	var bg := Color(0.06, 0.07, 0.10, 0.62 if not held else 0.8)
 	draw_circle(c, radius, bg)
 	var ring := accent if locked_text == "" else Color(0.5, 0.5, 0.5)
@@ -59,6 +67,8 @@ func _draw() -> void:
 	if locked_text != "":
 		draw_circle(c, radius - 3.0, Color(0, 0, 0, 0.45))
 		_text(c + Vector2(0, radius * 0.35), locked_text, int(radius * 0.32), Color(1, 0.85, 0.5))
+	if label != "":
+		_text(c + Vector2(0, radius + 16), label, 18, Color(1, 0.95, 0.85))
 	if count >= 0:
 		var bc := c + Vector2(radius * 0.68, radius * 0.68)
 		draw_circle(bc, radius * 0.34, Color(0.12, 0.1, 0.08, 0.95))
@@ -113,3 +123,13 @@ func _icon(c: Vector2, s: float, col: Color) -> void:
 			draw_circle(c + Vector2(0, 0.25) * s, s * 0.6, liquid)
 			draw_rect(Rect2(c + Vector2(-0.2, -0.85) * s, Vector2(0.4, 0.6) * s), Color(0.85, 0.85, 0.9, col.a))
 			draw_arc(c + Vector2(0, 0.25) * s, s * 0.6, 0, TAU, 24, Color(1, 1, 1, col.a * 0.7), 2.0)
+		"parler":
+			draw_circle(c + Vector2(-0.1, -0.1) * s, s * 0.62, col)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-0.45, 0.3) * s, c + Vector2(-0.1, 0.4) * s, c + Vector2(-0.7, 0.85) * s]), col)
+			for k in 3:
+				draw_circle(c + Vector2(-0.38 + k * 0.28, -0.1) * s, s * 0.08, Color(0.1, 0.1, 0.12))
+		"couronne":
+			var g := Color(1, 0.82, 0.35, col.a)
+			draw_colored_polygon(PackedVector2Array([c + Vector2(-0.75, 0.5) * s, c + Vector2(-0.75, -0.35) * s, c + Vector2(-0.38, 0.05) * s, c + Vector2(0, -0.6) * s, c + Vector2(0.38, 0.05) * s, c + Vector2(0.75, -0.35) * s, c + Vector2(0.75, 0.5) * s]), g)
+			draw_rect(Rect2(c + Vector2(-0.75, 0.55) * s, Vector2(1.5, 0.22) * s), g)
+			draw_circle(c + Vector2(0, 0.25) * s, s * 0.12, Color(0.85, 0.2, 0.25, col.a))

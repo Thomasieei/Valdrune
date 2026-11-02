@@ -420,3 +420,58 @@ static func blob_shadow(parent: Node3D, size: float) -> MeshInstance3D:
 	mi.position = Vector3.UP * 0.05
 	parent.add_child(mi)
 	return mi
+
+## Onde de choc au sol (attaques lourdes) : poussière et anneau clair
+static func shockwave(pos: Vector3, r: float) -> void:
+	var dust := particles("smoke_02", 14, 0.9, [Color(0.75, 0.65, 0.5, 0.75), Color(0.6, 0.55, 0.45, 0)], 1.4, true, false)
+	dust.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	dust.emission_ring_axis = Vector3.UP
+	dust.emission_ring_radius = r * 0.8
+	dust.emission_ring_inner_radius = r * 0.3
+	dust.emission_ring_height = 0.1
+	dust.direction = Vector3.UP
+	dust.spread = 60.0
+	dust.initial_velocity_min = 1.5
+	dust.initial_velocity_max = 3.0
+	dust.gravity = Vector3(0, -2, 0)
+	_add(dust, pos + Vector3.UP * 0.2)
+	dust.emitting = true
+	var ring := MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(2, 2)
+	ring.mesh = q
+	ring.material_override = pmat("circle_05", true, false, Color(1.0, 0.9, 0.7, 0.9))
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_add(ring, pos + Vector3.UP * 0.12)
+	ring.rotation = Vector3(-PI / 2.0, 0, 0)
+	ring.scale = Vector3.ONE * 0.3
+	var tw := ring.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(ring, "scale", Vector3.ONE * r * 1.2, 0.3)
+	tw.tween_property(ring, "transparency", 1.0, 0.35)
+	tw.chain().tween_callback(ring.queue_free)
+	_free_after(dust, 1.2)
+
+## Bulle de parole au-dessus d'un personnage
+static func bark(target: Node3D, text: String, height := 2.3, dur := 3.0) -> void:
+	var old := target.get_node_or_null("Bulle")
+	if old:
+		old.queue_free()
+	var l := Label3D.new()
+	l.name = "Bulle"
+	l.text = text
+	l.font_size = 40
+	l.outline_size = 12
+	l.modulate = Color(1, 1, 0.92)
+	l.outline_modulate = Color(0.1, 0.08, 0.06, 0.9)
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.no_depth_test = true
+	l.pixel_size = 0.0055
+	l.width = 520
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.position = Vector3.UP * height
+	target.add_child(l)
+	var tw := l.create_tween()
+	tw.tween_interval(dur)
+	tw.tween_property(l, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(l.queue_free)
