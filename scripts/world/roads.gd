@@ -13,7 +13,7 @@ static func build(parent: Node3D) -> void:
 	gb.commit(parent, "Ponts", 2)
 
 static func _skip(p: Vector2) -> bool:
-	return Layout.poly_dist(p, Layout.RIVER) < Layout.RIVER_W + 7.0 or Layout.in_castle(p, -1.0) or absf(p.y - Layout.GATE.y) < 6.0 and absf(p.x) < 8.0
+	return Layout.poly_dist(p, Layout.RIVER) < Layout.RIVER_W + 6.0 or Layout.in_castle(p, -1.0) or absf(p.y - Layout.GATE.y) < 6.0 and absf(p.x) < 8.0
 
 static func _ribbon(g: Geo, pts: Array, w: float, m: String) -> void:
 	var samples = []

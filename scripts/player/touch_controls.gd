@@ -1,65 +1,71 @@
 class_name TouchControls
 extends Control
-## Joystick flottant à gauche, rotation de caméra à droite, pincement pour zoomer.
-## Clavier/souris pour tester sur PC (ZQSD/WASD, Maj = sprint, clic droit = caméra, molette = zoom).
+## Commandes tactiles multipoint : joystick flottant à gauche, caméra à droite (glisser),
+## pincement pour zoomer, et boutons d'action (maintenir « attaque » enchaîne le combo).
+## PC : ZQSD/WASD, clic droit = caméra, molette = zoom, J = attaque, K = esquive, 1-4 = sorts, H/G = potions.
 
 var player: Player
 var rig: CameraRig
+var hud: Hud
 var _stick_id := -1
 var _stick_origin := Vector2.ZERO
 var _stick_vec := Vector2.ZERO
 var _look := {}         # index -> dernière position
+var _btn_touch := {}    # index -> bouton tenu
 var _pinch_d := 0.0
+var _hold_acc := 0.0
 const R := 90.0
 
 var _base: Panel
 var _knob: Panel
 var _fps: Label
-var _sprint_btn: Button
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
-	mouse_filter = Control.MOUSE_FILTER_PASS
-	_base = _circle(R * 2, Color(1, 1, 1, 0.16))
-	_knob = _circle(R * 0.9, Color(1, 1, 1, 0.45))
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_base = _circle(R * 2, Color(1, 1, 1, 0.14))
+	_knob = _circle(R * 0.9, Color(1, 1, 1, 0.42))
 	_base.visible = false
 	_knob.visible = false
 	add_child(_base)
 	add_child(_knob)
 	_fps = Label.new()
-	_fps.position = Vector2(14, 10)
-	_fps.add_theme_font_size_override("font_size", 18)
-	_fps.add_theme_color_override("font_color", Color(1, 1, 1, 0.85))
+	_fps.add_theme_font_size_override("font_size", 16)
+	_fps.add_theme_color_override("font_color", Color(1, 1, 1, 0.7))
 	_fps.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.6))
 	add_child(_fps)
-	_sprint_btn = Button.new()
-	_sprint_btn.text = "Courir"
-	_sprint_btn.toggle_mode = true
-	_sprint_btn.focus_mode = Control.FOCUS_NONE
-	_sprint_btn.custom_minimum_size = Vector2(150, 70)
-	_sprint_btn.add_theme_font_size_override("font_size", 24)
-	_sprint_btn.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	_sprint_btn.position = Vector2(-190, -120)
-	add_child(_sprint_btn)
-	_sprint_btn.anchor_left = 1; _sprint_btn.anchor_right = 1; _sprint_btn.anchor_top = 1; _sprint_btn.anchor_bottom = 1
-	_sprint_btn.offset_left = -190; _sprint_btn.offset_right = -40; _sprint_btn.offset_top = -120; _sprint_btn.offset_bottom = -50
 
 func _circle(d: float, col: Color) -> Panel:
 	var p := Panel.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = col
 	sb.set_corner_radius_all(int(d / 2))
-	sb.border_color = Color(1, 1, 1, 0.35)
+	sb.border_color = Color(1, 1, 1, 0.3)
 	sb.set_border_width_all(2)
 	p.add_theme_stylebox_override("panel", sb)
 	p.size = Vector2(d, d)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return p
 
+func _button_at(pos: Vector2) -> ActionButton:
+	if hud == null:
+		return null
+	for b in hud.buttons():
+		if b.hit(pos):
+			return b
+	return null
+
 func _input(e: InputEvent) -> void:
 	var w := get_viewport_rect().size.x
 	if e is InputEventScreenTouch:
 		if e.pressed:
+			var b := _button_at(e.position)
+			if b:
+				_btn_touch[e.index] = b
+				b.held = true
+				b.pressed.emit()
+				_hold_acc = 0.0
+				return
 			if e.position.x < w * 0.42 and _stick_id == -1:
 				_stick_id = e.index
 				_stick_origin = e.position
@@ -68,9 +74,12 @@ func _input(e: InputEvent) -> void:
 				_knob.visible = true
 				_base.position = _stick_origin - _base.size / 2
 				_knob.position = _stick_origin - _knob.size / 2
-			elif not _sprint_btn.get_global_rect().has_point(e.position):
+			else:
 				_look[e.index] = e.position
 		else:
+			if _btn_touch.has(e.index):
+				_btn_touch[e.index].held = false
+				_btn_touch.erase(e.index)
 			if e.index == _stick_id:
 				_stick_id = -1
 				_stick_vec = Vector2.ZERO
@@ -79,6 +88,8 @@ func _input(e: InputEvent) -> void:
 			_look.erase(e.index)
 			_pinch_d = 0.0
 	elif e is InputEventScreenDrag:
+		if _btn_touch.has(e.index):
+			return
 		if e.index == _stick_id:
 			var v: Vector2 = e.position - _stick_origin
 			if v.length() > R:
@@ -105,8 +116,18 @@ func _input(e: InputEvent) -> void:
 			rig.zoom_by(0.9)
 		elif rig and e.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			rig.zoom_by(1.1)
+	elif e is InputEventKey and e.pressed and not e.echo and player:
+		match e.physical_keycode:
+			KEY_J: player.combat.attack()
+			KEY_K: player.combat.dodge()
+			KEY_1: player.combat.cast(SpellDB.ORDER[0])
+			KEY_2: player.combat.cast(SpellDB.ORDER[1])
+			KEY_3: player.combat.cast(SpellDB.ORDER[2])
+			KEY_4: player.combat.cast(SpellDB.ORDER[3])
+			KEY_H: player.combat.drink("soin")
+			KEY_G: player.combat.drink("mana")
 
-func _process(_d: float) -> void:
+func _process(delta: float) -> void:
 	var k := Vector2(
 		float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A)),
 		float(Input.is_physical_key_pressed(KEY_S)) - float(Input.is_physical_key_pressed(KEY_W)))
@@ -115,11 +136,18 @@ func _process(_d: float) -> void:
 		v = k.normalized()
 	if player:
 		player.input_dir = v
-		player.sprint = _sprint_btn.button_pressed or Input.is_physical_key_pressed(KEY_SHIFT)
+		player.sprint = Input.is_physical_key_pressed(KEY_SHIFT)
 		if rig:
 			player.cam_yaw = rig.yaw
+		# maintenir le bouton d'attaque enchaîne les coups
+		if hud and hud.btn_attack.held:
+			_hold_acc += delta
+			if _hold_acc > 0.12:
+				_hold_acc = 0.0
+				player.combat.attack()
 	var q := ""
 	var w = get_tree().current_scene
 	if w and "quality" in w and w.quality > 0:
 		q = " · qualité -%d" % w.quality
-	_fps.text = "%d FPS · %.1f ms%s" % [Engine.get_frames_per_second(), 1000.0 / maxf(Engine.get_frames_per_second(), 1), q]
+	_fps.text = "%d FPS%s" % [Engine.get_frames_per_second(), q]
+	_fps.position = Vector2(get_viewport_rect().size.x - 170, 8)

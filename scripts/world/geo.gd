@@ -29,6 +29,7 @@ static func mat(name: String) -> Material:
 		"paves": m.albedo_texture = load("res://assets/textures/paves.png")
 		"parquet": m.albedo_texture = load("res://assets/textures/parquet.png")
 		"sillons": m.albedo_texture = load("res://assets/textures/sillons.png")
+		"terre": m.albedo_texture = load("res://assets/textures/terre.png")
 		"tissu_blanc":
 			m.albedo_color = Color(0.93, 0.90, 0.82)
 		"vert_volet":
@@ -87,7 +88,7 @@ static func mat(name: String) -> Material:
 
 func _init() -> void:
 	uv_scale = {"pierre": 4.0, "pierre_base": 4.5, "pierre_claire": 2.5, "ardoise": 3.0, "tuile": 3.0, "chaume": 3.5,
-		"bois": 2.0, "bois_sombre": 2.0, "crepi": 4.0, "dallage": 7.0, "paves": 7.0, "parquet": 3.0, "sillons": 6.0}
+		"bois": 2.0, "bois_sombre": 2.0, "crepi": 4.0, "dallage": 7.0, "paves": 7.0, "parquet": 3.0, "sillons": 6.0, "terre": 3.0}
 
 func _st(m: String) -> SurfaceTool:
 	if not surfaces.has(m):

@@ -2,10 +2,12 @@ class_name Town
 ## Le bourg au pied du château : maisons à colombages autour d'une place pavée,
 ## étals de marché, puits, villageois. Maisons orientées vers la place ou la route.
 
-static var houses: Array = []   # [centre Vector2, demi-taille Vector2] pour éviter les chevauchements
+static var houses: Array = []
+static var doors: Array = []    # [position de la porte (Vector2), direction de la façade (Vector2)]   # [centre Vector2, demi-taille Vector2] pour éviter les chevauchements
 
 static func build(parent: Node3D) -> void:
 	houses.clear()
+	doors.clear()
 	var g = Geo.new()
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 77
@@ -33,6 +35,7 @@ static func build(parent: Node3D) -> void:
 			var p = Vector2(rx + side * 13.0, z)
 			_try_house(g, p, rng.randf_range(7, 9), rng.randf_range(6, 7), -side * PI / 2.0, rng)
 	_market(g)
+	_paths(g)
 	g.commit(parent, "Bourg")
 	Kit.village(parent, "Prop_Well_Cobblestone", Vector3(Layout.TOWN.x, Terrain.height_at(Layout.TOWN.x, Layout.TOWN.y), Layout.TOWN.y), 0.0, 1.6)
 	_props(parent, rng)
@@ -111,6 +114,7 @@ static func house(g: Geo, p: Vector2, w: float, d: float, rot: float, floors: in
 	g.box("bois", Vector3(qd.x, y0 + 1.15, qd.z), Vector3(1.3, 2.3, 0.1), rot, false)
 	var qf: Vector3 = c3 + b * Vector3(xd, 0, d * 0.5 + 0.1)
 	g.box("bois_sombre", Vector3(qf.x, y0 + 2.4, qf.z), Vector3(1.7, 0.22, 0.14), rot, false)
+	doors.append([Vector2(qd.x, qd.z), Vector2(sin(rot), cos(rot))])
 	# marche devant la porte
 	var qs2: Vector3 = c3 + b * Vector3(xd, 0, d * 0.5 + 0.6)
 	g.box("pierre_base", Vector3(qs2.x, y0 - 0.12, qs2.z), Vector3(1.8, 0.3, 1.0), rot, false)
@@ -193,3 +197,45 @@ static func _villageois(parent: Node3D) -> void:
 	w2.spec = {"female": true, "outfit": "paysan_f", "hair": "Hair_Buns"}
 	w2.path = [Vector2(10, -18), Vector2(40, -14), Vector2(70, -8), Vector2(40, -14)]
 	parent.add_child(w2)
+
+## Sentier de terre battue de chaque porte jusqu'à la route ou la place la plus proche.
+static func _paths(g: Geo) -> void:
+	for d in doors:
+		var start: Vector2 = d[0] + d[1] * 1.2
+		var best := Vector2.INF
+		var bd := INF
+		for r in Layout.ROADS:
+			var pts: Array = r["pts"]
+			for i in pts.size() - 1:
+				var a: Vector2 = pts[i]
+				var b: Vector2 = pts[i + 1]
+				var ab := b - a
+				var t := clampf((start - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
+				var q := a + ab * t
+				var dist := start.distance_to(q) - float(r["w"])
+				if dist < bd:
+					bd = dist
+					best = q + (start - q).normalized() * (float(r["w"]) - 0.4)
+		var sq := Layout.TOWN + (start - Layout.TOWN).normalized() * 13.6
+		if start.distance_to(sq) < bd:
+			bd = start.distance_to(sq)
+			best = sq
+		if bd > 45.0 or bd < 0.5:
+			continue
+		# léger détour en S pour un tracé naturel
+		var steps := int(ceil(start.distance_to(best) / 1.5))
+		var prev := start
+		for k in range(1, steps + 1):
+			var t := float(k) / steps
+			var p := start.lerp(best, t)
+			var side := Vector2(-(best - start).y, (best - start).x).normalized()
+			p += side * sin(t * PI) * minf(2.0, bd * 0.08)
+			var dir := (p - prev).normalized()
+			var n := Vector2(-dir.y, dir.x) * 0.75
+			var a0 := Vector3(prev.x - n.x, Terrain.height_at(prev.x - n.x, prev.y - n.y) + 0.07, prev.y - n.y)
+			var a1 := Vector3(prev.x + n.x, Terrain.height_at(prev.x + n.x, prev.y + n.y) + 0.07, prev.y + n.y)
+			var b1 := Vector3(p.x + n.x, Terrain.height_at(p.x + n.x, p.y + n.y) + 0.07, p.y + n.y)
+			var b0 := Vector3(p.x - n.x, Terrain.height_at(p.x - n.x, p.y - n.y) + 0.07, p.y - n.y)
+			g.quad("terre", a0, a1, b1, b0, 1)
+			g.quad("terre", b0, b1, a1, a0, 1)
+			prev = p

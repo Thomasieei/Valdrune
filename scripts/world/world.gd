@@ -129,6 +129,8 @@ func _show_loading() -> void:
 	box.add_child(_step_label)
 
 func _spawn() -> void:
+	FX.root = self
+	Sfx.setup(self)
 	player = Player.new()
 	player.name = "Joueur"
 	var start := Vector2(0, -60)
@@ -139,16 +141,26 @@ func _spawn() -> void:
 	rig = CameraRig.new()
 	rig.target = player
 	add_child(rig)
+	player.rig = rig
+	Spawner.build(self)
 	var ui := CanvasLayer.new()
 	add_child(ui)
+	var hud := Hud.new()
+	ui.add_child(hud)
+	hud.bind(player)
 	var tc := TouchControls.new()
 	tc.player = player
 	tc.rig = rig
+	tc.hud = hud
 	ui.add_child(tc)
 	var zone := find_child("ZoneDonjon", true, false) as Area3D
 	if zone:
 		zone.body_entered.connect(func(b): if b == player: _set_inside(true))
 		zone.body_exited.connect(func(b): if b == player: _set_inside(false))
+	if args.size() > 0 and args[0] == "--combat":
+		var ct = load("res://scripts/tools/combat_test.gd").new()
+		ct.world = self
+		add_child(ct)
 	if args.size() > 0 and args[0] == "--tour":
 		var tour = load("res://scripts/tools/tour.gd").new()
 		tour.world = self
@@ -167,7 +179,8 @@ func _process(delta: float) -> void:
 	if _npc_acc > 0.3:
 		_npc_acc = 0.0
 		_cull_npcs()
-	if "--tour" in OS.get_cmdline_user_args():
+	var a := OS.get_cmdline_user_args()
+	if "--tour" in a or "--combat" in a:
 		return
 	_q_acc += delta
 	if _q_acc < 1.0:

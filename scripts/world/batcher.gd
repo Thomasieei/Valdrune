@@ -7,6 +7,10 @@ const CELL := 64.0
 static func merge(root: Node3D) -> void:
 	var groups := {}   # "cx|cz" -> {material -> SurfaceTool}
 	var victims: Array = []
+	var body := StaticBody3D.new()
+	body.name = "CollisionsDecor"
+	body.collision_layer = 2
+	body.collision_mask = 0
 	var stack: Array = [root]
 	while stack.size() > 0:
 		var n: Node = stack.pop_back()
@@ -40,6 +44,8 @@ static func merge(root: Node3D) -> void:
 				var st: SurfaceTool = g[mat]
 				_append(st, arrays, xf)
 			victims.append(mi)
+			_collider(body, mi, xf)
+	root.add_child(body)
 	for mi in victims:
 		mi.get_parent().remove_child(mi)
 		mi.queue_free()
@@ -77,3 +83,33 @@ static func _append(st: SurfaceTool, arrays: Array, xf: Transform3D) -> void:
 		st.set_uv(uv[i] if has_uv else Vector2.ZERO)
 		st.set_color(col[i] if has_c else Color.WHITE)
 		st.add_vertex(xf * v[i])
+
+## Collision simple (boîte orientée) pour chaque objet assez gros pour gêner le passage.
+## Arbres : seulement le tronc. Tapis, objets en hauteur et minuscules : aucune collision.
+static func _collider(body: StaticBody3D, mi: MeshInstance3D, xf: Transform3D) -> void:
+	var nm := String(mi.name).to_lower()
+	var aabb: AABB = mi.mesh.get_aabb()
+	var world_aabb: AABB = xf * aabb
+	var gy := Terrain.height_at(world_aabb.get_center().x, world_aabb.get_center().z)
+	if nm.contains("carpet") or nm.contains("banner") or nm.contains("chandelier") or nm.contains("torch") or nm.contains("shield") or nm.contains("key") or nm.contains("goblet") or nm.contains("book") or nm.contains("sword") or nm.contains("spear"):
+		return
+	if nm.contains("oak") or nm.contains("pine") or nm.contains("birch"):
+		var cs := CollisionShape3D.new()
+		var cy := CylinderShape3D.new()
+		cy.radius = 0.35 * xf.basis.get_scale().x
+		cy.height = 4.0
+		cs.shape = cy
+		cs.position = xf.origin + Vector3.UP * 2.0
+		body.add_child(cs)
+		return
+	var sz := aabb.size * xf.basis.get_scale()
+	if sz.y < 0.3 or (sz.x < 0.3 and sz.z < 0.3):
+		return
+	if world_aabb.position.y > gy + 2.2:
+		return
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = aabb.size
+	cs.shape = bs
+	cs.transform = xf * Transform3D(Basis(), aabb.get_center())
+	body.add_child(cs)

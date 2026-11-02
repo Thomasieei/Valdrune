@@ -40,6 +40,11 @@ func rotate_by(dx: float, dy: float) -> void:
 	pitch = clampf(pitch - dy * 0.004, deg_to_rad(-62), deg_to_rad(-6))
 	_last_manual = Time.get_ticks_msec() / 1000.0
 
+var _shake := 0.0
+
+func shake(a: float) -> void:
+	_shake = maxf(_shake, a)
+
 func zoom_by(f: float) -> void:
 	dist_goal = clampf(dist_goal * f, min_dist, max_dist)
 
@@ -61,6 +66,13 @@ func _process(delta: float) -> void:
 	dist = lerpf(dist, d, clampf(delta * 4.0, 0, 1))
 	rotation = Vector3(pitch, yaw, 0)
 	arm.spring_length = dist
+	if _shake > 0.0:
+		_shake = maxf(0.0, _shake - delta * 1.8)
+		cam.h_offset = randf_range(-1, 1) * _shake * 0.35
+		cam.v_offset = randf_range(-1, 1) * _shake * 0.35
+	else:
+		cam.h_offset = 0.0
+		cam.v_offset = 0.0
 	# empêcher la caméra de passer sous le terrain
 	var cp := cam.global_position
 	var gh := Terrain.height_at(cp.x, cp.z) + 0.6

@@ -177,3 +177,8 @@ c_dark = np.array((0.36, 0.26, 0.17)); c_light = np.array((0.55, 0.42, 0.28))
 img = c_dark + (c_light - c_dark) * (band ** 1.5)[..., None]
 img *= (0.88 + 0.24 * nz[..., None])
 save("sillons", img)
+
+# Terre battue des sentiers
+nz = tile_noise(30, 5, 81); nz2 = tile_noise(6, 3, 82)
+img = np.ones((N, N, 3)) * np.array((0.56, 0.45, 0.31)) * (0.85 + 0.25 * nz[..., None]) * (0.92 + 0.12 * nz2[..., None])
+save("terre", img)

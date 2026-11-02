@@ -13,11 +13,20 @@ forêts, rivière, lac, mine, portail vers le royaume des nains).
 - `scripts/player/` : joueur, caméra, commandes tactiles · `scripts/npc/` : gardes, villageois, paysans
 - `tools/gen_textures.py` : génère les textures peintes (pierre, tuiles, bois…)
 
+## Combat et RPG (scripts/combat, scripts/ui)
+- `monster_db.gd` : créatures (ajouter une entrée = nouvelle créature) · `monster.gd` : IA (errance, poursuite, attaque, fuite, retour, mort, butin)
+- `spawner.gd` : repaires et réapparitions · `spell_db.gd` + `player_combat.gd` : sorts, combo d'épée, esquive, potions
+- `progression.gd` : niveau, XP, caractéristiques, or (sauvegarde user://seigneur.json) · `fx.gd` : effets visuels · `sfx.gd` : sons
+- `anim_retarget.gd` : animations humaines UAL appliquées aux créatures du Bestiary
+- Test automatique : `godot --path . res://scenes/royaume.tscn -- --combat` (rapport dans shots/combat_rapport.txt)
+
 ## Assets (licences)
 - Quaternius — Universal Base Characters, Modular Character Outfits Fantasy, Universal Animation Library 1 & 2 (CC0)
 - Avramania — Nature & Terrain Free (voir assets/nature/_doc/License.txt)
 - BrokenVector — Low Poly Dungeon (licence Unity Asset Store)
 - Modular Village Collection (OBJ)
+- Quaternius — Bestiary Dungeon Monsters Kit (Imp, Puglin, CC0)
+- Kenney — Particle Pack, RPG Audio, Impact Sounds, Interface Sounds, Music Jingles (CC0, voir assets/licences)
 - Textures d'architecture : générées (tools/gen_textures.py)
 
 ## APK
