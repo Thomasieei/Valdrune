@@ -54,7 +54,21 @@ func leave(points: Array) -> void:
 	captive = true
 	path = []
 
+## Niveau de détail de l'animation (économie CPU sur téléphone) : 0 = plein, 1 = 8 images/s
+var _lod := 0
+var _lod_acc := 0.0
+func set_lod(l: int) -> void:
+	if l == _lod or _ap == null:
+		return
+	_lod = l
+	_ap.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL if l == 1 else AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE
+
 func _process(delta: float) -> void:
+	if _lod == 1:
+		_lod_acc += delta
+		if _lod_acc > 0.125:
+			_ap.advance(_lod_acc)
+			_lod_acc = 0.0
 	if _leave.size() > 0:
 		var t3: Vector2 = _leave[0]
 		var here3 := Vector2(position.x, position.z)

@@ -24,7 +24,8 @@ const FIELDS_MIN := Vector2(55, -55)
 const FIELDS_MAX := Vector2(165, 45)
 const MINE := Vector2(175, -175)       # entrée de mine
 const LUMBER := Vector2(-120, -10)     # camp de bûcherons
-const PORTAL := Vector2(35, 235)       # portail vers le royaume nain
+const PORTAL := Vector2(35, 235)
+const PORTAL_H := 8.0       # portail vers le royaume nain
 const LAKE := Vector2(175, 165)
 const LAKE_R := 48.0
 
@@ -152,6 +153,8 @@ static func height(x: float, z: float) -> float:
 	var pv := paved_dist(p)
 	if pv < 1.5:
 		h -= 0.12 * (1.0 - smoothstep(-1.0, 1.5, pv))
+	# esplanade du portail : plate et franchissable (après routes et pavés)
+	h = lerpf(h, PORTAL_H, 1.0 - _smooth(13.0, 24.0, p.distance_to(PORTAL)))
 	# cachots creusés sous la cour du château (recouverts par leur voûte)
 	if Justice.dug(p):
 		h = PLATEAU_H - 5.0
@@ -179,7 +182,7 @@ static func reserved(p: Vector2, margin := 0.0) -> bool:
 		return true
 	if absf(p.x - GATE.x) < 14.0 and p.y > GATE.y and p.y < GATE.y + 55.0:
 		return true
-	if p.distance_to(TOWN) < 48.0 + margin:
+	if p.distance_to(TOWN) < 20.0 + margin:
 		return true
 	if in_fields(p, 6.0 + margin):
 		return true

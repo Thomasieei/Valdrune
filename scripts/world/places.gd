@@ -195,65 +195,97 @@ static func _pier(g: Geo, parent: Node3D) -> void:
 
 # ------------------------------------------------------------ PORTAIL
 static func _portal(g: Geo, parent: Node3D) -> void:
-	var c = Layout.PORTAL
-	var y = Terrain.height_at(c.x, c.y)
-	# esplanade circulaire à degrés
-	g.cylinder("pierre_base", Vector3(c.x, 0, c.y), 11.0, y - 1.5, y + 0.3, 24, true, true, "dallage")
-	g.cylinder("pierre_claire", Vector3(c.x, 0, c.y), 8.0, y + 0.3, y + 0.75, 24, true, true, "dallage")
-	# marches d'accès côté nord (vers le royaume)
-	g.stairs("pierre_claire", Vector3(c.x, y - 0.05, c.y - 12.5), PI, 5.0, 0.3, 0.6, 2)
-	# arche annulaire de pierre (anneau vertical) face au nord
-	var R = 5.2
-	var n = 18
-	for i in n:
-		var a = TAU * i / n
-		var p = Vector3(c.x + cos(a) * R, y + 0.75 + R + sin(a) * R, c.y)
-		if p.y < y + 0.9:
-			continue
-		var bas = Basis(Vector3.BACK, a + PI / 2.0)
-		g.obox("pierre_claire", Transform3D(bas, p), Vector3(2.0, 1.1, 1.4), false)
-		if i % 3 == 0:
-			g.obox("rune", Transform3D(bas, p + Vector3(0, 0, 0.72)), Vector3(0.6, 0.5, 0.06), false)
+	var c: Vector2 = Layout.PORTAL
+	var y := Layout.PORTAL_H
+	# esplanade dallée posée à plat sur le sol aplani (aucune marche : on y entre de plain-pied)
+	for disc_def in [[11.5, 0.08, "pierre_base"], [6.5, 0.14, "pierre_claire"]]:
+		var dm := CylinderMesh.new()
+		dm.top_radius = disc_def[0]
+		dm.bottom_radius = disc_def[0] + 0.1
+		dm.height = 0.7
+		dm.radial_segments = 40
+		dm.rings = 1
+		var di := MeshInstance3D.new()
+		di.mesh = dm
+		var dmat := (Geo.mat("dallage") as StandardMaterial3D).duplicate() as StandardMaterial3D
+		dmat.uv1_triplanar = true
+		dmat.uv1_scale = Vector3.ONE * 0.4
+		di.material_override = dmat
+		di.position = Vector3(c.x, y + float(disc_def[1]) - 0.35, c.y)
+		parent.add_child(di)
+	# arche : deux piliers massifs et un arc de voussoirs (plan vertical, face à la route)
+	var R := 4.4
+	var cy := y + 3.4
 	for s in [-1.0, 1.0]:
-		g.box("pierre_claire", Vector3(c.x + s * R, y + 1.6, c.y), Vector3(1.8, 1.8, 1.8), 0.0, true)
-	# pierres levées autour
+		g.box("pierre_claire", Vector3(c.x + s * (R + 0.4), y + 1.7, c.y), Vector3(1.6, 3.4, 1.8), 0.0, true)
+		g.box("pierre_base", Vector3(c.x + s * (R + 0.4), y + 0.25, c.y), Vector3(2.1, 0.5, 2.3), 0.0, false)
+		g.box("pierre_base", Vector3(c.x + s * (R + 0.4), y + 3.5, c.y), Vector3(1.9, 0.3, 2.0), 0.0, false)
+	var n := 13
+	for i in n + 1:
+		var a := PI * i / n
+		var p := Vector3(c.x + cos(a) * (R + 0.4), cy + sin(a) * (R + 0.4), c.y)
+		var bas := Basis(Vector3.BACK, a + PI / 2.0)
+		g.obox("pierre_claire", Transform3D(bas, p), Vector3(1.25, 1.6, 1.7), false)
+		if i % 2 == 0:
+			g.obox("rune", Transform3D(bas, p + Vector3(0, 0, 0.86)), Vector3(0.5, 0.6, 0.04), false)
+	# clé de voûte
+	g.box("pierre_base", Vector3(c.x, cy + R + 1.2, c.y), Vector3(1.4, 1.2, 2.0), 0.0, false)
+	# pierres levées, bien droites, en cercle sur le bord de l'esplanade
 	for i in 8:
-		var a = TAU * i / 8.0 + PI / 8.0
-		var p = Vector2(c.x + cos(a) * 9.5, c.y + sin(a) * 9.5)
-		g.box("pierre_base", Vector3(p.x, y + 1.5, p.y), Vector3(1.1, 3.6, 0.8), -a, true)
-		g.box("rune", Vector3(p.x, y + 2.2, p.y) + Vector3(cos(a), 0, sin(a)) * -0.41, Vector3(0.3, 0.9, 0.05), -a + PI / 2.0, false)
-	# voile du portail (shader animé)
-	var veil = MeshInstance3D.new()
-	var disc = SphereMesh.new()
-	disc.radius = R - 0.4
-	disc.height = 0.25
-	disc.radial_segments = 32
-	disc.rings = 6
+		var a := TAU * i / 8.0 + PI / 8.0
+		var q := Vector2(c.x + cos(a) * 10.0, c.y + sin(a) * 10.0)
+		if absf(q.y - c.y + 10.0) < 4.0 and absf(q.x - c.x) < 5.0:
+			continue   # le passage vers la route reste dégagé
+		g.box("pierre_base", Vector3(q.x, y + 1.7, q.y), Vector3(1.1, 3.4, 0.8), -a, true)
+		g.box("rune", Vector3(q.x, y + 2.3, q.y) + Vector3(cos(a), 0, sin(a)) * -0.41, Vector3(0.3, 0.9, 0.05), -a + PI / 2.0, false)
+	# voile du portail (shader animé) : disque plat inscrit dans l'arche
+	var veil := MeshInstance3D.new()
+	var disc := CylinderMesh.new()
+	disc.top_radius = R - 0.35
+	disc.bottom_radius = R - 0.35
+	disc.height = 0.08
+	disc.radial_segments = 40
 	veil.mesh = disc
 	veil.rotation_degrees = Vector3(90, 0, 0)
-	veil.position = Vector3(c.x, y + 0.75 + R, c.y)
+	veil.position = Vector3(c.x, cy, c.y)
+	veil.scale = Vector3(1.0, 1.0, (cy - y - 0.15) / (R - 0.35))
 	portal_mat = ShaderMaterial.new()
 	portal_mat.shader = load("res://shaders/portal.gdshader")
 	veil.material_override = portal_mat
 	veil.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(veil)
-	var light = OmniLight3D.new()
-	light.position = veil.position + Vector3(0, 0, 2.5)
+	var light := OmniLight3D.new()
+	light.position = Vector3(c.x, cy, c.y - 2.5)
 	light.light_color = Color(0.45, 0.6, 1.0)
 	light.light_energy = 1.4
 	light.omni_range = 14.0
 	parent.add_child(light)
+	# franchir le voile : message (le portail est scellé)
+	var zone := Area3D.new()
+	zone.collision_mask = 1 << 1 | 1
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = Vector3(R * 1.6, 3.0, 1.2)
+	cs.shape = bs
+	zone.add_child(cs)
+	zone.position = Vector3(c.x, y + 1.5, c.y)
+	parent.add_child(zone)
+	zone.body_entered.connect(func(b):
+		if b == Combat.player:
+			var w := parent.get_tree().current_scene
+			if w.get("hud"):
+				w.hud.hint("Le voile résiste : le portail des nains est scellé. Il faudra gagner leur confiance.", "", 4.0))
 	# panneau
-	var sign = Label3D.new()
+	var sign := Label3D.new()
 	sign.text = "Royaume des Nains\nPortail scellé"
 	sign.font_size = 64
 	sign.outline_size = 12
 	sign.modulate = Color(1.0, 0.95, 0.8)
-	sign.position = Vector3(c.x + 6.5, y + 2.6, c.y - 13.0)
+	sign.position = Vector3(c.x + 7.0, y + 2.6, c.y - 12.5)
 	sign.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
 	sign.pixel_size = 0.008
 	parent.add_child(sign)
-	g.box("bois_sombre", Vector3(c.x + 6.5, y + 1.0, c.y - 13.0), Vector3(0.2, 2.0, 0.2), 0.0, true)
+	g.box("bois_sombre", Vector3(c.x + 7.0, y + 1.0, c.y - 12.5), Vector3(0.2, 2.0, 0.2), 0.0, true)
 
 # ------------------------------------------------------------ FALAISES DU PLATEAU
 static func _cliffs(parent: Node3D, rng: RandomNumberGenerator) -> void:

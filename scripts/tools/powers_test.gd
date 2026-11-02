@@ -153,6 +153,14 @@ func _ready() -> void:
 	print("   (mannequin %d/%d, mana %.1f → %.1f, entraînement %s)" % [dummies[0].cbt.hp, dummies[0].cbt.max_hp, mana0, pc.mana, PlayerCombat.practice])
 	_check(pc.mana >= mana0 - 0.5 and dummies[0].cbt.hp < dummies[0].cbt.max_hp, "Essai gratuit sur un mannequin (dégâts, mana intact)")
 	await _shot("03_essai_mannequin")
+	# pendant l'essai, la Chambre reste accessible (bouton) pour terminer l'entraînement
+	_place(Vector2(-15, -134.2), 180, Castle.FLOOR + 0.3)
+	await _wait(0.8)
+	_check(world.hud.btn_talk.visible and world.hud.btn_talk.label == "Chambre des Arcanes", "Pendant l'essai : la Chambre reste accessible malgré les mannequins")
+	# quitter la chambre met fin à l'entraînement (mannequins retirés)
+	_place(Vector2(-15, -120), 0, Castle.FLOOR + 0.3)
+	await _wait(1.0)
+	_check(Combat.monsters.filter(func(m): return is_instance_valid(m) and m.kind == "mannequin").is_empty() and not PlayerCombat.practice, "Sortir de la chambre termine l'entraînement")
 	# sauvegarde
 	prog.save_if_dirty()
 	var p2 := Progression.new()

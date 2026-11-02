@@ -110,10 +110,10 @@ func _warmup() -> void:
 		tele.queue_free()
 
 func _batch() -> void:
-	for nm in ["Mobilier", "CourDecor", "BourgDecor", "LieuxDecor"]:
-		var n := get_node_or_null(nm) as Node3D
+	for nm in ["Mobilier", "CourDecor", "BourgDecor", "LieuxDecor", "Potagers"]:
+		var n := find_child(nm, true, false) as Node3D
 		if n:
-			Batcher.merge(n)
+			Batcher.merge(n, nm != "Potagers")
 
 func _show_loading() -> void:
 	_loading = CanvasLayer.new()
@@ -284,14 +284,18 @@ func _process(delta: float) -> void:
 	_talk_acc += delta
 	if _talk_acc > 0.25 and hud:
 		_talk_acc = 0.0
-		var can := not Dialogue.active and not player.cbt.dead and Combat.in_radius(player.global_position, 14.0).is_empty()
+		var foes := Combat.in_radius(player.global_position, 14.0).filter(func(m): return m.kind != "mannequin")
+		var can := not Dialogue.active and not player.cbt.dead and foes.is_empty()
 		if story and story.step in ["debut", "suivre", "embuscade", "colosse", "alerte", "assaut"]:
 			can = false
 		var n: Node3D = Talk.nearest(player.global_position, get_tree()) if can else null
 		if n and n.has_meta("talk") and n.get_meta("talk")["role"] == "roi" and not Story.done():
 			n = null
 		_arc_near = can and Story.done() and ArcanesUI.near(player.global_position) and (n == null or n.global_position.distance_to(player.global_position) > 2.0)
+		var was := PlayerCombat.practice
 		PlayerCombat.practice = ArcanesUI.in_chamber(player.global_position)
+		if was and not PlayerCombat.practice:
+			ArcanesUI.clear_dummies()   # on quitte la chambre : fin de l'entraînement
 		hud.btn_talk.visible = n != null or _arc_near
 		if _arc_near:
 			hud.btn_talk.label = "Chambre des Arcanes"
@@ -355,26 +359,30 @@ func _cull_npcs() -> void:
 	var pp := player.global_position
 	for n in get_tree().get_nodes_in_group("pnj"):
 		var inside_keep: bool = n.global_position.y > Castle.FLOOR - 0.2 and n.global_position.y < Castle.FLOOR + 3.0 and Layout.in_castle(Vector2(n.global_position.x, n.global_position.z)) and n.global_position.z < Castle.K_MAX.y and n.global_position.z > Castle.K_MIN.y and absf(n.global_position.x) < Castle.K_MAX.x
-		var show: bool = pp.distance_to(n.global_position) < 65.0 and inside_keep == _inside
+		var d := pp.distance_to(n.global_position)
+		var show: bool = d < (52.0 if n is Villager else 65.0) and inside_keep == _inside
 		if n.visible != show:
 			n.visible = show
 			n.process_mode = Node.PROCESS_MODE_INHERIT if show else Node.PROCESS_MODE_DISABLED
+		if show and n is Villager:
+			n.set_lod(0 if d < 22.0 or n.captive else 1)
 
 func _apply_quality() -> void:
 	var sun := find_child("Soleil", false, false) as DirectionalLight3D
 	var vp := get_viewport()
+	# ordre : ce qui coûte le plus et se voit le moins d'abord ; jamais d'image floue (≥ 0,8)
 	match quality:
-		1: vp.scaling_3d_scale = 0.65
-		2:
+		1:
 			if sun: sun.shadow_enabled = false
-		3:
+		2:
 			for n in find_child("Vegetation", true, false).get_children():
 				n.visibility_range_end *= 0.75
-		4: vp.scaling_3d_scale = 0.55
+		3: vp.scaling_3d_scale = 0.9
+		4: vp.scaling_3d_scale = 0.8
 	print("qualité réduite → niveau ", quality)
 
 ## Intérieur / extérieur : on n'affiche que ce qui peut être vu.
-const OUTSIDE_ONLY := ["Vegetation", "Bourg", "BourgDecor", "Champs", "Lieux", "LieuxDecor", "Gisements", "Ponts", "RoutesPavees", "Eau"]
+const OUTSIDE_ONLY := ["Vegetation", "Bourg", "BourgDecor", "Potagers", "Champs", "Lieux", "LieuxDecor", "Gisements", "Ponts", "RoutesPavees", "Eau"]
 const INSIDE_ONLY := ["DonjonInterieur", "Mobilier"]
 
 ## Dans les cachots : caméra rapprochée, monde extérieur masqué, torches allumées, soleil et ciel atténués

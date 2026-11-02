@@ -52,6 +52,9 @@ static func place(parent: Node, path: String, pos: Vector3, rot_y := 0.0, scale 
 		n = mi
 	else:
 		n = r.instantiate()
+	if path.begins_with("res://assets/farm/"):
+		for mi in n.find_children("*", "MeshInstance3D", true, false) + ([n] if n is MeshInstance3D else []):
+			mi.material_override = farm_material()
 	if path.begins_with("res://assets/dungeon/"):
 		for mi in n.find_children("*", "MeshInstance3D", true, false) + ([n] if n is MeshInstance3D else []):
 			mi.material_override = lpd_material()
@@ -60,6 +63,19 @@ static func place(parent: Node, path: String, pos: Vector3, rot_y := 0.0, scale 
 	n.scale = Vector3.ONE * scale
 	parent.add_child(n)
 	return n
+
+static var _farm_mat: StandardMaterial3D
+static func farm_material() -> StandardMaterial3D:
+	if _farm_mat == null:
+		_farm_mat = StandardMaterial3D.new()
+		_farm_mat.albedo_texture = load("res://assets/farm/LowPolyFarmLite_Texture_01.png")
+		_farm_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+		_farm_mat.roughness = 0.9
+	return _farm_mat
+
+## Potager : chou, plant de tomate, butte de terre, clôture, arrosoir, caisse (Low Poly Farm Lite)
+static func farm(parent: Node, name: String, pos: Vector3, rot_y := 0.0, scale := 1.0) -> Node3D:
+	return place(parent, "res://assets/farm/%s_01.fbx" % name, pos, rot_y, scale)
 
 static func nature(parent: Node, name: String, pos: Vector3, rot_y := 0.0, scale := 1.0) -> Node3D:
 	var path := NATURE % name

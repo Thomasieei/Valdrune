@@ -206,7 +206,9 @@ func _physics_process(delta: float) -> void:
 	if mode == M.ESCORTE_PRISONNIER and is_instance_valid(prisoner) and slot == 0:
 		var pp := global_position + global_transform.basis.z * 1.3
 		pp.y = global_position.y
-		prisoner.global_position = prisoner.global_position.lerp(pp, clampf(delta * 3.0, 0, 1))
+		var np := prisoner.global_position.lerp(pp, clampf(delta * 3.0, 0, 1))
+		np.y = global_position.y   # toujours à hauteur de ses gardes (escaliers des cachots)
+		prisoner.global_position = np
 		prisoner.rotation.y = rotation.y
 
 func _pick_target() -> Node3D:
@@ -239,7 +241,7 @@ func send_home() -> void:
 	_route.clear()
 	# depuis les cachots : remonter l'escalier au lieu de traverser les murs
 	if Justice.in_cellar(global_position):
-		_route = [Justice.STAIR_TOP, home]
+		_route = [Justice.STAIR_FOOT, Justice.STAIR_EDGE, Justice.STAIR_TOP, home]
 		goal = Justice.STAIR_BOTTOM
 
 func _back_home() -> void:
@@ -283,7 +285,39 @@ func _on_died(_src: Node) -> void:
 
 ## Déplacement avec déblocage : sans pathfinding, un personnage peut buter contre une maison ;
 ## s'il n'avance plus pendant 1,5 s, il traverse l'obstacle quelques instants au lieu de rester coincé.
+var _seg_a := Vector3.INF
+var _seg_goal := Vector3.INF
+
+## Escorte de prisonnier / descente aux cachots : déplacement « sur rails » le long du trajet,
+## sans physique (escaliers, tranchée, plafond des cachots) — impossible de passer sous la carte.
+func _on_rails() -> bool:
+	if mode == M.ESCORTE_PRISONNIER:
+		return true
+	if mode == M.RETOUR:
+		return Justice.dug(Vector2(global_position.x, global_position.z))
+	return false
+
+func _rails(delta: float) -> void:
+	if goal != _seg_goal:
+		_seg_goal = goal
+		_seg_a = global_position
+	var to := goal - global_position
+	to.y = 0.0
+	var step := minf(to.length(), Vector2(velocity.x, velocity.z).length() * delta)
+	if to.length() > 0.001:
+		global_position += to.normalized() * step
+	var tot := Vector2(goal.x - _seg_a.x, goal.z - _seg_a.z).length()
+	var f := 1.0 if tot < 0.01 else clampf(1.0 - Vector2(goal.x - global_position.x, goal.z - global_position.z).length() / tot, 0.0, 1.0)
+	if Justice.dug(Vector2(global_position.x, global_position.z)):
+		global_position.y = lerpf(_seg_a.y, goal.y, f)
+	else:
+		global_position.y = Powers.ground(global_position + Vector3.UP * 0.6)
+	velocity = Vector3.ZERO
+
 func _move_or_unstick(delta: float, wants_move: bool) -> void:
+	if _on_rails():
+		_rails(delta)
+		return
 	var now := Time.get_ticks_msec() / 1000.0
 	if now < _ghost_until:
 		global_position.x += velocity.x * delta

@@ -70,6 +70,9 @@ func _audit() -> void:
 	for f in 3: await get_tree().process_frame
 	var cams := [
 		["A_bourg_ciel", Vector3(0, 95, 25), Vector3(0, 0, -20)],
+		["A_bourg_oblique", Vector3(45, 38, 30), Vector3(0, 0, -20)],
+		["P_portail", Vector3(52, 16, 205), Vector3(35, 4, 235)],
+		["P_portail_face", Vector3(35, 13, 214), Vector3(35, 4, 235)],
 		["A_bourg_sud", Vector3(10, 30, 60), Vector3(5, 0, 0)],
 		["A_route_sud", Vector3(40, 45, 80), Vector3(15, 0, 40)],
 		["A_ferme", Vector3(95, 50, 40), Vector3(100, 0, -10)],

@@ -17,16 +17,16 @@ static func build(parent: Node3D) -> void:
 	var rng = RandomNumberGenerator.new()
 	rng.seed = 77
 	# 1) la place : un anneau régulier de maisons tournées vers le centre
-	for i in 12:
-		var a = TAU * i / 12.0 + 0.13
-		var p = Layout.TOWN + Vector2(cos(a), sin(a)) * (25.0 + rng.randf_range(-0.8, 0.8))
+	for i in 14:
+		var a = TAU * i / 14.0 + 0.13
+		var p = Layout.TOWN + Vector2(cos(a), sin(a)) * (21.5 + rng.randf_range(-0.5, 0.5))
 		var face = atan2(Layout.TOWN.x - p.x, Layout.TOWN.y - p.y)
 		_try_house(g, p, rng.randf_range(8.0, 10.0), rng.randf_range(6.5, 7.5), face, rng)
 	# 2) des rues : maisons alignées face à la route, potager clôturé derrière
 	var r0: Array = Layout.ROADS[0]["pts"]
-	_street(g, r0, float(Layout.ROADS[0]["w"]), rng, func(q: Vector2): return q.y > -64.0 and q.y < 112.0, 12.5)
-	_street(g, Layout.ROADS[1]["pts"], float(Layout.ROADS[1]["w"]), rng, func(q: Vector2): return true, 13.0)
-	_street(g, Layout.ROADS[2]["pts"], float(Layout.ROADS[2]["w"]), rng, func(q: Vector2): return true, 12.0)
+	_street(g, r0, float(Layout.ROADS[0]["w"]), rng, func(q: Vector2): return q.y > -64.0 and q.y < 112.0, 10.5)
+	_street(g, Layout.ROADS[1]["pts"], float(Layout.ROADS[1]["w"]), rng, func(q: Vector2): return true, 10.5)
+	_street(g, Layout.ROADS[2]["pts"], float(Layout.ROADS[2]["w"]), rng, func(q: Vector2): return true, 10.5)
 	# 3) second anneau, plus lâche : on remplit les trous entre les rues
 	for i in 18:
 		var a = TAU * i / 18.0 + 0.3
@@ -40,12 +40,15 @@ static func build(parent: Node3D) -> void:
 	print("[bourg] maisons+potagers=%d potagers=%d portes=%d" % [houses.size(), gardens.size(), doors.size()])
 	_market(g)
 	_paths(g)
-	for gd in gardens:
-		_garden(g, gd[0], gd[1], rng)
 	_smithy(g)
 	g.commit(parent, "Bourg")
 	Kit.village(parent, "Prop_Well_Cobblestone", Vector3(Layout.TOWN.x, Terrain.height_at(Layout.TOWN.x, Layout.TOWN.y), Layout.TOWN.y), 0.0, 1.6)
 	_props(parent, rng)
+	var pot := Node3D.new()
+	pot.name = "Potagers"
+	parent.add_child(pot)
+	for gd in gardens:
+		_garden(pot, gd[0], gd[1], rng)
 	_villageois(parent, rng)
 
 ## Maisons le long d'une route, des deux côtés, à intervalles réguliers (avec un peu de variation)
@@ -66,7 +69,7 @@ static func _street(g: Geo, pts: Array, rw: float, rng: RandomNumberGenerator, k
 						continue
 					var w := rng.randf_range(7.5, 9.5)
 					var d := rng.randf_range(6.0, 7.2)
-					var c: Vector2 = q + n * side * (rw + 3.4 + d * 0.5)
+					var c: Vector2 = q + n * side * (rw + 2.6 + d * 0.5)
 					var face := atan2(-n.x * side, -n.y * side)
 					if _try_house(g, c, w, d, face, rng):
 						var gc: Vector2 = c + n * side * (d * 0.5 + 5.0)
@@ -90,7 +93,7 @@ static func _free_for(p: Vector2, rad: float) -> bool:
 
 static func _try_house(g: Geo, p: Vector2, w: float, d: float, rot: float, rng: RandomNumberGenerator) -> bool:
 	var rad = Vector2(w, d).length() * 0.5 + 1.2
-	if Layout.road_dist(p) < rad - 1.6 or p.distance_to(Layout.TOWN) < 18.0:
+	if Layout.road_dist(p) < rad - 2.4 or p.distance_to(Layout.TOWN) < 17.0:
 		return false
 	if Layout.river_dist(p) < Layout.RIVER_W + rad + 3.0 or Layout.in_castle(p, 25.0):
 		return false
@@ -116,34 +119,35 @@ static func _try_house(g: Geo, p: Vector2, w: float, d: float, rot: float, rng: 
 	house(g, p, w, d, rot, 2 if rng.randf() < 0.6 else 1, roofs[rng.randi() % roofs.size()], rng, walls[rng.randi() % walls.size()])
 	return true
 
-## Potager clôturé : piquets, lisses, rangs de cultures
-static func _garden(g: Geo, c: Vector2, rot: float, rng: RandomNumberGenerator) -> void:
+## Potager clôturé : butte de terre labourée, rangs de choux et de plants de tomates, clôture de planches,
+## portillon côté maison, arrosoir et caisse de récolte (modèles Low Poly Farm Lite)
+static func _garden(root: Node3D, c: Vector2, rot: float, rng: RandomNumberGenerator) -> void:
 	var b := Basis(Vector3.UP, rot)
-	var hx := 3.4
-	var hz := 2.4
 	var y := Terrain.height_at(c.x, c.y)
 	var c3 := Vector3(c.x, y, c.y)
-	var corners := [Vector3(-hx, 0, -hz), Vector3(hx, 0, -hz), Vector3(hx, 0, hz), Vector3(-hx, 0, hz)]
-	for k in 4:
-		var a3: Vector3 = c3 + b * corners[k]
-		var b3: Vector3 = c3 + b * corners[(k + 1) % 4]
-		var seg := b3 - a3
-		var n := int(seg.length() / 1.2)
-		for i in n + 1:
-			var q := a3.lerp(b3, float(i) / n)
-			if k == 2 and i == n / 2:
-				continue   # portillon
-			g.box("bois_sombre", Vector3(q.x, Terrain.height_at(q.x, q.z) + 0.5, q.z), Vector3(0.12, 1.0, 0.12), 0.0, false)
-		for hgt in [0.45, 0.85]:
-			var mid := (a3 + b3) * 0.5
-			g.obox("bois", Transform3D(Basis.looking_at(seg.normalized(), Vector3.UP), Vector3(mid.x, Terrain.height_at(mid.x, mid.z) + hgt, mid.z)), Vector3(0.06, 0.08, seg.length()), false)
+	Kit.farm(root, "Mud", c3 + Vector3(0, -0.06, 0), rot, 1.0)
+	# rangs de cultures
 	for r in 4:
-		var z := -hz + 0.9 + r * 1.05
-		var q: Vector3 = c3 + b * Vector3(0, 0, z)
-		g.box("terre", Vector3(q.x, y + 0.06, q.z), Vector3(hx * 1.6, 0.14, 0.55), rot, false)
-		for k in 6:
-			var qq: Vector3 = c3 + b * Vector3(-hx * 0.7 + k * hx * 0.28, 0, z)
-			g.box("vert_volet", Vector3(qq.x, y + 0.24, qq.z), Vector3(0.32, 0.3, 0.32), rot + rng.randf(), false)
+		var z := -1.35 + r * 0.9
+		var kind := "Cabbage" if (r + int(c.x)) % 3 != 0 else "TomatoPlant"
+		for k in 5:
+			var x := -1.5 + k * 0.75 + rng.randf_range(-0.08, 0.08)
+			var q: Vector3 = c3 + b * Vector3(x, 0.1, z)
+			Kit.farm(root, kind, q, rot + rng.randf_range(-0.6, 0.6), rng.randf_range(0.85, 1.1) * (1.0 if kind == "Cabbage" else 1.15))
+	# clôture : 3 travées par côté (1,7 m), portillon laissé ouvert côté maison
+	var hl := 2.6
+	for side in 4:
+		var a := rot + side * PI / 2.0
+		var nb := Basis(Vector3.UP, a)
+		for k in 3:
+			if side == 2 and k == 1:
+				continue
+			var q: Vector3 = c3 + nb * Vector3(-1.725 + k * 1.725, 0, hl)
+			Kit.farm(root, "Fence", Vector3(q.x, Terrain.height_at(q.x, q.z), q.z), a, 1.0)
+	var t: Vector3 = c3 + b * Vector3(hl + 0.6, 0, -1.2)
+	Kit.farm(root, "WateringCan", Vector3(t.x, Terrain.height_at(t.x, t.z) + 0.2, t.z), rng.randf() * TAU, 1.0)
+	var t2: Vector3 = c3 + b * Vector3(hl + 0.7, 0, 0.4)
+	Kit.farm(root, "Box", Vector3(t2.x, Terrain.height_at(t2.x, t2.z), t2.z), rot + 0.3, 1.0)
 
 ## Forge du bourg : abri à poteaux, foyer, enclume, établi
 static func _smithy(g: Geo) -> void:
@@ -187,40 +191,58 @@ static func house(g: Geo, p: Vector2, w: float, d: float, rot: float, floors: in
 	g.box("pierre_base", Vector3(p.x, (hmin - 0.5 + y0) * 0.5, p.y), Vector3(w + 0.3, y0 - hmin + 0.5, d + 0.3), rot, true)
 	var fh = 3.0
 	var top = y0 + fh * floors
-	g.box(wall_mat, Vector3(p.x, y0 + fh * floors * 0.5, p.y), Vector3(w, fh * floors, d), rot, true)
-	# colombages : poteaux d'angle, sablières, croix de Saint-André
-	for c in corners:
-		var q: Vector3 = c3 + b * Vector3(c.x * 0.5, 0, c.y * 0.5)
-		g.box("bois_sombre", Vector3(q.x, y0 + fh * floors * 0.5, q.z), Vector3(0.32, fh * floors, 0.32), rot, false)
-	for f in floors + 1:
-		var yy = y0 + f * fh - (0.12 if f == floors else 0.0)
+	# encorbellement : l'étage déborde de 30 cm sur la rue et sur l'arrière
+	var jet := 0.3 if floors > 1 else 0.0
+	for f in floors:
+		var df: float = d + (2.0 * jet if f > 0 else 0.0)
+		g.box(wall_mat, Vector3(p.x, y0 + fh * f + fh * 0.5, p.y), Vector3(w, fh, df), rot, true if f == 0 else false)
+		# sablière basse / haute de chaque niveau, poteaux d'angle
 		for s in [-1.0, 1.0]:
-			var q: Vector3 = c3 + b * Vector3(0, 0, s * (d * 0.5 + 0.03))
-			g.box("bois_sombre", Vector3(q.x, yy, q.z), Vector3(w + 0.1, 0.24, 0.12), rot, false)
+			var q: Vector3 = c3 + b * Vector3(0, 0, s * (df * 0.5 + 0.03))
+			g.box("bois_sombre", Vector3(q.x, y0 + f * fh + 0.1, q.z), Vector3(w + 0.1, 0.24, 0.14), rot, false)
+			g.box("bois_sombre", Vector3(q.x, y0 + (f + 1) * fh - 0.12, q.z), Vector3(w + 0.1, 0.24, 0.14), rot, false)
 			var q2: Vector3 = c3 + b * Vector3(s * (w * 0.5 + 0.03), 0, 0)
-			g.box("bois_sombre", Vector3(q2.x, yy, q2.z), Vector3(0.12, 0.24, d + 0.1), rot, false)
-	# poteaux intermédiaires + fenêtres sur la façade et l'arrière
+			g.box("bois_sombre", Vector3(q2.x, y0 + f * fh + 0.1, q2.z), Vector3(0.14, 0.24, df + 0.1), rot, false)
+			g.box("bois_sombre", Vector3(q2.x, y0 + (f + 1) * fh - 0.12, q2.z), Vector3(0.14, 0.24, df + 0.1), rot, false)
+			for sx in [-1.0, 1.0]:
+				var qc: Vector3 = c3 + b * Vector3(sx * w * 0.5, 0, s * df * 0.5)
+				g.box("bois_sombre", Vector3(qc.x, y0 + f * fh + fh * 0.5, qc.z), Vector3(0.3, fh, 0.3), rot, false)
+		if f > 0:
+			# corbeaux sous le débord
+			for k in int(w / 1.6) + 1:
+				for s in [-1.0, 1.0]:
+					var qk: Vector3 = c3 + b * Vector3(-w * 0.5 + 0.3 + k * (w - 0.6) / maxf(1.0, int(w / 1.6)), 0, s * (d * 0.5 + jet * 0.5))
+					g.box("bois_sombre", Vector3(qk.x, y0 + f * fh - 0.12, qk.z), Vector3(0.16, 0.22, jet + 0.2), rot, false)
+	# poteaux intermédiaires, croix de Saint-André à l'étage, fenêtres
 	var bays = int(w / 2.6)
 	for f in floors:
+		var df: float = d + (2.0 * jet if f > 0 else 0.0)
 		var yc = y0 + f * fh + fh * 0.55
 		for k in bays + 1:
 			var x = -w * 0.5 + k * w / bays
 			for s in [-1.0, 1.0]:
-				var q: Vector3 = c3 + b * Vector3(x, 0, s * (d * 0.5 + 0.04))
+				var q: Vector3 = c3 + b * Vector3(x, 0, s * (df * 0.5 + 0.04))
 				g.box("bois_sombre", Vector3(q.x, y0 + f * fh + fh * 0.5, q.z), Vector3(0.18, fh, 0.1), rot, false)
 		for k in bays:
 			var x = -w * 0.5 + (k + 0.5) * w / bays
+			var bw: float = w / bays
 			for s in [-1.0, 1.0]:
 				if f == 0 and s > 0 and k == bays / 2:
 					continue   # emplacement de la porte
-				var q: Vector3 = c3 + b * Vector3(x, 0, s * (d * 0.5 + 0.06))
+				var q: Vector3 = c3 + b * Vector3(x, 0, s * (df * 0.5 + 0.06))
 				g.box("fenetre_sombre", Vector3(q.x, yc, q.z), Vector3(0.9, 1.1, 0.08), rot, false)
-				var qs: Vector3 = c3 + b * Vector3(x - 0.75, 0, s * (d * 0.5 + 0.1))
+				var qs: Vector3 = c3 + b * Vector3(x - 0.75, 0, s * (df * 0.5 + 0.1))
 				g.box("vert_volet", Vector3(qs.x, yc, qs.z), Vector3(0.5, 1.15, 0.06), rot, false)
-				qs = c3 + b * Vector3(x + 0.75, 0, s * (d * 0.5 + 0.1))
+				qs = c3 + b * Vector3(x + 0.75, 0, s * (df * 0.5 + 0.1))
 				g.box("vert_volet", Vector3(qs.x, yc, qs.z), Vector3(0.5, 1.15, 0.06), rot, false)
-				var ql: Vector3 = c3 + b * Vector3(x, 0, s * (d * 0.5 + 0.12))
+				var ql: Vector3 = c3 + b * Vector3(x, 0, s * (df * 0.5 + 0.12))
 				g.box("bois", Vector3(ql.x, yc - 0.65, ql.z), Vector3(1.2, 0.12, 0.25), rot, false)
+				# allège en croix sous la fenêtre de l'étage
+				if f > 0:
+					var qb: Vector3 = c3 + b * Vector3(x, 0, s * (df * 0.5 + 0.05))
+					for sg in [-1.0, 1.0]:
+						var tb := Transform3D(b * Basis(Vector3.BACK, sg * 0.62), Vector3(qb.x, y0 + f * fh + 0.62, qb.z))
+						g.obox("bois_sombre", tb, Vector3(minf(bw - 0.3, 1.6), 0.12, 0.08), false)
 	# porte
 	var xd = -w * 0.5 + (bays / 2 + 0.5) * w / bays
 	var qd: Vector3 = c3 + b * Vector3(xd, 0, d * 0.5 + 0.06)
@@ -237,8 +259,8 @@ static func house(g: Geo, p: Vector2, w: float, d: float, rot: float, floors: in
 	var qs2: Vector3 = c3 + b * Vector3(xd, 0, d * 0.5 + 0.6)
 	g.box("pierre_base", Vector3(qs2.x, y0 - 0.12, qs2.z), Vector3(1.8, 0.3, 1.0), rot, false)
 	# toit à deux pans (faîtage parallèle à la façade), débord
-	var rh = d * 0.55
-	g.gable_roof(roof, Vector3(p.x, top, p.y), w * 0.5 + 0.6, d * 0.5 + 0.7, rh, rot, wall_mat)
+	var rh = d * 0.72
+	g.gable_roof(roof, Vector3(p.x, top, p.y), w * 0.5 + 0.6, d * 0.5 + jet + 0.75, rh, rot, wall_mat)
 	# cheminée
 	var qc: Vector3 = c3 + b * Vector3(w * 0.3, 0, -d * 0.18)
 	g.box("pierre_base", Vector3(qc.x, top + rh * 0.6, qc.z), Vector3(0.8, rh * 1.4, 0.8), rot, false)
@@ -294,8 +316,9 @@ static func _props(parent: Node3D, rng: RandomNumberGenerator) -> void:
 	# arbres d'alignement le long des rues et dans les potagers
 	for gd in gardens:
 		var c: Vector2 = gd[0]
-		var o := Vector2(cos(gd[1]), -sin(gd[1])) * 2.6
-		Kit.nature(root, ["oak_sapling", "birch", "oak_sapling"][rng.randi() % 3], Vector3(c.x + o.x, Terrain.height_at(c.x + o.x, c.y + o.y), c.y + o.y), rng.randf() * TAU, rng.randf_range(0.9, 1.3))
+		var o := Vector2(cos(gd[1]), -sin(gd[1])) * 4.4
+		if rng.randf() < 0.5:
+			Kit.nature(root, "oak", Vector3(c.x + o.x, Terrain.height_at(c.x + o.x, c.y + o.y), c.y + o.y), rng.randf() * TAU, rng.randf_range(0.75, 0.95) * Kit.S_TREE)
 	for r in [0, 1, 2]:
 		var pts: Array = Layout.ROADS[r]["pts"]
 		var rw: float = Layout.ROADS[r]["w"]
@@ -314,7 +337,39 @@ static func _props(parent: Node3D, rng: RandomNumberGenerator) -> void:
 						free = false
 						break
 				if free and (r == 0 and q.y > -66.0 or r > 0) and q.distance_to(Layout.TOWN) < 140.0:
-					Kit.nature(root, ["oak_sapling", "birch", "bush"][rng.randi() % 3], Vector3(q.x, Terrain.height_at(q.x, q.y), q.y), rng.randf() * TAU, rng.randf_range(1.0, 1.4))
+					var sk: String = ["oak", "bush", "oak", "pine"][rng.randi() % 4]
+					Kit.nature(root, sk, Vector3(q.x, Terrain.height_at(q.x, q.y), q.y), rng.randf() * TAU, rng.randf_range(0.8, 1.05) * (1.0 if sk == "bush" else Kit.S_TREE * 0.85))
+	# bosquets entre les maisons : le bourg vit au milieu des arbres
+	var trees: Array = []
+	for k in 900:
+		if trees.size() >= 75:
+			break
+		var a := rng.randf() * TAU
+		var r := rng.randf_range(24.0, 100.0)
+		var q: Vector2 = Layout.TOWN + Vector2(cos(a), sin(a)) * r
+		if Layout.road_dist(q) < 3.2 or Layout.river_dist(q) < Layout.RIVER_W + 3.0 or Layout.in_fields(q, 3.0) or Layout.in_castle(q, 20.0):
+			continue
+		if absf(q.x - Layout.GATE.x) < 14.0 and q.y < Layout.GATE.y + 55.0:
+			continue
+		var ok := true
+		for h in houses:
+			if (h[0] as Vector2).distance_to(q) < (h[1] as float) + 1.6:
+				ok = false
+				break
+		if ok:
+			for t in trees:
+				if (t as Vector2).distance_to(q) < 6.5:
+					ok = false
+					break
+		if not ok:
+			continue
+		trees.append(q)
+		var kind: String = ["oak", "oak", "pine", "oak", "pine_sapling", "oak_sapling"][rng.randi() % 6]
+		Kit.nature(root, kind, Vector3(q.x, Terrain.height_at(q.x, q.y), q.y), rng.randf() * TAU, rng.randf_range(0.8, 1.15) * Kit.S_TREE)
+		if rng.randf() < 0.6:
+			var bq: Vector2 = q + Vector2(rng.randf_range(-2.5, 2.5), rng.randf_range(-2.5, 2.5))
+			if Layout.road_dist(bq) > 1.5:
+				Kit.nature(root, ["bush", "fern", "flowers"][rng.randi() % 3], Vector3(bq.x, Terrain.height_at(bq.x, bq.y), bq.y), rng.randf() * TAU, rng.randf_range(0.8, 1.2))
 	# lampadaires : autour de la place et le long de la grande rue
 	for i in 4:
 		var a = TAU * i / 4.0
@@ -368,7 +423,7 @@ static func _villageois(parent: Node3D, rng: RandomNumberGenerator) -> void:
 		parent.add_child(v)
 	# devant une porte sur deux : on discute, on balaie, on se repose
 	var acts := ["Idle_Talking", "Interact", "b/Idle_FoldArms", "Idle", "b/Idle_Lantern"]
-	for i in range(0, doors.size(), 2):
+	for i in range(0, doors.size(), 3):
 		var dp: Vector2 = doors[i][0]
 		var dd: Vector2 = doors[i][1]
 		var q: Vector2 = dp + dd * 1.6 + Vector2(dd.y, -dd.x) * rng.randf_range(-1.0, 1.0)
@@ -379,7 +434,7 @@ static func _villageois(parent: Node3D, rng: RandomNumberGenerator) -> void:
 		v.rotation.y = atan2(dd.x, dd.y) + rng.randf_range(-0.5, 0.5)
 		parent.add_child(v)
 	# jardiniers
-	for i in range(0, gardens.size(), 2):
+	for i in range(0, gardens.size(), 3):
 		var gc: Vector2 = gardens[i][0]
 		var v = Villager.new()
 		v.spec = spec_of.call(rng.randf() < 0.4)

@@ -177,8 +177,24 @@ func _ready() -> void:
 	_check(escorted, "Deux gardes viennent chercher l'habitant et l'emmènent")
 	await _wait(1.0)
 	await _shot("07_arrestation")
-	var jailed := await _until(func(): return not Justice.prisoner_record(vid).is_empty(), 150.0)
+	# pendant tout le trajet : gardes et prisonnier restent sur le sol (jamais sous la carte)
+	var worst := [0.0, ""]
+	var probe := func() -> bool:
+		for x in Soldier.all.filter(func(q): return q.mode == Soldier.M.ESCORTE_PRISONNIER) + ([v1] if is_instance_valid(v1) else []):
+			var pos: Vector3 = x.global_position
+			var dz := Justice.dug(Vector2(pos.x, pos.z))
+			var err := 0.0
+			if dz:
+				err = maxf(Justice.FL - 0.4 - pos.y, pos.y - (Justice.Y0 + 0.4))
+			else:
+				err = absf(pos.y - Powers.ground(pos + Vector3.UP * 0.6))
+			if err > worst[0]:
+				worst[0] = err
+				worst[1] = "%s %s" % [x.name, pos]
+		return not Justice.prisoner_record(vid).is_empty()
+	var jailed := await _until(probe, 150.0)
 	_check(jailed, "Il est escorté à pied jusqu'à la prison et enfermé")
+	_check(float(worst[0]) < 0.7, "Escorte toujours au niveau du sol, escaliers compris (écart max %.2f m %s)" % [worst[0], worst[1]])
 	_place(Vector2(-27, -106), 0)
 	world.rig.yaw = deg_to_rad(17)
 	world.rig._last_manual = Time.get_ticks_msec() / 1000.0 + 1000.0

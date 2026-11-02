@@ -13,6 +13,8 @@ const STAIR_TOP_Z := -104.0
 const CELL_DOOR := Vector3(-33.0, 7.4, -118.6)    # couloir devant les cellules
 const STAIR_TOP := Vector3(-33.0, 12.0, -101.5)
 const STAIR_BOTTOM := Vector3(-33.0, 7.4, -116.0)
+const STAIR_EDGE := Vector3(-33.0, 12.0, -104.0)    # première marche (haut)
+const STAIR_FOOT := Vector3(-33.0, 7.4, -115.1)     # dernière marche (bas)
 const EXIT_SOUTH := [Vector2(0, -20), Vector2(6, 20), Vector2(24, 62), Vector2(28, 90)]
 
 static var _built := false
@@ -395,6 +397,8 @@ static func _path_to_prison(from: Vector3) -> Array:
 				pts.append(Vector3(q.x, Terrain.height_at(q.x, q.y), q.y))
 	pts.append(Vector3(-20, 12.0, -106))
 	pts.append(STAIR_TOP)
+	pts.append(STAIR_EDGE)
+	pts.append(STAIR_FOOT)
 	pts.append(STAIR_BOTTOM)
 	pts.append(CELL_DOOR)
 	return pts

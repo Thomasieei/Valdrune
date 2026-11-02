@@ -284,6 +284,12 @@ func _fill_detail() -> void:
 	var demo := _button("Essayer dans la chambre (mannequins, mana gratuit)", Color(0.5, 0.85, 1.0), _owned(sel))
 	demo.pressed.connect(_try)
 	_detail.add_child(demo)
+	if Combat.monsters.any(func(m): return is_instance_valid(m) and m.kind == "mannequin"):
+		var stop := _button("Terminer l'entraînement", Color(1.0, 0.7, 0.5))
+		stop.pressed.connect(func():
+			clear_dummies()
+			close_ui())
+		_detail.add_child(stop)
 
 func _unlock() -> void:
 	var d: Dictionary = SpellDB.DEFS[sel]
@@ -337,10 +343,19 @@ func _try() -> void:
 	if Hud.inst:
 		Hud.inst.show_message("Entraînement : mana gratuit dans la chambre", Color(0.7, 0.6, 1.0))
 
+static func clear_dummies() -> void:
+	for m in Combat.monsters.duplicate():
+		if is_instance_valid(m) and m.kind == "mannequin":
+			Combat.unregister(m)
+			m.queue_free()
+	if Hud.inst:
+		Hud.inst.show_message("Fin de l'entraînement", Color(0.7, 0.6, 1.0))
+
 static func spawn_dummies() -> void:
 	var w: Node3D = (Engine.get_main_loop() as SceneTree).current_scene
 	for m in Combat.monsters.duplicate():
 		if is_instance_valid(m) and m.kind == "mannequin":
+			Combat.unregister(m)
 			m.queue_free()
 	for p in [Vector3(-15.0, 13.1, -141.5), Vector3(-12.0, 13.1, -140.5), Vector3(-18.0, 13.1, -140.5)]:
 		var m := Monster.new()
