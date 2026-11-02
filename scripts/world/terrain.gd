@@ -116,7 +116,7 @@ static func _color(x: float, z: float, h: float, nm: Vector3) -> Color:
 	c = c.lerp(rock, smoothstep(0.16, 0.32, slope))
 	# montagnes : roche puis neige
 	c = c.lerp(rock, smoothstep(26.0, 38.0, h))
-	c = c.lerp(Color(0.93, 0.95, 0.98), smoothstep(52.0, 62.0, h + n1 * 6.0))
+	c = c.lerp(Color(0.93, 0.95, 0.98), smoothstep(58.0, 68.0, h + n1 * 6.0))
 	# berges : sable/boue
 	var rd := Layout.river_dist(p)
 	var sand := Color(0.66, 0.60, 0.44)

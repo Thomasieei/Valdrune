@@ -27,8 +27,9 @@ func _process(delta: float) -> void:
 				growth = 0.13 if plot["kind"] == "ble" else 0.0
 				ripe = 1.0
 		var mmi: MultiMeshInstance3D = plot["mmi"]
-		mmi.set_instance_shader_parameter("growth", growth)
-		mmi.set_instance_shader_parameter("ripe", ripe)
+		var mat: ShaderMaterial = plot["mat"]
+		mat.set_shader_parameter("growth", growth)
+		mat.set_shader_parameter("ripe", ripe)
 		mmi.visible = growth > 0.01
 		if s != plot["state"]:
 			plot["state"] = s

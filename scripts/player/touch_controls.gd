@@ -118,4 +118,8 @@ func _process(_d: float) -> void:
 		player.sprint = _sprint_btn.button_pressed or Input.is_physical_key_pressed(KEY_SHIFT)
 		if rig:
 			player.cam_yaw = rig.yaw
-	_fps.text = "%d FPS · %.1f ms" % [Engine.get_frames_per_second(), 1000.0 / maxf(Engine.get_frames_per_second(), 1)]
+	var q := ""
+	var w = get_tree().current_scene
+	if w and "quality" in w and w.quality > 0:
+		q = " · qualité -%d" % w.quality
+	_fps.text = "%d FPS · %.1f ms%s" % [Engine.get_frames_per_second(), 1000.0 / maxf(Engine.get_frames_per_second(), 1), q]

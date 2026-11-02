@@ -4,8 +4,14 @@ func _ready() -> void:
 	var t0 := Time.get_ticks_msec()
 	Ambiance.setup(self)
 	Terrain.build(self)
-	var world := get_node_or_null("/root")
-	if has_method("_extra"): call("_extra")
+	Roads.build(self)
+	Castle.build(self)
+	Town.build(self)
+	Fields.build(self)
+	Places.build(self)
+	Vegetation.build(self)
+	for n in find_children("*", "GeometryInstance3D", true, false):
+		n.visibility_range_end = 0.0
 	print("terrain ms ", Time.get_ticks_msec() - t0)
 	var cam := Camera3D.new()
 	cam.projection = Camera3D.PROJECTION_ORTHOGONAL

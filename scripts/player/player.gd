@@ -41,6 +41,9 @@ func _play(a: String, blend := 0.2, speed := 1.0) -> void:
 	anim.play(a, blend)
 	anim.speed_scale = speed
 
+func _over_bridge() -> bool:
+	return global_position.y > Terrain.height_at(global_position.x, global_position.z) + 0.6
+
 func _physics_process(delta: float) -> void:
 	var dir := Vector3(input_dir.x, 0, input_dir.y)
 	var mag := minf(dir.length(), 1.0)
@@ -54,6 +57,10 @@ func _physics_process(delta: float) -> void:
 			target_speed = SPRINT
 	var hv := Vector3(velocity.x, 0, velocity.z)
 	hv = hv.lerp(dir * target_speed, clampf(ACCEL * delta, 0, 1))
+	# eau profonde : on ne s'y aventure pas (on peut patauger au bord)
+	var ahead := global_position + hv.normalized() * 0.8
+	if hv.length() > 0.1 and Terrain.height_at(ahead.x, ahead.z) < Layout.WATER - 0.7 and not _over_bridge():
+		hv = Vector3.ZERO
 	velocity.x = hv.x
 	velocity.z = hv.z
 	if not is_on_floor():

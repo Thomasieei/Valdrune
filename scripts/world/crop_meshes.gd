@@ -14,29 +14,26 @@ static func material() -> ShaderMaterial:
 static func wheat() -> ArrayMesh:
 	if _wheat:
 		return _wheat
+	# touffe de 11 tiges (1 triangle chacune, matériau double face) + épi en croix (2 triangles)
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 3
-	for k in 7:
-		var a := TAU * k / 7.0 + rng.randf() * 0.4
-		var lean := Vector3(cos(a), 0, sin(a)) * rng.randf_range(0.04, 0.12)
-		var h := rng.randf_range(0.95, 1.15)
-		var side := Vector3(-sin(a), 0, cos(a)) * 0.025
-		var base := Vector3(cos(a), 0, sin(a)) * 0.05
+	for k in 11:
+		var a := TAU * k / 11.0 + rng.randf() * 0.5
+		var rr := rng.randf_range(0.03, 0.24)
+		var base := Vector3(cos(a), 0, sin(a)) * rr
+		var lean := Vector3(cos(a), 0, sin(a)) * rng.randf_range(0.03, 0.14)
+		var h := rng.randf_range(0.85, 1.15)
+		var side := Vector3(-sin(a), 0, cos(a)) * 0.035
 		var top := base + lean + Vector3.UP * h
-		# tige (ruban) — UV.y = hauteur relative (0 pied, 1 sommet) pour le dégradé
-		_tri(st, base - side, base + side, top, 0.0, 0.0, 1.0)
-		_tri(st, base + side, base - side, top, 0.0, 0.0, 1.0)
-		# épi (losange épais)
-		var e0 := top - (lean.normalized() * 0.0) - Vector3.UP * 0.22
-		var w := side * 2.2
-		var e1 := top + Vector3.UP * 0.05
+		_tri(st, base - side, base + side, top - Vector3.UP * 0.15, 0.0, 0.0, 0.85)
+		var e0 := top - Vector3.UP * 0.24
+		var e1 := top + Vector3.UP * 0.04
+		var w := side * 1.9
+		var w2 := Vector3(side.z, 0, -side.x) * 1.9
 		_tri(st, e0 - w, e0 + w, e1, 0.85, 0.85, 1.0, true)
-		_tri(st, e0 + w, e0 - w, e1, 0.85, 0.85, 1.0, true)
-		var w2 := Vector3(side.z, 0, -side.x) * 2.2
 		_tri(st, e0 - w2, e0 + w2, e1, 0.85, 0.85, 1.0, true)
-		_tri(st, e0 + w2, e0 - w2, e1, 0.85, 0.85, 1.0, true)
 	st.generate_normals()
 	_wheat = st.commit()
 	return _wheat

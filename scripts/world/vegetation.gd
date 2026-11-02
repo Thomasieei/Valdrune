@@ -70,6 +70,8 @@ static func build(parent: Node3D) -> void:
 						var s := Kit.S_TREE * rng.randf_range(0.8, 1.25)
 						if kind == "pine":
 							s *= 0.85
+						elif kind == "birch":
+							s *= 0.75
 						_add(kind, _xf(px, pz, s, rng.randf() * TAU))
 						_trunks.append([Vector3(px, h, pz), 0.35 * s])
 					elif dens > 0.2 and rng.randf() < 0.35:

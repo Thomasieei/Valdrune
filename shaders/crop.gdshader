@@ -1,8 +1,8 @@
 shader_type spatial;
 render_mode cull_disabled, diffuse_lambert, specular_disabled;
-instance uniform float growth = 1.0;
-instance uniform float ripe = 0.0;
-instance uniform float kind = 0.0; // 0 blé, 1 chou
+uniform float growth = 1.0;
+uniform float ripe = 0.0;
+uniform float kind = 0.0; // 0 blé, 1 chou
 varying float hrel;
 varying float ear;
 varying float leaf;

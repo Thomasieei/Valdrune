@@ -33,14 +33,14 @@ static func _ribbon(g: Geo, pts: Array, w: float, m: String) -> void:
 		var db = ((samples[mini(i + 2, samples.size() - 1)] as Vector2) - (samples[i] as Vector2)).normalized()
 		var na = Vector2(-da.y, da.x) * w
 		var nb = Vector2(-db.y, db.x) * w
-		var al = a - na
-		var ar = a + na
-		var bl = b - nb
-		var br = b + nb
-		g.quad(m, _p3(al), _p3(ar), _p3(br), _p3(bl), 1)
+		var cols = 4
+		for k in cols:
+			var t0 = -1.0 + 2.0 * k / cols
+			var t1 = -1.0 + 2.0 * (k + 1) / cols
+			g.quad(m, _p3(a + na * t0), _p3(a + na * t1), _p3(b + nb * t1), _p3(b + nb * t0), 1)
 
 static func _p3(p: Vector2) -> Vector3:
-	return Vector3(p.x, Terrain.height_at(p.x, p.y) + 0.06, p.y)
+	return Vector3(p.x, Terrain.height_at(p.x, p.y) + 0.1, p.y)
 
 static func _disc(g: Geo, c: Vector2, r: float, m: String) -> void:
 	var rings = 6

@@ -148,6 +148,10 @@ static func height(x: float, z: float) -> float:
 		if cd < 2.0 or (p.y > GATE.y - 2 and p.y < GATE.y + 50 and absf(p.x) < 6):
 			flat = h
 		h = lerpf(lerpf(h, flat, 0.35), h, s)
+	# léger creux sous la route pavée pour que le pavage ne soit jamais recouvert par l'herbe
+	var pv := paved_dist(p)
+	if pv < 1.5:
+		h -= 0.12 * (1.0 - smoothstep(-1.0, 1.5, pv))
 	return h
 
 static func _box_dist(p: Vector2, mn: Vector2, mx: Vector2) -> float:
