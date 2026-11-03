@@ -532,7 +532,7 @@ func _ready() -> void:
 	var boss: Node3D = dg._boss
 	_check(dg._gen.rooms.size() == 7 and dg._scenes.size() == 5, "Donjon complet : départ, 4 salles de vie, gardien, crypte cachée")
 	var bs: Vector3 = dg._gen.boss_spot
-	_place(Vector2(bs.x, bs.z + 16.0), 180, bs.y + 0.5)
+	_place(Vector2(bs.x, bs.z + 9.0), 180, bs.y + 0.5)
 	await _until(func(): return dg._boss_phase >= 1, 6.0)
 	_check(dg._boss_phase >= 1, "Le gardien s'éveille à l'approche (plan de cinéma, nom en grand)")
 	await _wait(1.5)

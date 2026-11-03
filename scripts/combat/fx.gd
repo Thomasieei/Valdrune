@@ -87,23 +87,41 @@ static func _add(n: Node3D, pos: Vector3) -> Node3D:
 	return n
 
 # ---------------------------------------------------------------- impacts
+## Chiffres de dégâts : la taille suit la force du coup (moyenne glissante), les gros coups « éclatent »
+static var _avg_dmg := 15.0
 static func damage_number(pos: Vector3, text: String, col: Color) -> void:
 	if root == null:
 		return
+	var v := float(text.trim_prefix("-").to_int())
+	var k := 1.0
+	var crit := false
+	if v > 0.0:
+		k = clampf(v / maxf(_avg_dmg, 1.0), 0.6, 2.6)
+		crit = v >= _avg_dmg * 1.9 and v >= 12.0
+		_avg_dmg = lerpf(_avg_dmg, v, 0.08)
 	var l := Label3D.new()
-	l.text = text
-	l.font_size = 56
-	l.outline_size = 14
-	l.modulate = col
-	l.outline_modulate = Color(0, 0, 0, 0.8)
+	l.text = text + ("!" if crit else "")
+	l.font_size = int(48 + 26 * minf(k, 2.0))
+	l.outline_size = 16
+	var c := col
+	if crit:
+		c = Color(1.0, 0.45, 0.15)
+	l.modulate = c
+	l.outline_modulate = Color(c.r * 0.25, c.g * 0.12, c.b * 0.08, 0.95)
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	l.no_depth_test = true
-	l.pixel_size = 0.006
-	_add(l, pos + Vector3(randf_range(-0.3, 0.3), 0, randf_range(-0.3, 0.3)))
+	l.pixel_size = 0.0065
+	l.render_priority = 5
+	var side := randf_range(-0.6, 0.6)
+	_add(l, pos + Vector3(side * 0.5, 0.2, randf_range(-0.2, 0.2)))
+	var s0 := 2.0 if crit else 1.5
+	l.scale = Vector3.ONE * s0
 	var tw := l.create_tween()
+	tw.tween_property(l, "scale", Vector3.ONE * (1.25 if crit else 1.0), 0.14).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
 	tw.set_parallel(true)
-	tw.tween_property(l, "position:y", l.position.y + 1.1, 0.8).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	tw.tween_property(l, "modulate:a", 0.0, 0.8).set_delay(0.3)
+	tw.tween_property(l, "position:y", l.position.y + (1.6 if crit else 1.15), 0.85).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(l, "position:x", l.position.x + side, 0.85).set_ease(Tween.EASE_OUT)
+	tw.tween_property(l, "modulate:a", 0.0, 0.45).set_delay(0.55)
 	tw.chain().tween_callback(l.queue_free)
 
 static func hit_spark(pos: Vector3, col := Color(1.0, 0.9, 0.5)) -> void:
