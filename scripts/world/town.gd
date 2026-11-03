@@ -243,6 +243,7 @@ static func _villageois(parent: Node3D, rng: RandomNumberGenerator) -> void:
 		v.position = t[0]
 		v.rotation.y = t[3]
 		parent.add_child(v)
+		v.set_meta("place_fixe", true)
 		if t.size() > 4:
 			v.set_meta("talk", t[4])
 	# le forgeron

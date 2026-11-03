@@ -54,6 +54,8 @@ static func fix_all(tree: SceneTree) -> void:
 			continue
 		if n is Guard and n.patrol.size() >= 2:
 			continue
+		if n.has_meta("place_fixe"):
+			continue   # assis sur un banc, derrière un comptoir : posé à la main, on n'y touche pas
 		var fixed := free_spot(n.global_position)
 		if fixed != n.global_position:
 			n.global_position = fixed

@@ -194,7 +194,7 @@ static func _taverne(p: BourgPlan, root: Node3D, base: Transform3D, sp: Dictiona
 	for q in [Vector3(-4.0, 2.0, -4.85), Vector3(3.2, 2.0, 4.85), Vector3(-4.0, 2.0, 4.85)]:
 		_d(null, "Candlestick_Wall", base, q, 0.0 if q.z < 0 else PI)
 	for x in [-2.4, 1.6]:
-		_d(null, "Chandelier", base, Vector3(x, 2.95, 0.6), 0.0, 0.5)
+		_d(null, "Chandelier", base, Vector3(x, 2.98, 0.6), 0.0, 0.36)
 	_light(root, base, Vector3(-5.6, 1.5, 0.3), Color(1.0, 0.6, 0.3), 2.0, 7.5)
 	_light(root, base, Vector3(-0.4, 2.4, 0.6), Color(1.0, 0.78, 0.5), 1.5, 10.0)
 	_light(root, base, Vector3(4.6, 2.2, -1.2), Color(1.0, 0.72, 0.45), 1.0, 6.0)
