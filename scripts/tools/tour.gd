@@ -100,6 +100,11 @@ func _audit() -> void:
 			var sd := Vector2(dd.y, -dd.x)
 			var e: Vector2 = dp + dd * 11.0 + sd * 5.0
 			cams.append(["S_" + key, Vector3(e.x, 3.2, e.y), Vector3(dp.x + dd.x * 2.5, 1.0, dp.y + dd.y * 2.5)])
+	for gid in BanditVillage.VILLAGES:
+		var vc: Vector2 = CampParley.zone(gid)["pos"]
+		var dv: Vector2 = (Layout.TOWN - vc).normalized()
+		var e2: Vector2 = vc + dv * 30.0 + Vector2(dv.y, -dv.x) * 8.0
+		cams.append(["S_v_" + gid, Vector3(e2.x, 13.0, e2.y), Vector3(vc.x, 1.0, vc.y)])
 	var args := OS.get_cmdline_user_args()
 	if args.size() > 2:
 		cams = cams.filter(func(c): return c[0].begins_with(args[2]))

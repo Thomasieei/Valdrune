@@ -88,7 +88,25 @@ static func _foreman(nodes: Dictionary, choices: Array, who: String, label: Stri
 		{"text": "Tout le monde aux champs !", "next": "END", "callback": func(): _preset("ferme")},
 		{"text": "Tout le monde à la mine !", "next": "END", "callback": func(): _preset("mine")},
 		{"text": "Répartition équilibrée.", "next": "END", "callback": func(): _preset("")},
+		{"text": "Je te donne des chiffres précis.", "next": "n_scierie", "callback": func(): _plan.clear()},
 		{"text": "Retour", "next": "menu"}]}
+	# ordre chiffré : « 10 bûcherons, 15 aux champs, 20 à la mine » — Gauthier exécute à l'homme près
+	var total := Kingdom.idle_people()
+	for j in ["ferme", "scierie", "mine", "marche"]:
+		total += int(Kingdom.bld(j)["ouvriers"])
+	var steps := [["scierie", "Combien de bûcherons à la scierie ?", "n_ferme"], ["ferme", "Et aux champs, pour la nourriture ?", "n_mine"], ["mine", "Et à la mine ?", "n_marche"], ["marche", "Et au marché ?", "ordre_ok"]]
+	for st2 in steps:
+		var job: String = st2[0]
+		var mx := mini(total, int(Kingdom.data()["batiments"][job]["ouvriers_max"]) + (int(Kingdom.bld(job)["niv"]) - 1) * 2)
+		var opts: Array = []
+		for v in [0, 2, 5, 10, 15, 20, 25, 30]:
+			if v <= mx:
+				var vv: int = v
+				opts.append({"text": "%d" % vv, "next": st2[2], "callback": func(): _plan[job] = vv})
+		if mx > 0 and not [0, 2, 5, 10, 15, 20, 25, 30].has(mx):
+			opts.append({"text": "%d (le maximum)" % mx, "next": st2[2], "callback": func(): _plan[job] = mx})
+		nodes["n_" + job] = {"who": who, "nom": label, "text": "%s (%d bras au total, %d au plus ici)" % [st2[1], total, mx], "choices": opts}
+	nodes["ordre_ok"] = {"who": who, "nom": label, "text": "Bien, mon seigneur. Je les place exactement comme vous l'avez dit. Ceux qui restent attendront vos ordres.", "next": "END", "callback": func(): _exact()}
 	choices.insert(0, {"text": "Les équipes de travail", "next": "equipes"})
 	if wv and wv.gathered:
 		nodes["autravail"] = {"who": who, "nom": label, "text": "Vous avez entendu le seigneur ! Au travail, tout le monde !", "next": "END", "callback": func(): wv.dismiss()}
@@ -96,6 +114,25 @@ static func _foreman(nodes: Dictionary, choices: Array, who: String, label: Stri
 	elif wv:
 		nodes["rassemble"] = {"who": who, "nom": label, "text": "Je les fais venir. Tous. Ils seront alignés devant vous.", "next": "END", "callback": func(): wv.gather()}
 		choices.insert(0, {"text": "Rassemble tous les travailleurs devant moi.", "next": "rassemble"})
+
+static var _plan := {}
+## Applique un ordre chiffré, dans l'ordre donné ; s'il manque des bras, les derniers chantiers en ont moins
+static func _exact() -> Dictionary:
+	var jobs := ["scierie", "ferme", "mine", "marche"]
+	for j in jobs:
+		while int(Kingdom.bld(j)["ouvriers"]) > 0:
+			Kingdom.set_workers(j, -1)
+	var done := {}
+	for j in jobs:
+		var want := int(_plan.get(j, 0))
+		var guard := 0
+		while int(Kingdom.bld(j)["ouvriers"]) < want and Kingdom.idle_people() > 0 and guard < 60:
+			guard += 1
+			Kingdom.set_workers(j, 1)
+		done[j] = int(Kingdom.bld(j)["ouvriers"])
+	if Hud.inst:
+		Hud.inst.show_message("Gauthier : %d bûcherons · %d aux champs · %d à la mine · %d au marché" % [done["scierie"], done["ferme"], done["mine"], done["marche"]], Color(1.0, 0.85, 0.5))
+	return done
 
 ## Préréglage de répartition : priorité à un chantier (le reste réparti), ou équilibre
 static func _preset(focus: String) -> void:

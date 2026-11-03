@@ -215,12 +215,13 @@ func _ready() -> void:
 		["legion", 0.8, func(): return Soldier.all.filter(func(s): return s.spectral and not s.cbt.dead).size() >= 3, "Légion : guerriers spectraux invoqués"],
 		["presence", 0.5, func(): return _count_state(Monster.S.FUITE) + _count_state(Monster.S.ETOURDI) >= 1, "Présence écrasante : les faibles fuient ou s'agenouillent"],
 		["oeil", 0.8, func(): return world.hud.eye._panels.any(func(x): return x.visible), "Œil du souverain : panneaux d'information"],
+		["onde", 0.6, func(): return _hp_sum() > 0.0 and foes.any(func(m): return is_instance_valid(m) and Vector2(m.global_position.x - p.global_position.x, m.global_position.z - p.global_position.z).length() > 6.0), "Onde de force : les ennemis sont balayés et projetés"],
 		["incarnation", 0.4, func(): return pc.incarnated() and p.cbt.incoming_until > Combatant.now(), "Incarnation souveraine : forme ultime active"],
 	]
 	var base_ms := Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0
 	var peak_ms := 0.0
 	var peak_draws := 0
-	var shots := ["arsenal", "singularite", "dome", "mur", "chaines", "meteore", "orage", "main_titan", "faille", "legion", "presence", "oeil", "incarnation", "piliers", "ecrasement"]
+	var shots := ["onde", "arsenal", "singularite", "dome", "mur", "chaines", "meteore", "orage", "main_titan", "faille", "legion", "presence", "oeil", "incarnation", "piliers", "ecrasement"]
 	if OS.get_cmdline_user_args().has("rapide"):
 		tests = tests.filter(func(x): return x[0] in ["projection", "singularite", "dome"])
 	for t in tests:
@@ -255,6 +256,39 @@ func _ready() -> void:
 		world.hud.choose(pick[0])
 		await _wait(1.6)
 		_check(_hp_sum() > h0 and _count_state(Monster.S.SOULEVE) == 0, "Emprise → %s : dégâts à l'impact, plus personne en l'air" % pick[1])
+	# ---------------------------------------------------------------- Lames spectrales (ordre au choix)
+	_reset_foes(4.0, 1.6)
+	await _wait(0.4)
+	var hl := _hp_sum()
+	_cast("lames")
+	await _wait(0.4)
+	_check(world.hud.choice_btns.size() == 3, "Lames spectrales : trois ordres proposés (garde, assaut, ratisser)")
+	world.hud.choose(1)
+	await _wait(2.5)
+	await _shot("p_lames")
+	_check(_hp_sum() > hl and FX.root.find_children("*", "SpectralBlades", true, false).size() == 1, "Lames → Assaut : les épées fondent sur les ennemis")
+	for b in FX.root.find_children("*", "SpectralBlades", true, false):
+		b.queue_free()
+	# ---------------------------------------------------------------- Possession (décision)
+	_reset_foes(5.0, 1.6)
+	await _wait(0.4)
+	_cast("possession")
+	await _wait(0.4)
+	var pos_t: Monster = foes[1]
+	_check(world.hud.choice_btns.size() == 3 and pos_t.state == Monster.S.ETOURDI, "Possession : l'esprit est saisi, trois décisions à l'écran")
+	await _shot("p_possession")
+	var others0 := 0.0
+	for m in foes:
+		if m != pos_t and is_instance_valid(m):
+			others0 += m.cbt.max_hp - m.cbt.hp
+	world.hud.choose(0)
+	await _wait(4.0)
+	var others1 := 0.0
+	for m in foes:
+		if m != pos_t and is_instance_valid(m):
+			others1 += (m.cbt.max_hp - m.cbt.hp) if not m.cbt.dead else m.cbt.max_hp
+	_check(is_instance_valid(pos_t) and pos_t.has_meta("possede") and others1 > others0, "Possession → Retourner : le possédé frappe ses anciens frères")
+	await _shot("p_possession_combat")
 	# ---------------------------------------------------------------- cercle des pouvoirs
 	world.hud.toggle_grimoire()
 	await _wait(0.3)

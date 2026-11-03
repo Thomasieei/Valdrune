@@ -59,7 +59,13 @@ func _draw() -> void:
 	if charge > 0.0:
 		draw_arc(c, radius + 6.0, -PI / 2.0, -PI / 2.0 + TAU * charge, 40, Color(1, 0.95, 0.6, 0.95), 6.0, true)
 	var ic := Color(1, 1, 1, 0.95) if locked_text == "" and not dim else Color(0.75, 0.75, 0.8, 0.55)
-	_icon(c, radius * 0.52, ic)
+	var tex := badge(icon)
+	if tex:
+		var r := radius - 1.0
+		var m := Color.WHITE if locked_text == "" and not dim and cooldown <= 0.0 else Color(0.6, 0.6, 0.66, 0.85)
+		draw_texture_rect(tex, Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0), false, m)
+	else:
+		_icon(c, radius * 0.52, ic)
 	if cooldown > 0.0 and locked_text == "":
 		# secteur sombre dessiné triangle par triangle : un seul polygone en éventail devient invalide
 		# près de 100 % (le centre touche le bord) et n'était alors plus dessiné du tout
@@ -84,6 +90,14 @@ func _draw() -> void:
 		draw_circle(bc, radius * 0.34, Color(0.12, 0.1, 0.08, 0.95))
 		draw_arc(bc, radius * 0.34, 0, TAU, 20, accent, 2.0)
 		_text(bc, str(count), int(radius * 0.38), Color.WHITE)
+
+## Miniatures peintes des sorts (assets/ui/icons, générées par tools/gen_icons.py)
+static var _badges := {}
+static func badge(ic: String) -> Texture2D:
+	if not _badges.has(ic):
+		var path := "res://assets/ui/icons/%s.png" % ic
+		_badges[ic] = load(path) if ResourceLoader.exists(path) else null
+	return _badges[ic]
 
 func _text(p: Vector2, t: String, fs: int, col: Color) -> void:
 	var f := get_theme_default_font()

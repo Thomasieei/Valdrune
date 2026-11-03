@@ -196,6 +196,8 @@ func _spawn() -> void:
 	player.rig = rig
 	Spawner.build(self)
 	Camps.build(self)
+	BanditVillage.build(self)
+	Frontier.build(self)
 	var ui := CanvasLayer.new()
 	add_child(ui)
 	hud = Hud.new()
@@ -317,6 +319,7 @@ func _spawn() -> void:
 var quality := 0
 var _q_acc := 0.0
 var _q_low := 0.0
+var _q_high := 0.0
 var _npc_acc := 0.0
 
 func _process(delta: float) -> void:
@@ -357,10 +360,17 @@ func _process(delta: float) -> void:
 		return
 	_q_acc = 0.0
 	var fps := Engine.get_frames_per_second()
-	_q_low = _q_low + 1.0 if fps < 28 else 0.0
-	if _q_low >= 3.0 and quality < 4:
+	# un pic isolé (chargement d'un camp, gros sort) ne doit pas dégrader l'image pour toute la partie :
+	# on n'allège qu'après 5 s de suite sous 26 FPS, et on rend la qualité dès que ça redevient fluide
+	_q_low = _q_low + 1.0 if fps < 26 else 0.0
+	_q_high = _q_high + 1.0 if fps >= 50 else 0.0
+	if _q_low >= 5.0 and quality < 4:
 		_q_low = 0.0
 		quality += 1
+		_apply_quality()
+	elif _q_high >= 12.0 and quality > 0:
+		_q_high = 0.0
+		quality -= 1
 		_apply_quality()
 
 ## Le joueur se tourne vers son interlocuteur, la caméra se place derrière lui
@@ -429,18 +439,21 @@ func _apply_quality() -> void:
 	var sun := find_child("Soleil", false, false) as DirectionalLight3D
 	var vp := get_viewport()
 	# ordre : ce qui coûte le plus et se voit le moins d'abord ; jamais d'image floue (≥ 0,8)
-	match quality:
-		1:
-			if sun: sun.shadow_enabled = false
-		2:
-			for n in find_child("Vegetation", true, false).get_children():
-				n.visibility_range_end *= 0.75
-		3: vp.scaling_3d_scale = 0.9
-		4: vp.scaling_3d_scale = 0.8
-	print("qualité réduite → niveau ", quality)
+	# chaque palier est réversible (la qualité revient quand le téléphone respire)
+	if sun:
+		sun.shadow_enabled = quality < 1
+	var veg := find_child("Vegetation", true, false)
+	if veg:
+		for n in veg.get_children():
+			if n is GeometryInstance3D:
+				if not n.has_meta("vr0"):
+					n.set_meta("vr0", n.visibility_range_end)
+				n.visibility_range_end = float(n.get_meta("vr0")) * (0.75 if quality >= 2 else 1.0)
+	vp.scaling_3d_scale = [1.0, 1.0, 1.0, 0.9, 0.85][quality]
+	print("qualité → niveau ", quality)
 
 ## Intérieur / extérieur : on n'affiche que ce qui peut être vu.
-const OUTSIDE_ONLY := ["Vegetation", "Bourg", "BourgDecor", "Potagers", "Camps", "CampsDecor", "Champs", "Lieux", "LieuxDecor", "Gisements", "Ponts", "RoutesPavees", "Eau"]
+const OUTSIDE_ONLY := ["Vegetation", "Bourg", "BourgDecor", "Potagers", "Camps", "CampsDecor", "Villages", "VillagesDecor", "Champs", "Lieux", "LieuxDecor", "Gisements", "Ponts", "RoutesPavees", "Eau"]
 const INSIDE_ONLY := ["DonjonInterieur", "Mobilier"]
 
 ## Dans les cachots : caméra rapprochée, monde extérieur masqué, torches allumées, soleil et ciel atténués

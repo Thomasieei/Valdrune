@@ -7,6 +7,7 @@ static func build(parent: Node3D) -> void:
 	_ribbon(g, main["pts"], main["w"], "paves")
 	_disc(g, Layout.TOWN, 14.0, "paves")
 	g.commit(parent, "RoutesPavees", 1, false)
+	bridges.clear()
 	var gb = Geo.new()
 	for r in Layout.ROADS:
 		_bridges(gb, r["pts"], r["w"])
@@ -58,6 +59,8 @@ static func _disc(g: Geo, c: Vector2, r: float, m: String) -> void:
 			g.quad(m, _p3(p00), _p3(p01), _p3(p11), _p3(p10), 1)
 
 ## Détecte les traversées de rivière et construit un pont en bois sur piles de pierre.
+## Ponts construits (extrémités a, b) : la garde y tient des postes
+static var bridges: Array = []
 static func _bridges(g: Geo, pts: Array, w: float) -> void:
 	var samples = []
 	for i in pts.size() - 1:
@@ -84,6 +87,7 @@ static func _bridges(g: Geo, pts: Array, w: float) -> void:
 		var dir = (b - a).normalized()
 		a -= dir * 2.0
 		b += dir * 2.0
+		bridges.append([a, b])
 		_bridge(g, a, b, w + 0.6)
 
 static func _bridge(g: Geo, a: Vector2, b: Vector2, hw: float) -> void:

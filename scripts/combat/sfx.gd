@@ -22,6 +22,10 @@ const BANK := {
 	"niveau": ["jingles_PIZZI01"],
 	"mort": ["jingles_PIZZI04"],
 	"ok": ["confirmation_001"],
+	"explosion": ["sov_explosion"],
+	"onde": ["sov_onde"],
+	"lames": ["sov_lames"],
+	"possession": ["sov_possession"],
 }
 
 static func setup(parent: Node) -> void:
@@ -38,7 +42,8 @@ static func play(name: String, volume_db := 0.0, pitch_var := 0.08) -> void:
 	var list: Array = BANK[name]
 	var file: String = list[randi() % list.size()]
 	if not _streams.has(file):
-		_streams[file] = load("res://assets/sons/%s.ogg" % file)
+		var path := "res://assets/sons/%s.ogg" % file
+		_streams[file] = load(path if ResourceLoader.exists(path) else path.replace(".ogg", ".wav"))
 	var p: AudioStreamPlayer = _players[_i]
 	_i = (_i + 1) % _players.size()
 	p.stream = _streams[file]

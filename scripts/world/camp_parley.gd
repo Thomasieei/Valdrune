@@ -238,7 +238,9 @@ func _challenge(gid: String, ms: Array) -> void:
 	_busy = true
 	var chef: Node3D = ms[0]
 	for m in ms:
-		if m.def.get("elite", false):
+		if m.def.get("elite", false) and not (chef.kind in ["chef_bandit", "deserteur", "mercenaire", "lieutenant"]) and m.kind != "geant":
+			chef = m
+		if m.kind == "chef_bandit":
 			chef = m
 	var p := Combat.player
 	var to: Vector3 = p.global_position - chef.global_position

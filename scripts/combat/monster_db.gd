@@ -3,7 +3,7 @@ class_name MonsterDB
 ## model : "bestiary:<fichier>" (créatures Quaternius animées par l'UAL) ou "humain:<tenue>" (squelette universel).
 ## comportement : "agressif" (poursuit jusqu'au bout), "lache" (fuit sous 35 % de vie), "meute" (alerte ses congénères)
 
-const DEFS := {
+static var DEFS := {
 	"puglin": {
 		"nom": "Puglin pillard", "model": "bestiary:Puglin", "skins": ["T_Puglin_BaseColor_1", "T_Puglin_BaseColor_2", "T_Puglin_BaseColor_3"],
 		"scale": 1.0, "rayon": 0.35, "hp": 34, "degats": 6, "defense": 0, "vitesse": 3.6, "course": 5.4,
@@ -166,5 +166,28 @@ const DEFS := {
 		"detection": 0.0, "portee": 0.0, "cadence": 99.0, "impact": 0.5,
 		"comportement": "agressif", "xp": 0, "or": [0, 0], "butin": {},
 		"anims": {"attente": "Idle", "marche": "Idle", "course": "Idle", "attaque": "Idle", "touche": "Hit_Chest", "mort": "Death01"},
+	},
+	"goule": {
+		"nom": "Goule des bois", "model": "humain:paysan_h", "teinte": Color(0.38, 0.45, 0.3),
+		"scale": 1.0, "rayon": 0.4, "hp": 75, "degats": 11, "defense": 1, "vitesse": 1.9, "course": 3.8,
+		"detection": 16.0, "portee": 1.6, "cadence": 1.8, "impact": 0.55, "elements": {"feu": 1.6, "givre": 0.7, "nature": 0.8},
+		"comportement": "agressif", "xp": 26, "or": [3, 9], "butin": {"soin": 0.15, "mana": 0.12},
+		"anims": {"attente": "b/Zombie_Idle", "marche": "b/Zombie_Walk_Fwd", "course": "b/Zombie_Walk_Fwd", "attaque": "b/Zombie_Scratch", "touche": "Hit_Chest", "mort": "Death01"},
+	},
+	"puglin_sauvage": {
+		"nom": "Puglin sauvage", "model": "bestiary:Puglin", "skins": ["T_Puglin_BaseColor_1", "T_Puglin_BaseColor_2", "T_Puglin_BaseColor_3"],
+		"scale": 1.0, "rayon": 0.35, "hp": 34, "degats": 6, "defense": 0, "vitesse": 3.6, "course": 5.4,
+		"detection": 17.0, "portee": 1.5, "cadence": 1.3, "impact": 0.45,
+		"elements": {"foudre": 1.3, "feu": 1.1},
+		"comportement": "meute", "xp": 14, "or": [2, 6], "butin": {"soin": 0.12, "mana": 0.08},
+		"anims": {"attente": "Idle", "marche": "Walk", "course": "Jog_Fwd", "attaque": "Punch_Jab", "touche": "Hit_Chest", "mort": "Death01"},
+	},
+	"bandit_deguise": {
+		"nom": "Faux voyageur", "model": "humain:paysan_h", "teinte": Color(0.78, 0.66, 0.5), "arme": "Sword", "arme_echelle": 0.9,
+		"cheveux": "Hair_SimpleParted", "barbe": false,
+		"scale": 1.0, "rayon": 0.4, "hp": 120, "degats": 15, "defense": 3, "vitesse": 2.9, "course": 5.6,
+		"detection": 22.0, "portee": 1.8, "cadence": 1.5, "impact": 0.45,
+		"comportement": "agressif", "xp": 55, "elite": true, "or": [5, 14], "butin": {"soin": 0.2, "mana": 0.1},
+		"anims": {"attente": "Sword_Idle", "marche": "Walk", "course": "Jog_Fwd", "attaque": "Sword_Attack", "touche": "Hit_Chest", "mort": "Death01"},
 	},
 }

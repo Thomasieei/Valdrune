@@ -27,7 +27,7 @@ static func build(world: Node3D) -> void:
 	world.add_child(root)
 	for z in Spawner.ZONES:
 		var id: String = z["id"]
-		if Spawner.group_of(id) != id or id in ["deserteur", "portail_brute"]:
+		if Spawner.group_of(id) != id or id in ["deserteur", "portail_brute"] or id.begins_with("foret_"):
 			continue
 		var kind: String = z["kind"]
 		var st: Dictionary = STYLES.get(kind, STYLES["bandit"])
@@ -42,6 +42,9 @@ static func _camp(g: Geo, root: Node3D, c: Vector2, r: float, kind: String, st: 
 	var y := Terrain.height_at(c.x, c.y)
 	var face := atan2(Layout.TOWN.x - c.x, Layout.TOWN.y - c.y)   # l'entrée regarde vers le bourg
 	var R := r + 4.0
+	for z in Spawner.ZONES:
+		if z["pos"] == c and BanditVillage.is_village(z["id"]):
+			R = BanditVillage.VR
 	# palissade de pieux taillés (ou cercle de pierres levées pour les diablotins)
 	var n := int(TAU * R / 0.85)
 	for i in n:

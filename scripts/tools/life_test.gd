@@ -56,6 +56,7 @@ func _villager_near(pos: Vector2, exclude: Array = []) -> Villager:
 	return best
 
 func _ready() -> void:
+	Frontier.quiet = true
 	while world.player == null or world.story == null:
 		await get_tree().process_frame
 	p = world.player
@@ -537,32 +538,32 @@ func _ready() -> void:
 	await _wait(1.0)
 	_check(Dungeons.inside.is_empty() and p.global_position.y < 100.0, "Retour au royaume, la faille se referme")
 	# ---------------------------------------------------------------- sentinelles d'un camp, puis camp rasé
-	var g2 := "brigands_est"
-	CampParley.set_status(g2, "neutre")
-	CampParley.inst._hailed.erase(g2)
-	var c2: Vector2 = CampParley.zone(g2)["pos"]
+	var gz2 := "brigands_est"
+	CampParley.set_status(gz2, "neutre")
+	CampParley.inst._hailed.erase(gz2)
+	var c2: Vector2 = CampParley.zone(gz2)["pos"]
 	_place(c2 + Vector2(0, 45), 180)
-	await _until(func(): return CampParley.members(g2).size() >= 5, 15.0)
+	await _until(func(): return CampParley.members(gz2).size() >= 5, 15.0)
 	_place(c2 + Vector2(0, 27), 180)
 	var stopped := await _until(func(): return Dialogue.active, 15.0)
 	_check(stopped and String(world.dlg._convo["nodes"]["menu"]["nom"]).begins_with("Sentinelle"), "Les sentinelles arrêtent le souverain avant tout combat")
 	await _shot("20_sentinelles")
 	world.dlg.choose(1)   # raser le camp
 	await _wait(0.5)
-	var elites := CampParley.members(g2).filter(func(m): return m.kind in ["garde_elite", "geant", "mercenaire"])
+	var elites := CampParley.members(gz2).filter(func(m): return m.kind in ["garde_elite", "geant", "mercenaire"])
 	_check(elites.size() >= 3, "Le camp a son chef, sa garde d'élite et un géant (%d élites)" % elites.size())
 	for k in 20:
-		for m in CampParley.members(g2):
+		for m in CampParley.members(gz2):
 			m.cbt.take_damage(99999.0, p, "magie")
 		await _wait(0.4)
-		if CampParley.members(g2).is_empty():
+		if CampParley.members(gz2).is_empty():
 			break
 	_place(c2 + Vector2(0, 4), 180)
 	var razable := await _until(func(): return world.hud.btn_prompt.visible and world.hud.btn_prompt.label == "Raser le camp", 8.0)
 	_check(razable, "Camp vaincu : « Raser le camp » est proposé")
 	world.hud.btn_prompt.pressed.emit()
 	await _wait(1.0)
-	_check(String(CampParley._st().get(g2, "")) == "rase", "Le camp part en fumée et ne reviendra pas")
+	_check(String(CampParley._st().get(gz2, "")) == "rase", "Le camp part en fumée et ne reviendra pas")
 	await _shot("21_camp_rase")
 	# ---------------------------------------------------------------- contremaître et rassemblement
 	Talk._preset("scierie")
@@ -610,6 +611,89 @@ func _ready() -> void:
 	print("   caravane état %s i %d/%d pos %s" % [car._state, car._i, car._pts.size(), car.global_position])
 	_check(sold and Kingdom.res("tresor") > tr0, "La caravane vend au bourg : le trésor augmente")
 	await _shot("09_caravane")
+	# ---------------------------------------------------------------- charrette dans le bon sens
+	var cart_m: Node3D = car._cart.get_child(0)
+	_check(is_zero_approx(cart_m.rotation.y) and car._merchant.position.z > car._cart.position.z, "Charrette : brancards devant, le marchand la tire (plus à l'envers)")
+	# ---------------------------------------------------------------- villages de bandits
+	for vg in BanditVillage.VILLAGES:
+		_check(BanditVillage.people(vg).size() >= 5, "Village de bandits %s : artisans et habitants (%d)" % [vg, BanditVillage.people(vg).size()])
+	var vil_c: Vector2 = CampParley.zone("camp_bandits")["pos"]
+	_place(vil_c + (Layout.TOWN - vil_c).normalized() * 30.0, rad_to_deg(atan2(vil_c.x - Layout.TOWN.x, vil_c.y - Layout.TOWN.y)))
+	await _wait(2.0)
+	await _shot("30_village_bandits")
+	var ms_vil := CampParley.members("camp_bandits")
+	_check(ms_vil.any(func(m): return m.kind == "chef_bandit") and ms_vil.any(func(m): return m.kind == "garde_elite") and ms_vil.any(func(m): return m.kind == "geant"), "Repaire : chef, garde d'élite et géant")
+	for cg in ["rodeurs_ouest", "lanceurs_sud", "brigands_est"]:
+		var kinds := []
+		for zz in Spawner.ZONES:
+			if Spawner.group_of(zz["id"]) == cg:
+				kinds.append(zz["kind"])
+		_check("chef_bandit" in kinds and ("garde_elite" in kinds or "geant" in kinds), "Camp %s : un chef et son élite" % cg)
+	_check(MonsterDB.DEFS.has("goule") and Spawner.by_id("foret_goules") != null and not CampParley.PARLANTS.has("goule"), "Forêts : goules et puglins sauvages, sans pourparlers")
+	# ---------------------------------------------------------------- postes de garde des ponts
+	_check(Roads.bridges.size() > 0 and Frontier.inst.posts.size() >= Roads.bridges.size() * 2, "Postes de garde sur chaque pont (%d ponts, %d postes)" % [Roads.bridges.size(), Frontier.inst.posts.size()])
+	var pont_p: Vector3 = Frontier.inst.posts[0]["pos"]
+	_place(Vector2(pont_p.x + 6, pont_p.z + 6), 0)
+	await _until(func(): return Frontier.post_guards() > 0, 6.0)
+	_check(Frontier.post_guards() > 0, "Les gardes tiennent le pont (%d)" % Frontier.post_guards())
+	var intrus := Monster.new()
+	intrus.kind = "bandit"
+	intrus.no_respawn = true
+	intrus.position = pont_p + Vector3(5, 0.5, 0)
+	world.add_child(intrus)
+	var pont_ok := await _until(func(): return not Combat.alive(intrus) or intrus.cbt.hp < intrus.cbt.max_hp, 15.0)
+	_check(pont_ok, "Un bandit approche du pont : la garde l'attaque d'elle-même")
+	await _shot("31_garde_pont")
+	if is_instance_valid(intrus):
+		intrus.queue_free()
+	# ---------------------------------------------------------------- embuscade contre une caravane
+	if is_instance_valid(car):
+		car.queue_free()
+	Vie.inst.caravan = null
+	Vie.inst._caravan_wait = 0.0
+	Vie.inst._caravan_tick(1.0)
+	var cara2: Caravan = Vie.inst.caravan
+	cara2._i = 4
+	var qq4: Vector2 = cara2._pts[4]
+	cara2.global_position = Vector3(qq4.x, Terrain.height_at(qq4.x, qq4.y), qq4.y)
+	_place(qq4 + Vector2(8, 8), 0)
+	await _wait(0.5)
+	var emb_ok: bool = Frontier.inst.ambush(true)
+	_check(emb_ok and Frontier.raid_active(), "Embuscade : les bandits d'un village frappent la caravane")
+	var dis_m: Array = (Frontier.inst.raid["ms"] as Array).filter(func(m): return m.kind == "bandit_deguise")
+	_check(dis_m.size() >= 1 and dis_m[0].peaceful, "Des faux voyageurs déguisés approchent sans se trahir")
+	_check(world.hud.choice_btns.size() >= 2, "Le souverain choisit : y aller ou envoyer la garde")
+	world.hud.choose(1)
+	_check(Frontier.inst.raid.get("sent", false), "La garde est envoyée au secours")
+	var demasque := await _until(func(): return dis_m.any(func(m): return Combat.alive(m) and not m.peaceful), 25.0)
+	_check(demasque, "Le faux voyageur se démasque et attaque")
+	var blesse := await _until(func(): return cara2._merchant.cbt.hp < cara2._merchant.cbt.max_hp or not Frontier.raid_active(), 20.0)
+	_check(blesse, "Les pillards s'en prennent réellement au marchand")
+	await _shot("32_embuscade")
+	for m in (Frontier.inst.raid.get("ms", []) as Array):
+		if Combat.alive(m):
+			m.cbt.take_damage(9999.0, p)
+	var fini_emb := await _until(func(): return not Frontier.raid_active(), 5.0)
+	_check(fini_emb, "Embuscade terminée (repoussée ou pillage)")
+	# ---------------------------------------------------------------- bande errante
+	Frontier.quiet = false
+	var band_p: Vector2 = Frontier.band_positions()[0]
+	_place(band_p + Vector2(10, 10), 0)
+	var roam_ok := await _until(func(): return not (Frontier.inst.bands[0]["ms"] as Array).is_empty(), 4.0)
+	_check(roam_ok, "Une bande errante circule hors des camps")
+	var band_a0: Vector2 = Frontier.inst.bands[0]["at"]
+	p.global_position.y += 300.0   # hors de vue pour ne pas l'attirer
+	await _wait(4.0)
+	_check((Frontier.inst.bands[0]["at"] as Vector2).distance_to(band_a0) > 2.0, "La bande se déplace d'un repaire à l'autre")
+	Frontier.quiet = true
+	_place(Layout.TOWN + Vector2(0, 20), 0)
+	# ---------------------------------------------------------------- ordre chiffré au contremaître
+	Talk._plan = {"scierie": 10, "ferme": 15, "mine": 5, "marche": 0}
+	var tot_bras := Kingdom.idle_people()
+	for j in ["ferme", "scierie", "mine", "marche"]:
+		tot_bras += int(Kingdom.bld(j)["ouvriers"])
+	var ordre: Dictionary = Talk._exact()
+	_check(ordre["scierie"] == mini(10, tot_bras) and ordre["ferme"] == mini(15, maxi(0, tot_bras - 10)) and ordre["mine"] == mini(5, maxi(0, tot_bras - 25)), "Contremaître : ordre chiffré exécuté à l'homme près (%s)" % str(ordre))
 	# ---------------------------------------------------------------- sauvegarde
 	gs.save_game()
 	var gsv := GameState.new()

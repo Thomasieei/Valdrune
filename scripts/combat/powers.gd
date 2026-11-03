@@ -129,6 +129,9 @@ static func exec(pc: PlayerCombat, id: String, power: float, c: float, aim: Vect
 		"oeil": _oeil(pc, dur)
 		"transposition": _transposition(pc, power, aim, rng, el)
 		"incarnation": _incarnation(pc, dur)
+		"possession": SovPowers.possession(pc, power, aim, rng, dur, rk)
+		"lames": SovPowers.lames(pc, power, c, dur, rk)
+		"onde": SovPowers.onde(pc, power, r, c, rk)
 
 # ================================================================== TÉLÉKINÉSIE
 static func _beam(from: Node3D, to: Node3D, col: Color, t: float) -> void:

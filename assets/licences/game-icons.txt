@@ -1,0 +1,3 @@
+Miniatures des sorts (assets/ui/icons) : glyphes de game-icons.net, par Lorc et Delapouite,
+sous licence Creative Commons Attribution 3.0 (https://creativecommons.org/licenses/by/3.0/).
+Badges (fond, halo, anneau) composés pour Royaume par tools/gen_icons.py.

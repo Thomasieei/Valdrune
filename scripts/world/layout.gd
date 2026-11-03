@@ -185,7 +185,7 @@ static func reserved(p: Vector2, margin := 0.0) -> bool:
 	if p.distance_to(TOWN) < 20.0 + margin:
 		return true
 	for z in Spawner.ZONES:
-		if p.distance_to(z["pos"]) < float(z["r"]) + 6.0 + margin:
+		if p.distance_to(z["pos"]) < maxf(float(z["r"]) + 6.0, BanditVillage.reserve(z["id"])) + margin:
 			return true
 	if in_fields(p, 6.0 + margin):
 		return true

@@ -81,6 +81,19 @@ func _draw() -> void:
 	for s in Escort.members:
 		if is_instance_valid(s):
 			draw_circle(w2m(s.global_position), 3.0, Color(0.6, 0.9, 1.0))
+	# postes de garde, bandes errantes, embuscade en cours
+	if Frontier.inst:
+		for post in Frontier.inst.posts:
+			var pq := w2m(post["pos"])
+			draw_rect(Rect2(pq - Vector2(3, 3), Vector2(6, 6)), Color(0.45, 0.7, 1.0))
+		for bq in Frontier.band_positions():
+			draw_circle(w2m(Vector3(bq.x, 0, bq.y)), 3.5, Color(1.0, 0.45, 0.2))
+		if Frontier.raid_active():
+			var rq := w2m(Frontier.inst.raid["at"])
+			draw_circle(rq, 7.0, Color(1.0, 0.3, 0.1))
+			draw_arc(rq, 10.0 + sin(Time.get_ticks_msec() / 150.0) * 3.0, 0, TAU, 20, Color(1, 0.8, 0.3), 2.5)
+			draw_string_outline(f, rq + Vector2(-4, 5), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, 4, Color.BLACK)
+			draw_string(f, rq + Vector2(-4, 5), "!", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color.WHITE)
 	# souverain
 	var p := Combat.player
 	if p:

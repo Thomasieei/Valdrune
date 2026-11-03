@@ -11,15 +11,17 @@ var _i := 0
 var _state := "aller"          # aller, vente, retour, portail
 var _wait := 0.0
 var _cart: Node3D
-var _merchant: Node3D
+var _merchant: Victim
 var _ap: AnimationPlayer
 const SPEED := 1.9
 
 func _ready() -> void:
 	_cart = Node3D.new()
 	add_child(_cart)
-	Kit.village(_cart, "Prop_Cart_1_Barrels", Vector3.ZERO, PI / 2.0, 1.2)
-	_merchant = Node3D.new()
+	# le modèle a ses brancards vers +Z : la charrette suit son marchand, brancards devant
+	Kit.village(_cart, "Prop_Cart_1_Barrels", Vector3.ZERO, 0.0, 1.2)
+	_merchant = Victim.new()
+	_merchant.killed.connect(_looted)
 	add_child(_merchant)
 	var m := CharBuilder.build({"outfit": "paysan_h", "beard": true, "hair": "Hair_SimpleParted", "tint": Color(0.95, 0.8, 0.55)})
 	_merchant.add_child(m)
@@ -34,7 +36,41 @@ func _ready() -> void:
 	if dwarven:
 		FX.shockwave(global_position, 3.0)
 
+var under_attack := false
+var looted := false
+
+## Pillée : le marchand est tombé, la charrette brûle, l'or du voyage est perdu
+func _looted() -> void:
+	if looted:
+		return
+	looted = true
+	_state = "pille"
+	_ap.play("Death01")
+	var loss := int(randf_range(25, 55))
+	Kingdom.add("tresor", -loss)
+	GameState.get_inst().report("La caravane d'Odon a été pillée par des bandits : %d or perdus pour le trésor." % loss, "alerte")
+	if Hud.inst:
+		Hud.inst.discover("Caravane pillée !", "Le marchand est tombé — %d or perdus" % loss)
+	var fire := FX.particles("flame_01", 20, 0.9, [Color(1, 0.9, 0.5, 0.0), Color(1.0, 0.5, 0.15), Color(0.3, 0.1, 0.05, 0)], 1.1, false)
+	fire.direction = Vector3.UP
+	fire.initial_velocity_min = 1.0
+	fire.initial_velocity_max = 2.0
+	fire.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	fire.emission_sphere_radius = 0.8
+	_cart.add_child(fire)
+	fire.position = Vector3(0, 1.0, 0.5)
+	fire.emitting = true
+	var tw := create_tween()
+	tw.tween_interval(40.0)
+	tw.tween_callback(queue_free)
+
 func _process(delta: float) -> void:
+	if looted:
+		return
+	if under_attack:
+		if _ap.current_animation != "Idle":
+			_ap.play("Idle")
+		return
 	match _state:
 		"vente", "portail":
 			_wait -= delta
@@ -47,6 +83,8 @@ func _process(delta: float) -> void:
 				else:
 					queue_free()
 			return
+	if _ap.current_animation != "Walk" and _state in ["aller", "retour"]:
+		_ap.play("Walk")
 	if _i >= _pts.size():
 		_arrive()
 		return
@@ -59,9 +97,9 @@ func _process(delta: float) -> void:
 	here += d.normalized() * SPEED * delta
 	global_position = Vector3(here.x, Terrain.height_at(here.x, here.y), here.y)
 	rotation.y = lerp_angle(rotation.y, atan2(d.x, d.y), clampf(delta * 3.0, 0, 1))
-	# le marchand marche à côté de sa charrette, la charrette devant
-	_cart.position = Vector3(0, 0, 2.2)
-	_merchant.position = Vector3(1.3, 0, 0.8)
+	# le marchand tire sa charrette entre les brancards
+	_cart.position = Vector3(0, 0, -1.6)
+	_merchant.position = Vector3(0, 0, 1.6)
 
 func _arrive() -> void:
 	var gs := GameState.get_inst()

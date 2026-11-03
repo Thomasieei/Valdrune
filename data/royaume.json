@@ -1181,6 +1181,23 @@
      "Plus de bras au bois, et on rebâtit la palissade en une saison.",
      "Les mineurs râlent, mais ils creusent. C'est tout ce que je leur demande."
     ]
+   },
+   "brigand_civil": {
+    "titre": "Habitant du repaire",
+    "soi": [
+     "Je suis né ici, entre deux pillages. On ne choisit pas son village.",
+     "Je ferre leurs chevaux, je raccommode leurs bottes. Je ne pose pas de questions.",
+     "Ma taverne sert tout le monde. Même les chevaliers, s'ils paient.",
+     "Le poisson vient de la rivière. Le reste… vaut mieux ne pas demander d'où il vient."
+    ],
+    "discuter": [
+     "Le chef ne pardonne pas. Ceux qui l'ont trahi, on les a pendus derrière la halle.",
+     "Si vous comptez raser le village, laissez-nous au moins partir avec nos enfants.",
+     "Certains des nôtres se déguisent en voyageurs pour approcher les caravanes. Ce sont les pires.",
+     "On dit que les ponts sont gardés maintenant. Les gars sont nerveux.",
+     "Ici, l'or du royaume finit toujours sur la table du chef.",
+     "Vous êtes le seigneur ? Vous n'avez pas l'air d'un monstre. Le chef dit pourtant que si."
+    ]
    }
   }
  },

@@ -231,7 +231,7 @@ func _pick_target() -> Node3D:
 		if not Combat.alive(m):
 			continue
 		var d: float = m.global_position.distance_to(center)
-		if m.peaceful or m.duel:
+		if m.peaceful or m.duel or m.has_meta("possede"):
 			continue
 		if d < bd and (m.state != Monster.S.ERRANCE or d < 8.0):
 			bd = d
