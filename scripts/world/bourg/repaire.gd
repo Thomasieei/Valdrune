@@ -102,11 +102,11 @@ static func build(world: Node3D, decor: Node3D, c: Vector2, r: float, id: String
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	l.font_size = 56
 	l.outline_size = 12
-	l.pixel_size = 0.012
+	l.pixel_size = 0.008
 	l.modulate = Color(1.0, 0.75, 0.5)
-	l.visibility_range_begin = 4.0
+	l.visibility_range_begin = 9.0
 	l.visibility_range_end = 30.0
-	root.add_child(l)
+	upn.add_child(l)   # masquée avec le toit quand on est dans la salle
 	l.global_position = Vector3(dq.x, hd.y + 4.4, dq.y) + Vector3(hface.x, 0, hface.y) * 0.5
 
 static func _kit(decor: Node3D, name: String, q: Vector2, rot: float, scl: float, dy := 0.0) -> Node3D:
