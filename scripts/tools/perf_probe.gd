@@ -5,6 +5,32 @@ func _ready() -> void:
 	while world.player == null or world.story == null:
 		await get_tree().process_frame
 	Frontier.quiet = true
+	if OS.get_cmdline_user_args().has("nains"):
+		for q in Dungeons.SPOTS:
+			print("spot ", q, " sain ", Dungeons._dry(q))
+		DwarfRealm.travel(world)
+		for i in 120:
+			await get_tree().process_frame
+		var cam := Camera3D.new()
+		world.add_child(cam)
+		var c: Vector3 = DwarfRealm.O + Vector3(0, 0, -94)
+		world.player.global_position = c + Vector3(0, 0.5, 6)
+		for i in 20:
+			await get_tree().process_frame
+		world._cull_npcs()
+		cam.global_position = c + Vector3(0, 9, -2)
+		cam.look_at(c + Vector3(0, 1.5, -24), Vector3.UP)
+		cam.current = true
+		await _shot("nains_trone")
+		cam.global_position = c + Vector3(-2, 9, 2)
+		cam.look_at(c + Vector3(0, 0, 22), Vector3.UP)
+		await _shot("nains_marche")
+		get_tree().quit()
+		return
+	if OS.get_cmdline_user_args().has("donjon"):
+		await _donjon()
+		get_tree().quit()
+		return
 	var spots := [["bourg", Layout.TOWN + Vector2(0, 25), 0.0], ["porte", Vector2(0, -70), 180.0], ["champs", Vector2(90, 0), 90.0],
 		["repaire", CampParley.zone("camp_bandits")["pos"] + Vector2(0, 40), 180.0], ["foret", Vector2(-150, 0), 270.0], ["pont", Vector2(24, 50), 0.0]]
 	for s in spots:
@@ -111,3 +137,60 @@ func _frustum(pp: Vector3) -> void:
 	keys.sort_custom(func(a, b): return groups[a][0] > groups[b][0])
 	for k in keys.slice(0, 16):
 		print("   %-22s surfaces %5d  instances %4d  ombres<50m %4d" % [k, groups[k][0], groups[k][1], groups[k][2]])
+
+func _shot(n: String) -> void:
+	for i in 6:
+		await get_tree().process_frame
+	get_viewport().get_texture().get_image().save_png("res://shots/dj_%s.png" % n)
+	print("SHOT ", n, " draws ", RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME))
+
+func _donjon() -> void:
+	var dg: Dungeons = Dungeons.inst
+	var p: Player = world.player
+	var d := dg.spawn("C")
+	var pp: Vector3 = d["pos3"]
+	var cam0 := Camera3D.new()
+	world.add_child(cam0)
+	var pr: Node3D = d["node"].find_children("*", "RiftPortal", true, false)[0] if d["node"].find_children("*", "RiftPortal", true, false).size() > 0 else d["node"]
+	for ch in d["node"].get_children():
+		if ch is RiftPortal:
+			pr = ch
+	var fwd: Vector3 = pr.global_transform.basis.z
+	cam0.global_position = pp + fwd * 16.0 + Vector3(0, 9, 0)
+	cam0.look_at(pp + Vector3(0, 3, 0), Vector3.UP)
+	cam0.current = true
+	p.global_position = pp + fwd * 30.0 + Vector3(0, 1, 0)
+	for i in 30:
+		await get_tree().process_frame
+	await _shot("portail")
+	print("portail : enfants ", pr.get_child_count(), " pos ", pr.global_position, " rot ", pr.rotation.y)
+	cam0.queue_free()
+	if OS.get_cmdline_user_args().has("portail"):
+		return
+	dg.enter(d)
+	for i in 80:
+		await get_tree().process_frame
+	await _shot("depart")
+	var cam := Camera3D.new()
+	world.add_child(cam)
+	var c: Vector3 = Dungeons.B + Vector3(15 * DungeonGen.CELL, 70, 16 * DungeonGen.CELL)
+	cam.global_position = c
+	cam.look_at(c + Vector3(0, -70, -0.01), Vector3.UP)
+	cam.current = true
+	await _shot("plan")
+	var bs: Vector3 = dg._gen.boss_spot
+	cam.global_position = bs + Vector3(0, 12, 16)
+	cam.look_at(bs + Vector3(0, 1, -4), Vector3.UP)
+	await _shot("salle_gardien")
+	for r in dg._gen.rooms:
+		if r["type"] in ["armurerie", "bibliotheque", "refectoire", "crypte"]:
+			var rc: Vector3 = r["c"]
+			cam.global_position = rc + Vector3(0, 9, 11)
+			cam.look_at(rc, Vector3.UP)
+			await _shot("salle_" + String(r["type"]))
+	cam.current = false
+	p.global_position = bs + Vector3(0, 0.5, 14)
+	world.rig.yaw = 0.0
+	for i in 60:
+		await get_tree().process_frame
+	await _shot("eveil")

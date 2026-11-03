@@ -277,10 +277,25 @@ func _court(g: Geo) -> void:
 			g.box("pierre_claire", c + Vector3(s * 31.8, 9.0, -24.0 + k * 12.0), Vector3(2.2, 18.0, 2.2), 0.0, true)
 	g.box("pierre", c + Vector3(0, 16.0, -31.0), Vector3(70.0, 32.0, 3.0), 0.0, true)
 	# estrade du trône
-	g.stairs("pierre_claire", c + Vector3(0, 0, -18.0), PI, 14.0, 0.4, 0.9, 4)
+	g.stairs("pierre_claire", c + Vector3(0, 0, -15.9), 0.0, 14.0, 0.4, 0.9, 4)   # les marches montent vers le trône
 	g.box("pierre_claire", c + Vector3(0, 0.8, -24.5), Vector3(18.0, 1.6, 10.0), 0.0, true, "dallage")
 	g.box("tissu_rouge", c + Vector3(0, 0.07, -2.0), Vector3(4.0, 0.06, 30.0), 0.0, false)
 	g.box("or", c + Vector3(0, 0.05, -2.0), Vector3(4.5, 0.04, 30.2), 0.0, false)
+	# marché sous la Montagne : étals couverts, et la taverne du Marteau Joyeux
+	for i in 4:
+		var mq: Vector3 = c + Vector3(-15.0 + i * 10.0, 0, 22.0)
+		for cx in [-1.6, 1.6]:
+			for cz in [-1.0, 1.0]:
+				g.box("bois_sombre", mq + Vector3(cx, 1.3, cz), Vector3(0.2, 2.6, 0.2), 0.0, true)
+		g.box(["tissu_rouge", "bleu_royal", "tissu_rouge", "bleu_royal"][i], mq + Vector3(0, 2.7, 0), Vector3(3.8, 0.12, 2.6), 0.0, false)
+		g.box("bois", mq + Vector3(0, 0.45, 0.6), Vector3(3.0, 0.9, 0.8), 0.0, true)
+	for i in 3:
+		var tq: Vector3 = c + Vector3(14.0 + (i % 2) * 5.0, 0, -2.0 + i * 4.0)
+		g.box("bois", tq + Vector3(0, 0.75, 0), Vector3(2.4, 0.1, 1.2), 0.0, true)
+		for sx in [-0.9, 0.9]:
+			g.box("bois_sombre", tq + Vector3(sx, 0.37, 0), Vector3(0.15, 0.74, 1.0), 0.0, false)
+		for sz in [-1.0, 1.0]:
+			g.box("bois", tq + Vector3(0, 0.42, sz), Vector3(2.2, 0.08, 0.4), 0.0, true)
 	# forges : foyers de pierre et cheminées
 	for f in [Vector3(-22, 0, 10), Vector3(22, 0, 10), Vector3(-22, 0, -8), Vector3(22, 0, -8)]:
 		var q: Vector3 = c + f
@@ -447,6 +462,19 @@ func _people() -> void:
 	for i in folks.size():
 		var fk: Array = folks[i]
 		dwarf.call(c + (fk[0] as Vector3), randf() * TAU, fk[1], Color(0.75, 0.65, 0.55), "nain_%d" % i, ["Gimra", "Oin", "Nali", "Thrain", "Dagny"][i], "nain")
+	# marchands des étals et habitués de la taverne
+	var wares := ["Barrel_Big", "Sword", "Bread", "Shield"]
+	var sellers := ["Borri le brasseur", "Kili l'armurier", "Ragna la boulangère", "Fundin le marchand de minerai"]
+	for i in 4:
+		var mq: Vector3 = c + Vector3(-15.0 + i * 10.0, 0, 22.0)
+		Kit.dungeon(self, wares[i], mq + Vector3(0, 0.9, 0.6), 0.0, 1.1)
+		Kit.dungeon(self, "Barrel_Closed", mq + Vector3(1.4, 0, -0.6), 0.0, 1.0)
+		dwarf.call(mq + Vector3(0, 0, -0.6), PI, "Idle_Talking", Color(0.7, 0.62, 0.5), "marchand_nain_%d" % i, sellers[i], "nain")
+	var drinkers := ["Gloin", "Frerin", "Astrid", "Bombur", "Sigrun"]
+	for i in drinkers.size():
+		var tq: Vector3 = c + Vector3(14.0 + (i % 2) * 5.0, 0, -2.0 + (i % 3) * 4.0)
+		dwarf.call(tq + Vector3(0, 0, 1.0 if i < 3 else -1.0), PI if i < 3 else 0.0, ["Idle_Talking", "Idle", "b/Idle_FoldArms"][i % 3], Color(0.72, 0.6, 0.5), "buveur_nain_%d" % i, drinkers[i], "nain")
+		Kit.dungeon(self, "Mug", tq + Vector3(0.3 * (i - 2), 0.8, 0), 0.0, 1.0)
 	# garde royale et roi
 	for s in [-1.0, 1.0]:
 		for k in 2:

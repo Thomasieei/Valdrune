@@ -530,14 +530,29 @@ func _ready() -> void:
 	await _wait(1.0)
 	await _shot("18_donjon")
 	var boss: Node3D = dg._boss
-	_place(Vector2(Dungeons.B.x, Dungeons.B.z - 88.0), 180, Dungeons.B.y + 0.5)
+	_check(dg._gen.rooms.size() == 7 and dg._scenes.size() == 5, "Donjon complet : départ, 4 salles de vie, gardien, crypte cachée")
+	var bs: Vector3 = dg._gen.boss_spot
+	_place(Vector2(bs.x, bs.z + 16.0), 180, bs.y + 0.5)
+	await _until(func(): return dg._boss_phase >= 1, 6.0)
+	_check(dg._boss_phase >= 1, "Le gardien s'éveille à l'approche (plan de cinéma, nom en grand)")
 	await _wait(1.5)
 	await _shot("19_donjon_gardien")
+	if Combat.alive(boss):
+		boss.cbt.take_damage(boss.cbt.max_hp * 0.55, p, "magie")
+	await _wait(0.6)
+	_check(dg._boss_phase == 2, "Sous la moitié de sa vie, le gardien enrage et appelle sa garde")
 	var g_before := Progression.get_inst().gold
 	if Combat.alive(boss):
 		boss.cbt.take_damage(9999999.0, p, "magie")
-	await _until(func(): return Progression.get_inst().gold > g_before, 8.0)
-	_check(Progression.get_inst().gold > g_before, "Gardien vaincu : le coffre récompense (+%d or)" % (Progression.get_inst().gold - g_before))
+	await _until(func(): return dg._chest_state == "pret", 5.0)
+	_place(Vector2(dg._chest.global_position.x, dg._chest.global_position.z + 2.0), 180, dg._chest.global_position.y + 0.5)
+	var can_open := await _until(func(): return world.hud.btn_prompt.visible and world.hud.btn_prompt.label == "Ouvrir le trésor", 5.0)
+	_check(can_open, "Gardien vaincu : « Ouvrir le trésor » sur l'estrade")
+	world.hud.btn_prompt.pressed.emit()
+	await _wait(0.5)
+	_check(Progression.get_inst().gold > g_before and dg._exit != null, "Le trésor récompense (+%d or) et le portail de sortie s'ouvre" % (Progression.get_inst().gold - g_before))
+	await _shot("19b_tresor")
+	p.global_position = dg._exit.global_position + Vector3(0, 1.0, 0)
 	await _until(func(): return Dungeons.inside.is_empty(), 12.0)
 	await _wait(1.0)
 	_check(Dungeons.inside.is_empty() and p.global_position.y < 100.0, "Retour au royaume, la faille se referme")

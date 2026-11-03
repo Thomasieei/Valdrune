@@ -217,6 +217,50 @@ static func info(n: Node3D) -> Dictionary:
 	return n.get_meta("talk")
 
 ## Construit la conversation (menu + sous-nœuds) pour ce PNJ, selon son rôle et sa mémoire.
+## Peuples étrangers au royaume : salutations, sujets et services propres (plus de ragots du bourg chez les nains)
+const FOREIGN := {
+	"nain": {"salut": ["Un humain sous la Montagne… Tu dois être ce {titre} dont parle le roi.", "Encore toi, l'humain ? Tant que tu paies, tu es le bienvenu.", "Ah, le {titre} ! Assieds-toi près du feu, la forge chauffe pour deux."],
+		"sujets": [["Karak Dûm", "Karak Dûm a été creusée en mille ans. Chaque salle a son clan, chaque clan sa forge. Ta cour à toi, on la ferait en un hiver."],
+			["Vargas", "Vargas a pillé la mine des Ancêtres. Ses hommes ont tué mon cousin. Si tu le pends, je te forge une lame gratis."],
+			["La forge", "On ne forge pas l'acier, on le convainc. Il faut lui parler, lui chanter, le frapper au bon moment. Comme un humain, en somme."],
+			["Le roi Thorvald", "Thorvald a perdu ses deux fils contre les gobelins. Il est dur, mais il tient parole. Ne lui mens jamais."]],
+		"service": ["Acheter du minerai nain (60 or → 25 minerai)", 60, "minerai", 25]},
+	"garde_nain": {"salut": ["Halte, humain. On te surveille, même ici.", "Le roi t'a ouvert la porte. Moi, je garde l'œil ouvert."],
+		"sujets": [["La porte de bronze", "Trois cents ans qu'elle tient. Les gobelins y ont laissé leurs dents. Les hommes de Vargas aussi."],
+			["La relève", "Douze heures de garde, douze heures de forge. Le sommeil, c'est pour les elfes."]]},
+	"roi_nain": {"salut": ["Seigneur de Valmont. Parle, Thorvald écoute.", "Te revoilà. La Montagne se souvient de ceux qui reviennent."],
+		"sujets": [["L'alliance", "Une alliance, c'est un serment de fer. Tu nous envoies du grain et du bois, on t'envoie du minerai et des lames. Et quand Vargas tombera, nous boirons ensemble."]]},
+	"brigand_civil": {"salut": ["Vous êtes… le seigneur ? Ne me faites pas de mal, je ne fais que vivre ici.", "Encore vous ? Les gars du chef vous regardent, faites attention."],
+		"sujets": [["Le chef", "Le chef prend la moitié de tout. Ceux qui râlent finissent derrière la halle. On se tait et on travaille."],
+			["Les faux voyageurs", "Les meilleurs de la bande s'habillent en marchands pour approcher les caravanes. Méfiez-vous des voyageurs trop bien armés."]],
+		"service": ["Payer pour un renseignement (25 or)", 25, "renseignement", 0]},
+}
+
+static func _foreign(nodes: Dictionary, choices: Array, who: String, label: String, role: String, m: Dictionary) -> void:
+	var f: Dictionary = FOREIGN[role]
+	var sujets: Array = f["sujets"]
+	for i in sujets.size():
+		var sj: Array = sujets[i]
+		nodes["sujet_%d" % i] = {"who": who, "nom": label, "text": sj[1], "next": "menu"}
+		choices.append({"text": "Parlez-moi de : %s" % sj[0], "next": "sujet_%d" % i})
+	if f.has("service"):
+		var sv: Array = f["service"]
+		var price: int = sv[1]
+		nodes["service"] = {"who": who, "nom": label, "text": "Marché conclu.", "next": "menu"}
+		choices.append({"text": sv[0], "next": "service", "callback": func():
+			var prog := Progression.get_inst()
+			if prog.gold < price:
+				nodes["service"]["text"] = "Reviens quand tu auras de quoi payer."
+				return
+			prog.add_gold(-price)
+			if sv[2] == "renseignement":
+				if Frontier.inst:
+					Frontier.inst._raid_wait += 240.0
+				nodes["service"]["text"] = "La prochaine embuscade visera la route du portail. Vos gardes auront le temps de se préparer… et moi, je ne vous ai rien dit."
+			else:
+				Kingdom.add(sv[2], int(sv[3]))
+				nodes["service"]["text"] = "Vingt-cinq mesures du meilleur minerai de la Montagne. Ça part vers ton royaume avec la prochaine caravane."})
+
 static func build(n: Node3D) -> Dictionary:
 	var t := info(n)
 	var id: String = t["id"]
@@ -244,6 +288,10 @@ static func build(n: Node3D) -> Dictionary:
 		greet = "Rebonjour, %s !" % gs.titre
 	else:
 		greet = "Ah, %s ! Toujours un plaisir." % gs.titre if rel >= 3 else "Rebonjour, %s." % gs.titre
+	var foreign: bool = FOREIGN.has(role)
+	if foreign:
+		var fg: Array = FOREIGN[role]["salut"]
+		greet = String(fg[mini(vu, fg.size() - 1)]).replace("{titre}", gs.titre)
 	m["vu"] = vu + 1
 	if vu == 0 and Story.done() and role in ["habitant", "paysan", "bucheron"]:
 		m["peur"] = randf() < 0.3
@@ -276,16 +324,20 @@ static func build(n: Node3D) -> Dictionary:
 			said.append("soi")
 			m["sujets"] = said
 			gs.mark()})
+	# --- étrangers (nains, gens des repaires) : leur monde à eux, pas les ragots du bourg
+	if foreign:
+		_foreign(nodes, choices, who, label, role, m)
 	# --- le royaume (avis selon l'état réel du royaume)
-	nodes["royaume"] = {"who": who, "nom": label, "text": _kingdom_opinion(role), "next": "menu"}
-	choices.append({"text": "Que pensez-vous du royaume ?", "next": "royaume"})
+	if not foreign:
+		nodes["royaume"] = {"who": who, "nom": label, "text": _kingdom_opinion(role), "next": "menu"}
+		choices.append({"text": "Que pensez-vous du royaume ?", "next": "royaume"})
 	# --- nouvelles récentes (seulement celles qu'il n'a pas déjà racontées)
 	var seen := int(m.get("nouvelles", 0))
 	var news := []
 	for r in gs.reports:
 		if int(r.get("n", 0)) > seen and news.size() < 2:
 			news.append(r)
-	if news.size() > 0:
+	if news.size() > 0 and not foreign:
 		var txt := "On raconte que… " + _short(String(news[0]["t"]))
 		if news.size() > 1:
 			txt += "\nEt aussi : " + _short(String(news[1]["t"]))

@@ -255,8 +255,17 @@ func _barks(p: Player) -> void:
 		elif rel <= -6 and role != "garde":
 			key = "deteste"
 		var pool: Array = Kingdom.data()["barks"][key]
+		if FOREIGN_BARKS.has(role):
+			pool = FOREIGN_BARKS[role]
 		FX.bark(n, String(pool[randi() % pool.size()]).replace("{titre}", gs.titre), 2.3, 3.2)
 		return
+
+const FOREIGN_BARKS := {
+	"nain": ["Hmpf. Un humain.", "Par la barbe de mon père…", "Pas de mains sales sur l'enclume !", "La bière est meilleure ici qu'en surface, hein ?", "Écoute les marteaux, humain."],
+	"garde_nain": ["Avance, humain. Doucement.", "On te surveille.", "Pour Karak Dûm !"],
+	"roi_nain": ["…"],
+	"brigand_civil": ["Ne regardez pas le chef dans les yeux.", "On ne veut pas d'histoires, seigneur.", "Encore un chevalier…"],
+}
 
 # ------------------------------------------------------------------ caravanes et colporteurs
 func _peddlers() -> void:
