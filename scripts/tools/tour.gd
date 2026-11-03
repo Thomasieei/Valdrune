@@ -61,7 +61,7 @@ func _run() -> void:
 			y = Castle.FLOOR + 0.2
 		# maisons visitables du bourg : on se place sur le plancher
 		if s[0] == "B13_salle_bandits":
-			var rz := world.find_child("Repaire_camp_bandits", true, false)
+			var rz: Node = world.find_child("Repaire_camp_bandits", true, false)
 			if rz:
 				var zp: Vector3 = (rz.get_node("Visite") as Node3D).global_position
 				xz = Vector2(zp.x, zp.z)
