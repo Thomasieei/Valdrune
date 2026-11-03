@@ -325,7 +325,12 @@ func _porte() -> void:
 		mk.add("Roof_Tower_RoundTiles", Transform3D(Basis().scaled(Vector3(0.75, 0.8, 0.75)), Vector3(c.x, y + 9.25, c.z)), {"MI_RoundTiles": Bourg.SLATE[1], "MI_WoodTrim": Bourg.WOOD[2]}, {"MI_RoundTiles": "MI_RoundTiles_Gray"})
 		boxes.append([Vector2(c.x, c.z), Vector2(2.0, 2.0), 0.0])
 	# tablier de l'arc et créneaux
-	g.box("pierre_base", Vector3(0, y + 6.6, zc), Vector3(9.6, 2.0, 2.6), 0.0, false)
+	# galerie à colombages au-dessus du passage (enduit clair, poutres sombres : rien à voir avec le château)
+	g.box("crepi", Vector3(0, y + 6.6, zc), Vector3(9.6, 2.0, 2.6), 0.0, false)
+	for k in 7:
+		g.box("bois_sombre", Vector3(-4.8 + k * 1.6, y + 6.6, zc), Vector3(0.2, 2.0, 2.68), 0.0, false)
+	for hh in [5.65, 7.55]:
+		g.box("bois_sombre", Vector3(0, y + hh, zc), Vector3(9.7, 0.2, 2.7), 0.0, false)
 	g.box("pierre_claire", Vector3(0, y + 5.55, zc), Vector3(9.6, 0.12, 2.8), 0.0, false)
 	for k in 5:
 		for sz in [-1.0, 1.0]:
