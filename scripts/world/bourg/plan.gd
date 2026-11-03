@@ -97,6 +97,8 @@ func build(parent: Node3D) -> void:
 	_seg_row(rf[1], rf[2], 1.0, 3.4, 0.4, 16.0, {"depth": [4], "floors": [1, 2]})
 	# --- Impasse du Puits : cour fermée, maisons tournées vers le puits ---
 	_impasse()
+	_porte()
+	_lavoir()
 	print("[bourg] lots=%d maisons=%d triangles=%d refus=%s" % [lots, built.size(), mk.tris, why])
 	# --- sols : place, rues, trottoirs ---
 	_square()
@@ -295,6 +297,57 @@ func _reserve_streets() -> void:
 			reserve.append([Vector2(x, z), 4.5])
 
 # ---------------------------------------------------------------- lieux
+
+## Porte du bourg au nord de la Grand-Rue : deux tours carrées coiffées de tuiles, arc de pierre crénelé
+## (passage de 9,6 m de large et 5,6 m de haut : la route du château passe dessous)
+func _porte() -> void:
+	var zc := -65.0
+	var y := Terrain.height_at(0.0, zc)
+	var g := geo
+	for sx in [-1.0, 1.0]:
+		var c := Vector3(sx * 6.6, y, zc)
+		var hb := Terrain.height_at(c.x, c.z)
+		g.box("pierre_base", Vector3(c.x, (hb - 1.0 + y + 9.0) * 0.5, c.z), Vector3(3.6, y + 9.0 - hb + 1.0, 3.6), 0.0, true)
+		g.box("pierre_claire", Vector3(c.x, y + 9.1, c.z), Vector3(4.0, 0.3, 4.0), 0.0, false)
+		for k in 2:
+			g.box("fenetre_sombre", Vector3(c.x + sx * 1.82, y + 4.0 + k * 3.0, c.z), Vector3(0.06, 1.0, 0.35), 0.0, false)
+		mk.add("Roof_Tower_RoundTiles", Transform3D(Basis().scaled(Vector3(0.75, 0.8, 0.75)), Vector3(c.x, y + 9.25, c.z)), {"MI_RoundTiles": Bourg.SLATE[1], "MI_WoodTrim": Bourg.WOOD[2]}, {"MI_RoundTiles": "MI_RoundTiles_Gray"})
+		boxes.append([Vector2(c.x, c.z), Vector2(2.0, 2.0), 0.0])
+	# tablier de l'arc et créneaux
+	g.box("pierre_base", Vector3(0, y + 6.6, zc), Vector3(9.6, 2.0, 2.6), 0.0, false)
+	g.box("pierre_claire", Vector3(0, y + 5.55, zc), Vector3(9.6, 0.12, 2.8), 0.0, false)
+	for k in 5:
+		for sz in [-1.0, 1.0]:
+			g.box("pierre_base", Vector3(-4.0 + k * 2.0, y + 8.0, zc + sz * 1.1), Vector3(0.9, 0.8, 0.4), 0.0, false)
+	# blason de Valmont et bannières
+	g.box("bleu_royal", Vector3(0, y + 6.7, zc + 1.33), Vector3(1.2, 1.4, 0.05), 0.0, false)
+	g.box("or", Vector3(0, y + 6.8, zc + 1.36), Vector3(0.5, 0.5, 0.04), 0.0, false)
+	for sx in [-1.0, 1.0]:
+		Kit.dungeon(props, "Banner", Vector3(sx * 6.6, y + 5.5, zc + 1.85), 0.0, 1.1)
+		Kit.dungeon(props, "Torch_Wall", Vector3(sx * 4.6, y + 3.2, zc + 1.4), 0.0, 1.2)
+	specials["porte"] = {"pos": Vector2(0, zc)}
+
+## Lavoir couvert au bord de la rivière : bassin de pierre, toit de tuiles sur poteaux, linge, lavandières
+func _lavoir() -> void:
+	var c := Vector2(-27.0, 36.5)
+	var face := Vector2(0.15, -1.0).normalized()   # ouvert vers le bourg
+	var rot := atan2(face.x, face.y)
+	var b := Basis(Vector3.UP, rot)
+	var y := Terrain.height_at(c.x, c.y) + 0.05
+	var c3 := Vector3(c.x, y, c.y)
+	geo.obox("dallage", Transform3D(b, c3 + Vector3(0, -0.1, 0)), Vector3(7.0, 0.25, 5.4), true)
+	# bassin : margelle et eau
+	geo.obox("pierre_base", Transform3D(b, c3 + b * Vector3(0, 0.3, -0.4)), Vector3(5.0, 0.6, 2.6), true)
+	geo.obox("bleu_royal", Transform3D(b, c3 + b * Vector3(0, 0.58, -0.4)), Vector3(4.5, 0.04, 2.1), false)
+	for o in [Vector2(-3.0, -2.2), Vector2(3.0, -2.2), Vector2(3.0, 2.2), Vector2(-3.0, 2.2), Vector2(0.0, -2.2), Vector2(0.0, 2.2)]:
+		mk.add("Corner_Exterior_Wood", Transform3D(b, c3 + b * Vector3(o.x, 0, o.y)), {"MI_WoodTrim": Bourg.WOOD[0]})
+	mk.add("Roof_RoundTiles_6x8", Transform3D(b * Basis(Vector3.UP, PI / 2.0), c3 + Vector3(0, 3.0, 0)), {"MI_RoundTiles": Bourg.TILES[1], "MI_WoodTrim": Bourg.WOOD[0]})
+	Kit.dungeon(props, "Bucket", c3 + b * Vector3(2.8, 0, 1.2), 0.3, 1.0)
+	Kit.dungeon(props, "Bucket", c3 + b * Vector3(-2.6, 0, 1.4), 1.2, 1.0)
+	Kit.village(props, "Prop_Barrel_1_Open", c3 + b * Vector3(-3.4, 0, -1.0), 0.0, 1.0)
+	boxes.append([c, Vector2(3.6, 2.8), rot])
+	reserve.append([c, 5.0])
+	specials["lavoir"] = {"pos": c, "rot": rot, "face": face}
 
 ## Église de Valmont sur la Rue de l'Ouest, parvis pavé ouvert sur la rue
 func _church() -> void:

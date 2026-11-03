@@ -90,7 +90,7 @@ static func _forge(p: BourgPlan, props: Node3D) -> void:
 	p.geo.box("pierre_base", c3 + b * Vector3(-1.6, 2.2, -1.5), Vector3(1.4, 1.6, 0.8), rot, false)
 	p.geo.box("fer", c3 + b * Vector3(0.6, 0.45, 0.2), Vector3(0.45, 0.9, 0.45), rot, true)
 	p.geo.box("fer", c3 + b * Vector3(0.6, 0.98, 0.2), Vector3(1.0, 0.2, 0.4), rot, false)
-	Kit.dungeon(props, "Table_Small", c3 + b * Vector3(2.0, 0, -1.2), rot, 1.0)
+	Kit.dungeon(props, "Table_Small", c3 + b * Vector3(2.0, 0, -1.2), rot, 1.0).scale = Vector3(0.42, 0.95, 0.55)   # établi 1,2 x 0,8 m
 	Kit.dungeon(props, "WeaponRack_Big", c3 + b * Vector3(2.4, 0, 0.6), rot - PI / 2.0, 1.0)
 	Kit.dungeon(props, "Barrel_Open", c3 + b * Vector3(-0.2, 0, -1.5), 0.0, 1.0)
 	Kit.dungeon(props, "Sword", c3 + b * Vector3(2.0, 0.85, -1.2), rot, 1.0)
@@ -246,7 +246,20 @@ static func _villageois(parent: Node3D, rng: RandomNumberGenerator) -> void:
 		v.set_meta("place_fixe", true)
 		if t.size() > 4:
 			v.set_meta("talk", t[4])
-	# le forgeron
+	# lavandières au lavoir, accroupies au bord du bassin
+	if plan.specials.has("lavoir"):
+		var lv: Dictionary = plan.specials["lavoir"]
+		var lb := Basis(Vector3.UP, float(lv["rot"]))
+		for k in 2:
+			var lq: Vector3 = Vector3(lv["pos"].x, 0, lv["pos"].y) + lb * Vector3(-1.2 + k * 2.4, 0, 1.25)
+			var v = Villager.new()
+			v.spec = spec_of.call(true)
+			v.anim_name = "Interact"
+			v.position = Vector3(lq.x, Terrain.height_at(lq.x, lq.z) + 0.1, lq.z)
+			v.rotation.y = float(lv["rot"]) + PI
+			parent.add_child(v)
+			v.set_meta("place_fixe", true)
+		# le forgeron
 	if specials.has("forgeron"):
 		var fp: Vector3 = specials["forgeron"]
 		var v = Villager.new()

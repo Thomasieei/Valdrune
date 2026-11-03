@@ -41,6 +41,9 @@ func _ready() -> void:
 		["B11_dans_apothicaire", Vector2(9.9, -1.5), 180.0, -45.0, 6.0, false],
 		["B12_maison_mathis", Vector2(0, 0), 0.0, -45.0, 6.0, false],
 		["B13_salle_bandits", Vector2(0, 0), 200.0, -45.0, 6.0, false],
+		["B15_porte", Vector2(1, -52), 10.0, -8.0, 9.0, false],
+		["B16_lavoir_a", Vector2(-26, 30), 0.0, -18.0, 8.0, false],
+		["B16_lavoir_b", Vector2(-26, 30), 180.0, -18.0, 8.0, false],
 		["B14_camp_bandits", Vector2(-56.5, 131), 160.0, -20.0, 12.0, false],
 	]
 	if only == "audit":

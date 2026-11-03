@@ -67,10 +67,10 @@ static func build(world: Node3D, decor: Node3D, c: Vector2, r: float, id: String
 			_kit(decor, "Carpet_Green", sq + sf * 1.5, atan2(sf.x, sf.y) + PI / 2.0, 0.9, 0.04)
 	# table de jeu dehors (dés, chopes), tonneaux
 	var tq := c + e.rotated(1.9) * (r * 0.95)
-	_kit(decor, "Table_Small", tq, rng.randf() * TAU, 0.8)
-	_kit(decor, "Mug", tq, 0.0, 1.0, 0.62)
-	_kit(decor, "Stool_round", tq + Vector2(0.9, 0.2), 0.0, 0.8)
-	_kit(decor, "Stool_round", tq - Vector2(0.9, 0.2), 0.0, 0.8)
+	_kit(decor, "Table_Small", tq, rng.randf() * TAU, 1.0).scale = Vector3(0.42, 0.9, 0.6)
+	_kit(decor, "Mug", tq, 0.0, 1.0, 0.77)
+	_kit(decor, "Stool_round", tq + Vector2(0.95, 0.2), 0.0, 1.4)
+	_kit(decor, "Stool_round", tq - Vector2(0.95, 0.2), 0.0, 1.4)
 	# --- intérieur de la salle ---
 	var root := Node3D.new()
 	root.name = "Repaire_" + id
@@ -145,22 +145,24 @@ static func _hall_interior(decor: Node3D, inn: Node3D, hall: Dictionary) -> void
 	plat.material_override = Geo.mat("bois_sombre")
 	decor.add_child(plat)
 	plat.global_transform = Transform3D(base.basis, geo_y)
-	d.call("Throne", Vector3(0, 0.24, -3.3), 0.0, 0.85)
+	d.call("Throne", Vector3(0, 0.24, -3.3), 0.0, 1.0)
 	d.call("Carpet_Red", Vector3(0, 0.03, -0.6), PI / 2.0, 1.3)
 	d.call("Banner", Vector3(-1.6, 1.5, -3.75), 0.0, 1.0)
 	d.call("Banner", Vector3(1.6, 1.5, -3.75), 0.0, 1.0)
 	d.call("Chest", Vector3(-2.6, 0, -3.1), 0.3)
 	d.call("Chest", Vector3(2.6, 0, -3.1), -0.3)
 	d.call("Skull", Vector3(-2.6, 0.75, -3.1), 0.0, 1.2)
-	# deux longues tables de beuverie
+	# deux longues tables de beuverie (3 m x 0,9 m, plateau à 78 cm), bancs de chaque côté
+	var ds := func(name: String, local: Vector3, r: float, sc: Vector3) -> void:
+		Kit.dungeon(decor, name, base * local, rot + r, 1.0).scale = sc
 	for x in [-3.2, 3.2]:
-		d.call("Table_Big", Vector3(x, 0, 0.6), 0.0, S)
-		d.call("Bench", Vector3(x - 0.85, 0, 0.6), PI / 2.0, S)
-		d.call("Bench", Vector3(x + 0.85, 0, 0.6), -PI / 2.0, S)
-		d.call("Mug", Vector3(x + 0.1, 0.64, 0.2), 0.3)
-		d.call("Mug", Vector3(x - 0.15, 0.64, 1.1), 1.0)
-		d.call("Meat", Vector3(x, 0.64, 0.6), 0.5)
-		d.call("Candlestick_Small", Vector3(x, 0.64, -0.2))
+		ds.call("Table_Big", Vector3(x, 0, 0.6), PI / 2.0, Vector3(0.75, 0.94, 0.45))
+		ds.call("Bench", Vector3(x - 0.78, 0, 0.6), -PI / 2.0, Vector3(1.4, 0.85, 0.85))
+		ds.call("Bench", Vector3(x + 0.78, 0, 0.6), PI / 2.0, Vector3(1.4, 0.85, 0.85))
+		d.call("Mug", Vector3(x + 0.15, 0.78, 0.0), 0.3)
+		d.call("Mug", Vector3(x - 0.15, 0.78, 1.3), 1.0)
+		d.call("Meat", Vector3(x, 0.78, 0.6), 0.5)
+		d.call("Candlestick_Small", Vector3(x, 0.78, -0.4))
 	# butin entassé, râteliers, tonneaux
 	d.call("WeaponRack_Big", Vector3(-5.6, 0, -1.6), PI / 2.0, 0.9)
 	d.call("WeaponRack_Small", Vector3(5.6, 0, -1.6), -PI / 2.0, 0.9)
@@ -172,7 +174,7 @@ static func _hall_interior(decor: Node3D, inn: Node3D, hall: Dictionary) -> void
 	d.call("Sword", Vector3(5.6, 1.2, 1.0), -PI / 2.0)
 	Kit.place(decor, "res://assets/village2/mdvl_village_hearth_01.glb", base * Vector3(5.5, 0.0, 1.0), rot - PI / 2.0, 1.1)
 	DecoFire.at(inn, base * Vector3(5.35, 0.3, 1.0))
-	d.call("Chandelier", Vector3(0, 2.75, 0.4), 0.0, 0.6)
+	d.call("Chandelier", Vector3(0, 2.98, 0.4), 0.0, 0.36)
 	var lights := [[Vector3(4.6, 1.5, 1.0), Color(1.0, 0.55, 0.25), 2.0, 7.0], [Vector3(-1.0, 2.3, 0.0), Color(1.0, 0.75, 0.45), 1.3, 9.0]]
 	for li in lights:
 		var l := OmniLight3D.new()
