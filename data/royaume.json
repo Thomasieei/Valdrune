@@ -1094,6 +1094,64 @@
     ],
     "recrue": "ouvrier"
    },
+   "forgeron": {
+    "titre": "Maître forgeron",
+    "soi": [
+     "Trente ans que je bats le fer. Mon père forgeait pour le vieux roi, son père pour le sien.",
+     "Une lame, ça se respecte : on l'affûte, on la graisse, on la ramène quand elle s'émousse."
+    ],
+    "discuter": [
+     "L'acier nain de Karak Dûm, voilà du métal. Si vous m'en rapportez, je vous forge une merveille.",
+     "Une arme s'use à chaque coup. Quand elle commence à accrocher, revenez me voir avant qu'elle casse.",
+     "Mon apprenti souffle trop fort sur la braise. Il apprendra."
+    ]
+   },
+   "armurier": {
+    "titre": "Armurière",
+    "soi": [
+     "Je vends ce que Brand forge, et je sais ce que chaque pièce vaut. N'essayez pas de marchander trop fort.",
+     "Un bouclier bien cerclé m'a sauvé la vie, autrefois. Depuis, j'en vends."
+    ],
+    "discuter": [
+     "Un bouclier encaisse à votre place, mais il s'use aussi. Faites-le cercler de neuf de temps en temps.",
+     "Une dague dans la main gauche, et un coup sur six fait mal. Très mal.",
+     "La Lame de Valmont ? Six cents pièces. Elle les vaut jusqu'à la dernière."
+    ]
+   },
+   "tavernier": {
+    "titre": "Tavernier",
+    "soi": [
+     "Le Sanglier Doré, c'est ma vie. La bière de mon frère, le ragoût de ma femme et le bruit de tout le bourg.",
+     "J'ai vu passer des chevaliers, des voleurs et un dragon de foire. Rien ne m'étonne."
+    ],
+    "discuter": [
+     "Quand ça chauffe entre deux clients, j'appelle la garde. Ou je compte sur vous, seigneur.",
+     "Les bandits du sud-ouest viennent parfois boire ici, déguisés en marchands. Ouvrez l'œil.",
+     "Un bon conseil : ne jouez jamais aux dés contre le borgne du coin."
+    ]
+   },
+   "apothicaire": {
+    "titre": "Apothicaire",
+    "soi": [
+     "Racines, fioles et patience : voilà mon métier.",
+     "Je soigne tout le monde, même ceux qui ne paient pas. Surtout eux, d'ailleurs."
+    ],
+    "discuter": [
+     "La mandragore pousse près de la Clairière maudite. N'y allez pas seul.",
+     "Une potion de soin avant le combat, pas après. On ne boit pas sous les coups."
+    ],
+    "commerce": true
+   },
+   "lavandiere": {
+    "titre": "Lavandière",
+    "soi": [
+     "Je lave le linge de la moitié du bourg. L'autre moitié devrait s'y mettre."
+    ],
+    "discuter": [
+     "Au lavoir, on entend tout. Le fils du meunier courtise la fille du bailli, par exemple.",
+     "L'eau est plus froide depuis que les nains ferment leurs vannes en amont."
+    ]
+   },
    "marchand": {
     "titre": "Marchand",
     "soi": [

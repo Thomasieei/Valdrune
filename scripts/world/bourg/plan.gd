@@ -40,6 +40,8 @@ func build(parent: Node3D) -> void:
 	props.name = "BourgDecor"
 	parent.add_child(props)
 	_reserve_streets()
+	# venelle du lavoir : on la garde libre avant de bâtir la Rue Basse
+	boxes.append([Vector2(-26.8, 26.0), Vector2(1.4, 7.5), 0.0])
 	# --- bâtiments remarquables posés à la main ---
 	_church()
 	# --- la place du marché ---
@@ -68,8 +70,7 @@ func build(parent: Node3D) -> void:
 	# --- Rue de l'Est (forge, vers la ferme) ---
 	var r1: Array = Layout.ROADS[1]["pts"]
 	_seg_row(r1[1], r1[2], -1.0, 4.4, 10.8, 18.5, {"depth": [4], "floors": [1, 2]})
-	_seg_row(r1[1], r1[2], 1.0, 4.4, 0.6, 4.0, {"depth": [4], "floors": [1]})
-	_seg_row(r1[1], r1[2], 1.0, 4.4, 11.5, 18.5, {"depth": [3, 4], "floors": [1, 2]})
+	_seg_row(r1[1], r1[2], 1.0, 4.4, 13.2, 18.5, {"depth": [3, 4], "floors": [1, 2]})
 	# --- Rue de l'Ouest (église) ---
 	var r2: Array = Layout.ROADS[2]["pts"]
 	_seg_row(r2[1], r2[2], 1.0, 4.4, 0.4, 6.0, {"depth": [4], "floors": [2]})
@@ -307,10 +308,20 @@ func _porte() -> void:
 	for sx in [-1.0, 1.0]:
 		var c := Vector3(sx * 6.6, y, zc)
 		var hb := Terrain.height_at(c.x, c.z)
-		g.box("pierre_base", Vector3(c.x, (hb - 1.0 + y + 9.0) * 0.5, c.z), Vector3(3.6, y + 9.0 - hb + 1.0, 3.6), 0.0, true)
+		g.box("pierre_base", Vector3(c.x, (hb - 1.0 + y + 4.5) * 0.5, c.z), Vector3(3.6, y + 4.5 - hb + 1.0, 3.6), 0.0, true)
+		# étage en encorbellement à colombages (se distingue du château)
+		g.box("crepi", Vector3(c.x, y + 6.75, c.z), Vector3(4.0, 4.5, 4.0), 0.0, true)
+		for o in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+			g.box("bois_sombre", Vector3(c.x + o.x * 2.0, y + 6.75, c.z + o.y * 2.0), Vector3(0.28, 4.5, 0.28), 0.0, false)
+		for hh in [4.6, 6.75, 8.9]:
+			g.box("bois_sombre", Vector3(c.x, y + hh, c.z), Vector3(4.12, 0.22, 4.12), 0.0, false)
+		for sz in [-1.0, 1.0]:
+			for sg in [-1.0, 1.0]:
+				g.obox("bois_sombre", Transform3D(Basis(Vector3.FORWARD, sg * 0.62), Vector3(c.x, y + 5.7, c.z + sz * 2.06)), Vector3(2.3, 0.16, 0.1), false)
 		g.box("pierre_claire", Vector3(c.x, y + 9.1, c.z), Vector3(4.0, 0.3, 4.0), 0.0, false)
 		for k in 2:
-			g.box("fenetre_sombre", Vector3(c.x + sx * 1.82, y + 4.0 + k * 3.0, c.z), Vector3(0.06, 1.0, 0.35), 0.0, false)
+			g.box("fenetre_sombre", Vector3(c.x + sx * 2.02, y + 6.0 + k * 1.9, c.z), Vector3(0.06, 0.9, 0.5), 0.0, false)
+			g.box("fenetre_sombre", Vector3(c.x, y + 6.0 + k * 1.9, c.z + 2.02), Vector3(0.5, 0.9, 0.06), 0.0, false)
 		mk.add("Roof_Tower_RoundTiles", Transform3D(Basis().scaled(Vector3(0.75, 0.8, 0.75)), Vector3(c.x, y + 9.25, c.z)), {"MI_RoundTiles": Bourg.SLATE[1], "MI_WoodTrim": Bourg.WOOD[2]}, {"MI_RoundTiles": "MI_RoundTiles_Gray"})
 		boxes.append([Vector2(c.x, c.z), Vector2(2.0, 2.0), 0.0])
 	# tablier de l'arc et créneaux
@@ -348,6 +359,13 @@ func _lavoir() -> void:
 	boxes.append([c, Vector2(3.6, 2.8), rot])
 	reserve.append([c, 5.0])
 	specials["lavoir"] = {"pos": c, "rot": rot, "face": face}
+	# sentier de terre battue depuis la Rue Basse
+	for k in 8:
+		var z0 := 18.5 + k * 1.8
+		var z1 := z0 + 1.8
+		var xa := -26.8 + sin(k * 0.7) * 0.3
+		var xb := -26.8 + sin((k + 1) * 0.7) * 0.3
+		geo.quad("terre", Vector3(xa - 0.9, Terrain.height_at(xa, z0) + 0.06, z0), Vector3(xa + 0.9, Terrain.height_at(xa, z0) + 0.06, z0), Vector3(xb + 0.9, Terrain.height_at(xb, z1) + 0.06, z1), Vector3(xb - 0.9, Terrain.height_at(xb, z1) + 0.06, z1), 1)
 
 ## Église de Valmont sur la Rue de l'Ouest, parvis pavé ouvert sur la rue
 func _church() -> void:

@@ -214,8 +214,9 @@ static func _taverne(p: BourgPlan, root: Node3D, base: Transform3D, sp: Dictiona
 			st.scale = Vector3.ONE * 1.4
 		Kit.dungeon(furn, "Mug", Vector3(t.x, ty + 0.77, t.z), 0.0, 1.0)
 	# --- personnel ---
-	patrons.append([base * Vector3(5.6, 0.0, -1.2), "Idle_Talking", false, rot - PI / 2.0, {"id": "tavernier", "nom": "Gaspard le tavernier", "role": "habitant"}])
-	patrons.append([base * Vector3(3.4, 0.0, -2.4), "Idle_Talking", false, rot + PI / 2.0])
+	patrons.append([base * Vector3(5.6, 0.0, -1.2), "Idle_Talking", false, rot - PI / 2.0, {"id": "tavernier", "nom": "Gaspard le tavernier", "role": "tavernier"}])
+	patrons.append([base * Vector3(3.4, 0.0, -2.4), "b/Consume", false, rot + PI / 2.0])
+	patrons.append([base * Vector3(3.4, 0.0, 0.0), "Idle_Talking", true, rot + PI / 2.0])
 
 ## Échoppe de l'apothicaire : étagères de fioles, chaudron, bureau, boule de cristal
 static func _apothicaire(p: BourgPlan, root: Node3D, base: Transform3D, sp: Dictionary) -> void:
@@ -237,7 +238,7 @@ static func _apothicaire(p: BourgPlan, root: Node3D, base: Transform3D, sp: Dict
 	_d(root, "Carpet_Green", base, Vector3(0, 0.02, 2.0), 0.0, 0.9)
 	_d(root, "Chandelier", base, Vector3(0, 2.8, -0.8), 0.0, 0.5)
 	_light(root, base, Vector3(0, 2.2, -0.5), Color(0.75, 1.0, 0.75), 1.5, 6.5)
-	patrons.append([base * Vector3(0.0, 0.0, -0.4), "Idle", true, base.basis.get_euler().y, {"id": "apothicaire", "nom": "Ysolde l'apothicaire", "role": "habitant"}])
+	patrons.append([base * Vector3(0.0, 0.0, -0.4), "Idle", true, base.basis.get_euler().y, {"id": "apothicaire", "nom": "Ysolde l'apothicaire", "role": "apothicaire"}])
 
 ## Maison de Mathis : lit, coffre (quête), table, cheminée, étagère de livres
 static func _maison(p: BourgPlan, root: Node3D, base: Transform3D, sp: Dictionary) -> void:

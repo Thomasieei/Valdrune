@@ -57,51 +57,121 @@ static func build(parent: Node3D) -> void:
 		BourgDeco.visit_zone(plan, root, nm, up)
 	plan.geo.commit(root, "Sols", 2)
 	_smoke(parent)
+	Bagarre.clients.clear()
 	_villageois(parent, rng)
+	var vie := Bagarre.new()
+	vie.name = "VieTaverne"
+	parent.add_child(vie)
 	print("[bourg] %d maisons, %d portes, %d triangles (+%d détails), %d ms" % [plan.built.size(), doors.size(), plan.mk.tris, plan.mk.det.tris, Time.get_ticks_msec() - t0])
 
-## Forge : appentis ouvert sur la Rue de l'Est (foyer, enclume, établi, râtelier)
+## Forge de Valmont (maître Brand) : grande halle ouverte sur la Rue de l'Est — fourneau rougeoyant sous une
+## haute cheminée de pierre, soufflet, deux enclumes, bac de trempe fumant, meule, râteliers garnis,
+## boucliers au mur, comptoir de l'armurière. Étincelles à chaque coup de marteau.
 static func _forge(p: BourgPlan, props: Node3D) -> void:
 	var r1: Array = Layout.ROADS[1]["pts"]
 	var a: Vector2 = r1[1]
 	var e: Vector2 = r1[2]
 	var dir := (e - a).normalized()
 	var n := Vector2(-dir.y, dir.x)   # vers le sud
-	var c: Vector2 = a + dir * 7.8 + n * (4.4 + 3.2)
+	var c: Vector2 = a + dir * 6.9 + n * (4.4 + 4.3)
 	var face := -n
 	var rot := atan2(face.x, face.y)
 	var b := Basis(Vector3.UP, rot)
-	var y := Terrain.height_at(c.x, c.y) + 0.05
+	var y := maxf(Terrain.height_at(c.x, c.y), Terrain.height_at(c.x + face.x * 3.5, c.y + face.y * 3.5)) + 0.12
 	var c3 := Vector3(c.x, y, c.y)
-	var tint := {"MI_WoodTrim": Bourg.WOOD[2], "MI_WoodTrim_Wear": Bourg.WOOD[2], "MI_RoundTiles": Bourg.TILES[4]}
-	# poteaux et toit de tuiles
-	for cx in [-2.6, 0.0, 2.6]:
-		for cz in [-2.0, 2.0]:
-			p.mk.add("Corner_Exterior_Wood", Transform3D(b, c3 + b * Vector3(cx, 0, cz)), tint)
-	p.mk.add("Roof_RoundTiles_4x6", Transform3D(b * Basis(Vector3.UP, PI / 2.0), c3 + Vector3(0, 3.0, 0)), tint)
-	# mur du fond en pierre
+	var L := func(v: Vector3) -> Vector3: return c3 + b * v
+	var wood := Color(0.42, 0.34, 0.3)
+	var tint := {"MI_WoodTrim": wood, "MI_WoodTrim_Wear": wood, "MI_RoundTiles": Bourg.SLATE[1], "MI_Plaster": Color(0.7, 0.66, 0.6)}
+	var g := p.geo
+	# sol de pierre et socle
+	g.obox("pierre_base", Transform3D(b, L.call(Vector3(0, -0.35, 0))), Vector3(11.6, 0.7, 8.4), true)
+	g.obox("dallage", Transform3D(b, L.call(Vector3(0, 0.01, 0))), Vector3(11.4, 0.04, 8.2), false)
+	# murs : fond et côtés en moellons, façade ouverte sur trois piliers de pierre
+	for k in 5:
+		p.mk.add("Wall_UnevenBrick_" + ("Window_Wide_Flat" if k == 3 else "Straight"), Transform3D(b * Basis(Vector3.UP, PI), L.call(Vector3(-4.0 + k * 2.0, 0, -4.0))), tint)
+	for sd in [-1.0, 1.0]:
+		for k in 4:
+			p.mk.add("Wall_UnevenBrick_Straight", Transform3D(b * Basis(Vector3.UP, sd * PI / 2.0), L.call(Vector3(sd * 5.0, 0, -3.0 + k * 2.0))), tint)
+		p.mk.col_box(Transform3D(b, L.call(Vector3(sd * 5.1, 1.5, 0))), Vector3(0.3, 3.0, 8.0))
+	p.mk.col_box(Transform3D(b, L.call(Vector3(0, 1.5, -4.1))), Vector3(10.0, 3.0, 0.3))
+	for x in [-5.0, -1.7, 1.7, 5.0]:
+		g.box("pierre_base", L.call(Vector3(x, 1.6, 4.0)), Vector3(0.7, 3.2, 0.7), rot, true)
+		g.box("pierre_claire", L.call(Vector3(x, 3.25, 4.0)), Vector3(0.85, 0.15, 0.85), rot, false)
+	g.box("bois_sombre", L.call(Vector3(0, 3.35, 4.0)), Vector3(10.8, 0.4, 0.45), rot, false)
+	# grand toit d'ardoise et pignons
+	p.mk.add("Roof_RoundTiles_8x10", Transform3D(b * Basis(Vector3.UP, PI / 2.0), L.call(Vector3(0, 3.3, 0))), tint, {"MI_RoundTiles": "MI_RoundTiles_Gray"})
+	for sd in [-1.0, 1.0]:
+		p.mk.add("Roof_Front_Brick8", Transform3D(b * Basis(Vector3.UP, sd * PI / 2.0), L.call(Vector3(sd * 5.0, 3.3, 0))), tint)
+	# fourneau sous une haute cheminée de pierre (coin arrière gauche)
+	var fq := Vector3(-3.3, 0, -2.6)
+	g.box("pierre_base", L.call(fq + Vector3(0, 0.75, 0)), Vector3(2.6, 1.5, 2.0), rot, true)
+	g.box("braise", L.call(fq + Vector3(0, 0.95, 1.01)), Vector3(1.2, 0.6, 0.04), rot, false)
+	g.box("braise", L.call(fq + Vector3(0, 1.52, 0.2)), Vector3(1.6, 0.05, 1.2), rot, false)
+	g.box("pierre_base", L.call(fq + Vector3(0, 2.6, -0.3)), Vector3(2.2, 2.2, 1.4), rot, false)
+	g.box("pierre_base", L.call(fq + Vector3(0, 6.4, -0.5)), Vector3(1.5, 5.4, 1.2), rot, false)
+	g.box("pierre_claire", L.call(fq + Vector3(0, 9.15, -0.5)), Vector3(1.8, 0.2, 1.5), rot, false)
+	# soufflet de cuir
+	g.obox("bois_sombre", Transform3D(b, L.call(fq + Vector3(1.75, 0.65, 0.2))), Vector3(0.9, 0.12, 1.4), false)
+	g.obox("tissu_rouge", Transform3D(b * Basis(Vector3.RIGHT, 0.18), L.call(fq + Vector3(1.75, 0.85, 0.2))), Vector3(0.85, 0.3, 1.3), false)
+	g.box("bois_sombre", L.call(fq + Vector3(1.75, 0.3, 0.2)), Vector3(0.3, 0.6, 0.3), rot, true)
+	# deux enclumes sur billots
+	for aq in [Vector3(-0.6, 0, -0.4), Vector3(1.8, 0, -1.2)]:
+		g.box("bois_sombre", L.call(aq + Vector3(0, 0.35, 0)), Vector3(0.7, 0.7, 0.7), rot, true)
+		g.box("fer", L.call(aq + Vector3(0, 0.82, 0)), Vector3(0.95, 0.24, 0.38), rot, false)
+		g.box("fer", L.call(aq + Vector3(0.55, 0.86, 0)), Vector3(0.3, 0.12, 0.18), rot, false)
+	# bac de trempe
+	g.box("pierre_base", L.call(Vector3(-0.8, 0.35, -2.9)), Vector3(1.8, 0.7, 0.9), rot, true)
+	g.box("fenetre_sombre", L.call(Vector3(-0.8, 0.68, -2.9)), Vector3(1.5, 0.04, 0.65), rot, false)
+	# meule à aiguiser
+	var wheel := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.48
+	cm.bottom_radius = 0.48
+	cm.height = 0.16
+	cm.radial_segments = 14
+	wheel.mesh = cm
+	wheel.material_override = Geo.mat("pierre_claire")
+	props.add_child(wheel)
+	wheel.global_transform = Transform3D(b * Basis(Vector3.FORWARD, PI / 2.0), L.call(Vector3(3.9, 0.75, -2.6)))
+	g.box("bois_sombre", L.call(Vector3(3.9, 0.35, -2.6)), Vector3(0.9, 0.7, 0.3), rot, true)
+	# râteliers, armes et boucliers exposés, charbon, bois, caisses
+	Kit.dungeon(props, "WeaponRack_Big", L.call(Vector3(4.4, 0, -0.6)), rot - PI / 2.0, 0.9)
+	Kit.dungeon(props, "WeaponRack_Small", L.call(Vector3(4.4, 0, 1.4)), rot - PI / 2.0, 0.9)
 	for k in 3:
-		p.mk.add("Wall_UnevenBrick_Straight", Transform3D(b * Basis(Vector3.UP, PI), c3 + b * Vector3(-2.0 + k * 2.0, 0, -2.0)), tint)
-	p.mk.col_box(Transform3D(b, c3 + b * Vector3(0, 1.5, -2.15)), Vector3(6.0, 3.0, 0.3))
-	p.geo.obox("dallage", Transform3D(b, c3 + Vector3(0, -0.05, 0)), Vector3(6.4, 0.2, 4.6), false)
-	# foyer de pierre, hotte, enclume, établi
-	p.geo.box("pierre_base", c3 + b * Vector3(-1.6, 0.55, -1.2), Vector3(1.8, 1.1, 1.4), rot, true)
-	p.geo.box("fenetre_sombre", c3 + b * Vector3(-1.6, 1.12, -1.2), Vector3(1.2, 0.06, 0.9), rot, false)
-	p.geo.box("pierre_base", c3 + b * Vector3(-1.6, 2.2, -1.5), Vector3(1.4, 1.6, 0.8), rot, false)
-	p.geo.box("fer", c3 + b * Vector3(0.6, 0.45, 0.2), Vector3(0.45, 0.9, 0.45), rot, true)
-	p.geo.box("fer", c3 + b * Vector3(0.6, 0.98, 0.2), Vector3(1.0, 0.2, 0.4), rot, false)
-	Kit.dungeon(props, "Table_Small", c3 + b * Vector3(2.0, 0, -1.2), rot, 1.0).scale = Vector3(0.42, 0.95, 0.55)   # établi 1,2 x 0,8 m
-	Kit.dungeon(props, "WeaponRack_Big", c3 + b * Vector3(2.4, 0, 0.6), rot - PI / 2.0, 1.0)
-	Kit.dungeon(props, "Barrel_Open", c3 + b * Vector3(-0.2, 0, -1.5), 0.0, 1.0)
-	Kit.dungeon(props, "Sword", c3 + b * Vector3(2.0, 0.85, -1.2), rot, 1.0)
-	Kit.dungeon(props, "Shield", c3 + b * Vector3(1.2, 0, -1.85), rot, 1.0)
-	Kit.village(props, "Wall_Prop_Sign_1", c3 + b * Vector3(-3.2, 2.4, 2.1), rot, 1.2)
-	p.boxes.append([c, Vector2(3.2, 2.4), rot])
-	houses.append([c, 4.0])
-	specials["forge"] = [c + face * 2.4, face]
-	specials["forge_feu"] = c3 + b * Vector3(-1.6, 1.2, -1.2)
-	specials["forgeron"] = c3 + b * Vector3(0.6, 0.0, 1.1)
+		Kit.dungeon(props, "Shield", L.call(Vector3(-1.0 + k * 1.3, 1.6, -3.8)), rot, 0.8)
+	Kit.dungeon(props, "Sword", L.call(Vector3(2.5, 1.9, -3.82)), rot, 1.3).rotation_degrees.z = 90.0
+	Kit.dungeon(props, "Spear", L.call(Vector3(3.4, 1.6, -3.82)), rot, 1.0)
+	Kit.dungeon(props, "FirewoodStack", L.call(Vector3(-4.3, 0, 0.6)), rot + PI / 2.0, 1.0)
+	for k in 4:
+		g.box("fenetre_sombre", L.call(Vector3(-4.4 + (k % 2) * 0.5, 0.15 + (k / 2) * 0.22, 2.2 + (k % 2) * 0.3)), Vector3(0.5, 0.3, 0.45), rot + k, false)
+	Kit.dungeon(props, "Barrel_Open", L.call(Vector3(-4.3, 0, 3.0)), 0.3, 1.0)
+	Kit.village(props, "Prop_Crate_1", L.call(Vector3(2.6, 0, 3.1)), rot, 1.0)
+	# comptoir de l'armurière (côté rue, à droite)
+	g.obox("bois_sombre", Transform3D(b, L.call(Vector3(3.2, 0.52, 2.2))), Vector3(2.6, 1.04, 0.6), true)
+	g.obox("bois", Transform3D(b, L.call(Vector3(3.2, 1.08, 2.2))), Vector3(2.8, 0.07, 0.8), false)
+	Kit.dungeon(props, "Knife", L.call(Vector3(2.6, 1.12, 2.2)), rot, 1.3)
+	Kit.dungeon(props, "Scales", L.call(Vector3(3.8, 1.12, 2.2)), rot, 1.0)
+	# enseigne : épée pendue sous une potence
+	var sq: Vector3 = L.call(Vector3(-5.6, 2.9, 4.3))
+	g.box("bois_sombre", sq + Vector3(0, 0.3, 0), Vector3(0.12, 0.12, 0.12), rot, false)
+	Kit.village(props, "Wall_Prop_Sign_1", L.call(Vector3(-5.35, 2.7, 4.35)), rot + PI / 2.0, 1.3)
+	# vie : feu, lumière, étincelles, fumée (scripts/world/bourg/forge_fx.gd)
+	var fx := Node3D.new()
+	fx.name = "ForgeFX"
+	fx.set_script(load("res://scripts/world/bourg/forge_fx.gd"))
+	fx.set("anvil", L.call(Vector3(-0.6, 0.95, -0.4)))
+	fx.set("furnace", L.call(fq + Vector3(0, 1.0, 0.9)))
+	fx.set("chimney", L.call(fq + Vector3(0, 9.4, -0.5)))
+	fx.set("trough", L.call(Vector3(-0.8, 0.75, -2.9)))
+	props.get_parent().add_child.call_deferred(fx)
+	p.boxes.append([c, Vector2(5.8, 4.2), rot])
+	houses.append([c, 7.5])
+	specials["forge"] = [c + face * 4.2, face]
+	specials["forge_feu"] = L.call(fq + Vector3(0, 1.2, 0.6))
+	specials["forgeron"] = L.call(Vector3(-0.6, 0.0, 0.45))
 	specials["forge_rot"] = rot
+	specials["armuriere"] = L.call(Vector3(3.2, 0.0, 1.45))
+	specials["apprenti"] = L.call(fq + Vector3(1.75, 0.0, 1.0))
 
 ## Marché : 4 étals rayés autour du puits (les marchands se placent derrière, cf. Talk), bancs, lanternes
 static func _market(p: BourgPlan, props: Node3D) -> void:
@@ -269,6 +339,24 @@ static func _villageois(parent: Node3D, rng: RandomNumberGenerator) -> void:
 		v.rotation.y = float(specials["forge_rot"]) + PI
 		parent.add_child(v)
 		v.set_meta("forge", true)
+		v.set_meta("place_fixe", true)
+		v.set_meta("talk", {"id": "brand", "nom": "Maître Brand", "role": "forgeron"})
+		var ar = Villager.new()
+		ar.spec = {"female": true, "outfit": "paysan_f", "hair": "Hair_Buns", "tint": Color(0.9, 0.8, 0.7)}
+		ar.anim_name = "Idle_Talking"
+		ar.position = specials["armuriere"]
+		ar.rotation.y = float(specials["forge_rot"])
+		parent.add_child(ar)
+		ar.set_meta("place_fixe", true)
+		ar.set_meta("talk", {"id": "odile", "nom": "Odile l'armurière", "role": "armurier"})
+		var ap = Villager.new()
+		ap.spec = {"outfit": "paysan_h", "hair": "Hair_SimpleParted", "tint": Color(0.8, 0.75, 0.7)}
+		ap.anim_name = "Push"
+		ap.position = specials["apprenti"]
+		ap.rotation.y = float(specials["forge_rot"]) + PI * 0.5
+		parent.add_child(ap)
+		ap.set_meta("place_fixe", true)
+		ap.set_meta("talk", {"id": "apprenti_forge", "nom": "Tiphaine, apprenti forgeron", "role": "habitant"})
 		var fire := FX.particles("fire_01", 10, 0.6, [Color(1, 0.8, 0.4, 0.9), Color(1, 0.3, 0.1, 0)], 0.5, false)
 		fire.direction = Vector3.UP
 		fire.initial_velocity_min = 0.4

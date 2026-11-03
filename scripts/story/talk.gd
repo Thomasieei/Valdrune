@@ -236,6 +236,10 @@ static func build(n: Node3D) -> Dictionary:
 	if role == "crieur":
 		Contracts.add_options(nodes, choices, who, label)
 	Quests.add_options(nodes, choices, who, label, n, id)
+	if role in ["forgeron", "armurier"]:
+		choices.append({"text": "Armes et réparations", "next": "END", "callback": func(): ArmurerieUI.open(nom)})
+	if n.has_meta("bagarre"):
+		Bagarre.add_options(nodes, choices, who, label, n)
 	choices.append({"text": "Au revoir", "next": "END"})
 	nodes["menu"] = {"who": who, "nom": label, "text": greet, "choices": choices}
 	if (n is Villager or n is Guard or role == "prisonnier") and not role.ends_with("nain"):

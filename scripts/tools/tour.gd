@@ -44,6 +44,10 @@ func _ready() -> void:
 		["B15_porte", Vector2(1, -52), 10.0, -8.0, 9.0, false],
 		["B16_lavoir_a", Vector2(-26, 30), 0.0, -18.0, 8.0, false],
 		["B16_lavoir_b", Vector2(-26, 30), 180.0, -18.0, 8.0, false],
+		["B17_forge", Vector2(31, -4), 160.0, -14.0, 8.0, false],
+		["B17b_forge_proche", Vector2(30.5, -9), 200.0, -22.0, 5.0, false],
+		["B18_bagarre", Vector2(0, 0), 250.0, -38.0, 6.5, false],
+		["B19_armurerie", Vector2(31, -4), 160.0, -14.0, 8.0, false],
 		["B14_camp_bandits", Vector2(-56.5, 131), 160.0, -20.0, 12.0, false],
 	]
 	if only == "audit":
@@ -72,7 +76,7 @@ func _run() -> void:
 				var zp: Vector3 = (rz.get_node("Visite") as Node3D).global_position
 				xz = Vector2(zp.x, zp.z)
 				y = zp.y - 1.2
-		var inside_of := {"B10_dans_taverne": "taverne", "B10b_taverne_comptoir": "taverne", "B10c_taverne_cheminee": "taverne", "B10d_taverne_tables": "taverne", "B11_dans_apothicaire": "apothicaire", "B12_maison_mathis": "maison_mathis"}
+		var inside_of := {"B18_bagarre": "taverne", "B10_dans_taverne": "taverne", "B10b_taverne_comptoir": "taverne", "B10c_taverne_cheminee": "taverne", "B10d_taverne_tables": "taverne", "B11_dans_apothicaire": "apothicaire", "B12_maison_mathis": "maison_mathis"}
 		for nm in [inside_of.get(s[0], "")]:
 			if nm != "" and Town.plan and Town.plan.specials.has(nm):
 				var sp: Dictionary = Town.plan.specials[nm]
@@ -89,8 +93,15 @@ func _run() -> void:
 		p.rotation.y = rig.yaw + PI
 		rig._focus = p.global_position + Vector3.UP * 1.45
 		rig._last_manual = Time.get_ticks_msec() / 1000.0 + 100.0
+		if s[0] == "B18_bagarre" and Bagarre.inst:
+			Bagarre.inst._start()
+			await get_tree().create_timer(3.4).timeout
+		if s[0] == "B19_armurerie":
+			ArmurerieUI.open("Odile l'armurière")
 		for f in 8: await get_tree().process_frame
 		get_viewport().get_texture().get_image().save_png("res://shots/%s.png" % s[0])
+		if s[0] == "B19_armurerie":
+			ArmurerieUI.inst._close()
 		var prims := RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME)
 		var draws := RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME)
 		var objs := RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)
