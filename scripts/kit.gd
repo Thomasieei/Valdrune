@@ -24,8 +24,46 @@ static func lpd_material() -> StandardMaterial3D:
 
 static func _load(path: String) -> Resource:
 	if not _cache.has(path):
-		_cache[path] = load(path)
+		var r: Resource = load(path)
+		if r is ArrayMesh and path.begins_with("res://assets/village/"):
+			r = _flatten(r)
+		_cache[path] = r
 	return _cache[path]
+
+## Les modèles .obj du village ont une surface (donc un appel de rendu) par couleur : un tonneau = 40 appels.
+## On les fond en une seule surface à couleurs de sommets → 1 appel par objet (énorme gain sur téléphone).
+static var _vc_mat: StandardMaterial3D
+static func _flatten(m: ArrayMesh) -> Mesh:
+	var n := m.get_surface_count()
+	if n <= 1:
+		return m
+	for i in n:
+		var mt := m.surface_get_material(i)
+		if mt is BaseMaterial3D and ((mt as BaseMaterial3D).albedo_texture != null or (mt as BaseMaterial3D).emission_enabled or (mt as BaseMaterial3D).transparency != BaseMaterial3D.TRANSPARENCY_DISABLED):
+			return m
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in n:
+		var mt := m.surface_get_material(i)
+		var col: Color = (mt as BaseMaterial3D).albedo_color if mt is BaseMaterial3D else Color.WHITE
+		var a := m.surface_get_arrays(i)
+		var v: PackedVector3Array = a[Mesh.ARRAY_VERTEX]
+		var nm = a[Mesh.ARRAY_NORMAL]
+		var idx = a[Mesh.ARRAY_INDEX]
+		var order: PackedInt32Array = idx if idx != null and idx.size() > 0 else PackedInt32Array(range(v.size()))
+		for k in order:
+			st.set_color(col)
+			if nm != null and nm.size() > k:
+				st.set_normal(nm[k])
+			st.add_vertex(v[k])
+	if _vc_mat == null:
+		_vc_mat = StandardMaterial3D.new()
+		_vc_mat.vertex_color_use_as_albedo = true
+		_vc_mat.roughness = 0.9
+		_vc_mat.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+	st.set_material(_vc_mat)
+	st.index()
+	return st.commit()
 
 static func mesh_of(path: String) -> Mesh:
 	var r := _load(path)

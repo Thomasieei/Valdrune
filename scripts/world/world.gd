@@ -294,6 +294,10 @@ func _spawn() -> void:
 		var pt = load("res://scripts/tools/powers_test.gd").new()
 		pt.world = self
 		add_child(pt)
+	if args.size() > 0 and args[0] == "--perf":
+		var pp = load("res://scripts/tools/perf_probe.gd").new()
+		pp.world = self
+		add_child(pp)
 	if args.size() > 0 and args[0] == "--fx":
 		var fx_t = load("res://scripts/tools/fx_test.gd").new()
 		fx_t.world = self
@@ -353,7 +357,7 @@ func _process(delta: float) -> void:
 		elif n:
 			hud.btn_talk.label = "Parler à " + String(Talk.info(n)["nom"])
 	var a := OS.get_cmdline_user_args()
-	if "--tour" in a or "--combat" in a or "--story" in a or "--vie" in a or "--pouvoirs" in a or "--fx" in a:
+	if "--tour" in a or "--combat" in a or "--story" in a or "--vie" in a or "--pouvoirs" in a or "--fx" in a or "--perf" in a:
 		return
 	_q_acc += delta
 	if _q_acc < 1.0:
