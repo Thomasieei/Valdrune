@@ -104,6 +104,10 @@ func _say(t: String) -> void:
 		FX.bark(_n, t, 2.3, 2.6)
 
 func _report() -> void:
+	if Dialogue.active:
+		# une autre conversation est en cours (pourparlers, marchand…) : le rapport attend son tour
+		get_tree().create_timer(1.0).timeout.connect(_report)
+		return
 	var aid: String = _cur.get("agent", "")
 	if _cur.get("appel", false):
 		var w0 := Justice.world()

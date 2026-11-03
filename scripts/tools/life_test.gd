@@ -581,6 +581,7 @@ func _ready() -> void:
 			break
 	_place(c2 + Vector2(0, 4), 180)
 	var razable := await _until(func(): return world.hud.btn_prompt.visible and world.hud.btn_prompt.label == "Raser le camp", 8.0)
+	print("   (raser : membres %d, invite %s « %s », salué %s, statut %s, occupé %s, dialogue %s)" % [CampParley.members(gz2).size(), world.hud.btn_prompt.visible, world.hud.btn_prompt.label, CampParley.inst._hailed.has(gz2), CampParley._st().get(gz2, ""), CampParley.inst._busy, Dialogue.active])
 	_check(razable, "Camp vaincu : « Raser le camp » est proposé")
 	world.hud.btn_prompt.pressed.emit()
 	await _wait(1.0)
