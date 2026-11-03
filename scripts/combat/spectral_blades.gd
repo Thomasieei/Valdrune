@@ -110,7 +110,7 @@ func _process(delta: float) -> void:
 					var dest: Vector3 = t.global_position + Vector3.UP
 					var d := dest - h.global_position
 					_orient(h, d)
-					if d.length() < 0.8:
+					if d.length() < 1.3:
 						_hit(t, 0.8, dest)
 						Juice.impact(dest, COL, false)
 						b["phase"] = "orbite"
