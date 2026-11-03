@@ -93,8 +93,56 @@ func shake(amount: float) -> void:
 func _over_bridge() -> bool:
 	return global_position.y > Terrain.height_at(global_position.x, global_position.z) + 0.6
 
+## Vol du souverain : en lévitation sur un cercle magique animé, vite et sans limite de durée
+var flying := false
+var _fly_circle: Node3D = null
+var _fly_trail: Node3D = null
+const FLY_SPEED := 22.0
+const FLY_ALT := 6.5
+func set_flying(v: bool) -> void:
+	if v == flying:
+		return
+	flying = v
+	if v:
+		_fly_circle = Magic.rune(global_position, 1.6, Color(0.55, 0.85, 1.0), 1e9, 1.6)
+		_fly_circle.reparent(self)
+		_fly_circle.position = Vector3(0, 0.05, 0)
+		_fly_trail = Magic.trail(self, Color(0.6, 0.85, 1.0), 0.35, "spark_04", 20)
+		Magic.halo(global_position + Vector3.UP, 2.4, Color(0.6, 0.85, 1.0), 0.5)
+		FX.shockwave(global_position, 2.4)
+		velocity.y = 8.0
+	else:
+		for n in [_fly_circle, _fly_trail]:
+			if is_instance_valid(n):
+				n.queue_free()
+		_fly_circle = null
+		_fly_trail = null
+		FX.shockwave(global_position, 1.6)
+
+func _fly(delta: float, dir: Vector3, mag: float) -> void:
+	var target := dir * FLY_SPEED * minf(1.0, mag * 1.2)
+	var hv := Vector3(velocity.x, 0, velocity.z).lerp(target, clampf(4.0 * delta, 0, 1))
+	var ground := maxf(Powers.ground(global_position + Vector3.UP * 0.5), Layout.WATER)
+	var want := ground + FLY_ALT
+	velocity = Vector3(hv.x, clampf((want - global_position.y) * 3.0, -12.0, 12.0), hv.z)
+	move_and_slide()
+	if hv.length() > 0.5:
+		rotation.y = lerp_angle(rotation.y, atan2(hv.x, hv.z), clampf(6.0 * delta, 0, 1))
+	if is_instance_valid(_fly_circle):
+		_fly_circle.rotation.y += delta * 2.0
+	if Time.get_ticks_msec() / 1000.0 >= _action_until:
+		_play("Spell_Simple_Idle" if hv.length() > 2.0 else "Idle", 0.3)
+
 func _physics_process(delta: float) -> void:
 	var t := Time.get_ticks_msec() / 1000.0
+	if flying and not cbt.dead:
+		var fdir := Vector3(input_dir.x, 0, input_dir.y)
+		var fmag := minf(fdir.length(), 1.0)
+		fdir = fdir.rotated(Vector3.UP, cam_yaw)
+		if fdir.length() > 0.001:
+			fdir = fdir.normalized()
+		_fly(delta, fdir, fmag)
+		return
 	var dir := Vector3(input_dir.x, 0, input_dir.y)
 	var mag := minf(dir.length(), 1.0)
 	dir = dir.rotated(Vector3.UP, cam_yaw)

@@ -66,6 +66,61 @@ static func setup(world: Node3D) -> void:
 	world.add_child(cr)
 	cr.set_meta("talk", {"id": "crieur", "nom": "Thibaut", "role": "crieur"})
 	_board(world, Layout.TOWN + Vector2(1.6, 9.4))
+	# le contremaître : on lui donne les chiffres, il mène les équipes
+	var fq := Layout.TOWN + Vector2(-4.5, 8.5)
+	var fm := Villager.new()
+	fm.spec = {"outfit": "paysan_h", "hair": "Hair_SimpleParted", "beard": true, "tint": Color(0.7, 0.6, 0.45)}
+	fm.anim_name = "b/Idle_FoldArms"
+	fm.position = Vector3(fq.x, Terrain.height_at(fq.x, fq.y), fq.y)
+	fm.rotation.y = PI
+	world.add_child(fm)
+	fm.set_meta("talk", {"id": "contremaitre", "nom": "Gauthier", "role": "contremaitre"})
+
+## Le contremaître : répartition des équipes, rassemblement devant le souverain
+static func _foreman(nodes: Dictionary, choices: Array, who: String, label: String) -> void:
+	var wv := WorkersView.inst
+	var st := "Bûcherons %d · Champs %d · Mine %d · Marché %d · Sans emploi %d" % [int(Kingdom.bld("scierie")["ouvriers"]), int(Kingdom.bld("ferme")["ouvriers"]), int(Kingdom.bld("mine")["ouvriers"]), int(Kingdom.bld("marche")["ouvriers"]), Kingdom.idle_people()]
+	nodes["equipes"] = {"who": who, "nom": label, "text": "Voici les équipes, mon seigneur :\n%s\nDites-moi où mettre les bras." % st, "choices": [
+		{"text": "Ouvrir le tableau des équipes", "next": "END", "callback": func():
+			if GestionUI.inst:
+				GestionUI.inst.open("travail")},
+		{"text": "Tout le monde au bois !", "next": "END", "callback": func(): _preset("scierie")},
+		{"text": "Tout le monde aux champs !", "next": "END", "callback": func(): _preset("ferme")},
+		{"text": "Tout le monde à la mine !", "next": "END", "callback": func(): _preset("mine")},
+		{"text": "Répartition équilibrée.", "next": "END", "callback": func(): _preset("")},
+		{"text": "Retour", "next": "menu"}]}
+	choices.insert(0, {"text": "Les équipes de travail", "next": "equipes"})
+	if wv and wv.gathered:
+		nodes["autravail"] = {"who": who, "nom": label, "text": "Vous avez entendu le seigneur ! Au travail, tout le monde !", "next": "END", "callback": func(): wv.dismiss()}
+		choices.insert(0, {"text": "Renvoie-les au travail.", "next": "autravail"})
+	elif wv:
+		nodes["rassemble"] = {"who": who, "nom": label, "text": "Je les fais venir. Tous. Ils seront alignés devant vous.", "next": "END", "callback": func(): wv.gather()}
+		choices.insert(0, {"text": "Rassemble tous les travailleurs devant moi.", "next": "rassemble"})
+
+## Préréglage de répartition : priorité à un chantier (le reste réparti), ou équilibre
+static func _preset(focus: String) -> void:
+	var jobs := ["ferme", "scierie", "mine", "marche"]
+	for j in jobs:
+		while int(Kingdom.bld(j)["ouvriers"]) > 0:
+			Kingdom.set_workers(j, -1)
+	var order: Array = [focus] + jobs.filter(func(j): return j != focus) if focus != "" else ["ferme", "scierie", "mine", "ferme", "scierie", "mine", "marche"]
+	var guard := 0
+	while Kingdom.idle_people() > 0 and guard < 400:
+		guard += 1
+		var placed := false
+		for j in order:
+			if j == "" or Kingdom.idle_people() <= 0:
+				continue
+			var before := int(Kingdom.bld(j)["ouvriers"])
+			Kingdom.set_workers(j, 1)
+			if int(Kingdom.bld(j)["ouvriers"]) > before:
+				placed = true
+				if focus != "":
+					break
+		if not placed:
+			break
+	if Hud.inst:
+		Hud.inst.show_message("Gauthier répartit les équipes", Color(1.0, 0.85, 0.5))
 
 ## Tableau d'affichage des contrats : deux poteaux, un panneau, des avis cloués
 static func _board(world: Node3D, p: Vector2) -> void:
@@ -235,6 +290,8 @@ static func build(n: Node3D) -> Dictionary:
 		choices.append({"text": "Retourne à ton poste", "next": "END", "callback": func(): Escort.dismiss(sd)})
 	if role == "crieur":
 		Contracts.add_options(nodes, choices, who, label)
+	if role == "contremaitre" and Kingdom.inst:
+		_foreman(nodes, choices, who, label)
 	Quests.add_options(nodes, choices, who, label, n, id)
 	choices.append({"text": "Au revoir", "next": "END"})
 	nodes["menu"] = {"who": who, "nom": label, "text": greet, "choices": choices}

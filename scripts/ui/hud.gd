@@ -9,7 +9,8 @@ var btn_talk: ActionButton
 var btn_cancel: ActionButton
 var btn_kingdom: ActionButton
 var btn_command: ActionButton
-var btn_gestion: ActionButton    # gouverner : travail, armée (mini-carte), gens    # commandement rapide de la garde rapprochée
+var btn_gestion: ActionButton
+var btn_fly: ActionButton        # vol du souverain (cercle magique)    # gouverner : travail, armée (mini-carte), gens    # commandement rapide de la garde rapprochée
 var _hint: Label
 var _hint_key := ""
 var _hint_t := 0.0
@@ -134,6 +135,13 @@ func _ready() -> void:
 	btn_cancel.visible = false
 	add_child(btn_cancel)
 	btn_grimoire.pressed.connect(toggle_grimoire)
+	btn_fly = ActionButton.new().setup("vol", 32.0, Color(0.6, 0.85, 1.0))
+	btn_fly.label = "Vol"
+	add_child(btn_fly)
+	btn_fly.pressed.connect(func():
+		if player and not Dialogue.active:
+			player.set_flying(not player.flying)
+			btn_fly.held = player.flying)
 	btn_prompt = ActionButton.new().setup("main", 62.0, Color(1.0, 0.82, 0.35))
 	btn_prompt.visible = false
 	btn_prompt.pulse = true
@@ -225,7 +233,7 @@ func choose(i: int) -> void:
 		(choice_btns[i] as ActionButton).pressed.emit()
 
 func buttons() -> Array:
-	return choice_btns + [btn_prompt, btn_attack, btn_dodge, btn_potion_soin, btn_potion_mana, btn_talk, btn_kingdom, btn_command, btn_gestion, btn_grimoire] + btn_slots + grim_tiles
+	return choice_btns + [btn_prompt, btn_attack, btn_dodge, btn_potion_soin, btn_potion_mana, btn_talk, btn_kingdom, btn_command, btn_gestion, btn_fly, btn_grimoire] + btn_slots + grim_tiles
 
 ## Bouton d'action contextuelle (temps réel, même au ralenti)
 func show_prompt(icon: String, text: String, cb: Callable, dur: float) -> void:
@@ -343,6 +351,8 @@ func _layout() -> void:
 			t.position = cpos - t.size * 0.5
 	_grim_bg.visible = grimoire_open and not Dialogue.active
 	_grim_title.visible = _grim_bg.visible
+	btn_fly.position = Vector2(s.x - 60, 272) - btn_fly.size * 0.5
+	btn_fly.visible = shown["sorts"] and not Dialogue.active and Story.done()
 	btn_potion_soin.position = Vector2(s.x - 60, 120) - btn_potion_soin.size * 0.5
 	btn_potion_mana.position = Vector2(s.x - 60, 196) - btn_potion_mana.size * 0.5
 	_msg.position = Vector2(s.x * 0.5 - 400, s.y * 0.5)
@@ -403,7 +413,7 @@ func _process(delta: float) -> void:
 		b.refresh()
 	btn_potion_soin.count = prog.potions_soin
 	btn_potion_mana.count = prog.potions_mana
-	for b in [btn_potion_soin, btn_potion_mana, btn_attack, btn_dodge, btn_talk, btn_kingdom, btn_command, btn_gestion, btn_cancel, btn_grimoire, btn_prompt]:
+	for b in [btn_potion_soin, btn_potion_mana, btn_attack, btn_dodge, btn_talk, btn_kingdom, btn_command, btn_gestion, btn_fly, btn_cancel, btn_grimoire, btn_prompt]:
 		b.refresh()
 	if _hint_t > 0.0:
 		_hint_t -= delta

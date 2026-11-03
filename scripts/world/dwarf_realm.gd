@@ -303,7 +303,7 @@ func _portal_back(g: Geo) -> void:
 	veil.position = p + Vector3(0, 2.6, 0)
 	add_child(veil)
 	var zone := Area3D.new()
-	zone.collision_mask = 1 | 2
+	zone.collision_mask = 8   # couche du joueur
 	var cs := CollisionShape3D.new()
 	var bs := BoxShape3D.new()
 	bs.size = Vector3(5.0, 3.0, 1.0)

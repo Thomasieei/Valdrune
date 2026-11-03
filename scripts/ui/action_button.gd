@@ -93,6 +93,12 @@ func _text(p: Vector2, t: String, fs: int, col: Color) -> void:
 
 func _icon(c: Vector2, s: float, col: Color) -> void:
 	match icon:
+		"vol":
+			# deux ailes stylisées au-dessus d'un cercle
+			draw_arc(c + Vector2(0, 0.55) * s, s * 0.55, PI * 0.1, PI * 0.9, 16, col, s * 0.09, true)
+			for sg in [-1.0, 1.0]:
+				var w := PackedVector2Array([c + Vector2(0.05 * sg, 0.1) * s, c + Vector2(0.9 * sg, -0.7) * s, c + Vector2(0.75 * sg, -0.25) * s, c + Vector2(0.55 * sg, 0.05) * s])
+				draw_colored_polygon(w, col)
 		"carte":
 			# carte dépliée à trois volets + repère
 			var pts := [c + Vector2(-0.9, -0.6) * s, c + Vector2(-0.3, -0.8) * s, c + Vector2(0.3, -0.6) * s, c + Vector2(0.9, -0.8) * s, c + Vector2(0.9, 0.6) * s, c + Vector2(0.3, 0.8) * s, c + Vector2(-0.3, 0.6) * s, c + Vector2(-0.9, 0.8) * s]

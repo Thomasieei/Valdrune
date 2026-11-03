@@ -262,7 +262,7 @@ static func _portal(g: Geo, parent: Node3D) -> void:
 	parent.add_child(light)
 	# franchir le voile : message (le portail est scellé)
 	var zone := Area3D.new()
-	zone.collision_mask = 1 << 1 | 1
+	zone.collision_mask = 8   # couche du joueur
 	var cs := CollisionShape3D.new()
 	var bs := BoxShape3D.new()
 	bs.size = Vector3(R * 1.6, 3.0, 1.2)

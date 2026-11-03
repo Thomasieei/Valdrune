@@ -430,7 +430,7 @@
    "prod": "nourriture",
    "base": 1.5,
    "par_niv": 0.4,
-   "ouvriers_max": 10,
+   "ouvriers_max": 30,
    "cout": {
     "tresor": 60,
     "bois": 40
@@ -442,7 +442,7 @@
    "prod": "bois",
    "base": 0.9,
    "par_niv": 0.3,
-   "ouvriers_max": 6,
+   "ouvriers_max": 25,
    "cout": {
     "tresor": 50,
     "pierre": 20
@@ -454,7 +454,7 @@
    "prod": "pierre",
    "base": 0.7,
    "par_niv": 0.25,
-   "ouvriers_max": 6,
+   "ouvriers_max": 25,
    "cout": {
     "tresor": 70,
     "bois": 40
@@ -466,7 +466,7 @@
    "prod": "tresor",
    "base": 1.5,
    "par_niv": 0.6,
-   "ouvriers_max": 5,
+   "ouvriers_max": 12,
    "cout": {
     "tresor": 80,
     "bois": 30,
@@ -1170,6 +1170,16 @@
     ],
     "discuter": [
      "La Montagne se souvient de tout."
+    ]
+   },
+   "contremaitre": {
+    "titre": "Contremaître du royaume",
+    "soi": [
+     "Trente ans que je mène les équipes de Valmont. Donnez-moi des chiffres, je vous donne du travail fait."
+    ],
+    "discuter": [
+     "Plus de bras au bois, et on rebâtit la palissade en une saison.",
+     "Les mineurs râlent, mais ils creusent. C'est tout ce que je leur demande."
     ]
    }
   }

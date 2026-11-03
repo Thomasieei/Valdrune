@@ -107,7 +107,117 @@ func _process(delta: float) -> void:
 			near_gid = gid
 	if near_gid != "" and Hud.inst and not Hud.inst.choice_btns.size():
 		var g := near_gid
+		var ms2 := members(g)
+		var fighting := ms2.any(func(m): return m.state in [Monster.S.POURSUITE, Monster.S.ATTAQUE])
+		# première approche : les sentinelles viennent au-devant du souverain AVANT tout combat
+		if not fighting and not _hailed.has(g) and near_d < 30.0 and String(_st().get(g, "neutre")) == "neutre":
+			_hailed[g] = true
+			_sentries(g, ms2)
+			return
 		Hud.inst.show_prompt("parler", "Parlementer", func(): parley(g), 0.45)
+	# camp vaincu mais pas encore rasé : on peut y mettre le feu
+	for z in Spawner.ZONES:
+		var gz: String = z["id"]
+		if Spawner.group_of(gz) != gz or not PARLANTS.has(z["kind"]):
+			continue
+		var stz: String = _st().get(gz, "neutre")
+		if stz in ["rase", "allie", "libere"] or not _hailed.has(gz):
+			continue
+		if pp.distance_to(z["pos"]) < 16.0 and members(gz).is_empty() and Hud.inst and not Hud.inst.btn_prompt.visible:
+			var g2 := gz
+			Hud.inst.show_prompt("feu", "Raser le camp", func(): raze(g2), 0.45)
+
+var _hailed := {}
+
+## Les sentinelles s'avancent : « Halte ! Tu veux voir le chef ? »
+func _sentries(gid: String, ms: Array) -> void:
+	var p := Combat.player
+	var guards := ms.filter(func(m): return not m.def.get("elite", false)).slice(0, 2)
+	if guards.is_empty():
+		guards = ms.slice(0, 1)
+	for m in ms:
+		m.peaceful = true
+	set_status(gid, "treve")
+	_busy = true
+	var lead: Node3D = guards[0]
+	for i in guards.size():
+		var g: Node3D = guards[i]
+		var to: Vector3 = p.global_position - g.global_position
+		to.y = 0.0
+		var dest: Vector3 = p.global_position - to.normalized() * 3.4 + to.normalized().cross(Vector3.UP) * (i * 1.6 - 0.8)
+		dest.y = Powers.ground(dest + Vector3.UP)
+		g._play("marche", 0.2)
+		var tw := create_tween()
+		tw.tween_property(g, "global_position", dest, clampf(g.global_position.distance_to(dest) / 4.5, 0.3, 3.0))
+		tw.tween_callback(func():
+			if Combat.alive(g):
+				g.look_at(Vector3(p.global_position.x, g.global_position.y, p.global_position.z), Vector3.UP)
+				g.rotate_y(PI)
+				g._play("attente", 0.2))
+	FX.bark(lead, "Halte ! Pas un pas de plus !", 2.4, 2.0)
+	var label: String = zone(gid).get("label", "Camp")
+	get_tree().create_timer(clampf(lead.global_position.distance_to(p.global_position) / 4.5, 0.4, 3.0) + 0.2).timeout.connect(func():
+		_busy = false
+		if not Combat.alive(lead):
+			return
+		var nodes := {"menu": {"who": "pnj", "nom": "Sentinelle — %s" % label, "text": "Halte ! Tu es sur nos terres. Qu'est-ce que tu veux ? Parler au chef, peut-être ?", "choices": [
+			{"text": "Je veux parler à votre chef.", "next": "END", "callback": func(): _challenge(gid, members(gid))},
+			{"text": "Je suis venu raser votre camp.", "next": "END", "callback": func():
+				GameState.get_inst().add("crainte", 1)
+				FX.bark(lead, "Alerte ! ALERTE !", 2.4, 2.0)
+				provoked(lead)},
+			{"text": "Je passe mon chemin.", "next": "END", "callback": func():
+				_warned[gid] = true
+				FX.bark(lead, "C'est ça. File.", 2.4, 1.8)},
+		]}}
+		var w := Justice.world()
+		if w.get("rig"):
+			w.rig.frame_talk(p, lead)
+		w.dlg.start({"start": "menu", "nodes": nodes, "fermable": true}))
+
+## Raser un camp vaincu : tentes en flammes, fumée, butin ; le camp ne reviendra pas
+func raze(gid: String) -> void:
+	var z := zone(gid)
+	var c: Vector2 = z["pos"]
+	var r: float = float(z["r"])
+	set_status(gid, "rase")
+	for sp in Spawner.spawners:
+		if is_instance_valid(sp) and Spawner.group_of(sp.zone_id) == gid:
+			sp.liberated = true
+	var root := Node3D.new()
+	root.name = "CampEnFlammes"
+	get_tree().current_scene.add_child(root)
+	for k in 7:
+		var a := TAU * k / 7.0
+		var q := c + Vector2(cos(a), sin(a)) * r * randf_range(0.3, 0.9)
+		var at := Vector3(q.x, Terrain.height_at(q.x, q.y) + 0.4, q.y)
+		var f := FX.particles("fire_01", 14, 0.9, [Color(1, 0.85, 0.45, 0.95), Color(1, 0.35, 0.1, 0.6), Color(0.2, 0.1, 0.05, 0)], 1.6, false)
+		f.direction = Vector3.UP
+		f.initial_velocity_min = 1.0
+		f.initial_velocity_max = 2.5
+		f.gravity = Vector3(0, 1.5, 0)
+		root.add_child(f)
+		f.global_position = at
+		f.emitting = true
+		var sm := FX.particles("smoke_02", 6, 3.5, [Color(0.2, 0.18, 0.16, 0.6), Color(0.3, 0.3, 0.3, 0)], 3.0, false, false)
+		sm.direction = Vector3.UP
+		sm.initial_velocity_min = 1.0
+		sm.initial_velocity_max = 2.0
+		root.add_child(sm)
+		sm.global_position = at + Vector3.UP * 1.5
+		sm.emitting = true
+		FX._scorch_mark(at, 2.5)
+	FX.impact_light(Vector3(c.x, Terrain.height_at(c.x, c.y) + 2.0, c.y), Color(1.0, 0.5, 0.2), 4.0, r * 3.0)
+	var gold := 60 + int(r * 10.0)
+	Progression.get_inst().add_gold(gold)
+	GameState.get_inst().add("crainte", 3)
+	GameState.get_inst().add("bienveillance", -1)
+	GameState.get_inst().report("Le %s a été rasé par le souverain (+%d or de butin)." % [String(z["label"]).to_lower(), gold], "acte")
+	if Hud.inst:
+		Hud.inst.discover("Camp rasé", "%s part en fumée — +%d or" % [z["label"], gold])
+	get_tree().create_timer(40.0).timeout.connect(func():
+		if is_instance_valid(root):
+			root.queue_free())
 
 ## Le souverain lève la main : trêve immédiate, le chef vient parlementer
 func parley(gid: String) -> void:

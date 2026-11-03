@@ -102,7 +102,7 @@ func spawn(rank := "") -> Dictionary:
 	lbl.position = Vector3(0, 6.0, 0)
 	node.add_child(lbl)
 	var zone := Area3D.new()
-	zone.collision_mask = 1 | 2
+	zone.collision_mask = 8   # couche du joueur
 	var cs := CollisionShape3D.new()
 	var sh := CylinderShape3D.new()
 	sh.radius = 2.2

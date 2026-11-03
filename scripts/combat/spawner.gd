@@ -30,6 +30,11 @@ const ZONES := [
 	{"id": "portail_diablotins", "kind": "imp", "pos": Vector2(70, 205), "n": 3, "r": 9, "label": "Diablotins du portail"},
 	{"id": "camp_bandits", "kind": "bandit", "pos": Vector2(-60, 140), "n": 3, "r": 8, "label": "Camp de bandits (sud-ouest)"},
 	{"id": "camp_bandits_chef", "kind": "chef_bandit", "pos": Vector2(-57, 143), "n": 1, "r": 3, "label": "Chef des bandits (élite)"},
+	{"id": "camp_bandits_garde", "kind": "garde_elite", "pos": Vector2(-55, 140), "n": 2, "r": 4, "label": "Garde d'élite du chef"},
+	{"id": "brigands_est_garde", "kind": "garde_elite", "pos": Vector2(208, 45), "n": 2, "r": 4, "label": "Garde d'élite des brigands"},
+	{"id": "brigands_est_geant", "kind": "geant", "pos": Vector2(215, 36), "n": 1, "r": 3, "label": "Géant des brigands"},
+	{"id": "chasseurs_est_geant", "kind": "geant", "pos": Vector2(144, 90), "n": 1, "r": 4, "label": "Géant puglin"},
+	{"id": "lanceurs_sud_garde", "kind": "garde_elite", "pos": Vector2(-88, 199), "n": 1, "r": 3, "label": "Garde d'élite"},
 	{"id": "rodeurs_ouest", "kind": "bandit", "pos": Vector2(-75, -60), "n": 2, "r": 10, "label": "Rôdeurs des collines ouest"},
 	{"id": "deserteur", "kind": "deserteur", "pos": Vector2(90, -80), "n": 1, "r": 14, "label": "Déserteur solitaire (élite)"},
 	{"id": "chasseurs_est", "kind": "puglin", "pos": Vector2(140, 85), "n": 4, "r": 11, "label": "Chasseurs puglins (plaine est)"},
@@ -43,7 +48,7 @@ const ZONES := [
 
 ## Un camp = un repaire principal + ses annexes (chef, mercenaire, seconde bande) : même groupe
 static func group_of(id: String) -> String:
-	for suf in ["_chef", "_merc", "_b"]:
+	for suf in ["_chef", "_merc", "_b", "_garde", "_geant"]:
 		if id.ends_with(suf):
 			return id.substr(0, id.length() - suf.length())
 	return id

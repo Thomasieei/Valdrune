@@ -27,7 +27,7 @@ static func build(world: Node3D) -> void:
 	world.add_child(root)
 	for z in Spawner.ZONES:
 		var id: String = z["id"]
-		if id.ends_with("_chef") or id.ends_with("_merc") or id.ends_with("_b") or id in ["deserteur", "portail_brute"]:
+		if Spawner.group_of(id) != id or id in ["deserteur", "portail_brute"]:
 			continue
 		var kind: String = z["kind"]
 		var st: Dictionary = STYLES.get(kind, STYLES["bandit"])
