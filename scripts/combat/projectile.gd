@@ -35,6 +35,11 @@ func _process(delta: float) -> void:
 
 func _explode(direct: Node3D) -> void:
 	FX.explosion(global_position, splash)
+	Juice.onde(global_position, Color(1.0, 0.5, 0.12), splash * 1.8, 0.4)
+	Juice.lueur(global_position, Color(1.0, 0.45, 0.1), splash * 1.4, 0.6, 0.9)
+	Juice.dust(global_position, 10 + int(10 * charge), 4.0 + 3.0 * charge)
+	if charge >= 0.5:
+		Juice.onde(global_position, Color(1.0, 0.95, 0.75), splash * 2.6, 0.55)
 	if charge >= 0.5:
 		FX.shockwave(Vector3(global_position.x, Terrain.height_at(global_position.x, global_position.z), global_position.z), splash)
 	Sfx.play("lourd", -3.0 + 4.0 * charge)

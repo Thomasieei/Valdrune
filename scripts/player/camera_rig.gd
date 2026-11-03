@@ -45,26 +45,35 @@ var _shake := 0.0
 func shake(a: float) -> void:
 	_shake = maxf(_shake, a)
 
-## Plan de cinéma : la caméra quitte le bras et vient cadrer une scène (dialogue, plaquage, pouvoir chargé).
-## cine_on(position, point regardé) ; cine_off() la ramène en douceur derrière le héros.
+## Plan de cinéma : une caméra À PART (jamais sous le bras-ressort, donc aucun tremblement)
+## vient cadrer la scène en douceur ; à la fin elle rejoint la caméra de jeu puis lui rend la main.
 var cine := false
+var ccam: Camera3D
 var _cine_pos := Vector3.ZERO
 var _cine_look := Vector3.ZERO
 var _cine_back := 0.0
 func cine_on(pos: Vector3, look: Vector3) -> void:
-	if not cine:
-		cam.top_level = true
-		cam.global_transform = arm.global_transform.translated_local(Vector3(0, 0, dist))
+	if ccam == null:
+		ccam = Camera3D.new()
+		ccam.fov = cam.fov
+		ccam.near = cam.near
+		ccam.far = cam.far
+		get_tree().current_scene.add_child(ccam)
+	if not cine and _cine_back <= 0.0:
+		ccam.global_transform = cam.global_transform
 	cine = true
+	_cine_back = 0.0
 	_cine_pos = pos
 	_cine_look = look
+	ccam.current = true
 func cine_off() -> void:
 	if cine:
 		cine = false
-		_cine_back = 0.45
+		_cine_back = 0.6
 
-## Cadrage « par-dessus l'épaule » du héros vers un interlocuteur
-func frame_talk(hero: Node3D, other: Node3D) -> void:
+## Cadrage « par-dessus l'épaule » du héros vers un interlocuteur, toujours du côté où se trouve déjà
+## la caméra de jeu (pas de retournement brusque)
+func frame_talk(hero: Node3D, other: Node3D, wide := false) -> void:
 	var a := hero.global_position + Vector3.UP * 1.55
 	var b := other.global_position + Vector3.UP * 1.55
 	var d := b - a
@@ -73,7 +82,10 @@ func frame_talk(hero: Node3D, other: Node3D) -> void:
 		return
 	d = d.normalized()
 	var right := d.cross(Vector3.UP).normalized()
-	cine_on(a - d * 1.9 + right * 0.85 + Vector3.UP * 0.25, b + Vector3.DOWN * 0.1)
+	if right.dot(cam.global_position - a) < 0.0:
+		right = -right
+	var back := 3.2 if wide else 1.9
+	cine_on(a - d * back + right * (1.3 if wide else 0.85) + Vector3.UP * (0.8 if wide else 0.25), b + Vector3.DOWN * (0.3 if wide else 0.1))
 
 func zoom_by(f: float) -> void:
 	dist_goal = clampf(dist_goal * f, min_dist, max_dist)
@@ -83,16 +95,12 @@ func _process(delta: float) -> void:
 		return
 	if cine:
 		var want_t := Transform3D(Basis(), _cine_pos).looking_at(_cine_look, Vector3.UP)
-		var k := clampf(delta * 4.0, 0.0, 1.0)
-		cam.global_transform = cam.global_transform.interpolate_with(want_t, k)
-		return
-	if _cine_back > 0.0:
+		ccam.global_transform = ccam.global_transform.interpolate_with(want_t, clampf(delta * 4.0, 0.0, 1.0))
+	elif _cine_back > 0.0 and ccam:
 		_cine_back -= delta
-		var arm_t := arm.global_transform.translated_local(Vector3(0, 0, arm.get_hit_length()))
-		cam.global_transform = cam.global_transform.interpolate_with(arm_t, clampf(delta * 6.0, 0.0, 1.0))
+		ccam.global_transform = ccam.global_transform.interpolate_with(cam.global_transform, clampf(delta * 7.0, 0.0, 1.0))
 		if _cine_back <= 0.0:
-			cam.top_level = false
-			cam.transform = Transform3D.IDENTITY
+			cam.current = true
 	var want := target.global_position + Vector3.UP * 1.45
 	_focus = _focus.lerp(want, clampf(delta * 10.0, 0, 1))
 	global_position = _focus

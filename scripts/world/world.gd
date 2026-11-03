@@ -104,6 +104,10 @@ func _warmup() -> void:
 	Magic.pillar(fxp + Vector3(-2, 0, 2), Color(1, 0.8, 0.4), 4.0, 0.6)
 	Magic.trail(dummy, Color(0.75, 0.55, 1.0))
 	FX._scorch_mark(fxp, 1.5)
+	Juice.onde(fxp, Color(1, 0.8, 0.4), 2.0)
+	Juice.lueur(fxp, Color(1, 0.6, 0.2), 1.5)
+	Juice.arc(fxp, 0.0, 2.0, Color.WHITE)
+	Juice.dust(fxp, 4)
 	FX.impact_light(fxp, Color(1, 0.8, 0.4), 2.0, 4.0)
 	var tele := Telegraph.spawn(self, fxp + Vector3(0, 0, 3), 0.0, "cercle", 1.5, 3.0)
 	views.push_front([fxp + Vector3(0, 4, 12), fxp])
@@ -269,7 +273,7 @@ func _spawn() -> void:
 			GameState.get_inst().reset()
 			Progression.get_inst().reset()
 			Spawner.paused = true
-		if args.size() > 0 and args[0] in ["--vie", "--pouvoirs"]:
+		if args.size() > 0 and args[0] in ["--vie", "--pouvoirs", "--fx"]:
 			GameState.get_inst().reset()
 			Progression.get_inst().reset()
 			GameState.get_inst().story = "libre"
@@ -283,6 +287,10 @@ func _spawn() -> void:
 		var pt = load("res://scripts/tools/powers_test.gd").new()
 		pt.world = self
 		add_child(pt)
+	if args.size() > 0 and args[0] == "--fx":
+		var fx_t = load("res://scripts/tools/fx_test.gd").new()
+		fx_t.world = self
+		add_child(fx_t)
 	if args.size() > 0 and args[0] == "--vie":
 		var lt = load("res://scripts/tools/life_test.gd").new()
 		lt.world = self
@@ -337,7 +345,7 @@ func _process(delta: float) -> void:
 		elif n:
 			hud.btn_talk.label = "Parler à " + String(Talk.info(n)["nom"])
 	var a := OS.get_cmdline_user_args()
-	if "--tour" in a or "--combat" in a or "--story" in a or "--vie" in a or "--pouvoirs" in a:
+	if "--tour" in a or "--combat" in a or "--story" in a or "--vie" in a or "--pouvoirs" in a or "--fx" in a:
 		return
 	_q_acc += delta
 	if _q_acc < 1.0:

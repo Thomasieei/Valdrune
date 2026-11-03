@@ -191,10 +191,7 @@ func _interrogate(m: Node3D, against_wall: bool) -> void:
 			m.cbt.take_damage(999999.0, Combat.player, "magie")})
 	nodes["menu"] = {"who": "pnj", "nom": nom, "text": intro, "choices": choices}
 	if w.get("rig"):
-		var p := Combat.player
-		var mid := (p.global_position + m.global_position) * 0.5
-		var side := (m.global_position - p.global_position).cross(Vector3.UP).normalized()
-		w.rig.cine_on(mid + side * 3.6 + Vector3.UP * 2.2, m.global_position + Vector3.DOWN * 0.7)
+		w.rig.frame_talk(Combat.player, m, true)
 	w.dlg.start({"start": "menu", "nodes": nodes, "fermable": true})
 	if not w.dlg.finished.is_connected(_on_dialog_end):
 		w.dlg.finished.connect(_on_dialog_end)

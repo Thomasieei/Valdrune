@@ -98,8 +98,46 @@ func attack() -> void:
 		_combo = 0
 	_start_swing()
 
+## Ruée : la cible est hors de portée (3,5 à 9 m) → le héros fond sur elle et frappe à l'arrivée
+var _dash_until := 0.0
+var _dash_dir := Vector3.ZERO
+var _dash_speed := 0.0
+var dashes := 0
+func _try_dash() -> bool:
+	if not (Story.done() or GameState.get_inst().flag("tuto_combo")):
+		return false   # pendant le tutoriel d'épée : coups simples, on apprend d'abord le combo
+	_refresh_target(true)
+	if target == null or not Combat.alive(target) or target.peaceful:
+		return false
+	var d: Vector3 = target.global_position - player.global_position
+	d.y = 0.0
+	var dist := d.length()
+	if dist < 3.2 or dist > 9.0:
+		return false
+	var dur := 0.24
+	_dash_dir = d.normalized()
+	_dash_speed = (dist - 1.6) / dur
+	_dash_until = now() + dur
+	player.rotation.y = atan2(_dash_dir.x, _dash_dir.z)
+	player.action("b/Sword_Dash", dur + 0.3, 1.4)
+	_attack_until = now() + dur + 0.35
+	_combo_window = now() + dur + 0.2
+	_hit_at = now() + dur
+	_hit_pending = true
+	_queued = false
+	_dash_hit = true
+	dashes += 1
+	stats["coups"] += 1
+	Magic.trail(player, Color(1.0, 0.9, 0.6), 0.4, "spark_04", 16)
+	Juice.dust(player.global_position, 10, 3.0)
+	Sfx.play("esquive", -2.0)
+	return true
+var _dash_hit := false
+
 func _start_swing() -> void:
 	var c: Dictionary = COMBO[_combo]
+	if _combo == 0 and _try_dash():
+		return
 	_face_target(5.0)
 	player.action(c["anim"], c["dur"], 1.25)
 	_attack_until = now() + c["dur"]
@@ -114,23 +152,40 @@ func _start_swing() -> void:
 
 func _resolve_hit() -> void:
 	var c: Dictionary = COMBO[_combo]
+	var heavy: bool = _combo == 2 or _dash_hit
+	var dash := _dash_hit
+	_dash_hit = false
 	var fwd := player.forward()
 	var origin := player.global_position + Vector3.UP * 1.0
-	FX.slash(origin + fwd * 1.1, player.rotation.y, _combo == 1)
+	var yaw := player.rotation.y
+	# arc de taille : blanc doré, plus large et double sur le coup final ou la ruée
+	Juice.arc(origin + fwd * 0.2, yaw, 2.9 if heavy else 2.4, Color(1.0, 0.92, 0.7, 1.0), 200.0 if heavy else 150.0, 0.36 if heavy else 0.3, 1.1 if _combo != 1 else -1.1, 0.12 if _combo == 1 else -0.08)
+	if heavy:
+		Juice.arc(origin + fwd * 0.2 + Vector3.UP * 0.15, yaw, 2.2, Color(1.0, 0.55, 0.2, 0.9), 140.0, 0.32, 1.3)
+	var reach := 3.4 if heavy else 2.9
 	var hit_any := false
-	for m in Combat.in_radius(player.global_position, 2.9):
+	for m in Combat.in_radius(player.global_position, reach):
 		var d: Vector3 = m.global_position - player.global_position
 		d.y = 0
-		if d.length() < 0.8 or fwd.dot(d.normalized()) > 0.25:
-			var dmg := prog.melee_damage() * float(c["mult"])
+		if d.length() < 0.8 or fwd.dot(d.normalized()) > (0.0 if heavy else 0.25):
+			var dmg := prog.melee_damage() * float(c["mult"]) * (1.35 if dash else 1.0)
 			m.cbt.take_damage(dmg, player)
-			FX.hit_spark(m.global_position + Vector3.UP * 1.0)
+			Juice.impact(m.global_position, Color(1.0, 0.85, 0.5), heavy)
 			hit_any = true
-			if m.cbt.dead == false:
-				m.velocity += d.normalized() * 3.0
+			if not m.cbt.dead and not m.is_boss():
+				if heavy:
+					m.knockback(d.normalized() * 8.0 + Vector3.UP * 4.0)
+					m.stun(0.5, false)
+				else:
+					m.velocity += d.normalized() * 3.5
+	if heavy:
+		Juice.onde(player.global_position + fwd * 1.4, Color(1.0, 0.8, 0.45), 3.2, 0.4)
+		Juice.dust(player.global_position + fwd * 1.4, 12, 4.0)
 	if hit_any:
 		Sfx.play("touche", -2.0)
-		player.shake(0.12 if _combo < 2 else 0.25)
+		if heavy:
+			Sfx.play("lourd", -4.0)
+		player.shake(0.14 if not heavy else 0.32)
 
 # ------------------------------------------------------------------ ESQUIVE
 func dodge() -> void:
@@ -302,8 +357,24 @@ func _effect(id: String) -> void:
 			bolt.dir = player.forward()
 			FX.root.add_child(bolt)
 			bolt.global_position = player.global_position + Vector3.UP * 1.35 + player.forward() * 0.8
+			# pleine puissance : deux comètes supplémentaires vers les ennemis voisins
+			if c >= 0.95:
+				var extra := Combat.in_radius(player.global_position, float(d["portee"])).filter(func(m): return m != bolt.target and not m.peaceful)
+				for k in mini(2, extra.size()):
+					var b2 := Projectile.new()
+					b2.damage = power * 0.6
+					b2.splash = bolt.splash * 0.7
+					b2.charge = 0.6
+					b2.source = player
+					b2.target = extra[k]
+					b2.dir = (player.forward() + player.global_transform.basis.x * (1.0 if k == 0 else -1.0) * 0.6).normalized()
+					FX.root.add_child(b2)
+					b2.global_position = player.global_position + Vector3.UP * 1.6 + player.global_transform.basis.x * (0.8 if k == 0 else -0.8)
 			Sfx.play("feu", -4.0 + 4.0 * c, 0.05)
 			player.shake(0.1 + 0.25 * c)
+			# souffle au départ : cercle de feu sous le lanceur et gerbe de braises
+			Juice.onde(player.global_position, Color(1.0, 0.55, 0.15), 1.8 + 1.6 * c, 0.3)
+			Magic.sparks(bolt.global_position, Color(1.0, 0.7, 0.3), 10 + int(14 * c), 5.0, 0.4)
 		"egide":
 			player.action("Spell_Simple_Shoot", 0.4, 1.0)
 			player.cbt.give_shield(power, float(d["duree"]) * (1.0 + 0.5 * c))
@@ -311,6 +382,8 @@ func _effect(id: String) -> void:
 				_shield_fx.queue_free()
 			_shield_fx = FX.shield(player)
 			Sfx.play("bouclier", -6.0)
+			Juice.onde(player.global_position, Color(0.5, 0.85, 1.0), 2.6 + 2.0 * c, 0.4)
+			Juice.lueur(player.global_position, Color(0.5, 0.8, 1.0), 2.0, 0.6, 0.7)
 			if c >= 0.6:
 				# égide chargée : l'onde repousse les ennemis proches
 				FX.shockwave(player.global_position, 3.5 + 2.0 * c)
@@ -325,6 +398,10 @@ func _effect(id: String) -> void:
 			var r := float(d["portee"]) * (1.0 + 0.5 * c)
 			FX.frost_nova(player.global_position, r)
 			FX.shockwave(player.global_position, r * 0.8)
+			Juice.onde(player.global_position, Color(0.65, 0.9, 1.0), r * 1.1, 0.45)
+			Juice.onde(player.global_position, Color(1.0, 1.0, 1.0), r * 0.7, 0.3)
+			Juice.lueur(player.global_position, Color(0.5, 0.8, 1.0), r * 0.9, 0.7, 0.8)
+			Juice.dust(player.global_position, 14, 4.0, Color(0.85, 0.92, 1.0))
 			Sfx.play("givre", -3.0 + 3.0 * c)
 			Sfx.play("lourd", -8.0 + 4.0 * c)
 			player.shake(0.25 + 0.3 * c)
@@ -356,6 +433,10 @@ func _effect(id: String) -> void:
 						get_tree().create_timer(0.8 * (k + 1)).timeout.connect(func(): if Combat.alive(tgt): tgt.cbt.take_damage(power * 0.5, player, "magie"))
 				Sfx.play("racines", -2.0)
 				player.shake(0.1 + 0.2 * c)
+				for v in victims:
+					Juice.onde(v.global_position, Color(0.45, 1.0, 0.45), 2.4, 0.4)
+					Juice.lueur(v.global_position, Color(0.35, 0.9, 0.35), 1.6, 1.2, 0.6)
+					Juice.dust(v.global_position, 10, 3.0, Color(0.5, 0.4, 0.3))
 		_:
 			Powers.exec(self, id, power, c, _aim_used)
 
@@ -510,6 +591,8 @@ func _process(delta: float) -> void:
 		prog.save_if_dirty()
 
 func dodge_velocity() -> Vector3:
+	if now() < _dash_until:
+		return _dash_dir * _dash_speed
 	if now() < _dodge_until:
 		return _dodge_dir * 9.0
 	return Vector3.INF
