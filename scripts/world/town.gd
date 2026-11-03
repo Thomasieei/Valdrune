@@ -86,12 +86,16 @@ static func _forge(p: BourgPlan, props: Node3D) -> void:
 	# sol de pierre et socle
 	g.obox("pierre_base", Transform3D(b, L.call(Vector3(0, -0.35, 0))), Vector3(11.6, 0.7, 8.4), true)
 	g.obox("dallage", Transform3D(b, L.call(Vector3(0, 0.01, 0))), Vector3(11.4, 0.04, 8.2), false)
+	g.obox("dallage", Transform3D(b, L.call(Vector3(0, -0.06, 5.6))), Vector3(11.4, 0.2, 3.2), false)
 	# murs : fond et côtés en moellons, façade ouverte sur trois piliers de pierre
+	# murs de moellons, parement de pierre à l'intérieur comme à l'extérieur
 	for k in 5:
-		p.mk.add("Wall_UnevenBrick_" + ("Window_Wide_Flat" if k == 3 else "Straight"), Transform3D(b * Basis(Vector3.UP, PI), L.call(Vector3(-4.0 + k * 2.0, 0, -4.0))), tint)
+		p.mk.add("Wall_UnevenBrick_Straight", Transform3D(b * Basis(Vector3.UP, PI), L.call(Vector3(-4.0 + k * 2.0, 0, -4.0))), tint)
+		p.mk.add("Wall_UnevenBrick_Straight", Transform3D(b, L.call(Vector3(-4.0 + k * 2.0, 0, -3.6))), tint)
 	for sd in [-1.0, 1.0]:
 		for k in 4:
-			p.mk.add("Wall_UnevenBrick_Straight", Transform3D(b * Basis(Vector3.UP, sd * PI / 2.0), L.call(Vector3(sd * 5.0, 0, -3.0 + k * 2.0))), tint)
+			p.mk.add("Wall_UnevenBrick_" + ("Window_Wide_Flat" if k == 2 else "Straight"), Transform3D(b * Basis(Vector3.UP, sd * PI / 2.0), L.call(Vector3(sd * 5.0, 0, -3.0 + k * 2.0))), tint)
+			p.mk.add("Wall_UnevenBrick_Straight", Transform3D(b * Basis(Vector3.UP, -sd * PI / 2.0), L.call(Vector3(sd * 4.6, 0, -3.0 + k * 2.0))), tint)
 		p.mk.col_box(Transform3D(b, L.call(Vector3(sd * 5.1, 1.5, 0))), Vector3(0.3, 3.0, 8.0))
 	p.mk.col_box(Transform3D(b, L.call(Vector3(0, 1.5, -4.1))), Vector3(10.0, 3.0, 0.3))
 	for x in [-5.0, -1.7, 1.7, 5.0]:
@@ -103,25 +107,31 @@ static func _forge(p: BourgPlan, props: Node3D) -> void:
 	for sd in [-1.0, 1.0]:
 		p.mk.add("Roof_Front_Brick8", Transform3D(b * Basis(Vector3.UP, sd * PI / 2.0), L.call(Vector3(sd * 5.0, 3.3, 0))), tint)
 	# fourneau sous une haute cheminée de pierre (coin arrière gauche)
-	var fq := Vector3(-3.3, 0, -2.6)
+	var fq := Vector3(0.0, 0, -2.5)
 	g.box("pierre_base", L.call(fq + Vector3(0, 0.75, 0)), Vector3(2.6, 1.5, 2.0), rot, true)
 	g.box("braise", L.call(fq + Vector3(0, 0.95, 1.01)), Vector3(1.2, 0.6, 0.04), rot, false)
 	g.box("braise", L.call(fq + Vector3(0, 1.52, 0.2)), Vector3(1.6, 0.05, 1.2), rot, false)
 	g.box("pierre_base", L.call(fq + Vector3(0, 2.6, -0.3)), Vector3(2.2, 2.2, 1.4), rot, false)
-	g.box("pierre_base", L.call(fq + Vector3(0, 6.4, -0.5)), Vector3(1.5, 5.4, 1.2), rot, false)
-	g.box("pierre_claire", L.call(fq + Vector3(0, 9.15, -0.5)), Vector3(1.8, 0.2, 1.5), rot, false)
+	g.box("pierre_base", L.call(fq + Vector3(0, 7.0, -0.5)), Vector3(1.6, 6.6, 1.3), rot, false)
+	g.box("pierre_claire", L.call(fq + Vector3(0, 10.35, -0.5)), Vector3(1.9, 0.25, 1.6), rot, false)
+	g.box("braise", L.call(fq + Vector3(0, 10.5, -0.5)), Vector3(1.0, 0.06, 0.8), rot, false)
+	# hotte en encorbellement et blason du marteau
+	g.box("pierre_claire", L.call(fq + Vector3(0, 2.0, 0.55)), Vector3(2.9, 0.2, 0.5), rot, false)
+	g.box("bois_sombre", L.call(fq + Vector3(0, 3.0, 0.62)), Vector3(1.1, 1.0, 0.06), rot, false)
+	g.box("or", L.call(fq + Vector3(0, 3.05, 0.66)), Vector3(0.5, 0.14, 0.04), rot, false)
+	g.box("or", L.call(fq + Vector3(0.12, 2.85, 0.66)), Vector3(0.12, 0.45, 0.04), rot, false)
 	# soufflet de cuir
-	g.obox("bois_sombre", Transform3D(b, L.call(fq + Vector3(1.75, 0.65, 0.2))), Vector3(0.9, 0.12, 1.4), false)
-	g.obox("tissu_rouge", Transform3D(b * Basis(Vector3.RIGHT, 0.18), L.call(fq + Vector3(1.75, 0.85, 0.2))), Vector3(0.85, 0.3, 1.3), false)
-	g.box("bois_sombre", L.call(fq + Vector3(1.75, 0.3, 0.2)), Vector3(0.3, 0.6, 0.3), rot, true)
+	g.obox("bois_sombre", Transform3D(b, L.call(fq + Vector3(2.05, 0.65, 0.2))), Vector3(0.9, 0.12, 1.4), false)
+	g.obox("tissu_rouge", Transform3D(b * Basis(Vector3.RIGHT, 0.18), L.call(fq + Vector3(2.05, 0.85, 0.2))), Vector3(0.85, 0.3, 1.3), false)
+	g.box("bois_sombre", L.call(fq + Vector3(2.05, 0.3, 0.2)), Vector3(0.3, 0.6, 0.3), rot, true)
 	# deux enclumes sur billots
-	for aq in [Vector3(-0.6, 0, -0.4), Vector3(1.8, 0, -1.2)]:
+	for aq in [Vector3(0.0, 0, -0.3), Vector3(-2.6, 0, -0.7)]:
 		g.box("bois_sombre", L.call(aq + Vector3(0, 0.35, 0)), Vector3(0.7, 0.7, 0.7), rot, true)
 		g.box("fer", L.call(aq + Vector3(0, 0.82, 0)), Vector3(0.95, 0.24, 0.38), rot, false)
 		g.box("fer", L.call(aq + Vector3(0.55, 0.86, 0)), Vector3(0.3, 0.12, 0.18), rot, false)
 	# bac de trempe
-	g.box("pierre_base", L.call(Vector3(-0.8, 0.35, -2.9)), Vector3(1.8, 0.7, 0.9), rot, true)
-	g.box("fenetre_sombre", L.call(Vector3(-0.8, 0.68, -2.9)), Vector3(1.5, 0.04, 0.65), rot, false)
+	g.box("pierre_base", L.call(Vector3(-2.9, 0.35, -2.85)), Vector3(1.8, 0.7, 0.9), rot, true)
+	g.box("fenetre_sombre", L.call(Vector3(-2.9, 0.68, -2.85)), Vector3(1.5, 0.04, 0.65), rot, false)
 	# meule à aiguiser
 	var wheel := MeshInstance3D.new()
 	var cm := CylinderMesh.new()
@@ -132,16 +142,24 @@ static func _forge(p: BourgPlan, props: Node3D) -> void:
 	wheel.mesh = cm
 	wheel.material_override = Geo.mat("pierre_claire")
 	props.add_child(wheel)
-	wheel.global_transform = Transform3D(b * Basis(Vector3.FORWARD, PI / 2.0), L.call(Vector3(3.9, 0.75, -2.6)))
-	g.box("bois_sombre", L.call(Vector3(3.9, 0.35, -2.6)), Vector3(0.9, 0.7, 0.3), rot, true)
+	wheel.global_transform = Transform3D(b * Basis(Vector3.FORWARD, PI / 2.0), L.call(Vector3(-3.9, 0.75, 1.2)))
+	g.box("bois_sombre", L.call(Vector3(-3.9, 0.35, 1.2)), Vector3(0.9, 0.7, 0.3), rot, true)
 	# râteliers, armes et boucliers exposés, charbon, bois, caisses
 	Kit.dungeon(props, "WeaponRack_Big", L.call(Vector3(4.4, 0, -0.6)), rot - PI / 2.0, 0.9)
 	Kit.dungeon(props, "WeaponRack_Small", L.call(Vector3(4.4, 0, 1.4)), rot - PI / 2.0, 0.9)
-	for k in 3:
-		Kit.dungeon(props, "Shield", L.call(Vector3(-1.0 + k * 1.3, 1.6, -3.8)), rot, 0.8)
-	Kit.dungeon(props, "Sword", L.call(Vector3(2.5, 1.9, -3.82)), rot, 1.3).rotation_degrees.z = 90.0
-	Kit.dungeon(props, "Spear", L.call(Vector3(3.4, 1.6, -3.82)), rot, 1.0)
-	Kit.dungeon(props, "FirewoodStack", L.call(Vector3(-4.3, 0, 0.6)), rot + PI / 2.0, 1.0)
+	# panoplie au mur du fond : boucliers et épées en croix de part et d'autre du fourneau, torches
+	for sx in [-1.0, 1.0]:
+		Kit.dungeon(props, "Shield", L.call(Vector3(sx * 2.9, 2.1, -3.42)), rot, 0.85)
+		for sg in [-1.0, 1.0]:
+			var sw := Kit.dungeon(props, "Sword", L.call(Vector3(sx * 2.9, 1.9, -3.38)), rot, 1.3)
+			sw.rotation = Vector3(0, rot, sg * 0.75)
+		Kit.dungeon(props, "Torch_Wall", L.call(Vector3(sx * 1.9, 2.0, -3.4)), rot, 1.2)
+	Kit.dungeon(props, "Spear", L.call(Vector3(4.2, 1.6, -3.4)), rot, 1.0)
+	Kit.dungeon(props, "Spear", L.call(Vector3(3.9, 1.6, -3.4)), rot, 1.0)
+	Kit.dungeon(props, "FirewoodStack", L.call(Vector3(-4.0, 0, -1.4)), rot + PI / 2.0, 1.0)
+	Kit.dungeon(props, "Banner", L.call(Vector3(0, 2.6, 4.25)), rot, 1.1)
+	for x in [-5.0, 5.0]:
+		Kit.village(props, "Wall_Prop_Lamp", L.call(Vector3(x, 2.4, 4.4)), rot, 1.1)
 	for k in 4:
 		g.box("fenetre_sombre", L.call(Vector3(-4.4 + (k % 2) * 0.5, 0.15 + (k / 2) * 0.22, 2.2 + (k % 2) * 0.3)), Vector3(0.5, 0.3, 0.45), rot + k, false)
 	Kit.dungeon(props, "Barrel_Open", L.call(Vector3(-4.3, 0, 3.0)), 0.3, 1.0)
@@ -159,19 +177,19 @@ static func _forge(p: BourgPlan, props: Node3D) -> void:
 	var fx := Node3D.new()
 	fx.name = "ForgeFX"
 	fx.set_script(load("res://scripts/world/bourg/forge_fx.gd"))
-	fx.set("anvil", L.call(Vector3(-0.6, 0.95, -0.4)))
+	fx.set("anvil", L.call(Vector3(0.0, 0.95, -0.3)))
 	fx.set("furnace", L.call(fq + Vector3(0, 1.0, 0.9)))
-	fx.set("chimney", L.call(fq + Vector3(0, 9.4, -0.5)))
-	fx.set("trough", L.call(Vector3(-0.8, 0.75, -2.9)))
+	fx.set("chimney", L.call(fq + Vector3(0, 10.6, -0.5)))
+	fx.set("trough", L.call(Vector3(-2.9, 0.75, -2.85)))
 	props.get_parent().add_child.call_deferred(fx)
 	p.boxes.append([c, Vector2(5.8, 4.2), rot])
 	houses.append([c, 7.5])
 	specials["forge"] = [c + face * 4.2, face]
 	specials["forge_feu"] = L.call(fq + Vector3(0, 1.2, 0.6))
-	specials["forgeron"] = L.call(Vector3(-0.6, 0.0, 0.45))
+	specials["forgeron"] = L.call(Vector3(0.0, 0.0, 0.55))
 	specials["forge_rot"] = rot
 	specials["armuriere"] = L.call(Vector3(3.2, 0.0, 1.45))
-	specials["apprenti"] = L.call(fq + Vector3(1.75, 0.0, 1.0))
+	specials["apprenti"] = L.call(fq + Vector3(2.05, 0.0, 1.0))
 
 ## Marché : 4 étals rayés autour du puits (les marchands se placent derrière, cf. Talk), bancs, lanternes
 static func _market(p: BourgPlan, props: Node3D) -> void:
@@ -316,6 +334,8 @@ static func _villageois(parent: Node3D, rng: RandomNumberGenerator) -> void:
 		v.set_meta("place_fixe", true)
 		if t.size() > 4:
 			v.set_meta("talk", t[4])
+		elif String(t[1]).begins_with("Sitting"):
+			Bagarre.register(v, t[0], t[3], t[1])
 	# lavandières au lavoir, accroupies au bord du bassin
 	if plan.specials.has("lavoir"):
 		var lv: Dictionary = plan.specials["lavoir"]

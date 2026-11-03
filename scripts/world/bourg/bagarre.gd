@@ -63,6 +63,7 @@ func _process(delta: float) -> void:
 
 func _start() -> void:
 	var men := clients.filter(func(c): return is_instance_valid(c[0]) and c[0].is_in_group("pnj") and not bool(c[0].spec.get("female", false)) and not c[0].captive)
+	print("[taverne] bagarre : %d clients, %d hommes disponibles" % [clients.size(), men.size()])
 	if men.size() < 2:
 		return
 	men.shuffle()
