@@ -136,7 +136,7 @@ func _report() -> void:
 	var w := Justice.world()
 	if w and w.get("dlg"):
 		w.dlg.start({"start": "r", "nodes": nodes, "fermable": true})
-	if _n is Villager:
+	if is_instance_valid(_n) and _n is Villager:
 		(_n as Villager).captive = false
 	_phase = ""
 	_n = null

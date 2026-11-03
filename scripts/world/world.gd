@@ -414,6 +414,8 @@ func _notification(what: int) -> void:
 func _cull_npcs() -> void:
 	var pp := player.global_position
 	for n in get_tree().get_nodes_in_group("pnj"):
+		if not is_instance_valid(n) or n.is_queued_for_deletion():
+			continue
 		var inside_keep: bool = n.global_position.y > Castle.FLOOR - 0.2 and n.global_position.y < Castle.FLOOR + 3.0 and Layout.in_castle(Vector2(n.global_position.x, n.global_position.z)) and n.global_position.z < Castle.K_MAX.y and n.global_position.z > Castle.K_MIN.y and absf(n.global_position.x) < Castle.K_MAX.x
 		var d := pp.distance_to(n.global_position)
 		var show: bool = d < (52.0 if n is Villager else 65.0) and inside_keep == _inside
