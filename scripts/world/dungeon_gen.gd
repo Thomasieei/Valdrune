@@ -5,8 +5,8 @@ class_name DungeonGen
 ## murs fusionnés par longueurs (peu de collisions), une lumière par salle.
 
 const CELL := 4.0
-const W := 30
-const H := 30
+const W := 32
+const H := 32
 const WALL_H := 4.6
 
 var B: Vector3
@@ -52,29 +52,33 @@ func plan(seed_v: int) -> void:
 	grid.resize(W * H)
 	grid.fill(0)
 	rooms.clear()
-	_room(4, 24, 5, 5, "depart")
-	var N := [[11, 23], [21, 23], [11, 14], [21, 14]]
-	var types := ["armurerie", "bibliotheque", "refectoire", "crypte"]
+	_room(3, 24, 4, 5, "depart")
+	var N := [[10, 24], [18, 24], [26, 24], [10, 14], [18, 14], [26, 14]]
+	var types := ["armurerie", "bibliotheque", "refectoire", "crypte", "caserne", "ossuaire"]
 	for i in range(types.size() - 1, 0, -1):
 		var j := rng.randi_range(0, i)
 		var tmp = types[i]
 		types[i] = types[j]
 		types[j] = tmp
-	for i in 4:
+	for i in 6:
 		_room(N[i][0], N[i][1], rng.randi_range(5, 6), rng.randi_range(5, 6), types[i])
-	_room(21, 4, 9, 7, "boss")
-	_corridor(4, 24, 11, 24)
-	_corridor(11, 23, 21, 23)
-	_corridor(11, 23, 11, 14)
-	_corridor(21, 23, 21, 14)
+	_room(18, 4, 9, 7, "boss")
+	_corridor(3, 24, 10, 24)
+	_corridor(10, 24, 18, 24)
+	_corridor(18, 24, 26, 24)
+	_corridor(10, 24, 10, 14)
+	_corridor(26, 24, 26, 14)
+	_corridor(18, 14, 26, 14)
 	if rng.randf() < 0.6:
-		_corridor(11, 14, 21, 14)
-	_corridor(21, 14, 21, 4)
-	# crypte cachée : passage étroit vers l'ouest depuis la salle (11,14), fermé par un mur fissuré
-	var n: Dictionary = rooms[3]
-	_room(3, 13, 4, 4, "cachette", 3)
+		_corridor(10, 14, 18, 14)
+	else:
+		_corridor(18, 24, 18, 14)
+	_corridor(18, 14, 18, 4)
+	# crypte cachée : passage étroit vers l'ouest depuis la salle (10,14), fermé par un mur fissuré
+	var n: Dictionary = rooms[4]
+	_room(2, 13, 3, 4, "cachette", 3)
 	var xw: int = n["x0"]
-	for x in range(5, xw):
+	for x in range(4, xw):
 		_mark(x, 13, 4)
 	crack = {"pos": cell_pos(xw - 0.5, 13), "rot": PI / 2.0}
 
@@ -136,7 +140,7 @@ func build(root: Node3D, col: Color) -> void:
 		var sz: float = r["tz"] * CELL
 		g.box("pierre_base", c + Vector3(0, 0.02, 0), Vector3(sx - 1.0, 0.04, sz - 1.0), 0.0, false)
 	for r in rooms:
-		if r["type"] in ["armurerie", "bibliotheque", "refectoire", "crypte", "depart"]:
+		if r["type"] in ["armurerie", "bibliotheque", "refectoire", "crypte", "caserne", "ossuaire", "depart"]:
 			var c: Vector3 = r["c"]
 			var hx: float = r["tx"] * CELL * 0.5 - 1.2
 			var hz: float = r["tz"] * CELL * 0.5 - 1.2
@@ -254,6 +258,14 @@ func decorate(root: Node3D, r: Dictionary) -> void:
 				for k in 3:
 					Kit.dungeon(root, ["Mug", "Bread", "Bowl_Full"][k], tq + Vector3(0, 0.82, (k - 1) * 0.7), 0.0, 1.0)
 			along.call(["Barrel_Big", "Oven", "Barrel_Big"], -1)
+		"caserne":
+			along.call(["WeaponRack_Big", "Barrel_Closed", "WeaponRack_Big"], -1)
+			for k in 3:
+				Kit.dungeon(root, "Bench", c + Vector3((k - 1) * 3.0, 0, hz * 0.5), 0.0, 1.0)
+		"ossuaire":
+			for k in 10:
+				Kit.dungeon(root, ["Skull", "Bone"][k % 2], c + Vector3(rng.randf_range(-hx, hx), 0, -hz + rng.randf() * 1.5), rng.randf() * TAU, 1.4)
+			along.call(["Candlestick_Triple", "Cauldron_Full", "Candlestick_Triple"], 1)
 		"crypte":
 			for i in 3:
 				var q := c + Vector3((i - 1) * 3.2, 0, -hz * 0.5)

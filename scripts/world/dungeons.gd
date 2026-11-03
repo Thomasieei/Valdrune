@@ -6,12 +6,12 @@ extends Node
 ## (autour du feu, attablés, en rituel) qui se réveillent à l'approche, un gardien, un coffre, la sortie.
 
 const RANKS := {
-	"E": {"col": Color(0.6, 0.9, 0.6), "kinds": ["puglin", "bandit"], "boss": "chef_bandit", "mult": 1.0, "or": 80},
-	"D": {"col": Color(0.4, 0.75, 1.0), "kinds": ["bandit", "lanceur"], "boss": "chef_bandit", "mult": 1.4, "or": 140},
-	"C": {"col": Color(0.6, 0.5, 1.0), "kinds": ["mercenaire", "zombie"], "boss": "lieutenant", "mult": 1.9, "or": 220},
-	"B": {"col": Color(1.0, 0.85, 0.3), "kinds": ["mercenaire", "lanceur", "zombie"], "boss": "colosse", "mult": 2.5, "or": 350},
-	"A": {"col": Color(1.0, 0.5, 0.2), "kinds": ["imp", "imp_brute", "mercenaire"], "boss": "colosse", "mult": 3.3, "or": 520},
-	"S": {"col": Color(1.0, 0.25, 0.25), "kinds": ["imp_brute", "mercenaire", "lieutenant"], "boss": "colosse", "mult": 4.5, "or": 800},
+	"E": {"col": Color(0.6, 0.9, 0.6), "kinds": ["puglin", "bandit"], "boss": "chef_de_guerre", "mult": 1.0, "or": 80},
+	"D": {"col": Color(0.4, 0.75, 1.0), "kinds": ["bandit", "lanceur"], "boss": "chef_de_guerre", "mult": 1.4, "or": 140},
+	"C": {"col": Color(0.6, 0.5, 1.0), "kinds": ["mercenaire", "zombie"], "boss": "seigneur_os", "mult": 1.9, "or": 220},
+	"B": {"col": Color(1.0, 0.85, 0.3), "kinds": ["mercenaire", "lanceur", "zombie"], "boss": "brute_infernale", "mult": 2.5, "or": 350},
+	"A": {"col": Color(1.0, 0.5, 0.2), "kinds": ["imp", "imp_brute", "mercenaire"], "boss": "seigneur_os", "mult": 3.3, "or": 520},
+	"S": {"col": Color(1.0, 0.25, 0.25), "kinds": ["imp_brute", "mercenaire", "lieutenant"], "boss": "brute_infernale", "mult": 4.5, "or": 800},
 	"SS": {"col": Color(0.95, 0.3, 1.0), "kinds": ["imp_brute", "lieutenant", "colosse"], "boss": "colosse", "mult": 6.0, "or": 1300},
 }
 const SPOTS := [Vector2(-95, 60), Vector2(120, 100), Vector2(-150, -80), Vector2(200, -40), Vector2(60, 170), Vector2(-40, 190), Vector2(150, -190), Vector2(-200, 120), Vector2(-180, -40), Vector2(100, 200), Vector2(-250, 0), Vector2(230, -120), Vector2(-120, 240), Vector2(0, 140), Vector2(-60, -110), Vector2(250, 60)]
@@ -249,15 +249,20 @@ func _build(d: Dictionary) -> void:
 	var kinds: Array = R["kinds"]
 	var mult := float(R["mult"])
 	_scenes.clear()
-	var scene_kinds := {"armurerie": "garde", "bibliotheque": "table", "refectoire": "table", "crypte": "feu"}
+	var scene_kinds := {"armurerie": "garde", "bibliotheque": "table", "refectoire": "table", "crypte": "feu", "caserne": "garde", "ossuaire": "feu"}
+	var elite_room := mult >= 2.5   # rang B et plus : un lieutenant garde une des salles
 	for r in _gen.rooms:
-		if r["type"] in ["armurerie", "bibliotheque", "refectoire", "crypte"]:
+		if r["type"] in scene_kinds:
 			_gen.decorate(_root, r)
 			if r["type"] == "crypte" or r["type"] == "armurerie":
 				Kit.dungeon(_root, "Firewood", r["c"], 0.0, 1.4)
 			_scene(r["c"], kinds, 3 + (1 if mult >= 1.9 else 0), scene_kinds[r["type"]], mult)
+			if elite_room and r["type"] == "caserne":
+				var lt := _monster("lieutenant", r["c"] + Vector3(0, 0, -3), mult)
+				lt.peaceful = true
+				(_scenes[-1]["m"] as Array).append(lt)
 	# le gardien endormi au pied de son estrade, son trésor scellé à côté du trône
-	_boss = _monster(String(R["boss"]), _gen.boss_spot, mult * 1.8)
+	_boss = _monster(String(R["boss"]), _gen.boss_spot, mult)
 	_boss.peaceful = true
 	_boss.def = _boss.def.duplicate(true)       # phase 2 : on modifie SA copie, jamais la définition commune
 	_boss.leash = 60.0
@@ -326,8 +331,9 @@ func _inside_tick() -> void:
 		sc["m"] = ms
 		if sc["awake"] or ms.is_empty():
 			continue
-		var reach := 13.0 if sc["boss"] else 10.0
-		if p.global_position.distance_to(sc["c"]) < reach:
+		var reach := 15.0 if sc["boss"] else 10.0
+		var hit: bool = ms.any(func(m): return not m.peaceful or m.cbt.hp < m.cbt.max_hp)   # frappé de loin : il s'éveille aussi
+		if p.global_position.distance_to(sc["c"]) < reach or hit:
 			sc["awake"] = true
 			if sc["boss"]:
 				_awaken(ms[0])
@@ -370,6 +376,8 @@ func _inside_tick() -> void:
 
 ## Réveil du gardien : plan de cinéma, rugissement, nom en grand
 func _awaken(b: Node3D) -> void:
+	if _boss_phase > 0:
+		return
 	_boss_phase = 1
 	b._ap.speed_scale = 1.0
 	var w := get_parent()

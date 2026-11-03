@@ -173,7 +173,7 @@ func _donjon() -> void:
 	await _shot("depart")
 	var cam := Camera3D.new()
 	world.add_child(cam)
-	var c: Vector3 = Dungeons.B + Vector3(15 * DungeonGen.CELL, 70, 16 * DungeonGen.CELL)
+	var c: Vector3 = Dungeons.B + Vector3(16 * DungeonGen.CELL, 80, 16 * DungeonGen.CELL)
 	cam.global_position = c
 	cam.look_at(c + Vector3(0, -70, -0.01), Vector3.UP)
 	cam.current = true
@@ -194,3 +194,10 @@ func _donjon() -> void:
 	for i in 60:
 		await get_tree().process_frame
 	await _shot("eveil")
+	var b: Node3D = dg._boss
+	print("gardien ", b.def["nom"], " pv ", b.cbt.max_hp, " phase ", dg._boss_phase)
+	b.cbt.take_damage(b.cbt.max_hp * 0.55, p, "magie")
+	for i in 40:
+		await get_tree().process_frame
+	print("phase après 55 % : ", dg._boss_phase)
+	await _shot("enrage")
