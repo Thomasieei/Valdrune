@@ -109,8 +109,10 @@ static func _forge(p: BourgPlan, props: Node3D) -> void:
 	# fourneau sous une haute cheminée de pierre (coin arrière gauche)
 	var fq := Vector3(0.0, 0, -2.5)
 	g.box("pierre_base", L.call(fq + Vector3(0, 0.75, 0)), Vector3(2.6, 1.5, 2.0), rot, true)
-	g.box("braise", L.call(fq + Vector3(0, 0.95, 1.01)), Vector3(1.2, 0.6, 0.04), rot, false)
-	g.box("braise", L.call(fq + Vector3(0, 1.52, 0.2)), Vector3(1.6, 0.05, 1.2), rot, false)
+	# gueule du fourneau : voûte sombre et braise au fond (pas un panneau plat)
+	g.box("fenetre_sombre", L.call(fq + Vector3(0, 0.9, 1.0)), Vector3(1.0, 0.7, 0.04), rot, false)
+	g.box("braise", L.call(fq + Vector3(0, 0.62, 0.75)), Vector3(0.8, 0.12, 0.45), rot, false)
+	g.box("pierre_claire", L.call(fq + Vector3(0, 1.32, 1.02)), Vector3(1.3, 0.14, 0.1), rot, false)
 	g.box("pierre_base", L.call(fq + Vector3(0, 2.6, -0.3)), Vector3(2.2, 2.2, 1.4), rot, false)
 	g.box("pierre_base", L.call(fq + Vector3(0, 7.0, -0.5)), Vector3(1.6, 6.6, 1.3), rot, false)
 	g.box("pierre_claire", L.call(fq + Vector3(0, 10.35, -0.5)), Vector3(1.9, 0.25, 1.6), rot, false)
@@ -157,7 +159,8 @@ static func _forge(p: BourgPlan, props: Node3D) -> void:
 	Kit.dungeon(props, "Spear", L.call(Vector3(4.2, 1.6, -3.4)), rot, 1.0)
 	Kit.dungeon(props, "Spear", L.call(Vector3(3.9, 1.6, -3.4)), rot, 1.0)
 	Kit.dungeon(props, "FirewoodStack", L.call(Vector3(-4.0, 0, -1.4)), rot + PI / 2.0, 1.0)
-	Kit.dungeon(props, "Banner", L.call(Vector3(0, 2.6, 4.25)), rot, 1.1)
+	for x in [-5.0, 5.0]:
+		Kit.dungeon(props, "Banner", L.call(Vector3(x, 2.5, 4.4)), rot, 0.9)
 	for x in [-5.0, 5.0]:
 		Kit.village(props, "Wall_Prop_Lamp", L.call(Vector3(x, 2.4, 4.4)), rot, 1.1)
 	for k in 4:

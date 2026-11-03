@@ -70,10 +70,10 @@ static func mat(name: String) -> Material:
 			m.emission = Color(0.62, 0.74, 0.90)
 			m.emission_energy_multiplier = 0.55
 		"braise":
-			m.albedo_color = Color(1.0, 0.45, 0.12)
+			m.albedo_color = Color(0.5, 0.12, 0.03)
 			m.emission_enabled = true
-			m.emission = Color(1.0, 0.38, 0.08)
-			m.emission_energy_multiplier = 2.6
+			m.emission = Color(1.0, 0.3, 0.05)
+			m.emission_energy_multiplier = 1.6
 		"fenetre_sombre":
 			m.albedo_color = Color(0.09, 0.08, 0.10)
 			m.roughness = 1.0
