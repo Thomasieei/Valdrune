@@ -7,7 +7,11 @@ forêts, rivière, lac, mine, portail vers le royaume des nains).
 - `scripts/world/layout.gd` : **plan du royaume** (relief, routes, rivière, zones réservées) — source unique
 - `scripts/world/terrain.gd` : sol, collision, eau · `roads.gd` : route pavée et ponts
 - `scripts/world/castle.gd` : château + donjon (salle du trône, conseil, bibliothèque, armurerie, trésorerie)
-- `scripts/world/town.gd` : bourg (maisons à colombages, marché) · `fields.gd` : champs évolutifs
+- `scripts/world/town.gd` : assemble le bourg et sa vie (marché, forge, habitants) · `fields.gd` : champs évolutifs
+- `scripts/world/bourg/` : **bourg de Valmont en MegaKit** — `plan.gd` (tracé des rues, rangées de maisons mitoyennes,
+  trottoirs, place, impasse), `bourg.gd` (maison modulaire : colombages, encorbellement, balcon, pignon/gouttereau),
+  `mk.gd` (pièces fusionnées par matériau + niveaux de détail), `deco.gd` (arrière-cours, intérieurs visitables),
+  `repaire.gd` (grands repaires de bandits : salle commune visitable, cabanes, tours de guet, coffres)
 - `scripts/world/places.gd` : ferme/moulin, bûcherons, mine/gisements, ponton, portail, falaises
 - `scripts/world/vegetation.gd` : forêts et rochers (MultiMesh par bloc)
 - `scripts/player/` : joueur, caméra, commandes tactiles · `scripts/npc/` : gardes, villageois, paysans
@@ -25,6 +29,8 @@ forêts, rivière, lac, mine, portail vers le royaume des nains).
 - Avramania — Nature & Terrain Free (voir assets/nature/_doc/License.txt)
 - BrokenVector — Low Poly Dungeon (licence Unity Asset Store)
 - Modular Village Collection (OBJ)
+- Quaternius — Medieval Village MegaKit Standard (CC0) : maisons du bourg (assets/megakit, textures réduites)
+- Avramania — Village Builder Free (CC0) : étals, cheminées, enseigne d'auberge (assets/village2)
 - Quaternius — Bestiary Dungeon Monsters Kit (Imp, Puglin, CC0)
 - Kenney — Particle Pack, RPG Audio, Impact Sounds, Interface Sounds, Music Jingles (CC0, voir assets/licences)
 - Textures d'architecture : générées (tools/gen_textures.py)

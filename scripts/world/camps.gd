@@ -31,17 +31,20 @@ static func build(world: Node3D) -> void:
 			continue
 		var kind: String = z["kind"]
 		var st: Dictionary = STYLES.get(kind, STYLES["bandit"])
-		_camp(g, root, z["pos"], float(z["r"]), kind, st, absi(id.hash()))
+		var big: bool = Repaire.BIG.has(id)
+		_camp(g, root, z["pos"], float(z["r"]), kind, st, absi(id.hash()), big)
+		if big:
+			Repaire.build(world, root, z["pos"], float(z["r"]), id)
 		_sign(root, z["pos"], st["nom"] if not String(z["label"]).contains("(") else String(z["label"]))
 	g.commit(world, "Camps")
 	Batcher.merge(root)
 
-static func _camp(g: Geo, root: Node3D, c: Vector2, r: float, kind: String, st: Dictionary, seed_v: int) -> void:
+static func _camp(g: Geo, root: Node3D, c: Vector2, r: float, kind: String, st: Dictionary, seed_v: int, big := false) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_v
 	var y := Terrain.height_at(c.x, c.y)
 	var face := atan2(Layout.TOWN.x - c.x, Layout.TOWN.y - c.y)   # l'entrée regarde vers le bourg
-	var R := r + 4.0
+	var R := r + (13.0 if big else 4.0)   # grands repaires : la palissade englobe salle et cabanes
 	# palissade de pieux taillés (ou cercle de pierres levées pour les diablotins)
 	var n := int(TAU * R / 0.85)
 	for i in n:
@@ -68,7 +71,7 @@ static func _camp(g: Geo, root: Node3D, c: Vector2, r: float, kind: String, st: 
 		var tq := Vector2(c.x + cos(ea) * R, c.y + sin(ea) * R)
 		Kit.dungeon(root, "Torch", Vector3(tq.x, Terrain.height_at(tq.x, tq.y), tq.y), 0.0, 1.6)
 	# abris : tentes, huttes de chaume, ou tombes/pierres runiques
-	var huts := 3 if r > 9.0 else 2
+	var huts := 0 if big else (3 if r > 9.0 else 2)
 	for k in huts:
 		var a: float = face + PI + (k - (huts - 1) * 0.5) * 1.1
 		var q := Vector2(c.x + sin(a) * r * 0.75, c.y + cos(a) * r * 0.75)

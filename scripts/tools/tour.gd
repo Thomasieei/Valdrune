@@ -25,6 +25,20 @@ func _ready() -> void:
 		["14_lac", Vector2(130, 140), 50.0, -14.0, 9.0, false],
 		["15_portail", Vector2(33, 212), 180.0, -12.0, 9.0, false],
 		["16_vue_chateau_loin", Vector2(20, -10), 350.0, -8.0, 12.0, false],
+		["B1_place", Vector2(4, -14), 200.0, -14.0, 8.0, false],
+		["B2_grand_rue_sud", Vector2(8, 26), 165.0, -10.0, 7.0, false],
+		["B3_rue_basse", Vector2(-26, 15.5), 260.0, -10.0, 7.0, false],
+		["B4_taverne", Vector2(14, -27), 270.0, -12.0, 8.0, false],
+		["B5_grand_rue_nord", Vector2(1, -44), 10.0, -12.0, 8.0, false],
+		["B6_rue_ouest", Vector2(-40, -18), 100.0, -10.0, 8.0, false],
+		["B7_impasse", Vector2(28, 27.5), 250.0, -14.0, 8.0, false],
+		["B8_rue_four", Vector2(36, -20), 0.0, -10.0, 8.0, false],
+		["B9_haut_bourg", Vector2(0, -20), 30.0, -38.0, 30.0, false],
+		["B10_dans_taverne", Vector2(21, -27.5), 250.0, -40.0, 6.0, false],
+		["B11_dans_apothicaire", Vector2(9.9, -1.5), 180.0, -45.0, 6.0, false],
+		["B12_maison_mathis", Vector2(0, 0), 0.0, -45.0, 6.0, false],
+		["B13_salle_bandits", Vector2(0, 0), 200.0, -45.0, 6.0, false],
+		["B14_camp_bandits", Vector2(-56.5, 131), 160.0, -20.0, 12.0, false],
 	]
 	if only == "audit":
 		_audit()
@@ -45,6 +59,20 @@ func _run() -> void:
 		var y := Layout.height(xz.x, xz.y) + 0.3
 		if s[5]:
 			y = Castle.FLOOR + 0.2
+		# maisons visitables du bourg : on se place sur le plancher
+		if s[0] == "B13_salle_bandits":
+			var rz := world.find_child("Repaire_camp_bandits", true, false)
+			if rz:
+				var zp: Vector3 = (rz.get_node("Visite") as Node3D).global_position
+				xz = Vector2(zp.x, zp.z)
+				y = zp.y - 1.2
+		var inside_of := {"B10_dans_taverne": "taverne", "B11_dans_apothicaire": "apothicaire", "B12_maison_mathis": "maison_mathis"}
+		for nm in [inside_of.get(s[0], "")]:
+			if nm != "" and Town.plan and Town.plan.specials.has(nm):
+				var sp: Dictionary = Town.plan.specials[nm]
+				var bp: Vector3 = (sp["base"] as Transform3D) * Vector3(0.5, 0.1, 1.0)
+				xz = Vector2(bp.x, bp.z)
+				y = bp.y
 		p.global_position = Vector3(xz.x, y, xz.y)
 		p.velocity = Vector3.ZERO
 		world._set_inside(s[5])
