@@ -430,9 +430,9 @@ func _ready() -> void:
 	await _wait(0.5)
 	_check(String(CampParley._st().get(gid, "")) == "allie" and CampParley.members(gid).is_empty() == false or String(CampParley._st().get(gid, "")) == "allie", "Le camp se rallie au souverain (%d → %d soldats, caserne max %d)" % [sold_c, int(Kingdom.res("soldats")), Kingdom.max_soldiers()])
 	# ---------------------------------------------------------------- royaume des nains
-	_place(Layout.PORTAL + Vector2(0, -8), 180)
+	_place(Layout.PORTAL + Vector2(0, -6), 0)
 	await _wait(0.5)
-	DwarfRealm.travel(world)
+	p.global_position = Vector3(Layout.PORTAL.x, Layout.PORTAL_H + 0.4, Layout.PORTAL.y)   # on franchit l'arche
 	await _until(func(): return DwarfRealm.inside, 15.0)
 	await _wait(0.8)
 	print("   (Karak : dedans=%s pos=%s mort=%s)" % [DwarfRealm.inside, p.global_position, p.cbt.dead])
@@ -536,6 +536,62 @@ func _ready() -> void:
 	await _until(func(): return Dungeons.inside.is_empty(), 12.0)
 	await _wait(1.0)
 	_check(Dungeons.inside.is_empty() and p.global_position.y < 100.0, "Retour au royaume, la faille se referme")
+	# ---------------------------------------------------------------- sentinelles d'un camp, puis camp rasé
+	var g2 := "brigands_est"
+	CampParley.set_status(g2, "neutre")
+	CampParley.inst._hailed.erase(g2)
+	var c2: Vector2 = CampParley.zone(g2)["pos"]
+	_place(c2 + Vector2(0, 45), 180)
+	await _until(func(): return CampParley.members(g2).size() >= 5, 15.0)
+	_place(c2 + Vector2(0, 27), 180)
+	var stopped := await _until(func(): return Dialogue.active, 15.0)
+	_check(stopped and String(world.dlg._convo["nodes"]["menu"]["nom"]).begins_with("Sentinelle"), "Les sentinelles arrêtent le souverain avant tout combat")
+	await _shot("20_sentinelles")
+	world.dlg.choose(1)   # raser le camp
+	await _wait(0.5)
+	var elites := CampParley.members(g2).filter(func(m): return m.kind in ["garde_elite", "geant", "mercenaire"])
+	_check(elites.size() >= 3, "Le camp a son chef, sa garde d'élite et un géant (%d élites)" % elites.size())
+	for k in 20:
+		for m in CampParley.members(g2):
+			m.cbt.take_damage(99999.0, p, "magie")
+		await _wait(0.4)
+		if CampParley.members(g2).is_empty():
+			break
+	_place(c2 + Vector2(0, 4), 180)
+	var razable := await _until(func(): return world.hud.btn_prompt.visible and world.hud.btn_prompt.label == "Raser le camp", 8.0)
+	_check(razable, "Camp vaincu : « Raser le camp » est proposé")
+	world.hud.btn_prompt.pressed.emit()
+	await _wait(1.0)
+	_check(String(CampParley._st().get(g2, "")) == "rase", "Le camp part en fumée et ne reviendra pas")
+	await _shot("21_camp_rase")
+	# ---------------------------------------------------------------- contremaître et rassemblement
+	Talk._preset("scierie")
+	_check(int(Kingdom.bld("scierie")["ouvriers"]) >= 10, "Contremaître : tout le monde au bois (%d bûcherons)" % int(Kingdom.bld("scierie")["ouvriers"]))
+	_place(Layout.LUMBER + Vector2(-25, 0), 90)
+	await _until(func(): return WorkersView.inst.count("scierie") >= int(Kingdom.bld("scierie")["ouvriers"]), 30.0)
+	_check(WorkersView.inst.count("scierie") == mini(int(Kingdom.bld("scierie")["ouvriers"]), 30), "Au chantier, on voit VRAIMENT chaque bûcheron (%d)" % WorkersView.inst.count("scierie"))
+	await _shot("22_bucherons")
+	_place(Layout.TOWN + Vector2(0, 20), 0)
+	await _wait(0.5)
+	WorkersView.inst.gather()
+	await _wait(1.0)
+	var near_w := 0
+	for v in WorkersView.inst._shown["scierie"]:
+		if is_instance_valid(v) and v.global_position.distance_to(p.global_position) < 20.0:
+			near_w += 1
+	_check(near_w == WorkersView.inst.count("scierie"), "Rassemblement : tous les travailleurs alignés devant le souverain")
+	await _shot("23_rassemblement")
+	WorkersView.inst.dismiss()
+	# ---------------------------------------------------------------- vol
+	p.set_flying(true)
+	p.input_dir = Vector2(0, -1)
+	var y0 := p.global_position.y
+	await _wait(2.0)
+	_check(p.flying and p.global_position.y > y0 + 3.0, "Vol : le souverain s'élève sur son cercle magique (%.1f m)" % (p.global_position.y - y0))
+	await _shot("24_vol")
+	p.input_dir = Vector2.ZERO
+	p.set_flying(false)
+	await _wait(1.5)
 	# ---------------------------------------------------------------- caravane
 	if Vie.inst.caravan and is_instance_valid(Vie.inst.caravan):
 		Vie.inst.caravan.queue_free()
