@@ -222,6 +222,8 @@ func _spawn() -> void:
 	kl.add_child(aui)
 	var cui := CommandUI.new()
 	kl.add_child(cui)
+	var gui := GestionUI.new()
+	kl.add_child(gui)
 	var mob := get_node_or_null("Mobilier") as Node3D
 	ArcanesUI.build_chamber(mob if mob else self)
 	Powers.spawn_props(self)
@@ -240,6 +242,9 @@ func _spawn() -> void:
 	quests = Quests.new()
 	quests.name = "Quetes"
 	add_child(quests)
+	var dg := Dungeons.new()
+	dg.name = "Donjons"
+	add_child(dg)
 	var wv := WorkersView.new()
 	wv.name = "Ouvriers"
 	add_child(wv)

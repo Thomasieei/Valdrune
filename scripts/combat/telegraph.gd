@@ -64,7 +64,7 @@ func _ready() -> void:
 	if _shader == null:
 		_shader = Shader.new()
 		_shader.code = """shader_type spatial;
-render_mode unshaded, cull_disabled, depth_draw_never, shadows_disabled, blend_mix, fog_disabled;
+render_mode unshaded, cull_disabled, depth_draw_never, depth_test_disabled, shadows_disabled, blend_mix, fog_disabled;
 uniform float fill = 0.0;
 uniform int shape = 0;      // 0 cercle, 1 cône, 2 ligne
 uniform float half_angle = 0.6;

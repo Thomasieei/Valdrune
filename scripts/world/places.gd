@@ -273,10 +273,7 @@ static func _portal(g: Geo, parent: Node3D) -> void:
 	zone.body_entered.connect(func(b):
 		if b == Combat.player and not DwarfRealm.inside:
 			var w := parent.get_tree().current_scene
-			if Story.done():
-				DwarfRealm.travel(w)
-			elif w.get("hud"):
-				w.hud.hint("Le voile résiste encore… Il faudra d'abord sauver Valmont.", "", 4.0))
+			DwarfRealm.travel(w))
 	# panneau
 	var sign := Label3D.new()
 	sign.text = "Royaume des Nains\nKarak Dûm"

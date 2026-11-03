@@ -33,7 +33,7 @@ static func is_peaceful(zone_id: String) -> bool:
 			kind = z["kind"]
 	if not PARLANTS.has(kind):
 		return false
-	return String(_st().get(gid, "neutre")) == "neutre"
+	return String(_st().get(gid, "neutre")) == "treve"
 
 static func set_status(gid: String, s: String) -> void:
 	_st()[gid] = s
@@ -62,29 +62,36 @@ static func provoked(m: Node3D) -> void:
 	var gid := Spawner.group_of(m.spawner.zone_id)
 	if inst and gid == inst.duel_gid:
 		return
-	set_status(gid, "hostile")
+	set_status(gid, "neutre")
 	for o in members(gid):
 		o.peaceful = false
 		o._aggro()
 	FX.bark(m, ["Aux armes !", "Il nous attaque !", "Trahison !"][randi() % 3], 2.3, 2.0)
 
+## Par défaut, un camp attaque normalement. À l'approche d'un camp « qui parle », un bouton ✋ permet
+## au souverain d'imposer une trêve et d'ouvrir les pourparlers AVANT le combat (ou de l'interrompre).
 func _process(delta: float) -> void:
 	_acc += delta
 	if _acc < 0.3:
 		return
 	_acc = 0.0
 	var p := Combat.player
-	if p == null or p.cbt.dead or Dialogue.active or _busy or duel_gid != "" or not Story.done():
+	if p == null or p.cbt.dead or Dialogue.active or _busy or duel_gid != "":
 		if duel_gid != "":
 			_duel_tick()
 		return
 	var pp := Vector2(p.global_position.x, p.global_position.z)
+	var near_gid := ""
+	var near_d := 34.0
 	for z in Spawner.ZONES:
 		var gid: String = z["id"]
-		if Spawner.group_of(gid) != gid or not is_peaceful(gid):
+		if Spawner.group_of(gid) != gid or not PARLANTS.has(z["kind"]):
+			continue
+		var st: String = _st().get(gid, "neutre")
+		if st in ["libere", "allie"]:
 			continue
 		var d := pp.distance_to(z["pos"])
-		if _warned.has(gid):
+		if st == "treve" and _warned.has(gid):
 			if d < 9.0:
 				_warned.erase(gid)
 				var ms := members(gid)
@@ -93,17 +100,32 @@ func _process(delta: float) -> void:
 					provoked(ms[0])
 			elif d > CHALLENGE_R + 20.0:
 				_warned.erase(gid)
+				set_status(gid, "neutre")
 			continue
-		if d < CHALLENGE_R and Time.get_ticks_msec() / 1000.0 > float(_cool.get(gid, 0.0)):
-			var ms := members(gid)
-			if ms.size() > 0:
-				_challenge(gid, ms)
-				return
+		if d < near_d and members(gid).size() > 0:
+			near_d = d
+			near_gid = gid
+	if near_gid != "" and Hud.inst and not Hud.inst.choice_btns.size():
+		var g := near_gid
+		Hud.inst.show_prompt("parler", "Parlementer", func(): parley(g), 0.45)
+
+## Le souverain lève la main : trêve immédiate, le chef vient parlementer
+func parley(gid: String) -> void:
+	var ms := members(gid)
+	if ms.is_empty():
+		return
+	set_status(gid, "treve")
+	for m in ms:
+		m.peaceful = true
+		if m.state in [Monster.S.POURSUITE, Monster.S.ATTAQUE]:
+			m._go(Monster.S.RETOUR)
+	Magic.halo(Combat.player.global_position + Vector3.UP * 1.6, 1.8, Color(1.0, 0.9, 0.6), 0.5)
+	Combat.player.action("b/Yes", 0.8, 1.0)
+	_challenge(gid, ms)
 
 ## La sentinelle s'avance et interpelle le souverain
 func _challenge(gid: String, ms: Array) -> void:
 	_busy = true
-	_cool[gid] = Time.get_ticks_msec() / 1000.0 + 45.0
 	var chef: Node3D = ms[0]
 	for m in ms:
 		if m.def.get("elite", false):
@@ -158,7 +180,7 @@ func _open(gid: String, chef: Node3D, n: int) -> void:
 			gs.add("crainte", 1)
 			provoked(chef)},
 		{"text": "Je passe mon chemin.", "next": "END", "callback": func():
-			_warned[gid] = true
+			_warned[gid] = true   # trêve tant qu'on s'éloigne ; revenir au cœur du camp la rompt
 			FX.bark(chef, "C'est ça. Et ne reviens pas.", 2.4, 2.2)},
 	]}
 	var w := Justice.world()

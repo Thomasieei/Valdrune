@@ -1,6 +1,6 @@
 shader_type spatial;
 // Cercle runique au sol : anneaux, graduations, glyphes tournants, étoile à six branches.
-render_mode unshaded, cull_disabled, depth_draw_never, shadows_disabled, blend_add, fog_disabled;
+render_mode unshaded, cull_disabled, depth_draw_never, depth_test_disabled, shadows_disabled, blend_add, fog_disabled;
 uniform vec4 color : source_color = vec4(0.6, 0.8, 1.0, 1.0);
 uniform float progress = 1.0;
 uniform float spin = 0.5;

@@ -47,7 +47,7 @@ func _spawn(bid: String, i: int) -> Villager:
 	var st: Array = _site(bid, i)
 	var p: Vector2 = st[0]
 	var v := Villager.new()
-	v.spec = {"outfit": "paysan_h" if i % 3 != 2 else "paysan_f", "female": i % 3 == 2, "beard": i % 2 == 0, "hair": "Hair_Buzzed" if i % 3 != 2 else "Hair_Buns", "tint": [Color(0.85, 0.75, 0.65), Color(0.75, 0.8, 0.7), Color(0.8, 0.7, 0.6)][i % 3]}
+	v.spec = {"outfit": "paysan_h" if i % 3 != 2 else "paysan_f", "female": i % 3 == 2, "beard": i % 2 == 0, "hair": "Hair_Buzzed" if i % 3 != 2 else "Hair_Buns", "tint": {"scierie": Color(0.55, 0.72, 0.45), "mine": Color(0.58, 0.58, 0.64), "ferme": Color(0.98, 0.86, 0.55)}[bid]}   # tenue du métier
 	v.anim_name = SITES[bid]["anim"]
 	get_parent().add_child(v)
 	v.global_position = Vector3(p.x, Terrain.height_at(p.x, p.y), p.y)

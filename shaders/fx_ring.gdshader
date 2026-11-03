@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode blend_mix, unshaded, cull_disabled, depth_draw_never, shadows_disabled;
+render_mode blend_mix, unshaded, cull_disabled, depth_draw_never, depth_test_disabled, shadows_disabled;
 // Onde au sol / lueur / arc de taille : couleur pleine et lumineuse (lisible en plein jour)
 uniform vec4 col : source_color = vec4(1.0, 0.8, 0.4, 1.0);
 uniform float inner = 0.85;      // 0 = disque plein (lueur), ~0.85 = anneau fin (onde)

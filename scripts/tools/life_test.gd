@@ -402,11 +402,12 @@ func _ready() -> void:
 	var gid := "camp_bandits"
 	CampParley.set_status(gid, "neutre")
 	var cz: Vector2 = CampParley.zone(gid)["pos"]
-	_place(cz + Vector2(0, 40), 180)
+	_place(cz + Vector2(0, 30), 180)
 	await _until(func(): return CampParley.members(gid).size() >= 3, 15.0)
 	var mem := CampParley.members(gid)
-	_check(mem.size() >= 3 and mem.all(func(m): return m.peaceful), "Camp de bandits : %d occupants, personne n'attaque à vue" % mem.size())
-	_place(cz + Vector2(0, 19), 180)
+	var handed := await _until(func(): return world.hud.btn_prompt.visible and world.hud.btn_prompt.label == "Parlementer", 6.0)
+	_check(mem.size() >= 3 and handed, "Camp de bandits : %d occupants, bouton ✋ « Parlementer » avant le combat" % mem.size())
+	world.hud.btn_prompt.pressed.emit()
 	var hailed := await _until(func(): return Dialogue.active, 12.0)
 	var mlabels := []
 	if hailed:
@@ -478,6 +479,63 @@ func _ready() -> void:
 	await _wait(0.5)
 	_check(Escort.members.is_empty(), "« Rentrez » : la garde retourne au château")
 	_check(WorkersView != null and world.find_child("Ouvriers", false, false) != null, "Ouvriers visibles sur les chantiers")
+	# ---------------------------------------------------------------- gouverner (façon Age of Empires)
+	var gu: GestionUI = GestionUI.inst
+	gu.open("travail")
+	var w0 := int(Kingdom.bld("scierie")["ouvriers"])
+	for k in 3:
+		Kingdom.set_workers("scierie", 1)
+	_check(int(Kingdom.bld("scierie")["ouvriers"]) > w0, "Travail : on affecte des ouvriers au bois (%d → %d)" % [w0, int(Kingdom.bld("scierie")["ouvriers"])])
+	await _shot("15_gestion_travail")
+	gu.tab = "armee"
+	gu._sel_n = 6
+	gu.refresh()
+	var dep := Army.deploy(6)
+	await _wait(0.5)
+	_check(dep.size() >= 4, "Armée : %d soldats sortent de la caserne" % dep.size())
+	gu._pick = "patrouille"
+	gu._on_pick(Vector2(-20, -40))
+	gu._on_pick(Vector2(10, -40))
+	Army.order(Army.alive(), "patrouille", gu._route.duplicate())
+	_check(Army.alive().all(func(s): return s.patrol.size() == 2), "Armée : ronde tracée sur la mini-carte")
+	await _shot("16_gestion_armee")
+	Army.order(Army.alive(), "rentrer")
+	gu.tab = "gens"
+	gu.refresh()
+	var folks := People.all()
+	_check(folks.size() >= 15, "Gens : %d personnes à portée de commandement" % folks.size())
+	await _shot("17_gestion_gens")
+	gu.close()
+	var va: Node3D = folks.filter(func(n): return n is Villager)[0]
+	var vb: Node3D = folks.filter(func(n): return n is Villager)[1]
+	People.summon(va)
+	_check(va.global_position.distance_to(p.global_position) < 4.5, "Appeler : %s arrive auprès du souverain" % People.nom(va))
+	var ida: String = va.get_meta("talk")["id"]
+	var idb: String = vb.get_meta("talk")["id"]
+	People.duel(va, vb, true)
+	var fell := await _until(func(): var bl: Array = gs.flags.get("bannis", []); return bl.has(ida) or bl.has(idb), 20.0)
+	_check(fell, "Duel à mort entre deux habitants : le perdant tombe")
+	# ---------------------------------------------------------------- donjon qui « poppe »
+	var dg: Dungeons = Dungeons.inst
+	var dd := dg.spawn("E")
+	_check(not dd.is_empty() and is_instance_valid(dd["node"]), "Une faille de donjon s'ouvre, faisceau géant visible")
+	dg.enter(dd)
+	await _until(func(): return not Dungeons.inside.is_empty() and p.global_position.y > 290.0, 12.0)
+	_check(p.global_position.y > 290.0, "On entre dans le donjon (salles de pierre)")
+	await _wait(1.0)
+	await _shot("18_donjon")
+	var boss: Node3D = dg._boss
+	_place(Vector2(Dungeons.B.x, Dungeons.B.z - 88.0), 180, Dungeons.B.y + 0.5)
+	await _wait(1.5)
+	await _shot("19_donjon_gardien")
+	var g_before := Progression.get_inst().gold
+	if Combat.alive(boss):
+		boss.cbt.take_damage(9999999.0, p, "magie")
+	await _until(func(): return Progression.get_inst().gold > g_before, 8.0)
+	_check(Progression.get_inst().gold > g_before, "Gardien vaincu : le coffre récompense (+%d or)" % (Progression.get_inst().gold - g_before))
+	await _until(func(): return Dungeons.inside.is_empty(), 12.0)
+	await _wait(1.0)
+	_check(Dungeons.inside.is_empty() and p.global_position.y < 100.0, "Retour au royaume, la faille se referme")
 	# ---------------------------------------------------------------- caravane
 	if Vie.inst.caravan and is_instance_valid(Vie.inst.caravan):
 		Vie.inst.caravan.queue_free()

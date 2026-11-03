@@ -8,7 +8,8 @@ var player: Player
 var btn_talk: ActionButton
 var btn_cancel: ActionButton
 var btn_kingdom: ActionButton
-var btn_command: ActionButton    # commandement rapide de la garde rapprochée
+var btn_command: ActionButton
+var btn_gestion: ActionButton    # gouverner : travail, armée (mini-carte), gens    # commandement rapide de la garde rapprochée
 var _hint: Label
 var _hint_key := ""
 var _hint_t := 0.0
@@ -96,6 +97,15 @@ func _ready() -> void:
 				CommandUI.inst.close()
 			else:
 				CommandUI.inst.open())
+	btn_gestion = ActionButton.new().setup("carte", 34.0, Color(0.95, 0.8, 0.55))
+	btn_gestion.visible = false
+	add_child(btn_gestion)
+	btn_gestion.pressed.connect(func():
+		if GestionUI.inst and not Dialogue.active:
+			if GestionUI.is_open():
+				GestionUI.inst.close()
+			else:
+				GestionUI.inst.open())
 	btn_kingdom = ActionButton.new().setup("couronne", 34.0, Color(1.0, 0.82, 0.4))
 	btn_kingdom.visible = false
 	add_child(btn_kingdom)
@@ -215,7 +225,7 @@ func choose(i: int) -> void:
 		(choice_btns[i] as ActionButton).pressed.emit()
 
 func buttons() -> Array:
-	return choice_btns + [btn_prompt, btn_attack, btn_dodge, btn_potion_soin, btn_potion_mana, btn_talk, btn_kingdom, btn_command, btn_grimoire] + btn_slots + grim_tiles
+	return choice_btns + [btn_prompt, btn_attack, btn_dodge, btn_potion_soin, btn_potion_mana, btn_talk, btn_kingdom, btn_command, btn_gestion, btn_grimoire] + btn_slots + grim_tiles
 
 ## Bouton d'action contextuelle (temps réel, même au ralenti)
 func show_prompt(icon: String, text: String, cb: Callable, dur: float) -> void:
@@ -345,6 +355,8 @@ func _layout() -> void:
 	btn_kingdom.position = Vector2(470, 78) - btn_kingdom.size * 0.5
 	btn_command.position = Vector2(548, 78) - btn_command.size * 0.5
 	btn_command.visible = btn_kingdom.visible and not Dialogue.active
+	btn_gestion.position = Vector2(626, 78) - btn_gestion.size * 0.5
+	btn_gestion.visible = btn_command.visible
 	btn_prompt.position = Vector2(s.x - 360, s.y * 0.5 - 40) - btn_prompt.size * 0.5
 	for i in choice_btns.size():
 		var cb: ActionButton = choice_btns[i]
@@ -391,7 +403,7 @@ func _process(delta: float) -> void:
 		b.refresh()
 	btn_potion_soin.count = prog.potions_soin
 	btn_potion_mana.count = prog.potions_mana
-	for b in [btn_potion_soin, btn_potion_mana, btn_attack, btn_dodge, btn_talk, btn_kingdom, btn_command, btn_cancel, btn_grimoire, btn_prompt]:
+	for b in [btn_potion_soin, btn_potion_mana, btn_attack, btn_dodge, btn_talk, btn_kingdom, btn_command, btn_gestion, btn_cancel, btn_grimoire, btn_prompt]:
 		b.refresh()
 	if _hint_t > 0.0:
 		_hint_t -= delta

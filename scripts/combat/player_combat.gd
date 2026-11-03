@@ -654,7 +654,7 @@ func _show_reticle(v: bool) -> void:
 		_reticle.mesh = q
 		var sh := Shader.new()
 		sh.code = """shader_type spatial;
-render_mode unshaded, cull_disabled, depth_draw_never, shadows_disabled, fog_disabled;
+render_mode unshaded, cull_disabled, depth_draw_never, depth_test_disabled, shadows_disabled, fog_disabled;
 uniform vec4 col : source_color = vec4(0.5, 0.8, 1.0, 1.0);
 uniform int shape = 0; // 0 cercle, 1 ligne
 uniform float t = 0.0;

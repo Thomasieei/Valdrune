@@ -93,6 +93,13 @@ func _text(p: Vector2, t: String, fs: int, col: Color) -> void:
 
 func _icon(c: Vector2, s: float, col: Color) -> void:
 	match icon:
+		"carte":
+			# carte dépliée à trois volets + repère
+			var pts := [c + Vector2(-0.9, -0.6) * s, c + Vector2(-0.3, -0.8) * s, c + Vector2(0.3, -0.6) * s, c + Vector2(0.9, -0.8) * s, c + Vector2(0.9, 0.6) * s, c + Vector2(0.3, 0.8) * s, c + Vector2(-0.3, 0.6) * s, c + Vector2(-0.9, 0.8) * s]
+			draw_polyline(PackedVector2Array(pts + [pts[0]]), col, s * 0.1, true)
+			draw_line(pts[1], pts[6], col, s * 0.08, true)
+			draw_line(pts[2], pts[5], col, s * 0.08, true)
+			draw_circle(c + Vector2(0.55, -0.1) * s, s * 0.16, col)
 		"grimoire":
 			# cercle runique : anneau, six gemmes, étoile intérieure
 			draw_arc(c, s * 0.82, 0, TAU, 32, col, s * 0.1, true)
