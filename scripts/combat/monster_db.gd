@@ -85,7 +85,7 @@ static var DEFS := {
 		"barbe": true, "cheveux": "Hair_Buzzed", "couleur_cheveux": Color(0.15, 0.1, 0.08), "arme": "Sword", "arme_echelle": 2.2,
 		"elements": {"foudre": 1.25, "physique": 0.85},
 		"scale": 1.75, "rayon": 0.75, "hp": 520, "degats": 22, "defense": 3, "vitesse": 1.9, "course": 3.4,
-		"detection": 40.0, "portee": 3.0, "cadence": 2.4, "impact": 0.6, "esquive": 0.22,
+		"detection": 30.0, "portee": 3.0, "cadence": 2.4, "impact": 0.6, "esquive": 0.22,
 		"comportement": "agressif", "xp": 200, "or": [60, 90], "butin": {"soin": 1.0, "mana": 1.0}, "boss": false, "elite": true,
 		"anims": {"attente": "Sword_Idle", "marche": "Walk", "course": "Walk", "attaque": "Sword_Attack", "touche": "Hit_Chest", "mort": "Death01"},
 		"speciales": [

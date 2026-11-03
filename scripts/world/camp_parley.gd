@@ -82,7 +82,7 @@ func _process(delta: float) -> void:
 		return
 	var pp := Vector2(p.global_position.x, p.global_position.z)
 	var near_gid := ""
-	var near_d := 34.0
+	var near_d := 52.0
 	for z in Spawner.ZONES:
 		var gid: String = z["id"]
 		if Spawner.group_of(gid) != gid or not PARLANTS.has(z["kind"]):
@@ -110,7 +110,7 @@ func _process(delta: float) -> void:
 		var ms2 := members(g)
 		var fighting := ms2.any(func(m): return m.state in [Monster.S.POURSUITE, Monster.S.ATTAQUE])
 		# première approche : les sentinelles viennent au-devant du souverain AVANT tout combat
-		if not fighting and not _hailed.has(g) and near_d < 30.0 and String(_st().get(g, "neutre")) == "neutre":
+		if not fighting and not _hailed.has(g) and near_d < 50.0 and String(_st().get(g, "neutre")) == "neutre":
 			_hailed[g] = true
 			_sentries(g, ms2)
 			return

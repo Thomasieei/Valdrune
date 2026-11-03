@@ -132,7 +132,7 @@ func _tick_bands(p: Node3D, dt: float) -> void:
 		if ms.is_empty() and not (b["ms"] as Array).is_empty():
 			b["cool"] = 300.0     # bande anéantie : une autre se reforme plus tard
 		b["ms"] = ms
-		var fighting := ms.any(func(m): return m.state != Monster.S.ERRANCE)
+		var fighting := ms.any(func(m): return m.state in [Monster.S.POURSUITE, Monster.S.ATTAQUE])
 		if not fighting:
 			var tgt: Vector2 = path[int(b["i"])]
 			var d := tgt - at

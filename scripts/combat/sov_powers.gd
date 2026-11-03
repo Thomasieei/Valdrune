@@ -20,7 +20,7 @@ static func possession(pc: PlayerCombat, power: float, aim: Vector3, rng: float,
 		Juice.onde(t.global_position, VIOLET, 2.5, 0.4)
 		return
 	pl.rotation.y = atan2(t.global_position.x - pl.global_position.x, t.global_position.z - pl.global_position.z)
-	pl.action("Spellcast_Long", 6.0, 1.0)
+	pl.action("Spell_Simple_Shoot", 6.0, 1.0)
 	Powers._beam(pl, t, VIOLET, 1.2)
 	t.stun(6.0, true)
 	FX.cast_glow(t, VIOLET)
@@ -44,6 +44,10 @@ static func _turn(pc: PlayerCombat, t: Node3D, power: float, dur: float) -> void
 	t.set_meta("possede", true)
 	t.peaceful = false
 	t._stun_end = 0.0
+	t._ap.speed_scale = 1.0
+	t._cur = ""
+	t.home = t.global_position     # le possédé n'est plus tenu par son camp
+	t.leash = 60.0
 	t._go(Monster.S.POURSUITE)
 	t.cbt.heal(t.cbt.max_hp)
 	var trail := Magic.trail(t, VIOLET, 0.4, "spark_04", 16)
@@ -73,6 +77,8 @@ static func _turn(pc: PlayerCombat, t: Node3D, power: float, dur: float) -> void
 				bd = d
 				foe = m
 			if d < 10.0:
+				if m.global_position.distance_to(m.home) > m.leash * 0.7:
+					m.home = m.global_position
 				m.force_target = t
 				m.force_until = now + 1.2
 				m.peaceful = false
@@ -115,6 +121,8 @@ static func _terror(pc: PlayerCombat, t: Node3D, dur: float) -> void:
 	if not Combat.alive(t):
 		return
 	t._stun_end = 0.0
+	t._ap.speed_scale = 1.0
+	t._cur = ""
 	FX.bark(t, ["IL EST DANS MA TÊTE ! FUYEZ !", "LE DÉMON ! IL VA TOUS NOUS PRENDRE !"][randi() % 2], 2.6 * float(t.def["scale"]), 3.0)
 	Juice.onde(t.global_position, Color(0.9, 0.2, 0.25), 9.0, 0.7)
 	t.frighten(dur)

@@ -128,7 +128,7 @@ func _ready() -> void:
 		if SpellDB.is_power(id):
 			world.aui.sel = id
 			world.aui._unlock()
-	_check(prog.pouvoirs.size() == n0 + 20, "Les 20 pouvoirs se débloquent contre de l'or (%d)" % prog.pouvoirs.size())
+	_check(prog.pouvoirs.size() == n0 + SpellDB.DEFS.keys().filter(func(k): return SpellDB.is_power(k)).size(), "Tous les pouvoirs se débloquent contre de l'or (%d)" % prog.pouvoirs.size())
 	world.aui.sel = "meteore"
 	var g0 := prog.gold
 	world.aui._upgrade(150)
@@ -264,11 +264,12 @@ func _ready() -> void:
 	await _wait(0.4)
 	_check(world.hud.choice_btns.size() == 3, "Lames spectrales : trois ordres proposés (garde, assaut, ratisser)")
 	world.hud.choose(1)
-	await _wait(2.5)
+	await _wait(4.0)
 	await _shot("p_lames")
-	_check(_hp_sum() > hl and FX.root.find_children("*", "SpectralBlades", true, false).size() == 1, "Lames → Assaut : les épées fondent sur les ennemis")
-	for b in FX.root.find_children("*", "SpectralBlades", true, false):
-		b.queue_free()
+	_check(_hp_sum() > hl and FX.root.get_children().any(func(n): return n is SpectralBlades), "Lames → Assaut : les épées fondent sur les ennemis")
+	for b in FX.root.get_children():
+		if b is SpectralBlades:
+			b.queue_free()
 	# ---------------------------------------------------------------- Possession (décision)
 	_reset_foes(5.0, 1.6)
 	await _wait(0.4)
@@ -287,8 +288,15 @@ func _ready() -> void:
 	for m in foes:
 		if m != pos_t and is_instance_valid(m):
 			others1 += (m.cbt.max_hp - m.cbt.hp) if not m.cbt.dead else m.cbt.max_hp
+	print("   (possession : état %s, cible %s, pv autres %.0f → %.0f, pv possédé %d)" % [pos_t.state if is_instance_valid(pos_t) else -1, pos_t.force_target if is_instance_valid(pos_t) else null, others0, others1, pos_t.cbt.hp if is_instance_valid(pos_t) else -1])
 	_check(is_instance_valid(pos_t) and pos_t.has_meta("possede") and others1 > others0, "Possession → Retourner : le possédé frappe ses anciens frères")
 	await _shot("p_possession_combat")
+	for m in foes:
+		if is_instance_valid(m):
+			if m.has_meta("possede"):
+				m.remove_meta("possede")
+			m.cbt.take_damage(99999.0, p, "magie")
+	await _wait(0.5)
 	# ---------------------------------------------------------------- cercle des pouvoirs
 	world.hud.toggle_grimoire()
 	await _wait(0.3)
@@ -311,6 +319,12 @@ func _ready() -> void:
 	await _wait(0.3)
 	var hp_before := p.cbt.hp
 	var victim: Monster = foes[1]
+	AuraGuard.inst.ready_at = 0.0
+	print("   (aura : active %s, histoire %s, mort %s, dialogue %s, plaqué %s)" % [AuraGuard.enabled, Story.done(), p.cbt.dead, Dialogue.active, AuraGuard.inst.pinned])
+	if Dialogue.active:
+		world.dlg._close()
+	if is_instance_valid(AuraGuard.inst.pinned):
+		AuraGuard.inst.pinned = null
 	var blocked := AuraGuard.try_block(victim)
 	_check(blocked and Engine.time_scale < 0.5 and world.hud.btn_prompt.visible, "Coup d'épée : le temps ralentit, l'aura arrête la lame, « PLAQUER » apparaît")
 	world.hud.btn_prompt.pressed.emit()

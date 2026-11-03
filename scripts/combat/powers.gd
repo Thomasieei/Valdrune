@@ -181,7 +181,7 @@ static func _main_invisible(pc: PlayerCombat, power: float, c: float, aim: Vecto
 			_hurt(t, power, pc, el)
 			return
 		Sfx.play("ok", -6.0)
-		pl.action("Spellcast_Long", 8.0, 1.0)
+		pl.action("Spell_Simple_Idle", 8.0, 1.0)
 		if Hud.inst:
 			Hud.inst.show_choices([
 				["projection", "Projeter", func(): _tk_throw(pc, held, power, c, fwd)],
@@ -234,7 +234,7 @@ static func _held_alive(held: Array) -> Array:
 static func _tk_throw(pc: PlayerCombat, held: Array, power: float, c: float, fwd: Vector3) -> void:
 	var pl := pc.player
 	var used := {}
-	pl.action("Spellcast_Shoot", 0.6, 1.0)
+	pl.action("Spell_Simple_Shoot", 0.6, 1.0)
 	for m in _held_alive(held):
 		var dest: Vector3 = m.global_position + fwd * 11.0
 		var bd := 18.0
@@ -257,7 +257,7 @@ static func _tk_throw(pc: PlayerCombat, held: Array, power: float, c: float, fwd
 
 ## Écraser : remontée brève, puis chute fulgurante — le sol se fend
 static func _tk_slam(pc: PlayerCombat, held: Array, power: float, c: float) -> void:
-	pc.player.action("Spellcast_Shoot", 0.6, 1.0)
+	pc.player.action("Spell_Simple_Shoot", 0.6, 1.0)
 	for m in _held_alive(held):
 		m.throw(Vector3(0, 7.0, 0), 0.0, null)
 		var mm: Node3D = m

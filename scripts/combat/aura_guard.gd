@@ -124,7 +124,7 @@ func pin(m: Node3D) -> void:
 		dest.y = Powers.ground(dest + Vector3.UP) + 0.45   # suspendu juste au-dessus du sol
 	_pin_pos = dest
 	m.stun(60.0, true)
-	p.action("Spellcast_Shoot", 0.6, 1.0)
+	p.action("Spell_Simple_Shoot", 0.6, 1.0)
 	Engine.time_scale = 1.0
 	var tw: Tween = create_tween()
 	tw.tween_property(m, "global_position", dest, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)

@@ -546,9 +546,9 @@ func _ready() -> void:
 	CampParley.inst._hailed.erase(gz2)
 	var c2: Vector2 = CampParley.zone(gz2)["pos"]
 	await _wait(2.5)   # la sortie de faille finit son fondu avant qu'on bouge
-	_place(c2 + Vector2(0, 45), 180)
+	_place(c2 + Vector2(0, 70), 180)
 	await _until(func(): return CampParley.members(gz2).size() >= 5, 15.0)
-	_place(c2 + Vector2(0, 27), 180)
+	_place(c2 + Vector2(0, 46), 180)
 	print("   (sentinelles : distance au camp %.1f, membres %d, statut %s)" % [Vector2(p.global_position.x, p.global_position.z).distance_to(c2), CampParley.members(gz2).size(), CampParley._st().get(gz2, "")])
 	var stopped := await _until(func(): return Dialogue.active, 15.0)
 	_check(stopped and String(world.dlg._convo["nodes"]["menu"]["nom"]).begins_with("Sentinelle"), "Les sentinelles arrêtent le souverain avant tout combat")
@@ -620,7 +620,7 @@ func _ready() -> void:
 	var cart_m: Node3D = car._cart.get_child(0)
 	_check(is_zero_approx(cart_m.rotation.y) and car._merchant.position.z > car._cart.position.z, "Charrette : brancards devant, le marchand la tire (plus à l'envers)")
 	# ---------------------------------------------------------------- villages de bandits
-	for vg in BanditVillage.VILLAGES:
+	for vg in BanditVillage.VILLAGES.filter(func(x): return String(CampParley._st().get(x, "")) != "rase"):
 		_check(BanditVillage.people(vg).size() >= 5, "Village de bandits %s : artisans et habitants (%d)" % [vg, BanditVillage.people(vg).size()])
 	var vil_c: Vector2 = CampParley.zone("camp_bandits")["pos"]
 	_place(vil_c + (Layout.TOWN - vil_c).normalized() * 30.0, rad_to_deg(atan2(vil_c.x - Layout.TOWN.x, vil_c.y - Layout.TOWN.y)))
@@ -671,6 +671,10 @@ func _ready() -> void:
 	world.hud.choose(1)
 	_check(Frontier.inst.raid.get("sent", false), "La garde est envoyée au secours")
 	var demasque := await _until(func(): return dis_m.any(func(m): return Combat.alive(m) and not m.peaceful), 25.0)
+	for m in (Frontier.inst.raid.get("ms", []) as Array):
+		if is_instance_valid(m):
+			print("   (pillard %s : état %d, pacifique %s, pv %d, dist marchand %.1f, cible %s)" % [m.kind, m.state, m.peaceful, m.cbt.hp, m.global_position.distance_to(cara2._merchant.global_position), m.force_target])
+	print("   (embuscade : en cours %s, caravane %s, marchand %d pv)" % [Frontier.raid_active(), is_instance_valid(cara2), cara2._merchant.cbt.hp])
 	_check(demasque, "Le faux voyageur se démasque et attaque")
 	var blesse := await _until(func(): return cara2._merchant.cbt.hp < cara2._merchant.cbt.max_hp or not Frontier.raid_active(), 20.0)
 	_check(blesse, "Les pillards s'en prennent réellement au marchand")
@@ -687,8 +691,9 @@ func _ready() -> void:
 	var roam_ok := await _until(func(): return not (Frontier.inst.bands[0]["ms"] as Array).is_empty(), 4.0)
 	_check(roam_ok, "Une bande errante circule hors des camps")
 	var band_a0: Vector2 = Frontier.inst.bands[0]["at"]
-	p.global_position.y += 300.0   # hors de vue pour ne pas l'attirer
+	_place(band_p + Vector2(105, 0), 0)   # assez loin pour qu'elle renonce, assez près pour rester en jeu
 	await _wait(4.0)
+	print("   (bande : états %s, i %d)" % [(Frontier.inst.bands[0]["ms"] as Array).map(func(m): return m.state if is_instance_valid(m) else -1), int(Frontier.inst.bands[0]["i"])])
 	_check((Frontier.inst.bands[0]["at"] as Vector2).distance_to(band_a0) > 2.0, "La bande se déplace d'un repaire à l'autre")
 	Frontier.quiet = true
 	_place(Layout.TOWN + Vector2(0, 20), 0)

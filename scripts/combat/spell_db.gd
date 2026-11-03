@@ -75,7 +75,7 @@ const DEFS := {
 		"desc": "Le souverain frappe le sol : une onde balaie tout autour de lui et projette les ennemis. Pleine charge ou rang 3 : double onde."},
 	# ================= SOUVERAIN
 	"possession": {"nom": "Possession", "cat": "telekinesie", "niveau": 5, "cout_or": 200, "mana": 30, "recharge": 24.0, "portee": 16.0, "incantation": 0.0,
-		"degats": 20.0, "ratio": 1.0, "duree": 14.0, "couleur": Color(0.75, 0.3, 1.0), "icone": "possession", "element": "arcane", "anim": "Spellcast_Long",
+		"degats": 20.0, "ratio": 1.0, "duree": 14.0, "couleur": Color(0.75, 0.3, 1.0), "icone": "possession", "element": "arcane", "anim": "Spell_Simple_Idle",
 		"desc": "Vous prenez l'esprit d'un ennemi, puis décidez : le retourner contre les siens, le faire exploser au milieu d'eux, ou en faire un messager de terreur. Les élites résistent avant le rang 3."},
 	"lames": {"nom": "Lames spectrales", "cat": "telekinesie", "niveau": 3, "cout_or": 110, "mana": 22, "recharge": 16.0, "portee": 0.0, "incantation": 0.0,
 		"degats": 16.0, "ratio": 0.8, "duree": 20.0, "couleur": Color(0.55, 0.95, 0.95), "icone": "lames", "element": "arcane", "anim": "Spell_Simple_Shoot",
