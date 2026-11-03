@@ -362,7 +362,7 @@ func _ready() -> void:
 	bdt.stun(6.0, false)
 	bdt.cbt.hp = bdt.cbt.max_hp * 0.2
 	await _wait(0.8)
-	if false: print("   (capture : dist %.1f, pv %d/%d, capturable %s, nearest %s, capt %s, label %s, dlg %s)" % [bdt.global_position.distance_to(p.global_position), bdt.cbt.hp, bdt.cbt.max_hp, Capture.capturable(bdt), Capture.nearest(p.global_position), world._capt, world.hud.btn_talk.label, Dialogue.active])
+	print("   (capture : dist %.1f, pv %d/%d, capturable %s, nearest %s, capt %s, label %s, dlg %s)" % [bdt.global_position.distance_to(p.global_position), bdt.cbt.hp, bdt.cbt.max_hp, Capture.capturable(bdt), Capture.nearest(p.global_position), world._capt, world.hud.btn_talk.label, Dialogue.active])
 	_check(world._capt == bdt and world.hud.btn_talk.label.begins_with("Capturer"), "Bandit affaibli : bouton « Capturer »")
 	var np0: int = Kingdom.k()["prisonniers"].size()
 	world._talk()
