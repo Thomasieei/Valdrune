@@ -132,6 +132,9 @@ func start(convo, start_node := "") -> void:
 	else:
 		_convo = convo
 	_last_action = ""
+	if OS.get_cmdline_user_args().size() > 0:
+		var n0: Dictionary = _convo["nodes"].get(start_node if start_node != "" else String(_convo["start"]), {})
+		print("   [dialogue] ", n0.get("nom", "?"), " : ", String(n0.get("text", "")).left(50))
 	active = true
 	visible = true
 	_goto(start_node if start_node != "" else String(_convo["start"]))

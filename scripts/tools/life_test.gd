@@ -353,6 +353,9 @@ func _ready() -> void:
 	# ---------------------------------------------------------------- capture
 	_place(Vector2(-60, 60), 0)
 	await _wait(0.4)
+	if Dialogue.active:
+		print("   (dialogue resté ouvert avant la capture — fermé)")
+		world.dlg._close()
 	var bdt := Monster.new()
 	bdt.kind = "bandit"
 	bdt.no_respawn = true
@@ -542,9 +545,11 @@ func _ready() -> void:
 	CampParley.set_status(gz2, "neutre")
 	CampParley.inst._hailed.erase(gz2)
 	var c2: Vector2 = CampParley.zone(gz2)["pos"]
+	await _wait(2.5)   # la sortie de faille finit son fondu avant qu'on bouge
 	_place(c2 + Vector2(0, 45), 180)
 	await _until(func(): return CampParley.members(gz2).size() >= 5, 15.0)
 	_place(c2 + Vector2(0, 27), 180)
+	print("   (sentinelles : distance au camp %.1f, membres %d, statut %s)" % [Vector2(p.global_position.x, p.global_position.z).distance_to(c2), CampParley.members(gz2).size(), CampParley._st().get(gz2, "")])
 	var stopped := await _until(func(): return Dialogue.active, 15.0)
 	_check(stopped and String(world.dlg._convo["nodes"]["menu"]["nom"]).begins_with("Sentinelle"), "Les sentinelles arrêtent le souverain avant tout combat")
 	await _shot("20_sentinelles")
