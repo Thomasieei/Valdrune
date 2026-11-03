@@ -35,6 +35,9 @@ func _ready() -> void:
 		["B8_rue_four", Vector2(36, -20), 0.0, -10.0, 8.0, false],
 		["B9_haut_bourg", Vector2(0, -20), 30.0, -38.0, 30.0, false],
 		["B10_dans_taverne", Vector2(21, -27.5), 250.0, -40.0, 6.0, false],
+		["B10b_taverne_comptoir", Vector2(0, 0), 70.0, -30.0, 5.5, false],
+		["B10c_taverne_cheminee", Vector2(0, 0), 290.0, -25.0, 5.5, false],
+		["B10d_taverne_tables", Vector2(0, 0), 160.0, -55.0, 6.5, false],
 		["B11_dans_apothicaire", Vector2(9.9, -1.5), 180.0, -45.0, 6.0, false],
 		["B12_maison_mathis", Vector2(0, 0), 0.0, -45.0, 6.0, false],
 		["B13_salle_bandits", Vector2(0, 0), 200.0, -45.0, 6.0, false],
@@ -66,7 +69,7 @@ func _run() -> void:
 				var zp: Vector3 = (rz.get_node("Visite") as Node3D).global_position
 				xz = Vector2(zp.x, zp.z)
 				y = zp.y - 1.2
-		var inside_of := {"B10_dans_taverne": "taverne", "B11_dans_apothicaire": "apothicaire", "B12_maison_mathis": "maison_mathis"}
+		var inside_of := {"B10_dans_taverne": "taverne", "B10b_taverne_comptoir": "taverne", "B10c_taverne_cheminee": "taverne", "B10d_taverne_tables": "taverne", "B11_dans_apothicaire": "apothicaire", "B12_maison_mathis": "maison_mathis"}
 		for nm in [inside_of.get(s[0], "")]:
 			if nm != "" and Town.plan and Town.plan.specials.has(nm):
 				var sp: Dictionary = Town.plan.specials[nm]

@@ -51,7 +51,7 @@ func build(parent: Node3D) -> void:
 	_row(Vector2(6.3, -36), Vector2(18, -36), S, {"depth": [4, 5], "floors": [2, 3], "shop": 0.6})
 	_row(Vector2(-18, -36), Vector2(-18, -25.6), E, {"depth": [4], "floors": [2, 3], "shop": 0.5})
 	_row(Vector2(-18, -16.2), Vector2(-18, -5), E, {"depth": [4], "floors": [2, 3], "shop": 0.5})
-	_row(Vector2(18, -34), Vector2(18, -20.6), W, {"depth": [4], "specials": {0: {"w": 6, "d": 4, "floors": 2, "roof": "long", "visit": true, "balcony": true, "quoins": true, "ground": "pierre", "name": "taverne", "door_k": 2, "lit": 0.8, "plaster": Color(0.98, 0.9, 0.76), "tiles": Color(0.62, 0.48, 0.44)}}})
+	_row(Vector2(18, -36), Vector2(18, -21.0), W, {"depth": [4], "specials": {0: {"w": 7, "d": 5, "force": true, "floors": 2, "roof": "long", "visit": true, "balcony": true, "quoins": true, "ground": "pierre", "name": "taverne", "door_k": 3, "lit": 0.8, "plaster": Color(0.98, 0.9, 0.76), "tiles": Color(0.62, 0.48, 0.44)}}})
 	_row(Vector2(18, -11.2), Vector2(18, -5), W, {"depth": [4], "floors": [2], "shop": 1.0})
 	_row(Vector2(-18, -5), Vector2(-3.3, -5), N, {"depth": [4], "floors": [2, 3], "shop": 0.6})
 	_row(Vector2(6.9, -5), Vector2(18, -5), N, {"depth": [4], "floors": [2], "specials": {0: {"w": 3, "d": 4, "floors": 2, "visit": true, "shop": true, "name": "apothicaire", "roof": "pignon", "lit": 0.6}}})
@@ -132,8 +132,8 @@ func _row(a: Vector2, e: Vector2, face: Vector2, opt := {}) -> void:
 			w = maxi(w, 2)
 		if roof == "":
 			roof = "pignon" if (w <= 4 and rng.randf() < 0.6) else "long"
-		var ok := false
-		for combo in [[d, roof], [d, "long" if roof == "pignon" else "pignon"], [4, "pignon"], [4, "long"], [3, "long"], [3, "pignon"]]:
+		var ok: bool = sp.get("force", false)
+		for combo in ([] if ok else  [[d, roof], [d, "long" if roof == "pignon" else "pignon"], [4, "pignon"], [4, "long"], [3, "long"], [3, "pignon"]]):
 			if Bourg.roof_ok(w, combo[0], combo[1]):
 				d = combo[0]
 				roof = combo[1]

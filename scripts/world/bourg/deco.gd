@@ -118,77 +118,104 @@ static func _fire(root: Node3D, pos: Vector3) -> void:
 	fire.global_position = pos
 	fire.emitting = true
 
-## La taverne du Sanglier Doré (12 x 8 m) : comptoir, tonneaux, cheminée, tables, escalier, lustre
-const S := 0.78   # le mobilier du kit donjon est surdimensionné pour des personnages de 1,8 m
+## Meuble du kit donjon à l'échelle voulue (x, y, z) dans le repère de la maison.
+## Mesures du kit : Table_Big 4,0 x 0,83 x 2,0 m, Bench 2,1 m, Table_Small 2,9 x 1,4 m — trop grands pour
+## des personnages de 1,8 m : on les ramène à des tailles réelles (table de taverne 2,2 x 0,9 x 0,78 m).
+static func _ds(name: String, base: Transform3D, local: Vector3, rot: float, scl: Vector3) -> Node3D:
+	var n := Kit.dungeon(furn, name, base * local, base.basis.get_euler().y + rot, 1.0)
+	n.scale = scl
+	return n
+
+const TABLE := Vector3(0.55, 0.94, 0.45)    # Table_Big -> 2,2 x 0,78 x 0,9 m
+const BENCH := Vector3(1.0, 0.85, 0.85)     # Bench -> 2,1 m, assise basse
+const TOP := 0.78                           # hauteur du plateau
+
+## Une table de taverne garnie, deux bancs, et les clients assis dessus (côtés -z / +z)
+static func _table_set(base: Transform3D, c: Vector3, guests: Array) -> void:
+	var rot := base.basis.get_euler().y
+	_ds("Table_Big", base, c, 0.0, TABLE)
+	for sd in [-1.0, 1.0]:
+		_ds("Bench", base, c + Vector3(0, 0, sd * 0.78), 0.0 if sd < 0 else PI, BENCH)
+	_d(null, "Mug", base, c + Vector3(-0.6, TOP, -0.2), 0.4)
+	_d(null, "Mug", base, c + Vector3(0.5, TOP, 0.22), 1.3)
+	_d(null, "Plate", base, c + Vector3(0.0, TOP, 0.15), 0.0, 0.7)
+	_d(null, "Candlestick_Small", base, c + Vector3(0.15, TOP, -0.15), 0.0)
+	# clients : [décalage le long du banc, côté (-1/+1), femme ?, animation]
+	for g in guests:
+		var q: Vector3 = c + Vector3(float(g[0]), 0.0, float(g[1]) * 0.78)
+		var face := rot + (0.0 if float(g[1]) < 0 else PI)   # tourné vers la table
+		patrons.append([base * q, g[3], g[2], face])
+
+## La taverne du Sanglier Doré (14 x 10 m) : grand comptoir, tonneaux, cheminée, quatre tables garnies,
+## escalier vers les chambres, lustres, tapis, terrasse
 static func _taverne(p: BourgPlan, root: Node3D, base: Transform3D, sp: Dictionary) -> void:
 	var rot := base.basis.get_euler().y
 	var g := p.geo
 	var b := base.basis
-	# comptoir le long du mur droit
-	g.obox("bois_sombre", Transform3D(b, base * Vector3(4.3, 0.55, 0.4)), Vector3(0.7, 1.1, 4.2), true)
-	g.obox("bois", Transform3D(b, base * Vector3(4.25, 1.13, 0.4)), Vector3(0.95, 0.08, 4.4), false)
+	# --- comptoir le long du mur droit (x = +4,6), tabourets devant ---
+	g.obox("bois_sombre", Transform3D(b, base * Vector3(4.6, 0.52, -1.2)), Vector3(0.6, 1.04, 5.0), true)
+	g.obox("bois", Transform3D(b, base * Vector3(4.55, 1.08, -1.2)), Vector3(0.85, 0.07, 5.2), false)
 	for k in 4:
-		_d(root, "Stool_round", base, Vector3(3.55, 0, -1.2 + k * 1.1), 0.0, S)
-	_d(root, "Mug", base, Vector3(4.2, 1.17, -0.8), 0.3)
-	_d(root, "Mug", base, Vector3(4.3, 1.17, 1.4), 1.2)
-	_d(root, "Bottle", base, Vector3(4.2, 1.17, 0.4), 0.0)
-	_d(root, "Jug", base, Vector3(4.35, 1.17, 2.0), 0.0)
-	# derrière le comptoir : tonneaux en perce, étagère à bouteilles
-	_d(root, "Barrel_Big", base, Vector3(5.2, 0, -3.0), PI / 2.0, 0.7)
-	_d(root, "Barrel_Big", base, Vector3(5.2, 0, 2.9), PI / 2.0, 0.7)
-	_d(root, "Shelf_Wall", base, Vector3(5.75, 1.4, 0.4), -PI / 2.0)
-	for k in 5:
-		_d(root, ["Bottle", "Jar_Full", "Bottle", "Wineglass", "Bottle"][k], base, Vector3(5.6, 1.62, -0.6 + k * 0.5), 0.0)
-	# cheminée sur le mur gauche, tapis devant
-	Kit.place(furn, "res://assets/village2/mdvl_village_hearth_01.glb", base * Vector3(-5.5, 0.0, -0.4), rot + PI / 2.0, 1.15)
-	_fire(root, base * Vector3(-5.35, 0.35, -0.4))
-	_d(root, "Carpet_Red", base, Vector3(-3.6, 0.02, -0.4), PI / 2.0, 1.2)
-	_d(root, "Chair", base, Vector3(-3.8, 0, -1.6), PI * 0.8, S)
-	_d(root, "Chair", base, Vector3(-3.8, 0, 0.9), PI * 0.2, S)
-	# tables et bancs
-	for t in [Vector3(-1.0, 0, -2.2), Vector3(-1.0, 0, 1.5), Vector3(1.6, 0, -0.4)]:
-		_d(root, "Table_Big", base, t, PI / 2.0, S)
-		_d(root, "Bench", base, t + Vector3(-0.85, 0, 0), PI / 2.0, S)
-		_d(root, "Bench", base, t + Vector3(0.85, 0, 0), -PI / 2.0, S)
-		_d(root, "Mug", base, t + Vector3(0.1, 0.82 * S, -0.3), 0.4)
-		_d(root, "Plate", base, t + Vector3(-0.1, 0.82 * S, 0.35), 0.0)
-		_d(root, "Candlestick_Small", base, t + Vector3(0.0, 0.82 * S, 0.0), 0.0)
-	_d(root, "Bread", base, Vector3(-0.9, 0.82 * S, -1.8), 0.6)
-	_d(root, "Meat", base, Vector3(1.7, 0.82 * S, 0.0), 0.2)
-	# escalier vers l'étage contre le mur du fond
-	p.mk.add("Stair_Interior_Rails", base * Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3(3.4, 0.0, -3.15)), sp["tint"])
-	# décor mural : bannière, bouclier, porte-manteaux, trophées
-	_d(root, "Banner", base, Vector3(-2.0, 1.4, -3.75), 0.0, 1.1)
-	_d(root, "Shield", base, Vector3(-5.75, 1.7, 2.2), PI / 2.0)
-	_d(root, "CoatHook_Full", base, Vector3(-2.6, 1.6, 3.75), PI)
-	_d(root, "Candlestick_Wall", base, Vector3(0.5, 1.9, -3.75), 0.0)
-	_d(root, "Candlestick_Wall", base, Vector3(0.5, 1.9, 3.75), PI)
-	_d(root, "Chandelier", base, Vector3(0.3, 2.75, -0.3), 0.0, 0.6)
-	_d(root, "Barrel_Closed", base, Vector3(-5.2, 0, 3.2), 0.4)
-	_d(root, "Barrel_Closed", base, Vector3(-4.4, 0, 3.4), 1.1)
-	_d(root, "Bag", base, Vector3(-5.3, 0, -3.3), 0.7)
-	_light(root, base, Vector3(-4.6, 1.6, -0.4), Color(1.0, 0.62, 0.3), 2.2, 7.5)
-	_light(root, base, Vector3(1.5, 2.3, 0.0), Color(1.0, 0.78, 0.5), 1.4, 9.0)
-	# enseigne au-dessus de la porte
+		_ds("Stool_round", base, Vector3(3.95, 0, -3.0 + k * 1.2), 0.0, Vector3.ONE * 1.4)
+	_d(null, "Mug", base, Vector3(4.5, 1.12, -2.4), 0.3)
+	_d(null, "Jug", base, Vector3(4.6, 1.12, -0.2), 0.0)
+	_d(null, "Bottle", base, Vector3(4.5, 1.12, 0.6), 0.0)
+	_d(null, "Mug", base, Vector3(4.55, 1.12, 0.9), 1.1)
+	# derrière : étagères de bouteilles, tonneaux en perce
+	for z in [-2.6, -0.4]:
+		_d(null, "Shelf_Wall", base, Vector3(6.8, 1.55, z), -PI / 2.0)
+		for k in 4:
+			_d(null, ["Bottle", "Jar_Full", "Wineglass", "Bottle"][k], base, Vector3(6.68, 1.58, z - 0.55 + k * 0.36), 0.0)
+	_ds("Barrel_Big", base, Vector3(6.1, 0, 1.9), PI / 2.0, Vector3.ONE * 0.5)
+	_ds("Barrel_Big", base, Vector3(6.1, 0, 3.4), PI / 2.0, Vector3.ONE * 0.5)
+	_d(null, "Barrel_Closed", base, Vector3(6.3, 0, -4.4), 0.3)
+	_d(null, "Barrel_Closed", base, Vector3(5.4, 0, -4.5), 1.0)
+	# --- cheminée au mur gauche, tapis et fauteuils ---
+	Kit.place(furn, "res://assets/village2/mdvl_village_hearth_01.glb", base * Vector3(-6.75, 0.0, 0.3), rot + PI / 2.0, 1.3)
+	_fire(root, base * Vector3(-6.5, 0.35, 0.3))
+	_ds("Carpet_Red", base, Vector3(-5.2, 0.02, 0.3), PI / 2.0, Vector3(0.6, 1.0, 0.65))
+	_ds("Chair", base, Vector3(-5.0, 0, -0.9), PI * 0.35, Vector3.ONE * 0.85)
+	_ds("Chair", base, Vector3(-5.0, 0, 1.5), PI * 0.65, Vector3.ONE * 0.85)
+	_d(null, "Shield", base, Vector3(-6.9, 1.9, -2.6), PI / 2.0)
+	_d(null, "Shield", base, Vector3(-6.9, 1.9, 3.2), PI / 2.0)
+	# --- quatre tables, toutes avec leurs clients ---
+	_table_set(base, Vector3(-2.4, 0, -1.4), [[-0.6, -1.0, false, "Sitting_Talking"], [0.5, 1.0, true, "Sitting_Idle"]])
+	_table_set(base, Vector3(-2.4, 0, 2.6), [[0.4, -1.0, false, "Sitting_Idle"], [-0.5, 1.0, false, "Sitting_Talking"], [0.6, 1.0, true, "Sitting_Talking"]])
+	_table_set(base, Vector3(1.6, 0, -1.4), [[0.2, 1.0, false, "Sitting_Talking"]])
+	_table_set(base, Vector3(1.6, 0, 2.6), [])
+	_d(null, "Bread", base, Vector3(1.4, TOP, 2.5), 0.6)
+	_d(null, "Meat", base, Vector3(1.9, TOP, 2.7), 0.2)
+	# --- escalier vers l'étage contre le mur du fond (à gauche) ---
+	p.mk.add("Stair_Interior_Rails", base * Transform3D(Basis(Vector3.UP, PI / 2.0), Vector3(-0.6, 0.0, -4.1)), sp["tint"])
+	_d(null, "Bag", base, Vector3(0.4, 0, -4.5), 0.7)
+	# --- décor : bannière, chandelles murales, porte-manteaux, lustres ---
+	_d(null, "Banner", base, Vector3(2.2, 1.5, -4.8), 0.0, 1.0)
+	_d(null, "CoatHook_Full", base, Vector3(-2.2, 1.6, 4.8), PI)
+	for q in [Vector3(-4.0, 2.0, -4.85), Vector3(3.2, 2.0, 4.85), Vector3(-4.0, 2.0, 4.85)]:
+		_d(null, "Candlestick_Wall", base, q, 0.0 if q.z < 0 else PI)
+	for x in [-2.4, 1.6]:
+		_d(null, "Chandelier", base, Vector3(x, 2.95, 0.6), 0.0, 0.5)
+	_light(root, base, Vector3(-5.6, 1.5, 0.3), Color(1.0, 0.6, 0.3), 2.0, 7.5)
+	_light(root, base, Vector3(-0.4, 2.4, 0.6), Color(1.0, 0.78, 0.5), 1.5, 10.0)
+	_light(root, base, Vector3(4.6, 2.2, -1.2), Color(1.0, 0.72, 0.45), 1.0, 6.0)
+	# --- enseigne au-dessus de la porte ---
 	var dp: Vector3 = sp["door"]
 	var face: Vector2 = sp["face"]
 	var xl := Vector2(face.y, -face.x)
 	Kit.place(furn, "res://assets/village2/mdvl_village_sign_inn_01.glb", Vector3(dp.x + xl.x * 1.6 + face.x * 0.45, dp.y + 2.75, dp.z + xl.y * 1.6 + face.y * 0.45), rot + PI / 2.0, 1.2)
-	# terrasse : deux tables dehors
+	# --- terrasse : deux petites tables rondes dehors ---
 	for k in 2:
-		var t: Vector3 = base * Vector3(-4.0 + k * 7.6, 0, 6.2)
+		var t: Vector3 = base * Vector3(-4.5 + k * 9.0, 0, 6.6)
 		var ty := Terrain.height_at(t.x, t.z) + 0.1
-		Kit.dungeon(furn, "Table_Small", Vector3(t.x, ty, t.z), rot, 0.75)
-		Kit.dungeon(furn, "Stool_round", Vector3(t.x, ty, t.z) + b * Vector3(0.8, 0, 0), 0.0, 1.0)
-		Kit.dungeon(furn, "Stool_round", Vector3(t.x, ty, t.z) + b * Vector3(-0.8, 0, 0), 0.0, 1.0)
-		Kit.dungeon(furn, "Mug", Vector3(t.x, ty + 0.62, t.z), 0.0, 1.0)
-	# clients et tavernier
-	patrons.append([base * Vector3(5.1, 0.0, 0.4), "Idle_Talking", false, rot - PI / 2.0, {"id": "tavernier", "nom": "Gaspard le tavernier", "role": "habitant"}])
-	patrons.append([base * Vector3(-1.85, 0.0, -2.2), "Sitting_Talking", false, rot + PI / 2.0])
-	patrons.append([base * Vector3(-0.15, 0.0, -2.2), "Sitting_Idle", true, rot - PI / 2.0])
-	patrons.append([base * Vector3(-1.85, 0.0, 1.5), "Sitting_Talking", true, rot + PI / 2.0])
-	patrons.append([base * Vector3(2.45, 0.0, -0.4), "Sitting_Talking", false, rot - PI / 2.0])
-	patrons.append([base * Vector3(-3.8, 0.05, 0.9), "Sitting_Idle", false, rot + PI * 0.2 + PI])
+		var tn := Kit.dungeon(furn, "Table_Small", Vector3(t.x, ty, t.z), rot, 1.0)
+		tn.scale = Vector3(0.42, 0.9, 0.6)
+		for sd in [-1.0, 1.0]:
+			var st := Kit.dungeon(furn, "Stool_round", Vector3(t.x, ty, t.z) + b * Vector3(sd * 0.95, 0, 0), 0.0, 1.0)
+			st.scale = Vector3.ONE * 1.4
+		Kit.dungeon(furn, "Mug", Vector3(t.x, ty + 0.77, t.z), 0.0, 1.0)
+	# --- personnel ---
+	patrons.append([base * Vector3(5.6, 0.0, -1.2), "Idle_Talking", false, rot - PI / 2.0, {"id": "tavernier", "nom": "Gaspard le tavernier", "role": "habitant"}])
+	patrons.append([base * Vector3(3.4, 0.0, -2.4), "Idle_Talking", false, rot + PI / 2.0])
 
 ## Échoppe de l'apothicaire : étagères de fioles, chaudron, bureau, boule de cristal
 static func _apothicaire(p: BourgPlan, root: Node3D, base: Transform3D, sp: Dictionary) -> void:
@@ -223,10 +250,10 @@ static func _maison(p: BourgPlan, root: Node3D, base: Transform3D, sp: Dictionar
 	p.geo.obox("bois_sombre", Transform3D(b, base * Vector3(-1.9, 0.6, -3.72)), Vector3(1.5, 1.2, 0.1), false)
 	var chest := _d(root, "Chest", base, Vector3(-1.9, 0, -0.9), 0.0)
 	chest.name = "CoffreMathis"
-	_d(root, "Table_Small", base, Vector3(1.4, 0, 0.2), 0.0)
-	_d(root, "Chair", base, Vector3(1.4, 0, 1.0), PI)
-	_d(root, "Bowl_Full", base, Vector3(1.4, 0.62, 0.1), 0.0)
-	_d(root, "Candlestick", base, Vector3(1.7, 0.62, -0.1), 0.0)
+	_ds("Table_Small", base, Vector3(1.2, 0, 0.2), PI / 2.0, Vector3(0.42, 0.9, 0.6))
+	_ds("Chair", base, Vector3(1.2, 0, 1.05), PI, Vector3.ONE * 0.85)
+	_d(root, "Bowl_Full", base, Vector3(1.2, 0.78, 0.1), 0.0)
+	_d(root, "Candlestick", base, Vector3(1.4, 0.78, -0.2), 0.0)
 	Kit.place(furn, "res://assets/village2/mdvl_village_hearth_01.glb", base * Vector3(2.5, 0.0, -2.4), rot - PI / 2.0, 1.0)
 	_fire(root, base * Vector3(2.35, 0.3, -2.4))
 	_d(root, "Shelf_Wall", base, Vector3(-2.75, 1.5, 1.4), PI / 2.0)
@@ -235,7 +262,7 @@ static func _maison(p: BourgPlan, root: Node3D, base: Transform3D, sp: Dictionar
 	_d(root, "Carpet_Green", base, Vector3(0.2, 0.02, -1.2), 0.0, 0.8)
 	_d(root, "CoatHook_Full", base, Vector3(1.2, 1.6, 3.75), PI)
 	_light(root, base, Vector3(1.6, 1.4, -2.0), Color(1.0, 0.6, 0.3), 1.6, 6.0)
-	patrons.append([base * Vector3(1.4, 0.05, 1.0), "Sitting_Idle", false, rot + PI, {"id": "mathis", "nom": "Le vieux Mathis", "role": "habitant"}])
+	patrons.append([base * Vector3(1.2, 0.0, 1.05), "Sitting_Idle", false, rot + PI, {"id": "mathis", "nom": "Le vieux Mathis", "role": "habitant"}])
 
 # ---------------------------------------------------------------- zone de visite
 
