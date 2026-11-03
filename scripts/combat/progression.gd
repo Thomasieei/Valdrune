@@ -40,7 +40,7 @@ func mana_regen() -> float:
 	return 2.5 + intel * 0.12
 
 func melee_damage() -> float:
-	return 8.0 + force * 1.6
+	return (8.0 + force * 1.6) * Armes.factor()   # arme équipée et son usure (scripts/combat/armes.gd)
 
 func spell_power() -> float:
 	return intel * 1.0

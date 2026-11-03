@@ -25,6 +25,30 @@ func _ready() -> void:
 		["14_lac", Vector2(130, 140), 50.0, -14.0, 9.0, false],
 		["15_portail", Vector2(33, 212), 180.0, -12.0, 9.0, false],
 		["16_vue_chateau_loin", Vector2(20, -10), 350.0, -8.0, 12.0, false],
+		["B1_place", Vector2(4, -14), 200.0, -14.0, 8.0, false],
+		["B2_grand_rue_sud", Vector2(8, 26), 165.0, -10.0, 7.0, false],
+		["B3_rue_basse", Vector2(-26, 15.5), 260.0, -10.0, 7.0, false],
+		["B4_taverne", Vector2(14, -27), 270.0, -12.0, 8.0, false],
+		["B5_grand_rue_nord", Vector2(1, -44), 10.0, -12.0, 8.0, false],
+		["B6_rue_ouest", Vector2(-40, -18), 100.0, -10.0, 8.0, false],
+		["B7_impasse", Vector2(28, 27.5), 250.0, -14.0, 8.0, false],
+		["B8_rue_four", Vector2(36, -20), 0.0, -10.0, 8.0, false],
+		["B9_haut_bourg", Vector2(0, -20), 30.0, -38.0, 30.0, false],
+		["B10_dans_taverne", Vector2(21, -27.5), 250.0, -40.0, 6.0, false],
+		["B10b_taverne_comptoir", Vector2(0, 0), 70.0, -30.0, 5.5, false],
+		["B10c_taverne_cheminee", Vector2(0, 0), 290.0, -25.0, 5.5, false],
+		["B10d_taverne_tables", Vector2(0, 0), 160.0, -55.0, 6.5, false],
+		["B11_dans_apothicaire", Vector2(9.9, -1.5), 180.0, -45.0, 6.0, false],
+		["B12_maison_mathis", Vector2(0, 0), 0.0, -45.0, 6.0, false],
+		["B13_salle_bandits", Vector2(0, 0), 200.0, -45.0, 6.0, false],
+		["B15_porte", Vector2(1, -42), 10.0, 2.0, 7.0, false],
+		["B16_lavoir_a", Vector2(-26, 30), 0.0, -18.0, 8.0, false],
+		["B16_lavoir_b", Vector2(-26, 30), 180.0, -18.0, 8.0, false],
+		["B17_forge", Vector2(36, -10.5), 192.0, -12.0, 6.5, false],
+		["B17b_forge_proche", Vector2(35, -6.5), 200.0, -30.0, 5.0, false],
+		["B18_bagarre", Vector2(0, 0), 250.0, -38.0, 6.5, false],
+		["B19_armurerie", Vector2(31, -4), 160.0, -14.0, 8.0, false],
+		["B14_camp_bandits", Vector2(-56.5, 131), 160.0, -20.0, 12.0, false],
 	]
 	if only == "audit":
 		_audit()
@@ -45,6 +69,20 @@ func _run() -> void:
 		var y := Layout.height(xz.x, xz.y) + 0.3
 		if s[5]:
 			y = Castle.FLOOR + 0.2
+		# maisons visitables du bourg : on se place sur le plancher
+		if s[0] == "B13_salle_bandits":
+			var rz: Node = world.find_child("Repaire_camp_bandits", true, false)
+			if rz:
+				var zp: Vector3 = (rz.get_node("Visite") as Node3D).global_position
+				xz = Vector2(zp.x, zp.z)
+				y = zp.y - 1.2
+		var inside_of := {"B18_bagarre": "taverne", "B10_dans_taverne": "taverne", "B10b_taverne_comptoir": "taverne", "B10c_taverne_cheminee": "taverne", "B10d_taverne_tables": "taverne", "B11_dans_apothicaire": "apothicaire", "B12_maison_mathis": "maison_mathis"}
+		for nm in [inside_of.get(s[0], "")]:
+			if nm != "" and Town.plan and Town.plan.specials.has(nm):
+				var sp: Dictionary = Town.plan.specials[nm]
+				var bp: Vector3 = (sp["base"] as Transform3D) * Vector3(0.5, 0.1, 1.0)
+				xz = Vector2(bp.x, bp.z)
+				y = bp.y
 		p.global_position = Vector3(xz.x, y, xz.y)
 		p.velocity = Vector3.ZERO
 		world._set_inside(s[5])
@@ -55,8 +93,15 @@ func _run() -> void:
 		p.rotation.y = rig.yaw + PI
 		rig._focus = p.global_position + Vector3.UP * 1.45
 		rig._last_manual = Time.get_ticks_msec() / 1000.0 + 100.0
+		if s[0] == "B18_bagarre" and Bagarre.inst:
+			Bagarre.inst._start()
+			await get_tree().create_timer(3.4).timeout
+		if s[0] == "B19_armurerie":
+			ArmurerieUI.open("Odile l'armurière")
 		for f in 8: await get_tree().process_frame
 		get_viewport().get_texture().get_image().save_png("res://shots/%s.png" % s[0])
+		if s[0] == "B19_armurerie":
+			ArmurerieUI.inst._close()
 		var prims := RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME)
 		var draws := RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME)
 		var objs := RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME)
@@ -103,8 +148,8 @@ func _audit() -> void:
 	for gid in BanditVillage.VILLAGES:
 		var vc: Vector2 = CampParley.zone(gid)["pos"]
 		var dv: Vector2 = (Layout.TOWN - vc).normalized()
-		var e2: Vector2 = vc + dv * 30.0 + Vector2(dv.y, -dv.x) * 8.0
-		cams.append(["S_v_" + gid, Vector3(e2.x, 13.0, e2.y), Vector3(vc.x, 1.0, vc.y)])
+		var e2: Vector2 = vc + dv * 46.0 + Vector2(dv.y, -dv.x) * 10.0
+		cams.append(["S_v_" + gid, Vector3(e2.x, 22.0, e2.y), Vector3(vc.x, 1.0, vc.y)])
 	var args := OS.get_cmdline_user_args()
 	if args.size() > 2:
 		cams = cams.filter(func(c): return c[0].begins_with(args[2]))

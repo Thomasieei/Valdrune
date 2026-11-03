@@ -1,7 +1,7 @@
 name: APK Royaume
 on:
   push:
-    branches: [royaume]
+    branches: [royaume, royaume-villes]
   workflow_dispatch:
 permissions:
   contents: write
@@ -52,8 +52,8 @@ jobs:
       - name: Publier la Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: royaume-v0.1.${{ github.run_number }}
-          name: Royaume v0.1.${{ github.run_number }}
+          tag_name: ${{ github.ref_name == 'royaume' && 'royaume' || 'villes' }}-v0.1.${{ github.run_number }}
+          name: ${{ github.ref_name == 'royaume' && 'Royaume' || 'Royaume (villes)' }} v0.1.${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           make_latest: false
           body: APK Android du Royaume (première zone). Télécharge Royaume.apk depuis ton téléphone et installe-le.

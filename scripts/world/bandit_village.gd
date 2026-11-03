@@ -5,7 +5,7 @@ extends Node
 ## Construit autour des camps « parlants » ; le bourg du royaume n'est pas touché.
 
 const VILLAGES := ["camp_bandits", "brigands_est", "lanceurs_sud", "rodeurs_ouest"]
-const VR := 24.0      # rayon du village (palissade)
+const MARGE := 22.0   # le village s'étend à r + 22 m (au-delà de la salle et des cabanes du repaire)
 
 static var inst: BanditVillage
 var _people := {}      # gid -> Array de Villager
@@ -16,7 +16,14 @@ static func is_village(gid: String) -> bool:
 
 ## Marge réservée autour d'un repaire (pas d'arbres ni de rochers dans le village)
 static func reserve(id: String) -> float:
-	return VR + 4.0 if id in VILLAGES else 0.0
+	return radius(id) + 4.0 if id in VILLAGES else 0.0
+
+## Rayon de la palissade du village
+static func radius(id: String) -> float:
+	for z in Spawner.ZONES:
+		if z["id"] == id:
+			return float(z["r"]) + MARGE
+	return MARGE
 
 static func build(world: Node3D) -> void:
 	inst = BanditVillage.new()
@@ -39,14 +46,18 @@ func _village(g: Geo, root: Node3D, world: Node3D, z: Dictionary) -> void:
 	rng.seed = absi(gid.hash())
 	var face := atan2(Layout.TOWN.x - c.x, Layout.TOWN.y - c.y)   # l'entrée regarde vers le bourg
 	# plan : les bâtiments en couronne, l'entrée (vers le bourg) laissée libre
+	# les grands repaires ont déjà leur grande salle (Repaire) : le village s'ajoute tout autour
 	var plan := ["halle", "taverne", "forge", "maison", "boucherie", "maison", "poissonnerie", "maison", "maison"]
+	if Repaire.BIG.has(gid):
+		plan = ["taverne", "maison", "forge", "boucherie", "maison", "poissonnerie", "maison", "maison", "maison"]
+	var ring := float(z["r"]) + 14.0
 	var n := plan.size()
 	var spots: Dictionary = {}
 	for i in n:
 		var a := face + PI + (float(i) - (n - 1) * 0.5) * (TAU - 1.3) / n
-		var R := 16.5 if plan[i] in ["halle", "taverne"] else 15.5 + rng.randf_range(-1.0, 1.5)
+		var R := ring + (1.0 if plan[i] in ["halle", "taverne"] else rng.randf_range(-0.5, 1.5))
 		var q := c + Vector2(sin(a), cos(a)) * R
-		if Terrain.height_at(q.x, q.y) < Layout.WATER + 0.5 or Layout.river_dist(q) < Layout.RIVER_W + 4.0:
+		if Terrain.height_at(q.x, q.y) < Layout.WATER + 0.5 or Layout.river_dist(q) < Layout.RIVER_W + 4.0 or Layout.in_castle(q, 16.0) or Layout.road_dist(q) < 6.0 or _near_town_house(q):
 			continue
 		var rot := atan2(c.x - q.x, c.y - q.y)   # façade tournée vers la place
 		spots[plan[i]] = [q, rot]
@@ -101,6 +112,12 @@ func _village(g: Geo, root: Node3D, world: Node3D, z: Dictionary) -> void:
 	Kit.village(root, "Prop_Well_Cobblestone", Vector3(c.x + sin(face) * 6.0, Terrain.height_at(c.x + sin(face) * 6.0, c.y + cos(face) * 6.0), c.y + cos(face) * 6.0), face, 1.3)
 	_people[gid] = []
 	_settle(world, gid, c, spots, rng)
+
+func _near_town_house(q: Vector2) -> bool:
+	for h in Town.houses:
+		if (h[0] as Vector2).distance_to(q) < float(h[1]) + 7.0:
+			return true
+	return false
 
 ## Échoppe ouverte : poteaux et auvent
 func _shed(g: Geo, q: Vector2, rot: float, w: float, d: float, roof: String) -> void:

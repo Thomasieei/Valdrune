@@ -28,10 +28,18 @@ func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	if args.size() > 1:
 		var v: Array = str_to_var(args[1])
+		if v.size() == 3:
+			cam.size = v[2]
+			cam.position = Vector3(v[0], 200, v[1])
+			for f in 6: await get_tree().process_frame
+			get_viewport().get_texture().get_image().save_png("res://shots/%s.png" % args[0])
+			get_tree().quit()
+			return
 		cam.projection = Camera3D.PROJECTION_PERSPECTIVE
 		cam.fov = 60
 		cam.position = Vector3(v[0], v[1], v[2])
 		cam.look_at(Vector3(v[3], v[4], v[5]))
 	for f in 6: await get_tree().process_frame
+	print("RENDU primitives=%d appels=%d objets=%d" % [Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)])
 	get_viewport().get_texture().get_image().save_png("res://shots/%s.png" % (args[0] if args.size() else "plan"))
 	get_tree().quit()

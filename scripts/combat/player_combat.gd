@@ -182,6 +182,7 @@ func _resolve_hit() -> void:
 		Juice.onde(player.global_position + fwd * 1.4, Color(1.0, 0.8, 0.45), 3.2, 0.4)
 		Juice.dust(player.global_position + fwd * 1.4, 12, 4.0)
 	if hit_any:
+		Armes.on_hit()   # l'arme s'use à chaque coup porté
 		Sfx.play("touche", -2.0)
 		if heavy:
 			Sfx.play("lourd", -4.0)
