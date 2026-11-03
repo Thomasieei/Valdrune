@@ -578,6 +578,8 @@ static func shockwave(pos: Vector3, r: float) -> void:
 
 ## Bulle de parole au-dessus d'un personnage
 static func bark(target: Node3D, text: String, height := 2.3, dur := 3.0) -> void:
+	if not is_instance_valid(target) or not target.is_inside_tree():
+		return
 	var old := target.get_node_or_null("Bulle")
 	if old:
 		old.queue_free()

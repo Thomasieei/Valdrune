@@ -132,7 +132,8 @@ func _tick_bands(p: Node3D, dt: float) -> void:
 		if ms.is_empty() and not (b["ms"] as Array).is_empty():
 			b["cool"] = 300.0     # bande anéantie : une autre se reforme plus tard
 		b["ms"] = ms
-		var fighting := ms.any(func(m): return m.state in [Monster.S.POURSUITE, Monster.S.ATTAQUE])
+		var a3p := Vector3(at.x, Terrain.height_at(at.x, at.y), at.y)
+		var fighting := p.global_position.distance_to(a3p) < 40.0 and ms.any(func(m): return m.state in [Monster.S.POURSUITE, Monster.S.ATTAQUE])
 		if not fighting:
 			var tgt: Vector2 = path[int(b["i"])]
 			var d := tgt - at
@@ -311,7 +312,7 @@ func _tick_raid(dt: float) -> void:
 		if m.has_meta("deguise") and m.peaceful:
 			var prey: Node3D = cara._merchant if is_instance_valid(cara) else null
 			var dest: Vector3 = prey.global_position if prey else raid["at"]
-			if m.global_position.distance_to(dest) < 5.0 or m.cbt.hp < m.cbt.max_hp:
+			if m.global_position.distance_to(dest) < 7.5 or m.cbt.hp < m.cbt.max_hp:
 				m.peaceful = false
 				m.remove_meta("deguise")
 				FX.bark(m, ["Surprise, marchand !", "Tes gardes ne te sauveront pas !", "Le voyage s'arrête ici !"][randi() % 3], 2.6, 2.4)

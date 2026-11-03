@@ -405,6 +405,7 @@ func _ready() -> void:
 	# ---------------------------------------------------------------- pourparlers d'un camp + duel d'honneur
 	var gid := "camp_bandits"
 	CampParley.set_status(gid, "neutre")
+	CampParley.inst._hailed[gid] = true   # ce test-ci porte sur la main levée ; les sentinelles sont testées plus loin
 	var cz: Vector2 = CampParley.zone(gid)["pos"]
 	_place(cz + Vector2(0, 30), 180)
 	await _until(func(): return CampParley.members(gid).size() >= 3, 15.0)
