@@ -43,6 +43,7 @@ func _ready() -> void:
 	_step_label.text = "Préparation des effets visuels…"
 	_bar.value = 95.0
 	await _warmup()
+	_view_ranges()
 	_bar.value = 100.0
 	_spawn()
 	_set_inside(false)
@@ -52,6 +53,22 @@ func _ready() -> void:
 ## Préchauffage des shaders : on fait voir TOUT le monde (extérieur, intérieur éclairé, personnages)
 ## à une caméra cachée derrière l'écran de chargement, pour que les shaders soient compilés
 ## pendant le chargement et pas en pleine partie (c'était la cause des gros pics de ms).
+## Distances d'affichage du décor : les petits détails lointains ne sont plus dessinés (gros gain sur téléphone)
+func _view_ranges() -> void:
+	var det := find_child("Details", true, false)
+	if det:
+		for gi in det.find_children("*", "GeometryInstance3D", true, false):
+			gi.visibility_range_end = minf(gi.visibility_range_end if gi.visibility_range_end > 0.0 else 999.0, 60.0)
+	var ranges := {"BourgDecor": 60.0, "Potagers": 40.0, "LieuxDecor": 110.0, "CampsDecor": 90.0, "VillagesDecor": 90.0, "Champs": 120.0, "CourDecor": 90.0, "Mobilier": 60.0}
+	for nm in ranges:
+		var n := find_child(nm, true, false)
+		if n == null:
+			continue
+		for gi in n.find_children("*", "GeometryInstance3D", true, false):
+			if gi.visibility_range_end == 0.0:
+				gi.visibility_range_end = ranges[nm]
+				gi.visibility_range_end_margin = 8.0
+
 func _warmup() -> void:
 	var saved := {}
 	for n in find_children("*", "GeometryInstance3D", true, false):
@@ -110,6 +127,24 @@ func _warmup() -> void:
 	Juice.dust(fxp, 4)
 	FX.impact_light(fxp, Color(1, 0.8, 0.4), 2.0, 4.0)
 	var tele := Telegraph.spawn(self, fxp + Vector3(0, 0, 3), 0.0, "cercle", 1.5, 3.0)
+	# modèles et décors chargés d'avance (sinon gel à la première apparition : donjon, maison, portail, bêtes)
+	for nm in ["Throne", "Chest", "ChestSmall", "Torch_Wall", "Firewood", "Banner", "Pillar", "Shelf", "Desk", "Table_Big", "Bench", "Chair",
+			"WeaponRack_Big", "WeaponRack_Small", "Barrel_Big", "Barrel_Closed", "Barrel_Open", "Skull", "Bone", "Candlestick_Triple",
+			"Fireplace", "Carpet_Red", "Door_Wooden_Left", "Cauldron_Full", "Book_Open", "Scroll_Stack", "Mug", "Bread", "Bowl_Full", "Oven", "Meat", "Knife", "Bucket", "Bag"]:
+		Kit._load(Kit.DUNGEON % nm)
+	var rp := RiftPortal.new()
+	rp.col = Color(1, 0.3, 0.3)
+	add_child(rp)
+	rp.global_position = fxp + Vector3(6, 0, 0)
+	var wm: Array = []
+	for k in ["goule", "puglin_sauvage", "bandit_deguise", "voleur", "seigneur_os", "chef_de_guerre", "brute_infernale", "garde_elite", "geant", "lieutenant", "mercenaire"]:
+		var mm := Monster.new()
+		mm.kind = k
+		mm.no_respawn = true
+		add_child(mm)
+		mm.global_position = fxp + Vector3(randf_range(-4, 4), 0, randf_range(-4, 4))
+		mm.set_physics_process(false)
+		wm.append(mm)
 	views.push_front([fxp + Vector3(0, 4, 12), fxp])
 	for v in views:
 		cam.position = v[0]
@@ -124,6 +159,11 @@ func _warmup() -> void:
 	dummy.queue_free()
 	if is_instance_valid(tele):
 		tele.queue_free()
+	rp.queue_free()
+	for mm in wm:
+		if is_instance_valid(mm):
+			Combat.unregister(mm)
+			mm.queue_free()
 
 func _batch() -> void:
 	for nm in ["Mobilier", "CourDecor", "BourgDecor", "LieuxDecor", "Potagers", "CampsDecor"]:
@@ -325,6 +365,7 @@ var quality := 0
 var _q_acc := 0.0
 var _q_low := 0.0
 var _q_high := 0.0
+var _npc_far := 38.0
 var _npc_acc := 0.0
 
 func _process(delta: float) -> void:
@@ -369,11 +410,11 @@ func _process(delta: float) -> void:
 	# on n'allège qu'après 5 s de suite sous 26 FPS, et on rend la qualité dès que ça redevient fluide
 	_q_low = _q_low + 1.0 if fps < 26 else 0.0
 	_q_high = _q_high + 1.0 if fps >= 50 else 0.0
-	if _q_low >= 5.0 and quality < 4:
+	if _q_low >= 5.0 and quality < 5:
 		_q_low = 0.0
 		quality += 1
 		_apply_quality()
-	elif _q_high >= 12.0 and quality > 0:
+	elif _q_high >= 12.0 and quality > 0 and quality < 5:
 		_q_high = 0.0
 		quality -= 1
 		_apply_quality()
@@ -433,7 +474,7 @@ func _cull_npcs() -> void:
 			continue
 		var inside_keep: bool = n.global_position.y > Castle.FLOOR - 0.2 and n.global_position.y < Castle.FLOOR + 3.0 and Layout.in_castle(Vector2(n.global_position.x, n.global_position.z)) and n.global_position.z < Castle.K_MAX.y and n.global_position.z > Castle.K_MIN.y and absf(n.global_position.x) < Castle.K_MAX.x
 		var d := pp.distance_to(n.global_position)
-		var show: bool = d < (42.0 if n is Villager else 60.0) and inside_keep == _inside
+		var show: bool = d < (_npc_far if n is Villager else 60.0) and inside_keep == _inside
 		if n.visible != show:
 			n.visible = show
 			n.process_mode = Node.PROCESS_MODE_INHERIT if show else Node.PROCESS_MODE_DISABLED
@@ -454,7 +495,17 @@ func _apply_quality() -> void:
 				if not n.has_meta("vr0"):
 					n.set_meta("vr0", n.visibility_range_end)
 				n.visibility_range_end = float(n.get_meta("vr0")) * (0.75 if quality >= 2 else 1.0)
-	vp.scaling_3d_scale = [1.0, 1.0, 1.0, 0.9, 0.85][quality]
+	vp.scaling_3d_scale = [1.0, 1.0, 1.0, 0.9, 0.85, 0.8][quality]
+	# paliers 3+ : le décor fin du bourg se dessine moins loin
+	for nm in ["BourgDecor", "Potagers", "Details"]:
+		var dn := find_child(nm, true, false)
+		if dn:
+			for gi in dn.find_children("*", "GeometryInstance3D", true, false):
+				if not gi.has_meta("vr_base"):
+					gi.set_meta("vr_base", gi.visibility_range_end)
+				gi.visibility_range_end = float(gi.get_meta("vr_base")) * (0.6 if quality >= 3 else 1.0)
+	# palier 5 : moins de monde affiché au loin
+	_npc_far = 26.0 if quality >= 5 else (32.0 if quality >= 3 else 38.0)
 	print("qualité → niveau ", quality)
 
 ## Intérieur / extérieur : on n'affiche que ce qui peut être vu.

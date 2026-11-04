@@ -91,6 +91,9 @@ func _process(delta: float) -> void:
 		if st in ["libere", "allie"]:
 			continue
 		var d := pp.distance_to(z["pos"])
+		# reparti loin : au prochain retour, les sentinelles viendront de nouveau à sa rencontre
+		if d > 95.0 and _hailed.has(gid) and st == "neutre":
+			_hailed.erase(gid)
 		if st == "treve" and _warned.has(gid):
 			if d < 9.0:
 				_warned.erase(gid)
@@ -111,7 +114,7 @@ func _process(delta: float) -> void:
 		var fighting := ms2.any(func(m): return m.state in [Monster.S.POURSUITE, Monster.S.ATTAQUE])
 		# première approche : les sentinelles viennent au-devant du souverain AVANT tout combat
 		# jamais en plein combat : si le souverain se bat (ou vient d'être frappé), les sentinelles attendent
-		var busy_fight: bool = Time.get_ticks_msec() / 1000.0 - float(Combat.player.last_hurt) < 6.0 or Combat.in_radius(Combat.player.global_position, 25.0).any(func(m): return m.state in [Monster.S.POURSUITE, Monster.S.ATTAQUE, Monster.S.FUITE, Monster.S.ETOURDI] or not ms2.has(m))
+		var busy_fight: bool = Time.get_ticks_msec() / 1000.0 - float(Combat.player.last_hurt) < 6.0 or Combat.in_radius(Combat.player.global_position, 22.0).any(func(m): return m.state in [Monster.S.POURSUITE, Monster.S.ATTAQUE] and not m.peaceful)
 		if not fighting and not busy_fight and not _hailed.has(g) and near_d < 50.0 and String(_st().get(g, "neutre")) == "neutre":
 			_hailed[g] = true
 			_sentries(g, ms2)

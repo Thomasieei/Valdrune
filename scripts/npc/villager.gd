@@ -19,6 +19,11 @@ func _ready() -> void:
 	add_to_group("pnj")
 	var m := CharBuilder.build(spec)
 	add_child(m)
+	# habitants : pas d'ombre dynamique (chaque personnage = ~10 000 triangles redessinés dans la passe d'ombre),
+	# une tache d'ombre au sol suffit
+	for mi in m.find_children("*", "GeometryInstance3D", true, false):
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	FX.blob_shadow(self, 0.9)
 	_ap = m.get_node("AnimationPlayer")
 	if path.size() > 0:
 		var p: Vector2 = path[0]

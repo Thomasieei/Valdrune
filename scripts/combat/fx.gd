@@ -264,6 +264,10 @@ static func impact_light(pos: Vector3, col: Color, energy: float, rng: float) ->
 static func hitstop(dur: float) -> void:
 	if root == null or Engine.time_scale < 1.0:
 		return
+	# sur un téléphone qui peine, un arrêt sur image ressemble à un gel : on s'en passe
+	if Engine.get_frames_per_second() < 45:
+		return
+	dur = minf(dur, 0.06)
 	Engine.time_scale = 0.06
 	root.get_tree().create_timer(dur, true, false, true).timeout.connect(func():
 		if Engine.time_scale < 0.1:

@@ -6,7 +6,7 @@ extends Node
 
 static var inst: AuraGuard
 static var enabled := true
-const CD := 9.0
+const CD := 30.0
 const SLOW := 0.22
 var ready_at := 0.0
 var pinned: Node3D = null
@@ -35,6 +35,9 @@ func cooldown_left() -> float:
 func _block(m: Node3D) -> bool:
 	var p := Combat.player
 	if not enabled or not Story.done() or p == null or p.cbt.dead or Dialogue.active or now() < ready_at or is_instance_valid(pinned):
+		return false
+	# ralenti réservé aux duels : jamais au milieu d'une mêlée, ni si le téléphone peine déjà
+	if Combat.in_radius(p.global_position, 12.0).size() > 2 or Engine.get_frames_per_second() < 25:
 		return false
 	ready_at = now() + CD
 	blocks += 1

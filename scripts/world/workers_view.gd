@@ -46,6 +46,25 @@ func _pending() -> bool:
 			return true
 	return false
 
+## Postes de la mine : uniquement sur du terrain plat (plus de mineurs accrochés à la falaise)
+var _mine_spots: Array = []
+func _flat_spot(bid: String, i: int) -> Vector2:
+	if _mine_spots.is_empty():
+		var c := Layout.MINE + Vector2(0, 16)
+		for r in range(0, 60):
+			for k in 10:
+				var a := TAU * k / 10.0 + r * 0.37
+				var q := c + Vector2(cos(a), sin(a)) * (2.0 + r * 1.3)
+				var h := Terrain.height_at(q.x, q.y)
+				var flat := absf(Terrain.height_at(q.x + 1.2, q.y) - h) < 0.45 and absf(Terrain.height_at(q.x, q.y + 1.2) - h) < 0.45 and absf(Terrain.height_at(q.x - 1.2, q.y) - h) < 0.45
+				if flat and h > Layout.WATER + 0.5 and Layout.road_dist(q) > 2.0 and _mine_spots.all(func(o): return (o as Vector2).distance_to(q) > 2.6):
+					_mine_spots.append(q)
+				if _mine_spots.size() >= MAX_SHOWN:
+					break
+			if _mine_spots.size() >= MAX_SHOWN:
+				break
+	return _mine_spots[i % maxi(1, _mine_spots.size())] if _mine_spots.size() > 0 else Layout.MINE + Vector2(0, 14)
+
 ## Postes de travail répartis sur tout le chantier (lisière, front de taille, rangs des champs)
 func _site(bid: String, i: int) -> Array:
 	match bid:
@@ -53,8 +72,7 @@ func _site(bid: String, i: int) -> Array:
 			var c: Vector2 = Layout.LUMBER + Vector2(-16.0 - (i % 6) * 4.5, -14.0 + int(i / 6) * 6.5)
 			return [c, -PI / 2.0]
 		"mine":
-			var c2: Vector2 = Layout.MINE + Vector2(-12.0 + (i % 8) * 3.2, 12.0 + int(i / 8) * 3.4)
-			return [c2, PI + 0.3]
+			return [_flat_spot("mine", i), PI + 0.3]
 		_:
 			var f: Vector2 = Layout.FIELDS_MIN + Vector2(10.0 + (i % 8) * 11.0, 12.0 + int(i / 8) * 18.0)
 			return [f, (i * 1.7)]
@@ -74,6 +92,11 @@ func _spawn(bid: String, i: int) -> Villager:
 	if bid == "scierie":
 		var tree := Kit.nature(get_parent(), "oak", Vector3(p.x - 1.7, Terrain.height_at(p.x - 1.7, p.y) - 0.1, p.y), randf() * TAU, 1.8)
 		v.set_meta("arbre", tree)
+	elif bid == "mine":
+		var fr: float = st[1]
+		var rq := p + Vector2(sin(fr), cos(fr)) * 1.3
+		var rock := Kit.nature(get_parent(), "rocks", Vector3(rq.x, Terrain.height_at(rq.x, rq.y) - 0.2, rq.y), randf() * TAU, 1.2)
+		v.set_meta("arbre", rock)
 	v.set_meta("poste", Vector3(p.x, Terrain.height_at(p.x, p.y), p.y))
 	v.set_meta("poste_rot", st[1])
 	return v

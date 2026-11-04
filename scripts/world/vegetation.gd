@@ -4,8 +4,8 @@ class_name Vegetation
 
 const CELL := 40.0          # blocs fins : meilleur culling
 const FAR_CELL := 80.0
-const NEAR_TREE := 75.0     # au-delà : arbres simplifiés
-const FAR_TREE := 230.0
+const NEAR_TREE := 55.0     # au-delà : arbres simplifiés
+const FAR_TREE := 170.0
 
 static var _bins := {}   # clé "type|cx|cz" -> Array[Transform3D]
 static var _trunks: Array = []   # [pos, rayon]
@@ -159,7 +159,7 @@ static func _emit(parent: Node3D) -> void:
 		var mid := kind in ["bush", "log", "stump", "rock_mossy", "slab", "rocks"]
 		var mmi := _mm(mesh, arr)
 		mmi.material_override = mat
-		mmi.visibility_range_end = 38.0 if small else (90.0 if mid else NEAR_TREE)
+		mmi.visibility_range_end = 28.0 if small else (60.0 if mid else NEAR_TREE)
 		mmi.visibility_range_end_margin = 6.0
 		if not is_tree:
 			mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

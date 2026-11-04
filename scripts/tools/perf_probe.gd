@@ -5,6 +5,16 @@ func _ready() -> void:
 	while world.player == null or world.story == null:
 		await get_tree().process_frame
 	Frontier.quiet = true
+	if OS.get_cmdline_user_args().has("bourg"):
+		for gi in world.find_child("Bourg", true, false).find_children("*", "GeometryInstance3D", true, false):
+			var t := 0
+			if gi is MeshInstance3D and gi.mesh:
+				for si in gi.mesh.get_surface_count():
+					var ar = gi.mesh.surface_get_arrays(si)
+					t += (ar[Mesh.ARRAY_INDEX].size() if ar[Mesh.ARRAY_INDEX] != null else ar[Mesh.ARRAY_VERTEX].size()) / 3
+			print("B ", gi.get_path().get_concatenated_names().right(60), " tris ", t, " aabb ", gi.get_aabb().size.round(), " vr ", gi.visibility_range_end, " ombre ", gi.cast_shadow)
+		get_tree().quit()
+		return
 	if OS.get_cmdline_user_args().has("events"):
 		var pl: Player = world.player
 		pl.global_position = Vector3(Layout.TOWN.x, Terrain.height_at(Layout.TOWN.x, Layout.TOWN.y + 10) + 0.5, Layout.TOWN.y + 10)
@@ -102,7 +112,7 @@ func _ready() -> void:
 			RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME),
 			lights, npcs, Combat.monsters.size(), Soldier.all.size(), Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0])
 		get_viewport().get_texture().get_image().save_png("res://shots/perf_%s.png" % s[0])
-		if s[0] in ["foret", "bourg"]:
+		if s[0] in ["pont", "bourg"]:
 			_frustum(p.global_position)
 	get_tree().quit()
 
@@ -165,9 +175,14 @@ func _frustum(pp: Vector3) -> void:
 				break
 		if not inside:
 			continue
-		var surf := 1
+		var surf := 0
 		if gi is MeshInstance3D and gi.mesh:
-			surf = gi.mesh.get_surface_count()
+			for si in gi.mesh.get_surface_count():
+				var ar = gi.mesh.surface_get_arrays(si)
+				surf += (ar[Mesh.ARRAY_INDEX].size() if ar[Mesh.ARRAY_INDEX] != null else ar[Mesh.ARRAY_VERTEX].size()) / 3
+		elif gi is MultiMeshInstance3D and gi.multimesh and gi.multimesh.mesh:
+			var ar2 = gi.multimesh.mesh.surface_get_arrays(0)
+			surf = (ar2[Mesh.ARRAY_INDEX].size() if ar2[Mesh.ARRAY_INDEX] != null else ar2[Mesh.ARRAY_VERTEX].size()) / 3 * gi.multimesh.instance_count
 		var top: Node = gi
 		while top.get_parent() != world and top.get_parent() != null:
 			top = top.get_parent()
@@ -184,7 +199,7 @@ func _frustum(pp: Vector3) -> void:
 	var keys := groups.keys()
 	keys.sort_custom(func(a, b): return groups[a][0] > groups[b][0])
 	for k in keys.slice(0, 16):
-		print("   %-22s surfaces %5d  instances %4d  ombres<50m %4d" % [k, groups[k][0], groups[k][1], groups[k][2]])
+		print("   %-22s triangles %8d  instances %4d" % [k, groups[k][0], groups[k][1]])
 
 func _shot(n: String) -> void:
 	for i in 6:
