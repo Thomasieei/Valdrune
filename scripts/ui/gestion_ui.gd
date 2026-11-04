@@ -347,6 +347,12 @@ func _gens() -> void:
 				People.summon(nn)
 				refresh())
 			row.add_child(a1)
+			if nn.has_meta("retour_pos"):
+				var a0 := _btn("Au travail", Color(0.7, 1.0, 0.7))
+				a0.pressed.connect(func():
+					People.send_back(nn)
+					refresh())
+				row.add_child(a0)
 			var a2 := _btn("Duel", Color(1.0, 0.75, 0.4))
 			a2.pressed.connect(func():
 				_duel_a = nn

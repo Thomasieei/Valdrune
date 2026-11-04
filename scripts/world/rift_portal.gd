@@ -91,7 +91,7 @@ func _ready() -> void:
 	_key.material_override = _emissive(col.lightened(0.4), 2.4)
 	_key.position = Vector3(0, 8.3, 0) * scale_k
 	add_child(_key)
-	for i in 6:
+	for i in 4:
 		var e := MeshInstance3D.new()
 		var bm := BoxMesh.new()
 		bm.size = Vector3.ONE * randf_range(0.25, 0.45)
@@ -104,7 +104,7 @@ func _ready() -> void:
 	for s in [-1.0, 1.0]:
 		var bq := Vector3(s * 4.3, 0.45, 3.4) * scale_k
 		Kit.dungeon(self, "Firewood", bq, 0.0, 1.1)
-		var f := FX.particles("flame_01", 10, 0.6, [Color(1, 0.9, 0.5, 0.0), col.lightened(0.3), Color(0.3, 0.05, 0.05, 0)], 0.7, false)
+		var f := FX.particles("flame_01", 6, 0.6, [Color(1, 0.9, 0.5, 0.0), col.lightened(0.3), Color(0.3, 0.05, 0.05, 0)], 0.7, false)
 		f.direction = Vector3.UP
 		f.initial_velocity_min = 0.6
 		f.initial_velocity_max = 1.4
@@ -112,15 +112,7 @@ func _ready() -> void:
 		add_child(f)
 		f.position = bq + Vector3(0, 0.3, 0)
 		f.emitting = true
-	var l := OmniLight3D.new()
-	l.light_color = col
-	l.light_energy = 2.5
-	l.omni_range = 16.0 * scale_k
-	l.distance_fade_enabled = true
-	l.distance_fade_begin = 60.0
-	l.distance_fade_length = 10.0
-	l.position = c + Vector3(0, 0, 1.5)
-	add_child(l)
+	# pas de lumière dynamique (coûteuse sur téléphone) : l'anneau et le tourbillon sont lumineux par eux-mêmes
 	# zone d'entrée : on traverse le tourbillon
 	_zone = Area3D.new()
 	_zone.collision_mask = 8

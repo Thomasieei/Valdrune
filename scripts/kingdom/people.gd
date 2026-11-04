@@ -38,10 +38,36 @@ static func role_label(r: String) -> String:
 	return {"garde": "Garde", "soldat": "Soldat", "bucheron": "Bûcheron", "mineur": "Mineur", "paysan": "Paysan", "habitant": "Habitant", "marchand": "Marchand", "crieur": "Crieur", "elian": "Compagnon"}.get(r, r.capitalize())
 
 ## Appeler quelqu'un à soi (il arrive par un éclat de lumière)
+## Renvoyer au travail : il retourne à son poste (ou reprend sa tournée)
+static func send_back(n: Node3D) -> void:
+	if not is_instance_valid(n) or not n.has_meta("retour_pos"):
+		return
+	var to: Vector3 = n.get_meta("retour_pos")
+	Magic.pillar(n.global_position, Color(0.7, 0.85, 1.0), 4.0, 0.4, 0.6)
+	FX.bark(n, ["J'y retourne !", "Au travail !", "Bien, mon seigneur."][randi() % 3], 2.3, 1.6)
+	n.global_position = to
+	n.rotation.y = float(n.get_meta("retour_rot"))
+	if n is Villager:
+		var v := n as Villager
+		v.captive = false
+		v.path = n.get_meta("retour_path")
+		v._i = 0
+		v._cur = ""
+		v._play(v.anim_name if v.path.is_empty() else "Walk")
+	for k in ["retour_pos", "retour_rot", "retour_path"]:
+		if n.has_meta(k):
+			n.remove_meta(k)
+
 static func summon(n: Node3D) -> void:
 	var p := Combat.player
 	var at := p.global_position - p.global_transform.basis.z * -2.2 + p.global_transform.basis.x * randf_range(-1.2, 1.2)
 	at.y = Powers.ground(at + Vector3.UP)
+	# on retient où il travaillait, pour pouvoir l'y renvoyer
+	if not n.has_meta("retour_pos"):
+		n.set_meta("retour_pos", n.global_position)
+		n.set_meta("retour_rot", n.rotation.y)
+		if n is Villager:
+			n.set_meta("retour_path", (n as Villager).path.duplicate())
 	Magic.pillar(n.global_position, Color(0.7, 0.85, 1.0), 4.0, 0.4, 0.6)
 	n.global_position = at
 	n.visible = true
@@ -55,8 +81,16 @@ static func summon(n: Node3D) -> void:
 	Magic.rune(at + Vector3.UP * 0.05, 1.2, Color(0.7, 0.85, 1.0), 1.2, 1.0)
 	FX.bark(n, ["Vous m'avez appelé, mon seigneur ?", "À vos ordres !", "Me voici !"][randi() % 3], 2.3, 2.0)
 
+const ATTACKS := ["Punch_Jab", "Punch_Cross", "Sword_Attack", "b/Melee_Hook", "b/Sword_Regular_A", "Spell_Simple_Shoot"]
+const HITS := ["Hit_Chest", "Hit_Head", "b/Hit_Chest"]
 static func _anim(n: Node3D, a: String, dur := 1.0) -> void:
 	if n is Villager:
+		var ap: AnimationPlayer = (n as Villager)._ap
+		if ap and not ap.has_animation(a):
+			for alt in (ATTACKS if a in ATTACKS else HITS):
+				if ap.has_animation(alt):
+					a = alt
+					break
 		(n as Villager).react(a, dur)
 	elif n.has_method("_play"):
 		n._play(a, 0.1)
@@ -104,6 +138,11 @@ static func duel(a: Node3D, b: Node3D, a_mort: bool) -> void:
 		var n: Node3D = [a, b][k]
 		var at := mid + Vector3((k * 2 - 1) * 1.3, 0, 0)
 		at.y = Powers.ground(at + Vector3.UP)
+		if not n.has_meta("retour_pos"):
+			n.set_meta("retour_pos", n.global_position)
+			n.set_meta("retour_rot", n.rotation.y)
+			if n is Villager:
+				n.set_meta("retour_path", (n as Villager).path.duplicate())
 		if n is Villager:
 			(n as Villager).path = []
 			(n as Villager).captive = true
@@ -133,6 +172,12 @@ static func duel(a: Node3D, b: Node3D, a_mort: bool) -> void:
 			if not is_instance_valid(atk) or not is_instance_valid(def):
 				return
 			_anim(atk, "Sword_Attack" if atk is Soldier or role(atk) == "garde" else "Punch_Jab", 0.8)
+			# l'attaquant se fend vers l'autre puis revient : on voit vraiment le combat
+			var home: Vector3 = atk.global_position
+			var lunge: Vector3 = home + (def.global_position - home).normalized() * 0.7
+			var tw := atk.create_tween()
+			tw.tween_property(atk, "global_position", lunge, 0.18)
+			tw.tween_property(atk, "global_position", home, 0.35)
 			tree.create_timer(0.35).timeout.connect(func():
 				if is_instance_valid(def):
 					_anim(def, "Hit_Chest", 0.5)
@@ -154,6 +199,10 @@ static func duel(a: Node3D, b: Node3D, a_mort: bool) -> void:
 		if not is_instance_valid(win) or not is_instance_valid(lose):
 			return
 		FX.bark(win, ["Victoire !", "Pour le souverain !", "Relève-toi… si tu peux."][randi() % 3], 2.3, 2.2)
+		# le vainqueur retourne à son travail après quelques instants
+		tree.create_timer(4.0).timeout.connect(func():
+			if is_instance_valid(win):
+				send_back(win))
 		if a_mort:
 			GameState.get_inst().add("crainte", 3)
 			_anim(lose, "Death01", 3.0)

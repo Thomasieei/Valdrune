@@ -62,14 +62,68 @@ func leave(points: Array) -> void:
 ## Niveau de détail de l'animation (économie CPU sur téléphone) : 0 = plein, 1 = 8 images/s
 var _lod := 0
 var _lod_acc := 0.0
+## 0 = plein, 1 = plein à 8 images/s, 2 = silhouette (quelques dizaines de triangles, le vrai modèle masqué)
+var _sil: Node3D = null
+static var _sil_mesh: Array = []
+static var _sil_mats := {}
 func set_lod(l: int) -> void:
 	if l == _lod or _ap == null:
 		return
 	_lod = l
+	var model: Node3D = get_child(0) if get_child_count() > 0 else null
+	if l == 2:
+		if _sil == null:
+			_sil = _make_silhouette()
+		_sil.visible = true
+		if model:
+			model.visible = false
+		_ap.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+		return
+	if _sil:
+		_sil.visible = false
+	if model:
+		model.visible = true
 	_ap.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL if l == 1 else AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE
 
+func _make_silhouette() -> Node3D:
+	if _sil_mesh.is_empty():
+		var body := CapsuleMesh.new()
+		body.radius = 0.27
+		body.height = 1.3
+		body.radial_segments = 6
+		body.rings = 1
+		var head := SphereMesh.new()
+		head.radius = 0.15
+		head.height = 0.3
+		head.radial_segments = 6
+		head.rings = 3
+		_sil_mesh = [body, head]
+	var col: Color = spec.get("tint", Color(0.8, 0.7, 0.6))
+	var key := col.to_html()
+	if not _sil_mats.has(key):
+		var m := StandardMaterial3D.new()
+		m.albedo_color = col.darkened(0.25)
+		m.roughness = 1.0
+		_sil_mats[key] = m
+		var mh := StandardMaterial3D.new()
+		mh.albedo_color = Color(0.85, 0.68, 0.55)
+		mh.roughness = 1.0
+		_sil_mats[key + "t"] = mh
+	var n := Node3D.new()
+	for k in 2:
+		var mi := MeshInstance3D.new()
+		mi.mesh = _sil_mesh[k]
+		mi.material_override = _sil_mats[key] if k == 0 else _sil_mats[key + "t"]
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.position.y = 0.72 if k == 0 else 1.55
+		n.add_child(mi)
+	add_child(n)
+	return n
+
 func _process(delta: float) -> void:
-	if _lod == 1:
+	if _lod == 2:
+		pass   # silhouette : pas d'animation (le déplacement continue plus bas)
+	elif _lod == 1:
 		_lod_acc += delta
 		if _lod_acc > 0.125:
 			_ap.advance(_lod_acc)

@@ -87,6 +87,7 @@ func spawn(rank := "") -> Dictionary:
 		m.disable_fog = true
 		c.material_override = m
 		c.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		c.visibility_range_begin = 30.0     # de près, le faisceau plein écran coûterait cher : on voit le portail
 		c.position = Vector3(0, 80.0, 0)
 		node.add_child(c)
 	var portal := RiftPortal.new()
