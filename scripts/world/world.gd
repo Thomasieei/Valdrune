@@ -44,6 +44,7 @@ func _ready() -> void:
 	_bar.value = 95.0
 	await _warmup()
 	_view_ranges()
+	_town_proxies()
 	_bar.value = 100.0
 	_spawn()
 	_set_inside(false)
@@ -68,6 +69,86 @@ func _view_ranges() -> void:
 			if gi.visibility_range_end == 0.0:
 				gi.visibility_range_end = ranges[nm]
 				gi.visibility_range_end_margin = 8.0
+
+## Bourg au loin : chaque maison devient un bloc coloré + toit (≈ 20 triangles), les vraies maisons de près
+const TOWN_LOD := 80.0
+func _town_proxies() -> void:
+	if Town.plan == null:
+		return
+	var cells := {}
+	for sp in Town.plan.built:
+		if not sp.has("top") or not sp.has("pos"):
+			continue
+		var c: Vector2 = sp["pos"]
+		var key := Vector2i(int(floor(c.x / 64.0)), int(floor(c.y / 64.0)))
+		if not cells.has(key):
+			var st := SurfaceTool.new()
+			st.begin(Mesh.PRIMITIVE_TRIANGLES)
+			cells[key] = st
+		_proxy_house(cells[key], sp)
+	var mat := StandardMaterial3D.new()
+	mat.vertex_color_use_as_albedo = true
+	mat.roughness = 1.0
+	var root := Node3D.new()
+	root.name = "BourgLointain"
+	add_child(root)
+	for key in cells:
+		var st: SurfaceTool = cells[key]
+		st.generate_normals()
+		var mi := MeshInstance3D.new()
+		mi.mesh = st.commit()
+		mi.material_override = mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.visibility_range_begin = TOWN_LOD
+		mi.visibility_range_begin_margin = 6.0
+		root.add_child(mi)
+	# les vraies maisons ne se dessinent plus au-delà
+	var maisons := find_child("Maisons", true, false)
+	if maisons:
+		for gi in maisons.find_children("*", "GeometryInstance3D", true, false):
+			if gi.visibility_range_end == 0.0 or gi.visibility_range_end > TOWN_LOD:
+				gi.visibility_range_end = TOWN_LOD
+				gi.visibility_range_end_margin = 6.0
+
+func _proxy_house(st: SurfaceTool, sp: Dictionary) -> void:
+	var c: Vector2 = sp["pos"]
+	var rot: float = float(sp.get("rot", 0.0))
+	var hw := float(sp.get("w", 3)) * 1.0      # demi-largeur : w modules de 2 m
+	var hd := float(sp.get("d", 3)) * 1.0
+	var y0: float = float(sp.get("y0", Terrain.height_at(c.x, c.y)))
+	var top: float = float(sp["top"])
+	var b := Basis(Vector3.UP, rot)
+	var o := Vector3(c.x, 0, c.y)
+	var wall: Color = sp.get("plaster", Color(0.9, 0.85, 0.75))
+	var tint: Dictionary = sp.get("tint", {})
+	var roof: Color = tint.get("MI_RoundTiles", sp.get("tiles", Color(0.6, 0.38, 0.3)))
+	var P := func(x: float, y: float, z: float) -> Vector3: return o + b * Vector3(x, 0, z) + Vector3(0, y, 0)
+	var quad := func(a: Vector3, bb: Vector3, cc: Vector3, d: Vector3, col: Color) -> void:
+		for v in [a, bb, cc, a, cc, d]:
+			st.set_color(col)
+			st.add_vertex(v)
+	var y1 := y0 - 0.5
+	# quatre murs
+	quad.call(P.call(-hw, y1, hd), P.call(hw, y1, hd), P.call(hw, top, hd), P.call(-hw, top, hd), wall)
+	quad.call(P.call(hw, y1, -hd), P.call(-hw, y1, -hd), P.call(-hw, top, -hd), P.call(hw, top, -hd), wall.darkened(0.15))
+	quad.call(P.call(hw, y1, hd), P.call(hw, y1, -hd), P.call(hw, top, -hd), P.call(hw, top, hd), wall.darkened(0.08))
+	quad.call(P.call(-hw, y1, -hd), P.call(-hw, y1, hd), P.call(-hw, top, hd), P.call(-hw, top, -hd), wall.darkened(0.08))
+	# toit à deux pans (faîtage le long de la plus grande dimension)
+	var rh := minf(hw, hd) * 0.9
+	if hw >= hd:
+		quad.call(P.call(-hw - 0.3, top, hd + 0.3), P.call(hw + 0.3, top, hd + 0.3), P.call(hw + 0.3, top + rh, 0), P.call(-hw - 0.3, top + rh, 0), roof)
+		quad.call(P.call(hw + 0.3, top, -hd - 0.3), P.call(-hw - 0.3, top, -hd - 0.3), P.call(-hw - 0.3, top + rh, 0), P.call(hw + 0.3, top + rh, 0), roof.darkened(0.15))
+		for s in [-1.0, 1.0]:
+			for v in [P.call(s * hw, top, hd), P.call(s * hw, top, -hd), P.call(s * hw, top + rh, 0)]:
+				st.set_color(wall)
+				st.add_vertex(v)
+	else:
+		quad.call(P.call(hw + 0.3, top, -hd - 0.3), P.call(hw + 0.3, top, hd + 0.3), P.call(0, top + rh, hd + 0.3), P.call(0, top + rh, -hd - 0.3), roof)
+		quad.call(P.call(-hw - 0.3, top, hd + 0.3), P.call(-hw - 0.3, top, -hd - 0.3), P.call(0, top + rh, -hd - 0.3), P.call(0, top + rh, hd + 0.3), roof.darkened(0.15))
+		for s in [-1.0, 1.0]:
+			for v in [P.call(hw, top, s * hd), P.call(-hw, top, s * hd), P.call(0, top + rh, s * hd)]:
+				st.set_color(wall)
+				st.add_vertex(v)
 
 func _warmup() -> void:
 	var saved := {}

@@ -112,8 +112,10 @@ func _ready() -> void:
 			RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME),
 			lights, npcs, Combat.monsters.size(), Soldier.all.size(), Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0])
 		get_viewport().get_texture().get_image().save_png("res://shots/perf_%s.png" % s[0])
-		if s[0] in ["pont", "bourg"]:
-			_frustum(p.global_position)
+		if s[0] == "champs":
+			for gi in world.find_children("*", "GeometryInstance3D", true, false):
+				if gi.is_visible_in_tree() and gi.global_position.distance_to(p.global_position + Vector3.UP * 2.2) < 1.6:
+					print("   au-dessus : ", gi.get_path(), " ", gi.get_class())
 	get_tree().quit()
 
 ## Répartition : instances affichées par groupe racine (distance, portée de visibilité, triangles)
