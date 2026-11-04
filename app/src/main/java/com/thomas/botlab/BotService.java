@@ -157,16 +157,25 @@ public class BotService extends AccessibilityService {
         for (int i = 0; i < c.spellX.length; i++) l.add(new RectF(c.spellX[i] - r, c.spellY[i] - r, c.spellX[i] + r, c.spellY[i] + r));
         if (c.actionX >= 0) l.add(new RectF(c.actionX - r, c.actionY - r, c.actionX + r, c.actionY + r));
         if (c.hpLx >= 0 && c.hpRx >= 0) {
-            float mg = r * 0.6f;
-            l.add(new RectF(Math.min(c.hpLx, c.hpRx) - mg, Math.min(c.hpLy, c.hpRy) - mg, Math.max(c.hpLx, c.hpRx) + mg, Math.max(c.hpLy, c.hpRy) + mg));
+            float len = Math.abs(c.hpRx - c.hpLx);
+            float mx = r * 0.8f, my = Math.max(r, len * 0.35f);
+            l.add(new RectF(Math.min(c.hpLx, c.hpRx) - mx, Math.min(c.hpLy, c.hpRy) - my, Math.max(c.hpLx, c.hpRx) + mx, Math.max(c.hpLy, c.hpRy) + my));
         }
         l.add(new RectF(bubbleRect));
         return l;
     }
 
+    /** Votre personnage est au centre : sa propre barre au-dessus de la tête ne doit jamais devenir une cible. */
+    public static RectF playerZone(float sw, float sh) {
+        float cx = sw / 2f, cy = sh / 2f;
+        return new RectF(cx - sw * 0.07f, cy - sh * 0.24f, cx + sw * 0.07f, cy + sh * 0.10f);
+    }
+
     /** Exclusions en coordonnées image (appelé par le cerveau). */
     public List<RectF> exclusions(float scale) {
         List<RectF> l = screenExclusions();
+        android.util.DisplayMetrics m = real();
+        l.add(playerZone(m.widthPixels, m.heightPixels)); // détection seulement : on peut toujours toucher un ennemi collé à soi
         for (RectF e : l) { e.left *= scale; e.top *= scale; e.right *= scale; e.bottom *= scale; }
         return l;
     }
@@ -327,11 +336,13 @@ public class BotService extends AccessibilityService {
             rep.append(n).append(" sort(s) ✔ ");
         }
         if (r.enemy != null && f != null) {
-            int[] bar = Detector.findBarNear(f, Math.round(r.enemy.x * f.scale), Math.round(r.enemy.y * f.scale));
+            int[] bar = Detector.findBarNear(f, Math.round(r.enemy.x * f.scale), Math.round(r.enemy.y * f.scale), exclusions(f.scale));
             if (bar != null) {
                 c.enemyColor = bar[0]; c.enemyColorSampled = true;
                 rep.append("barre ennemie trouvée ✔ ");
                 BotLog.log(String.format("Barre ennemie apprise : couleur #%06X, largeur %d px", bar[0] & 0xFFFFFF, bar[2] - bar[1] + 1));
+                if (c.hpColor != 0 && Detector.dist(bar[0], c.hpColor) < 60)
+                    BotLog.log("Note : même couleur que votre barre de vie — la zone de votre personnage et votre HUD sont ignorés");
             } else {
                 c.enemyColorSampled = false;
                 rep.append("aucune barre vue au-dessus du monstre (détection rouge large) ");

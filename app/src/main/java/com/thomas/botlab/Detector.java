@@ -16,7 +16,7 @@ public class Detector {
         public int h() { return y1 - y0 + 1; }
     }
 
-    static int dist(int c, int t) {
+    public static int dist(int c, int t) {
         return Math.abs(((c >> 16) & 255) - ((t >> 16) & 255))
              + Math.abs(((c >> 8) & 255) - ((t >> 8) & 255))
              + Math.abs((c & 255) - (t & 255));
@@ -143,7 +143,7 @@ public class Detector {
      * Cherche une barre de vie au-dessus d'un monstre touché : le plus long segment horizontal
      * de couleur vive et uniforme, dans une zone au-dessus du point. Renvoie {couleur, x0, x1, y} ou null.
      */
-    public static int[] findBarNear(Frame f, int tx, int ty) {
+    public static int[] findBarNear(Frame f, int tx, int ty, List<RectF> excl) {
         int xa = Math.max(0, tx - (int) (f.w * 0.08f)), xb = Math.min(f.w - 1, tx + (int) (f.w * 0.08f));
         int ya = Math.max(0, ty - (int) (f.h * 0.25f)), yb = Math.min(f.h - 1, ty + (int) (f.h * 0.04f));
         int minRun = Math.max(5, (int) (f.w * 0.008f));
@@ -158,7 +158,7 @@ public class Detector {
                 else if (start >= 0) {
                     int len = x - start;
                     // une barre est fine : vérifier qu'elle ne continue pas sur 10 lignes (sinon c'est un objet coloré)
-                    if (len >= minRun && len > bestLen && thin(f, start, x - 1, y, ref)) { bestLen = len; bestY = y; bestX0 = start; bestX1 = x - 1; }
+                    if (len >= minRun && len > bestLen && !inside(excl, (start + x - 1) / 2f, y) && thin(f, start, x - 1, y, ref)) { bestLen = len; bestY = y; bestX0 = start; bestX1 = x - 1; }
                     start = -1;
                     if (ok) { start = x; ref = p; }
                 }
@@ -167,6 +167,11 @@ public class Detector {
         if (bestY < 0) return null;
         int col = avgColor(f, (bestX0 + bestX1) / 2, bestY);
         return new int[]{col, bestX0, bestX1, bestY};
+    }
+
+    private static boolean inside(List<RectF> excl, float x, float y) {
+        for (RectF e : excl) if (e.contains(x, y)) return true;
+        return false;
     }
 
     private static boolean thin(Frame f, int x0, int x1, int y, int ref) {
