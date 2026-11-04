@@ -139,6 +139,43 @@ public class Detector {
         return ((r / n) << 16) | ((g / n) << 8) | (b / n);
     }
 
+    /**
+     * Cherche une barre de vie au-dessus d'un monstre touché : le plus long segment horizontal
+     * de couleur vive et uniforme, dans une zone au-dessus du point. Renvoie {couleur, x0, x1, y} ou null.
+     */
+    public static int[] findBarNear(Frame f, int tx, int ty) {
+        int xa = Math.max(0, tx - (int) (f.w * 0.08f)), xb = Math.min(f.w - 1, tx + (int) (f.w * 0.08f));
+        int ya = Math.max(0, ty - (int) (f.h * 0.25f)), yb = Math.min(f.h - 1, ty + (int) (f.h * 0.04f));
+        int minRun = Math.max(5, (int) (f.w * 0.008f));
+        int bestLen = 0, bestY = -1, bestX0 = 0, bestX1 = 0;
+        for (int y = ya; y <= yb; y++) {
+            int start = -1, ref = 0;
+            for (int x = xa; x <= xb + 1; x++) {
+                int p = x <= xb ? f.rgb(x, y) : 0;
+                boolean ok = x <= xb && chroma(p) > 60 && Math.max((p >> 16) & 255, Math.max((p >> 8) & 255, p & 255)) > 80;
+                if (ok && start >= 0 && dist(p, ref) > 70) ok = false;
+                if (ok) { if (start < 0) { start = x; ref = p; } }
+                else if (start >= 0) {
+                    int len = x - start;
+                    // une barre est fine : vérifier qu'elle ne continue pas sur 10 lignes (sinon c'est un objet coloré)
+                    if (len >= minRun && len > bestLen && thin(f, start, x - 1, y, ref)) { bestLen = len; bestY = y; bestX0 = start; bestX1 = x - 1; }
+                    start = -1;
+                    if (ok) { start = x; ref = p; }
+                }
+            }
+        }
+        if (bestY < 0) return null;
+        int col = avgColor(f, (bestX0 + bestX1) / 2, bestY);
+        return new int[]{col, bestX0, bestX1, bestY};
+    }
+
+    private static boolean thin(Frame f, int x0, int x1, int y, int ref) {
+        int mid = (x0 + x1) / 2, maxH = Math.max(4, (int) (f.h * 0.035f)), h = 1;
+        for (int yy = y + 1; yy < f.h && dist(f.rgb(mid, yy), ref) < 70; yy++) h++;
+        for (int yy = y - 1; yy >= 0 && dist(f.rgb(mid, yy), ref) < 70; yy--) h++;
+        return h <= maxH && (x1 - x0 + 1) >= h * 3;
+    }
+
     /** Pixel le plus saturé autour d'un point (pour mesurer la couleur d'une barre ennemie). */
     public static int mostSaturated(Frame f, int cx, int cy, int rad) {
         int best = 0, bestC = -1;

@@ -327,9 +327,15 @@ public class BotService extends AccessibilityService {
             rep.append(n).append(" sort(s) ✔ ");
         }
         if (r.enemy != null && f != null) {
-            int col = Detector.mostSaturated(f, Math.round(r.enemy.x * f.scale), Math.round(r.enemy.y * f.scale), 5);
-            if (col >= 0) { c.enemyColor = col; c.enemyColorSampled = true; rep.append("couleur ennemi ✔ "); }
-            else rep.append("couleur ennemi non trouvée (rouge par défaut) ");
+            int[] bar = Detector.findBarNear(f, Math.round(r.enemy.x * f.scale), Math.round(r.enemy.y * f.scale));
+            if (bar != null) {
+                c.enemyColor = bar[0]; c.enemyColorSampled = true;
+                rep.append("barre ennemie trouvée ✔ ");
+                BotLog.log(String.format("Barre ennemie apprise : couleur #%06X, largeur %d px", bar[0] & 0xFFFFFF, bar[2] - bar[1] + 1));
+            } else {
+                c.enemyColorSampled = false;
+                rep.append("aucune barre vue au-dessus du monstre (détection rouge large) ");
+            }
         }
         if (r.action != null) { c.actionX = (int) r.action.x; c.actionY = (int) r.action.y; rep.append("action ✔"); }
         c.calibrated = true;

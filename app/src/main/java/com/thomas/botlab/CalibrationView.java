@@ -25,7 +25,7 @@ public class CalibrationView extends View {
         "1/5 · Touchez l'extrémité GAUCHE de VOTRE barre de vie. Faites-le avec la vie pleine.",
         "2/5 · Touchez l'extrémité DROITE de votre barre de vie.",
         "3/5 · Touchez vos boutons de sort dans l'ordre (6 max), sorts prêts. Puis « Suivant ».",
-        "4/5 · Touchez la barre de vie d'un ENNEMI visible à l'écran (facultatif).",
+        "4/5 · Touchez un MONSTRE (son corps). Le bot cherche lui-même sa barre de vie au-dessus. (facultatif)",
         "5/5 · Touchez le bouton d'action / récolte du jeu (facultatif)."
     };
 
