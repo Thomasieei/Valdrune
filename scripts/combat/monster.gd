@@ -476,6 +476,8 @@ signal landed(pos: Vector3)
 func throw(v: Vector3, dmg: float, src: Node3D) -> void:
 	if state == S.MORT:
 		return
+	if _model:
+		_model.rotation = Vector3.ZERO
 	state = S.PROJETE
 	_t = 0.0
 	_thrown = v
@@ -510,7 +512,16 @@ func _cc_process(delta: float) -> void:
 		S.SOULEVE:
 			_lift_y = lerpf(_lift_y, _ground_ref + _lift_h, clampf(delta * 6.0, 0, 1))
 			global_position.y = _lift_y + sin(_t * 6.0) * 0.06
-			rotation.y += delta * 1.2
+			rotation.y += delta * 0.6
+			# il se débat : secousses, ruades, coups dans le vide
+			if _model:
+				_model.rotation.x = sin(_t * 9.0) * 0.28 + sin(_t * 3.1) * 0.12
+				_model.rotation.z = sin(_t * 7.3 + 1.0) * 0.22
+			if fmod(_t, 0.9) < delta:
+				_ap.play(["Hit_Chest", "Hit_Head", "Hit_Chest"][int(_t / 0.9) % 3] if _ap.has_animation("Hit_Head") else "Hit_Chest", 0.1)
+				_ap.speed_scale = 1.3
+			if fmod(_t, 3.5) < delta and String(def["model"]).begins_with("humain:"):
+				FX.bark(self, ["Lâche-moi !", "Pose-moi par terre !", "Non… non !", "Pitié, seigneur !"][randi() % 4], 2.4 * float(def["scale"]), 1.4)
 			if now >= _stun_end:
 				throw(Vector3(0, -4, 0), 0.0, null)
 		S.PROJETE:

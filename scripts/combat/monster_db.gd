@@ -249,4 +249,12 @@ static var DEFS := {
 				"anim_prep": "Sword_Idle", "anim": "b/Sword_Dash", "charge": true, "fx": "poussiere", "cri": "ÉCRASÉ !"},
 		]
 	},
+	"voleur": {
+		"nom": "Voleur", "model": "humain:paysan_h", "teinte": Color(0.3, 0.28, 0.25), "arme": "Sword", "arme_echelle": 0.9,
+		"cheveux": "Hair_Buzzed", "barbe": true,
+		"scale": 1.0, "rayon": 0.4, "hp": 36, "degats": 5, "defense": 1, "vitesse": 3.2, "course": 6.4,
+		"detection": 18.0, "portee": 1.8, "cadence": 1.5, "impact": 0.45,
+		"comportement": "lache", "xp": 30, "or": [5, 14], "butin": {"soin": 0.2, "mana": 0.1},
+		"anims": {"attente": "Sword_Idle", "marche": "Walk", "course": "Jog_Fwd", "attaque": "Sword_Attack", "touche": "Hit_Chest", "mort": "Death01"},
+	},
 }

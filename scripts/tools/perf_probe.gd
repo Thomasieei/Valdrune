@@ -5,6 +5,33 @@ func _ready() -> void:
 	while world.player == null or world.story == null:
 		await get_tree().process_frame
 	Frontier.quiet = true
+	if OS.get_cmdline_user_args().has("events"):
+		var pl: Player = world.player
+		pl.global_position = Vector3(Layout.TOWN.x, Terrain.height_at(Layout.TOWN.x, Layout.TOWN.y + 10) + 0.5, Layout.TOWN.y + 10)
+		for i in 60:
+			await get_tree().process_frame
+		Frontier.inst._thief_wait = 0.0
+		for i in 20:
+			await get_tree().process_frame
+		print("voleur : ", not Frontier.inst.thief.is_empty())
+		await _shot("voleur")
+		print("armée : ", Frontier.inst.army_attack(), " ", Frontier.inst.raid.get("ms", []).size())
+		pl.global_position = Vector3(30, Terrain.height_at(30, 150) + 0.5, 150)
+		for i in 150:
+			await get_tree().process_frame
+		var m0: Node3D = Frontier.inst.raid["ms"][0]
+		print("marche : ", m0.global_position, " état ", m0.state)
+		await _shot("armee")
+		# emprise sans minuterie
+		var mon: Monster = Frontier.inst.raid["ms"][1]
+		world.player.combat.mana = 200.0
+		print("soulevé : ", mon.lift(2.6, 1e6))
+		for i in 30:
+			await get_tree().process_frame
+		await _shot("emprise")
+		print("état emprise ", mon.state)
+		get_tree().quit()
+		return
 	if OS.get_cmdline_user_args().has("maison"):
 		for i in 30:
 			await get_tree().process_frame

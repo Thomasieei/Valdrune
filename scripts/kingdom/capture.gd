@@ -2,8 +2,8 @@ class_name Capture
 ## Capturer au lieu de tuer : un humain affaibli (bandit, mercenaire, déserteur…) peut être enchaîné.
 ## Il rejoint les cachots, où le seigneur l'interroge, le rançonne, l'enrôle… ou le juge.
 
-const HUMAINS := ["bandit", "bandit_deguise", "lanceur", "mercenaire", "deserteur", "chef_bandit", "lieutenant"]
-const RANCON := {"bandit": 60, "bandit_deguise": 140, "lanceur": 60, "mercenaire": 120, "deserteur": 110, "chef_bandit": 250, "lieutenant": 180}
+const HUMAINS := ["bandit", "voleur", "bandit_deguise", "lanceur", "mercenaire", "deserteur", "chef_bandit", "lieutenant"]
+const RANCON := {"bandit": 60, "voleur": 30, "bandit_deguise": 140, "lanceur": 60, "mercenaire": 120, "deserteur": 110, "chef_bandit": 250, "lieutenant": 180}
 static var count := 0
 
 static func capturable(m: Node3D) -> bool:

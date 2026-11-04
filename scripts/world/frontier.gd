@@ -72,9 +72,17 @@ func _process(delta: float) -> void:
 	if quiet or not raid.is_empty() or Spawner.paused or not Story.done() or not _active():
 		return
 	_raid_wait -= dt
+	_tick_thief(dt)
 	if _raid_wait <= 0.0:
 		_raid_wait = randf_range(220.0, 360.0)
-		ambush()
+		_events += 1
+		# le monde bouge : embuscades, vols, armées de Vargas, bêtes du portail
+		if _events % 4 == 3:
+			army_attack()
+		elif _events % 4 == 1:
+			beast_visit()
+		else:
+			ambush()
 
 # ------------------------------------------------------------------ postes de garde
 func _tick_posts(p: Node3D, dt: float) -> void:
@@ -324,6 +332,9 @@ func _tick_raid(dt: float) -> void:
 			elif m.state == Monster.S.ERRANCE:
 				m._wander = dest
 				m._t = 3.0
+		elif m.state == Monster.S.ERRANCE and raid.get("march", false):
+			m._wander = raid["at"]
+			m._t = 3.0
 		elif m.state == Monster.S.ERRANCE and is_instance_valid(cara) and not cara.looted:
 			m.force_target = cara._merchant
 			m.force_until = Time.get_ticks_msec() / 1000.0 + 3.0
@@ -346,6 +357,118 @@ func _tick_raid(dt: float) -> void:
 		if Hud.inst:
 			Hud.inst.objective("")
 		raid = {}
+
+var _events := 0
+var _thief_wait := 90.0
+var thief: Dictionary = {}
+
+## Un voleur détrousse un habitant sous les yeux du souverain, puis détale
+func _tick_thief(dt: float) -> void:
+	var p := Combat.player
+	if not thief.is_empty():
+		var m: Monster = thief["m"]
+		if not Combat.alive(m) or not is_instance_valid(m):
+			var v: Node3D = thief["v"]
+			if is_instance_valid(v):
+				FX.bark(v, "Merci, seigneur ! Vous m'avez rendu mon bien !", 2.3, 3.0)
+			Progression.get_inst().add_gold(15)
+			GameState.get_inst().add("confiance_habitants", 1)
+			GameState.get_inst().report("Le souverain a arrêté un voleur en pleine rue.", "acte")
+			thief = {}
+		elif m.global_position.distance_to(p.global_position) > 70.0:
+			GameState.get_inst().report("Un voleur s'est enfui avec la bourse d'un habitant. On murmure que la garde ne sert à rien.", "alerte")
+			GameState.get_inst().add("confiance_habitants", -1)
+			m.queue_free()
+			thief = {}
+		else:
+			if Time.get_ticks_msec() / 1000.0 > m._fear_until - 1.0 and m.state != Monster.S.ETOURDI and m.state != Monster.S.SOULEVE:
+				m.frighten(8.0)
+		return
+	_thief_wait -= dt
+	if _thief_wait > 0.0 or Story.done() == false or quiet:
+		return
+	_thief_wait = randf_range(240.0, 420.0)
+	var pp := Vector2(p.global_position.x, p.global_position.z)
+	if pp.distance_to(Layout.TOWN) > 60.0:
+		return
+	var best: Node3D = null
+	for v in get_tree().get_nodes_in_group("pnj"):
+		if v is Villager and v.visible and not v.captive and v.global_position.distance_to(p.global_position) < 16.0 and v.global_position.distance_to(p.global_position) > 5.0:
+			best = v
+			break
+	if best == null:
+		return
+	var m := Monster.new()
+	m.kind = "voleur"
+	m.no_respawn = true
+	m.leash = 200.0
+	m.position = best.global_position + Vector3(1.0, 0.4, 0)
+	world.add_child(m)
+	m.peaceful = true
+	m.frighten(8.0)
+	FX.bark(best, "AU VOLEUR ! Ma bourse !", 2.4, 3.0)
+	FX.bark(m, "Hé hé, merci pour l'or !", 2.3, 2.0)
+	if best.has_method("react"):
+		best.react("Hit_Chest", 1.0)
+	thief = {"m": m, "v": best}
+	if Hud.inst:
+		Hud.inst.show_message("Un voleur s'enfuit ! Rattrapez-le (frappez-le ou capturez-le)", Color(1.0, 0.7, 0.3))
+
+## Une armée de Vargas marche sur le royaume par la route du portail
+func army_attack() -> bool:
+	if not raid.is_empty():
+		return false
+	var at := Vector3(18, 0, 48)
+	at.y = Terrain.height_at(at.x, at.z)
+	var start := Vector3(32, 0, 168)
+	var ms: Array = []
+	var kinds := ["lieutenant", "mercenaire", "mercenaire", "mercenaire", "bandit", "bandit", "lanceur"]
+	for i in kinds.size():
+		var q := start + Vector3((i % 3 - 1) * 1.8, 0, int(i / 3) * 2.0)
+		q.y = Terrain.height_at(q.x, q.z) + 0.4
+		var m := Monster.new()
+		m.kind = kinds[i]
+		m.no_respawn = true
+		m.leash = 200.0
+		m.position = q
+		world.add_child(m)
+		m.home = at
+		ms.append(m)
+	raid = {"at": at, "ms": ms, "cara": null, "t": 240.0, "src": "", "nom": "le pont du bourg", "sent": false, "march": true}
+	GameState.get_inst().report("Une armée de Vargas remonte la route du portail vers le bourg !", "alerte")
+	if Hud.inst:
+		Hud.inst.discover("L'armée de Vargas attaque !", "Sept soldats marchent sur le pont du bourg")
+		Hud.inst.objective("Repousser l'armée de Vargas")
+		var choices := [["epee", "J'y vais", func(): _go_myself()], ["bouclier", "Envoyer la garde", func(): send_guards(4)]]
+		if Army.reserve() > 0:
+			choices.append(["legion", "Lever l'armée", func(): send_army(8)])
+		Hud.inst.show_choices(choices, 10.0, Callable())
+	return true
+
+## Une bête du portail, bien plus forte, sort rôder vers les fermes
+func beast_visit() -> bool:
+	if not raid.is_empty():
+		return false
+	var at := Vector3(90, 0, 30)
+	at.y = Terrain.height_at(at.x, at.z)
+	var start := Vector3(60, 0, 190)
+	var ms: Array = []
+	for i in 4:
+		var m := Monster.new()
+		m.kind = "brute_infernale" if i == 0 else "imp"
+		m.no_respawn = true
+		m.leash = 200.0
+		m.position = start + Vector3(i * 1.5, Terrain.height_at(start.x, start.z) + 0.4, 0)
+		world.add_child(m)
+		m.home = at
+		ms.append(m)
+	raid = {"at": at, "ms": ms, "cara": null, "t": 240.0, "src": "", "nom": "les fermes de l'est", "sent": false, "march": true}
+	GameState.get_inst().report("Une Brute infernale est sortie du portail et marche vers les fermes !", "alerte")
+	if Hud.inst:
+		Hud.inst.discover("Une bête du portail !", "Une Brute infernale et ses diablotins marchent vers les fermes")
+		Hud.inst.objective("Arrêter la Brute infernale")
+		Hud.inst.show_choices([["epee", "J'y vais", func(): _go_myself()], ["bouclier", "Envoyer la garde", func(): send_guards(4)]], 10.0, Callable())
+	return true
 
 static func raid_active() -> bool:
 	return inst != null and not inst.raid.is_empty()

@@ -133,6 +133,7 @@ var _hailed := {}
 
 ## Les sentinelles s'avancent : « Halte ! Tu veux voir le chef ? »
 func _sentries(gid: String, ms: Array) -> void:
+	_ceasefire(gid)
 	var p := Combat.player
 	var guards := ms.filter(func(m): return not m.def.get("elite", false)).slice(0, 2)
 	if guards.is_empty():
@@ -238,6 +239,7 @@ func parley(gid: String) -> void:
 ## La sentinelle s'avance et interpelle le souverain
 func _challenge(gid: String, ms: Array) -> void:
 	_busy = true
+	_ceasefire(gid)
 	var chef: Node3D = ms[0]
 	for m in ms:
 		if m.def.get("elite", false) and not (chef.kind in ["chef_bandit", "deserteur", "mercenaire", "lieutenant"]) and m.kind != "geant":
@@ -274,7 +276,23 @@ func _chance(base: float, stat: float, gid: String) -> float:
 	var avg: float = _strength(gid) / maxf(1.0, ms.size())
 	return clampf(base + stat * 0.01 + (lv * 20.0 - avg) / 250.0, 0.08, 0.92)
 
+## Cessez-le-feu pendant la négociation : le camp baisse les armes, le compagnon et la garde aussi
+func _ceasefire(gid: String) -> void:
+	for m in members(gid):
+		m.peaceful = true
+		m.force_target = null
+		if m.state in [Monster.S.POURSUITE, Monster.S.ATTAQUE, Monster.S.SPECIALE, Monster.S.RECUP]:
+			m._go(Monster.S.ERRANCE)
+			m.velocity = Vector3.ZERO
+	var c := Combat.companion
+	if c and is_instance_valid(c) and "_target" in c:
+		c._target = null
+	for s in Soldier.all:
+		if is_instance_valid(s):
+			s._target = null
+
 func _open(gid: String, chef: Node3D, n: int) -> void:
+	_ceasefire(gid)
 	var z := zone(gid)
 	var gs := GameState.get_inst()
 	var nom: String = chef.def["nom"]

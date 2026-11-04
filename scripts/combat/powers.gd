@@ -169,7 +169,7 @@ static func _main_invisible(pc: PlayerCombat, power: float, c: float, aim: Vecto
 		# Emprise : la cible ET son voisin le plus proche, suspendus ; le souverain choisit leur sort
 		var held: Array = []
 		for m in [t, _neighbour(t)]:
-			if m and m.lift(2.6 + c * 0.8, 8.0):
+			if m and m.lift(2.6 + c * 0.8, 1e6):   # tenu tant que le souverain le veut (et que la mana suit)
 				held.append(m)
 				_beam(pl, m, Color(0.7, 0.5, 1.0), 0.9)
 				FX.cast_glow(m, Color(0.7, 0.5, 1.0))
@@ -187,7 +187,8 @@ static func _main_invisible(pc: PlayerCombat, power: float, c: float, aim: Vecto
 				["projection", "Projeter", func(): _tk_throw(pc, held, power, c, fwd)],
 				["gravite", "Écraser", func(): _tk_slam(pc, held, power, c)],
 				["main", "Déposer", func(): _tk_drop(pc, held)],
-			], 6.0, func(): _tk_drop(pc, held))
+			], 1e6, Callable())
+		_tk_hold(pc, held)
 		return
 	# aucun ennemi : un objet du décor (tonneau, caisse) dans la direction visée
 	var best: RigidBody3D = null
@@ -210,6 +211,23 @@ static func _main_invisible(pc: PlayerCombat, power: float, c: float, aim: Vecto
 			obj.apply_central_impulse((fwd * (14.0 + 10.0 * c) + Vector3.UP * 2.0) * obj.mass))
 	else:
 		pc.message.emit("Rien à saisir", Color(0.8, 0.75, 1.0))
+
+## Emprise maintenue : pas de minuterie, elle coûte un peu de mana chaque seconde ; à sec, ils retombent
+static func _tk_hold(pc: PlayerCombat, held: Array) -> void:
+	var tick := func(self_ref: Callable) -> void:
+		var alive := _held_alive(held).filter(func(m): return m.state == Monster.S.SOULEVE)
+		if alive.is_empty():
+			return
+		pc.mana -= 1.2 * alive.size()
+		if pc.mana <= 0.0:
+			pc.mana = 0.0
+			if Hud.inst:
+				Hud.inst.hide_choices()
+				Hud.inst.show_message("Plus de mana : l'emprise se brise", Color(0.8, 0.7, 1.0))
+			_tk_drop(pc, held)
+			return
+		_after(0.5, func(): self_ref.call(self_ref))
+	_after(0.5, func(): tick.call(tick))
 
 static func _neighbour(t: Node3D) -> Node3D:
 	var best: Node3D = null
