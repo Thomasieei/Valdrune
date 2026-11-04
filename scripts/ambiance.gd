@@ -42,6 +42,6 @@ static func setup(parent: Node, interior := false) -> DirectionalLight3D:
 	sun.shadow_normal_bias = 1.2
 	# une seule cascade, ombres limitées aux 45 m autour de la caméra
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-	sun.directional_shadow_max_distance = 45.0
+	sun.directional_shadow_max_distance = 32.0   # ombres proches seulement : gros gain sur téléphone
 	parent.add_child(sun)
 	return sun

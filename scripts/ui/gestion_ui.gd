@@ -158,6 +158,11 @@ func _travail() -> void:
 		_status.text = "Le royaume n'est pas encore à vous."
 		return
 	var s := Kingdom.k()
+	var cf := _btn("Appeler Gauthier, le contremaître (ordres chiffrés, rassemblement)", Color(1.0, 0.85, 0.5))
+	cf.pressed.connect(func():
+		close()
+		Talk.call_foreman())
+	_body.add_child(cf)
 	_status.text = "Population %d · Au travail %d · Sans emploi %d · Nourriture %d · Bois %d · Pierre %d · Trésor %d" % [int(s["population"]), Kingdom.workers_total(), Kingdom.idle_people(), int(s["nourriture"]), int(s["bois"]), int(s["pierre"]), int(s["tresor"])]
 	var jobs := [["ferme", "Champs (nourriture)", Color(0.95, 0.85, 0.4)], ["scierie", "Bûcherons (bois)", Color(0.6, 0.85, 0.45)], ["mine", "Mine (pierre et minerai)", Color(0.75, 0.78, 0.85)], ["marche", "Marché (or)", Color(1.0, 0.75, 0.3)]]
 	for j in jobs:

@@ -198,6 +198,7 @@ func _spawn() -> void:
 	Camps.build(self)
 	BanditVillage.build(self)
 	Frontier.build(self)
+	Interiors.build(self)
 	var ui := CanvasLayer.new()
 	add_child(ui)
 	hud = Hud.new()
@@ -432,12 +433,12 @@ func _cull_npcs() -> void:
 			continue
 		var inside_keep: bool = n.global_position.y > Castle.FLOOR - 0.2 and n.global_position.y < Castle.FLOOR + 3.0 and Layout.in_castle(Vector2(n.global_position.x, n.global_position.z)) and n.global_position.z < Castle.K_MAX.y and n.global_position.z > Castle.K_MIN.y and absf(n.global_position.x) < Castle.K_MAX.x
 		var d := pp.distance_to(n.global_position)
-		var show: bool = d < (52.0 if n is Villager else 65.0) and inside_keep == _inside
+		var show: bool = d < (42.0 if n is Villager else 60.0) and inside_keep == _inside
 		if n.visible != show:
 			n.visible = show
 			n.process_mode = Node.PROCESS_MODE_INHERIT if show else Node.PROCESS_MODE_DISABLED
 		if show and n is Villager:
-			n.set_lod(0 if d < 22.0 or n.captive else 1)
+			n.set_lod(0 if d < 16.0 or n.captive else 1)
 
 func _apply_quality() -> void:
 	var sun := find_child("Soleil", false, false) as DirectionalLight3D

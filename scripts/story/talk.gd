@@ -75,6 +75,20 @@ static func setup(world: Node3D) -> void:
 	fm.rotation.y = PI
 	world.add_child(fm)
 	fm.set_meta("talk", {"id": "contremaitre", "nom": "Gauthier", "role": "contremaitre"})
+	foreman = fm
+
+static var foreman: Node3D = null
+## Faire venir Gauthier auprès du souverain (depuis la gestion), puis lui parler directement
+static func call_foreman() -> void:
+	var w := Justice.world()
+	if not is_instance_valid(foreman) or w == null:
+		return
+	People.summon(foreman)
+	await w.get_tree().create_timer(0.6).timeout
+	if is_instance_valid(foreman) and not Dialogue.active:
+		w._talking = foreman
+		w.focus_on(foreman)
+		w.dlg.start(build(foreman))
 
 ## Le contremaître : répartition des équipes, rassemblement devant le souverain
 static func _foreman(nodes: Dictionary, choices: Array, who: String, label: String) -> void:

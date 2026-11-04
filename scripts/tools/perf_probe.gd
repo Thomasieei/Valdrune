@@ -5,6 +5,27 @@ func _ready() -> void:
 	while world.player == null or world.story == null:
 		await get_tree().process_frame
 	Frontier.quiet = true
+	if OS.get_cmdline_user_args().has("maison"):
+		for i in 30:
+			await get_tree().process_frame
+		var k := 3
+		var dp: Vector2 = Town.doors[k][0]
+		var p0: Player = world.player
+		p0.global_position = Vector3(dp.x, Terrain.height_at(dp.x, dp.y) + 0.4, dp.y) + Vector3(Town.doors[k][1].x, 0, Town.doors[k][1].y) * 1.2
+		for i in 10:
+			await get_tree().process_frame
+		print("invite : ", world.hud.btn_prompt.visible, " ", world.hud.btn_prompt.label, " portes ", Town.doors.size(), " exclues ", Interiors.inst._skip.size())
+		Interiors.inst.enter(k)
+		for i in 60:
+			await get_tree().process_frame
+		await _shot("maison")
+		print("dedans ", Interiors.inst.inside, " y ", p0.global_position.y)
+		Interiors.inst.leave()
+		for i in 60:
+			await get_tree().process_frame
+		print("dehors ", Interiors.inst.inside, " pos ", p0.global_position)
+		get_tree().quit()
+		return
 	if OS.get_cmdline_user_args().has("nains"):
 		for q in Dungeons.SPOTS:
 			print("spot ", q, " sain ", Dungeons._dry(q))
