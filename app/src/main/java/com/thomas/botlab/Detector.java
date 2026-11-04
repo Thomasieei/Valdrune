@@ -1,0 +1,131 @@
+package com.thomas.botlab;
+
+import android.graphics.RectF;
+import java.util.ArrayList;
+import java.util.List;
+
+/** Vision du bot : barres de vie ennemies, vie du joueur, état des sorts. Tout en coordonnées image. */
+public class Detector {
+
+    public static class Det {
+        public int x0, y0, x1, y1;
+        Det(int y, int a, int b) { y0 = y1 = y; x0 = a; x1 = b; }
+        public float cx() { return (x0 + x1) / 2f; }
+        public float cy() { return (y0 + y1) / 2f; }
+        public int w() { return x1 - x0 + 1; }
+        public int h() { return y1 - y0 + 1; }
+    }
+
+    static int dist(int c, int t) {
+        return Math.abs(((c >> 16) & 255) - ((t >> 16) & 255))
+             + Math.abs(((c >> 8) & 255) - ((t >> 8) & 255))
+             + Math.abs((c & 255) - (t & 255));
+    }
+
+    static int chroma(int c) {
+        int r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255;
+        return Math.max(r, Math.max(g, b)) - Math.min(r, Math.min(g, b));
+    }
+
+    /** Barres horizontales fines de la couleur ennemie = un monstre ou un joueur hostile. */
+    public static List<Det> findEnemies(Frame f, Config c, List<RectF> excl) {
+        int w = f.w, h = f.h, target = c.enemyColor, tol = c.colorTol * 2;
+        int minRun = Math.max(6, (int) (w * 0.016f));
+        int maxW = (int) (w * 0.22f);
+        int maxH = Math.max(4, (int) (h * 0.035f));
+        int yStart = (int) (h * c.topExcludePct / 100f), yEnd = (int) (h * 0.97f);
+        ArrayList<int[]> runs = new ArrayList<>();
+        outer:
+        for (int y = yStart; y < yEnd; y++) {
+            int start = -1, last = -1, miss = 0;
+            for (int x = 0; x <= w; x++) {
+                boolean m = false;
+                if (x < w) { int px = f.rgb(x, y); m = chroma(px) > 50 && dist(px, target) < tol; }
+                if (m) { if (start < 0) start = x; last = x; miss = 0; }
+                else if (start >= 0) {
+                    miss++;
+                    if (miss > 2 || x == w) {
+                        if (last - start + 1 >= minRun) {
+                            runs.add(new int[]{y, start, last});
+                            if (runs.size() > 4000) break outer;
+                        }
+                        start = -1; miss = 0;
+                    }
+                }
+            }
+        }
+        ArrayList<Det> boxes = new ArrayList<>();
+        for (int[] r : runs) {
+            Det hit = null;
+            for (int i = boxes.size() - 1; i >= 0; i--) {
+                Det d = boxes.get(i);
+                if (r[0] - d.y1 > 2) continue;
+                int ov = Math.min(r[2], d.x1) - Math.max(r[1], d.x0);
+                if (ov > 0.5f * Math.min(r[2] - r[1], d.x1 - d.x0)) { hit = d; break; }
+            }
+            if (hit == null) boxes.add(new Det(r[0], r[1], r[2]));
+            else { hit.y1 = r[0]; hit.x0 = Math.min(hit.x0, r[1]); hit.x1 = Math.max(hit.x1, r[2]); }
+        }
+        ArrayList<Det> out = new ArrayList<>();
+        for (Det d : boxes) {
+            if (d.h() > maxH || d.w() > maxW || d.w() < d.h() * 3) continue;
+            boolean bad = false;
+            for (RectF e : excl) if (RectF.intersects(e, new RectF(d.x0, d.y0, d.x1, d.y1))) { bad = true; break; }
+            if (bad) continue;
+            boolean dup = false;
+            for (Det o : out) if (Math.abs(o.cx() - d.cx()) < d.w() && Math.abs(o.cy() - d.cy()) < maxH * 2) { dup = true; break; }
+            if (!dup) out.add(d);
+        }
+        return out;
+    }
+
+    /** % de vie du joueur, -1 si non calibré. */
+    public static int readHp(Frame f, Config c) {
+        if (c.hpLx < 0 || c.hpRx < 0 || c.hpColor == 0) return -1;
+        float s = f.scale;
+        float x0 = c.hpLx * s, y0 = c.hpLy * s, x1 = c.hpRx * s, y1 = c.hpRy * s;
+        int n = 48, hits = 0;
+        for (int i = 0; i < n; i++) {
+            float t = (i + 0.5f) / n;
+            int x = Math.round(x0 + (x1 - x0) * t), y = Math.round(y0 + (y1 - y0) * t);
+            if (dist(f.rgb(x, y), c.hpColor) < 110 || dist(f.rgb(x, y - 1), c.hpColor) < 110
+                    || dist(f.rgb(x, y + 1), c.hpColor) < 110) hits++;
+        }
+        return hits * 100 / n;
+    }
+
+    /** Un sort est prêt si son bouton est aussi lumineux qu'au calibrage (les recharges l'assombrissent). */
+    public static boolean[] spellsReady(Frame f, Config c) {
+        int n = c.spellX.length;
+        boolean[] r = new boolean[n];
+        int rad = Math.max(3, (int) (f.h * 0.012f));
+        for (int i = 0; i < n; i++) {
+            float ref = i < c.spellLum.length ? c.spellLum[i] : 0;
+            if (ref <= 1) { r[i] = true; continue; }
+            float l = f.lum(Math.round(c.spellX[i] * f.scale), Math.round(c.spellY[i] * f.scale), rad);
+            r[i] = l >= ref * 0.78f;
+        }
+        return r;
+    }
+
+    public static int patchRadius(Frame f) { return Math.max(3, (int) (f.h * 0.012f)); }
+
+    /** Moyenne 3x3 autour d'un point. */
+    public static int avgColor(Frame f, int cx, int cy) {
+        int r = 0, g = 0, b = 0, n = 0;
+        for (int y = cy - 1; y <= cy + 1; y++) for (int x = cx - 1; x <= cx + 1; x++) {
+            int p = f.rgb(x, y); r += (p >> 16) & 255; g += (p >> 8) & 255; b += p & 255; n++;
+        }
+        return ((r / n) << 16) | ((g / n) << 8) | (b / n);
+    }
+
+    /** Pixel le plus saturé autour d'un point (pour mesurer la couleur d'une barre ennemie). */
+    public static int mostSaturated(Frame f, int cx, int cy, int rad) {
+        int best = 0, bestC = -1;
+        for (int y = cy - rad; y <= cy + rad; y++) for (int x = cx - rad; x <= cx + rad; x++) {
+            int p = f.rgb(x, y); int ch = chroma(p);
+            if (ch > bestC) { bestC = ch; best = p; }
+        }
+        return bestC > 60 ? best : -1;
+    }
+}

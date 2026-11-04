@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Albion Bot Lab</string>
+    <string name="acc_desc">Permet au bot de toucher l\'écran à votre place (sorts, ciblage, déplacement) et d\'afficher sa vision en surimpression. Projet de test pour vidéo YouTube.</string>
+</resources>
