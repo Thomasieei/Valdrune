@@ -99,6 +99,11 @@ public class MainActivity extends Activity {
         slider(md, "Fuir sous", 0, 60, cfg.fleePct, v -> v == 0 ? "jamais" : v + " % de vie", v -> cfg.fleePct = v);
         slider(md, "Délai entre deux sorts", 300, 3000, cfg.spellIntervalMs, v -> v + " ms", v -> cfg.spellIntervalMs = v);
         slider(md, "Re-cibler toutes les", 800, 6000, cfg.retargetMs, v -> String.format("%.1f s", v / 1000f), v -> cfg.retargetMs = v);
+        TextView ex = button("", GOLD, null);
+        Runnable exR = () -> ex.setText(cfg.explore ? "Exploration : OUI (se déplace seul s'il ne voit rien)" : "Exploration : NON (reste sur place, vous gardez la main)");
+        exR.run();
+        ex.setOnClickListener(v -> { cfg.explore = !cfg.explore; cfg.save(); exR.run(); BotLog.log("Réglage : exploration " + (cfg.explore ? "oui" : "non")); });
+        md.addView(ex);
         slider(md, "Explorer après", 1000, 15000, cfg.exploreAfterMs, v -> String.format("%.0f s sans ennemi", v / 1000f), v -> cfg.exploreAfterMs = v);
 
         LinearLayout vis = card("VISION");

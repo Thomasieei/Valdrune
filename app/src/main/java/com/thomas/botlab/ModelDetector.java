@@ -16,7 +16,7 @@ import java.util.List;
 
 /** Reconnaissance d'objets (YOLO11n entraîné sur le dataset Albion) — tourne dans son propre fil. */
 public class ModelDetector implements Runnable {
-    public static final int ENEMY = 0, RESOURCE = 1, PLAYER = 2;
+    public static final int ENEMY = 0, RESOURCE = 1, PLAYER = 2, IGNORE = 3;
 
     public static class Obj {
         public final RectF box; public final String name; public final float conf; public final int kind;
@@ -43,13 +43,15 @@ public class ModelDetector implements Runnable {
         for (int i = 0; i < names.length; i++) kinds[i] = kindOf(names[i]);
     }
 
+    /** Classes du dataset Albion : mob, red (joueur hostile) → ennemi ; tree, ore, stone, fiber, hide → ressource ;
+     *  player → joueur neutre ; silver, cup of piss, wisp caged → butin/objets ignorés. */
     static int kindOf(String n) {
-        String s = n.toLowerCase();
-        String[] res = {"tree", "wood", "log", "ore", "rock", "stone", "fiber", "fibre", "cotton", "flax", "hemp", "hide",
-                "plant", "resource", "gather", "farm", "node", "bush", "herb", "skin"};
+        String s = n.toLowerCase().trim();
+        if (s.equals("mob") || s.equals("red") || s.contains("enemy") || s.contains("monster")) return ENEMY;
+        if (s.equals("player")) return PLAYER;
+        String[] res = {"tree", "wood", "ore", "stone", "rock", "fiber", "fibre", "hide", "skin", "cotton", "flax", "hemp"};
         for (String r : res) if (s.contains(r)) return RESOURCE;
-        if (s.contains("player") || s.contains("self")) return PLAYER;
-        return ENEMY;
+        return IGNORE;
     }
 
     public static ModelDetector load(Context c) {
@@ -64,7 +66,9 @@ public class ModelDetector implements Runnable {
             o.setIntraOpNumThreads(4);
             OrtSession s = env.createSession(model, o);
             ModelDetector d = new ModelDetector(env, s, n.toArray(new String[0]));
-            BotLog.log("Modèle de reconnaissance chargé : " + n.size() + " classes " + n);
+            StringBuilder k = new StringBuilder();
+            for (int i = 0; i < d.names.length; i++) k.append(d.names[i]).append('=').append(new String[]{"ennemi", "ressource", "joueur", "ignoré"}[d.kinds[i]]).append(' ');
+            BotLog.log("Modèle de reconnaissance chargé : " + k);
             return d;
         } catch (java.io.FileNotFoundException e) {
             return null;

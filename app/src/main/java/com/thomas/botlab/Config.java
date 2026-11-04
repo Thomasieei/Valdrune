@@ -25,6 +25,7 @@ public class Config {
     public int topExcludePct = 8;
     public int retargetMs = 2500;
     public int exploreAfterMs = 3000;
+    public boolean explore = false;
 
     public static synchronized Config get(Context c) {
         if (inst == null) inst = new Config(c.getApplicationContext());
@@ -49,6 +50,7 @@ public class Config {
         spellIntervalMs = sp.getInt("spellIntervalMs", 900); colorTol = sp.getInt("colorTol", 70);
         topExcludePct = sp.getInt("topExcludePct", 8); retargetMs = sp.getInt("retargetMs", 2500);
         exploreAfterMs = sp.getInt("exploreAfterMs", 3000);
+        explore = sp.getBoolean("explore", false);
     }
 
     public synchronized void save() {
@@ -63,7 +65,7 @@ public class Config {
             .putInt("mode", mode).putInt("healSlot", healSlot).putInt("healPct", healPct)
             .putInt("fleePct", fleePct).putInt("spellIntervalMs", spellIntervalMs)
             .putInt("colorTol", colorTol).putInt("topExcludePct", topExcludePct)
-            .putInt("retargetMs", retargetMs).putInt("exploreAfterMs", exploreAfterMs)
+            .putInt("retargetMs", retargetMs).putInt("exploreAfterMs", exploreAfterMs).putBoolean("explore", explore)
             .apply();
     }
 

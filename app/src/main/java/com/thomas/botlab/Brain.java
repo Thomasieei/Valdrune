@@ -63,7 +63,7 @@ public class Brain implements Runnable {
         ModelDetector md = svc.model();
         if (md != null && now - md.latestTime < 800) {
             for (ModelDetector.Obj o : md.latest) {
-                if (o.kind == ModelDetector.PLAYER) continue;
+                if (o.kind == ModelDetector.PLAYER || o.kind == ModelDetector.IGNORE) continue;
                 if (hits(excl, o.box.centerX(), o.box.centerY())) continue;
                 Detector.Det d = new Detector.Det(o.box, o.name + " " + Math.round(o.conf * 100) + "%");
                 if (o.kind == ModelDetector.RESOURCE) res.add(d);
@@ -215,7 +215,7 @@ public class Brain implements Runnable {
 
         // 4. Exploration
         long moveEvery = c.mode == 0 ? 2600 : 9000;
-        if (now - lastEnemySeen > c.exploreAfterMs && now - lastMove > moveEvery) {
+        if (c.explore && now - lastEnemySeen > c.exploreAfterMs && now - lastMove > moveEvery) {
             float r = (0.22f + rnd.nextFloat() * 0.1f) * Math.min(sw, sh);
             boolean ok = false;
             for (int i = 0; i < 8 && !ok; i++) {
