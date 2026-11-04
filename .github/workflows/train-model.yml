@@ -21,7 +21,16 @@ jobs:
         env:
           RF_KEY: ${{ secrets.ROBOFLOW_API_KEY }}
         run: python tools/train.py
+      - name: Sauvegarde de secours des poids
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: albion-weights
+          path: model_out/
+          if-no-files-found: ignore
+          retention-days: 30
       - name: Publication du modele
+        if: hashFiles('model_out/DRY') == ''
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

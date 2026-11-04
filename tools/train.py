@@ -46,15 +46,22 @@ yaml.safe_dump(data, open("data.yaml", "w"))
 n_train = len(glob.glob(os.path.join(ds, "train/images/*")))
 print(f"Classes ({len(names)}) : {names} | images d'entraînement : {n_train}")
 
+DRY = open(os.path.join(os.path.dirname(__file__), "train.trigger")).read().strip() == "dry"
+if DRY: print("=== TEST À BLANC : 2 minutes sur 3 % des images ===")
 from ultralytics import YOLO
 m = YOLO("yolo11n.pt")
-m.train(data="data.yaml", imgsz=416, epochs=80, time=float(os.environ.get("TRAIN_HOURS", "4.2")),
-        batch=16, workers=4, device="cpu", patience=20, plots=False, verbose=False, project="run", name="albion", exist_ok=True)
-best = YOLO("run/albion/weights/best.pt")
-met = best.val(data="data.yaml", imgsz=416, device="cpu", plots=False)
-best.export(format="onnx", imgsz=416, opset=12, simplify=True, dynamic=False)
+m.train(data="data.yaml", imgsz=416, epochs=1 if DRY else 80, time=0.03 if DRY else float(os.environ.get("TRAIN_HOURS", "4.2")),
+        fraction=0.03 if DRY else 1.0,
+        batch=16, workers=4, device="cpu", patience=20, plots=False, verbose=False,
+        project=os.path.abspath("run"), name="albion", exist_ok=True)
+wdir = os.path.join(str(m.trainer.save_dir), "weights")
 os.makedirs("model_out", exist_ok=True)
-shutil.copy("run/albion/weights/best.onnx", "model_out/model.onnx")
+shutil.copy(os.path.join(wdir, "best.pt"), "model_out/best.pt")   # sauvegarde de secours immédiate
+print("Poids sauvegardés depuis", wdir)
+best = YOLO("model_out/best.pt")
+met = best.val(data="data.yaml", imgsz=416, device="cpu", plots=False)
+onnx_path = best.export(format="onnx", imgsz=416, opset=12, simplify=True, dynamic=False)
+shutil.copy(onnx_path, "model_out/model.onnx")
 with open("model_out/classes.txt", "w") as f:
     for i in range(len(best.names)): f.write(best.names[i] + "\n")
 with open("model_out/metrics.txt", "w") as f:
@@ -65,3 +72,12 @@ with open("model_out/metrics.txt", "w") as f:
             f.write(f"  {best.names[int(c)]}: AP50={met.box.ap50[i]:.3f}\n")
     except Exception: pass
 print(open("model_out/metrics.txt").read())
+import onnxruntime as ort, numpy as np
+sess = ort.InferenceSession("model_out/model.onnx")
+inp = sess.get_inputs()[0]
+out = sess.run(None, {inp.name: np.zeros((1, 3, 416, 416), np.float32)})[0]
+print("Entrée ONNX", inp.name, inp.shape, "| sortie", out.shape)
+assert out.shape[0] == 1 and out.shape[1] == 4 + len(best.names), "format de sortie inattendu pour l'appli"
+print("FORMAT OK pour l'appli Android")
+if DRY:
+    open("model_out/DRY", "w").write("1")
