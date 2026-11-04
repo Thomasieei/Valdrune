@@ -2,7 +2,7 @@
 import os, sys, json, time, urllib.request, zipfile, glob, shutil
 import yaml
 
-KEY = os.environ.get("RF_KEY", "")
+KEY = os.environ.get("RF_KEY", "") or open(os.path.join(os.path.dirname(__file__), "rf_key.txt")).read().strip()
 if not KEY:
     sys.exit("Secret ROBOFLOW_API_KEY manquant : ajoutez-le dans Settings > Secrets and variables > Actions")
 WS, PRJ = "albion-edu-workspace", "albion_detector-l4o1a"
