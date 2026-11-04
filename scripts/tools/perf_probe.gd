@@ -5,6 +5,22 @@ func _ready() -> void:
 	while world.player == null or world.story == null:
 		await get_tree().process_frame
 	Frontier.quiet = true
+	if OS.get_cmdline_user_args().has("recolte"):
+		var h: Harvest = world.find_child("Recoltes", false, false)
+		var pl: Player = world.player
+		var q: Vector3 = h._pos["scierie"]
+		pl.global_position = q + Vector3(2, 0.5, 2)
+		pl.combat.mana = 100.0
+		for i in 40:
+			await get_tree().process_frame
+		print("invite ", world.hud.btn_prompt.visible, " ", world.hud.btn_prompt.label, " bois avant ", Kingdom.res("bois"))
+		world.hud.btn_prompt.pressed.emit()
+		for i in 20:
+			await get_tree().process_frame
+		await _shot("recolte")
+		print("bois après ", Kingdom.res("bois"))
+		get_tree().quit()
+		return
 	if OS.get_cmdline_user_args().has("bourg"):
 		for gi in world.find_child("Bourg", true, false).find_children("*", "GeometryInstance3D", true, false):
 			var t := 0

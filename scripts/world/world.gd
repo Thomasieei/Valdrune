@@ -320,6 +320,7 @@ func _spawn() -> void:
 	BanditVillage.build(self)
 	Frontier.build(self)
 	Interiors.build(self)
+	Harvest.build(self)
 	var ui := CanvasLayer.new()
 	add_child(ui)
 	hud = Hud.new()
