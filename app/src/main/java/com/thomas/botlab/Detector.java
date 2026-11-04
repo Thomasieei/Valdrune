@@ -9,7 +9,10 @@ public class Detector {
 
     public static class Det {
         public int x0, y0, x1, y1;
+        public boolean body;        // vrai = boîte du corps (modèle), faux = barre de vie
+        public String label = "";
         Det(int y, int a, int b) { y0 = y1 = y; x0 = a; x1 = b; }
+        public Det(RectF r, String label) { x0 = (int) r.left; y0 = (int) r.top; x1 = (int) r.right; y1 = (int) r.bottom; body = true; this.label = label; }
         public float cx() { return (x0 + x1) / 2f; }
         public float cy() { return (y0 + y1) / 2f; }
         public int w() { return x1 - x0 + 1; }

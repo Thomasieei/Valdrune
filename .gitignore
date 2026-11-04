@@ -2,3 +2,4 @@ build/
 app/build/
 .gradle/
 out/
+app/src/main/assets/

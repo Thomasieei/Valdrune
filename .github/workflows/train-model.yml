@@ -1,0 +1,30 @@
+name: Albion Bot Lab - entrainement du modele
+on:
+  push:
+    branches: [bot-albion]
+    paths: ['tools/train.trigger']
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: write
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install --quiet ultralytics onnx onnxslim onnxruntime pyyaml
+      - name: Entrainement
+        env:
+          RF_KEY: ${{ secrets.ROBOFLOW_API_KEY }}
+        run: python tools/train.py
+      - name: Publication du modele
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create albion-model-v${{ github.run_number }} model_out/model.onnx model_out/classes.txt model_out/metrics.txt \
+            --target ${{ github.sha }} --title "Modèle Albion v${{ github.run_number }}" --notes-file model_out/metrics.txt
+          gh workflow run bot-albion.yml --ref bot-albion

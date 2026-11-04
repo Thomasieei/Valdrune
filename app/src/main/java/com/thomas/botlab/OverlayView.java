@@ -12,8 +12,14 @@ import java.util.List;
 /** Ce que le bot voit et décide, dessiné par-dessus le jeu. Pas de rouge (sinon le bot se détecterait lui-même). */
 public class OverlayView extends View {
     public boolean showVision = true;
-    private List<RectF> boxes = new ArrayList<>();
-    private RectF target;
+    public static class Item {
+        final RectF r; final boolean body, resource, target; final String label;
+        public Item(RectF r, boolean body, String label, boolean resource, boolean target) {
+            this.r = r; this.body = body; this.label = label == null ? "" : label; this.resource = resource; this.target = target;
+        }
+    }
+    private List<Item> items = new ArrayList<>();
+    private String extra = "";
     private int hp = -1, fps;
     private boolean[] ready;
     private String decision = "Bot prêt";
@@ -27,6 +33,8 @@ public class OverlayView extends View {
             ring = new Paint(Paint.ANTI_ALIAS_FLAG), tapP = new Paint(Paint.ANTI_ALIAS_FLAG),
             label = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final float d;
+    private int nEnemies;
+    private final Paint res = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final int[] loc = new int[2];
 
     public OverlayView(Context c) {
@@ -41,13 +49,14 @@ public class OverlayView extends View {
         small.setColor(0xFFB8C2D0); small.setTextSize(11 * d);
         label.setColor(0xFFFFE14A); label.setTextSize(10 * d); label.setFakeBoldText(true);
         ring.setStyle(Paint.Style.STROKE); ring.setStrokeWidth(2.5f * d);
+        res.setStyle(Paint.Style.STROKE); res.setStrokeWidth(2 * d); res.setColor(0xFF8CFF5A);
         tapP.setStyle(Paint.Style.STROKE); tapP.setStrokeWidth(2 * d); tapP.setColor(0xFFFFFFFF);
     }
 
     public void setPanel(float x, float y, float w) { panelX = x; panelY = y; panelW = w; invalidate(); }
 
-    public void setData(List<RectF> b, RectF t, int hp, boolean[] ready, String dec, boolean active, int fps) {
-        boxes = b; target = t; this.hp = hp; this.ready = ready; decision = dec; this.active = active; this.fps = fps;
+    public void setData(List<Item> it, int hp, boolean[] ready, String dec, boolean active, int fps, String extra) {
+        items = it; this.hp = hp; this.ready = ready; decision = dec; this.active = active; this.fps = fps; this.extra = extra;
         invalidate();
     }
 
@@ -60,14 +69,19 @@ public class OverlayView extends View {
         c.translate(-loc[0], -loc[1]);
         if (showVision) {
             float cx = getRootView().getWidth() / 2f + loc[0], cy = getRootView().getHeight() / 2f + loc[1];
-            for (RectF r : boxes) {
-                RectF e = new RectF(r.left - 3 * d, r.top - 3 * d, r.right + 3 * d, r.bottom + r.width() * 1.6f);
-                c.drawRoundRect(e, 4 * d, 4 * d, r == target ? tgt : box);
+            int enemies = 0;
+            for (Item it : items) {
+                RectF r = it.r;
+                RectF e = it.body ? new RectF(r.left, r.top, r.right, r.bottom)
+                        : new RectF(r.left - 3 * d, r.top - 3 * d, r.right + 3 * d, r.bottom + r.width() * 1.6f);
+                Paint p = it.target ? tgt : (it.resource ? res : box);
+                c.drawRoundRect(e, 4 * d, 4 * d, p);
+                if (!it.resource) enemies++;
+                String lab = it.target ? (it.resource ? "RÉCOLTE " : "CIBLE ") + it.label : it.label;
+                if (!lab.isEmpty()) { label.setColor(it.target ? 0xFFFFE14A : (it.resource ? 0xFF8CFF5A : 0xFF3ED6E0)); c.drawText(lab, e.left, e.top - 5 * d, label); }
+                if (it.target && !it.resource) c.drawLine(cx, cy, e.centerX(), it.body ? e.centerY() : r.bottom + r.width() * 0.9f, line);
             }
-            if (target != null) {
-                c.drawLine(cx, cy, target.centerX(), target.bottom + target.width() * 0.9f, line);
-                c.drawText("CIBLE", target.left, target.top - 6 * d, label);
-            }
+            nEnemies = enemies;
             Config cf = Config.get(getContext());
             if (ready != null) {
                 float rr = 26 * d;
@@ -100,7 +114,7 @@ public class OverlayView extends View {
             if (k > 0) c.drawText(ellipsize(dec.substring(k + 3), panelW - 20 * d), x, y, small);
             y += 20 * d;
             String vie = hp < 0 ? "vie : non calibrée" : "vie : " + hp + " %";
-            c.drawText(vie + "   ennemis : " + boxes.size() + "   " + fps + " déc/s", x, y, small);
+            c.drawText(vie + "   ennemis : " + nEnemies + "   " + fps + " déc/s" + extra, x, y, small);
         }
         c.restore();
     }

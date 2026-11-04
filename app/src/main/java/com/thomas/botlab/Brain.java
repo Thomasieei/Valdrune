@@ -20,6 +20,9 @@ public class Brain implements Runnable {
     private double heading;
     private String lastKind = "";
     private int fps;
+    private List<Detector.Det> curRes = new java.util.ArrayList<>();
+    private float rx = -1, ry = -1; private long resSince, lastResTap;
+    private final java.util.ArrayList<float[]> blacklist = new java.util.ArrayList<>();
     private int prevHp = -1; private long prevHpT, underAttackUntil, lastTrace;
     private long fpsT0; private int fpsN;
 
@@ -50,12 +53,24 @@ public class Brain implements Runnable {
         Frame f = cs == null ? null : cs.latest;
         Config c = Config.get(svc);
         if (f == null || now - f.time > 1500) {
-            svc.postOverlay(null, null, null, -1, null,
+            svc.postOverlay(null, null, null, null, null, -1, null,
                     cs == null ? "Capture inactive — lancez-la depuis l'appli" : "En attente d'images…", 0);
             return;
         }
         List<RectF> excl = svc.exclusions(f.scale);
         List<Detector.Det> en = Detector.findEnemies(f, c, excl);
+        List<Detector.Det> res = new java.util.ArrayList<>();
+        ModelDetector md = svc.model();
+        if (md != null && now - md.latestTime < 800) {
+            for (ModelDetector.Obj o : md.latest) {
+                if (o.kind == ModelDetector.PLAYER) continue;
+                if (hits(excl, o.box.centerX(), o.box.centerY())) continue;
+                Detector.Det d = new Detector.Det(o.box, o.name + " " + Math.round(o.conf * 100) + "%");
+                if (o.kind == ModelDetector.RESOURCE) res.add(d);
+                else if (!overlapsBar(en, d)) en.add(d);
+            }
+        }
+        curRes = res;
         int hp = Detector.readHp(f, c);
         boolean[] ready = Detector.spellsReady(f, c);
         Detector.Det target = pickTarget(en, f);
@@ -65,7 +80,7 @@ public class Brain implements Runnable {
             String kind = k > 0 ? dec.substring(0, k) : dec;
             if (!kind.equals(lastKind)) { BotLog.log("État : " + dec); lastKind = kind; }
         }
-        svc.postOverlay(f, en, target, hp, ready, dec, fps);
+        svc.postOverlay(f, en, res, target, curResTarget, hp, ready, dec, fps);
     }
 
     private Detector.Det pickTarget(List<Detector.Det> en, Frame f) {
@@ -139,7 +154,7 @@ public class Brain implements Runnable {
             StringBuilder s = new StringBuilder("COMBAT — ").append(en.size()).append(" ennemi(s)");
             if (switched || now - lastTargetTap > c.retargetMs) {
                 float bx = target.cx() / f.scale;
-                float by = Math.min(f.h * 0.95f, target.y1 + target.w() * 0.9f) / f.scale;
+                float by = (target.body ? target.cy() : Math.min(f.h * 0.95f, target.y1 + target.w() * 0.9f)) / f.scale;
                 if (svc.tapSafe(bx, by, 50)) {
                     lastTargetTap = now;
                     BotLog.log("Action : cible touchée (" + (int) bx + "," + (int) by + ")" + (switched ? " [nouvelle cible]" : ""));
@@ -161,7 +176,36 @@ public class Brain implements Runnable {
             return "RIPOSTE — attaqué, vie " + hp + "%";
         }
 
-        // 3. Récolte
+        // 3a. Récolte d'une ressource reconnue (arbre, minerai, fibre…) : toucher = y aller et récolter
+        curResTarget = null;
+        if (c.mode != 0 && !curRes.isEmpty() && now - lastEnemySeen > 1500) {
+            blacklist.removeIf(b -> now > b[2]);
+            Detector.Det best = null; double bd = Double.MAX_VALUE;
+            for (Detector.Det d : curRes) {
+                boolean bl = false;
+                for (float[] b : blacklist) if (Math.hypot(d.cx() - b[0], d.cy() - b[1]) < f.w * 0.05f) { bl = true; break; }
+                if (bl) continue;
+                double dd = Math.hypot(d.cx() - f.w / 2f, d.cy() - f.h / 2f);
+                if (dd < bd) { bd = dd; best = d; }
+            }
+            if (best != null) {
+                curResTarget = best;
+                if (rx < 0 || Math.hypot(best.cx() - rx, best.cy() - ry) > f.w * 0.06f) { resSince = now; BotLog.log("Ressource ciblée : " + best.label); }
+                rx = best.cx(); ry = best.cy();
+                if (now - resSince > 25000) {
+                    blacklist.add(new float[]{rx, ry, now + 60000});
+                    BotLog.log("Ressource abandonnée (25 s sans résultat) : " + best.label);
+                    rx = -1;
+                } else if (now - lastResTap > 3500) {
+                    if (svc.tapSafe(best.cx() / f.scale, best.cy() / f.scale, 60)) { lastResTap = now; BotLog.log("Action : récolte " + best.label); }
+                    if (c.actionX >= 0 && now - lastAction > 3500) { svc.tap(c.actionX, c.actionY, 60); lastAction = now; }
+                }
+                lastMove = now;
+                return "RÉCOLTE — " + best.label;
+            }
+        }
+
+        // 3b. Récolte au bouton d'action
         if (c.mode != 0 && c.actionX >= 0 && now - lastAction > 1600 && now - lastEnemySeen > 1500) {
             svc.tap(c.actionX, c.actionY, 60);
             lastAction = now;
@@ -185,6 +229,15 @@ public class Brain implements Runnable {
             return "EXPLORATION — aucun ennemi en vue";
         }
         return en.isEmpty() ? "RECHERCHE — scan de l'écran" : "RÉCOLTE — ennemi ignoré (trop loin)";
+    }
+
+    private Detector.Det curResTarget;
+
+    private static boolean hits(List<RectF> ex, float x, float y) { for (RectF e : ex) if (e.contains(x, y)) return true; return false; }
+
+    private static boolean overlapsBar(List<Detector.Det> en, Detector.Det d) {
+        for (Detector.Det b : en) if (!b.body && b.cx() > d.x0 && b.cx() < d.x1 && b.y1 < d.y1 && b.y1 > d.y0 - d.h() * 0.6f) return true;
+        return false;
     }
 
     private int countReady(boolean[] r) { int k = 0; for (boolean b : r) if (b) k++; return k; }

@@ -34,6 +34,8 @@ public class BotService extends AccessibilityService {
     private TextView playBtn;
     private CalibrationView calib;
     private Brain brain;
+    private ModelDetector model;
+    public ModelDetector model() { return model; }
     private volatile RectF bubbleRect = new RectF();
     private volatile boolean hidden;
 
@@ -46,6 +48,9 @@ public class BotService extends AccessibilityService {
         overlay = new OverlayView(this);
         wm.addView(overlay, lp(false, WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT));
         buildBubble();
+        model = ModelDetector.load(this);
+        if (model != null) model.start();
+        else BotLog.log("Pas de modèle de reconnaissance dans cet APK : détection par barres de vie uniquement");
         brain = new Brain(this);
         brain.start();
         BotLog.log("Service d'accessibilité connecté");
@@ -205,20 +210,19 @@ public class BotService extends AccessibilityService {
         main.post(() -> overlay.flashTap(x, y));
     }
 
-    public void postOverlay(Frame f, List<Detector.Det> en, Detector.Det target, int hp, boolean[] ready, String dec, int fps) {
-        final List<RectF> boxes = new ArrayList<>();
-        RectF tgt = null;
-        if (f != null && en != null) {
+    public void postOverlay(Frame f, List<Detector.Det> en, List<Detector.Det> res, Detector.Det target, Detector.Det resTarget,
+                            int hp, boolean[] ready, String dec, int fps) {
+        final List<OverlayView.Item> items = new ArrayList<>();
+        if (f != null) {
             float s = f.scale;
-            for (Detector.Det d : en) {
-                RectF r = new RectF(d.x0 / s, d.y0 / s, (d.x1 + 1) / s, (d.y1 + 1) / s);
-                boxes.add(r);
-                if (d == target) tgt = r;
-            }
+            if (en != null) for (Detector.Det d : en)
+                items.add(new OverlayView.Item(new RectF(d.x0 / s, d.y0 / s, (d.x1 + 1) / s, (d.y1 + 1) / s), d.body, d.label, false, d == target));
+            if (res != null) for (Detector.Det d : res)
+                items.add(new OverlayView.Item(new RectF(d.x0 / s, d.y0 / s, (d.x1 + 1) / s, (d.y1 + 1) / s), true, d.label, true, d == resTarget));
         }
-        final RectF t = tgt;
         final boolean act = brain != null && brain.active;
-        main.post(() -> overlay.setData(boxes, t, hp, ready, dec, act, fps));
+        final String extra = model == null ? "" : "  IA " + model.inferMs + " ms";
+        main.post(() -> overlay.setData(items, hp, ready, dec, act, fps, extra));
     }
 
     // ---------- Diagnostic ----------
@@ -367,6 +371,7 @@ public class BotService extends AccessibilityService {
     public void onDestroy() {
         instance = null;
         if (brain != null) brain.stop();
+        if (model != null) model.stop();
         try { wm.removeView(overlay); } catch (Exception ignored) { }
         try { wm.removeView(bubble); } catch (Exception ignored) { }
         try { if (calib != null) wm.removeView(calib); } catch (Exception ignored) { }

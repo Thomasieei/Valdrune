@@ -17,6 +17,18 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Modele de reconnaissance (s'il existe)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p app/src/main/assets
+          tag=$(gh api "repos/${{ github.repository }}/releases?per_page=100" -q '[.[] | select(.tag_name|startswith("albion-model"))][0].tag_name' || true)
+          if [ -n "$tag" ] && [ "$tag" != "null" ]; then
+            gh release download "$tag" -R ${{ github.repository }} -p model.onnx -p classes.txt -D app/src/main/assets --clobber
+            echo "Modele embarque : $tag"
+          else
+            echo "Pas encore de modele : APK sans reconnaissance d'objets"
+          fi
       - run: gradle assembleRelease --no-daemon --stacktrace
       - run: cp app/build/outputs/apk/release/app-release.apk AlbionBotLab.apk
       - uses: softprops/action-gh-release@v2

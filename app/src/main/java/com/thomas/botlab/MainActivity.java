@@ -24,7 +24,7 @@ public class MainActivity extends Activity {
     private static final int GOLD = 0xFFF2B33D, CYAN = 0xFF3ED6E0, BG = 0xFF0E1116, CARD = 0xFF171C24,
             OK = 0xFF4CFF7A, KO = 0xFFFF8A3D, DIM = 0xFF8A94A6;
     private LinearLayout root;
-    private TextView stAcc, stCap, stCal, logInfo;
+    private TextView stAcc, stCap, stCal, stMod, logInfo;
     private TextView[] modeBtns = new TextView[3];
     private final Handler h = new Handler(Looper.getMainLooper());
     private Config cfg;
@@ -55,6 +55,7 @@ public class MainActivity extends Activity {
         stAcc = statusRow(st, "1. Service d'accessibilité", "Ouvrir", v -> openAccessibility());
         stCap = statusRow(st, "2. Capture d'écran", "Lancer", v -> startCapture());
         stCal = statusRow(st, "3. Calibrage (en jeu, bouton ◎)", null, null);
+        stMod = statusRow(st, "Reconnaissance d'objets (IA)", null, null);
         LinearLayout row = new LinearLayout(this);
         row.addView(button("Arrêter la capture", KO, v -> {
             CaptureService cs = CaptureService.instance; if (cs != null) cs.stopAll();
@@ -129,6 +130,11 @@ public class MainActivity extends Activity {
         setStatus(stAcc, acc, acc ? "activé" : "désactivé");
         setStatus(stCap, cap, cap ? "en cours" : "arrêtée");
         setStatus(stCal, cfg.calibrated, cfg.summary());
+        ModelDetector md = BotService.instance == null ? null : BotService.instance.model();
+        boolean hasModel = false;
+        try { getAssets().open("model.onnx").close(); hasModel = true; } catch (Exception ignored) { }
+        setStatus(stMod, hasModel, !hasModel ? "pas de modèle dans cette version (barres de vie seulement)"
+                : md == null ? "modèle présent — activez l'accessibilité" : md.names.length + " objets reconnus · " + md.inferMs + " ms/image");
         logInfo.setText(String.format("Taille : %.1f Ko — chaque décision et chaque appui est horodaté.", BotLog.size() / 1024f));
     }
 
