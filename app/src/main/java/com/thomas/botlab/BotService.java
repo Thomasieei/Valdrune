@@ -152,8 +152,8 @@ public class BotService extends AccessibilityService {
         for (int i = 0; i < c.spellX.length; i++) l.add(new RectF(c.spellX[i] - r, c.spellY[i] - r, c.spellX[i] + r, c.spellY[i] + r));
         if (c.actionX >= 0) l.add(new RectF(c.actionX - r, c.actionY - r, c.actionX + r, c.actionY + r));
         if (c.hpLx >= 0 && c.hpRx >= 0) {
-            float m = r * 0.6f;
-            l.add(new RectF(Math.min(c.hpLx, c.hpRx) - m, Math.min(c.hpLy, c.hpRy) - m, Math.max(c.hpLx, c.hpRx) + m, Math.max(c.hpLy, c.hpRy) + m));
+            float mg = r * 0.6f;
+            l.add(new RectF(Math.min(c.hpLx, c.hpRx) - mg, Math.min(c.hpLy, c.hpRy) - mg, Math.max(c.hpLx, c.hpRx) + mg, Math.max(c.hpLy, c.hpRy) + mg));
         }
         l.add(new RectF(bubbleRect));
         return l;
