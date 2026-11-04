@@ -92,8 +92,11 @@ public class BotService extends AccessibilityService {
         playBtn = bubbleBtn("▶", 0xFF4CFF7A);
         TextView cal = bubbleBtn("◎", 0xFF3ED6E0);
         TextView eye = bubbleBtn("👁", 0xFFFFFFFF);
+        TextView test = bubbleBtn("🧪", 0xFFFFFFFF);
+        TextView shot = bubbleBtn("📸", 0xFFFFFFFF);
         TextView stop = bubbleBtn("■", 0xFFFFB020);
-        bubble.addView(drag); bubble.addView(playBtn); bubble.addView(cal); bubble.addView(eye); bubble.addView(stop);
+        bubble.addView(drag); bubble.addView(playBtn); bubble.addView(cal); bubble.addView(eye);
+        bubble.addView(test); bubble.addView(shot); bubble.addView(stop);
         bubbleLp = lp(true, WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT);
         bubbleLp.x = dp(16); bubbleLp.y = dp(120);
         wm.addView(bubble, bubbleLp);
@@ -118,6 +121,8 @@ public class BotService extends AccessibilityService {
             refreshPlay();
         });
         cal.setOnClickListener(v -> startCalibration());
+        test.setOnClickListener(v -> testTaps());
+        shot.setOnClickListener(v -> diagnosticShot());
         eye.setOnClickListener(v -> { overlay.showVision = !overlay.showVision; overlay.invalidate();
             toast(overlay.showVision ? "Vision du bot affichée" : "Vision masquée (le bot continue)"); });
         stop.setOnClickListener(v -> {
@@ -137,7 +142,7 @@ public class BotService extends AccessibilityService {
     private void updateBubbleRect() {
         int[] loc = new int[2];
         bubble.getLocationOnScreen(loc);
-        float panelH = dp(92), panelW = Math.max(bubble.getWidth(), dp(270));
+        float panelH = dp(92), panelW = Math.max(bubble.getWidth(), dp(290));
         bubbleRect = new RectF(loc[0] - dp(8), loc[1] - dp(8), loc[0] + panelW + dp(8), loc[1] + bubble.getHeight() + panelH + dp(8));
         overlay.setPanel(loc[0], loc[1] + bubble.getHeight() + dp(6), panelW);
     }
@@ -182,7 +187,12 @@ public class BotService extends AccessibilityService {
         p.moveTo(x, y);
         GestureDescription g = new GestureDescription.Builder()
                 .addStroke(new GestureDescription.StrokeDescription(p, 0, Math.max(1, dur))).build();
-        dispatchGesture(g, null, null);
+        final boolean log = testing;
+        boolean sent = dispatchGesture(g, new GestureResultCallback() {
+            @Override public void onCompleted(GestureDescription d) { if (log) BotLog.log("Test : appui (" + (int) x + "," + (int) y + ") exécuté par Android"); }
+            @Override public void onCancelled(GestureDescription d) { BotLog.log("Échec : appui (" + (int) x + "," + (int) y + ") annulé par Android"); }
+        }, null);
+        if (!sent) BotLog.log("Échec : Android a refusé l'appui (" + (int) x + "," + (int) y + ")");
         main.post(() -> overlay.flashTap(x, y));
     }
 
@@ -200,6 +210,70 @@ public class BotService extends AccessibilityService {
         final RectF t = tgt;
         final boolean act = brain != null && brain.active;
         main.post(() -> overlay.setData(boxes, t, hp, ready, dec, act, fps));
+    }
+
+    // ---------- Diagnostic ----------
+    private volatile boolean testing;
+
+    /** Touche le bouton d'action puis chaque sort, une seconde d'écart : on voit à l'œil si le jeu réagit. */
+    private void testTaps() {
+        Config c = Config.get(this);
+        if (c.spellX.length == 0 && c.actionX < 0) { toast("Calibrez d'abord (◎) : aucun bouton enregistré"); return; }
+        if (brain.active) { brain.setActive(false); refreshPlay(); }
+        testing = true;
+        BotLog.log("Test des appuis : début (" + c.spellX.length + " sorts, action " + (c.actionX >= 0 ? "oui" : "non") + ")");
+        toast("Test : le bot va toucher chaque sort, une seconde d'écart. Regardez si le jeu réagit.");
+        long t = 1200;
+        for (int i = 0; i < c.spellX.length; i++) {
+            final int k = i;
+            main.postDelayed(() -> { BotLog.log("Test : sort " + (k + 1)); tap(c.spellX[k], c.spellY[k], 60); }, t);
+            t += 1100;
+        }
+        if (c.actionX >= 0) { main.postDelayed(() -> { BotLog.log("Test : bouton d'action"); tap(c.actionX, c.actionY, 60); }, t); t += 1100; }
+        main.postDelayed(() -> { testing = false; BotLog.log("Test des appuis : fin"); toast("Test terminé — dites-moi si les sorts se sont lancés"); }, t + 500);
+    }
+
+    /** Enregistre l'image vue par le bot : pixels reconnus en magenta, cibles encadrées. */
+    private void diagnosticShot() {
+        CaptureService cs = CaptureService.instance;
+        Frame f = cs == null ? null : cs.latest;
+        if (f == null) { toast("Capture inactive"); return; }
+        new Thread(() -> {
+            try {
+                Config c = Config.get(this);
+                int[] px = new int[f.w * f.h];
+                int matched = 0;
+                for (int y = 0; y < f.h; y++) for (int x = 0; x < f.w; x++) {
+                    int p = f.rgb(x, y);
+                    if (Detector.matchEnemy(p, c)) { p = 0xFF00FF; matched++; }
+                    px[y * f.w + x] = 0xFF000000 | p;
+                }
+                android.graphics.Bitmap bmp = android.graphics.Bitmap.createBitmap(px, f.w, f.h, android.graphics.Bitmap.Config.ARGB_8888)
+                        .copy(android.graphics.Bitmap.Config.ARGB_8888, true);
+                android.graphics.Canvas cv = new android.graphics.Canvas(bmp);
+                android.graphics.Paint pa = new android.graphics.Paint();
+                pa.setStyle(android.graphics.Paint.Style.STROKE); pa.setStrokeWidth(2); pa.setColor(0xFF00FFFF);
+                java.util.List<Detector.Det> en = Detector.findEnemies(f, c, exclusions(f.scale));
+                for (Detector.Det d : en) cv.drawRect(d.x0 - 2, d.y0 - 2, d.x1 + 2, d.y1 + 2, pa);
+                int hp = Detector.readHp(f, c);
+                String name = "botlab_" + System.currentTimeMillis() + ".png";
+                android.content.ContentValues v = new android.content.ContentValues();
+                v.put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, name);
+                v.put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png");
+                if (Build.VERSION.SDK_INT >= 29) v.put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "Pictures/AlbionBotLab");
+                android.net.Uri uri = getContentResolver().insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, v);
+                if (uri == null) throw new Exception("galerie inaccessible");
+                try (java.io.OutputStream os = getContentResolver().openOutputStream(uri)) {
+                    bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, os);
+                }
+                String info = "Photo diagnostic " + name + " : " + matched + " pixels couleur ennemie, " + en.size() + " cible(s), vie " + (hp < 0 ? "?" : hp + "%");
+                BotLog.log(info);
+                toast("📸 Enregistrée dans Galerie › AlbionBotLab (" + en.size() + " cible(s))");
+            } catch (Throwable e) {
+                BotLog.log("Photo diagnostic impossible : " + e);
+                toast("Photo impossible : " + e.getMessage());
+            }
+        }).start();
     }
 
     // ---------- Calibrage ----------

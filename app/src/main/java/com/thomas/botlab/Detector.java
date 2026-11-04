@@ -27,20 +27,39 @@ public class Detector {
         return Math.max(r, Math.max(g, b)) - Math.min(r, Math.min(g, b));
     }
 
+    public static volatile int lastMatchCount;
+
+    /** Rouge « au sens large » : teinte autour de 0°, saturée, assez lumineuse (marche sans calibrage). */
+    static boolean redHue(int c, int tol) {
+        int r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255;
+        int max = Math.max(r, Math.max(g, b)), min = Math.min(r, Math.min(g, b));
+        if (max != r || max < 90) return false;
+        int ch = max - min;
+        if (ch < max * 0.45f) return false;
+        float hue = 60f * (g - b) / ch;
+        return Math.abs(hue) < 16 + tol / 7f;
+    }
+
+    public static boolean matchEnemy(int px, Config c) {
+        if (c.enemyColorSampled) return chroma(px) > 50 && dist(px, c.enemyColor) < c.colorTol * 2;
+        return redHue(px, c.colorTol);
+    }
+
     /** Barres horizontales fines de la couleur ennemie = un monstre ou un joueur hostile. */
     public static List<Det> findEnemies(Frame f, Config c, List<RectF> excl) {
-        int w = f.w, h = f.h, target = c.enemyColor, tol = c.colorTol * 2;
-        int minRun = Math.max(6, (int) (w * 0.016f));
+        int w = f.w, h = f.h;
+        int minRun = Math.max(6, (int) (w * 0.010f));
         int maxW = (int) (w * 0.22f);
         int maxH = Math.max(4, (int) (h * 0.035f));
         int yStart = (int) (h * c.topExcludePct / 100f), yEnd = (int) (h * 0.97f);
         ArrayList<int[]> runs = new ArrayList<>();
+        int matched = 0;
         outer:
         for (int y = yStart; y < yEnd; y++) {
             int start = -1, last = -1, miss = 0;
             for (int x = 0; x <= w; x++) {
                 boolean m = false;
-                if (x < w) { int px = f.rgb(x, y); m = chroma(px) > 50 && dist(px, target) < tol; }
+                if (x < w) { m = matchEnemy(f.rgb(x, y), c); if (m) matched++; }
                 if (m) { if (start < 0) start = x; last = x; miss = 0; }
                 else if (start >= 0) {
                     miss++;
@@ -54,6 +73,7 @@ public class Detector {
                 }
             }
         }
+        lastMatchCount = matched;
         ArrayList<Det> boxes = new ArrayList<>();
         for (int[] r : runs) {
             Det hit = null;

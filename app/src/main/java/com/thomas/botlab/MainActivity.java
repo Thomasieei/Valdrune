@@ -72,7 +72,7 @@ public class MainActivity extends Activity {
             "2. Touchez « Lancer » et choisissez « Écran entier » (pas une seule appli).\n\n" +
             "3. Ouvrez Albion Online en paysage. La bulle du bot apparaît (déplaçable par ⠿).\n\n" +
             "4. ◎ Calibrer, vie pleine et sorts prêts : barre de vie (gauche puis droite), vos sorts, une barre de vie ennemie, le bouton d'action.\n\n" +
-            "5. ▶ démarrer · ⏸ pause · 👁 masquer la vision · ■ tout arrêter.\n\n" +
+            "5. ▶ démarrer · ⏸ pause · 👁 masquer la vision · 🧪 tester les appuis · 📸 photo de ce que voit le bot (Galerie › AlbionBotLab) · ■ tout arrêter.\n\n" +
             "Xiaomi : Réglages de l'appli → Économiseur de batterie → « Aucune restriction », sinon MIUI coupe le bot.",
             13, 0xFFD5DCE6, false));
 

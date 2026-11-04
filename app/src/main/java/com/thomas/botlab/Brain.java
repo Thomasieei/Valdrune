@@ -20,6 +20,7 @@ public class Brain implements Runnable {
     private double heading;
     private String lastKind = "";
     private int fps;
+    private int prevHp = -1; private long prevHpT, underAttackUntil, lastTrace;
     private long fpsT0; private int fpsN;
 
     Brain(BotService s) { svc = s; heading = rnd.nextDouble() * Math.PI * 2; }
@@ -93,6 +94,19 @@ public class Brain implements Runnable {
     private String decide(Frame f, Config c, List<Detector.Det> en, Detector.Det target, int hp, boolean[] ready, long now) {
         int n = ready.length, heal = c.healSlot - 1;
         if (!en.isEmpty()) lastEnemySeen = now;
+        // Perte de vie = on est attaqué, même si l'attaquant n'est pas vu
+        if (hp >= 0) {
+            if (prevHp >= 0 && prevHp - hp >= 3 && now - prevHpT < 3000) {
+                if (now > underAttackUntil) BotLog.log("Alerte : vie " + prevHp + "% → " + hp + "%, je suis attaqué");
+                underAttackUntil = now + 6000;
+            }
+            if (prevHp < 0 || hp != prevHp || now - prevHpT > 3000) { prevHp = hp; prevHpT = now; }
+        }
+        if (now - lastTrace > 3000) {
+            lastTrace = now;
+            BotLog.log("Vision : vie " + (hp < 0 ? "?" : hp + "%") + ", ennemis " + en.size()
+                    + ", pixels couleur ennemie " + Detector.lastMatchCount + ", sorts prêts " + countReady(ready) + "/" + n);
+        }
         boolean healReady = heal >= 0 && heal < n && ready[heal] && now - slotCast[heal] > Math.max(600, c.spellIntervalMs);
         float sw = f.screenW, sh = f.screenH, cx = sw / 2f, cy = sh / 2f;
 
@@ -138,6 +152,15 @@ public class Brain implements Runnable {
             return s.toString();
         }
 
+        // 2b. Riposte à l'aveugle : attaqué mais rien de visible → rotation de sorts
+        if (now < underAttackUntil && n > 0) {
+            if (now - lastCast >= c.spellIntervalMs) {
+                int slot = nextSpell(ready, heal, now, c);
+                if (slot >= 0) cast(c, slot, now, "riposte");
+            }
+            return "RIPOSTE — attaqué, vie " + hp + "%";
+        }
+
         // 3. Récolte
         if (c.mode != 0 && c.actionX >= 0 && now - lastAction > 1600 && now - lastEnemySeen > 1500) {
             svc.tap(c.actionX, c.actionY, 60);
@@ -150,16 +173,21 @@ public class Brain implements Runnable {
         long moveEvery = c.mode == 0 ? 2600 : 9000;
         if (now - lastEnemySeen > c.exploreAfterMs && now - lastMove > moveEvery) {
             float r = (0.22f + rnd.nextFloat() * 0.1f) * Math.min(sw, sh);
-            for (int i = 0; i < 6; i++) {
+            boolean ok = false;
+            for (int i = 0; i < 8 && !ok; i++) {
                 heading += (rnd.nextDouble() - 0.5) * (i == 0 ? 1.2 : 3.0);
-                if (svc.tapSafe(cx + (float) Math.cos(heading) * r * 1.4f, cy + (float) Math.sin(heading) * r, 60)) break;
+                float px = cx + (float) Math.cos(heading) * r * 1.4f, py = cy + (float) Math.sin(heading) * r;
+                ok = svc.tapSafe(px, py, 60);
+                if (ok) BotLog.log("Action : déplacement d'exploration (" + (int) px + "," + (int) py + ")");
             }
+            if (!ok) BotLog.log("Refus : déplacement impossible, tous les points tombent dans une zone interdite");
             lastMove = now;
-            BotLog.log("Action : déplacement d'exploration");
             return "EXPLORATION — aucun ennemi en vue";
         }
         return en.isEmpty() ? "RECHERCHE — scan de l'écran" : "RÉCOLTE — ennemi ignoré (trop loin)";
     }
+
+    private int countReady(boolean[] r) { int k = 0; for (boolean b : r) if (b) k++; return k; }
 
     private Detector.Det nearest(List<Detector.Det> en, Frame f) {
         Detector.Det best = null; double bd = Double.MAX_VALUE;
