@@ -1,0 +1,36 @@
+name: APK Artémis
+on:
+  push:
+    branches: [artemis]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Construire l'APK
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+        run: bash android/build.sh 2>&1 | tee build.log; exit ${PIPESTATUS[0]}
+      - name: Erreurs de compilation
+        if: failure()
+        run: grep -E "error|\.java:[0-9]+" build.log | head -30 | sed 's/^/::error::/' || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Artemis-apk
+          path: out/Artemis.apk
+      - name: Publier la Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: artemis-v1.${{ github.run_number }}
+          name: Artémis v1.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          make_latest: false
+          body: Assistant IA qui utilise ton téléphone à ta place. Télécharge Artemis.apk depuis ton téléphone et installe-le.
+          files: out/Artemis.apk

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Artémis</string>
+    <string name="a11y_desc">Artémis lit l\'écran et effectue des touchers, défilements et saisies pour réaliser les tâches que tu lui demandes. Les captures et le texte de l\'écran sont envoyés à l\'API Claude uniquement pendant une tâche que tu as lancée.</string>
+</resources>
