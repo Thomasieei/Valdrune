@@ -1,7 +1,7 @@
-name: APK BUG 404
+name: APK NOCTALIS
 on:
   push:
-    branches: [bug-404]
+    branches: [noctalis]
   workflow_dispatch:
 permissions:
   contents: write
@@ -20,14 +20,14 @@ jobs:
         run: bash android/build.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: BUG404-apk
-          path: out/BUG404.apk
+          name: NOCTALIS-apk
+          path: out/NOCTALIS.apk
       - name: Publier la Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: bug404-v1.${{ github.run_number }}
-          name: BUG 404 v1.${{ github.run_number }}
+          tag_name: noctalis-v1.${{ github.run_number }}
+          name: NOCTALIS v1.${{ github.run_number }}
           target_commitish: ${{ github.sha }}
-          make_latest: false
-          body: APK Android de BUG 404. Télécharge BUG404.apk depuis ton téléphone et installe-le.
-          files: out/BUG404.apk
+          make_latest: true
+          body: APK Android de NOCTALIS — L'Éveil des Ombres. Télécharge NOCTALIS.apk depuis ton téléphone et installe-le.
+          files: out/NOCTALIS.apk
