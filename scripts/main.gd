@@ -1,42 +1,54 @@
 extends Node3D
-## Ville 1 — Igris dans la ville de nuit (Solo Leveling RP).
+## Arise Ville — Chasseur, gobelins rang E, Pas de l'ombre et Arise.
 
-const SPEED := 3.2
-const RUN_SPEED := 6.0
-const GRAVITY := 18.0
 const CITY_SCALE := 0.01
 const JOY_R := 110.0
 
-var player: CharacterBody3D
-var model: Node3D
-var ap: AnimationPlayer
+var city: Node3D
+var hero: Hero
+var mobs: Array = []
+var camps: Array = []
+var spawn_point := Vector3.ZERO
 var cam_pivot: Node3D
 var spring: SpringArm3D
 var cam: Camera3D
 var yaw := 0.0
-var pitch := -0.32
-var attacking := false
-var move_dir := Vector2.ZERO
+var pitch := -0.42
+var shake_amt := 0.0
+var shots_mode := false
+# UI
+var joy_ui: Control
 var joy_touch := -1
 var joy_center := Vector2.ZERO
 var joy_knob := Vector2.ZERO
 var look_touch := -1
-var joy_ui: Control
-var sys_panel: PanelContainer
-var shots_mode := false
-var city: Node3D
+var hp_fill: ColorRect
+var mp_fill: ColorRect
+var hp_txt: Label
+var shadow_txt: Label
+var msg_panel: PanelContainer
+var msg_label: Label
+var msg_tw: Tween
+var buttons := {}
 
 func _ready() -> void:
 	shots_mode = OS.get_cmdline_user_args().has("--shots")
 	_build_env()
 	_build_city()
-	_build_player()
+	hero = Hero.new()
+	hero.world = self
+	hero.main = self
+	add_child(hero)
+	hero.setup_hero()
+	_build_camera()
 	_build_ui()
 	await get_tree().physics_frame
 	await get_tree().physics_frame
-	var spawn := _find_spawn()
-	player.global_position = spawn + Vector3(0, 0.2, 0)
-	_place_gate(spawn)
+	spawn_point = _find_spawn()
+	hero.global_position = spawn_point + Vector3(0, 0.2, 0)
+	_place_gate(spawn_point)
+	_make_camps(spawn_point)
+	system_msg("[ SYSTÈME ]\nDes monstres de rang E rôdent en ville.\nÉlimine-les et relève leurs ombres.")
 	if shots_mode:
 		_run_shots()
 
@@ -150,7 +162,7 @@ func _is_open(space: PhysicsDirectSpaceState3D, p: Vector3) -> bool:
 func _place_gate(spawn: Vector3) -> void:
 	# Portail (Gate) bleu, signature Solo Leveling, à quelques mètres devant le joueur
 	var space := get_world_3d().direct_space_state
-	var off := Vector3(0, 0, -9)
+	var off := Vector3(0, 0, -12)
 	for k in 16:
 		var a := k * TAU / 16.0
 		var c := Vector3(sin(a) * 10.0, 0, cos(a) * 10.0)
@@ -219,95 +231,183 @@ func _place_gate(spawn: Vector3) -> void:
 	var tw := create_tween().set_loops()
 	tw.tween_property(ring, "rotation_degrees:z", 360.0, 6.0).from(0.0)
 
-# ---------------------------------------------------------------- joueur
-func _build_player() -> void:
-	player = CharacterBody3D.new()
-	add_child(player)
-	var col := CollisionShape3D.new()
-	var cap := CapsuleShape3D.new()
-	cap.radius = 0.38
-	cap.height = 1.85
-	col.shape = cap
-	col.position = Vector3(0, 0.93, 0)
-	player.add_child(col)
-	model = (load("res://assets/igris.glb") as PackedScene).instantiate()
-	player.add_child(model)
-	# aura rouge discrète sous Igris
-	var aura := OmniLight3D.new()
-	aura.light_color = Color(1, 0.15, 0.2)
-	aura.light_energy = 1.4
-	aura.omni_range = 4.0
-	aura.position = Vector3(0, 1.0, 0.6)
-	player.add_child(aura)
-	var found := model.find_children("*", "AnimationPlayer", true, false)
-	if found.size() > 0:
-		ap = found[0] as AnimationPlayer
-		for n in ["Walk", "Idle"]:
-			if ap.has_animation(n):
-				ap.get_animation(n).loop_mode = Animation.LOOP_LINEAR
-		ap.animation_finished.connect(_on_anim_done)
-		ap.play("Idle")
-		print("IGRIS_ANIMS:", ap.get_animation_list())
+# ---------------------------------------------------------------- unités
+func units_of_team(t: int) -> Array:
+	var out: Array = []
+	if hero and hero.team == t:
+		out.append(hero)
+	for m in mobs:
+		if (m as Mob).team == t:
+			out.append(m)
+	return out
+
+func all_mobs() -> Array:
+	return mobs
+
+func shadow_count() -> int:
+	var n := 0
+	for m in mobs:
+		var mm := m as Mob
+		if mm.is_shadow and not mm.dead:
+			n += 1
+	return n
+
+func spawn_mob(kind: String, pos: Vector3, camp: Dictionary) -> Mob:
+	var m := Mob.new()
+	m.world = self
+	m.main = self
+	add_child(m)
+	m.configure(kind)
+	m.global_position = pos + Vector3(0, 0.3, 0)
+	m.home = pos
+	m.died.connect(_on_mob_died)
+	mobs.append(m)
+	camp["members"].append(m)
+	return m
+
+func _make_camps(origin: Vector3) -> void:
+	var space := get_world_3d().direct_space_state
+	var comps := [["goblin", "goblin"], ["goblin", "goblin", "goblin"], ["goblin", "goblin", "shaman"], ["orc", "goblin"],
+		["goblin", "goblin", "goblin", "shaman"], ["orc", "shaman", "shaman"], ["goblin", "shaman", "goblin"], ["orc", "orc"]]
+	var spots: Array = []
+	for r: float in [15.0, 24.0, 33.0, 44.0, 56.0, 70.0, 85.0, 100.0]:
+		for k in 24:
+			var a := k * TAU / 24.0 + r * 0.37
+			var p := origin + Vector3(sin(a) * r, 0, cos(a) * r)
+			if not _is_open(space, p + Vector3(0, 80, 0)):
+				continue
+			var ok := true
+			for s in spots:
+				if (s as Vector3).distance_to(p) < 14.0:
+					ok = false
+			if ok:
+				spots.append(p)
+				break
+	for i in mini(spots.size(), comps.size()):
+		var camp := {"pos": spots[i], "kinds": comps[i], "members": [], "respawn": -1.0}
+		camps.append(camp)
+		_fill_camp(camp)
+	print("CAMPS ", camps.size())
+
+func _fill_camp(camp: Dictionary) -> void:
+	var kinds: Array = camp["kinds"]
+	for i in kinds.size():
+		var a := i * TAU / kinds.size()
+		spawn_mob(kinds[i], (camp["pos"] as Vector3) + Vector3(sin(a), 0, cos(a)) * 2.2, camp)
+
+func _on_mob_died(u: Unit) -> void:
+	var m := u as Mob
+	if m.is_shadow:
+		system_msg("Une ombre est tombée.")
+		var tw := m.create_tween()
+		tw.tween_interval(1.8)
+		tw.tween_property(m, "scale", Vector3(1, 0.01, 1), 0.6)
+		tw.tween_callback(_remove_mob.bind(m))
+
+func _remove_mob(m: Mob) -> void:
+	mobs.erase(m)
+	for c in camps:
+		(c["members"] as Array).erase(m)
+	m.queue_free()
+
+func on_shadow_raised(m: Mob) -> void:
+	for c in camps:
+		(c["members"] as Array).erase(m)
+	system_msg("[ SYSTÈME ]\nExtraction réussie : %s" % m.display_name)
+
+func on_hero_died() -> void:
+	system_msg("[ SYSTÈME ]\nTu es tombé... Résurrection dans 4 s.")
+	await get_tree().create_timer(4.0).timeout
+	hero.dead = false
+	hero.hp = hero.max_hp
+	hero.mp = hero.max_mp
+	hero.busy = 0.0
+	hero.collision_layer = 2
+	hero.collision_mask = 3
+	hero.ring.visible = true
+	hero.global_position = spawn_point + Vector3(0, 0.3, 0)
+	hero.play("Idle", 0.1, 1.0, true)
+
+func shake(a: float) -> void:
+	shake_amt = maxf(shake_amt, a)
+
+func hit_stop(t: float) -> void:
+	Engine.time_scale = 0.08
+	await get_tree().create_timer(t, true, false, true).timeout
+	Engine.time_scale = 1.0
+
+func _process(delta: float) -> void:
+	# camps : réapparition 35 s après qu'ils ont été vidés
+	for c in camps:
+		var alive := false
+		for m in c["members"]:
+			if not (m as Mob).dead:
+				alive = true
+		if not alive:
+			if c["respawn"] < 0.0:
+				c["respawn"] = 35.0
+			c["respawn"] -= delta
+			if c["respawn"] <= 0.0:
+				c["respawn"] = -1.0
+				for m in (c["members"] as Array).duplicate():
+					_remove_mob(m)
+				_fill_camp(c)
+	_update_ui()
+
+func _physics_process(delta: float) -> void:
+	if hero == null:
+		return
+	hero.cam_yaw = yaw
+	cam_pivot.global_position = cam_pivot.global_position.lerp(hero.global_position + Vector3(0, 1.55, 0), clampf(12 * delta, 0, 1))
+	cam_pivot.rotation = Vector3(pitch, yaw, 0)
+	shake_amt = maxf(shake_amt - delta * 1.6, 0.0)
+	cam.h_offset = randf_range(-1, 1) * shake_amt * 0.5
+	cam.v_offset = randf_range(-1, 1) * shake_amt * 0.5
+
+func _build_camera() -> void:
 	cam_pivot = Node3D.new()
 	add_child(cam_pivot)
 	spring = SpringArm3D.new()
-	spring.spring_length = 5.0
+	spring.spring_length = 6.0
 	spring.margin = 0.3
 	var sph := SphereShape3D.new()
 	sph.radius = 0.25
 	spring.shape = sph
-	spring.add_excluded_object(player.get_rid())
+	spring.collision_mask = 1
 	cam_pivot.add_child(spring)
 	cam = Camera3D.new()
-	cam.fov = 62.0
+	cam.fov = 64.0
 	cam.far = 700.0
 	spring.add_child(cam)
 	cam.current = true
 
-func _on_anim_done(anim_name: StringName) -> void:
-	if anim_name == &"Attack":
-		attacking = false
-		ap.play("Idle", 0.2)
-
-func _attack() -> void:
-	if attacking or ap == null or not ap.has_animation("Attack"):
-		return
-	attacking = true
-	ap.play("Attack", 0.12)
-
-func _physics_process(delta: float) -> void:
-	if player == null:
-		return
-	var v := player.velocity
-	v.y -= GRAVITY * delta
-	var ml := move_dir.length()
-	var moving := ml > 0.15 and not attacking
-	if moving:
-		var fwd := Vector3(-sin(yaw), 0, -cos(yaw))
-		var right := Vector3(cos(yaw), 0, -sin(yaw))
-		var dir := (right * move_dir.x - fwd * move_dir.y).normalized()
-		var spd := RUN_SPEED if ml > 0.85 else SPEED
-		v.x = dir.x * spd * minf(ml, 1.0)
-		v.z = dir.z * spd * minf(ml, 1.0)
-		model.rotation.y = lerp_angle(model.rotation.y, atan2(dir.x, dir.z), 12.0 * delta)
-	else:
-		v.x = move_toward(v.x, 0, 30 * delta)
-		v.z = move_toward(v.z, 0, 30 * delta)
-	player.velocity = v
-	player.move_and_slide()
-	if player.global_position.y < -20:
-		player.global_position.y = 5
-	if ap and not attacking:
-		var want := "Walk" if moving else "Idle"
-		if ap.current_animation != want:
-			ap.play(want, 0.2)
-		ap.speed_scale = clampf(ml * 1.6, 0.8, 1.7) if moving else 1.0
-	elif ap:
-		ap.speed_scale = 1.0
-	cam_pivot.global_position = cam_pivot.global_position.lerp(player.global_position + Vector3(0, 1.6, 0), clampf(10 * delta, 0, 1))
-	cam_pivot.rotation = Vector3(pitch, yaw, 0)
-
 # ---------------------------------------------------------------- UI
+func _panel_style(bg: Color, border: Color) -> StyleBoxFlat:
+	var ps := StyleBoxFlat.new()
+	ps.bg_color = bg
+	ps.border_color = border
+	ps.set_border_width_all(2)
+	ps.set_corner_radius_all(8)
+	ps.shadow_color = Color(border.r, border.g, border.b, 0.45)
+	ps.shadow_size = 10
+	ps.content_margin_left = 16
+	ps.content_margin_right = 16
+	ps.content_margin_top = 10
+	ps.content_margin_bottom = 10
+	return ps
+
+func _bar(parent: Control, pos: Vector2, w: float, col: Color) -> ColorRect:
+	var bg := ColorRect.new()
+	bg.color = Color(0, 0, 0, 0.6)
+	bg.position = pos
+	bg.size = Vector2(w, 18)
+	parent.add_child(bg)
+	var f := ColorRect.new()
+	f.color = col
+	f.size = Vector2(w, 18)
+	bg.add_child(f)
+	return f
+
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
@@ -316,86 +416,164 @@ func _build_ui() -> void:
 	joy_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	joy_ui.draw.connect(_draw_joy)
 	layer.add_child(joy_ui)
-	var btn := Button.new()
-	btn.text = "ATTAQUE"
-	btn.add_theme_font_size_override("font_size", 28)
+	# cadre du héros
+	var card := Panel.new()
+	card.add_theme_stylebox_override("panel", _panel_style(Color(0.02, 0.04, 0.1, 0.78), Color(0.35, 0.65, 1.0)))
+	card.position = Vector2(20, 18)
+	card.size = Vector2(360, 104)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(card)
+	var nm := Label.new()
+	nm.text = "CHASSEUR  ·  Rang E"
+	nm.position = Vector2(16, 8)
+	nm.add_theme_font_size_override("font_size", 22)
+	nm.add_theme_color_override("font_color", Color(0.8, 0.92, 1))
+	card.add_child(nm)
+	hp_fill = _bar(card, Vector2(16, 42), 328, Color(0.9, 0.18, 0.22))
+	mp_fill = _bar(card, Vector2(16, 68), 328, Color(0.25, 0.5, 1.0))
+	hp_txt = Label.new()
+	hp_txt.position = Vector2(20, 38)
+	hp_txt.add_theme_font_size_override("font_size", 15)
+	card.add_child(hp_txt)
+	shadow_txt = Label.new()
+	shadow_txt.position = Vector2(24, 128)
+	shadow_txt.add_theme_font_size_override("font_size", 20)
+	shadow_txt.add_theme_color_override("font_color", Color(0.75, 0.55, 1))
+	shadow_txt.add_theme_color_override("font_outline_color", Color.BLACK)
+	shadow_txt.add_theme_constant_override("outline_size", 6)
+	layer.add_child(shadow_txt)
+	# boutons de combat (style Albion : attaque au centre, sorts autour)
+	_skill_button(layer, "attack", "ÉPÉE", Vector2(-235, -235), 180, Color(0.35, 0.7, 1.0), hero.attack)
+	_skill_button(layer, "step", "PAS DE\nL'OMBRE", Vector2(-420, -165), 128, Color(0.6, 0.35, 1.0), _do_step)
+	_skill_button(layer, "arise", "ARISE", Vector2(-205, -420), 128, Color(0.75, 0.3, 1.0), _do_arise)
+	# message système
+	msg_panel = PanelContainer.new()
+	msg_panel.add_theme_stylebox_override("panel", _panel_style(Color(0.02, 0.05, 0.14, 0.85), Color(0.4, 0.75, 1)))
+	msg_label = Label.new()
+	msg_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	msg_label.add_theme_font_size_override("font_size", 24)
+	msg_label.add_theme_color_override("font_color", Color(0.82, 0.93, 1))
+	msg_panel.add_child(msg_label)
+	msg_panel.anchor_left = 0.5
+	msg_panel.anchor_right = 0.5
+	msg_panel.offset_left = -290
+	msg_panel.offset_right = 290
+	msg_panel.offset_top = 24
+	msg_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	msg_panel.modulate.a = 0.0
+	layer.add_child(msg_panel)
+
+func _do_step() -> void:
+	hero.shadow_step()
+
+func _do_arise() -> void:
+	hero.arise()
+
+func _skill_button(layer: CanvasLayer, key: String, txt: String, off: Vector2, size: float, col: Color, cb: Callable) -> void:
+	var b := Button.new()
+	b.text = txt
+	b.add_theme_font_size_override("font_size", 24 if size > 150 else 18)
+	b.add_theme_color_override("font_color", Color(0.9, 0.95, 1))
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.04, 0.08, 0.2, 0.75)
-	sb.border_color = Color(0.35, 0.7, 1.0)
+	sb.bg_color = Color(0.03, 0.05, 0.14, 0.78)
+	sb.border_color = col
 	sb.set_border_width_all(4)
-	sb.set_corner_radius_all(90)
-	sb.shadow_color = Color(0.2, 0.5, 1, 0.6)
+	sb.set_corner_radius_all(int(size / 2))
+	sb.shadow_color = Color(col.r, col.g, col.b, 0.55)
 	sb.shadow_size = 12
-	btn.add_theme_stylebox_override("normal", sb)
-	btn.add_theme_stylebox_override("hover", sb)
-	var sbp: StyleBoxFlat = sb.duplicate()
-	sbp.bg_color = Color(0.15, 0.35, 0.8, 0.9)
-	btn.add_theme_stylebox_override("pressed", sbp)
-	btn.add_theme_color_override("font_color", Color(0.75, 0.9, 1))
-	btn.anchor_left = 1.0
-	btn.anchor_top = 1.0
-	btn.anchor_right = 1.0
-	btn.anchor_bottom = 1.0
-	btn.offset_left = -230
-	btn.offset_top = -230
-	btn.offset_right = -50
-	btn.offset_bottom = -50
-	btn.button_down.connect(_attack)
-	layer.add_child(btn)
-	# fenêtre « Système » façon Solo Leveling
-	sys_panel = PanelContainer.new()
-	var ps := StyleBoxFlat.new()
-	ps.bg_color = Color(0.02, 0.05, 0.14, 0.82)
-	ps.border_color = Color(0.4, 0.75, 1)
-	ps.set_border_width_all(2)
-	ps.set_corner_radius_all(6)
-	ps.shadow_color = Color(0.25, 0.6, 1, 0.5)
-	ps.shadow_size = 14
-	ps.content_margin_left = 28
-	ps.content_margin_right = 28
-	ps.content_margin_top = 14
-	ps.content_margin_bottom = 14
-	sys_panel.add_theme_stylebox_override("panel", ps)
-	var lb := Label.new()
-	lb.text = "[ SYSTÈME ]\nBienvenue, Chasseur.\nUn Portail s'est ouvert en ville."
-	lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lb.add_theme_font_size_override("font_size", 30)
-	lb.add_theme_color_override("font_color", Color(0.8, 0.92, 1))
-	sys_panel.add_child(lb)
-	sys_panel.anchor_left = 0.5
-	sys_panel.anchor_right = 0.5
-	sys_panel.offset_left = -300
-	sys_panel.offset_right = 300
-	sys_panel.offset_top = 40
-	layer.add_child(sys_panel)
-	if not shots_mode:
-		var tw := create_tween()
-		tw.tween_interval(4.5)
-		tw.tween_property(sys_panel, "modulate:a", 0.0, 1.2)
+	b.add_theme_stylebox_override("normal", sb)
+	b.add_theme_stylebox_override("hover", sb)
+	b.add_theme_stylebox_override("focus", sb)
+	var sp: StyleBoxFlat = sb.duplicate()
+	sp.bg_color = Color(col.r * 0.5, col.g * 0.5, col.b * 0.6, 0.95)
+	b.add_theme_stylebox_override("pressed", sp)
+	b.anchor_left = 1.0
+	b.anchor_top = 1.0
+	b.anchor_right = 1.0
+	b.anchor_bottom = 1.0
+	b.offset_left = off.x
+	b.offset_top = off.y
+	b.offset_right = off.x + size
+	b.offset_bottom = off.y + size
+	b.focus_mode = Control.FOCUS_NONE
+	b.button_down.connect(cb)
+	layer.add_child(b)
+	var shade := Panel.new()
+	var ss := StyleBoxFlat.new()
+	ss.bg_color = Color(0, 0, 0, 0.62)
+	ss.set_corner_radius_all(int(size / 2))
+	shade.add_theme_stylebox_override("panel", ss)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	b.add_child(shade)
+	var cdl := Label.new()
+	cdl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cdl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cdl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	cdl.add_theme_font_size_override("font_size", 40)
+	cdl.add_theme_color_override("font_color", Color(1, 1, 1))
+	cdl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(cdl)
+	buttons[key] = {"btn": b, "shade": shade, "label": cdl}
+
+func _update_ui() -> void:
+	if hero == null or hp_fill == null:
+		return
+	hp_fill.size.x = 328.0 * clampf(hero.hp / hero.max_hp, 0, 1)
+	mp_fill.size.x = 328.0 * clampf(hero.mp / hero.max_mp, 0, 1)
+	hp_txt.text = "PV %d / %d      PM %d" % [int(hero.hp), int(hero.max_hp), int(hero.mp)]
+	shadow_txt.text = "Ombres  %d / 4" % shadow_count()
+	for k in buttons.keys():
+		var d: Dictionary = buttons[k]
+		var c: float = hero.cd[k]
+		var mx: float = Hero.CD_MAX[k]
+		var shade: Panel = d["shade"]
+		var lab: Label = d["label"]
+		var lacks_mp: bool = hero.mp < Hero.MP_COST.get(k, 0.0)
+		shade.visible = c > 0.0 or lacks_mp
+		shade.anchor_top = 1.0 - (c / mx if c > 0.0 else 1.0)
+		shade.offset_top = 0
+		lab.text = ("%d" % ceili(c)) if (c > 0.6 and k != "attack") else ""
+
+func system_msg(t: String) -> void:
+	msg_label.text = t
+	if msg_tw:
+		msg_tw.kill()
+	msg_panel.modulate.a = 1.0
+	msg_tw = create_tween()
+	msg_tw.tween_interval(3.2)
+	msg_tw.tween_property(msg_panel, "modulate:a", 0.0, 0.8)
 
 func _draw_joy() -> void:
 	var vp := joy_ui.get_viewport_rect().size
 	var base := joy_center if joy_touch >= 0 else Vector2(200, vp.y - 200)
 	var knob := joy_knob if joy_touch >= 0 else base
-	joy_ui.draw_circle(base, JOY_R, Color(0.1, 0.25, 0.6, 0.25))
+	joy_ui.draw_circle(base, JOY_R, Color(0.1, 0.25, 0.6, 0.22))
 	joy_ui.draw_arc(base, JOY_R, 0, TAU, 48, Color(0.4, 0.75, 1, 0.7), 3.0)
 	joy_ui.draw_circle(knob, 46, Color(0.35, 0.7, 1, 0.6))
 
+func _on_button(p: Vector2) -> bool:
+	for k in buttons.keys():
+		var b: Button = buttons[k]["btn"]
+		if b.get_global_rect().grow(10).has_point(p):
+			return true
+	return false
+
 func _input(event: InputEvent) -> void:
-	var half := get_viewport().get_visible_rect().size.x * 0.5
+	var half := get_viewport().get_visible_rect().size.x * 0.45
 	if event is InputEventScreenTouch:
 		var t := event as InputEventScreenTouch
 		if t.pressed:
-			if t.position.x < half and joy_touch < 0:
+			if t.position.x < half and joy_touch < 0 and t.position.y > 150:
 				joy_touch = t.index
 				joy_center = t.position
 				joy_knob = t.position
-			elif t.position.x >= half and look_touch < 0:
+			elif t.position.x >= half and look_touch < 0 and not _on_button(t.position):
 				look_touch = t.index
 		else:
 			if t.index == joy_touch:
 				joy_touch = -1
-				move_dir = Vector2.ZERO
+				hero.move_input = Vector2.ZERO
 			elif t.index == look_touch:
 				look_touch = -1
 		joy_ui.queue_redraw()
@@ -406,24 +584,72 @@ func _input(event: InputEvent) -> void:
 			if d.length() > JOY_R:
 				d = d.normalized() * JOY_R
 			joy_knob = joy_center + d
-			move_dir = Vector2(d.x, d.y) / JOY_R
+			hero.move_input = d / JOY_R
 			joy_ui.queue_redraw()
 		elif dr.index == look_touch:
 			yaw -= dr.relative.x * 0.006
-			pitch = clampf(pitch - dr.relative.y * 0.004, -1.1, 0.25)
+			pitch = clampf(pitch - dr.relative.y * 0.004, -1.15, 0.2)
 
-# ---------------------------------------------------------------- captures (CI)
+# ---------------------------------------------------------------- captures CI (scénario de combat)
+func _snap(name: String, frames := 1) -> void:
+	for i in frames:
+		await get_tree().physics_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	var p := "res://shots/%s.png" % name
+	img.save_png(p)
+	print("SHOT ", name)
+
+func _put_hero_near(camp_i: int, dist: float) -> void:
+	var c: Dictionary = camps[mini(camp_i, camps.size() - 1)]
+	var p: Vector3 = c["pos"]
+	var dir := (spawn_point - p)
+	dir.y = 0
+	dir = dir.normalized() if dir.length() > 0.1 else Vector3(0, 0, 1)
+	hero.global_position = p + dir * dist + Vector3(0, 0.3, 0)
+	yaw = atan2(dir.x, dir.z)
+	cam_pivot.global_position = hero.global_position + Vector3(0, 1.55, 0)
+
 func _run_shots() -> void:
-	var dir := "res://shots/" if DirAccess.dir_exists_absolute("res://shots") else "user://"
-	var views := [[0.0, -0.32, 5.0, "rue_dos"], [2.4, -0.2, 4.0, "rue_face"], [-1.2, -0.12, 3.0, "rue_cote"], [0.7, -0.85, 30.0, "aerien"]]
-	for v in views:
-		yaw = v[0]
-		pitch = v[1]
-		spring.spring_length = v[2]
-		for i in 30:
-			await get_tree().process_frame
-		var img := get_viewport().get_texture().get_image()
-		var p: String = dir + str(v[3]) + ".png"
-		img.save_png(p)
-		print("SHOT ", ProjectSettings.globalize_path(p))
+	hero.max_hp = 99999
+	hero.hp = 99999
+	await _snap("00_depart", 20)
+	_put_hero_near(1, 7.0)
+	await _snap("01_approche", 70)
+	hero.attack()
+	await _snap("02_epee", 7)
+	await _snap("02b", 20)
+	hero.attack()
+	await _snap("03_combo", 9)
+	hero.attack()
+	await _snap("04_combo3", 12)
+	hero.cd["step"] = 0.0
+	hero.mp = 100
+	hero.shadow_step()
+	await _snap("05_pas_ombre", 10)
+	for m in mobs:
+		var mm := m as Mob
+		if not mm.dead and mm.global_position.distance_to(hero.global_position) < 8.0:
+			mm.take_damage(9999, hero)
+			break
+	await _snap("06_cadavre", 70)
+	hero.cd["arise"] = 0.0
+	hero.mp = 100
+	hero.arise()
+	await _snap("07_arise", 22)
+	await _snap("08_ombre", 100)
+	var oi := 3
+	for i in camps.size():
+		if (camps[i]["kinds"] as Array).has("orc"):
+			oi = i
+			break
+	_put_hero_near(oi, 4.0)
+	await _snap("09_orc", 60)
+	for m in mobs:
+		var mm := m as Mob
+		if mm.kind == "orc" and not mm.dead:
+			mm.skill_cd = 0.0
+			mm.target = hero
+	await _snap("10_fracas", 40)
+	await _snap("11_suite", 60)
 	get_tree().quit()
