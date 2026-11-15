@@ -116,7 +116,7 @@ func _build_city() -> void:
 				r.roughness = 0.62
 				r.metallic_specular = 0.55
 				m.set_surface_override_material(i, r)
-		m.create_trimesh_collision()
+		_build_collision(m)
 	# sol de sécurité sous la ville
 	var floor_body := StaticBody3D.new()
 	var cs := CollisionShape3D.new()
@@ -126,6 +126,34 @@ func _build_city() -> void:
 	cs.position = Vector3(0, -0.55, 0)
 	floor_body.add_child(cs)
 	add_child(floor_body)
+
+## Collisions de la ville sans les surfaces lumineuses (halos, néons) qui créaient des murs invisibles.
+func _build_collision(m: MeshInstance3D) -> void:
+	var faces := PackedVector3Array()
+	var skipped := 0
+	for i in m.mesh.get_surface_count():
+		var mat := m.mesh.surface_get_material(i)
+		var nm := mat.resource_name.to_lower() if mat else ""
+		if nm.contains("glow"):
+			skipped += 1
+			continue
+		var arr := m.mesh.surface_get_arrays(i)
+		var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+		var idx = arr[Mesh.ARRAY_INDEX]
+		if idx is PackedInt32Array and (idx as PackedInt32Array).size() > 0:
+			for k in (idx as PackedInt32Array):
+				faces.append(v[k])
+		else:
+			faces.append_array(v)
+	var shape := ConcavePolygonShape3D.new()
+	shape.backface_collision = true
+	shape.set_faces(faces)
+	var body := StaticBody3D.new()
+	var cs := CollisionShape3D.new()
+	cs.shape = shape
+	body.add_child(cs)
+	m.add_child(body)
+	print("COLLISION faces ", faces.size() / 3, " surfaces lumineuses ignorées ", skipped)
 
 func _find_spawn() -> Vector3:
 	var space := get_world_3d().direct_space_state
@@ -661,4 +689,38 @@ func _run_shots() -> void:
 			mm.target = hero
 	await _snap("10_fracas", 40)
 	await _snap("11_suite", 60)
+	await _step_test()
 	get_tree().quit()
+
+## Test automatique : le héros doit monter sur un trottoir proche.
+func _step_test() -> void:
+	var space := get_world_3d().direct_space_state
+	hero.global_position = spawn_point + Vector3(0, 0.3, 0)
+	await get_tree().physics_frame
+	var target := Vector3.INF
+	for r in [3.0, 5.0, 7.0, 9.0, 12.0]:
+		for k in 16:
+			var a: float = k * TAU / 16.0
+			var p: Vector3 = spawn_point + Vector3(sin(a) * r, 30, cos(a) * r)
+			var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(p, p + Vector3(0, -60, 0)))
+			if not hit.is_empty():
+				var y: float = (hit["position"] as Vector3).y
+				if y > 0.08 and y < 0.4:
+					target = hit["position"]
+					break
+		if target != Vector3.INF:
+			break
+	if target == Vector3.INF:
+		print("STEP_TEST aucun trottoir trouvé")
+		return
+	var d := target - hero.global_position
+	yaw = atan2(-d.x, -d.z)
+	hero.move_input = Vector2(0, -0.6)
+	for i in 180:
+		await get_tree().physics_frame
+		var dd := target - hero.global_position
+		dd.y = 0
+		if dd.length() < 0.6:
+			break
+	hero.move_input = Vector2.ZERO
+	print("STEP_TEST cible_y=%.2f héros_y=%.2f distance_restante=%.2f" % [target.y, hero.global_position.y, Vector2(target.x - hero.global_position.x, target.z - hero.global_position.z).length()])
