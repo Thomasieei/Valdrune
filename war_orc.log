@@ -1,0 +1,1902 @@
+23:00:20 | INFO: Starting glTF 2.0 export
+23:00:20 | INFO: Extracting primitive: Mesh.024
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.019
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.033
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.034
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.003
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.017
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.016
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.030
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.032
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.366
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.367
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.368
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.369
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.370
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.371
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.372
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.373
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.008
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.042
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.044
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.006
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.020
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.023
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.037
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.015
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.021
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.028
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.036
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.012
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.027
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.004
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.039
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.025
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.022
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.010
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.043
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.009
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.192
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.193
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.194
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.195
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.196
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.197
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.198
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.199
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.200
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.201
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.102
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.202
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.203
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.204
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.205
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.206
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.207
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.208
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.209
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.210
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.211
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.103
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.212
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.213
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.214
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.215
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.216
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.217
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.218
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.219
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.220
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.221
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.104
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.222
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.223
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.224
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.225
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.226
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.227
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.228
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.229
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.230
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.231
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.105
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.232
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.233
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.234
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.235
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.236
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.237
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.238
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.239
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.240
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.241
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.106
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.242
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.243
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.244
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.245
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.246
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.247
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.248
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.249
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.250
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.251
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.107
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.252
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.253
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.254
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.255
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.256
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.257
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.258
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.259
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.260
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.261
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.108
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.262
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.263
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.264
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.265
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.266
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.267
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.268
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.269
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.270
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.271
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.109
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.272
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.273
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.274
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.275
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.276
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.277
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.278
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.279
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.280
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.281
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.110
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.282
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.283
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.284
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.285
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.286
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.287
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.288
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.289
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.290
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.111
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.112
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.113
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.114
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.115
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.116
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.117
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.118
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.119
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.120
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.121
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.122
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.123
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.124
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.125
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.126
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.127
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.128
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.129
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.130
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.131
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.095
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.132
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.133
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.134
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.135
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.136
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.137
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.138
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.139
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.140
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.141
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.096
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.142
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.143
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.144
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.145
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.146
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.147
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.148
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.149
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.150
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.151
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.097
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.152
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.153
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.154
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.155
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.156
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.157
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.158
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.159
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.160
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.161
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.098
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.162
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.163
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.164
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.165
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.166
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.167
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.168
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.169
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.170
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.171
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.099
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.172
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.173
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.174
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.175
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.176
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.177
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.178
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.179
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.180
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.181
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.100
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.182
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.183
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.184
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.185
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.186
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.187
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.188
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.189
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.190
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.191
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.101
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.052
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.053
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.054
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.055
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.056
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.057
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.058
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.059
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.060
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.061
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.062
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.063
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.064
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.065
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.066
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.067
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.068
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.069
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.070
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.071
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.072
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.073
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.074
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.075
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.076
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.077
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.078
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.079
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.080
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.081
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.045
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.082
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.083
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.084
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.085
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.086
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.087
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.088
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.089
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.090
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.091
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.046
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.092
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.093
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.094
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.047
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.048
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.049
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.050
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.051
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.026
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.298
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.299
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.300
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.301
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.302
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.303
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.304
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.305
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.306
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.307
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.308
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.309
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.310
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.311
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.312
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.313
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.314
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.315
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.316
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.317
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.318
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.319
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.320
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.321
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.322
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.323
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.324
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.325
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.326
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.327
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.291
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.328
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.329
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.330
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.331
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.332
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.333
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.334
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.335
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.336
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.337
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.292
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.338
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.339
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.340
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.341
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.342
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.343
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.344
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.345
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.346
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.347
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.293
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.348
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.349
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.350
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.351
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.352
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.353
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.354
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.355
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.356
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.357
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.294
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.358
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.359
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.360
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.361
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.362
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.363
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.364
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.365
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.295
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.296
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.297
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.041
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.040
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.005
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.002
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.011
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.031
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.014
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.029
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.007
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.001
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.035
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.018
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Extracting primitive: Mesh.038
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | WARNING: Mesh Mesh.013 is not valid, and may be exported wrongly
+23:00:20 | INFO: Extracting primitive: Mesh.013
+23:00:20 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:00:20 | INFO: Primitives created: 1
+23:00:20 | INFO: Finished glTF 2.0 export in 0.46491527557373047 s
+23:00:20 | INFO: Data are loaded, start creating Blender stuff
+23:00:20 | INFO: Blender create Mesh node Mesh.024
+23:00:20 | INFO: Blender create Mesh node Mesh.019
+23:00:20 | INFO: Blender create Mesh node Mesh.033
+23:00:20 | INFO: Blender create Mesh node Mesh.034
+23:00:20 | INFO: Blender create Mesh node Mesh.003
+23:00:20 | INFO: Blender create Mesh node Mesh.017
+23:00:20 | INFO: Blender create Mesh node Mesh.016
+23:00:20 | INFO: Blender create Mesh node Mesh.030
+23:00:20 | INFO: Blender create Mesh node Mesh.032
+23:00:20 | INFO: Blender create Mesh node Mesh.366
+23:00:20 | INFO: Blender create Mesh node Mesh.367
+23:00:20 | INFO: Blender create Mesh node Mesh.368
+23:00:20 | INFO: Blender create Mesh node Mesh.369
+23:00:20 | INFO: Blender create Mesh node Mesh.370
+23:00:20 | INFO: Blender create Mesh node Mesh.371
+23:00:20 | INFO: Blender create Mesh node Mesh.372
+23:00:20 | INFO: Blender create Mesh node Mesh.373
+23:00:20 | INFO: Blender create Mesh node Mesh.008
+23:00:20 | INFO: Blender create Mesh node Mesh.042
+23:00:20 | INFO: Blender create Mesh node Mesh.044
+23:00:20 | INFO: Blender create Mesh node Mesh.006
+23:00:20 | INFO: Blender create Mesh node Mesh.020
+23:00:20 | INFO: Blender create Mesh node Mesh.023
+23:00:20 | INFO: Blender create Mesh node Mesh.037
+23:00:20 | INFO: Blender create Mesh node Mesh.015
+23:00:20 | INFO: Blender create Mesh node Mesh.021
+23:00:20 | INFO: Blender create Mesh node Mesh.028
+23:00:20 | INFO: Blender create Mesh node Mesh.036
+23:00:20 | INFO: Blender create Mesh node Mesh.012
+23:00:20 | INFO: Blender create Mesh node Mesh.027
+23:00:20 | INFO: Blender create Mesh node Mesh.004
+23:00:20 | INFO: Blender create Mesh node Mesh.039
+23:00:20 | INFO: Blender create Mesh node Mesh.025
+23:00:20 | INFO: Blender create Mesh node Mesh.022
+23:00:20 | INFO: Blender create Mesh node Mesh.010
+23:00:20 | INFO: Blender create Mesh node Mesh.043
+23:00:20 | INFO: Blender create Mesh node Mesh.009
+23:00:20 | INFO: Blender create Mesh node Mesh.192
+23:00:20 | INFO: Blender create Mesh node Mesh.193
+23:00:20 | INFO: Blender create Mesh node Mesh.194
+23:00:20 | INFO: Blender create Mesh node Mesh.195
+23:00:20 | INFO: Blender create Mesh node Mesh.196
+23:00:20 | INFO: Blender create Mesh node Mesh.197
+23:00:20 | INFO: Blender create Mesh node Mesh.198
+23:00:20 | INFO: Blender create Mesh node Mesh.199
+23:00:20 | INFO: Blender create Mesh node Mesh.200
+23:00:20 | INFO: Blender create Mesh node Mesh.201
+23:00:20 | INFO: Blender create Mesh node Mesh.102
+23:00:20 | INFO: Blender create Mesh node Mesh.202
+23:00:20 | INFO: Blender create Mesh node Mesh.203
+23:00:20 | INFO: Blender create Mesh node Mesh.204
+23:00:20 | INFO: Blender create Mesh node Mesh.205
+23:00:20 | INFO: Blender create Mesh node Mesh.206
+23:00:20 | INFO: Blender create Mesh node Mesh.207
+23:00:20 | INFO: Blender create Mesh node Mesh.208
+23:00:20 | INFO: Blender create Mesh node Mesh.209
+23:00:20 | INFO: Blender create Mesh node Mesh.210
+23:00:20 | INFO: Blender create Mesh node Mesh.211
+23:00:20 | INFO: Blender create Mesh node Mesh.103
+23:00:20 | INFO: Blender create Mesh node Mesh.212
+23:00:20 | INFO: Blender create Mesh node Mesh.213
+23:00:20 | INFO: Blender create Mesh node Mesh.214
+23:00:20 | INFO: Blender create Mesh node Mesh.215
+23:00:20 | INFO: Blender create Mesh node Mesh.216
+23:00:20 | INFO: Blender create Mesh node Mesh.217
+23:00:20 | INFO: Blender create Mesh node Mesh.218
+23:00:20 | INFO: Blender create Mesh node Mesh.219
+23:00:20 | INFO: Blender create Mesh node Mesh.220
+23:00:20 | INFO: Blender create Mesh node Mesh.221
+23:00:20 | INFO: Blender create Mesh node Mesh.104
+23:00:20 | INFO: Blender create Mesh node Mesh.222
+23:00:20 | INFO: Blender create Mesh node Mesh.223
+23:00:20 | INFO: Blender create Mesh node Mesh.224
+23:00:20 | INFO: Blender create Mesh node Mesh.225
+23:00:20 | INFO: Blender create Mesh node Mesh.226
+23:00:20 | INFO: Blender create Mesh node Mesh.227
+23:00:20 | INFO: Blender create Mesh node Mesh.228
+23:00:20 | INFO: Blender create Mesh node Mesh.229
+23:00:20 | INFO: Blender create Mesh node Mesh.230
+23:00:20 | INFO: Blender create Mesh node Mesh.231
+23:00:20 | INFO: Blender create Mesh node Mesh.105
+23:00:20 | INFO: Blender create Mesh node Mesh.232
+23:00:20 | INFO: Blender create Mesh node Mesh.233
+23:00:20 | INFO: Blender create Mesh node Mesh.234
+23:00:20 | INFO: Blender create Mesh node Mesh.235
+23:00:20 | INFO: Blender create Mesh node Mesh.236
+23:00:20 | INFO: Blender create Mesh node Mesh.237
+23:00:20 | INFO: Blender create Mesh node Mesh.238
+23:00:20 | INFO: Blender create Mesh node Mesh.239
+23:00:20 | INFO: Blender create Mesh node Mesh.240
+23:00:20 | INFO: Blender create Mesh node Mesh.241
+23:00:20 | INFO: Blender create Mesh node Mesh.106
+23:00:20 | INFO: Blender create Mesh node Mesh.242
+23:00:20 | INFO: Blender create Mesh node Mesh.243
+23:00:20 | INFO: Blender create Mesh node Mesh.244
+23:00:20 | INFO: Blender create Mesh node Mesh.245
+23:00:20 | INFO: Blender create Mesh node Mesh.246
+23:00:20 | INFO: Blender create Mesh node Mesh.247
+23:00:20 | INFO: Blender create Mesh node Mesh.248
+23:00:20 | INFO: Blender create Mesh node Mesh.249
+23:00:20 | INFO: Blender create Mesh node Mesh.250
+23:00:20 | INFO: Blender create Mesh node Mesh.251
+23:00:20 | INFO: Blender create Mesh node Mesh.107
+23:00:20 | INFO: Blender create Mesh node Mesh.252
+23:00:20 | INFO: Blender create Mesh node Mesh.253
+23:00:20 | INFO: Blender create Mesh node Mesh.254
+23:00:20 | INFO: Blender create Mesh node Mesh.255
+23:00:20 | INFO: Blender create Mesh node Mesh.256
+23:00:20 | INFO: Blender create Mesh node Mesh.257
+23:00:20 | INFO: Blender create Mesh node Mesh.258
+23:00:20 | INFO: Blender create Mesh node Mesh.259
+23:00:20 | INFO: Blender create Mesh node Mesh.260
+23:00:20 | INFO: Blender create Mesh node Mesh.261
+23:00:20 | INFO: Blender create Mesh node Mesh.108
+23:00:20 | INFO: Blender create Mesh node Mesh.262
+23:00:20 | INFO: Blender create Mesh node Mesh.263
+23:00:20 | INFO: Blender create Mesh node Mesh.264
+23:00:20 | INFO: Blender create Mesh node Mesh.265
+23:00:20 | INFO: Blender create Mesh node Mesh.266
+23:00:20 | INFO: Blender create Mesh node Mesh.267
+23:00:20 | INFO: Blender create Mesh node Mesh.268
+23:00:20 | INFO: Blender create Mesh node Mesh.269
+23:00:20 | INFO: Blender create Mesh node Mesh.270
+23:00:20 | INFO: Blender create Mesh node Mesh.271
+23:00:20 | INFO: Blender create Mesh node Mesh.109
+23:00:20 | INFO: Blender create Mesh node Mesh.272
+23:00:20 | INFO: Blender create Mesh node Mesh.273
+23:00:20 | INFO: Blender create Mesh node Mesh.274
+23:00:20 | INFO: Blender create Mesh node Mesh.275
+23:00:20 | INFO: Blender create Mesh node Mesh.276
+23:00:20 | INFO: Blender create Mesh node Mesh.277
+23:00:20 | INFO: Blender create Mesh node Mesh.278
+23:00:20 | INFO: Blender create Mesh node Mesh.279
+23:00:20 | INFO: Blender create Mesh node Mesh.280
+23:00:20 | INFO: Blender create Mesh node Mesh.281
+23:00:20 | INFO: Blender create Mesh node Mesh.110
+23:00:20 | INFO: Blender create Mesh node Mesh.282
+23:00:20 | INFO: Blender create Mesh node Mesh.283
+23:00:20 | INFO: Blender create Mesh node Mesh.284
+23:00:20 | INFO: Blender create Mesh node Mesh.285
+23:00:20 | INFO: Blender create Mesh node Mesh.286
+23:00:20 | INFO: Blender create Mesh node Mesh.287
+23:00:20 | INFO: Blender create Mesh node Mesh.288
+23:00:20 | INFO: Blender create Mesh node Mesh.289
+23:00:20 | INFO: Blender create Mesh node Mesh.290
+23:00:20 | INFO: Blender create Mesh node Mesh.111
+23:00:20 | INFO: Blender create Mesh node Mesh.112
+23:00:20 | INFO: Blender create Mesh node Mesh.113
+23:00:20 | INFO: Blender create Mesh node Mesh.114
+23:00:20 | INFO: Blender create Mesh node Mesh.115
+23:00:20 | INFO: Blender create Mesh node Mesh.116
+23:00:20 | INFO: Blender create Mesh node Mesh.117
+23:00:20 | INFO: Blender create Mesh node Mesh.118
+23:00:20 | INFO: Blender create Mesh node Mesh.119
+23:00:20 | INFO: Blender create Mesh node Mesh.120
+23:00:20 | INFO: Blender create Mesh node Mesh.121
+23:00:20 | INFO: Blender create Mesh node Mesh.122
+23:00:20 | INFO: Blender create Mesh node Mesh.123
+23:00:20 | INFO: Blender create Mesh node Mesh.124
+23:00:20 | INFO: Blender create Mesh node Mesh.125
+23:00:20 | INFO: Blender create Mesh node Mesh.126
+23:00:20 | INFO: Blender create Mesh node Mesh.127
+23:00:20 | INFO: Blender create Mesh node Mesh.128
+23:00:20 | INFO: Blender create Mesh node Mesh.129
+23:00:20 | INFO: Blender create Mesh node Mesh.130
+23:00:20 | INFO: Blender create Mesh node Mesh.131
+23:00:20 | INFO: Blender create Mesh node Mesh.095
+23:00:20 | INFO: Blender create Mesh node Mesh.132
+23:00:20 | INFO: Blender create Mesh node Mesh.133
+23:00:20 | INFO: Blender create Mesh node Mesh.134
+23:00:20 | INFO: Blender create Mesh node Mesh.135
+23:00:20 | INFO: Blender create Mesh node Mesh.136
+23:00:20 | INFO: Blender create Mesh node Mesh.137
+23:00:20 | INFO: Blender create Mesh node Mesh.138
+23:00:20 | INFO: Blender create Mesh node Mesh.139
+23:00:20 | INFO: Blender create Mesh node Mesh.140
+23:00:20 | INFO: Blender create Mesh node Mesh.141
+23:00:20 | INFO: Blender create Mesh node Mesh.096
+23:00:20 | INFO: Blender create Mesh node Mesh.142
+23:00:20 | INFO: Blender create Mesh node Mesh.143
+23:00:20 | INFO: Blender create Mesh node Mesh.144
+23:00:20 | INFO: Blender create Mesh node Mesh.145
+23:00:20 | INFO: Blender create Mesh node Mesh.146
+23:00:20 | INFO: Blender create Mesh node Mesh.147
+23:00:20 | INFO: Blender create Mesh node Mesh.148
+23:00:20 | INFO: Blender create Mesh node Mesh.149
+23:00:20 | INFO: Blender create Mesh node Mesh.150
+23:00:20 | INFO: Blender create Mesh node Mesh.151
+23:00:20 | INFO: Blender create Mesh node Mesh.097
+23:00:20 | INFO: Blender create Mesh node Mesh.152
+23:00:20 | INFO: Blender create Mesh node Mesh.153
+23:00:20 | INFO: Blender create Mesh node Mesh.154
+23:00:20 | INFO: Blender create Mesh node Mesh.155
+23:00:20 | INFO: Blender create Mesh node Mesh.156
+23:00:20 | INFO: Blender create Mesh node Mesh.157
+23:00:20 | INFO: Blender create Mesh node Mesh.158
+23:00:20 | INFO: Blender create Mesh node Mesh.159
+23:00:20 | INFO: Blender create Mesh node Mesh.160
+23:00:20 | INFO: Blender create Mesh node Mesh.161
+23:00:20 | INFO: Blender create Mesh node Mesh.098
+23:00:20 | INFO: Blender create Mesh node Mesh.162
+23:00:20 | INFO: Blender create Mesh node Mesh.163
+23:00:20 | INFO: Blender create Mesh node Mesh.164
+23:00:20 | INFO: Blender create Mesh node Mesh.165
+23:00:20 | INFO: Blender create Mesh node Mesh.166
+23:00:20 | INFO: Blender create Mesh node Mesh.167
+23:00:20 | INFO: Blender create Mesh node Mesh.168
+23:00:20 | INFO: Blender create Mesh node Mesh.169
+23:00:20 | INFO: Blender create Mesh node Mesh.170
+23:00:20 | INFO: Blender create Mesh node Mesh.171
+23:00:20 | INFO: Blender create Mesh node Mesh.099
+23:00:20 | INFO: Blender create Mesh node Mesh.172
+23:00:20 | INFO: Blender create Mesh node Mesh.173
+23:00:20 | INFO: Blender create Mesh node Mesh.174
+23:00:20 | INFO: Blender create Mesh node Mesh.175
+23:00:20 | INFO: Blender create Mesh node Mesh.176
+23:00:20 | INFO: Blender create Mesh node Mesh.177
+23:00:20 | INFO: Blender create Mesh node Mesh.178
+23:00:20 | INFO: Blender create Mesh node Mesh.179
+23:00:20 | INFO: Blender create Mesh node Mesh.180
+23:00:20 | INFO: Blender create Mesh node Mesh.181
+23:00:20 | INFO: Blender create Mesh node Mesh.100
+23:00:20 | INFO: Blender create Mesh node Mesh.182
+23:00:20 | INFO: Blender create Mesh node Mesh.183
+23:00:20 | INFO: Blender create Mesh node Mesh.184
+23:00:20 | INFO: Blender create Mesh node Mesh.185
+23:00:20 | INFO: Blender create Mesh node Mesh.186
+23:00:20 | INFO: Blender create Mesh node Mesh.187
+23:00:20 | INFO: Blender create Mesh node Mesh.188
+23:00:20 | INFO: Blender create Mesh node Mesh.189
+23:00:20 | INFO: Blender create Mesh node Mesh.190
+23:00:20 | INFO: Blender create Mesh node Mesh.191
+23:00:20 | INFO: Blender create Mesh node Mesh.101
+23:00:20 | INFO: Blender create Mesh node Mesh.052
+23:00:20 | INFO: Blender create Mesh node Mesh.053
+23:00:20 | INFO: Blender create Mesh node Mesh.054
+23:00:20 | INFO: Blender create Mesh node Mesh.055
+23:00:20 | INFO: Blender create Mesh node Mesh.056
+23:00:20 | INFO: Blender create Mesh node Mesh.057
+23:00:20 | INFO: Blender create Mesh node Mesh.058
+23:00:20 | INFO: Blender create Mesh node Mesh.059
+23:00:20 | INFO: Blender create Mesh node Mesh.060
+23:00:20 | INFO: Blender create Mesh node Mesh.061
+23:00:20 | INFO: Blender create Mesh node Mesh.062
+23:00:20 | INFO: Blender create Mesh node Mesh.063
+23:00:20 | INFO: Blender create Mesh node Mesh.064
+23:00:20 | INFO: Blender create Mesh node Mesh.065
+23:00:20 | INFO: Blender create Mesh node Mesh.066
+23:00:20 | INFO: Blender create Mesh node Mesh.067
+23:00:20 | INFO: Blender create Mesh node Mesh.068
+23:00:20 | INFO: Blender create Mesh node Mesh.069
+23:00:20 | INFO: Blender create Mesh node Mesh.070
+23:00:20 | INFO: Blender create Mesh node Mesh.071
+23:00:20 | INFO: Blender create Mesh node Mesh.072
+23:00:20 | INFO: Blender create Mesh node Mesh.073
+23:00:20 | INFO: Blender create Mesh node Mesh.074
+23:00:20 | INFO: Blender create Mesh node Mesh.075
+23:00:20 | INFO: Blender create Mesh node Mesh.076
+23:00:20 | INFO: Blender create Mesh node Mesh.077
+23:00:20 | INFO: Blender create Mesh node Mesh.078
+23:00:20 | INFO: Blender create Mesh node Mesh.079
+23:00:20 | INFO: Blender create Mesh node Mesh.080
+23:00:20 | INFO: Blender create Mesh node Mesh.081
+23:00:20 | INFO: Blender create Mesh node Mesh.045
+23:00:20 | INFO: Blender create Mesh node Mesh.082
+23:00:20 | INFO: Blender create Mesh node Mesh.083
+23:00:20 | INFO: Blender create Mesh node Mesh.084
+23:00:20 | INFO: Blender create Mesh node Mesh.085
+23:00:20 | INFO: Blender create Mesh node Mesh.086
+23:00:20 | INFO: Blender create Mesh node Mesh.087
+23:00:20 | INFO: Blender create Mesh node Mesh.088
+23:00:20 | INFO: Blender create Mesh node Mesh.089
+23:00:20 | INFO: Blender create Mesh node Mesh.090
+23:00:20 | INFO: Blender create Mesh node Mesh.091
+23:00:20 | INFO: Blender create Mesh node Mesh.046
+23:00:20 | INFO: Blender create Mesh node Mesh.092
+23:00:20 | INFO: Blender create Mesh node Mesh.093
+23:00:20 | INFO: Blender create Mesh node Mesh.094
+23:00:20 | INFO: Blender create Mesh node Mesh.047
+23:00:20 | INFO: Blender create Mesh node Mesh.048
+23:00:20 | INFO: Blender create Mesh node Mesh.049
+23:00:20 | INFO: Blender create Mesh node Mesh.050
+23:00:20 | INFO: Blender create Mesh node Mesh.051
+23:00:20 | INFO: Blender create Mesh node Mesh.026
+23:00:20 | INFO: Blender create Mesh node Mesh.298
+23:00:20 | INFO: Blender create Mesh node Mesh.299
+23:00:20 | INFO: Blender create Mesh node Mesh.300
+23:00:20 | INFO: Blender create Mesh node Mesh.301
+23:00:20 | INFO: Blender create Mesh node Mesh.302
+23:00:20 | INFO: Blender create Mesh node Mesh.303
+23:00:20 | INFO: Blender create Mesh node Mesh.304
+23:00:20 | INFO: Blender create Mesh node Mesh.305
+23:00:20 | INFO: Blender create Mesh node Mesh.306
+23:00:20 | INFO: Blender create Mesh node Mesh.307
+23:00:20 | INFO: Blender create Mesh node Mesh.308
+23:00:20 | INFO: Blender create Mesh node Mesh.309
+23:00:20 | INFO: Blender create Mesh node Mesh.310
+23:00:20 | INFO: Blender create Mesh node Mesh.311
+23:00:20 | INFO: Blender create Mesh node Mesh.312
+23:00:20 | INFO: Blender create Mesh node Mesh.313
+23:00:20 | INFO: Blender create Mesh node Mesh.314
+23:00:20 | INFO: Blender create Mesh node Mesh.315
+23:00:20 | INFO: Blender create Mesh node Mesh.316
+23:00:20 | INFO: Blender create Mesh node Mesh.317
+23:00:20 | INFO: Blender create Mesh node Mesh.318
+23:00:20 | INFO: Blender create Mesh node Mesh.319
+23:00:20 | INFO: Blender create Mesh node Mesh.320
+23:00:20 | INFO: Blender create Mesh node Mesh.321
+23:00:20 | INFO: Blender create Mesh node Mesh.322
+23:00:20 | INFO: Blender create Mesh node Mesh.323
+23:00:20 | INFO: Blender create Mesh node Mesh.324
+23:00:20 | INFO: Blender create Mesh node Mesh.325
+23:00:20 | INFO: Blender create Mesh node Mesh.326
+23:00:20 | INFO: Blender create Mesh node Mesh.327
+23:00:20 | INFO: Blender create Mesh node Mesh.291
+23:00:20 | INFO: Blender create Mesh node Mesh.328
+23:00:20 | INFO: Blender create Mesh node Mesh.329
+23:00:20 | INFO: Blender create Mesh node Mesh.330
+23:00:20 | INFO: Blender create Mesh node Mesh.331
+23:00:20 | INFO: Blender create Mesh node Mesh.332
+23:00:20 | INFO: Blender create Mesh node Mesh.333
+23:00:20 | INFO: Blender create Mesh node Mesh.334
+23:00:20 | INFO: Blender create Mesh node Mesh.335
+23:00:20 | INFO: Blender create Mesh node Mesh.336
+23:00:20 | INFO: Blender create Mesh node Mesh.337
+23:00:20 | INFO: Blender create Mesh node Mesh.292
+23:00:20 | INFO: Blender create Mesh node Mesh.338
+23:00:20 | INFO: Blender create Mesh node Mesh.339
+23:00:20 | INFO: Blender create Mesh node Mesh.340
+23:00:20 | INFO: Blender create Mesh node Mesh.341
+23:00:20 | INFO: Blender create Mesh node Mesh.342
+23:00:20 | INFO: Blender create Mesh node Mesh.343
+23:00:20 | INFO: Blender create Mesh node Mesh.344
+23:00:20 | INFO: Blender create Mesh node Mesh.345
+23:00:20 | INFO: Blender create Mesh node Mesh.346
+23:00:20 | INFO: Blender create Mesh node Mesh.347
+23:00:20 | INFO: Blender create Mesh node Mesh.293
+23:00:20 | INFO: Blender create Mesh node Mesh.348
+23:00:20 | INFO: Blender create Mesh node Mesh.349
+23:00:20 | INFO: Blender create Mesh node Mesh.350
+23:00:20 | INFO: Blender create Mesh node Mesh.351
+23:00:20 | INFO: Blender create Mesh node Mesh.352
+23:00:20 | INFO: Blender create Mesh node Mesh.353
+23:00:20 | INFO: Blender create Mesh node Mesh.354
+23:00:20 | INFO: Blender create Mesh node Mesh.355
+23:00:20 | INFO: Blender create Mesh node Mesh.356
+23:00:20 | INFO: Blender create Mesh node Mesh.357
+23:00:20 | INFO: Blender create Mesh node Mesh.294
+23:00:20 | INFO: Blender create Mesh node Mesh.358
+23:00:20 | INFO: Blender create Mesh node Mesh.359
+23:00:20 | INFO: Blender create Mesh node Mesh.360
+23:00:20 | INFO: Blender create Mesh node Mesh.361
+23:00:20 | INFO: Blender create Mesh node Mesh.362
+23:00:20 | INFO: Blender create Mesh node Mesh.363
+23:00:20 | INFO: Blender create Mesh node Mesh.364
+23:00:20 | INFO: Blender create Mesh node Mesh.365
+23:00:20 | INFO: Blender create Mesh node Mesh.295
+23:00:20 | INFO: Blender create Mesh node Mesh.296
+23:00:20 | INFO: Blender create Mesh node Mesh.297
+23:00:20 | INFO: Blender create Mesh node Mesh.041
+23:00:20 | INFO: Blender create Mesh node Mesh
+23:00:20 | INFO: Blender create Mesh node Mesh.040
+23:00:20 | INFO: Blender create Mesh node Mesh.005
+23:00:20 | INFO: Blender create Mesh node Mesh.002
+23:00:20 | INFO: Blender create Mesh node Mesh.011
+23:00:20 | INFO: Blender create Mesh node Mesh.031
+23:00:20 | INFO: Blender create Mesh node Mesh.014
+23:00:20 | INFO: Blender create Mesh node Mesh.029
+23:00:20 | INFO: Blender create Mesh node Mesh.007
+23:00:20 | INFO: Blender create Mesh node Mesh.001
+23:00:20 | INFO: Blender create Mesh node Mesh.035
+23:00:20 | INFO: Blender create Mesh node Mesh.018
+23:00:20 | INFO: Blender create Mesh node Mesh.038
+23:00:20 | INFO: Blender create Mesh node Mesh.013
+23:00:20 | INFO: glTF import finished in 0.20s
+Blender 4.2.3 LTS (hash 0e22e4fcea03 built 2024-10-14 23:31:34)
+Fra:1 Mem:45.02M (Peak 45.02M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | aritos_low
+Fra:1 Mem:45.03M (Peak 45.03M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | armadura_orco_low
+Fra:1 Mem:47.17M (Peak 47.17M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | armadurabrazo2_low
+Fra:1 Mem:47.20M (Peak 47.20M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | armadurabrazo_low
+Fra:1 Mem:47.24M (Peak 47.24M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | atraspie_low
+Fra:1 Mem:47.25M (Peak 47.25M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | bendas_low
+Fra:1 Mem:47.31M (Peak 47.31M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | brazal_low
+Fra:1 Mem:47.35M (Peak 47.35M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | cadenacuerno_low
+Fra:1 Mem:47.36M (Peak 47.36M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | trismanos_low
+Fra:1 Mem:47.37M (Peak 47.37M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | cadenas_low
+Fra:1 Mem:47.38M (Peak 47.38M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | tris_corona_low
+Fra:1 Mem:47.50M (Peak 47.50M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | telas_low
+Fra:1 Mem:47.63M (Peak 47.63M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | calavera_low1
+Fra:1 Mem:47.67M (Peak 47.67M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | tela_low
+Fra:1 Mem:47.71M (Peak 47.71M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | calavera_low2
+Fra:1 Mem:47.73M (Peak 47.73M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | suela_low
+Fra:1 Mem:47.78M (Peak 47.78M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | calavera_low3
+Fra:1 Mem:47.77M (Peak 47.78M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | rodillera_low
+Fra:1 Mem:47.82M (Peak 47.82M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | rocas_low
+Fra:1 Mem:47.84M (Peak 47.84M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | calavera_low4
+Fra:1 Mem:47.86M (Peak 47.86M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | redondelmano_low
+Fra:1 Mem:47.90M (Peak 47.90M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pinchoscuerno_low
+Fra:1 Mem:47.90M (Peak 47.90M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | calavera_low5
+Fra:1 Mem:47.92M (Peak 47.92M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pinchos_rodilla_low
+Fra:1 Mem:47.94M (Peak 47.94M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pinchos_pie_low
+Fra:1 Mem:47.96M (Peak 47.96M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | calavera_low6
+Fra:1 Mem:47.95M (Peak 47.96M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pinchos_hebilla_low
+Fra:1 Mem:47.99M (Peak 47.99M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pierna_low
+Fra:1 Mem:48.00M (Peak 48.00M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | piecostado_low
+Fra:1 Mem:48.01M (Peak 48.01M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | calavera_low8
+Fra:1 Mem:48.05M (Peak 48.05M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pie_low
+Fra:1 Mem:48.09M (Peak 48.09M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | canilleras_low
+Fra:1 Mem:48.10M (Peak 48.10M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | cara_low
+Fra:1 Mem:48.13M (Peak 48.13M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura9_low
+Fra:1 Mem:48.16M (Peak 48.16M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura8_low
+Fra:1 Mem:48.16M (Peak 48.16M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura7_low
+Fra:1 Mem:48.21M (Peak 48.21M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura77_low
+Fra:1 Mem:48.22M (Peak 48.22M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura76_low
+Fra:1 Mem:48.23M (Peak 48.23M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura75_low
+Fra:1 Mem:48.24M (Peak 48.24M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura74_low
+Fra:1 Mem:48.26M (Peak 48.26M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura73_low
+Fra:1 Mem:48.25M (Peak 48.26M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | cintapie_low
+Fra:1 Mem:48.27M (Peak 48.27M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura72_low
+Fra:1 Mem:48.29M (Peak 48.29M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura71_low
+Fra:1 Mem:48.30M (Peak 48.30M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura70_low
+Fra:1 Mem:48.30M (Peak 48.30M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | cintapierna_low
+Fra:1 Mem:48.31M (Peak 48.31M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura6_low
+Fra:1 Mem:48.33M (Peak 48.33M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura69_low
+Fra:1 Mem:48.35M (Peak 48.35M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura68_low
+Fra:1 Mem:48.36M (Peak 48.36M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura67_low
+Fra:1 Mem:48.36M (Peak 48.36M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | cinto_low
+Fra:1 Mem:48.39M (Peak 48.39M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura66_low
+Fra:1 Mem:48.40M (Peak 48.40M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura65_low
+Fra:1 Mem:48.43M (Peak 48.43M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura64_low
+Fra:1 Mem:48.44M (Peak 48.44M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura63_low
+Fra:1 Mem:48.45M (Peak 48.45M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura62_low
+Fra:1 Mem:48.45M (Peak 48.45M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | corona_low
+Fra:1 Mem:48.46M (Peak 48.46M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura61_low
+Fra:1 Mem:48.47M (Peak 48.47M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | craneo_low
+Fra:1 Mem:48.50M (Peak 48.50M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura60_low
+Fra:1 Mem:48.52M (Peak 48.52M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura5_low
+Fra:1 Mem:48.52M (Peak 48.52M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura59_low
+Fra:1 Mem:48.56M (Peak 48.56M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura58_low
+Fra:1 Mem:48.57M (Peak 48.57M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura57_low
+Fra:1 Mem:48.58M (Peak 48.58M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura56_low
+Fra:1 Mem:48.59M (Peak 48.59M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura55_low
+Fra:1 Mem:48.60M (Peak 48.60M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | cubremano_low
+Fra:1 Mem:48.61M (Peak 48.61M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura54_low
+Fra:1 Mem:48.62M (Peak 48.62M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura53_low
+Fra:1 Mem:48.62M (Peak 48.62M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | cuernocinto_low
+Fra:1 Mem:48.64M (Peak 48.64M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura52_low
+Fra:1 Mem:48.65M (Peak 48.65M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | cuernos_low
+Fra:1 Mem:48.65M (Peak 48.65M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura51_low
+Fra:1 Mem:48.73M (Peak 48.73M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura50_low
+Fra:1 Mem:48.75M (Peak 48.75M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura4_low
+Fra:1 Mem:48.80M (Peak 48.80M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura49_low
+Fra:1 Mem:48.81M (Peak 48.81M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura48_low
+Fra:1 Mem:48.81M (Peak 48.81M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura47_low
+Fra:1 Mem:48.82M (Peak 48.82M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura46_low
+Fra:1 Mem:48.86M (Peak 48.86M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura45_low
+Fra:1 Mem:48.93M (Peak 48.93M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura44_low
+Fra:1 Mem:48.94M (Peak 48.94M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura43_low
+Fra:1 Mem:48.95M (Peak 48.95M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura42_low
+Fra:1 Mem:48.96M (Peak 48.96M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura41_low
+Fra:1 Mem:48.98M (Peak 48.98M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura40_low
+Fra:1 Mem:49.00M (Peak 49.00M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura3_low
+Fra:1 Mem:49.02M (Peak 49.02M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura39_low
+Fra:1 Mem:49.03M (Peak 49.03M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura38_low
+Fra:1 Mem:49.04M (Peak 49.04M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura37_low
+Fra:1 Mem:49.04M (Peak 49.04M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | cuerpo_low
+Fra:1 Mem:49.11M (Peak 49.11M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura36_low
+Fra:1 Mem:49.12M (Peak 49.12M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura35_low
+Fra:1 Mem:49.16M (Peak 49.16M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura34_low
+Fra:1 Mem:49.17M (Peak 49.17M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura33_low
+Fra:1 Mem:49.18M (Peak 49.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura32_low
+Fra:1 Mem:49.19M (Peak 49.19M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura31_low
+Fra:1 Mem:49.19M (Peak 49.19M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura30_low
+Fra:1 Mem:49.26M (Peak 49.26M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura29_low
+Fra:1 Mem:49.28M (Peak 49.28M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura28_low
+Fra:1 Mem:49.29M (Peak 49.29M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura27_low
+Fra:1 Mem:49.30M (Peak 49.30M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura26_low
+Fra:1 Mem:49.31M (Peak 49.31M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura25_low
+Fra:1 Mem:49.32M (Peak 49.32M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura24_low
+Fra:1 Mem:49.33M (Peak 49.33M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura23_low
+Fra:1 Mem:49.33M (Peak 49.33M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura22_low
+Fra:1 Mem:49.36M (Peak 49.36M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura21_low
+Fra:1 Mem:49.37M (Peak 49.37M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura20_low
+Fra:1 Mem:49.38M (Peak 49.38M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura19_low
+Fra:1 Mem:49.39M (Peak 49.39M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura18_low
+Fra:1 Mem:49.40M (Peak 49.40M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura17_low
+Fra:1 Mem:49.47M (Peak 49.47M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura16_low
+Fra:1 Mem:49.45M (Peak 49.47M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura15_low
+Fra:1 Mem:49.52M (Peak 49.52M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura14_low
+Fra:1 Mem:49.65M (Peak 49.65M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura13_low
+Fra:1 Mem:49.68M (Peak 49.68M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura12_low
+Fra:1 Mem:49.69M (Peak 49.69M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura11_low
+Fra:1 Mem:49.70M (Peak 49.70M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecintura10_low
+Fra:1 Mem:49.73M (Peak 49.73M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelo_low
+Fra:1 Mem:49.72M (Peak 49.73M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | dientes_low
+Fra:1 Mem:49.81M (Peak 49.81M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | hebillapie_low
+Fra:1 Mem:49.94M (Peak 49.94M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | mano_low
+Fra:1 Mem:50.03M (Peak 50.03M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | mechones_low
+Fra:1 Mem:50.18M (Peak 50.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna9_low
+Fra:1 Mem:50.12M (Peak 50.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | medallon_low
+Fra:1 Mem:50.13M (Peak 50.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna8_low
+Fra:1 Mem:50.14M (Peak 50.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | media_low
+Fra:1 Mem:50.15M (Peak 50.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna7_low
+Fra:1 Mem:50.20M (Peak 50.20M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna6_low
+Fra:1 Mem:50.26M (Peak 50.26M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna5_low
+Fra:1 Mem:50.25M (Peak 50.26M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | ojos_low
+Fra:1 Mem:50.28M (Peak 50.28M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna52_low
+Fra:1 Mem:50.29M (Peak 50.29M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pantalon_low
+Fra:1 Mem:50.29M (Peak 50.29M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna51_low
+Fra:1 Mem:50.33M (Peak 50.33M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna50_low
+Fra:1 Mem:50.35M (Peak 50.35M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna4_low
+Fra:1 Mem:50.35M (Peak 50.35M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera100_low
+Fra:1 Mem:50.35M (Peak 50.35M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna49_low
+Fra:1 Mem:50.37M (Peak 50.37M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera101_low
+Fra:1 Mem:50.37M (Peak 50.37M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna48_low
+Fra:1 Mem:50.39M (Peak 50.39M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera102_low
+Fra:1 Mem:50.40M (Peak 50.40M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna47_low
+Fra:1 Mem:50.41M (Peak 50.41M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera103_low
+Fra:1 Mem:50.41M (Peak 50.41M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera104_low
+Fra:1 Mem:50.42M (Peak 50.42M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna46_low
+Fra:1 Mem:50.44M (Peak 50.44M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera105_low
+Fra:1 Mem:50.44M (Peak 50.44M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna45_low
+Fra:1 Mem:50.44M (Peak 50.44M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera106_low
+Fra:1 Mem:50.46M (Peak 50.46M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera107_low
+Fra:1 Mem:50.47M (Peak 50.47M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna44_low
+Fra:1 Mem:50.47M (Peak 50.47M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera108_low
+Fra:1 Mem:50.49M (Peak 50.49M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera109_low
+Fra:1 Mem:50.50M (Peak 50.50M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna43_low
+Fra:1 Mem:50.50M (Peak 50.50M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera10_low
+Fra:1 Mem:50.52M (Peak 50.52M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera110_low
+Fra:1 Mem:50.53M (Peak 50.53M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna42_low
+Fra:1 Mem:50.53M (Peak 50.53M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera111_low
+Fra:1 Mem:50.54M (Peak 50.54M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera112_low
+Fra:1 Mem:50.55M (Peak 50.55M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna41_low
+Fra:1 Mem:50.56M (Peak 50.56M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera113_low
+Fra:1 Mem:50.57M (Peak 50.57M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera114_low
+Fra:1 Mem:50.58M (Peak 50.58M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna40_low
+Fra:1 Mem:50.59M (Peak 50.59M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera115_low
+Fra:1 Mem:50.60M (Peak 50.60M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera116_low
+Fra:1 Mem:50.61M (Peak 50.61M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna3_low
+Fra:1 Mem:50.62M (Peak 50.62M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera117_low
+Fra:1 Mem:50.63M (Peak 50.63M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera118_low
+Fra:1 Mem:50.63M (Peak 50.63M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna39_low
+Fra:1 Mem:50.64M (Peak 50.64M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera119_low
+Fra:1 Mem:50.65M (Peak 50.65M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera11_low
+Fra:1 Mem:50.66M (Peak 50.66M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna38_low
+Fra:1 Mem:50.67M (Peak 50.67M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera120_low
+Fra:1 Mem:50.68M (Peak 50.68M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera121_low
+Fra:1 Mem:50.69M (Peak 50.69M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna37_low
+Fra:1 Mem:50.70M (Peak 50.70M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera122_low
+Fra:1 Mem:50.71M (Peak 50.71M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera123_low
+Fra:1 Mem:50.71M (Peak 50.71M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna36_low
+Fra:1 Mem:50.73M (Peak 50.73M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera124_low
+Fra:1 Mem:50.73M (Peak 50.73M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera125_low
+Fra:1 Mem:50.74M (Peak 50.74M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna35_low
+Fra:1 Mem:50.76M (Peak 50.76M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera126_low
+Fra:1 Mem:50.76M (Peak 50.76M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera127_low
+Fra:1 Mem:50.76M (Peak 50.76M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna34_low
+Fra:1 Mem:50.78M (Peak 50.78M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera128_low
+Fra:1 Mem:50.78M (Peak 50.78M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera129_low
+Fra:1 Mem:50.79M (Peak 50.79M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna33_low
+Fra:1 Mem:50.81M (Peak 50.81M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera12_low
+Fra:1 Mem:50.82M (Peak 50.82M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna32_low
+Fra:1 Mem:50.83M (Peak 50.83M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera130_low
+Fra:1 Mem:50.84M (Peak 50.84M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna31_low
+Fra:1 Mem:50.85M (Peak 50.85M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera131_low
+Fra:1 Mem:50.85M (Peak 50.85M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna30_low
+Fra:1 Mem:50.87M (Peak 50.87M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera132_low
+Fra:1 Mem:50.87M (Peak 50.87M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna29_low
+Fra:1 Mem:50.89M (Peak 50.89M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera133_low
+Fra:1 Mem:50.89M (Peak 50.89M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna28_low
+Fra:1 Mem:50.90M (Peak 50.90M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna27_low
+Fra:1 Mem:50.90M (Peak 50.90M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera134_low
+Fra:1 Mem:50.92M (Peak 50.92M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna26_low
+Fra:1 Mem:50.92M (Peak 50.92M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera135_low
+Fra:1 Mem:50.98M (Peak 50.98M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna25_low
+Fra:1 Mem:50.98M (Peak 50.98M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera136_low
+Fra:1 Mem:50.95M (Peak 50.98M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera137_low
+Fra:1 Mem:50.97M (Peak 50.98M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna24_low
+Fra:1 Mem:50.97M (Peak 50.98M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera138_low
+Fra:1 Mem:50.98M (Peak 50.98M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera139_low
+Fra:1 Mem:50.99M (Peak 50.99M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna23_low
+Fra:1 Mem:51.00M (Peak 51.00M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera13_low
+Fra:1 Mem:51.01M (Peak 51.01M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera140_low
+Fra:1 Mem:51.02M (Peak 51.02M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna22_low
+Fra:1 Mem:51.03M (Peak 51.03M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera141_low
+Fra:1 Mem:51.04M (Peak 51.04M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera142_low
+Fra:1 Mem:51.05M (Peak 51.05M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna21_low
+Fra:1 Mem:51.05M (Peak 51.05M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera143_low
+Fra:1 Mem:51.06M (Peak 51.06M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera144_low
+Fra:1 Mem:51.07M (Peak 51.07M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna20_low
+Fra:1 Mem:51.08M (Peak 51.08M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera145_low
+Fra:1 Mem:51.09M (Peak 51.09M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera146_low
+Fra:1 Mem:51.10M (Peak 51.10M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna19_low
+Fra:1 Mem:51.11M (Peak 51.11M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera147_low
+Fra:1 Mem:51.12M (Peak 51.12M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera148_low
+Fra:1 Mem:51.13M (Peak 51.13M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna18_low
+Fra:1 Mem:51.13M (Peak 51.13M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera149_low
+Fra:1 Mem:51.14M (Peak 51.14M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera14_low
+Fra:1 Mem:51.16M (Peak 51.16M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna17_low
+Fra:1 Mem:51.16M (Peak 51.16M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera150_low
+Fra:1 Mem:51.17M (Peak 51.17M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera151_low
+Fra:1 Mem:51.19M (Peak 51.19M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna16_low
+Fra:1 Mem:51.19M (Peak 51.19M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera152_low
+Fra:1 Mem:51.19M (Peak 51.19M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera153_low
+Fra:1 Mem:51.22M (Peak 51.22M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna15_low
+Fra:1 Mem:51.21M (Peak 51.22M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera154_low
+Fra:1 Mem:51.22M (Peak 51.22M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera155_low
+Fra:1 Mem:51.24M (Peak 51.24M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna14_low
+Fra:1 Mem:51.24M (Peak 51.24M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera156_low
+Fra:1 Mem:51.25M (Peak 51.25M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera157_low
+Fra:1 Mem:51.27M (Peak 51.27M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna13_low
+Fra:1 Mem:51.28M (Peak 51.28M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera158_low
+Fra:1 Mem:51.28M (Peak 51.28M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera159_low
+Fra:1 Mem:51.29M (Peak 51.29M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna12_low
+Fra:1 Mem:51.30M (Peak 51.30M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera15_low
+Fra:1 Mem:51.31M (Peak 51.31M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera160_low
+Fra:1 Mem:51.32M (Peak 51.32M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna11_low
+Fra:1 Mem:51.33M (Peak 51.33M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera161_low
+Fra:1 Mem:51.34M (Peak 51.34M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera162_low
+Fra:1 Mem:51.35M (Peak 51.35M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajepierna10_low
+Fra:1 Mem:51.36M (Peak 51.36M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera163_low
+Fra:1 Mem:51.37M (Peak 51.37M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera164_low
+Fra:1 Mem:51.37M (Peak 51.37M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera9_low
+Fra:1 Mem:51.38M (Peak 51.38M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera165_low
+Fra:1 Mem:51.39M (Peak 51.39M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera99_low
+Fra:1 Mem:51.40M (Peak 51.40M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera166_low
+Fra:1 Mem:51.40M (Peak 51.40M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera167_low
+Fra:1 Mem:51.43M (Peak 51.43M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera98_low
+Fra:1 Mem:51.43M (Peak 51.43M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera168_low
+Fra:1 Mem:51.43M (Peak 51.43M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera169_low
+Fra:1 Mem:51.45M (Peak 51.45M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera97_low
+Fra:1 Mem:51.45M (Peak 51.45M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera16_low
+Fra:1 Mem:51.46M (Peak 51.46M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera170_low
+Fra:1 Mem:51.48M (Peak 51.48M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera96_low
+Fra:1 Mem:51.48M (Peak 51.48M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera171_low
+Fra:1 Mem:51.49M (Peak 51.49M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera172_low
+Fra:1 Mem:51.51M (Peak 51.51M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera95_low
+Fra:1 Mem:51.51M (Peak 51.51M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera173_low
+Fra:1 Mem:51.52M (Peak 51.52M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera174_low
+Fra:1 Mem:51.53M (Peak 51.53M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera94_low
+Fra:1 Mem:51.54M (Peak 51.54M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera175_low
+Fra:1 Mem:51.55M (Peak 51.55M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera176_low
+Fra:1 Mem:51.56M (Peak 51.56M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera93_low
+Fra:1 Mem:51.56M (Peak 51.56M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera177_low
+Fra:1 Mem:51.58M (Peak 51.58M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera178_low
+Fra:1 Mem:51.59M (Peak 51.59M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera92_low
+Fra:1 Mem:51.59M (Peak 51.59M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera179_low
+Fra:1 Mem:51.61M (Peak 51.61M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera17_low
+Fra:1 Mem:51.61M (Peak 51.61M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera91_low
+Fra:1 Mem:51.61M (Peak 51.61M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera180_low
+Fra:1 Mem:51.64M (Peak 51.64M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera181_low
+Fra:1 Mem:51.64M (Peak 51.64M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera90_low
+Fra:1 Mem:51.64M (Peak 51.64M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera182_low
+Fra:1 Mem:51.66M (Peak 51.66M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera183_low
+Fra:1 Mem:51.66M (Peak 51.66M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera184_low
+Fra:1 Mem:51.69M (Peak 51.69M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera185_low
+Fra:1 Mem:51.69M (Peak 51.69M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera186_low
+Fra:1 Mem:51.70M (Peak 51.70M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera89_low
+Fra:1 Mem:51.72M (Peak 51.72M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera187_low
+Fra:1 Mem:51.72M (Peak 51.72M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera188_low
+Fra:1 Mem:51.73M (Peak 51.73M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera88_low
+Fra:1 Mem:51.74M (Peak 51.74M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera189_low
+Fra:1 Mem:51.75M (Peak 51.75M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera18_low
+Fra:1 Mem:51.75M (Peak 51.75M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera190_low
+Fra:1 Mem:51.78M (Peak 51.78M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera86_low
+Fra:1 Mem:51.78M (Peak 51.78M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera192_low
+Fra:1 Mem:51.78M (Peak 51.78M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera193_low
+Fra:1 Mem:51.81M (Peak 51.81M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera85_low
+Fra:1 Mem:51.81M (Peak 51.81M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera194_low
+Fra:1 Mem:51.82M (Peak 51.82M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera195_low
+Fra:1 Mem:51.83M (Peak 51.83M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera84_low
+Fra:1 Mem:51.84M (Peak 51.84M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera196_low
+Fra:1 Mem:51.84M (Peak 51.84M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera197_low
+Fra:1 Mem:51.85M (Peak 51.85M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera83_low
+Fra:1 Mem:51.87M (Peak 51.87M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera198_low
+Fra:1 Mem:51.87M (Peak 51.87M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera19_low
+Fra:1 Mem:51.88M (Peak 51.88M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera82_low
+Fra:1 Mem:51.90M (Peak 51.90M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera81_low
+Fra:1 Mem:51.90M (Peak 51.90M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera20_low
+Fra:1 Mem:51.93M (Peak 51.93M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera21_low
+Fra:1 Mem:51.93M (Peak 51.93M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera80_low
+Fra:1 Mem:51.93M (Peak 51.93M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera22_low
+Fra:1 Mem:51.95M (Peak 51.95M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera23_low
+Fra:1 Mem:51.96M (Peak 51.96M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera7_low
+Fra:1 Mem:51.96M (Peak 51.96M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera24_low
+Fra:1 Mem:51.98M (Peak 51.98M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera25_low
+Fra:1 Mem:51.99M (Peak 51.99M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera79_low
+Fra:1 Mem:51.99M (Peak 51.99M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera26_low
+Fra:1 Mem:52.00M (Peak 52.00M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera27_low
+Fra:1 Mem:52.02M (Peak 52.02M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera78_low
+Fra:1 Mem:52.02M (Peak 52.02M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera28_low
+Fra:1 Mem:52.03M (Peak 52.03M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera29_low
+Fra:1 Mem:52.04M (Peak 52.04M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera77_low
+Fra:1 Mem:52.04M (Peak 52.04M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera30_low
+Fra:1 Mem:52.05M (Peak 52.05M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera31_low
+Fra:1 Mem:52.07M (Peak 52.07M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera76_low
+Fra:1 Mem:52.07M (Peak 52.07M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera32_low
+Fra:1 Mem:52.08M (Peak 52.08M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera33_low
+Fra:1 Mem:52.10M (Peak 52.10M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera75_low
+Fra:1 Mem:52.10M (Peak 52.10M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera34_low
+Fra:1 Mem:52.11M (Peak 52.11M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera35_low
+Fra:1 Mem:52.12M (Peak 52.12M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera74_low
+Fra:1 Mem:52.13M (Peak 52.13M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera36_low
+Fra:1 Mem:52.14M (Peak 52.14M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera37_low
+Fra:1 Mem:52.15M (Peak 52.15M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera73_low
+Fra:1 Mem:52.15M (Peak 52.15M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera38_low
+Fra:1 Mem:52.17M (Peak 52.17M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera39_low
+Fra:1 Mem:52.18M (Peak 52.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera72_low
+Fra:1 Mem:52.18M (Peak 52.18M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera3_low
+Fra:1 Mem:52.19M (Peak 52.19M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera40_low
+Fra:1 Mem:52.21M (Peak 52.21M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera71_low
+Fra:1 Mem:52.21M (Peak 52.21M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera41_low
+Fra:1 Mem:52.23M (Peak 52.23M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera42_low
+Fra:1 Mem:52.23M (Peak 52.23M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera70_low
+Fra:1 Mem:52.24M (Peak 52.24M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera43_low
+Fra:1 Mem:52.26M (Peak 52.26M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera44_low
+Fra:1 Mem:52.26M (Peak 52.26M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera6_low
+Fra:1 Mem:52.26M (Peak 52.26M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera45_low
+Fra:1 Mem:52.28M (Peak 52.28M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera46_low
+Fra:1 Mem:52.29M (Peak 52.29M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera69_low
+Fra:1 Mem:52.30M (Peak 52.30M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera47_low
+Fra:1 Mem:52.31M (Peak 52.31M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera48_low
+Fra:1 Mem:52.32M (Peak 52.32M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera68_low
+Fra:1 Mem:52.32M (Peak 52.32M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera49_low
+Fra:1 Mem:52.34M (Peak 52.34M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera4_low
+Fra:1 Mem:52.34M (Peak 52.34M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera67_low
+Fra:1 Mem:52.35M (Peak 52.35M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera50_low
+Fra:1 Mem:52.36M (Peak 52.36M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera51_low
+Fra:1 Mem:52.37M (Peak 52.37M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera66_low
+Fra:1 Mem:52.38M (Peak 52.38M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera52_low
+Fra:1 Mem:52.39M (Peak 52.39M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera53_low
+Fra:1 Mem:52.40M (Peak 52.40M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera65_low
+Fra:1 Mem:52.41M (Peak 52.41M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera54_low
+Fra:1 Mem:52.42M (Peak 52.42M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera55_low
+Fra:1 Mem:52.42M (Peak 52.42M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera64_low
+Fra:1 Mem:52.44M (Peak 52.44M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera56_low
+Fra:1 Mem:52.45M (Peak 52.45M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera57_low
+Fra:1 Mem:52.44M (Peak 52.45M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera63_low
+Fra:1 Mem:52.47M (Peak 52.47M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera58_low
+Fra:1 Mem:52.47M (Peak 52.47M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera59_low
+Fra:1 Mem:52.47M (Peak 52.47M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera62_low
+Fra:1 Mem:52.50M (Peak 52.50M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera5_low
+Fra:1 Mem:52.49M (Peak 52.50M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera60_low
+Fra:1 Mem:52.50M (Peak 52.50M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | pelajecadera61_low
+Fra:1 Mem:52.51M (Peak 52.51M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Initializing
+Fra:1 Mem:50.76M (Peak 52.51M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Images | Loading 1
+Fra:1 Mem:50.76M (Peak 52.51M) | Time:00:00.03 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Images | Loading 0
+Fra:1 Mem:47.45M (Peak 66.78M) | Time:00:00.06 | Mem:8.00M, Peak:8.00M | Scene, ViewLayer | Waiting for render to start
+Fra:1 Mem:47.46M (Peak 66.78M) | Time:00:00.06 | Mem:8.00M, Peak:8.00M | Scene, ViewLayer | Loading render kernels (may take a few minutes the first time)
+Fra:1 Mem:47.46M (Peak 66.78M) | Time:00:00.06 | Mem:8.00M, Peak:8.00M | Scene, ViewLayer | Updating Scene
+Fra:1 Mem:47.46M (Peak 66.78M) | Time:00:00.06 | Mem:8.00M, Peak:8.00M | Scene, ViewLayer | Updating Shaders
+Fra:1 Mem:47.54M (Peak 66.78M) | Time:00:00.06 | Mem:8.00M, Peak:8.00M | Scene, ViewLayer | Updating Procedurals
+Fra:1 Mem:47.54M (Peak 66.78M) | Time:00:00.06 | Mem:8.00M, Peak:8.00M | Scene, ViewLayer | Updating Background
+Fra:1 Mem:47.54M (Peak 66.78M) | Time:00:00.06 | Mem:8.00M, Peak:8.00M | Scene, ViewLayer | Updating Camera
+Fra:1 Mem:47.54M (Peak 66.78M) | Time:00:00.06 | Mem:8.00M, Peak:8.00M | Scene, ViewLayer | Updating Meshes Flags
+Fra:1 Mem:47.54M (Peak 66.78M) | Time:00:00.06 | Mem:8.00M, Peak:8.00M | Scene, ViewLayer | Updating Objects
+Fra:1 Mem:47.54M (Peak 66.78M) | Time:00:00.06 | Mem:8.00M, Peak:8.00M | Scene, ViewLayer | Updating Objects | Copying Transformations to device
+Fra:1 Mem:47.63M (Peak 66.78M) | Time:00:00.06 | Mem:8.09M, Peak:8.09M | Scene, ViewLayer | Updating Objects | Applying Static Transformations
+Fra:1 Mem:47.63M (Peak 66.78M) | Time:00:00.06 | Mem:8.09M, Peak:8.09M | Scene, ViewLayer | Updating Particle Systems
+Fra:1 Mem:47.63M (Peak 66.78M) | Time:00:00.06 | Mem:8.09M, Peak:8.09M | Scene, ViewLayer | Updating Particle Systems | Copying Particles to device
+Fra:1 Mem:47.63M (Peak 66.78M) | Time:00:00.06 | Mem:8.09M, Peak:8.09M | Scene, ViewLayer | Updating Meshes
+Fra:1 Mem:48.04M (Peak 66.78M) | Time:00:00.06 | Mem:8.09M, Peak:8.09M | Scene, ViewLayer | Updating Mesh | Computing attributes
+Fra:1 Mem:50.65M (Peak 66.78M) | Time:00:00.06 | Mem:8.16M, Peak:8.16M | Scene, ViewLayer | Updating Mesh | Copying Attributes to device
+Fra:1 Mem:50.44M (Peak 66.78M) | Time:00:00.06 | Mem:10.49M, Peak:10.49M | Scene, ViewLayer | Updating Scene BVH | Building
+Fra:1 Mem:50.44M (Peak 66.78M) | Time:00:00.06 | Mem:10.49M, Peak:10.49M | Scene, ViewLayer | Updating Scene BVH | Building BVH
+Fra:1 Mem:50.44M (Peak 66.78M) | Time:00:00.06 | Mem:11.31M, Peak:11.31M | Scene, ViewLayer | Updating Scene BVH | Building BVH 0%
+Fra:1 Mem:50.44M (Peak 66.78M) | Time:00:00.06 | Mem:12.29M, Peak:13.11M | Scene, ViewLayer | Updating Scene BVH | Copying BVH to device
+Fra:1 Mem:50.44M (Peak 66.78M) | Time:00:00.06 | Mem:12.29M, Peak:13.11M | Scene, ViewLayer | Updating Mesh | Computing normals
+Fra:1 Mem:51.56M (Peak 66.78M) | Time:00:00.06 | Mem:12.29M, Peak:13.11M | Scene, ViewLayer | Updating Mesh | Copying Mesh to device
+Fra:1 Mem:51.56M (Peak 66.78M) | Time:00:00.06 | Mem:13.41M, Peak:13.41M | Scene, ViewLayer | Updating Objects Flags
+Fra:1 Mem:51.56M (Peak 66.78M) | Time:00:00.06 | Mem:13.41M, Peak:13.41M | Scene, ViewLayer | Updating Primitive Offsets
+Fra:1 Mem:51.56M (Peak 66.78M) | Time:00:00.06 | Mem:13.41M, Peak:13.41M | Scene, ViewLayer | Updating Images
+Fra:1 Mem:51.56M (Peak 66.78M) | Time:00:00.06 | Mem:13.41M, Peak:13.41M | Scene, ViewLayer | Updating Camera Volume
+Fra:1 Mem:51.56M (Peak 66.78M) | Time:00:00.06 | Mem:13.41M, Peak:13.41M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:51.56M (Peak 66.78M) | Time:00:00.06 | Mem:13.49M, Peak:13.49M | Scene, ViewLayer | Updating Lights
+Fra:1 Mem:51.56M (Peak 66.78M) | Time:00:00.06 | Mem:13.49M, Peak:13.49M | Scene, ViewLayer | Updating Lights | Computing tree
+Fra:1 Mem:51.57M (Peak 66.78M) | Time:00:00.06 | Mem:13.50M, Peak:13.50M | Scene, ViewLayer | Updating Integrator
+Fra:1 Mem:51.57M (Peak 66.78M) | Time:00:00.06 | Mem:13.50M, Peak:13.50M | Scene, ViewLayer | Updating Film
+Fra:1 Mem:51.57M (Peak 66.78M) | Time:00:00.06 | Mem:13.41M, Peak:13.50M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:51.57M (Peak 66.78M) | Time:00:00.06 | Mem:13.50M, Peak:13.50M | Scene, ViewLayer | Updating Baking
+Fra:1 Mem:51.57M (Peak 66.78M) | Time:00:00.06 | Mem:13.50M, Peak:13.50M | Scene, ViewLayer | Updating Device | Writing constant memory
+Fra:1 Mem:51.58M (Peak 66.78M) | Time:00:00.06 | Mem:13.50M, Peak:13.50M | Scene, ViewLayer | Sample 0/12
+Fra:1 Mem:56.04M (Peak 66.78M) | Time:00:00.09 | Remaining:00:00.34 | Mem:17.96M, Peak:17.96M | Scene, ViewLayer | Sample 1/12
+Fra:1 Mem:58.02M (Peak 66.78M) | Time:00:00.43 | Mem:17.96M, Peak:17.96M | Scene, ViewLayer | Sample 12/12
+Fra:1 Mem:58.02M (Peak 66.78M) | Time:00:00.43 | Mem:17.96M, Peak:17.96M | Scene, ViewLayer | Finished
+Saved: 'out/war_orc.png'
+Time: 00:00.51 (Saving: 00:00.07)
+
+FBX version: 7700
+INFO Draco mesh compression is available, use library at /home/runner/work/Valdrune/Valdrune/blender-4.2.3-linux-x64/4.2/python/lib/python3.11/site-packages/libextern_draco.so
+
+REPORT {"id": "war_orc", "kind": "char", "source": "source/Orcosektch_x/marmosetlow.fbx", "tris_in": 61376, "bones": 0, "tex_missing": 0, "tex_autowired": 3, "tris_out": 26901, "scale": 14.98123, "size_m": [1.72, 0.66, 2.3], "anims": 0, "anim_names": [], "mb_out": 3.07, "verify_tris": 26895, "verify_anims": 0, "verify_skinned": false, "preview": true}
+
+Blender quit

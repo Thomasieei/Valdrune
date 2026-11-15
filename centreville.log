@@ -1,0 +1,64 @@
+23:02:04 | INFO: Data are loaded, start creating Blender stuff
+23:02:04 | INFO: Blender create Mesh node Cube.002
+23:02:04 | INFO: glTF import finished in 0.03s
+23:02:04 | INFO: Starting glTF 2.0 export
+23:02:04 | INFO: Extracting primitive: Cube.002
+23:02:04 | INFO: Primitives created: 2
+23:02:04 | INFO: Finished glTF 2.0 export in 0.07978510856628418 s
+23:02:04 | INFO: Data are loaded, start creating Blender stuff
+23:02:04 | INFO: Blender create Mesh node Cube.002
+23:02:04 | INFO: glTF import finished in 0.03s
+Blender 4.2.3 LTS (hash 0e22e4fcea03 built 2024-10-14 23:31:34)
+baked.high.city
+baked.high.city.jpg
+Fra:1 Mem:16.66M (Peak 16.66M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | appartement
+Fra:1 Mem:22.89M (Peak 29.61M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Initializing
+Fra:1 Mem:22.88M (Peak 29.61M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Images | Loading 1
+Fra:1 Mem:22.88M (Peak 29.61M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Images | Loading 0
+Fra:1 Mem:54.68M (Peak 118.90M) | Time:00:00.04 | Mem:32.00M, Peak:32.00M | Scene, ViewLayer | Waiting for render to start
+Fra:1 Mem:54.68M (Peak 118.90M) | Time:00:00.04 | Mem:32.00M, Peak:32.00M | Scene, ViewLayer | Loading render kernels (may take a few minutes the first time)
+Fra:1 Mem:54.68M (Peak 118.90M) | Time:00:00.04 | Mem:32.00M, Peak:32.00M | Scene, ViewLayer | Updating Scene
+Fra:1 Mem:54.68M (Peak 118.90M) | Time:00:00.04 | Mem:32.00M, Peak:32.00M | Scene, ViewLayer | Updating Shaders
+Fra:1 Mem:54.76M (Peak 118.90M) | Time:00:00.04 | Mem:32.00M, Peak:32.00M | Scene, ViewLayer | Updating Procedurals
+Fra:1 Mem:54.76M (Peak 118.90M) | Time:00:00.04 | Mem:32.00M, Peak:32.00M | Scene, ViewLayer | Updating Background
+Fra:1 Mem:54.76M (Peak 118.90M) | Time:00:00.04 | Mem:32.00M, Peak:32.00M | Scene, ViewLayer | Updating Camera
+Fra:1 Mem:54.76M (Peak 118.90M) | Time:00:00.04 | Mem:32.00M, Peak:32.00M | Scene, ViewLayer | Updating Meshes Flags
+Fra:1 Mem:54.76M (Peak 118.90M) | Time:00:00.04 | Mem:32.00M, Peak:32.00M | Scene, ViewLayer | Updating Objects
+Fra:1 Mem:54.76M (Peak 118.90M) | Time:00:00.04 | Mem:32.00M, Peak:32.00M | Scene, ViewLayer | Updating Objects | Copying Transformations to device
+Fra:1 Mem:54.76M (Peak 118.90M) | Time:00:00.04 | Mem:32.00M, Peak:32.00M | Scene, ViewLayer | Updating Objects | Applying Static Transformations
+Fra:1 Mem:54.76M (Peak 118.90M) | Time:00:00.04 | Mem:32.00M, Peak:32.00M | Scene, ViewLayer | Updating Particle Systems
+Fra:1 Mem:54.76M (Peak 118.90M) | Time:00:00.04 | Mem:32.00M, Peak:32.00M | Scene, ViewLayer | Updating Particle Systems | Copying Particles to device
+Fra:1 Mem:54.76M (Peak 118.90M) | Time:00:00.04 | Mem:32.00M, Peak:32.00M | Scene, ViewLayer | Updating Meshes
+Fra:1 Mem:55.08M (Peak 118.90M) | Time:00:00.04 | Mem:32.00M, Peak:32.00M | Scene, ViewLayer | Updating Mesh | Computing attributes
+Fra:1 Mem:56.28M (Peak 118.90M) | Time:00:00.04 | Mem:32.00M, Peak:32.00M | Scene, ViewLayer | Updating Mesh | Copying Attributes to device
+Fra:1 Mem:56.28M (Peak 118.90M) | Time:00:00.04 | Mem:33.20M, Peak:33.20M | Scene, ViewLayer | Updating Scene BVH | Building
+Fra:1 Mem:56.28M (Peak 118.90M) | Time:00:00.04 | Mem:33.20M, Peak:33.20M | Scene, ViewLayer | Updating Scene BVH | Building BVH
+Fra:1 Mem:56.28M (Peak 118.90M) | Time:00:00.04 | Mem:33.84M, Peak:33.84M | Scene, ViewLayer | Updating Scene BVH | Building BVH 0%
+Fra:1 Mem:56.28M (Peak 118.90M) | Time:00:00.05 | Mem:34.61M, Peak:35.25M | Scene, ViewLayer | Updating Scene BVH | Copying BVH to device
+Fra:1 Mem:56.28M (Peak 118.90M) | Time:00:00.05 | Mem:34.61M, Peak:35.25M | Scene, ViewLayer | Updating Mesh | Computing normals
+Fra:1 Mem:58.58M (Peak 118.90M) | Time:00:00.05 | Mem:34.61M, Peak:35.25M | Scene, ViewLayer | Updating Mesh | Copying Mesh to device
+Fra:1 Mem:58.58M (Peak 118.90M) | Time:00:00.05 | Mem:36.90M, Peak:36.90M | Scene, ViewLayer | Updating Objects Flags
+Fra:1 Mem:58.58M (Peak 118.90M) | Time:00:00.05 | Mem:36.90M, Peak:36.90M | Scene, ViewLayer | Updating Primitive Offsets
+Fra:1 Mem:58.58M (Peak 118.90M) | Time:00:00.05 | Mem:36.90M, Peak:36.90M | Scene, ViewLayer | Updating Images
+Fra:1 Mem:58.58M (Peak 118.90M) | Time:00:00.05 | Mem:36.90M, Peak:36.90M | Scene, ViewLayer | Updating Camera Volume
+Fra:1 Mem:58.58M (Peak 118.90M) | Time:00:00.05 | Mem:36.90M, Peak:36.90M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:58.58M (Peak 118.90M) | Time:00:00.05 | Mem:36.99M, Peak:36.99M | Scene, ViewLayer | Updating Lights
+Fra:1 Mem:58.58M (Peak 118.90M) | Time:00:00.05 | Mem:36.99M, Peak:36.99M | Scene, ViewLayer | Updating Lights | Computing tree
+Fra:1 Mem:62.34M (Peak 118.90M) | Time:00:00.11 | Mem:40.75M, Peak:40.75M | Scene, ViewLayer | Updating Integrator
+Fra:1 Mem:62.34M (Peak 118.90M) | Time:00:00.11 | Mem:40.75M, Peak:40.75M | Scene, ViewLayer | Updating Film
+Fra:1 Mem:62.34M (Peak 118.90M) | Time:00:00.11 | Mem:40.66M, Peak:40.75M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:62.34M (Peak 118.90M) | Time:00:00.11 | Mem:40.75M, Peak:40.75M | Scene, ViewLayer | Updating Baking
+Fra:1 Mem:62.34M (Peak 118.90M) | Time:00:00.11 | Mem:40.75M, Peak:40.75M | Scene, ViewLayer | Updating Device | Writing constant memory
+Fra:1 Mem:62.34M (Peak 118.90M) | Time:00:00.11 | Mem:40.75M, Peak:40.75M | Scene, ViewLayer | Sample 0/12
+Fra:1 Mem:66.80M (Peak 118.90M) | Time:00:00.11 | Remaining:00:00.10 | Mem:45.21M, Peak:45.21M | Scene, ViewLayer | Sample 1/12
+Fra:1 Mem:68.78M (Peak 118.90M) | Time:00:00.22 | Mem:45.21M, Peak:45.21M | Scene, ViewLayer | Sample 12/12
+Fra:1 Mem:68.78M (Peak 118.90M) | Time:00:00.22 | Mem:45.21M, Peak:45.21M | Scene, ViewLayer | Finished
+Saved: 'out/centreville.png'
+Time: 00:00.30 (Saving: 00:00.07)
+
+Warning: No mesh data to join
+INFO Draco mesh compression is available, use library at /home/runner/work/Valdrune/Valdrune/blender-4.2.3-linux-x64/4.2/python/lib/python3.11/site-packages/libextern_draco.so
+
+REPORT {"id": "centreville", "kind": "env", "source": "source/CentreVille.glb", "tris_in": 21026, "bones": 0, "tex_missing": 0, "tex_autowired": 1, "tris_out": 21026, "size_m": [65.57, 65.59, 41.89], "anims": 0, "anim_names": [], "mb_out": 4.04, "verify_tris": 21026, "verify_anims": 0, "verify_skinned": false, "preview": true}
+
+Blender quit

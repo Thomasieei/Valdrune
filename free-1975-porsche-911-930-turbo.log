@@ -1,0 +1,58 @@
+23:03:16 | INFO: Starting glTF 2.0 export
+23:03:16 | INFO: Extracting primitive: Plane.034
+23:03:16 | INFO: Primitives created: 13
+23:03:16 | INFO: Finished glTF 2.0 export in 0.0528569221496582 s
+23:03:16 | INFO: Data are loaded, start creating Blender stuff
+23:03:16 | INFO: Blender create Mesh node Plane.034
+23:03:16 | INFO: glTF import finished in 0.03s
+Blender 4.2.3 LTS (hash 0e22e4fcea03 built 2024-10-14 23:31:34)
+Read blend: "/home/runner/work/Valdrune/Valdrune/work/free-1975-porsche-911-930-turbo/source/911_scene.blend"
+Fra:1 Mem:15.24M (Peak 15.24M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Plane.013
+Fra:1 Mem:19.80M (Peak 22.38M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Initializing
+Fra:1 Mem:19.79M (Peak 22.38M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Images | Loading 3
+Fra:1 Mem:20.15M (Peak 22.38M) | Time:00:00.01 | Mem:1.00M, Peak:1.00M | Scene, ViewLayer | Waiting for render to start
+Fra:1 Mem:20.15M (Peak 22.38M) | Time:00:00.01 | Mem:1.00M, Peak:1.00M | Scene, ViewLayer | Loading render kernels (may take a few minutes the first time)
+Fra:1 Mem:20.15M (Peak 22.38M) | Time:00:00.01 | Mem:1.00M, Peak:1.00M | Scene, ViewLayer | Updating Scene
+Fra:1 Mem:20.15M (Peak 22.38M) | Time:00:00.01 | Mem:1.00M, Peak:1.00M | Scene, ViewLayer | Updating Shaders
+Fra:1 Mem:20.24M (Peak 22.38M) | Time:00:00.01 | Mem:1.01M, Peak:1.01M | Scene, ViewLayer | Updating Procedurals
+Fra:1 Mem:20.24M (Peak 22.38M) | Time:00:00.01 | Mem:1.01M, Peak:1.01M | Scene, ViewLayer | Updating Background
+Fra:1 Mem:20.24M (Peak 22.38M) | Time:00:00.01 | Mem:1.01M, Peak:1.01M | Scene, ViewLayer | Updating Camera
+Fra:1 Mem:20.24M (Peak 22.38M) | Time:00:00.01 | Mem:1.01M, Peak:1.01M | Scene, ViewLayer | Updating Meshes Flags
+Fra:1 Mem:20.24M (Peak 22.38M) | Time:00:00.01 | Mem:1.01M, Peak:1.01M | Scene, ViewLayer | Updating Objects
+Fra:1 Mem:20.24M (Peak 22.38M) | Time:00:00.01 | Mem:1.01M, Peak:1.01M | Scene, ViewLayer | Updating Objects | Copying Transformations to device
+Fra:1 Mem:20.24M (Peak 22.38M) | Time:00:00.01 | Mem:1.01M, Peak:1.01M | Scene, ViewLayer | Updating Objects | Applying Static Transformations
+Fra:1 Mem:20.24M (Peak 22.38M) | Time:00:00.01 | Mem:1.01M, Peak:1.01M | Scene, ViewLayer | Updating Particle Systems
+Fra:1 Mem:20.24M (Peak 22.38M) | Time:00:00.01 | Mem:1.01M, Peak:1.01M | Scene, ViewLayer | Updating Particle Systems | Copying Particles to device
+Fra:1 Mem:20.24M (Peak 22.38M) | Time:00:00.01 | Mem:1.01M, Peak:1.01M | Scene, ViewLayer | Updating Meshes
+Fra:1 Mem:20.62M (Peak 22.38M) | Time:00:00.01 | Mem:1.01M, Peak:1.01M | Scene, ViewLayer | Updating Mesh | Computing attributes
+Fra:1 Mem:21.42M (Peak 22.38M) | Time:00:00.01 | Mem:1.01M, Peak:1.01M | Scene, ViewLayer | Updating Mesh | Copying Attributes to device
+Fra:1 Mem:21.42M (Peak 22.38M) | Time:00:00.01 | Mem:1.81M, Peak:1.81M | Scene, ViewLayer | Updating Scene BVH | Building
+Fra:1 Mem:21.42M (Peak 22.38M) | Time:00:00.01 | Mem:1.81M, Peak:1.81M | Scene, ViewLayer | Updating Scene BVH | Building BVH
+Fra:1 Mem:21.42M (Peak 22.38M) | Time:00:00.01 | Mem:2.57M, Peak:2.57M | Scene, ViewLayer | Updating Scene BVH | Building BVH 0%
+Fra:1 Mem:21.42M (Peak 22.38M) | Time:00:00.01 | Mem:3.49M, Peak:4.25M | Scene, ViewLayer | Updating Scene BVH | Copying BVH to device
+Fra:1 Mem:21.42M (Peak 22.38M) | Time:00:00.01 | Mem:3.49M, Peak:4.25M | Scene, ViewLayer | Updating Mesh | Computing normals
+Fra:1 Mem:22.51M (Peak 22.51M) | Time:00:00.01 | Mem:3.49M, Peak:4.25M | Scene, ViewLayer | Updating Mesh | Copying Mesh to device
+Fra:1 Mem:22.51M (Peak 22.51M) | Time:00:00.01 | Mem:4.57M, Peak:4.57M | Scene, ViewLayer | Updating Objects Flags
+Fra:1 Mem:22.51M (Peak 22.51M) | Time:00:00.01 | Mem:4.57M, Peak:4.57M | Scene, ViewLayer | Updating Primitive Offsets
+Fra:1 Mem:22.51M (Peak 22.51M) | Time:00:00.01 | Mem:4.57M, Peak:4.57M | Scene, ViewLayer | Updating Images
+Fra:1 Mem:22.51M (Peak 22.51M) | Time:00:00.01 | Mem:4.57M, Peak:4.57M | Scene, ViewLayer | Updating Camera Volume
+Fra:1 Mem:22.51M (Peak 22.51M) | Time:00:00.01 | Mem:4.57M, Peak:4.57M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:22.51M (Peak 22.51M) | Time:00:00.01 | Mem:4.65M, Peak:4.65M | Scene, ViewLayer | Updating Lights
+Fra:1 Mem:22.51M (Peak 22.51M) | Time:00:00.01 | Mem:4.65M, Peak:4.65M | Scene, ViewLayer | Updating Lights | Computing tree
+Fra:1 Mem:22.51M (Peak 22.51M) | Time:00:00.01 | Mem:4.65M, Peak:4.65M | Scene, ViewLayer | Updating Integrator
+Fra:1 Mem:22.51M (Peak 22.51M) | Time:00:00.01 | Mem:4.65M, Peak:4.65M | Scene, ViewLayer | Updating Film
+Fra:1 Mem:22.51M (Peak 22.51M) | Time:00:00.01 | Mem:4.57M, Peak:4.65M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:22.51M (Peak 22.51M) | Time:00:00.01 | Mem:4.66M, Peak:4.66M | Scene, ViewLayer | Updating Baking
+Fra:1 Mem:22.51M (Peak 22.51M) | Time:00:00.01 | Mem:4.66M, Peak:4.66M | Scene, ViewLayer | Updating Device | Writing constant memory
+Fra:1 Mem:22.51M (Peak 22.51M) | Time:00:00.01 | Mem:4.66M, Peak:4.66M | Scene, ViewLayer | Sample 0/12
+Fra:1 Mem:26.97M (Peak 26.97M) | Time:00:00.04 | Remaining:00:00.30 | Mem:9.12M, Peak:9.12M | Scene, ViewLayer | Sample 1/12
+Fra:1 Mem:28.95M (Peak 32.91M) | Time:00:00.29 | Mem:9.12M, Peak:9.12M | Scene, ViewLayer | Sample 12/12
+Fra:1 Mem:28.95M (Peak 32.91M) | Time:00:00.29 | Mem:9.12M, Peak:9.12M | Scene, ViewLayer | Finished
+Saved: 'out/free-1975-porsche-911-930-turbo.png'
+Time: 00:00.36 (Saving: 00:00.07)
+
+INFO Draco mesh compression is available, use library at /home/runner/work/Valdrune/Valdrune/blender-4.2.3-linux-x64/4.2/python/lib/python3.11/site-packages/libextern_draco.so
+
+REPORT {"id": "free-1975-porsche-911-930-turbo", "kind": "env", "source": "source/911_scene.blend", "junk": 4, "tris_in": 212953, "bones": 0, "tex_missing": 0, "tris_out": 24999, "size_m": [2.58, 5.83, 1.66], "anims": 0, "anim_names": [], "mb_out": 0.84, "verify_tris": 24999, "verify_anims": 0, "verify_skinned": false, "preview": true}
+
+Blender quit

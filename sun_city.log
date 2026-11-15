@@ -1,0 +1,617 @@
+23:02:14 | INFO: Data are loaded, start creating Blender stuff
+23:02:14 | INFO: Blender create Mesh node Props_Boat_Boat_Ferry
+23:02:14 | INFO: Blender create Mesh node Props_Boat_Boat_Village_Fishing
+23:02:14 | INFO: Blender create Mesh node Props_Rope
+23:02:14 | INFO: Blender create Mesh node Props_Boat_Boat_Village_Hull
+23:02:14 | INFO: Blender create Mesh node Props_Boat_Boat_Village_Sail
+23:02:14 | INFO: Blender create Mesh node Props_Rope
+23:02:14 | INFO: Blender create Mesh node Props_Woodboards_Woodboards_vcFog
+23:02:14 | INFO: Blender create Mesh node Building_City_City_OfficeB
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:14 | INFO: Blender create Mesh node Building_Window_Generic
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete_Detail
+23:02:14 | INFO: Blender create Mesh node Building_City_City_Office
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:14 | INFO: Blender create Mesh node Props_Trailer_TrailerA
+23:02:14 | INFO: Blender create Mesh node Props_Beach_Beach_Surfboard
+23:02:14 | INFO: Blender create Mesh node Props_Beach_Beach_Surfboard
+23:02:14 | INFO: Blender create Mesh node Props_Beach_Beach_Surfboard
+23:02:14 | INFO: Blender create Mesh node Props_Beach_Beach_Surfboard
+23:02:14 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingC
+23:02:14 | INFO: Blender create Mesh node Props_City_BuildingAwning
+23:02:14 | INFO: Blender create Mesh node Props_Metal_Metal
+23:02:14 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingD
+23:02:14 | INFO: Blender create Mesh node Props_Chain
+23:02:14 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingD
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:14 | INFO: Blender create Mesh node Building_Window_Generic
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete_Detail
+23:02:14 | INFO: Blender create Mesh node Building_Resort_Resort_Brick
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:14 | INFO: Blender create Mesh node NPC_Seagull
+23:02:14 | INFO: Blender create Mesh node Props_City_Bench
+23:02:14 | INFO: Blender create Mesh node Props_Woodboards_Woodboards_vc
+23:02:14 | INFO: Blender create Mesh node Props_Metal_Metal
+23:02:14 | INFO: Blender create Mesh node Building_City_City_OfficeB
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete_Detail
+23:02:14 | INFO: Blender create Mesh node Props_GenericVertColor_GenericVertColor_Emissive_Additive
+23:02:14 | INFO: Blender create Mesh node Props_Light_Light_Headlight_Emissive
+23:02:14 | INFO: Blender create Mesh node Props_Metal_Metal
+23:02:14 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingB
+23:02:14 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingB_NoEmissive
+23:02:14 | INFO: Blender create Mesh node Props_GenericVertColor_GenericVertColor_Emissive
+23:02:14 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingB
+23:02:14 | INFO: Blender create Mesh node Building_City_City_Office
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:14 | INFO: Blender create Mesh node Building_City_City_Office
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete_Detail
+23:02:14 | INFO: Blender create Mesh node Natural_RockA_Depth
+23:02:14 | INFO: Blender create Mesh node Natural_RockA
+23:02:14 | INFO: Blender create Mesh node Natural_RockA
+23:02:14 | INFO: Blender create Mesh node NPC_Seagull_skinned_LOD0
+23:02:14 | INFO: Blender create Mesh node NPC_Seagull
+23:02:14 | INFO: Blender create Mesh node Plant_TreeTrunkB
+23:02:14 | INFO: Blender create Mesh node Plant_TreeTrunkB
+23:02:14 | INFO: Blender create Mesh node Plant_TreeTrunkB
+23:02:14 | INFO: Blender create Mesh node Plant_PalmTree
+23:02:14 | INFO: Blender create Mesh node Plant_PalmTreeLeaves
+23:02:14 | INFO: Blender create Mesh node Plant_PalmTree
+23:02:14 | INFO: Blender create Mesh node Plant_PalmTreeLeaves
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:14 | INFO: Blender create Mesh node Props_Light_Light_Headlight_Emissive
+23:02:14 | INFO: Blender create Mesh node Props_Metal_Metal
+23:02:14 | INFO: Blender create Mesh node Props_Beach_BeachChairYellow
+23:02:14 | INFO: Blender create Mesh node Props_Crate_Crate_Wood
+23:02:14 | INFO: Blender create Mesh node Props_Crate_Crate_Wood
+23:02:14 | INFO: Blender create Mesh node Props_Woodboards_Woodboards_vc
+23:02:14 | INFO: Blender create Mesh node Props_Woodboards_Woodboards_vc
+23:02:14 | INFO: Blender create Mesh node Props_City_RoadSigns
+23:02:14 | INFO: Blender create Mesh node Props_Metal_Metal
+23:02:14 | INFO: Blender create Mesh node Props_City_RoadSigns
+23:02:14 | INFO: Blender create Mesh node Props_Metal_Metal
+23:02:14 | INFO: Blender create Mesh node Props_City_Trashcan
+23:02:14 | INFO: Blender create Mesh node Building_City_City_Asphalt_CenterLine
+23:02:14 | INFO: Blender create Mesh node Building_City_City_Sidewalk
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:14 | INFO: Blender create Mesh node Natural_Grass
+23:02:14 | INFO: Blender create Mesh node Building_Medieval_Medieval_Brick
+23:02:14 | INFO: Blender create Mesh node Building_Temple_Temple_Wall_noMoss
+23:02:14 | INFO: Blender create Mesh node Natural_RockAToSand
+23:02:14 | INFO: Blender create Mesh node Natural_Sand
+23:02:14 | INFO: Blender create Mesh node Natural_Sand_Depth
+23:02:14 | INFO: Blender create Mesh node Plant_Ivy
+23:02:14 | INFO: Blender create Mesh node Props_Chain
+23:02:14 | INFO: Blender create Mesh node Building_Medieval_Medieval_Brick
+23:02:14 | INFO: Blender create Mesh node Building_Temple_Temple_Wall_noMoss
+23:02:14 | INFO: Blender create Mesh node Natural_RockAToSand
+23:02:14 | INFO: Blender create Mesh node Natural_Sand
+23:02:14 | INFO: Blender create Mesh node Natural_Sand_Depth
+23:02:14 | INFO: Blender create Mesh node Props_Chain
+23:02:14 | INFO: Blender create Mesh node Building_Medieval_Medieval_Brick
+23:02:14 | INFO: Blender create Mesh node Building_Temple_Temple_Wall_noMoss
+23:02:14 | INFO: Blender create Mesh node Natural_RockAToSand
+23:02:14 | INFO: Blender create Mesh node Natural_Sand
+23:02:14 | INFO: Blender create Mesh node Natural_Sand_Depth
+23:02:14 | INFO: Blender create Mesh node Props_Chain
+23:02:14 | INFO: Blender create Mesh node Natural_Grass
+23:02:14 | INFO: Blender create Mesh node Props_Light_Light_String
+23:02:14 | INFO: Blender create Mesh node Props_Rope
+23:02:14 | INFO: Blender create Mesh node Building_City_City_OfficeB
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:14 | INFO: Blender create Mesh node Props_City_BuildingAwning_Blue
+23:02:14 | INFO: Blender create Mesh node Props_City_BuildingAwning_Blue
+23:02:14 | INFO: Blender create Mesh node Props_Metal_Metal
+23:02:14 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingC
+23:02:14 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingC
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete_Detail
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:14 | INFO: Blender create Mesh node Building_Window_Generic
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete_Detail
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete_Wall
+23:02:14 | INFO: Blender create Mesh node Props_Beach_BeachChairOrange
+23:02:14 | INFO: Blender create Mesh node Props_Chain
+23:02:14 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingB_NoEmissive
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:14 | INFO: Blender create Mesh node Props_Flag_Flag_PirateB_LOD0
+23:02:14 | INFO: Blender create Mesh node Props_Woodboards_Woodboards_vc
+23:02:14 | INFO: Blender create Mesh node Props_Tiki_Tiki_MonkeyStatue
+23:02:14 | INFO: Blender create Mesh node Props_Tiki_Tiki_TotemPole
+23:02:14 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingC
+23:02:14 | INFO: Blender create Mesh node Props_TreasureChest
+23:02:14 | INFO: Blender create Mesh node Props_Flag_FlagStadium_LOD0
+23:02:14 | INFO: Blender create Mesh node Props_Metal_Metal
+23:02:14 | INFO: Blender create Mesh node Props_Rope
+23:02:14 | INFO: Blender create Mesh node Props_Metal_MetalGalvanized_Rough
+23:02:14 | INFO: Blender create Mesh node Props_Beach_BeachChair
+23:02:14 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingB
+23:02:14 | INFO: Blender create Mesh node Props_SafetyCone
+23:02:14 | INFO: Blender create Mesh node Building_Medieval_Medieval_Brick
+23:02:14 | INFO: Blender create Mesh node Natural_Mud
+23:02:14 | INFO: Blender create Mesh node Props_Woodboards_Woodboards
+23:02:14 | INFO: Blender create Mesh node Natural_RockA_Depth
+23:02:14 | INFO: Blender create Mesh node Props_Beach_BeachChair
+23:02:14 | INFO: Blender create Mesh node Props_Beach_BeachChairGreen
+23:02:14 | INFO: Blender create Mesh node Props_Beach_BeachChairOrange
+23:02:14 | INFO: Blender create Mesh node Props_Beach_BeachChairRainbow
+23:02:14 | INFO: Blender create Mesh node Props_Beach_BeachChairYellow
+23:02:14 | INFO: Blender create Mesh node Props_Beach_BeachChairGreen
+23:02:14 | INFO: Blender create Mesh node Props_Beach_BeachChairRainbow
+23:02:14 | INFO: Blender create Mesh node Building_Medieval_Medieval_Brick
+23:02:14 | INFO: Blender create Mesh node Props_Chain
+23:02:14 | INFO: Blender create Mesh node Building_City_City_OfficeB
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete_Detail
+23:02:14 | INFO: Blender create Mesh node Building_Stadium_Stadium_Tent
+23:02:14 | INFO: Blender create Mesh node Building_Stadium_Stadium_Tent
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete_Wall
+23:02:14 | INFO: Blender create Mesh node Building_Medieval_Medieval_Brick
+23:02:14 | INFO: Blender create Mesh node Props_Chain
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete_Graffiti
+23:02:14 | INFO: Blender create Mesh node Props_Crate_Crate_Modern
+23:02:14 | INFO: Blender create Mesh node Props_AwningA
+23:02:14 | INFO: Blender create Mesh node Props_FruitCart
+23:02:14 | INFO: Blender create Mesh node Props_Woodboards_Woodboards_Painted
+23:02:14 | INFO: Blender create Mesh node Props_Woodboards_Woodboards_vc
+23:02:14 | INFO: Blender create Mesh node Props_City_Trashcan_Dumpster
+23:02:14 | INFO: Blender create Mesh node Props_GenericVertColor_GenericVertColor_ModEnv
+23:02:14 | INFO: Blender create Mesh node Props_Rope
+23:02:14 | INFO: Blender create Mesh node Props_Trailer_TrailerC
+23:02:14 | INFO: Blender create Mesh node Props_City_BuildingAwning_Blue
+23:02:14 | INFO: Blender create Mesh node Props_City_RoadSigns
+23:02:14 | INFO: Blender create Mesh node Props_Metal_Metal
+23:02:14 | INFO: Blender create Mesh node Props_City_RoadSigns
+23:02:14 | INFO: Blender create Mesh node Props_Metal_Metal
+23:02:14 | INFO: Blender create Mesh node Building_City_City_Asphalt
+23:02:14 | INFO: Blender create Mesh node Building_City_City_Asphalt_CenterLine
+23:02:14 | INFO: Blender create Mesh node Building_City_City_Sidewalk
+23:02:14 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:14 | INFO: Blender create Mesh node Building_City_City_Asphalt_CenterLine
+23:02:14 | INFO: Blender create Mesh node Building_City_City_Sidewalk
+23:02:14 | INFO: Blender create Mesh node Natural_Grass
+23:02:14 | INFO: Blender create Mesh node Props_Trailer_TrailerA
+23:02:14 | INFO: Blender create Mesh node Props_Trailer_TrailerD
+23:02:14 | INFO: Blender create Mesh node Props_Light_Light_String_White
+23:02:15 | INFO: Blender create Mesh node Props_Rope
+23:02:15 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingC
+23:02:15 | INFO: Blender create Mesh node Props_Village_Sign_Small
+23:02:15 | INFO: Blender create Mesh node Building_City_City_Asphalt_CenterLine
+23:02:15 | INFO: Blender create Mesh node Building_City_City_Sidewalk
+23:02:15 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:15 | INFO: Blender create Mesh node Building_City_City_Asphalt_CenterLine
+23:02:15 | INFO: Blender create Mesh node Building_City_City_Sidewalk
+23:02:15 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:15 | INFO: Blender create Mesh node Natural_Grass
+23:02:15 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:15 | INFO: Blender create Mesh node Building_Concrete_Concrete_Wall
+23:02:15 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingC
+23:02:15 | INFO: Blender create Mesh node Props_Pots_Pots
+23:02:15 | INFO: Blender create Mesh node Props_Pots_Pots
+23:02:15 | INFO: Blender create Mesh node Props_GenericVertColor_GenericVertColor_World
+23:02:15 | INFO: Blender create Mesh node Props_Wasteland_Wasteland_Signs_ZipoTaco_Clean
+23:02:15 | INFO: Blender create Mesh node Props_Wasteland_Wasteland_Signs_ZipoTaco_Lights
+23:02:15 | INFO: Blender create Mesh node Props_Wasteland_Wasteland_Signs_Zorp_Clean
+23:02:15 | INFO: Blender create Mesh node Props_Wasteland_Wasteland_Signs_Zorp_LightsCircle_Clean
+23:02:15 | INFO: Blender create Mesh node Props_Flag_FlagStadium_LOD0
+23:02:15 | INFO: Blender create Mesh node Props_Stadium_Stadium_Arches
+23:02:15 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingB
+23:02:15 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingD
+23:02:15 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingD
+23:02:15 | INFO: Blender create Mesh node Props_City_BuildingAwning
+23:02:15 | INFO: Blender create Mesh node Props_Wasteland_Wasteland_Signs_Roxie_Clean
+23:02:15 | INFO: Blender create Mesh node Props_Wasteland_Wasteland_Signs_ZipoTaco_Lights
+23:02:15 | INFO: Blender create Mesh node Building_City_City_OfficeB
+23:02:15 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:15 | INFO: Blender create Mesh node Props_City_RoadSigns
+23:02:15 | INFO: Blender create Mesh node Props_Metal_Metal
+23:02:15 | INFO: Blender create Mesh node Props_Flag_FlagStadium_LOD0
+23:02:15 | INFO: Blender create Mesh node Props_Metal_Metal
+23:02:15 | INFO: Blender create Mesh node Car_Paint_PaintColor_Red
+23:02:15 | INFO: Blender create Mesh node Props_Cars_Cars
+23:02:15 | INFO: Blender create Mesh node Car_Paint_PaintColor_Yellow
+23:02:15 | INFO: Blender create Mesh node Props_Cars_Cars
+23:02:15 | INFO: Blender create Mesh node Car_Paint_PaintColor_Red
+23:02:15 | INFO: Blender create Mesh node Props_Cars_Cars
+23:02:15 | INFO: Blender create Mesh node Car_Wheel_Hub_Hub_OffroadA
+23:02:15 | INFO: Blender create Mesh node Car_Wheel_Rubber_Rubber_OffroadA
+23:02:15 | INFO: Blender create Mesh node Building_City_City_Asphalt
+23:02:15 | INFO: Blender create Mesh node Building_City_City_Asphalt_CenterLine
+23:02:15 | INFO: Blender create Mesh node Building_City_City_Sidewalk
+23:02:15 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:15 | INFO: Blender create Mesh node Natural_Grass
+23:02:15 | INFO: Blender create Mesh node Props_Inflatable_Inflatable_Crab
+23:02:15 | INFO: Blender create Mesh node Props_Rope
+23:02:15 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingB
+23:02:15 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingA
+23:02:15 | INFO: Blender create Mesh node Props_Barrel_Barrel_Metal
+23:02:15 | INFO: Blender create Mesh node Props_Metal_Metal
+23:02:15 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingA
+23:02:15 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingA
+23:02:15 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingA
+23:02:15 | INFO: Blender create Mesh node Props_Metal_Metal
+23:02:15 | INFO: Blender create Mesh node Props_Carnival_Carnival_FerrisWheel_Skinned_LOD0
+23:02:15 | INFO: Blender create Mesh node Props_Carnival_Carnival_Lights_Skinned_LOD0
+23:02:15 | INFO: Blender create Mesh node Props_GenericVertColor_GenericVertColor_Skinned_LOD0
+23:02:15 | INFO: Blender create Mesh node Props_Metal_Metal_Skinned_VC_LOD0
+23:02:15 | INFO: Blender create Mesh node Props_Metal_Metal
+23:02:15 | INFO: Blender create Mesh node Props_Woodboards_Woodboards_vcFog
+23:02:15 | INFO: Blender create Mesh node Props_Woodboards_Woodboards_Depth
+23:02:15 | INFO: Blender create Mesh node Building_Medieval_Medieval_Brick
+23:02:15 | INFO: Blender create Mesh node Building_Temple_Temple_Wall_noMoss
+23:02:15 | INFO: Blender create Mesh node Natural_RockAToSand
+23:02:15 | INFO: Blender create Mesh node Natural_SandTracks
+23:02:15 | INFO: Blender create Mesh node Natural_Sand_Depth
+23:02:15 | INFO: Blender create Mesh node Building_Village_Village_Sidewalk
+23:02:15 | INFO: Blender create Mesh node Natural_Grass
+23:02:15 | INFO: Blender create Mesh node Props_Chain
+23:02:15 | INFO: Blender create Mesh node Props_Woodboards_Woodboards_Depth
+23:02:15 | INFO: Blender create Mesh node Building_Wasteland_Wasteland_BigBoy_Clean
+23:02:15 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingA
+23:02:15 | INFO: Blender create Mesh node Building_City_City_Asphalt_CenterLine
+23:02:15 | INFO: Blender create Mesh node Building_City_City_Sidewalk
+23:02:15 | INFO: Blender create Mesh node Building_Concrete_Concrete_Wall
+23:02:15 | INFO: Blender create Mesh node Props_Metal_Metal
+23:02:15 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:15 | INFO: Blender create Mesh node Building_City_City_Asphalt_CenterLine
+23:02:15 | INFO: Blender create Mesh node Building_City_City_Sidewalk
+23:02:15 | INFO: Blender create Mesh node Building_Medieval_Medieval_Brick
+23:02:15 | INFO: Blender create Mesh node Building_City_City_Office
+23:02:15 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:15 | INFO: Blender create Mesh node Building_Concrete_Concrete_Detail
+23:02:15 | INFO: Blender create Mesh node Building_City_City_Office
+23:02:15 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:15 | INFO: Blender create Mesh node Props_Metal_Metal
+23:02:15 | INFO: Blender create Mesh node Building_City_City_Office
+23:02:15 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:15 | INFO: Blender create Mesh node Building_Concrete_Concrete_Detail
+23:02:15 | INFO: Blender create Mesh node Building_City_City_OfficeB
+23:02:15 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:15 | INFO: Blender create Mesh node Building_City_City_Office
+23:02:15 | INFO: Blender create Mesh node Building_City_City_OfficeB
+23:02:15 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:15 | INFO: Blender create Mesh node Props_City_Sign_Sign_BuildingA
+23:02:15 | INFO: Blender create Mesh node Building_Concrete_Concrete_Detail
+23:02:15 | INFO: Blender create Mesh node Building_City_City_Asphalt
+23:02:15 | INFO: Blender create Mesh node Building_City_City_Asphalt_CenterLine
+23:02:15 | INFO: Blender create Mesh node Building_City_City_Sidewalk
+23:02:15 | INFO: Blender create Mesh node Building_Concrete_Concrete_Wall
+23:02:15 | INFO: Blender create Mesh node Building_Desert_Desert_BrickB
+23:02:15 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:15 | INFO: Blender create Mesh node Natural_Grass
+23:02:15 | INFO: Blender create Mesh node Building_City_City_Asphalt_CenterLine
+23:02:15 | INFO: Blender create Mesh node Building_City_City_Sidewalk
+23:02:15 | INFO: Blender create Mesh node Building_Medieval_Medieval_Brick
+23:02:15 | INFO: Blender create Mesh node Building_Medieval_Medieval_BrickB
+23:02:15 | INFO: Blender create Mesh node Building_Concrete_Concrete
+23:02:15 | INFO: Blender create Mesh node WaterSurface_1
+23:02:15 | INFO: glTF import finished in 0.87s
+Blender 4.2.3 LTS (hash 0e22e4fcea03 built 2024-10-14 23:31:34)
+VuMaterialAsset_Building_City_City_Asphalt
+VuMaterialAsset_Building_City_City_Asphalt.png
+VuMaterialAsset_Building_City_City_Asphalt_CenterLine
+VuMaterialAsset_Building_City_City_Asphalt_CenterLine.png
+VuMaterialAsset_Building_City_City_Office
+VuMaterialAsset_Building_City_City_Office.png
+VuMaterialAsset_Building_City_City_OfficeB
+VuMaterialAsset_Building_City_City_OfficeB.png
+VuMaterialAsset_Building_City_City_Sidewalk
+VuMaterialAsset_Building_City_City_Sidewalk.png
+VuMaterialAsset_Building_Concrete_Concrete
+VuMaterialAsset_Building_Concrete_Concrete.png
+VuMaterialAsset_Building_Concrete_Concrete_Detail
+VuMaterialAsset_Building_Concrete_Concrete_Detail.png
+VuMaterialAsset_Building_Concrete_Concrete_Graffiti
+VuMaterialAsset_Building_Concrete_Concrete_Graffiti.png
+VuMaterialAsset_Building_Concrete_Concrete_Wall
+VuMaterialAsset_Building_Concrete_Concrete_Wall.png
+VuMaterialAsset_Building_Desert_Desert_BrickB
+VuMaterialAsset_Building_Desert_Desert_BrickB.png
+VuMaterialAsset_Building_Medieval_Medieval_Brick
+VuMaterialAsset_Building_Medieval_Medieval_Brick.png
+VuMaterialAsset_Building_Medieval_Medieval_BrickB
+VuMaterialAsset_Building_Medieval_Medieval_BrickB.png
+VuMaterialAsset_Building_Resort_Resort_Brick
+VuMaterialAsset_Building_Resort_Resort_Brick.png
+VuMaterialAsset_Building_Stadium_Stadium_Tent
+VuMaterialAsset_Building_Stadium_Stadium_Tent.png
+VuMaterialAsset_Building_Temple_Temple_Wall_noMoss
+VuMaterialAsset_Building_Temple_Temple_Wall_noMoss.png
+VuMaterialAsset_Building_Village_Village_Sidewalk
+VuMaterialAsset_Building_Village_Village_Sidewalk.png
+VuMaterialAsset_Building_Wasteland_Wasteland_BigBoy_Clean
+VuMaterialAsset_Building_Wasteland_Wasteland_BigBoy_Clean.png
+VuMaterialAsset_Building_Window_Generic
+VuMaterialAsset_Building_Window_Generic.png
+VuMaterialAsset_Car_Paint_PaintColor_Red
+VuMaterialAsset_Car_Paint_PaintColor_Red.png
+VuMaterialAsset_Car_Paint_PaintColor_Yellow
+VuMaterialAsset_Car_Paint_PaintColor_Yellow.png
+VuMaterialAsset_Car_Wheel_Hub_Hub_OffroadA
+VuMaterialAsset_Car_Wheel_Hub_Hub_OffroadA.png
+VuMaterialAsset_Car_Wheel_Rubber_Rubber_OffroadA
+VuMaterialAsset_Car_Wheel_Rubber_Rubber_OffroadA.png
+VuMaterialAsset_Natural_Grass
+VuMaterialAsset_Natural_Grass.png
+VuMaterialAsset_Natural_Mud
+VuMaterialAsset_Natural_Mud.png
+VuMaterialAsset_Natural_RockA_Depth
+VuMaterialAsset_Natural_RockA_Depth.png
+VuMaterialAsset_Natural_RockAToSand
+VuMaterialAsset_Natural_RockAToSand.png
+VuMaterialAsset_Natural_Sand
+VuMaterialAsset_Natural_Sand.png
+VuMaterialAsset_Natural_SandTracks
+VuMaterialAsset_Natural_SandTracks.png
+VuMaterialAsset_NPC_Seagull
+VuMaterialAsset_NPC_Seagull.png
+VuMaterialAsset_Plant_Ivy
+VuMaterialAsset_Plant_Ivy.png
+VuMaterialAsset_Plant_PalmTree
+VuMaterialAsset_Plant_PalmTree.png
+VuMaterialAsset_Plant_TreeTrunkB
+VuMaterialAsset_Plant_TreeTrunkB.png
+VuMaterialAsset_Props_AwningA
+VuMaterialAsset_Props_AwningA.png
+VuMaterialAsset_Props_Barrel_Barrel_Metal
+VuMaterialAsset_Props_Barrel_Barrel_Metal.png
+VuMaterialAsset_Props_Beach_Beach_Surfboard
+VuMaterialAsset_Props_Beach_Beach_Surfboard.png
+VuMaterialAsset_Props_Beach_BeachChair
+VuMaterialAsset_Props_Beach_BeachChair.png
+VuMaterialAsset_Props_Beach_BeachChairGreen
+VuMaterialAsset_Props_Beach_BeachChairGreen.png
+VuMaterialAsset_Props_Beach_BeachChairOrange
+VuMaterialAsset_Props_Beach_BeachChairOrange.png
+VuMaterialAsset_Props_Beach_BeachChairRainbow
+VuMaterialAsset_Props_Beach_BeachChairRainbow.png
+VuMaterialAsset_Props_Beach_BeachChairYellow
+VuMaterialAsset_Props_Beach_BeachChairYellow.png
+VuMaterialAsset_Props_Boat_Boat_Ferry
+VuMaterialAsset_Props_Boat_Boat_Ferry.png
+VuMaterialAsset_Props_Boat_Boat_Village_Fishing
+VuMaterialAsset_Props_Boat_Boat_Village_Fishing.png
+VuMaterialAsset_Props_Boat_Boat_Village_Hull
+VuMaterialAsset_Props_Boat_Boat_Village_Hull.png
+VuMaterialAsset_Props_Boat_Boat_Village_Sail
+VuMaterialAsset_Props_Boat_Boat_Village_Sail.png
+VuMaterialAsset_Props_Carnival_Carnival_FerrisWheel_Skinned
+VuMaterialAsset_Props_Carnival_Carnival_FerrisWheel_Skinned.png
+VuMaterialAsset_Props_Ca23:02:34 | INFO: Starting glTF 2.0 export
+23:02:34 | WARNING: Mesh Props_Boat_Boat_Ferry is not valid, and may be exported wrongly
+23:02:34 | INFO: Extracting primitive: Props_Boat_Boat_Ferry
+23:02:34 | WARNING: The active Vertex Color will not be exported, as it is not used in the node tree of the material
+23:02:34 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+23:02:34 | WARNING: glTF specification does not allow this case (multiple materials with different Vertex Color)
+23:02:34 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+23:02:34 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+23:02:34 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+23:02:34 | INFO: Primitives created: 98
+23:02:35 | INFO: Finished glTF 2.0 export in 0.7095403671264648 s
+23:02:35 | INFO: Data are loaded, start creating Blender stuff
+23:02:35 | INFO: Blender create Mesh node Props_Boat_Boat_Ferry
+23:02:35 | INFO: glTF import finished in 0.33s
+rnival_Carnival_Lights_Skinned
+VuMaterialAsset_Props_Carnival_Carnival_Lights_Skinned.png
+VuMaterialAsset_Props_Cars_Cars
+VuMaterialAsset_Props_Cars_Cars.png
+VuMaterialAsset_Props_Chain
+VuMaterialAsset_Props_Chain.png
+VuMaterialAsset_Props_City_Bench
+VuMaterialAsset_Props_City_Bench.png
+VuMaterialAsset_Props_City_BuildingAwning
+VuMaterialAsset_Props_City_BuildingAwning.png
+VuMaterialAsset_Props_City_BuildingAwning_Blue
+VuMaterialAsset_Props_City_BuildingAwning_Blue.png
+VuMaterialAsset_Props_City_RoadSigns
+VuMaterialAsset_Props_City_RoadSigns.png
+VuMaterialAsset_Props_City_Sign_Sign_BuildingA
+VuMaterialAsset_Props_City_Sign_Sign_BuildingA.png
+VuMaterialAsset_Props_City_Sign_Sign_BuildingB
+VuMaterialAsset_Props_City_Sign_Sign_BuildingB.png
+VuMaterialAsset_Props_City_Sign_Sign_BuildingC
+VuMaterialAsset_Props_City_Sign_Sign_BuildingC.png
+VuMaterialAsset_Props_City_Sign_Sign_BuildingD
+VuMaterialAsset_Props_City_Sign_Sign_BuildingD.png
+VuMaterialAsset_Props_City_Trashcan
+VuMaterialAsset_Props_City_Trashcan.png
+VuMaterialAsset_Props_City_Trashcan_Dumpster
+VuMaterialAsset_Props_City_Trashcan_Dumpster.png
+VuMaterialAsset_Props_Crate_Crate_Modern
+VuMaterialAsset_Props_Crate_Crate_Modern.png
+VuMaterialAsset_Props_Crate_Crate_Wood
+VuMaterialAsset_Props_Crate_Crate_Wood.png
+VuMaterialAsset_Props_Flag_Flag_PirateB
+VuMaterialAsset_Props_Flag_Flag_PirateB.png
+VuMaterialAsset_Props_Flag_FlagStadium
+VuMaterialAsset_Props_Flag_FlagStadium.png
+VuMaterialAsset_Props_FruitCart
+VuMaterialAsset_Props_FruitCart.png
+VuMaterialAsset_Props_Inflatable_Inflatable_Crab
+VuMaterialAsset_Props_Inflatable_Inflatable_Crab.png
+VuMaterialAsset_Props_Light_Light_Headlight_Emissive
+VuMaterialAsset_Props_Light_Light_Headlight_Emissive.png
+VuMaterialAsset_Props_Light_Light_String
+VuMaterialAsset_Props_Light_Light_String.png
+VuMaterialAsset_Props_Light_Light_String_White
+VuMaterialAsset_Props_Light_Light_String_White.png
+VuMaterialAsset_Props_Metal_Metal
+VuMaterialAsset_Props_Metal_Metal.png
+VuMaterialAsset_Props_Metal_Metal_Skinned_VC
+VuMaterialAsset_Props_Metal_Metal_Skinned_VC.png
+VuMaterialAsset_Props_Metal_MetalGalvanized_Rough
+VuMaterialAsset_Props_Metal_MetalGalvanized_Rough.png
+VuMaterialAsset_Props_Pots_Pots
+VuMaterialAsset_Props_Pots_Pots.png
+VuMaterialAsset_Props_Rope
+VuMaterialAsset_Props_Rope.png
+VuMaterialAsset_Props_SafetyCone
+VuMaterialAsset_Props_SafetyCone.png
+VuMaterialAsset_Props_Stadium_Stadium_Arches
+VuMaterialAsset_Props_Stadium_Stadium_Arches.png
+VuMaterialAsset_Props_Tiki_Tiki_MonkeyStatue
+VuMaterialAsset_Props_Tiki_Tiki_MonkeyStatue.png
+VuMaterialAsset_Props_Tiki_Tiki_TotemPole
+VuMaterialAsset_Props_Tiki_Tiki_TotemPole.png
+VuMaterialAsset_Props_Trailer_TrailerA
+VuMaterialAsset_Props_Trailer_TrailerA.png
+VuMaterialAsset_Props_Trailer_TrailerC
+VuMaterialAsset_Props_Trailer_TrailerC.png
+VuMaterialAsset_Props_Trailer_TrailerD
+VuMaterialAsset_Props_Trailer_TrailerD.png
+VuMaterialAsset_Props_TreasureChest
+VuMaterialAsset_Props_TreasureChest.png
+VuMaterialAsset_Props_Village_Sign_Small
+VuMaterialAsset_Props_Village_Sign_Small.png
+VuMaterialAsset_Props_Wasteland_Wasteland_Signs_Roxie_Clean
+VuMaterialAsset_Props_Wasteland_Wasteland_Signs_Roxie_Clean.png
+VuMaterialAsset_Props_Wasteland_Wasteland_Signs_ZipoTaco_Clean
+VuMaterialAsset_Props_Wasteland_Wasteland_Signs_ZipoTaco_Clean.png
+VuMaterialAsset_Props_Wasteland_Wasteland_Signs_ZipoTaco_Lights
+VuMaterialAsset_Props_Wasteland_Wasteland_Signs_ZipoTaco_Lights.png
+VuMaterialAsset_Props_Wasteland_Wasteland_Signs_Zorp_Clean
+VuMaterialAsset_Props_Wasteland_Wasteland_Signs_Zorp_Clean.png
+VuMaterialAsset_Props_Wasteland_Wasteland_Signs_Zorp_LightsCirc
+VuMaterialAsset_Props_Wasteland_Wasteland_Signs_Zorp_LightsCirc.png
+VuMaterialAsset_Props_Woodboards_Woodboards_Painted
+VuMaterialAsset_Props_Woodboards_Woodboards_Painted.png
+VuMaterialAsset_Props_Woodboards_Woodboards_vcFog
+VuMaterialAsset_Props_Woodboards_Woodboards_vcFog.png
+Water_1
+Water_1.png
+Fra:1 Mem:60.49M (Peak 60.49M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Props_Boat_Boat_Ferry
+Fra:1 Mem:89.02M (Peak 115.11M) | Time:00:00.08 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Initializing
+Fra:1 Mem:89.01M (Peak 115.11M) | Time:00:00.08 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Images | Loading 41
+Fra:1 Mem:89.01M (Peak 115.11M) | Time:00:00.08 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Images | Loading 89
+Fra:1 Mem:91.09M (Peak 115.11M) | Time:00:00.08 | Mem:0.06M, Peak:0.06M | Scene, ViewLayer | Updating Images | Loading 43
+Fra:1 Mem:93.09M (Peak 115.11M) | Time:00:00.08 | Mem:1.06M, Peak:1.06M | Scene, ViewLayer | Updating Images | Loading 44
+Fra:1 Mem:94.09M (Peak 115.11M) | Time:00:00.08 | Mem:2.06M, Peak:2.06M | Scene, ViewLayer | Updating Images | Loading 11
+Fra:1 Mem:98.09M (Peak 115.11M) | Time:00:00.08 | Mem:3.06M, Peak:3.06M | Scene, ViewLayer | Updating Images | Loading 88
+Fra:1 Mem:99.09M (Peak 115.11M) | Time:00:00.08 | Mem:4.06M, Peak:4.06M | Scene, ViewLayer | Updating Images | Loading 3
+Fra:1 Mem:99.34M (Peak 115.11M) | Time:00:00.08 | Mem:4.31M, Peak:4.31M | Scene, ViewLayer | Updating Images | Loading 5
+Fra:1 Mem:100.34M (Peak 115.11M) | Time:00:00.08 | Mem:5.31M, Peak:5.31M | Scene, ViewLayer | Updating Images | Loading 17
+Fra:1 Mem:100.59M (Peak 115.11M) | Time:00:00.08 | Mem:5.56M, Peak:5.56M | Scene, ViewLayer | Updating Images | Loading 6
+Fra:1 Mem:100.65M (Peak 115.11M) | Time:00:00.08 | Mem:5.62M, Peak:5.62M | Scene, ViewLayer | Updating Images | Loading 2
+Fra:1 Mem:100.90M (Peak 115.11M) | Time:00:00.09 | Mem:5.88M, Peak:5.88M | Scene, ViewLayer | Updating Images | Loading 77
+Fra:1 Mem:103.91M (Peak 115.11M) | Time:00:00.09 | Mem:6.88M, Peak:6.88M | Scene, ViewLayer | Updating Images | Loading 35
+Fra:1 Mem:102.15M (Peak 115.11M) | Time:00:00.09 | Mem:7.88M, Peak:7.88M | Scene, ViewLayer | Updating Images | Loading 55
+Fra:1 Mem:103.15M (Peak 115.11M) | Time:00:00.09 | Mem:8.88M, Peak:8.88M | Scene, ViewLayer | Updating Images | Loading 50
+Fra:1 Mem:103.40M (Peak 115.11M) | Time:00:00.09 | Mem:9.12M, Peak:9.12M | Scene, ViewLayer | Updating Images | Loading 68
+Fra:1 Mem:104.40M (Peak 115.11M) | Time:00:00.09 | Mem:9.38M, Peak:9.38M | Scene, ViewLayer | Updating Images | Loading 56
+Fra:1 Mem:113.41M (Peak 115.11M) | Time:00:00.09 | Mem:10.38M, Peak:10.38M | Scene, ViewLayer | Updating Images | Loading 12
+Fra:1 Mem:105.90M (Peak 115.11M) | Time:00:00.09 | Mem:14.38M, Peak:14.38M | Scene, ViewLayer | Updating Images | Loading 9
+Fra:1 Mem:109.90M (Peak 115.11M) | Time:00:00.09 | Mem:15.38M, Peak:15.38M | Scene, ViewLayer | Updating Images | Loading 20
+Fra:1 Mem:110.15M (Peak 115.11M) | Time:00:00.09 | Mem:15.62M, Peak:15.62M | Scene, ViewLayer | Updating Images | Loading 65
+Fra:1 Mem:110.17M (Peak 115.11M) | Time:00:00.09 | Mem:15.64M, Peak:15.64M | Scene, ViewLayer | Updating Images | Loading 54
+Fra:1 Mem:111.17M (Peak 115.11M) | Time:00:00.09 | Mem:16.14M, Peak:16.14M | Scene, ViewLayer | Updating Images | Loading 25
+Fra:1 Mem:115.17M (Peak 116.18M) | Time:00:00.10 | Mem:17.14M, Peak:17.14M | Scene, ViewLayer | Updating Images | Loading 29
+Fra:1 Mem:115.42M (Peak 116.18M) | Time:00:00.10 | Mem:17.39M, Peak:17.39M | Scene, ViewLayer | Updating Images | Loading 32
+Fra:1 Mem:115.67M (Peak 116.18M) | Time:00:00.10 | Mem:17.64M, Peak:17.64M | Scene, ViewLayer | Updating Images | Loading 31
+Fra:1 Mem:115.92M (Peak 116.93M) | Time:00:00.10 | Mem:18.64M, Peak:18.64M | Scene, ViewLayer | Updating Images | Loading 40
+Fra:1 Mem:116.92M (Peak 116.93M) | Time:00:00.10 | Mem:18.89M, Peak:18.89M | Scene, ViewLayer | Updating Images | Loading 60
+Fra:1 Mem:117.42M (Peak 117.93M) | Time:00:00.10 | Mem:19.39M, Peak:19.39M | Scene, ViewLayer | Updating Images | Loading 52
+Fra:1 Mem:120.42M (Peak 127.43M) | Time:00:00.10 | Mem:23.39M, Peak:23.39M | Scene, ViewLayer | Updating Images | Loading 57
+Fra:1 Mem:118.67M (Peak 127.43M) | Time:00:00.10 | Mem:24.39M, Peak:24.39M | Scene, ViewLayer | Updating Images | Loading 1
+Fra:1 Mem:119.67M (Peak 127.43M) | Time:00:00.10 | Mem:24.64M, Peak:24.64M | Scene, ViewLayer | Updating Images | Loading 4
+Fra:1 Mem:120.67M (Peak 127.43M) | Time:00:00.10 | Mem:25.64M, Peak:25.64M | Scene, ViewLayer | Updating Images | Loading 23
+Fra:1 Mem:132.67M (Peak 133.68M) | Time:00:00.10 | Mem:26.64M, Peak:26.64M | Scene, ViewLayer | Updating Images | Loading 10
+Fra:1 Mem:125.67M (Peak 133.68M) | Time:00:00.10 | Mem:30.64M, Peak:30.64M | Scene, ViewLayer | Updating Images | Loading 16
+Fra:1 Mem:125.92M (Peak 133.68M) | Time:00:00.10 | Mem:31.64M, Peak:31.64M | Scene, ViewLayer | Updating Images | Loading 14
+Fra:1 Mem:126.92M (Peak 133.68M) | Time:00:00.11 | Mem:31.89M, Peak:31.89M | Scene, ViewLayer | Updating Images | Loading 15
+Fra:1 Mem:127.92M (Peak 133.68M) | Time:00:00.11 | Mem:32.89M, Peak:32.89M | Scene, ViewLayer | Updating Images | Loading 26
+Fra:1 Mem:131.92M (Peak 133.93M) | Time:00:00.11 | Mem:33.89M, Peak:33.89M | Scene, ViewLayer | Updating Images | Loading 27
+Fra:1 Mem:135.92M (Peak 137.93M) | Time:00:00.11 | Mem:34.89M, Peak:34.89M | Scene, ViewLayer | Updating Images | Loading 28
+Fra:1 Mem:139.92M (Peak 147.93M) | Time:00:00.11 | Mem:38.89M, Peak:38.89M | Scene, ViewLayer | Updating Images | Loading 30
+Fra:1 Mem:140.92M (Peak 147.93M) | Time:00:00.11 | Mem:39.89M, Peak:39.89M | Scene, ViewLayer | Updating Images | Loading 66
+Fra:1 Mem:148.94M (Peak 148.94M) | Time:00:00.11 | Mem:39.91M, Peak:39.91M | Scene, ViewLayer | Updating Images | Loading 51
+Fra:1 Mem:153.20M (Peak 153.20M) | Time:00:00.11 | Mem:43.91M, Peak:43.91M | Scene, ViewLayer | Updating Images | Loading 69
+Fra:1 Mem:158.20M (Peak 158.20M) | Time:00:00.12 | Mem:44.16M, Peak:44.16M | Scene, ViewLayer | Updating Images | Loading 8
+Fra:1 Mem:151.19M (Peak 159.20M) | Time:00:00.12 | Mem:48.16M, Peak:48.16M | Scene, ViewLayer | Updating Images | Loading 38
+Fra:1 Mem:144.18M (Peak 159.20M) | Time:00:00.12 | Mem:52.16M, Peak:52.16M | Scene, ViewLayer | Updating Images | Loading 61
+Fra:1 Mem:144.43M (Peak 159.20M) | Time:00:00.12 | Mem:52.41M, Peak:52.41M | Scene, ViewLayer | Updating Images | Loading 75
+Fra:1 Mem:145.43M (Peak 159.20M) | Time:00:00.12 | Mem:53.41M, Peak:53.41M | Scene, ViewLayer | Updating Images | Loading 76
+Fra:1 Mem:146.43M (Peak 159.20M) | Time:00:00.12 | Mem:54.41M, Peak:54.41M | Scene, ViewLayer | Updating Images | Loading 46
+Fra:1 Mem:147.43M (Peak 159.20M) | Time:00:00.12 | Mem:55.41M, Peak:55.41M | Scene, ViewLayer | Updating Images | Loading 80
+Fra:1 Mem:147.68M (Peak 159.20M) | Time:00:00.12 | Mem:55.66M, Peak:55.66M | Scene, ViewLayer | Updating Images | Loading 62
+Fra:1 Mem:148.68M (Peak 159.20M) | Time:00:00.12 | Mem:56.66M, Peak:56.66M | Scene, ViewLayer | Updating Images | Loading 70
+Fra:1 Mem:149.68M (Peak 159.20M) | Time:00:00.12 | Mem:57.66M, Peak:57.66M | Scene, ViewLayer | Updating Images | Loading 36
+Fra:1 Mem:149.93M (Peak 159.20M) | Time:00:00.12 | Mem:58.66M, Peak:58.66M | Scene, ViewLayer | Updating Images | Loading 45
+Fra:1 Mem:150.18M (Peak 159.20M) | Time:00:00.12 | Mem:58.91M, Peak:58.91M | Scene, ViewLayer | Updating Images | Loading 73
+Fra:1 Mem:150.24M (Peak 159.20M) | Time:00:00.12 | Mem:58.97M, Peak:58.97M | Scene, ViewLayer | Updating Images | Loading 24
+Fra:1 Mem:154.24M (Peak 159.20M) | Time:00:00.12 | Mem:59.22M, Peak:59.22M | Scene, ViewLayer | Updating Images | Loading 34
+Fra:1 Mem:154.49M (Peak 159.20M) | Time:00:00.12 | Mem:60.22M, Peak:60.22M | Scene, ViewLayer | Updating Images | Loading 37
+Fra:1 Mem:155.49M (Peak 159.20M) | Time:00:00.12 | Mem:60.47M, Peak:60.47M | Scene, ViewLayer | Updating Images | Loading 53
+Fra:1 Mem:156.49M (Peak 159.20M) | Time:00:00.12 | Mem:61.47M, Peak:61.47M | Scene, ViewLayer | Updating Images | Loading 39
+Fra:1 Mem:157.49M (Peak 159.20M) | Time:00:00.12 | Mem:62.47M, Peak:62.47M | Scene, ViewLayer | Updating Images | Loading 13
+Fra:1 Mem:158.49M (Peak 159.50M) | Time:00:00.12 | Mem:63.47M, Peak:63.47M | Scene, ViewLayer | Updating Images | Loading 64
+Fra:1 Mem:159.49M (Peak 160.50M) | Time:00:00.13 | Mem:64.47M, Peak:64.47M | Scene, ViewLayer | Updating Images | Loading 7
+Fra:1 Mem:160.49M (Peak 161.50M) | Time:00:00.13 | Mem:65.47M, Peak:65.47M | Scene, ViewLayer | Updating Images | Loading 22
+Fra:1 Mem:169.26M (Peak 170.76M) | Time:00:00.13 | Mem:66.47M, Peak:66.47M | Scene, ViewLayer | Updating Images | Loading 59
+Fra:1 Mem:168.75M (Peak 170.76M) | Time:00:00.13 | Mem:66.72M, Peak:66.72M | Scene, ViewLayer | Updating Images | Loading 21
+Fra:1 Mem:163.25M (Peak 170.76M) | Time:00:00.13 | Mem:70.72M, Peak:70.72M | Scene, ViewLayer | Updating Images | Loading 33
+Fra:1 Mem:161.31M (Peak 170.76M) | Time:00:00.13 | Mem:71.72M, Peak:71.72M | Scene, ViewLayer | Updating Images | Loading 87
+Fra:1 Mem:161.56M (Peak 170.76M) | Time:00:00.13 | Mem:71.97M, Peak:71.97M | Scene, ViewLayer | Updating Images | Loading 19
+Fra:1 Mem:161.81M (Peak 170.76M) | Time:00:00.13 | Mem:72.22M, Peak:72.22M | Scene, ViewLayer | Updating Images | Loading 58
+Fra:1 Mem:162.06M (Peak 170.76M) | Time:00:00.13 | Mem:72.28M, Peak:72.28M | Scene, ViewLayer | Updating Images | Loading 78
+Fra:1 Mem:163.06M (Peak 170.76M) | Time:00:00.13 | Mem:72.53M, Peak:72.53M | Scene, ViewLayer | Updating Images | Loading 0
+Fra:1 Mem:164.06M (Peak 170.76M) | Time:00:00.13 | Mem:72.78M, Peak:72.78M | Scene, ViewLayer | Updating Images | Loading 47
+Fra:1 Mem:164.31M (Peak 170.76M) | Time:00:00.13 | Mem:73.03M, Peak:73.03M | Scene, ViewLayer | Updating Images | Loading 79
+Fra:1 Mem:165.31M (Peak 170.76M) | Time:00:00.13 | Mem:73.28M, Peak:73.28M | Scene, ViewLayer | Updating Images | Loading 18
+Fra:1 Mem:165.56M (Peak 170.76M) | Time:00:00.13 | Mem:73.53M, Peak:73.53M | Scene, ViewLayer | Updating Images | Loading 82
+Fra:1 Mem:166.56M (Peak 170.76M) | Time:00:00.13 | Mem:74.53M, Peak:74.53M | Scene, ViewLayer | Updating Images | Loading 67
+Fra:1 Mem:166.62M (Peak 170.76M) | Time:00:00.13 | Mem:74.59M, Peak:74.59M | Scene, ViewLayer | Updating Images | Loading 81
+Fra:1 Mem:167.62M (Peak 170.76M) | Time:00:00.13 | Mem:76.59M, Peak:76.59M | Scene, ViewLayer | Updating Images | Loading 71
+Fra:1 Mem:167.87M (Peak 170.76M) | Time:00:00.13 | Mem:76.59M, Peak:76.59M | Scene, ViewLayer | Updating Images | Loading 83
+Fra:1 Mem:170.88M (Peak 170.88M) | Time:00:00.13 | Mem:76.84M, Peak:76.84M | Scene, ViewLayer | Updating Images | Loading 84
+Fra:1 Mem:169.12M (Peak 170.88M) | Time:00:00.13 | Mem:77.84M, Peak:77.84M | Scene, ViewLayer | Updating Images | Loading 74
+Fra:1 Mem:170.12M (Peak 170.88M) | Time:00:00.13 | Mem:78.09M, Peak:78.09M | Scene, ViewLayer | Updating Images | Loading 85
+Fra:1 Mem:171.12M (Peak 172.13M) | Time:00:00.13 | Mem:79.09M, Peak:79.09M | Scene, ViewLayer | Updating Images | Loading 86
+Fra:1 Mem:164.95M (Peak 172.38M) | Time:00:00.14 | Mem:82.34M, Peak:82.34M | Scene, ViewLayer | Waiting for render to start
+Fra:1 Mem:164.95M (Peak 172.38M) | Time:00:00.14 | Mem:82.34M, Peak:82.34M | Scene, ViewLayer | Loading render kernels (may take a few minutes the first time)
+Fra:1 Mem:164.95M (Peak 172.38M) | Time:00:00.14 | Mem:82.34M, Peak:82.34M | Scene, ViewLayer | Updating Scene
+Fra:1 Mem:164.95M (Peak 172.38M) | Time:00:00.14 | Mem:82.34M, Peak:82.34M | Scene, ViewLayer | Updating Shaders
+Fra:1 Mem:165.11M (Peak 172.38M) | Time:00:00.14 | Mem:82.42M, Peak:82.42M | Scene, ViewLayer | Updating Procedurals
+Fra:1 Mem:165.11M (Peak 172.38M) | Time:00:00.14 | Mem:82.42M, Peak:82.42M | Scene, ViewLayer | Updating Background
+Fra:1 Mem:165.11M (Peak 172.38M) | Time:00:00.14 | Mem:82.42M, Peak:82.42M | Scene, ViewLayer | Updating Camera
+Fra:1 Mem:165.11M (Peak 172.38M) | Time:00:00.14 | Mem:82.42M, Peak:82.42M | Scene, ViewLayer | Updating Meshes Flags
+Fra:1 Mem:165.11M (Peak 172.38M) | Time:00:00.14 | Mem:82.42M, Peak:82.42M | Scene, ViewLayer | Updating Objects
+Fra:1 Mem:165.11M (Peak 172.38M) | Time:00:00.14 | Mem:82.42M, Peak:82.42M | Scene, ViewLayer | Updating Objects | Copying Transformations to device
+Fra:1 Mem:165.11M (Peak 172.38M) | Time:00:00.14 | Mem:82.42M, Peak:82.42M | Scene, ViewLayer | Updating Objects | Applying Static Transformations
+Fra:1 Mem:165.11M (Peak 172.38M) | Time:00:00.14 | Mem:82.42M, Peak:82.42M | Scene, ViewLayer | Updating Particle Systems
+Fra:1 Mem:165.11M (Peak 172.38M) | Time:00:00.14 | Mem:82.42M, Peak:82.42M | Scene, ViewLayer | Updating Particle Systems | Copying Particles to device
+Fra:1 Mem:165.11M (Peak 172.38M) | Time:00:00.14 | Mem:82.42M, Peak:82.42M | Scene, ViewLayer | Updating Meshes
+Fra:1 Mem:167.40M (Peak 172.38M) | Time:00:00.14 | Mem:82.42M, Peak:82.42M | Scene, ViewLayer | Updating Mesh | Computing attributes
+Fra:1 Mem:176.28M (Peak 176.28M) | Time:00:00.14 | Mem:82.42M, Peak:82.42M | Scene, ViewLayer | Updating Mesh | Copying Attributes to device
+Fra:1 Mem:176.28M (Peak 176.28M) | Time:00:00.14 | Mem:91.30M, Peak:91.30M | Scene, ViewLayer | Updating Scene BVH | Building
+Fra:1 Mem:176.28M (Peak 176.28M) | Time:00:00.14 | Mem:91.30M, Peak:91.30M | Scene, ViewLayer | Updating Scene BVH | Building BVH
+Fra:1 Mem:176.28M (Peak 176.28M) | Time:00:00.14 | Mem:95.88M, Peak:95.88M | Scene, ViewLayer | Updating Scene BVH | Building BVH 0%
+Fra:1 Mem:176.28M (Peak 176.28M) | Time:00:00.16 | Mem:101.34M, Peak:105.91M | Scene, ViewLayer | Updating Scene BVH | Copying BVH to device
+Fra:1 Mem:176.28M (Peak 176.28M) | Time:00:00.16 | Mem:101.34M, Peak:105.91M | Scene, ViewLayer | Updating Mesh | Computing normals
+Fra:1 Mem:189.10M (Peak 189.10M) | Time:00:00.16 | Mem:101.34M, Peak:105.91M | Scene, ViewLayer | Updating Mesh | Copying Mesh to device
+Fra:1 Mem:189.10M (Peak 189.10M) | Time:00:00.16 | Mem:114.16M, Peak:114.16M | Scene, ViewLayer | Updating Objects Flags
+Fra:1 Mem:189.10M (Peak 189.10M) | Time:00:00.16 | Mem:114.16M, Peak:114.16M | Scene, ViewLayer | Updating Primitive Offsets
+Fra:1 Mem:189.10M (Peak 189.10M) | Time:00:00.16 | Mem:114.16M, Peak:114.16M | Scene, ViewLayer | Updating Images
+Fra:1 Mem:189.10M (Peak 189.10M) | Time:00:00.16 | Mem:114.16M, Peak:114.16M | Scene, ViewLayer | Updating Camera Volume
+Fra:1 Mem:189.10M (Peak 189.10M) | Time:00:00.16 | Mem:114.16M, Peak:114.16M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:189.10M (Peak 189.10M) | Time:00:00.16 | Mem:114.24M, Peak:114.24M | Scene, ViewLayer | Updating Lights
+Fra:1 Mem:189.10M (Peak 189.10M) | Time:00:00.16 | Mem:114.24M, Peak:114.24M | Scene, ViewLayer | Updating Lights | Computing tree
+Fra:1 Mem:189.10M (Peak 189.10M) | Time:00:00.16 | Mem:114.24M, Peak:114.24M | Scene, ViewLayer | Updating Integrator
+Fra:1 Mem:189.10M (Peak 189.10M) | Time:00:00.16 | Mem:114.24M, Peak:114.24M | Scene, ViewLayer | Updating Film
+Fra:1 Mem:189.10M (Peak 189.10M) | Time:00:00.16 | Mem:114.16M, Peak:114.24M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:189.10M (Peak 189.10M) | Time:00:00.16 | Mem:114.24M, Peak:114.24M | Scene, ViewLayer | Updating Baking
+Fra:1 Mem:189.10M (Peak 189.10M) | Time:00:00.16 | Mem:114.24M, Peak:114.24M | Scene, ViewLayer | Updating Device | Writing constant memory
+Fra:1 Mem:189.11M (Peak 189.11M) | Time:00:00.16 | Mem:114.24M, Peak:114.24M | Scene, ViewLayer | Sample 0/12
+Fra:1 Mem:193.57M (Peak 193.57M) | Time:00:00.19 | Remaining:00:00.32 | Mem:118.70M, Peak:118.70M | Scene, ViewLayer | Sample 1/12
+Fra:1 Mem:195.55M (Peak 199.50M) | Time:00:00.51 | Mem:118.70M, Peak:118.70M | Scene, ViewLayer | Sample 12/12
+Fra:1 Mem:195.55M (Peak 199.50M) | Time:00:00.51 | Mem:118.70M, Peak:118.70M | Scene, ViewLayer | Finished
+Saved: 'out/sun_city.png'
+Time: 00:00.59 (Saving: 00:00.07)
+
+INFO Draco mesh compression is available, use library at /home/runner/work/Valdrune/Valdrune/blender-4.2.3-linux-x64/4.2/python/lib/python3.11/site-packages/libextern_draco.so
+
+REPORT {"id": "sun_city", "kind": "env", "source": "source/CityB.glb", "tris_in": 1162572, "bones": 0, "tex_missing": 0, "tex_autowired": 5, "tris_out": 150000, "size_m": [1023.18, 973.06, 118.63], "anims": 0, "anim_names": [], "mb_out": 18.53, "verify_tris": 149960, "verify_anims": 0, "verify_skinned": false, "preview": true}
+
+Blender quit
