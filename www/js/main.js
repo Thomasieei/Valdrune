@@ -12,8 +12,8 @@ async function boot() {
   UI.bind(GM.G, { ...GM, setQuality }); UI.build(); GM.initGame();
   $('lstart').hidden = false; $('lbarw').hidden = true; $('lpct').hidden = true;
   $('lstart').onclick = () => {
-    SFX.unlock(); SFX.music(['hub', 'zone0', 'zone1', 'dungeon'][S.world]); $('load').classList.add('out'); setTimeout(() => $('load').remove(), 700);
-    if (!S.tuto) { S.tuto = 1; setTimeout(() => UI.toast('AUTO est activé : ton héros chasse tout seul. Joystick à gauche pour bouger.'), 900); setTimeout(() => UI.toast('Quand un ennemi tombe, son âme flotte : touche S\'ÉLEVER pour en faire ton ombre !', 'gold'), 5200); }
+    SFX.unlock(); SFX.music(S.world < 0 ? 'hub' : ['hub', 'zone0', 'zone1', 'dungeon'][S.world]); $('load').classList.add('out'); setTimeout(() => $('load').remove(), 700);
+    if (!S.tuto) { S.tuto = 1; setTimeout(() => UI.toast('Bienvenue au Sanctuaire. Joystick à gauche pour marcher, glisse à droite pour la caméra.'), 900); setTimeout(() => UI.toast('Va voir Lyra la Navigatrice pour partir sur la première île.', 'gold'), 5200); }
   };
   let last = performance.now();
   const loop = now => {

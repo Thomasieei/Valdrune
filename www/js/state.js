@@ -1,7 +1,7 @@
 /* UMBRA — état du joueur, sauvegarde, calcul des bonus */
 import { WEAPONS, RELICS, ACCS, ACH, wPower, aMult, shadowPow, armyMax, relicSlots } from './data.js';
 
-const KEY = 'umbra_v2';
+const KEY = 'umbra_v3';
 export function fresh() {
   return {
     lvl: 1, xp: 0, cash: 0, gems: 150,
@@ -9,8 +9,8 @@ export function fresh() {
     rel: {}, relEq: [],
     acc: {}, accEq: { tete: null, cape: null, plastron: null, bottes: null },
     sh: [], shN: 0, keys: [0, 0, 0, 0, 0, 0, 0], dgDone: [0, 0, 0, 0, 0, 0, 0],
-    world: 0, stage: [0, 0, 0, 0], maxWorld: 0, prog: { kills: 0, brutes: 0 },
-    st: { kills: 0, brutes: 0, bosses: 0, arises: 0, lucky: 0, upgrades: 0, play: 0, best: 0 },
+    world: -1, tower: 0, spinT: 0, stage: [0, 0, 0, 0], maxWorld: 0, prog: { kills: 0, brutes: 0 },
+    st: { legends: 0, chests: 0, kills: 0, brutes: 0, bosses: 0, arises: 0, lucky: 0, upgrades: 0, play: 0, best: 0 },
     q: { day: 0, p: {}, done: {} }, ach: {},
     auto: true, autoArise: false, sfx: true, music: true, hq: true, tuto: 0,
   };
@@ -41,6 +41,7 @@ export function heroDmg() {
   return (8 + wPower(w, it)) * lvlMult() * (1 + b.wdmg / 100) * (1 + b.all / 100);
 }
 export const heroHp = () => 120 * Math.pow(1.16, S.lvl - 1) * (1 + bonus().hp / 100);
+export const heroMp = () => 100 + 6 * (S.lvl - 1);
 export const shDmg = sh => shadowPow(sh) * (1 + bonus().sdmg / 100) * (1 + bonus().all / 100);
 export const equipped = () => S.sh.filter(s => s.eq);
 export function power() { return heroDmg() * 3 + equipped().reduce((a, s) => a + shDmg(s), 0); }

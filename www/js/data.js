@@ -84,8 +84,9 @@ export function rollRankW(weights, luck = 0) {
   let x = Math.random() * tot; for (let i = 0; i < w.length; i++) { if (x < w[i]) return i; x -= w[i]; } return 0;
 }
 // rangs des objets et des ombres selon la source  [F,E,D,C,B,A,S]
-export const WORLD_RW = [[70, 27, 3, 0, 0, 0, 0], [0, 60, 33, 7, 0, 0, 0], [0, 0, 55, 35, 10, 0, 0], [0, 0, 0, 55, 37, 8, 0]];
-export function dungeonRW(r) { const w = [0, 0, 0, 0, 0, 0, 0]; if (r > 0) w[r - 1] = 45; w[r] += r === 0 ? 90 : 45; if (r < 6) w[r + 1] = r >= 4 ? 4 : 10; if (r === 6) { w[5] = 70; w[6] = 30; } return w; }
+export const WORLD_RW = [[72, 28, 0, 0, 0, 0, 0], [0, 35, 52, 13, 0, 0, 0], [0, 0, 22, 50, 28, 0, 0], [0, 0, 0, 0, 58, 41, 1]];
+export const rkMin = rw => rw.findIndex(x => x > 0), rkMax = rw => rw.reduce((m, x, i) => x > 0 ? i : m, 0);
+export function dungeonRW(r) { const w = [0, 0, 0, 0, 0, 0, 0]; if (r > 0) w[r - 1] = 45; w[r] += r === 0 ? 100 : 55; return w; }
 
 export const STAT_NAMES = { cash: 'Argent', gems: 'Gemmes', crit: 'Critique', hp: 'PV', aspd: 'Vitesse d\'attaque', wdmg: 'Dégâts d\'arme', sdmg: 'Dégâts des ombres', arise: 'Chance d\'Éveil', luck: 'Chance de butin', all: 'Tous dégâts', speed: 'Vitesse' };
 
@@ -110,13 +111,13 @@ export const FOES = {
 /* ---------- 4 mondes évolutifs (10 paliers chacun) ---------- */
 // prop : la propriété unique du monde, appliquée par le moteur de jeu
 export const WORLDS = [
-  { n: 'Cité Néon', sub: 'Les ruelles de la ville basse', env: 'city', col: '#38bdf8', foes: ['voyou', 'cogneur'], brute: 'cogneur', boss: 'cogneur', uq: 'vex',
+  { n: 'Cité Néon', sub: 'Les ruelles de la ville basse', env: 'city', col: '#38bdf8', foes: ['voyou', 'cogneur'], brute: 'cogneur', boss: 'cogneur', uq: 'vex', leg: 'krag',
     prop: { cash: 1.5 }, propTxt: 'Ville riche : +50 % d\'argent', music: 'hub', base: 0 },
-  { n: 'Forêt d\'Émeraude', sub: 'La meute ne dort jamais', env: 'forest', col: '#4ade80', foes: ['loup', 'renard', 'cerf'], brute: 'taureau', boss: 'taureau', uq: 'ghorn',
-    prop: { pack: 2, xp: 2 }, propTxt: 'Meutes : ennemis par deux, XP ×2', music: 'zone0', base: 10 },
-  { n: 'Nécropole Pâle', sub: 'Ici, les morts écoutent', env: 'necro', col: '#c26bff', foes: ['sbire', 'guerrier', 'sorcier'], brute: 'guerrier', boss: 'guerrier', uq: 'aldric',
+  { n: 'Forêt d\'Émeraude', sub: 'La meute ne dort jamais', env: 'forest', col: '#4ade80', foes: ['loup', 'renard', 'cerf'], brute: 'taureau', boss: 'taureau', uq: 'ghorn', leg: 'ramure',
+    prop: { pack: 2, xp: 2 }, propTxt: 'Meutes : camps plus nombreux, XP ×2', music: 'zone0', base: 10 },
+  { n: 'Nécropole Pâle', sub: 'Ici, les morts écoutent', env: 'necro', col: '#c26bff', foes: ['sbire', 'guerrier', 'sorcier'], brute: 'guerrier', boss: 'guerrier', uq: 'aldric', leg: 'banshee',
     prop: { arise: 1.6, revive: 0.15 }, propTxt: 'Terre des âmes : Éveil ×1,6 · les morts se relèvent', music: 'zone1', base: 20 },
-  { n: 'Citadelle Abyssale', sub: 'Le trône du Néant', env: 'abyss', col: '#ff3b5c', foes: ['chevalier', 'mage', 'sorcier'], brute: 'chevalier', boss: 'dragon', uq: 'nyx',
+  { n: 'Citadelle Abyssale', sub: 'Le trône du Néant', env: 'abyss', col: '#ff3b5c', foes: ['chevalier', 'mage', 'sorcier'], brute: 'chevalier', boss: 'dragon', uq: 'nyx', leg: 'azrakh',
     prop: { gems: 2, luck: 2, hp: 1.6 }, propTxt: 'Abysse : gemmes ×2, Lucky ×2, ennemis +60 % PV', music: 'dungeon', base: 30 },
 ];
 export const STAGES = 10;
@@ -146,10 +147,14 @@ export const shadowName = () => `${pick(FIRST)} ${pick(EPI)}`;
 export const KILL_TITLES = [[0, 'Recrue'], [100, 'Vétéran'], [1000, 'Élite'], [10000, 'Légende vivante']];
 // ombres uniques : les boss qu'on éveille gardent leur nom et un trait signature
 export const UNIQUES = {
-  vex: { n: 'Baron Vex', t: 'Seigneur du Port', foe: 'cogneur', model: 'Barbarian', rk: 2, sig: ['cash', 25], q: 'Tout s\'achète. Même ma loyauté… et c\'est toi qui l\'as.' },
+  vex: { n: 'Baron Vex', t: 'Seigneur du Port', foe: 'cogneur', model: 'Barbarian', rk: 1, sig: ['cash', 25], q: 'Tout s\'achète. Même ma loyauté… et c\'est toi qui l\'as.' },
   ghorn: { n: 'Ghorn', t: 'Roi-Taureau Sylvestre', foe: 'taureau', model: 'bull', rk: 3, sig: ['all', 20], q: 'La forêt s\'incline. Moi aussi, désormais.' },
   aldric: { n: 'Sire Aldric', t: 'Chevalier Pâle', foe: 'guerrier', model: 'Skeleton_Warrior', rk: 4, sig: ['arise', 15], q: 'J\'ai gardé ces tombes mille ans. Je garderai ton dos.' },
   nyx: { n: 'Nyx\'thar', t: 'Dragon de l\'Abysse', foe: 'dragon', model: 'dragon', rk: 5, sig: ['sdmg', 60], q: 'Mes ailes couvraient le ciel. Elles couvrent ton armée.' },
+  krag: { n: 'Krag', t: 'Titan des Docks', foe: 'cogneur', model: 'Barbarian', rk: 1, leg: 1, sig: ['hp', 30], q: 'Dix hommes pour me soulever. Un seul pour me relever.' },
+  ramure: { n: 'Vieille-Ramure', t: 'Esprit de la Forêt', foe: 'cerf', model: 'stag', rk: 3, leg: 1, sig: ['luck', 15], q: 'J\'ai vu pousser chaque arbre. Je te verrai régner.' },
+  banshee: { n: 'Dame Vespérine', t: 'Reine des Lamentations', foe: 'sorcier', model: 'Skeleton_Mage', rk: 4, leg: 1, sig: ['aspd', 15], q: 'Mon cri brisait les vivants. Il portera tes ordres.' },
+  azrakh: { n: 'Azrakh', t: 'Bourreau du Néant', foe: 'chevalier', model: 'Knight', rk: 5, leg: 1, sig: ['all', 50], q: 'J\'ai exécuté des rois. Tu es le premier que je sers.' },
   skrag: { n: 'Skrag', t: 'le Rançonneur', foe: 'rodeur', model: 'Rogue', rk: 0, sig: ['cash', 15], q: 'Je rançonnais les faibles. Tu ne l\'es pas.' },
   osrouge: { n: 'Os-Rouge', t: 'Sbire Primordial', foe: 'sbire', model: 'Skeleton_Minion', rk: 1, sig: ['aspd', 8], q: 'Clac. Clac-clac.' },
   fenrak: { n: 'Fenrak', t: 'Loup-Spectre', foe: 'loup', model: 'wolf', rk: 2, sig: ['crit', 5], q: 'La meute suit le plus fort. Je te suis.' },
@@ -170,7 +175,7 @@ export const DUNGEONS = [
   { r: 6, n: 'Trône Primordial', tier: 40, foes: ['chevalier', 'mage'], boss: 'rex' },
 ];
 export const DG_TIME = 180, DG_WAVES = [10, 12, 14];
-export const PORTAL_RW = [[65, 30, 5, 0, 0, 0, 0], [0, 50, 38, 12, 0, 0, 0], [0, 0, 45, 40, 15, 0, 0], [0, 0, 0, 40, 40, 17, 3]];
+export const PORTAL_RW = [[65, 35, 0, 0, 0, 0, 0], [0, 40, 45, 15, 0, 0, 0], [0, 0, 25, 45, 30, 0, 0], [0, 0, 0, 0, 50, 42, 8]];
 export const recoPower = r => foeHp(DUNGEONS[r].tier) * 1.8;
 
 /* ---------- joueur ---------- */
@@ -192,3 +197,20 @@ export const ACH = [
   { id: 'h5', n: 'Collectionneur', k: 'collect', tiers: [5, 12, 20, 30], rw: 'cash', v: 25 },
   { id: 'h6', n: 'Voyageur des mondes', k: 'worlds', tiers: [1, 2, 3, 4], rw: 'arise', v: 8 },
 ];
+
+/* ---------- Sanctuaire (hub) : habitants ---------- */
+export const NPCS = [
+  { id: 'nav', n: 'Lyra', role: 'Navigatrice — voyager vers les îles', model: 'Rogue', tint: '#7dd3fc', panel: 'mondes', a: Math.PI / 2 + 0.55 },
+  { id: 'tour', n: 'L\'Archiviste', role: 'Tour de l\'Ascension', model: 'Skeleton_Mage', tint: '#e9d5ff', panel: 'tour', a: Math.PI / 2 - 0.55 },
+  { id: 'oracle', n: 'Séléné', role: 'Oracle — Autel des Reliques', model: 'Mage', tint: '#f0abfc', panel: 'autel', a: -0.45 },
+  { id: 'garde', n: 'Sire Kael', role: 'Gardien des Portails', model: 'Knight', tint: '#a5b4fc', panel: 'donjons', a: Math.PI + 0.45 },
+  { id: 'forge', n: 'Borin', role: 'Forgeron — armes et équipement', model: 'Barbarian', tint: '#fdba74', panel: 'inv', a: -Math.PI / 2 - 0.6 },
+  { id: 'roue', n: 'Pip', role: 'Roue de la Fortune', model: 'Rogue_Hooded', tint: '#fde68a', panel: 'roue', a: -Math.PI / 2 + 0.6 },
+];
+/* ---------- Tour de l'Ascension ---------- */
+export const TW_TIME = 75;
+export const twTier = f => 1 + f;
+export const twRank = f => Math.min(6, Math.floor(f / 8));
+export const twCount = f => Math.min(14, 6 + Math.floor(f / 3));
+export const SPIN_CD = 4 * 3600e3;
+export const MANA_WAVE = 20, MANA_RECALL = 12;

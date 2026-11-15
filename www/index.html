@@ -221,6 +221,35 @@ svg{width:1em;height:1em;vertical-align:-.15em}
 @keyframes pop{from{transform:scale(0) rotate(-25deg);opacity:0}}
 
 
+
+/* vie / mana */
+#vit{display:flex;gap:6px;width:min(520px,56vw)}
+.vb{position:relative;flex:1;height:15px;border-radius:8px;background:rgba(0,0,0,.7);border:1.5px solid rgba(255,255,255,.35);overflow:hidden}
+.vb i{position:absolute;inset:0;transition:width .15s}.vb.hp i{background:linear-gradient(#ff6b81,#c81d45)}.vb.mp i{background:linear-gradient(#60a5fa,#1d4ed8)}
+.vb span{position:relative;display:block;text-align:center;font-size:10px;font-weight:900;line-height:12.5px;text-shadow:var(--st)}
+.ac .cdv{position:absolute;left:0;right:0;bottom:0;background:rgba(0,0,0,.65);border-radius:0 0 7px 7px;height:0}
+.ac.off{filter:grayscale(.7) brightness(.7)}
+.ac.rc{border-color:#a78bfa;background:linear-gradient(180deg,#3b1d8f,#120838)}.ac.rc.ready{animation:glow .8s infinite}
+.ac span{white-space:nowrap}
+/* repères fléchés */
+#marks{position:absolute;left:50%;top:64px;transform:translateX(-50%);display:flex;gap:6px;pointer-events:none}
+.mk{display:flex;align-items:center;gap:6px;padding:3px 11px 4px 5px;border-radius:9px;background:linear-gradient(90deg,rgba(40,16,90,.95),rgba(14,10,50,.9));border:2px solid var(--c);box-shadow:0 0 10px var(--c);white-space:nowrap}
+.mk b{display:block;font-size:11px;color:var(--c);text-shadow:var(--st)}.mk small{font-size:9.5px;color:#e0e7ff;text-shadow:var(--st)}
+.mk .arr{width:22px;height:22px;display:grid;place-items:center;font-size:17px;color:var(--c);text-shadow:var(--st)}
+#lucky{top:108px!important}#toasts{top:150px!important}
+/* étiquettes : rang, alliés, habitants */
+.ln i{display:inline-block;min-width:15px;padding:0 3px;margin-right:3px;border-radius:4px;font-style:normal;font-size:9.5px;color:#000;text-shadow:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.6)}
+.lab.leg .ln{font-size:15px;color:#fde68a}.lab.leg .lb{width:170px;height:11px}.lab.leg .lb i{background:linear-gradient(#fde68a,#d97706)}
+.lab.ally .lb{width:40px;height:4px}.lab.ally .lb i{background:linear-gradient(#c084fc,#7c3aed)}
+.lab.npc .ln{font-size:10px;font-weight:700;color:#e0e7ff;line-height:1.15;padding:3px 9px;border-radius:8px;background:rgba(10,14,45,.8);border:1px solid #fcd34d}.lab.npc .ln b{font-size:13px;color:#fde68a}
+body.moon #flash{box-shadow:inset 0 0 140px rgba(255,0,50,.42)}
+.wc.hubc{grid-column:1/-1;min-height:0}
+/* roue */
+.wheel{position:relative;width:170px;height:170px;margin:4px auto}
+.wdisc{width:100%;height:100%;border-radius:50%;border:5px solid #fcd34d;box-shadow:0 0 22px #fcd34d;background:conic-gradient(#16a34a 0 72deg,#0284c7 72deg 144deg,#d97706 144deg 216deg,#7c3aed 216deg 288deg,#db2777 288deg 360deg)}
+.wheel.spun .wdisc{animation:wsp 2.2s cubic-bezier(.15,.8,.2,1) forwards}@keyframes wsp{to{transform:rotate(calc(-1 * var(--to)))}}
+.wpin{position:absolute;left:50%;top:-12px;transform:translateX(-50%);font-size:22px;color:#fff;text-shadow:var(--st);z-index:2}
+
 /* portails */
 #pban{position:absolute;left:50%;top:64px;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:3px 12px 4px 6px;border-radius:9px;cursor:pointer;background:linear-gradient(90deg,rgba(40,16,90,.95),rgba(14,10,50,.9));border:2px solid var(--c);box-shadow:0 0 12px var(--c);white-space:nowrap}
 #pban b{display:block;font-size:11.5px;color:var(--c);text-shadow:var(--st)}#pban small{font-size:10px;color:#e0e7ff;text-shadow:var(--st)}

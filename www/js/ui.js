@@ -1,8 +1,8 @@
 /* UMBRA — interface : HUD façon Arise, panneaux (inventaire, ombres, mondes, autel, quêtes, succès, stats) */
 import { E, toScreen } from './engine.js';
 import { RAR, WEAPONS, RELICS, ACCS, SLOTS, WORLDS, FOES, STAGES, SUMMON, QUESTS, ACH, STAT_NAMES, SRANKS, SRANK_COL, W_MAXLV, W_MAXSTAR, R_MAXLV, A_MAXLV, SH_MAXLV,
-  wUpCost, wPower, aUpCost, aMult, mission, xpNeed, armyMax, shadowPow, shUpCost, relicSlots, fmt, fmtTime, TRAITS, UNIQUES, KILL_TITLES, DUNGEONS, DG_WAVES, DG_TIME, WORLD_RW, PORTAL_RW, dungeonRW, recoPower } from './data.js';
-import { S, save, wipe, bonus, dirty, heroDmg, heroHp, shDmg, equipped, autoEquipShadows, power, owned } from './state.js';
+  wUpCost, wPower, aUpCost, aMult, mission, xpNeed, armyMax, shadowPow, shUpCost, relicSlots, fmt, fmtTime, TRAITS, UNIQUES, KILL_TITLES, DUNGEONS, DG_WAVES, DG_TIME, WORLD_RW, PORTAL_RW, dungeonRW, recoPower, rkMin, rkMax, foeHp, MANA_WAVE, MANA_RECALL, TW_TIME, twTier, twRank, twCount, SPIN_CD } from './data.js';
+import { S, save, wipe, bonus, dirty, heroDmg, heroHp, heroMp, shDmg, equipped, autoEquipShadows, power, owned } from './state.js';
 import { UIC, relicIcon, accIcon, shadowIcon } from './icons.js';
 import { SFX } from './audio.js';
 
@@ -12,7 +12,7 @@ export const UI = {};
 let G = null, GM = null; // module de jeu (injecté pour éviter l'import circulaire)
 UI.bind = (g, gm) => { G = g; GM = gm; };
 
-const HEX = [['inv', 'Inventaire', '#7c3aed'], ['ombres', 'Ombres', '#9f1239'], ['mondes', 'Mondes', '#0369a1'], ['donjons', 'Portails', '#6d28d9'], ['autel', 'Autel', '#a21caf'], ['quetes', 'Quêtes', '#b45309'], ['succes', 'Succès', '#a16207'], ['stats', 'Stats', '#047857'], ['reglages', 'Réglages', '#334155']];
+const HEX = [['inv', 'Inventaire', '#7c3aed'], ['ombres', 'Ombres', '#9f1239'], ['mondes', 'Îles', '#0369a1'], ['donjons', 'Portails', '#6d28d9'], ['quetes', 'Quêtes', '#b45309'], ['succes', 'Succès', '#a16207'], ['stats', 'Stats', '#047857'], ['reglages', 'Réglages', '#334155']];
 const wImg = (w, cls = 'ic') => `<img class="${cls}" src="assets/i/${w.id}.png" alt="">`;
 
 /* ---------- construction du HUD ---------- */
@@ -21,22 +21,22 @@ UI.build = () => {
   <div id="labels"></div><div id="dmgs"></div><div id="flash"></div><div id="fade"></div>
   <div id="hex"></div>
   <div id="mis"><div id="misI">${UIC.skull()}</div><div id="misT"><b id="misN"></b><small id="misS"></small><div class="pb2"><i id="misB"></i></div></div></div>
+  <div id="marks"></div>
   <div id="rc"><div id="dmgbox"></div><div id="buffs"></div><div id="wprop"></div></div>
-  <div id="pban" class="ia" hidden><div id="parr">➤</div><div><b id="pbN"></b><small id="pbS"></small></div></div>
   <div id="penter" class="ia" hidden></div>
   <div id="lucky"></div><div id="toasts"></div><div id="loot"></div>
   <div id="zt"><div id="ztn"></div><div id="zts"></div></div>
   <div id="banner"><b></b><small></small></div>
-  <div id="hpbar"><i></i></div>
   <div id="joy"><div id="knob"></div></div>
   <div id="bot">
+    <div id="vit"><div class="vb hp"><i></i><span></span></div><div class="vb mp"><i></i><span></span></div></div>
     <div id="barRow">
       <div class="money" id="cash"></div>
       <div id="acts">
         <div class="ac ia" id="aAuto"><div class="tg">ON</div>${UIC.auto()}<span>AUTO</span></div>
-        <div class="ac ia" id="aWpn"><img id="aWpnI" src=""><span>ARME</span></div>
-        <div class="ac m1 ia" id="aPunch">${UIC.fist()}<span>FRAPPE</span></div>
+        <div class="ac m1 ia" id="aWave">${UIC.fist()}<span>ONDE · ${MANA_WAVE}</span><div class="cdv"></div></div>
         <div class="ac big ia" id="aArise">${UIC.arise()}<span>S'ÉLEVER</span><div class="ct" id="soulN" hidden>0</div></div>
+        <div class="ac rc ia" id="aRecall">${UIC.ombres()}<span>RAPPEL · ${MANA_RECALL}</span><div class="ct" id="fallN" hidden>0</div></div>
         <div class="ac ia" id="aAA"><div class="tg">OFF</div>${UIC.arise()}<span>AUTO-ÉVEIL</span></div>
         <div class="ac ia" id="aArmy">${UIC.army()}<span id="armyN">0/0</span></div>
       </div>
@@ -44,7 +44,6 @@ UI.build = () => {
     </div>
     <div id="lvbar"><i></i><span></span></div>
   </div>`;
-  // grille hexagonale (2 colonnes en quinconce)
   const hx = $('hex');
   HEX.forEach(([id, label, col], i) => {
     const c = i % 2, r = Math.floor(i / 2); const b = h('div', 'hx ia');
@@ -56,14 +55,14 @@ UI.build = () => {
   hx.style.height = (Math.ceil(HEX.length / 2) * 56 + 40) + 'px';
   $('aAuto').onclick = () => { S.auto = !S.auto; SFX.play('click', 0.4); syncToggles(); };
   $('aAA').onclick = () => { S.autoArise = !S.autoArise; SFX.play('click', 0.4); syncToggles(); };
-  $('aPunch').onpointerdown = () => GM.punch();
+  $('aWave').onpointerdown = () => GM.wave();
   $('aArise').onclick = () => GM.arise();
-  $('aWpn').onclick = () => UI.open('inv', 'armes');
+  $('aRecall').onclick = () => GM.recall();
   $('aArmy').onclick = () => UI.open('ombres');
-  $('pban').onclick = () => UI.open('donjons');
-  $('penter').onclick = () => { if (G.portal) { selId = 'portal'; UI.open('donjons'); } };
+  $('penter').onclick = () => GM.interact();
   syncToggles(); setupInput();
 };
+UI.moon = on => document.body.classList.toggle('moon', !!on);
 function syncToggles() {
   $('aAuto').classList.toggle('on', S.auto); $('aAuto').querySelector('.tg').textContent = S.auto ? 'ON' : 'OFF';
   $('aAA').classList.toggle('on', S.autoArise); $('aAA').querySelector('.tg').textContent = S.autoArise ? 'ON' : 'OFF';
@@ -80,72 +79,76 @@ function setupInput() {
   });
   addEventListener('pointermove', e => {
     if (e.pointerId === jid) { let dx = e.clientX - jx, dy = e.clientY - jy; const d = Math.hypot(dx, dy), m = 50; if (d > m) { dx *= m / d; dy *= m / d; } knob.style.transform = `translate(${dx}px,${dy}px)`; G.joy.x = dx / m; G.joy.y = dy / m; }
-    else if (e.pointerId === cid) { E.yaw -= (e.clientX - cx) * 0.008; E.pitch = Math.max(0.45, Math.min(1.25, E.pitch + (e.clientY - cy) * 0.004)); cx = e.clientX; cy = e.clientY; }
+    else if (e.pointerId === cid) { E.yaw -= (e.clientX - cx) * 0.008; E.pitch = Math.max(0.35, Math.min(1.25, E.pitch + (e.clientY - cy) * 0.004)); cx = e.clientX; cy = e.clientY; }
   });
   const up = e => { if (e.pointerId === jid) { jid = null; G.joy.x = G.joy.y = 0; knob.style.transform = ''; joy.classList.remove('on'); } if (e.pointerId === cid) cid = null; };
   addEventListener('pointerup', up); addEventListener('pointercancel', up);
-  cv.addEventListener('wheel', e => { E.dist = Math.max(10, Math.min(30, E.dist + e.deltaY * 0.02)); });
+  cv.addEventListener('wheel', e => { E.dist = Math.max(10, Math.min(40, E.dist + e.deltaY * 0.02)); });
 }
 
 /* ---------- mise à jour du HUD ---------- */
 let hudT = 0; const labPool = [], dns = [];
+const mmss = t => `${Math.max(0, Math.floor(t / 60))}:${String(Math.max(0, Math.floor(t % 60))).padStart(2, '0')}`;
 UI.update = dt => {
-  // nombres de dégâts
   for (let i = dns.length - 1; i >= 0; i--) {
     const d = dns[i]; d.t += dt; const p = toScreen(d.p); const k = d.t / d.life;
     if (k >= 1 || !p.vis) { d.el.remove(); dns.splice(i, 1); continue; }
     d.el.style.transform = `translate(${p.x + d.ox}px,${p.y - d.t * 60}px) translate(-50%,-50%) scale(${k < 0.15 ? 0.6 + k * 4 : 1})`; d.el.style.opacity = k > 0.7 ? (1 - k) / 0.3 : 1;
   }
-  // étiquettes des ennemis
   let n = 0; const P = G.P;
-  for (const f of G.foes) {
-    if (f.dead || n >= 18) continue; if (f.kind < 2 && f.pos.distanceTo(P.pos) > 28) continue;
-    const p = toScreen({ x: f.pos.x, y: f.pos.y + (f.kind === 2 ? 6.2 : f.kind === 1 ? 3.6 : 2.6), z: f.pos.z }); if (!p.vis) continue;
+  const lab = (pos, y, cls, key, html, hpk) => {
+    const p = toScreen({ x: pos.x, y: pos.y + y, z: pos.z }); if (!p.vis || n >= 26) return;
     let l = labPool[n]; if (!l) { l = labPool[n] = h('div', 'lab', '<div class="ln"></div><div class="lb"><i></i></div>'); $('labels').appendChild(l); }
-    l.hidden = false; l.className = 'lab k' + f.kind; if (l._f !== f) { l._f = f; l.firstChild.textContent = f.kind ? f.n : ''; }
-    l.style.transform = `translate(${p.x}px,${p.y}px) translate(-50%,-100%)`; l.lastChild.firstChild.style.width = (f.hp / f.max * 100) + '%'; n++;
+    l.hidden = false; if (l._k !== key) { l._k = key; l.className = 'lab ' + cls; l.firstChild.innerHTML = html; }
+    l.style.transform = `translate(${p.x}px,${p.y}px) translate(-50%,-100%)`; l.lastChild.style.visibility = hpk == null ? 'hidden' : 'visible'; if (hpk != null) l.lastChild.firstChild.style.width = (hpk * 100) + '%'; n++;
+  };
+  for (const f of G.foes) {
+    if (f.dead) continue; const d = f.pos.distanceTo(P.pos); if (d > (f.kind === 2 ? 70 : 32)) continue;
+    const nm = f.kind || f.aggro || d < 15; const c = f.leg ? '#ffcc33' : RAR[f.rk].c;
+    lab(f.pos, f.kind === 2 ? (f.leg ? 7.6 : 6.2) : f.kind === 1 ? 3.6 : 2.6, 'k' + f.kind + (f.leg ? ' leg' : ''), f.id + (nm ? 'n' : ''), `<i style="background:${c}">${SRANKS[f.rk]}</i>${nm ? f.n : ''}`, f.aggro || f.hp < f.max ? f.hp / f.max : null);
   }
+  for (const a of G.army) if (a.hp < 99) lab(a.pos, 2.4, 'ally', 'a' + a.sh.id, '', a.hp / 100);
+  for (const np of G.npcs) lab(np.pos, 3, 'npc', np.id, `<b>${np.n}</b><br>${np.role}`, null);
   for (let i = n; i < labPool.length; i++) labPool[i].hidden = true;
   hudT -= dt; if (hudT > 0) return; hudT = 0.2;
-  const b = bonus(), W = WORLDS[S.world];
+  const b = bonus(), hub = S.world < 0, dg = G.dg, W = WORLDS[Math.max(0, S.world)];
   $('cash').innerHTML = `${UIC.cash()}${fmt(S.cash)}`; $('gems').innerHTML = `${fmt(S.gems)}${UIC.gem()}`;
   const xn = xpNeed(S.lvl); $('lvbar').firstChild.style.width = (S.xp / xn * 100) + '%'; $('lvbar').lastChild.textContent = `Niveau : ${S.lvl}  ·  ${(S.xp / xn * 100).toFixed(1)} %  ·  Puissance ${fmt(power())}`;
-  const hp = Math.max(0, P.hp / heroHp()); $('hpbar').firstChild.style.width = hp * 100 + '%'; $('hpbar').classList.toggle('low', hp < 0.3);
-  $('aWpnI').src = `assets/i/${S.wEq}.png`;
+  const hpM = heroHp(), mpM = heroMp(), vb = $('vit').children;
+  vb[0].firstChild.style.width = Math.max(0, P.hp / hpM * 100) + '%'; vb[0].lastChild.textContent = `PV ${fmt(Math.max(0, P.hp))} / ${fmt(hpM)}`;
+  vb[1].firstChild.style.width = Math.max(0, P.mp / mpM * 100) + '%'; vb[1].lastChild.textContent = `MANA ${Math.floor(P.mp)} / ${mpM}`;
   const ns = G.souls.filter(s => s.pos.distanceTo(P.pos) < 16).length; $('soulN').hidden = !ns; $('soulN').textContent = ns; $('aArise').classList.toggle('ready', ns > 0);
-  $('armyN').textContent = `${equipped().length}/${armyMax(S.lvl)}`;
-  // mission / boss
-  const st = Math.min(S.stage[S.world], STAGES); const mis = $('mis');
-  const dg = G.dg; const mm = Math.max(0, Math.floor((dg?.t || 0) / 60)), ss = String(Math.max(0, Math.floor((dg?.t || 0) % 60))).padStart(2, '0');
-  if (dg && !G.boss) {
-    mis.classList.remove('boss'); const left = G.foes.filter(f => !f.dead).length, tot = DG_WAVES[Math.max(0, Math.min(dg.wave, DG_WAVES.length - 1))];
-    $('misN').textContent = `PORTAIL RANG ${SRANKS[dg.r]} · ${dg.D.n.toUpperCase()}`;
-    $('misS').textContent = dg.phase === 'won' ? 'Terminé — éveille le boss puis sors' : dg.phase === 'lost' ? 'Échec…' : dg.phase === 'boss' ? `Le boss arrive… · ⏱ ${mm}:${ss}` : `Vague ${Math.max(1, dg.wave + 1)}/${DG_WAVES.length} · ${left} ennemis · ⏱ ${mm}:${ss}`;
-    $('misB').style.width = (dg.phase === 'wave' ? (1 - left / tot) * 100 : 100) + '%';
-  } else if (G.boss) {
-    mis.classList.add('boss'); $('misN').textContent = `BOSS : ${G.boss.n}`; $('misS').textContent = `${fmt(G.boss.hp)} / ${fmt(G.boss.max)} PV${dg ? ` · ⏱ ${mm}:${ss}` : ''}`; $('misB').style.width = (G.boss.hp / G.boss.max * 100) + '%';
-  } else {
-    mis.classList.remove('boss'); const m = mission(S.world, Math.min(st, STAGES - 1));
+  $('fallN').hidden = !G.fallen.length; $('fallN').textContent = G.fallen.length; $('aRecall').classList.toggle('ready', G.fallen.length > 0 && P.mp >= MANA_RECALL);
+  $('aWave').classList.toggle('off', P.mp < MANA_WAVE || G.waveCd > 0); $('aWave').querySelector('.cdv').style.height = (G.waveCd / 3 * 100) + '%';
+  $('armyN').textContent = `${G.army.length}/${armyMax(S.lvl)}`;
+  const mis = $('mis'), big = (G.boss && G.boss.aggro && G.boss) || (G.legend && G.legend.aggro && G.legend) || (dg && G.boss);
+  mis.classList.toggle('boss', !!big);
+  if (big) { $('misN').textContent = `${big.leg ? 'LÉGENDAIRE' : 'BOSS'} : ${big.n}`; $('misS').textContent = `${fmt(big.hp)} / ${fmt(big.max)} PV${dg ? ` · ⏱ ${mmss(dg.t)}` : ''}`; $('misB').style.width = (big.hp / big.max * 100) + '%'; }
+  else if (dg) {
+    const left = G.foes.filter(f => !f.dead).length;
+    $('misN').textContent = dg.tower ? `TOUR DE L'ASCENSION · ÉTAGE ${Math.max(1, dg.floor)}` : `PORTAIL RANG ${SRANKS[dg.r]} · ${dg.D.n.toUpperCase()}`;
+    $('misS').textContent = dg.phase === 'won' ? 'Terminé — éveille le boss puis sors' : dg.phase === 'lost' ? 'Retour…' : dg.phase === 'boss' ? `Le boss arrive… · ⏱ ${mmss(dg.t)}` : `${dg.tower ? `Record ${S.tower}` : `Vague ${Math.max(1, dg.wave + 1)}/${DG_WAVES.length}`} · ${left} ennemis · ⏱ ${mmss(dg.t)}`;
+    $('misB').style.width = (dg.t / (dg.tower ? TW_TIME : DG_TIME) * 100) + '%';
+  } else if (hub) { $('misN').textContent = 'SANCTUAIRE DES OMBRES'; $('misS').textContent = 'Approche un habitant pour lui parler — Lyra t\'emmène sur les îles'; $('misB').style.width = '100%'; }
+  else {
+    const st = Math.min(S.stage[S.world], STAGES), m = mission(S.world, Math.min(st, STAGES - 1));
     $('misN').textContent = `${W.n.toUpperCase()} · PALIER ${Math.min(st + 1, STAGES)}/${STAGES}${st >= STAGES ? ' ✓' : ''}`;
     const k = Math.min(S.prog.kills, m.kills), br = Math.min(S.prog.brutes, m.brutes);
-    $('misS').textContent = G.bossPortal ? 'Le boss arrive…' : `Ennemis ${k}/${m.kills} · Brutes ${br}/${m.brutes} → boss`;
+    $('misS').textContent = G.boss ? 'Le boss t\'attend dans son arène — suis la flèche rouge' : `Ennemis ${k}/${m.kills} · Brutes ${br}/${m.brutes} → boss`;
     $('misB').style.width = ((k + br * 5) / (m.kills + m.brutes * 5) * 100) + '%';
   }
   $('dmgbox').innerHTML = `Dégâts : <b>${fmt(heroDmg())}</b><br>DPS : <b style="color:#ffcc33">${fmt(G.dps)}</b>`;
-  const bl = [['Chance d\'Éveil', b.arise + (W.prop.arise ? (W.prop.arise - 1) * 100 : 0), '#4ade80'], ['Butin rare', b.luck, '#38bdf8'], ['Dégâts ombres', b.sdmg, '#c26bff'], ['Dégâts arme', b.wdmg, '#ff3b5c'], ['Argent', b.cash + (W.prop.cash ? (W.prop.cash - 1) * 100 : 0), '#ffcc33'], ['Gemmes', b.gems, '#7dd3fc'], ['Tous dégâts', b.all, '#ff7aa8']];
-  $('buffs').innerHTML = bl.filter(x => x[1] > 0).map(([n, v, c]) => `<div style="color:${c}">${n} : +${fmt(v)} %</div>`).join('');
-  $('wprop').textContent = dg ? `Rang ${SRANKS[dg.r]} — puissance conseillée ${fmt(recoPower(dg.r))}` : W.propTxt; const wc = dg ? RAR[dg.r].c : W.col; $('wprop').style.borderColor = wc; $('wprop').style.color = wc;
-  // portail ouvert dans le monde
-  const pt = G.portal; $('pban').hidden = !pt; $('penter').hidden = !(pt && G.nearPortal) || !!$('panel');
-  if (pt) {
-    const d = pt.pos.distanceTo(P.pos); const c = RAR[pt.r].c; $('pban').style.setProperty('--c', c); $('penter').style.setProperty('--c', c);
-    $('pbN').textContent = `PORTAIL · RANG ${SRANKS[pt.r]}`; $('pbS').textContent = `${DUNGEONS[pt.r].n} — ${Math.round(d)} m · ${Math.floor(pt.life / 60)}:${String(Math.floor(pt.life % 60)).padStart(2, '0')}`;
-    const ang = Math.atan2(pt.pos.x - P.pos.x, pt.pos.z - P.pos.z) - E.yaw; $('parr').style.transform = `rotate(${-ang * 180 / Math.PI + 90}deg)`;
-    $('penter').innerHTML = `ENTRER — PORTAIL RANG <b>${SRANKS[pt.r]}</b>`;
-  }
-  if (S.keys.some(k => k > 0) && !dg) UI.dot('donjons');
-  // pastilles
-  if (questReady()) UI.dot('quetes'); if (achReady()) UI.dot('succes');
+  const wp = !hub && !dg ? W.prop : {};
+  const bl = [['Chance d\'Éveil', b.arise + (wp.arise ? (wp.arise - 1) * 100 : 0), '#4ade80'], ['Butin rare', b.luck, '#38bdf8'], ['Dégâts ombres', b.sdmg, '#c26bff'], ['Dégâts arme', b.wdmg, '#ff3b5c'], ['Argent', b.cash + (wp.cash ? (wp.cash - 1) * 100 : 0), '#ffcc33'], ['Gemmes', b.gems, '#7dd3fc'], ['Tous dégâts', b.all, '#ff7aa8']];
+  $('buffs').innerHTML = (G.buff ? `<div style="color:#ff3355">🌙 Lune de sang ${mmss(G.buff.t)}</div>` : '') + bl.filter(x => x[1] > 0).map(([nn, v, c]) => `<div style="color:${c}">${nn} : +${fmt(v)} %</div>`).join('');
+  const rw = WORLD_RW[Math.max(0, S.world)];
+  $('wprop').hidden = hub; $('wprop').innerHTML = dg ? `Rang ${SRANKS[dg.r]} — puissance conseillée ${fmt(foeHp(dg.tier) * 1.8)}` : `Île de rang <b>${SRANKS[rkMin(rw)]} → ${SRANKS[rkMax(rw)]}</b><br>${W.propTxt}`; const wc = dg ? RAR[dg.r].c : W.col; $('wprop').style.borderColor = wc; $('wprop').style.color = wc;
+  // repères fléchés
+  const s = Math.sin(E.yaw), c = Math.cos(E.yaw);
+  $('marks').innerHTML = GM.markers().slice(0, 3).map(m => { const vx = m.pos.x - P.pos.x, vz = m.pos.z - P.pos.z; const ang = Math.atan2(vx * s + vz * c, vx * c - vz * s) * 180 / Math.PI; return `<div class="mk" style="--c:${m.c}"><div class="arr" style="transform:rotate(${ang}deg)">➤</div><div><b>${m.n}</b><small>${m.s} — ${Math.round(Math.hypot(vx, vz))} m${m.t ? ' · ' + mmss(m.t) : ''}</small></div></div>`; }).join('');
+  const nr = G.near, pe = $('penter'); pe.hidden = !nr || !!$('panel') || !!document.querySelector('.reveal');
+  if (nr) { const col = nr.type === 'npc' ? '#ffcc33' : RAR[G.portal.r].c; pe.style.setProperty('--c', col); pe.innerHTML = nr.type === 'npc' ? `PARLER — <b>${nr.npc.n}</b>` : `ENTRER — PORTAIL RANG <b>${SRANKS[G.portal.r]}</b>`; }
+  if (questReady()) UI.dot('quetes'); if (achReady()) UI.dot('succes'); if (S.keys.some(k => k > 0) && !dg) UI.dot('donjons');
 };
 
 /* ---------- retours visuels ---------- */
@@ -203,7 +206,7 @@ function srcOf(r) {
 /* ---------- panneaux ---------- */
 let cur = null, tab = null, selId = null;
 UI.open = (id, t) => {
-  UI.close(); cur = id; tab = t || tab; selId = null;
+  UI.close(); cur = id; selId = null; if (id === 'donjons') selId = t === 'portal' ? 'portal' : null; else tab = t || tab;
   const p = h('div', 'panel'); p.id = 'panel'; p.onclick = e => { if (e.target === p) UI.close(); };
   document.body.appendChild(p); render();
 };
@@ -216,7 +219,7 @@ function frame(title, icon, sub, body, tabs) {
 function rerender() { if (cur) render(); }
 UI.refresh = rerender;
 function render() {
-  ({ inv: renderInv, ombres: renderShadows, mondes: renderWorlds, donjons: renderDungeons, autel: renderAltar, quetes: renderQuests, succes: renderAch, stats: renderStats, reglages: renderSettings })[cur]();
+  ({ inv: renderInv, ombres: renderShadows, mondes: renderWorlds, donjons: renderDungeons, tour: renderTower, roue: renderWheel, autel: renderAltar, quetes: renderQuests, succes: renderAch, stats: renderStats, reglages: renderSettings })[cur]();
 }
 const on = (sel, fn) => document.querySelectorAll(sel).forEach(e => e.onclick = ev => { SFX.play('select', 0.35); fn(e, ev); });
 const kv = (k, v, c = '') => `<div class="kv"><span>${k}</span><b class="${c}">${v}</b></div>`;
@@ -322,7 +325,7 @@ function detShadow(s) {
   ${U ? `<p class="quote">« ${U.q} »</p>` : ''}
   ${kv('Dégâts', '⚔ ' + fmt(shDmg(s)), 'red')}${kv('Niveau', `${s.lv}/${SH_MAXLV}`)}${U ? kv('Éveil (doublons)', `${'★'.repeat(s.aw || 0) || '—'} ${s.aw || 0}/5`, 'cy') : ''}
   <div class="traits">${traitHtml(s)}</div>
-  ${kv('Grade', killTitle(s.kills))}${kv('Ennemis abattus', fmt(s.kills || 0), 'cy')}
+  ${G.fallen.includes(s.id) ? '<div class="verdict" style="color:#ff3355;border-color:#ff3355;font-size:12px">Tombée au combat — RAPPEL</div>' : ''}${kv('Grade', killTitle(s.kills))}${kv('Ennemis abattus', fmt(s.kills || 0), 'cy')}
   <p class="born">Éveillée le ${s.born || '—'}<br>${s.where || ''}</p>
   <button class="btn y" data-a="up" ${S.cash < cost || s.lv >= SH_MAXLV ? 'disabled' : ''}>Améliorer ${UIC.cash()} ${fmt(cost)}</button>
   <button class="btn ${s.eq ? 'r' : 'g'}" data-a="eq">${s.eq ? 'RETIRER DE L\'ARMÉE' : 'AJOUTER À L\'ARMÉE'}</button>
@@ -341,15 +344,16 @@ const tierIn = (w, t) => t >= w.base && t < w.base + STAGES;
 
 /* --- mondes --- */
 function renderWorlds() {
-  const body = `<div class="wgrid scroll" style="flex:1">${WORLDS.map((w, i) => {
-    const st = S.stage[i], lock = i > S.maxWorld, here = i === S.world, m = mission(i, Math.min(st, STAGES - 1));
+  const hubCard = `<div class="wc hubc${S.world < 0 && !G.dg ? ' here' : ''}" style="--c:#c26bff"><b>Sanctuaire des Ombres</b><small>Le hub : Tour de l'Ascension, Autel des Reliques, Gardien des Portails, Roue de la Fortune</small>${S.world < 0 && !G.dg ? '<button class="btn k" disabled>VOUS ÊTES ICI</button>' : '<button class="btn p" data-w="-1">RETOURNER AU SANCTUAIRE</button>'}</div>`;
+  const body = `<div class="wgrid scroll" style="flex:1">${hubCard}${WORLDS.map((w, i) => {
+    const st = S.stage[i], lock = i > S.maxWorld, here = i === S.world && !G.dg, m = mission(i, Math.min(st, STAGES - 1));
     return `<div class="wc${lock ? ' lockd' : ''}${here ? ' here' : ''}" style="--c:${w.col}"><div class="num">#${i + 1}</div><b>${w.n}</b><small>${w.sub}</small>
       <div class="prop">✦ ${w.propTxt}</div><div class="mi">Palier ${Math.min(st + 1, STAGES)}/${STAGES}${st >= STAGES ? ' — CONQUIS ✓' : ''} · Mission : ${m.kills} ennemis + ${m.brutes} brutes → ${UNIQUES[w.uq].n}</div>
       <div class="pb2"><i style="width:${Math.min(st, STAGES) / STAGES * 100}%"></i></div>
       <div class="mi">Butin et ombres : rangs ${WORLD_RW[i].map((x, r) => x > 0 ? `<b style="color:${RAR[r].c}">${SRANKS[r]}</b>` : '').filter(Boolean).join(' ')} · Portails : ${PORTAL_RW[i].map((x, r) => x > 0 ? `<b style="color:${RAR[r].c}">${SRANKS[r]}</b>` : '').filter(Boolean).join(' ')}</div>
-      ${here ? '<button class="btn k" disabled>VOUS ÊTES ICI</button>' : lock ? `<button class="btn k" disabled>🔒 Conquiers ${WORLDS[i - 1].n}</button>` : `<button class="btn b" data-w="${i}">TÉLÉPORTER</button>`}</div>`;
+      ${here ? '<button class="btn k" disabled>VOUS ÊTES ICI</button>' : lock ? `<button class="btn k" disabled>🔒 Conquiers ${WORLDS[i - 1].n} (10 paliers)</button>` : `<button class="btn b" data-w="${i}">TÉLÉPORTER</button>`}</div>`;
   }).join('')}</div>`;
-  frame('Mondes', UIC.mondes(), `${S.maxWorld + 1}/4 débloqués`, body);
+  frame('Îles', UIC.mondes(), `${S.maxWorld + 1}/4 débloquées — chaque île a ses propres rangs`, body);
   on('[data-w]', e => { UI.close(); GM.enterWorld(+e.dataset.w); });
 }
 
@@ -365,7 +369,7 @@ function renderDungeons() {
   const D = DUNGEONS[r], U = UNIQUES[D.boss], [vt, vc] = verdict(r), rw = dungeonRW(r);
   const list = `<div class="scroll dgl">${pt ? `<div class="dgr${selId === 'portal' ? ' on' : ''}" data-d="portal" style="--c:${RAR[pt.r].c}"><b class="rkb">${SRANKS[pt.r]}</b><div><b>Portail ouvert</b><small>${Math.round(pt.pos.distanceTo(G.P.pos))} m — gratuit</small></div></div>` : ''}
     ${DUNGEONS.map(d => { const [t, c] = verdict(d.r); return `<div class="dgr${selId === d.r ? ' on' : ''}" data-d="${d.r}" style="--c:${RAR[d.r].c}"><b class="rkb">${SRANKS[d.r]}</b><div><b>${d.n}</b><small style="color:${c}">${t}</small></div><span class="keyn">${UIC.key()} ${S.keys[d.r]}</span></div>`; }).join('')}</div>`;
-  const near = selId === 'portal' && G.nearPortal;
+  const near = selId === 'portal' && G.near && G.near.type === 'portal';
   const det = `<div class="scroll dgd" style="--c:${RAR[r].c}"><div class="dgh"><div class="dgk">${SRANKS[r]}</div><div><h3>${D.n}</h3><small>${DG_WAVES.length} vagues (${DG_WAVES.join(' + ')} ennemis) puis le boss · ${Math.round(DG_TIME / 60)} minutes · un seul essai</small></div></div>
     ${kv('Puissance conseillée', fmt(recoPower(r)), 'red')}${kv('Ta puissance', fmt(power()))}<div class="verdict" style="color:${vc};border-color:${vc}">${vt}</div>
     <div class="bossrow"><img src="assets/i/p_${U.model}.png"><div><small>BOSS — OMBRE UNIQUE À ÉVEILLER (35 %)</small><b>${U.n}, ${U.t}</b><span style="color:${RAR[U.rk].c}">Rang ${SRANKS[U.rk]} · ✦ ${TRAITS[U.sig[0]].n} +${U.sig[1]} %</span></div></div>
@@ -385,6 +389,28 @@ UI.dungeonResult = dg => {
   $('dgStay').onclick = () => $('panel')?.remove(); $('dgOut').onclick = () => { $('panel')?.remove(); GM.leaveDungeon(); };
   $('px').onclick = () => $('panel')?.remove();
 };
+
+/* --- Tour de l'Ascension --- */
+function renderTower() {
+  const f = Math.max(1, S.tower - 1), need = foeHp(twTier(f)) * 1.8, k = power() / need; const [vt, vc] = k >= 1 ? ['À ta portée', '#4ade80'] : k >= 0.45 ? ['Risqué', '#ffcc33'] : ['Trop dur pour l\'instant', '#ff3355'];
+  const body = `<div class="scroll dgd" style="--c:#c26bff;max-width:560px;margin:auto"><div class="dgh"><div class="dgk">${S.tower}</div><div><h3>Tour de l'Ascension</h3><small>Des étages sans fin. ${TW_TIME} s par étage, de plus en plus durs. Tu repars deux étages sous ton record.</small></div></div>
+    ${kv('Record', `Étage ${S.tower}`, 'cy')}${kv('Départ', `Étage ${f} — rang ${SRANKS[twRank(f)]}`)}${kv('Puissance conseillée', fmt(need), 'red')}${kv('Ta puissance', fmt(power()))}<div class="verdict" style="color:${vc};border-color:${vc}">${vt}</div>
+    <div class="mi2">• Chaque étage : gemmes et argent.<br>• Tous les 5 étages : un <b>Gardien</b>, et au premier passage une <b>relique</b> + 50 % de chance de <b>clé de portail</b>.<br>• Les âmes des ennemis sont éveillables : étage 8+ rang E, 16+ rang D, 24+ rang C… jusqu'au rang S à l'étage 48.</div>
+    <button class="btn p" data-tw="1" ${G.dg ? 'disabled' : ''}>ENTRER DANS LA TOUR</button></div>`;
+  frame('Tour de l\'Ascension', UIC.succes(), 'L\'Archiviste', body);
+  on('[data-tw]', () => { UI.close(); GM.enterTower(); });
+}
+/* --- Roue de la Fortune --- */
+let spinRes = null;
+function renderWheel() {
+  const left = SPIN_CD - (Date.now() - S.spinT), ready = left <= 0;
+  const body = `<div class="scroll" style="flex:1;text-align:center"><div class="wheel${spinRes ? ' spun' : ''}" style="--to:${spinRes ? 1440 + spinRes[2] * 72 + 36 : 0}deg"><div class="wpin">▼</div><div class="wdisc"></div></div>
+    <div class="tools" style="justify-content:center;margin-top:8px"><span class="chip" style="color:#4ade80">Argent</span><span class="chip" style="color:#38bdf8">Gemmes</span><span class="chip" style="color:#fcd34d">Clé de portail</span><span class="chip" style="color:#c26bff">Objet de ton île</span><span class="chip" style="color:#ff7ad9">Jackpot</span></div>
+    ${spinRes ? `<div class="verdict" style="color:${spinRes[1]};border-color:${spinRes[1]};max-width:420px;margin:8px auto">${spinRes[0]}</div>` : ''}
+    <button class="btn y" data-spin="1" ${ready ? '' : 'disabled'} style="margin-top:8px;font-size:15px;padding:10px 26px">${ready ? 'TOURNER LA ROUE (gratuit)' : `Prochain tour dans ${fmtTime(left / 1000)}`}</button><p class="mi2" style="margin-top:6px">Un tour gratuit toutes les 4 heures.</p></div>`;
+  frame('Roue de la Fortune', UIC.autel(), 'Pip', body);
+  on('[data-spin]', () => { spinRes = GM.spin(); render(); });
+}
 
 /* --- autel d'invocation des reliques --- */
 let lastPulls = [];
@@ -432,9 +458,9 @@ function renderAch() {
 /* --- statistiques --- */
 function renderStats() {
   const b = bonus();
-  const left = [['Niveau', S.lvl], ['PV max', fmt(heroHp())], ['Dégâts héros', fmt(heroDmg())], ['Puissance totale', fmt(power())], ['Armée', `${equipped().length}/${armyMax(S.lvl)}`], ['Emplacements de reliques', relicSlots(S.lvl)]]
+  const left = [['Niveau', S.lvl], ['PV max', fmt(heroHp())], ['Mana max', heroMp()], ['Dégâts héros', fmt(heroDmg())], ['Puissance totale', fmt(power())], ['Armée', `${equipped().length}/${armyMax(S.lvl)}`], ['Emplacements de reliques', relicSlots(S.lvl)]]
     .concat(Object.keys(STAT_NAMES).filter(k => b[k]).map(k => [STAT_NAMES[k], `+${fmt(b[k])} %`]));
-  const right = [['Argent', fmt(S.cash)], ['Gemmes', fmt(S.gems)], ['Temps de jeu', fmtTime(S.st.play)], ['Ennemis vaincus', fmt(S.st.kills)], ['Brutes vaincues', fmt(S.st.brutes)], ['Boss vaincus', fmt(S.st.bosses)], ['Ombres éveillées', fmt(S.st.arises)], ['Lucky Drops', fmt(S.st.lucky)], ['Collection', `${owned()}/30`], ['Mondes conquis', `${S.stage.filter(s => s >= STAGES).length}/4`]];
+  const right = [['Argent', fmt(S.cash)], ['Gemmes', fmt(S.gems)], ['Temps de jeu', fmtTime(S.st.play)], ['Ennemis vaincus', fmt(S.st.kills)], ['Brutes vaincues', fmt(S.st.brutes)], ['Boss vaincus', fmt(S.st.bosses)], ['Ombres éveillées', fmt(S.st.arises)], ['Lucky Drops', fmt(S.st.lucky)], ['Boss légendaires', fmt(S.st.legends || 0)], ['Coffres ouverts', fmt(S.st.chests || 0)], ['Record de la Tour', `Étage ${S.tower}`], ['Collection', `${owned()}/30`], ['Mondes conquis', `${S.stage.filter(s => s >= STAGES).length}/4`]];
   const body = `<div class="cols scroll" style="flex:1"><div class="stbox"><h4>Héros</h4>${left.map(([k, v]) => kv(k, v)).join('')}</div><div class="stbox"><h4>Statistiques globales</h4>${right.map(([k, v]) => kv(k, v)).join('')}</div></div>`;
   frame('Statistiques', UIC.stats(), '', body);
 }
@@ -447,7 +473,7 @@ function renderSettings() {
     <button class="btn ${S.music ? 'g' : 'k'}" data-s="music">Musique : ${S.music ? 'ON' : 'OFF'}</button>
     <button class="btn ${S.hq ? 'g' : 'k'}" data-s="hq">Qualité graphique : ${S.hq ? 'HAUTE' : 'ÉCONOMIE'}</button>
     <button class="btn r" data-s="wipe">${wipeArm ? 'Touche encore pour TOUT effacer' : 'Effacer la sauvegarde'}</button>
-    <p style="font-size:11px;color:#93c5fd;text-align:center">UMBRA v1 — Glisse à droite de l'écran pour tourner la caméra.</p></div>`;
+    <p style="font-size:11px;color:#93c5fd;text-align:center">UMBRA v3 — Glisse à droite de l'écran pour tourner la caméra.</p></div>`;
   frame('Réglages', UIC.reglages(), '', body);
   on('[data-s]', e => {
     const s = e.dataset.s;
