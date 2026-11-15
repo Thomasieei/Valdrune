@@ -162,7 +162,7 @@ const STEP_H := 0.45
 func apply_gravity_and_slide(delta: float) -> void:
 	velocity.y -= GRAVITY * delta
 	floor_snap_length = 0.5
-	floor_max_angle = deg_to_rad(52.0)
+	floor_max_angle = deg_to_rad(60.0)
 	var hv := Vector3(velocity.x, 0, velocity.z)
 	move_and_slide()
 	# montée de marches (trottoirs, bordures) : si on bute contre un obstacle bas, on passe dessus
@@ -171,7 +171,7 @@ func apply_gravity_and_slide(delta: float) -> void:
 			var c := get_slide_collision(i)
 			var n := c.get_normal()
 			var h := c.get_position().y - global_position.y
-			if n.y < 0.35 and h > 0.02 and h < STEP_H and hv.normalized().dot(-Vector3(n.x, 0, n.z).normalized()) > 0.3:
+			if n.y < 0.86 and h > 0.02 and h < STEP_H and hv.normalized().dot(-Vector3(n.x, 0, n.z).normalized()) > 0.3:
 				var up := Vector3(0, STEP_H + 0.05, 0)
 				var fwd := hv.normalized() * 0.18
 				if not test_move(global_transform, up) and not test_move(global_transform.translated(up), fwd):
