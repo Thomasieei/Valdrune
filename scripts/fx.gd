@@ -56,7 +56,7 @@ static func telegraph(parent: Node, pos: Vector3, radius: float, dur: float, col
 	root.global_position = pos + Vector3(0, 0.05, 0)
 	var edge := ground_disc(radius, col, 0.85, true)
 	root.add_child(edge)
-	var fill := ground_disc(radius, col, 0.35, false)
+	var fill := ground_disc(radius, col, 0.22, false)
 	fill.scale = Vector3(0.05, 1, 0.05)
 	root.add_child(fill)
 	var tw := root.create_tween()
@@ -89,25 +89,47 @@ static func burst(parent: Node, pos: Vector3, col: Color, amount := 24, size := 
 	var t := p.get_tree().create_timer(life + 0.3)
 	t.timeout.connect(p.queue_free)
 
-## Arc de lame lumineux devant l'attaquant.
+## Croissant de lame (mesh en arc, traînée qui s'efface).
+static func arc_mesh(radius: float, width: float, span: float, flip: bool) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := 18
+	var pts: Array = []
+	for i in n + 1:
+		var f := float(i) / n
+		var a := -span * 0.5 + span * f
+		if flip:
+			a = -a
+		var w := width * sin(f * PI) + 0.02
+		pts.append([Vector3(sin(a), 0, cos(a)) * (radius - w), Vector3(sin(a), 0, cos(a)) * radius, f])
+	for i in n:
+		var p0: Array = pts[i]
+		var p1: Array = pts[i + 1]
+		var c0 := Color(1, 1, 1, p0[2] * p0[2])
+		var c1 := Color(1, 1, 1, p1[2] * p1[2])
+		st.set_color(c0); st.add_vertex(p0[0])
+		st.set_color(c0); st.add_vertex(p0[1])
+		st.set_color(c1); st.add_vertex(p1[1])
+		st.set_color(c0); st.add_vertex(p0[0])
+		st.set_color(c1); st.add_vertex(p1[1])
+		st.set_color(c1); st.add_vertex(p1[0])
+	return st.commit()
+
 static func slash_arc(parent: Node, origin: Vector3, yaw: float, col: Color, radius := 1.6, flip := false) -> void:
 	var mi := MeshInstance3D.new()
-	var tm := TorusMesh.new()
-	tm.inner_radius = radius - 0.07
-	tm.outer_radius = radius
-	tm.rings = 24
-	tm.ring_segments = 4
-	mi.mesh = tm
-	mi.material_override = mat(col, 4.0, 0.9)
+	mi.mesh = arc_mesh(radius, 0.45, deg_to_rad(150), flip)
+	var m := mat(col, 3.5, 0.95)
+	m.vertex_color_use_as_albedo = true
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(mi)
-	mi.global_position = origin + Vector3(0, 1.1, 0)
-	mi.rotation = Vector3(deg_to_rad(18.0 if flip else -18.0), yaw, 0)
-	mi.scale = Vector3(1, 0.3, 1)
+	mi.global_position = origin + Vector3(0, 1.05, 0)
+	var sgn := -1.0 if flip else 1.0
+	mi.rotation = Vector3(0, yaw + 0.5 * sgn, deg_to_rad(14.0) * sgn)
 	var tw := mi.create_tween()
-	tw.set_parallel(true)
-	tw.tween_property(mi, "rotation:y", yaw + (1.2 if flip else -1.2), 0.22)
-	tw.tween_property(mi, "scale", Vector3(1.15, 0.05, 1.15), 0.25)
-	tw.chain().tween_callback(mi.queue_free)
+	tw.tween_property(mi, "rotation:y", yaw - 0.35 * sgn, 0.12).set_ease(Tween.EASE_OUT)
+	tw.tween_property(m, "albedo_color:a", 0.0, 0.16)
+	tw.tween_callback(mi.queue_free)
 
 static func damage_number(parent: Node, pos: Vector3, txt: String, col: Color, big := false) -> void:
 	var l := Label3D.new()

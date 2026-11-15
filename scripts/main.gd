@@ -13,7 +13,7 @@ var cam_pivot: Node3D
 var spring: SpringArm3D
 var cam: Camera3D
 var yaw := 0.0
-var pitch := -0.42
+var pitch := -0.34
 var shake_amt := 0.0
 var shots_mode := false
 # UI
@@ -368,7 +368,7 @@ func _build_camera() -> void:
 	cam_pivot = Node3D.new()
 	add_child(cam_pivot)
 	spring = SpringArm3D.new()
-	spring.spring_length = 6.0
+	spring.spring_length = 4.7
 	spring.margin = 0.3
 	var sph := SphereShape3D.new()
 	sph.radius = 0.25
@@ -614,6 +614,15 @@ func _run_shots() -> void:
 	hero.max_hp = 99999
 	hero.hp = 99999
 	await _snap("00_depart", 20)
+	var y0 := yaw
+	yaw = y0 + PI
+	pitch = -0.12
+	spring.spring_length = 2.4
+	hero.play("SwordIdle", 0.0, 1.0, true)
+	await _snap("00b_heros", 25)
+	yaw = y0
+	pitch = -0.34
+	spring.spring_length = 4.7
 	_put_hero_near(1, 7.0)
 	await _snap("01_approche", 70)
 	hero.attack()

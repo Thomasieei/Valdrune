@@ -23,6 +23,12 @@ func setup_hero() -> void:
 	max_hp = 420; hp = max_hp; dmg = 26; body_r = 0.45; arm = 0.85; speed = RUN
 	setup_model("res://assets/hero.glb", 1.0, Color(1, 1, 1), 0.2)
 	_attach_sword()
+	var fill := OmniLight3D.new()
+	fill.light_color = Color(0.78, 0.86, 1.0)
+	fill.light_energy = 1.3
+	fill.omni_range = 9.0
+	fill.position = Vector3(0, 2.6, 0)
+	add_child(fill)
 	play("Idle", 0.0)
 
 func _attach_sword() -> void:
@@ -48,10 +54,13 @@ func _attach_sword() -> void:
 	sword = (load("res://assets/katana.glb") as PackedScene).instantiate()
 	mount.add_child(sword)
 	# lame dans l'axe de la main ; ajustée via les captures CI
-	var s := 1.0 / maxf(model.scale.x, 0.0001)
-	mount.scale = Vector3.ONE * s * 1.05
+	# compense l'échelle du squelette (souvent en centimètres)
+	var gs := sk.global_transform.basis.get_scale().x
+	var s := 1.0 / maxf(gs, 0.0001)
+	mount.scale = Vector3.ONE * s * 0.95
 	mount.rotation_degrees = Vector3(0, 0, 90)
-	mount.position = Vector3(0, 0.08, 0.02) * s
+	mount.position = Vector3(0, 0.09, 0.03) * s
+	print("SWORD scale comp ", s)
 	print("SWORD: attachée à ", sk.get_bone_name(bi))
 
 func later(t: float, c: Callable) -> void:
