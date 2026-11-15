@@ -60,9 +60,9 @@ func _build_env() -> void:
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	e.tonemap_exposure = 1.1
 	e.glow_enabled = true
-	e.glow_intensity = 0.9
-	e.glow_bloom = 0.15
-	e.glow_hdr_threshold = 0.9
+	e.glow_intensity = 0.55
+	e.glow_bloom = 0.04
+	e.glow_hdr_threshold = 1.3
 	e.fog_enabled = true
 	e.fog_light_color = Color(0.18, 0.16, 0.38)
 	e.fog_density = 0.012
@@ -93,7 +93,7 @@ func _build_city() -> void:
 				g.emission_enabled = true
 				g.emission_texture = g.albedo_texture
 				g.emission = Color(1, 1, 1)
-				g.emission_energy_multiplier = 2.2
+				g.emission_energy_multiplier = 1.15
 				if nm.contains("red"):
 					g.emission = Color(1, 0.2, 0.25)
 				elif nm.contains("green"):
@@ -101,8 +101,8 @@ func _build_city() -> void:
 				m.set_surface_override_material(i, g)
 			elif nm.contains("roadsground"):
 				var r := mat.duplicate() as StandardMaterial3D
-				r.roughness = 0.35
-				r.metallic_specular = 0.8
+				r.roughness = 0.62
+				r.metallic_specular = 0.55
 				m.set_surface_override_material(i, r)
 		m.create_trimesh_collision()
 	# sol de sécurité sous la ville
@@ -183,11 +183,11 @@ func _place_gate(spawn: Vector3) -> void:
 	disc.mesh = cm
 	disc.rotation_degrees = Vector3(90, 0, 0)
 	var dm := StandardMaterial3D.new()
-	dm.albedo_color = Color(0.05, 0.15, 0.6, 0.75)
+	dm.albedo_color = Color(0.05, 0.15, 0.6, 0.45)
 	dm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	dm.emission_enabled = true
 	dm.emission = Color(0.1, 0.3, 1)
-	dm.emission_energy_multiplier = 2.0
+	dm.emission_energy_multiplier = 1.2
 	dm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	disc.material_override = dm
 	gate.add_child(disc)
