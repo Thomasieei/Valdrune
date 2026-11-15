@@ -2,14 +2,14 @@
 import { E, makeChar, attachWeapon, buildWorld, collide, burst, slash, shock, pillar, projectile, portalMesh } from './engine.js';
 import { WEAPONS, RELICS, ACCS, WORLDS, FOES, STAGES, RAR, W_MAXSTAR, R_MAXLV, A_MAXLV, tierOf, foeHp, foeCash, mission, xpNeed, armyMax, SRANKS, SRANK_COL, shadowPow,
   rollRankW, WORLD_RW, rkMin, rkMax, dungeonRW, PORTAL_RW, DUNGEONS, DG_TIME, DG_WAVES, UNIQUES, TRAITS, TRAIT_N, traitVal, shadowName, SUMMON, NPCS,
-  TW_TIME, twTier, twRank, twCount, SPIN_CD, MANA_WAVE, MANA_RECALL, rnd, pick, clamp } from './data.js';
-import { S, save, bonus, dirty, heroDmg, heroHp, heroMp, shDmg, equipped, relicSlotsN, power, armyCap } from './state.js';
+  TW_TIME, twTier, twRank, twCount, SPIN_CD, MANA_WAVE, MANA_RECALL, ROLES, rnd, pick, clamp } from './data.js';
+import { S, save, bonus, dirty, heroDmg, heroHp, heroMp, shDmg, equipped, relicSlotsN, power, armyCap, roleOf } from './state.js';
 import { UI } from './ui.js';
 import { SFX } from './audio.js';
 
 const THREE = E.THREE; const V = (x, y, z) => new THREE.Vector3(x, y, z);
 export const G = { foes: [], souls: [], army: [], fallen: [], camps: [], chests: [], npcs: [], joy: { x: 0, y: 0 }, info: null, boss: null, legend: null, horde: null, buff: null,
-  dps: 0, dmgWin: [], dead: 0, t: 0, dg: null, portal: null, portalT: 60, evT: 120, near: null, waveCd: 0, combat: false };
+  dps: 0, dmgWin: [], dead: 0, t: 0, tele: [], warn: false, dg: null, portal: null, portalT: 60, evT: 120, near: null, waveCd: 0, combat: false };
 const W = () => WORLDS[Math.max(0, S.world)];
 const inWorld = () => S.world >= 0 && !G.dg;
 const tierNow = () => G.dg ? G.dg.tier : S.world < 0 ? tierOf(S.maxWorld, 0) : tierOf(S.world, Math.min(S.stage[S.world], STAGES - 1));
@@ -31,7 +31,7 @@ export function refreshWeapon() { const w = WEAPONS.find(x => x.id === S.wEq); a
 /* ---------- changement de lieu ---------- */
 function clearScene() {
   for (const f of G.foes) f.ch.dispose(); for (const s of G.souls) s.obj.removeFromParent(); for (const a of G.army) a.ch.dispose(); for (const n of G.npcs) n.ch.dispose();
-  for (const c of G.chests) c.obj?.removeFromParent();
+  for (const c of G.chests) c.obj?.removeFromParent(); for (const t of G.tele) t.obj.removeFromParent(); G.tele = [];
   if (G.portal) G.portal.obj.removeFromParent(); if (G.bossPortal) G.bossPortal.obj.removeFromParent();
   Object.assign(G, { foes: [], souls: [], army: [], fallen: [], camps: [], chests: [], npcs: [], boss: null, legend: null, horde: null, portal: null, bossPortal: null, near: null, dead: 0, bossSkip: 0 });
   if (G.buff) { G.buff = null; UI.moon(false); }
@@ -86,7 +86,7 @@ function nextWave() {
     return;
   }
   dg.wave++;
-  if (dg.wave < DG_WAVES.length) { UI.banner(`VAGUE ${dg.wave + 1} / ${DG_WAVES.length}`, dg.D.n, RAR[dg.r].c); SFX.play('bell', 0.5); for (let i = 0; i < DG_WAVES[dg.wave]; i++) spawnFoe(Math.random() < 0.18 ? 1 : 0); }
+  if (dg.wave < DG_WAVES.length) { UI.banner(`VAGUE ${dg.wave + 1} / ${DG_WAVES.length}`, dg.D.n, RAR[dg.r].c); SFX.play('bell', 0.5); for (let i = 0; i < DG_WAVES[dg.wave]; i++) spawnFoe(Math.random() < 0.18 ? 1 : 0); if (dg.wave >= 1) { const c = spawnFoe(1, null, { n: 'Chaman' }); c.healer = 1; c.n = '✚ Chaman (soigne les autres)'; } }
   else { dg.phase = 'boss'; const p = V(0, 0, -6); const pm = portalMesh(RANK_HEX(dg.r), 1.8); pm.position.copy(p); E.scene.add(pm); G.bossPortal = { obj: pm, t: 2.2, p, u: dg.D.boss }; UI.banner('LE BOSS ARRIVE', `${UNIQUES[dg.D.boss].n}, ${UNIQUES[dg.D.boss].t}`, '#ff3355'); SFX.play('bell', 0.8); E.shake = 0.5; }
 }
 function towerReward(f) {
@@ -188,7 +188,8 @@ function spawnFoe(kind, at, o = {}) {
   if (!p) { const a = rnd(0, 6.28), r = rnd(6, 16); p = V(Math.cos(a) * r, 0, Math.sin(a) * r); collide(p, 1, G.info.R - 2); }
   ch.root.position.copy(p); ch.root.rotation.y = rnd(0, 6.28); E.scene.add(ch.root);
   const f = { id: ++fid, ch, pos: p, home: p.clone(), hp, max: hp, unit: unit * (o.leg ? 3 : 1), kind, type, u, n, t, rk, cd: rnd(0.5, 1.5), dmgPct: (kind === 2 ? 0.14 : kind === 1 ? 0.07 : 0.03) * (dg ? 0.55 : 1), wander: rnd(1, 4), wt: null, dead: 0,
-    r: kind === 2 ? 2.2 : kind === 1 ? 1 : 0.6, aggro: !!dg, free: !!dg, ret: false, ar: kind === 2 ? 11 : kind === 1 ? 9 : 7.5, leash: kind === 2 ? 45 : 28, camp: o.camp || (o.slot && o.slot.camp) || null, slot: o.slot || null, leg: !!o.leg, tg: null, tgT: 0 };
+    r: kind === 2 ? 2.2 : kind === 1 ? 1 : 0.6, aggro: !!dg, free: !!dg, ret: false, ar: kind === 2 ? 11 : kind === 1 ? 9 : 7.5, leash: kind === 2 ? 45 : 28, camp: o.camp || (o.slot && o.slot.camp) || null, slot: o.slot || null, leg: !!o.leg, tg: null, tgT: 0, hunt: !!o.hunt, mech: kind === 2 ? (u && UNIQUES[u].mech || ['slam']) : null, mT: 5, mi: 0, cast: 0, fightT: 0, dmg0: 0 };
+  if (f.mech) { f.addsAt = f.mech.includes('adds') ? [0.66, 0.33] : []; f.dmg0 = f.dmgPct; }
   G.foes.push(f); if (kind === 2) { if (o.leg) G.legend = f; else G.boss = f; }
   if (kind && !o.slot) burst(p.clone().setY(1), kind === 2 ? 0xff3355 : 0xffaa33, 20, { spread: 1, speed: 4 });
   return f;
@@ -345,7 +346,7 @@ function addArmy(sh, at) {
   const ch = makeChar(F.model, { shadow: true, shadowCol: sh.u ? 0x7a3a10 : sh.rk >= 5 ? 0x7a2a9a : 0x3b1a8a, eyeCol: RANK_HEX(sh.rk), scale: (F.sc || 1) * (F.model === 'dragon' ? 0.7 : 1) * (sh.k === 2 ? 1.45 : sh.k === 1 ? 1.15 : 0.95), noShadow: true });
   const p = (at || G.P.pos).clone().add(V(rnd(-2, 2), 0, rnd(-2, 2))); ch.root.position.copy(p); E.scene.add(ch.root);
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.75, 24), new THREE.MeshBasicMaterial({ color: sh.u ? 0xffcc33 : RANK_HEX(sh.rk), transparent: true, opacity: 0.6, blending: THREE.AdditiveBlending, depthWrite: false })); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.06; ch.root.add(ring);
-  G.army.push({ ch, sh, pos: p, hp: 100, cd: rnd(0, 1), tgt: null, slot: G.army.length, ranged: /Mage/.test(F.model), r: 0.5 });
+  G.army.push({ ch, sh, pos: p, hp: 100, cd: rnd(0, 1), tgt: null, slot: G.army.length, role: F.role, ranged: F.role === 'heal' || /Mage/.test(F.model), r: 0.5 });
 }
 export function syncArmy() {
   const eq = equipped(); G.fallen = G.fallen.filter(id => eq.some(s => s.id === id));
@@ -383,7 +384,7 @@ function moveTo(obj, target, speed, dt, stop = 0) {
 }
 function foeHurt(f, tg) {
   if (tg === G.P) return heroHurt(f);
-  const ref = shadowPow(tg.sh) / 0.06; tg.hp -= 100 * (f.kind === 2 ? 0.45 : f.kind === 1 ? 0.22 : 0.11) * clamp(Math.sqrt(f.unit / ref), 0.4, 6) * rnd(0.85, 1.15);
+  const ref = shadowPow(tg.sh) / 0.06; tg.hp -= ROLES[tg.role].take * 100 * (f.kind === 2 ? 0.45 : f.kind === 1 ? 0.22 : 0.11) * clamp(Math.sqrt(f.unit / ref), 0.4, 6) * rnd(0.85, 1.15);
   burst(tg.pos.clone().setY(1), 0xff4d6d, 4, { speed: 2 }); if (tg.hp <= 0) unitDie(tg);
 }
 export function update(dt) {
@@ -401,7 +402,7 @@ export function update(dt) {
       const s = Math.sin(E.yaw), c = Math.cos(E.yaw); const dx = jx * c + jy * s, dz = -jx * s + jy * c;
       P.pos.x += dx * speed * dt; P.pos.z += dz * speed * dt; P.ang = Math.atan2(dx, dz); P.moving = true; P.tgt = null;
     } else if (S.auto && G.foes.length) {
-      if (!P.tgt || P.tgt.dead || P.tgt.ret || (combat && !P.tgt.aggro)) P.tgt = nearestFoe(P.pos, 999, f => f.aggro) || (G.boss && !G.bossSkip && inWorld() ? G.boss : nearestFoe(P.pos, 999, f => !f.leg && (f.kind < 2 || !inWorld())));
+      if (!P.tgt || P.tgt.dead || P.tgt.ret || (combat && !P.tgt.aggro)) P.tgt = nearestFoe(P.pos, 40, f => f.aggro && f.healer) || nearestFoe(P.pos, 999, f => f.aggro) || (G.boss && !G.bossSkip && inWorld() ? G.boss : nearestFoe(P.pos, 999, f => !f.leg && (f.kind < 2 || !inWorld())));
       if (P.tgt) {
         const st = 1.6 + P.tgt.r; tv.subVectors(P.tgt.pos, P.pos); const d = tv.length();
         if (d > st) {
@@ -430,7 +431,8 @@ export function update(dt) {
         mv = moveTo(a, a.tgt.pos, speed * 1.1, dt, range);
         if (!mv) {
           a.ch.root.rotation.y = Math.atan2(a.tgt.pos.x - a.pos.x, a.tgt.pos.z - a.pos.z); a.cd -= dt;
-          if (a.cd <= 0) {
+          if (a.cd <= 0 && a.role === 'heal' && healTry(a, maxHp)) a.cd = 2;
+          else if (a.cd <= 0) {
             a.cd = 1.1 / aspd * rnd(0.85, 1.15); const t = a.tgt; const crit = Math.random() < b.crit / 100; const dmg = shDmg(a.sh) * (crit ? 2.5 : 1) * rnd(0.9, 1.1); const sh = a.sh;
             if (a.ranged) { a.ch.play('cast', { once: true, restart: true, speed: 1.8 }); projectile(a.pos, t.pos, 0xc26bff, 0.3, () => { hitFoe(t, dmg, crit, 'sh', sh); burst(t.pos.clone().setY(1), 0xc26bff, 5); }); }
             else { a.ch.play('attack', { once: true, restart: true, speed: 1.8 }); hitFoe(t, dmg, crit, 'sh', sh); burst(t.pos.clone().setY(1), 0x7c3aed, 5, { speed: 2 }); }
@@ -460,10 +462,13 @@ export function update(dt) {
     else if (!f.aggro) {
       if (alive && d < f.ar + f.r) aggro(f);
       else { f.wander -= dt; if (f.wander <= 0) { f.wander = rnd(3, 7); f.wt = f.home.clone().add(V(rnd(-3, 3), 0, rnd(-3, 3))); } if (f.wt) mv = moveTo(f, f.wt, 1.8, dt, 0.3); }
-    } else if (!alive || (!f.free && f.pos.distanceTo(f.home) > f.leash)) { f.aggro = false; f.tg = null; if (!f.free) f.ret = true; }
+    } else if (!alive || (!f.free && f.pos.distanceTo(f.home) > f.leash)) { f.aggro = false; f.tg = null; if (!f.free) f.ret = true; if (f.mech) { f.fightT = 0; f.mT = 5; f.cast = 0; if (f.enr) { f.enr = 0; f.dmgPct = f.dmg0; } } }
     else {
-      if ((f.tgT -= dt) <= 0 || !f.tg || (f.tg !== P && !G.army.includes(f.tg))) { f.tgT = 1.5; let best = P, bd = d; for (const a of G.army) { const x = a.pos.distanceTo(f.pos); if (x < bd - 1.5 && x < 7) { bd = x; best = a; } } f.tg = best; }
-      const tg = f.tg; mv = run = moveTo(f, tg.pos, f.kind === 2 ? 4.8 : 5.6, dt, 1.4 + f.r);
+      if ((f.tgT -= dt) <= 0 || !f.tg || (f.tg !== P && !G.army.includes(f.tg))) { f.tgT = 1.5; let best = P, bd = d, tk = null, td = 11, hl = null, hd = 30; for (const a of G.army) { const x = a.pos.distanceTo(f.pos); if (a.role === 'tank' && x < td) { td = x; tk = a; } if (a.role === 'heal' && x < hd) { hd = x; hl = a; } if (x < bd - 1.5 && x < 7) { bd = x; best = a; } } f.tg = f.hunt && hl ? hl : tk || best; }
+      const tg = f.tg;
+      if (f.healer && (f.hT = (f.hT || 3) - dt) <= 0) { f.hT = 3; let w = null; for (const o of G.foes) if (!o.dead && o !== f && o.hp < o.max * 0.9 && o.pos.distanceTo(f.pos) < 16 && (!w || o.hp / o.max < w.hp / w.max)) w = o; if (w) { w.hp = Math.min(w.max, w.hp + w.max * 0.12); projectile(f.pos, w.pos, 0x4ade80, 0.3); UI.dn(w.pos, '+soin', 'heal'); f.ch.play('cast', { once: true, restart: true }); f.ch.lock = 0.5; } }
+      if (f.mech && bossMech(f, dt)) { f.ch.root.rotation.y = Math.atan2(tg.pos.x - f.pos.x, tg.pos.z - f.pos.z); f.ch.root.position.copy(f.pos); f.ch.update(dt); continue; }
+      mv = run = moveTo(f, tg.pos, f.kind === 2 ? 4.8 : 5.6, dt, 1.4 + f.r);
       if (!mv) {
         f.ch.root.rotation.y = Math.atan2(tg.pos.x - f.pos.x, tg.pos.z - f.pos.z); f.cd -= dt;
         if (f.cd <= 0) { f.cd = f.kind === 2 ? 2 : 1.7; f.ch.play('attack', { once: true, restart: true, speed: 1.4 }); f.ch.lock = 0.6; foeHurt(f, tg); if (f.kind === 2) { shock(f.pos, 0xff3355, 5, 0.5); E.shake = 0.25; if (f.leg) for (const a of [...G.army]) if (a.pos.distanceTo(f.pos) < 6) foeHurt(f, a); } }
@@ -472,6 +477,8 @@ export function update(dt) {
     f.ch.lock -= dt; if (mv) f.ch.play(run ? 'run' : 'walk'); else if (f.ch.lock <= 0) f.ch.play('idle');
     collide(f.pos, f.r * 0.6 + 0.3, G.info.R); f.ch.root.position.copy(f.pos); f.ch.update(dt);
   }
+
+  teleTick(dt);
 
   /* habitants du Sanctuaire, interaction de proximité */
   G.near = null;
@@ -493,13 +500,63 @@ function heroStrike(t, aspd) {
   const w = WEAPONS.find(x => x.id === S.wEq);
   slash(P.pos, P.ang, w.glow || 0xc9b6ff, crit); hitFoe(t, dmg, crit, 'pl'); burst(t.pos.clone().setY(1), w.glow || 0xffffff, crit ? 10 : 5, { speed: 3 });
 }
-function heroHurt(f) {
-  const P = G.P; if (G.dead > 0) return;
-  const d = heroHp() * f.dmgPct * clamp(f.unit / (power() * 1.5), 0.35, 8) * rnd(0.85, 1.15); P.hp -= d; UI.dn(P.pos, d, 'hurt'); UI.hurt();
+function heroHurt(f) { heroDamage(heroHp() * f.dmgPct * clamp(f.unit / (power() * 1.5), 0.35, 8) * rnd(0.85, 1.15), f); }
+function heroDamage(d, f) {
+  const P = G.P; if (G.dead > 0) return; P.hp -= d; UI.dn(P.pos, d, 'hurt'); UI.hurt();
   if (P.hp <= 0) {
     P.hp = 0; P.ch.play('death', { once: true, restart: true }); SFX.play('lose', 0.6);
     if (G.dg) { G.dead = 99; dgFail('Tu es tombé'); return; }
-    G.dead = 3; if (f.kind === 2) G.bossSkip = 90; UI.banner('VAINCU', f.kind === 2 ? 'Ce boss est trop fort — renforce ton armée' : 'Renforce ton arme et ton armée', '#ff3355');
+    G.dead = 3; if (f.kind === 2) G.bossSkip = 90; UI.banner('VAINCU', f.kind === 2 ? 'Apprends ses attaques : tank devant, soigneur derrière, sors des zones rouges' : 'Renforce ton arme et ton armée', '#ff3355');
   }
 }
+function healTry(a, maxHp) {
+  const P = G.P, k = 1 + a.sh.rk * 0.15; let best = null, br = 0.85;
+  if (G.dead <= 0 && P.hp / maxHp < br && P.pos.distanceTo(a.pos) < 18) { best = P; br = P.hp / maxHp; }
+  for (const o of G.army) if (o.hp / 100 < br && o.pos.distanceTo(a.pos) < 18) { best = o; br = o.hp / 100; }
+  if (!best) return false;
+  if (best === P) { const h = maxHp * 0.07 * k; P.hp = Math.min(maxHp, P.hp + h); UI.dn(P.pos, '+' + Math.round(h), 'heal'); } else { best.hp = Math.min(100, best.hp + 24 * k); UI.dn(best.pos, '+soin', 'heal'); }
+  a.ch.play('cast', { once: true, restart: true, speed: 1.6 }); a.ch.lock = 0.5; projectile(a.pos, best.pos, 0x4ade80, 0.25); return true;
+}
+
+/* ---------- mécaniques de boss : zones annoncées au sol ---------- */
+function tele(type, pos, r, ang, dur, src, pct, ud) {
+  const obj = new THREE.Group(); const geo = type === 'cone' ? new THREE.CircleGeometry(r, 28, -0.8, 1.6) : new THREE.CircleGeometry(r, 44);
+  const mk = op => { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xff3048, transparent: true, opacity: op, depthWrite: false, depthTest: false, side: THREE.DoubleSide })); m.rotation.x = -Math.PI / 2; return m; };
+  const out = mk(0.38), inn = mk(0.6); inn.position.y = 0.02; inn.scale.setScalar(0.01); obj.add(out, inn);
+  const edge = new THREE.Mesh(type === 'cone' ? new THREE.RingGeometry(r - 0.25, r, 28, 1, -0.8, 1.6) : new THREE.RingGeometry(r - 0.25, r, 44), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8, side: THREE.DoubleSide })); edge.rotation.x = -Math.PI / 2; edge.position.y = 0.03; obj.add(edge);
+  obj.position.set(pos.x, 0.12, pos.z); if (type === 'cone') obj.rotation.y = ang - Math.PI / 2; E.scene.add(obj);
+  G.tele.push({ type, pos: pos.clone(), r, ang, t: 0, dur, src, pct, ud, obj, inn }); SFX.play('ping', 0.4);
+}
+const inTele = (t, p) => { const dx = p.x - t.pos.x, dz = p.z - t.pos.z; if (Math.hypot(dx, dz) > t.r) return false; if (t.type !== 'cone') return true; return Math.abs(((Math.atan2(dx, dz) - t.ang + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < 0.8; };
+function teleTick(dt) {
+  G.warn = false;
+  for (let i = G.tele.length - 1; i >= 0; i--) {
+    const t = G.tele[i]; t.t += dt; const k = Math.min(1, t.t / t.dur); t.inn.scale.setScalar(Math.max(0.01, k));
+    if (t.src.dead || t.src.ret) { t.obj.removeFromParent(); G.tele.splice(i, 1); continue; }
+    if (G.dead <= 0 && inTele(t, G.P.pos)) G.warn = true;
+    if (k < 1) continue;
+    t.obj.removeFromParent(); G.tele.splice(i, 1); const f = t.src;
+    shock(t.pos, 0xff2040, t.r * 0.9, 0.45); burst(t.pos.clone().setY(1), 0xff5a3c, 30, { spread: t.r * 0.5, speed: 6 }); E.shake = 0.45; SFX.play('boom', 0.6);
+    if (G.dead <= 0 && inTele(t, G.P.pos)) heroDamage(heroHp() * t.pct * clamp(f.unit / (power() * 1.5), 0.6, 3), f);
+    for (const a of [...G.army]) if (inTele(t, a.pos)) { a.hp -= t.ud * ROLES[a.role].take; UI.dn(a.pos, 'TOUCHÉE', 'hurt'); if (a.hp <= 0) unitDie(a); }
+  }
+}
+function bossMech(f, dt) {
+  f.fightT += dt;
+  if (!f.enr && (f.fightT > 70 || f.hp < f.max * 0.15)) { f.enr = 1; f.dmgPct = f.dmg0 * 1.7; UI.banner('ENRAGE !', `${f.n.split(',')[0]} frappe 70 % plus fort — achève-le`, '#ff3355'); burst(f.pos.clone().setY(2), 0xff2040, 40, { speed: 8 }); SFX.play('boom', 0.7); E.shake = 0.4; }
+  if (f.addsAt.length && f.hp < f.max * f.addsAt[0]) {
+    f.addsAt.shift(); UI.banner('RENFORTS !', 'Des chasseurs visent tes soigneurs', '#ff7a45'); SFX.play('bell', 0.6);
+    for (let i = 0; i < 3; i++) { const a = i / 3 * 6.28; const n = spawnFoe(0, f.pos.clone().add(V(Math.cos(a) * 5, 0, Math.sin(a) * 5)), { hunt: true, camp: f.camp }); n.aggro = true; n.home = f.home.clone(); n.free = f.free; n.leash = 45; }
+  }
+  if (f.cast > 0) { f.cast -= dt; return true; }
+  if ((f.mT -= dt) > 0) return false;
+  const list = f.mech.filter(m => m !== 'adds'); if (!list.length) { f.mT = 99; return false; }
+  const m = list[f.mi++ % list.length], tg = f.tg || G.P; f.mT = f.enr ? 5 : rnd(7, 9);
+  if (m === 'slam') { tele('circle', G.P.pos, 5.5, 0, 1.7, f, 0.45, 70); f.cast = 0.9; }
+  else if (m === 'cone') { tele('cone', f.pos, 11 + f.r, Math.atan2(tg.pos.x - f.pos.x, tg.pos.z - f.pos.z), 1.5, f, 0.42, 65); f.cast = 1.5; }
+  else { tele('ring', f.pos, 9 + f.r, 0, 2.3, f, 0.55, 80); f.cast = 2.3; }
+  f.ch.play('cast', { once: true, restart: true, speed: 0.9 }); f.ch.lock = f.cast; UI.dn(f.pos, MECH_N[m], 'fail');
+  return true;
+}
+const MECH_N = { slam: 'FRAPPE AU SOL', cone: 'BALAYAGE', nova: 'NOVA' };
 export { spawnFoe };

@@ -1,8 +1,8 @@
 /* UMBRA — interface : HUD façon Arise, panneaux (inventaire, ombres, mondes, autel, quêtes, succès, stats) */
 import { E, toScreen } from './engine.js';
 import { RAR, WEAPONS, RELICS, ACCS, SLOTS, WORLDS, FOES, STAGES, SUMMON, QUESTS, ACH, STAT_NAMES, SRANKS, SRANK_COL, W_MAXLV, W_MAXSTAR, R_MAXLV, A_MAXLV, SH_MAXLV,
-  wUpCost, wPower, aUpCost, aMult, mission, xpNeed, armyMax, shadowPow, shUpCost, relicSlots, fmt, fmtTime, TRAITS, UNIQUES, KILL_TITLES, DUNGEONS, DG_WAVES, DG_TIME, WORLD_RW, PORTAL_RW, dungeonRW, recoPower, rkMin, rkMax, foeHp, MANA_WAVE, MANA_RECALL, ATTRS, MILES, TW_TIME, twTier, twRank, twCount, SPIN_CD } from './data.js';
-import { S, save, wipe, bonus, dirty, heroDmg, heroHp, heroMp, shDmg, equipped, autoEquipShadows, power, owned, armyCap, HUNTER, examReady, promote } from './state.js';
+  wUpCost, wPower, aUpCost, aMult, mission, xpNeed, armyMax, shadowPow, shUpCost, relicSlots, fmt, fmtTime, TRAITS, UNIQUES, KILL_TITLES, DUNGEONS, DG_WAVES, DG_TIME, WORLD_RW, PORTAL_RW, dungeonRW, recoPower, rkMin, rkMax, foeHp, MANA_WAVE, MANA_RECALL, ATTRS, MILES, ROLES, MECHS, TW_TIME, twTier, twRank, twCount, SPIN_CD } from './data.js';
+import { S, save, wipe, bonus, dirty, heroDmg, heroHp, heroMp, shDmg, equipped, autoEquipShadows, power, owned, armyCap, HUNTER, examReady, promote, roleOf } from './state.js';
 import { UIC, relicIcon, accIcon, shadowIcon } from './icons.js';
 import { SFX } from './audio.js';
 
@@ -23,7 +23,7 @@ UI.build = () => {
   <div id="mis"><div id="misI">${UIC.skull()}</div><div id="misT"><b id="misN"></b><small id="misS"></small><div class="pb2"><i id="misB"></i></div></div></div>
   <div id="marks"></div>
   <div id="rc"><div id="dmgbox"></div><div id="buffs"></div><div id="wprop"></div></div>
-  <div id="penter" class="ia" hidden></div>
+  <div id="penter" class="ia" hidden></div><div id="warn" hidden>⚠ SORS DE LA ZONE ROUGE !</div>
   <div id="lucky"></div><div id="toasts"></div><div id="loot"></div>
   <div id="zt"><div id="ztn"></div><div id="zts"></div></div>
   <div id="banner"><b></b><small></small></div>
@@ -120,7 +120,7 @@ UI.update = dt => {
   const ns = G.souls.filter(s => s.pos.distanceTo(P.pos) < 16).length; $('soulN').hidden = !ns; $('soulN').textContent = ns; $('aArise').classList.toggle('ready', ns > 0);
   $('fallN').hidden = !G.fallen.length; $('fallN').textContent = G.fallen.length; $('aRecall').classList.toggle('ready', G.fallen.length > 0 && P.mp >= MANA_RECALL);
   $('aWave').classList.toggle('off', P.mp < MANA_WAVE || G.waveCd > 0); $('aWave').querySelector('.cdv').style.height = (G.waveCd / 3 * 100) + '%';
-  $('armyN').textContent = `${G.army.length}/${armyCap()}`;
+  const rc = { tank: 0, heal: 0, dps: 0 }; for (const a of G.army) rc[a.role]++; $('armyN').innerHTML = `${G.army.length}/${armyCap()}<br><i>🛡${rc.tank} ✚${rc.heal} ⚔${rc.dps}</i>`;
   const mis = $('mis'), big = (G.boss && G.boss.aggro && G.boss) || (G.legend && G.legend.aggro && G.legend) || (dg && G.boss);
   mis.classList.toggle('boss', !!big);
   if (big) { $('misN').textContent = `${big.leg ? 'LÉGENDAIRE' : 'BOSS'} : ${big.n}`; $('misS').textContent = `${fmt(big.hp)} / ${fmt(big.max)} PV${dg ? ` · ⏱ ${mmss(dg.t)}` : ''}`; $('misB').style.width = (big.hp / big.max * 100) + '%'; }
@@ -146,6 +146,7 @@ UI.update = dt => {
   // repères fléchés
   const s = Math.sin(E.yaw), c = Math.cos(E.yaw);
   $('marks').innerHTML = GM.markers().slice(0, 3).map(m => { const vx = m.pos.x - P.pos.x, vz = m.pos.z - P.pos.z; const ang = Math.atan2(vx * s + vz * c, vx * c - vz * s) * 180 / Math.PI; return `<div class="mk" style="--c:${m.c}"><div class="arr" style="transform:rotate(${ang}deg)">➤</div><div><b>${m.n}</b><small>${m.s} — ${Math.round(Math.hypot(vx, vz))} m${m.t ? ' · ' + mmss(m.t) : ''}</small></div></div>`; }).join('');
+  $('warn').hidden = !G.warn;
   const nr = G.near, pe = $('penter'); pe.hidden = !nr || !!$('panel') || !!document.querySelector('.reveal');
   if (nr) { const col = nr.type === 'npc' ? '#ffcc33' : RAR[G.portal.r].c; pe.style.setProperty('--c', col); pe.innerHTML = nr.type === 'npc' ? `PARLER — <b>${nr.npc.n}</b>` : `ENTRER — PORTAIL RANG <b>${SRANKS[G.portal.r]}</b>`; }
   if (S.pts > 0 || examReady()) UI.dot('stats'); if (questReady()) UI.dot('quetes'); if (achReady()) UI.dot('succes'); if (S.keys.some(k => k > 0) && !dg) UI.dot('donjons');
@@ -184,7 +185,7 @@ UI.loot = items => {
 const arcs = [];
 UI.ariseCard = sh => {
   const c = SRANK_COL[sh.rk]; const F = FOES[sh.type];
-  const e = h('div', 'arc', `${shadowIcon(F.model, c, '')}<div><small>ÉVEIL RÉUSSI</small><b><i style="background:${c}">${SRANKS[sh.rk]}</i>${sh.n}</b><small style="letter-spacing:0">${F.n} · ${sh.eq ? 'rejoint ton armée' : 'rangée (armée pleine)'}</small></div>`);
+  const e = h('div', 'arc', `${shadowIcon(F.model, c, '')}<div><small>ÉVEIL RÉUSSI</small><b><i style="background:${c}">${SRANKS[sh.rk]}</i>${sh.n}</b><small style="letter-spacing:0">${ROLES[roleOf(sh)].ic} ${ROLES[roleOf(sh)].n} · ${sh.eq ? 'rejoint ton armée' : 'rangée (armée pleine)'}</small></div>`);
   e.style.setProperty('--c', c); document.body.appendChild(e); arcs.unshift(e); arcs.forEach((a, i) => a.style.setProperty('--i', i));
   setTimeout(() => e.classList.add('out'), 2300); setTimeout(() => { e.remove(); arcs.splice(arcs.indexOf(e), 1); }, 2800);
   while (arcs.length > 4) { arcs.pop().remove(); }
@@ -299,8 +300,8 @@ function renderShadows() {
   const list = [...S.sh].sort((a, b) => shSort === 'pow' ? (b.eq - a.eq) || (shDmg(b) - shDmg(a)) : b.rk - a.rk || shDmg(b) - shDmg(a));
   const sel = S.sh.find(s => s.id === selId) || list[0]; selId = sel?.id;
   const cards = list.map(s => { const F = FOES[s.type]; return `<div class="ci" data-id="${s.id}">${shCard(s, F, sel === s)}</div>`; }).join('') || '<div class="empty">Aucune ombre. Abats un ennemi puis touche S\'ÉLEVER pour l\'éveiller.</div>';
-  const body = `<div style="flex:1;display:flex;flex-direction:column;min-width:0"><div class="tools"><span class="chip">Armée ${equipped().length}/${armyCap()}</span><span class="chip">Total ${S.sh.length}</span><button class="btn g" data-a="best">Équiper le meilleur</button><button class="btn r" data-a="sell">Vendre les rangs F-E rangés</button><button class="btn b" data-a="sort">Tri : ${shSort === 'pow' ? 'Puissance' : 'Rang'}</button></div><div class="grid scroll" style="flex:1">${cards}</div></div>${sel ? detShadow(sel) : ''}`;
-  frame('Ombres', UIC.ombres(), 'Chaque ombre a un nom, un rang et des traits', body);
+  const body = `<div style="flex:1;display:flex;flex-direction:column;min-width:0"><div class="tools"><span class="chip">Armée ${equipped().length}/${armyCap()}</span><span class="chip">Total ${S.sh.length}</span><span class="chip">${['tank', 'heal', 'dps'].map(r => `<b style="color:${ROLES[r].c}">${ROLES[r].ic} ${equipped().filter(x => roleOf(x) === r).length}</b>`).join(' · ')}</span><button class="btn g" data-a="best">Équipe équilibrée</button><button class="btn r" data-a="sell">Vendre les rangs F-E rangés</button><button class="btn b" data-a="sort">Tri : ${shSort === 'pow' ? 'Puissance' : 'Rang'}</button></div><div class="grid scroll" style="flex:1">${cards}</div></div>${sel ? detShadow(sel) : ''}`;
+  frame('Ombres', UIC.ombres(), '🛡 Tank : encaisse · ✚ Soigneur : soigne · ⚔ Dégâts : frappe fort', body);
   on('.ci', e => { selId = +e.dataset.id; render(); });
   on('[data-a]', e => {
     const a = e.dataset.a;
@@ -315,13 +316,14 @@ function renderShadows() {
 }
 function shCard(s, F, sel, noName) {
   const c = SRANK_COL[s.rk]; const R2 = RAR[s.rk];
-  return `<div class="card shc${sel ? ' sel' : ''}${R2.rainbow ? ' rb' : ''}${s.u ? ' uq' : ''}" style="--rc:${c}"><div class="in">${shadowIcon(F.model, c)}${noName ? '' : `<div class="nm">${s.n}</div><div class="pw2">⚔ ${fmt(shDmg(s))}</div>`}</div><div class="rk big">${SRANKS[s.rk]}</div>${s.eq ? '<div class="ck">✓</div>' : ''}${s.u ? '<div class="utag">UNIQUE</div>' : ''}${noName ? '' : `<div class="lv">Nv.${s.lv}</div>`}${s.aw ? `<div class="aw">${'★'.repeat(s.aw)}</div>` : ''}</div>`;
+  return `<div class="card shc${sel ? ' sel' : ''}${R2.rainbow ? ' rb' : ''}${s.u ? ' uq' : ''}" style="--rc:${c}"><div class="in">${shadowIcon(F.model, c)}${noName ? '' : `<div class="nm">${s.n}</div><div class="pw2">⚔ ${fmt(shDmg(s))}</div>`}</div><div class="rk big">${SRANKS[s.rk]}</div>${s.eq ? '<div class="ck">✓</div>' : ''}${s.u ? '<div class="utag">UNIQUE</div>' : ''}<div class="role" style="background:${ROLES[roleOf(s)].c}">${ROLES[roleOf(s)].ic}</div>${noName ? '' : `<div class="lv">Nv.${s.lv}</div>`}${s.aw ? `<div class="aw">${'★'.repeat(s.aw)}</div>` : ''}</div>`;
 }
 const killTitle = k => [...KILL_TITLES].reverse().find(t => (k || 0) >= t[0])[1];
 const traitHtml = s => (s.tr || []).map(([k, v], i) => `<div class="trait${s.u && i === 0 ? ' sig' : ''}"><b>${s.u && i === 0 ? '✦ ' : ''}${TRAITS[k].n}</b><span>+${fmt(v)} % ${STAT_NAMES[k]}</span></div>`).join('') || '<div class="trait none"><span>Aucun trait — les rangs D et plus en possèdent</span></div>';
 function detShadow(s) {
   const F = FOES[s.type], c = SRANK_COL[s.rk], cost = shUpCost(s), U = s.u && UNIQUES[s.u];
   return `<div class="det scroll"><div class="big">${shCard(s, F, false, true)}</div><h3>${s.n}</h3><div class="rar" style="color:${c}">Rang ${SRANKS[s.rk]} · ${U ? U.t : F.n}</div>
+  <div class="rolebox" style="--c:${ROLES[roleOf(s)].c}"><b>${ROLES[roleOf(s)].ic} ${ROLES[roleOf(s)].n}</b><span>${ROLES[roleOf(s)].d}</span></div>
   ${U ? `<p class="quote">« ${U.q} »</p>` : ''}
   ${kv('Dégâts', '⚔ ' + fmt(shDmg(s)), 'red')}${kv('Niveau', `${s.lv}/${SH_MAXLV}`)}${U ? kv('Éveil (doublons)', `${'★'.repeat(s.aw || 0) || '—'} ${s.aw || 0}/5`, 'cy') : ''}
   <div class="traits">${traitHtml(s)}</div>
@@ -336,7 +338,7 @@ UI.reveal = sh => {
   document.querySelector('.reveal')?.remove();
   const F = FOES[sh.type], c = SRANK_COL[sh.rk], U = sh.u && UNIQUES[sh.u];
   const e = h('div', 'reveal', `<div class="rays"></div><div class="rv"><div class="rvk">${U ? 'OMBRE UNIQUE' : 'NOUVELLE OMBRE'}</div><div class="rvp">${shadowIcon(F.model, c, '')}<div class="rvr">${SRANKS[sh.rk]}</div></div>
-    <h2>${sh.n}</h2><div class="rvt">${U ? U.t : F.n}</div>${U ? `<p class="quote">« ${U.q} »</p>` : ''}<div class="traits">${traitHtml(sh)}</div><div class="rvd">⚔ ${fmt(shDmg(sh))} · ${sh.eq ? 'rejoint ton armée' : 'rangée — armée pleine'}</div><small>Touche pour continuer</small></div>`);
+    <h2>${sh.n}</h2><div class="rvt">${U ? U.t : F.n} · <span style="color:${ROLES[roleOf(sh)].c}">${ROLES[roleOf(sh)].ic} ${ROLES[roleOf(sh)].n}</span></div>${U ? `<p class="quote">« ${U.q} »</p>` : ''}<div class="traits">${traitHtml(sh)}</div><div class="rvd">⚔ ${fmt(shDmg(sh))} · ${sh.eq ? 'rejoint ton armée' : 'rangée — armée pleine'}</div><small>Touche pour continuer</small></div>`);
   e.style.setProperty('--c', c); document.body.appendChild(e); SFX.play('win', 0.7);
   const close = () => e.remove(); e.onclick = close; setTimeout(close, 7000);
 };
@@ -372,7 +374,8 @@ function renderDungeons() {
   const near = selId === 'portal' && G.near && G.near.type === 'portal';
   const det = `<div class="scroll dgd" style="--c:${RAR[r].c}"><div class="dgh"><div class="dgk">${SRANKS[r]}</div><div><h3>${D.n}</h3><small>${DG_WAVES.length} vagues (${DG_WAVES.join(' + ')} ennemis) puis le boss · ${Math.round(DG_TIME / 60)} minutes · un seul essai</small></div></div>
     ${kv('Puissance conseillée', fmt(recoPower(r)), 'red')}${kv('Ta puissance', fmt(power()))}<div class="verdict" style="color:${vc};border-color:${vc}">${vt}</div>
-    <div class="bossrow"><img src="assets/i/p_${U.model}.png"><div><small>BOSS — OMBRE UNIQUE À ÉVEILLER (35 %)</small><b>${U.n}, ${U.t}</b><span style="color:${RAR[U.rk].c}">Rang ${SRANKS[U.rk]} · ✦ ${TRAITS[U.sig[0]].n} +${U.sig[1]} %</span></div></div>
+    <div class="bossrow"><img src="assets/i/p_${U.model}.png"><div><small>BOSS — OMBRE UNIQUE À ÉVEILLER (35 %)</small><b>${U.n}, ${U.t}</b><span style="color:${RAR[U.rk].c}">Rang ${SRANKS[U.rk]} · ${ROLES[FOES[U.foe].role].ic} ${ROLES[FOES[U.foe].role].n} · ✦ ${TRAITS[U.sig[0]].n} +${U.sig[1]} %</span></div></div>
+    <div class="mechs">${[...U.mech, 'enrage'].map(m => `<div><b>${MECHS[m][0]}</b> — ${MECHS[m][1]}</div>`).join('')}</div>
     <div class="mi2">Butin et ombres : ${rw.map((x, i) => x > 0 ? `<b style="color:${RAR[i].c}">${SRANKS[i]} ${Math.round(x / rw.reduce((a, b) => a + b, 0) * 100)} %</b>` : '').filter(Boolean).join(' · ')} — 1 relique garantie</div>
     ${G.dg ? '<button class="btn k" disabled>Déjà dans un donjon</button>' : selId === 'portal' ? `<button class="btn p" data-go="portal" ${near ? '' : 'disabled'}>${near ? 'ENTRER DANS LE PORTAIL' : 'Rejoins le portail pour entrer (suis la flèche)'}</button>` : `<button class="btn p" data-go="${r}" ${S.keys[r] ? '' : 'disabled'}>${S.keys[r] ? `OUVRIR AVEC UNE CLÉ ${UIC.key()}` : 'Aucune clé de ce rang'}</button>`}
     <p class="mi2">Les portails s'ouvrent au hasard dans les mondes. Les clés tombent sur les boss des mondes et dans les donjons. Terminés : ${S.dgDone[r]}</p></div>`;
@@ -478,7 +481,7 @@ function renderSettings() {
     <button class="btn ${S.music ? 'g' : 'k'}" data-s="music">Musique : ${S.music ? 'ON' : 'OFF'}</button>
     <button class="btn ${S.hq ? 'g' : 'k'}" data-s="hq">Qualité graphique : ${S.hq ? 'HAUTE' : 'ÉCONOMIE'}</button>
     <button class="btn r" data-s="wipe">${wipeArm ? 'Touche encore pour TOUT effacer' : 'Effacer la sauvegarde'}</button>
-    <p style="font-size:11px;color:#93c5fd;text-align:center">UMBRA v3 — Glisse à droite de l'écran pour tourner la caméra.</p></div>`;
+    <p style="font-size:11px;color:#93c5fd;text-align:center">UMBRA v5 — Glisse à droite de l'écran pour tourner la caméra.</p></div>`;
   frame('Réglages', UIC.reglages(), '', body);
   on('[data-s]', e => {
     const s = e.dataset.s;

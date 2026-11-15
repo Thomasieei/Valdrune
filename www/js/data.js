@@ -93,19 +93,19 @@ export const STAT_NAMES = { cash: 'Argent', gems: 'Gemmes', crit: 'Critique', hp
 /* ---------- ennemis ---------- */
 // model : personnage KayKit ; anim quadrupède gérée par le moteur
 export const FOES = {
-  voyou: { n: 'Voyou des Ruelles', model: 'Rogue_Hooded', tint: '#7c86a8' },
-  rodeur: { n: 'Rôdeur des Toits', model: 'Rogue', tint: '#a0a8c8' },
-  cogneur: { n: 'Cogneur du Port', model: 'Barbarian', tint: '#9aa3c7' },
-  loup: { n: 'Loup Sylvestre', model: 'wolf', sc: 0.6, tint: '#9fb39a' },
-  renard: { n: 'Renard Écarlate', model: 'fox', sc: 0.62, tint: '#ffb38a' },
-  cerf: { n: 'Cerf Ancien', model: 'stag', sc: 0.55, tint: '#c9b48a' },
-  taureau: { n: 'Taureau Furieux', model: 'bull', sc: 0.55, tint: '#c98a7a' },
-  sbire: { n: 'Sbire Squelette', model: 'Skeleton_Minion', tint: '#e8e4d8' },
-  guerrier: { n: 'Guerrier d\'Os', model: 'Skeleton_Warrior', tint: '#d9d2c0' },
-  sorcier: { n: 'Sorcier d\'Os', model: 'Skeleton_Mage', tint: '#c7b8ff' },
-  chevalier: { n: 'Chevalier Abyssal', model: 'Knight', tint: '#7a5cff' },
-  mage: { n: 'Mage du Néant', model: 'Mage', tint: '#c26bff' },
-  dragon: { n: 'Dragon de l\'Abysse', model: 'dragon', sc: 1.1, tint: '#9b5cff' },
+  voyou: { role: 'dps', n: 'Voyou des Ruelles', model: 'Rogue_Hooded', tint: '#7c86a8' },
+  rodeur: { role: 'dps', n: 'Rôdeur des Toits', model: 'Rogue', tint: '#a0a8c8' },
+  cogneur: { role: 'tank', n: 'Cogneur du Port', model: 'Barbarian', tint: '#9aa3c7' },
+  loup: { role: 'dps', n: 'Loup Sylvestre', model: 'wolf', sc: 0.6, tint: '#9fb39a' },
+  renard: { role: 'dps', n: 'Renard Écarlate', model: 'fox', sc: 0.62, tint: '#ffb38a' },
+  cerf: { role: 'heal', n: 'Cerf Ancien', model: 'stag', sc: 0.55, tint: '#c9b48a' },
+  taureau: { role: 'tank', n: 'Taureau Furieux', model: 'bull', sc: 0.55, tint: '#c98a7a' },
+  sbire: { role: 'dps', n: 'Sbire Squelette', model: 'Skeleton_Minion', tint: '#e8e4d8' },
+  guerrier: { role: 'tank', n: 'Guerrier d\'Os', model: 'Skeleton_Warrior', tint: '#d9d2c0' },
+  sorcier: { role: 'heal', n: 'Sorcier d\'Os', model: 'Skeleton_Mage', tint: '#c7b8ff' },
+  chevalier: { role: 'tank', n: 'Chevalier Abyssal', model: 'Knight', tint: '#7a5cff' },
+  mage: { role: 'dps', n: 'Mage du Néant', model: 'Mage', tint: '#c26bff' },
+  dragon: { role: 'dps', n: 'Dragon de l\'Abysse', model: 'dragon', sc: 1.1, tint: '#9b5cff' },
 };
 
 /* ---------- 4 mondes évolutifs (10 paliers chacun) ---------- */
@@ -147,21 +147,21 @@ export const shadowName = () => `${pick(FIRST)} ${pick(EPI)}`;
 export const KILL_TITLES = [[0, 'Recrue'], [100, 'Vétéran'], [1000, 'Élite'], [10000, 'Légende vivante']];
 // ombres uniques : les boss qu'on éveille gardent leur nom et un trait signature
 export const UNIQUES = {
-  vex: { n: 'Baron Vex', t: 'Seigneur du Port', foe: 'cogneur', model: 'Barbarian', rk: 1, sig: ['cash', 25], q: 'Tout s\'achète. Même ma loyauté… et c\'est toi qui l\'as.' },
-  ghorn: { n: 'Ghorn', t: 'Roi-Taureau Sylvestre', foe: 'taureau', model: 'bull', rk: 3, sig: ['all', 20], q: 'La forêt s\'incline. Moi aussi, désormais.' },
-  aldric: { n: 'Sire Aldric', t: 'Chevalier Pâle', foe: 'guerrier', model: 'Skeleton_Warrior', rk: 4, sig: ['arise', 15], q: 'J\'ai gardé ces tombes mille ans. Je garderai ton dos.' },
-  nyx: { n: 'Nyx\'thar', t: 'Dragon de l\'Abysse', foe: 'dragon', model: 'dragon', rk: 5, sig: ['sdmg', 60], q: 'Mes ailes couvraient le ciel. Elles couvrent ton armée.' },
-  krag: { n: 'Krag', t: 'Titan des Docks', foe: 'cogneur', model: 'Barbarian', rk: 1, leg: 1, sig: ['hp', 30], q: 'Dix hommes pour me soulever. Un seul pour me relever.' },
-  ramure: { n: 'Vieille-Ramure', t: 'Esprit de la Forêt', foe: 'cerf', model: 'stag', rk: 3, leg: 1, sig: ['luck', 15], q: 'J\'ai vu pousser chaque arbre. Je te verrai régner.' },
-  banshee: { n: 'Dame Vespérine', t: 'Reine des Lamentations', foe: 'sorcier', model: 'Skeleton_Mage', rk: 4, leg: 1, sig: ['aspd', 15], q: 'Mon cri brisait les vivants. Il portera tes ordres.' },
-  azrakh: { n: 'Azrakh', t: 'Bourreau du Néant', foe: 'chevalier', model: 'Knight', rk: 5, leg: 1, sig: ['all', 50], q: 'J\'ai exécuté des rois. Tu es le premier que je sers.' },
-  skrag: { n: 'Skrag', t: 'le Rançonneur', foe: 'rodeur', model: 'Rogue', rk: 0, sig: ['cash', 15], q: 'Je rançonnais les faibles. Tu ne l\'es pas.' },
-  osrouge: { n: 'Os-Rouge', t: 'Sbire Primordial', foe: 'sbire', model: 'Skeleton_Minion', rk: 1, sig: ['aspd', 8], q: 'Clac. Clac-clac.' },
-  fenrak: { n: 'Fenrak', t: 'Loup-Spectre', foe: 'loup', model: 'wolf', rk: 2, sig: ['crit', 5], q: 'La meute suit le plus fort. Je te suis.' },
-  morvhen: { n: 'Morvhen', t: 'la Liche', foe: 'sorcier', model: 'Skeleton_Mage', rk: 3, sig: ['arise', 10], q: 'La mort m\'a refusée. Toi, tu m\'as prise.' },
-  gael: { n: 'Sire Gaël', t: 'le Déchu', foe: 'chevalier', model: 'Knight', rk: 4, sig: ['wdmg', 40], q: 'J\'ai trahi un roi. Je ne trahirai pas un monarque.' },
-  ysolde: { n: 'Ysolde', t: 'Mage du Néant', foe: 'mage', model: 'Mage', rk: 5, sig: ['luck', 20], q: 'Le vide m\'a appris à attendre. Je t\'attendais.' },
-  rex: { n: 'Umbra-Rex', t: 'Monarque Primordial', foe: 'dragon', model: 'dragon', rk: 6, sig: ['all', 120], q: 'Avant les mondes, il y avait l\'ombre. Et l\'ombre, c\'était moi.' },
+  vex: { mech: ['slam'], n: 'Baron Vex', t: 'Seigneur du Port', foe: 'cogneur', model: 'Barbarian', rk: 1, sig: ['cash', 25], q: 'Tout s\'achète. Même ma loyauté… et c\'est toi qui l\'as.' },
+  ghorn: { mech: ['cone'], n: 'Ghorn', t: 'Roi-Taureau Sylvestre', foe: 'taureau', model: 'bull', rk: 3, sig: ['all', 20], q: 'La forêt s\'incline. Moi aussi, désormais.' },
+  aldric: { mech: ['cone', 'slam'], n: 'Sire Aldric', t: 'Chevalier Pâle', foe: 'guerrier', model: 'Skeleton_Warrior', rk: 4, sig: ['arise', 15], q: 'J\'ai gardé ces tombes mille ans. Je garderai ton dos.' },
+  nyx: { mech: ['nova', 'cone'], n: 'Nyx\'thar', t: 'Dragon de l\'Abysse', foe: 'dragon', model: 'dragon', rk: 5, sig: ['sdmg', 60], q: 'Mes ailes couvraient le ciel. Elles couvrent ton armée.' },
+  krag: { mech: ['slam', 'nova'], n: 'Krag', t: 'Titan des Docks', foe: 'cogneur', model: 'Barbarian', rk: 1, leg: 1, sig: ['hp', 30], q: 'Dix hommes pour me soulever. Un seul pour me relever.' },
+  ramure: { mech: ['cone', 'adds'], n: 'Vieille-Ramure', t: 'Esprit de la Forêt', foe: 'cerf', model: 'stag', rk: 3, leg: 1, sig: ['luck', 15], q: 'J\'ai vu pousser chaque arbre. Je te verrai régner.' },
+  banshee: { mech: ['nova', 'adds'], n: 'Dame Vespérine', t: 'Reine des Lamentations', foe: 'sorcier', model: 'Skeleton_Mage', rk: 4, leg: 1, sig: ['aspd', 15], q: 'Mon cri brisait les vivants. Il portera tes ordres.' },
+  azrakh: { mech: ['cone', 'slam', 'nova'], n: 'Azrakh', t: 'Bourreau du Néant', foe: 'chevalier', model: 'Knight', rk: 5, leg: 1, sig: ['all', 50], q: 'J\'ai exécuté des rois. Tu es le premier que je sers.' },
+  skrag: { mech: ['slam'], n: 'Skrag', t: 'le Rançonneur', foe: 'rodeur', model: 'Rogue', rk: 0, sig: ['cash', 15], q: 'Je rançonnais les faibles. Tu ne l\'es pas.' },
+  osrouge: { mech: ['slam', 'adds'], n: 'Os-Rouge', t: 'Sbire Primordial', foe: 'sbire', model: 'Skeleton_Minion', rk: 1, sig: ['aspd', 8], q: 'Clac. Clac-clac.' },
+  fenrak: { mech: ['cone', 'adds'], n: 'Fenrak', t: 'Loup-Spectre', foe: 'loup', model: 'wolf', rk: 2, sig: ['crit', 5], q: 'La meute suit le plus fort. Je te suis.' },
+  morvhen: { mech: ['nova', 'adds'], n: 'Morvhen', t: 'la Liche', foe: 'sorcier', model: 'Skeleton_Mage', rk: 3, sig: ['arise', 10], q: 'La mort m\'a refusée. Toi, tu m\'as prise.' },
+  gael: { mech: ['cone', 'slam'], n: 'Sire Gaël', t: 'le Déchu', foe: 'chevalier', model: 'Knight', rk: 4, sig: ['wdmg', 40], q: 'J\'ai trahi un roi. Je ne trahirai pas un monarque.' },
+  ysolde: { mech: ['nova', 'slam', 'adds'], n: 'Ysolde', t: 'Mage du Néant', foe: 'mage', model: 'Mage', rk: 5, sig: ['luck', 20], q: 'Le vide m\'a appris à attendre. Je t\'attendais.' },
+  rex: { mech: ['cone', 'nova', 'slam', 'adds'], n: 'Umbra-Rex', t: 'Monarque Primordial', foe: 'dragon', model: 'dragon', rk: 6, sig: ['all', 120], q: 'Avant les mondes, il y avait l\'ombre. Et l\'ombre, c\'était moi.' },
 };
 
 /* ---------- portails et donjons (rangs F → S) ---------- */
@@ -174,7 +174,7 @@ export const DUNGEONS = [
   { r: 5, n: 'Sanctuaire du Néant', tier: 33, foes: ['mage', 'chevalier'], boss: 'ysolde' },
   { r: 6, n: 'Trône Primordial', tier: 40, foes: ['chevalier', 'mage'], boss: 'rex' },
 ];
-export const DG_TIME = 180, DG_WAVES = [10, 12, 14];
+export const DG_TIME = 240, DG_WAVES = [10, 12, 14];
 export const PORTAL_RW = [[65, 35, 0, 0, 0, 0, 0], [0, 40, 45, 15, 0, 0, 0], [0, 0, 25, 45, 30, 0, 0], [0, 0, 0, 0, 50, 42, 8]];
 export const recoPower = r => foeHp(DUNGEONS[r].tier) * 1.8;
 
@@ -224,3 +224,18 @@ export const ATTRS = [
 export const PTS_LVL = 3;
 /* récompenses de paliers de chaque île (affichées à l'avance) */
 export const MILES = [[3, 'Gemmes'], [5, 'Clé de portail'], [7, '+1 ombre dans l\'armée'], [10, 'Île suivante']];
+
+/* ---------- rôles des ombres ---------- */
+export const ROLES = {
+  tank: { n: 'Tank', ic: '🛡', c: '#38bdf8', dmg: 0.6, take: 0.4, d: 'Attire les ennemis sur lui et encaisse 60 % de dégâts en moins. Tient les boss loin de toi.' },
+  heal: { n: 'Soigneur', ic: '✚', c: '#4ade80', dmg: 0.3, take: 1.3, d: 'Soigne l\'allié le plus blessé (toi compris) toutes les 2 secondes. Fragile : protège-le.' },
+  dps: { n: 'Dégâts', ic: '⚔', c: '#ff3b5c', dmg: 1.3, take: 1, d: 'Frappe fort (+30 % de dégâts). C\'est lui qui abat les boss avant l\'enrage.' },
+};
+/* ---------- mécaniques de boss ---------- */
+export const MECHS = {
+  slam: ['Frappe au sol', 'Un cercle rouge apparaît sous tes pieds : sors-en avant l\'explosion.'],
+  cone: ['Balayage', 'Le boss balaie devant lui, vers sa cible. Laisse un tank le tenir et reste dans son dos.'],
+  nova: ['Nova', 'Une onde part du boss : éloigne-toi de lui avant qu\'elle n\'éclate.'],
+  adds: ['Renforts', 'À 66 % et 33 % de vie, des chasseurs visent tes soigneurs. Tue-les vite.'],
+  enrage: ['Enrage', 'Après 70 secondes de combat (ou à 15 % de vie), le boss frappe 70 % plus fort.'],
+};

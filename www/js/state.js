@@ -1,5 +1,5 @@
 /* UMBRA — état du joueur, sauvegarde, calcul des bonus */
-import { WEAPONS, RELICS, ACCS, ACH, wPower, aMult, shadowPow, armyMax, relicSlots } from './data.js';
+import { WEAPONS, RELICS, ACCS, ACH, wPower, aMult, shadowPow, armyMax, relicSlots, FOES, ROLES } from './data.js';
 
 const KEY = 'umbra_v3';
 export function fresh() {
@@ -44,12 +44,15 @@ export function heroDmg() {
 export const heroHp = () => 120 * Math.pow(1.16, S.lvl - 1) * (1 + bonus().hp / 100);
 export const heroMp = () => 100 + 6 * (S.lvl - 1) + S.at.int * 3;
 export const armyCap = () => armyMax(S.lvl) + S.armyB;
-export const shDmg = sh => shadowPow(sh) * (1 + bonus().sdmg / 100) * (1 + bonus().all / 100);
+export const roleOf = sh => FOES[sh.type].role;
+export const shDmg = sh => shadowPow(sh) * ROLES[roleOf(sh)].dmg * (1 + bonus().sdmg / 100) * (1 + bonus().all / 100);
 export const equipped = () => S.sh.filter(s => s.eq);
 export function power() { return heroDmg() * 3 + equipped().reduce((a, s) => a + shDmg(s), 0); }
 export function autoEquipShadows() {
-  const max = armyCap(); S.sh.forEach(s => s.eq = false);
-  [...S.sh].sort((a, b) => shadowPow(b) - shadowPow(a)).slice(0, max).forEach(s => s.eq = true);
+  const max = armyCap(); S.sh.forEach(x => x.eq = false); const by = [...S.sh].sort((a, b) => shadowPow(b) - shadowPow(a)); const q = Math.max(1, Math.round(max * 0.2)); let n = 0;
+  for (const r of ['tank', 'heal']) for (const x of by.filter(y => roleOf(y) === r).slice(0, q)) { x.eq = true; n++; }
+  for (const x of by) { if (n >= max) break; if (!x.eq && roleOf(x) === 'dps') { x.eq = true; n++; } }
+  for (const x of by) { if (n >= max) break; if (!x.eq) { x.eq = true; n++; } }
 }
 export function relicSlotsN() { return relicSlots(S.lvl); }
 export const owned = () => Object.keys(S.w).length + Object.keys(S.rel).length + Object.keys(S.acc).length;
