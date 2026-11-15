@@ -21,9 +21,21 @@ jobs:
           tar xf blender-4.2.3-linux-x64.tar.xz && sudo ln -s $PWD/blender-4.2.3-linux-x64/blender /usr/local/bin/blender
           blender -b --version | head -1
       - name: Traitement
+        env:
+          ONLY: "hell_wolf wolf_guy goblin_tes icy_dragon igris_boss hand_painted_orc gobelin-avocat city_street_pack hall-of-blood-red-commander-igris knife knife_arme epilogue_dagger"
         run: ./run.sh srcrepo/src work out
-      - name: Publier sur la branche assets-opt
+      - name: Publier sur la branche assets-opt (fusion)
         run: |
-          cd out && git init -q -b assets-opt && git add -A
-          git -c user.name=ci -c user.email=ci@local commit -qm "Assets optimisés ${{ github.run_number }}"
-          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" assets-opt
+          git clone -q --depth 1 -b assets-opt "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" prev
+          python3 - <<'PY'
+          import json, shutil, os, glob
+          new = [json.loads(l) for l in open('out/report.jsonl') if l.strip()]
+          ids = {r['id'] for r in new}
+          old = [json.loads(l) for l in open('prev/report.jsonl') if l.strip()]
+          merged = [next((n for n in new if n['id'] == r['id']), r) for r in old] + [n for n in new if n['id'] not in {r['id'] for r in old}]
+          for f in glob.glob('out/*'):
+              if not f.endswith('report.jsonl'): shutil.copy(f, 'prev/')
+          open('prev/report.jsonl', 'w').write(''.join(json.dumps(r) + '\n' for r in merged))
+          PY
+          python3 sheet.py prev
+          cd prev && git add -A && git -c user.name=ci -c user.email=ci@local commit -qm "Assets optimisés ${{ github.run_number }}" && git push -q

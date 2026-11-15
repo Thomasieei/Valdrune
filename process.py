@@ -46,10 +46,14 @@ scene = bpy.context.scene
 # drop non-geometry clutter (cameras/lights) and hidden helper meshes
 for o in list(scene.objects):
     if o.type in ('CAMERA', 'LIGHT'): bpy.data.objects.remove(o, do_unlink=True)
-JUNK = ('shadow', 'ground', 'vignette', 'floor', 'plane', 'pedestal', 'backdrop')
+JUNK = ('shadow', 'ground', 'vignette', 'floor', 'plane', 'pedestal', 'backdrop', 'sky')
 for o in list(scene.objects):
     if o.type == 'MESH' and len(o.data.polygons) <= 60 and any(k in o.name.lower() or k in o.data.name.lower() for k in JUNK):
         bpy.data.objects.remove(o, do_unlink=True); rep['junk'] = rep.get('junk', 0) + 1
+    elif o.type == 'MESH' and len(o.data.polygons) <= 2:
+        bpy.data.objects.remove(o, do_unlink=True); rep['junk'] = rep.get('junk', 0) + 1
+for o in scene.objects:
+    if o.type == 'ARMATURE': o.data.pose_position = 'REST'
 meshes = [o for o in scene.objects if o.type == 'MESH']
 arms = [o for o in scene.objects if o.type == 'ARMATURE']
 rep['tris_in'] = tris(meshes); rep['bones'] = sum(len(o.data.bones) for o in arms)
@@ -93,9 +97,9 @@ def find_tex(words):
 for m in bpy.data.materials:
     if not m.use_nodes: continue
     nt = m.node_tree
-    if any(n.type == 'TEX_IMAGE' and n.image for n in nt.nodes): continue
     bsdf = next((n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED'), None)
     if not bsdf: continue
+    if bsdf.inputs['Base Color'].is_linked: continue
     base = find_tex(['basecolor', 'base_color', 'albedo', 'diffuse', '_co.', 'color', 'difuse', 'alb'])
     if not base and len([f for f in texfiles if not f.lower().endswith('.dds')]) == 1:
         base = [f for f in texfiles if not f.lower().endswith('.dds')][0]
@@ -114,6 +118,14 @@ for o in meshes:
     if o.data.shape_keys:
         o.shape_key_clear()
 
+# ---- apply generative modifiers (array/mirror/subsurf...) on static meshes
+for o in [o for o in scene.objects if o.type == 'MESH']:
+    if any(m.type == 'ARMATURE' for m in o.modifiers): continue
+    bpy.context.view_layer.objects.active = o
+    for m in list(o.modifiers):
+        try: bpy.ops.object.modifier_apply(modifier=m.name)
+        except Exception: o.modifiers.remove(m)
+meshes = [o for o in scene.objects if o.type == 'MESH']
 # ---- join environment meshes
 if KIND == 'env':
     bpy.ops.object.select_all(action='DESELECT')
@@ -131,7 +143,7 @@ if KIND == 'env':
 # ---- decimate
 t0 = tris(meshes)
 if CAP and t0 > CAP:
-    r = max(CAP / t0, 0.02)
+    r = max(CAP / t0, 0.002)
     for o in meshes:
         if len(o.data.polygons) < 40: continue
         bpy.context.view_layer.objects.active = o
@@ -175,6 +187,14 @@ def ebbox(objs):
     P = np.concatenate(pts); return np.percentile(P, 0.3, 0), np.percentile(P, 99.7, 0)
 ms_ = [o for o in scene.objects if o.type == 'MESH']
 mn, mx = ebbox(ms_)
+if NORM > 0 and KIND == 'char' and (mx - mn)[1] > 1.3 * (mx - mn)[2]:
+    rt = bpy.data.objects.new('Upright', None); scene.collection.objects.link(rt)
+    for o in list(scene.objects):
+        if o is not rt and o.parent is None:
+            mw = o.matrix_world.copy(); o.parent = rt; o.matrix_world = mw
+    rt.rotation_euler = (math.radians(90), 0, 0); bpy.context.view_layer.update(); mn, mx = ebbox(ms_)
+    if (mx - mn)[2] < 0: pass
+    rep['uprighted'] = True
 if NORM and KIND != 'env' and KIND != 'kit':
     ext_ = mx - mn; cur = ext_[2] if NORM > 0 else ext_.max(); s_ = abs(NORM) / max(cur, 1e-6)
     root = bpy.data.objects.new('Root', None); scene.collection.objects.link(root)
@@ -189,6 +209,8 @@ rep['size_m'] = [round(float(x), 2) for x in (mx - mn)]
 acts = [ac.name for ac in bpy.data.actions]
 rep['anims'] = len(acts); rep['anim_names'] = acts[:50]
 
+for o in scene.objects:
+    if o.type == 'ARMATURE': o.data.pose_position = 'POSE'
 os.makedirs(OUT, exist_ok=True)
 out = os.path.join(OUT, AID + '.glb')
 kw = dict(filepath=out, export_format='GLB', export_image_format='AUTO', export_apply=True, export_animations=bool(arms) or bool(acts), export_yup=True)
@@ -200,6 +222,8 @@ rep['mb_out'] = round(os.path.getsize(out) / 1e6, 2)
 clear(); bpy.ops.import_scene.gltf(filepath=out)
 sc = bpy.context.scene
 ms = [o for o in sc.objects if o.type == 'MESH']
+for o in sc.objects:
+    if o.type == 'ARMATURE': o.data.pose_position = 'REST'
 rep['verify_tris'] = tris(ms); rep['verify_anims'] = len(bpy.data.actions)
 rep['verify_skinned'] = any(m.type == 'ARMATURE' for o in ms for m in o.modifiers)
 mn, mx = ebbox(ms); mn = Vector(mn.tolist()); mx = Vector(mx.tolist())

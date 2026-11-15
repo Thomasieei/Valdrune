@@ -12,6 +12,7 @@ xtract(){ # recursive extraction of zip/rar inside dir
 }
 grep -v '^#' assets.txt | while read -r id kind cap tex nrm; do
   [ -z "$id" ] && continue
+  if [ -n "$ONLY" ] && ! echo " $ONLY " | grep -q " $id "; then continue; fi
   d="$W/$id"; mkdir -p "$d"
   if [ -f "$SRC/$id.glb" ]; then cp "$SRC/$id.glb" "$d/"; elif [ -f "$SRC/$id.zip" ]; then unzip -oq "$SRC/$id.zip" -d "$d"; else echo "MISSING $id"; continue; fi
   xtract "$d"
@@ -21,4 +22,3 @@ grep -v '^#' assets.txt | while read -r id kind cap tex nrm; do
   grep -q "^REPORT" "$OUT/$id.log" || echo "{\"id\":\"$id\",\"error\":\"crash\",\"tail\":$(tail -c 400 "$OUT/$id.log" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read()))')}" >> "$OUT/report.jsonl"
   echo "done $id"; rm -rf "$d"
 done
-python3 sheet.py "$OUT"
