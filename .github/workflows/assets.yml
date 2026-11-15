@@ -1,0 +1,29 @@
+name: Assets pipeline
+on:
+  push:
+    branches: [assets-pipeline]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with: { ref: assets-src, path: srcrepo }
+      - name: Outils
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq unrar 7zip libxi6 libxkbcommon0 libsm6 libgl1 libegl1 >/dev/null || sudo apt-get install -y -qq p7zip-full libxi6 libxkbcommon0 libsm6 libgl1 libegl1 >/dev/null
+          pip install -q pillow
+          wget -q https://download.blender.org/release/Blender4.2/blender-4.2.3-linux-x64.tar.xz
+          tar xf blender-4.2.3-linux-x64.tar.xz && sudo ln -s $PWD/blender-4.2.3-linux-x64/blender /usr/local/bin/blender
+          blender -b --version | head -1
+      - name: Traitement
+        run: ./run.sh srcrepo/src work out
+      - name: Publier sur la branche assets-opt
+        run: |
+          cd out && git init -q -b assets-opt && git add -A
+          git -c user.name=ci -c user.email=ci@local commit -qm "Assets optimisés ${{ github.run_number }}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" assets-opt
