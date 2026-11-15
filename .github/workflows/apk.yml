@@ -1,0 +1,60 @@
+name: APK Igris Test
+on:
+  push:
+    branches: [igris-test]
+  workflow_dispatch:
+permissions:
+  contents: write
+env:
+  GODOT_VERSION: 4.3
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Installer Godot et les modèles d'export
+        run: |
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          unzip -q Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 /usr/local/bin/godot
+          mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          unzip -q Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          mv templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+      - name: Configurer le SDK Android
+        run: |
+          godot --headless --editor --quit || true
+          F=$(ls ~/.config/godot/editor_settings-4*.tres | head -1)
+          echo "export/android/android_sdk_path = \"$ANDROID_SDK_ROOT\"" >> "$F"
+          echo "export/android/java_sdk_path = \"$JAVA_HOME\"" >> "$F"
+      - name: Importer les ressources
+        run: godot --headless --path . --import || godot --headless --path . --editor --quit || true
+      - name: Test de lancement (scripts + animations)
+        run: |
+          godot --headless --path . --quit-after 240 2>&1 | tee run.log || true
+          if grep -E "SCRIPT ERROR|Parse Error" run.log; then echo "Erreur de script"; exit 1; fi
+          grep "IGRIS_ANIMS:" run.log | grep Walk | grep Attack | grep Idle || { echo "Animations absentes"; exit 1; }
+      - name: Exporter l'APK
+        env:
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ github.workspace }}/android/royaume.keystore
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: royaume
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: royaume2026
+        run: |
+          sed -i "s/^version\/code=.*/version\/code=${{ github.run_number }}/; s/^version\/name=.*/version\/name=\"0.1.${{ github.run_number }}\"/" export_presets.cfg
+          mkdir -p out
+          godot --headless --path . --export-release "Android" out/IgrisTest.apk
+          ls -la out
+          test -s out/IgrisTest.apk
+      - name: Publier la Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: igris-test-v0.1.${{ github.run_number }}
+          name: Igris Test v0.1.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          make_latest: false
+          body: Test rig auto Igris (squelette UAL) — marche, attaque, repos. Télécharge IgrisTest.apk depuis ton téléphone.
+          files: out/IgrisTest.apk
