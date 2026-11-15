@@ -125,7 +125,7 @@ export const tierOf = (w, s) => WORLDS[w].base + s;
 export const foeHp = t => 40 * Math.pow(1.62, t);
 export const foeDmg = t => 4 * Math.pow(1.5, t);
 export const foeCash = t => 6 * Math.pow(1.6, t);
-export const mission = (w, s) => ({ kills: 25 + s * 4, brutes: 3 + Math.floor(s / 3) });
+export const mission = (w, s) => ({ kills: 40 + s * 12, brutes: 5 + s });
 
 /* ---------- ombres : rangs, traits, identité ---------- */
 export const SRANKS = RK;
@@ -214,3 +214,13 @@ export const twRank = f => Math.min(6, Math.floor(f / 8));
 export const twCount = f => Math.min(14, 6 + Math.floor(f / 3));
 export const SPIN_CD = 4 * 3600e3;
 export const MANA_WAVE = 20, MANA_RECALL = 12;
+
+/* ---------- attributs du héros (3 points par niveau) ---------- */
+export const ATTRS = [
+  { k: 'for', n: 'Force', d: '+2 % dégâts d\'arme', c: '#ff3b5c' }, { k: 'vit', n: 'Vitalité', d: '+2 % PV', c: '#4ade80' },
+  { k: 'int', n: 'Intelligence', d: '+3 mana, +1,5 % dégâts des ombres', c: '#38bdf8' }, { k: 'agi', n: 'Agilité', d: '+0,5 % vitesse d\'attaque, +0,3 % vitesse', c: '#ffcc33' },
+  { k: 'per', n: 'Perception', d: '+0,2 % critique, +0,5 % butin rare', c: '#c26bff' },
+];
+export const PTS_LVL = 3;
+/* récompenses de paliers de chaque île (affichées à l'avance) */
+export const MILES = [[3, 'Gemmes'], [5, 'Clé de portail'], [7, '+1 ombre dans l\'armée'], [10, 'Île suivante']];

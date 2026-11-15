@@ -3,7 +3,7 @@ import { E, makeChar, attachWeapon, buildWorld, collide, burst, slash, shock, pi
 import { WEAPONS, RELICS, ACCS, WORLDS, FOES, STAGES, RAR, W_MAXSTAR, R_MAXLV, A_MAXLV, tierOf, foeHp, foeCash, mission, xpNeed, armyMax, SRANKS, SRANK_COL, shadowPow,
   rollRankW, WORLD_RW, rkMin, rkMax, dungeonRW, PORTAL_RW, DUNGEONS, DG_TIME, DG_WAVES, UNIQUES, TRAITS, TRAIT_N, traitVal, shadowName, SUMMON, NPCS,
   TW_TIME, twTier, twRank, twCount, SPIN_CD, MANA_WAVE, MANA_RECALL, rnd, pick, clamp } from './data.js';
-import { S, save, bonus, dirty, heroDmg, heroHp, heroMp, shDmg, equipped, relicSlotsN, power } from './state.js';
+import { S, save, bonus, dirty, heroDmg, heroHp, heroMp, shDmg, equipped, relicSlotsN, power, armyCap } from './state.js';
 import { UI } from './ui.js';
 import { SFX } from './audio.js';
 
@@ -262,11 +262,11 @@ export function spin() {
 /* ---------- XP / niveau ---------- */
 function gainXp(x) {
   S.xp += x; let up = 0;
-  while (S.xp >= xpNeed(S.lvl)) { S.xp -= xpNeed(S.lvl); S.lvl++; up = 1; }
+  while (S.xp >= xpNeed(S.lvl)) { S.xp -= xpNeed(S.lvl); S.lvl++; S.pts += 3; up = 1; }
   if (up) {
     G.P.hp = heroHp(); G.P.mp = heroMp(); dirty(); pillar(G.P.pos, 0xffcc33, 10); SFX.play('power', 0.6);
-    UI.banner('NIVEAU ' + S.lvl, `Armée max : ${armyMax(S.lvl)} ombres`, '#ffcc33');
-    const free = armyMax(S.lvl) - equipped().length; if (free > 0) { S.sh.filter(s => !s.eq).sort((a, b) => shDmg(b) - shDmg(a)).slice(0, free).forEach(s => s.eq = true); syncArmy(); }
+    UI.banner('NIVEAU ' + S.lvl, '+3 points d\'attributs à répartir (menu Chasseur)', '#ffcc33'); UI.dot('stats');
+    const free = armyCap() - equipped().length; if (free > 0) { S.sh.filter(s => !s.eq).sort((a, b) => shDmg(b) - shDmg(a)).slice(0, free).forEach(s => s.eq = true); syncArmy(); }
   }
 }
 
@@ -285,6 +285,12 @@ function bossDown(f) {
     S.stage[w]++;
     if (S.stage[w] >= STAGES) { if (S.maxWorld < Math.min(3, w + 1)) S.maxWorld = Math.min(3, w + 1); UI.banner('ÎLE CONQUISE !', w < 3 ? `${WORLDS[w + 1].n} est débloquée — parle à Lyra` : 'Tu règnes sur l\'Abysse', W().col); SFX.play('win', 0.8); }
     else { UI.banner(`PALIER ${S.stage[w] + 1}`, 'Les monstres qui réapparaissent seront plus forts… et plus riches', W().col); SFX.play('win', 0.6); }
+    const st = S.stage[w], mk = w + '-' + st;
+    if (!S.miles[mk]) {
+      if (st === 3) { const gm = 80 * (w + 1); S.gems += gm; S.miles[mk] = 1; UI.toast(`Récompense de palier : +${gm} gemmes`, 'gold'); }
+      else if (st === 5) { const kr = rkMax(PORTAL_RW[w]); S.keys[kr]++; S.miles[mk] = 1; UI.toast(`Récompense de palier : clé de portail rang ${SRANKS[kr]}`, 'gold'); }
+      else if (st === 7) { S.armyB++; S.miles[mk] = 1; UI.toast('Récompense de palier : +1 ombre dans ton armée', 'gold'); }
+    }
   }
   pillar(f.pos, 0xffcc33, 14); shock(f.pos, 0xffcc33, 10, 1); E.shake = 0.6; save();
 }
@@ -320,7 +326,7 @@ export function arise() {
       if (dup) { dup.aw = Math.min(5, (dup.aw || 0) + 1); pillar(s.pos, 0xffcc33, 10); UI.banner(`${dup.n} S'ÉVEILLE`, `Éveil ${'★'.repeat(dup.aw)} — +25 % de puissance`, '#ffcc33'); S.st.arises++; continue; }
       const sh = makeShadow(s);
       S.sh.push(sh); S.st.arises++; bumpQ('arises');
-      if (equipped().length < armyMax(S.lvl)) sh.eq = true;
+      if (equipped().length < armyCap()) sh.eq = true;
       else { const weak = equipped().sort((a, b) => shDmg(a) - shDmg(b))[0]; if (weak && shDmg(weak) * 1.3 < shDmg(sh)) { weak.eq = false; sh.eq = true; } }
       pillar(s.pos, SRANK_COL[sh.rk], 8); UI.dn(s.pos, 'ÉVEIL !', 'arise');
       if (sh.eq) syncArmy();

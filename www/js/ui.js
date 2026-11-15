@@ -1,8 +1,8 @@
 /* UMBRA — interface : HUD façon Arise, panneaux (inventaire, ombres, mondes, autel, quêtes, succès, stats) */
 import { E, toScreen } from './engine.js';
 import { RAR, WEAPONS, RELICS, ACCS, SLOTS, WORLDS, FOES, STAGES, SUMMON, QUESTS, ACH, STAT_NAMES, SRANKS, SRANK_COL, W_MAXLV, W_MAXSTAR, R_MAXLV, A_MAXLV, SH_MAXLV,
-  wUpCost, wPower, aUpCost, aMult, mission, xpNeed, armyMax, shadowPow, shUpCost, relicSlots, fmt, fmtTime, TRAITS, UNIQUES, KILL_TITLES, DUNGEONS, DG_WAVES, DG_TIME, WORLD_RW, PORTAL_RW, dungeonRW, recoPower, rkMin, rkMax, foeHp, MANA_WAVE, MANA_RECALL, TW_TIME, twTier, twRank, twCount, SPIN_CD } from './data.js';
-import { S, save, wipe, bonus, dirty, heroDmg, heroHp, heroMp, shDmg, equipped, autoEquipShadows, power, owned } from './state.js';
+  wUpCost, wPower, aUpCost, aMult, mission, xpNeed, armyMax, shadowPow, shUpCost, relicSlots, fmt, fmtTime, TRAITS, UNIQUES, KILL_TITLES, DUNGEONS, DG_WAVES, DG_TIME, WORLD_RW, PORTAL_RW, dungeonRW, recoPower, rkMin, rkMax, foeHp, MANA_WAVE, MANA_RECALL, ATTRS, MILES, TW_TIME, twTier, twRank, twCount, SPIN_CD } from './data.js';
+import { S, save, wipe, bonus, dirty, heroDmg, heroHp, heroMp, shDmg, equipped, autoEquipShadows, power, owned, armyCap, HUNTER, examReady, promote } from './state.js';
 import { UIC, relicIcon, accIcon, shadowIcon } from './icons.js';
 import { SFX } from './audio.js';
 
@@ -12,7 +12,7 @@ export const UI = {};
 let G = null, GM = null; // module de jeu (injecté pour éviter l'import circulaire)
 UI.bind = (g, gm) => { G = g; GM = gm; };
 
-const HEX = [['inv', 'Inventaire', '#7c3aed'], ['ombres', 'Ombres', '#9f1239'], ['mondes', 'Îles', '#0369a1'], ['donjons', 'Portails', '#6d28d9'], ['quetes', 'Quêtes', '#b45309'], ['succes', 'Succès', '#a16207'], ['stats', 'Stats', '#047857'], ['reglages', 'Réglages', '#334155']];
+const HEX = [['inv', 'Inventaire', '#7c3aed'], ['ombres', 'Ombres', '#9f1239'], ['mondes', 'Îles', '#0369a1'], ['donjons', 'Portails', '#6d28d9'], ['quetes', 'Quêtes', '#b45309'], ['succes', 'Succès', '#a16207'], ['stats', 'Chasseur', '#047857'], ['reglages', 'Réglages', '#334155']];
 const wImg = (w, cls = 'ic') => `<img class="${cls}" src="assets/i/${w.id}.png" alt="">`;
 
 /* ---------- construction du HUD ---------- */
@@ -113,14 +113,14 @@ UI.update = dt => {
   hudT -= dt; if (hudT > 0) return; hudT = 0.2;
   const b = bonus(), hub = S.world < 0, dg = G.dg, W = WORLDS[Math.max(0, S.world)];
   $('cash').innerHTML = `${UIC.cash()}${fmt(S.cash)}`; $('gems').innerHTML = `${fmt(S.gems)}${UIC.gem()}`;
-  const xn = xpNeed(S.lvl); $('lvbar').firstChild.style.width = (S.xp / xn * 100) + '%'; $('lvbar').lastChild.textContent = `Niveau : ${S.lvl}  ·  ${(S.xp / xn * 100).toFixed(1)} %  ·  Puissance ${fmt(power())}`;
+  const xn = xpNeed(S.lvl); $('lvbar').firstChild.style.width = (S.xp / xn * 100) + '%'; $('lvbar').lastChild.textContent = `Chasseur rang ${SRANKS[S.hunter]}  ·  Niveau ${S.lvl}  ·  ${(S.xp / xn * 100).toFixed(1)} %  ·  Puissance ${fmt(power())}`;
   const hpM = heroHp(), mpM = heroMp(), vb = $('vit').children;
   vb[0].firstChild.style.width = Math.max(0, P.hp / hpM * 100) + '%'; vb[0].lastChild.textContent = `PV ${fmt(Math.max(0, P.hp))} / ${fmt(hpM)}`;
   vb[1].firstChild.style.width = Math.max(0, P.mp / mpM * 100) + '%'; vb[1].lastChild.textContent = `MANA ${Math.floor(P.mp)} / ${mpM}`;
   const ns = G.souls.filter(s => s.pos.distanceTo(P.pos) < 16).length; $('soulN').hidden = !ns; $('soulN').textContent = ns; $('aArise').classList.toggle('ready', ns > 0);
   $('fallN').hidden = !G.fallen.length; $('fallN').textContent = G.fallen.length; $('aRecall').classList.toggle('ready', G.fallen.length > 0 && P.mp >= MANA_RECALL);
   $('aWave').classList.toggle('off', P.mp < MANA_WAVE || G.waveCd > 0); $('aWave').querySelector('.cdv').style.height = (G.waveCd / 3 * 100) + '%';
-  $('armyN').textContent = `${G.army.length}/${armyMax(S.lvl)}`;
+  $('armyN').textContent = `${G.army.length}/${armyCap()}`;
   const mis = $('mis'), big = (G.boss && G.boss.aggro && G.boss) || (G.legend && G.legend.aggro && G.legend) || (dg && G.boss);
   mis.classList.toggle('boss', !!big);
   if (big) { $('misN').textContent = `${big.leg ? 'LÉGENDAIRE' : 'BOSS'} : ${big.n}`; $('misS').textContent = `${fmt(big.hp)} / ${fmt(big.max)} PV${dg ? ` · ⏱ ${mmss(dg.t)}` : ''}`; $('misB').style.width = (big.hp / big.max * 100) + '%'; }
@@ -148,7 +148,7 @@ UI.update = dt => {
   $('marks').innerHTML = GM.markers().slice(0, 3).map(m => { const vx = m.pos.x - P.pos.x, vz = m.pos.z - P.pos.z; const ang = Math.atan2(vx * s + vz * c, vx * c - vz * s) * 180 / Math.PI; return `<div class="mk" style="--c:${m.c}"><div class="arr" style="transform:rotate(${ang}deg)">➤</div><div><b>${m.n}</b><small>${m.s} — ${Math.round(Math.hypot(vx, vz))} m${m.t ? ' · ' + mmss(m.t) : ''}</small></div></div>`; }).join('');
   const nr = G.near, pe = $('penter'); pe.hidden = !nr || !!$('panel') || !!document.querySelector('.reveal');
   if (nr) { const col = nr.type === 'npc' ? '#ffcc33' : RAR[G.portal.r].c; pe.style.setProperty('--c', col); pe.innerHTML = nr.type === 'npc' ? `PARLER — <b>${nr.npc.n}</b>` : `ENTRER — PORTAIL RANG <b>${SRANKS[G.portal.r]}</b>`; }
-  if (questReady()) UI.dot('quetes'); if (achReady()) UI.dot('succes'); if (S.keys.some(k => k > 0) && !dg) UI.dot('donjons');
+  if (S.pts > 0 || examReady()) UI.dot('stats'); if (questReady()) UI.dot('quetes'); if (achReady()) UI.dot('succes'); if (S.keys.some(k => k > 0) && !dg) UI.dot('donjons');
 };
 
 /* ---------- retours visuels ---------- */
@@ -299,7 +299,7 @@ function renderShadows() {
   const list = [...S.sh].sort((a, b) => shSort === 'pow' ? (b.eq - a.eq) || (shDmg(b) - shDmg(a)) : b.rk - a.rk || shDmg(b) - shDmg(a));
   const sel = S.sh.find(s => s.id === selId) || list[0]; selId = sel?.id;
   const cards = list.map(s => { const F = FOES[s.type]; return `<div class="ci" data-id="${s.id}">${shCard(s, F, sel === s)}</div>`; }).join('') || '<div class="empty">Aucune ombre. Abats un ennemi puis touche S\'ÉLEVER pour l\'éveiller.</div>';
-  const body = `<div style="flex:1;display:flex;flex-direction:column;min-width:0"><div class="tools"><span class="chip">Armée ${equipped().length}/${armyMax(S.lvl)}</span><span class="chip">Total ${S.sh.length}</span><button class="btn g" data-a="best">Équiper le meilleur</button><button class="btn r" data-a="sell">Vendre les rangs F-E rangés</button><button class="btn b" data-a="sort">Tri : ${shSort === 'pow' ? 'Puissance' : 'Rang'}</button></div><div class="grid scroll" style="flex:1">${cards}</div></div>${sel ? detShadow(sel) : ''}`;
+  const body = `<div style="flex:1;display:flex;flex-direction:column;min-width:0"><div class="tools"><span class="chip">Armée ${equipped().length}/${armyCap()}</span><span class="chip">Total ${S.sh.length}</span><button class="btn g" data-a="best">Équiper le meilleur</button><button class="btn r" data-a="sell">Vendre les rangs F-E rangés</button><button class="btn b" data-a="sort">Tri : ${shSort === 'pow' ? 'Puissance' : 'Rang'}</button></div><div class="grid scroll" style="flex:1">${cards}</div></div>${sel ? detShadow(sel) : ''}`;
   frame('Ombres', UIC.ombres(), 'Chaque ombre a un nom, un rang et des traits', body);
   on('.ci', e => { selId = +e.dataset.id; render(); });
   on('[data-a]', e => {
@@ -307,7 +307,7 @@ function renderShadows() {
     if (a === 'best') { autoEquipShadows(); GM.syncArmy(); SFX.play('ok', 0.5); }
     else if (a === 'sell') { let v = 0, n = 0; S.sh = S.sh.filter(s => { if (!s.eq && s.rk <= 1 && !s.u) { v += shUpCost(s) * 0.4; n++; return false; } return true; }); S.cash += v; if (n) UI.toast(`${n} ombres vendues : +${fmt(v)}`, 'gold'); }
     else if (a === 'sort') shSort = shSort === 'pow' ? 'rank' : 'pow';
-    else if (a === 'eq') { if (sel.eq) sel.eq = false; else if (equipped().length < armyMax(S.lvl)) sel.eq = true; else { UI.toast('Armée pleine — monte de niveau pour plus d\'ombres', 'bad'); return; } GM.syncArmy(); }
+    else if (a === 'eq') { if (sel.eq) sel.eq = false; else if (equipped().length < armyCap()) sel.eq = true; else { UI.toast('Armée pleine — monte de niveau pour plus d\'ombres', 'bad'); return; } GM.syncArmy(); }
     else if (a === 'up') { const c = shUpCost(sel); if (S.cash >= c && sel.lv < SH_MAXLV) { S.cash -= c; sel.lv++; GM.bumpUpgrade(); SFX.play('coins', 0.5); } }
     else if (a === 'del') { if (sel.eq || sel.u) return; S.cash += shUpCost(sel) * 0.4; S.sh.splice(S.sh.indexOf(sel), 1); selId = null; GM.syncArmy(); }
     render();
@@ -349,7 +349,7 @@ function renderWorlds() {
     const st = S.stage[i], lock = i > S.maxWorld, here = i === S.world && !G.dg, m = mission(i, Math.min(st, STAGES - 1));
     return `<div class="wc${lock ? ' lockd' : ''}${here ? ' here' : ''}" style="--c:${w.col}"><div class="num">#${i + 1}</div><b>${w.n}</b><small>${w.sub}</small>
       <div class="prop">✦ ${w.propTxt}</div><div class="mi">Palier ${Math.min(st + 1, STAGES)}/${STAGES}${st >= STAGES ? ' — CONQUIS ✓' : ''} · Mission : ${m.kills} ennemis + ${m.brutes} brutes → ${UNIQUES[w.uq].n}</div>
-      <div class="pb2"><i style="width:${Math.min(st, STAGES) / STAGES * 100}%"></i></div>
+      <div class="pb2"><i style="width:${Math.min(st, STAGES) / STAGES * 100}%"></i></div><div class="miles">${MILES.map(([p, t]) => `<span class="${st >= p ? 'ok' : ''}">P${p} · ${t}</span>`).join('')}</div>
       <div class="mi">Butin et ombres : rangs ${WORLD_RW[i].map((x, r) => x > 0 ? `<b style="color:${RAR[r].c}">${SRANKS[r]}</b>` : '').filter(Boolean).join(' ')} · Portails : ${PORTAL_RW[i].map((x, r) => x > 0 ? `<b style="color:${RAR[r].c}">${SRANKS[r]}</b>` : '').filter(Boolean).join(' ')}</div>
       ${here ? '<button class="btn k" disabled>VOUS ÊTES ICI</button>' : lock ? `<button class="btn k" disabled>🔒 Conquiers ${WORLDS[i - 1].n} (10 paliers)</button>` : `<button class="btn b" data-w="${i}">TÉLÉPORTER</button>`}</div>`;
   }).join('')}</div>`;
@@ -457,12 +457,17 @@ function renderAch() {
 
 /* --- statistiques --- */
 function renderStats() {
-  const b = bonus();
-  const left = [['Niveau', S.lvl], ['PV max', fmt(heroHp())], ['Mana max', heroMp()], ['Dégâts héros', fmt(heroDmg())], ['Puissance totale', fmt(power())], ['Armée', `${equipped().length}/${armyMax(S.lvl)}`], ['Emplacements de reliques', relicSlots(S.lvl)]]
+  const b = bonus(), hr = S.hunter, max = hr >= 6, H = max ? null : HUNTER[hr], col = RAR[hr].c;
+  const lic = `<div class="stbox lic" style="--c:${col}"><div class="licr">${SRANKS[hr]}</div><h4>Licence de Chasseur</h4><p class="mi2">${max ? 'Rang S — tu es au sommet de l\'Association.' : `Examen du rang <b style="color:${RAR[hr + 1].c}">${SRANKS[hr + 1]}</b> :`}</p>
+    ${H ? H.c.map(([t, f]) => `<div class="cond${f() ? ' ok' : ''}">${f() ? '✓' : '○'} ${t}</div>`).join('') + `<p class="mi2">Récompense : +5 points d'attributs, +1 ombre dans l'armée, ${100 * (hr + 1)} gemmes.</p><button class="btn y" data-exam="1" ${examReady() ? '' : 'disabled'}>PASSER AU RANG ${SRANKS[hr + 1]}</button>` : ''}</div>`;
+  const att = `<div class="stbox"><h4>Attributs — ${S.pts} point${S.pts > 1 ? 's' : ''} à répartir</h4>${ATTRS.map(a2 => `<div class="attr"><div><b style="color:${a2.c}">${a2.n} ${S.at[a2.k]}</b><small>${a2.d}</small></div><button class="btn g" data-at="${a2.k}" data-n="1" ${S.pts ? '' : 'disabled'}>+1</button><button class="btn g" data-at="${a2.k}" data-n="5" ${S.pts >= 5 ? '' : 'disabled'}>+5</button></div>`).join('')}<p class="mi2">+3 points à chaque niveau, +5 à chaque rang de Chasseur.</p></div>`;
+  const left = [['Niveau', S.lvl], ['PV max', fmt(heroHp())], ['Mana max', heroMp()], ['Dégâts héros', fmt(heroDmg())], ['Puissance totale', fmt(power())], ['Armée', `${equipped().length}/${armyCap()}`], ['Emplacements de reliques', relicSlots(S.lvl)]]
     .concat(Object.keys(STAT_NAMES).filter(k => b[k]).map(k => [STAT_NAMES[k], `+${fmt(b[k])} %`]));
-  const right = [['Argent', fmt(S.cash)], ['Gemmes', fmt(S.gems)], ['Temps de jeu', fmtTime(S.st.play)], ['Ennemis vaincus', fmt(S.st.kills)], ['Brutes vaincues', fmt(S.st.brutes)], ['Boss vaincus', fmt(S.st.bosses)], ['Ombres éveillées', fmt(S.st.arises)], ['Lucky Drops', fmt(S.st.lucky)], ['Boss légendaires', fmt(S.st.legends || 0)], ['Coffres ouverts', fmt(S.st.chests || 0)], ['Record de la Tour', `Étage ${S.tower}`], ['Collection', `${owned()}/30`], ['Mondes conquis', `${S.stage.filter(s => s >= STAGES).length}/4`]];
-  const body = `<div class="cols scroll" style="flex:1"><div class="stbox"><h4>Héros</h4>${left.map(([k, v]) => kv(k, v)).join('')}</div><div class="stbox"><h4>Statistiques globales</h4>${right.map(([k, v]) => kv(k, v)).join('')}</div></div>`;
-  frame('Statistiques', UIC.stats(), '', body);
+  const right = [['Temps de jeu', fmtTime(S.st.play)], ['Ennemis vaincus', fmt(S.st.kills)], ['Boss vaincus', fmt(S.st.bosses)], ['Boss légendaires', fmt(S.st.legends || 0)], ['Ombres éveillées', fmt(S.st.arises)], ['Lucky Drops', fmt(S.st.lucky)], ['Coffres ouverts', fmt(S.st.chests || 0)], ['Record de la Tour', `Étage ${S.tower}`], ['Collection', `${owned()}/30`], ['Îles conquises', `${S.stage.filter(x => x >= STAGES).length}/4`]];
+  const body = `<div class="cols3 scroll" style="flex:1">${lic}${att}<div class="stbox"><h4>Héros</h4>${left.map(([k, v]) => kv(k, v)).join('')}<h4 style="margin-top:6px">Carrière</h4>${right.map(([k, v]) => kv(k, v)).join('')}</div></div>`;
+  frame('Chasseur', UIC.stats(), `Rang ${SRANKS[hr]} · niveau ${S.lvl}`, body);
+  on('[data-at]', e => { const n = Math.min(+e.dataset.n, S.pts); if (n > 0) { S.at[e.dataset.at] += n; S.pts -= n; dirty(); G.P.hp = Math.min(heroHp(), G.P.hp); } render(); });
+  on('[data-exam]', () => { if (promote()) { GM.syncArmy(); UI.close(); UI.banner(`CHASSEUR DE RANG ${SRANKS[S.hunter]}`, 'L\'Association reconnaît ta puissance', RAR[S.hunter].c); SFX.play('win', 0.9); } });
 }
 
 /* --- réglages --- */
