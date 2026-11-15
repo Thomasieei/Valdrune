@@ -15,6 +15,8 @@ export const UIC = {
   succes: () => { const [g, d] = grad('#fde047', '#ca8a04'); return S(`${d}<path d="M6 3h12v4a6 6 0 01-12 0zM3 4h3v3a3 3 0 01-3-3zM21 4h-3v3a3 3 0 003-3zM10 13h4v4h3v3H7v-3h3z" fill="url(#${g})" stroke="#713f12" stroke-width="1"/>`); },
   stats: () => S(`<rect x="3" y="12" width="4" height="9" fill="#4ade80" stroke="#052e16"/><rect x="10" y="7" width="4" height="14" fill="#38bdf8" stroke="#082f49"/><rect x="17" y="3" width="4" height="18" fill="#f472b6" stroke="#500724"/>`),
   reglages: () => S(`<path d="M19.4 13a7.6 7.6 0 000-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 00-1.7-1L15 3h-4l-.4 2.9a7.4 7.4 0 00-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 000 2l-2.1 1.6 2 3.5 2.5-1c.5.4 1.1.7 1.7 1L11 21h4l.4-2.9c.6-.3 1.2-.6 1.7-1l2.5 1 2-3.5zM13 15a3 3 0 110-6 3 3 0 010 6z" fill="#cbd5e1" stroke="#1e293b" stroke-width="1"/>`),
+  donjons: () => S(`<circle cx="12" cy="12" r="10" fill="#1e1b4b" stroke="#c084fc" stroke-width="1.6"/><path d="M12 4a8 8 0 016 13M12 20a8 8 0 01-6-13M12 8a4 4 0 013 6.5M12 16a4 4 0 01-3-6.5" fill="none" stroke="#e879f9" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="12" r="1.6" fill="#fff"/>`),
+  key: () => S(`<circle cx="8" cy="12" r="5" fill="none" stroke="#fcd34d" stroke-width="3"/><path d="M13 12h9v3h-3v3h-3v-3h-3" fill="#fcd34d" stroke="#78350f" stroke-width=".6"/>`),
   cash: () => S(`<rect x="1" y="6" width="22" height="13" rx="2" fill="#22c55e" stroke="#052e16" stroke-width="1.2"/><rect x="3" y="4" width="22" height="13" rx="2" fill="#4ade80" stroke="#052e16" stroke-width="1.2" transform="translate(-2 0)"/><circle cx="12" cy="10.5" r="3.5" fill="#86efac" stroke="#14532d"/><text x="12" y="12.7" text-anchor="middle" font-size="6" font-weight="900" fill="#14532d">$</text>`),
   gem: () => S(`<path d="M6 3h12l4 6-10 13L2 9z" fill="#7dd3fc" stroke="#0c4a6e" stroke-width="1.3"/><path d="M2 9h20M9 3l3 6 3-6M12 9v13" stroke="#e0f2fe" stroke-width=".9" fill="none"/>`),
   fist: () => S(`<path d="M7 9V6a2 2 0 014 0v2-3a2 2 0 014 0v3-2a2 2 0 014 0v8c0 4-3 7-7 7s-7-3-7-6v-3a2 2 0 013-1z" fill="#fca5a5" stroke="#450a0a" stroke-width="1.2"/>`),
@@ -25,23 +27,8 @@ export const UIC = {
   skull: () => S(`<path d="M12 2C7 2 4 6 4 10c0 3 1.5 4.5 2 6v3h12v-3c.5-1.5 2-3 2-6 0-4-3-8-8-8z" fill="#fecdd3" stroke="#4c0519"/><circle cx="9" cy="11" r="2.3" fill="#4c0519"/><circle cx="15" cy="11" r="2.3" fill="#4c0519"/>`),
 };
 
-/* ---------- reliques ---------- */
-const RELIC_SHAPES = {
-  coin: (g) => `<circle cx="12" cy="12" r="9" fill="url(#${g})" stroke="#000" stroke-width="1.2"/><circle cx="12" cy="12" r="6" fill="none" stroke="#fff" stroke-opacity=".6"/><text x="12" y="16" text-anchor="middle" font-size="11" font-weight="900" fill="#fff" fill-opacity=".9" stroke="#000" stroke-width=".6">$</text>`,
-  fang: (g) => `<path d="M6 3c6 0 12 3 12 9 0 4-3 8-5 10 0-5-1-8-4-10-2-1-3-5-3-9z" fill="url(#${g})" stroke="#000" stroke-width="1.2"/><path d="M9 6c3 1 5 3 6 6" stroke="#fff" stroke-opacity=".6" fill="none"/>`,
-  feather: (g) => `<path d="M19 2C9 4 5 11 5 19l-2 3 1 .5 2-3C14 19 20 12 19 2z" fill="url(#${g})" stroke="#000" stroke-width="1.2"/><path d="M6 19C10 13 14 8 18 4" stroke="#fff" stroke-opacity=".7" fill="none"/>`,
-  hourglass: (g) => `<path d="M5 2h14v2c0 4-4 6-4 8s4 4 4 8v2H5v-2c0-4 4-6 4-8S5 8 5 4z" fill="url(#${g})" stroke="#000" stroke-width="1.2"/><path d="M8 19h8l-4-4z" fill="#fff" fill-opacity=".8"/><path d="M14 6l-3 4" stroke="#000" stroke-width="1.5"/>`,
-  heart: (g) => `<path d="M12 21C5 15 2 12 2 8a5 5 0 0110-1 5 5 0 0110 1c0 4-3 7-10 13z" fill="url(#${g})" stroke="#000" stroke-width="1.2"/><path d="M12 7c-1 2-3 3-2 6 1-1 2-1 2 2 1-2 3-3 2-6" fill="#fff7" />`,
-  tear: (g) => `<path d="M12 2c4 6 7 9 7 13a7 7 0 01-14 0c0-4 3-7 7-13z" fill="url(#${g})" stroke="#000" stroke-width="1.2"/><path d="M9 14a3 3 0 003 3" stroke="#fff" stroke-width="1.6" fill="none"/>`,
-  eye: (g) => `<path d="M1 12c4-6 18-6 22 0-4 6-18 6-22 0z" fill="#0b0620" stroke="#000" stroke-width="1.2"/><circle cx="12" cy="12" r="5" fill="url(#${g})"/><ellipse cx="12" cy="12" rx="1.5" ry="4" fill="#000"/><circle cx="10" cy="10" r="1" fill="#fff"/>`,
-  crown: (g) => `<path d="M2 8l5 4 5-8 5 8 5-4-2 12H4z" fill="url(#${g})" stroke="#000" stroke-width="1.2"/><circle cx="12" cy="15" r="2" fill="#fff" fill-opacity=".85"/><path d="M5 18h14" stroke="#000" stroke-opacity=".5"/>`,
-  seal: (g) => `<path d="M12 1l3 3h5v5l3 3-3 3v5h-5l-3 3-3-3H4v-5l-3-3 3-3V4h5z" fill="url(#${g})" stroke="#000" stroke-width="1.2"/><circle cx="12" cy="12" r="5" fill="#0b0620" stroke="#fff" stroke-opacity=".6"/><path d="M12 8v8M8 12h8" stroke="#fff" stroke-opacity=".8"/>`,
-  star: (g) => `<path d="M12 1l3 8h8l-6.5 5 2.5 8-7-5-7 5 2.5-8L1 9h8z" fill="url(#${g})" stroke="#000" stroke-width="1.2"/><circle cx="12" cy="12" r="3" fill="#000"/><circle cx="12" cy="12" r="1.3" fill="#fff"/>`,
-};
-export function relicIcon(rel, cls = 'ic') {
-  const R = RAR[rel.r]; const [g, d] = grad('#fff', R.c);
-  return `<svg class="${cls}" viewBox="0 0 24 24">${d.replace('stop-color="#fff"', `stop-color="${lighten(R.c)}"`)}${RELIC_SHAPES[rel.ic](g)}</svg>`;
-}
+/* ---------- reliques (icônes 3D rendues) ---------- */
+export function relicIcon(rel, cls = 'ic') { return `<img class="${cls}" src="assets/i/${rel.id}.png" alt="">`; }
 function lighten(hex) { const n = parseInt(hex.slice(1), 16); const f = v => Math.min(255, v + 110); return `rgb(${f(n >> 16)},${f((n >> 8) & 255)},${f(n & 255)})`; }
 
 /* ---------- accessoires ---------- */
@@ -59,13 +46,5 @@ const ACC_SHAPES = {
 };
 export function accIcon(a, cls = 'ic') { const R = RAR[a.r]; const [g, d] = grad(lighten(R.c), R.c2); return `<svg class="${cls}" viewBox="0 0 24 24">${d}${ACC_SHAPES[a.id](g)}</svg>`; }
 
-/* ---------- ombres (silhouettes) ---------- */
-export function shadowIcon(model, col, cls = 'ic') {
-  const [g, d] = grad('#1e1b4b', '#05030f');
-  let body;
-  if (/wolf|fox/.test(model)) body = `<path d="M3 15l2-6 3 1 2-4 1 4h6l4 2 2 4-3 1v4h-2v-3h-7v3H9v-3l-4-1z" fill="url(#${g})" stroke="${col}" stroke-width="1"/><circle cx="7" cy="12" r="1" fill="${col}"/>`;
-  else if (/stag|bull/.test(model)) body = `<path d="M4 9L2 4l3 2 1-3 1 4 3 1h8l3 3v5l-2 1v4h-2v-4h-8v4H8v-5l-3-2z" fill="url(#${g})" stroke="${col}" stroke-width="1"/><circle cx="6" cy="10" r="1" fill="${col}"/>`;
-  else if (model === 'dragon') body = `<path d="M12 6c2 0 3 2 3 4l7-6-2 9-5 1 2 6h-2l-3-4-3 4H7l2-6-5-1-2-9 7 6c0-2 1-4 3-4z" fill="url(#${g})" stroke="${col}" stroke-width="1"/><circle cx="11" cy="9" r=".9" fill="${col}"/><circle cx="13" cy="9" r=".9" fill="${col}"/>`;
-  else body = `<path d="M12 1c-4 0-6 3-6 7 0 2 1 3 1 4l-4 3 1 8h16l1-8-4-3c0-1 1-2 1-4 0-4-2-7-6-7z" fill="url(#${g})" stroke="${col}" stroke-width="1"/><path d="M9 8l2 1M15 8l-2 1" stroke="${col}" stroke-width="1.8" stroke-linecap="round"/>`;
-  return `<svg class="${cls}" viewBox="0 0 24 24">${d}${body}</svg>`;
-}
+/* ---------- ombres (portraits 3D rendus) ---------- */
+export function shadowIcon(model, col, cls = 'ic') { return `<img class="${cls} port" src="assets/i/p_${model}.png" alt="">`; }

@@ -1,7 +1,7 @@
 /* UMBRA — interface : HUD façon Arise, panneaux (inventaire, ombres, mondes, autel, quêtes, succès, stats) */
 import { E, toScreen } from './engine.js';
 import { RAR, WEAPONS, RELICS, ACCS, SLOTS, WORLDS, FOES, STAGES, SUMMON, QUESTS, ACH, STAT_NAMES, SRANKS, SRANK_COL, W_MAXLV, W_MAXSTAR, R_MAXLV, A_MAXLV, SH_MAXLV,
-  wUpCost, wPower, aUpCost, aMult, mission, xpNeed, armyMax, shadowPow, shUpCost, relicSlots, fmt, fmtTime } from './data.js';
+  wUpCost, wPower, aUpCost, aMult, mission, xpNeed, armyMax, shadowPow, shUpCost, relicSlots, fmt, fmtTime, TRAITS, UNIQUES, KILL_TITLES, DUNGEONS, DG_WAVES, DG_TIME, WORLD_RW, PORTAL_RW, dungeonRW, recoPower } from './data.js';
 import { S, save, wipe, bonus, dirty, heroDmg, heroHp, shDmg, equipped, autoEquipShadows, power, owned } from './state.js';
 import { UIC, relicIcon, accIcon, shadowIcon } from './icons.js';
 import { SFX } from './audio.js';
@@ -12,7 +12,7 @@ export const UI = {};
 let G = null, GM = null; // module de jeu (injecté pour éviter l'import circulaire)
 UI.bind = (g, gm) => { G = g; GM = gm; };
 
-const HEX = [['inv', 'Inventaire', '#7c3aed'], ['ombres', 'Ombres', '#9f1239'], ['mondes', 'Mondes', '#0369a1'], ['autel', 'Autel', '#a21caf'], ['quetes', 'Quêtes', '#b45309'], ['succes', 'Succès', '#a16207'], ['stats', 'Stats', '#047857'], ['reglages', 'Réglages', '#334155']];
+const HEX = [['inv', 'Inventaire', '#7c3aed'], ['ombres', 'Ombres', '#9f1239'], ['mondes', 'Mondes', '#0369a1'], ['donjons', 'Portails', '#6d28d9'], ['autel', 'Autel', '#a21caf'], ['quetes', 'Quêtes', '#b45309'], ['succes', 'Succès', '#a16207'], ['stats', 'Stats', '#047857'], ['reglages', 'Réglages', '#334155']];
 const wImg = (w, cls = 'ic') => `<img class="${cls}" src="assets/i/${w.id}.png" alt="">`;
 
 /* ---------- construction du HUD ---------- */
@@ -22,6 +22,8 @@ UI.build = () => {
   <div id="hex"></div>
   <div id="mis"><div id="misI">${UIC.skull()}</div><div id="misT"><b id="misN"></b><small id="misS"></small><div class="pb2"><i id="misB"></i></div></div></div>
   <div id="rc"><div id="dmgbox"></div><div id="buffs"></div><div id="wprop"></div></div>
+  <div id="pban" class="ia" hidden><div id="parr">➤</div><div><b id="pbN"></b><small id="pbS"></small></div></div>
+  <div id="penter" class="ia" hidden></div>
   <div id="lucky"></div><div id="toasts"></div><div id="loot"></div>
   <div id="zt"><div id="ztn"></div><div id="zts"></div></div>
   <div id="banner"><b></b><small></small></div>
@@ -58,6 +60,8 @@ UI.build = () => {
   $('aArise').onclick = () => GM.arise();
   $('aWpn').onclick = () => UI.open('inv', 'armes');
   $('aArmy').onclick = () => UI.open('ombres');
+  $('pban').onclick = () => UI.open('donjons');
+  $('penter').onclick = () => { if (G.portal) { selId = 'portal'; UI.open('donjons'); } };
   syncToggles(); setupInput();
 };
 function syncToggles() {
@@ -112,8 +116,14 @@ UI.update = dt => {
   $('armyN').textContent = `${equipped().length}/${armyMax(S.lvl)}`;
   // mission / boss
   const st = Math.min(S.stage[S.world], STAGES); const mis = $('mis');
-  if (G.boss) {
-    mis.classList.add('boss'); $('misN').textContent = `BOSS : ${G.boss.n}`; $('misS').textContent = `${fmt(G.boss.hp)} / ${fmt(G.boss.max)} PV`; $('misB').style.width = (G.boss.hp / G.boss.max * 100) + '%';
+  const dg = G.dg; const mm = Math.max(0, Math.floor((dg?.t || 0) / 60)), ss = String(Math.max(0, Math.floor((dg?.t || 0) % 60))).padStart(2, '0');
+  if (dg && !G.boss) {
+    mis.classList.remove('boss'); const left = G.foes.filter(f => !f.dead).length, tot = DG_WAVES[Math.max(0, Math.min(dg.wave, DG_WAVES.length - 1))];
+    $('misN').textContent = `PORTAIL RANG ${SRANKS[dg.r]} · ${dg.D.n.toUpperCase()}`;
+    $('misS').textContent = dg.phase === 'won' ? 'Terminé — éveille le boss puis sors' : dg.phase === 'lost' ? 'Échec…' : dg.phase === 'boss' ? `Le boss arrive… · ⏱ ${mm}:${ss}` : `Vague ${Math.max(1, dg.wave + 1)}/${DG_WAVES.length} · ${left} ennemis · ⏱ ${mm}:${ss}`;
+    $('misB').style.width = (dg.phase === 'wave' ? (1 - left / tot) * 100 : 100) + '%';
+  } else if (G.boss) {
+    mis.classList.add('boss'); $('misN').textContent = `BOSS : ${G.boss.n}`; $('misS').textContent = `${fmt(G.boss.hp)} / ${fmt(G.boss.max)} PV${dg ? ` · ⏱ ${mm}:${ss}` : ''}`; $('misB').style.width = (G.boss.hp / G.boss.max * 100) + '%';
   } else {
     mis.classList.remove('boss'); const m = mission(S.world, Math.min(st, STAGES - 1));
     $('misN').textContent = `${W.n.toUpperCase()} · PALIER ${Math.min(st + 1, STAGES)}/${STAGES}${st >= STAGES ? ' ✓' : ''}`;
@@ -124,7 +134,16 @@ UI.update = dt => {
   $('dmgbox').innerHTML = `Dégâts : <b>${fmt(heroDmg())}</b><br>DPS : <b style="color:#ffcc33">${fmt(G.dps)}</b>`;
   const bl = [['Chance d\'Éveil', b.arise + (W.prop.arise ? (W.prop.arise - 1) * 100 : 0), '#4ade80'], ['Butin rare', b.luck, '#38bdf8'], ['Dégâts ombres', b.sdmg, '#c26bff'], ['Dégâts arme', b.wdmg, '#ff3b5c'], ['Argent', b.cash + (W.prop.cash ? (W.prop.cash - 1) * 100 : 0), '#ffcc33'], ['Gemmes', b.gems, '#7dd3fc'], ['Tous dégâts', b.all, '#ff7aa8']];
   $('buffs').innerHTML = bl.filter(x => x[1] > 0).map(([n, v, c]) => `<div style="color:${c}">${n} : +${fmt(v)} %</div>`).join('');
-  $('wprop').textContent = W.propTxt; $('wprop').style.borderColor = W.col; $('wprop').style.color = W.col;
+  $('wprop').textContent = dg ? `Rang ${SRANKS[dg.r]} — puissance conseillée ${fmt(recoPower(dg.r))}` : W.propTxt; const wc = dg ? RAR[dg.r].c : W.col; $('wprop').style.borderColor = wc; $('wprop').style.color = wc;
+  // portail ouvert dans le monde
+  const pt = G.portal; $('pban').hidden = !pt; $('penter').hidden = !(pt && G.nearPortal) || !!$('panel');
+  if (pt) {
+    const d = pt.pos.distanceTo(P.pos); const c = RAR[pt.r].c; $('pban').style.setProperty('--c', c); $('penter').style.setProperty('--c', c);
+    $('pbN').textContent = `PORTAIL · RANG ${SRANKS[pt.r]}`; $('pbS').textContent = `${DUNGEONS[pt.r].n} — ${Math.round(d)} m · ${Math.floor(pt.life / 60)}:${String(Math.floor(pt.life % 60)).padStart(2, '0')}`;
+    const ang = Math.atan2(pt.pos.x - P.pos.x, pt.pos.z - P.pos.z) - E.yaw; $('parr').style.transform = `rotate(${-ang * 180 / Math.PI + 90}deg)`;
+    $('penter').innerHTML = `ENTRER — PORTAIL RANG <b>${SRANKS[pt.r]}</b>`;
+  }
+  if (S.keys.some(k => k > 0) && !dg) UI.dot('donjons');
   // pastilles
   if (questReady()) UI.dot('quetes'); if (achReady()) UI.dot('succes');
 };
@@ -162,7 +181,7 @@ UI.loot = items => {
 const arcs = [];
 UI.ariseCard = sh => {
   const c = SRANK_COL[sh.rk]; const F = FOES[sh.type];
-  const e = h('div', 'arc', `${shadowIcon(F.model, c, '')}<div><small>ÉVEIL RÉUSSI</small><b><i style="background:${c}">${SRANKS[sh.rk]}</i>${F.n}</b><small style="letter-spacing:0">${sh.eq ? 'Rejoint ton armée' : 'Rangée (armée pleine)'}</small></div>`);
+  const e = h('div', 'arc', `${shadowIcon(F.model, c, '')}<div><small>ÉVEIL RÉUSSI</small><b><i style="background:${c}">${SRANKS[sh.rk]}</i>${sh.n}</b><small style="letter-spacing:0">${F.n} · ${sh.eq ? 'rejoint ton armée' : 'rangée (armée pleine)'}</small></div>`);
   e.style.setProperty('--c', c); document.body.appendChild(e); arcs.unshift(e); arcs.forEach((a, i) => a.style.setProperty('--i', i));
   setTimeout(() => e.classList.add('out'), 2300); setTimeout(() => { e.remove(); arcs.splice(arcs.indexOf(e), 1); }, 2800);
   while (arcs.length > 4) { arcs.pop().remove(); }
@@ -176,7 +195,10 @@ function card({ rar, icon, name, pw, lv, stars, eq, lock, sel, extra = '' }) {
     <div class="nm">${name}</div>${pw ? `<div class="pw2">${pw}</div>` : '<div class="pw2">&nbsp;</div>'}</div>
     <div class="rk">${R.k}</div>${eq ? '<div class="ck">✓</div>' : ''}${lv != null && !lock ? `<div class="lv">Nv.${lv}</div>` : ''}${extra}</div>`;
 }
-function srcOfWeapon(id) { if (id === 'w10') return 'Citadelle Abyssale — boss (très rare)'; const ws = WORLDS.filter(w => w.drops.includes(id)).map(w => w.n); return ws.join(' · '); }
+function srcOf(r) {
+  const ws = WORLDS.filter((w, i) => WORLD_RW[i][r] > 0).map(w => w.n); const ds = DUNGEONS.filter(d => dungeonRW(d.r)[r] > 0).map(d => SRANKS[d.r]);
+  return `${ws.length ? ws.join(' · ') : 'aucun monde'}${ds.length ? ` — portails rang ${ds.join(', ')}` : ''}`;
+}
 
 /* ---------- panneaux ---------- */
 let cur = null, tab = null, selId = null;
@@ -194,7 +216,7 @@ function frame(title, icon, sub, body, tabs) {
 function rerender() { if (cur) render(); }
 UI.refresh = rerender;
 function render() {
-  ({ inv: renderInv, ombres: renderShadows, mondes: renderWorlds, autel: renderAltar, quetes: renderQuests, succes: renderAch, stats: renderStats, reglages: renderSettings })[cur]();
+  ({ inv: renderInv, ombres: renderShadows, mondes: renderWorlds, donjons: renderDungeons, autel: renderAltar, quetes: renderQuests, succes: renderAch, stats: renderStats, reglages: renderSettings })[cur]();
 }
 const on = (sel, fn) => document.querySelectorAll(sel).forEach(e => e.onclick = ev => { SFX.play('select', 0.35); fn(e, ev); });
 const kv = (k, v, c = '') => `<div class="kv"><span>${k}</span><b class="${c}">${v}</b></div>`;
@@ -227,8 +249,8 @@ function renderInv() {
 }
 function detWeapon(id) {
   const w = WEAPONS.find(x => x.id === id), it = S.w[id], R = RAR[w.r];
-  let h2 = `<div class="det scroll"><div class="big">${card({ rar: w.r, icon: wImg(w), name: '', lv: it?.lv, stars: it ? it.st : null, lock: !it })}</div><h3>${w.n}</h3><div class="rar" style="color:${R.c}">${R.k} — ${R.n}</div><p>${w.d}</p>`;
-  if (!it) return h2 + kv('Dégâts de base', fmt(w.dmg), 'red') + `<p>Où le trouver : <b>${srcOfWeapon(id)}</b></p></div>`;
+  let h2 = `<div class="det scroll"><div class="big">${card({ rar: w.r, icon: wImg(w), name: '', lv: it?.lv, stars: it ? it.st : null, lock: !it })}</div><h3>${w.n}</h3><div class="rar" style="color:${R.c}">Rang ${R.k} — ${R.n}</div><p>${w.d}</p>`;
+  if (!it) return h2 + kv('Dégâts de base', fmt(w.dmg), 'red') + `<p>Où la trouver : <b>${srcOf(w.r)}</b></p></div>`;
   const cost = wUpCost(w, it.lv);
   h2 += kv('Puissance', '⚔ ' + fmt(wPower(w, it)), 'red') + kv('Niveau', `${it.lv}/${W_MAXLV}`) + kv('Étoiles (doublons)', `${it.st}/${W_MAXSTAR}`, 'cy') + kv('Niveau suivant', it.lv < W_MAXLV ? '⚔ ' + fmt(wPower(w, { lv: it.lv + 1, st: it.st })) : 'MAX', 'red');
   h2 += `<div class="row"><button class="btn y" data-act="wup" ${it.lv >= W_MAXLV || S.cash < cost ? 'disabled' : ''}>${UIC.cash()} ${fmt(cost)}</button><button class="btn y" data-act="wup10" ${it.lv >= W_MAXLV || S.cash < cost ? 'disabled' : ''}>×10</button></div>`;
@@ -237,18 +259,18 @@ function detWeapon(id) {
 }
 function detRelic(id) {
   const r = RELICS.find(x => x.id === id), it = S.rel[id], R = RAR[r.r]; const eq = S.relEq.includes(id);
-  let s = `<div class="det scroll"><div class="big">${card({ rar: r.r, icon: relicIcon(r), name: '', lv: it?.lv, lock: !it })}</div><h3>${r.n}</h3><div class="rar" style="color:${R.c}">${R.k} — ${R.n}</div><p>${r.d}</p>`;
-  if (!it) return s + kv(STAT_NAMES[r.stat], `+${r.v} % par niveau`) + '<p>Obtenue à l\'<b>Autel</b> ou sur les brutes et les boss.</p></div>';
+  let s = `<div class="det scroll"><div class="big">${card({ rar: r.r, icon: relicIcon(r), name: '', lv: it?.lv, lock: !it })}</div><h3>${r.n}</h3><div class="rar" style="color:${R.c}">Rang ${R.k} — ${R.n}</div><p>${r.d}</p>`;
+  if (!it) return s + kv(STAT_NAMES[r.stat], `+${r.v} % par niveau`) + `<p>Où la trouver : <b>${srcOf(r.r)}</b>, ou à l'Autel.</p></div>`;
   s += kv(STAT_NAMES[r.stat], `+${fmt(r.v * (1 + it.lv))} %`) + kv('Niveau', `${it.lv}/${R_MAXLV}`) + kv('Prochain niveau', it.lv < R_MAXLV ? `+${fmt(r.v * (2 + it.lv))} %` : 'MAX', 'cy');
   s += `<button class="btn ${eq ? 'r' : 'g'}" data-act="req">${eq ? 'RETIRER' : 'ÉQUIPER'}</button><p style="font-size:10.5px">Chaque doublon fait monter la relique d'un niveau.</p></div>`;
   return s;
 }
 function detAcc(id) {
   const a = ACCS.find(x => x.id === id), it = S.acc[id], R = RAR[a.r]; const eq = S.accEq[a.slot] === id;
-  let s = `<div class="det scroll"><div class="big">${card({ rar: a.r, icon: accIcon(a), name: '', lv: it?.lv, lock: !it })}</div><h3>${a.n}</h3><div class="rar" style="color:${R.c}">${R.k} — ${R.n} · ${SLOTS.find(x => x[0] === a.slot)[1]}</div>`;
+  let s = `<div class="det scroll"><div class="big">${card({ rar: a.r, icon: accIcon(a), name: '', lv: it?.lv, lock: !it })}</div><h3>${a.n}</h3><div class="rar" style="color:${R.c}">Rang ${R.k} — ${R.n} · ${SLOTS.find(x => x[0] === a.slot)[1]}</div>`;
   const m = it ? aMult(it.lv) : 1;
   for (const k in a.st) s += kv(STAT_NAMES[k], `+${fmt(a.st[k] * m)} %`);
-  if (!it) return s + '<p>Tombe sur les brutes et les boss (plus rare dans les premiers mondes).</p></div>';
+  if (!it) return s + `<p>Où le trouver : <b>${srcOf(a.r)}</b></p></div>`;
   const cost = aUpCost(a, it.lv);
   s += kv('Niveau', `${it.lv}/${A_MAXLV}`);
   s += `<button class="btn y" data-act="aup" ${it.lv >= A_MAXLV || S.cash < cost ? 'disabled' : ''}>Améliorer ${UIC.cash()} ${fmt(cost)}</button><button class="btn ${eq ? 'r' : 'g'}" data-act="aeq">${eq ? 'RETIRER' : 'ÉQUIPER'}</button></div>`;
@@ -274,32 +296,47 @@ function renderShadows() {
   const list = [...S.sh].sort((a, b) => shSort === 'pow' ? (b.eq - a.eq) || (shDmg(b) - shDmg(a)) : b.rk - a.rk || shDmg(b) - shDmg(a));
   const sel = S.sh.find(s => s.id === selId) || list[0]; selId = sel?.id;
   const cards = list.map(s => { const F = FOES[s.type]; return `<div class="ci" data-id="${s.id}">${shCard(s, F, sel === s)}</div>`; }).join('') || '<div class="empty">Aucune ombre. Abats un ennemi puis touche S\'ÉLEVER pour l\'éveiller.</div>';
-  const body = `<div style="flex:1;display:flex;flex-direction:column;min-width:0"><div class="tools"><span class="chip">Armée ${equipped().length}/${armyMax(S.lvl)}</span><span class="chip">Total ${S.sh.length}</span><button class="btn g" data-a="best">Équiper le meilleur</button><button class="btn r" data-a="sell">Vendre les rangs E-D rangés</button><button class="btn b" data-a="sort">Tri : ${shSort === 'pow' ? 'Puissance' : 'Rang'}</button></div><div class="grid scroll" style="flex:1">${cards}</div></div>${sel ? detShadow(sel) : ''}`;
-  frame('Ombres', UIC.ombres(), 'Ton armée te suit et combat pour toi', body);
+  const body = `<div style="flex:1;display:flex;flex-direction:column;min-width:0"><div class="tools"><span class="chip">Armée ${equipped().length}/${armyMax(S.lvl)}</span><span class="chip">Total ${S.sh.length}</span><button class="btn g" data-a="best">Équiper le meilleur</button><button class="btn r" data-a="sell">Vendre les rangs F-E rangés</button><button class="btn b" data-a="sort">Tri : ${shSort === 'pow' ? 'Puissance' : 'Rang'}</button></div><div class="grid scroll" style="flex:1">${cards}</div></div>${sel ? detShadow(sel) : ''}`;
+  frame('Ombres', UIC.ombres(), 'Chaque ombre a un nom, un rang et des traits', body);
   on('.ci', e => { selId = +e.dataset.id; render(); });
   on('[data-a]', e => {
     const a = e.dataset.a;
     if (a === 'best') { autoEquipShadows(); GM.syncArmy(); SFX.play('ok', 0.5); }
-    else if (a === 'sell') { let v = 0, n = 0; S.sh = S.sh.filter(s => { if (!s.eq && s.rk <= 1) { v += shUpCost(s) * 0.4; n++; return false; } return true; }); S.cash += v; if (n) UI.toast(`${n} ombres vendues : +${fmt(v)}`, 'gold'); }
+    else if (a === 'sell') { let v = 0, n = 0; S.sh = S.sh.filter(s => { if (!s.eq && s.rk <= 1 && !s.u) { v += shUpCost(s) * 0.4; n++; return false; } return true; }); S.cash += v; if (n) UI.toast(`${n} ombres vendues : +${fmt(v)}`, 'gold'); }
     else if (a === 'sort') shSort = shSort === 'pow' ? 'rank' : 'pow';
     else if (a === 'eq') { if (sel.eq) sel.eq = false; else if (equipped().length < armyMax(S.lvl)) sel.eq = true; else { UI.toast('Armée pleine — monte de niveau pour plus d\'ombres', 'bad'); return; } GM.syncArmy(); }
     else if (a === 'up') { const c = shUpCost(sel); if (S.cash >= c && sel.lv < SH_MAXLV) { S.cash -= c; sel.lv++; GM.bumpUpgrade(); SFX.play('coins', 0.5); } }
-    else if (a === 'del') { if (sel.eq) return; S.cash += shUpCost(sel) * 0.4; S.sh.splice(S.sh.indexOf(sel), 1); selId = null; GM.syncArmy(); }
+    else if (a === 'del') { if (sel.eq || sel.u) return; S.cash += shUpCost(sel) * 0.4; S.sh.splice(S.sh.indexOf(sel), 1); selId = null; GM.syncArmy(); }
     render();
   });
 }
-function shCard(s, F, sel) {
-  const c = SRANK_COL[s.rk];
-  return `<div class="card${sel ? ' sel' : ''}" style="--rc:${c}"><div class="in">${shadowIcon(F.model, c)}<div class="nm">${s.k === 2 ? '★ ' : ''}${F.n}</div><div class="pw2">⚔ ${fmt(shDmg(s))}</div></div><div class="rk" style="font-size:15px">${SRANKS[s.rk]}</div>${s.eq ? '<div class="ck">✓</div>' : ''}<div class="lv">Nv.${s.lv}</div></div>`;
+function shCard(s, F, sel, noName) {
+  const c = SRANK_COL[s.rk]; const R2 = RAR[s.rk];
+  return `<div class="card shc${sel ? ' sel' : ''}${R2.rainbow ? ' rb' : ''}${s.u ? ' uq' : ''}" style="--rc:${c}"><div class="in">${shadowIcon(F.model, c)}${noName ? '' : `<div class="nm">${s.n}</div><div class="pw2">⚔ ${fmt(shDmg(s))}</div>`}</div><div class="rk big">${SRANKS[s.rk]}</div>${s.eq ? '<div class="ck">✓</div>' : ''}${s.u ? '<div class="utag">UNIQUE</div>' : ''}${noName ? '' : `<div class="lv">Nv.${s.lv}</div>`}${s.aw ? `<div class="aw">${'★'.repeat(s.aw)}</div>` : ''}</div>`;
 }
+const killTitle = k => [...KILL_TITLES].reverse().find(t => (k || 0) >= t[0])[1];
+const traitHtml = s => (s.tr || []).map(([k, v], i) => `<div class="trait${s.u && i === 0 ? ' sig' : ''}"><b>${s.u && i === 0 ? '✦ ' : ''}${TRAITS[k].n}</b><span>+${fmt(v)} % ${STAT_NAMES[k]}</span></div>`).join('') || '<div class="trait none"><span>Aucun trait — les rangs D et plus en possèdent</span></div>';
 function detShadow(s) {
-  const F = FOES[s.type], c = SRANK_COL[s.rk], cost = shUpCost(s);
-  return `<div class="det scroll"><div class="big">${shCard(s, F)}</div><h3>${F.n}</h3><div class="rar" style="color:${c}">Rang ${SRANKS[s.rk]} · ${['Normal', 'Brute', 'Boss'][s.k]}</div>
-  ${kv('Dégâts', '⚔ ' + fmt(shDmg(s)), 'red')}${kv('Niveau', `${s.lv}/${SH_MAXLV}`)}${kv('Origine', WORLDS.find(w => tierIn(w, s.t))?.n || '—')}
+  const F = FOES[s.type], c = SRANK_COL[s.rk], cost = shUpCost(s), U = s.u && UNIQUES[s.u];
+  return `<div class="det scroll"><div class="big">${shCard(s, F, false, true)}</div><h3>${s.n}</h3><div class="rar" style="color:${c}">Rang ${SRANKS[s.rk]} · ${U ? U.t : F.n}</div>
+  ${U ? `<p class="quote">« ${U.q} »</p>` : ''}
+  ${kv('Dégâts', '⚔ ' + fmt(shDmg(s)), 'red')}${kv('Niveau', `${s.lv}/${SH_MAXLV}`)}${U ? kv('Éveil (doublons)', `${'★'.repeat(s.aw || 0) || '—'} ${s.aw || 0}/5`, 'cy') : ''}
+  <div class="traits">${traitHtml(s)}</div>
+  ${kv('Grade', killTitle(s.kills))}${kv('Ennemis abattus', fmt(s.kills || 0), 'cy')}
+  <p class="born">Éveillée le ${s.born || '—'}<br>${s.where || ''}</p>
   <button class="btn y" data-a="up" ${S.cash < cost || s.lv >= SH_MAXLV ? 'disabled' : ''}>Améliorer ${UIC.cash()} ${fmt(cost)}</button>
   <button class="btn ${s.eq ? 'r' : 'g'}" data-a="eq">${s.eq ? 'RETIRER DE L\'ARMÉE' : 'AJOUTER À L\'ARMÉE'}</button>
-  <button class="btn k" data-a="del" ${s.eq ? 'disabled' : ''}>Vendre (+${fmt(cost * 0.4)})</button></div>`;
+  ${s.u ? '' : `<button class="btn k" data-a="del" ${s.eq ? 'disabled' : ''}>Libérer (+${fmt(cost * 0.4)})</button>`}</div>`;
 }
+/* révélation plein écran d'une ombre marquante */
+UI.reveal = sh => {
+  document.querySelector('.reveal')?.remove();
+  const F = FOES[sh.type], c = SRANK_COL[sh.rk], U = sh.u && UNIQUES[sh.u];
+  const e = h('div', 'reveal', `<div class="rays"></div><div class="rv"><div class="rvk">${U ? 'OMBRE UNIQUE' : 'NOUVELLE OMBRE'}</div><div class="rvp">${shadowIcon(F.model, c, '')}<div class="rvr">${SRANKS[sh.rk]}</div></div>
+    <h2>${sh.n}</h2><div class="rvt">${U ? U.t : F.n}</div>${U ? `<p class="quote">« ${U.q} »</p>` : ''}<div class="traits">${traitHtml(sh)}</div><div class="rvd">⚔ ${fmt(shDmg(sh))} · ${sh.eq ? 'rejoint ton armée' : 'rangée — armée pleine'}</div><small>Touche pour continuer</small></div>`);
+  e.style.setProperty('--c', c); document.body.appendChild(e); SFX.play('win', 0.7);
+  const close = () => e.remove(); e.onclick = close; setTimeout(close, 7000);
+};
 const tierIn = (w, t) => t >= w.base && t < w.base + STAGES;
 
 /* --- mondes --- */
@@ -307,27 +344,60 @@ function renderWorlds() {
   const body = `<div class="wgrid scroll" style="flex:1">${WORLDS.map((w, i) => {
     const st = S.stage[i], lock = i > S.maxWorld, here = i === S.world, m = mission(i, Math.min(st, STAGES - 1));
     return `<div class="wc${lock ? ' lockd' : ''}${here ? ' here' : ''}" style="--c:${w.col}"><div class="num">#${i + 1}</div><b>${w.n}</b><small>${w.sub}</small>
-      <div class="prop">✦ ${w.propTxt}</div><div class="mi">Palier ${Math.min(st + 1, STAGES)}/${STAGES}${st >= STAGES ? ' — CONQUIS ✓' : ''} · Mission : ${m.kills} ennemis + ${m.brutes} brutes → ${w.bossN}</div>
+      <div class="prop">✦ ${w.propTxt}</div><div class="mi">Palier ${Math.min(st + 1, STAGES)}/${STAGES}${st >= STAGES ? ' — CONQUIS ✓' : ''} · Mission : ${m.kills} ennemis + ${m.brutes} brutes → ${UNIQUES[w.uq].n}</div>
       <div class="pb2"><i style="width:${Math.min(st, STAGES) / STAGES * 100}%"></i></div>
-      <div class="mi">Armes : ${w.drops.map(id => WEAPONS.find(x => x.id === id).n).join(', ')}</div>
+      <div class="mi">Butin et ombres : rangs ${WORLD_RW[i].map((x, r) => x > 0 ? `<b style="color:${RAR[r].c}">${SRANKS[r]}</b>` : '').filter(Boolean).join(' ')} · Portails : ${PORTAL_RW[i].map((x, r) => x > 0 ? `<b style="color:${RAR[r].c}">${SRANKS[r]}</b>` : '').filter(Boolean).join(' ')}</div>
       ${here ? '<button class="btn k" disabled>VOUS ÊTES ICI</button>' : lock ? `<button class="btn k" disabled>🔒 Conquiers ${WORLDS[i - 1].n}</button>` : `<button class="btn b" data-w="${i}">TÉLÉPORTER</button>`}</div>`;
   }).join('')}</div>`;
   frame('Mondes', UIC.mondes(), `${S.maxWorld + 1}/4 débloqués`, body);
   on('[data-w]', e => { UI.close(); GM.enterWorld(+e.dataset.w); });
 }
 
+/* --- portails et donjons (rangs F → S) --- */
+function verdict(r) {
+  const k = power() / recoPower(r);
+  return k >= 1 ? ['À ta portée', '#4ade80'] : k >= 0.45 ? ['Risqué', '#ffcc33'] : k >= 0.12 ? ['Très dangereux', '#ff7a45'] : ['Mort certaine', '#ff3355'];
+}
+function renderDungeons() {
+  const pt = G.portal; if (selId !== 'portal' && !(typeof selId === 'number' && selId >= 0 && selId <= 6)) selId = pt ? 'portal' : 0;
+  if (selId === 'portal' && !pt) selId = 0;
+  const r = selId === 'portal' ? pt.r : selId;
+  const D = DUNGEONS[r], U = UNIQUES[D.boss], [vt, vc] = verdict(r), rw = dungeonRW(r);
+  const list = `<div class="scroll dgl">${pt ? `<div class="dgr${selId === 'portal' ? ' on' : ''}" data-d="portal" style="--c:${RAR[pt.r].c}"><b class="rkb">${SRANKS[pt.r]}</b><div><b>Portail ouvert</b><small>${Math.round(pt.pos.distanceTo(G.P.pos))} m — gratuit</small></div></div>` : ''}
+    ${DUNGEONS.map(d => { const [t, c] = verdict(d.r); return `<div class="dgr${selId === d.r ? ' on' : ''}" data-d="${d.r}" style="--c:${RAR[d.r].c}"><b class="rkb">${SRANKS[d.r]}</b><div><b>${d.n}</b><small style="color:${c}">${t}</small></div><span class="keyn">${UIC.key()} ${S.keys[d.r]}</span></div>`; }).join('')}</div>`;
+  const near = selId === 'portal' && G.nearPortal;
+  const det = `<div class="scroll dgd" style="--c:${RAR[r].c}"><div class="dgh"><div class="dgk">${SRANKS[r]}</div><div><h3>${D.n}</h3><small>${DG_WAVES.length} vagues (${DG_WAVES.join(' + ')} ennemis) puis le boss · ${Math.round(DG_TIME / 60)} minutes · un seul essai</small></div></div>
+    ${kv('Puissance conseillée', fmt(recoPower(r)), 'red')}${kv('Ta puissance', fmt(power()))}<div class="verdict" style="color:${vc};border-color:${vc}">${vt}</div>
+    <div class="bossrow"><img src="assets/i/p_${U.model}.png"><div><small>BOSS — OMBRE UNIQUE À ÉVEILLER (35 %)</small><b>${U.n}, ${U.t}</b><span style="color:${RAR[U.rk].c}">Rang ${SRANKS[U.rk]} · ✦ ${TRAITS[U.sig[0]].n} +${U.sig[1]} %</span></div></div>
+    <div class="mi2">Butin et ombres : ${rw.map((x, i) => x > 0 ? `<b style="color:${RAR[i].c}">${SRANKS[i]} ${Math.round(x / rw.reduce((a, b) => a + b, 0) * 100)} %</b>` : '').filter(Boolean).join(' · ')} — 1 relique garantie</div>
+    ${G.dg ? '<button class="btn k" disabled>Déjà dans un donjon</button>' : selId === 'portal' ? `<button class="btn p" data-go="portal" ${near ? '' : 'disabled'}>${near ? 'ENTRER DANS LE PORTAIL' : 'Rejoins le portail pour entrer (suis la flèche)'}</button>` : `<button class="btn p" data-go="${r}" ${S.keys[r] ? '' : 'disabled'}>${S.keys[r] ? `OUVRIR AVEC UNE CLÉ ${UIC.key()}` : 'Aucune clé de ce rang'}</button>`}
+    <p class="mi2">Les portails s'ouvrent au hasard dans les mondes. Les clés tombent sur les boss des mondes et dans les donjons. Terminés : ${S.dgDone[r]}</p></div>`;
+  frame('Portails', UIC.donjons(), 'Rang F → S : plus le rang est haut, plus le butin est rare', list + det);
+  on('[data-d]', e => { selId = e.dataset.d === 'portal' ? 'portal' : +e.dataset.d; render(); });
+  on('[data-go]', e => { const g = e.dataset.go; UI.close(); if (g === 'portal') GM.enterPortal(); else GM.enterDungeon(+g, true); });
+}
+UI.dungeonResult = dg => {
+  UI.open('reglages'); cur = null; const res = dg.res, r = dg.r;
+  const items = res.items.map(([k, id]) => { const it = (k === 'w' ? WEAPONS : k === 'rel' ? RELICS : ACCS).find(x => x.id === id); return `<div style="width:84px">${card({ rar: it.r, icon: k === 'w' ? wImg(it) : k === 'rel' ? relicIcon(it) : accIcon(it), name: it.n })}</div>`; }).join('');
+  frame(`Portail rang ${SRANKS[r]} terminé`, UIC.donjons(), dg.D.n, `<div class="scroll" style="flex:1;text-align:center"><div class="tools" style="justify-content:center"><span class="chip">${UIC.cash()} +${fmt(res.cash)}</span><span class="chip">${UIC.gem()} +${fmt(res.gems)}</span>${res.key != null ? `<span class="chip">${UIC.key()} Clé rang ${SRANKS[res.key]}</span>` : ''}</div>
+    <div class="pulls" style="margin:10px 0">${items}</div><p class="mi2">L'âme de <b>${UNIQUES[dg.D.boss].n}</b> flotte encore : ferme ce panneau et touche S'ÉLEVER pour tenter de l'éveiller (35 %).</p>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:10px"><button class="btn b" id="dgStay">RESTER (éveiller le boss)</button><button class="btn g" id="dgOut">SORTIR DU DONJON</button></div></div>`);
+  $('dgStay').onclick = () => $('panel')?.remove(); $('dgOut').onclick = () => { $('panel')?.remove(); GM.leaveDungeon(); };
+  $('px').onclick = () => $('panel')?.remove();
+};
+
 /* --- autel d'invocation des reliques --- */
 let lastPulls = [];
 function renderAltar() {
-  const rates = SUMMON.rates.map((r, i) => `<div class="rate" style="--rc:${RAR[i].c}"><b>${RAR[i].k}</b>${RAR[i].n}<br>${(r * 100).toFixed(r < 0.01 ? 1 : 0)} %</div>`).join('');
+  const rates = SUMMON.rates.map((r, i) => `<div class="rate" style="--rc:${RAR[i].c}"><b>${RAR[i].k}</b>${(r * 100).toFixed(r < 0.001 ? 2 : r < 0.02 ? 1 : 0)} %</div>`).join('');
   const body = `<div class="scroll" style="flex:1"><p style="font-size:12px;color:#c7d2fe;margin-bottom:4px">Invoque des reliques avec tes gemmes. Un doublon fait monter la relique d'un niveau (max ${R_MAXLV}).</p><div class="rates">${rates}</div>
    <div style="display:flex;gap:8px;justify-content:center;margin:8px 0"><button class="btn p" data-n="1" ${S.gems < SUMMON.cost ? 'disabled' : ''}>Invoquer ×1 · ${SUMMON.cost} ${UIC.gem()}</button><button class="btn y" data-n="10" ${S.gems < SUMMON.cost10 ? 'disabled' : ''}>Invoquer ×10 · ${SUMMON.cost10} ${UIC.gem()}</button></div>
    <div class="pulls">${lastPulls.map((id, i) => { const r = RELICS.find(x => x.id === id); return `<div style="width:74px;animation:pop .45s ${i * 0.08}s backwards">${card({ rar: r.r, icon: relicIcon(r), name: r.n, lv: S.rel[id].lv })}</div>`; }).join('')}</div></div>`;
   frame('Autel des Reliques', UIC.autel(), `${fmt(S.gems)} gemmes`, body);
   on('[data-n]', e => {
     const n = +e.dataset.n, c = n === 10 ? SUMMON.cost10 : SUMMON.cost; if (S.gems < c) return; S.gems -= c; lastPulls = [];
-    let best = 0; for (let i = 0; i < n; i++) { const r = GM.rollRelic(5); lastPulls.push(r.id); best = Math.max(best, r.r); }
-    SFX.play(best >= 3 ? 'win' : 'power', 0.6); if (best >= 4) UI.lucky(RELICS.find(x => x.id === lastPulls.find(id => RELICS.find(q => q.id === id).r === best)).n, SUMMON.rates[best], RAR[best].c); render();
+    let best = 0; for (let i = 0; i < n; i++) { const r = GM.rollRelic(); lastPulls.push(r.id); best = Math.max(best, r.r); }
+    SFX.play(best >= 3 ? 'win' : 'power', 0.6); if (best >= 3) UI.lucky(RELICS.find(x => x.id === lastPulls.find(id => RELICS.find(q => q.id === id).r === best)).n, SUMMON.rates[best], RAR[best].c); render();
   });
 }
 

@@ -1,14 +1,14 @@
 /* UMBRA — état du joueur, sauvegarde, calcul des bonus */
-import { WEAPONS, RELICS, ACCS, ACH, wPower, aMult, SRANK_MULT, shadowPow, armyMax, relicSlots } from './data.js';
+import { WEAPONS, RELICS, ACCS, ACH, wPower, aMult, shadowPow, armyMax, relicSlots } from './data.js';
 
-const KEY = 'umbra_v1';
+const KEY = 'umbra_v2';
 export function fresh() {
   return {
     lvl: 1, xp: 0, cash: 0, gems: 150,
     w: { w1: { lv: 0, st: 0 } }, wEq: 'w1',
     rel: {}, relEq: [],
     acc: {}, accEq: { tete: null, cape: null, plastron: null, bottes: null },
-    sh: [], shN: 0,
+    sh: [], shN: 0, keys: [0, 0, 0, 0, 0, 0, 0], dgDone: [0, 0, 0, 0, 0, 0, 0],
     world: 0, stage: [0, 0, 0, 0], maxWorld: 0, prog: { kills: 0, brutes: 0 },
     st: { kills: 0, brutes: 0, bosses: 0, arises: 0, lucky: 0, upgrades: 0, play: 0, best: 0 },
     q: { day: 0, p: {}, done: {} }, ach: {},
@@ -31,6 +31,7 @@ export function bonus() {
   const b = { cash: 0, gems: 0, crit: 5, hp: 0, aspd: 0, wdmg: 0, sdmg: 0, arise: 0, luck: 0, all: 0, speed: 0 };
   for (const id of S.relEq) { const r = RELICS.find(x => x.id === id), it = S.rel[id]; if (r && it) b[r.stat] += r.v * (1 + it.lv); }
   for (const k in S.accEq) { const id = S.accEq[k]; if (!id) continue; const a = ACCS.find(x => x.id === id), it = S.acc[id]; for (const s in a.st) b[s] += a.st[s] * aMult(it.lv); }
+  for (const sh of S.sh) if (sh.eq && sh.tr) for (const [k, v] of sh.tr) b[k] += v;
   for (const h of ACH) { const t = S.ach[h.id] || 0; b[h.rw] += h.v * t; }
   cache = b; cacheT = performance.now(); return b;
 }

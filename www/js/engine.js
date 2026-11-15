@@ -217,7 +217,7 @@ export function portalMesh(col = 0x8b5cf6, s = 1) {
 }
 
 /* ---------- les 4 mondes ---------- */
-export function buildWorld(env) {
+export function buildWorld(env, opt = {}) {
   clearWorld(); const info = { spawn: new THREE.Vector3(0, 0, 22), R: 46, spots: [] };
   const sc = E.scene; const R = 56;
   if (env === 'city') {
@@ -240,7 +240,7 @@ export function buildWorld(env) {
       place('n:CommonTree_3', cx, cz, rnd(0, 6), 1.6, 0.4, 0.9); place('n:Bush_Common_Flowers', cx + 4, cz - 4, 0, 1.4, 0.4); place('n:Bush_Common_Flowers', cx - 4, cz + 4, 0, 1.4, 0.4);
       place('k:detail-parasol-a', cx + bx * 9, cz - bz * 3, 0, 8); place('r:traffic-light', bx * 7, bz * 7, Math.atan2(bx, bz), 9);
     }
-    for (let i = -4; i <= 4; i++) if (i) for (const s of [-1, 1]) { place('r:light-square', i * 12, s * 6.6, s > 0 ? Math.PI : 0, 9); place('r:light-square', s * 6.6, i * 12, s > 0 ? -Math.PI / 2 : Math.PI / 2, 9); }
+    for (let i = -4; i <= 4; i++) if (i && Math.abs(i) !== 3) for (const s of [-1, 1]) { place('r:light-square', i * 12, s * 6.6, s > 0 ? Math.PI : 0, 9); place('r:light-square', s * 6.6, i * 12, s > 0 ? -Math.PI / 2 : Math.PI / 2, 9); }
     for (let i = 0; i < 12; i++) { const a = rnd(0, 6.28), r = rnd(30, 42); place(pick(['r:construction-cone', 'r:dumpster']), Math.cos(a) * r, Math.sin(a) * r, rnd(0, 6), 9); }
     const sig = new THREE.Mesh(new THREE.RingGeometry(7, 7.6, 64), new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending })); sig.rotation.x = -Math.PI / 2; sig.position.y = 0.06; E.world.add(sig);
     E.anim.push(() => { sig.material.opacity = 0.4 + Math.sin(E.t * 2) * 0.3; });
@@ -249,7 +249,7 @@ export function buildWorld(env) {
     sc.fog = new THREE.Fog(0xbfe8a8, 45, 150); sky('#58b8ff', '#e8ffd0', false);
     E.hemi.color.set(0xfff6d8); E.hemi.groundColor.set(0x3e6a2a); E.hemi.intensity = 1.3; E.sun.color.set(0xfff0c0); E.sun.intensity = 2.8;
     ground('#5fa83a', '#4a8a2c', R + 30, false, 16);
-    const tr = ['n:CommonTree_1', 'n:CommonTree_3', 'n:CommonTree_5', 'n:Pine_1', 'n:Pine_3', 'n:TwistedTree_1'];
+    const tr = ['n:CommonTree_1', 'n:CommonTree_3', 'n:CommonTree_5', 'n:Pine_1', 'n:Pine_3'];
     for (let i = 0; i < 110; i++) { const a = rnd(0, 6.28), r = rnd(64, 86); place(pick(tr), Math.cos(a) * r, Math.sin(a) * r, rnd(0, 6), rnd(2, 3.2)); }
     for (let i = 0; i < 14; i++) { const a = rnd(0, 6.28), r = rnd(26, 50); place(pick(tr), Math.cos(a) * r, Math.sin(a) * r, rnd(0, 6), rnd(1.3, 1.8), 0, 0.7); }
     for (let i = 0; i < 240; i++) place(pick(['n:Grass_Common_Tall', 'n:Flower_3_Group', 'n:Flower_4_Group', 'n:Fern_1', 'n:Bush_Common_Flowers', 'n:Mushroom_Common']), rnd(-56, 56), rnd(-56, 56), rnd(0, 6), rnd(0.8, 1.3));
@@ -259,18 +259,32 @@ export function buildWorld(env) {
     sc.fog = new THREE.Fog(0x6a5a9a, 30, 130); sky('#2a1a5a', '#a88aff', true);
     E.hemi.color.set(0xd0c0ff); E.hemi.groundColor.set(0x2a2040); E.hemi.intensity = 1.15; E.sun.color.set(0xc8b8ff); E.sun.intensity = 1.9;
     ground('#5a5480', '#47426a', R + 30, true, 18);
-    for (let i = 0; i < 90; i++) { const a = rnd(0, 6.28), r = rnd(64, 84); place(pick(['h:tree_dead_large', 'h:tree_dead_medium', 'n:DeadTree_2', 'n:TwistedTree_3']), Math.cos(a) * r, Math.sin(a) * r, rnd(0, 6), rnd(1.8, 2.8)); }
-    for (let i = 0; i < 80; i++) place(pick(['h:grave_A', 'h:grave_B', 'h:gravestone', 'h:bone_A', 'h:ribcage', 'h:skull_candle', 'h:pumpkin_orange']), rnd(-52, 52), rnd(-52, 52), rnd(0, 6), rnd(1.5, 2.3));
+    for (let i = 0; i < 90; i++) { const a = rnd(0, 6.28), r = rnd(64, 84); place(pick(['h:tree_dead_large', 'h:tree_dead_medium', 'n:DeadTree_2']), Math.cos(a) * r, Math.sin(a) * r, rnd(0, 6), rnd(1.8, 2.8)); }
+    for (let i = 0; i < 80; i++) place(pick(['h:grave_A', 'h:grave_B', 'h:gravestone', 'h:bone_A', 'h:ribcage', 'h:skull_candle', 'h:pumpkin_orange']), rnd(-46, 46), rnd(-46, 46), rnd(0, 6), rnd(1.1, 1.6));
     for (let i = 0; i < 7; i++) { const a = i / 7 * 6.28 + 0.4, r = rnd(32, 46); place('h:crypt', Math.cos(a) * r, Math.sin(a) * r, -a, 1.6, 0, 1.8); }
-    for (let i = 0; i < 12; i++) { const a = i / 12 * 6.28, r = 24; const x = Math.cos(a) * r, z = Math.sin(a) * r; place('h:post_lantern', x, z, 0, 2.2); if (i % 3 === 0) pointLight(x, 3, z, 0xc26bff, 16, 18); }
+    for (let i = 0; i < 12; i++) { const a = i / 12 * 6.28, r = 24; const x = Math.cos(a) * r, z = Math.sin(a) * r; place('h:post_lantern', x, z, -a + Math.PI / 2, 1.4, 0, 0.3); if (i % 3 === 0) pointLight(x, 3, z, 0xc26bff, 16, 18); }
     place('h:shrine_candles', 0, 0, 0, 2.5, 0, 1.2);
     ambientMotes(0xd8b4fe, 160, 50, true);
+  } else if (env === 'dungeon') {
+    const tint = opt.tint || 0x6d4cff; const R = 26; info.R = R - 2; info.spawn.set(0, 0, R - 8);
+    sc.fog = new THREE.Fog(0x0b0820, 22, 80); sky('#05040d', '#1a1033', false);
+    E.hemi.color.set(0xb0a4ff); E.hemi.groundColor.set(0x1a1028); E.hemi.intensity = 1.05; E.sun.color.set(0xc0b0ff); E.sun.intensity = 1.5;
+    ground('#4a4566', '#38344f', R + 3, true, R / 2.2);
+    const n = Math.floor(R * 0.8);
+    for (let i = 0; i < n; i++) { const a = i / n * 6.28; place(pick(['d:wall', 'd:wall_cracked', 'd:wall', 'd:wall_broken']), Math.cos(a) * (R + 1.2), Math.sin(a) * (R + 1.2), -a - Math.PI / 2, 1.6); }
+    for (let i = 0; i < 10; i++) { const a = i / 10 * 6.28; const x = Math.cos(a) * (R - 3), z = Math.sin(a) * (R - 3); place('d:pillar_decorated', x, z, 0, 1.7, 0, 0.9); place('d:torch_mounted', Math.cos(a) * (R + 0.4), Math.sin(a) * (R + 0.4), -a - Math.PI / 2, 1.6, 2.4); if (i % 2 === 0) pointLight(x, 3.5, z, i % 4 ? 0xff9a40 : tint, 18, 16); }
+    for (let i = 0; i < 14; i++) { const a = rnd(0, 6.28), r = rnd(R - 6, R - 2.5); place(pick(['d:barrel_large', 'd:rubble_half', 'd:candle_triple', 'd:banner_patternB_blue', 'd:coin_stack_large', 'd:chest_gold']), Math.cos(a) * r, Math.sin(a) * r, rnd(0, 6), 1.5); }
+    const rune = new THREE.Mesh(new THREE.RingGeometry(5, 5.6, 6), new THREE.MeshBasicMaterial({ color: tint, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending })); rune.rotation.x = -Math.PI / 2; rune.position.y = 0.05; E.world.add(rune);
+    const rune2 = new THREE.Mesh(new THREE.RingGeometry(9, 9.3, 48), rune.material); rune2.rotation.x = -Math.PI / 2; rune2.position.y = 0.05; E.world.add(rune2);
+    E.anim.push(dt => { rune.rotation.z += dt * 0.3; rune2.rotation.z -= dt * 0.15; });
+    pointLight(0, 6, 0, tint, 30, 30); ambientMotes(tint, 90, R, true);
+    flush(E.world); return info;
   } else {
     sc.fog = new THREE.Fog(0x2a0a2a, 25, 120); sky('#0a0418', '#6a1040', true);
     E.hemi.color.set(0xffa0c8); E.hemi.groundColor.set(0x200818); E.hemi.intensity = 1.0; E.sun.color.set(0xff9ab8); E.sun.intensity = 1.7;
     ground('#3a2840', '#2a1a30', R + 30, true, 20);
     for (let i = 0; i < 10; i++) { const a = i / 10 * 6.28, r = rnd(34, 48); place(pick(['x:building_tower_A_blue', 'x:building_tower_B_blue', 'x:building_castle_blue']), Math.cos(a) * r, Math.sin(a) * r, -a, 5.5, 0, 1); }
-    for (let i = 0; i < 60; i++) place(pick(['d:rubble_large', 'd:rubble_half', 'd:column', 'd:pillar', 'd:pillar_decorated', 'd:banner_patternA_red', 'd:sword_shield_gold', 'd:candle_triple']), rnd(-50, 50), rnd(-50, 50), rnd(0, 6), rnd(1.6, 2.6), 0, 0.6);
+    for (let i = 0; i < 34; i++) { const a = rnd(0, 6.28), r = rnd(12, 44); place(pick(['d:rubble_large', 'd:rubble_half', 'd:column', 'd:pillar', 'd:pillar_decorated', 'd:banner_patternA_red', 'd:sword_shield_gold', 'd:candle_triple']), Math.cos(a) * r, Math.sin(a) * r, rnd(0, 6), rnd(1.2, 1.8), 0, 0.7); }
     for (let i = 0; i < 8; i++) pointLight(rnd(-40, 40), 3, rnd(-40, 40), i % 2 ? 0xff3b5c : 0x9b5cff, 18, 20);
     for (let i = 0; i < 6; i++) { const cr = new THREE.Mesh(new THREE.OctahedronGeometry(rnd(1.2, 2.4), 0), new THREE.MeshLambertMaterial({ color: 0xff7aa8, emissive: 0xff3b5c, emissiveIntensity: 1.1 })); const a = i / 6 * 6.28; cr.position.set(Math.cos(a) * 62, rnd(6, 14), Math.sin(a) * 62); E.world.add(cr); E.anim.push(dt => { cr.rotation.y += dt; cr.position.y += Math.sin(E.t + i) * 0.01; }); }
     ambientMotes(0xff7aa8, 180, 50, true);
