@@ -483,3 +483,31 @@ export function toScreen(p, out = {}) {
   out.x = (tmpV.x * 0.5 + 0.5) * innerWidth; out.y = (-tmpV.y * 0.5 + 0.5) * innerHeight; out.vis = tmpV.z < 1 && tmpV.x > -1.1 && tmpV.x < 1.1 && tmpV.y > -1.1 && tmpV.y < 1.1; return out;
 }
 export function render() { E.renderer.render(E.scene, E.cam); }
+
+/* ---------- navigation : contourner les blocs par les rues ---------- */
+const NV = [-90, -48, 0, 48, 90];
+function segBox(ax, az, bx, bz, b, m) {
+  let t0 = 0, t1 = 1;
+  for (const [p, d, lo, hi] of [[ax, bx - ax, b.x - b.hw - m, b.x + b.hw + m], [az, bz - az, b.z - b.hd - m, b.z + b.hd + m]]) {
+    if (Math.abs(d) < 1e-6) { if (p < lo || p > hi) return false; } else { let a = (lo - p) / d, c = (hi - p) / d; if (a > c) [a, c] = [c, a]; t0 = Math.max(t0, a); t1 = Math.min(t1, c); if (t0 > t1) return false; }
+  }
+  return true;
+}
+export function buildNav() { E.obst = E.sq ? [...E.boxes, ...E.colliders.filter(c => c.r >= 9).map(c => ({ x: c.x, z: c.z, hw: c.r * 0.8, hd: c.r * 0.8 }))] : []; E.navN = []; for (const x of NV) for (const z of NV) E.navN.push(new THREE.Vector3(x, 0, z)); }
+const clearSeg = (a, b) => !E.obst.some(o => segBox(a.x, a.z, b.x, b.z, o, 0.3));
+export function navNext(from, to) {
+  if (!E.sq || !E.obst || !E.obst.length || clearSeg(from, to)) return to;
+  const N = E.navN, dist = new Array(25).fill(Infinity), prev = new Array(25).fill(-1), done = new Array(25).fill(false);
+  for (let i = 0; i < 25; i++) if (clearSeg(from, N[i])) dist[i] = Math.hypot(N[i].x - from.x, N[i].z - from.z);
+  let best = -1, bc = Infinity;
+  for (let k = 0; k < 25; k++) {
+    let u = -1; for (let i = 0; i < 25; i++) if (!done[i] && (u < 0 || dist[i] < dist[u])) u = i; if (u < 0 || dist[u] === Infinity) break; done[u] = true;
+    if (clearSeg(N[u], to)) { const c = dist[u] + Math.hypot(N[u].x - to.x, N[u].z - to.z); if (c < bc) { bc = c; best = u; } }
+    const ui = Math.floor(u / 5), uj = u % 5;
+    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const i = ui + di, j = uj + dj; if (i < 0 || i > 4 || j < 0 || j > 4) continue; const v = i * 5 + j, c = dist[u] + Math.hypot(N[v].x - N[u].x, N[v].z - N[u].z); if (c < dist[v]) { dist[v] = c; prev[v] = u; } }
+  }
+  if (best < 0) return to;
+  const path = []; for (let u = best; u >= 0; u = prev[u]) path.unshift(u);
+  for (const u of path) if (Math.hypot(N[u].x - from.x, N[u].z - from.z) > 1.5) return N[u];
+  return to;
+}

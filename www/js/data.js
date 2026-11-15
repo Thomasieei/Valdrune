@@ -131,8 +131,9 @@ export const mission = (w, s) => ({ kills: 40 + s * 12, brutes: 5 + s });
 export const SRANKS = RK;
 export const SRANK_COL = RAR.map(r => r.c);
 export const SRANK_MULT = [1, 1.7, 2.9, 5, 8.5, 15, 28];
-export const armyMax = lvl => Math.min(30, 3 + Math.floor(lvl / 3));
-export const shadowPow = sh => foeHp(sh.t) * 0.06 * (sh.k === 2 ? 6 : sh.k === 1 ? 2.2 : 1) * SRANK_MULT[sh.rk] * (1 + sh.lv * 0.1) * (1 + (sh.aw || 0) * 0.25) * (sh.u ? 1.5 : 1);
+export const armyMax = lvl => Math.min(40, 4 + Math.floor(lvl / 2));
+export const SH_K = 0.045;
+export const shadowPow = sh => foeHp(sh.t) * SH_K * (sh.k === 2 ? 6 : sh.k === 1 ? 2.2 : 1) * SRANK_MULT[sh.rk] * (1 + sh.lv * 0.1) * (1 + (sh.aw || 0) * 0.25) * (sh.u ? 1.5 : 1);
 export const shUpCost = sh => Math.ceil(foeCash(sh.t) * 8 * Math.pow(1.25, sh.lv) * (1 + sh.rk * 0.5));
 export const SH_MAXLV = 30;
 export const TRAITS = {

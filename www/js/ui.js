@@ -481,7 +481,7 @@ function renderSettings() {
     <button class="btn ${S.music ? 'g' : 'k'}" data-s="music">Musique : ${S.music ? 'ON' : 'OFF'}</button>
     <button class="btn ${S.hq ? 'g' : 'k'}" data-s="hq">Qualité graphique : ${S.hq ? 'HAUTE' : 'ÉCONOMIE'}</button>
     <button class="btn r" data-s="wipe">${wipeArm ? 'Touche encore pour TOUT effacer' : 'Effacer la sauvegarde'}</button>
-    <p style="font-size:11px;color:#93c5fd;text-align:center">UMBRA v5 — Glisse à droite de l'écran pour tourner la caméra.</p></div>`;
+    <p style="font-size:11px;color:#93c5fd;text-align:center">UMBRA v6 — Glisse à droite de l'écran pour tourner la caméra.</p></div>`;
   frame('Réglages', UIC.reglages(), '', body);
   on('[data-s]', e => {
     const s = e.dataset.s;

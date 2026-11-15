@@ -1,8 +1,8 @@
 /* UMBRA — boucle de jeu : héros (vie/mana), camps de monstres, armée mortelle, butin, sanctuaire, îles, portails, tour, événements */
-import { E, makeChar, attachWeapon, buildWorld, collide, burst, slash, shock, pillar, projectile, portalMesh } from './engine.js';
+import { E, makeChar, attachWeapon, buildWorld, collide, burst, slash, shock, pillar, projectile, portalMesh, buildNav, navNext } from './engine.js';
 import { WEAPONS, RELICS, ACCS, WORLDS, FOES, STAGES, RAR, W_MAXSTAR, R_MAXLV, A_MAXLV, tierOf, foeHp, foeCash, mission, xpNeed, armyMax, SRANKS, SRANK_COL, shadowPow,
   rollRankW, WORLD_RW, rkMin, rkMax, dungeonRW, PORTAL_RW, DUNGEONS, DG_TIME, DG_WAVES, UNIQUES, TRAITS, TRAIT_N, traitVal, shadowName, SUMMON, NPCS,
-  TW_TIME, twTier, twRank, twCount, SPIN_CD, MANA_WAVE, MANA_RECALL, ROLES, rnd, pick, clamp } from './data.js';
+  TW_TIME, twTier, twRank, twCount, SPIN_CD, MANA_WAVE, MANA_RECALL, ROLES, SH_K, rnd, pick, clamp } from './data.js';
 import { S, save, bonus, dirty, heroDmg, heroHp, heroMp, shDmg, equipped, relicSlotsN, power, armyCap, roleOf } from './state.js';
 import { UI } from './ui.js';
 import { SFX } from './audio.js';
@@ -36,7 +36,7 @@ function clearScene() {
   Object.assign(G, { foes: [], souls: [], army: [], fallen: [], camps: [], chests: [], npcs: [], boss: null, legend: null, horde: null, portal: null, bossPortal: null, near: null, dead: 0, bossSkip: 0 });
   if (G.buff) { G.buff = null; UI.moon(false); }
 }
-function arrive(full = true) { const P = G.P; P.pos.copy(G.info.spawn); P.tgt = null; if (full) { P.hp = heroHp(); P.mp = heroMp(); } syncArmy(); }
+function arrive(full = true) { const P = G.P; buildNav(); P.nv = null; P.pos.copy(G.info.spawn); P.tgt = null; if (full) { P.hp = heroHp(); P.mp = heroMp(); } syncArmy(); }
 export function enterHub() {
   S.world = -1; G.dg = null; clearScene(); G.info = buildWorld('hub', { npcs: NPCS }); arrive(); E.pitch = 0.5; E.dist = 32; E.yaw = 0.42; SFX.music('hub');
   for (const n of G.info.npcs) { const ch = makeChar(n.model, { tint: n.tint, eyeCol: 0xffffff }); ch.root.position.set(n.x, 0, n.z); ch.root.rotation.y = Math.atan2(-n.x, -n.z); E.scene.add(ch.root); G.npcs.push({ ...n, ch, pos: V(n.x, 0, n.z) }); }
@@ -357,9 +357,9 @@ export function syncArmy() {
   G.army.forEach((a, i) => a.slot = i);
 }
 function unitDie(a) { UI.dn(a.pos, `${a.sh.n} tombe`, 'fail'); burst(a.pos.clone().setY(1), 0x7c3aed, 16, { speed: 3 }); a.ch.dispose(); G.army.splice(G.army.indexOf(a), 1); G.fallen.push(a.sh.id); G.army.forEach((x, i) => x.slot = i); }
-export function recall(silent) {
-  let n = 0; const P = G.P;
-  while (G.fallen.length && P.mp >= MANA_RECALL) { const id = G.fallen.shift(); const sh = S.sh.find(s => s.id === id); if (!sh || !sh.eq) continue; P.mp -= MANA_RECALL; addArmy(sh); pillar(G.army[G.army.length - 1].pos, RANK_HEX(sh.rk), 5); n++; }
+export function recall(silent, max = 99) {
+  let n = 0; const P = G.P; G.fallen = G.fallen.filter(id => S.sh.some(s => s.id === id && s.eq));
+  while (n < max && G.fallen.length && P.mp >= MANA_RECALL) { const id = G.fallen.shift(); const sh = S.sh.find(s => s.id === id); if (!sh) continue; P.mp -= MANA_RECALL; addArmy(sh); const a = G.army[G.army.length - 1]; pillar(a.pos, RANK_HEX(sh.rk), 5); UI.dn(a.pos, `${sh.n} revient`, 'heal'); n++; }
   if (n) { SFX.play('seal', 0.5); G.army.forEach((x, i) => x.slot = i); } else if (!silent) UI.toast(G.fallen.length ? `Mana insuffisant (${MANA_RECALL} par ombre)` : 'Aucune ombre à rappeler', 'bad');
   return n;
 }
@@ -382,9 +382,15 @@ function moveTo(obj, target, speed, dt, stop = 0) {
   tv.subVectors(target, obj.pos); tv.y = 0; const d = tv.length(); if (d <= stop + 0.05) return false;
   tv.multiplyScalar(Math.min(speed * dt, d - stop) / d); obj.pos.add(tv); obj.ch.root.rotation.y = Math.atan2(tv.x, tv.z); return true;
 }
+function navTo(obj, target, speed, dt, stop = 0) {
+  if (!E.sq) return moveTo(obj, target, speed, dt, stop);
+  if (!obj.nv || G.t - obj.nv.t > 0.35) { const wp = navNext(obj.pos, target); obj.nv = { t: G.t + Math.random() * 0.1, wp, direct: wp === target }; }
+  if (obj.nv.direct) return moveTo(obj, target, speed, dt, stop);
+  moveTo(obj, obj.nv.wp, speed, dt, 0); return true;
+}
 function foeHurt(f, tg) {
   if (tg === G.P) return heroHurt(f);
-  const ref = shadowPow(tg.sh) / 0.06; tg.hp -= ROLES[tg.role].take * 100 * (f.kind === 2 ? 0.45 : f.kind === 1 ? 0.22 : 0.11) * clamp(Math.sqrt(f.unit / ref), 0.4, 6) * rnd(0.85, 1.15);
+  const ref = shadowPow(tg.sh) / SH_K; tg.hp -= ROLES[tg.role].take * 100 * (f.kind === 2 ? 0.45 : f.kind === 1 ? 0.22 : 0.11) * clamp(Math.sqrt(f.unit / ref), 0.4, 6) * rnd(0.85, 1.15);
   burst(tg.pos.clone().setY(1), 0xff4d6d, 4, { speed: 2 }); if (tg.hp <= 0) unitDie(tg);
 }
 export function update(dt) {
@@ -404,11 +410,11 @@ export function update(dt) {
     } else if (S.auto && G.foes.length) {
       if (!P.tgt || P.tgt.dead || P.tgt.ret || (combat && !P.tgt.aggro)) P.tgt = nearestFoe(P.pos, 40, f => f.aggro && f.healer) || nearestFoe(P.pos, 999, f => f.aggro) || (G.boss && !G.bossSkip && inWorld() ? G.boss : nearestFoe(P.pos, 999, f => !f.leg && (f.kind < 2 || !inWorld())));
       if (P.tgt) {
-        const st = 1.6 + P.tgt.r; tv.subVectors(P.tgt.pos, P.pos); const d = tv.length();
+        const st = 1.6 + P.tgt.r, d = P.tgt.pos.distanceTo(P.pos);
         if (d > st) {
-          if (P.det > 0) { P.det -= dt; const px = tv.z * P.detDir, pz = -tv.x * P.detDir; tv.set(px + tv.x * 0.2, 0, pz + tv.z * 0.2); }
-          tv.multiplyScalar(Math.min(speed * dt, d - st) / tv.length()); P.pos.add(tv); P.ang = Math.atan2(tv.x, tv.z); P.moving = true;
-          if ((P.stuck += dt) > 0.7) { if (P.lastD - d < 1.2 && P.det <= 0) { P.det = 1.6; P.detDir = Math.random() < 0.5 ? 1 : -1; } P.stuck = 0; P.lastD = d; }
+          if (!P.nv || P.nv.tg !== P.tgt || G.t - P.nv.t > 0.3) P.nv = { t: G.t, tg: P.tgt, wp: navNext(P.pos, P.tgt.pos) };
+          const direct = P.nv.wp === P.tgt.pos; tv.subVectors(P.nv.wp, P.pos); tv.y = 0; const l = tv.length();
+          if (l > 0.05) { tv.multiplyScalar(Math.min(speed * dt, direct ? d - st : l) / l); P.pos.add(tv); P.ang = Math.atan2(tv.x, tv.z); P.moving = true; }
         }
       }
     }
@@ -418,7 +424,7 @@ export function update(dt) {
     P.atkCd -= dt;
     if (P.atkCd <= 0) { const t = nearestFoe(P.pos, 2.6, f => f.aggro || S.auto); if (t) heroStrike(t, aspd); }
     if (S.auto && combat && G.waveCd <= 0 && P.mp >= maxMp * 0.5 && G.foes.filter(f => f.aggro && !f.dead && f.pos.distanceTo(P.pos) < 7).length >= 3) wave();
-    if (S.auto && !combat && G.fallen.length && P.mp >= MANA_RECALL) recall(true);
+    if (G.fallen.length && P.mp >= MANA_RECALL && (G.rcT = (G.rcT || 0) - dt) <= 0) { G.rcT = combat ? 2.5 : 0.4; recall(true, 1); }
     P.hp = Math.min(maxHp, P.hp + maxHp * (combat ? 0.008 : 0.07) * dt); P.mp = Math.min(maxMp, P.mp + maxMp * (combat ? 0.02 : 0.06) * dt);
     P.aura.rotation.z += dt; P.aura.material.opacity = 0.35 + Math.sin(G.t * 3) * 0.2;
     P.ch.update(dt);
@@ -428,7 +434,7 @@ export function update(dt) {
       if (!a.tgt || a.tgt.dead || !a.tgt.aggro || a.tgt.pos.distanceTo(P.pos) > 26) a.tgt = nearestFoe(a.pos, 22, f => f.aggro);
       const range = (a.ranged ? 7 : 1.5) + (a.tgt ? a.tgt.r : 0); let mv = false;
       if (a.tgt) {
-        mv = moveTo(a, a.tgt.pos, speed * 1.1, dt, range);
+        mv = navTo(a, a.tgt.pos, speed * 1.1, dt, range);
         if (!mv) {
           a.ch.root.rotation.y = Math.atan2(a.tgt.pos.x - a.pos.x, a.tgt.pos.z - a.pos.z); a.cd -= dt;
           if (a.cd <= 0 && a.role === 'heal' && healTry(a, maxHp)) a.cd = 2;
@@ -443,7 +449,7 @@ export function update(dt) {
         if (a.pos.distanceTo(P.pos) > 34) a.pos.copy(P.pos);
         const row = Math.floor(a.slot / 5), col = (a.slot % 5) - 2;
         const want = P.pos.clone().addScaledVector(fw, -2.6 - row * 2).addScaledVector(rt, col * 1.9);
-        mv = moveTo(a, want, speed * 1.15, dt, 0.4);
+        mv = navTo(a, want, speed * 1.15, dt, 0.4);
         if (!mv) a.ch.root.rotation.y += (P.ch.root.rotation.y - a.ch.root.rotation.y) * Math.min(1, dt * 5);
         if (!combat) a.hp = Math.min(100, a.hp + 12 * dt);
       }
@@ -458,7 +464,7 @@ export function update(dt) {
     if (f.dead) { f.deathT -= dt; f.ch.update(dt); if (f.deathT <= 0) { f.ch.dispose(); G.foes.splice(i, 1); } continue; }
     const d = f.pos.distanceTo(P.pos); let mv = false, run = false;
     if (!f.aggro && !f.ret && d > 55) { f.ch.root.visible = false; continue; } f.ch.root.visible = true;
-    if (f.ret) { mv = run = moveTo(f, f.home, 8, dt, 0.5); f.hp = Math.min(f.max, f.hp + f.max * 0.5 * dt); if (!mv) f.ret = false; }
+    if (f.ret) { mv = run = navTo(f, f.home, 8, dt, 0.5); f.hp = Math.min(f.max, f.hp + f.max * 0.5 * dt); if (!mv) f.ret = false; }
     else if (!f.aggro) {
       if (alive && d < f.ar + f.r) aggro(f);
       else { f.wander -= dt; if (f.wander <= 0) { f.wander = rnd(3, 7); f.wt = f.home.clone().add(V(rnd(-3, 3), 0, rnd(-3, 3))); } if (f.wt) mv = moveTo(f, f.wt, 1.8, dt, 0.3); }
@@ -468,7 +474,7 @@ export function update(dt) {
       const tg = f.tg;
       if (f.healer && (f.hT = (f.hT || 3) - dt) <= 0) { f.hT = 3; let w = null; for (const o of G.foes) if (!o.dead && o !== f && o.hp < o.max * 0.9 && o.pos.distanceTo(f.pos) < 16 && (!w || o.hp / o.max < w.hp / w.max)) w = o; if (w) { w.hp = Math.min(w.max, w.hp + w.max * 0.12); projectile(f.pos, w.pos, 0x4ade80, 0.3); UI.dn(w.pos, '+soin', 'heal'); f.ch.play('cast', { once: true, restart: true }); f.ch.lock = 0.5; } }
       if (f.mech && bossMech(f, dt)) { f.ch.root.rotation.y = Math.atan2(tg.pos.x - f.pos.x, tg.pos.z - f.pos.z); f.ch.root.position.copy(f.pos); f.ch.update(dt); continue; }
-      mv = run = moveTo(f, tg.pos, f.kind === 2 ? 4.8 : 5.6, dt, 1.4 + f.r);
+      mv = run = navTo(f, tg.pos, f.kind === 2 ? 4.8 : 5.6, dt, 1.4 + f.r);
       if (!mv) {
         f.ch.root.rotation.y = Math.atan2(tg.pos.x - f.pos.x, tg.pos.z - f.pos.z); f.cd -= dt;
         if (f.cd <= 0) { f.cd = f.kind === 2 ? 2 : 1.7; f.ch.play('attack', { once: true, restart: true, speed: 1.4 }); f.ch.lock = 0.6; foeHurt(f, tg); if (f.kind === 2) { shock(f.pos, 0xff3355, 5, 0.5); E.shake = 0.25; if (f.leg) for (const a of [...G.army]) if (a.pos.distanceTo(f.pos) < 6) foeHurt(f, a); } }
