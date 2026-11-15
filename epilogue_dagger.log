@@ -1,47 +1,46 @@
-23:01:51 | INFO: Starting glTF 2.0 export
-23:01:51 | INFO: Extracting primitive: Mesh.006
-23:01:51 | INFO: Primitives created: 1
-23:01:51 | INFO: Extracting primitive: Mesh.007
-23:01:51 | INFO: Primitives created: 1
-23:01:51 | INFO: Extracting primitive: Mesh.008
-23:01:51 | INFO: Primitives created: 1
-23:01:51 | INFO: Extracting primitive: Mesh.009
-23:01:51 | INFO: Primitives created: 1
-23:01:51 | INFO: Extracting primitive: Mesh.005
-23:01:51 | INFO: Primitives created: 1
-23:01:51 | INFO: Extracting primitive: Mesh.003
-23:01:51 | INFO: Primitives created: 1
-23:01:51 | INFO: Extracting primitive: Mesh.004
-23:01:51 | INFO: Primitives created: 1
-23:01:51 | INFO: Extracting primitive: Mesh.001
-23:01:51 | INFO: Primitives created: 1
-23:01:51 | INFO: Extracting primitive: Mesh.002
-23:01:51 | INFO: Primitives created: 1
-23:01:51 | INFO: Extracting primitive: Mesh
-23:01:51 | INFO: Primitives created: 1
-23:01:51 | INFO: Finished glTF 2.0 export in 0.019631624221801758 s
-23:01:51 | INFO: Data are loaded, start creating Blender stuff
-23:01:51 | INFO: Blender create Mesh node Mesh.006
-23:01:51 | INFO: Blender create Mesh node Mesh.007
-23:01:51 | INFO: Blender create Mesh node Mesh.008
-23:01:51 | INFO: Blender create Mesh node Mesh.009
-23:01:51 | INFO: Blender create Mesh node Mesh.005
-23:01:51 | INFO: Blender create Mesh node Mesh.003
-23:01:51 | INFO: Blender create Mesh node Mesh.004
-23:01:51 | INFO: Blender create Mesh node Mesh.001
-23:01:51 | INFO: Blender create Mesh node Mesh.002
-23:01:51 | INFO: Blender create Mesh node Mesh
-23:01:51 | INFO: glTF import finished in 0.01s
+23:08:19 | INFO: Starting glTF 2.0 export
+23:08:19 | INFO: Extracting primitive: Mesh.006
+23:08:19 | INFO: Primitives created: 1
+23:08:19 | INFO: Extracting primitive: Mesh.007
+23:08:19 | INFO: Primitives created: 1
+23:08:19 | INFO: Extracting primitive: Mesh.008
+23:08:19 | INFO: Primitives created: 1
+23:08:19 | INFO: Extracting primitive: Mesh.009
+23:08:19 | INFO: Primitives created: 1
+23:08:19 | INFO: Extracting primitive: Mesh.005
+23:08:19 | INFO: Primitives created: 1
+23:08:19 | INFO: Extracting primitive: Mesh.003
+23:08:19 | INFO: Primitives created: 1
+23:08:19 | INFO: Extracting primitive: Mesh.004
+23:08:19 | INFO: Primitives created: 1
+23:08:19 | INFO: Extracting primitive: Mesh.001
+23:08:19 | INFO: Primitives created: 1
+23:08:19 | INFO: Extracting primitive: Mesh.002
+23:08:19 | INFO: Primitives created: 1
+23:08:19 | INFO: Extracting primitive: Mesh
+23:08:19 | INFO: Primitives created: 1
+23:08:19 | INFO: Finished glTF 2.0 export in 0.019154071807861328 s
+23:08:19 | INFO: Data are loaded, start creating Blender stuff
+23:08:19 | INFO: Blender create Mesh node Mesh.006
+23:08:19 | INFO: Blender create Mesh node Mesh.007
+23:08:19 | INFO: Blender create Mesh node Mesh.008
+23:08:19 | INFO: Blender create Mesh node Mesh.009
+23:08:19 | INFO: Blender create Mesh node Mesh.005
+23:08:19 | INFO: Blender create Mesh node Mesh.003
+23:08:19 | INFO: Blender create Mesh node Mesh.004
+23:08:19 | INFO: Blender create Mesh node Mesh.001
+23:08:19 | INFO: Blender create Mesh node Mesh.002
+23:08:19 | INFO: Blender create Mesh node Mesh
+23:08:19 | INFO: glTF import finished in 0.01s
 Blender 4.2.3 LTS (hash 0e22e4fcea03 built 2024-10-14 23:31:34)
 Fra:1 Mem:11.98M (Peak 11.98M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | BLADE_2
-Fra:1 Mem:11.99M (Peak 11.99M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | BODY_2
-Fra:1 Mem:14.00M (Peak 14.00M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Extrude_5
-Fra:1 Mem:14.12M (Peak 14.12M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | BODY_3
+Fra:1 Mem:11.99M (Peak 11.99M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Extrude_5
+Fra:1 Mem:14.02M (Peak 14.02M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Extrude_1
+Fra:1 Mem:14.02M (Peak 14.02M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | BODY_3
+Fra:1 Mem:14.04M (Peak 14.04M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Extrude
+Fra:1 Mem:14.10M (Peak 14.10M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Torus_2
+Fra:1 Mem:14.10M (Peak 14.10M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Torus_1
 Fra:1 Mem:14.13M (Peak 14.13M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | HANDLE_2
-Fra:1 Mem:14.23M (Peak 14.23M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Torus_1
-Fra:1 Mem:14.22M (Peak 14.23M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Torus_2
-Fra:1 Mem:14.22M (Peak 14.23M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Extrude
-Fra:1 Mem:14.24M (Peak 14.24M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Extrude_1
 Fra:1 Mem:14.25M (Peak 14.25M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Initializing
 Fra:1 Mem:13.58M (Peak 14.25M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Waiting for render to start
 Fra:1 Mem:13.58M (Peak 14.25M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Loading render kernels (may take a few minutes the first time)
@@ -78,11 +77,11 @@ Fra:1 Mem:13.82M (Peak 14.25M) | Time:00:00.00 | Mem:0.28M, Peak:0.36M | Scene, 
 Fra:1 Mem:13.82M (Peak 14.25M) | Time:00:00.00 | Mem:0.37M, Peak:0.37M | Scene, ViewLayer | Updating Baking
 Fra:1 Mem:13.82M (Peak 14.25M) | Time:00:00.00 | Mem:0.37M, Peak:0.37M | Scene, ViewLayer | Updating Device | Writing constant memory
 Fra:1 Mem:13.82M (Peak 14.25M) | Time:00:00.00 | Mem:0.37M, Peak:0.37M | Scene, ViewLayer | Sample 0/12
-Fra:1 Mem:18.29M (Peak 18.29M) | Time:00:00.01 | Remaining:00:00.14 | Mem:4.82M, Peak:4.82M | Scene, ViewLayer | Sample 1/12
-Fra:1 Mem:20.27M (Peak 24.22M) | Time:00:00.15 | Mem:4.82M, Peak:4.82M | Scene, ViewLayer | Sample 12/12
-Fra:1 Mem:20.27M (Peak 24.22M) | Time:00:00.15 | Mem:4.82M, Peak:4.82M | Scene, ViewLayer | Finished
+Fra:1 Mem:18.29M (Peak 18.29M) | Time:00:00.01 | Remaining:00:00.12 | Mem:4.82M, Peak:4.82M | Scene, ViewLayer | Sample 1/12
+Fra:1 Mem:20.27M (Peak 24.22M) | Time:00:00.14 | Mem:4.82M, Peak:4.82M | Scene, ViewLayer | Sample 12/12
+Fra:1 Mem:20.27M (Peak 24.22M) | Time:00:00.14 | Mem:4.82M, Peak:4.82M | Scene, ViewLayer | Finished
 Saved: 'out/epilogue_dagger.png'
-Time: 00:00.23 (Saving: 00:00.07)
+Time: 00:00.21 (Saving: 00:00.07)
 
 FBX version: 7700
 INFO Draco mesh compression is available, use library at /home/runner/work/Valdrune/Valdrune/blender-4.2.3-linux-x64/4.2/python/lib/python3.11/site-packages/libextern_draco.so

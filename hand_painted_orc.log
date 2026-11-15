@@ -1,12 +1,12 @@
-22:59:54 | INFO: Starting glTF 2.0 export
-22:59:54 | INFO: Extracting primitive: 4fd280b7a0f848c788c3bd3cd9036531
-22:59:54 | INFO: Primitives created: 1
-22:59:54 | INFO: Finished glTF 2.0 export in 0.00663447380065918 s
-22:59:54 | INFO: Data are loaded, start creating Blender stuff
-22:59:54 | INFO: Blender create Mesh node 4fd280b7a0f848c788c3bd3cd9036531
-22:59:54 | INFO: glTF import finished in 0.01s
+23:06:59 | INFO: Starting glTF 2.0 export
+23:06:59 | INFO: Extracting primitive: 4fd280b7a0f848c788c3bd3cd9036531
+23:06:59 | INFO: Primitives created: 1
+23:06:59 | INFO: Finished glTF 2.0 export in 0.004986763000488281 s
+23:06:59 | INFO: Data are loaded, start creating Blender stuff
+23:06:59 | INFO: Blender create Mesh node 4fd280b7a0f848c788c3bd3cd9036531
+23:06:59 | INFO: glTF import finished in 0.01s
 Blender 4.2.3 LTS (hash 0e22e4fcea03 built 2024-10-14 23:31:34)
-OBJ import of '4fd280b7a0f848c788c3bd3cd9036531.obj' took 1.59 ms
+OBJ import of '4fd280b7a0f848c788c3bd3cd9036531.obj' took 1.55 ms
 Fra:1 Mem:11.13M (Peak 11.13M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | 4fd280b7a0f848c788c3bd3cd9036531
 Fra:1 Mem:13.61M (Peak 14.17M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Initializing
 Fra:1 Mem:13.47M (Peak 14.17M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Waiting for render to start
@@ -44,11 +44,11 @@ Fra:1 Mem:14.01M (Peak 14.17M) | Time:00:00.00 | Mem:0.66M, Peak:0.74M | Scene, 
 Fra:1 Mem:14.01M (Peak 14.17M) | Time:00:00.00 | Mem:0.75M, Peak:0.75M | Scene, ViewLayer | Updating Baking
 Fra:1 Mem:14.01M (Peak 14.17M) | Time:00:00.00 | Mem:0.75M, Peak:0.75M | Scene, ViewLayer | Updating Device | Writing constant memory
 Fra:1 Mem:14.01M (Peak 14.17M) | Time:00:00.00 | Mem:0.75M, Peak:0.75M | Scene, ViewLayer | Sample 0/12
-Fra:1 Mem:18.47M (Peak 18.47M) | Time:00:00.03 | Remaining:00:00.33 | Mem:5.20M, Peak:5.20M | Scene, ViewLayer | Sample 1/12
-Fra:1 Mem:20.45M (Peak 24.40M) | Time:00:00.29 | Mem:5.20M, Peak:5.20M | Scene, ViewLayer | Sample 12/12
-Fra:1 Mem:20.45M (Peak 24.40M) | Time:00:00.29 | Mem:5.20M, Peak:5.20M | Scene, ViewLayer | Finished
+Fra:1 Mem:18.47M (Peak 18.47M) | Time:00:00.03 | Remaining:00:00.29 | Mem:5.20M, Peak:5.20M | Scene, ViewLayer | Sample 1/12
+Fra:1 Mem:20.45M (Peak 24.40M) | Time:00:00.26 | Mem:5.20M, Peak:5.20M | Scene, ViewLayer | Sample 12/12
+Fra:1 Mem:20.45M (Peak 24.40M) | Time:00:00.26 | Mem:5.20M, Peak:5.20M | Scene, ViewLayer | Finished
 Saved: 'out/hand_painted_orc.png'
-Time: 00:00.36 (Saving: 00:00.07)
+Time: 00:00.33 (Saving: 00:00.07)
 
 INFO Draco mesh compression is available, use library at /home/runner/work/Valdrune/Valdrune/blender-4.2.3-linux-x64/4.2/python/lib/python3.11/site-packages/libextern_draco.so
 
