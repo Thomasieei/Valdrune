@@ -10,13 +10,13 @@ xtract(){ # recursive extraction of zip/rar inside dir
     done
   done
 }
-grep -v '^#' assets.txt | while read -r id kind cap tex; do
+grep -v '^#' assets.txt | while read -r id kind cap tex nrm; do
   [ -z "$id" ] && continue
   d="$W/$id"; mkdir -p "$d"
   if [ -f "$SRC/$id.glb" ]; then cp "$SRC/$id.glb" "$d/"; elif [ -f "$SRC/$id.zip" ]; then unzip -oq "$SRC/$id.zip" -d "$d"; else echo "MISSING $id"; continue; fi
   xtract "$d"
   k=$kind; [ "$kind" = kit ] && k=kit
-  timeout 900 blender -b --factory-startup -P process.py -- "$d" "$OUT" "$id" "$k" "$cap" "$tex" > "$OUT/$id.log" 2>&1
+  timeout 900 blender -b --factory-startup -P process.py -- "$d" "$OUT" "$id" "$k" "$cap" "$tex" "${nrm:-0}" > "$OUT/$id.log" 2>&1
   grep "^REPORT" "$OUT/$id.log" | sed "s/^REPORT //" >> "$OUT/report.jsonl"
   grep -q "^REPORT" "$OUT/$id.log" || echo "{\"id\":\"$id\",\"error\":\"crash\",\"tail\":$(tail -c 400 "$OUT/$id.log" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read()))')}" >> "$OUT/report.jsonl"
   echo "done $id"; rm -rf "$d"

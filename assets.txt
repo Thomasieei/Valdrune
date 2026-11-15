@@ -1,35 +1,35 @@
-# id kind cap texmax
-hell_wolf char 0 1024
-orc_warrior char 0 1024
-wolf_guy char 16000 1024
-monster_orc char 12000 1024
-fullbody18_orc char 12000 1024
-hand_painted_orc char 0 1024
-jett char 18000 1024
-demon_hunter char 0 1024
-policier char 15000 1024
-goblin_tes char 15000 1024
-gobelin_monster char 0 1024
-brimstone char 15000 1024
-phoenix char 15000 1024
-icy_dragon char 30000 1024
-igris_boss char 20000 1024
-war_orc char 15000 1024
-gobelin_avocat char 15000 1024
-katana weapon 2500 512
-knife_arme weapon 2500 512
-hache weapon 2500 512
-epilogue_dagger weapon 2500 512
-knife weapon 2500 512
-sl_sword weapon 2500 1024
-city_building_set env 40000 1024
-orc_house env 15000 1024
-centreville env 0 2048
-city_street_pack kit 80000 1024
-prison env 8000 1024
-sun_city env 0 1024
-shark_harbor env 0 1024
-misty_marsh env 0 1024
-supercar env 20000 1024
-hall-of-blood-red-commander-igris env 80000 1024
-free-1975-porsche-911-930-turbo env 25000 1024
+# id kind cap texmax norm
+hell_wolf char 0 1024 -1.6
+orc_warrior char 0 1024 2.1
+wolf_guy char 16000 1024 2.1
+monster_orc char 12000 1024 2.2
+fullbody18_orc char 12000 1024 2.2
+hand_painted_orc char 0 1024 2.1
+jett char 18000 1024 1.7
+demon_hunter char 0 1024 1.75
+policier char 15000 1024 1.8
+goblin_tes char 15000 1024 1.2
+gobelin_monster char 0 1024 1.1
+brimstone char 15000 1024 1.85
+phoenix char 15000 1024 1.8
+icy_dragon char 30000 1024 -9
+igris_boss char 20000 1024 2.2
+war_orc char 15000 1024 2.3
+gobelin-avocat char 15000 1024 1.3
+katana weapon 2500 512 -1.0
+knife_arme weapon 2500 512 -0.35
+hache weapon 2500 512 -1.1
+epilogue_dagger weapon 2500 512 -0.45
+knife weapon 2500 512 -0.35
+sl_sword weapon 2500 1024 -1.2
+city_building_set env 40000 1024 0
+orc_house env 15000 1024 0
+centreville env 0 2048 0
+city_street_pack kit 80000 1024 0
+prison env 8000 1024 0
+sun_city env 150000 1024 0
+shark_harbor env 100000 1024 0
+misty_marsh env 150000 1024 0
+supercar env 20000 1024 0
+hall-of-blood-red-commander-igris env 80000 1024 0
+free-1975-porsche-911-930-turbo env 25000 1024 0

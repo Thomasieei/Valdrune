@@ -4,6 +4,8 @@ from mathutils import Vector
 
 a = sys.argv[sys.argv.index('--') + 1:]
 ADIR, OUT, AID, KIND, CAP, TEXMAX = a[0], a[1], a[2], a[3], int(a[4]), int(a[5])
+NORM = float(a[6]) if len(a) > 6 else 0.0
+import numpy as np
 rep = {'id': AID, 'kind': KIND}
 
 def pick_main(d):
@@ -44,6 +46,10 @@ scene = bpy.context.scene
 # drop non-geometry clutter (cameras/lights) and hidden helper meshes
 for o in list(scene.objects):
     if o.type in ('CAMERA', 'LIGHT'): bpy.data.objects.remove(o, do_unlink=True)
+JUNK = ('shadow', 'ground', 'vignette', 'floor', 'plane', 'pedestal', 'backdrop')
+for o in list(scene.objects):
+    if o.type == 'MESH' and len(o.data.polygons) <= 60 and any(k in o.name.lower() or k in o.data.name.lower() for k in JUNK):
+        bpy.data.objects.remove(o, do_unlink=True); rep['junk'] = rep.get('junk', 0) + 1
 meshes = [o for o in scene.objects if o.type == 'MESH']
 arms = [o for o in scene.objects if o.type == 'ARMATURE']
 rep['tris_in'] = tris(meshes); rep['bones'] = sum(len(o.data.bones) for o in arms)
@@ -63,6 +69,20 @@ for im in bpy.data.images:
         if cand: im.filepath = cand; im.reload()
         else: missing += 1
 rep['tex_missing'] = missing
+def ok(im):
+    try: return im is not None and im.has_data or (im is not None and im.size[0] > 0)
+    except Exception: return False
+nondds = [f for f in texfiles if not f.lower().endswith('.dds')]
+for m in bpy.data.materials:
+    if not m.use_nodes: continue
+    nt = m.node_tree
+    for n in list(nt.nodes):
+        if n.type == 'TEX_IMAGE' and n.image is not None and not ok(n.image):
+            isn = n.image.colorspace_settings.name == 'Non-Color' or 'norm' in n.image.name.lower()
+            c = None
+            if len(nondds) == 1 and not isn: c = nondds[0]
+            if c: n.image = bpy.data.images.load(c, check_existing=True); rep['tex_fallback'] = rep.get('tex_fallback', 0) + 1
+            else: nt.nodes.remove(n); rep['tex_dropped'] = rep.get('tex_dropped', 0) + 1
 
 # ---- materials without any image: try to wire textures folder (base/normal)
 def find_tex(words):
@@ -121,24 +141,51 @@ if CAP and t0 > CAP:
         except Exception as e: rep['dec_err'] = str(e)[:120]; o.modifiers.remove(mod)
 rep['tris_out'] = tris([o for o in scene.objects if o.type == 'MESH'])
 
-# ---- textures resize
-for im in bpy.data.images:
+# ---- textures resize + recompress (saved to disk so the exporter uses them)
+TD = os.path.join(ADIR, '_tex'); os.makedirs(TD, exist_ok=True)
+for i, im in enumerate(list(bpy.data.images)):
     try:
         if im.size[0] == 0: continue
-        w, h = im.size
-        s = TEXMAX / max(w, h)
-        if s < 1:
-            im.scale(max(1, int(w * s)), max(1, int(h * s)))
-            im.pack()
-    except Exception as e: pass
+        w, h = im.size; sc_ = min(1.0, TEXMAX / max(w, h))
+        if sc_ < 1: im.scale(max(1, int(w * sc_)), max(1, int(h * sc_)))
+        data = im.colorspace_settings.name == 'Non-Color' or 'norm' in im.name.lower()
+        alpha = False
+        if im.channels == 4:
+            px = np.empty(len(im.pixels), np.float32); im.pixels.foreach_get(px); alpha = bool(px[3::4].min() < 0.99)
+        fmt, ext = ('PNG', '.png') if (data or alpha) else ('JPEG', '.jpg')
+        dst = os.path.join(TD, f'{i}{ext}')
+        im.filepath_raw = dst; im.file_format = fmt
+        bpy.context.scene.render.image_settings.quality = 88
+        im.save(); 
+        if im.packed_file: im.unpack(method='REMOVE')
+        im.filepath = dst; im.reload()
+    except Exception as e: rep['tex_err'] = str(e)[:100]
 
-# ---- bbox height
-mn = Vector((1e9,) * 3); mx = Vector((-1e9,) * 3)
-for o in scene.objects:
-    if o.type == 'MESH':
-        for c in o.bound_box:
-            v = o.matrix_world @ Vector(c); mn = Vector(map(min, mn, v)); mx = Vector(map(max, mx, v))
-rep['size_m'] = [round(x, 2) for x in (mx - mn)]
+# ---- evaluated robust bbox + normalisation
+def ebbox(objs):
+    dg = bpy.context.evaluated_depsgraph_get(); pts = []
+    for o in objs:
+        oe = o.evaluated_get(dg); me = oe.to_mesh()
+        n = len(me.vertices)
+        if n:
+            co = np.empty(n * 3, np.float32); me.vertices.foreach_get('co', co); co = co.reshape(-1, 3)
+            M = np.array(oe.matrix_world); co = co @ M[:3, :3].T + M[:3, 3]; pts.append(co)
+        oe.to_mesh_clear()
+    if not pts: return np.zeros(3), np.ones(3)
+    P = np.concatenate(pts); return np.percentile(P, 0.3, 0), np.percentile(P, 99.7, 0)
+ms_ = [o for o in scene.objects if o.type == 'MESH']
+mn, mx = ebbox(ms_)
+if NORM and KIND != 'env' and KIND != 'kit':
+    ext_ = mx - mn; cur = ext_[2] if NORM > 0 else ext_.max(); s_ = abs(NORM) / max(cur, 1e-6)
+    root = bpy.data.objects.new('Root', None); scene.collection.objects.link(root)
+    for o in list(scene.objects):
+        if o is not root and o.parent is None:
+            mw = o.matrix_world.copy(); o.parent = root; o.matrix_world = mw
+    root.scale = (s_, s_, s_)
+    c_ = (mn + mx) / 2
+    root.location = (-c_[0] * s_, -c_[1] * s_, -mn[2] * s_)
+    bpy.context.view_layer.update(); mn, mx = ebbox(ms_); rep['scale'] = round(float(s_), 5)
+rep['size_m'] = [round(float(x), 2) for x in (mx - mn)]
 acts = [ac.name for ac in bpy.data.actions]
 rep['anims'] = len(acts); rep['anim_names'] = acts[:50]
 
@@ -155,10 +202,7 @@ sc = bpy.context.scene
 ms = [o for o in sc.objects if o.type == 'MESH']
 rep['verify_tris'] = tris(ms); rep['verify_anims'] = len(bpy.data.actions)
 rep['verify_skinned'] = any(m.type == 'ARMATURE' for o in ms for m in o.modifiers)
-mn = Vector((1e9,) * 3); mx = Vector((-1e9,) * 3)
-for o in ms:
-    for c in o.bound_box:
-        v = o.matrix_world @ Vector(c); mn = Vector(map(min, mn, v)); mx = Vector(map(max, mx, v))
+mn, mx = ebbox(ms); mn = Vector(mn.tolist()); mx = Vector(mx.tolist())
 ctr = (mn + mx) / 2; rad = max((mx - mn).length / 2, 1e-3)
 cam = bpy.data.objects.new('cam', bpy.data.cameras.new('cam')); sc.collection.objects.link(cam); sc.camera = cam
 cam.data.lens = 50
@@ -166,7 +210,7 @@ d = rad / math.tan(cam.data.angle / 2) * 1.05
 dirv = Vector((0.55, -1.0, 0.35)).normalized()
 cam.location = ctr + dirv * d
 cam.rotation_euler = (ctr - cam.location).to_track_quat('-Z', 'Y').to_euler()
-cam.data.clip_end = d * 10
+cam.data.clip_end = d * 10; cam.data.clip_start = d / 1000
 sun = bpy.data.objects.new('sun', bpy.data.lights.new('sun', 'SUN')); sun.data.energy = 3; sc.collection.objects.link(sun)
 sun.rotation_euler = (math.radians(50), math.radians(10), math.radians(30))
 w = bpy.data.worlds.new('w'); sc.world = w; w.use_nodes = True; w.node_tree.nodes['Background'].inputs[0].default_value = (0.35, 0.37, 0.42, 1); w.node_tree.nodes['Background'].inputs[1].default_value = 1.0
