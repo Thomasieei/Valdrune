@@ -32,12 +32,12 @@ jobs:
         run: |
           godot --headless --path . --quit-after 300 2>&1 | tee run.log || true
           if grep -E "SCRIPT ERROR|Parse Error" run.log; then exit 1; fi
-          grep "IGRIS_ANIMS:" run.log && grep "SPAWN" run.log
+          grep "SPAWN" run.log && grep "CAMPS" run.log && grep "SWORD" run.log
       - name: Captures dans le moteur (rendu réel)
         run: |
           mkdir -p shots
           xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 -- --shots 2>&1 | tee shots.log || true
-          grep -E "SHOT|SPAWN|ERROR" shots.log | head -20; ls -la shots
+          grep -E "SHOT|SPAWN|CAMPS|SWORD|ERROR" shots.log | head -30; ls -la shots
           cp shots.log shots/
           cd shots && git init -q -b sl-city-shots && git add -A && git -c user.name=ci -c user.email=ci@local commit -qm "captures ${{ github.run_number }}" && git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" sl-city-shots
       - name: Export APK
