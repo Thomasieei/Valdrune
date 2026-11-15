@@ -1,5 +1,5 @@
-/* NOCTALIS — sons et musique procédurale */
-import { S } from './core.js';
+/* UMBRA — sons et musique procédurale */
+import { S } from './state.js';
 let ctx, master, musGain, bufs = {}, musTimer = null, musKind = '';
 const NAMES = ['bell', 'boom', 'click', 'coins', 'ok', 'power', 'select', 'win', 'lose', 'ping', 'seal'];
 export const SFX = {

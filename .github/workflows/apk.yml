@@ -1,7 +1,7 @@
-name: APK NOCTALIS
+name: APK UMBRA
 on:
   push:
-    branches: [noctalis]
+    branches: [umbra]
   workflow_dispatch:
 permissions:
   contents: write
@@ -20,14 +20,14 @@ jobs:
         run: bash android/build.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: NOCTALIS-apk
-          path: out/NOCTALIS.apk
+          name: UMBRA-apk
+          path: out/UMBRA.apk
       - name: Publier la Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: noctalis-v1.${{ github.run_number }}
-          name: NOCTALIS v1.${{ github.run_number }}
+          tag_name: umbra-v1.${{ github.run_number }}
+          name: UMBRA v1.${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           make_latest: true
-          body: APK Android de NOCTALIS — L'Éveil des Ombres. Télécharge NOCTALIS.apk depuis ton téléphone et installe-le.
-          files: out/NOCTALIS.apk
+          body: APK Android d'UMBRA — L'Ascension des Ombres. Télécharge UMBRA.apk depuis ton téléphone et installe-le.
+          files: out/UMBRA.apk

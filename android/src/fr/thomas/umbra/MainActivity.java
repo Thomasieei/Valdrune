@@ -1,4 +1,4 @@
-package fr.thomas.noctalis;
+package fr.thomas.umbra;
 
 import android.app.Activity;
 import android.net.Uri;
@@ -19,7 +19,7 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
-/** NOCTALIS : le jeu HTML5 embarqué, servi depuis les assets de l APK. */
+/** UMBRA : le jeu HTML5 embarqué, servi depuis les assets de l APK. */
 public class MainActivity extends Activity {
     private static final String HOTE = "appassets.androidplatform.net";
     private WebView vue;

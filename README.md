@@ -1,6 +1,6 @@
-# NOCTALIS — L'Éveil des Ombres
+# UMBRA — L'Ascension des Ombres
 
-Jeu mobile 3D (Three.js dans une WebView Android). Branche `noctalis` : chaque push construit l'APK via GitHub Actions (onglet Releases → `NOCTALIS.apk`).
+Jeu mobile 3D (Three.js dans une WebView Android) façon Arise Crossover. Branche `umbra` : chaque push construit l'APK via GitHub Actions (Releases → `UMBRA.apk`).
 
-- `www/` : le jeu (index.html + js/ : core, engine, game, domain, ui, audio)
+- `www/js/` : data (armes, reliques, accessoires, mondes), state, engine, game, ui, audio
 - `android/` : coquille Android (WebView) construite sans Gradle

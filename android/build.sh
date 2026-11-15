@@ -18,6 +18,6 @@ javac -source 11 -target 11 -encoding UTF-8 -classpath "$JAR" -d "$W/classes" $(
 cd "$W" && zip -q -j base.apk classes.dex && cd "$ROOT"
 "$BT/zipalign" -f -p 4 "$W/base.apk" "$W/aligned.apk"
 "$BT/apksigner" sign --ks "$ROOT/android/noctalis.keystore" --ks-pass pass:brecheecarlate --key-pass pass:brecheecarlate \
-  --out "$ROOT/out/NOCTALIS.apk" "$W/aligned.apk"
-"$BT/apksigner" verify --print-certs "$ROOT/out/NOCTALIS.apk" | head -3
+  --out "$ROOT/out/UMBRA.apk" "$W/aligned.apk"
+"$BT/apksigner" verify --print-certs "$ROOT/out/UMBRA.apk" | head -3
 ls -la "$ROOT/out"
