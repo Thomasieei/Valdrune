@@ -18,6 +18,9 @@ const dist2D = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 // ---------------- Sauvegarde ----------------
 let J = null;
 const CLE = 'breche-ecarlate-v1';
+// Version 1.0 recentrée : Place + Brèche (3 donjons, 4 boss). Les autres modes sont gelés, pas supprimés : mettre false pour les rallumer.
+const V1 = true;
+if (V1) document.body.classList.add('v1');
 // sauvegarde groupée : au plus une écriture toutes les 1,5 s (l’écriture disque fait des micro-freezes sur Android)
 let sauverT = null, efface = false;
 function sauverMaintenant() { if (efface) return; if (sauverT) { clearTimeout(sauverT); sauverT = null; } try { localStorage.setItem(CLE, JSON.stringify(J)); } catch (e) {} }
@@ -494,7 +497,9 @@ function lancerHub(premier = false) {
     if (groupe.donjonsRestants <= 0) { const n = groupe.nom; groupe = null; setTimeout(() => { UI.chat(n, hasard(['gg, je dois y aller', 'bon je déco, gg', 'merci pour les runs', 'bye'])); UI.toast(`${n} a quitté le groupe`); }, 2500); }
   }
   invasion = null; arene = null; selection = null;
-  if (!premier) { viderMonde(); monde = construireHub(); creerMarchand(); creerPasseur(); creerGraveuse(); creerBots(); }
+  if (V1) J.accepteInvasion = false;
+  if (!premier) { viderMonde(); monde = construireHub(); creerMarchand(); if (!V1) creerPasseur(); creerGraveuse(); creerBots(); }
+  if (V1) for (const k of ['portailArene', 'portailIle', 'portailGoulet']) if (monde[k]) { monde[k].groupe.visible = false; monde[k] = null; }
   const revientDeMode = !!modeActuel;
   modeActuel = null; enJeu = true;
   construireJoueur(monde.spawn.clone());
@@ -502,7 +507,7 @@ function lancerHub(premier = false) {
   joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax;
   G.camTarget.copy(joueur.pos); G.camDist = 25; G.scene.fog.density = 0.016;
   G.hemi.intensity = 1.1; G.sun.intensity = 1.3;
-  UI.journal('Place des Cendres', 'Brèche rouge : donjons. Portail violet : l’arène. Touche un joueur pour former un groupe.');
+  UI.journal('Place des Cendres', V1 ? 'Franchis la Brèche rouge : 3 donjons, 4 boss chacun. Touche un joueur pour former un groupe.' : 'Brèche rouge : donjons. Portail violet : l’arène. Touche un joueur pour former un groupe.');
   G.renderer.compile(G.scene, G.camera);
   UI.zone('Place des Cendres', `Joueurs ${bots.length + 1}/20`);
   $('#btnQuitter').hidden = true;
@@ -4271,7 +4276,7 @@ function majInteractions() {
   if (modeActuel && modeActuel.id === 'domaine') return interactionsDomaine();
   if (modeActuel && modeActuel.id === 'terres') { const r = interactionsTerres(); if (r !== null) return r; }
   if (!modeActuel) {
-    if (monde.taverne && dist2D(joueur.pos, monde.taverne.porte) < 4) return UI.action('Entrer au Croc-Rouge', () => entrerTaverne());
+    if (!V1 && monde.taverne && dist2D(joueur.pos, monde.taverne.porte) < 4) return UI.action('Entrer au Croc-Rouge', () => entrerTaverne());
     if (marchand && dist2D(joueur.pos, marchand.pos) < 5) return UI.action('Parler à Borin', () => UI.dialogueMarchand());
     if (graveuse && dist2D(joueur.pos, graveuse.pos) < 4.5) return UI.action('Graver des runes', () => UI.runes());
     if (dist2D(joueur.pos, monde.portail.pos) < 9) return UI.action('Franchir la Brèche', () => UI.menuPortail());
@@ -4414,7 +4419,7 @@ function initEntrees() {
     const k = e.key.toUpperCase();
     if (['Q', 'W', 'E', 'R', 'D', 'F'].includes(k)) API.touche(k, true);
     if (k === 'G') API.touche('A', true);
-    if (k === 'O' && J.escouade) ouvrirCommandeOmbres();
+    if (k === 'O' && J.escouade && !V1) ouvrirCommandeOmbres();
     if (k === '1') API.touche('POT', true);
     if (k === 'I') UI.ouvrirInventaire();
     if (e.key === 'Tab' && goulet) { e.preventDefault(); UI.classementGoulet(UI.classementOuvert() ? null : { live: true }); }
