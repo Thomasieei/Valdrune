@@ -89,10 +89,29 @@ var menu_tab := ""
 var menu_refresh := 0.0
 var unarmed_btn: Button
 var base_fov := 64.0
+# audio, carte, économie, quête, sauvegarde
+var audio: GameAudio
+var minimap: Minimap
+var merchant: Mob
+var potions := 2
+var mana_potions := 1
+var potion_cd := 0.0
+var shadow_lvl := 0
+var hunter_rank := "E"
+var quest := {}
+var last_pos := Vector3.ZERO
+var save_t := 30.0
+var combat_t := 0.0
+var rank_lbl: Label
+var potion_btn: Button
+const SAVE_PATH := "user://chasseur.json"
+const RANKS := [["E", 1, -999], ["D", 5, 40], ["C", 10, 100], ["B", 18, 200], ["A", 28, 350], ["S", 40, 600]]
 var info_box: VBoxContainer
 
 func _ready() -> void:
 	shots_mode = OS.get_cmdline_user_args().has("--shots")
+	audio = GameAudio.new()
+	add_child(audio)
 	_build_env()
 	_build_other_envs()
 	_build_city()
@@ -112,7 +131,14 @@ func _ready() -> void:
 	await _build_dungeon()
 	_build_hall()
 	_spawn_gate(true)
+	_spawn_merchant()
+	if shots_mode:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
+	load_game()
+	last_pos = hero.global_position
+	audio.music("city")
 	system_msg("[ SYSTÈME ]\nUn Portail de rang C est apparu en ville.\nL'Association des Chasseurs le garde.")
+	_check_daily()
 	if shots_mode:
 		_run_shots()
 
@@ -458,6 +484,9 @@ func _open_elite_chest(c: Dictionary) -> void:
 	c["state"] = "cooldown"
 	c["timer"] = 300.0
 	var ch: Node3D = c["chest"]
+	sfx("chest", ch.global_position)
+	sfx("coins", ch.global_position)
+	save_game()
 	FX.burst(self, ch.global_position + Vector3(0, 1.2, 0), Color(1, 0.8, 0.2), 60, 0.12, 5.0, 1.0, 6.0)
 	FX.damage_number(self, ch.global_position, "+%d or  +2 essences" % g, Color(1, 0.85, 0.3), true)
 	system_msg("[ SYSTÈME ]\nCoffre d'élite ouvert : %d or, 2 essences.\nRéputation +8" % g)
@@ -480,6 +509,8 @@ func _on_mob_died(u: Unit) -> void:
 		_on_boss_dead(m)
 		return
 	gold += m.reward_gold
+	quest_add("kills", 1)
+	sfx("coins", m.global_position, -8.0)
 	rep += 3 if m.elite else 1
 	var xpv := {"goblin": 12.0, "shaman": 15.0, "orc": 35.0, "igris": 600.0}.get(m.kind, 10.0) as float
 	hero.gain_xp(xpv * (3.0 if m.elite else 1.0))
@@ -710,6 +741,8 @@ func _teleport(p: Vector3, z: String) -> void:
 	tw2.tween_property(fade, "modulate:a", 0.0, 0.35)
 
 func enter_dungeon() -> void:
+	sfx("portal", null, 0.0)
+	sfx("shadow")
 	await _teleport(dungeon.entry_point, "dungeon")
 	var dn := dungeon.next_target() - dungeon.entry_point
 	yaw = atan2(-dn.x, -dn.z)
@@ -803,6 +836,9 @@ func _open_boss_chest() -> void:
 	gold += 1500
 	essence += 10
 	hero.equip_blade()
+	sfx("chest")
+	sfx("victory")
+	save_game()
 	FX.burst(self, boss_chest.global_position + Vector3(0, 1.4, 0), Color(1, 0.8, 0.2), 90, 0.14, 6.0, 1.2, 6.0)
 	system_msg("[ SYSTÈME ]\nTu obtiens : LAME DU COMMANDANT (+45 % dégâts)\n1500 or, 10 essences.")
 
@@ -812,6 +848,8 @@ func _leave_dungeon() -> void:
 
 # ================================================================ dialogue
 func dialogue(speaker: String, text: String, choices: Array) -> void:
+	if not in_dialogue:
+		sfx("open", null, -6.0)
 	in_dialogue = true
 	hero.move_input = Vector2.ZERO
 	dlg_panel.visible = true
@@ -843,6 +881,7 @@ func dialogue(speaker: String, text: String, choices: Array) -> void:
 		b.add_theme_stylebox_override("pressed", sp)
 		b.focus_mode = Control.FOCUS_NONE
 		b.pressed.connect(ch[1])
+		b.pressed.connect(sfx.bind("click", null, -6.0))
 		dlg_choices.add_child(b)
 
 func close_dialogue() -> void:
@@ -935,6 +974,18 @@ func _process(delta: float) -> void:
 		dungeon.update(hero)
 	if boss and is_instance_valid(boss) and boss_bar_root.visible:
 		boss_bar_fill.size.x = 600.0 * clampf(boss.hp / boss.max_hp, 0, 1)
+	potion_cd -= delta
+	var mv := hero.global_position - last_pos
+	mv.y = 0
+	if mv.length() < 5.0 and hero.is_on_floor():
+		quest_add("run", mv.length())
+	last_pos = hero.global_position
+	save_t -= delta
+	if save_t <= 0.0:
+		save_t = 30.0
+		save_game()
+	_update_music(delta)
+	_check_rank()
 	if focus_target and is_instance_valid(focus_target) and not focus_target.dead:
 		focus_marker.visible = true
 		focus_marker.global_position = focus_target.global_position + Vector3(0, 3.0 if (focus_target as Mob).kind == "orc" else 2.55, 0) + Vector3(0, sin(Time.get_ticks_msec() * 0.006) * 0.12, 0)
@@ -959,6 +1010,9 @@ func _update_interact() -> void:
 				if str(c["state"]) == "guarded" and _camp_cleared(c) and hero.global_position.distance_to((c["chest"] as Node3D).global_position) < 3.0:
 					label = "OUVRIR LE COFFRE"
 					act = _open_elite_chest.bind(c)
+			if merchant and hero.global_position.distance_to(merchant.global_position) < 3.2:
+				label = "PARLER AU MARCHAND"
+				act = _merchant_dialogue
 			if gate and hero.global_position.distance_to(gate_pos) < 4.0:
 				if gate_open_for_me:
 					label = "ENTRER DANS LE PORTAIL"
@@ -1087,6 +1141,233 @@ func _skill_button(layer: CanvasLayer, key: String, txt: String, off: Vector2, s
 	buttons[key] = {"btn": b, "shade": shade, "label": cdl}
 
 
+# ================================================================ audio
+func sfx(n: String, pos = null, vol := 0.0) -> void:
+	if audio:
+		audio.play(n, pos, vol)
+
+func _update_music(delta: float) -> void:
+	var fighting := false
+	for u in units_of_team(1):
+		var e := u as Mob
+		if not e.dead and e.target != null and e.global_position.distance_to(hero.global_position) < 25.0:
+			fighting = true
+			break
+	combat_t = 6.0 if fighting else combat_t - delta
+	var tr := "city"
+	if zone == "hall":
+		tr = "boss" if boss_started and boss and is_instance_valid(boss) and not boss.dead else "dungeon"
+	elif zone == "dungeon":
+		tr = "combat" if combat_t > 0.0 else "dungeon"
+	elif combat_t > 0.0:
+		tr = "combat"
+	audio.music(tr)
+
+# ================================================================ marchand
+func _spawn_merchant() -> void:
+	var space := get_world_3d().direct_space_state
+	var p := spawn_point + Vector3(4, 0, 4)
+	for k in 16:
+		var a := k * TAU / 16.0
+		var c := spawn_point + Vector3(sin(a), 0, cos(a)) * 6.0
+		if _is_open(space, c + Vector3(0, 80, 0)):
+			p = c
+			break
+	merchant = spawn_free_mob("guard", p)
+	merchant.display_name = "Marchand de l'Association"
+	merchant.rank = "PNJ"
+	merchant.patrol = []
+	merchant._tint(Color(1.0, 0.85, 0.55), Color(0.5, 0.35, 0.05))
+	if merchant.hp_bar:
+		merchant.hp_bar.queue_free()
+		merchant.hp_bar = null
+		merchant.hp_fill = null
+	var lb := Label3D.new()
+	lb.text = "Marchand"
+	lb.font_size = 34
+	lb.pixel_size = 0.0009
+	lb.fixed_size = true
+	lb.outline_size = 8
+	lb.modulate = Color(0.5, 1.0, 0.6)
+	lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lb.position.y = 2.3
+	merchant.add_child(lb)
+	merchant.face_to(spawn_point, true)
+
+func _merchant_dialogue() -> void:
+	merchant.face_to(hero.global_position, true)
+	var txt := "Bonsoir, chasseur. Tout ce qu'il faut pour survivre aux Portails.\nTu as %d or et %d essences. Potions : %d.  Niveau de tes ombres : %d." % [gold, essence, potions, shadow_lvl]
+	dialogue("Marchand de l'Association", txt, [
+		["Potion de soin — 50 or", _buy.bind("potion")],
+		["Renforcer mes ombres (+12 %% PV et dégâts) — %d essences" % (4 + shadow_lvl * 2), _buy.bind("shadow")],
+		["Affûter ma lame (+10 %% dégâts) — %d or" % (300 + int((hero.blade_mult - 1.0) * 2000)), _buy.bind("blade")],
+		["« Rien, merci. »", close_dialogue],
+	])
+
+func _buy(what: String) -> void:
+	match what:
+		"potion":
+			if gold >= 50:
+				gold -= 50
+				potions += 1
+				sfx("coins")
+			else:
+				sfx("error")
+		"shadow":
+			var cost := 4 + shadow_lvl * 2
+			if essence >= cost:
+				essence -= cost
+				shadow_lvl += 1
+				for m in shadow_list():
+					var mm := m as Mob
+					mm.max_hp *= 1.12
+					mm.hp = mm.max_hp
+					mm.dmg *= 1.12
+					FX.burst(self, mm.global_position + Vector3(0, 1.2, 0), Color(0.6, 0.3, 1.0), 20, 0.08, 2.0, 0.5, 0.0)
+				sfx("levelup")
+			else:
+				sfx("error")
+		"blade":
+			var cost := 300 + int((hero.blade_mult - 1.0) * 2000)
+			if gold >= cost and hero.blade_mult < 2.2:
+				gold -= cost
+				hero.blade_mult += 0.1
+				sfx("clang_heavy")
+			else:
+				sfx("error")
+	save_game()
+	_merchant_dialogue()
+
+func _use_potion() -> void:
+	if potions <= 0 or potion_cd > 0.0 or hero.dead:
+		return
+	potions -= 1
+	potion_cd = 8.0
+	hero.hp = minf(hero.max_hp, hero.hp + hero.max_hp * 0.45)
+	sfx("confirm")
+	FX.burst(self, hero.global_position + Vector3(0, 1.0, 0), Color(0.4, 1.0, 0.5), 30, 0.08, 2.0, 0.7, -1.5)
+	FX.damage_number(self, hero.global_position, "+%d" % int(hero.max_hp * 0.45), Color(0.4, 1.0, 0.5))
+
+# ================================================================ quête quotidienne + rang
+const QUEST_GOALS := {"run": [3000.0, "Courir", "m"], "kills": [30.0, "Vaincre des monstres", ""], "climb": [5.0, "Escalader des bâtiments", ""], "skills": [10.0, "Utiliser tes compétences", ""]}
+
+func _today() -> String:
+	var d := Time.get_date_dict_from_system()
+	return "%04d-%02d-%02d" % [d["year"], d["month"], d["day"]]
+
+func _check_daily() -> void:
+	if quest.get("date", "") != _today():
+		quest = {"date": _today(), "run": 0.0, "kills": 0.0, "climb": 0.0, "skills": 0.0, "done": false}
+		if not shots_mode:
+			await get_tree().create_timer(4.5).timeout
+		_show_quest()
+
+func quest_add(k: String, v: float) -> void:
+	if quest.is_empty() or quest.get("done", false):
+		return
+	quest[k] = float(quest.get(k, 0.0)) + v
+	for g in QUEST_GOALS.keys():
+		if float(quest.get(g, 0.0)) < float(QUEST_GOALS[g][0]):
+			return
+	quest["done"] = true
+	hero.points += 3
+	gold += 300
+	hero.hp = hero.max_hp
+	hero.mp = hero.max_mp
+	sfx("victory")
+	sfx("levelup")
+	system_msg("[ SYSTÈME ]\nQuête quotidienne accomplie !\nRécompenses : +3 points de compétence, 300 or, récupération complète.")
+	save_game()
+
+func _quest_text() -> String:
+	var t := "[ QUÊTE QUOTIDIENNE : l'entraînement pour devenir fort ]\n"
+	for g in QUEST_GOALS.keys():
+		var goal: Array = QUEST_GOALS[g]
+		var v := minf(float(quest.get(g, 0.0)), float(goal[0]))
+		t += "\n%s  %s : %d / %d %s" % ["[OK]" if v >= float(goal[0]) else "[  ]", goal[1], int(v), int(goal[0]), goal[2]]
+	t += "\n\nRécompense : +3 points de compétence, 300 or, récupération complète."
+	if quest.get("done", false):
+		t += "\n\nQUÊTE ACCOMPLIE."
+	else:
+		t += "\nAttention : les quêtes du Système doivent être accomplies chaque jour."
+	return t
+
+func _show_quest() -> void:
+	if in_dialogue:
+		return
+	dialogue("[ SYSTÈME ]", _quest_text(), [["Accepter", close_dialogue]])
+
+func _check_rank() -> void:
+	var best := "E"
+	for r in RANKS:
+		if hero.level >= int(r[1]) and rep >= int(r[2]):
+			best = str(r[0])
+	if best != hunter_rank and "EDCBAS".find(best) > "EDCBAS".find(hunter_rank):
+		hunter_rank = best
+		sfx("victory")
+		FX.arise_pillar(self, hero.global_position)
+		system_msg("[ SYSTÈME ]\nRéévaluation de l'Association des Chasseurs :\ntu es désormais Chasseur de RANG %s !" % best)
+		print("RANK ", best)
+		save_game()
+
+# ================================================================ sauvegarde
+func save_game() -> void:
+	var sh: Array = []
+	for m in shadow_list():
+		var mm := m as Mob
+		sh.append({"kind": mm.kind, "elite": mm.elite, "boss": mm.boss})
+	var d := {"v": 1, "level": hero.level, "xp": hero.xp, "points": hero.points, "stats": hero.stats, "gold": gold, "essence": essence, "rep": rep,
+		"blade": hero.blade_mult, "unarmed": hero.unarmed_mode, "potions": potions, "shadow_lvl": shadow_lvl, "rank": hunter_rank, "quest": quest, "shadows": sh,
+		"max_hp": hero.max_hp, "max_mp": hero.max_mp}
+	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify(d))
+		f.close()
+
+func load_game() -> bool:
+	if not FileAccess.file_exists(SAVE_PATH):
+		return false
+	var f := FileAccess.open(SAVE_PATH, FileAccess.READ)
+	if f == null:
+		return false
+	var d = JSON.parse_string(f.get_as_text())
+	f.close()
+	if typeof(d) != TYPE_DICTIONARY:
+		return false
+	hero.level = int(d.get("level", 1))
+	hero.xp = float(d.get("xp", 0))
+	hero.points = int(d.get("points", 0))
+	var st: Dictionary = d.get("stats", {})
+	for k in hero.stats.keys():
+		hero.stats[k] = int(st.get(k, 0))
+	hero.max_hp = float(d.get("max_hp", hero.max_hp))
+	hero.hp = hero.max_hp
+	hero.max_mp = float(d.get("max_mp", hero.max_mp))
+	hero.mp = hero.max_mp
+	gold = int(d.get("gold", 0))
+	essence = int(d.get("essence", 0))
+	rep = int(d.get("rep", 0))
+	potions = int(d.get("potions", 2))
+	shadow_lvl = int(d.get("shadow_lvl", 0))
+	hunter_rank = str(d.get("rank", "E"))
+	quest = d.get("quest", {})
+	if float(d.get("blade", 1.0)) > 1.0:
+		var b := float(d.get("blade", 1.0))
+		if b >= 1.45:
+			hero.equip_blade()
+		hero.blade_mult = b
+	if bool(d.get("unarmed", false)):
+		hero.toggle_unarmed()
+	(hero.domain_ring.mesh as PlaneMesh).size = Vector2(hero.domain_r() * 2.0, hero.domain_r() * 2.0)
+	for sdat in d.get("shadows", []):
+		var m := spawn_free_mob(str(sdat.get("kind", "goblin")), hero.global_position - hero.forward() * 2.0)
+		if bool(sdat.get("elite", false)):
+			m.make_elite()
+		m.dead = true
+		m.rise_as_shadow()
+	print("LOAD niveau=%d or=%d ombres=%d" % [hero.level, gold, shadow_count()])
+	return true
+
 # ================================================================ UI
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
@@ -1104,6 +1385,7 @@ func _build_ui() -> void:
 	layer.add_child(card)
 	var nm := Label.new()
 	nm.text = "CHASSEUR  ·  Rang E"
+	rank_lbl = nm
 	nm.position = Vector2(16, 8)
 	nm.add_theme_font_size_override("font_size", 22)
 	nm.add_theme_color_override("font_color", Color(0.8, 0.92, 1))
@@ -1115,6 +1397,12 @@ func _build_ui() -> void:
 	hp_txt.add_theme_font_size_override("font_size", 15)
 	card.add_child(hp_txt)
 	shadow_txt = _outlined(layer, Vector2(24, 128), 20, Color(0.75, 0.55, 1))
+	minimap = Minimap.new()
+	minimap.main = self
+	minimap.position = Vector2(20, 160)
+	minimap.size = Vector2(164, 164)
+	minimap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(minimap)
 	info_box = VBoxContainer.new()
 	info_box.anchor_left = 1.0
 	info_box.anchor_right = 1.0
@@ -1146,6 +1434,18 @@ func _build_ui() -> void:
 	unarmed_btn.pressed.connect(_toggle_unarmed)
 	layer.add_child(unarmed_btn)
 	buttons["unarmed"] = {"btn": unarmed_btn, "shade": null, "label": null}
+	potion_btn = _small_btn("POTION x2")
+	potion_btn.anchor_left = 1.0
+	potion_btn.anchor_right = 1.0
+	potion_btn.anchor_top = 1.0
+	potion_btn.anchor_bottom = 1.0
+	potion_btn.offset_left = -560
+	potion_btn.offset_right = -420
+	potion_btn.offset_top = -258
+	potion_btn.offset_bottom = -213
+	potion_btn.pressed.connect(_use_potion)
+	layer.add_child(potion_btn)
+	buttons["potion"] = {"btn": potion_btn, "shade": null, "label": null}
 	_build_menu(layer)
 	# bouton contextuel
 	interact_btn = Button.new()
@@ -1270,6 +1570,10 @@ func _build_menu(layer: CanvasLayer) -> void:
 	bx.alignment = BoxContainer.ALIGNMENT_END
 	bx.add_theme_constant_override("separation", 8)
 	info_box.add_child(bx)
+	var qb := _small_btn("QUÊTE")
+	qb.pressed.connect(_show_quest)
+	bx.add_child(qb)
+	buttons["menu_quest"] = {"btn": qb, "shade": null, "label": null}
 	for k in [["OMBRES", "ombres"], ["STATS", "stats"]]:
 		var b := _small_btn(str(k[0]))
 		b.pressed.connect(_toggle_menu.bind(str(k[1])))
@@ -1417,7 +1721,10 @@ func _update_ui() -> void:
 		return
 	hp_fill.size.x = 328.0 * clampf(hero.hp / hero.max_hp, 0, 1)
 	mp_fill.size.x = 328.0 * clampf(hero.mp / hero.max_mp, 0, 1)
-	hp_txt.text = "PV %d / %d      PM %d" % [int(hero.hp), int(hero.max_hp), int(hero.mp)]
+	hp_txt.text = "PV %d / %d      PM %d      Niv. %d" % [int(hero.hp), int(hero.max_hp), int(hero.mp), hero.level]
+	rank_lbl.text = "CHASSEUR  ·  Rang %s" % hunter_rank
+	potion_btn.text = "POTION x%d" % potions
+	potion_btn.disabled = potions <= 0 or potion_cd > 0.0
 	shadow_txt.text = "Ombres  %d / 4" % shadow_count()
 	res_txt.text = "Or %d    Essences %d\nRéputation %d  (%s)" % [gold, essence, rep, rep_title()]
 	if zone == "city" and gate:
@@ -1557,9 +1864,30 @@ func _put_hero_near(camp_i: int, dist: float) -> void:
 	_place_hero(p + dir * dist, p)
 
 func _run_shots() -> void:
+	await _snap("00_quete_quotidienne", 25)
+	close_dialogue()
 	hero.max_hp = 99999
 	hero.hp = 99999
 	await _snap("00_depart", 20)
+	# marchand
+	_place_hero(merchant.global_position + (spawn_point - merchant.global_position).normalized() * 2.4, merchant.global_position)
+	gold = 600
+	essence = 10
+	await _snap("00b_marchand", 20)
+	_merchant_dialogue()
+	await _snap("00c_marchand_dialogue", 25)
+	_buy("potion")
+	_buy("shadow")
+	close_dialogue()
+	hero.hp = 30000
+	_use_potion()
+	await _snap("00d_potion", 12)
+	print("SHOP_TEST or=%d potions=%d niveau_ombres=%d" % [gold, potions, shadow_lvl])
+	# rang
+	hero.level = 5
+	rep = 45
+	await _snap("00e_rang", 30)
+	_place_hero(spawn_point, spawn_point + Vector3(0, 0, -10))
 	# héros de face : épée rangée dans le dos, puis en main
 	var y0 := yaw
 	yaw = y0 + PI
@@ -1653,5 +1981,14 @@ func _run_shots() -> void:
 			mm.hp = 1.0
 	await _snap("21_ombres_finissent", 60)
 	await _snap("22_celebration", 50)
+	save_game()
+	var saved_shadows := shadow_count()
+	for m in shadow_list():
+		_remove_mob(m)
+	gold = 0
+	hero.level = 1
+	var ok := load_game()
+	await _snap("23_apres_chargement", 30)
+	print("SAVE_TEST ok=%s niveau=%d or=%d ombres=%d/%d quete=%s" % [ok, hero.level, gold, shadow_count(), saved_shadows, str(quest.get("run", 0))])
 	print("SHOTS_DONE niveau=%d ombres=%d" % [hero.level, shadow_count()])
 	get_tree().quit()

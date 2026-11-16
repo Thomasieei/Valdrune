@@ -146,6 +146,7 @@ func set_armed(on: bool) -> void:
 	if on == armed or sword == null:
 		return
 	armed = on
+	main.sfx("draw" if on else "sheath", global_position, -4.0)
 	var dest := hand_mount if on else back_mount
 	sword.get_parent().remove_child(sword)
 	dest.add_child(sword)
@@ -174,6 +175,9 @@ func gain_xp(v: float) -> void:
 		max_mp += 10
 		mp = max_mp
 		FX.arise_pillar(main, global_position)
+		main.sfx("levelup")
+		main.sfx("victory", null, -6.0)
+		main.save_game()
 		FX.damage_number(main, global_position + Vector3(0, 0.8, 0), "NIVEAU %d !" % level, Color(1, 0.85, 0.3), true)
 		main.system_msg("[ SYSTÈME ]\nNiveau supérieur ! Niveau %d.\n+3 points de compétence à répartir." % level)
 
@@ -244,6 +248,7 @@ func _physics_process(delta: float) -> void:
 		climbing = true
 		airborne = true
 		play("Climb", 0.08, 1.7, true)
+		main.sfx("cloth", global_position)
 		return
 	var target_spd := (sprint_speed() if sprinting else (run_speed() if ml > 0.55 else 3.2)) * (1.0 if busy <= 0.0 else 0.0)
 	if dir != Vector3.ZERO and hit_stun <= 0.0 and (busy <= 0.0 or airborne):
@@ -268,6 +273,7 @@ func _physics_process(delta: float) -> void:
 	if airborne and is_on_floor() and velocity.y <= 0.1:
 		airborne = false
 		air_jumps = 1
+		main.sfx("land", global_position, -6.0 if fall_peak_v > -8.0 else 0.0)
 		if fall_peak_v < -17.0:
 			play("Roll", 0.04, 2.4, true)
 			busy = 0.35
@@ -326,6 +332,7 @@ func _climb(_delta: float, dir: Vector3) -> void:
 		play("Climb", 0.05, 1.8, true)
 		velocity = Vector3(0, 6.5, 0) + dir * 4.0
 		mantle_t = 0.32
+		main.quest_add("climb", 1)
 		later(0.33, _after_mantle)
 		return
 	velocity = Vector3(0, 8.5 * (1.0 + 0.04 * stats["agilite"]), 0) + dir * 0.6
@@ -402,6 +409,7 @@ func jump() -> void:
 		busy = 0.0
 		cd["jump"] = CD_MAX["jump"]
 		play("JumpStart", 0.04, 2.6, true)
+		main.sfx("jump", global_position, -8.0)
 		FX.burst(main, global_position + Vector3(0, 0.1, 0), Color(0.7, 0.8, 1.0), 10, 0.06, 2.0, 0.4, 4.0)
 	elif air_jumps > 0:
 		air_jumps -= 1
@@ -412,6 +420,7 @@ func jump() -> void:
 			velocity.z = d.z * sprint_speed() * 0.8
 		cd["jump"] = CD_MAX["jump"]
 		play("Roll", 0.03, 2.6, true)
+		main.sfx("dash", global_position, -8.0)
 		FX.burst(main, global_position + Vector3(0, 0.8, 0), Color(0.6, 0.5, 1.0), 16, 0.07, 2.5, 0.4, 0.0)
 
 func roll() -> void:
@@ -427,6 +436,8 @@ func roll() -> void:
 	busy = 0.38
 	face_to(global_position + dir, true)
 	play("Roll", 0.03, 3.0, true)
+	main.sfx("cloth", global_position)
+	main.sfx("dash", global_position, -6.0)
 	FX.trail(main, global_position, global_position + dir * 4.0, Color(0.6, 0.8, 1.0))
 
 func equip_blade() -> void:
@@ -465,6 +476,7 @@ func attack() -> void:
 	busy = l / spd * (0.7 if combo < 3 else 0.55)
 	cd["attack"] = CD_MAX["attack"] / (1.0 + 0.07 * stats["vitesse"])
 	play(a, 0.04, spd, true)
+	main.sfx(("swing%d" % combo) if not unarmed_mode else "cloth", global_position, -3.0)
 	regen_t = 5.0
 	later(l / spd * (0.35 if combo < 3 else 0.4), _slash_hit.bind(combo))
 
@@ -486,6 +498,9 @@ func _slash_hit(c: int) -> void:
 				e.velocity += to.normalized() * 7.0 + Vector3(0, 3.0, 0)
 			hits += 1
 	if hits > 0:
+		main.sfx("hit%d" % (1 + randi() % 3), global_position, 0.0 if c < 3 else 3.0)
+		if not unarmed_mode:
+			main.sfx("clang", global_position, -10.0)
 		main.shake(0.1 if c < 3 else 0.22)
 		main.hit_stop(0.05 if c < 3 else 0.09)
 		main.fov_kick(4.0 if c < 3 else 8.0)
@@ -513,6 +528,8 @@ func shadow_step() -> bool:
 	invuln = 0.2 + n * 0.16
 	busy = 0.15 + n * 0.16
 	FX.shadow_puff(main, global_position)
+	main.sfx("shadow", global_position)
+	main.quest_add("skills", 1)
 	model.visible = false
 	for k in n:
 		later(0.08 + k * 0.16, _step_hop.bind(list[k], k == n - 1))
@@ -531,6 +548,8 @@ func _step_hop(t: Unit, last: bool) -> void:
 	model.visible = true
 	FX.shadow_puff(main, behind)
 	play("Dash", 0.0, 3.0, true)
+	main.sfx("step_shadow", behind, -4.0)
+	main.sfx("hit%d" % (1 + randi() % 3), behind)
 	FX.slash_arc(main, global_position, model.rotation.y, Color(0.6, 0.3, 1.0), body_r + arm + 0.6, randf() < 0.5)
 	if not t.dead:
 		t.take_damage(power() * 2.3, self, true)
@@ -562,6 +581,9 @@ func arise() -> bool:
 	mp -= MP_COST["arise"]
 	busy = 1.0
 	play("Cast", 0.06, 0.55, true)
+	main.sfx("arise", global_position, 2.0)
+	main.sfx("shadow", global_position)
+	main.quest_add("skills", 1)
 	FX.damage_number(main, global_position + Vector3(0, 0.6, 0), "ÉLÈVE-TOI.", Color(0.75, 0.5, 1.0), true)
 	main.shake(0.15)
 	for c in corpses:

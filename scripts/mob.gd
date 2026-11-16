@@ -555,6 +555,8 @@ func _basic_attack() -> void:
 func _basic_hit(t: Unit) -> void:
 	if t and not t.dead and in_reach(t, 0.35):
 		t.take_damage(dmg * randf_range(0.85, 1.15), self)
+		main.sfx("hit3", global_position, -6.0)
+	main.sfx("swing%d" % (1 + randi() % 2), global_position, -10.0)
 	var col := Color(1, 0.35, 0.2) if team == 1 else Color(0.6, 0.3, 1.0)
 	if boss and team == 1:
 		col = Color(1, 0.1, 0.15)
@@ -666,6 +668,8 @@ func _boss_skills(d: float) -> bool:
 
 func _charge(from: Vector3, to: Vector3) -> void:
 	play("Dash", 0.03, 2.2, true)
+	main.sfx("dash", from)
+	main.sfx("clang_heavy", to)
 	var tw := create_tween()
 	tw.tween_property(self, "global_position", Vector3(to.x, global_position.y, to.z), 0.32)
 	FX.trail(main, from, to, Color(1, 0.1, 0.15))
@@ -720,6 +724,7 @@ func _leap_land(spot: Vector3) -> void:
 	if dead:
 		return
 	FX.burst(main, spot, Color(1, 0.4, 0.2), 30, 0.12, 4.0, 0.5, 6.0)
+	main.sfx("land", spot)
 	for u in _enemies():
 		var e := u as Unit
 		if not e.dead and e.global_position.distance_to(spot) < 1.7 + e.body_r:
@@ -730,6 +735,7 @@ func _fire_orb(t: Unit) -> void:
 	if t == null or t.dead:
 		return
 	var o := FX.orb(main, global_position + Vector3(0, 1.3, 0) + forward() * 0.5, Color(1, 0.45, 0.1))
+	main.sfx("orb", global_position, -6.0)
 	var tw := o.create_tween()
 	var dest := t.global_position + Vector3(0, 1.0, 0)
 	var tt := clampf(o.global_position.distance_to(dest) / 14.0, 0.2, 1.0)
@@ -743,6 +749,7 @@ func _orb_hit(o: Node3D, t: Unit, dest: Vector3) -> void:
 	o.queue_free()
 
 func _poison_pool(spot: Vector3) -> void:
+	main.sfx("poison", spot, -2.0)
 	var pool := FX.ground_disc(2.2, Color(0.35, 1.0, 0.15), 0.45, false)
 	main.add_child(pool)
 	pool.global_position = spot + Vector3(0, 0.06, 0)
@@ -761,6 +768,7 @@ func _poison_tick(spot: Vector3) -> void:
 			e.take_damage(dmg * 0.3, self)
 
 func _slam(spot: Vector3, radius: float, mult: float) -> void:
+	main.sfx("slam", spot, 2.0)
 	FX.burst(main, spot, Color(1, 0.55, 0.25), 45, 0.18, 5.0, 0.6, 9.0)
 	main.shake(0.35)
 	for u in _enemies():
@@ -793,7 +801,8 @@ func rise_as_shadow() -> void:
 	dormant = false
 	team = 0
 	_make_shadow()
-	max_hp = max_hp * (0.8 if not boss else 0.35)
+	max_hp = max_hp * (0.8 if not boss else 0.35) * (1.0 + 0.12 * float(main.shadow_lvl))
+	dmg = dmg * (1.0 + 0.12 * float(main.shadow_lvl))
 	hp = max_hp
 	if hp_bar:
 		hp_bar.queue_free()
