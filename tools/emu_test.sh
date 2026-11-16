@@ -6,7 +6,7 @@ adb install -r out/test.apk
 adb shell wm size > emu/screen.txt
 adb logcat -c
 adb shell monkey -p fr.thomas.studiolab -c android.intent.category.LAUNCHER 1
-sleep 40
+sleep 60
 cap() { adb exec-out screencap -p > "emu/$1.png"; }
 cap 01_lancement
 # écran paysage 2400x1080 ; viewport Godot 1600x720 → facteur 1.5
