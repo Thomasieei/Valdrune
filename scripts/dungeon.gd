@@ -36,14 +36,14 @@ func build(m) -> void:
 func layout() -> void:
 	var space := get_world_3d().direct_space_state
 	var pts: Array = []
-	for ix in range(-55, 56, 5):
-		for iz in range(-95, 96, 5):
-			var p := to_global(Vector3(ix * 2.0, 60, iz * 2.0))
+	for ix in range(-20, 18):
+		for iz in range(-34, 35):
+			var p := to_global(Vector3(ix * 6.0, 60, iz * 6.0))
 			var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(p, p + Vector3(0, -140, 0)))
-			if hit.is_empty() or (hit["normal"] as Vector3).y < 0.85:
+			if hit.is_empty() or (hit["normal"] as Vector3).y < 0.75:
 				continue
 			var c: Vector3 = hit["position"]
-			if _flat(space, c, 5.0):
+			if _flat(space, c, 3.5):
 				pts.append(c)
 	print("DUNGEON points praticables ", pts.size())
 	if pts.is_empty():
@@ -60,9 +60,9 @@ func layout() -> void:
 		for p in pts:
 			var pv: Vector3 = p
 			var d := pv.distance_to(prev)
-			if d < 22.0 or d > 45.0:
+			if d < 26.0 or d > 55.0:
 				continue
-			var score := (pv - entry_point).length() - absf(d - 32.0)
+			var score := (pv - entry_point).length() - absf(d - 38.0) * 0.5
 			for c in chain:
 				if (c as Vector3).distance_to(pv) < 20.0:
 					score -= 1000.0
@@ -88,7 +88,7 @@ func _flat(space: PhysicsDirectSpaceState3D, c: Vector3, r: float) -> bool:
 	for o in [Vector3(r, 0, 0), Vector3(-r, 0, 0), Vector3(0, 0, r), Vector3(0, 0, -r)]:
 		var p: Vector3 = c + o + Vector3(0, 30, 0)
 		var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(p, p + Vector3(0, -80, 0)))
-		if hit.is_empty() or absf((hit["position"] as Vector3).y - c.y) > 1.2:
+		if hit.is_empty() or absf((hit["position"] as Vector3).y - c.y) > 1.6:
 			return false
 	return true
 

@@ -114,10 +114,10 @@ func _build_other_envs() -> void:
 	env_hall = env_city.duplicate() as Environment
 	env_hall.background_mode = Environment.BG_COLOR
 	env_hall.background_color = Color(0.08, 0.0, 0.01)
-	env_hall.ambient_light_color = Color(0.75, 0.35, 0.35)
-	env_hall.ambient_light_energy = 0.6
-	env_hall.fog_light_color = Color(0.35, 0.02, 0.04)
-	env_hall.fog_density = 0.018
+	env_hall.ambient_light_color = Color(0.75, 0.62, 0.6)
+	env_hall.ambient_light_energy = 0.55
+	env_hall.fog_light_color = Color(0.25, 0.04, 0.05)
+	env_hall.fog_density = 0.006
 
 # ---------------------------------------------------------------- monde
 func _build_env() -> void:
@@ -634,8 +634,8 @@ func _build_hall() -> void:
 			body.add_child(cs)
 			m.add_child(body)
 		var lt := OmniLight3D.new()
-		lt.light_color = Color(1, 0.25, 0.2)
-		lt.light_energy = 3.0
+		lt.light_color = Color(1, 0.7, 0.6)
+		lt.light_energy = 1.8
 		lt.omni_range = 40.0
 		lt.position = Vector3(0, 14, 0)
 		hall.add_child(lt)

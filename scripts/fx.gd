@@ -138,10 +138,10 @@ static func damage_number(parent: Node, pos: Vector3, txt: String, col: Color, b
 	l.outline_modulate = Color(0, 0, 0, 0.9)
 	l.outline_size = 10
 	l.font_size = 64 if big else 44
-	l.pixel_size = 0.006
+	l.pixel_size = 0.0011
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	l.no_depth_test = true
-	l.fixed_size = false
+	l.fixed_size = true
 	parent.add_child(l)
 	l.global_position = pos + Vector3(randf_range(-0.3, 0.3), 2.2, randf_range(-0.3, 0.3))
 	var tw := l.create_tween()
@@ -289,7 +289,8 @@ static func speech(owner_node: Node3D, txt: String, col := Color(1, 0.85, 0.75),
 	l.set_meta("speech", true)
 	l.text = txt
 	l.font_size = 40
-	l.pixel_size = 0.0055
+	l.pixel_size = 0.00095
+	l.fixed_size = true
 	l.outline_size = 12
 	l.modulate = col
 	l.outline_modulate = Color(0, 0, 0, 0.95)
