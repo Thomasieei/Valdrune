@@ -1,6 +1,13 @@
 # Brèche Écarlate — ÉTAT DU PROJET
 _À lire au début de chaque session, à mettre à jour à la fin._
 
+## Vision (Thomas, 17/11/2026)
+Une ville parfaite à PROTÉGER, jeu solo. Habitants nommés qui peuvent mourir ou être enlevés, conséquences réelles (deuil, moral).
+Ombres envoyées en patrouille / attaque, qui peuvent mourir et dont la réinvocation coûte de la mana.
+Monstres à personnalité (arrogant / prudent) : parlementer, provocation, retraite. Expéditions lointaines en équipe avec mort définitive.
+Royaume : économie, justice (juger / enfermer / bannir). Dialogues à conséquences.
+Ordre : 1 ville vivante → 2 ombres → 3 monstres à personnalité → 4 expéditions → 5 royaume → 6 dialogues IA.
+
 ## Cap : version 1.0 recentrée
 Place des Cendres + Brèche rouge (3 donjons, 4 boss, coffres colorés), loot, marchand, runes, groupe avec bots.
 Tout le reste est **gelé** par `const V1 = true;` (haut de `www/js/main.js`) : arène, Goulet, îles, taverne/missions,
@@ -11,10 +18,13 @@ Règle : on ne rallume un système que quand la 1.0 est solide, et un seul à la
 - v1.0-a : gel des modes secondaires (portails arène/îles/Goulet cachés, cartes du menu Brèche masquées, invasions coupées).
 - v1.0-b : crash des bots sur la Place corrigé (portails gelés) ; noms complets sur les plaques (la 1re lettre était remplacée par un badge, on lisait « HOMAS »).
 
+- v1.0-c : ÉTAPE 1 VILLE — la Place devient la ville (mode `ville`) ; faux joueurs remplacés par 14 habitants nommés à métier (sauvegardés dans `J.ville`) ; raids de cultistes toutes les 2,5–4 min (1er à 40 s) depuis les anciens portails ; habitants qui fuient, meurent (définitif) ou sont enlevés par les Ravisseurs ; tuer un ravisseur libère l'habitant ; moral, journal, bilan de raid, nouveaux venus si < 10 habitants. Code : section « LA VILLE À PROTÉGER » en fin de main.js.
+
 ## Bugs connus
 - (à remplir avec les retours de test de Thomas)
 
 ## Prochaines étapes
-1. Thomas teste la 1.0 et liste bugs + moment le plus fun.
+1. Thomas teste la ville (raids, enlèvements, morts) et donne ses retours.
+1b. Ensuite : indicateur de direction du raid, enlevés à sauver dans la Brèche, deuil visible (tombes), ombres en patrouille (étape 2).
 2. Découper `main.js` (7 400 lignes) en fichiers par système.
 3. Polir combat + boss des 3 donjons ; équilibrer la progression T1–T4.

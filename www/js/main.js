@@ -353,6 +353,7 @@ function enchanter(id) {
   return { ok: true, reussi, ench: it.ench || 0 };
 }
 function creerBots() {
+  if (V1) { if (J) creerCitoyens(); return; }
   const n = 16;
   for (let i = 0; i < n; i++) {
     const [nom, tag, guilde] = BOTS[i % BOTS.length];
@@ -427,7 +428,7 @@ function majBots(dt) {
     }
     if (b.pos.distanceTo(joueur ? joueur.pos : ORBITE) < 45) b.maj(dt);
   }
-  if (Math.random() < dt / 14) { const b = bots[Math.floor(Math.random() * bots.length)]; UI.chat(b.nom, CHAT[Math.floor(Math.random() * CHAT.length)]); }
+  if (bots.length && Math.random() < dt / 14) { const b = bots[Math.floor(Math.random() * bots.length)]; UI.chat(b.nom, CHAT[Math.floor(Math.random() * CHAT.length)]); }
 }
 
 // libère la mémoire GPU de la zone quittée (géométries/ textures propres à la zone) : sinon le jeu s'alourdit de partie en partie
@@ -447,6 +448,7 @@ function libererGPU(racines) {
   });
 }
 function viderMonde() {
+  viderVille();
   if (demon) finDemon(null);
   document.body.classList.remove('brumeAnc'); document.body.classList.add('vign');
   for (const a of serviteurs) { G.scene.remove(a.root); UI.retirerPlaque(a); } serviteurs = [];
@@ -499,17 +501,18 @@ function lancerHub(premier = false) {
   invasion = null; arene = null; selection = null;
   if (V1) J.accepteInvasion = false;
   if (!premier) { viderMonde(); monde = construireHub(); creerMarchand(); if (!V1) creerPasseur(); creerGraveuse(); creerBots(); }
-  if (V1) for (const k of ['portailArene', 'portailIle', 'portailGoulet']) if (monde[k]) { monde[k].groupe.visible = false; monde[k] = null; }
+  if (V1) { monde.entreesVille = ['portailArene', 'portailIle'].filter(k => monde[k]).map(k => monde[k].pos.clone()); for (const k of ['portailArene', 'portailIle', 'portailGoulet']) if (monde[k]) { monde[k].groupe.visible = false; monde[k] = null; } }
   const revientDeMode = !!modeActuel;
-  modeActuel = null; enJeu = true;
+  modeActuel = V1 ? MODE_VILLE : null; enJeu = true;
+  if (V1) { prochainRaidV = G.t + 40; if (!citoyens.length) creerCitoyens(); }
   construireJoueur(monde.spawn.clone());
   if (revientDeMode && !premier) setTimeout(() => proposerRefaire(60), 900); else UI.boutonRefaire(null);
   joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax;
   G.camTarget.copy(joueur.pos); G.camDist = 25; G.scene.fog.density = 0.016;
   G.hemi.intensity = 1.1; G.sun.intensity = 1.3;
-  UI.journal('Place des Cendres', V1 ? 'Franchis la Brèche rouge : 3 donjons, 4 boss chacun. Touche un joueur pour former un groupe.' : 'Brèche rouge : donjons. Portail violet : l’arène. Touche un joueur pour former un groupe.');
+  UI.journal('Place des Cendres', V1 ? 'Ta ville. Ses habitants comptent sur toi : les cultistes de la Brèche attaquent régulièrement. La Brèche rouge mène à leurs donjons.' : 'Brèche rouge : donjons. Portail violet : l’arène. Touche un joueur pour former un groupe.');
   G.renderer.compile(G.scene, G.camera);
-  UI.zone('Place des Cendres', `Joueurs ${bots.length + 1}/20`);
+  if (V1) majBandeauVille(); else UI.zone('Place des Cendres', `Joueurs ${bots.length + 1}/20`);
   $('#btnQuitter').hidden = true;
   if (premier) setTimeout(() => UI.toast('Bienvenue sur la Place, ' + J.nom), 400);
   sauver();
@@ -2464,6 +2467,7 @@ function reveiller(e) {
 function tuer(e) {
   if (goulet && e.bg) { mortGoulet(e); return; }
   e.mort = true; e.pv = 0;
+  if (e.raidV) finPillard(e);
   const anim = e.def.model === 'Dragon_Evolved' ? 'Death' : (e.actions.Death_C_Skeletons ? 'Death_C_Skeletons' : 'Death_A');
   e.jouer(anim, { boucle: false, fondu: 0.1 });
   son('impactGeneric_light_000', 0.5, 0.7);
@@ -3964,6 +3968,7 @@ function majEnnemis(dt) {
     }
     if (e.equipeId && d > 26 && terres) { escarmouche(e, dt); e.maj(dt); continue; }
     if (e.combattant) { majCombattant(e, dt); e.maj(dt); continue; }
+    if (e.raidV && majPillardVille(e, d, dt)) { e.maj(dt); continue; }
     e.tc = cibleIA(e);
     if (!e.tc) { e.jouer(e.def.model === 'Dragon_Evolved' ? 'Flying_Idle' : 'Idle_Combat'); e.maj(dt); continue; }
     const dc = dist2D(e.pos, e.tc.pos);
@@ -4275,7 +4280,7 @@ function majInteractions() {
   if (modeActuel && modeActuel.id === 'ile') return interactionsIle();
   if (modeActuel && modeActuel.id === 'domaine') return interactionsDomaine();
   if (modeActuel && modeActuel.id === 'terres') { const r = interactionsTerres(); if (r !== null) return r; }
-  if (!modeActuel) {
+  if (!modeActuel || modeActuel.id === 'ville') {
     if (!V1 && monde.taverne && dist2D(joueur.pos, monde.taverne.porte) < 4) return UI.action('Entrer au Croc-Rouge', () => entrerTaverne());
     if (marchand && dist2D(joueur.pos, marchand.pos) < 5) return UI.action('Parler à Borin', () => UI.dialogueMarchand());
     if (graveuse && dist2D(joueur.pos, graveuse.pos) < 4.5) return UI.action('Graver des runes', () => UI.runes());
@@ -4562,7 +4567,7 @@ function boucleCorps() {
     G.focus = joueur.pos;
     if (!transition) majJoueur(dt);
     for (let xi = -1; xi < allies.length; xi++) { const x = xi < 0 ? joueur : allies[xi]; if (!x._pp) x._pp = x.pos.clone(); x.vel = x.vel || V(); x.vel.set((x.pos.x - x._pp.x) / Math.max(dt, 0.001), 0, (x.pos.z - x._pp.z) / Math.max(dt, 0.001)); x._pp.copy(x.pos); }
-    if (!modeActuel) { majBots(dt); for (const l of meute) if (l && !l.mort && allies.includes(l)) { majLoup(l, dt); l.maj(dt); } } else { majEnnemis(dt); majAllies(dt); majProjectiles(dt); majInvasion(dt); majArene(dt); }
+    if (!modeActuel) { majBots(dt); for (const l of meute) if (l && !l.mort && allies.includes(l)) { majLoup(l, dt); l.maj(dt); } } else { majEnnemis(dt); majAllies(dt); majProjectiles(dt); majInvasion(dt); majArene(dt); if (modeActuel.id === 'ville') majVille(dt); }
     for (let i = dangers.length - 1; i >= 0; i--) { dangers[i].t -= dt; if (dangers[i].t <= 0) dangers.splice(i, 1); }
     if (modeActuel && modeActuel.sylve) { majSylve(dt); sylveMeterT = (sylveMeterT || 0) - dt; if (sylveMeterT <= 0) { sylveMeterT = 0.5; if (compteur) UI.majDegats(classement(compteur.total, 0, G.t - sylve.debut)); } }
     if (errant) majErrant(dt);
@@ -7393,7 +7398,161 @@ function dissiper(a) {
 }
 
 // accès de débogage (console)
-window.__jeu = { get modeActuel() { return modeActuel; }, demon: () => basculerDemon(), pacte: () => pacteInvocation(), autel: () => ouvrirAutel(), tirer: (n) => tirerCartes(n), transfert: () => transfert(), code: (c) => utiliserCode(c), get J() { return J; }, entrerTerres: () => entrerTerres(), entrerAncestrales: (e) => entrerAncestrales(e), get terres() { return terres; }, dbgAggro: () => { const c = choisirCible(joueur.st.portee); return [c ? c.nom : null, passantsProches().length, G.agression]; }, domaineTest: (n = 4) => { if (!J.domaine) J.domaine = { niveau: n, serviteurs: [], tresor: 0, maj: Date.now(), graine: 7, journal: [] }; J.domaine.niveau = n; if (!iles().length) J.iles = J.iles || []; return entrerDomaine(); }, bilan: () => MODES.map(m => {
+// ======================= LA VILLE À PROTÉGER (V1) : habitants, raids, enlèvements, deuil =======================
+// Chaque habitant a un nom et un métier. Les morts restent morts. Les enlevés restent enlevés.
+const MODE_VILLE = { id: 'ville', nom: 'Ville', lieu: 'Place des Cendres', argent: 1, xp: 1, tiers: [1, 2], mobTier: 1 };
+const NOMS_VILLE = ['Mira', 'Aldric', 'Jehanne', 'Bastien', 'Isaure', 'Gaspard', 'Elise', 'Thibaut', 'Clémence', 'Roland', 'Agathe', 'Martin', 'Brune', 'Odon', 'Perrine', 'Hugues', 'Sibylle', 'Gautier', 'Aelis', 'Renaud', 'Ombeline', 'Tristan', 'Mahaut', 'Lancelin'];
+const METIERS_VILLE = [['boulangère', 'Mage'], ['forgeron', 'Barbarian'], ['tisserande', 'Rogue'], ['tanneur', 'Barbarian'], ['herboriste', 'Mage'], ['charpentier', 'Knight'], ['marchande', 'Rogue_Hooded'], ['meunier', 'Knight'], ['brasseuse', 'Rogue'], ['sonneur de cloches', 'Knight'], ['potière', 'Mage'], ['pêcheur', 'Rogue_Hooded']];
+const CRIS_PEUR = ['Au secours !', 'Les monstres ! Fuyez !', 'À l’aide, par pitié !', 'Ils sont là !', 'Protégez-nous !', 'Courez !'];
+const CRIS_DEUIL = ['Non… pas {n}…', '{n} ! NON !', 'Ils ont tué {n}…', 'Où étais-tu quand {n} est tombé·e ?', '{n} ne méritait pas ça…'];
+const MERCI = ['Merci… je croyais que c’était fini.', 'Tu m’as sauvé la vie !', 'Je ne l’oublierai jamais.', 'Que les dieux te gardent !'];
+let citoyens = [], raidV = null, prochainRaidV = 0;
+function etatVille() {
+  if (!J.ville) {
+    const noms = [...NOMS_VILLE].sort(() => Math.random() - 0.5);
+    J.ville = { moral: 70, raids: 0, journal: [], arrivee: 0, gens: noms.slice(0, 14).map((nom, i) => ({ id: i + 1, nom, metier: METIERS_VILLE[i % METIERS_VILLE.length][0], modele: METIERS_VILLE[i % METIERS_VILLE.length][1], statut: 'vivant' })) };
+  }
+  return J.ville;
+}
+function journalVille(t) { const v = etatVille(); v.journal.unshift({ t: Date.now(), txt: t }); v.journal.length = Math.min(v.journal.length, 12); }
+function majBandeauVille() {
+  if (!modeActuel || modeActuel.id !== 'ville') return;
+  const v = etatVille(), n = v.gens.filter(g => g.statut === 'vivant').length;
+  UI.zone('Place des Cendres', `${n} habitants · moral ${Math.round(v.moral)}%${raidV ? ' · ⚠ RAID' : ''}`);
+}
+function moralVille(d) { const v = etatVille(); v.moral = Math.max(0, Math.min(100, v.moral + d)); majBandeauVille(); }
+function creerCitoyens() {
+  const v = etatVille();
+  // un nouveau venu s'installe de temps en temps si la ville se vide
+  const vivantsN = v.gens.filter(g => g.statut === 'vivant').length;
+  if (vivantsN < 10 && Date.now() > (v.arrivee || 0)) {
+    const pris = new Set(v.gens.map(g => g.nom)); const nom = NOMS_VILLE.find(n => !pris.has(n)) || ('Voyageur ' + (v.gens.length + 1));
+    const m = hasard(METIERS_VILLE); v.gens.push({ id: v.gens.length + 1, nom, metier: m[0], modele: m[1], statut: 'vivant' });
+    v.arrivee = Date.now() + 15 * 60000; journalVille(`${nom}, ${m[0]}, s’installe sur la Place.`);
+    programmer(3, () => UI.toast(`${nom} (${m[0]}) s’installe dans ta ville`));
+  }
+  citoyens = [];
+  for (const g of v.gens) {
+    if (g.statut !== 'vivant') continue;
+    const a = new Acteur(g.modele, { hauteur: 1.95 });
+    a.montrerSeul([], Object.keys(a.nodes).filter(n => /Sword|Axe|Shield|Crossbow|Staff|Wand|Knife|Throwable|Spellbook|Offhand/.test(n)));
+    let p, k = 0; do { p = V(rnd(-24, 22), 0, rnd(-20, 20)); } while (!libre(p.x, p.z, 0.6) && ++k < 30);
+    a.root.position.copy(p); a.root.rotation.y = rnd(0, 6.28); G.scene.add(a.root);
+    Object.assign(a, { g, pos: a.root.position, angle: a.root.rotation.y, etat: 'flane', t: rnd(0, 5), but: null, coups: 3, criT: 0, hauteurPlaque: 2.5, citoyen: true });
+    a.jouer(Math.random() < 0.3 ? 'Sit_Floor_Idle' : 'Idle');
+    UI.plaque(a, { nom: g.nom, guilde: g.metier.toUpperCase(), classe: 'pnj', vie: false, lettre: false });
+    citoyens.push(a);
+  }
+}
+function viderVille() { for (const c of citoyens) { G.scene.remove(c.root); UI.retirerPlaque(c); } citoyens = []; raidV = null; }
+function pillards() { return ennemis.filter(e => e.raidV && !e.mort && !e.parti); }
+function majCitoyens(dt) {
+  for (const c of citoyens) {
+    if (c.etat === 'mort' || c.etat === 'parti') { c.maj(dt); continue; }
+    if (c.etat === 'capture') { const r = c.porteur; if (r) { c.pos.set(r.pos.x - Math.sin(r.angle) * 0.9, 0, r.pos.z - Math.cos(r.angle) * 0.9); c.angle = r.angle; c.root.rotation.y = r.angle; } c.jouer('Hit_A'); c.maj(dt); continue; }
+    c.criT -= dt;
+    // la peur : le monstre le plus proche
+    let m = null, md = 11; for (const e of pillards()) { const d = dist2D(e.pos, c.pos); if (d < md) { md = d; m = e; } }
+    if (m) {
+      if (c.etat !== 'fuite') { c.etat = 'fuite'; if (c.criT <= 0) { c.criT = 6; UI.parole(c, hasard(CRIS_PEUR), 'menace'); } }
+      const dir = V(c.pos.x - m.pos.x, 0, c.pos.z - m.pos.z).normalize();
+      const dest = V(c.pos.x + dir.x * 6, 0, c.pos.z + dir.z * 6);
+      avancerVers(c, dest, dt, 3.4); c.jouer('Running_A');
+    } else {
+      if (c.etat === 'fuite') { c.etat = 'flane'; c.t = rnd(2, 4); c.but = null; }
+      c.t -= dt;
+      if (c.but) { if (dist2D(c.pos, c.but) < 0.8) { c.but = null; c.t = rnd(3, 8); c.jouer(Math.random() < 0.25 ? 'Sit_Floor_Idle' : 'Idle'); } else { avancerVers(c, c.but, dt, 1.5); c.jouer('Walking_A'); } }
+      else if (c.t <= 0) { let p, k = 0; do { p = V(c.pos.x + rnd(-10, 10), 0, c.pos.z + rnd(-10, 10)); } while (!libre(p.x, p.z, 0.6) && ++k < 12); if (k < 12) c.but = p; else c.t = 2; }
+      const dj = dist2D(c.pos, joueur.pos); if (dj < 3 && !c.but) { c.angle = tourner(c.angle, Math.atan2(joueur.pos.x - c.pos.x, joueur.pos.z - c.pos.z), dt * 5); c.root.rotation.y = c.angle; }
+    }
+    if (dist2D(c.pos, joueur.pos) < 60) c.maj(dt);
+  }
+}
+function mortCitoyen(c, tueur) {
+  c.etat = 'mort'; c.g.statut = 'mort'; c.jouer('Death_A', { boucle: false, fondu: 0.1 });
+  emettre(V(c.pos.x, 1, c.pos.z), { n: 26, c1: '#ff3a3a', c2: '#6a0a0a', vit: 4, vie: 0.8, taille: 0.3, grav: 8 });
+  son('lowFrequency_explosion_000', 0.5, 1.3);
+  UI.toast(`${c.g.nom}, ${c.g.metier}, a été tué·e`, true);
+  journalVille(`${c.g.nom} (${c.g.metier}) a été tué·e par ${tueur.def.nom.toLowerCase()} pendant le raid.`);
+  if (raidV) raidV.morts.push(c.g.nom);
+  moralVille(-12);
+  // ceux qui l'ont vu tomber
+  const temoin = citoyens.find(x => x !== c && x.etat !== 'mort' && x.etat !== 'capture' && dist2D(x.pos, c.pos) < 16);
+  if (temoin) programmer(1.2, () => UI.parole(temoin, hasard(CRIS_DEUIL).split('{n}').join(c.g.nom)));
+  setTimeout(() => { if (citoyens.includes(c)) { UI.retirerPlaque(c); c.descendre = true; } }, 4000);
+  sauver();
+}
+function lancerRaidVille() {
+  const v = etatVille(); v.raids++;
+  const ip = statsHeros(J.equip).ip, tier = Math.max(1, Math.min(8, (ip - 300) / 100 + 1)) * 0.9;
+  const n = Math.min(9, 4 + Math.floor(v.raids / 2)), entree = hasard(monde.entreesVille);
+  raidV = { entree, morts: [], enleves: [], sauves: 0, n };
+  UI.toast('ALERTE — des cultistes de la Brèche attaquent la Place !', true); UI.flashInvasion && UI.flashInvasion();
+  son('lowFrequency_explosion_000', 0.7, 0.7); G.shake = 0.4;
+  for (let i = 0; i < n; i++) {
+    const cle = i < 2 ? 'cultiste' : hasard(['minion', 'guerrier', 'brute', 'cultiste']);
+    const p = pointLibrePres(entree, 0, 4);
+    const e = creerEnnemi(MOBS[cle], p, tier, 900 + v.raids); e.raidV = true; e.etat = 'chasse'; e.ravisseur = i < 2; e.cibleCit = null;
+    if (e.ravisseur) UI.plaque(e, { nom: 'Ravisseur', classe: 'ennemi', lettre: false });
+    effetArrivee(p);
+  }
+  majBandeauVille();
+}
+// renvoie true si le pillard s'occupe des habitants (sinon combat normal contre toi et tes ombres)
+function majPillardVille(e, d, dt) {
+  if (e.pv < e.pvMax && !e.porte && d < 14) return false; // tu l'as provoqué : il se retourne contre toi
+  if (d < 4.5 && !e.porte) return false;
+  if (e.porte) { // il emporte un habitant vers la sortie
+    allerVers(e, raidV ? raidV.entree : e.pos, dt, e.def.vitesse * 0.75); e.jouer('Running_A');
+    if (!raidV || dist2D(e.pos, raidV.entree) < 2.5) {
+      const c = e.porte; c.etat = 'parti'; c.g.statut = 'enleve'; c.root.visible = false; UI.retirerPlaque(c);
+      e.parti = true; e.root.visible = false; UI.retirerPlaque(e); effetArrivee(e.pos.clone());
+      UI.toast(`${c.g.nom} a été enlevé·e par les cultistes !`, true); journalVille(`${c.g.nom} (${c.g.metier}) a été enlevé·e et emmené·e dans la Brèche.`);
+      if (raidV) raidV.enleves.push(c.g.nom); moralVille(-8); sauver();
+    }
+    return true;
+  }
+  if (!e.cibleCit || e.cibleCit.etat === 'mort' || e.cibleCit.etat === 'capture' || e.cibleCit.etat === 'parti' || (e.choixT = (e.choixT || 0) - dt) <= 0) {
+    e.choixT = 1.5; let best = null, bd = Infinity;
+    for (const c of citoyens) { if (c.etat === 'mort' || c.etat === 'capture' || c.etat === 'parti') continue; const dc = dist2D(c.pos, e.pos); if (dc < bd) { bd = dc; best = c; } }
+    e.cibleCit = best;
+  }
+  const c = e.cibleCit; if (!c) return false;
+  const dc = dist2D(c.pos, e.pos);
+  if (dc > 1.7) { allerVers(e, c.pos, dt, e.def.vitesse * 1.05); e.jouer('Running_A'); return true; }
+  e.angle = tourner(e.angle, Math.atan2(c.pos.x - e.pos.x, c.pos.z - e.pos.z), dt * 10); e.root.rotation.y = e.angle;
+  if (e.atkT > 0) { e.jouer('Idle_Combat'); return true; }
+  e.atkT = 1.3;
+  if (e.ravisseur) { c.etat = 'capture'; c.porteur = e; e.porte = c; UI.parole(c, hasard(['Lâchez-moi !', 'NON ! Aidez-moi !', 'Au secours !']), 'menace'); UI.toast(`${c.g.nom} est emporté·e ! Rattrape le ravisseur !`, true); son('cloth1', 0.6); return true; }
+  e.jouer(e.def.atk, { boucle: false, forcer: true, fin: () => e.jouer('Idle_Combat') });
+  programmer(0.4, () => { if (e.mort || c.etat === 'mort' || c.etat === 'capture') return; c.coups--; emettre(V(c.pos.x, 1.2, c.pos.z), { n: 10, c1: '#ff6a6a', c2: '#8a1a1a', vit: 3, vie: 0.4, taille: 0.22, grav: 8 }); son('impactGeneric_light_000', 0.4, 1.2); if (c.coups <= 0) mortCitoyen(c, e); else if (c.criT <= 0) { c.criT = 4; UI.parole(c, hasard(CRIS_PEUR), 'menace'); } });
+  return true;
+}
+function finPillard(e) {
+  if (!e.porte) return;
+  const c = e.porte; e.porte = null; c.porteur = null; c.etat = 'flane'; c.t = 3; c.coups = Math.max(1, c.coups);
+  if (raidV) raidV.sauves++; moralVille(4);
+  journalVille(`Tu as arraché ${c.g.nom} aux mains d’un ravisseur.`);
+  programmer(0.8, () => UI.parole(c, hasard(MERCI))); UI.toast(`${c.g.nom} est sauvé·e !`, true); son('jingle_win', 0.5);
+}
+function majVille(dt) {
+  majCitoyens(dt);
+  if (!raidV) { if (G.t > prochainRaidV && !transition) lancerRaidVille(); return; }
+  if (pillards().length) return;
+  // bilan du raid
+  const R = raidV; raidV = null; prochainRaidV = G.t + rnd(150, 240);
+  const pertes = R.morts.length + R.enleves.length;
+  if (!pertes) { moralVille(6); J.argent += 400 * R.n; journalVille(`Raid repoussé sans perte (${R.n} assaillants).`); }
+  else journalVille(`Raid repoussé. Morts : ${R.morts.join(', ') || 'aucun'}. Enlevés : ${R.enleves.join(', ') || 'aucun'}.`);
+  const L = [`${R.n} assaillants`, R.sauves ? `${R.sauves} habitant(s) arraché(s) aux ravisseurs` : null, R.morts.length ? `Morts : ${R.morts.join(', ')}` : null, R.enleves.length ? `Enlevés : ${R.enleves.join(', ')}` : null, !pertes ? `Aucune perte · +${fmtN(400 * R.n)} ¤ offerts par les habitants` : null].filter(Boolean);
+  UI.journal(pertes ? 'La ville est en deuil' : 'La ville est sauve', L.join(' · '));
+  UI.toast(pertes ? `Raid terminé — ${pertes} habitant(s) perdu(s)` : 'Raid repoussé, aucune perte !', true);
+  son(pertes ? 'lowFrequency_explosion_000' : 'jingle_win', 0.5, pertes ? 0.6 : 1);
+  if (pertes) { const s = citoyens.find(c => c.etat === 'flane'); if (s) programmer(2, () => UI.parole(s, pertes > 1 ? 'Tant de morts… La Brèche nous dévorera tous.' : 'On l’enterrera ce soir…')); }
+  majBandeauVille(); sauver();
+}
+
+window.__jeu = { raidVille: () => lancerRaidVille(), get pillardsN() { return pillards().length; }, get citoyens() { return citoyens; }, get modeActuel() { return modeActuel; }, demon: () => basculerDemon(), pacte: () => pacteInvocation(), autel: () => ouvrirAutel(), tirer: (n) => tirerCartes(n), transfert: () => transfert(), code: (c) => utiliserCode(c), get J() { return J; }, entrerTerres: () => entrerTerres(), entrerAncestrales: (e) => entrerAncestrales(e), get terres() { return terres; }, dbgAggro: () => { const c = choisirCible(joueur.st.portee); return [c ? c.nom : null, passantsProches().length, G.agression]; }, domaineTest: (n = 4) => { if (!J.domaine) J.domaine = { niveau: n, serviteurs: [], tresor: 0, maj: Date.now(), graine: 7, journal: [] }; J.domaine.niveau = n; if (!iles().length) J.iles = J.iles || []; return entrerDomaine(); }, bilan: () => MODES.map(m => {
     const eq = genererEquipRival(m.ipConseil, 'epee'), niv = nivBot(eq), st = statsHeros(eq, niv), dps = st.degats * st.vitesseAtk * (1 + st.crit / 200);
     const mob = creerEnnemi(MOBS.guerrier, V(900, 0, 900), m.mobTier, -9), mi = creerEnnemi(MOBS.minion, V(900, 0, 900), m.mobTier, -9), b = creerBoss(BOSS[0], V(905, 0, 905), m.bossTier[0], null), b3 = creerBoss(BOSS[3], V(905, 0, 905), m.bossTier[3], null);
     const r = { mode: m.lieu, ip: m.ipConseil, niv, pv: Math.round(st.pvMax), dps: Math.round(dps), red: +st.reduction.toFixed(2), ttkMinion: +(mi.pvMax / dps).toFixed(1), ttkGuerrier: +(mob.pvMax / dps).toFixed(1), ttkBoss1: Math.round(b.pvMax / dps), ttkBoss4: Math.round(b3.pvMax / dps), coupsGuerrierPourMourir: +(st.pvMax / (mob.dmg * (1 - st.reduction))).toFixed(1), coupsBossPourMourir: +(st.pvMax / (b.dmg * (1 - st.reduction))).toFixed(1) };
