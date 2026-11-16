@@ -1,6 +1,8 @@
 name: Test sur téléphone émulé
 on:
   workflow_dispatch:
+  push:
+    branches: [studio-emu-run]
 permissions:
   contents: write
 env:
