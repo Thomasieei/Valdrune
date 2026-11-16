@@ -1,0 +1,438 @@
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+WARNING: Could not set V-Sync mode, as changing V-Sync mode is not supported by the graphics driver.
+     at: set_use_vsync (platform/linuxbsd/x11/gl_manager_x11.cpp:360)
+OpenGL API 4.5 (Core Profile) Mesa 26.0.8-1ubuntu0.3 - Compatibility - Using Device: Mesa - llvmpipe (LLVM 21.1.8, 256 bits)
+libpulse.so.0: cannot open shared object file: No such file or directory
+libpulse.so.0: cannot open shared object file: No such file or directory
+ALSA lib confmisc.c:855:(parse_card) [error.core] cannot find card '0'
+ALSA lib conf.c:5211:(_snd_config_evaluate) [error.core] function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) [error.core] error evaluating strings
+ALSA lib conf.c:5211:(_snd_config_evaluate) [error.core] function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) [error.core] error evaluating name
+ALSA lib conf.c:5211:(_snd_config_evaluate) [error.core] function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5734:(snd_config_expand) [error.core] Evaluate error: No such file or directory
+ALSA lib pcm.c:2722:(snd_pcm_open_noupdate) [error.pcm] Unknown PCM default
+ERROR: Condition "status < 0" is true. Returning: ERR_CANT_OPEN
+   at: init_output_device (drivers/alsa/audio_driver_alsa.cpp:90)
+WARNING: All audio drivers failed, falling back to the dummy driver.
+     at: initialize (servers/audio_server.cpp:247)
+
+AUDIO sons chargés 36
+COLLISION faces 29052 surfaces lumineuses ignorées 10
+SWORD: main=mixamorig_RightHand_035 dos=mixamorig_Spine2_04
+SPAWN (-107, 0.05, -107.5)
+CAMPS 8
+ELITE_CAMPS 4 candidats 10849
+PATROLS 2
+SQUAD 0
+SQUAD 1
+GATE (-121.528, 0.05, -137.0662)
+SHOP_DOOR (-98, 0, -117) dir (0, 0, 1)
+SHOP_BUILT floor=-2.91
+WARNING: Adding 'item_37_Bench_37' as child to '@Node3D@821' will make owner 'props' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding 'item_12_Bench1_12' as child to '@Node3D@821' will make owner 'props' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding 'item_6_Bin-1_6' as child to '@Node3D@821' will make owner 'props' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding 'item_1_Bin-2_1' as child to '@Node3D@821' will make owner 'props' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding 'item_3_BigBin_3' as child to '@Node3D@821' will make owner 'props' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding 'item_7_Bin-4_7' as child to '@Node3D@821' will make owner 'props' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding 'item_8_Garbage_8' as child to '@Node3D@821' will make owner 'props' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding 'item_27_Carton_27' as child to '@Node3D@821' will make owner 'props' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding 'item_0_ParkLight-1_0' as child to '@Node3D@821' will make owner 'props' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding 'item_23_ParkLight-2_23' as child to '@Node3D@821' will make owner 'props' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding 'item_29_Tree-1_29' as child to '@Node3D@821' will make owner 'props' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding 'item_24_Tree-2_24' as child to '@Node3D@821' will make owner 'props' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding 'item_26_FruitShop_26' as child to '@Node3D@821' will make owner 'props' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding 'item_33_Post_33' as child to '@Node3D@821' will make owner 'props' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding 'item_10_Bus_station_10' as child to '@Node3D@821' will make owner 'props' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+PROPS 15
+WARNING: Adding 'item_0_Compact_Body' as child to '@Node3D@821' will make owner 'civil_cars' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding 'item_1_Coupe_Body' as child to '@Node3D@821' will make owner 'civil_cars' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding 'item_2_Hatchback_Body' as child to '@Node3D@821' will make owner 'civil_cars' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding 'item_3_minivan_body' as child to '@Node3D@821' will make owner 'civil_cars' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding 'item_6_Sedan_Body' as child to '@Node3D@821' will make owner 'civil_cars' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding 'item_8_SUV_Body' as child to '@Node3D@821' will make owner 'civil_cars' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+CARS 6
+WARNING: Adding 'item_57_Road-Ban-1_57' as child to '@Node3D@821' will make owner 'props' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding '@Node3D@862' as child to '@Node3D@821' will make owner 'props' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding 'item_56_Police_line_56' as child to '@Node3D@821' will make owner 'props' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding '@Node3D@867' as child to '@Node3D@821' will make owner 'props' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding '@Node3D@870' as child to '@Node3D@821' will make owner 'props' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+WARNING: Adding '@Node3D@873' as child to '@Node3D@821' will make owner 'props' inconsistent. Consider unsetting the owner beforehand.
+     at: add_child (scene/main/node.cpp:1579)
+POLICE 2
+NAV_PARSE city 3 ms
+MUSIC city
+NAV_READY city polygones=659 (sur 1979, îlots retirés) en 12001 ms
+NEAR_SPAWN police d=9.8 home_d=10.8 patrol=4 team=3
+ERROR: Lambda capture at index 1 was freed. Passed "null" instead.
+   at: call (modules/gdscript/gdscript_lambda_callable.cpp:108)
+SHOT 00_quete_quotidienne
+PERF ville frame=363.3ms pire=589.6ms drawcalls=299 objets=556 lumieres=4 mobs=60
+MUSIC combat
+TAUNT Ombre orc (Tank) [D] -> 2
+BENCH Normal                             fps=  1.8 ms= 542.5 p95= 726.2 proc=497.6 phys=  4.7 dc= 429 obj= 866 prim= 283835
+BENCH Sans ombres portées                fps=  2.3 ms= 435.9 p95= 454.0 proc=2755.8 phys=  3.8 dc= 298 obj= 746 prim= 132494
+BENCH Sans lueur (glow)                  fps=  1.9 ms= 536.5 p95= 709.8 proc=4658.5 phys=  3.9 dc= 413 obj= 859 prim= 254123
+BENCH Sans particules                    fps=  2.0 ms= 494.7 p95= 511.8 proc=484.2 phys=  4.0 dc= 428 obj= 873 prim= 296097
+BENCH Sans lumières ponctuelles          fps=  2.1 ms= 470.3 p95= 497.2 proc=623.0 phys=  4.3 dc= 419 obj= 873 prim= 256781
+BENCH Sans barres de vie / noms          fps=  2.0 ms= 511.6 p95= 519.4 proc=504.1 phys=  4.5 dc= 393 obj= 844 prim= 268767
+BENCH Animations figées                  fps=  1.9 ms= 521.2 p95= 534.2 proc=513.2 phys=  4.6 dc= 434 obj= 880 prim= 289953
+BENCH Résolution 3D 70 %                 fps=  2.5 ms= 405.7 p95= 413.7 proc=461.1 phys=  4.2 dc= 428 obj= 874 prim= 253642
+BENCH Sans anticrénelage (MSAA)          fps=  6.1 ms= 164.9 p95= 202.9 proc=1142.9 phys=  3.9 dc= 421 obj= 875 prim= 253886
+BENCH Distance d'affichage 180 m         fps=  2.0 ms= 505.9 p95= 523.8 proc=497.9 phys=  4.3 dc= 421 obj= 873 prim= 255440
+BENCH Physique 30 Hz (au lieu de 60)     fps=  1.9 ms= 522.2 p95= 526.9 proc=518.5 phys=  4.7 dc= 425 obj= 840 prim= 276052
+BENCH Monstres lointains gelés (56)      fps=  1.9 ms= 520.6 p95= 535.6 proc=513.3 phys=  3.6 dc= 424 obj= 801 prim= 283614
+ERROR: Parameter "material" is null.
+   at: material_casts_shadows (drivers/gles3/storage/material_storage.cpp:2490)
+ERROR: Parameter "material" is null.
+   at: material_is_animated (drivers/gles3/storage/material_storage.cpp:2477)
+ERROR: Parameter "material" is null.
+   at: material_get_instance_shader_parameters (drivers/gles3/storage/material_storage.cpp:2503)
+ERROR: Parameter "material" is null.
+   at: material_update_dependency (drivers/gles3/storage/material_storage.cpp:2515)
+SHOT 00t_test_performance
+NAV_STATE ville pret=true
+PERF sans_ombres frame=307.2ms pire=509.9ms drawcalls=201 objets=459 lumieres=4 mobs=60
+MUSIC city
+PERF sans_glow frame=331.1ms pire=491.0ms drawcalls=298 objets=558 lumieres=4 mobs=60
+SHOT 00_depart
+SHOT 00a_menu_rapide
+PERF rapide frame=113.5ms pire=4500.8ms drawcalls=199 objets=465 lumieres=4 mobs=60
+SHOT 00v_ville_vivante
+CHEST_DBG (-109, 0, -111) taille (1.33, 0.67, 1.08) vis=true
+SHOT 00w_coffre
+SHOT 00w2_coffre_ouvert
+CIV_DBG (-107, 0.300059, -121.5) (-107, 0, -122) taille (0.98, 1.72, 0.39) vis=true hero (-107, 0.000059, -107.5)
+CHASE start
+MUSIC combat
+SHOT 00x_poursuite
+SHOT 00x2_poursuite_proche
+CHASE saved
+SHOT 00x3_civil_sauve
+POLICE_CONTROL
+SHOT 00y_police_controle
+SHOT 00p_portail
+SHOT 00b_porte_boutique
+SHOT 00b2_boutique
+SHOT 00b3_intendant
+SHOT 00c_marchand_dialogue
+SHOT 00d_potion
+SHOP_TEST or=550 potions=2 niveau_ombres=1
+RANK D
+SHOT 00e_rang
+MUSIC city
+SHOT 01_heros_range
+SHOT 02_heros_arme
+SHOT 02b_heros_profil
+GEAR_TEST katana=1.00 hache=0.72 dague=1.45 supreme=1.19 power=174 crit=5 hp=420 inv=7
+SHOT 03_arme_supreme
+LOOT [C] Plastron d'Os
+LOOT [D] Heaume du Gardien
+LOOT [A] Coffre du Roi-Liche
+SHOT 03b_butin
+SHOT 03c_sac
+SHOT 03c2_sac_fusion
+BEST arme=Lame du Monarque d'Ombre junk=6
+SHOT 03d_sac_reliques
+SHOT 03e_guide
+MUSIC combat
+SHOT 04_roles_a
+TAUNT Ombre orc (Tank) [D] -> 4
+FIRE_RAIN 5
+ERROR: Lambda capture at index 1 was freed. Passed "null" instead.
+   at: call (modules/gdscript/gdscript_lambda_callable.cpp:108)
+SHOT 04_roles_b
+SHOT 04_roles_c
+ROLES orc:tank pv=425 shaman:heal pv=29 shaman:fire pv=23 goblin:melee pv=12 foes_hp=9828 hero_hp=236
+SQUAD 9
+ERROR: Parameter "material" is null.
+   at: material_casts_shadows (drivers/gles3/storage/material_storage.cpp:2490)
+ERROR: Parameter "material" is null.
+   at: material_is_animated (drivers/gles3/storage/material_storage.cpp:2477)
+ERROR: Parameter "material" is null.
+   at: material_get_instance_shader_parameters (drivers/gles3/storage/material_storage.cpp:2503)
+ERROR: Parameter "material" is null.
+   at: material_update_dependency (drivers/gles3/storage/material_storage.cpp:2515)
+ERROR: Parameter "material" is null.
+   at: material_casts_shadows (drivers/gles3/storage/material_storage.cpp:2490)
+ERROR: Parameter "material" is null.
+   at: material_is_animated (drivers/gles3/storage/material_storage.cpp:2477)
+ERROR: Parameter "material" is null.
+   at: material_get_instance_shader_parameters (drivers/gles3/storage/material_storage.cpp:2503)
+ERROR: Parameter "material" is null.
+   at: material_update_dependency (drivers/gles3/storage/material_storage.cpp:2515)
+ERROR: Lambda capture at index 1 was freed. Passed "null" instead.
+   at: call (modules/gdscript/gdscript_lambda_callable.cpp:108)
+ERROR: Lambda capture at index 1 was freed. Passed "null" instead.
+   at: call (modules/gdscript/gdscript_lambda_callable.cpp:108)
+SHOT 05_chasseurs_combat
+ERROR: Lambda capture at index 1 was freed. Passed "null" instead.
+   at: call (modules/gdscript/gdscript_lambda_callable.cpp:108)
+ERROR: Lambda capture at index 1 was freed. Passed "null" instead.
+   at: call (modules/gdscript/gdscript_lambda_callable.cpp:108)
+ERROR: Lambda capture at index 1 was freed. Passed "null" instead.
+   at: call (modules/gdscript/gdscript_lambda_callable.cpp:108)
+SHOT 05b_chasseurs_combat
+CHASE start
+SHOT 05c_chasseurs_victoire
+SHOT 05d_chasseurs_check
+SHOT 03_sprint
+SHOT 04_course_vers_mur
+SHOT 05_escalade
+SHOT 06_escalade_haut
+SHOT 07_toit
+CLIMB_TEST y=12.54
+SHOT 07b_x
+HUNTER_SAY Pas mal, l'équipe.
+SHOT 07c_bond_mural
+WALL_LEAP grimpe=true y_avant=1.84 y_apres=4.81
+SHOT 07d_rebond
+WALL_KICK vitesse=(8.3, 6.9, 0)
+SHOT 07e_x
+SHOT 08_x
+SHOT 08_saut
+SHOT 09_double_saut_salto
+PARLEY shaman
+HIGH_FIVE
+SHOT 10_combat
+HPBAR pv=65/90 fill=0.72
+SHOT 10b_telekinesie
+TK eject cibles=3
+SHOT 10c_tk_ejecter
+SHOT 10c1_tk_ejecter_impact
+SHOT 10c2_tk_prise_crush
+TK crush cibles=3
+SHOT 10c3_tk_crush
+LOOT [E] Bottes de Voyage
+SHOT 10c4_tk_crush_fin
+SHOT 10c2_tk_prise_choke
+TK choke cibles=3
+LOOT [E] Pépite de Vie
+SHOT 10c3_tk_choke
+SHOT 10c4_tk_choke_fin
+PERFECT_DODGE
+SHOT 10d_esquive_parfaite
+SHOT 10e_plongeon
+SHOT 10f_plongeon_impact
+SHOT 11_pas_ombre_1
+SHOT 12_pas_ombre_2
+SHOT 13_cadavres
+POP groupe 2 goblin
+SHOT 14_arise_masse
+SHOT 15_ombres_levees
+ARMY attack ombres=4
+SHOT 15b_ordre_attaque
+SHOT 15c_ombres_chargent
+SHOT 15d_ombres_positions
+ARMY stay
+SHOT 15e_ombres_restent
+ARMY auto
+PARLEY orc
+HEAL_ZONE rang=E
+SHOT 15f_replique_monstre
+SHOT 15g_reponse
+SHOT 16_ombres_suivent
+SHOT 17_ombres_arret
+SHOT 18_panneau_ombres
+SHOT 19_panneau_stats
+SHOT 19b_grimoire
+GRIMOIRE tele=2 essences=14
+HUNTER_SAY Contact ! Formation !
+ERROR: Up vector and direction between node origin and target are aligned, look_at() failed.
+   at: look_at_from_position (scene/3d/node_3d.cpp:948)
+SHOT 20_ombres_combat
+HUNTER_SAY Rang E, mon œil... ils étaient coriaces.
+SHOT 21_ombres_finissent
+SHOT 22_celebration
+SANITY ville { "en_l_air": 0, "hors_sol": 0, "bloques": 0, "cadavres_flottants": 0, "actifs": 43 }
+RUN_ROOM temple points=164/167 longueur=26 entree=(-5988, 1, -2987) sortie=(-6014, 1, -3013)
+HIGH_FIVE
+HUNTER_SAY Merci pour le coup de main, chasseur !
+RUN_ROOM dungeon1 points=749/1033 longueur=78 entree=(-5488, 6, -2998) sortie=(-5616, 6, -3010)
+RUN_ROOM brick points=33/33 longueur=8 entree=(-5154, 0, -2999) sortie=(-5166, 0, -2995)
+RUN_ROOM abbuilding points=136/136 longueur=20 entree=(-4733, 0, -2986) sortie=(-4747, 0, -3012)
+NAV_PARSE salle0 4 ms
+NAV_PARSE salle1 3 ms
+NAV_PARSE salle2 0 ms
+NAV_PARSE salle3 6 ms
+RUN goblin salles=4 anomalie=+0
+NAV_READY salle0 polygones=124 (sur 130, îlots retirés) en 634 ms
+NAV_READY salle1 polygones=292 (sur 575, îlots retirés) en 631 ms
+NAV_READY salle2 polygones=19 (sur 19, îlots retirés) en 632 ms
+NAV_READY salle3 polygones=76 (sur 141, îlots retirés) en 625 ms
+SHOT 30_goblin_salle1_entree
+SHOT 31_goblin_s1_meute0
+LOOT [F] Capuche du Rôdeur
+ERROR: Up vector and direction between node origin and target are aligned, look_at() failed.
+   at: look_at_from_position (scene/3d/node_3d.cpp:948)
+SHOT 31_goblin_s1_meute1
+LOOT [E] Bottes de Voyage
+SHOT 32_goblin_s1_passage
+RUN_STEP goblin salle=1 ouverte=true jetons={ "orc": 0, "goblin": 4 }
+HEAL_ZONE rang=E
+SHOT 30_goblin_salle2_entree
+SHOT 31_goblin_s2_meute0
+LOOT [E] Boussole du Temps
+LOOT [D] Heaume du Gardien
+SHOT 31_goblin_s2_meute1
+LOOT [E] Pépite de Vie
+SHOT 31_goblin_s2_meute2
+SHOT 32_goblin_s2_passage
+RUN_STEP goblin salle=2 ouverte=true jetons={ "orc": 0, "goblin": 12 }
+SHOT 30_goblin_salle3_entree
+SHOT 31_goblin_s3_meute0
+LOOT [B] Manteau de Nuit Éternelle
+LOOT [C] Œuf de Givre
+LOOT [F] Trésor du Roi Avare
+SHOT 32_goblin_s3_passage
+RUN_STEP goblin salle=3 ouverte=true jetons={ "orc": 0, "goblin": 19 }
+ERROR: Up vector and direction between node origin and target are aligned, look_at() failed.
+   at: look_at_from_position (scene/3d/node_3d.cpp:948)
+SHOT 30_goblin_salle4_entree
+MUSIC boss
+SHOT 33_goblin_chef
+RUN_CHIEF Kragg, Roi des Gobelins rang=D pv=1080 degats=22
+MUSIC combat
+SHOT 34_goblin_coffre_chef
+LOOT [E] Boussole du Temps
+LOOT [D] Œuf de Braise
+SHOT 35_goblin_coffre_ouvert
+GATE (-81.56926, 0.05, -104.8442)
+POP groupe 3 goblin
+RUN_ROOM dungeon1 points=749/1033 longueur=78 entree=(-5908, 6, -2998) sortie=(-6036, 6, -3010)
+RUN_ROOM abbuilding points=136/136 longueur=20 entree=(-5573, 0, -2986) sortie=(-5587, 0, -3012)
+RUN_ROOM brick points=33/33 longueur=8 entree=(-5154, 0, -2999) sortie=(-5166, 0, -2995)
+RUN_ROOM throne points=192/194 longueur=21 entree=(-4726, 0, -2992) sortie=(-4752, 0, -3008)
+NAV_PARSE salle0 3 ms
+NAV_PARSE salle1 4 ms
+NAV_PARSE salle2 0 ms
+NAV_PARSE salle3 7 ms
+RUN orc salles=4 anomalie=+0
+NAV_READY salle0 polygones=292 (sur 575, îlots retirés) en 370 ms
+NAV_READY salle1 polygones=76 (sur 141, îlots retirés) en 367 ms
+NAV_READY salle2 polygones=19 (sur 19, îlots retirés) en 367 ms
+NAV_READY salle3 polygones=348 (sur 348, îlots retirés) en 361 ms
+WATCHDOG goblin ramené au sol
+WATCHDOG goblin ramené au sol
+WATCHDOG shaman ramené au sol
+ERROR: Up vector and direction between node origin and target are aligned, look_at() failed.
+   at: look_at_from_position (scene/3d/node_3d.cpp:948)
+SHOT 30_orc_salle1_entree
+SHOT 31_orc_s1_meute0
+LOOT [F] Katana du Chasseur
+SHOT 31_orc_s1_meute1
+LOOT [D] Œuf de Braise
+SHOT 31_orc_s1_meute2
+LOOT [E] Bottes de Voyage
+LOOT [F] Trésor du Roi Avare
+SHOT 32_orc_s1_passage
+RUN_STEP orc salle=1 ouverte=true jetons={ "orc": 8, "goblin": 34 }
+SHOT 30_orc_salle2_entree
+SHOT 31_orc_s2_meute0
+LOOT [F] Katana du Chasseur
+SHOT 31_orc_s2_meute1
+LOOT [F] Cuirasse de Cuir
+LOOT [F] Trésor du Roi Avare
+SHOT 32_orc_s2_passage
+RUN_STEP orc salle=2 ouverte=true jetons={ "orc": 11, "goblin": 34 }
+SHOT 30_orc_salle3_entree
+SHOT 31_orc_s3_meute0
+SHOT 32_orc_s3_passage
+RUN_STEP orc salle=3 ouverte=true jetons={ "orc": 18, "goblin": 34 }
+SHOT 30_orc_salle4_entree
+MUSIC boss
+SHOT 33_orc_chef
+RUN_CHIEF Grukh, Chef de Guerre rang=C pv=6240 degats=72
+MUSIC combat
+SHOT 34_orc_coffre_chef
+LOOT [D] Œuf de Braise
+LOOT [D] Œuf de Braise
+SHOT 35_orc_coffre_ouvert
+GATE (-73.16011, 0.05, -3.88488)
+TAUNT Orc brute -> 3
+RUN_ROOM dungeon1 points=749/1033 longueur=78 entree=(-5908, 6, -2998) sortie=(-6036, 6, -3010)
+RUN_ROOM abbuilding points=136/136 longueur=20 entree=(-5573, 0, -2986) sortie=(-5587, 0, -3012)
+RUN_ROOM brick points=33/33 longueur=8 entree=(-5154, 0, -2999) sortie=(-5166, 0, -2995)
+NAV_PARSE salle0 3 ms
+NAV_PARSE salle1 3 ms
+NAV_PARSE salle2 0 ms
+RUN igris salles=3 anomalie=+0
+NAV_READY salle0 polygones=292 (sur 575, îlots retirés) en 520 ms
+NAV_READY salle1 polygones=76 (sur 141, îlots retirés) en 517 ms
+NAV_READY salle2 polygones=19 (sur 19, îlots retirés) en 517 ms
+SHOT 30_igris_salle1_entree
+SHOT 31_igris_s1_meute0
+SHOT 31_igris_s1_meute1
+LOOT [E] Dague Murmure
+SHOT 31_igris_s1_meute2
+LOOT [F] Trésor du Roi Avare
+SHOT 32_igris_s1_passage
+RUN_STEP igris salle=1 ouverte=true jetons={ "orc": 34, "goblin": 34 }
+SHOT 30_igris_salle2_entree
+SHOT 31_igris_s2_meute0
+SHOT 31_igris_s2_meute1
+SHOT 32_igris_s2_passage
+RUN_STEP igris salle=2 ouverte=true jetons={ "orc": 40, "goblin": 34 }
+SHOT 30_igris_salle3_entree
+SHOT 31_igris_s3_meute0
+SHOT 32_igris_s3_passage
+RUN_STEP igris salle=3 ouverte=true jetons={ "orc": 46, "goblin": 34 }
+SHOT 30_igris_salle4_entree
+RUN_STEP igris porte_trone=true
+MUSIC dungeon
+SHOT 35b_igris_salle_trone
+MUSIC combat
+SHOT 36_porte_bureau
+SHOT 37_bureau
+SHOT 37b_changeur
+MUSIC city
+SHOT 38_changeur_dialogue
+SHOT 38b_achat
+SHOT 39_sac_jetons
+SANITY apres_donjons { "en_l_air": 0, "hors_sol": 0, "bloques": 0, "cadavres_flottants": 0, "actifs": 35 }
+LOAD niveau=7 or=4239 ombres=4
+ERROR: Parameter "material" is null.
+   at: material_casts_shadows (drivers/gles3/storage/material_storage.cpp:2490)
+ERROR: Parameter "material" is null.
+   at: material_is_animated (drivers/gles3/storage/material_storage.cpp:2477)
+ERROR: Parameter "material" is null.
+   at: material_get_instance_shader_parameters (drivers/gles3/storage/material_storage.cpp:2503)
+ERROR: Parameter "material" is null.
+   at: material_update_dependency (drivers/gles3/storage/material_storage.cpp:2515)
+SHOT 23_apres_chargement
+SAVE_TEST ok=true niveau=7 or=4239 ombres=4/4 quete=47.0438661286607
+SHOTS_DONE niveau=7 ombres=4
+ERROR: Parameter "material" is null.
+   at: material_casts_shadows (drivers/gles3/storage/material_storage.cpp:2490)
+ERROR: Parameter "material" is null.
+   at: material_is_animated (drivers/gles3/storage/material_storage.cpp:2477)
+ERROR: Parameter "material" is null.
+   at: material_get_instance_shader_parameters (drivers/gles3/storage/material_storage.cpp:2503)
+ERROR: Parameter "material" is null.
+   at: material_update_dependency (drivers/gles3/storage/material_storage.cpp:2515)
