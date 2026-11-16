@@ -20,6 +20,8 @@ Règle : on ne rallume un système que quand la 1.0 est solide, et un seul à la
 
 - v1.0-c : ÉTAPE 1 VILLE — la Place devient la ville (mode `ville`) ; faux joueurs remplacés par 14 habitants nommés à métier (sauvegardés dans `J.ville`) ; raids de cultistes toutes les 2,5–4 min (1er à 40 s) depuis les anciens portails ; habitants qui fuient, meurent (définitif) ou sont enlevés par les Ravisseurs ; tuer un ravisseur libère l'habitant ; moral, journal, bilan de raid, nouveaux venus si < 10 habitants. Code : section « LA VILLE À PROTÉGER » en fin de main.js.
 
+- v1.0-d : ombres toujours actives en V1 (plus besoin du code THOMAS83), bouton Ombres + touche O pour le panneau de commandement.
+
 ## Bugs connus
 - (à remplir avec les retours de test de Thomas)
 

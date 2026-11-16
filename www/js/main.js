@@ -504,7 +504,7 @@ function lancerHub(premier = false) {
   if (V1) { monde.entreesVille = ['portailArene', 'portailIle'].filter(k => monde[k]).map(k => monde[k].pos.clone()); for (const k of ['portailArene', 'portailIle', 'portailGoulet']) if (monde[k]) { monde[k].groupe.visible = false; monde[k] = null; } }
   const revientDeMode = !!modeActuel;
   modeActuel = V1 ? MODE_VILLE : null; enJeu = true;
-  if (V1) { prochainRaidV = G.t + 40; if (!citoyens.length) creerCitoyens(); }
+  if (V1) { prochainRaidV = G.t + 40; if (!citoyens.length) creerCitoyens(); if (!J.escouade) { J.escouade = true; J.escStats = { debut: Date.now(), argent0: J.argent, xp: 0, kills: 0, coffres: 0 }; } } // V1 : tes ombres font partie de toi, plus besoin de code
   construireJoueur(monde.spawn.clone());
   if (revientDeMode && !premier) setTimeout(() => proposerRefaire(60), 900); else UI.boutonRefaire(null);
   joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax;
@@ -4424,7 +4424,7 @@ function initEntrees() {
     const k = e.key.toUpperCase();
     if (['Q', 'W', 'E', 'R', 'D', 'F'].includes(k)) API.touche(k, true);
     if (k === 'G') API.touche('A', true);
-    if (k === 'O' && J.escouade && !V1) ouvrirCommandeOmbres();
+    if (k === 'O' && J.escouade) ouvrirCommandeOmbres();
     if (k === '1') API.touche('POT', true);
     if (k === 'I') UI.ouvrirInventaire();
     if (e.key === 'Tab' && goulet) { e.preventDefault(); UI.classementGoulet(UI.classementOuvert() ? null : { live: true }); }
@@ -6714,6 +6714,7 @@ function tirageOrage(t) {
 function utiliserCode(brut) {
   const c = String(brut || '').trim().toUpperCase().replace(/\s+/g, '');
   if (c.normalize('NFKD').replace(/[^A-Z0-9]/gi, '').toUpperCase() === 'THOMAS83') {
+    if (V1) return { ok: true, texte: 'Tes ombres sont déjà à toi : bouton Ombres (ou touche O) pour les commander.' };
     J.escouade = !J.escouade;
     if (J.escouade) { J.escStats = { debut: Date.now(), argent0: J.argent, xp: 0, kills: 0, coffres: 0 }; annonceRare('Escouade d’ombres', '6 ombres te suivent partout · compteur de gains lancé'); }
     else { viderEscouade(); UI.escouadeHud(null); }
