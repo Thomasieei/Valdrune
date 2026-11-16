@@ -7,7 +7,7 @@ extends Node
 var main
 var map: RID
 var regions := {}        # nom -> NavigationRegion3D
-var ready := {}          # nom -> bool
+var baked := {}          # nom -> bool
 var bounds := {}         # nom -> AABB (globale)
 var seeds_of := {}       # nom -> points de départ (on ne garde que la zone reliée à ces points)
 
@@ -30,7 +30,7 @@ func _make_mesh() -> NavigationMesh:
 
 ## source : nœud racine dont les collisions sont analysées (repère sans échelle) ; zone : AABB globale.
 func bake(nm_name: String, source: Node3D, zone: AABB, seeds: Array) -> void:
-	ready[nm_name] = false
+	baked[nm_name] = false
 	seeds_of[nm_name] = seeds
 	bounds[nm_name] = zone
 	var nm := _make_mesh()
@@ -60,7 +60,7 @@ func _apply(nm_name: String, nm: NavigationMesh, t1: int) -> void:
 	if not seeds.is_empty():
 		_keep_connected(nm, reg.global_transform.affine_inverse(), seeds)
 	reg.navigation_mesh = nm
-	ready[nm_name] = true
+	baked[nm_name] = true
 	print("NAV_READY %s polygones=%d (sur %d, îlots retirés) en %d ms" % [nm_name, nm.get_polygon_count(), before, Time.get_ticks_msec() - t1])
 
 ## Retire les îlots isolés (toits, intérieurs fermés de bâtiments) : on ne garde que
@@ -122,13 +122,13 @@ func drop(nm_name: String) -> void:
 	if reg and is_instance_valid(reg):
 		reg.queue_free()
 	regions.erase(nm_name)
-	ready.erase(nm_name)
+	baked.erase(nm_name)
 	bounds.erase(nm_name)
 
 ## Un maillage prêt couvre-t-il ce point ?
 func covers(p: Vector3) -> bool:
-	for k in ready.keys():
-		if ready[k] and (bounds[k] as AABB).grow(2.0).has_point(p):
+	for k in baked.keys():
+		if baked[k] and (bounds[k] as AABB).grow(2.0).has_point(p):
 			return true
 	return false
 

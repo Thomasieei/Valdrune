@@ -122,6 +122,7 @@ var qpanel: PanelContainer
 var qrows := {}
 var qtrack_open := true
 var cash_lbl: Label
+var hud_money: Control
 var ess_lbl: Label
 var menu_title: Label
 var menu_icon: TextureRect
@@ -1384,6 +1385,8 @@ func _process(delta: float) -> void:
 	_update_loot(delta)
 	_update_squads(delta)
 	msg_panel.visible = not (menu_panel and menu_panel.visible)
+	if hud_money:
+		hud_money.visible = not (menu_panel and menu_panel.visible)
 	var mv := hero.global_position - last_pos
 	mv.y = 0
 	if mv.length() < 5.0 and hero.is_on_floor():
@@ -2550,6 +2553,7 @@ func _build_ui() -> void:
 	rr.add_child(c2)
 	cash_lbl = c1.get_child(1)
 	ess_lbl = c2.get_child(1)
+	hud_money = rr
 	# combat : grosse attaque + pouvoirs en arc (style action-RPG mobile)
 	var C := Vector2(-140, -140)
 	_skill_button(layer, "attack", "", C, 176, hero.attack)
@@ -4163,7 +4167,7 @@ func _run_shots() -> void:
 	close_dialogue()
 	await _perf("ville", 180)
 	await bench.run(false)
-	print("NAV_STATE ville pret=%s" % str(nav.ready.get("city", false)))
+	print("NAV_STATE ville pret=%s" % str(nav.baked.get("city", false)))
 	moon.shadow_enabled = false
 	await _perf("sans_ombres", 90)
 	moon.shadow_enabled = true

@@ -69,7 +69,7 @@ func run(on_device: bool) -> void:
 	await _measure("Animations figées")
 	for a in aps:
 		(a as AnimationPlayer).speed_scale = 1.0
-	var vp := main.get_viewport()
+	var vp: Viewport = main.get_viewport()
 	var sc: float = vp.scaling_3d_scale
 	vp.scaling_3d_scale = 0.7
 	await _measure("Résolution 3D 70 %")
