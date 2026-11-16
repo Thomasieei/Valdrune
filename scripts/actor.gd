@@ -84,6 +84,11 @@ var tag: Label3D
 var turn_rate := 14.0          # vitesse de rotation (les gros monstres tournent lentement : on peut les contourner)
 var atk_t := 0.0               # >0 juste après le début d'une attaque (lu par l'IA ennemie pour esquiver)
 var size_k := 1.0
+var parry_t := 0.0             # fenêtre de parade parfaite (juste après l'appui sur Parade)
+var dodge_t := 9.0             # temps depuis le début de la dernière esquive
+var counter_ready := 0.0       # contre-attaque disponible (après esquive / parade parfaite)
+var counter_target: Actor = null
+var posture := 100.0           # endurance de garde : à 0, garde brisée
 var col_shape: CollisionShape3D
 
 func set_size(k: float) -> void:
@@ -252,10 +257,12 @@ func dodge() -> void:
 	else:
 		face = atan2(dir.x, dir.z); rotation.y = face
 	dodge_v = dir.normalized() * 10.0
-	busy = shot(n, true) * 0.8; root_lock = busy; iframes = 0.35
+	busy = shot(n, true) * 0.8; root_lock = busy; iframes = 0.35; dodge_t = 0.0
 	w.sfx("dash", global_position)
 
 func attack() -> void:
+	if counter_ready > 0 and is_instance_valid(counter_target) and counter_target.state != "dead" and not incap():
+		w.counter(self, counter_target); return
 	if state == "block": return
 	if not can_act():
 		if busy < 0.18 and busy > 0 and brain == "": _queued = true
@@ -269,7 +276,8 @@ func attack() -> void:
 	do_act(a)
 
 func block(on: bool) -> void:
-	if on and can_act() and style in ["1h","2h","unarmed","dual"]:
+	if on: parry_t = 0.3
+	if on and can_act():
 		hold("Melee_Blocking"); state = "block"
 	elif not on and state == "block":
 		hold(""); state = "loco"
@@ -312,7 +320,9 @@ func melee(dmg: float, rng: float, ang: float, force: float, stun_s := 0.0) -> i
 
 # ---------- dégâts & statuts ----------
 func hurt(dmg: float, from: Vector3, force: float, by: Actor = null) -> void:
-	if state == "dead" or iframes > 0: return
+	if state == "dead": return
+	if brain == "" and team == 0 and by is Monster and w.defend(self, by, dmg, from, force): return
+	if iframes > 0: return
 	if by and is_instance_valid(by) and by.on_hit_heal and is_instance_valid(by.on_hit_heal): by.on_hit_heal.heal(by.heal_amt)
 	if frozen:
 		stored += dmg; w.number(global_position, dmg, Color(0.6, 0.85, 1), 0.7); return
@@ -428,6 +438,8 @@ func _physics_process(dt: float) -> void:
 	if frozen: return
 	busy = max(busy - dt, 0); root_lock = max(root_lock - dt, 0); iframes = max(iframes - dt, 0); atk_t = max(atk_t - dt, 0)
 	combo_t = max(combo_t - dt, 0); state_t += dt
+	parry_t = max(parry_t - dt, 0); dodge_t += dt; counter_ready = max(counter_ready - dt, 0)
+	if state != "block": posture = min(100.0, posture + 18.0 * dt)
 	shield_t = max(shield_t - dt, 0); taunt_t = max(taunt_t - dt, 0); hyp_t = max(hyp_t - dt, 0)
 	if root_t > 0: root_t -= dt
 	if stun_t > 0:

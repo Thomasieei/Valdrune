@@ -110,7 +110,7 @@ func _process(dt: float) -> void:
 	pad.cd = K.cd; pad.cd_max = K.cd_max; pad.chan = K.channel / K.channel_max if K.channel > 0 else 0.0
 	pad.queue_redraw()
 	var t := player.global_position + Vector3(0, 1.0, 0)
-	var want := t + Vector3(0, cam_dist * 0.82, cam_dist * 0.58)
+	var want := t + Vector3(0, cam_dist * cam_k * 0.82, cam_dist * cam_k * 0.58)
 	cam.global_position = cam.global_position.lerp(want, 1.0 - exp(-8 * dt)) if cam.global_position != Vector3.ZERO else want
 	cam.look_at(t)
 	if shake_t > 0:
@@ -120,6 +120,8 @@ func _process(dt: float) -> void:
 	_dir_t -= dt
 	if _dir_t <= 0: _dir_t = 0.3; _director()
 	pad.hp = player.hp / player.hp_max
+	pad.posture = player.posture / 100.0
+	pad.counter = player.counter_ready > 0
 	pad.boss = boss if is_instance_valid(boss) and boss.aware and boss.state != "dead" else null
 
 func _unhandled_input(ev: InputEvent) -> void:
@@ -305,6 +307,84 @@ func afterimage(a: Actor) -> void:
 var camps: Array = []          # [centre, types, monstres, minuterie de réapparition]
 var boss: Monster
 var _dir_t := 0.0
+var cam_k := 1.0
+
+# ---------- défense : parade parfaite, esquive parfaite, garde, contre-attaque ----------
+func slowmo(k: float, real_t: float) -> void:
+	Engine.time_scale = min(Engine.time_scale, k)
+	get_tree().create_timer(real_t, true, false, true).timeout.connect(func(): Engine.time_scale = 1.0)
+
+func cam_punch(k: float, t: float) -> void:
+	var tw := create_tween()
+	tw.tween_property(self, "cam_k", k, 0.18).set_ease(Tween.EASE_OUT); tw.tween_interval(t); tw.tween_property(self, "cam_k", 1.0, 0.45)
+
+## Appelé quand un monstre touche le joueur. true = coup entièrement géré (pas de dégâts normaux).
+func defend(a: Actor, by: Actor, dmg: float, from: Vector3, force: float) -> bool:
+	var unblock := force >= 8
+	var d := from - a.global_position; d.y = 0
+	if a.parry_t > 0 and not unblock:
+		_perfect_parry(a, by, d.length()); return true
+	if a.dodge_t < 0.45:
+		_perfect_dodge(a, by); return true
+	if a.iframes > 0: return true
+	if a.state == "block":
+		if unblock: flash_text(a.global_position, "IMPARABLE", Color(1, 0.55, 0.05)); return false
+		if a.fwd().dot(d.normalized()) > 0.1:
+			a.posture -= dmg * 1.2; a.hp -= dmg * 0.2; a.shot("Melee_Block_Hit", true); a.dodge_v = -d.normalized() * 3
+			burst(a.global_position + Vector3.UP * 1.2 + a.fwd() * 0.5, Color(1, 0.9, 0.5), 10); sfx("hit", a.global_position)
+			number(a.global_position, dmg * 0.2, Color(0.7, 0.7, 0.75))
+			if a.posture <= 0:
+				a.posture = 50; a.block(false); a.stun(1.2); flash_text(a.global_position, "GARDE BRISÉE", Color(1, 0.3, 0.2), 1.3)
+			return true
+	return false
+
+func _perfect_dodge(a: Actor, by: Actor) -> void:
+	if a.counter_ready > 0: return
+	slowmo(0.25, 0.55); cam_punch(0.8, 0.3)
+	flash_text(a.global_position, "ESQUIVE PARFAITE", Color(0.4, 0.95, 1), 1.4)
+	ring(a.global_position, 2.5, Color(0.4, 0.95, 1)); burst(a.global_position + Vector3.UP, Color(0.5, 0.95, 1), 22)
+	a.counter_ready = 2.5; a.counter_target = by; a.iframes = 0.4
+
+func _perfect_parry(a: Actor, by: Actor, dist: float) -> void:
+	slowmo(0.3, 0.45); shake(0.25)
+	flash_text(a.global_position, "PARADE PARFAITE", Color(1, 0.85, 0.3), 1.4)
+	burst(a.global_position + Vector3.UP * 1.2 + a.fwd() * 0.6, Color(1, 0.95, 0.6), 30); sfx("slam", a.global_position)
+	a.shot("Melee_Block_Attack", true); a.busy = 0.35; a.posture = min(100.0, a.posture + 25)
+	if dist > 4.0:
+		# projectile renvoyé à l'expéditeur
+		var mi := MeshInstance3D.new(); var sm := SphereMesh.new(); sm.radius = 0.22; sm.height = 0.44; mi.mesh = sm; mi.material_override = _unlit(Color(1, 0.85, 0.3)); add_child(mi)
+		mi.global_position = a.global_position + Vector3.UP * 1.3 + a.fwd() * 0.7
+		var pr := Node.new(); mi.add_child(pr); pr.set_script(preload("res://scripts/proj.gd"))
+		pr.init(self, a, ((by.global_position + Vector3.UP) - mi.global_position).normalized() * 22, ["", 60, 0, 0, 4, false, "bolt"], "bolt", Color(1, 0.85, 0.3))
+	else:
+		by.stun(1.6)
+		if by is Monster: by.open_t = 2.0
+		a.delay(0.2, func(): if by.state != "dead": by.hurt(35 * a.dmg_mul, a.global_position, 5, a))
+	a.counter_ready = 1.6; a.counter_target = by
+
+## Contre-attaque scénarisée : ralenti, zoom, téléportation dans le dos, enchaînement de 3 coups, projection finale.
+func counter(a: Actor, t: Actor) -> void:
+	a.counter_ready = 0; a.iframes = 1.8; a.busy = 1.3; a.root_lock = 1.3
+	slowmo(0.55, 1.1); cam_punch(0.55, 0.9)
+	flash_text(t.global_position, "CONTRE !", Color(1, 0.8, 0.2), 1.6)
+	burst(a.global_position + Vector3.UP, Color(0.5, 0.9, 1), 16)
+	a.global_position = t.global_position - t.fwd() * (1.2 * t.size_k)
+	var d := t.global_position - a.global_position
+	a.face = atan2(d.x, d.z); a.rotation.y = a.face
+	t.stun(1.2)
+	var anims: Array = []
+	for x in Actor.ACT.get(a.style, Actor.ACT["1h"]): anims.append(x[0])
+	if a.style in ["magic", "xbow", "cat"]: anims = ["Melee_Unarmed_Attack_Punch_A", "Melee_Unarmed_Attack_Kick", "Ranged_Magic_Shoot"] if a.style != "cat" else ["claw", "claw", "claw2"]
+	var base: float = 30.0 * a.dmg_mul
+	for i in 3:
+		a.delay(i * 0.3, func():
+			if t.state == "dead": return
+			a.shot(anims[i % anims.size()], true)
+			var fin := i == 2
+			t.hurt(base * (2.4 if fin else 1.4), a.global_position, 9 if fin else 1, a)
+			burst(t.global_position + Vector3.UP * 1.2, Color(1, 0.85, 0.4) if fin else Color(0.6, 0.9, 1), 26 if fin else 12)
+			sfx("hit", t.global_position)
+			if fin: ring(t.global_position, 3.0, Color(1, 0.85, 0.4)); shake(0.35))
 
 func spawn_mob(k: String, p: Vector3) -> Monster:
 	var m := Monster.new(); m.position = p; add_child(m)
@@ -395,16 +475,19 @@ func _tele_run(o: Monster, mm: Array, T: float, resolve: Callable) -> void:
 func _hit_team0(o: Monster, test: Callable, dmg: float, force: float, from: Vector3) -> void:
 	if dmg <= 0: return
 	for a in actors:
-		if a.team == 0 and a.state != "dead" and a.iframes <= 0 and test.call(a.global_position): a.hurt(dmg * o.dmg_mul, from, force, o)
+		if a.team == 0 and a.state != "dead" and test.call(a.global_position): a.hurt(dmg * o.dmg_mul, from, force, o)
+
+## rouge = parable ; orange = imparable (seule l'esquive marche)
+func _tcol(force: float) -> Color: return Color(1, 0.55, 0.05) if force >= 8 else Color(1, 0.15, 0.1)
 
 func tele_circle(o: Monster, c: Vector3, r: float, T: float, dmg: float, force: float) -> void:
-	var mm := _tele_mesh(0, Vector2(r * 2, r * 2), Color(1, 0.15, 0.1)); mm[0].global_position = c + Vector3.UP * 0.07
+	var mm := _tele_mesh(0, Vector2(r * 2, r * 2), _tcol(force)); mm[0].global_position = c + Vector3.UP * 0.07
 	_tele_run(o, mm, T, func():
 		ring(c, r, Color(1, 0.5, 0.3)); burst(c + Vector3.UP * 0.3, Color(0.9, 0.8, 0.7), 16); shake(0.15); sfx("slam", c)
 		_hit_team0(o, func(p: Vector3): return Vector2(p.x - c.x, p.z - c.z).length() < r + 0.3, dmg, force, c))
 
 func tele_cone(o: Monster, c: Vector3, dir: Vector3, r: float, half_deg: float, T: float, dmg: float, force: float) -> void:
-	var mm := _tele_mesh(1, Vector2(r * 2, r * 2), Color(1, 0.15, 0.1), deg_to_rad(half_deg))
+	var mm := _tele_mesh(1, Vector2(r * 2, r * 2), _tcol(force), deg_to_rad(half_deg))
 	mm[0].global_position = c + Vector3.UP * 0.07; mm[0].rotation.y = atan2(dir.x, dir.z)
 	_tele_run(o, mm, T, func():
 		burst(c + dir * r * 0.6 + Vector3.UP, Color(1, 0.6, 0.4), 14); sfx("swing", c)
@@ -431,7 +514,7 @@ func mob_bolt(o: Monster, aimp: Vector3, spd: float, dmg: float) -> void:
 func flash_text(p: Vector3, t: String, c: Color, sz := 1.0) -> void:
 	var l := Label3D.new(); l.text = t; l.billboard = BaseMaterial3D.BILLBOARD_ENABLED; l.font_size = int(46 * sz); l.outline_size = 10
 	l.modulate = c; l.outline_modulate = Color(0, 0, 0, 0.9); l.no_depth_test = true; l.pixel_size = 0.006
-	add_child(l); l.global_position = p + Vector3(0, 2.8, 0)
+	add_child(l); l.global_position = p + Vector3(randf_range(-0.6, 0.6), 2.8 + randf_range(0, 0.6), 0)
 	var tw := l.create_tween(); tw.set_parallel(); tw.tween_property(l, "global_position:y", l.global_position.y + 0.8, 0.9)
 	tw.tween_property(l, "modulate:a", 0.0, 0.5).set_delay(0.5); tw.chain().tween_callback(l.queue_free)
 
@@ -466,10 +549,20 @@ func _snap(n: String) -> void:
 func _shots() -> void:
 	DirAccess.make_dir_recursive_absolute("res://shots")
 	while is_instance_valid(loading): await get_tree().process_frame
-	var views := [[Vector3(0, 0, 70), 13.0, "camp_a", 2.5], [Vector3(0, 0, 70), 13.0, "camp_b", 1.5], [Vector3(0, 0, 116), 18.0, "boss_a", 2.5], [Vector3(0, 0, 116), 18.0, "boss_b", 1.6]]
-	for v in views:
-		player.global_position = v[0]; cam_dist = v[1]; player.hp = player.hp_max
-		await get_tree().create_timer(v[3]).timeout
-		_snap(v[2])
+	player.global_position = Vector3(0, 0, 74); cam_dist = 12
+	await get_tree().create_timer(2.5).timeout
+	var m: Actor = player.nearest_foe(20)
+	print("FOE ", m)
+	if m:
+		player.parry_t = 0.3; m.hurt(0, m.global_position, 0, null)
+		player.hurt(30, m.global_position, 2, m)
+		await get_tree().create_timer(0.15, true, false, true).timeout; _snap("parade")
+		await get_tree().create_timer(1.0, true, false, true).timeout
+		player.dodge_t = 0.0; player.counter_ready = 0
+		player.hurt(30, m.global_position, 9, m)
+		await get_tree().create_timer(0.2, true, false, true).timeout; _snap("esquive")
+		player.attack()
+		await get_tree().create_timer(0.45, true, false, true).timeout; _snap("contre")
+		print("COUNTER hp=", m.hp, " state=", m.state)
 	print("SHOTS_DONE")
 	get_tree().quit()

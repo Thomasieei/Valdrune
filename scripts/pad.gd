@@ -7,6 +7,8 @@ var cd := [0.0, 0.0, 0.0, 0.0]
 var cd_max := [1.0, 1.0, 1.0, 1.0]
 var chan := 0.0
 var hp := 1.0
+var posture := 1.0
+var counter := false
 var boss = null
 var blocked_rect := Rect2()
 var minimap_rect := Rect2()
@@ -20,7 +22,7 @@ func _btns() -> Array:
 	var s := size
 	return [["atk", s + Vector2(-140, -140), 78, "ATTAQUE"], ["s0", s + Vector2(-305, -95), 52, labels[0]], ["s1", s + Vector2(-290, -238), 52, labels[1]],
 		["s2", s + Vector2(-178, -330), 52, labels[2]], ["s3", s + Vector2(-58, -318), 52, labels[3]],
-		["jump", s + Vector2(-435, -62), 42, "Saut"], ["dodge", s + Vector2(-450, -180), 42, "Esquive"]]
+		["jump", s + Vector2(-435, -62), 42, "Saut"], ["dodge", s + Vector2(-450, -180), 42, "Esquive"], ["block", s + Vector2(-420, -300), 42, "Parade"]]
 func _ready() -> void: mouse_filter = MOUSE_FILTER_IGNORE
 func _input(ev: InputEvent) -> void:
 	if ev is InputEventScreenTouch:
@@ -35,6 +37,7 @@ func _input(ev: InputEvent) -> void:
 				_free[ev.index] = ev.position; _pinch_d = 0.0
 		else:
 			if ev.index == _jt: _jt = -1; stick = Vector2.ZERO
+			if _held.get(ev.index, "") == "block": main.player.block(false)
 			_held.erase(ev.index); _free.erase(ev.index); _pinch_d = 0.0
 	elif ev is InputEventScreenDrag:
 		if ev.index == _jt: stick = ((ev.position - _jc) / R).limit_length(1.0)
@@ -51,6 +54,7 @@ func _press(b: String) -> void:
 		"atk": p.attack()
 		"jump": p.jump()
 		"dodge": p.dodge()
+		"block": p.block(true)
 		_: main.K.cast(int(b.substr(1)))
 func _draw() -> void:
 	var f := get_theme_default_font()
@@ -62,7 +66,9 @@ func _draw() -> void:
 		draw_arc(c, R, 0, TAU, 48, Color(1, 1, 1, 0.25), 3); draw_circle(c, 30, Color(1, 1, 1, 0.15))
 	for b in _btns():
 		var on: bool = _held.values().has(b[0])
-		draw_circle(b[1], b[2], Color(0.95, 0.65, 0.2, 0.85) if on else Color(0.08, 0.07, 0.1, 0.62))
+		var glow: bool = b[0] == "atk" and counter
+		draw_circle(b[1], b[2], Color(0.95, 0.65, 0.2, 0.85) if on or glow else Color(0.08, 0.07, 0.1, 0.62))
+		if glow: draw_arc(b[1], b[2] + 8 + sin(Time.get_ticks_msec() * 0.015) * 4, 0, TAU, 48, Color(1, 0.9, 0.4), 5)
 		var k := -1
 		if b[0].begins_with("s"): k = int(b[0].substr(1))
 		if k >= 0 and cd[k] > 0:
@@ -71,12 +77,15 @@ func _draw() -> void:
 		draw_arc(b[1], b[2], 0, TAU, 48, Color(1, 0.82, 0.35) if k < 0 or cd[k] <= 0 else Color(0.5, 0.45, 0.4), 3)
 		var fs := 22 if b[2] > 60 else 15
 		var txt: String = b[3] if k < 0 or cd[k] <= 0 else "%d" % ceil(cd[k])
+		if b[0] == "atk" and counter: txt = "CONTRE !"
 		if k >= 0 and cd[k] > 0: fs = 26
 		_text(f, b[1], txt, fs, b[2] * 1.9)
 	# barre de vie du joueur
 	var hr := Rect2(16, 16, 300, 22)
 	draw_rect(hr, Color(0, 0, 0, 0.6)); draw_rect(Rect2(hr.position, Vector2(hr.size.x * clamp(hp, 0, 1), hr.size.y)), Color(0.85, 0.15, 0.15) if hp < 0.3 else Color(0.25, 0.8, 0.3))
 	draw_rect(hr, Color(1, 0.82, 0.35), false, 2)
+	var pr := Rect2(16, 42, 200, 10)
+	draw_rect(pr, Color(0, 0, 0, 0.6)); draw_rect(Rect2(pr.position, Vector2(pr.size.x * clamp(posture, 0, 1), pr.size.y)), Color(0.95, 0.8, 0.3))
 	if boss:
 		var br := Rect2(size.x * 0.5 - 300, 70, 600, 20)
 		draw_rect(br, Color(0, 0, 0, 0.65)); draw_rect(Rect2(br.position, Vector2(br.size.x * boss.hp / boss.hp_max, br.size.y)), Color(0.6, 0.2, 0.75))
