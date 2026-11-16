@@ -1102,7 +1102,7 @@ func _skill_button(layer: CanvasLayer, key: String, txt: String, off: Vector2, s
 	sb.bg_color = Color(0.03, 0.05, 0.14, 0.78)
 	sb.border_color = col
 	sb.set_border_width_all(4)
-	sb.set_corner_radius_all(int(size / 2))
+	sb.set_corner_radius_all(int(size / 2) - 3)
 	sb.shadow_color = Color(col.r, col.g, col.b, 0.55)
 	sb.shadow_size = 12
 	b.add_theme_stylebox_override("normal", sb)
@@ -1125,7 +1125,7 @@ func _skill_button(layer: CanvasLayer, key: String, txt: String, off: Vector2, s
 	var shade := Panel.new()
 	var ss := StyleBoxFlat.new()
 	ss.bg_color = Color(0, 0, 0, 0.62)
-	ss.set_corner_radius_all(int(size / 2))
+	ss.set_corner_radius_all(int(size / 2) - 3)
 	shade.add_theme_stylebox_override("panel", ss)
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
