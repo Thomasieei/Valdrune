@@ -1,108 +1,330 @@
-13:01:04 | INFO: Data are loaded, start creating Blender stuff
-13:01:04 | INFO: Blender create Mesh node Wheel_C_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_C001_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_C002_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_C003_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Compact Body_Body_0
-13:01:04 | INFO: Blender create Mesh node Compact Body_Glass_0
-13:01:04 | INFO: Blender create Mesh node Compact Body_Optics_0
-13:01:04 | INFO: Blender create Mesh node Coupe Body_Body_0
-13:01:04 | INFO: Blender create Mesh node Coupe Body_Glass_0
-13:01:04 | INFO: Blender create Mesh node Coupe Body_Optics_0
-13:01:04 | INFO: Blender create Mesh node Wheel_F001_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_F002_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_F003_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_F_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Hatchback Body_Body_0
-13:01:04 | INFO: Blender create Mesh node Hatchback Body_Glass_0
-13:01:04 | INFO: Blender create Mesh node Hatchback Body_Optics_0
-13:01:04 | INFO: Blender create Mesh node Wheel_B_Wheek_0
-13:01:04 | INFO: Blender create Mesh node Wheel_B001_Wheek_0
-13:01:04 | INFO: Blender create Mesh node Wheel_B002_Wheek_0
-13:01:04 | INFO: Blender create Mesh node Wheel_B003_Wheek_0
-13:01:04 | INFO: Blender create Mesh node Wheel_D_Wheel_0
-13:01:04 | INFO: Blender create Mesh node minivan body_Body_0
-13:01:04 | INFO: Blender create Mesh node minivan body_Glass_0
-13:01:04 | INFO: Blender create Mesh node minivan body_Optics_0
-13:01:04 | INFO: Blender create Mesh node Wheel_D001_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_D002_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_D003_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_G_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Offroad Body_Body_0
-13:01:04 | INFO: Blender create Mesh node Offroad Body_Glass_0
-13:01:04 | INFO: Blender create Mesh node Offroad Body_Optics_0
-13:01:04 | INFO: Blender create Mesh node Wheel_G001_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_G001_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_G002_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_E_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Pickup Body_Body_0
-13:01:04 | INFO: Blender create Mesh node Pickup Body_Glass_0
-13:01:04 | INFO: Blender create Mesh node Pickup Body_Optics_0
-13:01:04 | INFO: Blender create Mesh node Wheel_E001_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_E002_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_E003_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Sedan Body_Body_0
-13:01:04 | INFO: Blender create Mesh node Sedan Body_Glass_0
-13:01:04 | INFO: Blender create Mesh node Sedan Body_Optics_0
-13:01:04 | INFO: Blender create Mesh node Wheel_A_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_A001_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_A002_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_A003_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_H_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_H001_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_H002_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_H003_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Sport body_Body_0
-13:01:04 | INFO: Blender create Mesh node Sport body_Glass_0
-13:01:04 | INFO: Blender create Mesh node Sport body_Optics_0
-13:01:04 | INFO: Blender create Mesh node Wheel_E_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_E_Body_0
-13:01:04 | INFO: Blender create Mesh node SUV Body_Body_0
-13:01:04 | INFO: Blender create Mesh node SUV Body_Glass_0
-13:01:04 | INFO: Blender create Mesh node SUV Body_Optics_0
-13:01:04 | INFO: Blender create Mesh node Wheel_E001_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_E001_Body_0
-13:01:04 | INFO: Blender create Mesh node Wheel_E002_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_E002_Body_0
-13:01:04 | INFO: Blender create Mesh node Wheel_E003_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_E003_Body_0
-13:01:04 | INFO: Blender create Mesh node Wagon Body_Body_0
-13:01:04 | INFO: Blender create Mesh node Wagon Body_Glass_0
-13:01:04 | INFO: Blender create Mesh node Wagon Body_Optics_0
-13:01:04 | INFO: Blender create Mesh node Wheel_A_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_A001_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_A002_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Wheel_A003_Wheel_0
-13:01:04 | INFO: Blender create Mesh node Cylinder001__0
-13:01:04 | INFO: glTF import finished in 0.14s
-13:01:08 | INFO: Starting glTF 2.0 export
-13:01:08 | INFO: Extracting primitive: Wheel_C_Wheel_0
-13:01:08 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-13:01:08 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-13:01:08 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-13:01:08 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-13:01:08 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-13:01:08 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-13:01:08 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-13:01:08 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-13:01:08 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-13:01:08 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-13:01:08 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-13:01:08 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-13:01:09 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-13:01:09 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-13:01:09 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-13:01:09 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-13:01:09 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-13:01:09 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-13:01:09 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-13:01:09 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-13:01:09 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
-13:01:09 | INFO: Primitives created: 41
-13:01:09 | INFO: Finished glTF 2.0 export in 0.44851088523864746 s
-13:01:09 | INFO: Data are loaded, start creating Blender stuff
-13:01:09 | INFO: Blender create Mesh node Wheel_C_Wheel_0
-13:01:09 | INFO: glTF import finished in 0.06s
+13:05:30 | INFO: Data are loaded, start creating Blender stuff
+13:05:30 | INFO: Blender create Mesh node Wheel_C_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_C001_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_C002_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_C003_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Compact Body_Body_0
+13:05:30 | INFO: Blender create Mesh node Compact Body_Glass_0
+13:05:30 | INFO: Blender create Mesh node Compact Body_Optics_0
+13:05:30 | INFO: Blender create Mesh node Coupe Body_Body_0
+13:05:30 | INFO: Blender create Mesh node Coupe Body_Glass_0
+13:05:30 | INFO: Blender create Mesh node Coupe Body_Optics_0
+13:05:30 | INFO: Blender create Mesh node Wheel_F001_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_F002_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_F003_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_F_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Hatchback Body_Body_0
+13:05:30 | INFO: Blender create Mesh node Hatchback Body_Glass_0
+13:05:30 | INFO: Blender create Mesh node Hatchback Body_Optics_0
+13:05:30 | INFO: Blender create Mesh node Wheel_B_Wheek_0
+13:05:30 | INFO: Blender create Mesh node Wheel_B001_Wheek_0
+13:05:30 | INFO: Blender create Mesh node Wheel_B002_Wheek_0
+13:05:30 | INFO: Blender create Mesh node Wheel_B003_Wheek_0
+13:05:30 | INFO: Blender create Mesh node Wheel_D_Wheel_0
+13:05:30 | INFO: Blender create Mesh node minivan body_Body_0
+13:05:30 | INFO: Blender create Mesh node minivan body_Glass_0
+13:05:30 | INFO: Blender create Mesh node minivan body_Optics_0
+13:05:30 | INFO: Blender create Mesh node Wheel_D001_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_D002_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_D003_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_G_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Offroad Body_Body_0
+13:05:30 | INFO: Blender create Mesh node Offroad Body_Glass_0
+13:05:30 | INFO: Blender create Mesh node Offroad Body_Optics_0
+13:05:30 | INFO: Blender create Mesh node Wheel_G001_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_G001_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_G002_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_E_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Pickup Body_Body_0
+13:05:30 | INFO: Blender create Mesh node Pickup Body_Glass_0
+13:05:30 | INFO: Blender create Mesh node Pickup Body_Optics_0
+13:05:30 | INFO: Blender create Mesh node Wheel_E001_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_E002_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_E003_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Sedan Body_Body_0
+13:05:30 | INFO: Blender create Mesh node Sedan Body_Glass_0
+13:05:30 | INFO: Blender create Mesh node Sedan Body_Optics_0
+13:05:30 | INFO: Blender create Mesh node Wheel_A_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_A001_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_A002_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_A003_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_H_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_H001_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_H002_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_H003_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Sport body_Body_0
+13:05:30 | INFO: Blender create Mesh node Sport body_Glass_0
+13:05:30 | INFO: Blender create Mesh node Sport body_Optics_0
+13:05:30 | INFO: Blender create Mesh node Wheel_E_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_E_Body_0
+13:05:30 | INFO: Blender create Mesh node SUV Body_Body_0
+13:05:30 | INFO: Blender create Mesh node SUV Body_Glass_0
+13:05:30 | INFO: Blender create Mesh node SUV Body_Optics_0
+13:05:30 | INFO: Blender create Mesh node Wheel_E001_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_E001_Body_0
+13:05:30 | INFO: Blender create Mesh node Wheel_E002_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_E002_Body_0
+13:05:30 | INFO: Blender create Mesh node Wheel_E003_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_E003_Body_0
+13:05:30 | INFO: Blender create Mesh node Wagon Body_Body_0
+13:05:30 | INFO: Blender create Mesh node Wagon Body_Glass_0
+13:05:30 | INFO: Blender create Mesh node Wagon Body_Optics_0
+13:05:30 | INFO: Blender create Mesh node Wheel_A_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_A001_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_A002_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Wheel_A003_Wheel_0
+13:05:30 | INFO: Blender create Mesh node Cylinder001__0
+13:05:30 | INFO: glTF import finished in 0.19s
+13:05:36 | INFO: Starting glTF 2.0 export
+13:05:36 | INFO: Extracting primitive: Compact Body_Body_0
+13:05:36 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Compact Body_Glass_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Compact Body_Optics_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Coupe Body_Body_0
+13:05:36 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Coupe Body_Glass_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Coupe Body_Optics_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Cylinder001__0
+13:05:36 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Hatchback Body_Body_0
+13:05:36 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Hatchback Body_Glass_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Hatchback Body_Optics_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: minivan body_Body_0
+13:05:36 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: minivan body_Glass_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: minivan body_Optics_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Offroad Body_Body_0
+13:05:36 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Offroad Body_Glass_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Offroad Body_Optics_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Pickup Body_Body_0
+13:05:36 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Pickup Body_Glass_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Pickup Body_Optics_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Sedan Body_Body_0
+13:05:36 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Sedan Body_Glass_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Sedan Body_Optics_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Sport body_Body_0
+13:05:36 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Sport body_Glass_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Sport body_Optics_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: SUV Body_Body_0
+13:05:36 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: SUV Body_Glass_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: SUV Body_Optics_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wagon Body_Body_0
+13:05:36 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wagon Body_Glass_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wagon Body_Optics_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_A_Wheel_0
+13:05:36 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_A_Wheel_0.001
+13:05:36 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_A001_Wheel_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_A001_Wheel_0.001
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_A002_Wheel_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_A002_Wheel_0.001
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_A003_Wheel_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_A003_Wheel_0.001
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_B_Wheek_0
+13:05:36 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_B001_Wheek_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_B002_Wheek_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_B003_Wheek_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_C_Wheel_0
+13:05:36 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_C001_Wheel_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_C002_Wheel_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_C003_Wheel_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_D_Wheel_0
+13:05:36 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_D001_Wheel_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_D002_Wheel_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_D003_Wheel_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_E_Wheel_0
+13:05:36 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_E_Body_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_E_Wheel_0.001
+13:05:36 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_E001_Wheel_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_E001_Body_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_E001_Wheel_0.001
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_E002_Wheel_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_E002_Body_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_E002_Wheel_0.001
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_E003_Wheel_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_E003_Body_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_E003_Wheel_0.001
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_F_Wheel_0
+13:05:36 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_F001_Wheel_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_F002_Wheel_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_F003_Wheel_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_G_Wheel_0
+13:05:36 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_G001_Wheel_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_G001_Wheel_0.001
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_G002_Wheel_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_H_Wheel_0
+13:05:36 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_H001_Wheel_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_H002_Wheel_0
+13:05:36 | INFO: Primitives created: 1
+13:05:36 | INFO: Extracting primitive: Wheel_H003_Wheel_0
+13:05:36 | INFO: Primitives created: 1
+13:05:37 | INFO: Finished glTF 2.0 export in 0.5407514572143555 s
+13:05:37 | INFO: Data are loaded, start creating Blender stuff
+13:05:37 | INFO: Blender create Mesh node Compact Body_Body_0
+13:05:37 | INFO: Blender create Mesh node Compact Body_Glass_0
+13:05:37 | INFO: Blender create Mesh node Compact Body_Optics_0
+13:05:37 | INFO: Blender create Mesh node Coupe Body_Body_0
+13:05:37 | INFO: Blender create Mesh node Coupe Body_Glass_0
+13:05:37 | INFO: Blender create Mesh node Coupe Body_Optics_0
+13:05:37 | INFO: Blender create Mesh node Cylinder001__0
+13:05:37 | INFO: Blender create Mesh node Hatchback Body_Body_0
+13:05:37 | INFO: Blender create Mesh node Hatchback Body_Glass_0
+13:05:37 | INFO: Blender create Mesh node Hatchback Body_Optics_0
+13:05:37 | INFO: Blender create Mesh node minivan body_Body_0
+13:05:37 | INFO: Blender create Mesh node minivan body_Glass_0
+13:05:37 | INFO: Blender create Mesh node minivan body_Optics_0
+13:05:37 | INFO: Blender create Mesh node Offroad Body_Body_0
+13:05:37 | INFO: Blender create Mesh node Offroad Body_Glass_0
+13:05:37 | INFO: Blender create Mesh node Offroad Body_Optics_0
+13:05:37 | INFO: Blender create Mesh node Pickup Body_Body_0
+13:05:37 | INFO: Blender create Mesh node Pickup Body_Glass_0
+13:05:37 | INFO: Blender create Mesh node Pickup Body_Optics_0
+13:05:37 | INFO: Blender create Mesh node Sedan Body_Body_0
+13:05:37 | INFO: Blender create Mesh node Sedan Body_Glass_0
+13:05:37 | INFO: Blender create Mesh node Sedan Body_Optics_0
+13:05:37 | INFO: Blender create Mesh node Sport body_Body_0
+13:05:37 | INFO: Blender create Mesh node Sport body_Glass_0
+13:05:37 | INFO: Blender create Mesh node Sport body_Optics_0
+13:05:37 | INFO: Blender create Mesh node SUV Body_Body_0
+13:05:37 | INFO: Blender create Mesh node SUV Body_Glass_0
+13:05:37 | INFO: Blender create Mesh node SUV Body_Optics_0
+13:05:37 | INFO: Blender create Mesh node Wagon Body_Body_0
+13:05:37 | INFO: Blender create Mesh node Wagon Body_Glass_0
+13:05:37 | INFO: Blender create Mesh node Wagon Body_Optics_0
+13:05:37 | INFO: Blender create Mesh node Wheel_A_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_A_Wheel_0.001
+13:05:37 | INFO: Blender create Mesh node Wheel_A001_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_A001_Wheel_0.001
+13:05:37 | INFO: Blender create Mesh node Wheel_A002_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_A002_Wheel_0.001
+13:05:37 | INFO: Blender create Mesh node Wheel_A003_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_A003_Wheel_0.001
+13:05:37 | INFO: Blender create Mesh node Wheel_B_Wheek_0
+13:05:37 | INFO: Blender create Mesh node Wheel_B001_Wheek_0
+13:05:37 | INFO: Blender create Mesh node Wheel_B002_Wheek_0
+13:05:37 | INFO: Blender create Mesh node Wheel_B003_Wheek_0
+13:05:37 | INFO: Blender create Mesh node Wheel_C_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_C001_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_C002_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_C003_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_D_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_D001_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_D002_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_D003_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_E_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_E_Body_0
+13:05:37 | INFO: Blender create Mesh node Wheel_E_Wheel_0.001
+13:05:37 | INFO: Blender create Mesh node Wheel_E001_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_E001_Body_0
+13:05:37 | INFO: Blender create Mesh node Wheel_E001_Wheel_0.001
+13:05:37 | INFO: Blender create Mesh node Wheel_E002_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_E002_Body_0
+13:05:37 | INFO: Blender create Mesh node Wheel_E002_Wheel_0.001
+13:05:37 | INFO: Blender create Mesh node Wheel_E003_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_E003_Body_0
+13:05:37 | INFO: Blender create Mesh node Wheel_E003_Wheel_0.001
+13:05:37 | INFO: Blender create Mesh node Wheel_F_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_F001_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_F002_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_F003_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_G_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_G001_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_G001_Wheel_0.001
+13:05:37 | INFO: Blender create Mesh node Wheel_G002_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_H_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_H001_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_H002_Wheel_0
+13:05:37 | INFO: Blender create Mesh node Wheel_H003_Wheel_0
+13:05:37 | INFO: glTF import finished in 0.13s
 Blender 4.2.3 LTS (hash 0e22e4fcea03 built 2024-10-14 23:31:34)
 Image_0
 Image_0.jpg
@@ -182,88 +404,162 @@ Image_8
 Image_8.png
 Image_9
 Image_9.png
-Fra:1 Mem:25.24M (Peak 25.24M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_C_Wheel_0
-Fra:1 Mem:31.76M (Peak 36.11M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Initializing
-Fra:1 Mem:31.75M (Peak 36.11M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Images | Loading 1
-Fra:1 Mem:31.75M (Peak 36.11M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Images | Loading 33
-Fra:1 Mem:47.77M (Peak 55.77M) | Time:00:00.02 | Mem:4.00M, Peak:4.00M | Scene, ViewLayer | Updating Images | Loading 34
-Fra:1 Mem:51.77M (Peak 59.78M) | Time:00:00.03 | Mem:8.00M, Peak:8.00M | Scene, ViewLayer | Updating Images | Loading 35
-Fra:1 Mem:55.77M (Peak 63.78M) | Time:00:00.03 | Mem:12.00M, Peak:12.00M | Scene, ViewLayer | Updating Images | Loading 36
-Fra:1 Mem:67.78M (Peak 75.79M) | Time:00:00.04 | Mem:16.00M, Peak:16.00M | Scene, ViewLayer | Updating Images | Loading 37
-Fra:1 Mem:63.77M (Peak 75.79M) | Time:00:00.04 | Mem:20.00M, Peak:20.00M | Scene, ViewLayer | Updating Images | Loading 0
-Fra:1 Mem:67.77M (Peak 75.79M) | Time:00:00.04 | Mem:24.00M, Peak:24.00M | Scene, ViewLayer | Updating Images | Loading 38
-Fra:1 Mem:71.77M (Peak 79.78M) | Time:00:00.04 | Mem:28.00M, Peak:28.00M | Scene, ViewLayer | Updating Images | Loading 2
-Fra:1 Mem:75.77M (Peak 83.78M) | Time:00:00.05 | Mem:32.00M, Peak:32.00M | Scene, ViewLayer | Updating Images | Loading 3
-Fra:1 Mem:83.78M (Peak 91.79M) | Time:00:00.05 | Mem:36.00M, Peak:36.00M | Scene, ViewLayer | Updating Images | Loading 32
-Fra:1 Mem:83.77M (Peak 91.79M) | Time:00:00.05 | Mem:40.00M, Peak:40.00M | Scene, ViewLayer | Updating Images | Loading 4
-Fra:1 Mem:95.78M (Peak 103.79M) | Time:00:00.05 | Mem:44.00M, Peak:44.00M | Scene, ViewLayer | Updating Images | Loading 5
-Fra:1 Mem:91.77M (Peak 103.79M) | Time:00:00.05 | Mem:48.00M, Peak:48.00M | Scene, ViewLayer | Updating Images | Loading 6
-Fra:1 Mem:103.78M (Peak 111.79M) | Time:00:00.06 | Mem:52.00M, Peak:52.00M | Scene, ViewLayer | Updating Images | Loading 31
-Fra:1 Mem:107.78M (Peak 115.79M) | Time:00:00.07 | Mem:56.00M, Peak:56.00M | Scene, ViewLayer | Updating Images | Loading 7
-Fra:1 Mem:103.77M (Peak 115.79M) | Time:00:00.07 | Mem:60.00M, Peak:60.00M | Scene, ViewLayer | Updating Images | Loading 8
-Fra:1 Mem:107.77M (Peak 115.79M) | Time:00:00.07 | Mem:64.00M, Peak:64.00M | Scene, ViewLayer | Updating Images | Loading 9
-Fra:1 Mem:111.77M (Peak 119.78M) | Time:00:00.07 | Mem:68.00M, Peak:68.00M | Scene, ViewLayer | Updating Images | Loading 10
-Fra:1 Mem:115.77M (Peak 123.78M) | Time:00:00.08 | Mem:72.00M, Peak:72.00M | Scene, ViewLayer | Updating Images | Loading 11
-Fra:1 Mem:119.77M (Peak 127.78M) | Time:00:00.08 | Mem:76.00M, Peak:76.00M | Scene, ViewLayer | Updating Images | Loading 30
-Fra:1 Mem:123.77M (Peak 131.78M) | Time:00:00.08 | Mem:80.00M, Peak:80.00M | Scene, ViewLayer | Updating Images | Loading 13
-Fra:1 Mem:135.78M (Peak 143.79M) | Time:00:00.08 | Mem:84.00M, Peak:84.00M | Scene, ViewLayer | Updating Images | Loading 14
-Fra:1 Mem:131.77M (Peak 143.79M) | Time:00:00.08 | Mem:88.00M, Peak:88.00M | Scene, ViewLayer | Updating Images | Loading 15
-Fra:1 Mem:143.78M (Peak 151.79M) | Time:00:00.09 | Mem:92.00M, Peak:92.00M | Scene, ViewLayer | Updating Images | Loading 16
-Fra:1 Mem:139.77M (Peak 151.79M) | Time:00:00.09 | Mem:96.00M, Peak:96.00M | Scene, ViewLayer | Updating Images | Loading 17
-Fra:1 Mem:143.77M (Peak 151.79M) | Time:00:00.10 | Mem:100.00M, Peak:100.00M | Scene, ViewLayer | Updating Images | Loading 29
-Fra:1 Mem:163.79M (Peak 171.80M) | Time:00:00.10 | Mem:104.00M, Peak:104.00M | Scene, ViewLayer | Updating Images | Loading 18
-Fra:1 Mem:159.78M (Peak 171.80M) | Time:00:00.10 | Mem:108.00M, Peak:108.00M | Scene, ViewLayer | Updating Images | Loading 19
-Fra:1 Mem:163.78M (Peak 171.80M) | Time:00:00.11 | Mem:112.00M, Peak:112.00M | Scene, ViewLayer | Updating Images | Loading 28
-Fra:1 Mem:159.77M (Peak 171.80M) | Time:00:00.11 | Mem:116.00M, Peak:116.00M | Scene, ViewLayer | Updating Images | Loading 20
-Fra:1 Mem:175.79M (Peak 179.79M) | Time:00:00.11 | Mem:120.00M, Peak:120.00M | Scene, ViewLayer | Updating Images | Loading 21
-Fra:1 Mem:175.78M (Peak 179.79M) | Time:00:00.11 | Mem:124.00M, Peak:124.00M | Scene, ViewLayer | Updating Images | Loading 22
-Fra:1 Mem:171.77M (Peak 179.79M) | Time:00:00.11 | Mem:128.00M, Peak:128.00M | Scene, ViewLayer | Updating Images | Loading 24
-Fra:1 Mem:175.77M (Peak 183.78M) | Time:00:00.11 | Mem:132.00M, Peak:132.00M | Scene, ViewLayer | Updating Images | Loading 27
-Fra:1 Mem:179.77M (Peak 187.78M) | Time:00:00.12 | Mem:136.00M, Peak:136.00M | Scene, ViewLayer | Updating Images | Loading 25
-Fra:1 Mem:183.77M (Peak 191.78M) | Time:00:00.12 | Mem:140.00M, Peak:140.00M | Scene, ViewLayer | Updating Images | Loading 26
-Fra:1 Mem:185.45M (Peak 203.79M) | Time:00:00.13 | Mem:156.00M, Peak:156.00M | Scene, ViewLayer | Waiting for render to start
-Fra:1 Mem:185.45M (Peak 203.79M) | Time:00:00.13 | Mem:156.00M, Peak:156.00M | Scene, ViewLayer | Loading render kernels (may take a few minutes the first time)
-Fra:1 Mem:185.45M (Peak 203.79M) | Time:00:00.13 | Mem:156.00M, Peak:156.00M | Scene, ViewLayer | Updating Scene
-Fra:1 Mem:185.45M (Peak 203.79M) | Time:00:00.13 | Mem:156.00M, Peak:156.00M | Scene, ViewLayer | Updating Shaders
-Fra:1 Mem:185.56M (Peak 203.79M) | Time:00:00.13 | Mem:156.03M, Peak:156.03M | Scene, ViewLayer | Updating Procedurals
-Fra:1 Mem:185.56M (Peak 203.79M) | Time:00:00.13 | Mem:156.03M, Peak:156.03M | Scene, ViewLayer | Updating Background
-Fra:1 Mem:185.56M (Peak 203.79M) | Time:00:00.13 | Mem:156.03M, Peak:156.03M | Scene, ViewLayer | Updating Camera
-Fra:1 Mem:185.56M (Peak 203.79M) | Time:00:00.13 | Mem:156.03M, Peak:156.03M | Scene, ViewLayer | Updating Meshes Flags
-Fra:1 Mem:185.56M (Peak 203.79M) | Time:00:00.13 | Mem:156.03M, Peak:156.03M | Scene, ViewLayer | Updating Objects
-Fra:1 Mem:185.56M (Peak 203.79M) | Time:00:00.13 | Mem:156.03M, Peak:156.03M | Scene, ViewLayer | Updating Objects | Copying Transformations to device
-Fra:1 Mem:185.56M (Peak 203.79M) | Time:00:00.13 | Mem:156.03M, Peak:156.03M | Scene, ViewLayer | Updating Objects | Applying Static Transformations
-Fra:1 Mem:185.56M (Peak 203.79M) | Time:00:00.13 | Mem:156.03M, Peak:156.03M | Scene, ViewLayer | Updating Particle Systems
-Fra:1 Mem:185.56M (Peak 203.79M) | Time:00:00.13 | Mem:156.03M, Peak:156.03M | Scene, ViewLayer | Updating Particle Systems | Copying Particles to device
-Fra:1 Mem:185.56M (Peak 203.79M) | Time:00:00.13 | Mem:156.03M, Peak:156.03M | Scene, ViewLayer | Updating Meshes
-Fra:1 Mem:186.10M (Peak 203.79M) | Time:00:00.13 | Mem:156.03M, Peak:156.03M | Scene, ViewLayer | Updating Mesh | Computing attributes
-Fra:1 Mem:187.45M (Peak 203.79M) | Time:00:00.13 | Mem:156.03M, Peak:156.03M | Scene, ViewLayer | Updating Mesh | Copying Attributes to device
-Fra:1 Mem:187.45M (Peak 203.79M) | Time:00:00.13 | Mem:157.38M, Peak:157.38M | Scene, ViewLayer | Updating Scene BVH | Building
-Fra:1 Mem:187.45M (Peak 203.79M) | Time:00:00.13 | Mem:157.38M, Peak:157.38M | Scene, ViewLayer | Updating Scene BVH | Building BVH
-Fra:1 Mem:187.45M (Peak 203.79M) | Time:00:00.13 | Mem:158.45M, Peak:158.45M | Scene, ViewLayer | Updating Scene BVH | Building BVH 0%
-Fra:1 Mem:187.45M (Peak 203.79M) | Time:00:00.14 | Mem:159.73M, Peak:160.80M | Scene, ViewLayer | Updating Scene BVH | Copying BVH to device
-Fra:1 Mem:187.45M (Peak 203.79M) | Time:00:00.14 | Mem:159.73M, Peak:160.80M | Scene, ViewLayer | Updating Mesh | Computing normals
-Fra:1 Mem:189.60M (Peak 203.79M) | Time:00:00.14 | Mem:159.73M, Peak:160.80M | Scene, ViewLayer | Updating Mesh | Copying Mesh to device
-Fra:1 Mem:189.60M (Peak 203.79M) | Time:00:00.14 | Mem:161.87M, Peak:161.87M | Scene, ViewLayer | Updating Objects Flags
-Fra:1 Mem:189.60M (Peak 203.79M) | Time:00:00.14 | Mem:161.87M, Peak:161.87M | Scene, ViewLayer | Updating Primitive Offsets
-Fra:1 Mem:189.60M (Peak 203.79M) | Time:00:00.14 | Mem:161.87M, Peak:161.87M | Scene, ViewLayer | Updating Images
-Fra:1 Mem:189.60M (Peak 203.79M) | Time:00:00.14 | Mem:161.87M, Peak:161.87M | Scene, ViewLayer | Updating Camera Volume
-Fra:1 Mem:189.60M (Peak 203.79M) | Time:00:00.14 | Mem:161.87M, Peak:161.87M | Scene, ViewLayer | Updating Lookup Tables
-Fra:1 Mem:189.60M (Peak 203.79M) | Time:00:00.14 | Mem:161.96M, Peak:161.96M | Scene, ViewLayer | Updating Lights
-Fra:1 Mem:189.60M (Peak 203.79M) | Time:00:00.14 | Mem:161.96M, Peak:161.96M | Scene, ViewLayer | Updating Lights | Computing tree
-Fra:1 Mem:189.60M (Peak 203.79M) | Time:00:00.14 | Mem:161.96M, Peak:161.96M | Scene, ViewLayer | Updating Integrator
-Fra:1 Mem:189.60M (Peak 203.79M) | Time:00:00.14 | Mem:161.96M, Peak:161.96M | Scene, ViewLayer | Updating Film
-Fra:1 Mem:189.60M (Peak 203.79M) | Time:00:00.14 | Mem:161.88M, Peak:161.96M | Scene, ViewLayer | Updating Lookup Tables
-Fra:1 Mem:189.60M (Peak 203.79M) | Time:00:00.14 | Mem:161.96M, Peak:161.96M | Scene, ViewLayer | Updating Baking
-Fra:1 Mem:189.60M (Peak 203.79M) | Time:00:00.14 | Mem:161.96M, Peak:161.96M | Scene, ViewLayer | Updating Device | Writing constant memory
-Fra:1 Mem:189.60M (Peak 203.79M) | Time:00:00.14 | Mem:161.96M, Peak:161.96M | Scene, ViewLayer | Sample 0/12
-Fra:1 Mem:194.07M (Peak 203.79M) | Time:00:00.16 | Remaining:00:00.26 | Mem:166.42M, Peak:166.42M | Scene, ViewLayer | Sample 1/12
-Fra:1 Mem:196.05M (Peak 203.79M) | Time:00:00.42 | Mem:166.42M, Peak:166.42M | Scene, ViewLayer | Sample 12/12
-Fra:1 Mem:196.05M (Peak 203.79M) | Time:00:00.42 | Mem:166.42M, Peak:166.42M | Scene, ViewLayer | Finished
+Fra:1 Mem:31.84M (Peak 31.84M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Compact Body_Body_0
+Fra:1 Mem:31.85M (Peak 31.85M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Compact Body_Optics_0
+Fra:1 Mem:33.88M (Peak 33.88M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_H003_Wheel_0
+Fra:1 Mem:33.95M (Peak 33.95M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Coupe Body_Body_0
+Fra:1 Mem:33.95M (Peak 33.95M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Coupe Body_Glass_0
+Fra:1 Mem:34.03M (Peak 34.03M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Coupe Body_Optics_0
+Fra:1 Mem:34.07M (Peak 34.07M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Cylinder001__0
+Fra:1 Mem:34.23M (Peak 34.23M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Hatchback Body_Body_0
+Fra:1 Mem:34.47M (Peak 34.47M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_H002_Wheel_0
+Fra:1 Mem:34.82M (Peak 34.82M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_H001_Wheel_0
+Fra:1 Mem:34.93M (Peak 34.93M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_H_Wheel_0
+Fra:1 Mem:35.18M (Peak 35.18M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_G002_Wheel_0
+Fra:1 Mem:35.37M (Peak 35.37M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_G001_Wheel_0.001
+Fra:1 Mem:35.40M (Peak 35.40M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_G001_Wheel_0
+Fra:1 Mem:35.44M (Peak 35.44M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_G_Wheel_0
+Fra:1 Mem:34.89M (Peak 35.44M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Hatchback Body_Optics_0
+Fra:1 Mem:34.94M (Peak 35.44M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | minivan body_Body_0
+Fra:1 Mem:35.07M (Peak 35.44M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | minivan body_Glass_0
+Fra:1 Mem:35.12M (Peak 35.44M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | minivan body_Optics_0
+Fra:1 Mem:35.28M (Peak 35.44M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Offroad Body_Body_0
+Fra:1 Mem:36.19M (Peak 36.19M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Offroad Body_Glass_0
+Fra:1 Mem:36.22M (Peak 36.22M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_F003_Wheel_0
+Fra:1 Mem:36.23M (Peak 36.23M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Offroad Body_Optics_0
+Fra:1 Mem:36.26M (Peak 36.26M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Pickup Body_Body_0
+Fra:1 Mem:36.25M (Peak 36.26M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_F002_Wheel_0
+Fra:1 Mem:36.09M (Peak 36.26M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Pickup Body_Glass_0
+Fra:1 Mem:36.08M (Peak 36.26M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_F001_Wheel_0
+Fra:1 Mem:36.09M (Peak 36.26M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Pickup Body_Optics_0
+Fra:1 Mem:36.24M (Peak 36.26M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Sedan Body_Body_0
+Fra:1 Mem:36.33M (Peak 36.33M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_F_Wheel_0
+Fra:1 Mem:36.44M (Peak 36.44M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_E003_Wheel_0.001
+Fra:1 Mem:36.91M (Peak 36.91M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_E003_Body_0
+Fra:1 Mem:36.95M (Peak 36.95M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_E003_Wheel_0
+Fra:1 Mem:36.95M (Peak 36.95M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_E002_Wheel_0.001
+Fra:1 Mem:37.20M (Peak 37.20M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_E002_Body_0
+Fra:1 Mem:37.21M (Peak 37.21M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_E002_Wheel_0
+Fra:1 Mem:37.46M (Peak 37.46M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_E001_Wheel_0.001
+Fra:1 Mem:37.46M (Peak 37.46M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_E001_Body_0
+Fra:1 Mem:37.47M (Peak 37.47M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_E001_Wheel_0
+Fra:1 Mem:37.26M (Peak 37.47M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Sedan Body_Glass_0
+Fra:1 Mem:37.19M (Peak 37.47M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Sedan Body_Optics_0
+Fra:1 Mem:37.19M (Peak 37.47M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_E_Wheel_0.001
+Fra:1 Mem:37.04M (Peak 37.47M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Sport body_Body_0
+Fra:1 Mem:37.05M (Peak 37.47M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Sport body_Glass_0
+Fra:1 Mem:36.86M (Peak 37.47M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Sport body_Optics_0
+Fra:1 Mem:36.88M (Peak 37.47M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | SUV Body_Body_0
+Fra:1 Mem:36.88M (Peak 37.47M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | SUV Body_Glass_0
+Fra:1 Mem:37.07M (Peak 37.47M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | SUV Body_Optics_0
+Fra:1 Mem:37.17M (Peak 37.47M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wagon Body_Body_0
+Fra:1 Mem:38.41M (Peak 38.41M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wagon Body_Glass_0
+Fra:1 Mem:38.13M (Peak 38.41M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wagon Body_Optics_0
+Fra:1 Mem:38.01M (Peak 38.41M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_A_Wheel_0
+Fra:1 Mem:38.07M (Peak 38.41M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_A_Wheel_0.001
+Fra:1 Mem:37.86M (Peak 38.41M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_A001_Wheel_0
+Fra:1 Mem:37.82M (Peak 38.41M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_A001_Wheel_0.001
+Fra:1 Mem:37.83M (Peak 38.41M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_A002_Wheel_0
+Fra:1 Mem:37.99M (Peak 38.41M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_E_Body_0
+Fra:1 Mem:37.95M (Peak 38.41M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_E_Wheel_0
+Fra:1 Mem:37.92M (Peak 38.41M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_A002_Wheel_0.001
+Fra:1 Mem:37.92M (Peak 38.41M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_A003_Wheel_0
+Fra:1 Mem:38.06M (Peak 38.41M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_A003_Wheel_0.001
+Fra:1 Mem:38.06M (Peak 38.41M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_D003_Wheel_0
+Fra:1 Mem:38.06M (Peak 38.41M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_B_Wheek_0
+Fra:1 Mem:38.19M (Peak 38.41M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_D002_Wheel_0
+Fra:1 Mem:38.22M (Peak 38.41M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_B001_Wheek_0
+Fra:1 Mem:38.21M (Peak 38.41M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_D001_Wheel_0
+Fra:1 Mem:38.23M (Peak 38.41M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_B002_Wheek_0
+Fra:1 Mem:38.36M (Peak 38.41M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_D_Wheel_0
+Fra:1 Mem:38.38M (Peak 38.41M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_B003_Wheek_0
+Fra:1 Mem:38.39M (Peak 38.41M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_C_Wheel_0
+Fra:1 Mem:38.41M (Peak 38.41M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_C003_Wheel_0
+Fra:1 Mem:38.50M (Peak 38.50M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_C001_Wheel_0
+Fra:1 Mem:38.52M (Peak 38.52M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Wheel_C002_Wheel_0
+Fra:1 Mem:38.52M (Peak 38.52M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Initializing
+Fra:1 Mem:38.21M (Peak 38.52M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Images | Loading 26
+Fra:1 Mem:38.21M (Peak 38.52M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Images | Loading 33
+Fra:1 Mem:38.21M (Peak 38.52M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Images | Loading 34
+Fra:1 Mem:42.21M (Peak 42.21M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Images | Loading 35
+Fra:1 Mem:62.23M (Peak 70.23M) | Time:00:00.03 | Mem:4.00M, Peak:4.00M | Scene, ViewLayer | Updating Images | Loading 36
+Fra:1 Mem:58.22M (Peak 70.23M) | Time:00:00.03 | Mem:8.00M, Peak:8.00M | Scene, ViewLayer | Updating Images | Loading 25
+Fra:1 Mem:70.23M (Peak 78.24M) | Time:00:00.04 | Mem:12.00M, Peak:12.00M | Scene, ViewLayer | Updating Images | Loading 37
+Fra:1 Mem:74.23M (Peak 82.24M) | Time:00:00.04 | Mem:16.00M, Peak:16.00M | Scene, ViewLayer | Updating Images | Loading 13
+Fra:1 Mem:78.23M (Peak 86.24M) | Time:00:00.05 | Mem:20.00M, Peak:20.00M | Scene, ViewLayer | Updating Images | Loading 0
+Fra:1 Mem:70.22M (Peak 86.24M) | Time:00:00.05 | Mem:24.00M, Peak:24.00M | Scene, ViewLayer | Updating Images | Loading 1
+Fra:1 Mem:78.22M (Peak 86.24M) | Time:00:00.05 | Mem:28.00M, Peak:28.00M | Scene, ViewLayer | Updating Images | Loading 3
+Fra:1 Mem:82.22M (Peak 90.23M) | Time:00:00.06 | Mem:32.00M, Peak:32.00M | Scene, ViewLayer | Updating Images | Loading 11
+Fra:1 Mem:94.23M (Peak 102.24M) | Time:00:00.06 | Mem:36.00M, Peak:36.00M | Scene, ViewLayer | Updating Images | Loading 4
+Fra:1 Mem:90.23M (Peak 102.24M) | Time:00:00.06 | Mem:40.00M, Peak:40.00M | Scene, ViewLayer | Updating Images | Loading 9
+Fra:1 Mem:94.22M (Peak 102.24M) | Time:00:00.06 | Mem:44.00M, Peak:44.00M | Scene, ViewLayer | Updating Images | Loading 2
+Fra:1 Mem:98.22M (Peak 106.23M) | Time:00:00.08 | Mem:48.00M, Peak:48.00M | Scene, ViewLayer | Updating Images | Loading 10
+Fra:1 Mem:102.22M (Peak 110.23M) | Time:00:00.08 | Mem:52.00M, Peak:52.00M | Scene, ViewLayer | Updating Images | Loading 38
+Fra:1 Mem:114.23M (Peak 122.24M) | Time:00:00.09 | Mem:56.00M, Peak:56.00M | Scene, ViewLayer | Updating Images | Loading 17
+Fra:1 Mem:110.22M (Peak 122.24M) | Time:00:00.09 | Mem:60.00M, Peak:60.00M | Scene, ViewLayer | Updating Images | Loading 14
+Fra:1 Mem:122.23M (Peak 130.24M) | Time:00:00.10 | Mem:64.00M, Peak:64.00M | Scene, ViewLayer | Updating Images | Loading 15
+Fra:1 Mem:118.22M (Peak 130.24M) | Time:00:00.10 | Mem:68.00M, Peak:68.00M | Scene, ViewLayer | Updating Images | Loading 18
+Fra:1 Mem:130.23M (Peak 138.24M) | Time:00:00.10 | Mem:72.00M, Peak:72.00M | Scene, ViewLayer | Updating Images | Loading 16
+Fra:1 Mem:126.22M (Peak 138.24M) | Time:00:00.11 | Mem:76.00M, Peak:76.00M | Scene, ViewLayer | Updating Images | Loading 19
+Fra:1 Mem:138.24M (Peak 146.25M) | Time:00:00.11 | Mem:80.00M, Peak:80.00M | Scene, ViewLayer | Updating Images | Loading 8
+Fra:1 Mem:138.23M (Peak 146.25M) | Time:00:00.12 | Mem:84.00M, Peak:84.00M | Scene, ViewLayer | Updating Images | Loading 20
+Fra:1 Mem:138.22M (Peak 146.25M) | Time:00:00.12 | Mem:88.00M, Peak:88.00M | Scene, ViewLayer | Updating Images | Loading 21
+Fra:1 Mem:142.22M (Peak 150.24M) | Time:00:00.12 | Mem:92.00M, Peak:92.00M | Scene, ViewLayer | Updating Images | Loading 27
+Fra:1 Mem:146.22M (Peak 154.23M) | Time:00:00.13 | Mem:96.00M, Peak:96.00M | Scene, ViewLayer | Updating Images | Loading 28
+Fra:1 Mem:158.23M (Peak 166.24M) | Time:00:00.13 | Mem:100.00M, Peak:100.00M | Scene, ViewLayer | Updating Images | Loading 29
+Fra:1 Mem:154.22M (Peak 166.24M) | Time:00:00.13 | Mem:104.00M, Peak:104.00M | Scene, ViewLayer | Updating Images | Loading 7
+Fra:1 Mem:158.22M (Peak 166.24M) | Time:00:00.14 | Mem:108.00M, Peak:108.00M | Scene, ViewLayer | Updating Images | Loading 30
+Fra:1 Mem:170.23M (Peak 178.24M) | Time:00:00.14 | Mem:112.00M, Peak:112.00M | Scene, ViewLayer | Updating Images | Loading 31
+Fra:1 Mem:174.23M (Peak 182.24M) | Time:00:00.14 | Mem:116.00M, Peak:116.00M | Scene, ViewLayer | Updating Images | Loading 23
+Fra:1 Mem:170.22M (Peak 182.24M) | Time:00:00.14 | Mem:120.00M, Peak:120.00M | Scene, ViewLayer | Updating Images | Loading 32
+Fra:1 Mem:174.22M (Peak 182.24M) | Time:00:00.15 | Mem:124.00M, Peak:124.00M | Scene, ViewLayer | Updating Images | Loading 22
+Fra:1 Mem:178.22M (Peak 186.24M) | Time:00:00.15 | Mem:128.00M, Peak:128.00M | Scene, ViewLayer | Updating Images | Loading 24
+Fra:1 Mem:182.22M (Peak 190.23M) | Time:00:00.15 | Mem:132.00M, Peak:132.00M | Scene, ViewLayer | Updating Images | Loading 5
+Fra:1 Mem:202.24M (Peak 210.25M) | Time:00:00.16 | Mem:136.00M, Peak:136.00M | Scene, ViewLayer | Updating Images | Loading 12
+Fra:1 Mem:198.23M (Peak 210.25M) | Time:00:00.16 | Mem:140.00M, Peak:140.00M | Scene, ViewLayer | Updating Images | Loading 6
+Fra:1 Mem:189.25M (Peak 210.25M) | Time:00:00.17 | Mem:156.00M, Peak:156.00M | Scene, ViewLayer | Waiting for render to start
+Fra:1 Mem:189.25M (Peak 210.25M) | Time:00:00.17 | Mem:156.00M, Peak:156.00M | Scene, ViewLayer | Loading render kernels (may take a few minutes the first time)
+Fra:1 Mem:189.25M (Peak 210.25M) | Time:00:00.17 | Mem:156.00M, Peak:156.00M | Scene, ViewLayer | Updating Scene
+Fra:1 Mem:189.25M (Peak 210.25M) | Time:00:00.17 | Mem:156.00M, Peak:156.00M | Scene, ViewLayer | Updating Shaders
+Fra:1 Mem:189.36M (Peak 210.25M) | Time:00:00.18 | Mem:156.03M, Peak:156.03M | Scene, ViewLayer | Updating Procedurals
+Fra:1 Mem:189.36M (Peak 210.25M) | Time:00:00.18 | Mem:156.03M, Peak:156.03M | Scene, ViewLayer | Updating Background
+Fra:1 Mem:189.36M (Peak 210.25M) | Time:00:00.18 | Mem:156.03M, Peak:156.03M | Scene, ViewLayer | Updating Camera
+Fra:1 Mem:189.36M (Peak 210.25M) | Time:00:00.18 | Mem:156.03M, Peak:156.03M | Scene, ViewLayer | Updating Meshes Flags
+Fra:1 Mem:189.36M (Peak 210.25M) | Time:00:00.18 | Mem:156.03M, Peak:156.03M | Scene, ViewLayer | Updating Objects
+Fra:1 Mem:189.36M (Peak 210.25M) | Time:00:00.18 | Mem:156.03M, Peak:156.03M | Scene, ViewLayer | Updating Objects | Copying Transformations to device
+Fra:1 Mem:189.37M (Peak 210.25M) | Time:00:00.18 | Mem:156.05M, Peak:156.05M | Scene, ViewLayer | Updating Objects | Applying Static Transformations
+Fra:1 Mem:189.37M (Peak 210.25M) | Time:00:00.18 | Mem:156.05M, Peak:156.05M | Scene, ViewLayer | Updating Particle Systems
+Fra:1 Mem:189.37M (Peak 210.25M) | Time:00:00.18 | Mem:156.05M, Peak:156.05M | Scene, ViewLayer | Updating Particle Systems | Copying Particles to device
+Fra:1 Mem:189.37M (Peak 210.25M) | Time:00:00.18 | Mem:156.05M, Peak:156.05M | Scene, ViewLayer | Updating Meshes
+Fra:1 Mem:189.91M (Peak 210.25M) | Time:00:00.18 | Mem:156.05M, Peak:156.05M | Scene, ViewLayer | Updating Mesh | Computing attributes
+Fra:1 Mem:191.27M (Peak 210.25M) | Time:00:00.18 | Mem:156.05M, Peak:156.05M | Scene, ViewLayer | Updating Mesh | Copying Attributes to device
+Fra:1 Mem:191.26M (Peak 210.25M) | Time:00:00.18 | Mem:157.39M, Peak:157.39M | Scene, ViewLayer | Updating Scene BVH | Building
+Fra:1 Mem:191.26M (Peak 210.25M) | Time:00:00.18 | Mem:157.39M, Peak:157.39M | Scene, ViewLayer | Updating Scene BVH | Building BVH
+Fra:1 Mem:191.26M (Peak 210.25M) | Time:00:00.18 | Mem:158.46M, Peak:158.46M | Scene, ViewLayer | Updating Scene BVH | Building BVH 0%
+Fra:1 Mem:191.26M (Peak 210.25M) | Time:00:00.18 | Mem:159.74M, Peak:160.81M | Scene, ViewLayer | Updating Scene BVH | Copying BVH to device
+Fra:1 Mem:191.26M (Peak 210.25M) | Time:00:00.18 | Mem:159.74M, Peak:160.81M | Scene, ViewLayer | Updating Mesh | Computing normals
+Fra:1 Mem:193.41M (Peak 210.25M) | Time:00:00.18 | Mem:159.74M, Peak:160.81M | Scene, ViewLayer | Updating Mesh | Copying Mesh to device
+Fra:1 Mem:193.41M (Peak 210.25M) | Time:00:00.18 | Mem:161.90M, Peak:161.90M | Scene, ViewLayer | Updating Objects Flags
+Fra:1 Mem:193.41M (Peak 210.25M) | Time:00:00.18 | Mem:161.90M, Peak:161.90M | Scene, ViewLayer | Updating Primitive Offsets
+Fra:1 Mem:193.41M (Peak 210.25M) | Time:00:00.18 | Mem:161.90M, Peak:161.90M | Scene, ViewLayer | Updating Images
+Fra:1 Mem:193.41M (Peak 210.25M) | Time:00:00.18 | Mem:161.90M, Peak:161.90M | Scene, ViewLayer | Updating Camera Volume
+Fra:1 Mem:193.41M (Peak 210.25M) | Time:00:00.18 | Mem:161.90M, Peak:161.90M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:193.41M (Peak 210.25M) | Time:00:00.18 | Mem:161.98M, Peak:161.98M | Scene, ViewLayer | Updating Lights
+Fra:1 Mem:193.41M (Peak 210.25M) | Time:00:00.18 | Mem:161.98M, Peak:161.98M | Scene, ViewLayer | Updating Lights | Computing tree
+Fra:1 Mem:193.41M (Peak 210.25M) | Time:00:00.18 | Mem:161.98M, Peak:161.98M | Scene, ViewLayer | Updating Integrator
+Fra:1 Mem:193.41M (Peak 210.25M) | Time:00:00.18 | Mem:161.98M, Peak:161.98M | Scene, ViewLayer | Updating Film
+Fra:1 Mem:193.42M (Peak 210.25M) | Time:00:00.18 | Mem:161.90M, Peak:161.98M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:193.42M (Peak 210.25M) | Time:00:00.18 | Mem:161.98M, Peak:161.98M | Scene, ViewLayer | Updating Baking
+Fra:1 Mem:193.42M (Peak 210.25M) | Time:00:00.18 | Mem:161.98M, Peak:161.98M | Scene, ViewLayer | Updating Device | Writing constant memory
+Fra:1 Mem:193.42M (Peak 210.25M) | Time:00:00.18 | Mem:161.98M, Peak:161.98M | Scene, ViewLayer | Sample 0/12
+Fra:1 Mem:197.88M (Peak 210.25M) | Time:00:00.21 | Remaining:00:00.31 | Mem:166.44M, Peak:166.44M | Scene, ViewLayer | Sample 1/12
+Fra:1 Mem:199.86M (Peak 210.25M) | Time:00:00.52 | Mem:166.44M, Peak:166.44M | Scene, ViewLayer | Sample 12/12
+Fra:1 Mem:199.86M (Peak 210.25M) | Time:00:00.52 | Mem:166.44M, Peak:166.44M | Scene, ViewLayer | Finished
 Saved: 'out/civil_cars.png'
-Time: 00:00.50 (Saving: 00:00.07)
+Time: 00:00.61 (Saving: 00:00.09)
 
 INFO Draco mesh compression is available, use library at /home/runner/work/Valdrune/Valdrune/blender-4.2.3-linux-x64/4.2/python/lib/python3.11/site-packages/libextern_draco.so
 
-REPORT {"id": "civil_cars", "kind": "env", "source": "civil_cars.glb", "tris_in": 69310, "bones": 0, "tex_missing": 0, "tris_out": 35000, "size_m": [16.64, 17.77, 1.71], "anims": 0, "anim_names": [], "mb_out": 5.03, "verify_tris": 35000, "verify_anims": 0, "verify_skinned": false, "preview": true}
+REPORT {"id": "civil_cars", "kind": "kit", "source": "civil_cars.glb", "tris_in": 69310, "bones": 0, "tex_missing": 0, "tris_out": 35045, "size_m": [16.66, 17.77, 1.71], "anims": 0, "anim_names": [], "mb_out": 5.03, "verify_tris": 35045, "verify_anims": 0, "verify_skinned": false, "preview": true}
 
 Blender quit
