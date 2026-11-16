@@ -4489,7 +4489,7 @@ func add_tokens(k: String, n: int, at: Vector3) -> void:
 
 # ---------------------------------------------------------------- bureau du Changeur
 func _build_office() -> void:
-	office_door = shop_entry + Vector3(3.0, 0, 3.0)
+	office_door = shop_entry + Vector3(6.0, 0, 3.6)
 	var dm := FX.ground_disc(1.0, Color(1.0, 0.8, 0.3), 0.6, true)
 	shop.add_child(dm)
 	dm.global_position = office_door + Vector3(0, 0.05, 0)
