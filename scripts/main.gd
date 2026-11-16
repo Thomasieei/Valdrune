@@ -4448,7 +4448,9 @@ func _run_shots() -> void:
 			mm.hp = 1.0
 	await _snap("21_ombres_finissent", 60)
 	await _snap("22_celebration", 50)
+	print("SANITY ville %s" % str(sanity()))
 	await _shots_runs()
+	print("SANITY apres_donjons %s" % str(sanity()))
 	save_game()
 	var saved_shadows := shadow_count()
 	for m in shadow_list():
@@ -4837,7 +4839,8 @@ func _update_diag() -> void:
 		if not (m as Mob).sleeping_lod and not (m as Mob).dead:
 			awake += 1
 	var fps := Engine.get_frames_per_second()
-	diag_lbl.text = "image %.1f ms (%d FPS)\nscripts %.1f ms · physique %.1f ms\nappels %d · objets %d · triangles %dk\nunités actives %d / %d · particules %d\nlumières %d · ombres portées %s · %s" % [
+	var sn := sanity()
+	diag_lbl.text = ("bloqués %d · hors sol %d · en l'air %d\n" % [sn["bloques"], sn["hors_sol"], sn["en_l_air"]]) + "image %.1f ms (%d FPS)\nscripts %.1f ms · physique %.1f ms\nappels %d · objets %d · triangles %dk\nunités actives %d / %d · particules %d\nlumières %d · ombres portées %s · %s" % [
 		1000.0 / maxf(fps, 1), fps, float(s["proc"]), float(s["phys"]), int(s["dc"]), int(s["obj"]), int(s["prim"]) / 1000,
 		awake, mobs.size(), get_tree().get_nodes_in_group("fx_burst").size(), FX.light_budget, "oui" if moon.shadow_enabled else "non", "Rapide" if gfx_fast else "Haute"]
 
@@ -4847,3 +4850,23 @@ func _start_bench() -> void:
 		system_msg("Le test se lance en ville.")
 		return
 	bench.run(true)
+
+## Contrôle de santé : PNJ en l'air, hors du sol praticable, bloqués ; cadavres et butin flottants.
+func sanity() -> Dictionary:
+	var r := {"en_l_air": 0, "hors_sol": 0, "bloques": 0, "cadavres_flottants": 0, "actifs": 0}
+	for m in mobs:
+		var mm := m as Mob
+		if not is_instance_valid(mm) or mm.sleeping_lod or mm.lifted or not mm.visible:
+			continue
+		r["actifs"] = int(r["actifs"]) + 1
+		var g := ground_at(mm.global_position + Vector3(0, 0.3, 0))
+		var air := mm.global_position.y - g.y > 1.2
+		if air:
+			r["cadavres_flottants" if mm.dead else "en_l_air"] = int(r["cadavres_flottants" if mm.dead else "en_l_air"]) + 1
+		if mm.stuck_t >= 2.0:
+			r["bloques"] = int(r["bloques"]) + 1
+		if nav and nav.covers(mm.global_position) and not mm.dead:
+			var c := nav.closest(mm.global_position)
+			if Vector2(c.x - mm.global_position.x, c.z - mm.global_position.z).length() > 1.6 or mm.global_position.y - c.y > 2.2:
+				r["hors_sol"] = int(r["hors_sol"]) + 1
+	return r
