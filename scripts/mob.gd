@@ -46,6 +46,7 @@ var strafe_dir := 1.0
 var strafe_t := 0.0
 var squad: Dictionary = {}     # groupe de chasseurs partagé
 var low_said := false
+var sleeping_lod := false
 var patrol_off := Vector3.ZERO
 const HUNTER_HAND := Transform3D(Vector3(-0.38058, -0.04610, -118.25440), Vector3(-9.10295, -117.90413, 0.07526), Vector3(-117.90353, 9.10315, 0.37590), Vector3(40.22297, 8.74491, 1.63814))
 const ROLE_NAME := {"tank": "Tank", "fire": "Mage de feu", "heal": "Soigneur", "melee": "Lame"}
@@ -112,7 +113,7 @@ func configure(k: String, shadow := false) -> void:
 			max_hp = 2400; dmg = 34; speed = 4.6; body_r = 0.75; arm = 1.25; atk_rate = 1.5; reward_gold = 0
 			setup_model("res://assets/igris.glb", 1.45, Color(1, 0.1, 0.1), 0.2)
 			_attach_weapon("res://assets/sl_sword.glb", 1.3)
-			var aura := OmniLight3D.new()
+			var aura := FX.new_light(true)
 			aura.light_color = Color(1, 0.12, 0.15)
 			aura.light_energy = 1.6
 			aura.omni_range = 6.0
@@ -158,7 +159,7 @@ func make_elite() -> void:
 	if hp_bar:
 		hp_bar.queue_free()
 	make_hp_bar(2.6 if kind != "orc" else 3.3, Color(1, 0.6, 0.1))
-	var glow := OmniLight3D.new()
+	var glow := FX.new_light()
 	glow.light_color = Color(1, 0.5, 0.1)
 	glow.light_energy = 0.9
 	glow.omni_range = 3.5
@@ -243,7 +244,7 @@ func _make_shadow() -> void:
 			m.material_override = sm
 	(ring.material_override as StandardMaterial3D).albedo_color = Color(0.55, 0.2, 1.0, 0.2)
 	speed = maxf(speed, 6.5)
-	var eye := OmniLight3D.new()
+	var eye := FX.new_light()
 	eye.light_color = Color(0.5, 0.2, 1)
 	eye.light_energy = 1.2
 	eye.omni_range = 2.5
@@ -312,8 +313,21 @@ func _physics_process(delta: float) -> void:
 		return
 	if dead:
 		corpse_time += delta
-		apply_gravity_and_slide(delta)
+		if corpse_time < 1.5 or not is_on_floor():
+			apply_gravity_and_slide(delta)
 		return
+	# niveau de détail : loin du héros, un monstre sans combat se met en veille (ni IA, ni physique, ni animation)
+	if not is_shadow and not boss and target == null:
+		var far := global_position.distance_squared_to(main.hero.global_position) > 2025.0
+		if far != sleeping_lod:
+			sleeping_lod = far
+			if ap:
+				if far:
+					ap.pause()
+				else:
+					ap.play()
+		if far:
+			return
 	if main.in_dialogue:
 		var near: bool = global_position.distance_to(main.hero.global_position) < 6.0
 		play("Talk" if (kind == "guard" or kind == "igris") and near else "Idle", 0.3)
@@ -1034,7 +1048,7 @@ func _boss_skills(d: float) -> bool:
 		speed *= 1.3
 		atk_rate *= 0.75
 		dmg *= 1.15
-		var red := OmniLight3D.new()
+		var red := FX.new_light(true)
 		red.light_color = Color(1, 0.05, 0.05)
 		red.light_energy = 3.5
 		red.omni_range = 9.0

@@ -39,6 +39,7 @@ var roll_t := 0.0
 var roll_dir := Vector3.ZERO
 var sprint_t := 0.0
 var sprinting := false
+var sprint_lock := false
 var climbing := false
 var mantle_t := 0.0
 var speed_fx: CPUParticles3D
@@ -113,7 +114,7 @@ func set_weapon_model(m: String, glow: String) -> void:
 		gm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 		for mi in sword.find_children("*", "MeshInstance3D", true, false):
 			(mi as MeshInstance3D).material_overlay = gm
-		var lt := OmniLight3D.new()
+		var lt := FX.new_light()
 		lt.light_color = c
 		lt.light_energy = 1.2
 		lt.omni_range = 2.5
@@ -133,7 +134,10 @@ func setup_hero() -> void:
 	if ap and ap.has_animation("ClimbLoop"):
 		ap.get_animation("ClimbLoop").length = 2.1
 	_setup_sword()
-	var fill := OmniLight3D.new()
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		(mi as MeshInstance3D).layers = 3
+	var fill := FX.new_light(true)
+	fill.light_cull_mask = 2
 	fill.light_color = Color(0.78, 0.86, 1.0)
 	fill.light_energy = 1.3
 	fill.omni_range = 9.0
@@ -303,7 +307,7 @@ func _physics_process(delta: float) -> void:
 		sprint_t += delta
 	else:
 		sprint_t = 0.0
-	sprinting = sprint_t > 0.45 and not climbing
+	sprinting = (sprint_t > 0.45 or (sprint_lock and move_input.length() > 0.3)) and not climbing
 	speed_fx.emitting = sprinting and is_on_floor()
 	if climbing:
 		_climb(delta, dir)

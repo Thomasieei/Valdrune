@@ -1,6 +1,18 @@
 class_name FX
 ## Effets visuels réutilisables (compatibles renderer GL Compatibility).
 
+## Budget lumières : en rendu mobile (Compatibility) chaque lumière ajoute une passe complète
+## sur tout ce qu'elle touche. Les lumières décoratives sont donc désactivées (l'émission + le glow suffisent).
+static var light_budget := 0
+static func new_light(important := false) -> OmniLight3D:
+	var l := OmniLight3D.new()
+	if not important:
+		l.visible = false
+	else:
+		light_budget += 1
+	l.shadow_enabled = false
+	return l
+
 static func mat(col: Color, energy := 2.0, alpha := 1.0, unshaded := true) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = Color(col.r, col.g, col.b, alpha)
@@ -169,7 +181,7 @@ static func arise_pillar(parent: Node, pos: Vector3) -> void:
 	root.add_child(cyl)
 	var disc := ground_disc(2.4, Color(0.55, 0.15, 1.0), 0.9, true)
 	root.add_child(disc)
-	var lt := OmniLight3D.new()
+	var lt := FX.new_light()
 	lt.light_color = Color(0.55, 0.2, 1)
 	lt.light_energy = 0.0
 	lt.omni_range = 9.0
@@ -242,7 +254,7 @@ static func orb(parent: Node, from: Vector3, col: Color) -> MeshInstance3D:
 	mi.material_override = mat(col, 5.0)
 	parent.add_child(mi)
 	mi.global_position = from
-	var lt := OmniLight3D.new()
+	var lt := FX.new_light()
 	lt.light_color = col
 	lt.light_energy = 2.0
 	lt.omni_range = 4.0
@@ -306,54 +318,177 @@ static func speech(owner_node: Node3D, txt: String, col := Color(1, 0.85, 0.75),
 	tw.tween_callback(l.queue_free)
 
 ## Portail bleu (ou rouge) façon Solo Leveling.
+static var VORTEX_SH: Shader = _sh("""shader_type spatial;
+render_mode unshaded, cull_disabled, depth_draw_never, blend_mix, shadows_disabled;
+uniform vec4 col : source_color = vec4(0.3, 0.55, 1.0, 1.0);
+uniform vec4 col2 : source_color = vec4(0.75, 0.9, 1.0, 1.0);
+void vertex() {
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(vec4(normalize(cross(vec3(0.0, 1.0, 0.0), INV_VIEW_MATRIX[2].xyz)), 0.0), vec4(0.0, 1.0, 0.0, 0.0), vec4(normalize(cross(INV_VIEW_MATRIX[0].xyz, vec3(0.0, 1.0, 0.0))), 0.0), MODEL_MATRIX[3]);
+}
+float ss(float e0, float e1, float x) { float t = clamp((x - e0) / (e1 - e0), 0.0, 1.0); return t * t * (3.0 - 2.0 * t); }
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	p.x += sin(p.y * 6.0 + TIME * 2.0) * 0.012;
+	float r = length(p);
+	if (r > 1.0) discard;
+	float a = atan(p.y, p.x);
+	float lr = log(r + 0.03);
+	float s1 = sin(a * 5.0 + lr * 7.0 - TIME * 3.2) * 0.5 + 0.5;
+	float s2 = sin(a * 3.0 - lr * 4.5 + TIME * 1.9) * 0.5 + 0.5;
+	float s3 = sin(a * 11.0 + lr * 13.0 - TIME * 5.0) * 0.5 + 0.5;
+	vec3 c = mix(col.rgb * 0.12, col.rgb * 1.3, s1 * 0.65 + s2 * 0.35);
+	c += col2.rgb * pow(s1 * s3, 5.0) * 2.4 * ss(0.15, 0.85, r);
+	float core = ss(0.42, 0.0, r);
+	c = mix(c, vec3(0.01, 0.0, 0.03), core * 0.9);
+	float star = step(0.985, fract(sin(dot(floor(p * 40.0), vec2(12.9898, 78.233))) * 43758.5453));
+	c += vec3(star) * core * (0.5 + 0.5 * sin(TIME * 4.0 + p.x * 30.0));
+	float rim = ss(0.80, 0.97, r) * ss(1.0, 0.95, r);
+	c += col2.rgb * rim * 3.2;
+	ALBEDO = c;
+	ALPHA = ss(1.0, 0.9, r) * 0.96;
+}""")
+static var RUNE_SH: Shader = _sh("""shader_type spatial;
+render_mode unshaded, cull_disabled, depth_draw_never, blend_add, shadows_disabled;
+uniform vec4 col : source_color = vec4(0.3, 0.55, 1.0, 1.0);
+float ss(float e0, float e1, float x) { float t = clamp((x - e0) / (e1 - e0), 0.0, 1.0); return t * t * (3.0 - 2.0 * t); }
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float r = length(p);
+	if (r > 1.0) discard;
+	float a = atan(p.y, p.x) / 6.28318 + 0.5;
+	float rings = ss(0.018, 0.0, abs(r - 0.96)) + ss(0.012, 0.0, abs(r - 0.83)) + ss(0.01, 0.0, abs(r - 0.5));
+	float band = step(0.84, r) * step(r, 0.95);
+	float runes = band * step(0.45, fract(a * 28.0 + TIME * 0.12)) * step(0.3, fract(a * 28.0 * 3.0 + TIME * 0.36));
+	float spokes = step(r, 0.82) * step(0.5, r) * ss(0.012, 0.0, abs(fract(a * 6.0 - TIME * 0.08) - 0.5) * r * 6.0);
+	float inner = step(r, 0.5) * step(0.38, r) * step(0.55, fract(a * 12.0 - TIME * 0.25));
+	float glow = ss(1.0, 0.0, r) * 0.22;
+	float pulse = 0.75 + 0.25 * sin(TIME * 2.2);
+	ALBEDO = col.rgb * (rings * 2.6 + runes * 1.7 + spokes * 1.5 + inner * 1.2 + glow) * pulse;
+	ALPHA = 1.0;
+}""")
+static var BEAM_SH: Shader = _sh("""shader_type spatial;
+render_mode unshaded, cull_disabled, depth_draw_never, blend_add, shadows_disabled;
+uniform vec4 col : source_color = vec4(0.3, 0.55, 1.0, 1.0);
+float ss(float e0, float e1, float x) { float t = clamp((x - e0) / (e1 - e0), 0.0, 1.0); return t * t * (3.0 - 2.0 * t); }
+void fragment() {
+	float v = UV.y;
+	float flick = 0.8 + 0.2 * sin(TIME * 3.0 + UV.x * 25.0 + v * 8.0);
+	ALBEDO = col.rgb * pow(v, 2.2) * 0.9 * flick;
+	ALPHA = 1.0;
+}""")
+
+static func _sh(code: String) -> Shader:
+	var s := Shader.new()
+	s.code = code
+	return s
+
+static func _smat(sh: Shader, col: Color, col2 := Color(1, 1, 1)) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	m.set_shader_parameter("col", col)
+	if sh == VORTEX_SH:
+		m.set_shader_parameter("col2", col2)
+	return m
+
+## Portail : vortex animé (shader), anneau, cercle de runes au sol, colonne de lumière, éclats en orbite.
 static func portal(parent: Node, pos: Vector3, col: Color, r := 2.4) -> Node3D:
 	var gate := Node3D.new()
 	parent.add_child(gate)
 	gate.global_position = pos + Vector3(0, r + 0.2, 0)
-	var ring := MeshInstance3D.new()
-	var tm := TorusMesh.new()
-	tm.inner_radius = r - 0.3
-	tm.outer_radius = r
-	ring.mesh = tm
-	ring.rotation_degrees = Vector3(90, 0, 0)
-	ring.material_override = mat(col, 4.0)
-	gate.add_child(ring)
-	var disc := MeshInstance3D.new()
+	var light_col := col.lightened(0.55)
+	var vort := MeshInstance3D.new()
+	var qm := QuadMesh.new()
+	qm.size = Vector2(r * 2.0, r * 2.0)
+	vort.mesh = qm
+	vort.material_override = _smat(VORTEX_SH, col, light_col)
+	vort.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	gate.add_child(vort)
+	# halo additif autour du vortex
+	var halo := MeshInstance3D.new()
+	var hq := QuadMesh.new()
+	hq.size = Vector2(r * 3.0, r * 3.0)
+	halo.mesh = hq
+	var hm := mat(col, 1.5, 0.22)
+	hm.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
+	hm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	hm.albedo_texture = _soft_tex()
+	halo.material_override = hm
+	halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	gate.add_child(halo)
+	# runes au sol
+	var rune := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(r * 3.4, r * 3.4)
+	rune.mesh = pm
+	rune.material_override = _smat(RUNE_SH, col)
+	rune.position = Vector3(0, -r - 0.12, 0)
+	rune.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	gate.add_child(rune)
+	# colonne de lumière visible de loin
+	var beam := MeshInstance3D.new()
 	var cm := CylinderMesh.new()
-	cm.top_radius = r - 0.25
-	cm.bottom_radius = r - 0.25
-	cm.height = 0.04
-	disc.mesh = cm
-	disc.rotation_degrees = Vector3(90, 0, 0)
-	disc.material_override = mat(col.darkened(0.4), 1.2, 0.45)
-	gate.add_child(disc)
-	var gl := OmniLight3D.new()
-	gl.light_color = col
-	gl.light_energy = 3.0
-	gl.omni_range = 12.0
-	gate.add_child(gl)
+	cm.top_radius = r * 0.25
+	cm.bottom_radius = r * 0.55
+	cm.height = 34.0
+	cm.cap_top = false
+	cm.cap_bottom = false
+	beam.mesh = cm
+	beam.material_override = _smat(BEAM_SH, col)
+	beam.position = Vector3(0, 17.0 - r, 0)
+	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	gate.add_child(beam)
+	# éclats de roche/cristal en orbite
+	var orbit := Node3D.new()
+	gate.add_child(orbit)
+	for k in 7:
+		var sh := MeshInstance3D.new()
+		var pr := PrismMesh.new()
+		pr.size = Vector3(0.22, 0.5, 0.22) * randf_range(0.7, 1.4)
+		sh.mesh = pr
+		sh.material_override = mat(light_col, 2.6)
+		var ang := k * TAU / 7.0
+		sh.position = Vector3(cos(ang) * (r + 0.6), sin(ang * 2.0) * 0.5, sin(ang) * (r + 0.6))
+		sh.rotation = Vector3(randf() * 3.0, randf() * 3.0, randf() * 3.0)
+		orbit.add_child(sh)
+	var tw := orbit.create_tween().set_loops()
+	tw.tween_property(orbit, "rotation_degrees:y", 360.0, 9.0).from(0.0)
+	# particules aspirées vers le centre
 	var p := CPUParticles3D.new()
-	p.amount = 50
-	p.lifetime = 2.0
-	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
-	p.emission_ring_axis = Vector3(0, 0, 1)
-	p.emission_ring_radius = r
-	p.emission_ring_inner_radius = r - 0.4
-	p.emission_ring_height = 0.1
-	p.gravity = Vector3(0, 0.6, 0)
-	p.scale_amount_min = 0.04
-	p.scale_amount_max = 0.09
+	p.amount = 36
+	p.lifetime = 1.6
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = r * 1.5
+	p.gravity = Vector3.ZERO
+	p.radial_accel_min = -6.0
+	p.radial_accel_max = -4.0
+	p.tangential_accel_min = 3.0
+	p.tangential_accel_max = 5.0
+	p.scale_amount_min = 0.03
+	p.scale_amount_max = 0.07
 	var sm := SphereMesh.new()
 	sm.radius = 0.5
 	sm.height = 1.0
 	sm.radial_segments = 6
 	sm.rings = 3
-	sm.material = mat(col.lightened(0.3), 3.0)
+	sm.material = mat(light_col, 3.0)
 	p.mesh = sm
 	gate.add_child(p)
-	var tw := ring.create_tween().set_loops()
-	tw.tween_property(ring, "rotation_degrees:y", 360.0, 6.0).from(0.0)
 	return gate
+
+static var _soft: Texture2D
+static func _soft_tex() -> Texture2D:
+	if _soft == null:
+		var g := Gradient.new()
+		g.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0)])
+		var gt := GradientTexture2D.new()
+		gt.gradient = g
+		gt.fill = GradientTexture2D.FILL_RADIAL
+		gt.fill_from = Vector2(0.5, 0.5)
+		gt.fill_to = Vector2(0.5, 0.0)
+		gt.width = 128
+		gt.height = 128
+		_soft = gt
+	return _soft
 
 
 ## Boule de feu : charge dans la main, projectile traçant, explosion avec fumée et brûlure au sol.
@@ -375,7 +510,7 @@ static func fireball(parent: Node, from: Vector3, to: Vector3, on_hit: Callable,
 	halo.mesh = hm
 	halo.material_override = mat(Color(1.0, 0.25, 0.05), 3.0, 0.35)
 	root.add_child(halo)
-	var lt := OmniLight3D.new()
+	var lt := FX.new_light()
 	lt.light_color = Color(1, 0.5, 0.15)
 	lt.light_energy = 3.0
 	lt.omni_range = 5.0
@@ -422,7 +557,7 @@ static func _fire_explode(parent: Node, root: Node3D, on_hit: Callable) -> void:
 	tw.tween_interval(2.0)
 	tw.tween_property(scorch, "scale", Vector3(0.01, 1, 0.01), 1.0)
 	tw.tween_callback(scorch.queue_free)
-	var fl := OmniLight3D.new()
+	var fl := FX.new_light()
 	fl.light_color = Color(1, 0.55, 0.2)
 	fl.light_energy = 6.0
 	fl.omni_range = 8.0
@@ -474,7 +609,7 @@ static func heal_zone(parent: Node, pos: Vector3, r: float, dur: float) -> Node3
 	sm.material = mat(Color(0.5, 1.0, 0.55), 3.0)
 	p.mesh = sm
 	root.add_child(p)
-	var lt := OmniLight3D.new()
+	var lt := FX.new_light()
 	lt.light_color = Color(0.4, 1.0, 0.5)
 	lt.light_energy = 1.6
 	lt.omni_range = r * 2.0
@@ -496,7 +631,7 @@ static func taunt_aura(owner_node: Node3D, r: float, dur: float) -> void:
 	tw.tween_callback(ring.queue_free)
 	var aura := ground_disc(1.2, Color(1, 0.1, 0.05), 0.35, false)
 	owner_node.add_child(aura)
-	var lt := OmniLight3D.new()
+	var lt := FX.new_light()
 	lt.light_color = Color(1, 0.15, 0.1)
 	lt.light_energy = 2.5
 	lt.omni_range = 4.0

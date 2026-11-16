@@ -51,6 +51,8 @@ func setup_model(path: String, scale_f: float, ring_col: Color, ring_alpha: floa
 	model.scale = Vector3.ONE * scale_f
 	add_child(model)
 	_make_opaque()
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		(mi as GeometryInstance3D).visibility_range_end = 75.0
 	var found := model.find_children("*", "AnimationPlayer", true, false)
 	if found.size() > 0:
 		ap = found[0] as AnimationPlayer

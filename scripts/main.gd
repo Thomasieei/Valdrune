@@ -72,7 +72,7 @@ var interact_action: Callable
 var dlg_panel: PanelContainer
 var dlg_name: Label
 var dlg_text: Label
-var dlg_choices: VBoxContainer
+var dlg_choices: HFlowContainer
 var boss_bar_root: Control
 var boss_bar_fill: ColorRect
 var boss_bar_name: Label
@@ -90,6 +90,11 @@ var menu_refresh := 0.0
 var unarmed_btn: Button
 var base_fov := 64.0
 # inventaire
+const CD_TEX := preload("res://assets/ui/cd.png")
+var potion_lbl: Label
+var city_extras: Array = []
+var dlg_scroll: ScrollContainer
+var quick_menu: VBoxContainer
 var inv: Array = []
 var last_idle_line := ""
 var squads: Array = []
@@ -157,12 +162,54 @@ func _ready() -> void:
 		inv.append(it)
 		equip["w"] = int(it["uid"])
 	recalc_gear()
+	await _prewarm()
 	last_pos = hero.global_position
 	audio.music("city")
 	system_msg("[ SYSTÈME ]\nUn Portail de rang C est apparu en ville.\nL'Association des Chasseurs le garde.")
 	_check_daily()
 	if shots_mode:
 		_run_shots()
+
+## Pré-compilation des shaders : chaque effet est joué une fois sous un écran de chargement.
+## Sans ça, le rendu mobile compile au premier usage → gros à-coups en plein combat.
+func _prewarm() -> void:
+	fade.modulate.a = 1.0
+	var title := Label.new()
+	title.text = "A R I S E"
+	title.add_theme_font_size_override("font_size", 64)
+	title.add_theme_color_override("font_color", Color(0.7, 0.55, 1.0))
+	title.set_anchors_preset(Control.PRESET_CENTER)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.position -= Vector2(150, 40)
+	fade.add_child(title)
+	var p := hero.global_position + hero.forward() * 4.0 + Vector3(0, 1.0, 0)
+	var holder := Node3D.new()
+	add_child(holder)
+	holder.global_position = p
+	FX.burst(self, p, Color(1, 0.4, 0.2))
+	FX.slash_arc(self, p, 0.0, Color(0.4, 0.7, 1.0), 1.6, false)
+	FX.telegraph(self, p, 1.5, 0.3)
+	FX.telegraph_line(self, p, p + Vector3(3, 0, 0), 1.0, 0.3)
+	FX.damage_number(self, p, "0", Color(1, 1, 1), true)
+	FX.arise_pillar(self, p)
+	FX.shadow_puff(self, p)
+	FX.trail(self, p, p + Vector3(0, 0, 2), Color(0.6, 0.3, 1))
+	var o := FX.orb(self, p, Color(1, 0.5, 0.1))
+	FX.fireball(self, p, p + Vector3(1, 0, 0), Callable(), 0.05)
+	FX.heal_zone(self, p, 2.0, 0.3)
+	FX.taunt_aura(holder, 2.0, 0.3)
+	FX.speech(holder, ".", Color(1, 1, 1), 1.0, 0.3)
+	for w in ["katana", "lame", "hache", "dague", "chest_gold", "goblin", "orc"]:
+		var n := (load("res://assets/%s.glb" % w) as PackedScene).instantiate() as Node3D
+		holder.add_child(n)
+		n.position = Vector3(randf_range(-1, 1), 0, randf_range(-1, 1))
+	for k in 6:
+		await RenderingServer.frame_post_draw
+	o.queue_free()
+	holder.queue_free()
+	var tw := create_tween()
+	tw.tween_property(fade, "modulate:a", 0.0, 0.5)
+	tw.tween_callback(title.queue_free)
 
 func _build_other_envs() -> void:
 	env_dun = env_city.duplicate() as Environment
@@ -217,7 +264,9 @@ func _build_env() -> void:
 	moon_l.light_color = Color(0.62, 0.7, 1.0)
 	moon_l.light_energy = 0.75
 	moon_l.shadow_enabled = true
-	moon_l.directional_shadow_max_distance = 60.0
+	moon_l.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+	moon_l.directional_shadow_max_distance = 38.0
+	moon_l.directional_shadow_fade_start = 0.75
 	add_child(moon_l)
 
 func _build_city() -> void:
@@ -320,14 +369,24 @@ func _is_open(space: PhysicsDirectSpaceState3D, p: Vector3) -> bool:
 
 
 # ================================================================ unités
+## Listes d'équipes mises en cache une fois par image physique (évite des milliers d'allocations).
+var _team_cache: Array = [[], [], []]
+var _team_frame := -1
 func units_of_team(t: int) -> Array:
-	var out: Array = []
-	if hero and hero.team == t:
-		out.append(hero)
-	for m in mobs:
-		if (m as Mob).team == t:
-			out.append(m)
-	return out
+	var f := Engine.get_physics_frames()
+	if f != _team_frame:
+		_team_frame = f
+		_team_cache = [[], [], []]
+		if hero:
+			_team_cache[hero.team].append(hero)
+		for m in mobs:
+			if is_instance_valid(m):
+				var tm: int = (m as Mob).team
+				if tm >= 0 and tm <= 2:
+					_team_cache[tm].append(m)
+	if t < 0 or t > 2:
+		return []
+	return _team_cache[t]
 
 func all_mobs() -> Array:
 	return mobs
@@ -370,7 +429,7 @@ func _make_camps(origin: Vector3) -> void:
 	var comps := [["goblin", "goblin"], ["goblin", "goblin", "goblin"], ["goblin", "goblin", "shaman"], ["orc", "goblin"],
 		["goblin", "goblin", "goblin", "shaman"], ["orc", "shaman", "shaman"], ["goblin", "shaman", "goblin"], ["orc", "orc"]]
 	var spots: Array = []
-	for r: float in [15.0, 24.0, 33.0, 44.0, 56.0, 70.0, 85.0, 100.0]:
+	for r: float in [22.0, 32.0, 43.0, 55.0, 68.0, 82.0, 96.0, 112.0]:
 		for k in 24:
 			var a := k * TAU / 24.0 + r * 0.37
 			var p := origin + Vector3(sin(a) * r, 0, cos(a) * r)
@@ -378,7 +437,7 @@ func _make_camps(origin: Vector3) -> void:
 				continue
 			var ok := true
 			for s in spots:
-				if (s as Vector3).distance_to(p) < 14.0:
+				if (s as Vector3).distance_to(p) < 20.0:
 					ok = false
 			if ok:
 				spots.append(p)
@@ -393,7 +452,8 @@ func _fill_camp(camp: Dictionary) -> void:
 	var kinds: Array = camp["kinds"]
 	for i in kinds.size():
 		var a := i * TAU / kinds.size()
-		spawn_mob(kinds[i], (camp["pos"] as Vector3) + Vector3(sin(a), 0, cos(a)) * 2.2, camp)
+		var rr := randf_range(3.2, 4.6)
+		spawn_mob(kinds[i], (camp["pos"] as Vector3) + Vector3(sin(a + randf_range(-0.3, 0.3)), 0, cos(a + randf_range(-0.3, 0.3))) * rr, camp)
 
 # ---------------------------------------------------------------- patrouilles de monstres et groupes de chasseurs
 func _route(k: int) -> Array:
@@ -430,6 +490,12 @@ func _spawn_squad(k: int, at = null) -> Dictionary:
 		m.patrol = route
 		m.patrol_off = Vector3(cos(i * 2.1), 0, sin(i * 2.1)) * 1.6
 		sq["members"].append(m)
+		if m.hp_bar:
+			for c in m.hp_bar.get_children():
+				if c is Label3D:
+					(c as Label3D).visible = i == 0
+					if i == 0:
+						(c as Label3D).text = "Escouade de chasseurs [D]"
 	squads.append(sq)
 	print("SQUAD ", k)
 	return sq
@@ -513,7 +579,7 @@ func _make_elite_camps() -> void:
 		add_child(chest)
 		chest.global_position = chosen[i]
 		chest.scale = Vector3.ONE * 0.9
-		var lt := OmniLight3D.new()
+		var lt := FX.new_light()
 		lt.light_color = Color(1, 0.75, 0.3)
 		lt.light_energy = 1.6
 		lt.omni_range = 5.0
@@ -775,7 +841,7 @@ func _build_hall() -> void:
 			cs.shape = sh
 			body.add_child(cs)
 			m.add_child(body)
-		var lt := OmniLight3D.new()
+		var lt := FX.new_light(true)
 		lt.light_color = Color(1, 0.7, 0.6)
 		lt.light_energy = 1.8
 		lt.omni_range = 40.0
@@ -807,9 +873,14 @@ func _set_zone(z: String) -> void:
 	city.visible = z == "city"
 	dungeon.visible = z == "dungeon"
 	hall.visible = z == "hall"
+	if shop:
+		shop.visible = z == "shop"
+	for ce in city_extras:
+		if is_instance_valid(ce):
+			(ce as Node3D).visible = z == "city"
 	if gate:
 		gate.visible = z == "city"
-	world_env.environment = env_city if z == "city" else (env_dun if z == "dungeon" else env_hall)
+	world_env.environment = env_city if z == "city" else (env_dun if z == "dungeon" else (env_shop if z == "shop" else env_hall))
 	moon.visible = true
 
 func _teleport(p: Vector3, z: String) -> void:
@@ -910,7 +981,7 @@ func _on_boss_dead(b: Mob) -> void:
 	add_child(boss_chest)
 	boss_chest.global_position = _hall_floor(16.0, 0.0)
 	boss_chest.scale = Vector3.ONE * 1.3
-	var lt := OmniLight3D.new()
+	var lt := FX.new_light(true)
 	lt.light_color = Color(1, 0.8, 0.3)
 	lt.light_energy = 2.5
 	lt.omni_range = 7.0
@@ -945,6 +1016,11 @@ func dialogue(speaker: String, text: String, choices: Array) -> void:
 	dlg_panel.visible = true
 	dlg_name.text = speaker
 	dlg_text.text = text
+	var lines := 0
+	for ln in text.split("\n"):
+		lines += 1 + int(ln.length() / 78)
+	dlg_scroll.custom_minimum_size = Vector2(890, minf(lines * 29.0 + 6.0, 300.0))
+	dlg_scroll.scroll_vertical = 0
 	dlg_text.visible_ratio = 0.0
 	var tw := create_tween()
 	tw.tween_property(dlg_text, "visible_ratio", 1.0, clampf(text.length() / 70.0, 0.4, 2.5))
@@ -1109,9 +1185,9 @@ func _update_interact() -> void:
 				if str(c["state"]) == "guarded" and _camp_cleared(c) and hero.global_position.distance_to((c["chest"] as Node3D).global_position) < 3.0:
 					label = "OUVRIR LE COFFRE"
 					act = _open_elite_chest.bind(c)
-			if merchant and hero.global_position.distance_to(merchant.global_position) < 3.2:
-				label = "PARLER AU MARCHAND"
-				act = _merchant_dialogue
+			if hero.global_position.distance_to(shop_door_pos) < 3.0:
+				label = "ENTRER — BOUTIQUE"
+				act = enter_shop
 			if gate and hero.global_position.distance_to(gate_pos) < 4.0:
 				if gate_open_for_me:
 					label = "ENTRER DANS LE PORTAIL"
@@ -1119,6 +1195,13 @@ func _update_interact() -> void:
 				elif not guards_hostile and _nearest_guard() != null:
 					label = "PARLER AU GARDE"
 					act = _guard_dialogue
+		elif zone == "shop":
+			if merchant and hero.global_position.distance_to(merchant.global_position) < 3.4:
+				label = "PARLER À L'INTENDANT"
+				act = _merchant_dialogue
+			elif hero.global_position.distance_to(shop_exit) < 2.4:
+				label = "SORTIR"
+				act = leave_shop
 		elif zone == "dungeon":
 			if hero.global_position.distance_to(dungeon.throne_door) < 4.5:
 				if dungeon.all_cleared():
@@ -1192,53 +1275,77 @@ func _bar(parent: Control, pos: Vector2, w: float, col: Color) -> ColorRect:
 	bg.add_child(f)
 	return f
 
-func _skill_button(layer: CanvasLayer, key: String, txt: String, off: Vector2, size: float, col: Color, cb: Callable) -> void:
+## Bouton rond à miniature : icône, balayage de recharge circulaire, nom discret dessous.
+func _skill_button(layer: CanvasLayer, key: String, txt: String, center: Vector2, size: float, cb: Callable) -> void:
 	var b := Button.new()
-	b.text = txt
-	b.add_theme_font_size_override("font_size", 24 if size > 150 else 18)
-	b.add_theme_color_override("font_color", Color(0.9, 0.95, 1))
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.03, 0.05, 0.14, 0.78)
-	sb.border_color = col
-	sb.set_border_width_all(4)
-	sb.set_corner_radius_all(int(size / 2) - 3)
-	sb.shadow_color = Color(col.r, col.g, col.b, 0.55)
-	sb.shadow_size = 12
-	b.add_theme_stylebox_override("normal", sb)
-	b.add_theme_stylebox_override("hover", sb)
-	b.add_theme_stylebox_override("focus", sb)
-	var sp: StyleBoxFlat = sb.duplicate()
-	sp.bg_color = Color(col.r * 0.5, col.g * 0.5, col.b * 0.6, 0.95)
-	b.add_theme_stylebox_override("pressed", sp)
+	var empty := StyleBoxEmpty.new()
+	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+		b.add_theme_stylebox_override(st, empty)
 	b.anchor_left = 1.0
 	b.anchor_top = 1.0
 	b.anchor_right = 1.0
 	b.anchor_bottom = 1.0
-	b.offset_left = off.x
-	b.offset_top = off.y
-	b.offset_right = off.x + size
-	b.offset_bottom = off.y + size
+	b.offset_left = center.x - size * 0.5
+	b.offset_top = center.y - size * 0.5
+	b.offset_right = center.x + size * 0.5
+	b.offset_bottom = center.y + size * 0.5
+	b.pivot_offset = Vector2(size, size) * 0.5
 	b.focus_mode = Control.FOCUS_NONE
 	b.button_down.connect(cb)
+	b.button_down.connect(_press_anim.bind(b))
 	layer.add_child(b)
-	var shade := Panel.new()
-	var ss := StyleBoxFlat.new()
-	ss.bg_color = Color(0, 0, 0, 0.62)
-	ss.set_corner_radius_all(int(size / 2) - 3)
-	shade.add_theme_stylebox_override("panel", ss)
-	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ic := TextureRect.new()
+	ic.texture = load("res://assets/ui/%s.png" % key)
+	ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	ic.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(ic)
+	var shade := TextureProgressBar.new()
+	shade.texture_progress = CD_TEX
+	shade.fill_mode = TextureProgressBar.FILL_CLOCKWISE
+	shade.nine_patch_stretch = true
 	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shade.max_value = 1.0
+	shade.step = 0.0
 	b.add_child(shade)
 	var cdl := Label.new()
 	cdl.set_anchors_preset(Control.PRESET_FULL_RECT)
 	cdl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	cdl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	cdl.add_theme_font_size_override("font_size", 40)
-	cdl.add_theme_color_override("font_color", Color(1, 1, 1))
+	cdl.add_theme_font_size_override("font_size", int(size * 0.34))
+	cdl.add_theme_constant_override("outline_size", 8)
+	cdl.add_theme_color_override("font_outline_color", Color(0, 0, 0))
 	cdl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(cdl)
-	buttons[key] = {"btn": b, "shade": shade, "label": cdl}
+	if txt != "":
+		var nl := Label.new()
+		nl.text = txt
+		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		nl.add_theme_font_size_override("font_size", 13)
+		nl.add_theme_constant_override("outline_size", 5)
+		nl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+		nl.add_theme_color_override("font_color", Color(0.85, 0.88, 1, 0.9))
+		nl.position = Vector2(-30, size - 6)
+		nl.size = Vector2(size + 60, 18)
+		nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(nl)
+	buttons[key] = {"btn": b, "shade": shade if Hero.CD_MAX.has(key) else null, "label": cdl}
+	if not Hero.CD_MAX.has(key):
+		shade.visible = false
 
+func _press_anim(b: Control) -> void:
+	var tw := b.create_tween()
+	tw.tween_property(b, "scale", Vector2(0.88, 0.88), 0.05)
+	tw.tween_property(b, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+func _roll_btn() -> void:
+	hero.roll()
+
+func _toggle_sprint() -> void:
+	hero.sprint_lock = not hero.sprint_lock
+	(buttons["sprint"]["btn"] as Control).modulate = Color(1.35, 1.25, 0.8) if hero.sprint_lock else Color(1, 1, 1)
 
 # ================================================================ inventaire
 func item_by_uid(uid: int) -> Dictionary:
@@ -1301,7 +1408,7 @@ func drop_loot(pos: Vector3, src: String) -> void:
 	root.add_child(gem)
 	var tw := gem.create_tween().set_loops()
 	tw.tween_property(gem, "rotation_degrees:y", 360.0, 2.0).from(0.0)
-	var lt := OmniLight3D.new()
+	var lt := FX.new_light()
 	lt.light_color = col
 	lt.light_energy = 1.5
 	lt.omni_range = 3.5
@@ -1429,35 +1536,230 @@ func _update_music(delta: float) -> void:
 	audio.music(tr)
 
 # ================================================================ marchand
+# ================================================================ boutique : porte en ville + intérieur (entrepôt)
+const SHOP_O := Vector3(-3000, 0, 600)
+var shop: Node3D
+var shop_door_pos := Vector3.INF
+var shop_door_dir := Vector3.FORWARD
+var shop_entry := Vector3.ZERO
+var shop_exit := Vector3.ZERO
+var env_shop: Environment
+
 func _spawn_merchant() -> void:
+	_place_shop_door()
+	_build_shop()
+
+## Porte de boutique plaquée contre un bâtiment proche du point d'apparition.
+func _place_shop_door() -> void:
 	var space := get_world_3d().direct_space_state
-	var p := spawn_point + Vector3(4, 0, 4)
-	for k in 16:
-		var a := k * TAU / 16.0
-		var c := spawn_point + Vector3(sin(a), 0, cos(a)) * 6.0
-		if _is_open(space, c + Vector3(0, 80, 0)):
-			p = c
+	var best := Vector3.INF
+	var bdir := Vector3.FORWARD
+	for r: float in [9.0, 12.0, 15.0, 19.0, 24.0]:
+		for k in 16:
+			var a := k * TAU / 16.0
+			var c := spawn_point + Vector3(sin(a), 0, cos(a)) * r
+			if not _is_open(space, c + Vector3(0, 80, 0)):
+				continue
+			var g := space.intersect_ray(PhysicsRayQueryParameters3D.create(c + Vector3(0, 30, 0), c + Vector3(0, -30, 0)))
+			if g.is_empty():
+				continue
+			var fp: Vector3 = g["position"]
+			for d in 8:
+				var dv := Vector3(sin(d * TAU / 8.0), 0, cos(d * TAU / 8.0))
+				var w := space.intersect_ray(PhysicsRayQueryParameters3D.create(fp + Vector3(0, 1.2, 0), fp + Vector3(0, 1.2, 0) + dv * 4.0))
+				if w.is_empty():
+					continue
+				var n: Vector3 = w["normal"]
+				if absf(n.y) > 0.3:
+					continue
+				var up := space.intersect_ray(PhysicsRayQueryParameters3D.create(fp + Vector3(0, 3.2, 0), fp + Vector3(0, 3.2, 0) + dv * 4.0))
+				if up.is_empty():
+					continue
+				best = (w["position"] as Vector3) + n * 0.12
+				best.y = fp.y
+				bdir = Vector3(n.x, 0, n.z).normalized()
+				break
+			if best != Vector3.INF:
+				break
+		if best != Vector3.INF:
 			break
-	merchant = spawn_free_mob("guard", p)
-	merchant.display_name = "Marchand de l'Association"
+	if best == Vector3.INF:
+		best = spawn_point + Vector3(6, 0, 0)
+		bdir = Vector3(-1, 0, 0)
+	shop_door_pos = best
+	shop_door_dir = bdir
+	var door := Node3D.new()
+	add_child(door)
+	door.global_position = best
+	door.look_at(best - bdir, Vector3.UP)
+	city_extras.append(door)
+	var frame_m := FX.mat(Color(0.12, 0.1, 0.16), 0.0, 1.0, false)
+	var trim_m := FX.mat(Color(1.0, 0.72, 0.3), 2.2)
+	for part in [[Vector3(-1.05, 1.45, 0.05), Vector3(0.22, 2.9, 0.3)], [Vector3(1.05, 1.45, 0.05), Vector3(0.22, 2.9, 0.3)], [Vector3(0, 2.95, 0.05), Vector3(2.32, 0.24, 0.32)]]:
+		var bx := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = part[1]
+		bx.mesh = bm
+		bx.material_override = frame_m
+		bx.position = part[0]
+		door.add_child(bx)
+		var tr := MeshInstance3D.new()
+		var tm := BoxMesh.new()
+		tm.size = (part[1] as Vector3) + Vector3(0.04, 0.04, -0.26)
+		tr.mesh = tm
+		tr.material_override = trim_m
+		tr.position = (part[0] as Vector3) + Vector3(0, 0, 0.17)
+		door.add_child(tr)
+	var panel := MeshInstance3D.new()
+	var pq := QuadMesh.new()
+	pq.size = Vector2(1.9, 2.8)
+	panel.mesh = pq
+	var pmat := FX.mat(Color(1.0, 0.62, 0.25), 1.6, 0.9)
+	pmat.albedo_texture = FX._soft_tex()
+	panel.material_override = pmat
+	panel.position = Vector3(0, 1.4, 0.02)
+	door.add_child(panel)
+	var sign := Label3D.new()
+	sign.text = "BOUTIQUE DE L'ASSOCIATION"
+	sign.font_size = 64
+	sign.pixel_size = 0.006
+	sign.outline_size = 14
+	sign.modulate = Color(1, 0.85, 0.45)
+	sign.position = Vector3(0, 3.55, 0.12)
+	door.add_child(sign)
+	var sub := Label3D.new()
+	sub.text = "▼  ENTRER  ▼"
+	sub.font_size = 44
+	sub.pixel_size = 0.005
+	sub.outline_size = 10
+	sub.modulate = Color(0.75, 1, 0.8)
+	sub.position = Vector3(0, 3.12, 0.12)
+	door.add_child(sub)
+	var tw := sub.create_tween().set_loops()
+	tw.tween_property(sub, "modulate:a", 0.35, 0.8)
+	tw.tween_property(sub, "modulate:a", 1.0, 0.8)
+	var mark := FX.ground_disc(1.3, Color(1, 0.75, 0.3), 0.6, true)
+	add_child(mark)
+	mark.global_position = best + bdir * 1.3 + Vector3(0, 0.05, 0)
+	city_extras.append(mark)
+	print("SHOP_DOOR ", best.round(), " dir ", bdir.round())
+
+func _build_shop() -> void:
+	shop = (load("res://assets/warehouse.glb") as PackedScene).instantiate()
+	add_child(shop)
+	shop.position = SHOP_O
+	for mi in shop.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		var body := StaticBody3D.new()
+		var cs := CollisionShape3D.new()
+		cs.shape = m.mesh.create_trimesh_shape()
+		body.add_child(cs)
+		m.add_child(body)
+	# sol de sécurité + sol visible (béton sombre)
+	var fl := StaticBody3D.new()
+	var fcs := CollisionShape3D.new()
+	var fb := BoxShape3D.new()
+	fb.size = Vector3(36, 1, 16)
+	fcs.shape = fb
+	fl.add_child(fcs)
+	fl.position = SHOP_O + Vector3(2.5, -3.45, -6.2)
+	add_child(fl)
+	shop_floor_mesh(fl)
+	var space := get_world_3d().direct_space_state
+	var ctr := SHOP_O + Vector3(2.5, 1.0, -6.2)
+	await get_tree().physics_frame
+	var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(ctr, ctr + Vector3(0, -8, 0)))
+	var fy: float = (hit["position"] as Vector3).y if not hit.is_empty() else SHOP_O.y - 2.95
+	shop_entry = Vector3(SHOP_O.x - 5.0, fy, SHOP_O.z - 6.2)
+	shop_exit = shop_entry + Vector3(-1.6, 0, 0)
+	var desk := Vector3(SHOP_O.x + 8.0, fy, SHOP_O.z - 6.2)
+	# comptoir + présentoirs lumineux
+	var counter := MeshInstance3D.new()
+	var cbm := BoxMesh.new()
+	cbm.size = Vector3(0.9, 1.05, 3.4)
+	counter.mesh = cbm
+	counter.material_override = FX.mat(Color(0.22, 0.14, 0.08), 0.0, 1.0, false)
+	shop.add_child(counter)
+	counter.global_position = desk + Vector3(-1.3, 0.52, 0)
+	for k in 5:
+		var bt := MeshInstance3D.new()
+		var cy := CylinderMesh.new()
+		cy.top_radius = 0.05
+		cy.bottom_radius = 0.09
+		cy.height = 0.28
+		bt.mesh = cy
+		bt.material_override = FX.mat([Color(1, 0.2, 0.3), Color(0.3, 0.6, 1), Color(0.6, 0.3, 1), Color(1, 0.8, 0.3), Color(0.3, 1, 0.5)][k], 2.5)
+		shop.add_child(bt)
+		bt.global_position = desk + Vector3(-1.3, 1.2, -1.2 + k * 0.6)
+	for lp: Vector3 in [Vector3(-2, 2.4, -6), Vector3(8, 2.4, -6)]:
+		var lt := FX.new_light(true)
+		lt.light_color = Color(1, 0.78, 0.5)
+		lt.light_energy = 2.2
+		lt.omni_range = 11.0
+		shop.add_child(lt)
+		lt.global_position = Vector3(SHOP_O.x + lp.x, fy + lp.y, SHOP_O.z + lp.z)
+	merchant = spawn_free_mob("hunter", desk + Vector3(0.6, 0, 0))
+	merchant.display_name = "Intendant de l'Association"
 	merchant.rank = "PNJ"
 	merchant.patrol = []
-	merchant._tint(Color(1.0, 0.85, 0.55), Color(0.5, 0.35, 0.05))
+	merchant.team = 2
+	for att in merchant.find_children("*", "BoneAttachment3D", true, false):
+		att.queue_free()
 	if merchant.hp_bar:
 		merchant.hp_bar.queue_free()
 		merchant.hp_bar = null
 		merchant.hp_fill = null
 	var lb := Label3D.new()
-	lb.text = "Marchand"
+	lb.text = "Intendant — Boutique"
 	lb.font_size = 34
 	lb.pixel_size = 0.0009
 	lb.fixed_size = true
 	lb.outline_size = 8
 	lb.modulate = Color(0.5, 1.0, 0.6)
 	lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	lb.position.y = 2.3
+	lb.position.y = 2.2
 	merchant.add_child(lb)
-	merchant.face_to(spawn_point, true)
+	merchant.face_to(shop_entry, true)
+	# sortie : porte lumineuse côté entrée
+	var ex := FX.ground_disc(1.2, Color(0.4, 0.8, 1.0), 0.6, true)
+	shop.add_child(ex)
+	ex.global_position = shop_exit + Vector3(0, 0.05, 0)
+	var exl := Label3D.new()
+	exl.text = "SORTIE"
+	exl.font_size = 40
+	exl.pixel_size = 0.0045
+	exl.outline_size = 10
+	exl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	exl.modulate = Color(0.6, 0.85, 1)
+	shop.add_child(exl)
+	exl.global_position = shop_exit + Vector3(0, 2.2, 0)
+	env_shop = env_city.duplicate() as Environment
+	env_shop.fog_enabled = false
+	env_shop.ambient_light_color = Color(0.75, 0.65, 0.55)
+	env_shop.ambient_light_energy = 0.8
+	shop.visible = false
+	print("SHOP_BUILT floor=%.2f" % fy)
+
+func shop_floor_mesh(fl: Node3D) -> void:
+	var mi := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(36, 16)
+	mi.mesh = pm
+	mi.material_override = FX.mat(Color(0.2, 0.19, 0.21), 0.0, 1.0, false)
+	mi.position.y = 0.5
+	fl.add_child(mi)
+
+func enter_shop() -> void:
+	sfx("open")
+	await _teleport(shop_entry, "shop")
+	var d := merchant.global_position - shop_entry
+	yaw = atan2(-d.x, -d.z)
+	system_msg("Boutique de l'Association des Chasseurs")
+
+func leave_shop() -> void:
+	sfx("open")
+	await _teleport(shop_door_pos + shop_door_dir * 2.2, "city")
+	yaw = atan2(-shop_door_dir.x, -shop_door_dir.z)
 
 func _merchant_dialogue() -> void:
 	merchant.face_to(hero.global_position, true)
@@ -1682,51 +1984,49 @@ func _build_ui() -> void:
 	minimap.size = Vector2(164, 164)
 	minimap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(minimap)
+	# objectif courant (portail / meutes) : petit encart sous la minimap
+	var obj := PanelContainer.new()
+	obj.add_theme_stylebox_override("panel", _panel_style(Color(0.02, 0.04, 0.12, 0.62), Color(0.35, 0.55, 1.0, 0.6)))
+	obj.position = Vector2(20, 334)
+	obj.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(obj)
+	gate_txt = Label.new()
+	gate_txt.add_theme_font_size_override("font_size", 16)
+	gate_txt.add_theme_color_override("font_color", Color(0.65, 0.85, 1))
+	obj.add_child(gate_txt)
+	# ressources : pastille discrète en haut à droite
 	info_box = VBoxContainer.new()
 	info_box.anchor_left = 1.0
 	info_box.anchor_right = 1.0
-	info_box.offset_left = -480
-	info_box.offset_right = -20
-	info_box.offset_top = 14
-	info_box.add_theme_constant_override("separation", 6)
+	info_box.offset_left = -420
+	info_box.offset_right = -112
+	info_box.offset_top = 22
 	info_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(info_box)
-	res_txt = _outlined(info_box, Vector2(0, 0), 20, Color(1, 0.85, 0.45))
+	res_txt = _outlined(info_box, Vector2(0, 0), 19, Color(1, 0.85, 0.45))
 	res_txt.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	gate_txt = _outlined(info_box, Vector2(0, 0), 20, Color(0.55, 0.8, 1))
-	gate_txt.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	# boutons de combat
-	_skill_button(layer, "attack", "ÉPÉE", Vector2(-235, -235), 180, Color(0.35, 0.7, 1.0), hero.attack)
-	_skill_button(layer, "step", "PAS DE\nL'OMBRE", Vector2(-420, -165), 128, Color(0.6, 0.35, 1.0), _do_step)
-	_skill_button(layer, "arise", "ARISE", Vector2(-205, -420), 128, Color(0.75, 0.3, 1.0), _do_arise)
-	_skill_button(layer, "roll", "ESQUIVE", Vector2(-385, -330), 104, Color(0.4, 0.85, 1.0), hero.roll)
-	_skill_button(layer, "jump", "SAUT", Vector2(-545, -130), 104, Color(0.5, 0.9, 0.7), hero.jump)
-	_skill_button(layer, "tele", "TÉLÉ-\nKINÉSIE", Vector2(-545, -385), 104, Color(0.75, 0.45, 1.0), _do_tele)
-	_skill_button(layer, "swap", "ÉCHANGE", Vector2(-690, -330), 96, Color(0.55, 0.3, 0.95), _do_swap)
-	unarmed_btn = _small_btn("MAINS NUES")
-	unarmed_btn.anchor_left = 1.0
-	unarmed_btn.anchor_right = 1.0
-	unarmed_btn.anchor_top = 1.0
-	unarmed_btn.anchor_bottom = 1.0
-	unarmed_btn.offset_left = -560
-	unarmed_btn.offset_right = -420
-	unarmed_btn.offset_top = -205
-	unarmed_btn.offset_bottom = -160
-	unarmed_btn.pressed.connect(_toggle_unarmed)
-	layer.add_child(unarmed_btn)
-	buttons["unarmed"] = {"btn": unarmed_btn, "shade": null, "label": null}
-	potion_btn = _small_btn("POTION x2")
-	potion_btn.anchor_left = 1.0
-	potion_btn.anchor_right = 1.0
-	potion_btn.anchor_top = 1.0
-	potion_btn.anchor_bottom = 1.0
-	potion_btn.offset_left = -560
-	potion_btn.offset_right = -420
-	potion_btn.offset_top = -258
-	potion_btn.offset_bottom = -213
-	potion_btn.pressed.connect(_use_potion)
-	layer.add_child(potion_btn)
-	buttons["potion"] = {"btn": potion_btn, "shade": null, "label": null}
+	# combat : grosse attaque + pouvoirs en arc (style action-RPG mobile)
+	var C := Vector2(-140, -140)
+	_skill_button(layer, "attack", "", C, 176, hero.attack)
+	var arc := [["roll", "Esquive", 182.0, _roll_btn], ["step", "Pas de l'ombre", 148.0, _do_step], ["tele", "Télékinésie", 114.0, _do_tele], ["arise", "Arise", 80.0, _do_arise]]
+	for it in arc:
+		var ang := deg_to_rad(float(it[2]))
+		_skill_button(layer, str(it[0]), str(it[1]), C + Vector2(cos(ang), -sin(ang)) * 212.0, 104, it[3])
+	var ang2 := deg_to_rad(128.0)
+	_skill_button(layer, "swap", "Échange", C + Vector2(cos(ang2), -sin(ang2)) * 338.0, 92, _do_swap)
+	# potion : petite, à part
+	_skill_button(layer, "potion", "", C + Vector2(-330, 62), 82, _use_potion)
+	potion_btn = buttons["potion"]["btn"]
+	potion_lbl = Label.new()
+	potion_lbl.add_theme_font_size_override("font_size", 18)
+	potion_lbl.add_theme_constant_override("outline_size", 6)
+	potion_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+	potion_lbl.position = Vector2(52, -6)
+	potion_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	potion_btn.add_child(potion_lbl)
+	# déplacement : saut + sprint côte à côte, séparés des pouvoirs
+	_skill_button(layer, "sprint", "Sprint", C + Vector2(-560, 70), 92, _toggle_sprint)
+	_skill_button(layer, "jump", "Saut", C + Vector2(-450, 70), 92, hero.jump)
 	_build_menu(layer)
 	# bouton contextuel
 	interact_btn = Button.new()
@@ -1794,8 +2094,9 @@ func _build_ui() -> void:
 	dlg_panel.anchor_bottom = 1.0
 	dlg_panel.offset_left = -470
 	dlg_panel.offset_right = 470
-	dlg_panel.offset_top = -380
-	dlg_panel.offset_bottom = -20
+	dlg_panel.offset_top = -40
+	dlg_panel.offset_bottom = -18
+	dlg_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	dlg_panel.visible = false
 	layer.add_child(dlg_panel)
 	var vb := VBoxContainer.new()
@@ -1805,14 +2106,18 @@ func _build_ui() -> void:
 	dlg_name.add_theme_font_size_override("font_size", 26)
 	dlg_name.add_theme_color_override("font_color", Color(1, 0.7, 0.4))
 	vb.add_child(dlg_name)
+	dlg_scroll = ScrollContainer.new()
+	dlg_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	vb.add_child(dlg_scroll)
 	dlg_text = Label.new()
 	dlg_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	dlg_text.custom_minimum_size = Vector2(900, 0)
-	dlg_text.add_theme_font_size_override("font_size", 23)
+	dlg_text.custom_minimum_size = Vector2(880, 0)
+	dlg_text.add_theme_font_size_override("font_size", 21)
 	dlg_text.add_theme_color_override("font_color", Color(0.9, 0.94, 1))
-	vb.add_child(dlg_text)
-	dlg_choices = VBoxContainer.new()
-	dlg_choices.add_theme_constant_override("separation", 6)
+	dlg_scroll.add_child(dlg_text)
+	dlg_choices = HFlowContainer.new()
+	dlg_choices.add_theme_constant_override("h_separation", 8)
+	dlg_choices.add_theme_constant_override("v_separation", 6)
 	vb.add_child(dlg_choices)
 	# fondu
 	fade = ColorRect.new()
@@ -1843,23 +2148,109 @@ func _small_btn(t: String) -> Button:
 
 func _toggle_unarmed() -> void:
 	hero.toggle_unarmed()
-	unarmed_btn.text = "ÉPÉE" if hero.unarmed_mode else "MAINS NUES"
+	unarmed_btn.text = "        " + ("Reprendre l'épée" if hero.unarmed_mode else "Mains nues")
+
+func _icon_btn(key: String, size: float) -> Button:
+	var b := Button.new()
+	var empty := StyleBoxEmpty.new()
+	for st in ["normal", "hover", "pressed", "focus"]:
+		b.add_theme_stylebox_override(st, empty)
+	b.focus_mode = Control.FOCUS_NONE
+	b.pivot_offset = Vector2(size, size) * 0.5
+	var ic := TextureRect.new()
+	ic.texture = load("res://assets/ui/%s.png" % key)
+	ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	ic.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(ic)
+	b.button_down.connect(_press_anim.bind(b))
+	return b
+
+func _toggle_quick() -> void:
+	var qp := quick_menu.get_parent() as Control
+	sfx("click", null, -8.0)
+	if qp.visible:
+		qp.visible = false
+		return
+	menu_panel.visible = false
+	qp.visible = true
+	qp.pivot_offset = Vector2(qp.size.x, 0)
+	qp.scale = Vector2(0.6, 0.2)
+	qp.modulate.a = 0.0
+	var tw := qp.create_tween().set_parallel(true)
+	tw.tween_property(qp, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(qp, "modulate:a", 1.0, 0.12)
+
+func _quick_open(tab: String) -> void:
+	(quick_menu.get_parent() as Control).visible = false
+	_toggle_menu(tab)
+
+func _quick_quest() -> void:
+	(quick_menu.get_parent() as Control).visible = false
+	_show_quest()
 
 # ---------------------------------------------------------------- menu discret : ombres + stats
 func _build_menu(layer: CanvasLayer) -> void:
-	var bx := HBoxContainer.new()
-	bx.alignment = BoxContainer.ALIGNMENT_END
-	bx.add_theme_constant_override("separation", 8)
-	info_box.add_child(bx)
-	var qb := _small_btn("QUÊTE")
-	qb.pressed.connect(_show_quest)
-	bx.add_child(qb)
-	buttons["menu_quest"] = {"btn": qb, "shade": null, "label": null}
-	for k in [["SAC", "sac"], ["GRIMOIRE", "grimoire"], ["OMBRES", "ombres"], ["STATS", "stats"]]:
-		var b := _small_btn(str(k[0]))
-		b.pressed.connect(_toggle_menu.bind(str(k[1])))
-		bx.add_child(b)
-		buttons["menu_" + str(k[1])] = {"btn": b, "shade": null, "label": null}
+	# miniature de menu : un seul bouton qui déroule un petit menu rapide
+	var mb := _icon_btn("menu", 74)
+	mb.anchor_left = 1.0
+	mb.anchor_right = 1.0
+	mb.offset_left = -96
+	mb.offset_right = -22
+	mb.offset_top = 14
+	mb.offset_bottom = 88
+	mb.pressed.connect(_toggle_quick)
+	layer.add_child(mb)
+	buttons["menu_btn"] = {"btn": mb, "shade": null, "label": null}
+	var qp := PanelContainer.new()
+	qp.add_theme_stylebox_override("panel", _panel_style(Color(0.02, 0.03, 0.1, 0.86), Color(0.55, 0.4, 1.0, 0.8)))
+	qp.anchor_left = 1.0
+	qp.anchor_right = 1.0
+	qp.offset_left = -262
+	qp.offset_right = -22
+	qp.offset_top = 96
+	qp.visible = false
+	layer.add_child(qp)
+	quick_menu = VBoxContainer.new()
+	quick_menu.add_theme_constant_override("separation", 4)
+	qp.add_child(quick_menu)
+	for k in [["quest", "Quête du jour", ""], ["sac", "Sac", "sac"], ["grimoire", "Grimoire", "grimoire"], ["ombres", "Ombres", "ombres"], ["stats", "Statistiques", "stats"], ["unarmed", "Mains nues", ""]]:
+		var row := Button.new()
+		row.text = "        " + str(k[1])
+		row.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		row.add_theme_font_size_override("font_size", 18)
+		row.add_theme_color_override("font_color", Color(0.88, 0.9, 1))
+		var rs := StyleBoxFlat.new()
+		rs.bg_color = Color(0.1, 0.08, 0.25, 0.0)
+		rs.set_corner_radius_all(22)
+		rs.content_margin_left = 8
+		rs.content_margin_top = 4
+		rs.content_margin_bottom = 4
+		row.add_theme_stylebox_override("normal", rs)
+		row.add_theme_stylebox_override("hover", rs)
+		var rp: StyleBoxFlat = rs.duplicate()
+		rp.bg_color = Color(0.35, 0.25, 0.8, 0.5)
+		row.add_theme_stylebox_override("pressed", rp)
+		row.focus_mode = Control.FOCUS_NONE
+		row.custom_minimum_size = Vector2(230, 50)
+		var ic := TextureRect.new()
+		ic.texture = load("res://assets/ui/%s.png" % str(k[0]))
+		ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		ic.position = Vector2(4, 2)
+		ic.size = Vector2(46, 46)
+		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(ic)
+		if str(k[0]) == "quest":
+			row.pressed.connect(_quick_quest)
+		elif str(k[0]) == "unarmed":
+			row.pressed.connect(_toggle_unarmed)
+			unarmed_btn = row
+		else:
+			row.pressed.connect(_quick_open.bind(str(k[2])))
+		quick_menu.add_child(row)
+	buttons["quick"] = {"btn": qp, "shade": null, "label": null}
 	menu_panel = PanelContainer.new()
 	menu_panel.add_theme_stylebox_override("panel", _panel_style(Color(0.02, 0.03, 0.1, 0.88), Color(0.5, 0.35, 1.0)))
 	menu_panel.anchor_left = 0.5
@@ -2147,11 +2538,13 @@ func _update_ui() -> void:
 	mp_fill.size.x = 328.0 * clampf(hero.mp / hero.max_mp, 0, 1)
 	hp_txt.text = "PV %d / %d      PM %d      Niv. %d" % [int(hero.hp), int(hero.max_hp), int(hero.mp), hero.level]
 	rank_lbl.text = "CHASSEUR  ·  Rang %s" % hunter_rank
-	potion_btn.text = "POTION x%d" % potions
-	(buttons["swap"]["btn"] as Button).visible = hero.powers["swap"] > 0
-	potion_btn.disabled = potions <= 0 or potion_cd > 0.0
+	potion_lbl.text = "x%d" % potions
+	for k in ["attack", "roll", "step", "tele", "arise", "potion", "sprint", "jump"]:
+		(buttons[k]["btn"] as Control).visible = not in_dialogue
+	(buttons["swap"]["btn"] as Button).visible = hero.powers["swap"] > 0 and not in_dialogue
+	potion_btn.modulate = Color(1, 1, 1, 1.0 if potions > 0 and potion_cd <= 0.0 else 0.45)
 	shadow_txt.text = "Ombres  %d / 4" % shadow_count()
-	res_txt.text = "Or %d    Essences %d\nRéputation %d  (%s)" % [gold, essence, rep, rep_title()]
+	res_txt.text = "%d or   ·   %d essences" % [gold, essence]
 	if zone == "city" and gate:
 		var d := gate_pos - hero.global_position
 		d.y = 0
@@ -2164,7 +2557,11 @@ func _update_ui() -> void:
 		elif rel < -0.6:
 			arrow = "→"
 		var t := int(maxf(gate_timer, 0.0))
-		gate_txt.text = "Portail rang C  %s  %d m\nSe déplace dans %d:%02d" % [arrow, int(d.length()), t / 60, t % 60]
+		gate_txt.text = "Portail rang C  %s  %d m   (%d:%02d)" % [arrow, int(d.length()), t / 60, t % 60]
+		var ds := shop_door_pos - hero.global_position
+		ds.y = 0
+		if shop_door_pos != Vector3.INF and ds.length() > 3.0:
+			gate_txt.text += "\nBoutique  %s  %d m" % [_arrow(ds), int(ds.length())]
 	elif zone == "dungeon":
 		var d2 := dungeon.next_target() - hero.global_position
 		d2.y = 0
@@ -2178,6 +2575,8 @@ func _update_ui() -> void:
 			ar = "→"
 		var what := "Prochaine meute" if not dungeon.all_cleared() else "Portail du trône"
 		gate_txt.text = "Marais du Portail — meutes %d / %d\n%s  %s  %d m" % [dungeon.cleared_count(), dungeon.rooms.size(), what, ar, int(d2.length())]
+	elif zone == "shop":
+		gate_txt.text = "Boutique de l'Association"
 	else:
 		gate_txt.text = "Salle du Trône"
 	for k in buttons.keys():
@@ -2186,13 +2585,21 @@ func _update_ui() -> void:
 			continue
 		var c: float = hero.cd[k]
 		var mx: float = Hero.CD_MAX[k]
-		var shade: Panel = d["shade"]
+		var shade: TextureProgressBar = d["shade"]
 		var lab: Label = d["label"]
 		var lacks_mp: bool = hero.mp < Hero.MP_COST.get(k, 0.0)
-		shade.visible = c > 0.0 or lacks_mp
-		shade.anchor_top = 1.0 - (c / mx if c > 0.0 else 1.0)
-		shade.offset_top = 0
+		shade.value = 1.0 if lacks_mp and c <= 0.0 else clampf(c / mx, 0.0, 1.0)
 		lab.text = ("%d" % ceili(c)) if (c > 0.6 and k != "attack") else ""
+
+func _arrow(d: Vector3) -> String:
+	var rel := wrapf(atan2(-d.x, -d.z) - yaw, -PI, PI)
+	if absf(rel) > 2.4:
+		return "↓"
+	elif rel > 0.6:
+		return "←"
+	elif rel < -0.6:
+		return "→"
+	return "↑"
 
 func system_msg(t: String) -> void:
 	msg_label.text = t
@@ -2381,22 +2788,57 @@ func _test_gear_roles() -> void:
 	hero.max_hp = 99999
 	hero.hp = 99999
 
+func _perf(tag: String, frames: int) -> void:
+	var t0 := Time.get_ticks_usec()
+	var dc := 0
+	var worst := 0
+	var last := t0
+	for i in frames:
+		await RenderingServer.frame_post_draw
+		var now := Time.get_ticks_usec()
+		worst = maxi(worst, now - last)
+		last = now
+		dc += RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME)
+	var avg := float(Time.get_ticks_usec() - t0) / frames / 1000.0
+	print("PERF %s frame=%.1fms pire=%.1fms drawcalls=%d objets=%d lumieres=%d mobs=%d" % [tag, avg, worst / 1000.0, dc / frames, RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME), FX.light_budget, mobs.size()])
+
 func _run_shots() -> void:
 	await _snap("00_quete_quotidienne", 25)
 	close_dialogue()
+	await _perf("ville", 180)
+	moon.shadow_enabled = false
+	await _perf("sans_ombres", 90)
+	moon.shadow_enabled = true
+	world_env.environment.glow_enabled = false
+	await _perf("sans_glow", 90)
+	world_env.environment.glow_enabled = true
 	hero.max_hp = 99999
 	hero.hp = 99999
 	await _snap("00_depart", 20)
-	# marchand
-	_place_hero(merchant.global_position + (spawn_point - merchant.global_position).normalized() * 2.4, merchant.global_position)
+	_toggle_quick()
+	await _snap("00a_menu_rapide", 15)
+	_toggle_quick()
+	# portail de près
+	_place_hero(gate_pos + Vector3(0, 0, 9), gate_pos)
+	pitch = -0.12
+	await _snap("00p_portail", 30)
+	# porte de la boutique puis intérieur
+	_place_hero(shop_door_pos + shop_door_dir * 6.0, shop_door_pos)
+	pitch = -0.15
+	await _snap("00b_porte_boutique", 25)
 	gold = 600
 	essence = 10
-	await _snap("00b_marchand", 20)
+	await enter_shop()
+	await _snap("00b2_boutique", 40)
+	_place_hero(merchant.global_position + (shop_entry - merchant.global_position).normalized() * 2.4, merchant.global_position)
+	await _snap("00b3_intendant", 20)
 	_merchant_dialogue()
 	await _snap("00c_marchand_dialogue", 25)
 	_buy("potion")
 	_buy("shadow")
 	close_dialogue()
+	await leave_shop()
+	await get_tree().create_timer(0.7).timeout
 	hero.hp = 30000
 	_use_potion()
 	await _snap("00d_potion", 12)

@@ -41,8 +41,8 @@ func _draw() -> void:
 		for e in main.elite_camps:
 			if str(e["state"]) == "guarded":
 				_dot(e["pos"], Color(1.0, 0.75, 0.2), 4.5, false)
-		if main.merchant:
-			_dot(main.merchant.global_position, Color(0.4, 1.0, 0.5), 4.0, true)
+		if main.shop_door_pos != Vector3.INF:
+			_dot(main.shop_door_pos, Color(1.0, 0.8, 0.35), 5.0, true)
 	elif main.zone == "dungeon" and main.dungeon:
 		_dot(main.dungeon.next_target(), Color(1, 0.3, 0.3), 5.0, true)
 	for m in main.mobs:
@@ -55,6 +55,8 @@ func _draw() -> void:
 			col = Color(0.65, 0.35, 1.0)
 		elif mm.team == 2:
 			col = Color(0.35, 0.65, 1.0)
+		elif mm.team == 0:
+			col = Color(0.4, 1.0, 0.6)
 		elif mm.boss:
 			r = 5.0
 		elif mm.elite:

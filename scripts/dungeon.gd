@@ -115,7 +115,7 @@ func _house(at: Vector3, yaw: float) -> void:
 	b.add_child(cs)
 	add_child(b)
 	b.global_position = h.global_position + Vector3(0, 4, 0)
-	var fire := OmniLight3D.new()
+	var fire := FX.new_light(true)
 	fire.light_color = Color(1, 0.45, 0.15)
 	fire.light_energy = 2.5
 	fire.omni_range = 12.0
@@ -136,7 +136,7 @@ func _populate() -> void:
 			_house(c + Vector3(12, 0, 6), randf() * TAU)
 		if kind == "gardiens":
 			_house(c + Vector3(-13, 0, 4), randf() * TAU)
-		var beacon := OmniLight3D.new()
+		var beacon := FX.new_light()
 		beacon.light_color = Color(1, 0.2, 0.15)
 		beacon.light_energy = 2.0
 		beacon.omni_range = 16.0
