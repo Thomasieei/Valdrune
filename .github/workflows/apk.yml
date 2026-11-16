@@ -1,0 +1,48 @@
+name: APK Studio Lab
+on:
+  push:
+    branches: [studio]
+  workflow_dispatch:
+permissions:
+  contents: write
+env:
+  GODOT_VERSION: 4.3
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - name: Godot + modèles d'export
+        run: |
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          unzip -q Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip && sudo mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 /usr/local/bin/godot
+          mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable && unzip -q Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          mv templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+          godot --headless --editor --quit || true
+          F=$(ls ~/.config/godot/editor_settings-4*.tres | head -1)
+          echo "export/android/android_sdk_path = \"$ANDROID_SDK_ROOT\"" >> "$F"
+          echo "export/android/java_sdk_path = \"$JAVA_HOME\"" >> "$F"
+      - name: Import + test de lancement
+        run: |
+          godot --headless --path . --import || true
+          godot --headless --path . --quit-after 200 2>&1 | tee run.log || true
+          if grep -E "SCRIPT ERROR|Parse Error" run.log; then exit 1; fi
+      - name: Export APK
+        env:
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ github.workspace }}/android/studio.keystore
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: royaume
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: royaume2026
+        run: |
+          sed -i "s/^version\/code=.*/version\/code=${{ github.run_number }}/; s/^version\/name=.*/version\/name=\"0.1.${{ github.run_number }}\"/" export_presets.cfg
+          mkdir -p out && godot --headless --path . --export-release "Android" out/StudioLab.apk && test -s out/StudioLab.apk
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: studio-v0.1.${{ github.run_number }}
+          name: Studio Lab v0.1.${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          make_latest: false
+          body: Lab des classes — 4 persos, 7 styles de combat, 133 animations. Télécharge StudioLab.apk depuis ton téléphone.
+          files: out/StudioLab.apk
