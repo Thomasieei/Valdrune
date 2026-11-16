@@ -698,15 +698,27 @@ func _step_test() -> void:
 	hero.global_position = spawn_point + Vector3(0, 0.3, 0)
 	await get_tree().physics_frame
 	var target := Vector3.INF
-	for r in [3.0, 5.0, 7.0, 9.0, 12.0]:
-		for k in 16:
-			var a: float = k * TAU / 16.0
-			var p: Vector3 = spawn_point + Vector3(sin(a) * r, 30, cos(a) * r)
+	var curb := Vector3.ZERO
+	for k in 32:
+		var ang: float = k * TAU / 32.0
+		var dirv := Vector3(sin(ang), 0, cos(ang))
+		var hs: Array = []
+		for st in 64:
+			var p: Vector3 = spawn_point + dirv * (st * 0.25) + Vector3(0, 30, 0)
 			var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(p, p + Vector3(0, -60, 0)))
-			if not hit.is_empty():
-				var y: float = (hit["position"] as Vector3).y
-				if y > 0.08 and y < 0.4:
-					target = hit["position"]
+			hs.append((hit["position"] as Vector3).y if not hit.is_empty() else -9.0)
+		for st in range(1, 56):
+			var h0: float = hs[st - 1]
+			var h1: float = hs[st]
+			if absf(h0) < 0.05 and h1 > 0.08 and h1 < 0.4:
+				var ok := true
+				for q in range(st, st + 6):
+					if absf((hs[q] as float) - h1) > 0.06:
+						ok = false
+				if ok:
+					curb = spawn_point + dirv * (st * 0.25)
+					target = spawn_point + dirv * (st * 0.25 + 1.0)
+					target.y = h1
 					break
 		if target != Vector3.INF:
 			break
@@ -729,4 +741,4 @@ func _step_test() -> void:
 				info += " [n=%s p.y=%.2f obj=%s]" % [col.get_normal().snapped(Vector3(0.01,0.01,0.01)), col.get_position().y - hero.global_position.y, col.get_collider()]
 			print("STEP_DBG f=%d pos=%s vel=%s wall=%s floor=%s busy=%.2f%s" % [i, hero.global_position.snapped(Vector3(0.01,0.01,0.01)), hero.velocity.snapped(Vector3(0.01,0.01,0.01)), hero.is_on_wall(), hero.is_on_floor(), hero.busy, info])
 	hero.move_input = Vector2.ZERO
-	print("STEP_TEST cible=%s " % str(target.snapped(Vector3(0.01,0.01,0.01))) + "cible_y=%.2f héros_y=%.2f distance_restante=%.2f" % [target.y, hero.global_position.y, Vector2(target.x - hero.global_position.x, target.z - hero.global_position.z).length()])
+	print("STEP_TEST bordure=%s " % str(curb.snapped(Vector3(0.01,0.01,0.01))) + "cible_y=%.2f héros_y=%.2f distance_restante=%.2f" % [target.y, hero.global_position.y, Vector2(target.x - hero.global_position.x, target.z - hero.global_position.z).length()])
