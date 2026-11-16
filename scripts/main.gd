@@ -2883,6 +2883,10 @@ func _perf(tag: String, frames: int) -> void:
 	print("PERF %s frame=%.1fms pire=%.1fms drawcalls=%d objets=%d lumieres=%d mobs=%d" % [tag, avg, worst / 1000.0, dc / frames, RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_OBJECTS_IN_FRAME), FX.light_budget, mobs.size()])
 
 func _run_shots() -> void:
+	for m in mobs:
+		var mm := m as Mob
+		if mm.global_position.distance_to(spawn_point) < 25.0:
+			print("NEAR_SPAWN %s d=%.1f home_d=%.1f patrol=%d team=%d" % [mm.kind, mm.global_position.distance_to(spawn_point), mm.home.distance_to(spawn_point), mm.patrol.size(), mm.team])
 	await _snap("00_quete_quotidienne", 25)
 	close_dialogue()
 	await _perf("ville", 180)
@@ -2902,7 +2906,9 @@ func _run_shots() -> void:
 	await _perf("rapide", 90)
 	set_gfx(false)
 	# portail de près
-	_place_hero(gate_pos + Vector3(0, 0, 9), gate_pos)
+	var gd := spawn_point - gate_pos
+	gd.y = 0
+	_place_hero(gate_pos + gd.normalized() * 9.0, gate_pos)
 	pitch = -0.12
 	await _snap("00p_portail", 30)
 	# porte de la boutique puis intérieur
@@ -3011,6 +3017,9 @@ func _run_shots() -> void:
 	await _snap("09_double_saut_salto", 8)
 	# combat : Pas de l'ombre en chaîne
 	_put_hero_near(2, 6.0)
+	var cp: Vector3 = camps[mini(2, camps.size() - 1)]["pos"]
+	for i in 3:
+		spawn_free_mob("goblin" if i < 2 else "shaman", cp + Vector3(sin(i * 2.1), 0, cos(i * 2.1)) * 3.5)
 	await _snap("10_combat", 50)
 	var victim := hero.nearest_enemy(20.0)
 	if victim:
