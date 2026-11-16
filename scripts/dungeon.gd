@@ -1,218 +1,166 @@
 class_name Dungeon
 extends Node3D
-## Donjon procédural en pièces KayKit (grille de 4 m) : salles, couloirs, barrières de mana,
-## embuscade, puis porte du trône vers la salle du Commandant Écarlate.
+## Monde du Portail : le Marais Brumeux (asset Misty Marsh) sous une brume rouge.
+## Plusieurs zones de meutes (dont des camps en maisons d'orc), d'intelligence croissante,
+## puis le portail écarlate vers la salle du trône (Hall d'Igris).
 
-const T := 4.0
+const MARSH_SCALE := 0.2
+const HOUSE_SCALE := 0.018
 var main
-var rooms: Array = []          # {cx, z0, w, h, mobs:[], engaged, cleared, kind, barrier}
+var rooms: Array = []          # zones : {center, mobs, engaged, cleared, kind}
 var entry_point := Vector3.ZERO
 var throne_door := Vector3.ZERO
-var pieces := {}
-
-func _p(name: String) -> PackedScene:
-	if not pieces.has(name):
-		pieces[name] = load("res://assets/dun/" + name)
-	return pieces[name]
-
-func _put(name: String, pos: Vector3, yaw := 0.0, sc := 1.0) -> Node3D:
-	var n := _p(name).instantiate() as Node3D
-	add_child(n)
-	n.position = pos
-	n.rotation.y = yaw
-	n.scale = Vector3.ONE * sc
-	return n
-
-func _box(pos: Vector3, size: Vector3) -> void:
-	var b := StaticBody3D.new()
-	var cs := CollisionShape3D.new()
-	var bs := BoxShape3D.new()
-	bs.size = size
-	cs.shape = bs
-	b.add_child(cs)
-	add_child(b)
-	b.position = pos
+var throne_portal: Node3D
+var marsh: Node3D
 
 func build(m) -> void:
 	main = m
-	# salles : centre en x (tuiles), début en z, largeur, profondeur, type
-	var spec := [
-		{"w": 3, "h": 3, "kind": "entree"},
-		{"w": 5, "h": 4, "kind": "meute"},
-		{"w": 5, "h": 5, "kind": "piliers"},
-		{"w": 5, "h": 6, "kind": "embuscade"},
-		{"w": 5, "h": 5, "kind": "gardiens"},
-	]
-	var z := 0
-	for i in spec.size():
-		var r: Dictionary = spec[i].duplicate()
-		r["cx"] = 0
-		r["z0"] = z
-		r["mobs"] = []
-		r["engaged"] = false
-		r["cleared"] = i == 0
-		r["id"] = i
-		rooms.append(r)
-		z += int(r["h"]) + 2   # couloir de 2 tuiles
-	for i in rooms.size():
-		_build_room(i)
-		if i < rooms.size() - 1:
-			_build_corridor(int(rooms[i]["z0"]) + int(rooms[i]["h"]), int(rooms[i + 1]["z0"]) - 1)
-	entry_point = to_global(Vector3(0, 0.2, 0))
-	var last: Dictionary = rooms[rooms.size() - 1]
-	throne_door = to_global(Vector3(0, 0, (int(last["z0"]) + int(last["h"]) - 1) * T + 1.0))
-	# grand portail rouge vers la salle du trône
-	FX.portal(self, throne_door + Vector3(0, 0, 0.6), Color(1, 0.1, 0.12), 1.7)
+	marsh = (load("res://assets/marsh.glb") as PackedScene).instantiate()
+	marsh.scale = Vector3.ONE * MARSH_SCALE
+	add_child(marsh)
+	for mi in marsh.find_children("*", "MeshInstance3D", true, false):
+		var mm := mi as MeshInstance3D
+		var body := StaticBody3D.new()
+		var cs := CollisionShape3D.new()
+		cs.shape = mm.mesh.create_trimesh_shape()
+		body.add_child(cs)
+		mm.add_child(body)
+	# éclairage rouge du monde du portail
+	var sun := DirectionalLight3D.new()
+	sun.rotation_degrees = Vector3(-35, 60, 0)
+	sun.light_color = Color(1.0, 0.45, 0.4)
+	sun.light_energy = 0.7
+	add_child(sun)
+
+## À appeler une fois la physique prête (collisions du marais actives).
+func layout() -> void:
+	var space := get_world_3d().direct_space_state
+	var pts: Array = []
+	for ix in range(-55, 56, 5):
+		for iz in range(-95, 96, 5):
+			var p := to_global(Vector3(ix * 2.0, 60, iz * 2.0))
+			var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(p, p + Vector3(0, -140, 0)))
+			if hit.is_empty() or (hit["normal"] as Vector3).y < 0.85:
+				continue
+			var c: Vector3 = hit["position"]
+			if _flat(space, c, 5.0):
+				pts.append(c)
+	print("DUNGEON points praticables ", pts.size())
+	if pts.is_empty():
+		pts.append(to_global(Vector3(0, 5, 0)))
+	# entrée : point praticable le plus au sud ; zones en chaîne vers le nord
+	pts.sort_custom(func(a, b): return a.z < b.z)
+	entry_point = pts[0]
+	var chain: Array = [entry_point]
+	var kinds := ["meute", "camp_orc", "embuscade", "gardiens"]
+	for k in kinds.size():
+		var prev: Vector3 = chain[chain.size() - 1]
+		var best := Vector3.INF
+		var bscore := -1e9
+		for p in pts:
+			var pv: Vector3 = p
+			var d := pv.distance_to(prev)
+			if d < 22.0 or d > 45.0:
+				continue
+			var score := (pv - entry_point).length() - absf(d - 32.0)
+			for c in chain:
+				if (c as Vector3).distance_to(pv) < 20.0:
+					score -= 1000.0
+			if score > bscore:
+				bscore = score
+				best = pv
+		if best == Vector3.INF:
+			best = prev + Vector3(0, 0, 30)
+		chain.append(best)
+		rooms.append({"center": best, "mobs": [], "engaged": false, "cleared": false, "kind": kinds[k]})
+	var last: Vector3 = chain[chain.size() - 1]
+	var dir := (last - chain[chain.size() - 2]).normalized()
+	throne_door = last + Vector3(dir.x, 0, dir.z) * 9.0
+	var hit2 := space.intersect_ray(PhysicsRayQueryParameters3D.create(throne_door + Vector3(0, 40, 0), throne_door + Vector3(0, -80, 0)))
+	if not hit2.is_empty():
+		throne_door = hit2["position"]
+	throne_portal = FX.portal(self, throne_door, Color(0.5, 0.05, 0.08), 2.0)
 	_populate()
+	print("DUNGEON zones ", rooms.size(), " entree ", entry_point, " trone ", throne_door)
 
-func _build_room(i: int) -> void:
-	var r: Dictionary = rooms[i]
-	var w := int(r["w"])
-	var h := int(r["h"])
-	var z0 := int(r["z0"])
-	var x0 := -(w / 2)
-	for ix in range(x0, x0 + w):
-		for iz in range(z0, z0 + h):
-			_put("floor_tile_large_rocks.gltf.glb" if (ix + iz) % 5 == 0 else "floor_tile_large.gltf.glb", Vector3(ix * T, 0, iz * T))
-	_box(Vector3(0, -0.5, (z0 + h * 0.5 - 0.5) * T), Vector3(w * T, 1.0, h * T))
-	var zs := z0 * T - T * 0.5
-	var zn := (z0 + h - 1) * T + T * 0.5
-	var xw := x0 * T - T * 0.5
-	var xe := (x0 + w - 1) * T + T * 0.5
-	# murs sud / nord (porte au centre si couloir)
-	for ix in range(x0, x0 + w):
-		var south_door := ix == 0 and i > 0
-		var north_door := ix == 0 and i < rooms.size() - 1
-		_wall(Vector3(ix * T, 0, zs), 0.0, south_door)
-		if i == rooms.size() - 1 and ix == 0:
-			_wall(Vector3(ix * T, 0, zn), PI, true)
-		else:
-			_wall(Vector3(ix * T, 0, zn), PI, north_door)
-	for iz in range(z0, z0 + h):
-		_wall(Vector3(xw, 0, iz * T), PI * 0.5, false)
-		_wall(Vector3(xe, 0, iz * T), -PI * 0.5, false)
-	for c in [Vector3(xw, 0, zs), Vector3(xe, 0, zs), Vector3(xw, 0, zn), Vector3(xe, 0, zn)]:
-		_put("pillar_decorated.gltf.glb", c)
-	# éclairage + décor
-	var lt := OmniLight3D.new()
-	lt.light_color = Color(1.0, 0.55, 0.25)
-	lt.light_energy = 2.2
-	lt.omni_range = maxf(w, h) * T * 0.8
-	lt.position = Vector3(0, 5.0, (z0 + h * 0.5 - 0.5) * T)
-	add_child(lt)
-	for iz in range(z0, z0 + h, 2):
-		var tl := _put("torch_mounted.gltf.glb", Vector3(xw + 0.55, 2.2, iz * T), PI * 0.5)
-		tl.rotation.y = PI * 0.5
-		var tr := _put("torch_mounted.gltf.glb", Vector3(xe - 0.55, 2.2, iz * T), -PI * 0.5)
-		tr.rotation.y = -PI * 0.5
-		for tpos in [Vector3(xw + 0.9, 2.9, iz * T), Vector3(xe - 0.9, 2.9, iz * T)]:
-			var f := OmniLight3D.new()
-			f.light_color = Color(1, 0.5, 0.2)
-			f.light_energy = 0.9
-			f.omni_range = 5.0
-			f.position = tpos
-			add_child(f)
-	var props := ["barrel_large.gltf.glb", "crates_stacked.gltf.glb", "rubble_large.gltf.glb", "sword_shield_broken.gltf.glb", "candle_triple.gltf.glb"]
-	for k in 3:
-		var side := -1.0 if k % 2 == 0 else 1.0
-		var px := (xw + 1.6) if side < 0 else (xe - 1.6)
-		var pz := (z0 + (k + 1) * h / 4.0 - 0.5) * T
-		var pr := _put(props[(i + k) % props.size()], Vector3(px, 0, pz), randf() * TAU, 0.8 if props[(i + k) % props.size()] == "rubble_large.gltf.glb" else 1.0)
-		if props[(i + k) % props.size()] != "candle_triple.gltf.glb" and props[(i + k) % props.size()] != "sword_shield_broken.gltf.glb":
-			_box(Vector3(px, 1.0, pz), Vector3(1.6, 2.0, 1.6))
-	_put("banner_patternA_red.gltf.glb", Vector3(-T, 0, zn - 0.6), PI)
-	_put("banner_patternA_red.gltf.glb", Vector3(T, 0, zn - 0.6), PI)
-	if str(r["kind"]) == "piliers":
-		for c in [Vector3(-T, 0, (z0 + 1) * T), Vector3(T, 0, (z0 + 1) * T), Vector3(-T, 0, (z0 + 3) * T), Vector3(T, 0, (z0 + 3) * T)]:
-			_put("column.gltf.glb", c, 0.0, 2.6)
-			_box(c + Vector3(0, 1.8, 0), Vector3(1.6, 3.6, 1.6))
-
-func _wall(pos: Vector3, yaw: float, door: bool) -> void:
-	_put("wall_doorway.glb" if door else ("wall_cracked.gltf.glb" if randf() < 0.25 else "wall.gltf.glb"), pos, yaw)
-	var along := Vector3(cos(yaw), 0, -sin(yaw))
-	if door:
-		for s in [-1.0, 1.0]:
-			_box(pos + along * (1.55 * s) + Vector3(0, 2, 0), Vector3(0.9, 4, 0.9) if absf(sin(yaw)) < 0.5 else Vector3(0.9, 4, 0.9))
-		_box(pos + Vector3(0, 3.6, 0), Vector3(4, 0.8, 1) if absf(sin(yaw)) < 0.5 else Vector3(1, 0.8, 4))
-	else:
-		_box(pos + Vector3(0, 2, 0), Vector3(4, 4, 1) if absf(sin(yaw)) < 0.5 else Vector3(1, 4, 4))
-
-func _build_corridor(z_from: int, z_to: int) -> void:
-	for iz in range(z_from, z_to + 1):
-		_put("floor_tile_large.gltf.glb", Vector3(0, 0, iz * T))
-		_wall(Vector3(-T * 0.5, 0, iz * T), PI * 0.5, false)
-		_wall(Vector3(T * 0.5, 0, iz * T), -PI * 0.5, false)
-		var lt := OmniLight3D.new()
-		lt.light_color = Color(1, 0.45, 0.2)
-		lt.light_energy = 1.0
-		lt.omni_range = 6.0
-		lt.position = Vector3(0, 3, iz * T)
-		add_child(lt)
-	_box(Vector3(0, -0.5, (z_from + z_to) * 0.5 * T), Vector3(T, 1, (z_to - z_from + 1) * T))
+func _flat(space: PhysicsDirectSpaceState3D, c: Vector3, r: float) -> bool:
+	for o in [Vector3(r, 0, 0), Vector3(-r, 0, 0), Vector3(0, 0, r), Vector3(0, 0, -r)]:
+		var p: Vector3 = c + o + Vector3(0, 30, 0)
+		var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(p, p + Vector3(0, -80, 0)))
+		if hit.is_empty() or absf((hit["position"] as Vector3).y - c.y) > 1.2:
+			return false
+	return true
 
 func room_center(i: int) -> Vector3:
-	var r: Dictionary = rooms[i]
-	return to_global(Vector3(0, 0, (int(r["z0"]) + int(r["h"]) * 0.5 - 0.5) * T))
+	return rooms[i]["center"]
 
-func _room_point(i: int, fx: float, fz: float) -> Vector3:
-	var r: Dictionary = rooms[i]
-	var w := float(r["w"]) * T - 3.0
-	var h := float(r["h"]) * T - 3.0
-	return room_center(i) + Vector3((fx - 0.5) * w, 0.3, (fz - 0.5) * h)
+func _ground(p: Vector3) -> Vector3:
+	var space := get_world_3d().direct_space_state
+	var hit := space.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3(0, 30, 0), p + Vector3(0, -60, 0)))
+	return (hit["position"] as Vector3) if not hit.is_empty() else p
 
-func _populate() -> void:
-	var packs := {
-		1: [["goblin", 0.3, 0.6], ["goblin", 0.7, 0.6], ["goblin", 0.5, 0.8], ["shaman", 0.5, 0.95]],
-		2: [["orc", 0.5, 0.6], ["goblin", 0.25, 0.4], ["goblin", 0.75, 0.4], ["shaman", 0.2, 0.9], ["shaman", 0.8, 0.9]],
-		3: [["goblin", 0.05, 0.1], ["goblin", 0.95, 0.1], ["goblin", 0.05, 0.9], ["goblin", 0.95, 0.9], ["orc", 0.5, 1.0], ["shaman", 0.5, 0.0]],
-		4: [["orc", 0.3, 0.75], ["orc", 0.7, 0.75], ["shaman", 0.5, 0.95]],
-	}
-	for i in packs.keys():
-		for e in packs[i]:
-			var mob: Mob = main.spawn_free_mob(str(e[0]), _room_point(i, float(e[1]), float(e[2])))
-			mob.dormant = true
-			mob.room_id = i
-			mob.leash_r = 60.0
-			mob.home = mob.global_position
-			if i == 4:
-				mob.make_elite()
-			if i == 3:
-				mob.visible = false
-			rooms[i]["mobs"].append(mob)
-		_make_barrier(i)
-
-## Barrière de mana à la sortie de la salle (disparaît quand la salle est nettoyée).
-func _make_barrier(i: int) -> void:
-	var r: Dictionary = rooms[i]
-	var zn := (int(r["z0"]) + int(r["h"]) - 1) * T + T * 0.5
-	if i == rooms.size() - 1:
-		zn -= 1.5
+func _house(at: Vector3, yaw: float) -> void:
+	var h := (load("res://assets/orc_house.glb") as PackedScene).instantiate() as Node3D
+	add_child(h)
+	h.global_position = _ground(at) + Vector3(0, -0.2, 0)
+	h.scale = Vector3.ONE * HOUSE_SCALE
+	h.rotation.y = yaw
 	var b := StaticBody3D.new()
 	var cs := CollisionShape3D.new()
-	var bs := BoxShape3D.new()
-	bs.size = Vector3(3.2, 4, 0.4)
-	cs.shape = bs
+	var cyl := CylinderShape3D.new()
+	cyl.radius = 6.0
+	cyl.height = 8.0
+	cs.shape = cyl
 	b.add_child(cs)
-	var mi := MeshInstance3D.new()
-	var bm := BoxMesh.new()
-	bm.size = Vector3(3.2, 3.6, 0.1)
-	mi.mesh = bm
-	mi.material_override = FX.mat(Color(1, 0.15, 0.2), 2.0, 0.35)
-	b.add_child(mi)
 	add_child(b)
-	b.position = Vector3(0, 1.8, zn)
-	r["barrier"] = b
+	b.global_position = h.global_position + Vector3(0, 4, 0)
+	var fire := OmniLight3D.new()
+	fire.light_color = Color(1, 0.45, 0.15)
+	fire.light_energy = 2.5
+	fire.omni_range = 12.0
+	add_child(fire)
+	fire.global_position = h.global_position + Vector3(0, 3, 0) + Vector3(sin(yaw), 0, cos(yaw)) * 8.0
+
+func _populate() -> void:
+	var packs := [
+		[["goblin", 0, 0], ["goblin", 2.5, 1], ["goblin", -2.5, 1], ["shaman", 0, 4]],
+		[["orc", 0, 0], ["goblin", 3, -2], ["goblin", -3, -2], ["shaman", 2, 4], ["shaman", -2, 4]],
+		[["goblin", 6, 6], ["goblin", -6, 6], ["goblin", 6, -6], ["goblin", -6, -6], ["orc", 0, 7], ["shaman", 0, -7]],
+		[["orc", 3, 0], ["orc", -3, 0], ["shaman", 0, 4], ["goblin", 5, 3], ["goblin", -5, 3]],
+	]
+	for i in rooms.size():
+		var c: Vector3 = rooms[i]["center"]
+		var kind := str(rooms[i]["kind"])
+		if kind == "camp_orc" or kind == "gardiens":
+			_house(c + Vector3(12, 0, 6), randf() * TAU)
+		if kind == "gardiens":
+			_house(c + Vector3(-13, 0, 4), randf() * TAU)
+		var beacon := OmniLight3D.new()
+		beacon.light_color = Color(1, 0.2, 0.15)
+		beacon.light_energy = 2.0
+		beacon.omni_range = 16.0
+		add_child(beacon)
+		beacon.global_position = c + Vector3(0, 6, 0)
+		for e in packs[i]:
+			var p := _ground(c + Vector3(float(e[1]), 0, float(e[2])))
+			var mob: Mob = main.spawn_free_mob(str(e[0]), p)
+			mob.dormant = true
+			mob.room_id = i
+			mob.leash_r = 45.0
+			mob.home = p
+			if kind == "gardiens":
+				mob.make_elite()
+			if kind == "embuscade":
+				mob.visible = false
+			rooms[i]["mobs"].append(mob)
 
 func update(hero: Unit) -> void:
-	var hp := to_local(hero.global_position)
 	for r in rooms:
 		if r["cleared"]:
 			continue
-		var w := float(r["w"]) * T
-		var z0 := float(r["z0"]) * T - T * 0.5
-		var z1 := z0 + float(r["h"]) * T
-		var inside: bool = absf(hp.x) < w * 0.5 - 0.5 and hp.z > z0 + 1.0 and hp.z < z1
-		if inside and not r["engaged"]:
+		var c: Vector3 = r["center"]
+		var dist := Vector2(hero.global_position.x - c.x, hero.global_position.z - c.z).length()
+		if dist < (16.0 if str(r["kind"]) != "embuscade" else 9.0) and not r["engaged"]:
 			r["engaged"] = true
 			_engage(r, hero)
 		if r["engaged"]:
@@ -222,11 +170,12 @@ func update(hero: Unit) -> void:
 					alive = true
 			if not alive:
 				r["cleared"] = true
-				if r.has("barrier") and is_instance_valid(r["barrier"]):
-					var b: Node3D = r["barrier"]
-					FX.burst(main, b.global_position, Color(1, 0.3, 0.3), 40, 0.12, 4.0, 0.6, 2.0)
-					b.queue_free()
-				main.system_msg("[ SYSTÈME ]\nSalle nettoyée. La barrière de mana se dissipe.")
+				main.system_msg("[ SYSTÈME ]\nMeute éliminée. %d / %d" % [cleared_count(), rooms.size()])
+				if all_cleared():
+					main.system_msg("[ SYSTÈME ]\nLe portail du trône s'est ouvert.\nLe Commandant Écarlate t'attend.")
+					if throne_portal:
+						throne_portal.queue_free()
+					throne_portal = FX.portal(self, throne_door, Color(1, 0.1, 0.12), 2.2)
 
 func _engage(r: Dictionary, hero: Unit) -> void:
 	var kind := str(r["kind"])
@@ -243,6 +192,19 @@ func _engage(r: Dictionary, hero: Unit) -> void:
 	if kind == "gardiens":
 		var first := r["mobs"][0] as Mob
 		FX.speech(first, "Personne ne dérange le Commandant. Surtout pas un humain.", Color(1, 0.75, 0.6), 3.4, 3.5)
+
+func cleared_count() -> int:
+	var n := 0
+	for r in rooms:
+		if r["cleared"]:
+			n += 1
+	return n
+
+func next_target() -> Vector3:
+	for r in rooms:
+		if not r["cleared"]:
+			return r["center"]
+	return throne_door
 
 func all_cleared() -> bool:
 	for r in rooms:

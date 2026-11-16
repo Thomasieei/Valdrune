@@ -96,7 +96,7 @@ func _ready() -> void:
 	hero.global_position = spawn_point + Vector3(0, 0.2, 0)
 	_make_camps(spawn_point)
 	_make_elite_camps()
-	_build_dungeon()
+	await _build_dungeon()
 	_build_hall()
 	_spawn_gate(true)
 	system_msg("[ SYSTÈME ]\nUn Portail de rang C est apparu en ville.\nL'Association des Chasseurs le garde.")
@@ -384,7 +384,7 @@ func _make_elite_camps() -> void:
 	var comps := [["orc", "goblin", "goblin", "shaman"], ["goblin", "goblin", "shaman", "shaman"], ["orc", "orc", "shaman"], ["goblin", "goblin", "goblin", "orc"]]
 	for i in chosen.size():
 		var c := {"pos": chosen[i], "kinds": comps[i % comps.size()], "members": [], "state": "guarded", "timer": 0.0}
-		var chest := (load("res://assets/dun/chest_gold.glb") as PackedScene).instantiate() as Node3D
+		var chest := (load("res://assets/chest_gold.glb") as PackedScene).instantiate() as Node3D
 		add_child(chest)
 		chest.global_position = chosen[i]
 		chest.scale = Vector3.ONE * 0.9
@@ -616,6 +616,9 @@ func _build_dungeon() -> void:
 	dungeon.position = DUN_O
 	dungeon.build(self)
 	dungeon.visible = zone == "dungeon"
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	dungeon.layout()
 
 func _build_hall() -> void:
 	if hall == null:
@@ -665,7 +668,7 @@ func _set_zone(z: String) -> void:
 	if gate:
 		gate.visible = z == "city"
 	world_env.environment = env_city if z == "city" else (env_dun if z == "dungeon" else env_hall)
-	moon.visible = z != "dungeon"
+	moon.visible = true
 
 func _teleport(p: Vector3, z: String) -> void:
 	fade.modulate.a = 0.0
@@ -685,7 +688,8 @@ func _teleport(p: Vector3, z: String) -> void:
 
 func enter_dungeon() -> void:
 	await _teleport(dungeon.entry_point, "dungeon")
-	yaw = PI
+	var dn := dungeon.next_target() - dungeon.entry_point
+	yaw = atan2(-dn.x, -dn.z)
 	system_msg("[ SYSTÈME ]\nTu es entré dans le Portail.\nDonjon : la Forteresse du Commandant Écarlate.")
 
 func enter_hall() -> void:
@@ -757,7 +761,7 @@ func _on_boss_dead(b: Mob) -> void:
 	boss_bar_root.visible = false
 	rep += 25
 	system_msg("[ SYSTÈME ]\nDonjon conquis ! Réputation +25.\nUne ombre d'une puissance exceptionnelle peut être extraite...")
-	boss_chest = (load("res://assets/dun/chest_gold.glb") as PackedScene).instantiate() as Node3D
+	boss_chest = (load("res://assets/chest_gold.glb") as PackedScene).instantiate() as Node3D
 	add_child(boss_chest)
 	boss_chest.global_position = _hall_floor(16.0, 0.0)
 	boss_chest.scale = Vector3.ONE * 1.3
@@ -922,7 +926,7 @@ func _update_interact() -> void:
 					label = "PARLER AU GARDE"
 					act = _guard_dialogue
 		elif zone == "dungeon":
-			if hero.global_position.distance_to(dungeon.throne_door) < 3.2:
+			if hero.global_position.distance_to(dungeon.throne_door) < 4.5:
 				if dungeon.all_cleared():
 					label = "FRANCHIR LA PORTE DU TRÔNE"
 					act = enter_hall
@@ -1184,7 +1188,7 @@ func _build_ui() -> void:
 	fade.modulate.a = 0.0
 	layer.add_child(fade)
 
-func _outlined(parent: Control, pos: Vector2, size: int, col: Color) -> Label:
+func _outlined(parent: Node, pos: Vector2, size: int, col: Color) -> Label:
 	var l := Label.new()
 	l.position = pos
 	l.add_theme_font_size_override("font_size", size)
@@ -1223,11 +1227,18 @@ func _update_ui() -> void:
 		var t := int(maxf(gate_timer, 0.0))
 		gate_txt.text = "Portail rang C  %s  %d m\nSe déplace dans %d:%02d" % [arrow, int(d.length()), t / 60, t % 60]
 	elif zone == "dungeon":
-		var n := 0
-		for r in dungeon.rooms:
-			if r["cleared"]:
-				n += 1
-		gate_txt.text = "Donjon — salles nettoyées %d / %d" % [n, dungeon.rooms.size()]
+		var d2 := dungeon.next_target() - hero.global_position
+		d2.y = 0
+		var rel2 := wrapf(atan2(-d2.x, -d2.z) - yaw, -PI, PI)
+		var ar := "↑"
+		if absf(rel2) > 2.4:
+			ar = "↓"
+		elif rel2 > 0.6:
+			ar = "←"
+		elif rel2 < -0.6:
+			ar = "→"
+		var what := "Prochaine meute" if not dungeon.all_cleared() else "Portail du trône"
+		gate_txt.text = "Marais du Portail — meutes %d / %d\n%s  %s  %d m" % [dungeon.cleared_count(), dungeon.rooms.size(), what, ar, int(d2.length())]
 	else:
 		gate_txt.text = "Salle du Trône"
 	for k in buttons.keys():
@@ -1360,15 +1371,15 @@ func _run_shots() -> void:
 	await enter_dungeon()
 	await _snap("10_donjon_entree", 30)
 	# salles
-	for i in range(1, dungeon.rooms.size()):
+	for i in range(0, dungeon.rooms.size()):
 		var rc := dungeon.room_center(i)
-		_place_hero(rc + Vector3(0, 0, -4), rc + Vector3(0, 0, 4))
+		_place_hero(rc + Vector3(0, 1.0, -11), rc)
 		await _snap("1%d_salle%d" % [i, i], 60 if i != 3 else 45)
 		for m in dungeon.rooms[i]["mobs"]:
 			if not (m as Mob).dead:
 				(m as Mob).take_damage(99999, hero)
 		await _snap("1%db_salle%d_nettoyee" % [i, i], 25)
-	_place_hero(dungeon.throne_door + Vector3(0, 0, -3), dungeon.throne_door)
+	_place_hero(dungeon.throne_door + Vector3(0, 1.0, -6), dungeon.throne_door)
 	await _snap("15_porte_trone", 20)
 	await enter_hall()
 	await _snap("16_boss_dialogue", 40)
