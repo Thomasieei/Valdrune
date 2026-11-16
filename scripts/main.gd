@@ -1151,8 +1151,11 @@ func _hide_near_camera() -> void:
 	for m in mobs:
 		var mm := m as Mob
 		if mm.model:
-			var near := mm.global_position.distance_squared_to(cp) < 2.6 and mm.global_position.distance_squared_to(hero.global_position) > 0.5
+			var d2 := mm.global_position.distance_squared_to(cp)
+			var near := d2 < 2.6 and mm.global_position.distance_squared_to(hero.global_position) > 0.5
 			mm.model.visible = not near
+			if mm.hp_bar:
+				mm.hp_bar.visible = d2 > 9.0
 
 func _process(delta: float) -> void:
 	_hide_near_camera()

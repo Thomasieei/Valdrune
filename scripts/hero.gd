@@ -977,6 +977,7 @@ func _tk_impact_fx(at: Vector3, r: float, small: bool) -> void:
 	cm.albedo_texture = CRACK_TEX
 	cm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	cm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	cm.albedo_color = Color(1, 1, 1, 0.7)
 	cr.material_override = cm
 	cr.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	main.add_child(cr)

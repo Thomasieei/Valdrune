@@ -203,7 +203,7 @@ func _flash() -> void:
 		var gi := mi as MeshInstance3D
 		if gi.material_overlay == null:
 			gi.material_overlay = flash_mat
-	flash_mat.albedo_color.a = 0.65
+	flash_mat.albedo_color = Color(1, 0.92, 0.85, 0.42)
 	var tw := create_tween()
 	tw.tween_property(flash_mat, "albedo_color:a", 0.0, 0.14)
 	tw.tween_callback(_unflash)
