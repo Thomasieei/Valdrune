@@ -5,6 +5,23 @@ extends CharacterBody3D
 signal died(u: Unit)
 
 const GRAVITY := 18.0
+## Barre de vie toujours face caméra, remplie de gauche à droite selon « fill ».
+static var BAR_SHADER: Shader = _bar_shader()
+static func _bar_shader() -> Shader:
+	var sh := Shader.new()
+	sh.code = """shader_type spatial;
+render_mode unshaded, cull_disabled, depth_draw_never, depth_test_disabled;
+uniform vec4 col : source_color = vec4(1.0);
+uniform float fill = 1.0;
+void vertex() {
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
+}
+void fragment() {
+	if (UV.x > fill) { discard; }
+	ALBEDO = col.rgb * (0.85 + 0.3 * (1.0 - UV.y));
+}
+"""
+	return sh
 var team := 0                 # 0 = joueur + ombres, 1 = monstres
 var display_name := ""
 var rank := "E"
@@ -18,6 +35,8 @@ var dead := false
 var busy := 0.0               # temps restant d'une action verrouillée (attaque, sort)
 var hit_stun := 0.0
 var invuln := 0.0
+var lifted := false
+var flash_mat: StandardMaterial3D
 var model: Node3D
 var ap: AnimationPlayer
 var ring: MeshInstance3D
@@ -80,10 +99,12 @@ func make_hp_bar(h: float, col: Color) -> void:
 	var q2 := QuadMesh.new()
 	q2.size = Vector2(0.96, 0.07)
 	hp_fill.mesh = q2
-	var fm := FX.mat(col, 1.5, 1.0)
-	fm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	fm.render_priority = 2
-	hp_fill.material_override = fm
+	var sh := ShaderMaterial.new()
+	sh.shader = BAR_SHADER
+	sh.set_shader_parameter("col", col)
+	sh.set_shader_parameter("fill", 1.0)
+	sh.render_priority = 2
+	hp_fill.material_override = sh
 	hp_bar.add_child(hp_fill)
 	var lb := Label3D.new()
 	lb.text = "%s [%s]" % [display_name, rank]
@@ -99,7 +120,7 @@ func make_hp_bar(h: float, col: Color) -> void:
 func update_hp_bar() -> void:
 	if hp_fill:
 		var f := clampf(hp / max_hp, 0.0, 1.0)
-		hp_fill.scale.x = maxf(f, 0.001)
+		(hp_fill.material_override as ShaderMaterial).set_shader_parameter("fill", f)
 
 func play(anim: String, blend := 0.15, spd := 1.0, force := false) -> void:
 	if ap == null or not ap.has_animation(anim):
@@ -141,8 +162,10 @@ func take_damage(amount: float, from: Unit, crit := false) -> void:
 		return
 	if invuln > 0.0:
 		FX.damage_number(world, global_position, "ESQUIVE", Color(0.7, 0.9, 1.0), false)
+		on_dodged(from)
 		return
 	hp -= amount
+	_flash()
 	update_hp_bar()
 	var col := Color(1, 0.95, 0.6) if team == 1 else Color(1, 0.3, 0.3)
 	if crit:
@@ -157,6 +180,24 @@ func take_damage(amount: float, from: Unit, crit := false) -> void:
 		kb.y = 0
 		velocity += kb.normalized() * 2.5
 	on_hit(from)
+
+func on_dodged(_from: Unit) -> void:
+	pass
+
+## Éclair blanc sur le modèle quand il est touché.
+func _flash() -> void:
+	if model == null:
+		return
+	if flash_mat == null:
+		flash_mat = StandardMaterial3D.new()
+		flash_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		flash_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		flash_mat.albedo_color = Color(1, 1, 1, 0)
+		for mi in model.find_children("*", "MeshInstance3D", true, false):
+			(mi as MeshInstance3D).material_overlay = flash_mat
+	flash_mat.albedo_color.a = 0.65
+	var tw := create_tween()
+	tw.tween_property(flash_mat, "albedo_color:a", 0.0, 0.14)
 
 func on_hit(_from: Unit) -> void:
 	if busy <= 0.0 and ap and ap.has_animation("Hit"):

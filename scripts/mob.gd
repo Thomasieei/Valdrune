@@ -218,6 +218,8 @@ func _physics_process(delta: float) -> void:
 			pending.remove_at(i)
 			if not dead:
 				c.call()
+	if lifted:
+		return
 	if dead:
 		corpse_time += delta
 		apply_gravity_and_slide(delta)
@@ -550,6 +552,9 @@ func _basic_attack() -> void:
 	var l := anim_len(a) / spd
 	busy = l * 0.95
 	play(a, 0.08, spd, true)
+	# préavis : éclat rouge sur l'arme avant l'impact (laisse le temps d'esquiver)
+	if team == 1:
+		FX.burst(main, global_position + Vector3(0, 1.5 if not boss else 2.4, 0) + forward() * 0.6, Color(1, 0.25, 0.15), 8, 0.06, 1.0, 0.25, 0.0)
 	later(l * (0.45 if a != "Slash3" else 0.4), _basic_hit.bind(target))
 
 func _basic_hit(t: Unit) -> void:

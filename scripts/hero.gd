@@ -13,9 +13,16 @@ var cam_yaw := 0.0
 var main
 var combo := 0
 var combo_t := 0.0
-var cd := {"attack": 0.0, "step": 0.0, "arise": 0.0, "roll": 0.0, "jump": 0.0}
-const CD_MAX := {"attack": 0.32, "step": 7.0, "arise": 10.0, "roll": 1.6, "jump": 0.25}
-const MP_COST := {"step": 22.0, "arise": 30.0}
+var cd := {"attack": 0.0, "step": 0.0, "arise": 0.0, "roll": 0.0, "jump": 0.0, "tele": 0.0, "swap": 0.0}
+const CD_MAX := {"attack": 0.32, "step": 7.0, "arise": 10.0, "roll": 1.6, "jump": 0.22, "tele": 12.0, "swap": 15.0}
+const MP_COST := {"step": 22.0, "arise": 30.0, "tele": 35.0, "swap": 20.0}
+# grimoire : niveau des pouvoirs (0 = verrouillé)
+var powers := {"step": 1, "arise": 1, "tele": 1, "plunge": 1, "perfect": 1, "swap": 0}
+var wall_n := Vector3.ZERO
+var wall_leaps := 0
+var plunging := false
+var perfect_window := 0.0
+var counter_ready := false
 var pending: Array = []
 var regen_t := 0.0
 var sword: Node3D
@@ -74,6 +81,8 @@ func setup_hero() -> void:
 	for n in loops:
 		if ap and ap.has_animation(n):
 			ap.get_animation(n).loop_mode = Animation.LOOP_LINEAR
+	if ap and ap.has_animation("ClimbLoop"):
+		ap.get_animation("ClimbLoop").length = 2.1
 	_setup_sword()
 	var fill := OmniLight3D.new()
 	fill.light_color = Color(0.78, 0.86, 1.0)
@@ -170,6 +179,9 @@ func gain_xp(v: float) -> void:
 		xp -= xp_next()
 		level += 1
 		points += 3
+		if level >= 4 and powers["swap"] == 0:
+			powers["swap"] = 1
+			later(2.5, main.system_msg.bind("[ SYSTÈME ]\nNouveau pouvoir débloqué : ÉCHANGE D'OMBRE.\nConsulte ton Grimoire."))
 		max_hp += 40
 		hp = max_hp
 		max_mp += 10
@@ -204,10 +216,13 @@ func _physics_process(delta: float) -> void:
 	hit_stun -= delta
 	combo_t -= delta
 	invuln -= delta
+	perfect_window -= delta
 	mp = minf(max_mp, mp + 6.0 * delta)
 	regen_t -= delta
 	if regen_t <= 0.0 and hp < max_hp and not dead:
 		hp = minf(max_hp, hp + 10.0 * delta)
+	if lifted:
+		return
 	if dead:
 		apply_gravity_and_slide(delta)
 		return
@@ -247,7 +262,9 @@ func _physics_process(delta: float) -> void:
 	if dir != Vector3.ZERO and (airborne or sprinting) and _wall_ahead(dir, 1.1) and velocity.y > -6.0:
 		climbing = true
 		airborne = true
-		play("Climb", 0.08, 1.7, true)
+		wall_leaps = 0
+		air_jumps = 1
+		play("ClimbLoop", 0.08, 1.6, true)
 		main.sfx("cloth", global_position)
 		return
 	var target_spd := (sprint_speed() if sprinting else (run_speed() if ml > 0.55 else 3.2)) * (1.0 if busy <= 0.0 else 0.0)
@@ -273,6 +290,8 @@ func _physics_process(delta: float) -> void:
 	if airborne and is_on_floor() and velocity.y <= 0.1:
 		airborne = false
 		air_jumps = 1
+		if plunging:
+			_plunge_impact()
 		main.sfx("land", global_position, -6.0 if fall_peak_v > -8.0 else 0.0)
 		if fall_peak_v < -17.0:
 			play("Roll", 0.04, 2.4, true)
@@ -317,10 +336,25 @@ func _ray(from: Vector3, to: Vector3) -> Dictionary:
 
 func _wall_ahead(dir: Vector3, h: float) -> bool:
 	var hit := _ray(global_position + Vector3(0, h, 0), global_position + Vector3(0, h, 0) + dir * 0.95)
-	return not hit.is_empty() and absf((hit["normal"] as Vector3).y) < 0.3
+	if not hit.is_empty() and absf((hit["normal"] as Vector3).y) < 0.3:
+		wall_n = hit["normal"]
+		return true
+	return false
+
+## Mur le plus proche autour du héros (pour le rebond mural en l'air).
+func _any_wall() -> bool:
+	for k in 8:
+		var a := k * TAU / 8.0
+		if _wall_ahead(Vector3(sin(a), 0, cos(a)), 1.0):
+			return true
+	return false
 
 ## Course verticale le long du mur, puis rétablissement sur le toit.
 func _climb(_delta: float, dir: Vector3) -> void:
+	if cur_anim == "Roll" and ap.is_playing() and velocity.y > 4.0:
+		velocity.y -= GRAVITY * _delta
+		move_and_slide()
+		return
 	var into := dir != Vector3.ZERO and _wall_ahead(dir, 1.1)
 	if not into:
 		climbing = false
@@ -335,9 +369,13 @@ func _climb(_delta: float, dir: Vector3) -> void:
 		main.quest_add("climb", 1)
 		later(0.33, _after_mantle)
 		return
-	velocity = Vector3(0, 8.5 * (1.0 + 0.04 * stats["agilite"]), 0) + dir * 0.6
-	if cur_anim != "Climb" or not ap.is_playing():
-		play("Climb", 0.05, 1.7, true)
+	if velocity.y < 8.5 * (1.0 + 0.04 * stats["agilite"]):
+		velocity = Vector3(0, 8.5 * (1.0 + 0.04 * stats["agilite"]), 0) + dir * 0.6
+	else:
+		velocity.y -= GRAVITY * 0.5 * _delta
+		velocity += dir * 0.3
+	if cur_anim != "ClimbLoop" and cur_anim != "Roll":
+		play("ClimbLoop", 0.08, 1.6, true)
 	move_and_slide()
 
 func _after_mantle() -> void:
@@ -396,12 +434,20 @@ func jump() -> void:
 	if dead or cd["jump"] > 0.0 or main.in_dialogue:
 		return
 	if climbing:
-		climbing = false
-		var back := -forward()
-		velocity = back * 7.0 + Vector3(0, 9.0, 0)
-		face_to(global_position + back, true)
-		play("Roll", 0.04, 2.2, true)
-		cd["jump"] = CD_MAX["jump"]
+		var d := _input_dir()
+		if d != Vector3.ZERO and d.dot(-wall_n) > 0.4 and wall_leaps < 3:
+			# bond vertical le long du mur
+			wall_leaps += 1
+			velocity = Vector3(0, 15.0 * (1.0 + 0.03 * stats["agilite"]), 0) - wall_n * 0.5
+			play("Roll", 0.03, 2.4, true)
+			main.sfx("jump", global_position, -4.0)
+			FX.burst(main, global_position + Vector3(0, 1.0, 0) - wall_n * 0.3, Color(0.8, 0.85, 1.0), 14, 0.07, 2.0, 0.4, 3.0)
+			cd["jump"] = CD_MAX["jump"]
+			return
+		_wall_kick()
+		return
+	if airborne and _any_wall():
+		_wall_kick()
 		return
 	if is_on_floor() and not airborne:
 		velocity.y = 9.0 * (1.0 + 0.03 * stats["agilite"])
@@ -423,9 +469,24 @@ func jump() -> void:
 		main.sfx("dash", global_position, -8.0)
 		FX.burst(main, global_position + Vector3(0, 0.8, 0), Color(0.6, 0.5, 1.0), 16, 0.07, 2.5, 0.4, 0.0)
 
+## Rebond mural : on se repousse du mur, double saut rechargé (enchaînement entre deux murs).
+func _wall_kick() -> void:
+	climbing = false
+	var out := wall_n
+	out.y = 0
+	out = out.normalized()
+	velocity = out * 9.5 + Vector3(0, 10.5, 0)
+	air_jumps = 1
+	face_to(global_position + out, true)
+	play("Roll", 0.03, 2.4, true)
+	main.sfx("jump", global_position, -4.0)
+	FX.burst(main, global_position + Vector3(0, 1.0, 0), Color(0.8, 0.85, 1.0), 14, 0.07, 2.5, 0.4, 3.0)
+	cd["jump"] = CD_MAX["jump"]
+
 func roll() -> void:
 	if dead or cd["roll"] > 0.0 or roll_t > 0.0 or main.in_dialogue:
 		return
+	perfect_window = 0.25 if powers["perfect"] > 0 else 0.0
 	cd["roll"] = CD_MAX["roll"]
 	var dir := _input_dir()
 	if dir == Vector3.ZERO:
@@ -454,6 +515,16 @@ func attack() -> void:
 	if not unarmed_mode:
 		set_armed(true)
 	calm_t = 0.0
+	if airborne and not climbing and powers["plunge"] > 0 and not plunging:
+		var below := _ray(global_position, global_position + Vector3(0, -40, 0))
+		if below.is_empty() or global_position.y - (below["position"] as Vector3).y > 1.6:
+			plunging = true
+			velocity = Vector3(velocity.x * 0.3, -30.0, velocity.z * 0.3)
+			play("Slash3", 0.03, 2.2, true)
+			main.sfx("dash", global_position)
+			FX.trail(main, global_position, global_position + Vector3(0, -6, 0), Color(0.55, 0.8, 1.0))
+			cd["attack"] = 0.5
+			return
 	var t := focus_or_nearest(8.0)
 	if t:
 		face_to(t.global_position, true)
@@ -484,6 +555,12 @@ func _slash_hit(c: int) -> void:
 	var col := Color(0.55, 0.8, 1.0) if not unarmed_mode else Color(1.0, 0.85, 0.6)
 	FX.slash_arc(main, global_position, model.rotation.y, col, body_r + arm + 0.5, c == 2)
 	var mult := 1.0 if c < 3 else 1.9
+	var crit := c == 3
+	if counter_ready:
+		counter_ready = false
+		mult *= 2.5
+		crit = true
+		FX.damage_number(main, global_position + Vector3(0, 0.7, 0), "CONTRE !", Color(0.6, 0.85, 1.0), true)
 	var hits := 0
 	for u in main.units_of_team(1):
 		var e := u as Unit
@@ -493,7 +570,7 @@ func _slash_hit(c: int) -> void:
 		to.y = 0
 		var ang := forward().angle_to(to.normalized())
 		if gap_to(e) <= arm + 0.6 and ang < deg_to_rad(80 if c < 3 else 120):
-			e.take_damage(power() * mult * randf_range(0.9, 1.1), self, c == 3)
+			e.take_damage(power() * mult * randf_range(0.9, 1.1), self, crit)
 			if c == 3:
 				e.velocity += to.normalized() * 7.0 + Vector3(0, 3.0, 0)
 			hits += 1
@@ -504,6 +581,136 @@ func _slash_hit(c: int) -> void:
 		main.shake(0.1 if c < 3 else 0.22)
 		main.hit_stop(0.05 if c < 3 else 0.09)
 		main.fov_kick(4.0 if c < 3 else 8.0)
+
+func _plunge_impact() -> void:
+	plunging = false
+	busy = 0.3
+	var r := 3.6 + 0.4 * powers["plunge"]
+	FX.burst(main, global_position, Color(0.55, 0.8, 1.0), 50, 0.14, 7.0, 0.6, 8.0)
+	FX.telegraph(main, global_position, r, 0.15, Color(0.5, 0.8, 1.0))
+	main.sfx("slam", global_position)
+	main.shake(0.4)
+	main.fov_kick(10.0)
+	for u in main.units_of_team(1):
+		var e := u as Unit
+		if e.dead or e.global_position.distance_to(global_position) > r + e.body_r:
+			continue
+		var to := e.global_position - global_position
+		to.y = 0
+		e.take_damage(power() * (2.0 + 0.3 * powers["plunge"]), self, true)
+		e.velocity += to.normalized() * 8.0 + Vector3(0, 4.0, 0)
+	main.hit_stop(0.08)
+
+## Esquive parfaite : ralenti, et le prochain coup est un contre dévastateur.
+func on_dodged(_from: Unit) -> void:
+	if perfect_window > 0.0:
+		perfect_window = 0.0
+		counter_ready = true
+		FX.damage_number(main, global_position + Vector3(0, 0.9, 0), "ESQUIVE PARFAITE", Color(0.6, 0.9, 1.0), true)
+		FX.burst(main, global_position + Vector3(0, 1.0, 0), Color(0.5, 0.75, 1.0), 30, 0.08, 3.0, 0.5, 0.0)
+		main.sfx("shadow", global_position)
+		main.slow_mo(0.3, 0.7)
+		print("PERFECT_DODGE")
+
+# ============================================================ Autorité du Souverain (télékinésie)
+func telekinesis() -> bool:
+	if powers["tele"] <= 0 or not ready_skill("tele") or busy > 0.3 or main.in_dialogue:
+		return false
+	var lvl: int = powers["tele"]
+	var r := 9.0 + lvl * 1.5
+	var list: Array = []
+	for u in main.units_of_team(1):
+		var e := u as Unit
+		if e.dead or e.global_position.distance_to(global_position) > r:
+			continue
+		var to := e.global_position - global_position
+		to.y = 0
+		if forward().angle_to(to.normalized()) < deg_to_rad(75) or to.length() < 3.0:
+			list.append(e)
+	if list.is_empty():
+		main.system_msg("Aucune cible devant toi.")
+		return false
+	cd["tele"] = CD_MAX["tele"] - lvl
+	mp -= MP_COST["tele"]
+	busy = 1.45
+	invuln = 0.3
+	play("Telekinesis", 0.08, 1.0, true)
+	main.sfx("shadow", global_position, 2.0)
+	main.quest_add("skills", 1)
+	FX.damage_number(main, global_position + Vector3(0, 0.7, 0), "AUTORITÉ DU SOUVERAIN", Color(0.65, 0.5, 1.0), false)
+	for e in list:
+		_lift(e as Unit, lvl)
+	return true
+
+func _lift(e: Unit, lvl: int) -> void:
+	var start := e.global_position
+	var top := start + Vector3(0, 2.8 if not (e is Mob and (e as Mob).boss) else 0.8, 0)
+	e.lifted = true
+	e.busy = 1.6
+	e.hit_stun = 1.6
+	e.velocity = Vector3.ZERO
+	var aura := FX.ground_disc(e.body_r + 0.6, Color(0.6, 0.3, 1.0), 0.5, true)
+	main.add_child(aura)
+	aura.global_position = start + Vector3(0, 0.05, 0)
+	FX.burst(main, start + Vector3(0, 0.5, 0), Color(0.6, 0.3, 1.0), 20, 0.08, 2.0, 0.6, -2.0)
+	var tw := e.create_tween()
+	tw.tween_property(e, "global_position", top, 0.45).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(e.model, "rotation:x", deg_to_rad(randf_range(-35, 35)), 0.45)
+	tw.tween_interval(0.65)
+	tw.tween_property(e, "global_position", start, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(e.model, "rotation:x", 0.0, 0.16)
+	tw.tween_callback(_lift_slam.bind(e, lvl, aura))
+
+func _lift_slam(e: Unit, lvl: int, aura: Node3D) -> void:
+	aura.queue_free()
+	if not is_instance_valid(e):
+		return
+	e.lifted = false
+	FX.burst(main, e.global_position, Color(0.6, 0.35, 1.0), 30, 0.12, 5.0, 0.5, 8.0)
+	main.sfx("slam", e.global_position, -2.0)
+	main.shake(0.25)
+	if not e.dead:
+		e.take_damage(power() * (1.6 + 0.3 * lvl), self, true)
+
+# ============================================================ Échange d'ombre
+func shadow_swap() -> bool:
+	if powers["swap"] <= 0 or not ready_skill("swap") or main.in_dialogue:
+		return false
+	var sh: Array = main.shadow_list()
+	if sh.is_empty():
+		main.system_msg("Aucune ombre avec qui échanger.")
+		return false
+	var best := sh[0] as Mob
+	var f = main.focus_target
+	for m in sh:
+		var mm := m as Mob
+		if f != null and is_instance_valid(f):
+			if mm.global_position.distance_to((f as Unit).global_position) < best.global_position.distance_to((f as Unit).global_position):
+				best = mm
+		elif mm.global_position.distance_to(global_position) > best.global_position.distance_to(global_position):
+			best = mm
+	cd["swap"] = CD_MAX["swap"] - 2.0 * (powers["swap"] - 1)
+	mp -= MP_COST["swap"]
+	var a := global_position
+	var b := best.global_position
+	FX.shadow_puff(main, a)
+	FX.shadow_puff(main, b)
+	FX.trail(main, a, b, Color(0.45, 0.15, 1.0))
+	global_position = b + Vector3(0, 0.2, 0)
+	best.global_position = a + Vector3(0, 0.2, 0)
+	main.sfx("step_shadow", b)
+	main.quest_add("skills", 1)
+	return true
+
+func power_cost(k: String) -> int:
+	return 3 + 3 * int(powers[k])
+
+func upgrade_power(k: String) -> bool:
+	if powers[k] <= 0 or powers[k] >= 5 or main.essence < power_cost(k):
+		return false
+	main.essence -= power_cost(k)
+	powers[k] += 1
+	return true
 
 # ============================================================ Pas de l'ombre : chaîne sur plusieurs ennemis
 func shadow_step() -> bool:
@@ -519,7 +726,7 @@ func shadow_step() -> bool:
 		return false
 	var here := global_position
 	list.sort_custom(func(a, b): return here.distance_to((a as Unit).global_position) < here.distance_to((b as Unit).global_position))
-	var n := mini(list.size(), 3 + int(stats["domaine"] / 2) + int(stats["agilite"] / 3))
+	var n := mini(list.size(), 2 + int(powers["step"]) + int(stats["domaine"] / 2) + int(stats["agilite"] / 3))
 	if not unarmed_mode:
 		set_armed(true)
 	cd["step"] = CD_MAX["step"]
@@ -552,7 +759,7 @@ func _step_hop(t: Unit, last: bool) -> void:
 	main.sfx("hit%d" % (1 + randi() % 3), behind)
 	FX.slash_arc(main, global_position, model.rotation.y, Color(0.6, 0.3, 1.0), body_r + arm + 0.6, randf() < 0.5)
 	if not t.dead:
-		t.take_damage(power() * 2.3, self, true)
+		t.take_damage(power() * (2.1 + 0.2 * powers["step"]), self, true)
 	main.shake(0.15)
 	main.hit_stop(0.04)
 	if last:
@@ -577,7 +784,7 @@ func arise() -> bool:
 		return false
 	var room: int = max_shadows() - int(main.shadow_count())
 	var raised := 0
-	cd["arise"] = CD_MAX["arise"]
+	cd["arise"] = CD_MAX["arise"] - (powers["arise"] - 1)
 	mp -= MP_COST["arise"]
 	busy = 1.0
 	play("Cast", 0.06, 0.55, true)

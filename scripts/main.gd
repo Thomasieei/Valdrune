@@ -912,6 +912,11 @@ func on_hero_died() -> void:
 	hero.play("Idle", 0.1, 1.0, true)
 	await _teleport(spawn_point, "city")
 
+func slow_mo(sc: float, dur: float) -> void:
+	Engine.time_scale = sc
+	await get_tree().create_timer(dur, true, false, true).timeout
+	Engine.time_scale = 1.0
+
 func fov_kick(a: float) -> void:
 	cam.fov = base_fov + a
 	var tw := create_tween()
@@ -1318,7 +1323,7 @@ func save_game() -> void:
 		sh.append({"kind": mm.kind, "elite": mm.elite, "boss": mm.boss})
 	var d := {"v": 1, "level": hero.level, "xp": hero.xp, "points": hero.points, "stats": hero.stats, "gold": gold, "essence": essence, "rep": rep,
 		"blade": hero.blade_mult, "unarmed": hero.unarmed_mode, "potions": potions, "shadow_lvl": shadow_lvl, "rank": hunter_rank, "quest": quest, "shadows": sh,
-		"max_hp": hero.max_hp, "max_mp": hero.max_mp}
+		"max_hp": hero.max_hp, "max_mp": hero.max_mp, "powers": hero.powers}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(d))
@@ -1350,6 +1355,10 @@ func load_game() -> bool:
 	potions = int(d.get("potions", 2))
 	shadow_lvl = int(d.get("shadow_lvl", 0))
 	hunter_rank = str(d.get("rank", "E"))
+	var pw: Dictionary = d.get("powers", {})
+	for k in hero.powers.keys():
+		if pw.has(k):
+			hero.powers[k] = int(pw[k])
 	quest = d.get("quest", {})
 	if float(d.get("blade", 1.0)) > 1.0:
 		var b := float(d.get("blade", 1.0))
@@ -1422,6 +1431,8 @@ func _build_ui() -> void:
 	_skill_button(layer, "arise", "ARISE", Vector2(-205, -420), 128, Color(0.75, 0.3, 1.0), _do_arise)
 	_skill_button(layer, "roll", "ESQUIVE", Vector2(-385, -330), 104, Color(0.4, 0.85, 1.0), hero.roll)
 	_skill_button(layer, "jump", "SAUT", Vector2(-545, -130), 104, Color(0.5, 0.9, 0.7), hero.jump)
+	_skill_button(layer, "tele", "TÉLÉ-\nKINÉSIE", Vector2(-545, -385), 104, Color(0.75, 0.45, 1.0), _do_tele)
+	_skill_button(layer, "swap", "ÉCHANGE", Vector2(-690, -330), 96, Color(0.55, 0.3, 0.95), _do_swap)
 	unarmed_btn = _small_btn("MAINS NUES")
 	unarmed_btn.anchor_left = 1.0
 	unarmed_btn.anchor_right = 1.0
@@ -1574,7 +1585,7 @@ func _build_menu(layer: CanvasLayer) -> void:
 	qb.pressed.connect(_show_quest)
 	bx.add_child(qb)
 	buttons["menu_quest"] = {"btn": qb, "shade": null, "label": null}
-	for k in [["OMBRES", "ombres"], ["STATS", "stats"]]:
+	for k in [["GRIMOIRE", "grimoire"], ["OMBRES", "ombres"], ["STATS", "stats"]]:
 		var b := _small_btn(str(k[0]))
 		b.pressed.connect(_toggle_menu.bind(str(k[1])))
 		bx.add_child(b)
@@ -1650,6 +1661,30 @@ func _refresh_menu() -> void:
 			(o[2] as HBoxContainer).add_child(b)
 		menu_body.add_child(row1)
 		menu_body.add_child(row2)
+	elif menu_tab == "grimoire":
+		menu_body.add_child(_lbl("GRIMOIRE DES POUVOIRS", 24, Color(0.8, 0.65, 1)))
+		menu_body.add_child(_lbl("Essences : %d — améliore un pouvoir jusqu'au niveau 5." % essence, 16, Color(0.7, 0.75, 0.9)))
+		var lv: Dictionary = hero.powers
+		var info := [
+			["step", "PAS DE L'OMBRE", "Enchaîne %d ennemis dans le dos, %d %% de dégâts." % [2 + int(lv["step"]) + int(hero.stats["domaine"] / 2), int(100 * (2.1 + 0.2 * lv["step"]))]],
+			["arise", "ARISE", "Relève tous les cadavres du domaine. Recharge %d s." % int(Hero.CD_MAX["arise"] - (lv["arise"] - 1))],
+			["tele", "AUTORITÉ DU SOUVERAIN", "Télékinésie : soulève les ennemis devant toi (%d m) puis les écrase, %d %% de dégâts." % [int(9 + lv["tele"] * 1.5), int(100 * (1.6 + 0.3 * lv["tele"]))]],
+			["plunge", "FRAPPE PLONGEANTE", "En l'air, ATTAQUE : tu plonges et frappes une zone de %.1f m." % (3.6 + 0.4 * lv["plunge"])],
+			["perfect", "ESQUIVE PARFAITE", "Esquive juste avant un coup : ralenti, puis CONTRE à x2,5."],
+			["swap", "ÉCHANGE D'OMBRE", "Échange ta place avec une ombre (celle proche de ta cible)." if lv["swap"] > 0 else "Verrouillé — se débloque au niveau 4."],
+		]
+		for r in info:
+			var hb := HBoxContainer.new()
+			var lvl := int(lv[r[0]])
+			var title := "%s  —  %s" % [r[1], ("niv. %d / 5" % lvl) if lvl > 0 else "verrouillé"]
+			hb.add_child(_lbl("%s\n%s" % [title, r[2]], 16, Color(0.88, 0.85, 1) if lvl > 0 else Color(0.55, 0.55, 0.65)))
+			if lvl > 0 and lvl < 5 and r[0] != "perfect":
+				var b := _small_btn("+ (%d)" % hero.power_cost(r[0]))
+				b.disabled = essence < hero.power_cost(r[0])
+				b.custom_minimum_size = Vector2(86, 44)
+				b.pressed.connect(_upgrade_power.bind(str(r[0])))
+				hb.add_child(b)
+			menu_body.add_child(hb)
 	else:
 		menu_body.add_child(_lbl("CHASSEUR — Niveau %d" % hero.level, 24, Color(1, 0.85, 0.5)))
 		menu_body.add_child(_lbl("XP %d / %d      Points à répartir : %d" % [int(hero.xp), int(hero.xp_next()), hero.points], 18))
@@ -1664,6 +1699,14 @@ func _refresh_menu() -> void:
 			b.pressed.connect(_add_stat.bind(str(r[0])))
 			hb.add_child(b)
 			menu_body.add_child(hb)
+
+func _upgrade_power(k: String) -> void:
+	if hero.upgrade_power(k):
+		sfx("levelup")
+		save_game()
+	else:
+		sfx("error")
+	_refresh_menu()
 
 func _set_sel(on: bool, m: Mob) -> void:
 	m.selected = on
@@ -1710,6 +1753,12 @@ func _outlined(parent: Node, pos: Vector2, size: int, col: Color) -> Label:
 	parent.add_child(l)
 	return l
 
+func _do_tele() -> void:
+	hero.telekinesis()
+
+func _do_swap() -> void:
+	hero.shadow_swap()
+
 func _do_step() -> void:
 	hero.shadow_step()
 
@@ -1724,6 +1773,7 @@ func _update_ui() -> void:
 	hp_txt.text = "PV %d / %d      PM %d      Niv. %d" % [int(hero.hp), int(hero.max_hp), int(hero.mp), hero.level]
 	rank_lbl.text = "CHASSEUR  ·  Rang %s" % hunter_rank
 	potion_btn.text = "POTION x%d" % potions
+	(buttons["swap"]["btn"] as Button).visible = hero.powers["swap"] > 0
 	potion_btn.disabled = potions <= 0 or potion_cd > 0.0
 	shadow_txt.text = "Ombres  %d / 4" % shadow_count()
 	res_txt.text = "Or %d    Essences %d\nRéputation %d  (%s)" % [gold, essence, rep, rep_title()]
@@ -1936,6 +1986,24 @@ func _run_shots() -> void:
 		await _snap("07_toit", 60)
 		hero.move_input = Vector2.ZERO
 		print("CLIMB_TEST y=%.2f" % hero.global_position.y)
+		# bond vertical sur le mur puis rebond
+		hero.global_position = start + Vector3(0, 0.3, 0)
+		hero.move_input = Vector2(0, -1)
+		await _snap("07b_x", 10)
+		hero.jump()
+		for i in 14:
+			await get_tree().physics_frame
+		var y1 := hero.global_position.y
+		hero.cd["jump"] = 0.0
+		hero.jump()
+		await _snap("07c_bond_mural", 12)
+		print("WALL_LEAP grimpe=%s y_avant=%.2f y_apres=%.2f" % [str(hero.climbing), y1, hero.global_position.y])
+		hero.move_input = Vector2.ZERO
+		hero.cd["jump"] = 0.0
+		hero.jump()
+		await _snap("07d_rebond", 10)
+		print("WALL_KICK vitesse=%s" % str(hero.velocity.snapped(Vector3(0.1, 0.1, 0.1))))
+		await _snap("07e_x", 50)
 	# double saut
 	hero.global_position = spawn_point + Vector3(0, 0.3, 0)
 	await _snap("08_x", 15)
@@ -1947,6 +2015,28 @@ func _run_shots() -> void:
 	# combat : Pas de l'ombre en chaîne
 	_put_hero_near(2, 6.0)
 	await _snap("10_combat", 50)
+	var victim := hero.nearest_enemy(20.0)
+	if victim:
+		victim.take_damage(25, hero)
+		await get_tree().physics_frame
+		print("HPBAR pv=%.0f/%.0f fill=%.2f" % [victim.hp, victim.max_hp, float((victim.hp_fill.material_override as ShaderMaterial).get_shader_parameter("fill"))])
+	hero.mp = 100
+	hero.telekinesis()
+	await _snap("10b_telekinesie", 22)
+	await _snap("10c_telekinesie_impact", 50)
+	# esquive parfaite
+	hero.cd["roll"] = 0.0
+	hero.roll()
+	hero.take_damage(10, victim)
+	await _snap("10d_esquive_parfaite", 10)
+	# frappe plongeante
+	hero.global_position += Vector3(0, 7, 0)
+	hero.airborne = true
+	hero.cd["attack"] = 0.0
+	await get_tree().physics_frame
+	hero.attack()
+	await _snap("10e_plongeon", 8)
+	await _snap("10f_plongeon_impact", 20)
 	hero.mp = 100
 	hero.shadow_step()
 	await _snap("11_pas_ombre_1", 8)
@@ -1969,6 +2059,11 @@ func _run_shots() -> void:
 	hero.points = 3
 	_toggle_menu("stats")
 	await _snap("19_panneau_stats", 10)
+	essence = 20
+	_toggle_menu("grimoire")
+	await _snap("19b_grimoire", 10)
+	_upgrade_power("tele")
+	print("GRIMOIRE tele=%d essences=%d" % [hero.powers["tele"], essence])
 	menu_panel.visible = false
 	# combat des ombres + célébration
 	_put_hero_near(3, 9.0)
