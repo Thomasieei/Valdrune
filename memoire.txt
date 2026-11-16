@@ -1,0 +1,40 @@
+Applications Memory Usage (in Kilobytes):
+Uptime: 141995 Realtime: 141995
+
+** MEMINFO in pid 3204 [fr.thomas.studiolab] **
+                   Pss  Private  Private  SwapPss      Rss     Heap     Heap     Heap
+                 Total    Dirty    Clean    Dirty    Total     Size    Alloc     Free
+                ------   ------   ------   ------   ------   ------   ------   ------
+  Native Heap    27198    24876     2312    69632    28528   126456   100297    12689
+  Dalvik Heap     1432     1272      140     1576     2664     4769     2401     2368
+ Dalvik Other      256      200       20     1125     1400                           
+        Stack      240      208       32      316      244                           
+       Ashmem       13        0        0        0      536                           
+    Other dev        4        0        4        0      256                           
+     .so mmap     8292      348     7404     1010    22060                           
+    .jar mmap      188        0        0        0    12084                           
+    .apk mmap       12        0        0        0      360                           
+    .dex mmap      303       68      232     4676      728                           
+    .oat mmap      234        0       16        0     8924                           
+    .art mmap      428      100      148      419    11924                           
+   Other mmap       17        8        0        0      328                           
+      Unknown      837      452      384     1364     1108                           
+        TOTAL   119572    27532    10692    80118    91144   131225   102698    15057
+ 
+ App Summary
+                       Pss(KB)                        Rss(KB)
+                        ------                         ------
+           Java Heap:     1520                          14588
+         Native Heap:    24876                          28528
+                Code:     8068                          44256
+               Stack:      208                            244
+            Graphics:        0                              0
+       Private Other:     3552
+              System:    81348
+             Unknown:                                    3528
+ 
+           TOTAL PSS:   119572            TOTAL RSS:    91144       TOTAL SWAP PSS:    80118
+ 
+ Objects
+               Views:        8         ViewRootImpl:        1
+         AppContexts:        5           Activities:        1
