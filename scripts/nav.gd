@@ -19,8 +19,8 @@ func _make_mesh() -> NavigationMesh:
 	var nm := NavigationMesh.new()
 	nm.cell_size = NavigationServer3D.map_get_cell_size(map)
 	nm.cell_height = NavigationServer3D.map_get_cell_height(map)
-	nm.agent_radius = 0.45
-	nm.agent_height = 1.6
+	nm.agent_radius = 0.5
+	nm.agent_height = 1.75
 	nm.agent_max_climb = 0.5
 	nm.agent_max_slope = 46.0
 	nm.region_min_size = 6.0

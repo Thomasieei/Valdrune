@@ -366,6 +366,10 @@ func _spawn_chief(p: Vector3, look: Vector3) -> void:
 		aura.position.y = 2.0
 		chief.add_child(aura)
 
+## La forteresse d'Igris (orcs) donne des jetons orques.
+func tok_kind() -> String:
+	return "goblin" if kind == "goblin" else "orc"
+
 func room() -> Dictionary:
 	return rooms[cur]
 
@@ -475,7 +479,7 @@ func on_kill(m: Mob) -> void:
 	elif randf() < 0.6:
 		n = 1
 	if n > 0:
-		main.add_tokens(kind, n, m.global_position)
+		main.add_tokens(tok_kind(), n, m.global_position)
 		run_tokens += n
 	if m == chief:
 		_on_chief_dead()
@@ -508,7 +512,7 @@ func open_chest() -> void:
 	var g := (500 if kind == "goblin" else 900) * (1 + over)
 	main.gold += g
 	main.essence += 4 + over * 4
-	main.add_tokens(kind, 5 * (1 + over), p)
+	main.add_tokens(tok_kind(), 5 * (1 + over), p)
 	run_tokens += 5 * (1 + over)
 	main.sfx("chest")
 	main.sfx("victory")

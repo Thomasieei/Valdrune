@@ -193,6 +193,8 @@ func _ready() -> void:
 		set_process_input(false)
 		return
 	get_tree().node_added.connect(_on_node_added)
+	# pas d'« effet boule de neige » : si une image est lente, on ne rattrape pas 8 pas de physique d'un coup
+	Engine.max_physics_steps_per_frame = 3
 	shots_mode = OS.get_cmdline_user_args().has("--shots")
 	audio = GameAudio.new()
 	add_child(audio)
@@ -1504,7 +1506,7 @@ func _build_camera() -> void:
 	cam_pivot.add_child(spring)
 	cam = Camera3D.new()
 	cam.fov = base_fov
-	cam.far = 700.0
+	cam.far = 320.0
 	spring.add_child(cam)
 	cam.current = true
 

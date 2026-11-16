@@ -5,8 +5,8 @@ extends Node
 ## l'un après l'autre : on voit ce qui coûte vraiment (ombres portées, lueur, particules,
 ## lumières, animations, barres de vie, résolution, monstres lointains).
 
-const WARM := 45          # images ignorées après chaque changement
-const MEASURE := 150      # images mesurées
+var WARM := 45           # images ignorées après chaque changement
+var MEASURE := 150       # images mesurées (réduit en CI : rendu logiciel très lent)
 
 var main
 var results: Array = []
@@ -30,6 +30,9 @@ func run(on_device: bool) -> void:
 		return
 	running = true
 	results.clear()
+	if not on_device:
+		WARM = 4
+		MEASURE = 8
 	_make_panel()
 	_say("Préparation du combat de test…")
 	var h: Hero = main.hero
@@ -56,24 +59,41 @@ func run(on_device: bool) -> void:
 	FX.particles_on = true
 	var lights := _all(main, "OmniLight3D")
 	for l in lights:
-		(l as Light3D).visible = false
+		if is_instance_valid(l):
+			(l as Light3D).visible = false
 	await _measure("Sans lumières ponctuelles")
 	for l in lights:
-		(l as Light3D).visible = true
+		if is_instance_valid(l):
+			(l as Light3D).visible = true
 	main.bars_hidden = true
 	await _measure("Sans barres de vie / noms")
 	main.bars_hidden = false
 	var aps := _all(main, "AnimationPlayer")
 	for a in aps:
-		(a as AnimationPlayer).speed_scale = 0.0
+		if is_instance_valid(a):
+			(a as AnimationPlayer).speed_scale = 0.0
 	await _measure("Animations figées")
 	for a in aps:
-		(a as AnimationPlayer).speed_scale = 1.0
+		if is_instance_valid(a):
+			(a as AnimationPlayer).speed_scale = 1.0
 	var vp: Viewport = main.get_viewport()
 	var sc: float = vp.scaling_3d_scale
 	vp.scaling_3d_scale = 0.7
 	await _measure("Résolution 3D 70 %")
 	vp.scaling_3d_scale = sc
+	var aa := vp.msaa_3d
+	vp.msaa_3d = Viewport.MSAA_DISABLED
+	await _measure("Sans anticrénelage (MSAA)")
+	vp.msaa_3d = aa
+	var cam: Camera3D = main.cam
+	var far := cam.far
+	cam.far = 180.0
+	await _measure("Distance d'affichage 180 m")
+	cam.far = far
+	var tps := Engine.physics_ticks_per_second
+	Engine.physics_ticks_per_second = 30
+	await _measure("Physique 30 Hz (au lieu de 60)")
+	Engine.physics_ticks_per_second = tps
 	var frozen: Array = []
 	for m in main.mobs:
 		var mm := m as Mob

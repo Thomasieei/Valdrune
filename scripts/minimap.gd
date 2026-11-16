@@ -6,8 +6,14 @@ const R := 82.0
 const RANGE := 55.0
 var main
 
-func _process(_d: float) -> void:
-	queue_redraw()
+var _t := 0.0
+
+func _process(d: float) -> void:
+	# 12 rafraîchissements par seconde suffisent (avant : à chaque image)
+	_t -= d
+	if _t <= 0.0:
+		_t = 0.083
+		queue_redraw()
 
 func _to_map(p: Vector3) -> Vector2:
 	var h: Vector3 = main.hero.global_position
