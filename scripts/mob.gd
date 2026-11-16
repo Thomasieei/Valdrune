@@ -46,6 +46,22 @@ var strafe_dir := 1.0
 var strafe_t := 0.0
 var squad: Dictionary = {}     # groupe de chasseurs partagé
 var low_said := false
+# rang des ombres (E..S) : tout en dépend (PV, dégâts, soins, provocation)
+var grade := 0
+var boost_t := 0.0
+var cheer_t := 3.0
+var cast_t := 0.0
+var cast_total := 1.0
+var cast_kind := ""
+var cast_target = null
+var cast_spot := Vector3.ZERO
+var cast_bar: Node3D
+var cast_fill: MeshInstance3D
+var book: Node3D
+const GRADES := ["E", "D", "C", "B", "A", "S"]
+const GMUL := [0.5, 0.75, 1.0, 1.3, 1.7, 2.2]
+const HEAL_PCT := [0.008, 0.014, 0.022, 0.032, 0.042, 0.055]
+const TAUNT_P := [0.35, 0.55, 0.75, 0.9, 1.0, 1.0]
 var sleeping_lod := false
 var patrol_off := Vector3.ZERO
 const HUNTER_HAND := Transform3D(Vector3(-0.38058, -0.04610, -118.25440), Vector3(-9.10295, -117.90413, 0.07526), Vector3(-117.90353, 9.10315, 0.37590), Vector3(40.22297, 8.74491, 1.63814))
@@ -62,13 +78,13 @@ const HL := {
 const IDLE_LINES := ["Tu sens ça ? Une odeur d'humain...", "Le chef veut plus de crânes.", "Ces humains et leurs tours... ridicule.", "J'ai faim. Encore.", "Chut ! Quelque chose bouge.", "La brèche s'ouvre bientôt. On sera libres.", "Encore une ronde... j'en ai marre."]
 
 const LINES := {
-	"aggro": ["Un humain ? Ici ? Quelle blague.", "Ta race n'est que nourriture.", "Approche, viande. Je vais t'apprendre ta place.", "Les humains rampent. Toi aussi, bientôt.", "Oh ? Le repas vient à nous."],
-	"hit": ["Tu oses me toucher ?!", "Insecte !", "Ce n'est qu'une égratignure !", "Tu vas le regretter, humain.", "Pathétique... c'est tout ?"],
-	"death": ["Impossible... un humain...", "Ce n'est... pas fini...", "Les autres... te dévoreront..."],
-	"flee": ["À moi ! L'humain est fort !", "Repli ! Prévenez les autres !"],
-	"orc": ["FAIBLE !", "JE VAIS T'ÉCRASER COMME UN VER !", "Un humain qui se croit guerrier... HA !"],
-	"heal": ["Relève-toi, frère. Il n'est qu'humain.", "Les esprits nous soutiennent !"],
-	"kill": ["Pathétique.", "Encore un humain de moins."],
+	"aggro": ["Encore un chasseur. Ils finissent tous pareil.", "Tu sens la peur, humain. Et autre chose... de froid.", "Recule. Ce quartier est à nous depuis l'ouverture.", "On t'a vu venir. Le vent porte ton odeur.", "Ils t'ont envoyé seul ? Ton Association te méprise."],
+	"hit": ["Tch... tu frappes juste.", "Pas mal. Pour un humain.", "Ça... ça brûle !", "Tu vas le payer !"],
+	"death": ["Je reverrai... nos forêts...", "Ce n'est... qu'un début...", "La Brèche... se souviendra de toi..."],
+	"flee": ["Il est trop fort ! À moi !", "Repli ! Prévenez le clan !"],
+	"orc": ["Montre-moi ta force !", "Viens ! Que le plus fort vive !", "Ton épée est petite, humain."],
+	"heal": ["Tiens bon, frère.", "Les esprits ne t'ont pas encore abandonné."],
+	"kill": ["Un de moins.", "Repose-toi, chasseur. Tu as essayé."],
 }
 
 func configure(k: String, shadow := false) -> void:
@@ -89,7 +105,10 @@ func configure(k: String, shadow := false) -> void:
 			display_name = "Orc brute"
 			rank = "E+"
 			max_hp = 320; dmg = 20; speed = 2.9; body_r = 0.75; arm = 0.9; atk_rate = 2.1; reward_gold = 25
-			setup_model("res://assets/orc.glb", 0.088, Color(1, 0.12, 0.1), 0.16)
+			setup_model("res://assets/orc.glb", 0.088 * (1.0 if shadow else 1.18), Color(1, 0.12, 0.1), 0.16)
+			if not shadow:
+				body_r = 0.88
+				max_hp = 380
 			_hide_orc_weapon()
 		"guard":
 			display_name = "Garde de l'Association"
@@ -372,7 +391,9 @@ func _nearest_enemy(r: float) -> Unit:
 
 func set_target(t: Unit) -> void:
 	if target == null and t != null:
-		say("aggro", 0.7)
+		if team == 1 and t == main.hero and (elite or kind == "orc" or kind == "shaman" or randf() < 0.3):
+			main.try_parley(self)
+		say("aggro", 0.2)
 		if kind == "hunter":
 			fought = true
 			low_said = false
@@ -436,9 +457,23 @@ func _think(delta: float) -> void:
 		return
 	if _try_skills(d):
 		return
+	# positionnement : le chaman reste derrière son tank, l'orc s'interpose devant ses alliés
+	if kind == "shaman" and not is_shadow:
+		var tank := _ally_tank()
+		if tank:
+			var behind := tank.global_position + (tank.global_position - target.global_position).normalized() * 3.5
+			behind.y = global_position.y
+			if global_position.distance_to(behind) > 1.5 and gap_to(target) > 3.0:
+				_move_towards(behind, speed, delta)
+				return
+	if kind == "orc" and not is_shadow and gap_to(target) > arm + 0.4:
+		var cover := _cover_point()
+		if cover != Vector3.INF:
+			_move_towards(cover, speed * 1.1, delta)
+			return
 	var want_gap := arm * 0.8
 	if kind == "shaman" and not is_shadow:
-		want_gap = 5.5
+		want_gap = 6.5
 	var gap := gap_to(target)
 	if gap > want_gap + 0.25:
 		_move_towards(_flank_point(), speed * (1.25 if gap > 4.0 else 1.0), delta)
@@ -458,6 +493,27 @@ func _think(delta: float) -> void:
 			_strafe(Vector3(-rel.z, 0, rel.x) * strafe_dir, speed * 0.42, delta)
 		else:
 			play("Idle", 0.2)
+
+func _ally_tank() -> Mob:
+	for u in _allies():
+		var a := u as Mob
+		if a and a != self and not a.dead and a.kind == "orc" and a.global_position.distance_to(global_position) < 14.0:
+			return a
+	return null
+
+## Point entre la cible et les alliés fragiles (chamans) : l'orc bloque le passage.
+func _cover_point() -> Vector3:
+	var acc := Vector3.ZERO
+	var n := 0
+	for u in _allies():
+		var a := u as Mob
+		if a and not a.dead and a.kind == "shaman" and a.global_position.distance_to(global_position) < 14.0:
+			acc += a.global_position
+			n += 1
+	if n == 0:
+		return target.global_position
+	var c := acc / n
+	return target.global_position + (c - target.global_position).normalized() * (target.body_r + body_r + arm * 0.7)
 
 ## Déplacement en gardant la cible en face (pas latéraux, recul).
 func _strafe(dir: Vector3, spd: float, delta: float) -> void:
@@ -482,19 +538,24 @@ func _shadow_think(delta: float) -> void:
 		if recover_t <= 0.0:
 			_reemerge()
 		return
+	boost_t -= delta
+	if cast_t > 0.0:
+		_cast_update(delta)
+		return
 	if busy > 0.0 or hit_stun > 0.0:
 		return
 	# blessée : elle rentre dans l'ombre du héros pour se régénérer
-	if hp < max_hp * 0.25 and not boss:
+	if hp < max_hp * 0.2 and not boss:
 		recover_t = 8.0
 		visible = false
 		collision_layer = 0
 		FX.shadow_puff(main, global_position)
 		main.system_msg("%s se replie dans ton ombre." % display_name)
 		return
-	var dom: float = h.domain_r()
 	if role == "heal" and _heal_skills():
 		return
+	var dom: float = h.domain_r()
+	var mode: String = main.army_mode
 	match order:
 		"follow":
 			target = null
@@ -516,8 +577,13 @@ func _shadow_think(delta: float) -> void:
 			elif target == null or target.dead:
 				order = "auto"
 		_:
-			if target == null or target.dead or target.global_position.distance_to(h.global_position) > dom + 3.0:
-				target = _protect_target(dom)
+			if mode == "stay":
+				target = null
+				_stay(delta)
+				return
+			var reach := dom + 3.0 if mode != "attack" else 32.0
+			if target == null or target.dead or target.global_position.distance_to(h.global_position) > reach:
+				target = _pick_target(reach) if mode == "attack" else _protect_target(dom)
 	if target == null or target.dead:
 		target = null
 		if fought:
@@ -529,53 +595,121 @@ func _shadow_think(delta: float) -> void:
 	fought = true
 	_role_combat(delta)
 
-## Combat selon le rôle de l'ombre.
+## Cible choisie selon le rôle quand le Monarque envoie l'armée.
+func _pick_target(r: float) -> Unit:
+	var h: Unit = main.hero
+	var best: Unit = null
+	var bs := -1e9
+	for u in _enemies():
+		var e := u as Unit
+		if e.dead or e.global_position.distance_to(h.global_position) > r:
+			continue
+		var d := e.global_position.distance_to(global_position)
+		var sc := -d
+		var em := e as Mob
+		match role:
+			"tank":
+				# le tank prend ce qui menace le héros et les soigneurs
+				sc = -e.global_position.distance_to(h.global_position)
+				if em and em.target == h:
+					sc += 6.0
+			"fire":
+				sc = -d * 0.4 - e.hp / maxf(e.max_hp, 1.0) * 6.0
+			"melee":
+				if em and em.target is Mob and (em.target as Mob).role == "tank":
+					sc += 5.0
+		if em and em.kind == "shaman" and role != "tank":
+			sc += 3.0
+		if sc > bs:
+			bs = sc
+			best = e
+	return best
+
+## « Restez » : formation derrière le héros, ils encouragent de loin.
+func _stay(delta: float) -> void:
+	_follow(delta)
+	cheer_t -= delta
+	if cheer_t <= 0.0:
+		cheer_t = randf_range(5.0, 10.0)
+		var foe := _nearest_enemy(22.0)
+		if foe and not moving and randf() < 0.55:
+			busy = 1.6
+			face_to(foe.global_position, true)
+			play("Cheer" if ap and ap.has_animation("Cheer") else "Celebrate", 0.15, 1.0, true)
+			if randf() < 0.25 and main.speech_cd <= 0.0:
+				main.speech_cd = 4.0
+				FX.speech(self, ["Montre-leur, Monarque !", "Gloire à notre Seigneur !", "Ils tremblent devant toi !", "...!"][randi() % 4], Color(0.75, 0.6, 1.0), 2.2, 1.8)
+
+## Combat selon le rôle : chacun a sa place.
 func _role_combat(delta: float) -> void:
+	var h: Unit = main.hero
 	var d := global_position.distance_to(target.global_position)
-	face_to(target.global_position, false, delta)
+	var spd := speed * (1.7 if boost_t > 0.0 else 1.15)
+	var to_h := h.global_position - target.global_position
+	to_h.y = 0
+	to_h = to_h.normalized() if to_h.length() > 0.1 else -target.forward()
+	var right := Vector3(to_h.z, 0, -to_h.x)
+	var idx: int = main.shadow_list().find(self)
 	match role:
-		"tank":
-			if _tank_skills():
-				return
 		"fire":
 			if _fire_skills(d):
 				return
-			if d > 10.0:
-				_move_towards(target.global_position, speed, delta)
-			elif d < 5.0:
-				_strafe(global_position - target.global_position, speed * 0.8, delta)
+			# ligne arrière, côté héros, écartés les uns des autres
+			var slot := target.global_position + to_h * 8.5 + right * (2.2 if idx % 2 == 0 else -2.2)
+			if global_position.distance_to(slot) > 1.4:
+				_move_towards(slot, spd, delta)
 			else:
+				face_to(target.global_position, false, delta)
 				play("Idle", 0.2)
 			return
 		"heal":
-			if d < 5.0:
-				_strafe(global_position - target.global_position, speed * 0.8, delta)
-			elif d > 11.0:
-				_move_towards(target.global_position, speed, delta)
-			elif skill_cd <= 0.0:
-				skill_cd = 2.2
-				busy = 0.6
-				play("Cast", 0.08, 1.2, true)
-				later(0.3, _fire_orb.bind(target))
+			# reste en retrait derrière le héros, hors de portée des monstres
+			var back := h.global_position + to_h * 3.5 + right * 1.5
+			var near_foe := _nearest_enemy(5.0)
+			if near_foe:
+				var away := global_position - near_foe.global_position
+				away.y = 0
+				_move_towards(global_position + away.normalized() * 3.0, spd, delta)
+			elif global_position.distance_to(back) > 1.5:
+				_move_towards(back, spd, delta)
 			else:
+				face_to(target.global_position, false, delta)
 				play("Idle", 0.2)
+			return
+		"tank":
+			if _tank_skills():
+				return
+			# se place face à l'ennemi, côté héros : le corps entre le monstre et le Monarque
+			var guard_pt := target.global_position + to_h * (target.body_r + body_r + arm * 0.6)
+			if gap_to(target) > arm * 0.8 + 0.25 or global_position.distance_to(guard_pt) > 1.6:
+				_move_towards(guard_pt, spd, delta)
+				return
+			face_to(target.global_position, false, delta)
+			if atk_cd <= 0.0 and in_reach(target):
+				_basic_attack()
+			else:
+				play("Block" if ap and ap.has_animation("Block") else "Idle", 0.2)
 			return
 	if boss and _try_skills(d):
 		return
 	if back_t > 0.0:
 		back_t -= delta
-		_strafe(global_position - target.global_position, speed * 0.7, delta)
+		_strafe(global_position - target.global_position, speed * 0.8, delta)
 		return
+	# lames : contournent et frappent dans le dos, puis se dégagent (pas de mêlée brouillonne)
 	var goal := target.global_position
-	if role == "melee" and target is Mob and (target as Mob).target != self:
-		# la lame contourne pour frapper dans le dos
-		goal = target.global_position - target.forward() * (target.body_r + body_r + 0.3)
+	if target is Mob and (target as Mob).target != self:
+		var side := 1.0 if idx % 2 == 0 else -1.0
+		goal = target.global_position - target.forward() * (target.body_r + body_r + 0.4) + target.forward().cross(Vector3.UP) * side * 0.7
 	if gap_to(target) > arm * 0.8 + 0.25:
-		_move_towards(goal, speed * 1.2, delta)
+		_move_towards(goal, spd, delta)
 	else:
+		face_to(target.global_position, false, delta)
 		play("Idle", 0.2)
 		if in_reach(target) and atk_cd <= 0.0:
 			_basic_attack()
+			if randf() < 0.3:
+				later(0.6, _set_back.bind(0.45))
 
 # ---------------------------------------------------------------- pouvoirs des rôles
 func _tank_skills() -> bool:
@@ -584,16 +718,14 @@ func _tank_skills() -> bool:
 		var e := u as Mob
 		if e != null and not e.dead and e.target != self and e.global_position.distance_to(global_position) < 9.0:
 			threat += 1
-	# Provocation : cri, aura rouge, force l'aggro de tout ce qui l'entoure
 	if skill_cd <= 0.0 and threat > 0:
-		skill_cd = 9.0
-		busy = 1.0
-		play("Roar" if ap and ap.has_animation("Roar") else "Cast", 0.08, 1.0, true)
-		later(0.3, _taunt)
+		skill_cd = 11.0 - grade
+		busy = 1.1
+		play("Roar" if ap and ap.has_animation("Roar") else "Cheer", 0.08, 1.0, true)
+		later(0.35, _taunt)
 		return true
-	# Fracas : zone rouge puis frappe circulaire
 	if skill2_cd <= 0.0 and global_position.distance_to(target.global_position) < 4.0:
-		skill2_cd = 8.0
+		skill2_cd = 9.0
 		busy = 1.5
 		FX.telegraph(main, global_position, 3.4, 0.8, Color(1, 0.12, 0.08))
 		play("Slam" if ap and ap.has_animation("Slam") else "Attack", 0.08, 1.4, true)
@@ -608,9 +740,13 @@ func _taunt() -> void:
 	main.sfx("slam", global_position, -4.0)
 	main.shake(0.12)
 	var n := 0
+	var chance: float = TAUNT_P[grade] if is_shadow else 0.8
 	for u in _enemies():
 		var e := u as Mob
 		if e != null and not e.dead and not e.boss and e.global_position.distance_to(global_position) < 9.0:
+			if randf() > chance:
+				FX.damage_number(main, e.global_position + Vector3(0, 0.6, 0), "IGNORE", Color(0.8, 0.8, 0.8), false)
+				continue
 			e.target = self
 			e.dormant = false
 			n += 1
@@ -649,9 +785,9 @@ func _fire_skills(d: float) -> bool:
 			print("FIRE_RAIN ", spots.size())
 			return true
 	if skill_cd <= 0.0 and d < 14.0:
-		skill_cd = 2.8
+		skill_cd = 3.4 - grade * 0.3
 		busy = 0.9
-		play("Cast", 0.08, 0.9, true)
+		play("CastShoot" if ap and ap.has_animation("CastShoot") else "Cast", 0.08, 0.8, true)
 		var from := global_position + Vector3(0, 1.4, 0) + forward() * 0.6
 		FX.fireball(main, from, target.global_position + Vector3(0, 0.9, 0), _fire_splash.bind(1.5, 1.8), 0.4)
 		main.sfx("orb", global_position, -4.0)
@@ -665,55 +801,131 @@ func _fire_splash(p: Vector3, mult: float, r: float) -> void:
 		if not e.dead and Vector2(e.global_position.x - p.x, e.global_position.z - p.z).length() < r + e.body_r and absf(e.global_position.y - p.y) < 2.5:
 			e.take_damage(dmg * mult * randf_range(0.9, 1.1), self)
 
+## Soigneur : ne soigne que les ombres et le Monarque, seulement s'ils en ont vraiment besoin.
+## Incantation avec barre, bras levé et grimoire ; puissance selon le rang de l'ombre.
 func _heal_skills() -> bool:
-	if busy > 0.0:
+	if busy > 0.0 or cast_t > 0.0:
 		return false
 	var worst: Unit = null
 	var wr := 1.0
 	var hurt := 0
 	for u in main.units_of_team(0):
 		var a := u as Unit
-		if a.dead or a.global_position.distance_to(global_position) > 14.0:
+		if a.dead or (a is Mob and not (a as Mob).is_shadow) or a.global_position.distance_to(global_position) > 15.0:
 			continue
 		var r := a.hp / a.max_hp
-		if r < 0.8:
+		if r < 0.7:
 			hurt += 1
 		if r < wr:
 			wr = r
 			worst = a
 	if worst == null:
 		return false
-	if skill2_cd <= 0.0 and (wr < 0.65 or hurt >= 2):
-		skill2_cd = 10.0
-		busy = 1.0
-		play("Cast", 0.08, 0.7, true)
-		FX.speech(self, "Restez dans le cercle !", Color(0.5, 1.0, 0.6), 2.4, 1.8)
-		later(0.4, _heal_zone.bind(worst.global_position))
+	var heal_cd_mul := 1.0 - grade * 0.08
+	if skill2_cd <= 0.0 and ((hurt >= 2 and wr < 0.7) or wr < 0.5):
+		skill2_cd = 13.0 * heal_cd_mul
+		_start_cast("zone", worst, 1.7 - grade * 0.15)
 		return true
-	if skill3_cd <= 0.0 and wr < 0.5:
-		skill3_cd = 5.0
-		busy = 0.7
-		face_to(worst.global_position, true)
-		play("Cast", 0.08, 1.0, true)
-		later(0.3, _heal.bind(worst))
+	if skill3_cd <= 0.0 and wr < 0.55:
+		skill3_cd = 6.0 * heal_cd_mul
+		_start_cast("single", worst, 1.2 - grade * 0.1)
 		return true
 	return false
+
+func _start_cast(kind_c: String, who: Unit, t: float) -> void:
+	cast_kind = kind_c
+	cast_target = who
+	cast_spot = who.global_position
+	cast_t = t
+	cast_total = t
+	face_to(who.global_position, true)
+	play("CastLoop" if ap and ap.has_animation("CastLoop") else "Cast", 0.12, 1.0, true)
+	_show_cast_bar(true)
+	if book:
+		book.visible = true
+	if kind_c == "zone":
+		FX.telegraph(main, cast_spot, 3.0, t, Color(0.3, 1.0, 0.45))
+
+func _cast_update(delta: float) -> void:
+	cast_t -= delta
+	if cast_fill:
+		(cast_fill.material_override as ShaderMaterial).set_shader_parameter("fill", 1.0 - cast_t / cast_total)
+	if cast_t > 0.0:
+		return
+	_show_cast_bar(false)
+	busy = 0.5
+	play("CastShoot" if ap and ap.has_animation("CastShoot") else "Cast", 0.06, 1.0, true)
+	var w = cast_target
+	if cast_kind == "zone":
+		_heal_zone(cast_spot)
+	elif is_instance_valid(w) and not (w as Unit).dead:
+		_heal_single(w as Unit)
+
+func _show_cast_bar(on: bool) -> void:
+	if cast_bar == null:
+		cast_bar = Node3D.new()
+		cast_bar.position.y = 2.45
+		add_child(cast_bar)
+		var bg := MeshInstance3D.new()
+		var q := QuadMesh.new()
+		q.size = Vector2(0.9, 0.09)
+		bg.mesh = q
+		var bm := FX.mat(Color(0, 0, 0), 0.0, 0.75)
+		bm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		bg.material_override = bm
+		cast_bar.add_child(bg)
+		cast_fill = MeshInstance3D.new()
+		var q2 := QuadMesh.new()
+		q2.size = Vector2(0.86, 0.06)
+		cast_fill.mesh = q2
+		var sh := ShaderMaterial.new()
+		sh.shader = BAR_SHADER
+		sh.set_shader_parameter("col", Color(0.35, 1.0, 0.5))
+		sh.set_shader_parameter("fill", 0.0)
+		sh.render_priority = 2
+		cast_fill.material_override = sh
+		cast_bar.add_child(cast_fill)
+		var lb := Label3D.new()
+		lb.text = "Soin"
+		lb.font_size = 28
+		lb.pixel_size = 0.0008
+		lb.fixed_size = true
+		lb.outline_size = 6
+		lb.modulate = Color(0.6, 1.0, 0.7)
+		lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		lb.position.y = 0.13
+		cast_bar.add_child(lb)
+	cast_bar.visible = on
+	if book:
+		book.visible = on or role == "heal"
+
+func _heal_single(a: Unit) -> void:
+	var amt: float = a.max_hp * HEAL_PCT[grade] * 11.0
+	FX.trail(main, global_position + Vector3(0, 0.4, 0), a.global_position + Vector3(0, 0.2, 0), Color(0.4, 1.0, 0.5))
+	FX.heal_zone(main, a.global_position, 1.0, 0.6)
+	FX.burst(main, a.global_position + Vector3(0, 1.0, 0), Color(0.45, 1.0, 0.55), 26, 0.08, 1.8, 0.8, -2.0)
+	a.hp = minf(a.max_hp, a.hp + amt)
+	a.update_hp_bar()
+	FX.damage_number(main, a.global_position, "+%d" % int(amt), Color(0.4, 1.0, 0.5))
+	main.sfx("levelup", a.global_position, -14.0)
 
 func _heal_zone(spot: Vector3) -> void:
 	FX.heal_zone(main, spot, 3.0, 5.0)
 	main.sfx("levelup", spot, -10.0)
-	print("HEAL_ZONE")
+	print("HEAL_ZONE rang=%s" % GRADES[grade])
 	for k in 10:
 		later(0.5 * k + 0.3, _heal_tick.bind(spot))
 
 func _heal_tick(spot: Vector3) -> void:
 	for u in main.units_of_team(0):
 		var a := u as Unit
-		if not a.dead and a.global_position.distance_to(spot) < 3.2 and a.hp < a.max_hp:
-			var v := a.max_hp * 0.035
+		if a.dead or (a is Mob and not (a as Mob).is_shadow):
+			continue
+		if a.global_position.distance_to(spot) < 3.2 and a.hp < a.max_hp:
+			var v: float = a.max_hp * HEAL_PCT[grade]
 			a.hp = minf(a.max_hp, a.hp + v)
 			a.update_hp_bar()
-			FX.damage_number(main, a.global_position, "+%d" % int(v), Color(0.4, 1.0, 0.5))
+			FX.damage_number(main, a.global_position, "+%d" % maxi(int(v), 1), Color(0.4, 1.0, 0.5))
 
 ## Réduction de dégâts (tanks), parade (lames, chasseurs).
 func take_damage(amount: float, from: Unit, crit := false) -> void:
@@ -721,7 +933,7 @@ func take_damage(amount: float, from: Unit, crit := false) -> void:
 		return
 	if role == "tank":
 		amount *= 0.45 if taunt_t > 0.0 else (0.6 if is_shadow else 0.75)
-	if (role == "melee" or kind == "hunter") and busy <= 0.0 and invuln <= 0.0 and from != null and randf() < 0.3:
+	if (role == "melee" or kind == "hunter" or (role == "tank" and not is_shadow)) and busy <= 0.0 and invuln <= 0.0 and from != null and randf() < (0.3 if role != "tank" else 0.22):
 		var to_from := from.global_position - global_position
 		to_from.y = 0
 		if forward().dot(to_from.normalized()) > 0.3:
@@ -1197,7 +1409,7 @@ func on_hit(from: Unit) -> void:
 	dormant = false
 	if target == null and from:
 		set_target(from)
-	say("hit", 0.25)
+	say("hit", 0.08)
 	if boss:
 		return
 	super.on_hit(from)
@@ -1251,6 +1463,75 @@ func rise_as_shadow(forced_role := "") -> void:
 		ap.speed_scale = 1.6
 	later(1.6, play.bind("Idle", 0.2, 1.0, true))
 
+## Grimoire de soin tenu dans la main gauche (couverture sombre, pages, runes vertes).
+func _attach_book() -> void:
+	var skl := model.find_children("*", "Skeleton3D", true, false)
+	if skl.is_empty():
+		return
+	var sk := skl[0] as Skeleton3D
+	var bi := -1
+	for i in sk.get_bone_count():
+		var n := sk.get_bone_name(i)
+		if n.ends_with("L Hand") or n.ends_with("LeftHand") or n == "hand_l":
+			bi = i
+			break
+	if bi < 0:
+		return
+	var att := BoneAttachment3D.new()
+	sk.add_child(att)
+	att.bone_idx = bi
+	book = Node3D.new()
+	att.add_child(book)
+	var gs := sk.global_transform.basis.get_scale().x
+	book.scale = Vector3.ONE / maxf(gs, 0.0001)
+	var cover := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.24, 0.05, 0.32)
+	cover.mesh = bm
+	cover.material_override = FX.mat(Color(0.12, 0.05, 0.2), 0.4, 1.0, false)
+	book.add_child(cover)
+	var pages := MeshInstance3D.new()
+	var pm := BoxMesh.new()
+	pm.size = Vector3(0.21, 0.055, 0.29)
+	pages.mesh = pm
+	pages.material_override = FX.mat(Color(0.9, 0.95, 0.8), 0.3, 1.0, false)
+	pages.position.x = 0.01
+	book.add_child(pages)
+	var rune := MeshInstance3D.new()
+	var rq := QuadMesh.new()
+	rq.size = Vector2(0.16, 0.16)
+	rune.mesh = rq
+	var rm := FX.mat(Color(0.4, 1.0, 0.55), 3.0, 0.9)
+	rm.albedo_texture = FX.soft_disc_tex(true)
+	rune.material_override = rm
+	rune.rotation_degrees.x = -90
+	rune.position.y = 0.032
+	book.add_child(rune)
+	book.position = Vector3(0, 0.1, 0.08)
+
+## Départ de charge : traînée d'ombre au sol et petit nuage noir.
+func charge_fx() -> void:
+	if dead:
+		return
+	FX.shadow_puff(main, global_position)
+	play("Run", 0.05, 1.5, true)
+
+## Réponse du monstre après la réplique du héros, avec un effet réel sur le combat.
+func parley_reply(txt: String, which: String) -> void:
+	if dead:
+		return
+	FX.speech(self, txt, Color(1, 0.8, 0.65), 2.8 if kind != "orc" else 3.3, 3.6)
+	if which == "a":
+		dmg *= 1.25
+		speed *= 1.1
+		reward_gold *= 2
+		FX.damage_number(main, global_position + Vector3(0, 0.8, 0), "ENRAGÉ", Color(1, 0.4, 0.25), true)
+		play("Roar" if ap and ap.has_animation("Roar") else "Celebrate", 0.1, 1.0, true)
+		busy = 0.9
+	else:
+		dmg *= 0.85
+		FX.damage_number(main, global_position + Vector3(0, 0.8, 0), "ÉBRANLÉ", Color(0.6, 0.8, 1.0), true)
+
 func _auto_role() -> String:
 	match kind:
 		"orc":
@@ -1279,10 +1560,18 @@ func set_role(r: String) -> void:
 			dmg *= 0.55
 		"melee":
 			atk_rate *= 0.8
+	var base_g: int = {"goblin": 0, "shaman": 0, "orc": 1, "igris": 3}.get(kind, 0)
+	grade = clampi(base_g + (1 if elite else 0) + int(main.shadow_lvl) / 3, 0, 5)
+	max_hp *= GMUL[grade]
+	dmg *= GMUL[grade]
 	hp = max_hp
 	update_hp_bar()
 	if not boss:
-		display_name = "Ombre %s (%s)" % [str({"orc": "orc", "goblin": "gobelin", "shaman": "chaman"}.get(kind, kind)), str(ROLE_NAME.get(r, r))]
+		display_name = "Ombre %s (%s) [%s]" % [str({"orc": "orc", "goblin": "gobelin", "shaman": "chaman"}.get(kind, kind)), str(ROLE_NAME.get(r, r)), GRADES[grade]]
+	else:
+		display_name = "Igris, l'ombre écarlate [%s]" % GRADES[grade]
+	if r == "heal":
+		_attach_book()
 	var c: Color = {"tank": Color(1, 0.25, 0.2), "fire": Color(1, 0.55, 0.1), "heal": Color(0.35, 1.0, 0.5), "melee": Color(0.6, 0.35, 1.0)}.get(r, Color(0.6, 0.35, 1.0))
 	(ring.material_override as StandardMaterial3D).albedo_color = Color(c.r, c.g, c.b, 0.28)
 

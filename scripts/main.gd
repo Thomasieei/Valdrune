@@ -92,6 +92,14 @@ var base_fov := 64.0
 # inventaire
 const CD_TEX := preload("res://assets/ui/cd.png")
 var potion_lbl: Label
+var army_mode := "auto"
+var army_t := 0.0
+var parley_cd := 40.0
+var parley_box: HBoxContainer
+var parley_mob: Mob
+var parley_data: Dictionary = {}
+var parley_t := 0.0
+var tk_menu: Array = []
 var gfx_btn: Button
 var gfx_fast := false
 var fps_lbl: Label
@@ -129,7 +137,13 @@ const SAVE_PATH := "user://chasseur.json"
 const RANKS := [["E", 1, -999], ["D", 5, 40], ["C", 10, 100], ["B", 18, 200], ["A", 28, 350], ["S", 40, 600]]
 var info_box: VBoxContainer
 
+func _on_node_added(n: Node) -> void:
+	# les effets créés par code ne projettent pas d'ombre (gros gain sur la passe d'ombres)
+	if n is GeometryInstance3D and n.owner == null:
+		(n as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
 func _ready() -> void:
+	get_tree().node_added.connect(_on_node_added)
 	shots_mode = OS.get_cmdline_user_args().has("--shots")
 	audio = GameAudio.new()
 	add_child(audio)
@@ -275,7 +289,7 @@ func _build_env() -> void:
 	moon_l.light_energy = 0.75
 	moon_l.shadow_enabled = true
 	moon_l.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-	moon_l.directional_shadow_max_distance = 38.0
+	moon_l.directional_shadow_max_distance = 30.0
 	moon_l.directional_shadow_fade_start = 0.75
 	add_child(moon_l)
 
@@ -1142,6 +1156,8 @@ func _hide_near_camera() -> void:
 
 func _process(delta: float) -> void:
 	_hide_near_camera()
+	_army_tick(delta)
+	_parley_tick(delta)
 	# camps normaux : réapparition
 	for c in camps:
 		var alive := false
@@ -1379,6 +1395,149 @@ func _skill_button(layer: CanvasLayer, key: String, txt: String, center: Vector2
 	buttons[key] = {"btn": b, "shade": shade if Hero.CD_MAX.has(key) else null, "label": cdl}
 	if not Hero.CD_MAX.has(key):
 		shade.visible = false
+
+# ================================================================ ordres à l'armée
+## « À l'attaque » : le Monarque pointe les monstres, les ombres s'élancent, chacune à sa place.
+func command_attack() -> void:
+	if shadow_count() == 0 or hero.dead:
+		return
+	var foe := hero.nearest_enemy(30.0)
+	if foe == null:
+		system_msg("Aucun ennemi à portée.")
+		return
+	army_mode = "attack"
+	army_t = 0.0
+	hero.face_to(foe.global_position, true)
+	hero.busy = 0.75
+	hero.play("Point", 0.08, 1.0, true)
+	FX.speech(hero, ["Allez-y.", "Écrasez-les.", "À vous."][randi() % 3], Color(0.75, 0.6, 1.0), 2.4, 1.4)
+	sfx("shadow", hero.global_position, 0.0)
+	var ring := FX.ground_disc(1.0, Color(0.6, 0.3, 1.0), 0.9, true)
+	add_child(ring)
+	ring.global_position = hero.global_position + Vector3(0, 0.06, 0)
+	var tw := ring.create_tween()
+	tw.tween_property(ring, "scale", Vector3(9, 1, 9), 0.5).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(ring, "transparency", 1.0, 0.5)
+	tw.tween_callback(ring.queue_free)
+	var i := 0
+	for m in shadow_list():
+		var mm := m as Mob
+		mm.order = "auto"
+		mm.target = null
+		mm.boost_t = 2.2
+		mm.later(0.25 + i * 0.08, mm.charge_fx)
+		i += 1
+	print("ARMY attack ombres=%d" % shadow_count())
+
+## « Restez » : les ombres se rangent derrière le Monarque et l'encouragent.
+func command_stay() -> void:
+	if shadow_count() == 0:
+		return
+	army_mode = "stay" if army_mode != "stay" else "auto"
+	hero.play("Talk", 0.1, 1.2, true)
+	FX.speech(hero, "Restez en retrait." if army_mode == "stay" else "Protégez-moi.", Color(0.75, 0.6, 1.0), 2.4, 1.4)
+	for m in shadow_list():
+		(m as Mob).target = null
+	print("ARMY ", army_mode)
+
+func _army_tick(delta: float) -> void:
+	if army_mode != "attack":
+		return
+	if hero.nearest_enemy(30.0) == null:
+		army_t += delta
+		if army_t > 2.5:
+			army_mode = "auto"
+	else:
+		army_t = 0.0
+
+# ================================================================ répliques des monstres (rares, avec du fond)
+const PARLEYS := [
+	{"k": "orc", "open": "Tu marches sur notre forêt, humain. Avant ta ville, il y avait des arbres ici. La Brèche nous a arrachés à un monde mourant... et toi, tu viens finir le travail.",
+		"a": ["Ton monde est mort. Le mien se porte très bien.", "Alors je mourrai debout. Comme mes frères !"],
+		"s": ["Personne ne vous a demandé de traverser. Repars, et je te laisse vivre.", "Repartir ? Derrière la Brèche, il n'y a plus que le silence."]},
+	{"k": "shaman", "open": "Les esprits murmurent ton nom, chasseur. Ils disent que la Mort marche dans ton ombre. Qu'as-tu promis à ce qui te suit ?",
+		"a": ["Rien. C'est lui qui me doit tout.", "L'arrogance... C'est ainsi que commencent les rois. Et que finissent les mondes."],
+		"s": ["Je n'ai rien promis. Je survis.", "Tout le monde survit... jusqu'au jour où il faut choisir ce qu'on sacrifie."]},
+	{"k": "goblin", "open": "Vous nous appelez « rang E ». Des miettes. Mais chaque cristal que tu revends au marché... il sort de nos cœurs.",
+		"a": ["Alors ton cœur vaudra au moins huit pièces d'or.", "Rira bien qui saignera le dernier !"],
+		"s": ["Je ne chasse pas pour l'or.", "...Alors pour quoi ? Les humains se racontent toujours de belles raisons."]},
+	{"k": "elite", "open": "J'ai tué douze chasseurs dans cette rue. Ils avaient tous ce regard. Celui de quelqu'un qui se croit l'exception.",
+		"a": ["Douze ? Tu vas enfin rencontrer un vrai chasseur.", "Prouve-le. Ou deviens le treizième."],
+		"s": ["Je te crois. Mais eux ne commandaient pas aux morts.", "Les morts... ? Qu'est-ce que tu es, au juste ?"]},
+	{"k": "orc", "open": "Mon clan a juré de planter son étendard au sommet de vos tours. Ce n'est pas de la haine, humain. C'est la loi du plus fort.",
+		"a": ["Parfait. Selon ta loi, tu m'appartiens.", "HA ! Enfin un humain qui parle comme un orc !"],
+		"s": ["Alors ta loi va te tuer aujourd'hui.", "Peut-être. Mais ce sera une mort qui a du sens."]},
+	{"k": "goblin", "open": "Chut... Tu entends ? Les autres approchent. Tu crois vraiment que la Brèche ne s'ouvre qu'une fois ?",
+		"a": ["Qu'ils viennent tous. Ça m'évitera de les chercher.", "Tu changeras de ton quand le ciel deviendra rouge."],
+		"s": ["Combien êtes-vous ?", "Assez pour que vos villes brûlent... et pas assez pour la Chose qui nous chasse, nous."]},
+	{"k": "shaman", "open": "Ton ombre a faim, chasseur. Je la sens qui nous regarde. Est-ce toi qui la nourris... ou elle qui te dévore ?",
+		"a": ["Elle mange ce que je lui donne. Toi, par exemple.", "Alors que ton maître s'étouffe avec mes os !"],
+		"s": ["Je ne sais pas encore.", "...Une réponse honnête. La première depuis que j'ai traversé."]},
+]
+
+## Appelée quand un monstre repère le héros : parfois (rarement), il engage la parole.
+func try_parley(m: Mob, force := false) -> void:
+	if not force and (parley_cd > 0.0 or in_dialogue or parley_box.visible or randf() > 0.35):
+		return
+	var key := "elite" if m.elite else m.kind
+	var pool: Array = []
+	for p in PARLEYS:
+		if p["k"] == key:
+			pool.append(p)
+	if pool.is_empty():
+		return
+	parley_cd = randf_range(70.0, 120.0)
+	parley_mob = m
+	parley_data = pool[randi() % pool.size()]
+	parley_t = 7.0
+	FX.speech(m, str(parley_data["open"]), Color(1, 0.8, 0.65), 2.8 if m.kind != "orc" else 3.3, 6.5)
+	for c in parley_box.get_children():
+		c.queue_free()
+	for opt in [["Arrogant", "a", Color(1.0, 0.55, 0.35)], ["Sérieux", "s", Color(0.55, 0.75, 1.0)]]:
+		var b := _small_btn(str(opt[0]) + " : « " + str((parley_data[opt[1]] as Array)[0]).substr(0, 28) + "… »")
+		b.add_theme_font_size_override("font_size", 15)
+		b.add_theme_color_override("font_color", opt[2])
+		b.pressed.connect(_parley_answer.bind(str(opt[1])))
+		parley_box.add_child(b)
+	parley_box.visible = true
+	parley_box.modulate.a = 0.0
+	create_tween().tween_property(parley_box, "modulate:a", 1.0, 0.3)
+	print("PARLEY ", m.kind)
+
+func _parley_answer(which: String) -> void:
+	parley_box.visible = false
+	if parley_mob == null or not is_instance_valid(parley_mob) or parley_mob.dead:
+		return
+	var pair: Array = parley_data[which]
+	FX.speech(hero, str(pair[0]), Color(0.8, 0.7, 1.0), 2.4, 3.5)
+	parley_mob.later(1.6, parley_mob.parley_reply.bind(str(pair[1]), which))
+
+func _parley_tick(delta: float) -> void:
+	parley_cd -= delta
+	if parley_box and parley_box.visible:
+		parley_t -= delta
+		if parley_t <= 0.0 or parley_mob == null or not is_instance_valid(parley_mob) or parley_mob.dead:
+			parley_box.visible = false
+
+func open_tk_menu() -> void:
+	for i in tk_menu.size():
+		var b: Control = tk_menu[i]
+		b.visible = true
+		b.scale = Vector2(0.2, 0.2)
+		b.modulate.a = 0.0
+		var tw := b.create_tween().set_parallel(true)
+		tw.tween_property(b, "scale", Vector2.ONE, 0.22).set_delay(i * 0.05).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(b, "modulate:a", 1.0, 0.15).set_delay(i * 0.05)
+
+func close_tk_menu() -> void:
+	for b in tk_menu:
+		(b as Control).visible = false
+
+func _tk_pick(mode: String) -> void:
+	hero.tk_finish(mode)
+
+func print_debug_tk(mode: String, n: int) -> void:
+	print("TK %s cibles=%d" % [mode, n])
 
 func _press_anim(b: Control) -> void:
 	var tw := b.create_tween()
@@ -2062,6 +2221,16 @@ func _build_ui() -> void:
 		_skill_button(layer, str(it[0]), str(it[1]), C + Vector2(cos(ang), -sin(ang)) * 212.0, 104, it[3])
 	var ang2 := deg_to_rad(128.0)
 	_skill_button(layer, "swap", "Échange", C + Vector2(cos(ang2), -sin(ang2)) * 338.0, 92, _do_swap)
+	# mini-menu de télékinésie (apparaît autour du bouton pendant la prise)
+	var tc := C + Vector2(cos(deg_to_rad(114.0)), -sin(deg_to_rad(114.0))) * 212.0
+	tk_menu = []
+	var opts := [["tk_eject", "Éjecter", "eject", 150.0], ["tk_crush", "Écraser", "crush", 105.0], ["tk_choke", "Étrangler", "choke", 60.0]]
+	for o in opts:
+		var a2 := deg_to_rad(float(o[3]))
+		_skill_button(layer, str(o[0]), str(o[1]), tc + Vector2(cos(a2), -sin(a2)) * 128.0, 84, _tk_pick.bind(str(o[2])))
+		var bt: Control = buttons[str(o[0])]["btn"]
+		bt.visible = false
+		tk_menu.append(bt)
 	# potion : petite, à part
 	_skill_button(layer, "potion", "", C + Vector2(-330, 62), 82, _use_potion)
 	potion_btn = buttons["potion"]["btn"]
@@ -2072,6 +2241,24 @@ func _build_ui() -> void:
 	potion_lbl.position = Vector2(52, -6)
 	potion_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	potion_btn.add_child(potion_lbl)
+	# ordres à l'armée d'ombres
+	_skill_button(layer, "cmd_attack", "À l'attaque", C + Vector2(-560, -62), 80, command_attack)
+	_skill_button(layer, "cmd_stay", "Restez", C + Vector2(-462, -62), 80, command_stay)
+	# réponses rapides aux monstres (discrètes, temporaires)
+	parley_box = HBoxContainer.new()
+	parley_box.anchor_left = 0.5
+	parley_box.anchor_right = 0.5
+	parley_box.anchor_top = 1.0
+	parley_box.anchor_bottom = 1.0
+	parley_box.offset_left = -300
+	parley_box.offset_right = 300
+	parley_box.offset_top = -300
+	parley_box.offset_bottom = -252
+	parley_box.alignment = BoxContainer.ALIGNMENT_CENTER
+	parley_box.add_theme_constant_override("separation", 10)
+	parley_box.visible = false
+	layer.add_child(parley_box)
+	buttons["parley"] = {"btn": parley_box, "shade": null, "label": null}
 	# déplacement : saut + sprint côte à côte, séparés des pouvoirs
 	_skill_button(layer, "sprint", "Sprint", C + Vector2(-560, 70), 92, _toggle_sprint)
 	_skill_button(layer, "jump", "Saut", C + Vector2(-450, 70), 92, hero.jump)
@@ -2620,6 +2807,11 @@ func _update_ui() -> void:
 	potion_lbl.text = "x%d" % potions
 	for k in ["attack", "roll", "step", "tele", "arise", "potion", "sprint", "jump"]:
 		(buttons[k]["btn"] as Control).visible = not in_dialogue
+	var has_sh := shadow_count() > 0
+	(buttons["cmd_attack"]["btn"] as Control).visible = has_sh and not in_dialogue
+	(buttons["cmd_stay"]["btn"] as Control).visible = has_sh and not in_dialogue
+	(buttons["cmd_attack"]["btn"] as Control).modulate = Color(1.3, 1.2, 1.2) if army_mode == "attack" else Color(1, 1, 1)
+	(buttons["cmd_stay"]["btn"] as Control).modulate = Color(1.2, 1.2, 1.4) if army_mode == "stay" else Color(1, 1, 1)
 	(buttons["swap"]["btn"] as Button).visible = hero.powers["swap"] > 0 and not in_dialogue
 	potion_btn.modulate = Color(1, 1, 1, 1.0 if potions > 0 and potion_cd <= 0.0 else 0.45)
 	shadow_txt.text = "Ombres  %d / 4" % shadow_count()
@@ -3027,9 +3219,26 @@ func _run_shots() -> void:
 		await get_tree().physics_frame
 		print("HPBAR pv=%.0f/%.0f fill=%.2f" % [victim.hp, victim.max_hp, float((victim.hp_fill.material_override as ShaderMaterial).get_shader_parameter("fill"))])
 	hero.mp = 100
+	for i in 2:
+		spawn_free_mob("goblin", hero.global_position + hero.forward() * (3.0 + i) + Vector3(i - 0.5, 0, 0))
+	await get_tree().physics_frame
 	hero.telekinesis()
 	await _snap("10b_telekinesie", 22)
-	await _snap("10c_telekinesie_impact", 50)
+	_tk_pick("eject")
+	await _snap("10c_tk_ejecter", 14)
+	await _snap("10c1_tk_ejecter_impact", 20)
+	for mode in ["crush", "choke"]:
+		for i in 2:
+			spawn_free_mob("goblin", hero.global_position + hero.forward() * (3.0 + i) + Vector3(i - 0.5, 0, 0))
+		await get_tree().physics_frame
+		hero.cd["tele"] = 0.0
+		hero.mp = 100
+		hero.busy = 0.0
+		hero.telekinesis()
+		await _snap("10c2_tk_prise_" + mode, 25)
+		_tk_pick(mode)
+		await _snap("10c3_tk_" + mode, 10 if mode == "crush" else 40)
+		await _snap("10c4_tk_" + mode + "_fin", 30)
 	# esquive parfaite
 	hero.cd["roll"] = 0.0
 	hero.roll()
@@ -3054,6 +3263,26 @@ func _run_shots() -> void:
 	hero.arise()
 	await _snap("14_arise_masse", 30)
 	await _snap("15_ombres_levees", 80)
+	# ordres : à l'attaque / restez
+	for i in 3:
+		spawn_free_mob("goblin" if i < 2 else "shaman", hero.global_position + hero.forward() * 12.0 + Vector3(i * 1.6 - 1.6, 0, 0))
+	await get_tree().physics_frame
+	hero.hp = hero.max_hp * 0.45
+	command_attack()
+	await _snap("15b_ordre_attaque", 12)
+	await _snap("15c_ombres_chargent", 40)
+	await _snap("15d_ombres_positions", 60)
+	command_stay()
+	await _snap("15e_ombres_restent", 90)
+	command_stay()
+	var orc := spawn_free_mob("orc", hero.global_position + hero.forward() * 7.0)
+	orc.target = null
+	try_parley(orc, true)
+	await _snap("15f_replique_monstre", 30)
+	_parley_answer("a")
+	await _snap("15g_reponse", 60)
+	_kill_near(hero.global_position, 25.0)
+	hero.hp = hero.max_hp
 	# les ombres suivent derrière
 	hero.move_input = Vector2(0, -0.7)
 	await _snap("16_ombres_suivent", 90)

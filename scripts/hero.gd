@@ -257,6 +257,7 @@ func add_stat(k: String) -> void:
 
 # ============================================================ boucle
 func _physics_process(delta: float) -> void:
+	_tk_tick(delta)
 	for i in range(pending.size() - 1, -1, -1):
 		pending[i][0] -= delta
 		if pending[i][0] <= 0.0:
@@ -664,15 +665,23 @@ func on_dodged(_from: Unit) -> void:
 		print("PERFECT_DODGE")
 
 # ============================================================ Autorité du Souverain (télékinésie)
+# ============================================================ Télékinésie : soulever, puis Éjecter / Écraser / Étrangler
+var tk_targets: Array = []
+var tk_hold_t := 0.0
+var tk_lvl := 1
+const CRACK_TEX := preload("res://assets/ui/cracks.png")
+
 func telekinesis() -> bool:
+	if tk_hold_t > 0.0:
+		return false
 	if powers["tele"] <= 0 or not ready_skill("tele") or busy > 0.3 or main.in_dialogue:
 		return false
-	var lvl: int = powers["tele"]
-	var r := 9.0 + lvl * 1.5
+	tk_lvl = powers["tele"]
+	var r := 9.0 + tk_lvl * 1.5
 	var list: Array = []
 	for u in main.units_of_team(1):
 		var e := u as Unit
-		if e.dead or e.global_position.distance_to(global_position) > r:
+		if e.dead or e.lifted or e.global_position.distance_to(global_position) > r:
 			continue
 		var to := e.global_position - global_position
 		to.y = 0
@@ -681,47 +690,302 @@ func telekinesis() -> bool:
 	if list.is_empty():
 		main.system_msg("Aucune cible devant toi.")
 		return false
-	cd["tele"] = CD_MAX["tele"] - lvl
+	list.sort_custom(func(x, y): return x.global_position.distance_to(global_position) < y.global_position.distance_to(global_position))
+	list = list.slice(0, 2 + tk_lvl)
+	cd["tele"] = CD_MAX["tele"] - tk_lvl
 	mp -= MP_COST["tele"]
-	busy = 1.45
-	invuln = 0.3
-	play("Telekinesis", 0.08, 1.0, true)
+	tk_hold_t = 3.2
+	busy = 3.2
+	velocity = Vector3.ZERO
+	face_to((list[0] as Unit).global_position, true)
+	play("TeleHold", 0.12, 1.0, true)
 	main.sfx("shadow", global_position, 2.0)
 	main.quest_add("skills", 1)
 	FX.damage_number(main, global_position + Vector3(0, 0.7, 0), "AUTORITÉ DU SOUVERAIN", Color(0.65, 0.5, 1.0), false)
+	tk_targets = []
 	for e in list:
-		_lift(e as Unit, lvl)
+		tk_targets.append({"u": e, "ground": (e as Unit).global_position})
+		_tk_lift(e as Unit)
+	main.open_tk_menu()
 	return true
 
-func _lift(e: Unit, lvl: int) -> void:
-	var start := e.global_position
-	var top := start + Vector3(0, 2.8 if not (e is Mob and (e as Mob).boss) else 0.8, 0)
+func _tk_lift(e: Unit) -> void:
 	e.lifted = true
-	e.busy = 1.6
-	e.hit_stun = 1.6
+	e.busy = 6.0
+	e.hit_stun = 6.0
 	e.velocity = Vector3.ZERO
-	var aura := FX.ground_disc(e.body_r + 0.6, Color(0.6, 0.3, 1.0), 0.5, true)
-	main.add_child(aura)
-	aura.global_position = start + Vector3(0, 0.05, 0)
-	FX.burst(main, start + Vector3(0, 0.5, 0), Color(0.6, 0.3, 1.0), 20, 0.08, 2.0, 0.6, -2.0)
+	var big: bool = e is Mob and (e as Mob).boss
+	var top := e.global_position + Vector3(0, 0.7 if big else 2.4, 0)
+	var ring := FX.ground_disc(e.body_r + 0.8, Color(0.6, 0.3, 1.0), 0.7, true)
+	e.add_child(ring)
+	ring.name = "TkRing"
+	ring.top_level = true
+	ring.global_position = e.global_position + Vector3(0, 0.05, 0)
+	FX.burst(main, e.global_position + Vector3(0, 0.4, 0), Color(0.6, 0.3, 1.0), 26, 0.08, 2.5, 0.6, -2.5)
+	FX.burst(main, e.global_position, Color(0.35, 0.3, 0.3), 14, 0.12, 2.0, 0.6, 3.0)
+	var p := CPUParticles3D.new()
+	p.name = "TkAura"
+	p.amount = 26
+	p.lifetime = 0.9
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = 0.9
+	p.gravity = Vector3.ZERO
+	p.tangential_accel_min = 4.0
+	p.tangential_accel_max = 6.0
+	p.radial_accel_min = -1.0
+	p.radial_accel_max = -0.5
+	p.scale_amount_min = 0.03
+	p.scale_amount_max = 0.06
+	var sm := SphereMesh.new()
+	sm.radius = 0.5
+	sm.height = 1.0
+	sm.radial_segments = 6
+	sm.rings = 3
+	sm.material = FX.mat(Color(0.65, 0.35, 1.0), 3.0)
+	p.mesh = sm
+	p.position.y = 1.0
+	e.add_child(p)
 	var tw := e.create_tween()
-	tw.tween_property(e, "global_position", top, 0.45).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tw.parallel().tween_property(e.model, "rotation:x", deg_to_rad(randf_range(-35, 35)), 0.45)
-	tw.tween_interval(0.65)
-	tw.tween_property(e, "global_position", start, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tw.parallel().tween_property(e.model, "rotation:x", 0.0, 0.16)
-	tw.tween_callback(_lift_slam.bind(e, lvl, aura))
+	tw.tween_property(e, "global_position", top, 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(e.model, "rotation:x", deg_to_rad(randf_range(-25, 25)), 0.5)
+	# flottement pendant la prise
+	var bob := e.create_tween().set_loops(6)
+	bob.tween_interval(0.5)
+	bob.tween_property(e.model, "position:y", 0.12, 0.25).set_trans(Tween.TRANS_SINE)
+	bob.tween_property(e.model, "position:y", 0.0, 0.25).set_trans(Tween.TRANS_SINE)
 
-func _lift_slam(e: Unit, lvl: int, aura: Node3D) -> void:
-	aura.queue_free()
+func _tk_tick(delta: float) -> void:
+	if tk_hold_t <= 0.0:
+		return
+	tk_hold_t -= delta
+	if tk_hold_t <= 0.0:
+		tk_finish("crush")
+
+func tk_finish(mode: String) -> void:
+	if tk_targets.is_empty():
+		return
+	tk_hold_t = 0.0
+	main.close_tk_menu()
+	var list := tk_targets
+	tk_targets = []
+	match mode:
+		"eject":
+			busy = 0.9
+			play("Throw", 0.06, 1.5, true)
+			main.sfx("swing2", global_position)
+			for d in list:
+				later(0.28, _tk_eject.bind(d))
+		"choke":
+			busy = 2.4
+			play("Choke", 0.1, 1.0, true)
+			FX.speech(self, "...À genoux.", Color(0.75, 0.6, 1.0), 2.4, 1.6)
+			for d in list:
+				_tk_choke(d)
+		_:
+			busy = 0.7
+			play("Slam", 0.05, 1.3, true)
+			for d in list:
+				_tk_crush(d)
+	main.print_debug_tk(mode, list.size())
+
+func _tk_release(e) -> void:
 	if not is_instance_valid(e):
 		return
-	e.lifted = false
-	FX.burst(main, e.global_position, Color(0.6, 0.35, 1.0), 30, 0.12, 5.0, 0.5, 8.0)
-	main.sfx("slam", e.global_position, -2.0)
-	main.shake(0.25)
-	if not e.dead:
-		e.take_damage(power() * (1.6 + 0.3 * lvl), self, true)
+	var u := e as Unit
+	u.lifted = false
+	u.busy = 0.4
+	u.hit_stun = 0.6
+	u.model.rotation.x = 0.0
+	u.model.rotation.z = 0.0
+	u.model.position.y = 0.0
+	for n in ["TkAura", "TkRing", "TkChoke"]:
+		var c := u.get_node_or_null(n)
+		if c:
+			c.queue_free()
+
+## ÉJECTER : projeté au loin en vrille, traînée, impact avec poussière et fissures ; percute les autres.
+func _tk_eject(d: Dictionary) -> void:
+	var e = d["u"]
+	if not is_instance_valid(e) or (e as Unit).dead:
+		_tk_release(e)
+		return
+	var u := e as Unit
+	var dir := u.global_position - global_position
+	dir.y = 0
+	dir = dir.normalized() if dir.length() > 0.2 else forward()
+	var g: Vector3 = d["ground"]
+	var land := g + dir * (9.0 + tk_lvl)
+	var hit := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(land + Vector3(0, 8, 0), land + Vector3(0, -8, 0), 1))
+	if not hit.is_empty():
+		land = hit["position"]
+	var start := u.global_position
+	FX.trail(main, start, land, Color(0.65, 0.35, 1.0))
+	var tw := u.create_tween()
+	tw.tween_method(_tk_arc.bind(u, start, land), 0.0, 1.0, 0.55)
+	tw.parallel().tween_property(u.model, "rotation:x", TAU * 2.0, 0.55)
+	tw.tween_callback(_tk_land.bind(u, land, 1.5, 1.6))
+
+func _tk_arc(f: float, uv, a: Vector3, b: Vector3) -> void:
+	if not is_instance_valid(uv):
+		return
+	var u := uv as Unit
+	var p := a.lerp(b, f)
+	p.y += sin(f * PI) * 2.2
+	u.global_position = p
+	# percute ce qu'il traverse
+	for o in main.units_of_team(1):
+		var m := o as Unit
+		if m != u and not m.dead and not m.lifted and m.global_position.distance_to(p) < 1.1 + m.body_r and m.hit_stun < 0.5:
+			m.take_damage(power() * 0.6, self)
+			m.hit_stun = 0.7
+			var kb := m.global_position - p
+			kb.y = 0
+			m.velocity += kb.normalized() * 7.0
+
+func _tk_land(uv, at: Vector3, mult: float, r: float) -> void:
+	if not is_instance_valid(uv):
+		return
+	var u := uv as Unit
+	u.global_position = at + Vector3(0, 0.1, 0)
+	_tk_release(u)
+	_tk_impact_fx(at, r, false)
+	if not u.dead:
+		u.take_damage(power() * (mult + 0.25 * tk_lvl), self, true)
+	for o in main.units_of_team(1):
+		var m := o as Unit
+		if m != u and not m.dead and m.global_position.distance_to(at) < r + m.body_r:
+			m.take_damage(power() * 0.5, self)
+
+## ÉCRASER : petite anticipation vers le haut puis écrasé au sol : onde de choc, cratère fissuré, débris.
+func _tk_crush(d: Dictionary) -> void:
+	var e = d["u"]
+	if not is_instance_valid(e) or (e as Unit).dead:
+		_tk_release(e)
+		return
+	var u := e as Unit
+	var g: Vector3 = d["ground"]
+	var tw := u.create_tween()
+	tw.tween_property(u, "global_position", u.global_position + Vector3(0, 1.0, 0), 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(u, "global_position", g + Vector3(0, 0.05, 0), 0.11).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(u.model, "rotation:x", 0.0, 0.11)
+	tw.tween_callback(_tk_land.bind(u, g, 2.3, 2.6))
+	tw.tween_callback(_tk_crush_extra.bind(g))
+
+func _tk_crush_extra(g: Vector3) -> void:
+	main.shake(0.35)
+	main.hit_stop(0.05)
+	var ring := FX.ground_disc(1.0, Color(0.75, 0.5, 1.0), 0.95, true)
+	main.add_child(ring)
+	ring.global_position = g + Vector3(0, 0.08, 0)
+	var tw := ring.create_tween()
+	tw.tween_property(ring, "scale", Vector3(4.2, 1, 4.2), 0.35).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(ring, "transparency", 1.0, 0.35)
+	tw.tween_callback(ring.queue_free)
+
+## ÉTRANGLER : maintenu plus haut, secoué, liens d'énergie autour du cou, dégâts continus, puis lâché.
+func _tk_choke(d: Dictionary) -> void:
+	var e = d["u"]
+	if not is_instance_valid(e) or (e as Unit).dead:
+		_tk_release(e)
+		return
+	var u := e as Unit
+	var tw := u.create_tween()
+	tw.tween_property(u, "global_position", u.global_position + Vector3(0, 0.7, 0), 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	var shake := u.create_tween().set_loops(14)
+	shake.tween_property(u.model, "rotation:z", 0.12, 0.07)
+	shake.tween_property(u.model, "rotation:z", -0.12, 0.07)
+	var p := CPUParticles3D.new()
+	p.name = "TkChoke"
+	p.amount = 40
+	p.lifetime = 0.6
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	p.emission_ring_axis = Vector3(0, 1, 0)
+	p.emission_ring_radius = 0.35
+	p.emission_ring_inner_radius = 0.25
+	p.emission_ring_height = 0.05
+	p.gravity = Vector3(0, 0.6, 0)
+	p.tangential_accel_min = 9.0
+	p.tangential_accel_max = 12.0
+	p.scale_amount_min = 0.03
+	p.scale_amount_max = 0.05
+	var sm := SphereMesh.new()
+	sm.radius = 0.5
+	sm.height = 1.0
+	sm.radial_segments = 6
+	sm.rings = 3
+	sm.material = FX.mat(Color(0.8, 0.45, 1.0), 4.0)
+	p.mesh = sm
+	p.position.y = 1.45 * (2.0 if u.body_r > 0.6 else 1.0)
+	u.add_child(p)
+	for k in 6:
+		later(0.3 + k * 0.32, _tk_choke_tick.bind(u))
+	later(2.3, _tk_drop.bind(d))
+
+func _tk_choke_tick(u) -> void:
+	if not is_instance_valid(u) or (u as Unit).dead:
+		return
+	var m := u as Unit
+	m.take_damage(power() * (0.42 + 0.08 * tk_lvl), self)
+	m.play("Hit", 0.02, 1.4, true)
+	main.sfx("hit2", m.global_position, -8.0)
+
+func _tk_drop(d: Dictionary) -> void:
+	var e = d["u"]
+	if not is_instance_valid(e):
+		return
+	var u := e as Unit
+	var g: Vector3 = d["ground"]
+	var tw := u.create_tween()
+	tw.tween_property(u, "global_position", g + Vector3(0, 0.05, 0), 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_callback(_tk_land.bind(u, g, 0.6, 1.2))
+
+func _tk_impact_fx(at: Vector3, r: float, small: bool) -> void:
+	main.sfx("slam", at, -1.0)
+	main.shake(0.2)
+	FX.burst(main, at + Vector3(0, 0.2, 0), Color(0.45, 0.4, 0.38), 30, 0.14, 4.5, 0.7, 6.0)
+	FX.burst(main, at + Vector3(0, 0.4, 0), Color(0.7, 0.4, 1.0), 26, 0.08, 5.0, 0.45, 2.0)
+	# débris
+	var deb := CPUParticles3D.new()
+	deb.one_shot = true
+	deb.amount = 14
+	deb.lifetime = 1.0
+	deb.explosiveness = 1.0
+	deb.direction = Vector3(0, 1, 0)
+	deb.spread = 60.0
+	deb.initial_velocity_min = 4.0
+	deb.initial_velocity_max = 7.0
+	deb.gravity = Vector3(0, -18, 0)
+	deb.angular_velocity_min = -400.0
+	deb.angular_velocity_max = 400.0
+	deb.scale_amount_min = 0.06
+	deb.scale_amount_max = 0.16
+	var bm := BoxMesh.new()
+	bm.material = FX.mat(Color(0.3, 0.28, 0.3), 0.0, 1.0, false)
+	deb.mesh = bm
+	main.add_child(deb)
+	deb.global_position = at + Vector3(0, 0.2, 0)
+	deb.emitting = true
+	var t := deb.create_tween()
+	t.tween_interval(1.4)
+	t.tween_callback(deb.queue_free)
+	# fissures au sol
+	var cr := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(r * 2.4, r * 2.4)
+	cr.mesh = pm
+	var cm := StandardMaterial3D.new()
+	cm.albedo_texture = CRACK_TEX
+	cm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	cm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	cr.material_override = cm
+	cr.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	main.add_child(cr)
+	cr.global_position = at + Vector3(0, 0.03, 0)
+	cr.rotation.y = randf() * TAU
+	var t2 := cr.create_tween()
+	t2.tween_interval(3.0)
+	t2.tween_property(cr, "transparency", 1.0, 1.0)
+	t2.tween_callback(cr.queue_free)
 
 # ============================================================ Échange d'ombre
 func shadow_swap() -> bool:

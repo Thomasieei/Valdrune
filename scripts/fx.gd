@@ -4,6 +4,7 @@ class_name FX
 ## Budget lumières : en rendu mobile (Compatibility) chaque lumière ajoute une passe complète
 ## sur tout ce qu'elle touche. Les lumières décoratives sont donc désactivées (l'émission + le glow suffisent).
 static var light_budget := 0
+const LEAF_TEX := preload("res://assets/ui/leaf.png")
 static func new_light(important := false) -> OmniLight3D:
 	var l := OmniLight3D.new()
 	if not important:
@@ -62,18 +63,61 @@ static func ground_disc(radius: float, col: Color, alpha: float, ring := true) -
 	return mi
 
 ## Zone d'alerte rouge qui se remplit puis disparaît (télégraphe des sorts ennemis).
+static var ZONE_SH: Shader = _sh("""shader_type spatial;
+render_mode unshaded, cull_disabled, depth_draw_never, blend_mix, shadows_disabled;
+uniform vec4 col : source_color = vec4(1.0, 0.15, 0.1, 1.0);
+uniform float fill = 0.0;
+float ss(float e0, float e1, float x) { float t = clamp((x - e0) / (e1 - e0), 0.0, 1.0); return t * t * (3.0 - 2.0 * t); }
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float r = length(p);
+	if (r > 1.0) discard;
+	float a = atan(p.y, p.x);
+	float pulse = 0.5 + 0.5 * sin(TIME * (6.0 + fill * 14.0));
+	float edge = ss(0.88, 0.97, r) * ss(1.0, 0.97, r);
+	float ticks = step(0.8, r) * step(r, 0.86) * step(0.5, fract(a / 6.28318 * 24.0 + TIME * 0.4));
+	float stripes = step(0.5, fract((p.x + p.y) * 5.0 - TIME * 1.5));
+	float inside = step(r, fill);
+	float front = ss(0.06, 0.0, abs(r - fill));
+	float al = 0.1 + inside * (0.28 + stripes * 0.14) + edge * (0.7 + 0.3 * pulse) + ticks * 0.45 + front * 0.8;
+	ALBEDO = col.rgb * (1.2 + edge * 1.5 + front * 2.0);
+	ALPHA = clamp(al, 0.0, 1.0);
+}""")
+
+## Zone au sol animée (rouge = danger, vert = soin) : rayures, bord pulsant de plus en plus vite, front de remplissage, éclair final.
 static func telegraph(parent: Node, pos: Vector3, radius: float, dur: float, col := Color(1, 0.15, 0.1)) -> void:
 	var root := Node3D.new()
 	parent.add_child(root)
-	root.global_position = pos + Vector3(0, 0.05, 0)
-	var edge := ground_disc(radius, col, 0.85, true)
-	root.add_child(edge)
-	var fill := ground_disc(radius, col, 0.22, false)
-	fill.scale = Vector3(0.05, 1, 0.05)
-	root.add_child(fill)
+	root.global_position = pos + Vector3(0, 0.06, 0)
+	var mi := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(radius * 2.0, radius * 2.0)
+	mi.mesh = pm
+	var m := ShaderMaterial.new()
+	m.shader = ZONE_SH
+	m.set_shader_parameter("col", col)
+	m.set_shader_parameter("fill", 0.0)
+	m.render_priority = 1
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(mi)
+	root.scale = Vector3(0.6, 1, 0.6)
 	var tw := root.create_tween()
-	tw.tween_property(fill, "scale", Vector3.ONE, dur)
+	tw.tween_property(root, "scale", Vector3.ONE, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_method(func(v: float): m.set_shader_parameter("fill", v), 0.0, 1.0, dur)
+	tw.tween_callback(func(): FX._zone_flash(parent, root.global_position, radius, col))
 	tw.tween_callback(root.queue_free)
+
+static func _zone_flash(parent: Node, at: Vector3, radius: float, col: Color) -> void:
+	if not is_instance_valid(parent):
+		return
+	var f := ground_disc(radius, col.lightened(0.3), 0.9, false)
+	parent.add_child(f)
+	f.global_position = at + Vector3(0, 0.02, 0)
+	var tw := f.create_tween()
+	tw.tween_property(f, "scale", Vector3(1.15, 1, 1.15), 0.18)
+	tw.parallel().tween_property(f, "transparency", 1.0, 0.18)
+	tw.tween_callback(f.queue_free)
 
 static func burst(parent: Node, pos: Vector3, col: Color, amount := 24, size := 0.12, spread := 3.0, life := 0.6, up := 2.0) -> void:
 	var p := CPUParticles3D.new()
@@ -310,6 +354,7 @@ static func speech(owner_node: Node3D, txt: String, col := Color(1, 0.85, 0.75),
 	l.no_depth_test = true
 	l.width = 520
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	l.position.y = h
 	owner_node.add_child(l)
 	var tw := l.create_tween()
@@ -615,6 +660,62 @@ static func heal_zone(parent: Node, pos: Vector3, r: float, dur: float) -> Node3
 	sm.material = mat(Color(0.5, 1.0, 0.55), 3.0)
 	p.mesh = sm
 	root.add_child(p)
+	# petites feuilles qui tourbillonnent et s'échappent de la zone
+	var lf := CPUParticles3D.new()
+	lf.amount = int(10 + r * 6)
+	lf.lifetime = 1.8
+	lf.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	lf.emission_ring_axis = Vector3(0, 1, 0)
+	lf.emission_ring_radius = r * 0.8
+	lf.emission_ring_inner_radius = r * 0.2
+	lf.emission_ring_height = 0.05
+	lf.direction = Vector3(0, 1, 0)
+	lf.spread = 25.0
+	lf.gravity = Vector3(0, -0.4, 0)
+	lf.initial_velocity_min = 1.2
+	lf.initial_velocity_max = 2.2
+	lf.radial_accel_min = 0.6
+	lf.radial_accel_max = 1.4
+	lf.tangential_accel_min = 1.0
+	lf.tangential_accel_max = 2.0
+	lf.angle_min = 0.0
+	lf.angle_max = 360.0
+	lf.angular_velocity_min = -180.0
+	lf.angular_velocity_max = 180.0
+	lf.scale_amount_min = 0.7
+	lf.scale_amount_max = 1.2
+	var lq := QuadMesh.new()
+	lq.size = Vector2(0.16, 0.16)
+	var lm := StandardMaterial3D.new()
+	lm.albedo_texture = LEAF_TEX
+	lm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	lm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	lm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	lm.vertex_color_use_as_albedo = true
+	lq.material = lm
+	lf.mesh = lq
+	var lg := Gradient.new()
+	lg.colors = PackedColorArray([Color(0.7, 1, 0.75, 0), Color(0.7, 1, 0.75, 1), Color(0.5, 1, 0.6, 0)])
+	lg.offsets = PackedFloat32Array([0.0, 0.2, 1.0])
+	lf.color_ramp = lg
+	root.add_child(lf)
+	# colonne de lumière verte qui pulse
+	var col_m := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = r * 0.7
+	cyl.bottom_radius = r
+	cyl.height = 2.4
+	cyl.cap_top = false
+	cyl.cap_bottom = false
+	col_m.mesh = cyl
+	col_m.material_override = _smat(BEAM_SH, Color(0.3, 1.0, 0.45) * 0.8)
+	col_m.rotation_degrees.x = 180
+	col_m.position.y = 1.2
+	col_m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(col_m)
+	var pt := col_m.create_tween().set_loops(int(dur / 0.8) + 1)
+	pt.tween_property(col_m, "scale", Vector3(1.05, 1.1, 1.05), 0.4).set_trans(Tween.TRANS_SINE)
+	pt.tween_property(col_m, "scale", Vector3(0.95, 1.0, 0.95), 0.4).set_trans(Tween.TRANS_SINE)
 	var lt := FX.new_light()
 	lt.light_color = Color(0.4, 1.0, 0.5)
 	lt.light_energy = 1.6

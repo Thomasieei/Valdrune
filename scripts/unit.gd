@@ -44,7 +44,7 @@ var hp_bar: Node3D
 var hp_fill: MeshInstance3D
 var world: Node3D
 var cur_anim := ""
-var loops := ["Idle", "Walk", "Run", "Sprint", "SwordIdle"]
+var loops := ["Idle", "Walk", "Run", "Sprint", "SwordIdle", "CastLoop", "Block", "TeleHold", "Choke", "Cheer"]
 
 func setup_model(path: String, scale_f: float, ring_col: Color, ring_alpha: float) -> void:
 	model = (load(path) as PackedScene).instantiate()
@@ -96,8 +96,10 @@ func make_hp_bar(h: float, col: Color) -> void:
 	var bm := FX.mat(Color(0, 0, 0), 0.0, 0.7)
 	bm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	bg.material_override = bm
+	bg.visibility_range_end = 32.0
 	hp_bar.add_child(bg)
 	hp_fill = MeshInstance3D.new()
+	hp_fill.visibility_range_end = 32.0
 	var q2 := QuadMesh.new()
 	q2.size = Vector2(0.96, 0.07)
 	hp_fill.mesh = q2
