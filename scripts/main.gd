@@ -42,6 +42,20 @@ var guard_talk_cd := 0.0
 var guards_hostile := false
 # donjon
 var dungeon: Dungeon
+var run: RoomRun
+var gate_kind := "goblin"
+var tokens := {"orc": 0, "goblin": 0}
+var env_run: Environment
+const RUN_O := Vector3(-6000, 0, -3000)
+const OFFICE_O := Vector3(-3000, 0, 1500)
+const OFFICE_S := 0.013
+var office: Node3D
+var office_door := Vector3.INF
+var office_entry := Vector3.ZERO
+var office_exit := Vector3.ZERO
+var changer: Mob
+const TOK_TEX := {"orc": preload("res://assets/ui/tok_orc.png"), "goblin": preload("res://assets/ui/tok_goblin.png")}
+const TOK_NAME := {"orc": "jeton orque", "goblin": "jeton gobelin"}
 var hall: Node3D
 var hall_entry := Vector3.ZERO
 var boss: Mob
@@ -214,7 +228,7 @@ func _ready() -> void:
 	hint("start")
 	last_pos = hero.global_position
 	audio.music("city")
-	system_msg("[ SYSTÈME ]\nUn Portail de rang C est apparu en ville.\nL'Association des Chasseurs le garde.")
+	system_msg("[ SYSTÈME ]\nUn Portail de rang %s est apparu en ville : %s.\nL'Association des Chasseurs le garde." % [gate_rank(), gate_name()])
 	_check_daily()
 	if shots_mode:
 		_run_shots()
@@ -326,6 +340,9 @@ func _build_other_envs() -> void:
 	env_dun.ambient_light_energy = 0.45
 	env_dun.fog_light_color = Color(0.12, 0.05, 0.04)
 	env_dun.fog_density = 0.03
+	env_run = env_dun.duplicate() as Environment
+	env_run.fog_density = 0.012
+	env_run.ambient_light_energy = 0.6
 	env_hall = env_city.duplicate() as Environment
 	env_hall.background_mode = Environment.BG_COLOR
 	env_hall.background_color = Color(0.08, 0.0, 0.01)
@@ -793,6 +810,8 @@ func _on_mob_died(u: Unit) -> void:
 	if m.boss:
 		_on_boss_dead(m)
 		return
+	if run and m.has_meta("run"):
+		run.on_kill(m)
 	gold += int(m.reward_gold * (1.0 + hero.g("gold") / 100.0))
 	hint("kill")
 	quest_add("kills", 1)
@@ -873,7 +892,12 @@ func _spawn_gate(first: bool) -> void:
 	gate_pos = pos
 	if gate:
 		gate.queue_free()
-	gate = FX.portal(self, pos, Color(0.25, 0.55, 1.0), 2.4)
+	if first:
+		gate_kind = "goblin"
+	else:
+		var gr := randf()
+		gate_kind = "goblin" if gr < 0.4 else ("orc" if gr < 0.82 else "igris")
+	gate = FX.portal(self, pos, gate_color(), 2.4)
 	gate_timer = GATE_PERIOD
 	gate_open_for_me = false
 	guards_hostile = false
@@ -888,10 +912,13 @@ func _spawn_gate(first: bool) -> void:
 		g.patrol = [pos + Vector3(-7, 0, 6), pos + Vector3(7, 0, 6), pos + Vector3(7, 0, -6), pos + Vector3(-7, 0, -6)]
 		g.patrol_i = k * 2
 		guards.append(g)
-	if not first:
+	if gate_kind != "igris":
+		_build_run()
+	elif not first:
 		_build_dungeon()
 		_build_hall()
-		system_msg("[ SYSTÈME ]\nUn nouveau Portail s'est ouvert ailleurs en ville !")
+	if not first:
+		system_msg("[ SYSTÈME ]\nUn nouveau Portail s'est ouvert ailleurs en ville !\n%s — rang %s." % [gate_name(), gate_rank()])
 	print("GATE ", pos)
 
 func _check_guards() -> void:
@@ -919,7 +946,7 @@ func _guard_dialogue() -> void:
 	choices.append(["« 300 pièces d'or pour regarder ailleurs ? »" + ("" if gold >= 300 else "  (or insuffisant)"), _dlg_bribe])
 	choices.append(["« Je passerai de force. »", _dlg_force])
 	choices.append(["« Je repasserai. »", _dlg_leave])
-	dialogue("Garde de l'Association", "Halte. Ce Portail de rang C est sous le contrôle de l'Association des Chasseurs. Personne n'entre sans autorisation.\n(Réputation : %d — il faut %d)" % [rep, REP_PASS], choices)
+	dialogue("Garde de l'Association", ("Halte. Ce Portail de rang %s (%s) est sous" % [gate_rank(), gate_name()]) + " le contrôle de l'Association des Chasseurs. Personne n'entre sans autorisation.\n(Réputation : %d — il faut %d)" % [rep, REP_PASS], choices)
 
 func _nearest_guard() -> Mob:
 	var best: Mob = null
@@ -1036,12 +1063,16 @@ func _set_zone(z: String) -> void:
 	hall.visible = z == "hall"
 	if shop:
 		shop.visible = z == "shop"
+	if office:
+		office.visible = z == "office"
+	if run:
+		run.visible = z == "run"
 	for ce in city_extras:
 		if is_instance_valid(ce):
 			(ce as Node3D).visible = z == "city"
 	if gate:
 		gate.visible = z == "city"
-	world_env.environment = env_city if z == "city" else (env_dun if z == "dungeon" else (env_shop if z == "shop" else env_hall))
+	world_env.environment = env_city if z == "city" else (env_dun if z == "dungeon" else (env_shop if z == "shop" or z == "office" else (env_run if z == "run" else env_hall)))
 	moon.visible = true
 
 func _teleport(p: Vector3, z: String) -> void:
@@ -1061,6 +1092,9 @@ func _teleport(p: Vector3, z: String) -> void:
 	tw2.tween_property(fade, "modulate:a", 0.0, 0.35)
 
 func enter_dungeon() -> void:
+	if gate_kind != "igris":
+		enter_run()
+		return
 	sfx("portal", null, 0.0)
 	sfx("shadow")
 	await _teleport(dungeon.entry_point, "dungeon")
@@ -1116,6 +1150,7 @@ func _boss_taunt() -> void:
 
 func _boss_fight() -> void:
 	close_dialogue()
+	boss_bar_name.text = "COMMANDANT ÉCARLATE — Boss de rang C"
 	boss_started = true
 	boss.dormant = false
 	boss.set_target(hero)
@@ -1222,6 +1257,7 @@ func choose(i: int) -> void:
 func on_hero_died() -> void:
 	system_msg("[ SYSTÈME ]\nTu es tombé... Résurrection en ville dans 4 s.")
 	await get_tree().create_timer(4.0).timeout
+	var died_in_run := zone == "run"
 	if zone == "hall" and boss and is_instance_valid(boss) and not boss.dead:
 		boss_bar_root.visible = false
 		mobs.erase(boss)
@@ -1236,6 +1272,11 @@ func on_hero_died() -> void:
 	hero.ring.visible = true
 	hero.play("Idle", 0.1, 1.0, true)
 	await _teleport(spawn_point, "city")
+	if died_in_run:
+		boss_bar_root.visible = false
+		boss = null
+		system_msg("[ SYSTÈME ]\nLe Portail t'a rejeté et s'est refermé.\nLes jetons ramassés sont conservés.")
+		_spawn_gate(false)
 
 func slow_mo(sc: float, dur: float) -> void:
 	Engine.time_scale = sc
@@ -1325,6 +1366,8 @@ func _process(delta: float) -> void:
 				_guard_dialogue()
 	if zone == "dungeon" and dungeon:
 		dungeon.update(hero)
+	if zone == "run" and run:
+		run.update(hero)
 	if boss and is_instance_valid(boss) and boss_bar_root.visible:
 		boss_bar_fill.size.x = 600.0 * clampf(boss.hp / boss.max_hp, 0, 1)
 	potion_cd -= delta
@@ -1382,9 +1425,31 @@ func _update_interact() -> void:
 			if merchant and hero.global_position.distance_to(merchant.global_position) < 3.4:
 				label = "PARLER À L'INTENDANT"
 				act = _merchant_dialogue
+			elif office_door != Vector3.INF and hero.global_position.distance_to(office_door) < 2.4:
+				label = "ENTRER — BUREAU DU CHANGEUR"
+				act = enter_office
 			elif hero.global_position.distance_to(shop_exit) < 2.4:
 				label = "SORTIR"
 				act = leave_shop
+		elif zone == "office":
+			if changer and hero.global_position.distance_to(changer.global_position) < 3.0:
+				label = "PARLER AU CHANGEUR"
+				act = _changer_dialogue
+			elif hero.global_position.distance_to(office_exit) < 2.0:
+				label = "RETOUR À LA BOUTIQUE"
+				act = leave_office
+		elif zone == "run" and run and run.ready_ok:
+			var rr: Dictionary = run.room()
+			if run.boss_room():
+				if run.chest and not run.chest_taken and hero.global_position.distance_to(run.chest.global_position) < 3.2:
+					label = "OUVRIR LE COFFRE DU CHEF"
+					act = run.open_chest
+				elif run.exit_pos != Vector3.INF and hero.global_position.distance_to(run.exit_pos) < 3.0:
+					label = "QUITTER LE DONJON"
+					act = _leave_run
+			elif rr["open"] and hero.global_position.distance_to(rr["exit"]) < 3.2:
+				label = "SALLE SUIVANTE"
+				act = _next_room
 		elif zone == "dungeon":
 			if hero.global_position.distance_to(dungeon.throne_door) < 4.5:
 				if dungeon.all_cleared():
@@ -1933,6 +1998,8 @@ func _update_music(delta: float) -> void:
 		tr = "boss" if boss_started and boss and is_instance_valid(boss) and not boss.dead else "dungeon"
 	elif zone == "dungeon":
 		tr = "combat" if combat_t > 0.0 else "dungeon"
+	elif zone == "run":
+		tr = "boss" if run and run.chief_started and run.chief and is_instance_valid(run.chief) and not run.chief.dead else ("combat" if combat_t > 0.0 else "dungeon")
 	elif combat_t > 0.0:
 		tr = "combat"
 	audio.music(tr)
@@ -2141,6 +2208,7 @@ func _build_shop() -> void:
 	env_shop.ambient_light_energy = 0.8
 	shop.visible = false
 	print("SHOP_BUILT floor=%.2f" % fy)
+	_build_office()
 
 func shop_floor_mesh(fl: Node3D) -> void:
 	var mi := MeshInstance3D.new()
@@ -2290,7 +2358,7 @@ func save_game() -> void:
 		sh.append({"kind": mm.kind, "elite": mm.elite, "boss": mm.boss, "role": mm.role, "slv": mm.slv})
 	var d := {"v": 1, "level": hero.level, "xp": hero.xp, "points": hero.points, "stats": hero.stats, "gold": gold, "essence": essence, "rep": rep,
 		"blade": hero.blade_mult, "unarmed": hero.unarmed_mode, "potions": potions, "shadow_lvl": shadow_lvl, "rank": hunter_rank, "quest": quest, "shadows": sh,
-		"base_hp": hero.base_hp, "base_mp": hero.base_mp, "powers": hero.powers, "inv": inv, "equip": equip, "next_uid": next_uid, "hints": hints_seen.keys()}
+		"base_hp": hero.base_hp, "base_mp": hero.base_mp, "powers": hero.powers, "inv": inv, "equip": equip, "next_uid": next_uid, "hints": hints_seen.keys(), "tokens": tokens}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(d))
@@ -2329,6 +2397,9 @@ func load_game() -> bool:
 	next_uid = int(d.get("next_uid", 1))
 	for h in d.get("hints", []):
 		hints_seen[str(h)] = true
+	var tk: Dictionary = d.get("tokens", {})
+	for k in tokens.keys():
+		tokens[k] = int(tk.get(k, 0))
 	gold = int(d.get("gold", 0))
 	essence = int(d.get("essence", 0))
 	rep = int(d.get("rep", 0))
@@ -2713,6 +2784,9 @@ func _toggle_qtrack() -> void:
 
 # ================================================================ conseils (une seule fois chacun, discrets)
 const HINTS := {
+	"run": "Donjon à salles : élimine toutes les meutes pour ouvrir le passage. Les monstres lâchent des JETONS, à échanger chez le Changeur (bureau au fond de la boutique).",
+	"office": "Le Changeur échange tes jetons de donjon contre des améliorations d'arme, d'ombres et des objets uniques.",
+	"anomaly": "Chef ANORMAL : il frappe plusieurs fois plus fort. Garde tes esquives, laisse tes ombres encaisser. Mourir = sortir du donjon.",
 	"start": "Ta quête du jour est en haut à gauche. Le menu couronne (en haut à droite) ouvre le sac, les ombres et le guide.",
 	"combat": "Touche l'épée pour attaquer. ESQUIVE juste avant un coup = esquive parfaite et contre-attaque.",
 	"kill": "Approche-toi du corps et touche ARISE : le monstre devient ton ombre.",
@@ -2980,6 +3054,9 @@ func _refresh_menu() -> void:
 	menu_icon.texture = load("res://assets/ui/%s.png" % str(t[1]))
 	menu_chips.add_child(UICards.chip(CASH_TEX, str(gold), Color(0.6, 1, 0.6), 26))
 	menu_chips.add_child(UICards.chip(ESS_TEX, str(essence), Color(0.85, 0.7, 1), 26))
+	for tk in ["orc", "goblin"]:
+		if int(tokens[tk]) > 0:
+			menu_chips.add_child(UICards.chip(TOK_TEX[tk], str(tokens[tk]), Color(1, 0.85, 0.4), 26))
 	var split := menu_tab == "sac" or menu_tab == "ombres"
 	menu_scroll.visible = not split
 	menu_split.visible = split
@@ -3799,7 +3876,7 @@ func _update_ui() -> void:
 		elif rel < -0.6:
 			arrow = "→"
 		var t := int(maxf(gate_timer, 0.0))
-		gate_txt.text = "Portail rang C  %s  %d m   (%d:%02d)" % [arrow, int(d.length()), t / 60, t % 60]
+		gate_txt.text = "Portail rang %s  %s  %d m   (%d:%02d)" % [gate_rank(), arrow, int(d.length()), t / 60, t % 60]
 		var ds := shop_door_pos - hero.global_position
 		ds.y = 0
 		if shop_door_pos != Vector3.INF and ds.length() > 3.0:
@@ -3819,6 +3896,13 @@ func _update_ui() -> void:
 		gate_txt.text = "Marais du Portail — meutes %d / %d\n%s  %s  %d m" % [dungeon.cleared_count(), dungeon.rooms.size(), what, ar, int(d2.length())]
 	elif zone == "shop":
 		gate_txt.text = "Boutique de l'Association"
+	elif zone == "office":
+		gate_txt.text = "Bureau du Changeur"
+	elif zone == "run" and run:
+		var d3 := run.next_target() - hero.global_position
+		d3.y = 0
+		var rm: Dictionary = run.room()
+		gate_txt.text = "%s — %s (%d/%d)\n%s  %s  %d m" % [run.def["name"], rm["name"], run.cur + 1, run.rooms.size(), "Chef" if run.boss_room() else ("Passage" if rm["open"] else "Prochaine meute"), _arrow(d3), int(d3.length())]
 	else:
 		gate_txt.text = "Salle du Trône"
 	for k in buttons.keys():
@@ -4327,6 +4411,7 @@ func _run_shots() -> void:
 			mm.hp = 1.0
 	await _snap("21_ombres_finissent", 60)
 	await _snap("22_celebration", 50)
+	await _shots_runs()
 	save_game()
 	var saved_shadows := shadow_count()
 	for m in shadow_list():
@@ -4338,3 +4423,304 @@ func _run_shots() -> void:
 	print("SAVE_TEST ok=%s niveau=%d or=%d ombres=%d/%d quete=%s" % [ok, hero.level, gold, shadow_count(), saved_shadows, str(quest.get("run", 0))])
 	print("SHOTS_DONE niveau=%d ombres=%d" % [hero.level, shadow_count()])
 	get_tree().quit()
+
+# ================================================================ donjons à salles + jetons
+func gate_name() -> String:
+	return "Marais du Commandant Écarlate" if gate_kind == "igris" else str(RoomRun.DEFS[gate_kind]["name"])
+
+func gate_rank() -> String:
+	return "C" if gate_kind == "igris" else RoomRun.RANKS[int(RoomRun.DEFS[gate_kind]["rank"])]
+
+func gate_color() -> Color:
+	match gate_kind:
+		"goblin":
+			return Color(0.3, 0.95, 0.45)
+		"orc":
+			return Color(1.0, 0.5, 0.15)
+	return Color(0.25, 0.55, 1.0)
+
+func _build_run() -> void:
+	if run:
+		run.cleanup()
+		run = null
+	run = RoomRun.new()
+	add_child(run)
+	run.build(self, gate_kind, RUN_O)
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	await run.layout()
+
+func enter_run() -> void:
+	if run == null:
+		return
+	while not run.ready_ok:
+		await get_tree().process_frame
+	sfx("portal", null, 0.0)
+	sfx("shadow")
+	run.show_room(0)
+	await _teleport(run.room()["entry"], "run")
+	_face(run.next_target())
+	run.enter_room_msg()
+	hint("run")
+
+func _face(p: Vector3) -> void:
+	var d := p - hero.global_position
+	yaw = atan2(-d.x, -d.z)
+
+func _next_room() -> void:
+	if run.cur + 1 >= run.rooms.size():
+		return
+	sfx("portal", null, -3.0)
+	run.show_room(run.cur + 1)
+	await _teleport(run.room()["entry"], "run")
+	_face(run.next_target())
+	run.enter_room_msg()
+	if run.boss_room() and run.over > 0:
+		hint("anomaly")
+
+func _leave_run() -> void:
+	await _teleport(gate_pos + Vector3(0, 0, 5), "city")
+	_spawn_gate(false)
+
+func add_tokens(k: String, n: int, at: Vector3) -> void:
+	tokens[k] = int(tokens[k]) + n
+	FX.damage_number(self, at + Vector3(0, 0.4, 0), "+%d %s%s" % [n, TOK_NAME[k], "s" if n > 1 else ""], Color(1, 0.82, 0.3))
+	sfx("coins", at, -6.0)
+
+# ---------------------------------------------------------------- bureau du Changeur
+func _build_office() -> void:
+	office_door = shop_entry + Vector3(3.0, 0, 3.0)
+	var dm := FX.ground_disc(1.0, Color(1.0, 0.8, 0.3), 0.6, true)
+	shop.add_child(dm)
+	dm.global_position = office_door + Vector3(0, 0.05, 0)
+	var dl := Label3D.new()
+	dl.text = "BUREAU DU CHANGEUR"
+	dl.font_size = 40
+	dl.pixel_size = 0.0045
+	dl.outline_size = 10
+	dl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	dl.modulate = Color(1, 0.85, 0.45)
+	shop.add_child(dl)
+	dl.global_position = office_door + Vector3(0, 2.2, 0)
+	office = Node3D.new()
+	add_child(office)
+	office.position = OFFICE_O
+	var mdl := (load("res://assets/rooms/office.glb") as PackedScene).instantiate() as Node3D
+	mdl.scale = Vector3.ONE * OFFICE_S
+	office.add_child(mdl)
+	for mi in mdl.find_children("*", "MeshInstance3D", true, false):
+		var mm := mi as MeshInstance3D
+		var body := StaticBody3D.new()
+		var cs := CollisionShape3D.new()
+		cs.shape = mm.mesh.create_trimesh_shape()
+		body.add_child(cs)
+		mm.add_child(body)
+	# la maquette n'a que deux murs : on ferme la pièce (murs + plafond)
+	var W := 500.0 * OFFICE_S
+	var H := 400.0 * OFFICE_S
+	var wm := FX.mat(Color(0.32, 0.33, 0.36), 0.0, 1.0, false)
+	for part in [[Vector3(W * 0.5 + 0.1, H * 0.5, 0), Vector3(0.2, H, W + 0.4)], [Vector3(0, H * 0.5, W * 0.5 + 0.1), Vector3(W + 0.4, H, 0.2)],
+			[Vector3(-W * 0.5 - 0.1, H * 0.5, 0), Vector3(0.2, H, W + 0.4)], [Vector3(0, H * 0.5, -W * 0.5 - 0.1), Vector3(W + 0.4, H, 0.2)], [Vector3(0, H + 0.1, 0), Vector3(W + 0.4, 0.2, W + 0.4)]]:
+		var b := StaticBody3D.new()
+		var c := CollisionShape3D.new()
+		var bs := BoxShape3D.new()
+		bs.size = part[1]
+		c.shape = bs
+		b.add_child(c)
+		var vis := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = part[1]
+		vis.mesh = bm
+		vis.material_override = wm
+		b.add_child(vis)
+		office.add_child(b)
+		b.position = part[0]
+	var lt := FX.new_light(true)
+	lt.light_color = Color(1, 0.88, 0.7)
+	lt.light_energy = 1.6
+	lt.omni_range = 9.0
+	office.add_child(lt)
+	lt.position = Vector3(0, H - 0.8, 0)
+	office_entry = OFFICE_O + Vector3(-60, 0, 195) * OFFICE_S
+	office_exit = office_entry + Vector3(-0.9, 0, 0.6)
+	var ex := FX.ground_disc(0.7, Color(0.4, 0.8, 1.0), 0.6, true)
+	office.add_child(ex)
+	ex.global_position = office_exit + Vector3(0, 0.04, 0)
+	changer = spawn_free_mob("hunter", OFFICE_O + Vector3(165, 0, 35) * OFFICE_S)
+	changer.display_name = "Le Changeur"
+	changer.rank = "PNJ"
+	changer.patrol = []
+	changer.team = 2
+	for att in changer.find_children("*", "BoneAttachment3D", true, false):
+		att.queue_free()
+	if changer.hp_bar:
+		changer.hp_bar.queue_free()
+		changer.hp_bar = null
+		changer.hp_fill = null
+	var lb := Label3D.new()
+	lb.text = "Le Changeur — Jetons"
+	lb.font_size = 34
+	lb.pixel_size = 0.0009
+	lb.fixed_size = true
+	lb.outline_size = 8
+	lb.modulate = Color(1, 0.85, 0.4)
+	lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lb.position.y = 2.2
+	changer.add_child(lb)
+	changer.face_to(office_entry, true)
+	office.visible = false
+	changer.visible = false
+
+func enter_office() -> void:
+	sfx("open")
+	await _teleport(office_entry, "office")
+	changer.visible = true
+	_face(changer.global_position)
+	hint("office")
+
+func leave_office() -> void:
+	sfx("open")
+	changer.visible = false
+	await _teleport(office_door + Vector3(-1.2, 0, 0), "shop")
+
+func _changer_dialogue() -> void:
+	changer.face_to(hero.global_position, true)
+	var w := item_by_uid(int(equip["w"]))
+	var wl := Items.lv(w) if not w.is_empty() else 10
+	var txt := "Des jetons de Portail... Je ne prends pas l'or, chasseur. L'or, tout le monde en a. Ça, seuls ceux qui sortent vivants en ont.\nTes jetons : %d orques, %d gobelins." % [tokens["orc"], tokens["goblin"]]
+	var ch: Array = []
+	if wl < 10:
+		ch.append(["Forger mon arme (+1 niveau, actuel %d) — 6 jetons orques" % wl, _changer_buy.bind("weapon")])
+	ch.append(["Renforcer une ombre (+1 niveau) — 5 jetons gobelins", _changer_shadows])
+	if not _owns("w9"):
+		ch.append(["Hache du Chef de Guerre (unique) — 40 jetons orques", _changer_buy.bind("w9")])
+	if not _owns("a11"):
+		ch.append(["Masque de Kragg (unique) — 30 jetons gobelins", _changer_buy.bind("a11")])
+	ch.append(["« Pas maintenant. »", close_dialogue])
+	dialogue("Le Changeur", txt, ch)
+
+func _owns(id: String) -> bool:
+	for it in inv:
+		if str(it["id"]) == id:
+			return true
+	return false
+
+func _pay(k: String, n: int) -> bool:
+	if int(tokens[k]) < n:
+		sfx("error")
+		dialogue("Le Changeur", "Il te manque %d %ss. Les Portails ne vont pas se vider tout seuls." % [n - int(tokens[k]), TOK_NAME[k]], [["« Je reviendrai. »", _changer_dialogue]])
+		return false
+	tokens[k] = int(tokens[k]) - n
+	return true
+
+func _changer_buy(what: String) -> void:
+	match what:
+		"weapon":
+			var w := item_by_uid(int(equip["w"]))
+			if w.is_empty() or not _pay("orc", 6):
+				return
+			w["lv"] = Items.lv(w) + 1
+			recalc_gear()
+			sfx("levelup")
+			FX.burst(self, hero.global_position + Vector3(0, 1.2, 0), Color(1, 0.6, 0.2), 30, 0.08, 3.0, 0.7, -1.0)
+			system_msg("%s passe au niveau %d." % [Items.base_of(w)["n"], Items.lv(w)])
+		"w9":
+			if not _pay("orc", 40):
+				return
+			grant_item("w", "w9")
+			sfx("victory")
+			system_msg("Tu obtiens : HACHE DU CHEF DE GUERRE (unique).")
+		"a11":
+			if not _pay("goblin", 30):
+				return
+			grant_item("a", "a11")
+			sfx("victory")
+			system_msg("Tu obtiens : MASQUE DE KRAGG (unique).")
+	save_game()
+	_changer_dialogue()
+
+func _changer_shadows() -> void:
+	var ch: Array = []
+	var lst := shadow_list()
+	lst.sort_custom(func(a, b): return (a as Mob).grade * 20 + (a as Mob).slv > (b as Mob).grade * 20 + (b as Mob).slv)
+	for m in lst:
+		var mm := m as Mob
+		if mm.slv >= 10:
+			continue
+		ch.append(["%s — rang %s, niv. %d" % [mm.display_name, Mob.GRADES[mm.grade], mm.slv], _changer_shadow.bind(mm)])
+		if ch.size() >= 5:
+			break
+	if ch.is_empty():
+		dialogue("Le Changeur", "Tu n'as aucune ombre à renforcer.", [["« Retour »", _changer_dialogue]])
+		return
+	ch.append(["« Retour »", _changer_dialogue])
+	dialogue("Le Changeur", "Laquelle ? (5 jetons gobelins — tu en as %d)" % tokens["goblin"], ch)
+
+func _changer_shadow(m: Mob) -> void:
+	if not is_instance_valid(m) or not _pay("goblin", 5):
+		return
+	m.level_up()
+	sfx("levelup")
+	FX.arise_pillar(self, m.global_position)
+	save_game()
+	_changer_shadows()
+
+func _shots_runs() -> void:
+	hero.max_hp = 99999
+	hero.hp = 99999
+	for kd in ["goblin", "orc"]:
+		if gate_kind != kd or run == null:
+			gate_kind = kd
+			await _build_run()
+		while not run.ready_ok:
+			await get_tree().physics_frame
+		await enter_run()
+		await _snap("30_%s_salle1_entree" % kd, 40)
+		for i in run.rooms.size():
+			var r: Dictionary = run.room()
+			if run.boss_room():
+				_place_hero(run.chief.global_position + (r["entry"] - run.chief.global_position).normalized() * 10.0, run.chief.global_position)
+				await _snap("33_%s_chef%s" % [kd, "_anomalie" if run.over > 0 else ""], 40)
+				print("RUN_CHIEF %s rang=%s pv=%d degats=%.0f" % [run.chief.display_name, run.chief.rank, int(run.chief.max_hp), run.chief.dmg])
+				run.chief.take_damage(9999999, hero)
+				await _snap("34_%s_coffre_chef" % kd, 60)
+				if run.chest:
+					_place_hero(run.chest.global_position + Vector3(0, 0, 3), run.chest.global_position)
+					run.open_chest()
+					await _snap("35_%s_coffre_ouvert" % kd, 50)
+				break
+			var k := 0
+			for p in r["packs"]:
+				var c: Vector3 = p["center"]
+				_place_hero(c + (r["entry"] - c).normalized() * 9.0, c)
+				await _snap("31_%s_s%d_meute%d" % [kd, i + 1, k], 30 if k == 0 else 10)
+				for m in p["mobs"]:
+					if is_instance_valid(m) and not (m as Mob).dead:
+						(m as Mob).take_damage(9999999, hero)
+				k += 1
+				await get_tree().create_timer(0.5).timeout
+			await _snap("32_%s_s%d_passage" % [kd, i + 1], 30)
+			print("RUN_STEP %s salle=%d ouverte=%s jetons=%s" % [kd, i + 1, str(r["open"]), str(tokens)])
+			await _next_room()
+			await _snap("30_%s_salle%d_entree" % [kd, i + 2], 40)
+		close_dialogue()
+		await _leave_run()
+	# bureau du Changeur
+	tokens = {"orc": 50, "goblin": 40}
+	await enter_shop()
+	_place_hero(office_door + Vector3(-4, 0, -2), office_door)
+	await _snap("36_porte_bureau", 20)
+	await enter_office()
+	await _snap("37_bureau", 30)
+	_place_hero(changer.global_position + (office_entry - changer.global_position).normalized() * 2.2, changer.global_position)
+	await _snap("37b_changeur", 15)
+	_changer_dialogue()
+	await _snap("38_changeur_dialogue", 20)
+	_changer_buy("w9")
+	await _snap("38b_achat", 15)
+	close_dialogue()
+	_toggle_menu("sac")
+	await _snap("39_sac_jetons", 15)
+	_toggle_menu("sac")
+	await leave_office()
+	await leave_shop()

@@ -19,6 +19,7 @@ const WEAPONS := [
 	{"id": "w5", "n": "Croc du Venin", "r": 4, "type": "dague", "model": "dague", "mult": 2.1, "spd": 1.5, "arc": 60, "glow": "4ade80", "st": {"crit": 15}, "d": "Le poison de son fil ne pardonne pas."},
 	{"id": "w6", "n": "Hache Sanglante", "r": 5, "type": "hache", "model": "hache", "mult": 3.6, "spd": 0.78, "arc": 140, "glow": "ff3b5c", "st": {"wdmg": 15}, "d": "Elle a soif. Elle a toujours soif."},
 	{"id": "w7", "n": "Lame du Commandant", "r": 5, "type": "épée", "model": "lame", "mult": 3.3, "spd": 1.05, "arc": 90, "glow": "ff2020", "st": {"sdmg": 15}, "d": "L'épée d'Igris. Elle reconnaît désormais ta main."},
+	{"id": "w9", "n": "Hache du Chef de Guerre", "r": 4, "type": "hache", "model": "hache", "mult": 2.7, "spd": 0.8, "arc": 140, "glow": "ff7a1a", "st": {"wdmg": 12, "hp": 10}, "u": true, "d": "Arrachée à Grukh. Chaque coup fait trembler le sol."},
 	{"id": "w8", "n": "Lame du Monarque d'Ombre", "r": 6, "type": "épée", "model": "lame", "mult": 5.5, "spd": 1.12, "arc": 100, "glow": "b46bff", "st": {"sdmg": 40, "all": 10}, "d": "L'arme suprême. Les ombres s'inclinent devant elle."},
 ]
 const RELICS := [
@@ -44,6 +45,7 @@ const ACCS := [
 	{"id": "a5", "n": "Manteau de Nuit Éternelle", "slot": "cape", "r": 4, "st": {"all": 12, "luck": 8}},
 	{"id": "a10", "n": "Bottes du Pas d'Ombre", "slot": "bottes", "r": 5, "st": {"speed": 15, "sdmg": 20}},
 	{"id": "a3", "n": "Couronne du Monarque", "slot": "tete", "r": 5, "st": {"sdmg": 35, "dom": 3}},
+	{"id": "a11", "n": "Masque de Kragg", "slot": "tete", "r": 4, "st": {"luck": 12, "crit": 6, "gold": 10}, "u": true, "d": "Le masque du Roi Gobelin. Il sent encore l'or et la peur."},
 	{"id": "a8", "n": "Armure Abyssale", "slot": "plastron", "r": 6, "st": {"hp": 60, "all": 20}},
 ]
 const STAT_NAMES := {"gold": "Or gagné", "crit": "Critique", "hp": "PV", "aspd": "Vitesse d'attaque", "wdmg": "Dégâts d'arme", "mana": "Mana", "dom": "Domaine d'ombre", "sdmg": "Dégâts des ombres", "luck": "Chance de butin", "all": "Tous dégâts", "speed": "Vitesse"}
@@ -159,7 +161,7 @@ static func roll_item(rank: int, uid: int) -> Dictionary:
 		var lst: Array = WEAPONS if t == "w" else (RELICS if t == "r" else ACCS)
 		var cands: Array = []
 		for b in lst:
-			if int(b["r"]) == rank and b["id"] != "w7":
+			if int(b["r"]) == rank and b["id"] != "w7" and not b.get("u", false):
 				cands.append(b)
 		if not cands.is_empty():
 			return {"uid": uid, "t": t, "id": cands[randi() % cands.size()]["id"]}
