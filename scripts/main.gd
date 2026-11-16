@@ -161,6 +161,9 @@ func _ready() -> void:
 		var ib := Node.new()
 		ib.set_script(load("res://scripts/icon_baker.gd"))
 		add_child(ib)
+		set_process(false)
+		set_physics_process(false)
+		set_process_input(false)
 		return
 	get_tree().node_added.connect(_on_node_added)
 	shots_mode = OS.get_cmdline_user_args().has("--shots")

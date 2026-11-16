@@ -75,16 +75,13 @@ func _bake(s: Array) -> void:
 		if bb.size.y < 0.02 * maxf(bb.size.x, bb.size.z):
 			g.visible = false
 	if s[3]:
-		var sm := StandardMaterial3D.new()
-		sm.albedo_color = Color(0.06, 0.03, 0.12)
-		sm.emission_enabled = true
-		sm.emission = Color(0.4, 0.12, 0.9)
-		sm.emission_energy_multiplier = 0.7
-		sm.rim_enabled = true
-		sm.rim = 1.0
-		sm.rim_tint = 0.2
+		# ombre : textures d'origine assombries + voile violet et liseré lumineux
+		var ov := StandardMaterial3D.new()
+		ov.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		ov.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		ov.albedo_color = Color(0.16, 0.05, 0.35, 0.72)
 		for mi in m.find_children("*", "MeshInstance3D", true, false):
-			(mi as MeshInstance3D).material_override = sm
+			(mi as MeshInstance3D).material_overlay = ov
 	if str(s[4]) != "":
 		var c := Color(str(s[4]))
 		var gm := StandardMaterial3D.new()
@@ -94,30 +91,29 @@ func _bake(s: Array) -> void:
 		gm.albedo_color = Color(c.r, c.g, c.b, 0.4)
 		for mi in m.find_children("*", "MeshInstance3D", true, false):
 			(mi as MeshInstance3D).material_overlay = gm
+	var weapon: bool = str(s[0]).begins_with("w")
+	if weapon:
+		root.basis = Basis(Vector3(0, 0, 1), deg_to_rad(40.0)) * Basis(Vector3.UP, deg_to_rad(90.0))
 	await get_tree().process_frame
 	await get_tree().process_frame
 	var aabb := AABB()
 	var first := true
-	for mi in m.find_children("*", "MeshInstance3D", true, false):
-		var g := mi as MeshInstance3D
-		if not g.visible:
-			continue
-		var bb: AABB = g.global_transform * g.get_aabb()
-		aabb = bb if first else aabb.merge(bb)
-		first = false
-	var weapon: bool = str(s[0]).begins_with("w")
-	if weapon:
-		root.rotation_degrees = Vector3(0, 90, float(s[5]))
-	await get_tree().process_frame
-	aabb = AABB()
-	first = true
-	for mi in m.find_children("*", "MeshInstance3D", true, false):
-		var g := mi as MeshInstance3D
-		if not g.visible:
-			continue
-		var bb: AABB = g.global_transform * g.get_aabb()
-		aabb = bb if first else aabb.merge(bb)
-		first = false
+	var skl := m.find_children("*", "Skeleton3D", true, false)
+	if not weapon and not skl.is_empty():
+		# cadrage sur les os (les boîtes des maillages animés ne suivent pas la pose)
+		var sk := skl[0] as Skeleton3D
+		for i in sk.get_bone_count():
+			var p := sk.global_transform * sk.get_bone_global_pose(i).origin
+			aabb = AABB(p, Vector3.ZERO) if first else aabb.expand(p)
+			first = false
+	else:
+		for mi in m.find_children("*", "MeshInstance3D", true, false):
+			var g := mi as MeshInstance3D
+			if not g.visible:
+				continue
+			var bb: AABB = g.global_transform * g.get_aabb()
+			aabb = bb if first else aabb.merge(bb)
+			first = false
 	var cam := Camera3D.new()
 	vp.add_child(cam)
 	cam.fov = 30.0
@@ -125,11 +121,11 @@ func _bake(s: Array) -> void:
 	var sz := maxf(aabb.size.x, aabb.size.y)
 	if not weapon:
 		# portrait : buste et tête
-		ctr.y = aabb.position.y + aabb.size.y * 0.68
-		sz = aabb.size.y * 0.62
+		ctr.y = aabb.position.y + aabb.size.y * 0.74
+		sz = aabb.size.y * 0.72
 	var dist := sz * 0.5 / tan(deg_to_rad(cam.fov * 0.5)) * 1.12
 	var dir := Vector3(sin(deg_to_rad(float(s[5]) if not weapon else 0.0)), 0.12, cos(deg_to_rad(float(s[5]) if not weapon else 0.0))).normalized()
-	cam.look_at_from_position(ctr + dir * (dist + aabb.size.z * 0.5), ctr, Vector3.UP)
+	cam.look_at_from_position(ctr + dir * (dist + aabb.size.z * 0.6 + 0.3), ctr, Vector3.UP)
 	for k in 4:
 		await RenderingServer.frame_post_draw
 	var img := vp.get_texture().get_image()
