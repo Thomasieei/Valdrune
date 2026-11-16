@@ -2,6 +2,8 @@
 # Scénario joué sur le téléphone émulé : lancement, marche, attaques, sorts, saut, esquive. Captures + journal.
 set -x
 mkdir -p emu
+adb shell settings put global hide_error_dialogs 1
+adb shell pm disable-user --user 0 com.google.android.apps.nexuslauncher || true
 adb install -r out/test.apk
 adb shell wm size > emu/screen.txt
 adb logcat -c
@@ -22,6 +24,7 @@ adb shell input tap 1747 987; sleep 0.4; cap 09_saut
 adb shell input tap 1725 810; sleep 0.4; cap 10_esquive
 adb shell input swipe 300 870 300 560 12000 & sleep 10; cap 11_place; wait
 adb logcat -d > emu/logcat_full.txt
+grep -E "PERF " emu/logcat_full.txt | tail -30 > emu/fps.txt
 grep -iE "godot|SCRIPT ERROR|FATAL|crash|ANR" emu/logcat_full.txt | tail -400 > emu/logcat_godot.txt
 adb shell dumpsys meminfo fr.thomas.studiolab | head -40 > emu/memoire.txt
 adb shell pidof fr.thomas.studiolab > emu/pid.txt || echo "APP MORTE" > emu/pid.txt

@@ -104,7 +104,10 @@ func _world() -> void:
 	blade_mesh = (kn.find_child("2H_Sword", true, false).get_child(0) as MeshInstance3D).mesh
 	kn.free()
 
+var _perf_t := 0.0
 func _process(dt: float) -> void:
+	_perf_t += dt
+	if _perf_t > 5.0: _perf_t = 0; print("PERF fps=%d draw=%d obj=%d" % [Engine.get_frames_per_second(), Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)])
 	player.move_in = pad.stick
 	pad.cd = K.cd; pad.cd_max = K.cd_max; pad.chan = K.channel / K.channel_max if K.channel > 0 else 0.0
 	pad.queue_redraw()
