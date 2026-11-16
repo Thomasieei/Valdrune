@@ -889,11 +889,15 @@ func _tk_choke(d: Dictionary) -> void:
 		_tk_release(e)
 		return
 	var u := e as Unit
+	# la victime se redresse, suspendue par la gorge, mains au cou, jambes qui battent
+	u.face_to(global_position, true)
 	var tw := u.create_tween()
-	tw.tween_property(u, "global_position", u.global_position + Vector3(0, 0.7, 0), 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	var shake := u.create_tween().set_loops(14)
-	shake.tween_property(u.model, "rotation:z", 0.12, 0.07)
-	shake.tween_property(u.model, "rotation:z", -0.12, 0.07)
+	tw.tween_property(u.model, "rotation:x", 0.0, 0.25)
+	tw.parallel().tween_property(u, "global_position", u.global_position + Vector3(0, 0.6, 0), 0.9).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	u.play("Choked" if u.ap and u.ap.has_animation("Choked") else "Hit", 0.15, 1.0, true)
+	var shake := u.create_tween().set_loops(16)
+	shake.tween_property(u.model, "rotation:z", 0.035, 0.06)
+	shake.tween_property(u.model, "rotation:z", -0.035, 0.06)
 	var p := CPUParticles3D.new()
 	p.name = "TkChoke"
 	p.amount = 40
@@ -926,8 +930,9 @@ func _tk_choke_tick(u) -> void:
 		return
 	var m := u as Unit
 	m.take_damage(power() * (0.42 + 0.08 * tk_lvl), self)
-	m.play("Hit", 0.02, 1.4, true)
-	main.sfx("hit2", m.global_position, -8.0)
+	if m.ap and m.ap.has_animation("Choked"):
+		m.play("Choked", 0.1, 1.0)
+	main.sfx("hit2", m.global_position, -10.0)
 
 func _tk_drop(d: Dictionary) -> void:
 	var e = d["u"]

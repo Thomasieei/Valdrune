@@ -624,7 +624,7 @@ static func _fire_explode(parent, rv, on_hit: Callable) -> void:
 static func fire_rain(parent: Node, spots: Array, on_hit: Callable) -> void:
 	for i in spots.size():
 		var sp: Vector3 = spots[i]
-		telegraph(parent, sp, 2.2, 1.0 + i * 0.12, Color(1.0, 0.45, 0.05))
+		telegraph(parent, sp, 2.0, 0.55 + i * 0.12, Color(1.0, 0.72, 0.15))
 		var t := parent.get_tree().create_timer(0.55 + i * 0.12)
 		var a := sp + Vector3(randf_range(-3, 3), 16, randf_range(-3, 3))
 		var b := sp + Vector3(0, 0.9, 0)

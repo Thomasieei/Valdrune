@@ -92,6 +92,19 @@ var base_fov := 64.0
 # inventaire
 const CD_TEX := preload("res://assets/ui/cd.png")
 var potion_lbl: Label
+var qpanel: PanelContainer
+var qrows := {}
+var qtrack_open := true
+var cash_lbl: Label
+var ess_lbl: Label
+var menu_title: Label
+var menu_icon: TextureRect
+var menu_chips: HBoxContainer
+var menu_scroll: ScrollContainer
+var menu_split: HBoxContainer
+var sh_sel: Mob
+const CASH_TEX := preload("res://assets/ui/cash.png")
+const ESS_TEX := preload("res://assets/ui/essence.png")
 var life: CityLife
 var army_mode := "auto"
 var army_t := 0.0
@@ -144,6 +157,11 @@ func _on_node_added(n: Node) -> void:
 		(n as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 func _ready() -> void:
+	if OS.get_cmdline_user_args().has("--icons"):
+		var ib := Node.new()
+		ib.set_script(load("res://scripts/icon_baker.gd"))
+		add_child(ib)
+		return
 	get_tree().node_added.connect(_on_node_added)
 	shots_mode = OS.get_cmdline_user_args().has("--shots")
 	audio = GameAudio.new()
@@ -773,7 +791,7 @@ func _on_mob_died(u: Unit) -> void:
 	quest_add("kills", 1)
 	sfx("coins", m.global_position, -8.0)
 	rep += 3 if m.elite else 1
-	var xpv := {"goblin": 12.0, "shaman": 15.0, "orc": 35.0, "igris": 600.0}.get(m.kind, 10.0) as float
+	var xpv := {"goblin": 12.0, "shaman": 15.0, "orc": 35.0, "orc_warrior": 55.0, "igris": 600.0}.get(m.kind, 10.0) as float
 	hero.gain_xp(xpv * (3.0 if m.elite else 1.0))
 	if randf() < (0.5 if m.elite else 0.12):
 		essence += 1
@@ -1247,6 +1265,7 @@ func _hide_near_camera() -> void:
 func _process(delta: float) -> void:
 	_hide_near_camera()
 	_army_tick(delta)
+	_population_tick(delta)
 	if life:
 		life.tick(delta)
 	_parley_tick(delta)
@@ -1490,6 +1509,77 @@ func _skill_button(layer: CanvasLayer, key: String, txt: String, center: Vector2
 
 # ================================================================ ordres à l'armée
 ## « À l'attaque » : le Monarque pointe les monstres, les ombres s'élancent, chacune à sa place.
+# ================================================================ population de monstres : toujours de quoi se battre, jamais les mêmes
+var pop_t := 6.0
+var roamers: Array = []
+const GROUPS := [
+	[["goblin", ""], ["goblin", ""], ["goblin", "eclaireur"]],
+	[["goblin", ""], ["goblin", ""], ["shaman", ""]],
+	[["goblin", "eclaireur"], ["goblin", "eclaireur"], ["goblin", "eclaireur"], ["goblin", "eclaireur"]],
+	[["goblin", "berserker"], ["goblin", "berserker"]],
+	[["orc", ""], ["shaman", ""], ["goblin", ""]],
+	[["orc_warrior", ""], ["goblin", ""], ["goblin", ""]],
+	[["orc_warrior", ""], ["shaman", ""], ["shaman", ""]],
+	[["goblin", "berserker"], ["goblin", ""], ["shaman", ""], ["goblin", "eclaireur"]],
+]
+
+func _population_tick(delta: float) -> void:
+	if zone != "city" or hero == null:
+		return
+	pop_t -= delta
+	if pop_t > 0.0:
+		return
+	pop_t = 5.0
+	var hp := hero.global_position
+	for i in range(roamers.size() - 1, -1, -1):
+		var r = roamers[i]
+		if not is_instance_valid(r):
+			roamers.remove_at(i)
+			continue
+		var m := r as Mob
+		if m.dead or m.is_shadow:
+			roamers.remove_at(i)
+			continue
+		if m.target == null and m.global_position.distance_to(hp) > 110.0:
+			mobs.erase(m)
+			m.queue_free()
+			roamers.remove_at(i)
+	var n := 0
+	for u in units_of_team(1):
+		var mm := u as Mob
+		if mm and not mm.dead and not mm.dormant and mm.global_position.distance_to(hp) < 75.0:
+			n += 1
+	if n >= 11 or roamers.size() >= 14:
+		return
+	var space := get_world_3d().direct_space_state
+	var camf := Vector3(-sin(yaw), 0, -cos(yaw))
+	for tries in 10:
+		var a := randf() * TAU
+		var p := hp + Vector3(sin(a), 0, cos(a)) * randf_range(42.0, 62.0)
+		if (p - hp).normalized().dot(camf) > 0.55 and tries < 7:
+			continue
+		if p.distance_to(spawn_point) < 30.0 or not _is_open(space, p + Vector3(0, 80, 0)):
+			continue
+		var g := space.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3(0, 40, 0), p + Vector3(0, -20, 0)))
+		if g.is_empty():
+			continue
+		p = g["position"]
+		var lvl_cap := 3 if hero.level < 3 else (6 if hero.level < 6 else GROUPS.size())
+		var grp: Array = GROUPS[randi() % mini(lvl_cap, GROUPS.size())]
+		var route: Array = []
+		for k in 3:
+			var b2 := randf() * TAU
+			route.append(p + Vector3(sin(b2), 0, cos(b2)) * randf_range(10.0, 22.0))
+		for i in grp.size():
+			var m := spawn_free_mob(str(grp[i][0]), p + Vector3(cos(i * 2.1), 0, sin(i * 2.1)) * 2.4)
+			if str(grp[i][1]) != "":
+				m.make_variant(str(grp[i][1]))
+			m.patrol = route
+			m.patrol_off = Vector3(cos(i * 2.1), 0, sin(i * 2.1)) * 1.8
+			roamers.append(m)
+		print("POP groupe ", grp.size(), " ", grp[0][0])
+		return
+
 func command_attack() -> void:
 	if shadow_count() == 0 or hero.dead:
 		return
@@ -1805,7 +1895,7 @@ func recalc_gear() -> void:
 		for k in st.keys():
 			tot[k] = float(tot.get(k, 0.0)) + float(st[k])
 		if it["t"] == "w":
-			w = Items.base_of(it)
+			w = Items.weapon_of(it)
 	if w.is_empty():
 		w = Items.WEAPONS[0]
 	hero.gear = tot
@@ -2182,7 +2272,7 @@ func save_game() -> void:
 	var sh: Array = []
 	for m in shadow_list():
 		var mm := m as Mob
-		sh.append({"kind": mm.kind, "elite": mm.elite, "boss": mm.boss, "role": mm.role})
+		sh.append({"kind": mm.kind, "elite": mm.elite, "boss": mm.boss, "role": mm.role, "slv": mm.slv})
 	var d := {"v": 1, "level": hero.level, "xp": hero.xp, "points": hero.points, "stats": hero.stats, "gold": gold, "essence": essence, "rep": rep,
 		"blade": hero.blade_mult, "unarmed": hero.unarmed_mode, "potions": potions, "shadow_lvl": shadow_lvl, "rank": hunter_rank, "quest": quest, "shadows": sh,
 		"base_hp": hero.base_hp, "base_mp": hero.base_mp, "powers": hero.powers, "inv": inv, "equip": equip, "next_uid": next_uid}
@@ -2245,7 +2335,7 @@ func load_game() -> bool:
 		if bool(sdat.get("elite", false)):
 			m.make_elite()
 		m.dead = true
-		m.rise_as_shadow(str(sdat.get("role", "")))
+		m.rise_as_shadow(str(sdat.get("role", "")), int(sdat.get("slv", 0)))
 	print("LOAD niveau=%d or=%d ombres=%d" % [hero.level, gold, shadow_count()])
 	return true
 
@@ -2295,6 +2385,51 @@ func _build_ui() -> void:
 	gate_txt.add_theme_font_size_override("font_size", 16)
 	gate_txt.add_theme_color_override("font_color", Color(0.65, 0.85, 1))
 	obj.add_child(gate_txt)
+	# suivi de la quête du jour (toujours visible, touche pour replier)
+	qpanel = PanelContainer.new()
+	qpanel.add_theme_stylebox_override("panel", _panel_style(Color(0.02, 0.04, 0.12, 0.62), Color(1.0, 0.75, 0.35, 0.6)))
+	qpanel.position = Vector2(20, 392)
+	layer.add_child(qpanel)
+	var qv := VBoxContainer.new()
+	qv.add_theme_constant_override("separation", 3)
+	qpanel.add_child(qv)
+	var qh := Button.new()
+	qh.text = "QUÊTE DU JOUR  ▾"
+	qh.flat = true
+	qh.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	qh.add_theme_font_size_override("font_size", 15)
+	qh.add_theme_color_override("font_color", Color(1, 0.85, 0.5))
+	qh.focus_mode = Control.FOCUS_NONE
+	qh.pressed.connect(_toggle_qtrack)
+	qv.add_child(qh)
+	buttons["qtrack"] = {"btn": qpanel, "shade": null, "label": null}
+	for g in QUEST_GOALS.keys():
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		var ic := TextureRect.new()
+		ic.texture = load("res://assets/ui/q_%s.png" % g)
+		ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ic.custom_minimum_size = Vector2(24, 24)
+		row.add_child(ic)
+		var col := VBoxContainer.new()
+		col.add_theme_constant_override("separation", 1)
+		var l := Label.new()
+		l.add_theme_font_size_override("font_size", 13)
+		l.add_theme_color_override("font_color", Color(0.85, 0.9, 1))
+		col.add_child(l)
+		var bar := ProgressBar.new()
+		bar.custom_minimum_size = Vector2(150, 5)
+		bar.show_percentage = false
+		var bgs := StyleBoxFlat.new()
+		bgs.bg_color = Color(0, 0, 0, 0.6)
+		var fgs := StyleBoxFlat.new()
+		fgs.bg_color = Color(1, 0.75, 0.3)
+		bar.add_theme_stylebox_override("background", bgs)
+		bar.add_theme_stylebox_override("fill", fgs)
+		col.add_child(bar)
+		row.add_child(col)
+		qv.add_child(row)
+		qrows[g] = [l, bar, row]
 	# ressources : pastille discrète en haut à droite
 	info_box = VBoxContainer.new()
 	info_box.anchor_left = 1.0
@@ -2305,7 +2440,18 @@ func _build_ui() -> void:
 	info_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(info_box)
 	res_txt = _outlined(info_box, Vector2(0, 0), 19, Color(1, 0.85, 0.45))
-	res_txt.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	res_txt.visible = false
+	var rr := HBoxContainer.new()
+	rr.alignment = BoxContainer.ALIGNMENT_END
+	rr.add_theme_constant_override("separation", 16)
+	rr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info_box.add_child(rr)
+	var c1 := UICards.chip(CASH_TEX, "0", Color(0.65, 1, 0.65), 30)
+	var c2 := UICards.chip(ESS_TEX, "0", Color(0.85, 0.7, 1), 30)
+	rr.add_child(c1)
+	rr.add_child(c2)
+	cash_lbl = c1.get_child(1)
+	ess_lbl = c2.get_child(1)
 	# combat : grosse attaque + pouvoirs en arc (style action-RPG mobile)
 	var C := Vector2(-140, -140)
 	_skill_button(layer, "attack", "", C, 176, hero.attack)
@@ -2543,6 +2689,10 @@ func _load_settings() -> void:
 	if d is Dictionary:
 		set_gfx(bool(d.get("fast", false)))
 
+func _toggle_qtrack() -> void:
+	qtrack_open = not qtrack_open
+	sfx("click", null, -10.0)
+
 func _quick_quest() -> void:
 	(quick_menu.get_parent() as Control).visible = false
 	_show_quest()
@@ -2615,19 +2765,45 @@ func _build_menu(layer: CanvasLayer) -> void:
 	menu_panel.add_theme_stylebox_override("panel", _panel_style(Color(0.02, 0.03, 0.1, 0.88), Color(0.5, 0.35, 1.0)))
 	menu_panel.anchor_left = 0.5
 	menu_panel.anchor_right = 0.5
-	menu_panel.offset_left = -290
-	menu_panel.offset_right = 290
-	menu_panel.offset_top = 110
-	menu_panel.offset_bottom = 560
+	menu_panel.anchor_bottom = 1.0
+	menu_panel.offset_left = -600
+	menu_panel.offset_right = 600
+	menu_panel.offset_top = 14
+	menu_panel.offset_bottom = -14
 	menu_panel.visible = false
 	layer.add_child(menu_panel)
-	var sc := ScrollContainer.new()
-	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	menu_panel.add_child(sc)
+	var mroot := VBoxContainer.new()
+	mroot.add_theme_constant_override("separation", 6)
+	menu_panel.add_child(mroot)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 10)
+	mroot.add_child(head)
+	menu_icon = TextureRect.new()
+	menu_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	menu_icon.custom_minimum_size = Vector2(44, 44)
+	head.add_child(menu_icon)
+	menu_title = _lbl("", 26, Color(1, 0.88, 0.6))
+	menu_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(menu_title)
+	menu_chips = HBoxContainer.new()
+	menu_chips.add_theme_constant_override("separation", 14)
+	head.add_child(menu_chips)
+	var xb := _icon_btn("close", 46)
+	xb.custom_minimum_size = Vector2(46, 46)
+	xb.pressed.connect(_close_menu)
+	head.add_child(xb)
+	menu_scroll = ScrollContainer.new()
+	menu_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	menu_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	mroot.add_child(menu_scroll)
 	menu_body = VBoxContainer.new()
 	menu_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	menu_body.add_theme_constant_override("separation", 8)
-	sc.add_child(menu_body)
+	menu_scroll.add_child(menu_body)
+	menu_split = HBoxContainer.new()
+	menu_split.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	menu_split.add_theme_constant_override("separation", 12)
+	mroot.add_child(menu_split)
 	focus_marker = MeshInstance3D.new()
 	var cm := CylinderMesh.new()
 	cm.top_radius = 0.28
@@ -2646,6 +2822,10 @@ func _toggle_menu(tab: String) -> void:
 	menu_panel.visible = true
 	_refresh_menu()
 
+func _close_menu() -> void:
+	menu_panel.visible = false
+	sfx("click", null, -8.0)
+
 func _lbl(t: String, size := 20, col := Color(0.85, 0.9, 1)) -> Label:
 	var l := Label.new()
 	l.text = t
@@ -2658,7 +2838,23 @@ func _lbl(t: String, size := 20, col := Color(0.85, 0.9, 1)) -> Label:
 func _refresh_menu() -> void:
 	for c in menu_body.get_children():
 		c.queue_free()
+	for c in menu_split.get_children():
+		c.queue_free()
+	for c in menu_chips.get_children():
+		c.queue_free()
+	var titles := {"sac": ["Inventaire", "sac"], "ombres": ["Armée d'ombres", "ombres"], "grimoire": ["Grimoire des pouvoirs", "grimoire"], "stats": ["Chasseur", "stats"]}
+	var t: Array = titles.get(menu_tab, ["", "menu"])
+	menu_title.text = str(t[0])
+	menu_icon.texture = load("res://assets/ui/%s.png" % str(t[1]))
+	menu_chips.add_child(UICards.chip(CASH_TEX, str(gold), Color(0.6, 1, 0.6), 26))
+	menu_chips.add_child(UICards.chip(ESS_TEX, str(essence), Color(0.85, 0.7, 1), 26))
+	var split := menu_tab == "sac" or menu_tab == "ombres"
+	menu_scroll.visible = not split
+	menu_split.visible = split
 	if menu_tab == "ombres":
+		_shadows_ui()
+		return
+	if menu_tab == "ombres_old":
 		var sh := shadow_list()
 		menu_body.add_child(_lbl("ARMÉE D'OMBRES   %d / %d" % [sh.size(), hero.max_shadows()], 24, Color(0.8, 0.65, 1)))
 		menu_body.add_child(_lbl("Domaine d'ombre : %d m — coche les ombres à commander, puis donne l'ordre. Touche un ennemi à l'écran pour le cibler." % int(hero.domain_r()), 16, Color(0.7, 0.75, 0.9)))
@@ -2683,7 +2879,7 @@ func _refresh_menu() -> void:
 		menu_body.add_child(row1)
 		menu_body.add_child(row2)
 	elif menu_tab == "sac":
-		_refresh_bag()
+		_bag_ui()
 	elif menu_tab == "grimoire":
 		menu_body.add_child(_lbl("GRIMOIRE DES POUVOIRS", 24, Color(0.8, 0.65, 1)))
 		menu_body.add_child(_lbl("Essences : %d — améliore un pouvoir jusqu'au niveau 5." % essence, 16, Color(0.7, 0.75, 0.9)))
@@ -2725,6 +2921,315 @@ func _refresh_menu() -> void:
 			b.pressed.connect(_add_stat.bind(str(r[0])))
 			hb.add_child(b)
 			menu_body.add_child(hb)
+
+# ================================================================ SAC (façon UMBRA)
+func _item_card(it: Dictionary, small := false) -> Button:
+	var rk := Items.rarity(it)
+	var b := Items.base_of(it)
+	var sub := ""
+	if not small:
+		if it["t"] == "w":
+			sub = "⚔ x%.2f" % float(Items.weapon_of(it)["mult"])
+		elif Items.lv(it) > 0:
+			sub = "Niv. %d" % Items.lv(it)
+		else:
+			sub = Items.RAR[rk]["n"]
+	var c := UICards.card(Items.icon(it), UICards.rar_color(rk), str(Items.RAR[rk]["k"]), "" if small else str(b["n"]), sub, is_equipped(int(it["uid"])) and not small, int(it["uid"]) == inv_sel, null, -1.0, 70.0 if small else 108.0, 86.0 if small else 138.0)
+	c.pressed.connect(_select_item.bind(int(it["uid"])))
+	return c
+
+func _bag_ui() -> void:
+	var left := VBoxContainer.new()
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left.add_theme_constant_override("separation", 8)
+	menu_split.add_child(left)
+	# équipement porté : arme, reliques, tête, cape, plastron, bottes
+	var load_row := HBoxContainer.new()
+	load_row.add_theme_constant_override("separation", 6)
+	left.add_child(load_row)
+	var slots: Array = [["w", "Arme"]]
+	for i in relic_slots():
+		slots.append(["r%d" % i, "Relique"])
+	for sl in Items.SLOTS:
+		slots.append([sl[0], sl[1]])
+	for sl in slots:
+		var uid := -1
+		var key: String = sl[0]
+		if key == "w":
+			uid = equip["w"]
+		elif key.begins_with("r") and key.length() == 2:
+			var rl: Array = equip["r"]
+			var ri := int(key.substr(1))
+			uid = rl[ri] if ri < rl.size() else -1
+		else:
+			uid = equip[key]
+		var it := item_by_uid(uid) if uid >= 0 else {}
+		var vb := VBoxContainer.new()
+		vb.add_theme_constant_override("separation", 0)
+		vb.add_child(_item_card(it, true) if not it.is_empty() else UICards.empty_slot(str(sl[1])))
+		var cap := _lbl(str(sl[1]), 11, Color(0.6, 0.65, 0.8))
+		cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vb.add_child(cap)
+		load_row.add_child(vb)
+	# onglets
+	var tabs := HBoxContainer.new()
+	tabs.add_theme_constant_override("separation", 8)
+	left.add_child(tabs)
+	for f in [["tab_w", "Armes", "w"], ["tab_r", "Reliques", "r"], ["tab_a", "Équipement", "a"]]:
+		var n := 0
+		for it in inv:
+			if it["t"] == f[2]:
+				n += 1
+		var tb := _small_btn("      %s  (%d)" % [f[1], n])
+		tb.custom_minimum_size = Vector2(170, 40)
+		if inv_filter == f[2]:
+			tb.add_theme_color_override("font_color", Color(1, 0.9, 0.55))
+			var sp: StyleBoxFlat = (tb.get_theme_stylebox("normal") as StyleBoxFlat).duplicate()
+			sp.bg_color = Color(0.25, 0.15, 0.45, 0.95)
+			sp.border_color = Color(1, 0.8, 0.4)
+			tb.add_theme_stylebox_override("normal", sp)
+		var ti := TextureRect.new()
+		ti.texture = load("res://assets/ui/%s.png" % f[0])
+		ti.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ti.position = Vector2(6, 4)
+		ti.size = Vector2(32, 32)
+		ti.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tb.add_child(ti)
+		tb.pressed.connect(_set_filter.bind(str(f[2])))
+		tabs.add_child(tb)
+	var sc := ScrollContainer.new()
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	left.add_child(sc)
+	var grid := GridContainer.new()
+	grid.columns = 6
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	sc.add_child(grid)
+	var list: Array = []
+	for it in inv:
+		if it["t"] == inv_filter:
+			list.append(it)
+	list.sort_custom(func(a, b): return Items.rarity(a) * 100 + Items.lv(a) > Items.rarity(b) * 100 + Items.lv(b))
+	for it in list:
+		grid.add_child(_item_card(it))
+	if list.is_empty():
+		left.add_child(_lbl("Rien ici pour l'instant. Monstres, coffres d'élite et boss lâchent du butin : un rayon de lumière de la couleur du rang marque l'objet au sol.", 15, Color(0.7, 0.75, 0.9)))
+	# détail à droite
+	var det := PanelContainer.new()
+	det.custom_minimum_size = Vector2(330, 0)
+	det.add_theme_stylebox_override("panel", _panel_style(Color(0.03, 0.03, 0.09, 0.9), Color(0.35, 0.3, 0.6)))
+	menu_split.add_child(det)
+	var dv := VBoxContainer.new()
+	dv.add_theme_constant_override("separation", 6)
+	det.add_child(dv)
+	var sel := item_by_uid(inv_sel)
+	if sel.is_empty() and not list.is_empty():
+		sel = list[0]
+		inv_sel = int(sel["uid"])
+	if sel.is_empty():
+		dv.add_child(_lbl("Sélectionne un objet.", 16))
+		return
+	var rk := Items.rarity(sel)
+	var col := UICards.rar_color(rk)
+	var cc := CenterContainer.new()
+	cc.add_child(UICards.card(Items.icon(sel), col, str(Items.RAR[rk]["k"]), "", "", false, true, null, -1.0, 150.0, 150.0))
+	dv.add_child(cc)
+	var nm := _lbl(str(Items.base_of(sel)["n"]), 21, col.lightened(0.25))
+	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	dv.add_child(nm)
+	dv.add_child(_lbl("Rang %s — %s   ·   Niveau %d / 10" % [Items.RAR[rk]["k"], Items.RAR[rk]["n"], Items.lv(sel)], 14, col))
+	var ds := _lbl(Items.describe(sel), 14, Color(0.85, 0.88, 1))
+	ds.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	ds.custom_minimum_size = Vector2(300, 0)
+	dv.add_child(ds)
+	if sel["t"] == "w":
+		var cur: Dictionary = hero.weapon
+		var nw := Items.weapon_of(sel)
+		var d := float(nw["mult"]) - float(cur.get("mult", 1.0))
+		dv.add_child(_lbl("Comparé à ton arme : dégâts %s%.2f" % ["+" if d >= 0 else "", d], 14, Color(0.5, 1, 0.6) if d >= 0 else Color(1, 0.5, 0.45)))
+	var eqd := is_equipped(inv_sel)
+	var be := _small_btn("RETIRER" if eqd else "ÉQUIPER")
+	be.pressed.connect(_toggle_equip.bind(inv_sel))
+	dv.add_child(be)
+	if Items.lv(sel) < 10:
+		var cost := Items.upgrade_cost(sel)
+		var ub := _small_btn("AMÉLIORER  →  Niv. %d" % (Items.lv(sel) + 1))
+		ub.pressed.connect(_upgrade_item.bind(inv_sel))
+		dv.add_child(ub)
+		var cr := HBoxContainer.new()
+		cr.add_theme_constant_override("separation", 12)
+		cr.add_child(UICards.chip(CASH_TEX, str(cost[0]), Color(0.6, 1, 0.6) if gold >= int(cost[0]) else Color(1, 0.45, 0.4), 22))
+		cr.add_child(UICards.chip(ESS_TEX, str(cost[1]), Color(0.85, 0.7, 1) if essence >= int(cost[1]) else Color(1, 0.45, 0.4), 22))
+		dv.add_child(cr)
+	var ar := HBoxContainer.new()
+	var bs := _small_btn("VENDRE")
+	bs.pressed.connect(_remove_sel.bind(true))
+	ar.add_child(bs)
+	ar.add_child(UICards.chip(CASH_TEX, "+%d" % Items.sell_price(sel), Color(0.6, 1, 0.6), 20))
+	var bd := _small_btn("DÉMANTELER")
+	bd.pressed.connect(_remove_sel.bind(false))
+	ar.add_child(bd)
+	ar.add_child(UICards.chip(ESS_TEX, "+%d" % Items.dismantle_value(sel), Color(0.85, 0.7, 1), 20))
+	dv.add_child(ar)
+
+func _upgrade_item(uid: int) -> void:
+	var it := item_by_uid(uid)
+	if it.is_empty() or Items.lv(it) >= 10:
+		return
+	var cost := Items.upgrade_cost(it)
+	if gold < int(cost[0]) or essence < int(cost[1]):
+		sfx("error")
+		system_msg("Pas assez d'or ou d'essences.")
+		return
+	gold -= int(cost[0])
+	essence -= int(cost[1])
+	it["lv"] = Items.lv(it) + 1
+	sfx("levelup")
+	FX.burst(self, hero.global_position + Vector3(0, 1.2, 0), UICards.rar_color(Items.rarity(it)), 30, 0.08, 3.0, 0.7, -1.0)
+	recalc_gear()
+	save_game()
+	_refresh_menu()
+
+# ================================================================ OMBRES (façon UMBRA)
+const ROLE_TEX := {"tank": "role_tank", "heal": "role_heal", "fire": "role_fire", "melee": "role_melee"}
+const ROLE_DESC := {"tank": "Se place devant toi, provoque les monstres et encaisse.", "heal": "Reste en retrait et soigne toi et tes ombres quand c'est nécessaire.", "fire": "Ligne arrière : boules de feu et pluie de feu.", "melee": "Contourne les ennemis et frappe dans le dos."}
+
+func _shadow_portrait(m: Mob) -> Texture2D:
+	var k := m.kind
+	if m.boss:
+		k = "igris"
+	var p := "res://assets/ui/items/sh_%s.png" % k
+	if ResourceLoader.exists(p):
+		return load(p)
+	return load("res://assets/ui/ombres.png")
+
+func _shadow_card(m: Mob, big := false) -> Button:
+	var col := UICards.grade_color(m.grade)
+	var short := str({"goblin": "Gobelin", "shaman": "Chaman", "orc": "Orc", "orc_warrior": "Orc guerrier", "igris": "Igris"}.get(m.kind, m.kind))
+	var c := UICards.card(_shadow_portrait(m), col, Mob.GRADES[m.grade], "" if big else short, "" if big else "⚔ %d  Niv.%d" % [int(m.dmg), m.slv], false, m == sh_sel and not big, load("res://assets/ui/%s.png" % ROLE_TEX.get(m.role, "role_melee")), m.hp / maxf(m.max_hp, 1.0), 150.0 if big else 108.0, 160.0 if big else 138.0)
+	if not big:
+		c.pressed.connect(_select_shadow.bind(m))
+	return c
+
+func _shadows_ui() -> void:
+	var sh := shadow_list()
+	var left := VBoxContainer.new()
+	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left.add_theme_constant_override("separation", 8)
+	menu_split.add_child(left)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 14)
+	left.add_child(top)
+	top.add_child(_lbl("Armée %d / %d" % [sh.size(), hero.max_shadows()], 18, Color(0.85, 0.7, 1)))
+	var counts := {"tank": 0, "heal": 0, "fire": 0, "melee": 0}
+	for m in sh:
+		counts[(m as Mob).role] = int(counts.get((m as Mob).role, 0)) + 1
+	for r in ["tank", "heal", "fire", "melee"]:
+		top.add_child(UICards.chip(load("res://assets/ui/%s.png" % ROLE_TEX[r]), str(counts[r]), Color(1, 1, 1), 26))
+	top.add_child(_lbl("Domaine %d m" % int(hero.domain_r()), 15, Color(0.7, 0.75, 0.9)))
+	var sc := ScrollContainer.new()
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	left.add_child(sc)
+	var grid := GridContainer.new()
+	grid.columns = 6
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	sc.add_child(grid)
+	var ordered := sh.duplicate()
+	ordered.sort_custom(func(a, b): return (a as Mob).grade * 100 + (a as Mob).slv > (b as Mob).grade * 100 + (b as Mob).slv)
+	for m in ordered:
+		grid.add_child(_shadow_card(m as Mob))
+	for k in maxi(hero.max_shadows() - sh.size(), 0):
+		grid.add_child(UICards.empty_slot("Place libre\nARISE", 108, 138))
+	if sh.is_empty():
+		left.add_child(_lbl("Aucune ombre. Abats un monstre, puis utilise ARISE près de son corps pour en faire ton soldat.", 15, Color(0.7, 0.75, 0.9)))
+	var det := PanelContainer.new()
+	det.custom_minimum_size = Vector2(330, 0)
+	det.add_theme_stylebox_override("panel", _panel_style(Color(0.03, 0.03, 0.09, 0.9), Color(0.35, 0.3, 0.6)))
+	menu_split.add_child(det)
+	var dv := VBoxContainer.new()
+	dv.add_theme_constant_override("separation", 6)
+	det.add_child(dv)
+	if sh_sel == null or not is_instance_valid(sh_sel) or not sh.has(sh_sel):
+		sh_sel = ordered[0] if not ordered.is_empty() else null
+	if sh_sel == null:
+		dv.add_child(_lbl("Sélectionne une ombre.", 16))
+		return
+	var m := sh_sel
+	var col := UICards.grade_color(m.grade)
+	var cc := CenterContainer.new()
+	cc.add_child(_shadow_card(m, true))
+	dv.add_child(cc)
+	dv.add_child(_lbl(m.display_name, 19, col.lightened(0.25)))
+	dv.add_child(_lbl("Rang %s   ·   Niveau %d / 10   ·   %s" % [Mob.GRADES[m.grade], m.slv, Mob.ROLE_NAME.get(m.role, m.role)], 14, col))
+	var rd := _lbl(str(ROLE_DESC.get(m.role, "")), 13, Color(0.75, 0.8, 0.95))
+	rd.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rd.custom_minimum_size = Vector2(300, 0)
+	dv.add_child(rd)
+	var extra := ""
+	match m.role:
+		"tank":
+			extra = "Provocation réussie : %d %%" % int(Mob.TAUNT_P[m.grade] * 100)
+		"heal":
+			extra = "Soin de zone : %.1f %% PV toutes les 0,5 s" % (Mob.HEAL_PCT[m.grade] * 100.0)
+	dv.add_child(_lbl("PV %d / %d     Dégâts %d\n%s" % [int(m.hp), int(m.max_hp), int(m.dmg), extra], 15, Color(0.9, 0.92, 1)))
+	var orow := HBoxContainer.new()
+	for o in [["Auto", "auto"], ["Suivre", "follow"], ["Tenir", "hold"], ["Cible", "attack"]]:
+		var ob := _small_btn(str(o[0]))
+		if m.order == o[1]:
+			ob.add_theme_color_override("font_color", Color(1, 0.85, 0.4))
+		ob.pressed.connect(_shadow_order.bind(m, str(o[1])))
+		orow.add_child(ob)
+	dv.add_child(orow)
+	if m.slv < 10:
+		var ub := _small_btn("AMÉLIORER  →  Niv. %d%s" % [m.slv + 1, "  (rang ↑)" if (m.slv + 1) % 5 == 0 else ""])
+		ub.pressed.connect(_upgrade_shadow.bind(m))
+		dv.add_child(ub)
+		dv.add_child(UICards.chip(ESS_TEX, str(_shadow_cost(m)), Color(0.85, 0.7, 1) if essence >= _shadow_cost(m) else Color(1, 0.45, 0.4), 22))
+	var rb := _small_btn("LIBÉRER L'OMBRE")
+	rb.pressed.connect(_release_shadow.bind(m))
+	dv.add_child(rb)
+	dv.add_child(UICards.chip(ESS_TEX, "+%d" % (2 + m.grade * 2 + m.slv), Color(0.85, 0.7, 1), 18))
+
+func _select_shadow(m: Mob) -> void:
+	sh_sel = m
+	sfx("select", null, -8.0)
+	_refresh_menu()
+
+func _shadow_order(m: Mob, o: String) -> void:
+	m.order = o
+	m.hold_pos = m.global_position
+	m.target = null
+	sfx("click", null, -8.0)
+	_refresh_menu()
+
+func _shadow_cost(m: Mob) -> int:
+	return 2 + m.slv * 2 + m.grade * 2
+
+func _upgrade_shadow(m: Mob) -> void:
+	var c := _shadow_cost(m)
+	if essence < c or m.slv >= 10:
+		sfx("error")
+		system_msg("Pas assez d'essences.")
+		return
+	essence -= c
+	m.level_up()
+	sfx("levelup")
+	FX.arise_pillar(self, m.global_position)
+	save_game()
+	_refresh_menu()
+
+func _release_shadow(m: Mob) -> void:
+	essence += 2 + m.grade * 2 + m.slv
+	FX.shadow_puff(self, m.global_position)
+	sfx("shadow")
+	mobs.erase(m)
+	m.queue_free()
+	sh_sel = null
+	save_game()
+	_refresh_menu()
 
 func _refresh_bag() -> void:
 	var wn := "aucune"
@@ -2902,18 +3407,30 @@ func _update_ui() -> void:
 	hp_txt.text = "PV %d / %d      PM %d      Niv. %d" % [int(hero.hp), int(hero.max_hp), int(hero.mp), hero.level]
 	rank_lbl.text = "CHASSEUR  ·  Rang %s" % hunter_rank
 	potion_lbl.text = "x%d" % potions
+	var hud_on := not in_dialogue and not (menu_panel and menu_panel.visible)
 	for k in ["attack", "roll", "step", "tele", "arise", "potion", "sprint", "jump"]:
-		(buttons[k]["btn"] as Control).visible = not in_dialogue
+		(buttons[k]["btn"] as Control).visible = hud_on
 	var has_sh := shadow_count() > 0
-	(buttons["cmd_attack"]["btn"] as Control).visible = has_sh and not in_dialogue
-	(buttons["cmd_stay"]["btn"] as Control).visible = has_sh and not in_dialogue
+	(buttons["cmd_attack"]["btn"] as Control).visible = has_sh and hud_on
+	(buttons["cmd_stay"]["btn"] as Control).visible = has_sh and hud_on
 	(buttons["cmd_attack"]["btn"] as Control).modulate = Color(1.3, 1.2, 1.2) if army_mode == "attack" else Color(1, 1, 1)
 	(buttons["cmd_stay"]["btn"] as Control).modulate = Color(1.2, 1.2, 1.4) if army_mode == "stay" else Color(1, 1, 1)
-	(buttons["swap"]["btn"] as Button).visible = hero.powers["swap"] > 0 and not in_dialogue
+	(buttons["swap"]["btn"] as Button).visible = hero.powers["swap"] > 0 and hud_on
 	potion_btn.modulate = Color(1, 1, 1, 1.0 if potions > 0 and potion_cd <= 0.0 else 0.45)
 	shadow_txt.text = "Ombres  %d / 4" % shadow_count()
 	fps_lbl.text = "%d FPS" % Engine.get_frames_per_second()
-	res_txt.text = "%d or   ·   %d essences" % [gold, essence]
+	cash_lbl.text = str(gold)
+	for g in qrows.keys():
+		var goal: Array = QUEST_GOALS[g]
+		var v := minf(float(quest.get(g, 0.0)), float(goal[0]))
+		var done := v >= float(goal[0])
+		var r: Array = qrows[g]
+		(r[0] as Label).text = "%s  %d / %d %s%s" % [goal[1], int(v), int(goal[0]), goal[2], "  ✓" if done else ""]
+		(r[0] as Label).add_theme_color_override("font_color", Color(0.5, 1, 0.6) if done else Color(0.85, 0.9, 1))
+		(r[1] as ProgressBar).value = v / float(goal[0]) * 100.0
+		(r[2] as Control).visible = qtrack_open
+	qpanel.visible = zone == "city" and not quest.get("done", false) and hud_on
+	ess_lbl.text = str(essence)
 	if zone == "city" and gate:
 		var d := gate_pos - hero.global_position
 		d.y = 0

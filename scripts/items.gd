@@ -62,8 +62,35 @@ static func rarity(it: Dictionary) -> int:
 static func color(it: Dictionary) -> Color:
 	return Color(str(RAR[rarity(it)]["c"]))
 
+## Niveau d'amélioration (0 à 10) : +12 % par niveau sur toutes les statistiques.
+static func lv(it: Dictionary) -> int:
+	return int(it.get("lv", 0))
+
+static func lv_mult(it: Dictionary) -> float:
+	return 1.0 + 0.12 * lv(it)
+
 static func stats(it: Dictionary) -> Dictionary:
-	return base_of(it).get("st", {})
+	var out := {}
+	var st: Dictionary = base_of(it).get("st", {})
+	for k in st.keys():
+		out[k] = float(st[k]) * lv_mult(it)
+	return out
+
+## Arme effective (multiplicateur de dégâts augmenté par le niveau).
+static func weapon_of(it: Dictionary) -> Dictionary:
+	var w: Dictionary = base_of(it).duplicate()
+	w["mult"] = float(w["mult"]) * (1.0 + 0.08 * lv(it))
+	return w
+
+static func upgrade_cost(it: Dictionary) -> Array:
+	var l := lv(it)
+	return [int(60 * (l + 1) * (rarity(it) + 1)), 1 + l + rarity(it)]
+
+static func icon(it: Dictionary) -> Texture2D:
+	var p := "res://assets/ui/items/%s.png" % it["id"]
+	if ResourceLoader.exists(p):
+		return load(p)
+	return null
 
 static func sell_price(it: Dictionary) -> int:
 	return int(30 * pow(3.0, rarity(it)))
@@ -75,14 +102,15 @@ static func describe(it: Dictionary) -> String:
 	var b := base_of(it)
 	var t := ""
 	if it["t"] == "w":
-		t += "%s — dégâts x%.2f, vitesse x%.2f, ouverture %d°\n" % [str(b["type"]).capitalize(), float(b["mult"]), float(b["spd"]), int(b["arc"])]
+		t += "%s — dégâts x%.2f, vitesse x%.2f, ouverture %d°\n" % [str(b["type"]).capitalize(), float(b["mult"]) * (1.0 + 0.08 * lv(it)), float(b["spd"]), int(b["arc"])]
 	elif it["t"] == "a":
 		for s in SLOTS:
 			if s[0] == b["slot"]:
 				t += "Emplacement : %s\n" % s[1]
-	for k in b.get("st", {}).keys():
+	var st2 := stats(it)
+	for k in st2.keys():
 		var unit: String = STAT_UNIT.get(k, " %")
-		t += "+%s%s %s\n" % [str(b["st"][k]), unit, STAT_NAMES.get(k, k)]
+		t += "+%s%s %s\n" % [str(snappedf(float(st2[k]), 0.1)), unit, STAT_NAMES.get(k, k)]
 	if b.has("d"):
 		t += "« %s »" % b["d"]
 	return t

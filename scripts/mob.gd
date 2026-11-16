@@ -50,6 +50,7 @@ var chasers: Array = []       # civils : monstres qui les poursuivent
 var stamina := 6.0
 # rang des ombres (E..S) : tout en dépend (PV, dégâts, soins, provocation)
 var grade := 0
+var slv := 0                  # niveau d'amélioration de l'ombre (0..10)
 var boost_t := 0.0
 var cheer_t := 3.0
 var cast_t := 0.0
@@ -127,6 +128,15 @@ func configure(k: String, shadow := false) -> void:
 			team = 0
 			aggro_r = 14.0
 			leash_r = 45.0
+		"orc_warrior":
+			display_name = "Orc guerrier"
+			rank = "D"
+			max_hp = 520; dmg = 30; speed = 3.0; body_r = 0.8; arm = 1.25; atk_rate = 2.2; reward_gold = 40
+			setup_model("res://assets/orc_warrior.glb", 1.05, Color(1, 0.12, 0.1), 0.16)
+			for mi in model.find_children("*", "MeshInstance3D", true, false):
+				var bb := (mi as MeshInstance3D).get_aabb()
+				if bb.size.y < 0.03 * maxf(bb.size.x, bb.size.z):
+					(mi as MeshInstance3D).visible = false
 		"civil":
 			var mdl: String = CityLife.CIV_MODELS[randi() % CityLife.CIV_MODELS.size()]
 			display_name = "Passante" if mdl == "civ_woman" else "Passant"
@@ -157,7 +167,7 @@ func configure(k: String, shadow := false) -> void:
 	if shadow:
 		_make_shadow()
 	var bar_h := 2.15
-	if kind == "orc":
+	if kind == "orc" or kind == "orc_warrior":
 		bar_h = 2.75
 	elif kind == "guard":
 		bar_h = 2.25
@@ -184,6 +194,32 @@ func configure(k: String, shadow := false) -> void:
 	play("Idle", 0.0)
 	if ap:
 		ap.seek(randf() * 1.5, true)
+
+## Variantes de gobelins : mêmes os, tempérament différent.
+func make_variant(v: String) -> void:
+	match v:
+		"eclaireur":
+			display_name = "Gobelin éclaireur"
+			model.scale *= 0.85
+			speed *= 1.35
+			max_hp *= 0.7
+			dmg *= 0.9
+			skill_cd = 1.5
+			_tint(Color(0.8, 0.9, 1.0), Color(0.1, 0.3, 0.6))
+		"berserker":
+			display_name = "Gobelin berserker"
+			rank = "E+"
+			model.scale *= 1.15
+			dmg *= 1.6
+			max_hp *= 1.25
+			atk_rate *= 0.85
+			reward_gold = int(reward_gold * 2)
+			_tint(Color(1.0, 0.6, 0.55), Color(0.6, 0.05, 0.0))
+	hp = max_hp
+	if hp_bar:
+		for c in hp_bar.get_children():
+			if c is Label3D:
+				(c as Label3D).text = "%s [%s]" % [display_name, rank]
 
 func make_elite() -> void:
 	elite = true
@@ -754,9 +790,8 @@ func _tank_skills() -> bool:
 	if skill2_cd <= 0.0 and global_position.distance_to(target.global_position) < 4.0:
 		skill2_cd = 9.0
 		busy = 1.5
-		FX.telegraph(main, global_position, 3.4, 0.8, Color(1, 0.12, 0.08))
 		play("Slam" if ap and ap.has_animation("Slam") else "Attack", 0.08, 1.4, true)
-		later(0.8, _tank_slam)
+		later(0.6, _tank_slam)
 		return true
 	return false
 
@@ -1243,8 +1278,27 @@ func _try_skills(d: float) -> bool:
 				busy = 0.9
 				play("Cast", 0.08, 0.8, true)
 				var spot := target.global_position
-				FX.telegraph(main, spot, 2.2, 1.1, Color(0.4, 1.0, 0.2))
+				FX.telegraph(main, spot, 2.2, 1.1, Color(1.0, 0.85, 0.1))
 				later(1.1, _poison_pool.bind(spot))
+				return true
+		"orc_warrior":
+			# fendoir circulaire : zone rouge devant lui puis grand coup tournant
+			if skill_cd <= 0.0 and d < 4.0:
+				skill_cd = 7.0
+				busy = 1.6
+				var spot := global_position + forward() * 1.6
+				FX.telegraph(main, spot, 3.0, 0.9)
+				play("Slam", 0.08, 1.0, true)
+				later(0.9, _slam.bind(spot, 3.0, 1.6))
+				return true
+			if skill2_cd <= 0.0 and d > 5.0 and d < 12.0:
+				skill2_cd = 10.0
+				var spot2 := target.global_position
+				FX.telegraph(main, spot2, 2.2, 0.8)
+				busy = 1.3
+				face_to(spot2, true)
+				play("Run", 0.05, 1.8, true)
+				later(0.5, _leap_to.bind(spot2))
 				return true
 		"orc":
 			if not is_shadow and skill3_cd <= 0.0 and d < 8.0:
@@ -1408,7 +1462,7 @@ func _orb_hit(o: Node3D, t, dest: Vector3) -> void:
 
 func _poison_pool(spot: Vector3) -> void:
 	main.sfx("poison", spot, -2.0)
-	var pool := FX.ground_disc(2.2, Color(0.35, 1.0, 0.15), 0.45, false)
+	var pool := FX.ground_disc(2.2, Color(0.95, 0.8, 0.1), 0.45, false)
 	main.add_child(pool)
 	pool.global_position = spot + Vector3(0, 0.06, 0)
 	for k in 6:
@@ -1419,7 +1473,7 @@ func _poison_pool(spot: Vector3) -> void:
 	tw.tween_callback(pool.queue_free)
 
 func _poison_tick(spot: Vector3) -> void:
-	FX.burst(main, spot, Color(0.4, 1.0, 0.2), 6, 0.08, 1.0, 0.6, -1.0)
+	FX.burst(main, spot, Color(0.95, 0.85, 0.15), 6, 0.08, 1.0, 0.6, -1.0)
 	for u in _enemies():
 		var e := u as Unit
 		if not e.dead and e.global_position.distance_to(spot) < 2.2:
@@ -1459,7 +1513,8 @@ func die() -> void:
 	super.die()
 
 ## Relève par l'Arise : le cadavre se relève en ombre.
-func rise_as_shadow(forced_role := "") -> void:
+func rise_as_shadow(forced_role := "", level := 0) -> void:
+	slv = level
 	arisen = true
 	dead = false
 	is_shadow = true
@@ -1611,6 +1666,22 @@ func _civ_think(delta: float) -> void:
 	else:
 		play("Idle", 0.3)
 
+## Amélioration d'une ombre : +12 % PV et dégâts, et un rang de plus aux niveaux 5 et 10.
+func level_up() -> void:
+	slv += 1
+	var old_g := grade
+	var base_g: int = {"goblin": 0, "shaman": 0, "orc": 1, "orc_warrior": 1, "igris": 3}.get(kind, 0)
+	grade = clampi(base_g + (1 if elite else 0) + int(main.shadow_lvl) / 3 + slv / 5, 0, 5)
+	var mul: float = 1.12 * float(GMUL[grade]) / float(GMUL[old_g])
+	max_hp *= mul
+	dmg *= mul
+	hp = max_hp
+	update_hp_bar()
+	if not boss:
+		display_name = "Ombre %s (%s) [%s]" % [str({"orc": "orc", "goblin": "gobelin", "shaman": "chaman", "orc_warrior": "orc guerrier"}.get(kind, kind)), str(ROLE_NAME.get(role, role)), GRADES[grade]]
+	if grade != old_g:
+		FX.damage_number(main, global_position + Vector3(0, 0.8, 0), "RANG %s !" % GRADES[grade], Color(1, 0.85, 0.4), true)
+
 func _auto_role() -> String:
 	match kind:
 		"orc":
@@ -1639,10 +1710,10 @@ func set_role(r: String) -> void:
 			dmg *= 0.55
 		"melee":
 			atk_rate *= 0.8
-	var base_g: int = {"goblin": 0, "shaman": 0, "orc": 1, "igris": 3}.get(kind, 0)
-	grade = clampi(base_g + (1 if elite else 0) + int(main.shadow_lvl) / 3, 0, 5)
-	max_hp *= GMUL[grade]
-	dmg *= GMUL[grade]
+	var base_g: int = {"goblin": 0, "shaman": 0, "orc": 1, "orc_warrior": 1, "igris": 3}.get(kind, 0)
+	grade = clampi(base_g + (1 if elite else 0) + int(main.shadow_lvl) / 3 + slv / 5, 0, 5)
+	max_hp *= GMUL[grade] * pow(1.12, slv)
+	dmg *= GMUL[grade] * pow(1.12, slv)
 	hp = max_hp
 	update_hp_bar()
 	if not boss:
