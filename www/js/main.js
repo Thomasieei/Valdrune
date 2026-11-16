@@ -5777,8 +5777,8 @@ function destinationBot(b) {
   const occupe = (p) => bots.some(o => o !== b && o.but && dist2D(o.but.p, p) < 1.4);
   if (r < 0.12 && marchand) { let p, n = 0; do { p = autour(marchand.pos, 2.2, 4.2); } while ((occupe(p) || !libre(p.x, p.z, 0.6)) && ++n < 12); if (n < 12) return { type: 'marchand', p }; return null; }
   if (r < 0.26) return { type: 'portail', p: ecart(devant(monde.portail.pos)), porte: monde.portail.pos };
-  if (r < 0.36) return { type: 'portail', p: ecart(devant(monde.portailArene.pos)), porte: monde.portailArene.pos };
-  if (r < 0.44) return { type: 'portail', p: ecart(devant(monde.portailIle.pos, 2.5)), porte: monde.portailIle.pos };
+  if (r < 0.36 && monde.portailArene) return { type: 'portail', p: ecart(devant(monde.portailArene.pos)), porte: monde.portailArene.pos };
+  if (r < 0.44 && monde.portailIle) return { type: 'portail', p: ecart(devant(monde.portailIle.pos, 2.5)), porte: monde.portailIle.pos };
   if (r < 0.5) { const a = rnd(0, 6.283); const p = V(Math.cos(a) * 3.6, 0, Math.sin(a) * 3.6); if (!occupe(p)) return { type: 'fontaine', p }; }
   return null;
 }
@@ -5805,7 +5805,7 @@ function majVieBot(b, dt) {
       if (Math.random() < 0.4) setTimeout(() => UI.chat(b.nom, hasard(['je revends mon butin', 'Borin t’as du bronze ?', 'combien la potion ?', 'vendu !'])), 800);
     } else if (b.but.type === 'portail') {
       b.mort = true; b.root.visible = false; b.absentT = rnd(45, 160); b.retour = b.but.porte;
-      b.couleurPortail = b.but.porte === monde.portail.pos ? '#ff3a2a' : b.but.porte === monde.portailArene.pos ? '#b05aff' : '#ffc84a';
+      b.couleurPortail = b.but.porte === monde.portail.pos ? '#ff3a2a' : b.but.porte === monde.portailArene?.pos ? '#b05aff' : '#ffc84a';
       effetPortail(b.pos, b.couleurPortail);
     } else { b.etat = 'idle'; b.timer = rnd(6, 14); b.jouer('Sit_Floor_Idle'); }
     return true;

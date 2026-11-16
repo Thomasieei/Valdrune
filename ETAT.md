@@ -9,6 +9,7 @@ Règle : on ne rallume un système que quand la 1.0 est solide, et un seul à la
 
 ## Fait
 - v1.0-a : gel des modes secondaires (portails arène/îles/Goulet cachés, cartes du menu Brèche masquées, invasions coupées).
+- v1.0-b : crash des bots sur la Place corrigé (portails gelés) ; noms complets sur les plaques (la 1re lettre était remplacée par un badge, on lisait « HOMAS »).
 
 ## Bugs connus
 - (à remplir avec les retours de test de Thomas)

@@ -792,8 +792,8 @@ UI.majPerf = (txt) => { if (perfEl) perfEl.textContent = txt; };
 const plaques = new Map();
 UI.plaque = (ent, { nom, guilde = '', classe = '', vie = true, lettre = true, ip = null, niv = null }) => {
   const d = document.createElement('div'); d.className = 'plaque contour ' + classe;
-  const ini = lettre ? `<b>${nom[0]}</b>` : '';
-  d.innerHTML = `<div class="n">${ini}${lettre ? nom.slice(1) : nom}</div>${guilde || ip ? `<div class="gd">${guilde}${niv ? `<span class="nivb">Niv. ${niv}</span>` : ''}${ip ? `<span class="ipb">⚔ ${ip}</span>` : ''}</div>` : ''}${vie ? '<div class="vie"><i></i></div>' : ''}`;
+  const ini = '';
+  d.innerHTML = `<div class="n">${ini}${nom}</div>${guilde || ip ? `<div class="gd">${guilde}${niv ? `<span class="nivb">Niv. ${niv}</span>` : ''}${ip ? `<span class="ipb">⚔ ${ip}</span>` : ''}</div>` : ''}${vie ? '<div class="vie"><i></i></div>' : ''}`;
   // les plaques « sociales » (sans barre de vie) s'effacent quand elles se chevauchent ; les barres de combat restent toujours visibles
   const prio = !vie ? (/pnj/.test(classe) ? 2 : 1) : 0;
   $('#labels').appendChild(d); plaques.set(ent, { d, barre: d.querySelector('.vie i'), h: ent.hauteurPlaque || 2.5, prio });
