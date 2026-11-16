@@ -31,8 +31,8 @@ func run(on_device: bool) -> void:
 	running = true
 	results.clear()
 	if not on_device:
-		WARM = 4
-		MEASURE = 8
+		WARM = 2
+		MEASURE = 4
 	_make_panel()
 	_say("Préparation du combat de test…")
 	var h: Hero = main.hero

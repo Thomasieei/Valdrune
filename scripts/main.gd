@@ -217,7 +217,6 @@ func _ready() -> void:
 	_make_patrols()
 	for k in 2:
 		_spawn_squad(k)
-	_build_hall()
 	_spawn_gate(true)
 	_spawn_merchant()
 	await get_tree().physics_frame
@@ -939,7 +938,7 @@ func _spawn_gate(first: bool) -> void:
 	if run:
 		run.cleanup()
 		run = null
-	if gate_kind == "igris" and not first:
+	if gate_kind == "igris" and hall:
 		_build_hall()
 	if not first:
 		system_msg("[ SYSTÈME ]\nUn nouveau Portail s'est ouvert ailleurs en ville !\n%s — rang %s." % [gate_name(), gate_rank()])
@@ -1066,7 +1065,8 @@ func _hall_floor(x: float, z: float) -> Vector3:
 func _set_zone(z: String) -> void:
 	zone = z
 	city.visible = z == "city"
-	hall.visible = z == "hall"
+	if hall:
+		hall.visible = z == "hall"
 	if shop:
 		shop.visible = z == "shop"
 	if office:
@@ -1100,6 +1100,10 @@ func enter_dungeon() -> void:
 	enter_run()
 
 func enter_hall() -> void:
+	# la salle du trône (25 Mo) n'est chargée qu'au moment d'y entrer
+	_build_hall()
+	await get_tree().physics_frame
+	await get_tree().physics_frame
 	hall_entry = _hall_floor(-17.0, 0.0)
 	await _teleport(hall_entry, "hall")
 	var bpos := _hall_floor(12.0, 0.0)
@@ -1138,6 +1142,7 @@ func _boss_flee_go() -> void:
 	mobs.erase(boss)
 	boss = null
 	await _teleport(gate_pos + Vector3(0, 0, 5), "city")
+	_free_hall()
 
 func _boss_taunt() -> void:
 	boss_enraged_choice = true
@@ -1194,8 +1199,14 @@ func _open_boss_chest() -> void:
 	FX.burst(self, boss_chest.global_position + Vector3(0, 1.4, 0), Color(1, 0.8, 0.2), 90, 0.14, 6.0, 1.2, 6.0)
 	system_msg("[ SYSTÈME ]\nTu obtiens : LAME DU COMMANDANT (+45 % dégâts)\n1500 or, 10 essences.")
 
+func _free_hall() -> void:
+	if hall:
+		hall.queue_free()
+		hall = null
+
 func _leave_dungeon() -> void:
 	await _teleport(gate_pos + Vector3(0, 0, 5), "city")
+	_free_hall()
 	_spawn_gate(false)
 
 # ================================================================ dialogue
@@ -4169,6 +4180,9 @@ func _run_shots() -> void:
 	close_dialogue()
 	await _perf("ville", 180)
 	await bench.run(false)
+	if bench.panel and is_instance_valid(bench.panel):
+		await _snap("00t_test_performance", 2)
+		bench.panel.queue_free()
 	print("NAV_STATE ville pret=%s" % str(nav.baked.get("city", false)))
 	moon.shadow_enabled = false
 	await _perf("sans_ombres", 90)
