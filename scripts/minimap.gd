@@ -20,6 +20,7 @@ func _draw() -> void:
 	var p: Vector3 = main.player.global_position
 	var ctr := Vector2(p.x, p.z)
 	draw_rect(Rect2(Vector2.ZERO, Vector2(SZ, SZ)), Color(0.2, 0.32, 0.16, 0.85))
+	for ci in main.town.map_circles: draw_circle(_w2m(ci[0], ctr), ci[1] * PX, ci[2])
 	for r in main.town.map_rects: _rect(r[0], r[1], 0.0, ctr, r[2])
 	for h in main.town.map_houses: _rect(h[0], h[1], h[2], ctr, Color(0.55, 0.3, 0.25))
 	for a in main.actors:

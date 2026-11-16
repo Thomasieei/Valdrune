@@ -94,7 +94,7 @@ func _world() -> void:
 	for path in town.walk_paths:
 		for k in 2:
 			var v := Node3D.new(); v.set_script(vp); add_child(v); v.setup(path, vr)
-	for sp in town.spots.slice(0, 10):
+	for sp in town.spots.slice(0, 10) + town.spots_arena:
 		var v := Node3D.new(); v.set_script(vp); add_child(v); v.setup(PackedVector3Array([sp]), vr)
 	cam = Camera3D.new(); cam.fov = 50; cam.far = 260; add_child(cam)
 	var kn: Node = (load("res://assets/chars/Knight.glb") as PackedScene).instantiate()
@@ -393,7 +393,7 @@ func spawn_mob(k: String, p: Vector3) -> Monster:
 	return m
 
 func _camps() -> void:
-	camps = [[Vector3(0, 0, 80), ["brute", "archer", "rodeur"]], [Vector3(-30, 0, 98), ["archer", "rodeur", "archer"]], [Vector3(40, 0, 74), ["brute", "brute", "archer"]]]
+	camps = [[Vector3(0, 0, 80), ["brute", "archer", "rodeur"]], [Vector3(-30, 0, 98), ["archer", "rodeur", "archer"]], [Vector3(44, 0, 96), ["brute", "brute", "archer"]]]
 	for c in camps: c.append([]); c.append(0.0); _fill_camp(c)
 	_arena()
 
@@ -549,20 +549,9 @@ func _snap(n: String) -> void:
 func _shots() -> void:
 	DirAccess.make_dir_recursive_absolute("res://shots")
 	while is_instance_valid(loading): await get_tree().process_frame
-	player.global_position = Vector3(0, 0, 74); cam_dist = 12
-	await get_tree().create_timer(2.5).timeout
-	var m: Actor = player.nearest_foe(20)
-	print("FOE ", m)
-	if m:
-		player.parry_t = 0.3; m.hurt(0, m.global_position, 0, null)
-		player.hurt(30, m.global_position, 2, m)
-		await get_tree().create_timer(0.15, true, false, true).timeout; _snap("parade")
-		await get_tree().create_timer(1.0, true, false, true).timeout
-		player.dodge_t = 0.0; player.counter_ready = 0
-		player.hurt(30, m.global_position, 9, m)
-		await get_tree().create_timer(0.2, true, false, true).timeout; _snap("esquive")
-		player.attack()
-		await get_tree().create_timer(0.45, true, false, true).timeout; _snap("contre")
-		print("COUNTER hp=", m.hp, " state=", m.state)
+	for v in [[Vector3(30, 0, 60), 14.0, "route"], [Vector3(76, 0, 60), 16.0, "porte"], [Vector3(110, 0, 60), 22.0, "arene"], [Vector3(130, 0, 60), 55.0, "arene_haut"]]:
+		player.global_position = v[0]; cam_dist = v[1]
+		await get_tree().create_timer(0.8).timeout
+		_snap(v[2])
 	print("SHOTS_DONE")
 	get_tree().quit()

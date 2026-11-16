@@ -44,6 +44,8 @@ func build() -> void:
 	_street_props()
 	_nature()
 	_cliffs()
+	_arena_road()
+	_colosseum(Vector3(130, 0, 60))
 	_finish()
 
 # ================= pièces =================
@@ -238,7 +240,7 @@ func _pave(base: Color, joint: Color, sc: float) -> ShaderMaterial:
 	return m
 
 func _ground() -> void:
-	var g := MeshInstance3D.new(); var pm := PlaneMesh.new(); pm.size = Vector2(320, 320); g.mesh = pm
+	var g := MeshInstance3D.new(); var pm := PlaneMesh.new(); pm.size = Vector2(560, 560); g.mesh = pm
 	var gm := ShaderMaterial.new(); gm.shader = preload("res://scripts/ground.gdshader"); g.material_override = gm; add_child(g)
 	var road := _pave(Color(0.47, 0.44, 0.41), Color(0.27, 0.25, 0.23), 0.8)
 	var walkm := _pave(Color(0.66, 0.6, 0.52), Color(0.42, 0.38, 0.33), 0.55)
@@ -257,7 +259,7 @@ func _ground() -> void:
 		_slab(Vector3(side * 30.4, 0.025, -52.8), Vector3(3.2, 0.03, 34), dirt)
 	_slab(Vector3(0, 0.02, 81), Vector3(7, 0.03, 62), dirt)                               # chemin vers la campagne
 	var body := StaticBody3D.new(); var cs := CollisionShape3D.new(); var bs := BoxShape3D.new()
-	bs.size = Vector3(320, 1, 320); cs.shape = bs; cs.position.y = -0.5; body.add_child(cs); add_child(body)
+	bs.size = Vector3(560, 1, 560); cs.shape = bs; cs.position.y = -0.5; body.add_child(cs); add_child(body)
 
 # ================= nature =================
 func _tree(p: Vector3, small := false) -> void:
@@ -269,7 +271,7 @@ func _nature() -> void:
 	# arbres de la place (4 coins) et de l'entrée
 	for p in [Vector3(-18, 0, 6), Vector3(18, 0, 6), Vector3(-18, 0, -25), Vector3(18, 0, -25)]: _tree(p, true)
 	# campagne au sud : bosquets, rochers, prés clôturés
-	for g in [Vector3(-30, 0, 72), Vector3(34, 0, 66), Vector3(-48, 0, 100), Vector3(46, 0, 104), Vector3(-42, 0, 128), Vector3(40, 0, 138)]:
+	for g in [Vector3(-30, 0, 72), Vector3(46, 0, 112), Vector3(-48, 0, 100), Vector3(46, 0, 104), Vector3(-42, 0, 128), Vector3(40, 0, 138)]:
 		for k in rng.randi_range(3, 5): _tree(g + Vector3(rng.randf_range(-6, 6), 0, rng.randf_range(-6, 6)))
 		for k in 3: put("Bush_%d_%s_Color1" % [rng.randi_range(1, 4), ["A", "B", "C"][rng.randi_range(0, 2)]], g + Vector3(rng.randf_range(-8, 8), 0, rng.randf_range(-8, 8)), rng.randf() * TAU, S * 1.8)
 	for k in 10:
@@ -287,9 +289,96 @@ func _nature() -> void:
 		_tree(Vector3(side * rng.randf_range(41, 52), 0, rng.randf_range(-60, 50)))
 	# collines au loin
 	var hm := StandardMaterial3D.new(); hm.albedo_color = Color(0.36, 0.55, 0.27); hm.roughness = 1
-	for h in [[Vector3(-70, -6, 120), 30], [Vector3(60, -8, 140), 36], [Vector3(-10, -10, 175), 40], [Vector3(95, -5, 70), 24], [Vector3(-95, -6, 60), 26]]:
+	for h in [[Vector3(-70, -6, 120), 30], [Vector3(60, -8, 140), 36], [Vector3(-10, -10, 175), 40], [Vector3(150, -6, 150), 30], [Vector3(200, -6, 30), 34], [Vector3(170, -8, -30), 30], [Vector3(-95, -6, 60), 26]]:
 		var mi := MeshInstance3D.new(); var sm := SphereMesh.new(); sm.radius = h[1]; sm.height = h[1] * 0.9; sm.radial_segments = 20; sm.rings = 8
 		mi.mesh = sm; mi.material_override = hm; mi.position = h[0]; mi.scale = Vector3(1.4, 0.55, 1); add_child(mi)
+
+# ================= route de l'arène + Grande Arène =================
+var map_circles: Array = []    # [centre, rayon, couleur]
+func _arena_road() -> void:
+	var road := _pave(Color(0.5, 0.46, 0.42), Color(0.3, 0.27, 0.25), 0.8)
+	_slab(Vector3(44, 0.03, 60), Vector3(81, 0.05, 8), road)                 # de la campagne (x 3,5) à la porte de l'arène (x 84)
+	for x in range(10, 82, 12):
+		for side in [-1, 1]:
+			put("lantern", Vector3(x, 0.05, 60 + side * 4.8), 0, 1.7)
+		if x % 24 == 10:
+			put("Bush_%d_A_Color1" % (1 + x % 4), Vector3(x + 6, 0, 60 + 7 * (1 if x % 48 == 10 else -1)), x, S * 0.9)
+	# arche de sortie de la vallée
+	var sm := StandardMaterial3D.new(); sm.albedo_color = Color(0.6, 0.57, 0.52); sm.roughness = 0.9
+	for side in [-1, 1]:
+		_slab(Vector3(58, 4.5, 60 + side * 5.5), Vector3(2.2, 9, 2.2), sm); box(Vector3(58, 4.5, 60 + side * 5.5), Vector3(2.2, 9, 2.2))
+		put("banner-red", Vector3(58 - 1.15, 6.0, 60 + side * 5.5), PI, S)
+	_slab(Vector3(58, 9.6, 60), Vector3(2.6, 1.4, 13.2), sm)
+	_sign(Vector3(56.6, 8.4, 60), Vector3(-1, 0, 0), "GRANDE ARÈNE  →")
+
+func _ring(r_in: float, r_out: float, h: float, gap_a: float, gap_w: float, mat: Material, n := 96) -> void:
+	var st := SurfaceTool.new(); st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in n:
+		var a0 := TAU * i / n; var a1 := TAU * (i + 1) / n
+		if abs(wrapf((a0 + a1) * 0.5 - gap_a, -PI, PI)) < gap_w: continue
+		var d0 := Vector3(cos(a0), 0, sin(a0)); var d1 := Vector3(cos(a1), 0, sin(a1))
+		var q := [d0 * r_in + Vector3.UP * h, d1 * r_in + Vector3.UP * h, d1 * r_out + Vector3.UP * h, d0 * r_out + Vector3.UP * h]
+		st.set_normal(Vector3.UP)
+		for v in [q[0], q[2], q[1], q[0], q[3], q[2]]: st.add_vertex(v)
+		var f := [d0 * r_in, d1 * r_in, d1 * r_in + Vector3.UP * h, d0 * r_in + Vector3.UP * h]
+		st.set_normal(-(d0 + d1).normalized())
+		for v in [f[0], f[1], f[2], f[0], f[2], f[3]]: st.add_vertex(v)
+	var mi := MeshInstance3D.new(); mi.mesh = st.commit(); mi.material_override = mat; add_child(mi)
+	ring_nodes.append(mi)
+var ring_nodes: Array = []
+
+func _colosseum(c: Vector3) -> void:
+	var R_IN := 40.0; var R_OUT := 46.5; var GATE := PI   # porte à l'ouest, face à la route
+	# piste de sable
+	var sand := MeshInstance3D.new(); var cy := CylinderMesh.new(); cy.top_radius = R_IN; cy.bottom_radius = R_IN; cy.height = 0.1; cy.radial_segments = 64
+	var smat := StandardMaterial3D.new(); smat.albedo_color = Color(0.5, 0.39, 0.26); smat.roughness = 1
+	sand.mesh = cy; sand.material_override = smat; add_child(sand); sand.position = c + Vector3.UP * 0.05
+	map_circles.append([Vector2(c.x, c.z), R_OUT, Color(0.55, 0.5, 0.45)]); map_circles.append([Vector2(c.x, c.z), R_IN, Color(0.83, 0.7, 0.5)])
+	# gradins (4 rangs) + muret intérieur
+	var stone := StandardMaterial3D.new(); stone.albedo_color = Color(0.5, 0.45, 0.4); stone.roughness = 0.95
+	var stone2 := StandardMaterial3D.new(); stone2.albedo_color = Color(0.42, 0.38, 0.34); stone2.roughness = 0.95
+	for i in 4:
+		_ring_at(c, R_IN + 0.3 + i * 1.5, R_OUT - 0.2, 3.6 + i * 1.5, GATE, 0.07, stone if i % 2 == 0 else stone2)
+	# murs : muret intérieur (1 étage) et enceinte extérieure (3 étages d'arcades)
+	var n_in := int(round(TAU * R_IN / S)); var n_out := int(round(TAU * R_OUT / S))
+	for i in n_in:
+		var a := TAU * i / n_in
+		if abs(wrapf(a - GATE, -PI, PI)) < 0.07: continue
+		var dir := Vector3(cos(a), 0, sin(a))
+		wall("wall", c + dir * (R_IN + 0.45 * S), -dir, 0.0)
+		box(c + dir * R_IN + Vector3.UP * 2, Vector3(0.6, 4, S + 0.2), -a)
+	for i in n_out:
+		var a := TAU * i / n_out
+		var dir := Vector3(cos(a), 0, sin(a))
+		var gate: bool = abs(wrapf(a - GATE, -PI, PI)) < 0.06
+		var cc := c + dir * (R_OUT - 0.45 * S)
+		if not gate: wall("wall-arch" if i % 2 == 0 else "wall", cc, dir, 0.0)
+		wall("wall-window-round" if i % 2 == 0 else "wall", cc, dir, S)
+		wall("wall-detail-horizontal" if i % 3 else "wall-window-stone", cc, dir, S * 2)
+		if i % 8 == 0: put("banner-red" if i % 16 == 0 else "banner-green", c + dir * (R_OUT + 0.05) + Vector3.UP * S * 1.6, atan2(-dir.z, dir.x), S)
+	# blason central + lanternes au pied du muret
+	var sig := MeshInstance3D.new(); var tor := TorusMesh.new(); tor.inner_radius = 6.5; tor.outer_radius = 7.2; tor.rings = 48; tor.ring_segments = 4
+	var gm := StandardMaterial3D.new(); gm.albedo_color = Color(0.75, 0.6, 0.3); sig.mesh = tor; sig.material_override = gm; sig.scale = Vector3(1, 0.05, 1)
+	add_child(sig); sig.position = c + Vector3.UP * 0.12
+	for k in 12:
+		var a := TAU * k / 12 + 0.26
+		if abs(wrapf(a - GATE, -PI, PI)) < 0.2: continue
+		put("lantern", c + Vector3(cos(a), 0, sin(a)) * (R_IN - 1.2), 0, 1.9)
+	# couloir d'entrée (sol pavé), lanternes, panneau
+	var road := _pave(Color(0.5, 0.46, 0.42), Color(0.3, 0.27, 0.25), 0.8)
+	_slab(c + Vector3(-(R_IN + R_OUT) * 0.5, 0.04, 0), Vector3(R_OUT - R_IN + 1, 0.06, 8), road)
+	for side in [-1, 1]: put("lantern", c + Vector3(-R_OUT - 1.5, 0, side * 4.6), 0, 1.9)
+	_sign(c + Vector3(-R_OUT - 0.3, S * 2.4, 0), Vector3(-1, 0, 0), "GRANDE ARÈNE DE BRUNEVAL")
+	# spectateurs dans les gradins
+	for k in 10:
+		var a := GATE + 0.5 + k * (TAU - 1.0) / 10.0
+		var tier := k % 4
+		spots_arena.append(c + Vector3(cos(a), 0, sin(a)) * (R_IN + 1.0 + tier * 1.5) + Vector3.UP * (3.6 + tier * 1.5))
+var spots_arena: Array = []
+
+func _ring_at(c: Vector3, r_in: float, r_out: float, h: float, gap_a: float, gap_w: float, mat: Material) -> void:
+	_ring(r_in, r_out, h, gap_a, gap_w, mat)
+	ring_nodes[-1].position = c
 
 func _cliffs() -> void:
 	# falaise en arc au nord et sur les côtés : gros rochers superposés, du gris au brun
@@ -298,7 +387,7 @@ func _cliffs() -> void:
 		var a: float = lerp(-0.15 * PI, -0.85 * PI, i / 33.0)
 		pts.append(Vector3(cos(a) * 64, 0, -50 + sin(a) * 56))
 	for side in [-1, 1]:
-		for i in 10: pts.append(Vector3(side * rng.randf_range(54, 60), 0, -30 + i * 9))
+		for i in (9 if side < 0 else 8): pts.append(Vector3(side * rng.randf_range(54, 60), 0, -30 + i * 9))
 	for p in pts:
 		for layer in 2:
 			var n := "Rock_3_%s_Color1" % ["A", "B", "C", "D", "E", "F", "G", "H", "I"][rng.randi_range(0, 8)]
@@ -307,8 +396,10 @@ func _cliffs() -> void:
 		if rng.randf() < 0.35: _tree(p + Vector3(rng.randf_range(-3, 3), 9, 0))
 	# murs invisibles de la vallée
 	box(Vector3(0, 10, -100), Vector3(140, 20, 4))
-	box(Vector3(-60, 10, -10), Vector3(4, 20, 160)); box(Vector3(60, 10, -10), Vector3(4, 20, 160))
+	box(Vector3(-60, 10, -10), Vector3(4, 20, 160))
+	box(Vector3(60, 10, -20), Vector3(4, 20, 140)); box(Vector3(60, 10, 115), Vector3(4, 20, 90))   # trouée est : z 50 → 70
 	box(Vector3(0, 10, 160), Vector3(140, 20, 4))
+	box(Vector3(122, 10, -12), Vector3(124, 20, 4)); box(Vector3(122, 10, 132), Vector3(124, 20, 4)); box(Vector3(184, 10, 60), Vector3(4, 20, 148))
 
 # ================= assemblage =================
 func _finish() -> void:

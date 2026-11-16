@@ -44,5 +44,5 @@ jobs:
           name: Studio Lab v0.1.${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           make_latest: false
-          body: Bruneval — parade parfaite, esquive parfaite, contre-attaques scénarisées, garde et posture, attaques imparables (orange). Télécharge StudioLab.apk.
+          body: Bruneval — route pavée vers la Grande Arène (80 m de diamètre, gradins, arcades, spectateurs). Télécharge StudioLab.apk.
           files: out/StudioLab.apk
