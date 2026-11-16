@@ -715,14 +715,14 @@ func _step_test() -> void:
 		return
 	var d := target - hero.global_position
 	yaw = atan2(-d.x, -d.z)
-	hero.move_input = Vector2(0, -0.6)
-	for i in 180:
+	hero.move_input = Vector2(0, -1.0)
+	for i in 420:
 		await get_tree().physics_frame
 		var dd := target - hero.global_position
 		dd.y = 0
 		if dd.length() < 0.6:
 			break
-		if i % 20 == 0:
+		if i % 60 == 0:
 			var info := ""
 			for c in hero.get_slide_collision_count():
 				var col := hero.get_slide_collision(c)
