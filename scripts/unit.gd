@@ -88,7 +88,8 @@ func make_hp_bar(h: float, col: Color) -> void:
 	var lb := Label3D.new()
 	lb.text = "%s [%s]" % [display_name, rank]
 	lb.font_size = 34
-	lb.pixel_size = 0.005
+	lb.pixel_size = 0.0008
+	lb.fixed_size = true
 	lb.outline_size = 8
 	lb.modulate = col.lightened(0.4)
 	lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED

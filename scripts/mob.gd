@@ -415,9 +415,10 @@ func _follow(delta: float) -> void:
 	var idx := maxi(shadows.find(self), 0)
 	var fwd := h.forward()
 	var right := Vector3(fwd.z, 0, -fwd.x)
-	var row := idx / 3
-	var col := (idx % 3) - 1
-	var slot := h.global_position - fwd * (2.6 + row * 1.6) + right * (col * 1.7)
+	# formation en V sur les côtés (jamais entre la caméra et le héros)
+	var side := -1.0 if idx % 2 == 0 else 1.0
+	var rank_i := idx / 2
+	var slot := h.global_position - fwd * (0.8 + rank_i * 1.3) + right * side * (2.3 + rank_i * 1.1)
 	var dist := Vector2(slot.x - global_position.x, slot.z - global_position.z).length()
 	if dist > 18.0:
 		FX.shadow_puff(main, global_position)
@@ -798,6 +799,9 @@ func rise_as_shadow() -> void:
 		hp_bar.queue_free()
 		hp_bar = null
 	make_hp_bar(2.15 if kind != "orc" else 2.75, Color(0.6, 0.35, 1.0))
+	for c in hp_bar.get_children():
+		if c is Label3D:
+			c.visible = false
 	if boss:
 		hp_bar.position.y = 3.3
 		dmg *= 0.8
