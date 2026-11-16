@@ -325,8 +325,8 @@ func _spawn_chief(p: Vector3, look: Vector3) -> void:
 	chief.model.scale *= float(def["chief_scale"]) / 1.3
 	chief.body_r *= 1.3
 	chief.arm *= 1.3
-	var hpm := [5.0, 8.5, 12.0][over]
-	var dmm := [1.6, 3.2, 5.0][over]
+	var hpm: float = [5.0, 8.5, 12.0][over]
+	var dmm: float = [1.6, 3.2, 5.0][over]
 	chief.max_hp *= hpm
 	chief.hp = chief.max_hp
 	chief.dmg *= dmm
