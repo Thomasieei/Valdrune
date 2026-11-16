@@ -9,6 +9,9 @@ var chan := 0.0
 var hp := 1.0
 var posture := 1.0
 var counter := false
+var banner := ""
+var ctx := ""
+var info := ""
 var boss = null
 var blocked_rect := Rect2()
 var minimap_rect := Rect2()
@@ -22,7 +25,7 @@ func _btns() -> Array:
 	var s := size
 	return [["atk", s + Vector2(-140, -140), 78, "ATTAQUE"], ["s0", s + Vector2(-305, -95), 52, labels[0]], ["s1", s + Vector2(-290, -238), 52, labels[1]],
 		["s2", s + Vector2(-178, -330), 52, labels[2]], ["s3", s + Vector2(-58, -318), 52, labels[3]],
-		["jump", s + Vector2(-435, -62), 42, "Saut"], ["dodge", s + Vector2(-450, -180), 42, "Esquive"], ["block", s + Vector2(-420, -300), 42, "Parade"]]
+		["jump", s + Vector2(-435, -62), 42, "Saut"], ["dodge", s + Vector2(-450, -180), 42, "Esquive"], ["block", s + Vector2(-420, -300), 42, "Parade"]] + ([["ctx", Vector2(s.x * 0.5, s.y - 80), 56, ctx]] if ctx != "" else [])
 func _ready() -> void: mouse_filter = MOUSE_FILTER_IGNORE
 func _input(ev: InputEvent) -> void:
 	if ev is InputEventScreenTouch:
@@ -55,6 +58,7 @@ func _press(b: String) -> void:
 		"jump": p.jump()
 		"dodge": p.dodge()
 		"block": p.block(true)
+		"ctx": main.arena.ctx_press()
 		_: main.K.cast(int(b.substr(1)))
 func _draw() -> void:
 	var f := get_theme_default_font()
@@ -86,6 +90,14 @@ func _draw() -> void:
 	draw_rect(hr, Color(1, 0.82, 0.35), false, 2)
 	var pr := Rect2(16, 42, 200, 10)
 	draw_rect(pr, Color(0, 0, 0, 0.6)); draw_rect(Rect2(pr.position, Vector2(pr.size.x * clamp(posture, 0, 1), pr.size.y)), Color(0.95, 0.8, 0.3))
+	if info != "":
+		draw_string_outline(f, Vector2(16, 72), info, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, 5, Color.BLACK)
+		draw_string(f, Vector2(16, 72), info, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(1, 0.9, 0.6))
+	if banner != "":
+		var bw := 760.0
+		draw_rect(Rect2(size.x * 0.5 - bw * 0.5, 110, bw, 56), Color(0.05, 0.03, 0.08, 0.75))
+		draw_rect(Rect2(size.x * 0.5 - bw * 0.5, 110, bw, 56), Color(1, 0.8, 0.3), false, 2)
+		_text(f, Vector2(size.x * 0.5, 138), banner, 26, bw - 20)
 	if boss:
 		var br := Rect2(size.x * 0.5 - 300, 70, 600, 20)
 		draw_rect(br, Color(0, 0, 0, 0.65)); draw_rect(Rect2(br.position, Vector2(br.size.x * boss.hp / boss.hp_max, br.size.y)), Color(0.6, 0.2, 0.75))

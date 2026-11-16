@@ -33,10 +33,13 @@ func _ready() -> void:
 		sfx_lib[f] = load("res://assets/sfx/%s.ogg" % f)
 	K = preload("res://scripts/skills.gd").new(); K.w = self; add_child(K)
 	player = spawn("Knight", Vector3(0, 0, 44), 0)
-	player.died.connect(func(a): get_tree().create_timer(2.5).timeout.connect(func(): a.global_position = Vector3(0, 0, 40); a.revive(); a.hp = a.hp_max))
+	player.died.connect(func(a):
+		if arena and arena.player_dueling(): arena.player_lost(); return
+		get_tree().create_timer(2.5).timeout.connect(func(): a.global_position = Vector3(0, 0, 40); a.revive(); a.hp = a.hp_max))
 	_ui()
 	K.apply_class(); refresh_labels()
 	_camps()
+	arena = preload("res://scripts/arena.gd").new(); arena.w = self; add_child(arena); arena.start(Vector3(130, 0, 60))
 	await get_tree().create_timer(0.3).timeout
 	loading.queue_free()
 	if "--shots" in OS.get_cmdline_user_args(): _shots()
@@ -122,6 +125,10 @@ func _process(dt: float) -> void:
 	pad.hp = player.hp / player.hp_max
 	pad.posture = player.posture / 100.0
 	pad.counter = player.counter_ready > 0
+	banner_t = max(banner_t - dt, 0)
+	pad.banner = banner_text if banner_t > 0 else ""
+	pad.ctx = arena.ctx_label() if arena else ""
+	pad.info = arena.hud() if arena else ""
 	pad.boss = boss if is_instance_valid(boss) and boss.aware and boss.state != "dead" else null
 
 func _unhandled_input(ev: InputEvent) -> void:
@@ -251,7 +258,8 @@ func bubble(a: Actor, t: float) -> void:
 	mi.mesh = s; var m := _unlit(Color(1, 0.92, 0.5, 0.28)); mi.material_override = m; a.add_child(mi); mi.position.y = 1.0 * a.size_k; mi.scale = Vector3.ONE * a.size_k
 	_fade(mi, m, 0.3, t)
 
-func divine_blade(c: Vector3, r: float, dmg: float, st: float) -> void:
+func divine_blade(c: Vector3, r: float, dmg: float, st: float, by: Actor = null) -> void:
+	if by == null: by = player
 	# faisceau de lumière
 	var col := MeshInstance3D.new(); var cy := CylinderMesh.new(); cy.top_radius = 0.9; cy.bottom_radius = 0.9; cy.height = 30; cy.radial_segments = 16; cy.rings = 1
 	col.mesh = cy; var cm := _unlit(Color(1, 0.92, 0.55, 0.0)); col.material_override = cm; add_child(col); col.global_position = c + Vector3.UP * 15
@@ -270,8 +278,8 @@ func divine_blade(c: Vector3, r: float, dmg: float, st: float) -> void:
 	tw2.tween_callback(func():
 		shake(0.45); ring(c, r, Color(1, 0.95, 0.6)); ring(c, r * 0.6, Color(1, 1, 1)); burst(c + Vector3.UP * 0.5, Color(1, 0.9, 0.5), 50); sfx("slam", c)
 		for o in actors:
-			if o.team == 1 and o.state != "dead" and o.global_position.distance_to(c) < r:
-				o.hurt(dmg * player.dmg_mul, c, 4, player); o.stun(st))
+			if by.foe(o) and o.global_position.distance_to(c) < r:
+				o.hurt(dmg * by.dmg_mul, c, 4, by); o.stun(st))
 	tw2.tween_interval(1.6); tw2.tween_property(sw, "scale", Vector3.ZERO, 0.4); tw2.tween_callback(sw.queue_free)
 
 func lightning(p: Vector3) -> void:
@@ -308,6 +316,10 @@ var camps: Array = []          # [centre, types, monstres, minuterie de réappar
 var boss: Monster
 var _dir_t := 0.0
 var cam_k := 1.0
+var arena
+var banner_text := ""
+var banner_t := 0.0
+func announce(t: String, dur := 3.0) -> void: banner_text = t; banner_t = dur
 
 # ---------- défense : parade parfaite, esquive parfaite, garde, contre-attaque ----------
 func slowmo(k: float, real_t: float) -> void:
@@ -465,37 +477,50 @@ func _tele_mesh(mode: int, size: Vector2, col: Color, half := 0.8) -> Array:
 	mi.material_override = m; mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; add_child(mi)
 	return [mi, m]
 
-func _tele_run(o: Monster, mm: Array, T: float, resolve: Callable) -> void:
+func _danger(o: Actor, test: Callable, T: float) -> void:
+	var d := [o, test]; dangers.append(d)
+	get_tree().create_timer(T).timeout.connect(func(): dangers.erase(d))
+
+func _tele_run(o: Actor, mm: Array, T: float, resolve: Callable) -> void:
 	var tw: Tween = mm[0].create_tween()
 	tw.tween_method(func(v): mm[1].set_shader_parameter("prog", v), 0.0, 1.0, T)
 	tw.tween_callback(func():
 		mm[0].queue_free()
 		if is_instance_valid(o) and o.state != "dead" and o.stun_t <= 0 and not o.frozen: resolve.call())
 
-func _hit_team0(o: Monster, test: Callable, dmg: float, force: float, from: Vector3) -> void:
+var dangers: Array = []        # zones annoncées actives [owner, test] — les combattants IA les évitent
+func danger_at(p: Vector3, me: Actor) -> bool:
+	for d in dangers:
+		if is_instance_valid(d[0]) and d[0] != me and (me.duel_vs == d[0] or (d[0].team != me.team and not me.duel_vs)) and d[1].call(p): return true
+	return false
+
+func _hit_team0(o: Actor, test: Callable, dmg: float, force: float, from: Vector3) -> void:
 	if dmg <= 0: return
 	for a in actors:
-		if a.team == 0 and a.state != "dead" and test.call(a.global_position): a.hurt(dmg * o.dmg_mul, from, force, o)
+		var ok: bool = (a == o.duel_vs) if o.duel_vs else (a.team == 0 and not a.duel_vs)
+		if ok and a.state != "dead" and test.call(a.global_position): a.hurt(dmg * o.dmg_mul, from, force, o)
 
 ## rouge = parable ; orange = imparable (seule l'esquive marche)
 func _tcol(force: float) -> Color: return Color(1, 0.55, 0.05) if force >= 8 else Color(1, 0.15, 0.1)
 
-func tele_circle(o: Monster, c: Vector3, r: float, T: float, dmg: float, force: float) -> void:
+func tele_circle(o: Actor, c: Vector3, r: float, T: float, dmg: float, force: float) -> void:
 	var mm := _tele_mesh(0, Vector2(r * 2, r * 2), _tcol(force)); mm[0].global_position = c + Vector3.UP * 0.07
+	_danger(o, func(p: Vector3): return Vector2(p.x - c.x, p.z - c.z).length() < r + 0.6, T)
 	_tele_run(o, mm, T, func():
 		ring(c, r, Color(1, 0.5, 0.3)); burst(c + Vector3.UP * 0.3, Color(0.9, 0.8, 0.7), 16); shake(0.15); sfx("slam", c)
 		_hit_team0(o, func(p: Vector3): return Vector2(p.x - c.x, p.z - c.z).length() < r + 0.3, dmg, force, c))
 
-func tele_cone(o: Monster, c: Vector3, dir: Vector3, r: float, half_deg: float, T: float, dmg: float, force: float) -> void:
+func tele_cone(o: Actor, c: Vector3, dir: Vector3, r: float, half_deg: float, T: float, dmg: float, force: float) -> void:
 	var mm := _tele_mesh(1, Vector2(r * 2, r * 2), _tcol(force), deg_to_rad(half_deg))
 	mm[0].global_position = c + Vector3.UP * 0.07; mm[0].rotation.y = atan2(dir.x, dir.z)
+	_danger(o, func(p: Vector3): return (p - c).length() < r + 0.6, T)
 	_tele_run(o, mm, T, func():
 		burst(c + dir * r * 0.6 + Vector3.UP, Color(1, 0.6, 0.4), 14); sfx("swing", c)
 		_hit_team0(o, func(p: Vector3):
 			var d := p - c; d.y = 0
 			return d.length() < r + 0.3 and rad_to_deg(dir.angle_to(d.normalized())) < half_deg + 6, dmg, force, c))
 
-func tele_line(o: Monster, c: Vector3, dir: Vector3, L: float, wd: float, T: float, dmg: float, force: float) -> void:
+func tele_line(o: Actor, c: Vector3, dir: Vector3, L: float, wd: float, T: float, dmg: float, force: float) -> void:
 	var mm := _tele_mesh(2, Vector2(wd, L), Color(1, 0.25, 0.1))
 	mm[0].global_position = c + dir * L * 0.5 + Vector3.UP * 0.07; mm[0].rotation.y = atan2(dir.x, dir.z)
 	_tele_run(o, mm, T, func():
@@ -503,7 +528,7 @@ func tele_line(o: Monster, c: Vector3, dir: Vector3, L: float, wd: float, T: flo
 			var d := p - c; d.y = 0; var along := d.dot(dir)
 			return along > 0 and along < L and (d - dir * along).length() < wd * 0.5 + 0.3, dmg, force, c))
 
-func mob_bolt(o: Monster, aimp: Vector3, spd: float, dmg: float) -> void:
+func mob_bolt(o: Actor, aimp: Vector3, spd: float, dmg: float) -> void:
 	var mi := MeshInstance3D.new(); var s := SphereMesh.new(); s.radius = 0.2; s.height = 0.4; s.radial_segments = 8; s.rings = 4
 	mi.mesh = s; mi.material_override = _unlit(Color(0.75, 0.3, 1)); add_child(mi)
 	mi.global_position = o.global_position + Vector3.UP * 1.4 + o.fwd() * 0.6
@@ -549,9 +574,18 @@ func _snap(n: String) -> void:
 func _shots() -> void:
 	DirAccess.make_dir_recursive_absolute("res://shots")
 	while is_instance_valid(loading): await get_tree().process_frame
-	for v in [[Vector3(30, 0, 60), 14.0, "route"], [Vector3(76, 0, 60), 16.0, "porte"], [Vector3(110, 0, 60), 22.0, "arene"], [Vector3(130, 0, 60), 55.0, "arene_haut"]]:
-		player.global_position = v[0]; cam_dist = v[1]
-		await get_tree().create_timer(0.8).timeout
-		_snap(v[2])
+	player.global_position = Vector3(105, 0, 60); cam_dist = 26
+	for i in 3:
+		await get_tree().create_timer(3.5).timeout
+		_snap("pnj_%d" % i)
+	print("F1 ", arena.f1.hp if arena.f1 else -1, " F2 ", arena.f2.hp if arena.f2 else -1, " state ", arena.state)
+	player.global_position = arena.master.global_position + Vector3(1.5, 0, 0); cam_dist = 10
+	await get_tree().create_timer(0.5).timeout
+	_snap("maitre")
+	arena.ctx_press(); arena.t = 0; arena.state = "pause"; arena._cleanup()
+	await get_tree().create_timer(1.0).timeout
+	cam_dist = 16; await get_tree().create_timer(2.5).timeout
+	_snap("duel")
+	print("DUEL ", arena.duel, " ", arena.hud())
 	print("SHOTS_DONE")
 	get_tree().quit()

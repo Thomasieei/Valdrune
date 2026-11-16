@@ -88,7 +88,9 @@ var parry_t := 0.0             # fenêtre de parade parfaite (juste après l'app
 var dodge_t := 9.0             # temps depuis le début de la dernière esquive
 var counter_ready := 0.0       # contre-attaque disponible (après esquive / parade parfaite)
 var counter_target: Actor = null
-var posture := 100.0           # endurance de garde : à 0, garde brisée
+var posture := 100.0
+var duel_vs: Actor = null      # duel d'arène : n'attaque et ne touche que cet adversaire
+var fighter = null             # données de combattant d'arène (rang, nom, pouvoir)           # endurance de garde : à 0, garde brisée
 var col_shape: CollisionShape3D
 
 func set_size(k: float) -> void:
@@ -302,6 +304,8 @@ func delay(t: float, f: Callable) -> void:
 
 func foe(o: Actor) -> bool:
 	if o == self or o.state == "dead": return false
+	if duel_vs: return o == duel_vs
+	if o.duel_vs: return false
 	if hyp_t > 0 or o.hyp_t > 0: return (o.team == 1 and team == 1) or o.team != team
 	return o.team != team
 
@@ -321,7 +325,7 @@ func melee(dmg: float, rng: float, ang: float, force: float, stun_s := 0.0) -> i
 # ---------- dégâts & statuts ----------
 func hurt(dmg: float, from: Vector3, force: float, by: Actor = null) -> void:
 	if state == "dead": return
-	if brain == "" and team == 0 and by is Monster and w.defend(self, by, dmg, from, force): return
+	if brain == "" and team == 0 and by and by.team != 0 and w.defend(self, by, dmg, from, force): return
 	if iframes > 0: return
 	if by and is_instance_valid(by) and by.on_hit_heal and is_instance_valid(by.on_hit_heal): by.on_hit_heal.heal(by.heal_amt)
 	if frozen:
@@ -396,6 +400,7 @@ func revive() -> void:
 func fwd() -> Vector3: return Vector3(sin(rotation.y), 0, cos(rotation.y))
 
 func nearest_foe(r: float) -> Actor:
+	if duel_vs and is_instance_valid(duel_vs) and duel_vs.state != "dead": return duel_vs
 	if taunt_t > 0 and is_instance_valid(taunt_by) and taunt_by.state != "dead": return taunt_by
 	var best: Actor = null; var bd := r
 	for o in w.actors:

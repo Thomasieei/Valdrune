@@ -44,5 +44,5 @@ jobs:
           name: Studio Lab v0.1.${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           make_latest: false
-          body: Bruneval — route pavée vers la Grande Arène (80 m de diamètre, gradins, arcades, spectateurs). Télécharge StudioLab.apk.
+          body: Bruneval — combats permanents dans la Grande Arène (rangs E/B/A/S), inscription au Maître d arène, récompenses et frais de soins. Télécharge StudioLab.apk.
           files: out/StudioLab.apk
