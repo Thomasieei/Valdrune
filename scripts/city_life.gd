@@ -85,7 +85,15 @@ func _prop(name_part: String, pos: Vector3, yaw: float, solid := true) -> Node3D
 	item.rotation.y = yaw
 	if solid:
 		_add_box_collider(item)
+	_no_shadow(item)
 	return item
+
+## Décor secondaire : pas d'ombre portée et masqué au loin (économise la carte graphique).
+func _no_shadow(n: Node) -> void:
+	for mi in n.find_children("*", "GeometryInstance3D", true, false):
+		var g := mi as GeometryInstance3D
+		g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		g.visibility_range_end = 55.0
 
 func _add_box_collider(n: Node3D) -> void:
 	var aabb := AABB()
@@ -170,6 +178,7 @@ func _place_parked_cars() -> void:
 		car.global_position = p
 		car.rotation.y = yaw
 		_add_box_collider(car)
+		_no_shadow(car)
 		placed += 1
 	print("CARS ", placed)
 
@@ -193,9 +202,10 @@ func _spawn_police() -> void:
 		var car := (load("res://assets/police_ford.glb") as PackedScene).instantiate() as Node3D
 		props_root.add_child(car)
 		var nn: Vector3 = s0[1]
-		car.global_position = (s0[0] as Vector3) + nn * 2.2
+		car.global_position = (s0[0] as Vector3) + nn * 2.2 + Vector3(0, 0.63, 0)
 		car.rotation.y = atan2(nn.x, nn.z) + PI * 0.5
 		_add_box_collider(car)
+		_no_shadow(car)
 		_lightbar(car)
 	print("POLICE ", police.size())
 
@@ -293,19 +303,19 @@ func tick(delta: float) -> void:
 func _stream_civs() -> void:
 	var hp: Vector3 = main.hero.global_position
 	for i in range(civs.size() - 1, -1, -1):
-		var c := civs[i] as Mob
-		if not is_instance_valid(c):
+		if not is_instance_valid(civs[i]):
 			civs.remove_at(i)
 			continue
+		var c := civs[i] as Mob
 		if not c.dead and c.global_position.distance_to(hp) > 75.0 and c.chasers.is_empty():
 			main.mobs.erase(c)
 			c.queue_free()
 			civs.remove_at(i)
 	var alive := 0
 	for c in civs:
-		if not (c as Mob).dead:
+		if is_instance_valid(c) and not (c as Mob).dead:
 			alive += 1
-	if alive >= 7:
+	if alive >= 5:
 		return
 	var space: PhysicsDirectSpaceState3D = main.get_world_3d().direct_space_state
 	for tries in 6:
@@ -325,6 +335,8 @@ func _stream_civs() -> void:
 		if bad:
 			continue
 		var c := main.spawn_free_mob("civil", p) as Mob
+		for mi in c.model.find_children("*", "MeshInstance3D", true, false):
+			(mi as GeometryInstance3D).visibility_range_end = 42.0
 		civs.append(c)
 		return
 
@@ -382,8 +394,10 @@ func start_chase(force_civ: Mob = null) -> bool:
 	var victim: Mob = force_civ
 	if victim == null:
 		for c in civs:
+			if not is_instance_valid(c):
+				continue
 			var cm := c as Mob
-			if is_instance_valid(cm) and not cm.dead and cm.global_position.distance_to(hp) > 14.0 and cm.global_position.distance_to(hp) < 45.0:
+			if not cm.dead and cm.global_position.distance_to(hp) > 14.0 and cm.global_position.distance_to(hp) < 45.0:
 				victim = cm
 				break
 	if victim == null:
