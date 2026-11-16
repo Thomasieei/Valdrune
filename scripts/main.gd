@@ -89,6 +89,7 @@ var menu_tab := ""
 var menu_refresh := 0.0
 var unarmed_btn: Button
 var base_fov := 64.0
+var info_box: VBoxContainer
 
 func _ready() -> void:
 	shots_mode = OS.get_cmdline_user_args().has("--shots")
@@ -1114,19 +1115,18 @@ func _build_ui() -> void:
 	hp_txt.add_theme_font_size_override("font_size", 15)
 	card.add_child(hp_txt)
 	shadow_txt = _outlined(layer, Vector2(24, 128), 20, Color(0.75, 0.55, 1))
-	res_txt = _outlined(layer, Vector2(0, 0), 20, Color(1, 0.85, 0.45))
-	res_txt.anchor_left = 1.0
-	res_txt.anchor_right = 1.0
-	res_txt.offset_left = -470
-	res_txt.offset_right = -20
-	res_txt.offset_top = 18
+	info_box = VBoxContainer.new()
+	info_box.anchor_left = 1.0
+	info_box.anchor_right = 1.0
+	info_box.offset_left = -480
+	info_box.offset_right = -20
+	info_box.offset_top = 14
+	info_box.add_theme_constant_override("separation", 6)
+	info_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(info_box)
+	res_txt = _outlined(info_box, Vector2(0, 0), 20, Color(1, 0.85, 0.45))
 	res_txt.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	gate_txt = _outlined(layer, Vector2(0, 0), 20, Color(0.55, 0.8, 1))
-	gate_txt.anchor_left = 1.0
-	gate_txt.anchor_right = 1.0
-	gate_txt.offset_left = -470
-	gate_txt.offset_right = -20
-	gate_txt.offset_top = 76
+	gate_txt = _outlined(info_box, Vector2(0, 0), 20, Color(0.55, 0.8, 1))
 	gate_txt.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	# boutons de combat
 	_skill_button(layer, "attack", "ÉPÉE", Vector2(-235, -235), 180, Color(0.35, 0.7, 1.0), hero.attack)
@@ -1267,14 +1267,9 @@ func _toggle_unarmed() -> void:
 # ---------------------------------------------------------------- menu discret : ombres + stats
 func _build_menu(layer: CanvasLayer) -> void:
 	var bx := HBoxContainer.new()
-	bx.anchor_left = 1.0
-	bx.anchor_right = 1.0
-	bx.offset_left = -330
-	bx.offset_right = -20
-	bx.offset_top = 128
 	bx.alignment = BoxContainer.ALIGNMENT_END
 	bx.add_theme_constant_override("separation", 8)
-	layer.add_child(bx)
+	info_box.add_child(bx)
 	for k in [["OMBRES", "ombres"], ["STATS", "stats"]]:
 		var b := _small_btn(str(k[0]))
 		b.pressed.connect(_toggle_menu.bind(str(k[1])))
