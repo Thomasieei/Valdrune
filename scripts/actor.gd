@@ -1,6 +1,6 @@
 class_name Actor extends CharacterBody3D
-## Acteur générique (joueur, PNJ, monstre) : modèle KayKit + arbre d'animation en couches.
-## Couches : locomotion (par style) -> états tenus (h0/h1) -> action corps entier (fb) -> action haut du corps (up).
+## Acteur générique (joueur, alliés, invocations, monstres) : modèle KayKit + arbre d'animation en couches,
+## statuts (étourdi, sommeil, racines, soulevé, hypnose, figé), IA simple, forme féline procédurale.
 
 signal died(a)
 const LIB: AnimationLibrary = preload("res://assets/anims.res")
@@ -8,65 +8,82 @@ const UPPER := ["spine","chest","head","upperarm.l","lowerarm.l","wrist.l","hand
 const G := 22.0
 const WALK := 2.4
 const RUN := 5.6
-
-# Armes par perso et par style (noms des BoneAttachment KayKit)
 const KIT := {
 	"Knight": {"1h":["1H_Sword","Round_Shield"], "2h":["2H_Sword"], "dual":["1H_Sword","1H_Sword_Offhand"], "unarmed":[]},
 	"Barbarian": {"2h":["2H_Axe"], "1h":["1H_Axe","Barbarian_Round_Shield"], "dual":["1H_Axe","1H_Axe_Offhand"], "unarmed":[]},
 	"Mage": {"magic":["2H_Staff"], "1h":["1H_Wand","Spellbook_open"], "unarmed":[]},
 	"Rogue_Hooded": {"dual":["Knife","Knife_Offhand"], "xbow":["2H_Crossbow"], "1h":["Knife"], "unarmed":[]},
+	"Skeleton_Rogue": {"unarmed":[]}, "Skeleton_Mage": {"magic":[]},
 }
-# Locomotion par style : idle, marche, course
 const LOCO := {
 	"unarmed":["Melee_Unarmed_Idle","Walking_A","Running_A"], "1h":["Idle_A","Walking_B","Running_A"],
 	"2h":["Melee_2H_Idle","Walking_A","Running_B"], "dual":["Idle_A","Walking_C","Running_B"],
 	"magic":["Idle_B","Walking_A","Running_A"], "xbow":["Idle_A","Walking_A","Running_HoldingRifle"],
 	"sneak":["Crouching","Sneaking","Sneaking"],
 }
-# Actions : [anim, dmg, portée, angle°(360=zone), recul, corps_entier, projectile]
+# [anim, dmg, portée, angle°(360=zone), recul, corps_entier, projectile]
 const ACT := {
-	"unarmed": {"atk":[["Melee_Unarmed_Attack_Punch_A",6,1.4,70,1,false,""],["Melee_Unarmed_Attack_Kick",9,1.6,70,4,true,""]],
-		"s1":["Throw",8,0,0,2,false,"rock"], "s2":["Skeletons_Taunt",0,0,0,0,true,""], "s3":["Melee_Unarmed_Attack_Kick",14,1.7,80,9,true,""]},
-	"1h": {"atk":[["Melee_1H_Attack_Slice_Diagonal",12,1.7,75,1,false,""],["Melee_1H_Attack_Slice_Horizontal",12,1.8,90,1,false,""],["Melee_1H_Attack_Chop",16,1.7,60,3,false,""],["Melee_1H_Attack_Stab",20,2.0,40,5,true,""]],
-		"s1":["Melee_1H_Attack_Jump_Chop",34,2.3,80,10,true,""], "s2":["Melee_Block_Attack",14,1.6,80,8,true,""], "s3":["Skeletons_Taunt",0,0,0,0,true,""]},
-	"2h": {"atk":[["Melee_2H_Attack_Slice",20,2.2,100,2,false,""],["Melee_2H_Attack_Chop",26,2.2,60,4,true,""],["Melee_2H_Attack_Stab",30,2.4,40,7,true,""]],
-		"s1":["Melee_2H_Attack_Spin",38,2.6,360,9,true,""], "s2":["Melee_2H_Attack_Spinning",12,2.4,360,3,true,""], "s3":["Skeletons_Taunt_Longer",0,0,0,0,true,""]},
-	"dual": {"atk":[["Melee_Dualwield_Attack_Slice",9,1.6,80,1,false,""],["Melee_Dualwield_Attack_Chop",11,1.6,70,1,false,""],["Melee_Dualwield_Attack_Stab",15,1.8,50,3,false,""]],
-		"s1":["Dodge_Forward",22,2.2,60,4,true,"blink"], "s2":["Throw",14,0,0,2,false,"knife"], "s3":["Crouching",0,0,0,0,true,"sneak"]},
-	"magic": {"atk":[["Ranged_Magic_Shoot",14,0,0,2,false,"bolt"]],
-		"s1":["Ranged_Magic_Spellcasting_Long",8,6.0,25,0,true,"beam"], "s2":["Ranged_Magic_Raise",30,3.2,360,11,true,"nova"], "s3":["Ranged_Magic_Summon",0,0,0,0,true,"summon"]},
-	"xbow": {"atk":[["Ranged_2H_Shoot",18,0,0,3,false,"bolt"]],
-		"s1":["Ranged_2H_Reload",0,0,0,0,false,""], "s2":["Throw",26,0,0,10,false,"bomb"], "s3":["Dodge_Backward",0,0,0,0,true,"leap"]},
+	"unarmed": [["Melee_Unarmed_Attack_Punch_A",6,1.5,70,1,false,""],["Melee_Unarmed_Attack_Kick",9,1.6,70,3,true,""]],
+	"1h": [["Melee_1H_Attack_Slice_Diagonal",12,1.8,80,1,false,""],["Melee_1H_Attack_Slice_Horizontal",12,1.9,100,1,false,""],["Melee_1H_Attack_Chop",16,1.8,60,3,false,""],["Melee_1H_Attack_Stab",20,2.1,40,5,true,""]],
+	"2h": [["Melee_2H_Attack_Slice",20,2.2,100,2,false,""],["Melee_2H_Attack_Chop",26,2.2,60,4,true,""],["Melee_2H_Attack_Stab",30,2.4,40,7,true,""]],
+	"dual": [["Melee_Dualwield_Attack_Slice",9,1.7,80,1,false,""],["Melee_Dualwield_Attack_Chop",11,1.7,70,1,false,""],["Melee_Dualwield_Attack_Stab",15,1.9,50,3,false,""]],
+	"magic": [["Ranged_Magic_Shoot",14,0,0,2,false,"bolt"]],
+	"xbow": [["Ranged_2H_Shoot",18,0,0,3,false,"bolt"]],
+	"cat": [["claw",13,1.9,90,1,false,""],["claw",13,1.9,90,1,false,""],["claw2",20,2.1,70,4,false,""]],
 }
+const _BP := ["parameters/L0/blend_position","parameters/L1/blend_position","parameters/L2/blend_position","parameters/L3/blend_position","parameters/L4/blend_position","parameters/L5/blend_position","parameters/L6/blend_position"]
 
+var w                          # monde (main.gd)
 var char_name := ""
 var styles: Array = []
 var style := "unarmed"
 var team := 0
 var hp := 100.0
 var hp_max := 100.0
+var dmg_mul := 1.0
+var speed_mul := 1.0
 var model: Node3D
 var skel: Skeleton3D
 var tree: AnimationTree
 var bt: AnimationNodeBlendTree
+var cat: Node3D                # forme féline (procédurale)
 var _hold := 0
-var move_in := Vector2.ZERO   # entrée (x,z) monde, longueur 0..1
+var move_in := Vector2.ZERO
 var aim_target: Actor = null
-var busy := 0.0               # verrou d'action (s)
-var root_lock := 0.0          # immobilise pendant une action corps entier
+var busy := 0.0
+var root_lock := 0.0
 var combo := 0
 var combo_t := 0.0
-var state := "loco"           # loco, air, launched, down, dead, hold, block, sneak
+var state := "loco"            # loco, air, launched, down, dead, hold, block, sneak, sleep, lift
 var state_t := 0.0
 var air_t := 0.0
 var fall_v := 0.0
 var dodge_v := Vector3.ZERO
 var iframes := 0.0
 var face := 0.0
-var fx: Node                  # référence au monde (effets)
+var _queued := false
+# statuts
+var stun_t := 0.0
+var root_t := 0.0
+var sleep_t := 0.0
+var lift_t := 0.0
+var hyp_t := 0.0
+var shield_t := 0.0
+var taunt_t := 0.0
+var taunt_by: Actor = null
+var frozen := false
+var stored := 0.0
+var on_hit_heal: Actor = null  # chaque coup donné soigne cet acteur
+var heal_amt := 0.0
+var life_t := -1.0             # invocation à durée limitée
+var brain := ""                # "" joueur ; "melee", "ranged", "heal", "tank"
+var ai_t := 0.0
+var target: Actor = null
+var owner_a: Actor = null
+var tag: Label3D
 
-func setup(cname: String, world_fx: Node, t := 0) -> void:
-	fx = world_fx; team = t
+func setup(cname: String, world, t := 0) -> void:
+	w = world; team = t
 	var col := CollisionShape3D.new(); var cap := CapsuleShape3D.new()
 	cap.radius = 0.38; cap.height = 1.7; col.shape = cap; col.position.y = 0.85
 	add_child(col)
@@ -74,6 +91,8 @@ func setup(cname: String, world_fx: Node, t := 0) -> void:
 	collision_layer = 2; collision_mask = 3
 	platform_floor_layers = 1; platform_wall_layers = 0
 	platform_on_leave = PLATFORM_ON_LEAVE_DO_NOTHING
+	tag = Label3D.new(); tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED; tag.no_depth_test = true
+	tag.font_size = 40; tag.outline_size = 10; tag.pixel_size = 0.006; tag.position.y = 2.5; add_child(tag)
 	set_char(cname)
 
 func set_char(cname: String) -> void:
@@ -82,22 +101,30 @@ func set_char(cname: String) -> void:
 	model = (load("res://assets/chars/%s.glb" % cname) as PackedScene).instantiate()
 	add_child(model)
 	for n in model.find_children("*", "AnimationPlayer", true, false): n.free()
-	skel = model.get_node("Rig/Skeleton3D")
-	for m in skel.find_children("*", "MeshInstance3D", true, false):
-		(m as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	skel = model.find_children("*", "Skeleton3D", true, false)[0]
 	styles = KIT[cname].keys()
 	_build_tree()
 	set_style(styles[0])
+	if cat: set_cat(false)
+
+func tint(c: Color, glow := 0.0) -> void:
+	for m in skel.find_children("*", "MeshInstance3D", true, false):
+		var mi := m as MeshInstance3D
+		var src: Material = mi.get_active_material(0)
+		if src is StandardMaterial3D:
+			var nm: StandardMaterial3D = src.duplicate(); nm.albedo_color = c
+			if glow > 0: nm.emission_enabled = true; nm.emission = c; nm.emission_energy_multiplier = glow
+			mi.material_override = nm
 
 func set_style(s: String) -> void:
 	style = s
 	var show: Array = KIT[char_name].get(s, [])
 	var all := {}
-	for k in KIT[char_name].values(): for w in k: all[w] = true
-	for extra in ["Badge_Shield","Rectangle_Shield","Spike_Shield","Mug","Spellbook","1H_Crossbow","Throwable","1H_Wand","Knife"]: all[extra] = true
+	for k in KIT[char_name].values(): for x in k: all[x] = true
+	for extra in ["Badge_Shield","Rectangle_Shield","Spike_Shield","Mug","Spellbook","1H_Crossbow","Throwable","1H_Wand","Knife","1H_Sword_Offhand","2H_Sword","Round_Shield"]: all[extra] = true
 	for n in skel.get_children():
 		if n is BoneAttachment3D and all.has(String(n.name)): n.visible = show.has(String(n.name))
-	tree.set("parameters/loco/transition_request", s)
+	if LOCO.has(s): tree.set("parameters/loco/transition_request", s)
 	combo = 0
 
 # ---------- arbre d'animation ----------
@@ -116,7 +143,6 @@ func _build_tree() -> void:
 	for i in keys.size():
 		loco.set_input_name(i, keys[i])
 		var bs := AnimationNodeBlendSpace2D.new()
-		bs.blend_mode = AnimationNodeBlendSpace2D.BLEND_MODE_INTERPOLATED
 		var l: Array = LOCO[keys[i]]
 		bs.add_blend_point(_anim(l[0]), Vector2(0, 0))
 		bs.add_blend_point(_anim(l[1]), Vector2(0, 0.45))
@@ -146,10 +172,10 @@ func _build_tree() -> void:
 	tree.active = true
 
 func _len(n: String) -> float:
-	return LIB.get_animation(n).length if LIB.has_animation(n) else 0.5
+	return LIB.get_animation(n).length if LIB.has_animation(n) else 0.45
 
-## Joue une action ponctuelle. full=true : corps entier ; sinon haut du corps (on peut courir en même temps).
 func shot(n: String, full := true) -> float:
+	if cat and cat.visible: cat.act(n); return _len(n)
 	if not LIB.has_animation(n): return 0.0
 	var node := "fb" if full else "up"
 	(bt.get_node(node + "a") as AnimationNodeAnimation).animation = n
@@ -157,8 +183,8 @@ func shot(n: String, full := true) -> float:
 	tree.set("parameters/%s/request" % node, AnimationNodeOneShot.ONE_SHOT_REQUEST_FIRE)
 	return _len(n)
 
-## Pose / boucle tenue (chute, sol, mort, parade, emote en boucle). "" = retour locomotion.
 func hold(n: String) -> void:
+	if cat and cat.visible: cat.pose(n); return
 	if n == "":
 		tree.set("parameters/mode/transition_request", "loco"); return
 	_hold = 1 - _hold
@@ -169,8 +195,8 @@ func stop_shots() -> void:
 	tree.set("parameters/fb/request", AnimationNodeOneShot.ONE_SHOT_REQUEST_FADE_OUT)
 	tree.set("parameters/up/request", AnimationNodeOneShot.ONE_SHOT_REQUEST_FADE_OUT)
 
-## Navigateur : joue n'importe quelle animation (boucle => tenue jusqu'au prochain mouvement)
 func play_any(n: String) -> void:
+	if cat and cat.visible: set_cat(false)
 	if state == "dead": revive()
 	stop_shots()
 	if LIB.get_animation(n).loop_mode != Animation.LOOP_NONE or n.ends_with("_Pose"):
@@ -178,24 +204,39 @@ func play_any(n: String) -> void:
 	else:
 		hold(""); state = "loco"; busy = shot(n, true); root_lock = busy
 
+# ---------- forme féline ----------
+func set_cat(on: bool) -> void:
+	if on and not cat:
+		cat = preload("res://scripts/cat.gd").new(); add_child(cat)
+	if not cat: return
+	cat.visible = on; model.visible = not on
+	tree.active = not on
+	if on: style = "cat"; combo = 0
+	else: set_style(styles[0])
+
+func is_cat() -> bool: return cat != null and cat.visible
+
 # ---------- commandes ----------
+func incap() -> bool:
+	return stun_t > 0 or sleep_t > 0 or lift_t > 0 or frozen or state in ["dead","launched","down"]
+
 func can_act() -> bool:
-	return state in ["loco", "hold", "sneak", "block"] and busy <= 0.0
+	return not incap() and state in ["loco", "hold", "sneak", "block"] and busy <= 0.0
 
 func jump() -> void:
-	if not is_on_floor() or not can_act(): return
+	if not is_on_floor() or not can_act() or root_t > 0: return
 	if state == "hold": hold("")
 	velocity.y = 8.0; state = "air"; air_t = 0.0
 	shot("Jump_Start", true); hold("Jump_Idle")
-	fx.sfx("jump", global_position)
+	w.sfx("jump", global_position)
 
 func dodge() -> void:
-	if not is_on_floor() or state in ["dead","launched","down"] or busy > 0.15: return
+	if not is_on_floor() or incap() or root_t > 0 or busy > 0.15: return
 	if state in ["hold","block","sneak"]: hold(""); state = "loco"
 	var dir := Vector3(move_in.x, 0, move_in.y)
 	var n := "Dodge_Forward"
 	if dir.length() < 0.2:
-		dir = -_fwd(); n = "Dodge_Backward"
+		dir = -fwd(); n = "Dodge_Backward"
 	elif aim_target:
 		var l := global_transform.basis.inverse() * dir
 		n = "Dodge_Left" if l.x < -0.5 else ("Dodge_Right" if l.x > 0.5 else ("Dodge_Backward" if l.z < 0 else "Dodge_Forward"))
@@ -203,33 +244,20 @@ func dodge() -> void:
 		face = atan2(dir.x, dir.z); rotation.y = face
 	dodge_v = dir.normalized() * 10.0
 	busy = shot(n, true) * 0.8; root_lock = busy; iframes = 0.35
-	fx.sfx("dash", global_position)
+	w.sfx("dash", global_position)
 
 func attack() -> void:
 	if state == "block": return
 	if not can_act():
-		if busy < 0.18 and busy > 0: _queued = true
+		if busy < 0.18 and busy > 0 and brain == "": _queued = true
 		return
 	if state in ["hold","sneak"]: hold(""); state = "loco"
-	var list: Array = ACT[style]["atk"]
+	var list: Array = ACT[style]
 	if combo_t <= 0.0: combo = 0
 	var a: Array = list[combo % list.size()]
 	combo += 1
-	_do(a)
-
-var _queued := false
-const _NL := [0,1,2,3,4,5,6]
-const _BP := ["parameters/L0/blend_position","parameters/L1/blend_position","parameters/L2/blend_position","parameters/L3/blend_position","parameters/L4/blend_position","parameters/L5/blend_position","parameters/L6/blend_position"]
-
-func skill(i: int) -> void:
-	if not can_act(): return
-	var a: Array = ACT[style]["s%d" % i]
-	if a[6] == "sneak":
-		if state == "sneak": state = "loco"; tree.set("parameters/loco/transition_request", style)
-		else: state = "sneak"; tree.set("parameters/loco/transition_request", "sneak")
-		return
-	if state == "hold": hold(""); state = "loco"
-	_do(a)
+	if brain == "" and w.on_basic(self, combo): return
+	do_act(a)
 
 func block(on: bool) -> void:
 	if on and can_act() and style in ["1h","2h","unarmed","dual"]:
@@ -237,123 +265,191 @@ func block(on: bool) -> void:
 	elif not on and state == "block":
 		hold(""); state = "loco"
 
-func _do(a: Array) -> void:
-	_face_target()
+func do_act(a: Array) -> float:
+	face_target()
 	var moving := move_in.length() > 0.2
 	var full: bool = a[5] or not moving
 	var L := shot(a[0], full)
-	busy = L * 0.72; combo_t = L + 0.35
+	var spd: float = 1.0 / max(speed_mul, 0.5)
+	busy = L * 0.72 * spd; combo_t = L + 0.35
 	if full: root_lock = busy
-	var hit_at := L * (0.42 if a[0] != "Melee_2H_Attack_Spinning" else 0.2)
+	var hit_at := L * 0.42 * spd
 	var kind: String = a[6]
-	match kind:
-		"blink":
-			var t := _nearest_enemy(9.0)
-			if t:
-				global_position = t.global_position - t._fwd() * 1.1
-				face = t.rotation.y; rotation.y = face
-				fx.burst(global_position + Vector3.UP, Color(0.6, 0.3, 1.0), 18)
-			_delay(hit_at * 0.6, func(): _melee(a))
-		"leap":
-			velocity.y = 6.0; dodge_v = -_fwd() * 9.0; state = "air"; hold("Jump_Idle")
-		"summon":
-			_delay(L * 0.6, func(): fx.burst(global_position + _fwd() * 1.5, Color(0.4, 0.8, 1), 40))
-		"beam":
-			for k in 6: _delay(0.25 + k * 0.22, func(): _melee(a); fx.beam(self, a[2]))
-		"nova":
-			_delay(hit_at, func(): _melee(a); fx.ring(global_position, a[2], Color(1, 0.55, 0.15)))
-		"bolt", "knife", "rock", "bomb":
-			_delay(hit_at, func(): fx.projectile(self, kind, a))
-		_:
-			if a[1] > 0: _delay(hit_at, func(): _melee(a))
-			elif a[0].begins_with("Skeletons_Taunt"): fx.ring(global_position, 3.0, Color(1, 0.2, 0.2))
-	if a[0] == "Melee_2H_Attack_Spinning":
-		for k in 3: _delay(hit_at + 0.3 * (k + 1), func(): _melee(a))
+	if kind != "": delay(hit_at, func(): w.projectile(self, kind, a))
+	elif a[1] > 0: delay(hit_at, func(): melee(a[1], a[2], a[3], a[4]))
+	return L
 
-func _delay(t: float, f: Callable) -> void:
+func delay(t: float, f: Callable) -> void:
 	get_tree().create_timer(t, false).timeout.connect(func(): if is_instance_valid(self) and state != "dead": f.call())
 
-func _melee(a: Array) -> void:
-	var hit_any := false
-	for o in fx.actors:
-		if o == self or o.team == team or o.state == "dead": continue
-		var d: Vector3 = o.global_position - global_position; d.y = 0
-		if d.length() > a[2] + 0.4: continue
-		if a[3] < 360 and rad_to_deg(_fwd().angle_to(d.normalized())) > a[3] * 0.5: continue
-		o.hurt(a[1], global_position, a[4]); hit_any = true
-	if hit_any: fx.sfx("hit", global_position)
-	else: fx.sfx("swing", global_position)
+func foe(o: Actor) -> bool:
+	if o == self or o.state == "dead": return false
+	if hyp_t > 0 or o.hyp_t > 0: return (o.team == 1 and team == 1) or o.team != team
+	return o.team != team
 
-# ---------- dégâts ----------
-func hurt(dmg: float, from: Vector3, force: float) -> void:
+func melee(dmg: float, rng: float, ang: float, force: float, stun_s := 0.0) -> int:
+	var n := 0
+	for o in w.actors:
+		if not foe(o): continue
+		var d: Vector3 = o.global_position - global_position; d.y = 0
+		if d.length() > rng + 0.4: continue
+		if ang < 360 and rad_to_deg(fwd().angle_to(d.normalized())) > ang * 0.5: continue
+		o.hurt(dmg * dmg_mul, global_position, force, self)
+		if stun_s > 0: o.stun(stun_s)
+		n += 1
+	w.sfx("hit" if n > 0 else "swing", global_position)
+	return n
+
+# ---------- dégâts & statuts ----------
+func hurt(dmg: float, from: Vector3, force: float, by: Actor = null) -> void:
 	if state == "dead" or iframes > 0: return
+	if by and is_instance_valid(by) and by.on_hit_heal and is_instance_valid(by.on_hit_heal): by.on_hit_heal.heal(by.heal_amt)
+	if frozen:
+		stored += dmg; w.number(global_position, dmg, Color(0.6, 0.85, 1), 0.7); return
+	if shield_t > 0:
+		w.burst(global_position + Vector3.UP, Color(1, 0.95, 0.6), 8); return
+	if sleep_t > 0:
+		sleep_t = 0.0; root_t = max(root_t, 2.0); hold(""); state = "loco"; w.roots(self)
 	var d := global_position - from; d.y = 0; d = d.normalized()
-	var front := _fwd().dot(-d) > 0.3
+	var front := fwd().dot(-d) > 0.3
 	if state == "block" and front:
 		dmg *= 0.15; shot("Melee_Block_Hit", true); dodge_v = d * 2.5
-		fx.burst(global_position + Vector3.UP * 1.1 + _fwd() * 0.5, Color(1, 0.9, 0.5), 12)
-		fx.number(global_position, dmg, Color(0.7, 0.7, 0.7)); hp -= dmg; return
+		w.number(global_position, dmg, Color(0.7, 0.7, 0.7)); hp -= dmg; return
 	hp -= dmg
-	fx.number(global_position, dmg, Color(1, 0.85, 0.2) if force < 6 else Color(1, 0.35, 0.2))
-	fx.burst(global_position + Vector3.UP * 1.0, Color(1, 0.3, 0.2), 10)
+	w.number(global_position, dmg, Color(1, 0.85, 0.2) if force < 6 else Color(1, 0.35, 0.2), 1.0 if dmg < 60 else 1.6)
+	w.burst(global_position + Vector3.UP * 1.0, Color(1, 0.3, 0.2), 8)
 	if hp <= 0: die(); return
+	if lift_t > 0 or (root_t > 0 and force < 6): return
 	busy = 0.0; _queued = false
-	if force >= 6.0:
+	if force >= 6.0 and root_t <= 0:
 		stop_shots(); state = "launched"; state_t = 0.0
 		velocity = d * force * 0.9 + Vector3.UP * force * 0.55
 		face = atan2(-d.x, -d.z); rotation.y = face
 		hold("Death_B")
-		fx.shake(0.25)
-	else:
-		dodge_v = d * (1.5 + force)
+	elif stun_t <= 0 and brain != "" or force > 2:
+		if root_t <= 0: dodge_v = d * (1.5 + force)
 		busy = shot("Hit_A" if front else "Hit_B", true) * 0.6; root_lock = busy
 		if state in ["hold","sneak"]: hold(""); state = "loco"
 
+func heal(v: float) -> void:
+	if state == "dead": return
+	var h: float = min(v, hp_max - hp); hp += h
+	if h >= 1: w.number(global_position, h, Color(0.35, 1, 0.45), 0.9)
+
+func stun(t: float) -> void:
+	if state == "dead": return
+	stun_t = max(stun_t, t); stop_shots(); busy = 0
+	if state in ["loco","hold","block","sneak"]: hold("Hit_B"); state = "hold"
+
+func put_sleep(t: float) -> void:
+	if state == "dead": return
+	sleep_t = t; stop_shots(); busy = 0; state = "sleep"; hold("Lie_Down")
+	delay(1.0, func(): if sleep_t > 0: hold("Lie_Idle"))
+
+func lift(t: float) -> void:
+	if state == "dead": return
+	lift_t = t; stop_shots(); state = "lift"; hold("Jump_Idle"); velocity = Vector3(0, 5, 0)
+
+func freeze(on: bool) -> void:
+	frozen = on
+	if tree and not is_cat(): tree.active = not on
+	if cat: cat.set_process(not on)
+	if not on and stored > 0:
+		var s := stored; stored = 0
+		w.number(global_position, s, Color(0.4, 0.9, 1), 2.0); w.burst(global_position + Vector3.UP, Color(0.5, 0.9, 1), 20)
+		hp -= s
+		if hp <= 0: die()
+		else: hurt(0.01, global_position - fwd(), 7)
+
 func die() -> void:
 	hp = 0; state = "dead"; stop_shots(); velocity.x = 0; velocity.z = 0
-	hold("Death_A" if randf() < 0.5 else "Death_B")
+	stun_t = 0; sleep_t = 0; lift_t = 0; root_t = 0; hyp_t = 0
+	if is_cat(): cat.pose("dead")
+	else: hold("Skeletons_Death" if char_name.begins_with("Skeleton") else ("Death_A" if randf() < 0.5 else "Death_B"))
 	died.emit(self)
 
 func revive() -> void:
 	hp = hp_max; state = "loco"; hold("")
 	busy = shot("Lie_StandUp", true); root_lock = busy
 
-# ---------- physique ----------
-func _fwd() -> Vector3: return Vector3(sin(rotation.y), 0, cos(rotation.y))
+# ---------- IA ----------
+func fwd() -> Vector3: return Vector3(sin(rotation.y), 0, cos(rotation.y))
 
-func _nearest_enemy(r: float) -> Actor:
+func nearest_foe(r: float) -> Actor:
+	if taunt_t > 0 and is_instance_valid(taunt_by) and taunt_by.state != "dead": return taunt_by
 	var best: Actor = null; var bd := r
-	for o in fx.actors:
-		if o.team != team and o.state != "dead":
+	for o in w.actors:
+		if foe(o):
 			var dd := global_position.distance_to(o.global_position)
 			if dd < bd: bd = dd; best = o
 	return best
 
-func _face_target() -> void:
-	var t := aim_target if aim_target else _nearest_enemy(3.5)
+func face_target() -> void:
+	var t := aim_target if aim_target else nearest_foe(3.5)
 	if t:
 		var d := t.global_position - global_position
 		face = atan2(d.x, d.z); rotation.y = face
 	elif move_in.length() > 0.2:
 		face = atan2(move_in.x, move_in.y); rotation.y = face
 
+func _think() -> void:
+	move_in = Vector2.ZERO
+	if incap(): return
+	if brain == "heal":
+		if owner_a and is_instance_valid(owner_a):
+			var d := owner_a.global_position - global_position; d.y = 0
+			if d.length() > 3.0: move_in = Vector2(d.x, d.z).normalized() * 0.7
+		return
+	target = nearest_foe(30.0)
+	if not target:
+		if owner_a and is_instance_valid(owner_a) and global_position.distance_to(owner_a.global_position) > 3.5:
+			var d := owner_a.global_position - global_position; move_in = Vector2(d.x, d.z).normalized()
+		return
+	var d := target.global_position - global_position; d.y = 0
+	var rng := 7.0 if brain == "ranged" else 1.5
+	if d.length() > rng: move_in = Vector2(d.x, d.z).normalized() * (0.6 if team == 1 else 1.0)
+	elif can_act() and randf() < (0.55 if team == 1 else 0.9):
+		face = atan2(d.x, d.z); rotation.y = face
+		attack()
+
+# ---------- physique ----------
 func _physics_process(dt: float) -> void:
+	if frozen: return
 	busy = max(busy - dt, 0); root_lock = max(root_lock - dt, 0); iframes = max(iframes - dt, 0)
 	combo_t = max(combo_t - dt, 0); state_t += dt
+	shield_t = max(shield_t - dt, 0); taunt_t = max(taunt_t - dt, 0); hyp_t = max(hyp_t - dt, 0)
+	if root_t > 0: root_t -= dt
+	if stun_t > 0:
+		stun_t -= dt
+		if stun_t <= 0 and state == "hold": hold(""); state = "loco"
+	if sleep_t > 0:
+		sleep_t -= dt
+		if sleep_t <= 0: state = "loco"; hold(""); busy = shot("Lie_StandUp", true); root_lock = busy; root_t = max(root_t, 2.0); w.roots(self)
+	if lift_t > 0:
+		lift_t -= dt
+		velocity = Vector3(0, (2.2 - global_position.y) * 4.0, 0)
+		rotation.y += dt * 2.0
+		if lift_t <= 0: state = "air"; hold("Jump_Idle")
+	if life_t > 0:
+		life_t -= dt
+		if life_t <= 0: die(); get_tree().create_timer(2.0).timeout.connect(func(): w.remove_actor(self)); return
+	if brain != "":
+		ai_t -= dt
+		if ai_t <= 0: ai_t = 0.25; _think()
 	if _queued and busy <= 0: _queued = false; attack()
 	var on_floor := is_on_floor()
-	if not on_floor: velocity.y -= G * dt; air_t += dt
+	if not on_floor and lift_t <= 0: velocity.y -= G * dt; air_t += dt
 	var want := Vector3(move_in.x, 0, move_in.y)
 	var m := want.length()
 	var spd := 0.0
 	match state:
-		"dead":
+		"dead", "sleep", "lift":
 			want = Vector3.ZERO
 		"launched":
 			want = Vector3.ZERO
 			if on_floor and state_t > 0.25:
 				velocity.x *= 0.8; velocity.z *= 0.8
-				if state_t > 0.25 and state != "down": state = "down"; state_t = 0.0; fx.sfx("land", global_position); fx.shake(0.15)
+				state = "down"; state_t = 0.0; w.sfx("land", global_position)
 		"down":
 			want = Vector3.ZERO; velocity.x = 0; velocity.z = 0
 			if state_t > 0.9: state = "loco"; hold(""); busy = shot("Lie_StandUp", true); root_lock = busy
@@ -361,11 +457,11 @@ func _physics_process(dt: float) -> void:
 			spd = RUN * 0.8
 			if on_floor and air_t > 0.1:
 				state = "loco"; hold("")
-				if fall_v < -15: hurt(10, global_position + _fwd(), 2); fx.shake(0.2)
+				if fall_v < -15: hurt(10, global_position + fwd(), 2)
 				else: shot("Jump_Land", false)
-				fx.sfx("land", global_position)
+				w.sfx("land", global_position)
 		"hold":
-			if m > 0.2: hold(""); state = "loco"
+			if m > 0.2 and stun_t <= 0: hold(""); state = "loco"
 		"block":
 			spd = WALK * 0.5
 		_:
@@ -375,15 +471,15 @@ func _physics_process(dt: float) -> void:
 				state = "air"; hold("Jump_Idle")
 	if on_floor: air_t = 0.0
 	fall_v = velocity.y
-	if root_lock > 0: spd = 0.0
+	spd *= speed_mul
+	if root_lock > 0 or root_t > 0 or stun_t > 0: spd = 0.0
 	elif busy > 0: spd *= 0.55
 	var hv: Vector3 = want.normalized() * spd * clamp(m * 1.4, 0, 1) if m > 0.1 else Vector3.ZERO
-	if state not in ["launched", "dead", "down"]:
+	if state not in ["launched", "dead", "down", "lift"]:
 		velocity.x = lerp(velocity.x, hv.x + dodge_v.x, 0.35)
 		velocity.z = lerp(velocity.z, hv.z + dodge_v.z, 0.35)
 	dodge_v = dodge_v.move_toward(Vector3.ZERO, 30 * dt)
 	move_and_slide()
-	# orientation & blend
 	var hs := Vector2(velocity.x, velocity.z)
 	var bp := Vector2.ZERO
 	if aim_target and state in ["loco","block","sneak"] and aim_target.state != "dead":
@@ -394,5 +490,16 @@ func _physics_process(dt: float) -> void:
 	else:
 		if hs.length() > 0.5 and root_lock <= 0 and state in ["loco","air","sneak","block"]: face = atan2(hs.x, hs.y)
 		bp = Vector2(0, clamp(hs.length() / RUN, 0, 1))
-	rotation.y = lerp_angle(rotation.y, face, 1.0 - exp(-14 * dt))
-	for i in _NL: tree.set(_BP[i], bp)
+	if lift_t <= 0: rotation.y = lerp_angle(rotation.y, face, 1.0 - exp(-14 * dt))
+	if is_cat(): cat.tick(hs.length(), dt)
+	else:
+		for p in _BP: tree.set(p, bp)
+	var s := ""
+	if sleep_t > 0: s = "Zzz"
+	elif stun_t > 0: s = "ÉTOURDI"
+	elif hyp_t > 0: s = "HYPNOSE"
+	elif root_t > 0: s = "ENRACINÉ"
+	elif lift_t > 0: s = "SOULEVÉ"
+	if tag.text != s:
+		tag.text = s
+		tag.modulate = {"Zzz": Color(0.7, 0.8, 1), "ÉTOURDI": Color(1, 0.9, 0.3), "HYPNOSE": Color(0.9, 0.4, 1), "ENRACINÉ": Color(0.6, 0.9, 0.3), "SOULEVÉ": Color(1, 0.4, 0.4)}.get(s, Color.WHITE)

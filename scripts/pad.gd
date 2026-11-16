@@ -1,48 +1,43 @@
 class_name Pad extends Control
-## Commandes tactiles multipoint : joystick à gauche, boutons d'action à droite.
+## Commandes tactiles multipoint : joystick à gauche, attaque + 4 compétences + saut/esquive à droite.
 var main
 var stick := Vector2.ZERO
-var labels := ["S1","S2","S3"]
+var labels := ["S1","S2","S3","S4"]
+var cd := [0.0, 0.0, 0.0, 0.0]
+var cd_max := [1.0, 1.0, 1.0, 1.0]
+var chan := 0.0
 var blocked_rect := Rect2()
 var _jt := -1
 var _jc := Vector2.ZERO
-var _jp := Vector2.ZERO
-var _held := {}   # touch index -> bouton
+var _held := {}
 const R := 110.0
 func _btns() -> Array:
 	var s := size
-	return [["atk", s + Vector2(-140, -140), 78, "ATTAQUE"], ["s1", s + Vector2(-300, -110), 50, labels[0]], ["s2", s + Vector2(-255, -250), 50, labels[1]],
-		["s3", s + Vector2(-120, -300), 50, labels[2]], ["jump", s + Vector2(-420, -70), 44, "Saut"], ["dodge", s + Vector2(-430, -190), 44, "Esquive"],
-		["block", s + Vector2(-60, -420), 44, "Parade"]]
+	return [["atk", s + Vector2(-140, -140), 78, "ATTAQUE"], ["s0", s + Vector2(-305, -95), 52, labels[0]], ["s1", s + Vector2(-290, -238), 52, labels[1]],
+		["s2", s + Vector2(-178, -330), 52, labels[2]], ["s3", s + Vector2(-58, -318), 52, labels[3]],
+		["jump", s + Vector2(-435, -62), 42, "Saut"], ["dodge", s + Vector2(-450, -180), 42, "Esquive"]]
 func _ready() -> void: mouse_filter = MOUSE_FILTER_IGNORE
 func _input(ev: InputEvent) -> void:
 	if ev is InputEventScreenTouch:
 		if ev.pressed:
 			if ev.position.y < 72 or blocked_rect.has_point(ev.position): return
 			for b in _btns():
-				if ev.position.distance_to(b[1]) < b[2] + 14:
-					_held[ev.index] = b[0]; _press(b[0], true); queue_redraw(); return
+				if ev.position.distance_to(b[1]) < b[2] + 12:
+					_held[ev.index] = b[0]; _press(b[0]); return
 			if ev.position.x < size.x * 0.5 and _jt < 0:
-				_jt = ev.index; _jc = ev.position; _jp = ev.position; queue_redraw()
+				_jt = ev.index; _jc = ev.position
 		else:
-			if ev.index == _jt: _jt = -1; stick = Vector2.ZERO; queue_redraw()
-			if _held.has(ev.index): _press(_held[ev.index], false); _held.erase(ev.index); queue_redraw()
+			if ev.index == _jt: _jt = -1; stick = Vector2.ZERO
+			_held.erase(ev.index)
 	elif ev is InputEventScreenDrag and ev.index == _jt:
-		_jp = ev.position
-		var d: Vector2 = (_jp - _jc) / R
-		stick = d.limit_length(1.0)
-		queue_redraw()
-func _press(b: String, on: bool) -> void:
+		stick = ((ev.position - _jc) / R).limit_length(1.0)
+func _press(b: String) -> void:
 	var p: Actor = main.player
-	if b == "block": p.block(on); return
-	if not on: return
 	match b:
 		"atk": p.attack()
-		"s1": p.skill(1)
-		"s2": p.skill(2)
-		"s3": p.skill(3)
 		"jump": p.jump()
 		"dodge": p.dodge()
+		_: main.K.cast(int(b.substr(1)))
 func _draw() -> void:
 	var f := get_theme_default_font()
 	if _jt >= 0:
@@ -54,8 +49,29 @@ func _draw() -> void:
 	for b in _btns():
 		var on: bool = _held.values().has(b[0])
 		draw_circle(b[1], b[2], Color(0.95, 0.65, 0.2, 0.85) if on else Color(0.08, 0.07, 0.1, 0.62))
-		draw_arc(b[1], b[2], 0, TAU, 48, Color(1, 0.82, 0.35), 3)
-		var fs := 22 if b[2] > 60 else 17
-		var w := f.get_string_size(b[3], HORIZONTAL_ALIGNMENT_CENTER, -1, fs).x
-		draw_string_outline(f, b[1] + Vector2(-w / 2, fs * 0.35), b[3], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 5, Color.BLACK)
-		draw_string(f, b[1] + Vector2(-w / 2, fs * 0.35), b[3], HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+		var k := -1
+		if b[0].begins_with("s"): k = int(b[0].substr(1))
+		if k >= 0 and cd[k] > 0:
+			var r: float = cd[k] / max(cd_max[k], 0.01)
+			draw_colored_polygon(_pie(b[1], b[2], r), Color(0, 0, 0, 0.6))
+		draw_arc(b[1], b[2], 0, TAU, 48, Color(1, 0.82, 0.35) if k < 0 or cd[k] <= 0 else Color(0.5, 0.45, 0.4), 3)
+		var fs := 22 if b[2] > 60 else 15
+		var txt: String = b[3] if k < 0 or cd[k] <= 0 else "%d" % ceil(cd[k])
+		if k >= 0 and cd[k] > 0: fs = 26
+		_text(f, b[1], txt, fs, b[2] * 1.9)
+	if chan > 0:
+		var r := Rect2(size.x * 0.5 - 180, size.y - 120, 360, 22)
+		draw_rect(r, Color(0, 0, 0, 0.6)); draw_rect(Rect2(r.position, Vector2(r.size.x * chan, r.size.y)), Color(0.85, 0.1, 0.2))
+		draw_rect(r, Color(1, 0.8, 0.4), false, 2)
+		_text(f, r.get_center() - Vector2(0, 30), "Étreinte — ne bouge pas", 18, 400)
+func _text(f: Font, c: Vector2, t: String, fs: int, maxw: float) -> void:
+	while fs > 10 and f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > maxw: fs -= 1
+	var w := f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var p := c + Vector2(-w / 2, fs * 0.35)
+	draw_string_outline(f, p, t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 5, Color.BLACK)
+	draw_string(f, p, t, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+func _pie(c: Vector2, r: float, frac: float) -> PackedVector2Array:
+	var pts := PackedVector2Array([c])
+	var n := 24
+	for i in n + 1: pts.append(c + Vector2(0, -r).rotated(TAU * frac * i / n))
+	return pts

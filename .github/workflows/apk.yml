@@ -44,5 +44,5 @@ jobs:
           name: Studio Lab v0.1.${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           make_latest: false
-          body: Lab des classes — 4 persos, 7 styles de combat, 133 animations. Télécharge StudioLab.apk depuis ton téléphone.
+          body: Studio Lab — Chronomancien, Druide (forme féline), Vampire. 4 compétences évolutives chacun, vagues de squelettes. Télécharge StudioLab.apk.
           files: out/StudioLab.apk
