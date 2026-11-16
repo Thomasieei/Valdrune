@@ -728,9 +728,10 @@ func incoming(from: Unit, t: float) -> void:
 		return
 	later(maxf(t - 0.22, 0.05), _sidestep.bind(from))
 
-func _sidestep(from: Unit) -> void:
-	if not is_instance_valid(from):
+func _sidestep(fv) -> void:
+	if not is_instance_valid(fv):
 		return
+	var from: Unit = fv as Unit
 	var rel := global_position - from.global_position
 	rel.y = 0
 	var side := Vector3(-rel.z, 0, rel.x).normalized() * (1.0 if randf() < 0.5 else -1.0)
@@ -940,8 +941,9 @@ func _basic_attack() -> void:
 func _set_back(t: float) -> void:
 	back_t = t
 
-func _basic_hit(t: Unit) -> void:
-	if is_instance_valid(t) and not t.dead and in_reach(t, 0.35):
+func _basic_hit(tv) -> void:
+	var t: Unit = tv as Unit if is_instance_valid(tv) else null
+	if t != null and not t.dead and in_reach(t, 0.35):
 		t.take_damage(dmg * randf_range(0.85, 1.15), self)
 		main.sfx("hit3", global_position, -6.0)
 	main.sfx("swing%d" % (1 + randi() % 2), global_position, -10.0)
@@ -1096,9 +1098,10 @@ func _whirl() -> void:
 	_slam(global_position, 4.6, 1.6)
 
 # ---------------------------------------------------------------- sorts des monstres
-func _heal(a: Unit) -> void:
-	if a == null or not is_instance_valid(a) or a.dead:
+func _heal(av) -> void:
+	if not is_instance_valid(av) or (av as Unit).dead:
 		return
+	var a: Unit = av as Unit
 	FX.trail(main, global_position, a.global_position, Color(0.4, 1.0, 0.4))
 	FX.burst(main, a.global_position + Vector3(0, 1.0, 0), Color(0.4, 1.0, 0.4), 25, 0.1, 2.0, 0.6, -1.5)
 	a.hp = minf(a.max_hp, a.hp + a.max_hp * 0.3)
@@ -1130,9 +1133,10 @@ func _leap_land(spot: Vector3) -> void:
 			e.take_damage(dmg * 1.6, self)
 	main.shake(0.15)
 
-func _fire_orb(t: Unit) -> void:
-	if t == null or not is_instance_valid(t) or t.dead:
+func _fire_orb(tv) -> void:
+	if not is_instance_valid(tv) or (tv as Unit).dead:
 		return
+	var t: Unit = tv as Unit
 	var o := FX.orb(main, global_position + Vector3(0, 1.3, 0) + forward() * 0.5, Color(1, 0.45, 0.1))
 	main.sfx("orb", global_position, -6.0)
 	var tw := o.create_tween()
@@ -1141,7 +1145,7 @@ func _fire_orb(t: Unit) -> void:
 	tw.tween_property(o, "global_position", dest, tt)
 	tw.tween_callback(_orb_hit.bind(o, t, dest))
 
-func _orb_hit(o: Node3D, t: Unit, dest: Vector3) -> void:
+func _orb_hit(o: Node3D, t, dest: Vector3) -> void:
 	FX.burst(main, o.global_position, Color(1, 0.5, 0.1), 20, 0.1, 3.0, 0.4, 3.0)
 	if is_instance_valid(t) and not t.dead and t.global_position.distance_to(dest - Vector3(0, 1, 0)) < 1.6 + t.body_r:
 		t.take_damage(dmg, self)
@@ -1307,9 +1311,10 @@ func _thank_hero() -> void:
 		main.rep += 2
 		face_to(main.hero.global_position, true)
 
-func _high_five(other: Mob) -> void:
-	if not is_instance_valid(other) or dead:
+func _high_five(ov) -> void:
+	if not is_instance_valid(ov) or dead:
 		return
+	var other: Mob = ov as Mob
 	var mid := (global_position + other.global_position) * 0.5
 	var dir := global_position - mid
 	dir.y = 0
@@ -1323,16 +1328,19 @@ func _high_five(other: Mob) -> void:
 	play("Walk", 0.15)
 	later(0.5, _hf_anim.bind(other))
 
-func _hf_anim(other: Mob) -> void:
-	if is_instance_valid(other):
-		face_to(other.global_position, true)
+func _hf_anim(ov) -> void:
+	if not is_instance_valid(ov):
+		return
+	var other: Mob = ov as Mob
+	face_to(other.global_position, true)
 	play("HighFive", 0.12, 1.0, true)
 	if get_instance_id() < other.get_instance_id():
 		later(0.55, _clap.bind(other))
 
-func _clap(other: Mob) -> void:
-	if not is_instance_valid(other):
+func _clap(ov) -> void:
+	if not is_instance_valid(ov):
 		return
+	var other: Mob = ov as Mob
 	var p := (global_position + other.global_position) * 0.5 + Vector3(0, 1.95, 0)
 	FX.burst(main, p, Color(1, 0.95, 0.7), 12, 0.05, 2.5, 0.3, 0.0)
 	main.sfx("hit1", p, -4.0)
