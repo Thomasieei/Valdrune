@@ -92,6 +92,9 @@ var base_fov := 64.0
 # inventaire
 const CD_TEX := preload("res://assets/ui/cd.png")
 var potion_lbl: Label
+var gfx_btn: Button
+var gfx_fast := false
+var fps_lbl: Label
 var city_extras: Array = []
 var dlg_scroll: ScrollContainer
 var quick_menu: VBoxContainer
@@ -162,6 +165,8 @@ func _ready() -> void:
 		inv.append(it)
 		equip["w"] = int(it["uid"])
 	recalc_gear()
+	if not shots_mode:
+		_load_settings()
 	await _prewarm()
 	last_pos = hero.global_position
 	audio.music("city")
@@ -1764,7 +1769,7 @@ func leave_shop() -> void:
 func _merchant_dialogue() -> void:
 	merchant.face_to(hero.global_position, true)
 	var txt := "Bonsoir, chasseur. Tout ce qu'il faut pour survivre aux Portails.\nTu as %d or et %d essences. Potions : %d.  Niveau de tes ombres : %d." % [gold, essence, potions, shadow_lvl]
-	dialogue("Marchand de l'Association", txt, [
+	dialogue("Intendant de l'Association", txt, [
 		["Potion de soin — 50 or", _buy.bind("potion")],
 		["Renforcer mes ombres (+12 %% PV et dégâts) — %d essences" % (4 + shadow_lvl * 2), _buy.bind("shadow")],
 		["Affûter ma lame (+10 %% dégâts) — %d or" % (300 + int((hero.blade_mult - 1.0) * 2000)), _buy.bind("blade")],
@@ -1978,6 +1983,7 @@ func _build_ui() -> void:
 	hp_txt.add_theme_font_size_override("font_size", 15)
 	card.add_child(hp_txt)
 	shadow_txt = _outlined(layer, Vector2(24, 128), 20, Color(0.75, 0.55, 1))
+	fps_lbl = _outlined(layer, Vector2(250, 128), 15, Color(0.6, 0.65, 0.75))
 	minimap = Minimap.new()
 	minimap.main = self
 	minimap.position = Vector2(20, 160)
@@ -2097,6 +2103,7 @@ func _build_ui() -> void:
 	dlg_panel.offset_top = -40
 	dlg_panel.offset_bottom = -18
 	dlg_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	dlg_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	dlg_panel.visible = false
 	layer.add_child(dlg_panel)
 	var vb := VBoxContainer.new()
@@ -2186,6 +2193,33 @@ func _quick_open(tab: String) -> void:
 	(quick_menu.get_parent() as Control).visible = false
 	_toggle_menu(tab)
 
+## Qualité graphique : « Rapide » coupe ombres, glow et anticrénelage (gros gain sur téléphone).
+func _toggle_gfx() -> void:
+	set_gfx(not gfx_fast)
+	_save_settings()
+
+func set_gfx(fast: bool) -> void:
+	gfx_fast = fast
+	moon.shadow_enabled = not fast
+	for e in [env_city, env_dun, env_hall, env_shop]:
+		if e:
+			(e as Environment).glow_enabled = not fast
+	get_viewport().msaa_3d = Viewport.MSAA_DISABLED if fast else Viewport.MSAA_2X
+	if gfx_btn:
+		gfx_btn.text = "        Graphismes : " + ("Rapide" if fast else "Haute")
+
+func _save_settings() -> void:
+	var f := FileAccess.open("user://reglages.json", FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify({"fast": gfx_fast}))
+
+func _load_settings() -> void:
+	if not FileAccess.file_exists("user://reglages.json"):
+		return
+	var d = JSON.parse_string(FileAccess.get_file_as_string("user://reglages.json"))
+	if d is Dictionary:
+		set_gfx(bool(d.get("fast", false)))
+
 func _quick_quest() -> void:
 	(quick_menu.get_parent() as Control).visible = false
 	_show_quest()
@@ -2215,7 +2249,7 @@ func _build_menu(layer: CanvasLayer) -> void:
 	quick_menu = VBoxContainer.new()
 	quick_menu.add_theme_constant_override("separation", 4)
 	qp.add_child(quick_menu)
-	for k in [["quest", "Quête du jour", ""], ["sac", "Sac", "sac"], ["grimoire", "Grimoire", "grimoire"], ["ombres", "Ombres", "ombres"], ["stats", "Statistiques", "stats"], ["unarmed", "Mains nues", ""]]:
+	for k in [["quest", "Quête du jour", ""], ["sac", "Sac", "sac"], ["grimoire", "Grimoire", "grimoire"], ["ombres", "Ombres", "ombres"], ["stats", "Statistiques", "stats"], ["unarmed", "Mains nues", ""], ["gfx", "Graphismes : Haute", ""]]:
 		var row := Button.new()
 		row.text = "        " + str(k[1])
 		row.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -2247,6 +2281,9 @@ func _build_menu(layer: CanvasLayer) -> void:
 		elif str(k[0]) == "unarmed":
 			row.pressed.connect(_toggle_unarmed)
 			unarmed_btn = row
+		elif str(k[0]) == "gfx":
+			row.pressed.connect(_toggle_gfx)
+			gfx_btn = row
 		else:
 			row.pressed.connect(_quick_open.bind(str(k[2])))
 		quick_menu.add_child(row)
@@ -2544,6 +2581,7 @@ func _update_ui() -> void:
 	(buttons["swap"]["btn"] as Button).visible = hero.powers["swap"] > 0 and not in_dialogue
 	potion_btn.modulate = Color(1, 1, 1, 1.0 if potions > 0 and potion_cd <= 0.0 else 0.45)
 	shadow_txt.text = "Ombres  %d / 4" % shadow_count()
+	fps_lbl.text = "%d FPS" % Engine.get_frames_per_second()
 	res_txt.text = "%d or   ·   %d essences" % [gold, essence]
 	if zone == "city" and gate:
 		var d := gate_pos - hero.global_position
@@ -2818,6 +2856,9 @@ func _run_shots() -> void:
 	_toggle_quick()
 	await _snap("00a_menu_rapide", 15)
 	_toggle_quick()
+	set_gfx(true)
+	await _perf("rapide", 90)
+	set_gfx(false)
 	# portail de près
 	_place_hero(gate_pos + Vector3(0, 0, 9), gate_pos)
 	pitch = -0.12
@@ -2825,6 +2866,7 @@ func _run_shots() -> void:
 	# porte de la boutique puis intérieur
 	_place_hero(shop_door_pos + shop_door_dir * 6.0, shop_door_pos)
 	pitch = -0.15
+	close_dialogue()
 	await _snap("00b_porte_boutique", 25)
 	gold = 600
 	essence = 10
