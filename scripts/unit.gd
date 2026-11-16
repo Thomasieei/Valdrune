@@ -115,6 +115,7 @@ func make_hp_bar(h: float, col: Color) -> void:
 	lb.modulate = col.lightened(0.4)
 	lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	lb.position.y = 0.17
+	lb.visibility_range_end = 16.0
 	hp_bar.add_child(lb)
 
 func update_hp_bar() -> void:

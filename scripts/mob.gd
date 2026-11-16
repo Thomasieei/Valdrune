@@ -205,8 +205,9 @@ func say(cat: String, chance := 1.0) -> void:
 	var arr: Array = LINES.get(cat, [])
 	if kind == "orc" and (cat == "aggro" or cat == "hit") and randf() < 0.6:
 		arr = LINES["orc"]
-	if arr.is_empty():
+	if arr.is_empty() or main.speech_cd > 0.0:
 		return
+	main.speech_cd = 2.2
 	talk_cd = 5.0
 	FX.speech(self, arr[randi() % arr.size()], Color(1, 0.8, 0.7), 2.4 if kind != "orc" else 3.0)
 

@@ -89,6 +89,7 @@ var menu_tab := ""
 var menu_refresh := 0.0
 var unarmed_btn: Button
 var base_fov := 64.0
+var speech_cd := 0.0
 # audio, carte, économie, quête, sauvegarde
 var audio: GameAudio
 var minimap: Minimap
@@ -980,6 +981,7 @@ func _process(delta: float) -> void:
 	if boss and is_instance_valid(boss) and boss_bar_root.visible:
 		boss_bar_fill.size.x = 600.0 * clampf(boss.hp / boss.max_hp, 0, 1)
 	potion_cd -= delta
+	speech_cd -= delta
 	var mv := hero.global_position - last_pos
 	mv.y = 0
 	if mv.length() < 5.0 and hero.is_on_floor():
