@@ -197,6 +197,16 @@ func _ready() -> void:
 
 ## Pré-compilation des shaders : chaque effet est joué une fois sous un écran de chargement.
 ## Sans ça, le rendu mobile compile au premier usage → gros à-coups en plein combat.
+func _dbg_aabb(n: Node3D) -> String:
+	var aabb := AABB()
+	var first := true
+	for mi in n.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		var bb: AABB = m.global_transform * m.get_aabb()
+		aabb = bb if first else aabb.merge(bb)
+		first = false
+	return str(aabb.position.round()) + " taille " + str(aabb.size.snapped(Vector3(0.01, 0.01, 0.01))) + " vis=" + str(n.is_visible_in_tree())
+
 func _prewarm() -> void:
 	fade.modulate.a = 1.0
 	var title := Label.new()
@@ -3189,14 +3199,17 @@ func _run_shots() -> void:
 	spring.spring_length = 9.0
 	pitch = -0.35
 	await _snap("00v_ville_vivante", 30)
-	var ch := make_chest(hero.global_position + hero.forward() * 3.0, 0.45)
+	var cfw := Vector3(-sin(yaw), 0, -cos(yaw))
+	var ch := make_chest(hero.global_position + cfw * 3.0 + Vector3(cfw.z, 0, -cfw.x) * 1.5 - Vector3(0, 0.3, 0), 0.45)
+	print("CHEST_DBG ", _dbg_aabb(ch))
 	spring.spring_length = 4.5
 	pitch = -0.25
 	await _snap("00w_coffre", 10)
 	open_chest_anim(ch)
 	await _snap("00w2_coffre_ouvert", 40)
 	ch.queue_free()
-	var civ := spawn_free_mob("civil", hero.global_position + hero.forward() * 20.0)
+	var civ := spawn_free_mob("civil", hero.global_position + cfw * 14.0)
+	print("CIV_DBG ", civ.global_position, " ", _dbg_aabb(civ.model), " hero ", hero.global_position)
 	life.civs.append(civ)
 	await get_tree().physics_frame
 	life.start_chase(civ)
