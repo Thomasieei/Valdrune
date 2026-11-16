@@ -76,12 +76,19 @@ func _bake(s: Array) -> void:
 			g.visible = false
 	if s[3]:
 		# ombre : textures d'origine assombries + voile violet et liseré lumineux
-		var ov := StandardMaterial3D.new()
-		ov.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		ov.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		ov.albedo_color = Color(0.16, 0.05, 0.35, 0.72)
 		for mi in m.find_children("*", "MeshInstance3D", true, false):
-			(mi as MeshInstance3D).material_overlay = ov
+			var g := mi as MeshInstance3D
+			for i in g.mesh.get_surface_count():
+				var src := g.mesh.surface_get_material(i)
+				var d: StandardMaterial3D = (src.duplicate() as StandardMaterial3D) if src is StandardMaterial3D else StandardMaterial3D.new()
+				d.albedo_color = Color(0.32, 0.2, 0.62)
+				d.emission_enabled = true
+				d.emission = Color(0.22, 0.05, 0.55)
+				d.emission_energy_multiplier = 0.6
+				d.rim_enabled = true
+				d.rim = 1.0
+				d.rim_tint = 0.3
+				g.set_surface_override_material(i, d)
 	if str(s[4]) != "":
 		var c := Color(str(s[4]))
 		var gm := StandardMaterial3D.new()
@@ -102,8 +109,21 @@ func _bake(s: Array) -> void:
 	if not weapon and not skl.is_empty():
 		# cadrage sur les os (les boîtes des maillages animés ne suivent pas la pose)
 		var sk := skl[0] as Skeleton3D
+		var pts: Array = []
 		for i in sk.get_bone_count():
-			var p := sk.global_transform * sk.get_bone_global_pose(i).origin
+			pts.append(sk.global_transform * sk.get_bone_global_pose(i).origin)
+		var med := Vector3.ZERO
+		for p in pts:
+			med += p
+		med /= maxf(pts.size(), 1)
+		var dists: Array = []
+		for p in pts:
+			dists.append((p as Vector3).distance_to(med))
+		dists.sort()
+		var lim: float = float(dists[int(dists.size() * 0.85)]) * 1.6 if not dists.is_empty() else 99.0
+		for p in pts:
+			if (p as Vector3).distance_to(med) > lim:
+				continue
 			aabb = AABB(p, Vector3.ZERO) if first else aabb.expand(p)
 			first = false
 	else:
