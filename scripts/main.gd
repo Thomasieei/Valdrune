@@ -722,5 +722,11 @@ func _step_test() -> void:
 		dd.y = 0
 		if dd.length() < 0.6:
 			break
+		if i % 20 == 0:
+			var info := ""
+			for c in hero.get_slide_collision_count():
+				var col := hero.get_slide_collision(c)
+				info += " [n=%s p.y=%.2f obj=%s]" % [col.get_normal().snapped(Vector3(0.01,0.01,0.01)), col.get_position().y - hero.global_position.y, col.get_collider()]
+			print("STEP_DBG f=%d pos=%s vel=%s wall=%s floor=%s busy=%.2f%s" % [i, hero.global_position.snapped(Vector3(0.01,0.01,0.01)), hero.velocity.snapped(Vector3(0.01,0.01,0.01)), hero.is_on_wall(), hero.is_on_floor(), hero.busy, info])
 	hero.move_input = Vector2.ZERO
-	print("STEP_TEST cible_y=%.2f héros_y=%.2f distance_restante=%.2f" % [target.y, hero.global_position.y, Vector2(target.x - hero.global_position.x, target.z - hero.global_position.z).length()])
+	print("STEP_TEST cible=%s " % str(target.snapped(Vector3(0.01,0.01,0.01))) + "cible_y=%.2f héros_y=%.2f distance_restante=%.2f" % [target.y, hero.global_position.y, Vector2(target.x - hero.global_position.x, target.z - hero.global_position.z).length()])
