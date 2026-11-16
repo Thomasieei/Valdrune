@@ -46,3 +46,13 @@ civil_cars kit 35000 1024 0
 city_props kit 0 1024 0
 coffre kit 0 1024 0
 police_ford env 22000 1024 0
+env_room99 env 40000 1024 0
+env_simple env 0 1024 0
+env_throne env 40000 1024 0
+env_dungeon1 env 40000 1024 0
+env_office env 0 1024 0
+env_temple env 40000 1024 0
+env_abbuilding env 35000 1024 0
+env_brick env 0 1024 0
+env_modular env 0 1024 0
+pistol weapon 3000 512 -0.25

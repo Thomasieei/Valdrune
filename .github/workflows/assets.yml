@@ -22,7 +22,7 @@ jobs:
           blender -b --version | head -1
       - name: Traitement
         env:
-          ONLY: "police_ford"
+          ONLY: "env_room99 env_simple env_throne env_dungeon1 env_office env_temple env_abbuilding env_brick env_modular pistol"
         run: ./run.sh srcrepo/src work out
       - name: Publier sur la branche assets-opt (fusion)
         run: |
