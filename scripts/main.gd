@@ -2391,7 +2391,7 @@ func _build_ui() -> void:
 	# suivi de la quête du jour (toujours visible, touche pour replier)
 	qpanel = PanelContainer.new()
 	qpanel.add_theme_stylebox_override("panel", _panel_style(Color(0.02, 0.04, 0.12, 0.62), Color(1.0, 0.75, 0.35, 0.6)))
-	qpanel.position = Vector2(20, 392)
+	qpanel.position = Vector2(394, 18)
 	layer.add_child(qpanel)
 	var qv := VBoxContainer.new()
 	qv.add_theme_constant_override("separation", 3)
