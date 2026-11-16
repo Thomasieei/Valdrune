@@ -66,8 +66,29 @@ static func color(it: Dictionary) -> Color:
 static func lv(it: Dictionary) -> int:
 	return int(it.get("lv", 0))
 
+static func stars(it: Dictionary) -> int:
+	return int(it.get("star", 0))
+
 static func lv_mult(it: Dictionary) -> float:
-	return 1.0 + 0.12 * lv(it)
+	return (1.0 + 0.12 * lv(it)) * (1.0 + 0.15 * stars(it))
+
+const W := {"wdmg": 1.0, "all": 1.5, "crit": 1.2, "hp": 0.6, "aspd": 1.2, "sdmg": 1.0, "mana": 0.4, "dom": 4.0, "luck": 0.5, "gold": 0.3, "speed": 0.6}
+
+## Score de puissance (pour comparer et trier).
+static func power(it: Dictionary) -> float:
+	if it.is_empty():
+		return 0.0
+	if it["t"] == "w":
+		var w := weapon_of(it)
+		var s := 0.0
+		for k in stats(it).keys():
+			s += float(stats(it)[k]) * float(W.get(k, 0.5))
+		return float(w["mult"]) * float(w["spd"]) * 100.0 + s
+	var p := 0.0
+	var st := stats(it)
+	for k in st.keys():
+		p += float(st[k]) * float(W.get(k, 0.5))
+	return p
 
 static func stats(it: Dictionary) -> Dictionary:
 	var out := {}
@@ -79,7 +100,7 @@ static func stats(it: Dictionary) -> Dictionary:
 ## Arme effective (multiplicateur de dégâts augmenté par le niveau).
 static func weapon_of(it: Dictionary) -> Dictionary:
 	var w: Dictionary = base_of(it).duplicate()
-	w["mult"] = float(w["mult"]) * (1.0 + 0.08 * lv(it))
+	w["mult"] = float(w["mult"]) * (1.0 + 0.08 * lv(it)) * (1.0 + 0.1 * stars(it))
 	return w
 
 static func upgrade_cost(it: Dictionary) -> Array:

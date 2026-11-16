@@ -232,6 +232,7 @@ func gain_xp(v: float) -> void:
 		xp -= xp_next()
 		level += 1
 		points += 3
+		main.hint("level")
 		base_hp += 40
 		base_mp += 10
 		if level >= 4 and powers["swap"] == 0:
@@ -1118,6 +1119,7 @@ func arise() -> bool:
 		var m := c as Mob
 		if raised >= room and not m.boss:
 			continue
+		main.hint("shadow")
 		raised += 1
 		FX.arise_pillar(main, m.global_position)
 		later(0.4 + raised * 0.12, _do_rise.bind(m))

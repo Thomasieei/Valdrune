@@ -92,6 +92,8 @@ var base_fov := 64.0
 # inventaire
 const CD_TEX := preload("res://assets/ui/cd.png")
 var potion_lbl: Label
+var play_t := 0.0
+var bag_sort := "power"
 var qpanel: PanelContainer
 var qrows := {}
 var qtrack_open := true
@@ -209,6 +211,7 @@ func _ready() -> void:
 	if not shots_mode:
 		_load_settings()
 	await _prewarm()
+	hint("start")
 	last_pos = hero.global_position
 	audio.music("city")
 	system_msg("[ SYSTÈME ]\nUn Portail de rang C est apparu en ville.\nL'Association des Chasseurs le garde.")
@@ -791,6 +794,7 @@ func _on_mob_died(u: Unit) -> void:
 		_on_boss_dead(m)
 		return
 	gold += int(m.reward_gold * (1.0 + hero.g("gold") / 100.0))
+	hint("kill")
 	quest_add("kills", 1)
 	sfx("coins", m.global_position, -8.0)
 	rep += 3 if m.elite else 1
@@ -1267,6 +1271,9 @@ func _hide_near_camera() -> void:
 
 func _process(delta: float) -> void:
 	_hide_near_camera()
+	play_t += delta
+	if play_t > 100.0:
+		hint("wall")
 	_army_tick(delta)
 	_population_tick(delta)
 	if life:
@@ -1369,6 +1376,7 @@ func _update_interact() -> void:
 					act = enter_dungeon
 				elif not guards_hostile and _nearest_guard() != null:
 					label = "PARLER AU GARDE"
+					hint("gate")
 					act = _guard_dialogue
 		elif zone == "shop":
 			if merchant and hero.global_position.distance_to(merchant.global_position) < 3.4:
@@ -1705,6 +1713,7 @@ func _parley_tick(delta: float) -> void:
 			parley_box.visible = false
 
 func open_tk_menu() -> void:
+	hint("tele")
 	for i in tk_menu.size():
 		var b: Control = tk_menu[i]
 		b.visible = true
@@ -1762,7 +1771,7 @@ func add_item(it: Dictionary) -> void:
 	inv.append(it)
 
 func grant_item(t: String, id: String, auto_equip := false) -> void:
-	var it := {"uid": next_uid, "t": t, "id": id}
+	var it := {"uid": next_uid, "t": t, "id": id, "new": true}
 	next_uid += 1
 	add_item(it)
 	if auto_equip:
@@ -1817,6 +1826,7 @@ func drop_loot(pos: Vector3, src: String) -> void:
 	lb.visibility_range_end = 25.0
 	root.add_child(lb)
 	loots.append({"node": root, "item": it, "t": 90.0})
+	hint("loot")
 	if rk >= 3:
 		sfx("levelup", pos, -6.0)
 	print("LOOT [%s] %s" % [Items.RAR[rk]["k"], Items.base_of(it)["n"]])
@@ -1831,6 +1841,7 @@ func _update_loot(delta: float) -> void:
 			loots.remove_at(i)
 			continue
 		if not hero.dead and n.global_position.distance_to(hero.global_position) < 2.0:
+			(l["item"] as Dictionary)["new"] = true
 			add_item(l["item"])
 			_loot_popup(l["item"])
 			FX.burst(self, n.global_position + Vector3(0, 0.7, 0), Items.color(l["item"]), 20, 0.07, 2.5, 0.5, 0.0)
@@ -2146,6 +2157,7 @@ func enter_shop() -> void:
 	var d := merchant.global_position - shop_entry
 	yaw = atan2(-d.x, -d.z)
 	system_msg("Boutique de l'Association des Chasseurs")
+	hint("shop")
 
 func leave_shop() -> void:
 	sfx("open")
@@ -2278,7 +2290,7 @@ func save_game() -> void:
 		sh.append({"kind": mm.kind, "elite": mm.elite, "boss": mm.boss, "role": mm.role, "slv": mm.slv})
 	var d := {"v": 1, "level": hero.level, "xp": hero.xp, "points": hero.points, "stats": hero.stats, "gold": gold, "essence": essence, "rep": rep,
 		"blade": hero.blade_mult, "unarmed": hero.unarmed_mode, "potions": potions, "shadow_lvl": shadow_lvl, "rank": hunter_rank, "quest": quest, "shadows": sh,
-		"base_hp": hero.base_hp, "base_mp": hero.base_mp, "powers": hero.powers, "inv": inv, "equip": equip, "next_uid": next_uid}
+		"base_hp": hero.base_hp, "base_mp": hero.base_mp, "powers": hero.powers, "inv": inv, "equip": equip, "next_uid": next_uid, "hints": hints_seen.keys()}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(d))
@@ -2315,6 +2327,8 @@ func load_game() -> bool:
 			else:
 				equip[k] = int(eq[k])
 	next_uid = int(d.get("next_uid", 1))
+	for h in d.get("hints", []):
+		hints_seen[str(h)] = true
 	gold = int(d.get("gold", 0))
 	essence = int(d.get("essence", 0))
 	rep = int(d.get("rep", 0))
@@ -2506,6 +2520,7 @@ func _build_ui() -> void:
 	_skill_button(layer, "sprint", "Sprint", C + Vector2(-560, 70), 92, _toggle_sprint)
 	_skill_button(layer, "jump", "Saut", C + Vector2(-450, 70), 92, hero.jump)
 	_build_menu(layer)
+	_build_hint_ui(layer)
 	# bouton contextuel
 	interact_btn = Button.new()
 	interact_btn.add_theme_font_size_override("font_size", 22)
@@ -2696,6 +2711,118 @@ func _toggle_qtrack() -> void:
 	qtrack_open = not qtrack_open
 	sfx("click", null, -10.0)
 
+# ================================================================ conseils (une seule fois chacun, discrets)
+const HINTS := {
+	"start": "Ta quête du jour est en haut à gauche. Le menu couronne (en haut à droite) ouvre le sac, les ombres et le guide.",
+	"combat": "Touche l'épée pour attaquer. ESQUIVE juste avant un coup = esquive parfaite et contre-attaque.",
+	"kill": "Approche-toi du corps et touche ARISE : le monstre devient ton ombre.",
+	"shadow": "Tes ombres te suivent. « À l'attaque » les envoie au combat, « Restez » les garde derrière toi.",
+	"red": "Zone ROUGE au sol : une attaque arrive. Sors-en !",
+	"green": "Zone VERTE : un soin. Reste dedans.",
+	"yellow": "Flaque JAUNE : poison. Ne reste pas dedans.",
+	"loot": "Un rayon de couleur marque un objet : passe dessus. La couleur indique le rang (gris → rose).",
+	"bag": "Flèche verte ▲ = meilleur que ce que tu portes. « Équiper le meilleur » fait tout pour toi.",
+	"chase": "Un civil est poursuivi : rejoins-le et abats ses poursuivants avant qu'ils ne l'attrapent.",
+	"wall": "Cours droit contre un mur pour l'escalader. SAUT contre un mur pour rebondir.",
+	"gate": "Portail gardé : il faut 30 de réputation (ou négocier avec les gardes).",
+	"tele": "Choisis vite : Éjecter, Écraser ou Étrangler. Sans choix, la cible est écrasée.",
+	"level": "Niveau supérieur ! Dépense tes points dans STATS (menu couronne).",
+	"shop": "Boutique : potions, renforcement des ombres, affûtage. Les prix baissent avec ta réputation.",
+}
+var hints_seen := {}
+var hint_panel: PanelContainer
+var hint_lbl: Label
+var hint_q: Array = []
+
+func hint(id: String) -> void:
+	if id == "" or hints_seen.has(id) or not HINTS.has(id) or shots_mode and id != "combat":
+		return
+	hints_seen[id] = true
+	hint_q.append(str(HINTS[id]))
+	if hint_q.size() == 1:
+		_show_next_hint()
+
+func _show_next_hint() -> void:
+	if hint_q.is_empty() or hint_panel == null:
+		return
+	hint_lbl.text = hint_q[0]
+	hint_panel.visible = true
+	hint_panel.modulate.a = 0.0
+	var tw := create_tween()
+	tw.tween_property(hint_panel, "modulate:a", 1.0, 0.25)
+	tw.tween_interval(clampf(float(str(hint_q[0]).length()) / 18.0, 3.0, 6.0))
+	tw.tween_property(hint_panel, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(_hint_done)
+
+func _hint_done() -> void:
+	hint_panel.visible = false
+	if not hint_q.is_empty():
+		hint_q.remove_at(0)
+	_show_next_hint()
+
+func _build_hint_ui(layer: CanvasLayer) -> void:
+	hint_panel = PanelContainer.new()
+	hint_panel.add_theme_stylebox_override("panel", _panel_style(Color(0.08, 0.06, 0.02, 0.85), Color(1, 0.8, 0.35, 0.8)))
+	hint_panel.anchor_left = 0.5
+	hint_panel.anchor_right = 0.5
+	hint_panel.anchor_top = 1.0
+	hint_panel.anchor_bottom = 1.0
+	hint_panel.offset_left = -330
+	hint_panel.offset_right = 230
+	hint_panel.offset_top = -330
+	hint_panel.offset_bottom = -280
+	hint_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	hint_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hint_panel.visible = false
+	layer.add_child(hint_panel)
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 8)
+	hint_panel.add_child(hb)
+	var ic := TextureRect.new()
+	ic.texture = load("res://assets/ui/guide.png")
+	ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ic.custom_minimum_size = Vector2(36, 36)
+	hb.add_child(ic)
+	hint_lbl = Label.new()
+	hint_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint_lbl.custom_minimum_size = Vector2(500, 0)
+	hint_lbl.add_theme_font_size_override("font_size", 17)
+	hint_lbl.add_theme_color_override("font_color", Color(1, 0.93, 0.75))
+	hb.add_child(hint_lbl)
+
+func _guide_ui() -> void:
+	var rows := [
+		["attack", "Attaque", "Combo d'épée. En l'air : frappe plongeante. La vitesse dépend de ton arme."],
+		["roll", "Esquive", "Roulade invulnérable. Juste avant un coup : esquive parfaite, ralenti et contre-attaque x2,5."],
+		["step", "Pas de l'ombre", "Téléportation dans le dos de plusieurs ennemis du domaine, avec un coup à chacun."],
+		["tele", "Télékinésie", "Soulève les ennemis devant toi, puis Éjecter, Écraser ou Étrangler."],
+		["arise", "Arise", "Relève les cadavres proches en ombres. Plus le monstre est fort, plus l'ombre est forte."],
+		["cmd_attack", "À l'attaque", "Envoie l'armée : tanks devant, lames sur les flancs, mages et soigneurs derrière."],
+		["cmd_stay", "Restez", "Les ombres restent derrière toi et t'encouragent."],
+		["sprint", "Sprint", "Course rapide (ou pousse le joystick à fond). Contre un mur : escalade."],
+		["q_run", "Quête du jour", "Courir, vaincre, escalader, utiliser tes pouvoirs. Récompense : points, or, soins."],
+		["role_tank", "Rangs E → S", "Plus le rang est haut, plus c'est fort. Ombres, objets et monstres suivent le même code couleur."],
+		["cash", "Billets", "Améliorer l'équipement, potions, boutique."],
+		["essence", "Essences", "Améliorer et faire monter de rang tes ombres, démanteler rend des essences."],
+	]
+	menu_body.add_child(_lbl("Zones au sol : ROUGE = attaque ennemie (sors-en) · VERT = soin · JAUNE = poison", 16, Color(1, 0.8, 0.5)))
+	for r in rows:
+		var hb := HBoxContainer.new()
+		hb.add_theme_constant_override("separation", 10)
+		var ic := TextureRect.new()
+		ic.texture = load("res://assets/ui/%s.png" % r[0])
+		ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ic.custom_minimum_size = Vector2(44, 44)
+		hb.add_child(ic)
+		var vb := VBoxContainer.new()
+		vb.add_child(_lbl(str(r[1]), 17, Color(1, 0.88, 0.6)))
+		var d := _lbl(str(r[2]), 14, Color(0.82, 0.86, 1))
+		d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		d.custom_minimum_size = Vector2(900, 0)
+		vb.add_child(d)
+		hb.add_child(vb)
+		menu_body.add_child(hb)
+
 func _quick_quest() -> void:
 	(quick_menu.get_parent() as Control).visible = false
 	_show_quest()
@@ -2725,7 +2852,7 @@ func _build_menu(layer: CanvasLayer) -> void:
 	quick_menu = VBoxContainer.new()
 	quick_menu.add_theme_constant_override("separation", 4)
 	qp.add_child(quick_menu)
-	for k in [["quest", "Quête du jour", ""], ["sac", "Sac", "sac"], ["grimoire", "Grimoire", "grimoire"], ["ombres", "Ombres", "ombres"], ["stats", "Statistiques", "stats"], ["unarmed", "Mains nues", ""], ["gfx", "Graphismes : Haute", ""]]:
+	for k in [["quest", "Quête du jour", ""], ["sac", "Sac", "sac"], ["grimoire", "Grimoire", "grimoire"], ["ombres", "Ombres", "ombres"], ["stats", "Statistiques", "stats"], ["unarmed", "Mains nues", ""], ["guide", "Guide", "guide"], ["gfx", "Graphismes : Haute", ""]]:
 		var row := Button.new()
 		row.text = "        " + str(k[1])
 		row.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -2823,6 +2950,8 @@ func _toggle_menu(tab: String) -> void:
 		return
 	menu_tab = tab
 	menu_panel.visible = true
+	if tab == "sac":
+		hint("bag")
 	_refresh_menu()
 
 func _close_menu() -> void:
@@ -2845,7 +2974,7 @@ func _refresh_menu() -> void:
 		c.queue_free()
 	for c in menu_chips.get_children():
 		c.queue_free()
-	var titles := {"sac": ["Inventaire", "sac"], "ombres": ["Armée d'ombres", "ombres"], "grimoire": ["Grimoire des pouvoirs", "grimoire"], "stats": ["Chasseur", "stats"]}
+	var titles := {"guide": ["Guide du chasseur", "guide"], "sac": ["Inventaire", "sac"], "ombres": ["Armée d'ombres", "ombres"], "grimoire": ["Grimoire des pouvoirs", "grimoire"], "stats": ["Chasseur", "stats"]}
 	var t: Array = titles.get(menu_tab, ["", "menu"])
 	menu_title.text = str(t[0])
 	menu_icon.texture = load("res://assets/ui/%s.png" % str(t[1]))
@@ -2883,6 +3012,8 @@ func _refresh_menu() -> void:
 		menu_body.add_child(row2)
 	elif menu_tab == "sac":
 		_bag_ui()
+	elif menu_tab == "guide":
+		_guide_ui()
 	elif menu_tab == "grimoire":
 		menu_body.add_child(_lbl("GRIMOIRE DES POUVOIRS", 24, Color(0.8, 0.65, 1)))
 		menu_body.add_child(_lbl("Essences : %d — améliore un pouvoir jusqu'au niveau 5." % essence, 16, Color(0.7, 0.75, 0.9)))
@@ -2937,8 +3068,43 @@ func _item_card(it: Dictionary, small := false) -> Button:
 			sub = "Niv. %d" % Items.lv(it)
 		else:
 			sub = Items.RAR[rk]["n"]
-	var c := UICards.card(Items.icon(it), UICards.rar_color(rk), str(Items.RAR[rk]["k"]), "" if small else str(b["n"]), sub, is_equipped(int(it["uid"])) and not small, int(it["uid"]) == inv_sel, null, -1.0, 70.0 if small else 108.0, 86.0 if small else 138.0)
+	if Items.stars(it) > 0 and not small:
+		sub = "★".repeat(Items.stars(it)) + "  " + sub
+	var w := 70.0 if small else 108.0
+	var c := UICards.card(Items.icon(it), UICards.rar_color(rk), str(Items.RAR[rk]["k"]), "" if small else str(b["n"]), sub, is_equipped(int(it["uid"])) and not small, int(it["uid"]) == inv_sel, null, -1.0, w, 86.0 if small else 138.0)
 	c.pressed.connect(_select_item.bind(int(it["uid"])))
+	if small:
+		return c
+	# flèche : meilleur (vert) / moins bon (rouge) que ce que tu portes
+	var cmp := _cmp(it)
+	if cmp != 0:
+		var ar := Label.new()
+		ar.text = "▲" if cmp > 0 else "▼"
+		ar.add_theme_font_size_override("font_size", 22)
+		ar.add_theme_color_override("font_color", Color(0.3, 1, 0.4) if cmp > 0 else Color(1, 0.35, 0.3))
+		ar.add_theme_constant_override("outline_size", 6)
+		ar.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+		ar.position = Vector2(w - 26, 52)
+		ar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		c.add_child(ar)
+	if bool(it.get("lock", false)):
+		var lk := TextureRect.new()
+		lk.texture = load("res://assets/ui/lock.png")
+		lk.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		lk.position = Vector2(6, 52)
+		lk.size = Vector2(22, 22)
+		lk.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		c.add_child(lk)
+	if bool(it.get("new", false)):
+		var dot := Panel.new()
+		var ds := StyleBoxFlat.new()
+		ds.bg_color = Color(1, 0.2, 0.25)
+		ds.set_corner_radius_all(6)
+		dot.add_theme_stylebox_override("panel", ds)
+		dot.position = Vector2(w - 16, 4)
+		dot.size = Vector2(12, 12)
+		dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		c.add_child(dot)
 	return c
 
 func _bag_ui() -> void:
@@ -3000,6 +3166,25 @@ func _bag_ui() -> void:
 		tb.add_child(ti)
 		tb.pressed.connect(_set_filter.bind(str(f[2])))
 		tabs.add_child(tb)
+	# tri + actions rapides
+	var tools := HBoxContainer.new()
+	tools.add_theme_constant_override("separation", 8)
+	left.add_child(tools)
+	for so in [["power", "Puissance"], ["rank", "Rang"], ["new", "Récents"]]:
+		var sb2 := _small_btn(("» " if bag_sort == so[0] else "") + str(so[1]))
+		sb2.pressed.connect(_sort_bag.bind(str(so[0])))
+		tools.add_child(sb2)
+	for ac in [["best", "Équiper le meilleur", _equip_best], ["clean", "Nettoyer (%d)" % _junk_list().size(), _clean_bag]]:
+		var abt := _small_btn("      " + str(ac[1]))
+		var aic := TextureRect.new()
+		aic.texture = load("res://assets/ui/%s.png" % ac[0])
+		aic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		aic.position = Vector2(6, 3)
+		aic.size = Vector2(28, 28)
+		aic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		abt.add_child(aic)
+		abt.pressed.connect(ac[2])
+		tools.add_child(abt)
 	var sc := ScrollContainer.new()
 	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -3013,7 +3198,13 @@ func _bag_ui() -> void:
 	for it in inv:
 		if it["t"] == inv_filter:
 			list.append(it)
-	list.sort_custom(func(a, b): return Items.rarity(a) * 100 + Items.lv(a) > Items.rarity(b) * 100 + Items.lv(b))
+	match bag_sort:
+		"rank":
+			list.sort_custom(func(a, b): return Items.rarity(a) * 1000 + Items.power(a) > Items.rarity(b) * 1000 + Items.power(b))
+		"new":
+			list.sort_custom(func(a, b): return int(a["uid"]) > int(b["uid"]))
+		_:
+			list.sort_custom(func(a, b): return Items.power(a) > Items.power(b))
 	for it in list:
 		grid.add_child(_item_card(it))
 	if list.is_empty():
@@ -3046,15 +3237,33 @@ func _bag_ui() -> void:
 	ds.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	ds.custom_minimum_size = Vector2(300, 0)
 	dv.add_child(ds)
-	if sel["t"] == "w":
-		var cur: Dictionary = hero.weapon
-		var nw := Items.weapon_of(sel)
-		var d := float(nw["mult"]) - float(cur.get("mult", 1.0))
-		dv.add_child(_lbl("Comparé à ton arme : dégâts %s%.2f" % ["+" if d >= 0 else "", d], 14, Color(0.5, 1, 0.6) if d >= 0 else Color(1, 0.5, 0.45)))
+	# comparaison chiffrée avec l'équipement porté
+	if not is_equipped(inv_sel):
+		var sp := _slot_power(sel)
+		var mine := Items.power(sel)
+		if sp <= 0.0:
+			dv.add_child(_lbl("▲ Emplacement libre : équipe-le !", 15, Color(0.4, 1, 0.5)))
+		else:
+			var pct := (mine - sp) / sp * 100.0
+			dv.add_child(_lbl("%s Puissance %s%d %% par rapport à ton équipement" % ["▲" if pct >= 0 else "▼", "+" if pct >= 0 else "", int(pct)], 15, Color(0.4, 1, 0.5) if pct >= 0 else Color(1, 0.45, 0.4)))
+	else:
+		dv.add_child(_lbl("✓ Porté actuellement", 15, Color(0.5, 0.9, 1)))
 	var eqd := is_equipped(inv_sel)
+	var row0 := HBoxContainer.new()
 	var be := _small_btn("RETIRER" if eqd else "ÉQUIPER")
 	be.pressed.connect(_toggle_equip.bind(inv_sel))
-	dv.add_child(be)
+	be.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row0.add_child(be)
+	var lb2 := _small_btn("DÉVERROUILLER" if bool(sel.get("lock", false)) else "VERROUILLER")
+	lb2.pressed.connect(_toggle_lock.bind(inv_sel))
+	row0.add_child(lb2)
+	dv.add_child(row0)
+	var dn := _dupes(sel).size()
+	if dn >= 1 and Items.stars(sel) < 5:
+		var fb := _small_btn("FUSIONNER (%d / 3 identiques)  →  ★%d" % [mini(dn + 1, 3), Items.stars(sel) + 1])
+		fb.disabled = dn < 2
+		fb.pressed.connect(_fuse.bind(inv_sel))
+		dv.add_child(fb)
 	if Items.lv(sel) < 10:
 		var cost := Items.upgrade_cost(sel)
 		var ub := _small_btn("AMÉLIORER  →  Niv. %d" % (Items.lv(sel) + 1))
@@ -3306,6 +3515,143 @@ func _refresh_bag() -> void:
 		ar.add_child(bd)
 		menu_body.add_child(ar)
 
+## Puissance de ce qui est porté dans l'emplacement qu'occuperait cet objet.
+func _slot_power(it: Dictionary) -> float:
+	match str(it["t"]):
+		"w":
+			return Items.power(item_by_uid(equip["w"]))
+		"r":
+			var rl: Array = equip["r"]
+			if rl.size() < relic_slots():
+				return 0.0
+			var worst := 1e9
+			for u in rl:
+				worst = minf(worst, Items.power(item_by_uid(int(u))))
+			return worst
+		_:
+			return Items.power(item_by_uid(equip[str(Items.base_of(it)["slot"])]))
+
+## +1 meilleur, -1 moins bon, 0 équivalent ou déjà porté.
+func _cmp(it: Dictionary) -> int:
+	if is_equipped(int(it["uid"])):
+		return 0
+	var d := Items.power(it) - _slot_power(it)
+	if d > 0.5:
+		return 1
+	if d < -0.5:
+		return -1
+	return 0
+
+func _sort_bag(mode: String) -> void:
+	bag_sort = mode
+	sfx("click", null, -8.0)
+	_refresh_menu()
+
+## Équipe automatiquement le meilleur objet de chaque emplacement.
+func _equip_best() -> void:
+	var best_w: Dictionary = {}
+	var best_a := {}
+	var relics: Array = []
+	for it in inv:
+		match str(it["t"]):
+			"w":
+				if best_w.is_empty() or Items.power(it) > Items.power(best_w):
+					best_w = it
+			"a":
+				var sl := str(Items.base_of(it)["slot"])
+				if not best_a.has(sl) or Items.power(it) > Items.power(best_a[sl]):
+					best_a[sl] = it
+			"r":
+				relics.append(it)
+	if not best_w.is_empty():
+		equip["w"] = int(best_w["uid"])
+	for sl in best_a.keys():
+		equip[sl] = int(best_a[sl]["uid"])
+	relics.sort_custom(func(a, b): return Items.power(a) > Items.power(b))
+	var seen := {}
+	var rl: Array = []
+	for r in relics:
+		if rl.size() >= relic_slots():
+			break
+		if seen.has(r["id"]):
+			continue
+		seen[r["id"]] = true
+		rl.append(int(r["uid"]))
+	equip["r"] = rl
+	recalc_gear()
+	sfx("draw")
+	system_msg("Meilleur équipement porté.")
+	save_game()
+	_refresh_menu()
+
+## Objets qu'on peut démanteler sans rien perdre : ni équipés, ni verrouillés, et moins bons que ce qu'on porte.
+func _junk_list() -> Array:
+	var out: Array = []
+	for it in inv:
+		if is_equipped(int(it["uid"])) or bool(it.get("lock", false)):
+			continue
+		if _cmp(it) < 0:
+			out.append(it)
+	return out
+
+func _clean_bag() -> void:
+	var j := _junk_list()
+	if j.is_empty():
+		system_msg("Rien à nettoyer : tout est utile ou verrouillé.")
+		return
+	var ess := 0
+	for it in j:
+		ess += Items.dismantle_value(it)
+	dialogue("Nettoyer le sac", "Démanteler %d objet(s) moins bons que ton équipement (non verrouillés) ?\nTu récupères %d essences." % [j.size(), ess], [
+		["Oui, démanteler", _clean_confirm],
+		["Annuler", close_dialogue],
+	])
+
+func _clean_confirm() -> void:
+	var j := _junk_list()
+	for it in j:
+		essence += Items.dismantle_value(it)
+		inv.erase(it)
+	close_dialogue()
+	sfx("shadow")
+	system_msg("%d objets démantelés." % j.size())
+	inv_sel = -1
+	save_game()
+	if menu_panel.visible:
+		_refresh_menu()
+
+func _toggle_lock(uid: int) -> void:
+	var it := item_by_uid(uid)
+	if it.is_empty():
+		return
+	it["lock"] = not bool(it.get("lock", false))
+	sfx("click", null, -6.0)
+	_refresh_menu()
+
+func _dupes(it: Dictionary) -> Array:
+	var out: Array = []
+	for o in inv:
+		if o != it and o["id"] == it["id"] and Items.stars(o) == Items.stars(it) and not is_equipped(int(o["uid"])) and not bool(o.get("lock", false)):
+			out.append(o)
+	return out
+
+## Fusion : 3 exemplaires identiques → 1 exemplaire avec une étoile de plus (+15 % de stats).
+func _fuse(uid: int) -> void:
+	var it := item_by_uid(uid)
+	var d := _dupes(it)
+	if it.is_empty() or d.size() < 2 or Items.stars(it) >= 5:
+		sfx("error")
+		return
+	inv.erase(d[0])
+	inv.erase(d[1])
+	it["star"] = Items.stars(it) + 1
+	sfx("levelup")
+	FX.arise_pillar(self, hero.global_position)
+	system_msg("Fusion réussie : %s ★%d" % [Items.base_of(it)["n"], Items.stars(it)])
+	recalc_gear()
+	save_game()
+	_refresh_menu()
+
 func _set_filter(f: String) -> void:
 	inv_filter = f
 	inv_sel = -1
@@ -3314,6 +3660,9 @@ func _set_filter(f: String) -> void:
 
 func _select_item(uid: int) -> void:
 	inv_sel = uid
+	var it := item_by_uid(uid)
+	if not it.is_empty():
+		it.erase("new")
 	sfx("select", null, -8.0)
 	_refresh_menu()
 
@@ -3331,6 +3680,10 @@ func _remove_sel(sell: bool) -> void:
 	if equip["w"] == inv_sel:
 		sfx("error")
 		system_msg("Impossible : c'est ton arme équipée.")
+		return
+	if bool(item_by_uid(inv_sel).get("lock", false)):
+		sfx("error")
+		system_msg("Objet verrouillé : déverrouille-le d'abord.")
 		return
 	remove_item(inv_sel, sell)
 	inv_sel = -1
@@ -3613,8 +3966,19 @@ func _test_gear_roles() -> void:
 	inv_sel = int(inv[inv.size() - 4]["uid"])
 	_refresh_menu()
 	await _snap("03c_sac", 10)
+	for k in 3:
+		grant_item("w", "w3")
+	inv_filter = "w"
+	inv_sel = int(inv[inv.size() - 1]["uid"])
+	_refresh_menu()
+	await _snap("03c2_sac_fusion", 8)
+	_equip_best()
+	print("BEST arme=%s junk=%d" % [Items.base_of(item_by_uid(equip["w"]))["n"], _junk_list().size()])
 	_set_filter("r")
 	await _snap("03d_sac_reliques", 8)
+	_toggle_menu("guide")
+	await _snap("03e_guide", 8)
+	_toggle_menu("guide")
 	menu_panel.visible = false
 	# rôles d'ombres contre une meute
 	var arena := spawn_point + Vector3(0, 0, -14)

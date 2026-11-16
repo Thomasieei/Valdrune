@@ -447,6 +447,8 @@ func _nearest_enemy(r: float) -> Unit:
 
 func set_target(t: Unit) -> void:
 	if target == null and t != null:
+		if team == 1 and t == main.hero:
+			main.hint("combat")
 		if team == 1 and t == main.hero and (elite or kind == "orc" or kind == "shaman" or randf() < 0.3):
 			main.try_parley(self)
 		say("aggro", 0.2)
@@ -1461,6 +1463,7 @@ func _orb_hit(o: Node3D, t, dest: Vector3) -> void:
 	o.queue_free()
 
 func _poison_pool(spot: Vector3) -> void:
+	main.hint("yellow")
 	main.sfx("poison", spot, -2.0)
 	var pool := FX.ground_disc(2.2, Color(0.95, 0.8, 0.1), 0.45, false)
 	main.add_child(pool)

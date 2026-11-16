@@ -86,6 +86,8 @@ void fragment() {
 
 ## Zone au sol animée (rouge = danger, vert = soin) : rayures, bord pulsant de plus en plus vite, front de remplissage, éclair final.
 static func telegraph(parent: Node, pos: Vector3, radius: float, dur: float, col := Color(1, 0.15, 0.1)) -> void:
+	if parent.has_method("hint"):
+		parent.hint("red" if col.r > 0.8 and col.g < 0.4 else ("green" if col.g > 0.8 and col.r < 0.5 else ("yellow" if col.r > 0.8 and col.g > 0.7 and col.b < 0.3 else "")))
 	var root := Node3D.new()
 	parent.add_child(root)
 	root.global_position = pos + Vector3(0, 0.06, 0)

@@ -424,6 +424,7 @@ func start_chase(force_civ: Mob = null) -> bool:
 	main.system_msg("Un civil est attaqué ! Il court vers toi.")
 	main.sfx("error", null, -4.0)
 	_set_alert(victim)
+	main.hint("chase")
 	print("CHASE start")
 	return true
 
