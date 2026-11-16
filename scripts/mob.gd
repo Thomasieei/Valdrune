@@ -211,6 +211,8 @@ func say(cat: String, chance := 1.0) -> void:
 	FX.speech(self, arr[randi() % arr.size()], Color(1, 0.8, 0.7), 2.4 if kind != "orc" else 3.0)
 
 func _physics_process(delta: float) -> void:
+	if target != null and not is_instance_valid(target):
+		target = null
 	for i in range(pending.size() - 1, -1, -1):
 		pending[i][0] -= delta
 		if pending[i][0] <= 0.0:
@@ -558,7 +560,7 @@ func _basic_attack() -> void:
 	later(l * (0.45 if a != "Slash3" else 0.4), _basic_hit.bind(target))
 
 func _basic_hit(t: Unit) -> void:
-	if t and not t.dead and in_reach(t, 0.35):
+	if is_instance_valid(t) and not t.dead and in_reach(t, 0.35):
 		t.take_damage(dmg * randf_range(0.85, 1.15), self)
 		main.sfx("hit3", global_position, -6.0)
 	main.sfx("swing%d" % (1 + randi() % 2), global_position, -10.0)
@@ -703,7 +705,7 @@ func _whirl() -> void:
 
 # ---------------------------------------------------------------- sorts des monstres
 func _heal(a: Unit) -> void:
-	if a == null or a.dead:
+	if a == null or not is_instance_valid(a) or a.dead:
 		return
 	FX.trail(main, global_position, a.global_position, Color(0.4, 1.0, 0.4))
 	FX.burst(main, a.global_position + Vector3(0, 1.0, 0), Color(0.4, 1.0, 0.4), 25, 0.1, 2.0, 0.6, -1.5)
@@ -737,7 +739,7 @@ func _leap_land(spot: Vector3) -> void:
 	main.shake(0.15)
 
 func _fire_orb(t: Unit) -> void:
-	if t == null or t.dead:
+	if t == null or not is_instance_valid(t) or t.dead:
 		return
 	var o := FX.orb(main, global_position + Vector3(0, 1.3, 0) + forward() * 0.5, Color(1, 0.45, 0.1))
 	main.sfx("orb", global_position, -6.0)
@@ -749,7 +751,7 @@ func _fire_orb(t: Unit) -> void:
 
 func _orb_hit(o: Node3D, t: Unit, dest: Vector3) -> void:
 	FX.burst(main, o.global_position, Color(1, 0.5, 0.1), 20, 0.1, 3.0, 0.4, 3.0)
-	if t and not t.dead and t.global_position.distance_to(dest - Vector3(0, 1, 0)) < 1.6 + t.body_r:
+	if is_instance_valid(t) and not t.dead and t.global_position.distance_to(dest - Vector3(0, 1, 0)) < 1.6 + t.body_r:
 		t.take_damage(dmg, self)
 	o.queue_free()
 

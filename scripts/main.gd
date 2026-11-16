@@ -1155,7 +1155,7 @@ func _update_music(delta: float) -> void:
 	var fighting := false
 	for u in units_of_team(1):
 		var e := u as Mob
-		if not e.dead and e.target != null and e.global_position.distance_to(hero.global_position) < 25.0:
+		if not e.dead and e.target != null and is_instance_valid(e.target) and e.global_position.distance_to(hero.global_position) < 25.0:
 			fighting = true
 			break
 	combat_t = 6.0 if fighting else combat_t - delta
