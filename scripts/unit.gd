@@ -196,11 +196,22 @@ func _flash() -> void:
 		flash_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		flash_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		flash_mat.albedo_color = Color(1, 1, 1, 0)
-		for mi in model.find_children("*", "MeshInstance3D", true, false):
-			(mi as MeshInstance3D).material_overlay = flash_mat
+	# la surcouche n'existe que pendant l'éclair (sinon chaque modèle touché est dessiné deux fois en permanence)
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		var gi := mi as MeshInstance3D
+		if gi.material_overlay == null:
+			gi.material_overlay = flash_mat
 	flash_mat.albedo_color.a = 0.65
 	var tw := create_tween()
 	tw.tween_property(flash_mat, "albedo_color:a", 0.0, 0.14)
+	tw.tween_callback(_unflash)
+
+func _unflash() -> void:
+	if model == null or (flash_mat and flash_mat.albedo_color.a > 0.01):
+		return
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		if (mi as MeshInstance3D).material_overlay == flash_mat:
+			(mi as MeshInstance3D).material_overlay = null
 
 func on_hit(_from: Unit) -> void:
 	if busy <= 0.0 and ap and ap.has_animation("Hit"):

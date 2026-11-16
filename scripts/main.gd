@@ -455,7 +455,7 @@ func _make_camps(origin: Vector3) -> void:
 	var comps := [["goblin", "goblin"], ["goblin", "goblin", "goblin"], ["goblin", "goblin", "shaman"], ["orc", "goblin"],
 		["goblin", "goblin", "goblin", "shaman"], ["orc", "shaman", "shaman"], ["goblin", "shaman", "goblin"], ["orc", "orc"]]
 	var spots: Array = []
-	for r: float in [22.0, 32.0, 43.0, 55.0, 68.0, 82.0, 96.0, 112.0]:
+	for r: float in [32.0, 42.0, 52.0, 63.0, 75.0, 88.0, 101.0, 115.0]:
 		for k in 24:
 			var a := k * TAU / 24.0 + r * 0.37
 			var p := origin + Vector3(sin(a) * r, 0, cos(a) * r)
@@ -516,7 +516,7 @@ func _spawn_squad(k: int, at = null) -> Dictionary:
 	if route.is_empty():
 		return {}
 	var sq := {"members": [], "cd": 0.0, "last": "", "dead_t": 0.0, "k": k}
-	var start: Vector3 = (route[0] as Vector3).lerp(route[1] as Vector3, 0.5) if at == null else at
+	var start: Vector3 = (route[0] as Vector3) if at == null else at
 	for i in 3:
 		var m := spawn_free_mob("hunter", start + Vector3(i * 1.3, 0, 0))
 		m.squad = sq
