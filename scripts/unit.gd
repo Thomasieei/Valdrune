@@ -220,11 +220,50 @@ func on_hit(_from: Unit) -> void:
 		hit_stun = 0.3
 		play("Hit", 0.05, 1.2, true)
 
+## Animations manquantes : on réutilise celles du modèle (ex. chaman : Animacion → Idle).
+func alias_anims(m: Dictionary) -> void:
+	if ap == null:
+		return
+	var libs := ap.get_animation_library_list()
+	if libs.is_empty():
+		return
+	var lib := ap.get_animation_library(libs[0])
+	for k in m.keys():
+		if ap.has_animation(k):
+			continue
+		var src := ""
+		for cand in ap.get_animation_list():
+			if cand == m[k] or cand.ends_with(m[k]):
+				src = cand
+				break
+		if src != "":
+			var a := ap.get_animation(src).duplicate() as Animation
+			if k in ["Idle", "Walk", "Run", "CastLoop"]:
+				a.loop_mode = Animation.LOOP_LINEAR
+			lib.add_animation(k, a)
+
+## Sans animation de mort : le modèle bascule au sol.
+func fall_over() -> void:
+	if model == null:
+		return
+	var tw := create_tween()
+	tw.tween_property(model, "rotation:x", -PI * 0.48, 0.45).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(model, "position:y", 0.15, 0.45)
+
+func stand_up() -> void:
+	if model == null or absf(model.rotation.x) < 0.1:
+		return
+	var tw := create_tween()
+	tw.tween_property(model, "rotation:x", 0.0, 0.6).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(model, "position:y", 0.0, 0.6)
+
 func die() -> void:
 	dead = true
 	hp = 0
 	update_hp_bar()
 	busy = 99.0
+	if ap == null or not ap.has_animation("Death"):
+		fall_over()
 	play("Death", 0.1, 1.0, true)
 	collision_layer = 0
 	collision_mask = 1

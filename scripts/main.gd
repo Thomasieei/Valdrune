@@ -92,6 +92,7 @@ var base_fov := 64.0
 # inventaire
 const CD_TEX := preload("res://assets/ui/cd.png")
 var potion_lbl: Label
+var life: CityLife
 var army_mode := "auto"
 var army_t := 0.0
 var parley_cd := 40.0
@@ -170,6 +171,11 @@ func _ready() -> void:
 	_build_hall()
 	_spawn_gate(true)
 	_spawn_merchant()
+	await get_tree().physics_frame
+	life = CityLife.new()
+	life.main = self
+	add_child(life)
+	life.setup()
 	if shots_mode:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
 	load_game()
@@ -219,7 +225,7 @@ func _prewarm() -> void:
 	FX.heal_zone(self, p, 2.0, 0.3)
 	FX.taunt_aura(holder, 2.0, 0.3)
 	FX.speech(holder, ".", Color(1, 1, 1), 1.0, 0.3)
-	for w in ["katana", "lame", "hache", "dague", "chest_gold", "goblin", "orc"]:
+	for w in ["katana", "lame", "hache", "dague", "coffre", "goblin", "orc", "chaman", "civ_coolman", "civ_woman"]:
 		var n := (load("res://assets/%s.glb" % w) as PackedScene).instantiate() as Node3D
 		holder.add_child(n)
 		n.position = Vector3(randf_range(-1, 1), 0, randf_range(-1, 1))
@@ -234,6 +240,49 @@ func _prewarm() -> void:
 	var tw := create_tween()
 	tw.tween_property(fade, "modulate:a", 0.0, 0.5)
 	tw.tween_callback(title.queue_free)
+
+## Coffre : base + couvercle monté sur charnière (s'ouvre vraiment).
+func make_chest(pos: Vector3, s: float) -> Node3D:
+	var root := Node3D.new()
+	add_child(root)
+	root.global_position = pos
+	var inst := (load("res://assets/coffre.glb") as PackedScene).instantiate() as Node3D
+	inst.scale = Vector3.ONE * s
+	root.add_child(inst)
+	var lid: Node3D = null
+	for c in inst.get_children():
+		if str(c.name).contains("haut"):
+			lid = c
+	if lid:
+		var hinge := Node3D.new()
+		hinge.name = "Hinge"
+		inst.add_child(hinge)
+		hinge.position = Vector3(-0.68, 0.8, 0)
+		inst.remove_child(lid)
+		hinge.add_child(lid)
+		lid.position = -hinge.position
+	var dir := hero.global_position - pos if hero else Vector3.FORWARD
+	dir.y = 0
+	if dir.length() > 0.1:
+		root.rotation.y = atan2(dir.x, dir.z) - PI * 0.5
+	var col := StaticBody3D.new()
+	var cs := CollisionShape3D.new()
+	var bs := BoxShape3D.new()
+	bs.size = Vector3(1.36, 0.9, 2.6) * s
+	cs.shape = bs
+	cs.position.y = 0.45 * s
+	col.add_child(cs)
+	root.add_child(col)
+	return root
+
+func open_chest_anim(ch: Node3D) -> void:
+	var h := ch.find_child("Hinge", true, false) as Node3D
+	if h == null:
+		return
+	var tw := h.create_tween()
+	tw.tween_property(h, "rotation:z", 0.12, 0.08)
+	tw.tween_property(h, "rotation:z", 1.9, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	FX.burst(self, ch.global_position + Vector3(0, 0.8, 0), Color(1, 0.85, 0.4), 40, 0.08, 3.5, 0.9, 3.0)
 
 func _build_other_envs() -> void:
 	env_dun = env_city.duplicate() as Environment
@@ -410,21 +459,21 @@ func _is_open(space: PhysicsDirectSpaceState3D, p: Vector3) -> bool:
 
 # ================================================================ unités
 ## Listes d'équipes mises en cache une fois par image physique (évite des milliers d'allocations).
-var _team_cache: Array = [[], [], []]
+var _team_cache: Array = [[], [], [], []]
 var _team_frame := -1
 func units_of_team(t: int) -> Array:
 	var f := Engine.get_physics_frames()
 	if f != _team_frame:
 		_team_frame = f
-		_team_cache = [[], [], []]
+		_team_cache = [[], [], [], []]
 		if hero:
 			_team_cache[hero.team].append(hero)
 		for m in mobs:
 			if is_instance_valid(m):
 				var tm: int = (m as Mob).team
-				if tm >= 0 and tm <= 2:
+				if tm >= 0 and tm <= 3:
 					_team_cache[tm].append(m)
-	if t < 0 or t > 2:
+	if t < 0 or t > 3:
 		return []
 	return _team_cache[t]
 
@@ -622,10 +671,7 @@ func _make_elite_camps() -> void:
 	var comps := [["orc", "goblin", "goblin", "shaman"], ["goblin", "goblin", "shaman", "shaman"], ["orc", "orc", "shaman"], ["goblin", "goblin", "goblin", "orc"]]
 	for i in chosen.size():
 		var c := {"pos": chosen[i], "kinds": comps[i % comps.size()], "members": [], "state": "guarded", "timer": 0.0}
-		var chest := (load("res://assets/chest_gold.glb") as PackedScene).instantiate() as Node3D
-		add_child(chest)
-		chest.global_position = chosen[i]
-		chest.scale = Vector3.ONE * 0.9
+		var chest := make_chest(chosen[i], 0.45)
 		var lt := FX.new_light()
 		lt.light_color = Color(1, 0.75, 0.3)
 		lt.light_energy = 1.6
@@ -676,6 +722,7 @@ func _open_elite_chest(c: Dictionary) -> void:
 	c["state"] = "cooldown"
 	c["timer"] = 300.0
 	var ch: Node3D = c["chest"]
+	open_chest_anim(ch)
 	sfx("chest", ch.global_position)
 	sfx("coins", ch.global_position)
 	save_game()
@@ -692,6 +739,12 @@ func _on_mob_died(u: Unit) -> void:
 		tw.tween_interval(1.8)
 		tw.tween_property(m, "scale", Vector3(1, 0.01, 1), 0.6)
 		tw.tween_callback(_remove_mob.bind(m))
+		return
+	if m.kind == "civil" or m.kind == "police":
+		var tc := m.create_tween()
+		tc.tween_interval(15.0)
+		tc.tween_property(m, "scale", Vector3(1, 0.01, 1), 0.8)
+		tc.tween_callback(_remove_mob.bind(m))
 		return
 	if m.kind == "hunter":
 		var tw := m.create_tween()
@@ -730,16 +783,42 @@ func on_shadow_raised(m: Mob) -> void:
 		(c["members"] as Array).erase(m)
 	system_msg("[ SYSTÈME ]\nExtraction réussie : %s" % m.display_name)
 
+## Paliers de réputation : chacun débloque quelque chose (boutique, portails, police, raids).
 func rep_title() -> String:
+	if rep < 0:
+		return "Hors-la-loi"
+	if rep >= 150:
+		return "Légende"
+	if rep >= 100:
+		return "Héros du quartier"
 	if rep >= 60:
-		return "Célèbre"
+		return "Respecté"
 	if rep >= REP_PASS:
 		return "Reconnu"
 	if rep >= 10:
 		return "Remarqué"
-	if rep < 0:
-		return "Hors-la-loi"
 	return "Inconnu"
+
+func rep_next() -> int:
+	for t in [10, REP_PASS, 60, 100, 150]:
+		if rep < t:
+			return t
+	return 0
+
+func rep_perks() -> String:
+	var p: Array = []
+	if rep >= REP_PASS:
+		p.append("portails gardés ouverts")
+	if rep >= 60:
+		p.append("boutique -10 %, salut de la police")
+	if rep >= 100:
+		p.append("boutique -20 %")
+	if rep >= 150:
+		p.append("raids")
+	return "aucun pour l'instant" if p.is_empty() else ", ".join(p)
+
+func price_mult() -> float:
+	return 0.8 if rep >= 100 else (0.9 if rep >= 60 else 1.0)
 
 # ================================================================ portail + gardes
 func _spawn_gate(first: bool) -> void:
@@ -1024,10 +1103,7 @@ func _on_boss_dead(b: Mob) -> void:
 	hero.gain_xp(600.0)
 	rep += 25
 	system_msg("[ SYSTÈME ]\nDonjon conquis ! Réputation +25.\nUne ombre d'une puissance exceptionnelle peut être extraite...")
-	boss_chest = (load("res://assets/chest_gold.glb") as PackedScene).instantiate() as Node3D
-	add_child(boss_chest)
-	boss_chest.global_position = _hall_floor(16.0, 0.0)
-	boss_chest.scale = Vector3.ONE * 1.3
+	boss_chest = make_chest(_hall_floor(16.0, 0.0), 0.65)
 	var lt := FX.new_light(true)
 	lt.light_color = Color(1, 0.8, 0.3)
 	lt.light_energy = 2.5
@@ -1039,6 +1115,7 @@ func _on_boss_dead(b: Mob) -> void:
 
 func _open_boss_chest() -> void:
 	boss_reward_taken = true
+	open_chest_anim(boss_chest)
 	drop_loot(boss_chest.global_position + Vector3(-1.5, 0, 0), "boss")
 	drop_loot(boss_chest.global_position + Vector3(1.5, 0, 1.0), "boss")
 	gold += 1500
@@ -1160,6 +1237,8 @@ func _hide_near_camera() -> void:
 func _process(delta: float) -> void:
 	_hide_near_camera()
 	_army_tick(delta)
+	if life:
+		life.tick(delta)
 	_parley_tick(delta)
 	# camps normaux : réapparition
 	for c in camps:
@@ -1974,7 +2053,7 @@ func _merchant_dialogue() -> void:
 	merchant.face_to(hero.global_position, true)
 	var txt := "Bonsoir, chasseur. Tout ce qu'il faut pour survivre aux Portails.\nTu as %d or et %d essences. Potions : %d.  Niveau de tes ombres : %d." % [gold, essence, potions, shadow_lvl]
 	dialogue("Intendant de l'Association", txt, [
-		["Potion de soin — 50 or", _buy.bind("potion")],
+		["Potion de soin — %d or" % int(50 * price_mult()), _buy.bind("potion")],
 		["Renforcer mes ombres (+12 %% PV et dégâts) — %d essences" % (4 + shadow_lvl * 2), _buy.bind("shadow")],
 		["Affûter ma lame (+10 %% dégâts) — %d or" % (300 + int((hero.blade_mult - 1.0) * 2000)), _buy.bind("blade")],
 		["« Rien, merci. »", close_dialogue],
@@ -1983,8 +2062,9 @@ func _merchant_dialogue() -> void:
 func _buy(what: String) -> void:
 	match what:
 		"potion":
-			if gold >= 50:
-				gold -= 50
+			var pc := int(50 * price_mult())
+			if gold >= pc:
+				gold -= pc
 				potions += 1
 				sfx("coins")
 			else:
@@ -2047,6 +2127,7 @@ func quest_add(k: String, v: float) -> void:
 			return
 	quest["done"] = true
 	hero.points += 3
+	rep += 10
 	gold += 300
 	hero.hp = hero.max_hp
 	hero.mp = hero.max_mp
@@ -2620,6 +2701,9 @@ func _refresh_menu() -> void:
 	else:
 		menu_body.add_child(_lbl("CHASSEUR — Niveau %d" % hero.level, 24, Color(1, 0.85, 0.5)))
 		menu_body.add_child(_lbl("XP %d / %d      Points à répartir : %d" % [int(hero.xp), int(hero.xp_next()), hero.points], 18))
+		var nt := rep_next()
+		menu_body.add_child(_lbl("RÉPUTATION %d — %s%s" % [rep, rep_title(), ("   (prochain palier : %d)" % nt) if nt > 0 else ""], 18, Color(1, 0.85, 0.45)))
+		menu_body.add_child(_lbl("Avantages : %s\nRaids : réputation 150 requise — bientôt." % rep_perks(), 15, Color(0.8, 0.85, 1)))
 		var rows := [["force", "FORCE", "Dégâts %d" % int(hero.power())], ["agilite", "AGILITÉ", "Course %.1f m/s, escalade, Pas de l'ombre" % hero.run_speed()],
 			["vitesse", "VITESSE D'ATTAQUE", "x%.2f" % hero.atk_speed()], ["domaine", "DOMAINE D'OMBRE", "Rayon %d m, %d ombres max" % [int(hero.domain_r()), hero.max_shadows()]]]
 		for r in rows:
@@ -3100,6 +3184,38 @@ func _run_shots() -> void:
 	set_gfx(true)
 	await _perf("rapide", 90)
 	set_gfx(false)
+	# vie de la ville : vue large, civils, coffre, poursuite, police
+	_place_hero(spawn_point, spawn_point + Vector3(0, 0, -10))
+	spring.spring_length = 9.0
+	pitch = -0.35
+	await _snap("00v_ville_vivante", 30)
+	var ch := make_chest(hero.global_position + hero.forward() * 3.0, 0.45)
+	spring.spring_length = 4.5
+	pitch = -0.25
+	await _snap("00w_coffre", 10)
+	open_chest_anim(ch)
+	await _snap("00w2_coffre_ouvert", 40)
+	ch.queue_free()
+	var civ := spawn_free_mob("civil", hero.global_position + hero.forward() * 20.0)
+	life.civs.append(civ)
+	await get_tree().physics_frame
+	life.start_chase(civ)
+	spring.spring_length = 8.0
+	await _snap("00x_poursuite", 40)
+	await _snap("00x2_poursuite_proche", 90)
+	for m in life.chase.get("chasers", []):
+		if is_instance_valid(m):
+			(m as Mob).take_damage(9999, hero)
+	await _snap("00x3_civil_sauve", 60)
+	life.notoriety = 1
+	life.police_cd = 0.0
+	if not life.police.is_empty():
+		var pol := life.police[0] as Mob
+		pol.global_position = hero.global_position + hero.forward() * 3.0
+		await _snap("00y_police_controle", 30)
+		close_dialogue()
+		life.notoriety = 0
+	spring.spring_length = 4.7
 	# portail de près
 	var gd := spawn_point - gate_pos
 	gd.y = 0

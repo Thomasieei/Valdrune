@@ -57,6 +57,12 @@ func _draw() -> void:
 			col = Color(0.35, 0.65, 1.0)
 		elif mm.team == 0:
 			col = Color(0.4, 1.0, 0.6)
+		elif mm.team == 3:
+			col = Color(0.85, 0.85, 0.85)
+			r = 1.8
+			if not mm.chasers.is_empty():
+				col = Color(1, 0.2, 0.2) if int(Time.get_ticks_msec() / 250) % 2 == 0 else Color(1, 1, 1)
+				r = 5.0
 		elif mm.boss:
 			r = 5.0
 		elif mm.elite:

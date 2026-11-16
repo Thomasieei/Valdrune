@@ -46,6 +46,8 @@ var strafe_dir := 1.0
 var strafe_t := 0.0
 var squad: Dictionary = {}     # groupe de chasseurs partagé
 var low_said := false
+var chasers: Array = []       # civils : monstres qui les poursuivent
+var stamina := 6.0
 # rang des ombres (E..S) : tout en dépend (PV, dégâts, soins, provocation)
 var grade := 0
 var boost_t := 0.0
@@ -99,8 +101,8 @@ func configure(k: String, shadow := false) -> void:
 		"shaman":
 			display_name = "Gobelin chaman"
 			max_hp = 65; dmg = 12; speed = 3.3; body_r = 0.42; arm = 0.7; atk_rate = 2.6
-			setup_model("res://assets/goblin.glb", 1.15, Color(1, 0.12, 0.1), 0.16)
-			_tint(Color(0.55, 1.0, 0.55), Color(0.1, 0.6, 0.2))
+			setup_model("res://assets/chaman.glb", 0.47, Color(1, 0.12, 0.1), 0.16)
+			alias_anims({"Idle": "Animacion", "Walk": "Walk_Cycle", "Run": "Walk_Cycle", "Attack": "Attack", "Attack2": "Attack", "Cast": "Attack", "CastShoot": "Attack", "CastLoop": "Animacion", "Celebrate": "Animacion"})
 		"orc":
 			display_name = "Orc brute"
 			rank = "E+"
@@ -125,6 +127,19 @@ func configure(k: String, shadow := false) -> void:
 			team = 0
 			aggro_r = 14.0
 			leash_r = 45.0
+		"civil":
+			var mdl: String = CityLife.CIV_MODELS[randi() % CityLife.CIV_MODELS.size()]
+			display_name = "Passante" if mdl == "civ_woman" else "Passant"
+			rank = "-"
+			max_hp = 70; dmg = 0; speed = 1.4; body_r = 0.35; arm = 0.5; atk_rate = 99
+			setup_model("res://assets/%s.glb" % mdl, 1.0, Color(1, 1, 1), 0.0)
+			team = 3
+		"police":
+			display_name = "Agent de police"
+			rank = "-"
+			max_hp = 300; dmg = 0; speed = 1.7; body_r = 0.42; arm = 0.6; atk_rate = 99
+			setup_model("res://assets/guard.glb", 1.0, Color(0.3, 0.5, 1.0), 0.0)
+			team = 3
 		"igris":
 			display_name = "Commandant Écarlate"
 			rank = "BOSS"
@@ -153,10 +168,15 @@ func configure(k: String, shadow := false) -> void:
 		bar_col = Color(0.35, 0.65, 1.0)
 	elif kind == "hunter":
 		bar_col = Color(0.3, 0.9, 0.6)
-	if not boss:
+	if not boss and kind != "civil" and kind != "police":
 		make_hp_bar(bar_h, bar_col)
+	if kind == "civil" or kind == "police":
+		ring.visible = false
 	collision_layer = 2 if kind != "hunter" else 8
 	collision_mask = (1 | 2 | 4 | 8) if kind != "hunter" else (1 | 2)
+	if kind == "civil" or kind == "police":
+		collision_layer = 16
+		collision_mask = 1
 	if kind == "orc":
 		role = "tank"
 	skill_cd = randf_range(2.0, 5.0)
@@ -406,6 +426,13 @@ func set_target(t: Unit) -> void:
 	target = t
 
 func _think(delta: float) -> void:
+	if kind == "civil":
+		_civ_think(delta)
+		return
+	if kind == "police":
+		if busy <= 0.0:
+			_patrol(delta)
+		return
 	if team == 2:
 		_patrol(delta)
 		return
@@ -931,6 +958,8 @@ func _heal_tick(spot: Vector3) -> void:
 func take_damage(amount: float, from: Unit, crit := false) -> void:
 	if dead:
 		return
+	if kind == "civil" and hp_bar == null:
+		make_hp_bar(2.05, Color(0.95, 0.95, 0.95))
 	if role == "tank":
 		amount *= 0.45 if taunt_t > 0.0 else (0.6 if is_shadow else 0.75)
 	if (role == "melee" or kind == "hunter" or (role == "tank" and not is_shadow)) and busy <= 0.0 and invuln <= 0.0 and from != null and randf() < (0.3 if role != "tank" else 0.22):
@@ -1407,7 +1436,7 @@ func _slam(spot: Vector3, radius: float, mult: float) -> void:
 
 func on_hit(from: Unit) -> void:
 	dormant = false
-	if target == null and from:
+	if from and (target == null or (target is Mob and (target as Mob).kind == "civil" and from == main.hero and randf() < 0.5)):
 		set_target(from)
 	say("hit", 0.08)
 	if boss:
@@ -1461,6 +1490,7 @@ func rise_as_shadow(forced_role := "") -> void:
 		cur_anim = "Death"
 		ap.play_backwards("Death", 0.0)
 		ap.speed_scale = 1.6
+	stand_up()
 	later(1.6, play.bind("Idle", 0.2, 1.0, true))
 
 ## Grimoire de soin tenu dans la main gauche (couverture sombre, pages, runes vertes).
@@ -1531,6 +1561,55 @@ func parley_reply(txt: String, which: String) -> void:
 	else:
 		dmg *= 0.85
 		FX.damage_number(main, global_position + Vector3(0, 0.8, 0), "ÉBRANLÉ", Color(0.6, 0.8, 1.0), true)
+
+# ---------------------------------------------------------------- civils
+func _civ_think(delta: float) -> void:
+	if busy > 0.0 or hit_stun > 0.0:
+		return
+	var h: Unit = main.hero
+	if not chasers.is_empty():
+		# poursuivi : court vers le chasseur, s'épuise, puis se recroqueville près de lui
+		stamina -= delta
+		var spd := 4.7 if stamina > 0.0 else 3.0
+		var to_h := h.global_position - global_position
+		to_h.y = 0
+		if to_h.length() > 2.6:
+			_move_towards(h.global_position, spd, delta)
+		else:
+			velocity.x = 0
+			velocity.z = 0
+			play("Cower", 0.15)
+		return
+	var foe: Unit = null
+	for u in main.units_of_team(1):
+		var e := u as Mob
+		if e and not e.dead and not e.dormant and e.global_position.distance_to(global_position) < 9.0:
+			foe = e
+			break
+	if foe:
+		var away := global_position - foe.global_position
+		away.y = 0
+		_move_towards(global_position + away.normalized() * 4.0, 4.2, delta)
+		if main.speech_cd <= 0.0 and randf() < 0.01:
+			main.speech_cd = 3.0
+			FX.speech(self, ["Un monstre !!", "Fuyez !", "Au secours !"][randi() % 3], Color(1, 0.9, 0.8), 2.2, 2.0)
+		return
+	if h.global_position.distance_to(global_position) < 4.5:
+		main.life.civ_comment(self)
+	# promenade tranquille, parfois au téléphone ou en train de discuter
+	wander_t -= delta
+	if wander_t <= 0.0:
+		wander_t = randf_range(4.0, 9.0)
+		if randf() < 0.3:
+			busy = randf_range(3.0, 6.0)
+			velocity = Vector3.ZERO
+			play("Phone" if randf() < 0.5 else "Talk", 0.3)
+			return
+		wander_to = home + Vector3(randf_range(-9, 9), 0, randf_range(-9, 9))
+	if global_position.distance_to(wander_to) > 0.8:
+		_move_towards(wander_to, 1.15, delta)
+	else:
+		play("Idle", 0.3)
 
 func _auto_role() -> String:
 	match kind:
