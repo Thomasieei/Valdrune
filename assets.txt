@@ -33,3 +33,4 @@ misty_marsh env 150000 1024 0
 supercar env 20000 1024 0
 hall-of-blood-red-commander-igris env 60000 1024 0
 free-1975-porsche-911-930-turbo env 25000 1024 0
+warehouse env 60000 1024 0

@@ -22,7 +22,7 @@ jobs:
           blender -b --version | head -1
       - name: Traitement
         env:
-          ONLY: "hell_wolf wolf_guy goblin_tes icy_dragon igris_boss hand_painted_orc gobelin-avocat city_street_pack hall-of-blood-red-commander-igris knife knife_arme epilogue_dagger"
+          ONLY: "warehouse"
         run: ./run.sh srcrepo/src work out
       - name: Publier sur la branche assets-opt (fusion)
         run: |
