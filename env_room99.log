@@ -1,0 +1,276 @@
+15:50:30 | INFO: Data are loaded, start creating Blender stuff
+15:50:30 | INFO: Blender create Mesh node roof_2_ceiling_0
+15:50:30 | INFO: Blender create Mesh node roof_1_s_0
+15:50:30 | INFO: Blender create Mesh node floor_floor_0
+15:50:30 | INFO: Blender create Mesh node bala_panjereh_2_bala panjereh_0
+15:50:30 | INFO: Blender create Mesh node sotoon_18_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node sotoon_19_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node sotoon_20_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node sotoon_21_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node F_w_0
+15:50:30 | INFO: Blender create Mesh node UP_w_0
+15:50:30 | INFO: Blender create Mesh node UP_g_0
+15:50:30 | INFO: Blender create Mesh node L_w_0
+15:50:30 | INFO: Blender create Mesh node L_g_0
+15:50:30 | INFO: Blender create Mesh node R_w_0
+15:50:30 | INFO: Blender create Mesh node R_g_0
+15:50:30 | INFO: Blender create Mesh node F_2_w_0
+15:50:30 | INFO: Blender create Mesh node UP_2_w_0
+15:50:30 | INFO: Blender create Mesh node UP_2_g_0
+15:50:30 | INFO: Blender create Mesh node L_2_w_0
+15:50:30 | INFO: Blender create Mesh node L_2_g_0
+15:50:30 | INFO: Blender create Mesh node R_2_w_0
+15:50:30 | INFO: Blender create Mesh node R_2_g_0
+15:50:30 | INFO: Blender create Mesh node F_3_w_0
+15:50:30 | INFO: Blender create Mesh node UP_3_w_0
+15:50:30 | INFO: Blender create Mesh node UP_3_g_0
+15:50:30 | INFO: Blender create Mesh node L_3_w_0
+15:50:30 | INFO: Blender create Mesh node L_3_g_0
+15:50:30 | INFO: Blender create Mesh node R_3_w_0
+15:50:30 | INFO: Blender create Mesh node R_3_g_0
+15:50:30 | INFO: Blender create Mesh node F_4_w_0
+15:50:30 | INFO: Blender create Mesh node UP_4_w_0
+15:50:30 | INFO: Blender create Mesh node UP_4_g_0
+15:50:30 | INFO: Blender create Mesh node L_4_w_0
+15:50:30 | INFO: Blender create Mesh node L_4_g_0
+15:50:30 | INFO: Blender create Mesh node R_4_w_0
+15:50:30 | INFO: Blender create Mesh node R_4_g_0
+15:50:30 | INFO: Blender create Mesh node F_5_w_0
+15:50:30 | INFO: Blender create Mesh node UP_5_w_0
+15:50:30 | INFO: Blender create Mesh node UP_5_g_0
+15:50:30 | INFO: Blender create Mesh node L_5_w_0
+15:50:30 | INFO: Blender create Mesh node L_5_g_0
+15:50:30 | INFO: Blender create Mesh node R_5_w_0
+15:50:30 | INFO: Blender create Mesh node R_5_g_0
+15:50:30 | INFO: Blender create Mesh node F_6_w_0
+15:50:30 | INFO: Blender create Mesh node UP_6_w_0
+15:50:30 | INFO: Blender create Mesh node UP_6_g_0
+15:50:30 | INFO: Blender create Mesh node L_6_w_0
+15:50:30 | INFO: Blender create Mesh node L_6_g_0
+15:50:30 | INFO: Blender create Mesh node R_6_w_0
+15:50:30 | INFO: Blender create Mesh node R_6_g_0
+15:50:30 | INFO: Blender create Mesh node F_7_w_0
+15:50:30 | INFO: Blender create Mesh node UP_7_w_0
+15:50:30 | INFO: Blender create Mesh node UP_7_g_0
+15:50:30 | INFO: Blender create Mesh node L_7_w_0
+15:50:30 | INFO: Blender create Mesh node L_7_g_0
+15:50:30 | INFO: Blender create Mesh node R_7_w_0
+15:50:30 | INFO: Blender create Mesh node R_7_g_0
+15:50:30 | INFO: Blender create Mesh node F_8_w_0
+15:50:30 | INFO: Blender create Mesh node UP_8_w_0
+15:50:30 | INFO: Blender create Mesh node UP_8_g_0
+15:50:30 | INFO: Blender create Mesh node L_8_w_0
+15:50:30 | INFO: Blender create Mesh node L_8_g_0
+15:50:30 | INFO: Blender create Mesh node R_8_w_0
+15:50:30 | INFO: Blender create Mesh node R_8_g_0
+15:50:30 | INFO: Blender create Mesh node zirpanjereh_4_zirpanjereh_0
+15:50:30 | INFO: Blender create Mesh node sotoon_22_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node zirpanjereh_5_zirpanjereh_0
+15:50:30 | INFO: Blender create Mesh node sotoon_17_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node sotoon_16_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node sotoon_15_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node sotoon_14_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node zirpanjereh_3_zirpanjereh_0
+15:50:30 | INFO: Blender create Mesh node sotoon_13_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node nime_6_nime_0
+15:50:30 | INFO: Blender create Mesh node zirpanjereh_2_zirpanjereh_0
+15:50:30 | INFO: Blender create Mesh node sotoon_12_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node nime_4_nime_0
+15:50:30 | INFO: Blender create Mesh node sotoon_10_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node sotoon_11_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node nime_5_nime_0
+15:50:30 | INFO: Blender create Mesh node wall_2_wall_0
+15:50:30 | INFO: Blender create Mesh node sotoon_7_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node nime_3_nime_0
+15:50:30 | INFO: Blender create Mesh node sotoon_8_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node sotoon_6_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node nime_2_nime_0
+15:50:30 | INFO: Blender create Mesh node wall_1_wall_0
+15:50:30 | INFO: Blender create Mesh node sotoon_5_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node sotoon_4_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node nime_1_nime_0
+15:50:30 | INFO: Blender create Mesh node sotoon_3_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node win_Win_0
+15:50:30 | INFO: Blender create Mesh node glass__0
+15:50:30 | INFO: Blender create Mesh node R_9_01_0
+15:50:30 | INFO: Blender create Mesh node R_9_02_0
+15:50:30 | INFO: Blender create Mesh node R_9_GLASS_0
+15:50:30 | INFO: Blender create Mesh node L_9_01_0
+15:50:30 | INFO: Blender create Mesh node L_9_02_0
+15:50:30 | INFO: Blender create Mesh node L_9_GLASS_0
+15:50:30 | INFO: Blender create Mesh node F1_02_0
+15:50:30 | INFO: Blender create Mesh node F2_02_0
+15:50:30 | INFO: Blender create Mesh node F3_02_0
+15:50:30 | INFO: Blender create Mesh node sotoon_2_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node win_3_Win_0
+15:50:30 | INFO: Blender create Mesh node glass_2_GLASS_0
+15:50:30 | INFO: Blender create Mesh node bala_panjereh_1_bala panjereh_0
+15:50:30 | INFO: Blender create Mesh node zirpanjereh_1_zirpanjereh_0
+15:50:30 | INFO: Blender create Mesh node sotoon_1_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node nime_nime_0
+15:50:30 | INFO: Blender create Mesh node wall_wall_0
+15:50:30 | INFO: Blender create Mesh node sotoon_sotoon.1_0
+15:50:30 | INFO: Blender create Mesh node bala_panjereh_bala panjereh_0
+15:50:30 | INFO: Blender create Mesh node zirpanjereh_zirpanjereh_0
+15:50:30 | INFO: glTF import finished in 0.16s
+15:50:35 | INFO: Starting glTF 2.0 export
+15:50:35 | INFO: Extracting primitive: roof_2_ceiling_0
+15:50:35 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+15:50:35 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+15:50:35 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+15:50:35 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+15:50:35 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+15:50:35 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+15:50:35 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+15:50:35 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+15:50:35 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+15:50:35 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+15:50:35 | INFO: Primitives created: 14
+15:50:35 | INFO: Finished glTF 2.0 export in 0.6617653369903564 s
+15:50:35 | INFO: Data are loaded, start creating Blender stuff
+15:50:35 | INFO: Blender create Mesh node roof_2_ceiling_0
+15:50:35 | INFO: glTF import finished in 0.06s
+Blender 4.2.3 LTS (hash 0e22e4fcea03 built 2024-10-14 23:31:34)
+Image_0
+Image_0.jpg
+Image_1
+Image_1.png
+Image_10
+Image_10.png
+Image_11
+Image_11.png
+Image_12
+Image_12.png
+Image_13
+Image_13.png
+Image_14
+Image_14.png
+Image_15
+Image_15.png
+Image_16
+Image_16.png
+Image_17
+Image_17.png
+Image_18
+Image_18.png
+Image_19
+Image_19.png
+Image_2
+Image_2.png
+Image_20
+Image_20.png
+Image_21
+Image_21.png
+Image_22
+Image_22.png
+Image_23
+Image_23.png
+Image_24
+Image_24.png
+Image_25
+Image_25.png
+Image_26
+Image_26.png
+Image_27
+Image_27.png
+Image_28
+Image_28.png
+Image_29
+Image_29.png
+Image_3
+Image_3.png
+Image_30
+Image_30.png
+Image_31
+Image_31.png
+Image_32
+Image_32.png
+Image_4
+Image_4.png
+Image_5
+Image_5.png
+Image_6
+Image_6.png
+Image_7
+Image_7.png
+Image_8
+Image_8.png
+Image_9
+Image_9.png
+Fra:1 Mem:43.91M (Peak 43.91M) | Time:00:00.00 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | roof_2_ceiling_0
+Fra:1 Mem:51.64M (Peak 55.84M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Initializing
+Fra:1 Mem:51.63M (Peak 55.84M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Images | Loading 26
+Fra:1 Mem:51.63M (Peak 55.84M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Images | Loading 1
+Fra:1 Mem:51.63M (Peak 55.84M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Images | Loading 12
+Fra:1 Mem:75.66M (Peak 83.66M) | Time:00:00.05 | Mem:4.00M, Peak:4.00M | Scene, ViewLayer | Updating Images | Loading 29
+Fra:1 Mem:71.65M (Peak 83.66M) | Time:00:00.06 | Mem:8.00M, Peak:8.00M | Scene, ViewLayer | Updating Images | Loading 30
+Fra:1 Mem:75.65M (Peak 83.66M) | Time:00:00.06 | Mem:12.00M, Peak:12.00M | Scene, ViewLayer | Updating Images | Loading 25
+Fra:1 Mem:79.65M (Peak 87.66M) | Time:00:00.07 | Mem:16.00M, Peak:16.00M | Scene, ViewLayer | Updating Images | Loading 31
+Fra:1 Mem:83.65M (Peak 91.66M) | Time:00:00.10 | Mem:20.00M, Peak:20.00M | Scene, ViewLayer | Updating Images | Loading 24
+Fra:1 Mem:87.65M (Peak 95.66M) | Time:00:00.10 | Mem:24.00M, Peak:24.00M | Scene, ViewLayer | Updating Images | Loading 32
+Fra:1 Mem:99.66M (Peak 107.67M) | Time:00:00.11 | Mem:28.00M, Peak:28.00M | Scene, ViewLayer | Updating Images | Loading 2
+Fra:1 Mem:95.65M (Peak 107.67M) | Time:00:00.11 | Mem:32.00M, Peak:32.00M | Scene, ViewLayer | Updating Images | Loading 3
+Fra:1 Mem:107.66M (Peak 115.67M) | Time:00:00.11 | Mem:36.00M, Peak:36.00M | Scene, ViewLayer | Updating Images | Loading 4
+Fra:1 Mem:103.65M (Peak 115.67M) | Time:00:00.11 | Mem:40.00M, Peak:40.00M | Scene, ViewLayer | Updating Images | Loading 22
+Fra:1 Mem:107.65M (Peak 115.67M) | Time:00:00.12 | Mem:44.00M, Peak:44.00M | Scene, ViewLayer | Updating Images | Loading 5
+Fra:1 Mem:111.65M (Peak 119.66M) | Time:00:00.12 | Mem:48.00M, Peak:48.00M | Scene, ViewLayer | Updating Images | Loading 6
+Fra:1 Mem:115.65M (Peak 123.66M) | Time:00:00.14 | Mem:52.00M, Peak:52.00M | Scene, ViewLayer | Updating Images | Loading 7
+Fra:1 Mem:119.65M (Peak 127.66M) | Time:00:00.15 | Mem:56.00M, Peak:56.00M | Scene, ViewLayer | Updating Images | Loading 21
+Fra:1 Mem:123.65M (Peak 131.66M) | Time:00:00.15 | Mem:60.00M, Peak:60.00M | Scene, ViewLayer | Updating Images | Loading 8
+Fra:1 Mem:135.66M (Peak 143.67M) | Time:00:00.15 | Mem:64.00M, Peak:64.00M | Scene, ViewLayer | Updating Images | Loading 9
+Fra:1 Mem:131.65M (Peak 143.67M) | Time:00:00.15 | Mem:68.00M, Peak:68.00M | Scene, ViewLayer | Updating Images | Loading 10
+Fra:1 Mem:135.65M (Peak 143.67M) | Time:00:00.16 | Mem:72.00M, Peak:72.00M | Scene, ViewLayer | Updating Images | Loading 11
+Fra:1 Mem:139.65M (Peak 147.66M) | Time:00:00.17 | Mem:76.00M, Peak:76.00M | Scene, ViewLayer | Updating Images | Loading 20
+Fra:1 Mem:143.65M (Peak 151.66M) | Time:00:00.18 | Mem:80.00M, Peak:80.00M | Scene, ViewLayer | Updating Images | Loading 13
+Fra:1 Mem:147.65M (Peak 155.66M) | Time:00:00.18 | Mem:84.00M, Peak:84.00M | Scene, ViewLayer | Updating Images | Loading 19
+Fra:1 Mem:151.65M (Peak 159.66M) | Time:00:00.19 | Mem:88.00M, Peak:88.00M | Scene, ViewLayer | Updating Images | Loading 14
+Fra:1 Mem:163.66M (Peak 171.67M) | Time:00:00.20 | Mem:92.00M, Peak:92.00M | Scene, ViewLayer | Updating Images | Loading 15
+Fra:1 Mem:159.65M (Peak 171.67M) | Time:00:00.20 | Mem:96.00M, Peak:96.00M | Scene, ViewLayer | Updating Images | Loading 16
+Fra:1 Mem:163.65M (Peak 171.67M) | Time:00:00.21 | Mem:100.00M, Peak:100.00M | Scene, ViewLayer | Updating Images | Loading 17
+Fra:1 Mem:175.66M (Peak 183.67M) | Time:00:00.22 | Mem:104.00M, Peak:104.00M | Scene, ViewLayer | Updating Images | Loading 18
+Fra:1 Mem:170.36M (Peak 183.67M) | Time:00:00.25 | Mem:120.00M, Peak:120.00M | Scene, ViewLayer | Waiting for render to start
+Fra:1 Mem:170.36M (Peak 183.67M) | Time:00:00.25 | Mem:120.00M, Peak:120.00M | Scene, ViewLayer | Loading render kernels (may take a few minutes the first time)
+Fra:1 Mem:170.36M (Peak 183.67M) | Time:00:00.25 | Mem:120.00M, Peak:120.00M | Scene, ViewLayer | Updating Scene
+Fra:1 Mem:170.36M (Peak 183.67M) | Time:00:00.25 | Mem:120.00M, Peak:120.00M | Scene, ViewLayer | Updating Shaders
+Fra:1 Mem:170.46M (Peak 183.67M) | Time:00:00.25 | Mem:120.01M, Peak:120.01M | Scene, ViewLayer | Updating Procedurals
+Fra:1 Mem:170.46M (Peak 183.67M) | Time:00:00.25 | Mem:120.01M, Peak:120.01M | Scene, ViewLayer | Updating Background
+Fra:1 Mem:170.46M (Peak 183.67M) | Time:00:00.25 | Mem:120.01M, Peak:120.01M | Scene, ViewLayer | Updating Camera
+Fra:1 Mem:170.46M (Peak 183.67M) | Time:00:00.25 | Mem:120.01M, Peak:120.01M | Scene, ViewLayer | Updating Meshes Flags
+Fra:1 Mem:170.46M (Peak 183.67M) | Time:00:00.25 | Mem:120.01M, Peak:120.01M | Scene, ViewLayer | Updating Objects
+Fra:1 Mem:170.46M (Peak 183.67M) | Time:00:00.25 | Mem:120.01M, Peak:120.01M | Scene, ViewLayer | Updating Objects | Copying Transformations to device
+Fra:1 Mem:170.46M (Peak 183.67M) | Time:00:00.25 | Mem:120.01M, Peak:120.01M | Scene, ViewLayer | Updating Objects | Applying Static Transformations
+Fra:1 Mem:170.46M (Peak 183.67M) | Time:00:00.25 | Mem:120.01M, Peak:120.01M | Scene, ViewLayer | Updating Particle Systems
+Fra:1 Mem:170.46M (Peak 183.67M) | Time:00:00.25 | Mem:120.01M, Peak:120.01M | Scene, ViewLayer | Updating Particle Systems | Copying Particles to device
+Fra:1 Mem:170.46M (Peak 183.67M) | Time:00:00.25 | Mem:120.01M, Peak:120.01M | Scene, ViewLayer | Updating Meshes
+Fra:1 Mem:170.94M (Peak 183.67M) | Time:00:00.25 | Mem:120.01M, Peak:120.01M | Scene, ViewLayer | Updating Mesh | Computing attributes
+Fra:1 Mem:173.58M (Peak 183.67M) | Time:00:00.25 | Mem:120.01M, Peak:120.01M | Scene, ViewLayer | Updating Mesh | Copying Attributes to device
+Fra:1 Mem:173.58M (Peak 183.67M) | Time:00:00.25 | Mem:122.65M, Peak:122.65M | Scene, ViewLayer | Updating Scene BVH | Building
+Fra:1 Mem:173.58M (Peak 183.67M) | Time:00:00.25 | Mem:122.65M, Peak:122.65M | Scene, ViewLayer | Updating Scene BVH | Building BVH
+Fra:1 Mem:173.58M (Peak 183.67M) | Time:00:00.25 | Mem:123.62M, Peak:123.62M | Scene, ViewLayer | Updating Scene BVH | Building BVH 0%
+Fra:1 Mem:173.58M (Peak 183.67M) | Time:00:00.25 | Mem:124.79M, Peak:125.76M | Scene, ViewLayer | Updating Scene BVH | Copying BVH to device
+Fra:1 Mem:173.58M (Peak 183.67M) | Time:00:00.25 | Mem:124.79M, Peak:125.76M | Scene, ViewLayer | Updating Mesh | Computing normals
+Fra:1 Mem:175.39M (Peak 183.67M) | Time:00:00.25 | Mem:124.79M, Peak:125.76M | Scene, ViewLayer | Updating Mesh | Copying Mesh to device
+Fra:1 Mem:175.39M (Peak 183.67M) | Time:00:00.25 | Mem:126.60M, Peak:126.60M | Scene, ViewLayer | Updating Objects Flags
+Fra:1 Mem:175.39M (Peak 183.67M) | Time:00:00.25 | Mem:126.60M, Peak:126.60M | Scene, ViewLayer | Updating Primitive Offsets
+Fra:1 Mem:175.39M (Peak 183.67M) | Time:00:00.25 | Mem:126.60M, Peak:126.60M | Scene, ViewLayer | Updating Images
+Fra:1 Mem:175.39M (Peak 183.67M) | Time:00:00.25 | Mem:126.60M, Peak:126.60M | Scene, ViewLayer | Updating Camera Volume
+Fra:1 Mem:175.39M (Peak 183.67M) | Time:00:00.25 | Mem:126.60M, Peak:126.60M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:175.39M (Peak 183.67M) | Time:00:00.25 | Mem:126.68M, Peak:126.68M | Scene, ViewLayer | Updating Lights
+Fra:1 Mem:175.40M (Peak 183.67M) | Time:00:00.25 | Mem:126.68M, Peak:126.68M | Scene, ViewLayer | Updating Lights | Computing tree
+Fra:1 Mem:175.40M (Peak 183.67M) | Time:00:00.25 | Mem:126.68M, Peak:126.68M | Scene, ViewLayer | Updating Integrator
+Fra:1 Mem:175.40M (Peak 183.67M) | Time:00:00.25 | Mem:126.68M, Peak:126.68M | Scene, ViewLayer | Updating Film
+Fra:1 Mem:175.40M (Peak 183.67M) | Time:00:00.25 | Mem:126.60M, Peak:126.68M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:175.40M (Peak 183.67M) | Time:00:00.25 | Mem:126.68M, Peak:126.68M | Scene, ViewLayer | Updating Baking
+Fra:1 Mem:175.40M (Peak 183.67M) | Time:00:00.25 | Mem:126.68M, Peak:126.68M | Scene, ViewLayer | Updating Device | Writing constant memory
+Fra:1 Mem:175.40M (Peak 183.67M) | Time:00:00.25 | Mem:126.68M, Peak:126.68M | Scene, ViewLayer | Sample 0/12
+Fra:1 Mem:179.86M (Peak 183.67M) | Time:00:00.28 | Remaining:00:00.31 | Mem:131.14M, Peak:131.14M | Scene, ViewLayer | Sample 1/12
+Fra:1 Mem:181.84M (Peak 185.80M) | Time:00:00.60 | Mem:131.14M, Peak:131.14M | Scene, ViewLayer | Sample 12/12
+Fra:1 Mem:181.84M (Peak 185.80M) | Time:00:00.60 | Mem:131.14M, Peak:131.14M | Scene, ViewLayer | Finished
+Saved: 'out/env_room99.png'
+Time: 00:00.69 (Saving: 00:00.09)
+
+INFO Draco mesh compression is available, use library at /home/runner/work/Valdrune/Valdrune/blender-4.2.3-linux-x64/4.2/python/lib/python3.11/site-packages/libextern_draco.so
+
+REPORT {"id": "env_room99", "kind": "env", "source": "env_room99.glb", "junk": 1, "tris_in": 31858, "bones": 0, "tex_missing": 0, "tris_out": 31858, "size_m": [23.94, 13.64, 3.51], "anims": 0, "anim_names": [], "mb_out": 28.37, "verify_tris": 31858, "verify_anims": 0, "verify_skinned": false, "preview": true}
+
+Blender quit
