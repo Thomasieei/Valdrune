@@ -24,8 +24,13 @@ const DEFS := {
 		"pool": [["orc", 3], ["goblin", 3], ["shaman", 2], ["orc_warrior", 1]],
 		"chief": "orc_warrior", "chief_name": "Grukh, Chef de Guerre", "chief_scale": 1.35,
 		"chief_line": "Un humain dans mon arène ? Les dieux m'envoient un jouet."},
+	"igris": {"name": "Forteresse du Commandant Écarlate", "rank": 2, "col": Color(1.0, 0.15, 0.15), "light": Color(1.0, 0.45, 0.4),
+		"seq": [["dungeon1", 3, ""], ["abbuilding", 2, ""], ["brick", 1, "hall"]],
+		"pool": [["goblin", 3], ["orc", 2], ["shaman", 2], ["orc_warrior", 1]],
+		"chief": "", "chief_name": "", "chief_scale": 1.0, "chief_line": ""},
 }
 const STEP := 2.0
+var _ray_count := 0
 
 var main
 var kind := "goblin"
@@ -59,8 +64,10 @@ func build(m, k: String, origin: Vector3) -> void:
 		var rd: Dictionary = ROOMS[rid]
 		var n := (load("res://assets/rooms/%s.glb" % rd["f"]) as PackedScene).instantiate() as Node3D
 		n.scale = Vector3.ONE * float(rd["s"])
-		n.position = Vector3(i * 420.0, 0, 0)
-		add_child(n)
+		var holder := Node3D.new()
+		holder.position = Vector3(i * 420.0, 0, 0)
+		add_child(holder)
+		holder.add_child(n)
 		for mi in n.find_children("*", "MeshInstance3D", true, false):
 			var mm := mi as MeshInstance3D
 			mm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -69,7 +76,7 @@ func build(m, k: String, origin: Vector3) -> void:
 			cs.shape = mm.mesh.create_trimesh_shape()
 			body.add_child(cs)
 			mm.add_child(body)
-		rooms.append({"node": n, "pts": [], "entry": n.global_position, "exit": n.global_position, "packs": [], "open": false,
+		rooms.append({"node": n, "holder": holder, "pts": [], "entry": n.global_position, "exit": n.global_position, "packs": [], "open": false,
 			"portal": null, "sealed": null, "name": rd["n"], "role": seq[i][2], "npacks": int(seq[i][1]), "id": rid})
 	visible = false
 
@@ -89,6 +96,11 @@ func layout() -> void:
 		await _analyse(i)
 	for i in rooms.size():
 		_populate(i)
+	# maillage navigable de chaque salle (les monstres contournent piliers et murs)
+	for i in rooms.size():
+		var r: Dictionary = rooms[i]
+		var a := _room_aabb(r["node"])
+		main.nav.bake("salle%d" % i, r["holder"], a.grow(1.0), [r["entry"]])
 	ready_ok = true
 	show_room(-1)
 	print("RUN %s salles=%d anomalie=+%d" % [kind, rooms.size(), over])
@@ -134,6 +146,9 @@ func _analyse(i: int) -> void:
 	for c in cells.keys():
 		if comp_of.has(c):
 			continue
+		if _ray_count > 400:
+			_ray_count = 0
+			await get_tree().physics_frame
 		var comp: Array = [c]
 		comp_of[c] = true
 		var qi := 0
@@ -144,6 +159,9 @@ func _analyse(i: int) -> void:
 				if not comp_of.has(nb):
 					comp_of[nb] = true
 					comp.append(nb)
+			if _ray_count > 400:
+				_ray_count = 0
+				await get_tree().physics_frame
 		if comp.size() > best.size():
 			best = comp
 		await get_tree().physics_frame
@@ -178,6 +196,7 @@ func _nbrs(c: Vector2i, cells: Dictionary, space: PhysicsDirectSpaceState3D) -> 
 		var q: Vector3 = cells[nc]
 		if absf(q.y - p.y) > 0.7:
 			continue
+		_ray_count += 2
 		var h := Vector3(0, 0.8, 0)
 		if not _ray(space, p + h, q + h, true).is_empty() or not _ray(space, q + h, p + h, true).is_empty():
 			continue
@@ -279,14 +298,14 @@ func _populate(i: int) -> void:
 		var c := _at_frac(r, frac)
 		_light(c, lc, 1.8, 15.0)
 		var size := 3 + i + (1 if kind == "orc" else 0)
-		if role == "elite":
+		if role == "elite" or role == "hall":
 			size = 3
 		var pack := {"center": c, "mobs": [], "engaged": false, "cleared": false}
 		var spots := _spots_near(r, c, size)
 		for s in size:
 			var mk := _pick_kind()
-			if role == "elite" and s == 0:
-				mk = "orc_warrior" if kind == "orc" else "orc"
+			if (role == "elite" or role == "hall") and s == 0:
+				mk = "orc_warrior" if kind != "goblin" else "orc"
 			var mob: Mob = main.spawn_free_mob(mk, spots[s])
 			mob.set_meta("run", true)
 			mob.dormant = true
@@ -295,7 +314,7 @@ func _populate(i: int) -> void:
 			mob.face_to(r["entry"], true)
 			if mk == "goblin" and randf() < 0.35:
 				mob.make_variant("berserker" if randf() < 0.5 else "eclaireur")
-			if role == "elite" and s < 2:
+			if (role == "elite" or role == "hall") and s < 2:
 				mob.make_elite()
 			(pack["mobs"] as Array).append(mob)
 		(r["packs"] as Array).append(pack)
@@ -417,6 +436,11 @@ func _check_room_clear() -> void:
 	r["open"] = true
 	if r["sealed"]:
 		(r["sealed"] as Node3D).queue_free()
+	if str(r["role"]) == "hall":
+		r["portal"] = FX.portal(self, r["exit"], Color(1, 0.1, 0.12), 2.0)
+		main.sfx("portal", null, -2.0)
+		main.system_msg("[ SYSTÈME ]\nLe portail du trône s'est ouvert.\nLe Commandant Écarlate t'attend.")
+		return
 	r["portal"] = FX.portal(self, r["exit"], def["col"], 1.6)
 	main.sfx("portal", null, -4.0)
 	main.system_msg("[ SYSTÈME ]\n%s nettoyée. Le passage s'ouvre." % str(r["name"]))
@@ -501,4 +525,6 @@ func cleanup() -> void:
 	if chief and is_instance_valid(chief) and not chief.is_shadow:
 		main.mobs.erase(chief)
 		chief.queue_free()
+	for i in rooms.size():
+		main.nav.drop("salle%d" % i)
 	queue_free()

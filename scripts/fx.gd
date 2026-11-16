@@ -4,6 +4,12 @@ class_name FX
 ## Budget lumières : en rendu mobile (Compatibility) chaque lumière ajoute une passe complète
 ## sur tout ce qu'elle touche. Les lumières décoratives sont donc désactivées (l'émission + le glow suffisent).
 static var light_budget := 0
+## Interrupteur et plafonds d'effets (le combat en génère des dizaines par seconde).
+static var particles_on := true
+const MAX_BURSTS := 14
+const MAX_NUMBERS := 12
+static var _burst_mesh: SphereMesh
+static var _mat_cache := {}
 const LEAF_TEX := preload("res://assets/ui/leaf.png")
 static func new_light(important := false) -> OmniLight3D:
 	var l := OmniLight3D.new()
@@ -121,8 +127,18 @@ static func _zone_flash(parent: Node, at: Vector3, radius: float, col: Color) ->
 	tw.parallel().tween_property(f, "transparency", 1.0, 0.18)
 	tw.tween_callback(f.queue_free)
 
+## Matériau partagé par couleur (évite de créer un matériau neuf à chaque impact).
+static func shared_mat(col: Color, energy := 3.0) -> StandardMaterial3D:
+	var key := "%d_%d_%d_%d" % [int(col.r * 32), int(col.g * 32), int(col.b * 32), int(energy * 4)]
+	if not _mat_cache.has(key):
+		_mat_cache[key] = mat(col, energy)
+	return _mat_cache[key]
+
 static func burst(parent: Node, pos: Vector3, col: Color, amount := 24, size := 0.12, spread := 3.0, life := 0.6, up := 2.0) -> void:
+	if not particles_on or parent == null or not parent.is_inside_tree() or parent.get_tree().get_nodes_in_group("fx_burst").size() >= MAX_BURSTS:
+		return
 	var p := CPUParticles3D.new()
+	p.add_to_group("fx_burst")
 	parent.add_child(p)
 	p.global_position = pos
 	p.one_shot = true
@@ -137,13 +153,15 @@ static func burst(parent: Node, pos: Vector3, col: Color, amount := 24, size := 
 	p.gravity = Vector3(0, -up, 0)
 	p.scale_amount_min = size * 0.5
 	p.scale_amount_max = size
-	var sm := SphereMesh.new()
-	sm.radius = 0.5
-	sm.height = 1.0
-	sm.radial_segments = 6
-	sm.rings = 3
-	sm.material = mat(col, 3.0)
-	p.mesh = sm
+	if _burst_mesh == null:
+		_burst_mesh = SphereMesh.new()
+		_burst_mesh.radius = 0.5
+		_burst_mesh.height = 1.0
+		_burst_mesh.radial_segments = 6
+		_burst_mesh.rings = 3
+	p.mesh = _burst_mesh
+	p.material_override = shared_mat(col, 3.0)
+	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var t := p.get_tree().create_timer(life + 0.3)
 	t.timeout.connect(p.queue_free)
 
@@ -190,7 +208,10 @@ static func slash_arc(parent: Node, origin: Vector3, yaw: float, col: Color, rad
 	tw.tween_callback(mi.queue_free)
 
 static func damage_number(parent: Node, pos: Vector3, txt: String, col: Color, big := false) -> void:
+	if parent == null or not parent.is_inside_tree() or (not big and parent.get_tree().get_nodes_in_group("fx_num").size() >= MAX_NUMBERS):
+		return
 	var l := Label3D.new()
+	l.add_to_group("fx_num")
 	l.text = txt
 	l.modulate = col
 	l.outline_modulate = Color(0, 0, 0, 0.9)

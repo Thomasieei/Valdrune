@@ -24,7 +24,7 @@ const RANK_ORDER := "EDCBAS"
 
 func setup() -> void:
 	props_root = Node3D.new()
-	main.add_child(props_root)
+	main.world_static.add_child(props_root)
 	main.city_extras.append(props_root)
 	_place_street_props()
 	_place_parked_cars()
@@ -408,7 +408,7 @@ func start_chase(force_civ: Mob = null) -> bool:
 	var chasers: Array = []
 	var kinds := ["goblin", "goblin"] if main.hero.level < 4 else ["goblin", "orc"]
 	for i in kinds.size():
-		var sp: Vector3 = victim.global_position + away * (8.0 + i * 1.5) + Vector3(i * 1.4 - 0.7, 0, 0)
+		var sp: Vector3 = main.safe_point(victim.global_position, victim.global_position + away * (8.0 + i * 1.5) + Vector3(i * 1.4 - 0.7, 0, 0))
 		var m := main.spawn_free_mob(kinds[i], sp) as Mob
 		m.target = victim
 		m.home = sp

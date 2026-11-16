@@ -43,8 +43,8 @@ func _draw() -> void:
 				_dot(e["pos"], Color(1.0, 0.75, 0.2), 4.5, false)
 		if main.shop_door_pos != Vector3.INF:
 			_dot(main.shop_door_pos, Color(1.0, 0.8, 0.35), 5.0, true)
-	elif main.zone == "dungeon" and main.dungeon:
-		_dot(main.dungeon.next_target(), Color(1, 0.3, 0.3), 5.0, true)
+	elif main.zone == "run" and main.run and main.run.ready_ok:
+		_dot(main.run.next_target(), Color(1, 0.3, 0.3), 5.0, true)
 	for m in main.mobs:
 		var mm := m as Mob
 		if mm.dead or not mm.visible:

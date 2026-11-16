@@ -794,9 +794,10 @@ func _tk_release(e) -> void:
 		return
 	var u := e as Unit
 	u.lifted = false
-	u.busy = 0.4
-	u.hit_stun = 0.6
-	u.model.rotation.x = 0.0
+	if not u.dead:
+		u.busy = 0.4
+		u.hit_stun = 0.6
+		u.model.rotation.x = 0.0
 	u.model.rotation.z = 0.0
 	u.model.position.y = 0.0
 	for n in ["TkAura", "TkRing", "TkChoke"]:
@@ -815,10 +816,8 @@ func _tk_eject(d: Dictionary) -> void:
 	dir.y = 0
 	dir = dir.normalized() if dir.length() > 0.2 else forward()
 	var g: Vector3 = d["ground"]
-	var land := g + dir * (9.0 + tk_lvl)
-	var hit := get_world_3d().direct_space_state.intersect_ray(PhysicsRayQueryParameters3D.create(land + Vector3(0, 8, 0), land + Vector3(0, -8, 0), 1))
-	if not hit.is_empty():
-		land = hit["position"]
+	# atterrissage : jamais à travers un mur ni sur un toit
+	var land: Vector3 = main.safe_point(g, g + dir * (9.0 + tk_lvl))
 	var start := u.global_position
 	FX.trail(main, start, land, Color(0.65, 0.35, 1.0))
 	var tw := u.create_tween()

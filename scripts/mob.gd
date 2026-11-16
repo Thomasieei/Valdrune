@@ -67,6 +67,19 @@ const HEAL_PCT := [0.008, 0.014, 0.022, 0.032, 0.042, 0.055]
 const TAUNT_P := [0.35, 0.55, 0.75, 0.9, 1.0, 1.0]
 var sleeping_lod := false
 var patrol_off := Vector3.ZERO
+# navigation + déblocage
+var nav_path := PackedVector3Array()
+var nav_i := 0
+var nav_goal := Vector3.INF
+var nav_t := 0.0
+var stuck_t := 0.0
+var stuck_chk := 0.0
+var stuck_pos := Vector3.ZERO
+var side_t := 0.0
+var side_dir := Vector3.ZERO
+var off_t := 0.0
+var off_chk := 0.0
+var lod_chk := 0
 const HUNTER_HAND := Transform3D(Vector3(-0.38058, -0.04610, -118.25440), Vector3(-9.10295, -117.90413, 0.07526), Vector3(-117.90353, 9.10315, 0.37590), Vector3(40.22297, 8.74491, 1.63814))
 const ROLE_NAME := {"tank": "Tank", "fire": "Mage de feu", "heal": "Soigneur", "melee": "Lame"}
 const HUNTER_NAMES := ["Min-su", "Jae-won", "Hana", "Dong-hyuk", "Seo-yeon", "Tae-gyu", "Ji-ho", "Yu-na"]
@@ -299,20 +312,27 @@ func _tint(albedo_mul: Color, glow: Color) -> void:
 			d.emission_energy_multiplier = 0.35
 			m.set_surface_override_material(i, d)
 
+static var SHADOW_MAT: StandardMaterial3D = _shadow_mat()
+static func _shadow_mat() -> StandardMaterial3D:
+	var sm := StandardMaterial3D.new()
+	sm.albedo_color = Color(0.045, 0.04, 0.075)
+	sm.emission_enabled = true
+	sm.emission = Color(0.22, 0.08, 0.5)
+	sm.emission_energy_multiplier = 0.22
+	sm.rim_enabled = true
+	sm.rim = 0.7
+	sm.rim_tint = 0.35
+	sm.roughness = 0.75
+	sm.metallic_specular = 0.3
+	return sm
+
 func _make_shadow() -> void:
 	display_name = "Ombre " + display_name.to_lower().replace("élite ", "")
 	if boss:
 		display_name = "Igris, l'ombre écarlate"
 	rank = "Ombre"
-	var sm := StandardMaterial3D.new()
-	sm.albedo_color = Color(0.06, 0.03, 0.12)
-	sm.emission_enabled = true
-	sm.emission = Color(0.35, 0.1, 0.85)
-	sm.emission_energy_multiplier = 0.55
-	sm.rim_enabled = true
-	sm.rim = 1.0
-	sm.rim_tint = 0.2
-	sm.roughness = 0.4
+	# ombre « fumée noire » : corps sombre et lisible, liseré violet discret (plus d'aplat violet fluo)
+	var sm: StandardMaterial3D = SHADOW_MAT
 	for mi in model.find_children("*", "MeshInstance3D", true, false):
 		var m := mi as MeshInstance3D
 		if m.visible:
@@ -393,16 +413,18 @@ func _physics_process(delta: float) -> void:
 		return
 	# niveau de détail : loin du héros, un monstre sans combat se met en veille (ni IA, ni physique, ni animation)
 	if not is_shadow and not boss and target == null:
-		var far := global_position.distance_squared_to(main.hero.global_position) > 2025.0
-		if far != sleeping_lod:
-			sleeping_lod = far
-			if ap:
-				if far:
-					ap.pause()
-				else:
-					ap.play()
-		if far:
+		lod_chk -= 1
+		if lod_chk <= 0 or not sleeping_lod:
+			lod_chk = 12 + get_instance_id() % 7
+			var far := global_position.distance_squared_to(main.hero.global_position) > 2025.0
+			if far != sleeping_lod:
+				_set_sleep(far)
+		if sleeping_lod:
 			return
+	elif sleeping_lod:
+		# réveillé par un coup ou une cible : l'animation DOIT reprendre (sinon il se bat figé et meurt debout)
+		_set_sleep(false)
+	_watchdog(delta)
 	if main.in_dialogue:
 		var near: bool = global_position.distance_to(main.hero.global_position) < 6.0
 		play("Talk" if (kind == "guard" or kind == "igris") and near else "Idle", 0.3)
@@ -423,6 +445,43 @@ func _physics_process(delta: float) -> void:
 	else:
 		play("Idle", 0.3)
 	apply_gravity_and_slide(delta)
+
+func _set_sleep(on: bool) -> void:
+	sleeping_lod = on
+	if ap:
+		if on:
+			ap.pause()
+		else:
+			ap.play()
+			if cur_anim != "" and ap.has_animation(cur_anim):
+				ap.play(cur_anim)
+
+## Garde-fou : un PNJ hors du sol praticable (toit, intérieur de bâtiment, sous la ville)
+## est ramené sur le point navigable le plus proche.
+func _watchdog(delta: float) -> void:
+	off_chk += delta
+	if off_chk < 1.0:
+		return
+	off_chk = 0.0
+	if lifted or busy > 0.0 and not is_on_floor():
+		return
+	var nv = main.nav
+	if nv == null or not nv.covers(global_position):
+		return
+	var c: Vector3 = nv.closest(global_position)
+	var dh := Vector2(c.x - global_position.x, c.z - global_position.z).length()
+	if c.distance_to(global_position) > 30.0:
+		return
+	if dh > 1.6 or global_position.y - c.y > 2.2 or c.y - global_position.y > 1.2:
+		off_t += 1.0
+	else:
+		off_t = 0.0
+	if off_t >= 2.0:
+		off_t = 0.0
+		global_position = c + Vector3(0, 0.15, 0)
+		velocity = Vector3.ZERO
+		nav_goal = Vector3.INF
+		print("WATCHDOG %s ramené au sol" % kind)
 
 func _enemies() -> Array:
 	if team == 2:
@@ -599,7 +658,7 @@ func _shadow_think(delta: float) -> void:
 	var h: Hero = main.hero
 	if recover_t > 0.0:
 		recover_t -= delta
-		global_position = h.global_position - h.forward() * 2.0
+		global_position = h.global_position
 		if recover_t <= 0.0:
 			_reemerge()
 		return
@@ -1029,7 +1088,7 @@ func _sidestep(fv) -> void:
 	var side := Vector3(-rel.z, 0, rel.x).normalized() * (1.0 if randf() < 0.5 else -1.0)
 	invuln = 0.4
 	busy = 0.35
-	var to := global_position + side * 1.8 + rel.normalized() * 0.4
+	var to: Vector3 = main.safe_point(global_position, global_position + side * 1.8 + rel.normalized() * 0.4)
 	var tw := create_tween()
 	tw.tween_property(self, "global_position", Vector3(to.x, global_position.y, to.z), 0.22).set_ease(Tween.EASE_OUT)
 	play("Roll" if ap and ap.has_animation("Roll") else "Run", 0.05, 1.8, true)
@@ -1070,20 +1129,20 @@ func _follow(delta: float) -> void:
 	var h: Hero = main.hero
 	var shadows: Array = main.shadow_list()
 	var idx := maxi(shadows.find(self), 0)
-	var fwd := h.forward()
-	var right := Vector3(fwd.z, 0, -fwd.x)
-	# formation en V sur les côtés (jamais entre la caméra et le héros)
+	# formation calée sur la CAMÉRA : sur les côtés et devant, jamais entre la caméra et le héros
+	var fwd: Vector3 = main.cam_forward()
+	var right := Vector3(-fwd.z, 0, fwd.x)
 	var side := -1.0 if idx % 2 == 0 else 1.0
 	var rank_i := idx / 2
-	var slot := h.global_position - fwd * (0.8 + rank_i * 1.3) + right * side * (2.3 + rank_i * 1.1)
+	var slot := h.global_position + fwd * (0.4 + rank_i * 1.4) + right * side * (2.4 + rank_i * 0.9)
 	if role == "tank":
-		slot = h.global_position + fwd * 2.6 + right * side * (0.9 + rank_i * 1.2)
+		slot = h.global_position + fwd * 3.0 + right * side * (1.0 + rank_i * 1.2)
 	elif role == "fire" or role == "heal":
-		slot = h.global_position - fwd * (2.6 + rank_i * 0.8) + right * side * 1.4
+		slot = h.global_position + right * side * (3.4 + rank_i * 0.8) - fwd * 0.3
 	var dist := Vector2(slot.x - global_position.x, slot.z - global_position.z).length()
 	if dist > 18.0:
 		FX.shadow_puff(main, global_position)
-		global_position = slot + Vector3(0, 0.3, 0)
+		global_position = main.safe_point(h.global_position, slot) + Vector3(0, 0.3, 0)
 		FX.shadow_puff(main, global_position)
 		moving = false
 		return
@@ -1091,7 +1150,9 @@ func _follow(delta: float) -> void:
 		moving = false
 	elif not moving and dist > 1.8:
 		moving = true
-	if moving:
+	if moving and dist > 6.0:
+		_move_towards(slot, clampf(dist * 2.4, 3.0, h.sprint_speed() + 1.5), delta)
+	elif moving:
 		var spd := clampf(dist * 2.4, 3.0, h.sprint_speed() + 1.5)
 		var d := slot - global_position
 		d.y = 0
@@ -1119,7 +1180,7 @@ func _reemerge() -> void:
 	update_hp_bar()
 	visible = true
 	collision_layer = 8
-	global_position = h.global_position - h.forward() * 2.2 + Vector3(0, 0.3, 0)
+	global_position = main.safe_point(h.global_position, h.global_position - main.cam_forward() * 2.2) + Vector3(0, 0.3, 0)
 	FX.shadow_puff(main, global_position)
 	busy = 1.2
 	cur_anim = "Death"
@@ -1174,7 +1235,7 @@ func _idle_behaviour(delta: float) -> void:
 		var slot := h.global_position + Vector3(sin(get_instance_id() % 7), 0, cos(get_instance_id() % 7)) * (2.6 if not boss else 3.4)
 		if global_position.distance_to(slot) > 1.2:
 			if global_position.distance_to(slot) > 30.0:
-				global_position = slot
+				global_position = main.safe_point(h.global_position, slot)
 			_move_towards(slot, maxf(speed, global_position.distance_to(slot) * 1.3), delta)
 		else:
 			play("Idle", 0.25)
@@ -1193,15 +1254,61 @@ func _idle_behaviour(delta: float) -> void:
 		play("Idle", 0.3)
 
 func _move_towards(p: Vector3, spd: float, delta: float) -> void:
-	var d := p - global_position
+	var goal := p
+	var flat := Vector2(p.x - global_position.x, p.z - global_position.z).length()
+	var nv = main.nav
+	if flat > 2.2 and nv != null and nv.covers(global_position):
+		nav_t -= delta
+		if nav_goal == Vector3.INF or nav_goal.distance_to(p) > 1.5 or nav_t <= 0.0:
+			nav_t = 0.9 + randf() * 0.3
+			nav_goal = p
+			nav_path = nv.path(global_position, p)
+			nav_i = 1
+		while nav_i < nav_path.size() - 1 and Vector2(nav_path[nav_i].x - global_position.x, nav_path[nav_i].z - global_position.z).length() < 0.7:
+			nav_i += 1
+		if nav_i < nav_path.size():
+			goal = nav_path[nav_i]
+	var d := goal - global_position
 	d.y = 0
 	if d.length() < 0.05:
 		return
 	d = d.normalized()
+	if side_t > 0.0:
+		side_t -= delta
+		d = (d + side_dir * 1.4).normalized()
 	velocity.x = d.x * spd
 	velocity.z = d.z * spd
 	face_to(global_position + d, false, delta)
 	play("Run" if spd > speed * 0.9 else "Walk", 0.2, clampf(spd / 3.5, 0.7, 1.4))
+	_stuck_check(spd, p, delta)
+
+## Bloqué contre un obstacle : on contourne, on recalcule le chemin, puis on abandonne ce point.
+func _stuck_check(spd: float, p: Vector3, delta: float) -> void:
+	stuck_chk += delta
+	if stuck_chk < 0.5:
+		return
+	var moved := Vector2(global_position.x - stuck_pos.x, global_position.z - stuck_pos.z).length()
+	stuck_pos = global_position
+	stuck_chk = 0.0
+	if moved < spd * 0.5 * 0.25:
+		stuck_t += 0.5
+	else:
+		stuck_t = 0.0
+		return
+	if stuck_t >= 1.0:
+		nav_t = 0.0
+		side_t = 0.6
+		var fw := forward()
+		side_dir = Vector3(fw.z, 0, -fw.x) * (1.0 if randf() < 0.5 else -1.0)
+	if stuck_t >= 2.0:
+		# point inaccessible : on passe au suivant (patrouille, promenade) ou on lâche l'affaire
+		if not patrol.is_empty():
+			patrol_i += 1
+		wander_to = home
+		wander_t = 0.0
+	if stuck_t >= 4.0 and main.nav and main.nav.covers(global_position) and global_position.distance_to(main.hero.global_position) > 14.0:
+		global_position = main.nav.closest(global_position.lerp(p, 0.3)) + Vector3(0, 0.15, 0)
+		stuck_t = 0.0
 
 func _basic_attack() -> void:
 	atk_cd = atk_rate
@@ -1378,7 +1485,8 @@ func _boss_skills(d: float) -> bool:
 		return true
 	return false
 
-func _charge(from: Vector3, to: Vector3) -> void:
+func _charge(from: Vector3, to_raw: Vector3) -> void:
+	var to: Vector3 = main.safe_point(from, to_raw)
 	play("Dash", 0.03, 2.2, true)
 	main.sfx("dash", from)
 	main.sfx("clang_heavy", to)
@@ -1423,14 +1531,14 @@ func _leap_to(spot: Vector3) -> void:
 	var start := global_position
 	var dir := spot - start
 	dir.y = 0
-	var land := spot - dir.normalized() * (body_r + 0.6)
+	var land: Vector3 = main.safe_point(start, spot - dir.normalized() * (body_r + 0.6))
 	var tw := create_tween()
 	tw.tween_method(_leap_step.bind(start, land), 0.0, 1.0, 0.4)
 	tw.tween_callback(_leap_land.bind(spot))
 
 func _leap_step(f: float, start: Vector3, land: Vector3) -> void:
 	var p := start.lerp(land, f)
-	p.y = start.y + sin(f * PI) * 2.0
+	p.y = lerpf(start.y, land.y, f) + sin(f * PI) * 2.0
 	global_position = p
 
 func _leap_land(spot: Vector3) -> void:
@@ -1521,6 +1629,9 @@ func rise_as_shadow(forced_role := "", level := 0) -> void:
 	arisen = true
 	dead = false
 	is_shadow = true
+	# une ombre d'élite garde sa taille normale (les ombres géantes bouchaient l'écran)
+	if elite and model:
+		model.scale /= 1.3
 	dormant = false
 	team = 0
 	_make_shadow()

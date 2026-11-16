@@ -262,6 +262,14 @@ func die() -> void:
 	hp = 0
 	update_hp_bar()
 	busy = 99.0
+	# tué en l'air (télékinésie, saut) : le corps retombe au sol au lieu de flotter
+	if lifted:
+		lifted = false
+		if model:
+			model.rotation.z = 0.0
+			model.position.y = 0.0
+	if ap and not ap.is_playing():
+		ap.play()
 	if ap == null or not ap.has_animation("Death"):
 		fall_over()
 	play("Death", 0.1, 1.0, true)
@@ -297,4 +305,16 @@ func apply_gravity_and_slide(delta: float) -> void:
 	velocity.x = move_toward(velocity.x, 0, 25.0 * delta)
 	velocity.z = move_toward(velocity.z, 0, 25.0 * delta)
 	if global_position.y < -20:
+		_rescue_fall()
+
+## Tombé sous la ville : retour sur le sol praticable le plus proche (pas au hasard dans un mur).
+func _rescue_fall() -> void:
+	var m = world
+	var p := Vector3(global_position.x, 2.0, global_position.z)
+	if m and m.get("nav") and m.nav.covers(p):
+		global_position = m.nav.closest(p) + Vector3(0, 0.3, 0)
+	elif m and m.has_method("ground_at"):
+		global_position = m.ground_at(Vector3(p.x, 60.0, p.z)) + Vector3(0, 0.3, 0)
+	else:
 		global_position.y = 3
+	velocity = Vector3.ZERO

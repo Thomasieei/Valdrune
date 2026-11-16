@@ -41,8 +41,18 @@ var guards: Array = []
 var guard_talk_cd := 0.0
 var guards_hostile := false
 # donjon
-var dungeon: Dungeon
 var run: RoomRun
+var nav: Nav
+var entering_run := false
+var load_lbl: Label
+var world_static: Node3D
+var ui_layer: CanvasLayer
+var bench_running := false
+var bars_hidden := false
+var bench: Bench
+var diag_on := false
+var diag_t := 0.0
+var diag_lbl: Label
 var gate_kind := "goblin"
 var tokens := {"orc": 0, "goblin": 0}
 var env_run: Environment
@@ -204,7 +214,6 @@ func _ready() -> void:
 	_make_patrols()
 	for k in 2:
 		_spawn_squad(k)
-	await _build_dungeon()
 	_build_hall()
 	_spawn_gate(true)
 	_spawn_merchant()
@@ -213,6 +222,13 @@ func _ready() -> void:
 	life.main = self
 	add_child(life)
 	life.setup()
+	nav = Nav.new()
+	add_child(nav)
+	nav.setup(self)
+	nav.bake("city", world_static, AABB(spawn_point - Vector3(150, 20, 150), Vector3(300, 70, 300)), [spawn_point])
+	bench = Bench.new()
+	bench.main = self
+	add_child(bench)
 	if shots_mode:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
 	load_game()
@@ -397,6 +413,10 @@ func _build_city() -> void:
 	city = (load("res://assets/city.glb") as PackedScene).instantiate()
 	city.scale = Vector3.ONE * CITY_SCALE
 	add_child(city)
+	# collisions du décor dans un repère sans échelle : sert aussi au calcul du maillage navigable
+	world_static = Node3D.new()
+	world_static.name = "WorldStatic"
+	add_child(world_static)
 	for mi in city.find_children("*", "MeshInstance3D", true, false):
 		var m := mi as MeshInstance3D
 		for i in m.mesh.get_surface_count():
@@ -425,7 +445,7 @@ func _build_city() -> void:
 				g.emission_enabled = true
 				g.emission_texture = g.albedo_texture
 				g.emission = Color(1, 1, 1)
-				g.emission_energy_multiplier = 1.15
+				g.emission_energy_multiplier = 0.45
 				if nm.contains("red"):
 					g.emission = Color(1, 0.2, 0.25)
 				elif nm.contains("green"):
@@ -445,7 +465,7 @@ func _build_city() -> void:
 	cs.shape = bs
 	cs.position = Vector3(0, -0.55, 0)
 	floor_body.add_child(cs)
-	add_child(floor_body)
+	world_static.add_child(floor_body)
 
 ## Collisions de la ville sans les surfaces lumineuses (halos, néons) qui créaient des murs invisibles.
 func _build_collision(m: MeshInstance3D) -> void:
@@ -467,12 +487,12 @@ func _build_collision(m: MeshInstance3D) -> void:
 			faces.append_array(v)
 	var shape := ConcavePolygonShape3D.new()
 	shape.backface_collision = true
-	shape.set_faces(faces)
+	shape.set_faces(m.global_transform * faces)
 	var body := StaticBody3D.new()
 	var cs := CollisionShape3D.new()
 	cs.shape = shape
 	body.add_child(cs)
-	m.add_child(body)
+	world_static.add_child(body)
 	print("COLLISION faces ", faces.size() / 3, " surfaces lumineuses ignorées ", skipped)
 
 func _find_spawn() -> Vector3:
@@ -912,10 +932,11 @@ func _spawn_gate(first: bool) -> void:
 		g.patrol = [pos + Vector3(-7, 0, 6), pos + Vector3(7, 0, 6), pos + Vector3(7, 0, -6), pos + Vector3(-7, 0, -6)]
 		g.patrol_i = k * 2
 		guards.append(g)
-	if gate_kind != "igris":
-		_build_run()
-	elif not first:
-		_build_dungeon()
+	# le donjon n'est construit qu'à l'entrée (plus de chargement caché pendant qu'on joue en ville)
+	if run:
+		run.cleanup()
+		run = null
+	if gate_kind == "igris" and not first:
 		_build_hall()
 	if not first:
 		system_msg("[ SYSTÈME ]\nUn nouveau Portail s'est ouvert ailleurs en ville !\n%s — rang %s." % [gate_name(), gate_rank()])
@@ -999,23 +1020,6 @@ func _close_and_open_gate() -> void:
 	gate_open_for_me = true
 
 # ================================================================ donjon
-func _build_dungeon() -> void:
-	if dungeon:
-		for r in dungeon.rooms:
-			for m in r["mobs"]:
-				if is_instance_valid(m) and not (m as Mob).is_shadow:
-					mobs.erase(m)
-					(m as Node).queue_free()
-		dungeon.queue_free()
-	dungeon = Dungeon.new()
-	add_child(dungeon)
-	dungeon.position = DUN_O
-	dungeon.build(self)
-	dungeon.visible = zone == "dungeon"
-	await get_tree().physics_frame
-	await get_tree().physics_frame
-	dungeon.layout()
-
 func _build_hall() -> void:
 	if hall == null:
 		hall = (load("res://assets/hall.glb") as PackedScene).instantiate()
@@ -1059,7 +1063,6 @@ func _hall_floor(x: float, z: float) -> Vector3:
 func _set_zone(z: String) -> void:
 	zone = z
 	city.visible = z == "city"
-	dungeon.visible = z == "dungeon"
 	hall.visible = z == "hall"
 	if shop:
 		shop.visible = z == "shop"
@@ -1076,7 +1079,6 @@ func _set_zone(z: String) -> void:
 	moon.visible = true
 
 func _teleport(p: Vector3, z: String) -> void:
-	fade.modulate.a = 0.0
 	var tw := create_tween()
 	tw.tween_property(fade, "modulate:a", 1.0, 0.25)
 	await tw.finished
@@ -1092,15 +1094,7 @@ func _teleport(p: Vector3, z: String) -> void:
 	tw2.tween_property(fade, "modulate:a", 0.0, 0.35)
 
 func enter_dungeon() -> void:
-	if gate_kind != "igris":
-		enter_run()
-		return
-	sfx("portal", null, 0.0)
-	sfx("shadow")
-	await _teleport(dungeon.entry_point, "dungeon")
-	var dn := dungeon.next_target() - dungeon.entry_point
-	yaw = atan2(-dn.x, -dn.z)
-	system_msg("[ SYSTÈME ]\nTu es entré dans le Portail.\nDonjon : la Forteresse du Commandant Écarlate.")
+	enter_run()
 
 func enter_hall() -> void:
 	hall_entry = _hall_floor(-17.0, 0.0)
@@ -1301,14 +1295,31 @@ func _hide_near_camera() -> void:
 	if cam == null:
 		return
 	var cp := cam.global_position
+	var hp := hero.global_position + Vector3(0, 1.0, 0)
+	var seg := hp - cp
+	var seg_l := seg.length()
 	for m in mobs:
 		var mm := m as Mob
-		if mm.model:
-			var d2 := mm.global_position.distance_squared_to(cp)
-			var near := d2 < 2.6 and mm.global_position.distance_squared_to(hero.global_position) > 0.5
+		if mm.model == null or mm.sleeping_lod:
+			continue
+		var mp := mm.global_position + Vector3(0, 1.0, 0)
+		var d2 := mp.distance_squared_to(cp)
+		if d2 > 400.0:
+			if not mm.model.visible:
+				mm.model.visible = true
+			continue
+		var near := d2 < 2.6
+		# un allié (ou un monstre) planté entre la caméra et le héros est masqué : on voit toujours le héros
+		if not near and seg_l > 0.5:
+			var t := clampf((mp - cp).dot(seg) / (seg_l * seg_l), 0.0, 1.0)
+			if t < 0.92 and mp.distance_to(cp + seg * t) < mm.body_r + 0.45:
+				near = true
+		if mm.model.visible == near:
 			mm.model.visible = not near
-			if mm.hp_bar:
-				mm.hp_bar.visible = d2 > 9.0
+		if mm.hp_bar:
+			var show := d2 > 9.0 and not bars_hidden and not mm.dead
+			if mm.hp_bar.visible != show:
+				mm.hp_bar.visible = show
 
 func _process(delta: float) -> void:
 	_hide_near_camera()
@@ -1364,8 +1375,6 @@ func _process(delta: float) -> void:
 			elif guard_talk_cd <= 0.0 and _nearest_guard() != null:
 				guard_talk_cd = 999.0
 				_guard_dialogue()
-	if zone == "dungeon" and dungeon:
-		dungeon.update(hero)
 	if zone == "run" and run:
 		run.update(hero)
 	if boss and is_instance_valid(boss) and boss_bar_root.visible:
@@ -1448,13 +1457,12 @@ func _update_interact() -> void:
 					label = "QUITTER LE DONJON"
 					act = _leave_run
 			elif rr["open"] and hero.global_position.distance_to(rr["exit"]) < 3.2:
-				label = "SALLE SUIVANTE"
-				act = _next_room
-		elif zone == "dungeon":
-			if hero.global_position.distance_to(dungeon.throne_door) < 4.5:
-				if dungeon.all_cleared():
+				if str(rr["role"]) == "hall":
 					label = "FRANCHIR LA PORTE DU TRÔNE"
 					act = enter_hall
+				else:
+					label = "SALLE SUIVANTE"
+					act = _next_room
 		elif zone == "hall":
 			if boss_chest and not boss_reward_taken and hero.global_position.distance_to(boss_chest.global_position) < 3.2:
 				label = "OUVRIR LE COFFRE DU COMMANDANT"
@@ -1850,7 +1858,8 @@ func drop_loot(pos: Vector3, src: String) -> void:
 	var col := Items.color(it)
 	var root := Node3D.new()
 	add_child(root)
-	root.global_position = pos + Vector3(randf_range(-0.6, 0.6), 0.1, randf_range(-0.6, 0.6))
+	var gp := ground_at(pos)
+	root.global_position = safe_point(gp, gp + Vector3(randf_range(-0.6, 0.6), 0, randf_range(-0.6, 0.6))) + Vector3(0, 0.1, 0)
 	var beam := MeshInstance3D.new()
 	var cm := CylinderMesh.new()
 	cm.top_radius = 0.05
@@ -2431,6 +2440,7 @@ func load_game() -> bool:
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
+	ui_layer = layer
 	joy_ui = Control.new()
 	joy_ui.set_anchors_preset(Control.PRESET_FULL_RECT)
 	joy_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2691,6 +2701,15 @@ func _build_ui() -> void:
 	fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	fade.modulate.a = 0.0
 	layer.add_child(fade)
+	load_lbl = Label.new()
+	load_lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	load_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	load_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	load_lbl.add_theme_font_size_override("font_size", 34)
+	load_lbl.add_theme_color_override("font_color", Color(0.75, 0.65, 1.0))
+	load_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	load_lbl.visible = false
+	layer.add_child(load_lbl)
 
 func _small_btn(t: String) -> Button:
 	var b := Button.new()
@@ -2926,7 +2945,7 @@ func _build_menu(layer: CanvasLayer) -> void:
 	quick_menu = VBoxContainer.new()
 	quick_menu.add_theme_constant_override("separation", 4)
 	qp.add_child(quick_menu)
-	for k in [["quest", "Quête du jour", ""], ["sac", "Sac", "sac"], ["grimoire", "Grimoire", "grimoire"], ["ombres", "Ombres", "ombres"], ["stats", "Statistiques", "stats"], ["unarmed", "Mains nues", ""], ["guide", "Guide", "guide"], ["gfx", "Graphismes : Haute", ""]]:
+	for k in [["quest", "Quête du jour", ""], ["sac", "Sac", "sac"], ["grimoire", "Grimoire", "grimoire"], ["ombres", "Ombres", "ombres"], ["stats", "Statistiques", "stats"], ["unarmed", "Mains nues", ""], ["guide", "Guide", "guide"], ["gfx", "Graphismes : Haute", ""], ["diag", "Diagnostic", ""], ["bench", "Test de performance", ""]]:
 		var row := Button.new()
 		row.text = "        " + str(k[1])
 		row.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -2961,6 +2980,10 @@ func _build_menu(layer: CanvasLayer) -> void:
 		elif str(k[0]) == "gfx":
 			row.pressed.connect(_toggle_gfx)
 			gfx_btn = row
+		elif str(k[0]) == "diag":
+			row.pressed.connect(_toggle_diag)
+		elif str(k[0]) == "bench":
+			row.pressed.connect(_start_bench)
 		else:
 			row.pressed.connect(_quick_open.bind(str(k[2])))
 		quick_menu.add_child(row)
@@ -3852,6 +3875,11 @@ func _update_ui() -> void:
 	potion_btn.modulate = Color(1, 1, 1, 1.0 if potions > 0 and potion_cd <= 0.0 else 0.45)
 	shadow_txt.text = "Ombres  %d / 4" % shadow_count()
 	fps_lbl.text = "%d FPS" % Engine.get_frames_per_second()
+	if diag_on:
+		diag_t -= get_process_delta_time()
+		if diag_t <= 0.0:
+			diag_t = 0.5
+			_update_diag()
 	cash_lbl.text = str(gold)
 	for g in qrows.keys():
 		var goal: Array = QUEST_GOALS[g]
@@ -3881,19 +3909,6 @@ func _update_ui() -> void:
 		ds.y = 0
 		if shop_door_pos != Vector3.INF and ds.length() > 3.0:
 			gate_txt.text += "\nBoutique  %s  %d m" % [_arrow(ds), int(ds.length())]
-	elif zone == "dungeon":
-		var d2 := dungeon.next_target() - hero.global_position
-		d2.y = 0
-		var rel2 := wrapf(atan2(-d2.x, -d2.z) - yaw, -PI, PI)
-		var ar := "↑"
-		if absf(rel2) > 2.4:
-			ar = "↓"
-		elif rel2 > 0.6:
-			ar = "←"
-		elif rel2 < -0.6:
-			ar = "→"
-		var what := "Prochaine meute" if not dungeon.all_cleared() else "Portail du trône"
-		gate_txt.text = "Marais du Portail — meutes %d / %d\n%s  %s  %d m" % [dungeon.cleared_count(), dungeon.rooms.size(), what, ar, int(d2.length())]
 	elif zone == "shop":
 		gate_txt.text = "Boutique de l'Association"
 	elif zone == "office":
@@ -4147,6 +4162,8 @@ func _run_shots() -> void:
 	await _snap("00_quete_quotidienne", 25)
 	close_dialogue()
 	await _perf("ville", 180)
+	await bench.run(false)
+	print("NAV_STATE ville pret=%s" % str(nav.ready.get("city", false)))
 	moon.shadow_enabled = false
 	await _perf("sans_ombres", 90)
 	moon.shadow_enabled = true
@@ -4451,12 +4468,22 @@ func _build_run() -> void:
 	await run.layout()
 
 func enter_run() -> void:
-	if run == null:
+	if entering_run:
 		return
-	while not run.ready_ok:
-		await get_tree().process_frame
+	entering_run = true
 	sfx("portal", null, 0.0)
 	sfx("shadow")
+	# écran noir + texte pendant la construction des salles (2-4 s sur téléphone)
+	var tw := create_tween()
+	tw.tween_property(fade, "modulate:a", 1.0, 0.3)
+	await tw.finished
+	load_lbl.text = "Ouverture du portail…\n%s" % gate_name()
+	load_lbl.visible = true
+	await get_tree().process_frame
+	if run == null or run.kind != gate_kind:
+		await _build_run()
+	load_lbl.visible = false
+	entering_run = false
 	run.show_room(0)
 	await _teleport(run.room()["entry"], "run")
 	_face(run.next_target())
@@ -4668,7 +4695,7 @@ func _changer_shadow(m: Mob) -> void:
 func _shots_runs() -> void:
 	hero.max_hp = 99999
 	hero.hp = 99999
-	for kd in ["goblin", "orc"]:
+	for kd in ["goblin", "orc", "igris"]:
 		if gate_kind != kd or run == null:
 			gate_kind = kd
 			await _build_run()
@@ -4704,7 +4731,14 @@ func _shots_runs() -> void:
 			await _next_room()
 			await _snap("30_%s_salle%d_entree" % [kd, i + 2], 40)
 		close_dialogue()
-		await _leave_run()
+		if kd == "igris":
+			print("RUN_STEP igris porte_trone=%s" % str(run.room()["open"]))
+			await enter_hall()
+			await _snap("35b_igris_salle_trone", 40)
+			_boss_flee_go()
+			await get_tree().create_timer(1.0).timeout
+		else:
+			await _leave_run()
 	# bureau du Changeur
 	tokens = {"orc": 50, "goblin": 40}
 	await enter_shop()
@@ -4724,3 +4758,72 @@ func _shots_runs() -> void:
 	_toggle_menu("sac")
 	await leave_office()
 	await leave_shop()
+
+# ================================================================ sol valide (anti « hors décor »)
+## Point sûr pour aller de « from » vers « to » : on s'arrête avant un mur, on se pose sur le sol
+## (jamais sur un toit ni dans un bâtiment) et, si le maillage navigable existe, on s'y raccroche.
+func safe_point(from: Vector3, to: Vector3) -> Vector3:
+	var space := get_world_3d().direct_space_state
+	var a := from + Vector3(0, 0.9, 0)
+	var b := Vector3(to.x, a.y, to.z)
+	var p := Vector3(to.x, from.y, to.z)
+	if a.distance_to(b) > 0.05:
+		var q := PhysicsRayQueryParameters3D.create(a, b, 1)
+		var hit := space.intersect_ray(q)
+		if not hit.is_empty():
+			var dir := (b - a).normalized()
+			p = (hit["position"] as Vector3) - dir * 0.7
+			p.y = from.y
+	var g := space.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3(0, 1.4, 0), p + Vector3(0, -4.0, 0), 1))
+	if g.is_empty() or absf((g["position"] as Vector3).y - from.y) > 1.6:
+		p = from
+	else:
+		p = g["position"]
+	if nav and nav.covers(p):
+		var c := nav.closest(p)
+		if c.distance_to(p) < 3.0:
+			p = c
+	return p
+
+## Sol sous un point (pour le butin, les cadavres) : jamais en l'air.
+func ground_at(p: Vector3) -> Vector3:
+	var space := get_world_3d().direct_space_state
+	var g := space.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3(0, 0.5, 0), p + Vector3(0, -30.0, 0), 1))
+	return (g["position"] as Vector3) if not g.is_empty() else p
+
+## Direction « devant la caméra » à plat (pour placer les ombres hors du champ caméra-héros).
+func cam_forward() -> Vector3:
+	return Vector3(-sin(yaw), 0, -cos(yaw))
+
+# ================================================================ diagnostic (mesures sur le téléphone)
+func _toggle_diag() -> void:
+	diag_on = not diag_on
+	if diag_lbl == null:
+		diag_lbl = Label.new()
+		diag_lbl.position = Vector2(250, 150)
+		diag_lbl.add_theme_font_size_override("font_size", 15)
+		diag_lbl.add_theme_color_override("font_color", Color(0.7, 1.0, 0.85))
+		diag_lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0))
+		diag_lbl.add_theme_constant_override("outline_size", 5)
+		diag_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ui_layer.add_child(diag_lbl)
+	diag_lbl.visible = diag_on
+	_toggle_quick()
+
+func _update_diag() -> void:
+	var s := Bench.frame_stats()
+	var awake := 0
+	for m in mobs:
+		if not (m as Mob).sleeping_lod and not (m as Mob).dead:
+			awake += 1
+	var fps := Engine.get_frames_per_second()
+	diag_lbl.text = "image %.1f ms (%d FPS)\nscripts %.1f ms · physique %.1f ms\nappels %d · objets %d · triangles %dk\nunités actives %d / %d · particules %d\nlumières %d · ombres portées %s · %s" % [
+		1000.0 / maxf(fps, 1), fps, float(s["proc"]), float(s["phys"]), int(s["dc"]), int(s["obj"]), int(s["prim"]) / 1000,
+		awake, mobs.size(), get_tree().get_nodes_in_group("fx_burst").size(), FX.light_budget, "oui" if moon.shadow_enabled else "non", "Rapide" if gfx_fast else "Haute"]
+
+func _start_bench() -> void:
+	_toggle_quick()
+	if zone != "city":
+		system_msg("Le test se lance en ville.")
+		return
+	bench.run(true)
