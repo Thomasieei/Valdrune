@@ -2769,8 +2769,8 @@ func _build_hint_ui(layer: CanvasLayer) -> void:
 	hint_panel.anchor_bottom = 1.0
 	hint_panel.offset_left = -330
 	hint_panel.offset_right = 230
-	hint_panel.offset_top = -330
-	hint_panel.offset_bottom = -280
+	hint_panel.offset_top = -420
+	hint_panel.offset_bottom = -370
 	hint_panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	hint_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hint_panel.visible = false
