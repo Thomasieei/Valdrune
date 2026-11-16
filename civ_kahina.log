@@ -1,0 +1,449 @@
+13:00:40 | INFO: Data are loaded, start creating Blender stuff
+13:00:40 | INFO: Blender create Mesh node 0
+13:00:40 | INFO: Blender create Mesh node 1
+13:00:40 | INFO: Blender create Mesh node 2
+13:00:40 | INFO: Blender create Mesh node 3
+13:00:40 | INFO: Blender create Mesh node 4
+13:00:40 | INFO: Blender create Mesh node 5
+13:00:40 | INFO: Blender create Mesh node 6
+13:00:40 | INFO: Blender create Mesh node CC_Base_Teeth_Std_Upper_Teeth_0
+13:00:40 | INFO: Blender create Mesh node CC_Base_Teeth_Std_Lower_Teeth_0
+13:00:40 | INFO: Blender create Mesh node 7
+13:00:40 | INFO: Blender create Mesh node 8
+13:00:40 | INFO: Blender create Mesh node 9
+13:00:40 | INFO: Blender create Mesh node 10
+13:00:40 | INFO: Blender create Mesh node CC_Base_Eye_Std_Eye_R_0
+13:00:40 | INFO: Blender create Mesh node CC_Base_Eye_Std_Cornea_R_0
+13:00:40 | INFO: Blender create Mesh node CC_Base_Eye_Std_Eye_L_0
+13:00:40 | INFO: Blender create Mesh node CC_Base_Eye_Std_Cornea_L_0
+13:00:40 | INFO: Blender create Mesh node Punk_Leather_Jacket_Punk_Leather_jacket_0
+13:00:41 | INFO: Blender create Mesh node High_heels_High_Heels_0
+13:00:41 | INFO: Blender create Mesh node Rocker_Jeans_Rocker_Jeans_0
+13:00:41 | INFO: Blender create Mesh node Spaghetti_strap_Top_Camisole_0
+13:00:41 | INFO: Blender create Mesh node 11
+13:00:41 | INFO: Blender create Mesh node 12
+13:00:41 | INFO: Blender create Mesh node Hair_Base_Hair_0
+13:00:41 | INFO: Blender create Mesh node Hair_Base_Scalp_0
+13:00:41 | INFO: Blender create Mesh node Bun_Hair_0_0
+13:00:41 | INFO: Blender create Mesh node Real_Hair_Hair_1_0
+13:00:41 | INFO: Blender create Mesh node Bang_Hair_2_0
+13:00:41 | INFO: glTF import finished in 0.28s
+13:00:42 | INFO: Starting glTF 2.0 export
+13:00:42 | INFO: Extracting primitive: 2
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:42 | INFO: Primitives created: 1
+13:00:42 | WARNING: There are more than 4 joint vertex influences.The 4 with highest weight will be used (and normalized).
+13:00:42 | INFO: Extracting primitive: 3
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:42 | INFO: Primitives created: 1
+13:00:42 | INFO: Extracting primitive: 4
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:42 | INFO: Primitives created: 1
+13:00:42 | INFO: Extracting primitive: 5
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:42 | INFO: Primitives created: 1
+13:00:42 | INFO: Extracting primitive: 6
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:42 | INFO: Primitives created: 1
+13:00:42 | INFO: Extracting primitive: CC_Base_Teeth_Std_Upper_Teeth_0
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:42 | INFO: Primitives created: 1
+13:00:42 | INFO: Extracting primitive: CC_Base_Teeth_Std_Lower_Teeth_0
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:42 | INFO: Primitives created: 1
+13:00:42 | INFO: Extracting primitive: 7
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:42 | INFO: Primitives created: 1
+13:00:42 | INFO: Extracting primitive: 8
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:42 | INFO: Primitives created: 1
+13:00:42 | INFO: Extracting primitive: 9
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:42 | INFO: Primitives created: 1
+13:00:42 | INFO: Extracting primitive: 10
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:42 | INFO: Primitives created: 1
+13:00:42 | INFO: Extracting primitive: CC_Base_Eye_Std_Eye_R_0
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:42 | INFO: Primitives created: 1
+13:00:42 | INFO: Extracting primitive: CC_Base_Eye_Std_Cornea_R_0
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:42 | INFO: Primitives created: 1
+13:00:42 | INFO: Extracting primitive: CC_Base_Eye_Std_Eye_L_0
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:42 | INFO: Primitives created: 1
+13:00:42 | INFO: Extracting primitive: CC_Base_Eye_Std_Cornea_L_0
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:42 | INFO: Primitives created: 1
+13:00:42 | INFO: Extracting primitive: Punk_Leather_Jacket_Punk_Leather_jacket_0
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:42 | INFO: Primitives created: 1
+13:00:42 | INFO: Extracting primitive: High_heels_High_Heels_0
+13:00:42 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | INFO: Primitives created: 1
+13:00:43 | INFO: Extracting primitive: Rocker_Jeans_Rocker_Jeans_0
+13:00:43 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | INFO: Primitives created: 1
+13:00:43 | INFO: Extracting primitive: Spaghetti_strap_Top_Camisole_0
+13:00:43 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | INFO: Primitives created: 1
+13:00:43 | INFO: Extracting primitive: 11
+13:00:43 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | INFO: Primitives created: 1
+13:00:43 | INFO: Extracting primitive: 12
+13:00:43 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | INFO: Primitives created: 1
+13:00:43 | INFO: Extracting primitive: Hair_Base_Hair_0
+13:00:43 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | INFO: Primitives created: 1
+13:00:43 | INFO: Extracting primitive: Hair_Base_Scalp_0
+13:00:43 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | INFO: Primitives created: 1
+13:00:43 | INFO: Extracting primitive: Bun_Hair_0_0
+13:00:43 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | INFO: Primitives created: 1
+13:00:43 | INFO: Extracting primitive: Real_Hair_Hair_1_0
+13:00:43 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | INFO: Primitives created: 1
+13:00:43 | INFO: Extracting primitive: Bang_Hair_2_0
+13:00:43 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | INFO: Primitives created: 1
+13:00:43 | INFO: Extracting primitive: 0
+13:00:43 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | INFO: Primitives created: 1
+13:00:43 | INFO: Extracting primitive: 1
+13:00:43 | WARNING: More than one shader node tex image used for a texture. The resulting glTF sampler will behave like the first shader node tex image.
+13:00:43 | INFO: Primitives created: 1
+13:00:43 | INFO: Finished glTF 2.0 export in 0.8246090412139893 s
+13:00:43 | INFO: Data are loaded, start creating Blender stuff
+13:00:43 | INFO: Blender create Mesh node 2
+13:00:43 | INFO: Blender create Mesh node 3
+13:00:43 | INFO: Blender create Mesh node 4
+13:00:43 | INFO: Blender create Mesh node 5
+13:00:43 | INFO: Blender create Mesh node 6
+13:00:43 | INFO: Blender create Mesh node CC_Base_Teeth_Std_Upper_Teeth_0
+13:00:43 | INFO: Blender create Mesh node CC_Base_Teeth_Std_Lower_Teeth_0
+13:00:43 | INFO: Blender create Mesh node 7
+13:00:43 | INFO: Blender create Mesh node 8
+13:00:43 | INFO: Blender create Mesh node 9
+13:00:43 | INFO: Blender create Mesh node 10
+13:00:43 | INFO: Blender create Mesh node CC_Base_Eye_Std_Eye_R_0
+13:00:43 | INFO: Blender create Mesh node CC_Base_Eye_Std_Cornea_R_0
+13:00:43 | INFO: Blender create Mesh node CC_Base_Eye_Std_Eye_L_0
+13:00:43 | INFO: Blender create Mesh node CC_Base_Eye_Std_Cornea_L_0
+13:00:43 | INFO: Blender create Mesh node Punk_Leather_Jacket_Punk_Leather_jacket_0
+13:00:43 | INFO: Blender create Mesh node High_heels_High_Heels_0
+13:00:43 | INFO: Blender create Mesh node Rocker_Jeans_Rocker_Jeans_0
+13:00:43 | INFO: Blender create Mesh node Spaghetti_strap_Top_Camisole_0
+13:00:43 | INFO: Blender create Mesh node 11
+13:00:43 | INFO: Blender create Mesh node 12
+13:00:43 | INFO: Blender create Mesh node Hair_Base_Hair_0
+13:00:43 | INFO: Blender create Mesh node Hair_Base_Scalp_0
+13:00:43 | INFO: Blender create Mesh node Bun_Hair_0_0
+13:00:43 | INFO: Blender create Mesh node Real_Hair_Hair_1_0
+13:00:43 | INFO: Blender create Mesh node Bang_Hair_2_0
+13:00:43 | INFO: Blender create Mesh node 0
+13:00:43 | INFO: Blender create Mesh node 1
+13:00:43 | INFO: glTF import finished in 0.17s
+Blender 4.2.3 LTS (hash 0e22e4fcea03 built 2024-10-14 23:31:34)
+Image_0
+Image_0.png
+Image_1
+Image_1.png
+Image_10
+Image_10.png
+Image_11
+Image_11.png
+Image_12
+Image_12.jpg
+Image_13
+Image_13.png
+Image_14
+Image_14.png
+Image_15
+Image_15.jpg
+Image_16
+Image_16.png
+Image_17
+Image_17.png
+Image_18
+Image_18.png
+Image_19
+Image_19.png
+Image_2
+Image_2.png
+Image_20
+Image_20.png
+Image_21
+Image_21.png
+Image_22
+Image_22.png
+Image_23
+Image_23.png
+Image_24
+Image_24.png
+Image_25
+Image_25.png
+Image_26
+Image_26.png
+Image_27
+Image_27.png
+Image_28
+Image_28.png
+Image_29
+Image_29.png
+Image_3
+Image_3.jpg
+Image_30
+Image_30.png
+Image_31
+Image_31.png
+Image_32
+Image_32.png
+Image_33
+Image_33.png
+Image_34
+Image_34.png
+Image_35
+Image_35.png
+Image_36
+Image_36.png
+Image_37
+Image_37.png
+Image_38
+Image_38.png
+Image_39
+Image_39.png
+Image_4
+Image_4.png
+Image_40
+Image_40.png
+Image_41
+Image_41.png
+Image_42
+Image_42.png
+Image_43
+Image_43.png
+Image_44
+Image_44.png
+Image_45
+Image_45.jpg
+Image_46
+Image_46.png
+Image_47
+Image_47.png
+Image_48
+Image_48.png
+Image_49
+Image_49.png
+Image_5
+Image_5.png
+Image_50
+Image_50.png
+Image_51
+Image_51.png
+Image_52
+Image_52.png
+Image_53
+Image_53.png
+Image_54
+Image_54.png
+Image_55
+Image_55.png
+Image_56
+Image_56.png
+Image_57
+Image_57.png
+Image_58
+Image_58.png
+Image_59
+Image_59.png
+Image_6
+Image_6.jpg
+Image_60
+Image_60.png
+Image_61
+Image_61.png
+Image_62
+Image_62.png
+Image_63
+Image_63.png
+Image_64
+Image_64.png
+Image_65
+Image_65.png
+Image_66
+Image_66.png
+Image_67
+Image_67.png
+Image_68
+Image_68.png
+Image_69
+Image_69.png
+Image_7
+Image_7.png
+Image_70
+Image_70.png
+Image_8
+Image_8.png
+Image_9
+Image_9.jpg
+Fra:1 Mem:39.28M (Peak 39.28M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_10
+Fra:1 Mem:39.29M (Peak 39.29M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_12
+Fra:1 Mem:41.39M (Peak 41.39M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_9
+Fra:1 Mem:41.93M (Peak 41.93M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_13
+Fra:1 Mem:42.23M (Peak 42.23M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_14
+Fra:1 Mem:42.29M (Peak 42.29M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_16
+Fra:1 Mem:42.40M (Peak 42.40M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_17
+Fra:1 Mem:42.47M (Peak 42.47M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_19
+Fra:1 Mem:42.52M (Peak 42.52M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_20
+Fra:1 Mem:42.53M (Peak 42.53M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_22
+Fra:1 Mem:42.54M (Peak 42.54M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_23
+Fra:1 Mem:42.54M (Peak 42.54M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_25
+Fra:1 Mem:42.63M (Peak 42.63M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_26
+Fra:1 Mem:42.56M (Peak 42.63M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_7
+Fra:1 Mem:42.59M (Peak 42.63M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_27
+Fra:1 Mem:42.57M (Peak 42.63M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_28
+Fra:1 Mem:42.62M (Peak 42.63M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_30
+Fra:1 Mem:42.69M (Peak 42.69M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_32
+Fra:1 Mem:42.73M (Peak 42.73M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_48
+Fra:1 Mem:43.10M (Peak 43.10M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_34
+Fra:1 Mem:43.17M (Peak 43.17M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_36
+Fra:1 Mem:43.31M (Peak 43.31M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_46
+Fra:1 Mem:43.50M (Peak 43.50M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_38
+Fra:1 Mem:43.66M (Peak 43.66M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_39
+Fra:1 Mem:43.67M (Peak 43.67M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_41
+Fra:1 Mem:44.02M (Peak 44.02M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_44
+Fra:1 Mem:44.01M (Peak 44.02M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Synchronizing object | Object_42
+Fra:1 Mem:44.42M (Peak 44.42M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Initializing
+Fra:1 Mem:42.11M (Peak 44.42M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Images | Loading 67
+Fra:1 Mem:42.11M (Peak 44.42M) | Time:00:00.01 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Images | Loading 45
+Fra:1 Mem:45.12M (Peak 45.12M) | Time:00:00.02 | Mem:0.00M, Peak:0.00M | Scene, ViewLayer | Updating Images | Loading 69
+Fra:1 Mem:46.14M (Peak 48.14M) | Time:00:00.02 | Mem:1.00M, Peak:1.00M | Scene, ViewLayer | Updating Images | Loading 70
+Fra:1 Mem:47.13M (Peak 49.14M) | Time:00:00.02 | Mem:2.00M, Peak:2.00M | Scene, ViewLayer | Updating Images | Loading 2
+Fra:1 Mem:48.13M (Peak 49.14M) | Time:00:00.02 | Mem:3.00M, Peak:3.00M | Scene, ViewLayer | Updating Images | Loading 34
+Fra:1 Mem:49.13M (Peak 50.14M) | Time:00:00.02 | Mem:4.00M, Peak:4.00M | Scene, ViewLayer | Updating Images | Loading 3
+Fra:1 Mem:54.15M (Peak 54.16M) | Time:00:00.02 | Mem:5.00M, Peak:5.00M | Scene, ViewLayer | Updating Images | Loading 23
+Fra:1 Mem:53.14M (Peak 55.15M) | Time:00:00.02 | Mem:6.00M, Peak:6.00M | Scene, ViewLayer | Updating Images | Loading 4
+Fra:1 Mem:54.14M (Peak 55.15M) | Time:00:00.03 | Mem:7.00M, Peak:7.00M | Scene, ViewLayer | Updating Images | Loading 12
+Fra:1 Mem:55.14M (Peak 56.15M) | Time:00:00.03 | Mem:8.00M, Peak:8.00M | Scene, ViewLayer | Updating Images | Loading 5
+Fra:1 Mem:54.13M (Peak 56.15M) | Time:00:00.03 | Mem:9.00M, Peak:9.00M | Scene, ViewLayer | Updating Images | Loading 6
+Fra:1 Mem:55.13M (Peak 56.15M) | Time:00:00.03 | Mem:10.00M, Peak:10.00M | Scene, ViewLayer | Updating Images | Loading 1
+Fra:1 Mem:56.13M (Peak 57.14M) | Time:00:00.03 | Mem:11.00M, Peak:11.00M | Scene, ViewLayer | Updating Images | Loading 7
+Fra:1 Mem:59.14M (Peak 60.15M) | Time:00:00.04 | Mem:12.00M, Peak:12.00M | Scene, ViewLayer | Updating Images | Loading 0
+Fra:1 Mem:58.13M (Peak 60.15M) | Time:00:00.04 | Mem:13.00M, Peak:13.00M | Scene, ViewLayer | Updating Images | Loading 8
+Fra:1 Mem:59.13M (Peak 60.15M) | Time:00:00.04 | Mem:14.00M, Peak:14.00M | Scene, ViewLayer | Updating Images | Loading 68
+Fra:1 Mem:60.13M (Peak 61.14M) | Time:00:00.04 | Mem:15.00M, Peak:15.00M | Scene, ViewLayer | Updating Images | Loading 9
+Fra:1 Mem:61.14M (Peak 62.14M) | Time:00:00.04 | Mem:16.00M, Peak:16.00M | Scene, ViewLayer | Updating Images | Loading 10
+Fra:1 Mem:62.13M (Peak 64.14M) | Time:00:00.04 | Mem:17.00M, Peak:17.00M | Scene, ViewLayer | Updating Images | Loading 66
+Fra:1 Mem:63.13M (Peak 64.14M) | Time:00:00.04 | Mem:18.00M, Peak:18.00M | Scene, ViewLayer | Updating Images | Loading 11
+Fra:1 Mem:64.13M (Peak 65.14M) | Time:00:00.05 | Mem:19.00M, Peak:19.00M | Scene, ViewLayer | Updating Images | Loading 13
+Fra:1 Mem:65.13M (Peak 66.14M) | Time:00:00.05 | Mem:20.00M, Peak:20.00M | Scene, ViewLayer | Updating Images | Loading 65
+Fra:1 Mem:66.13M (Peak 67.14M) | Time:00:00.05 | Mem:21.00M, Peak:21.00M | Scene, ViewLayer | Updating Images | Loading 14
+Fra:1 Mem:68.14M (Peak 70.15M) | Time:00:00.05 | Mem:22.00M, Peak:22.00M | Scene, ViewLayer | Updating Images | Loading 15
+Fra:1 Mem:68.13M (Peak 70.15M) | Time:00:00.05 | Mem:23.00M, Peak:23.00M | Scene, ViewLayer | Updating Images | Loading 16
+Fra:1 Mem:69.13M (Peak 70.15M) | Time:00:00.05 | Mem:24.00M, Peak:24.00M | Scene, ViewLayer | Updating Images | Loading 64
+Fra:1 Mem:70.13M (Peak 71.14M) | Time:00:00.05 | Mem:25.00M, Peak:25.00M | Scene, ViewLayer | Updating Images | Loading 17
+Fra:1 Mem:71.13M (Peak 72.14M) | Time:00:00.06 | Mem:26.00M, Peak:26.00M | Scene, ViewLayer | Updating Images | Loading 18
+Fra:1 Mem:72.13M (Peak 73.14M) | Time:00:00.06 | Mem:27.00M, Peak:27.00M | Scene, ViewLayer | Updating Images | Loading 19
+Fra:1 Mem:73.13M (Peak 74.14M) | Time:00:00.06 | Mem:28.00M, Peak:28.00M | Scene, ViewLayer | Updating Images | Loading 63
+Fra:1 Mem:76.14M (Peak 76.15M) | Time:00:00.06 | Mem:29.00M, Peak:29.00M | Scene, ViewLayer | Updating Images | Loading 20
+Fra:1 Mem:74.13M (Peak 76.15M) | Time:00:00.06 | Mem:30.00M, Peak:30.00M | Scene, ViewLayer | Updating Images | Loading 21
+Fra:1 Mem:75.14M (Peak 76.15M) | Time:00:00.06 | Mem:30.02M, Peak:30.02M | Scene, ViewLayer | Updating Images | Loading 22
+Fra:1 Mem:75.16M (Peak 76.15M) | Time:00:00.06 | Mem:30.03M, Peak:30.03M | Scene, ViewLayer | Updating Images | Loading 24
+Fra:1 Mem:78.17M (Peak 79.18M) | Time:00:00.06 | Mem:31.03M, Peak:31.03M | Scene, ViewLayer | Updating Images | Loading 62
+Fra:1 Mem:77.16M (Peak 79.18M) | Time:00:00.06 | Mem:32.03M, Peak:32.03M | Scene, ViewLayer | Updating Images | Loading 25
+Fra:1 Mem:77.18M (Peak 79.18M) | Time:00:00.07 | Mem:32.05M, Peak:32.05M | Scene, ViewLayer | Updating Images | Loading 26
+Fra:1 Mem:78.18M (Peak 79.19M) | Time:00:00.07 | Mem:33.05M, Peak:33.05M | Scene, ViewLayer | Updating Images | Loading 27
+Fra:1 Mem:78.19M (Peak 79.19M) | Time:00:00.07 | Mem:33.06M, Peak:33.06M | Scene, ViewLayer | Updating Images | Loading 28
+Fra:1 Mem:79.19M (Peak 80.20M) | Time:00:00.07 | Mem:34.06M, Peak:34.06M | Scene, ViewLayer | Updating Images | Loading 29
+Fra:1 Mem:80.19M (Peak 81.20M) | Time:00:00.07 | Mem:35.06M, Peak:35.06M | Scene, ViewLayer | Updating Images | Loading 30
+Fra:1 Mem:81.19M (Peak 82.20M) | Time:00:00.07 | Mem:36.06M, Peak:36.06M | Scene, ViewLayer | Updating Images | Loading 61
+Fra:1 Mem:82.19M (Peak 83.20M) | Time:00:00.07 | Mem:37.06M, Peak:37.06M | Scene, ViewLayer | Updating Images | Loading 31
+Fra:1 Mem:83.19M (Peak 84.20M) | Time:00:00.07 | Mem:38.06M, Peak:38.06M | Scene, ViewLayer | Updating Images | Loading 32
+Fra:1 Mem:84.19M (Peak 85.20M) | Time:00:00.07 | Mem:39.06M, Peak:39.06M | Scene, ViewLayer | Updating Images | Loading 33
+Fra:1 Mem:85.19M (Peak 86.20M) | Time:00:00.07 | Mem:40.06M, Peak:40.06M | Scene, ViewLayer | Updating Images | Loading 60
+Fra:1 Mem:86.19M (Peak 87.20M) | Time:00:00.07 | Mem:41.06M, Peak:41.06M | Scene, ViewLayer | Updating Images | Loading 35
+Fra:1 Mem:87.19M (Peak 88.20M) | Time:00:00.08 | Mem:42.06M, Peak:42.06M | Scene, ViewLayer | Updating Images | Loading 36
+Fra:1 Mem:88.19M (Peak 89.20M) | Time:00:00.08 | Mem:43.06M, Peak:43.06M | Scene, ViewLayer | Updating Images | Loading 37
+Fra:1 Mem:89.19M (Peak 90.20M) | Time:00:00.08 | Mem:44.06M, Peak:44.06M | Scene, ViewLayer | Updating Images | Loading 38
+Fra:1 Mem:90.19M (Peak 91.20M) | Time:00:00.08 | Mem:45.06M, Peak:45.06M | Scene, ViewLayer | Updating Images | Loading 59
+Fra:1 Mem:91.19M (Peak 92.20M) | Time:00:00.08 | Mem:46.06M, Peak:46.06M | Scene, ViewLayer | Updating Images | Loading 39
+Fra:1 Mem:92.19M (Peak 93.20M) | Time:00:00.08 | Mem:47.06M, Peak:47.06M | Scene, ViewLayer | Updating Images | Loading 40
+Fra:1 Mem:93.19M (Peak 95.20M) | Time:00:00.08 | Mem:48.06M, Peak:48.06M | Scene, ViewLayer | Updating Images | Loading 41
+Fra:1 Mem:94.19M (Peak 95.20M) | Time:00:00.09 | Mem:49.06M, Peak:49.06M | Scene, ViewLayer | Updating Images | Loading 42
+Fra:1 Mem:95.19M (Peak 96.20M) | Time:00:00.09 | Mem:50.06M, Peak:50.06M | Scene, ViewLayer | Updating Images | Loading 58
+Fra:1 Mem:96.19M (Peak 97.20M) | Time:00:00.09 | Mem:51.06M, Peak:51.06M | Scene, ViewLayer | Updating Images | Loading 43
+Fra:1 Mem:97.19M (Peak 98.20M) | Time:00:00.09 | Mem:52.06M, Peak:52.06M | Scene, ViewLayer | Updating Images | Loading 44
+Fra:1 Mem:98.19M (Peak 99.20M) | Time:00:00.09 | Mem:53.06M, Peak:53.06M | Scene, ViewLayer | Updating Images | Loading 57
+Fra:1 Mem:99.19M (Peak 100.20M) | Time:00:00.10 | Mem:54.06M, Peak:54.06M | Scene, ViewLayer | Updating Images | Loading 55
+Fra:1 Mem:100.19M (Peak 101.20M) | Time:00:00.10 | Mem:55.06M, Peak:55.06M | Scene, ViewLayer | Updating Images | Loading 46
+Fra:1 Mem:103.20M (Peak 104.21M) | Time:00:00.10 | Mem:56.06M, Peak:56.06M | Scene, ViewLayer | Updating Images | Loading 47
+Fra:1 Mem:102.19M (Peak 104.21M) | Time:00:00.10 | Mem:57.06M, Peak:57.06M | Scene, ViewLayer | Updating Images | Loading 48
+Fra:1 Mem:103.19M (Peak 104.21M) | Time:00:00.10 | Mem:58.06M, Peak:58.06M | Scene, ViewLayer | Updating Images | Loading 54
+Fra:1 Mem:104.19M (Peak 105.20M) | Time:00:00.11 | Mem:59.06M, Peak:59.06M | Scene, ViewLayer | Updating Images | Loading 53
+Fra:1 Mem:105.19M (Peak 106.20M) | Time:00:00.11 | Mem:60.06M, Peak:60.06M | Scene, ViewLayer | Updating Images | Loading 49
+Fra:1 Mem:106.19M (Peak 107.20M) | Time:00:00.11 | Mem:61.06M, Peak:61.06M | Scene, ViewLayer | Updating Images | Loading 50
+Fra:1 Mem:107.19M (Peak 108.20M) | Time:00:00.11 | Mem:62.06M, Peak:62.06M | Scene, ViewLayer | Updating Images | Loading 51
+Fra:1 Mem:108.19M (Peak 109.20M) | Time:00:00.11 | Mem:63.06M, Peak:63.06M | Scene, ViewLayer | Updating Images | Loading 52
+Fra:1 Mem:104.11M (Peak 110.20M) | Time:00:00.12 | Mem:67.06M, Peak:67.06M | Scene, ViewLayer | Waiting for render to start
+Fra:1 Mem:104.11M (Peak 110.20M) | Time:00:00.12 | Mem:67.06M, Peak:67.06M | Scene, ViewLayer | Loading render kernels (may take a few minutes the first time)
+Fra:1 Mem:104.11M (Peak 110.20M) | Time:00:00.12 | Mem:67.06M, Peak:67.06M | Scene, ViewLayer | Updating Scene
+Fra:1 Mem:104.11M (Peak 110.20M) | Time:00:00.12 | Mem:67.06M, Peak:67.06M | Scene, ViewLayer | Updating Shaders
+Fra:1 Mem:104.22M (Peak 110.20M) | Time:00:00.12 | Mem:67.08M, Peak:67.08M | Scene, ViewLayer | Updating Procedurals
+Fra:1 Mem:104.22M (Peak 110.20M) | Time:00:00.12 | Mem:67.08M, Peak:67.08M | Scene, ViewLayer | Updating Background
+Fra:1 Mem:104.22M (Peak 110.20M) | Time:00:00.12 | Mem:67.08M, Peak:67.08M | Scene, ViewLayer | Updating Camera
+Fra:1 Mem:104.22M (Peak 110.20M) | Time:00:00.12 | Mem:67.08M, Peak:67.08M | Scene, ViewLayer | Updating Meshes Flags
+Fra:1 Mem:104.22M (Peak 110.20M) | Time:00:00.12 | Mem:67.08M, Peak:67.08M | Scene, ViewLayer | Updating Objects
+Fra:1 Mem:104.22M (Peak 110.20M) | Time:00:00.12 | Mem:67.08M, Peak:67.08M | Scene, ViewLayer | Updating Objects | Copying Transformations to device
+Fra:1 Mem:104.22M (Peak 110.20M) | Time:00:00.12 | Mem:67.09M, Peak:67.09M | Scene, ViewLayer | Updating Objects | Applying Static Transformations
+Fra:1 Mem:104.22M (Peak 110.20M) | Time:00:00.12 | Mem:67.09M, Peak:67.09M | Scene, ViewLayer | Updating Particle Systems
+Fra:1 Mem:104.22M (Peak 110.20M) | Time:00:00.12 | Mem:67.09M, Peak:67.09M | Scene, ViewLayer | Updating Particle Systems | Copying Particles to device
+Fra:1 Mem:104.22M (Peak 110.20M) | Time:00:00.12 | Mem:67.09M, Peak:67.09M | Scene, ViewLayer | Updating Meshes
+Fra:1 Mem:104.47M (Peak 110.20M) | Time:00:00.12 | Mem:67.09M, Peak:67.09M | Scene, ViewLayer | Updating Mesh | Computing attributes
+Fra:1 Mem:105.42M (Peak 110.20M) | Time:00:00.12 | Mem:67.09M, Peak:67.09M | Scene, ViewLayer | Updating Mesh | Copying Attributes to device
+Fra:1 Mem:105.41M (Peak 110.20M) | Time:00:00.12 | Mem:68.04M, Peak:68.04M | Scene, ViewLayer | Updating Scene BVH | Building
+Fra:1 Mem:105.41M (Peak 110.20M) | Time:00:00.12 | Mem:68.04M, Peak:68.04M | Scene, ViewLayer | Updating Scene BVH | Building BVH
+Fra:1 Mem:105.41M (Peak 110.20M) | Time:00:00.12 | Mem:68.52M, Peak:68.52M | Scene, ViewLayer | Updating Scene BVH | Building BVH 0%
+Fra:1 Mem:105.41M (Peak 110.20M) | Time:00:00.12 | Mem:69.06M, Peak:69.54M | Scene, ViewLayer | Updating Scene BVH | Copying BVH to device
+Fra:1 Mem:105.41M (Peak 110.20M) | Time:00:00.12 | Mem:69.06M, Peak:69.54M | Scene, ViewLayer | Updating Mesh | Computing normals
+Fra:1 Mem:106.18M (Peak 110.20M) | Time:00:00.12 | Mem:69.06M, Peak:69.54M | Scene, ViewLayer | Updating Mesh | Copying Mesh to device
+Fra:1 Mem:106.18M (Peak 110.20M) | Time:00:00.12 | Mem:69.82M, Peak:69.82M | Scene, ViewLayer | Updating Objects Flags
+Fra:1 Mem:106.18M (Peak 110.20M) | Time:00:00.12 | Mem:69.82M, Peak:69.82M | Scene, ViewLayer | Updating Primitive Offsets
+Fra:1 Mem:106.18M (Peak 110.20M) | Time:00:00.12 | Mem:69.82M, Peak:69.82M | Scene, ViewLayer | Updating Images
+Fra:1 Mem:106.18M (Peak 110.20M) | Time:00:00.12 | Mem:69.82M, Peak:69.82M | Scene, ViewLayer | Updating Camera Volume
+Fra:1 Mem:106.18M (Peak 110.20M) | Time:00:00.12 | Mem:69.82M, Peak:69.82M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:106.18M (Peak 110.20M) | Time:00:00.12 | Mem:69.90M, Peak:69.90M | Scene, ViewLayer | Updating Lights
+Fra:1 Mem:106.18M (Peak 110.20M) | Time:00:00.12 | Mem:69.90M, Peak:69.90M | Scene, ViewLayer | Updating Lights | Computing tree
+Fra:1 Mem:106.18M (Peak 110.20M) | Time:00:00.12 | Mem:69.90M, Peak:69.90M | Scene, ViewLayer | Updating Integrator
+Fra:1 Mem:106.18M (Peak 110.20M) | Time:00:00.12 | Mem:69.90M, Peak:69.90M | Scene, ViewLayer | Updating Film
+Fra:1 Mem:106.18M (Peak 110.20M) | Time:00:00.12 | Mem:69.82M, Peak:69.90M | Scene, ViewLayer | Updating Lookup Tables
+Fra:1 Mem:106.18M (Peak 110.20M) | Time:00:00.12 | Mem:69.91M, Peak:69.91M | Scene, ViewLayer | Updating Baking
+Fra:1 Mem:106.18M (Peak 110.20M) | Time:00:00.12 | Mem:69.91M, Peak:69.91M | Scene, ViewLayer | Updating Device | Writing constant memory
+Fra:1 Mem:106.18M (Peak 110.20M) | Time:00:00.12 | Mem:69.91M, Peak:69.91M | Scene, ViewLayer | Sample 0/12
+Fra:1 Mem:110.65M (Peak 110.65M) | Time:00:00.14 | Remaining:00:00.22 | Mem:74.37M, Peak:74.37M | Scene, ViewLayer | Sample 1/12
+Fra:1 Mem:112.63M (Peak 116.58M) | Time:00:00.35 | Mem:74.37M, Peak:74.37M | Scene, ViewLayer | Sample 12/12
+Fra:1 Mem:112.63M (Peak 116.58M) | Time:00:00.35 | Mem:74.37M, Peak:74.37M | Scene, ViewLayer | Finished
+Saved: 'out/civ_kahina.png'
+Time: 00:00.43 (Saving: 00:00.07)
+
+INFO Draco mesh compression is available, use library at /home/runner/work/Valdrune/Valdrune/blender-4.2.3-linux-x64/4.2/python/lib/python3.11/site-packages/libextern_draco.so
+
+REPORT {"id": "civ_kahina", "kind": "char", "source": "civ_kahina.glb", "tris_in": 70143, "bones": 102, "tex_missing": 0, "tris_out": 15978, "scale": 1.11165, "size_m": [1.37, 0.27, 1.66], "anims": 4, "anim_names": ["Moving_Walk_Object_4", "Standing_02_Object_4", "Standing_06_Object_4", "Standing_08_Object_4"], "mb_out": 11.73, "verify_tris": 16040, "verify_anims": 4, "verify_skinned": true, "preview": true}
+
+Blender quit
