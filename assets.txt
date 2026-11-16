@@ -34,3 +34,14 @@ supercar env 20000 1024 0
 hall-of-blood-red-commander-igris env 60000 1024 0
 free-1975-porsche-911-930-turbo env 25000 1024 0
 warehouse env 60000 1024 0
+civ_coolman char 15000 1024 1.78
+civ_woman char 15000 1024 1.68
+civ_rida char 15000 1024 1.76
+civ_driver char 15000 1024 1.8
+civ_kahina char 16000 1024 1.66
+civ_manplayer char 16000 1024 1.8
+chaman_tipche char 0 1024 1.35
+police_cars env 30000 1024 0
+civil_cars env 35000 1024 0
+city_props env 0 1024 0
+coffre env 0 1024 0

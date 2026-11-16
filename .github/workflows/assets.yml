@@ -22,7 +22,7 @@ jobs:
           blender -b --version | head -1
       - name: Traitement
         env:
-          ONLY: "warehouse"
+          ONLY: "civ_coolman civ_woman civ_rida civ_driver civ_kahina civ_manplayer chaman_tipche police_cars civil_cars city_props coffre"
         run: ./run.sh srcrepo/src work out
       - name: Publier sur la branche assets-opt (fusion)
         run: |
