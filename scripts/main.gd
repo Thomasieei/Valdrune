@@ -20,17 +20,25 @@ var blade_mesh: Mesh
 var _wave_t := 0.0
 var town
 
+var loading: CanvasLayer
 func _ready() -> void:
+	loading = CanvasLayer.new(); loading.layer = 10; add_child(loading)
+	var bg := ColorRect.new(); bg.color = Color(0.06, 0.05, 0.08); bg.set_anchors_preset(Control.PRESET_FULL_RECT); loading.add_child(bg)
+	var lt := Label.new(); lt.text = "BRUNEVAL\nchargement…"; lt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER; lt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lt.set_anchors_preset(Control.PRESET_FULL_RECT); lt.add_theme_font_size_override("font_size", 42); lt.add_theme_color_override("font_color", Color(1, 0.85, 0.5)); loading.add_child(lt)
+	await get_tree().process_frame; await get_tree().process_frame
 	_extra_anims()
 	_world()
 	for f in ["swing1","swing2","hit1","hit2","hit3","jump","land","dash","slam"]:
 		sfx_lib[f] = load("res://assets/sfx/%s.ogg" % f)
 	K = preload("res://scripts/skills.gd").new(); K.w = self; add_child(K)
 	player = spawn("Knight", Vector3(0, 0, 44), 0)
-	player.died.connect(func(a): get_tree().create_timer(2.0).timeout.connect(func(): a.revive(); a.hp = a.hp_max))
+	player.died.connect(func(a): get_tree().create_timer(2.5).timeout.connect(func(): a.global_position = Vector3(0, 0, 40); a.revive(); a.hp = a.hp_max))
 	_ui()
 	K.apply_class(); refresh_labels()
-	_wave()
+	_camps()
+	await get_tree().create_timer(0.3).timeout
+	loading.queue_free()
 	if "--shots" in OS.get_cmdline_user_args(): _shots()
 
 func spawn(c: String, p: Vector3, team: int) -> Actor:
@@ -45,17 +53,6 @@ func remove_actor(a: Actor) -> void:
 	actors.erase(a); a.queue_free()
 
 func on_basic(a: Actor, c: int) -> bool: return K.on_basic(a, c)
-
-# ---------- vagues ----------
-func _wave() -> void:
-	for i in 6:
-		var ang := i * TAU / 6 + randf() * 0.4
-		var mage := i % 3 == 2
-		var e := spawn("Skeleton_Mage" if mage else "Skeleton_Rogue", Vector3(0, 0, 100) + Vector3(cos(ang), 0, sin(ang)) * randf_range(7, 12), 1)
-		e.brain = "ranged" if mage else "melee"
-		e.hp_max = 110 if mage else 160; e.hp = e.hp_max; e.dmg_mul = 0.6
-		e.busy = e.shot("Skeletons_Awaken_Floor", true); e.root_lock = e.busy
-		e.died.connect(func(x): get_tree().create_timer(2.5).timeout.connect(func(): remove_actor(x)))
 
 # ---------- animations créées sur mesure ----------
 func _extra_anims() -> void:
@@ -95,9 +92,9 @@ func _world() -> void:
 	var vr := RandomNumberGenerator.new(); vr.seed = 3
 	var vp := preload("res://scripts/villager.gd")
 	for path in town.walk_paths:
-		for k in (4 if path.size() == 2 and path[0].z != path[1].z else 3):
+		for k in 2:
 			var v := Node3D.new(); v.set_script(vp); add_child(v); v.setup(path, vr)
-	for sp in town.spots:
+	for sp in town.spots.slice(0, 10):
 		var v := Node3D.new(); v.set_script(vp); add_child(v); v.setup(PackedVector3Array([sp]), vr)
 	cam = Camera3D.new(); cam.fov = 50; cam.far = 260; add_child(cam)
 	var kn: Node = (load("res://assets/chars/Knight.glb") as PackedScene).instantiate()
@@ -106,6 +103,7 @@ func _world() -> void:
 
 var _perf_t := 0.0
 func _process(dt: float) -> void:
+	if not player or not pad: return
 	_perf_t += dt
 	if _perf_t > 5.0: _perf_t = 0; print("PERF fps=%d draw=%d obj=%d" % [Engine.get_frames_per_second(), Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)])
 	player.move_in = pad.stick
@@ -119,11 +117,10 @@ func _process(dt: float) -> void:
 		shake_t -= dt
 		cam.h_offset = randf_range(-1, 1) * shake_t * 0.6; cam.v_offset = randf_range(-1, 1) * shake_t * 0.6
 	else: cam.h_offset = 0; cam.v_offset = 0
-	var alive := 0
-	for a in actors: if a.team == 1 and a.state != "dead": alive += 1
-	if alive == 0:
-		_wave_t += dt
-		if _wave_t > 2.5: _wave_t = 0; _wave()
+	_dir_t -= dt
+	if _dir_t <= 0: _dir_t = 0.3; _director()
+	pad.hp = player.hp / player.hp_max
+	pad.boss = boss if is_instance_valid(boss) and boss.aware and boss.state != "dead" else null
 
 func _unhandled_input(ev: InputEvent) -> void:
 	if ev is InputEventMagnifyGesture: cam_dist = clamp(cam_dist / ev.factor, 5, 26)
@@ -243,9 +240,13 @@ func wings(a: Actor) -> void:
 			piv.add_child(f)
 		var tw := piv.create_tween().set_loops(); tw.tween_property(piv, "rotation:y", 0.5 * sgn, 0.35).set_trans(Tween.TRANS_SINE); tw.tween_property(piv, "rotation:y", -0.1 * sgn, 0.35).set_trans(Tween.TRANS_SINE)
 
+func unbubble(a: Actor) -> void:
+	var b := a.get_node_or_null("Bubble")
+	if b: b.queue_free()
+
 func bubble(a: Actor, t: float) -> void:
-	var mi := MeshInstance3D.new(); var s := SphereMesh.new(); s.radius = 1.2; s.height = 2.4; s.radial_segments = 20; s.rings = 10
-	mi.mesh = s; var m := _unlit(Color(1, 0.92, 0.5, 0.28)); mi.material_override = m; a.add_child(mi); mi.position.y = 1.0
+	var mi := MeshInstance3D.new(); mi.name = "Bubble"; var s := SphereMesh.new(); s.radius = 1.2; s.height = 2.4; s.radial_segments = 20; s.rings = 10
+	mi.mesh = s; var m := _unlit(Color(1, 0.92, 0.5, 0.28)); mi.material_override = m; a.add_child(mi); mi.position.y = 1.0 * a.size_k; mi.scale = Vector3.ONE * a.size_k
 	_fade(mi, m, 0.3, t)
 
 func divine_blade(c: Vector3, r: float, dmg: float, st: float) -> void:
@@ -300,6 +301,143 @@ func roots(a: Actor) -> void:
 func afterimage(a: Actor) -> void:
 	burst(a.global_position + Vector3.UP, Color(0.8, 0.1, 0.2), 12)
 
+# ---------- monstres : camps, directeur de combat, attaques annoncées ----------
+var camps: Array = []          # [centre, types, monstres, minuterie de réapparition]
+var boss: Monster
+var _dir_t := 0.0
+
+func spawn_mob(k: String, p: Vector3) -> Monster:
+	var m := Monster.new(); m.position = p; add_child(m)
+	m.setup({"brute": "Skeleton_Rogue", "archer": "Skeleton_Mage", "rodeur": "Skeleton_Rogue", "boss": "Knight"}[k], self, 1)
+	m.init_mob(k, p); actors.append(m)
+	return m
+
+func _camps() -> void:
+	camps = [[Vector3(0, 0, 80), ["brute", "archer", "rodeur"]], [Vector3(-30, 0, 98), ["archer", "rodeur", "archer"]], [Vector3(40, 0, 74), ["brute", "brute", "archer"]]]
+	for c in camps: c.append([]); c.append(0.0); _fill_camp(c)
+	_arena()
+
+func _fill_camp(c: Array) -> void:
+	c[2].clear()
+	var i := 0
+	for k in c[1]:
+		c[2].append(spawn_mob(k, c[0] + Vector3(cos(i * 2.1), 0, sin(i * 2.1)) * 2.5)); i += 1
+
+func _arena() -> void:
+	var ctr := Vector3(0, 0, 128)
+	var floor := MeshInstance3D.new(); var cy := CylinderMesh.new(); cy.top_radius = 17; cy.bottom_radius = 17.5; cy.height = 0.12; cy.radial_segments = 40
+	floor.mesh = cy; floor.material_override = town._pave(Color(0.5, 0.47, 0.5), Color(0.3, 0.28, 0.3), 0.9); add_child(floor); floor.position = ctr + Vector3.UP * 0.04
+	var sm := StandardMaterial3D.new(); sm.albedo_color = Color(0.55, 0.52, 0.55); sm.roughness = 0.9
+	for k in 4:
+		var pp := ctr + Vector3(cos(k * PI / 2 + PI / 4), 0, sin(k * PI / 2 + PI / 4)) * 9.0
+		var b := StaticBody3D.new(); b.add_to_group("pillar"); add_child(b); b.position = pp
+		var cs := CollisionShape3D.new(); var sh := CylinderShape3D.new(); sh.radius = 1.2; sh.height = 7; cs.shape = sh; cs.position.y = 3.5; b.add_child(cs)
+		var mi := MeshInstance3D.new(); var cm := CylinderMesh.new(); cm.top_radius = 1.0; cm.bottom_radius = 1.25; cm.height = 7; cm.radial_segments = 10
+		mi.mesh = cm; mi.material_override = sm; mi.position.y = 3.5; b.add_child(mi)
+	for k in 14:
+		var a := k * TAU / 14
+		town.put("Rock_1_%s_Color1" % ["A", "B", "C", "D"][k % 4], ctr + Vector3(cos(a), 0, sin(a)) * 18.5, a, 6.0)
+	boss = spawn_mob("boss", ctr)
+
+func on_mob_dead(m: Monster) -> void:
+	get_tree().create_timer(3.0).timeout.connect(func(): remove_actor(m))
+	if m == boss:
+		flash_text(m.global_position, "VICTOIRE", Color(1, 0.85, 0.3), 3.0)
+		get_tree().create_timer(90.0).timeout.connect(func(): boss = spawn_mob("boss", Vector3(0, 0, 128)))
+
+## Directeur : places en cercle autour du joueur, 2 assaillants au contact maximum (combat lisible, pas de mêlée confuse)
+func _director() -> void:
+	for c in camps:
+		var alive: Array = c[2].filter(func(x): return is_instance_valid(x) and x.state != "dead")
+		if alive.is_empty():
+			c[3] += 0.3
+			if c[3] > 40 and player.global_position.distance_to(c[0]) > 25: c[3] = 0.0; _fill_camp(c)
+	var eng: Array = []
+	for a in actors:
+		if a is Monster and a.aware and a.state != "dead" and a.kind != "boss": eng.append(a)
+	if eng.is_empty(): return
+	var pp := player.global_position
+	eng.sort_custom(func(x, y): return x.global_position.distance_to(pp) < y.global_position.distance_to(pp))
+	var tokens := 0
+	var angs: Array = []
+	for m in eng:
+		var melee: bool = m.kind != "archer"
+		m.token = melee and tokens < 2
+		if m.token: tokens += 1
+		var d: Vector3 = m.global_position - pp
+		angs.append(atan2(d.z, d.x))
+	# écarte les angles trop proches pour encercler au lieu de s'empiler
+	for it in 4:
+		for i in angs.size():
+			for j in angs.size():
+				if i == j: continue
+				var df := wrapf(angs[j] - angs[i], -PI, PI)
+				if abs(df) < 0.9: angs[i] -= sign(df) * 0.12 if df != 0 else 0.12
+	for i in eng.size():
+		var m: Monster = eng[i]
+		var r := 2.2 if m.token else (8.0 if m.kind == "archer" else 5.0)
+		m.slot = pp + Vector3(cos(angs[i]), 0, sin(angs[i])) * r
+
+func _tele_mesh(mode: int, size: Vector2, col: Color, half := 0.8) -> Array:
+	var mi := MeshInstance3D.new(); var pm := PlaneMesh.new(); pm.size = size; mi.mesh = pm
+	var m := ShaderMaterial.new(); m.shader = preload("res://scripts/tele.gdshader")
+	m.set_shader_parameter("mode", mode); m.set_shader_parameter("col", col); m.set_shader_parameter("half_ang", half)
+	mi.material_override = m; mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; add_child(mi)
+	return [mi, m]
+
+func _tele_run(o: Monster, mm: Array, T: float, resolve: Callable) -> void:
+	var tw: Tween = mm[0].create_tween()
+	tw.tween_method(func(v): mm[1].set_shader_parameter("prog", v), 0.0, 1.0, T)
+	tw.tween_callback(func():
+		mm[0].queue_free()
+		if is_instance_valid(o) and o.state != "dead" and o.stun_t <= 0 and not o.frozen: resolve.call())
+
+func _hit_team0(o: Monster, test: Callable, dmg: float, force: float, from: Vector3) -> void:
+	if dmg <= 0: return
+	for a in actors:
+		if a.team == 0 and a.state != "dead" and a.iframes <= 0 and test.call(a.global_position): a.hurt(dmg * o.dmg_mul, from, force, o)
+
+func tele_circle(o: Monster, c: Vector3, r: float, T: float, dmg: float, force: float) -> void:
+	var mm := _tele_mesh(0, Vector2(r * 2, r * 2), Color(1, 0.15, 0.1)); mm[0].global_position = c + Vector3.UP * 0.07
+	_tele_run(o, mm, T, func():
+		ring(c, r, Color(1, 0.5, 0.3)); burst(c + Vector3.UP * 0.3, Color(0.9, 0.8, 0.7), 16); shake(0.15); sfx("slam", c)
+		_hit_team0(o, func(p: Vector3): return Vector2(p.x - c.x, p.z - c.z).length() < r + 0.3, dmg, force, c))
+
+func tele_cone(o: Monster, c: Vector3, dir: Vector3, r: float, half_deg: float, T: float, dmg: float, force: float) -> void:
+	var mm := _tele_mesh(1, Vector2(r * 2, r * 2), Color(1, 0.15, 0.1), deg_to_rad(half_deg))
+	mm[0].global_position = c + Vector3.UP * 0.07; mm[0].rotation.y = atan2(dir.x, dir.z)
+	_tele_run(o, mm, T, func():
+		burst(c + dir * r * 0.6 + Vector3.UP, Color(1, 0.6, 0.4), 14); sfx("swing", c)
+		_hit_team0(o, func(p: Vector3):
+			var d := p - c; d.y = 0
+			return d.length() < r + 0.3 and rad_to_deg(dir.angle_to(d.normalized())) < half_deg + 6, dmg, force, c))
+
+func tele_line(o: Monster, c: Vector3, dir: Vector3, L: float, wd: float, T: float, dmg: float, force: float) -> void:
+	var mm := _tele_mesh(2, Vector2(wd, L), Color(1, 0.25, 0.1))
+	mm[0].global_position = c + dir * L * 0.5 + Vector3.UP * 0.07; mm[0].rotation.y = atan2(dir.x, dir.z)
+	_tele_run(o, mm, T, func():
+		_hit_team0(o, func(p: Vector3):
+			var d := p - c; d.y = 0; var along := d.dot(dir)
+			return along > 0 and along < L and (d - dir * along).length() < wd * 0.5 + 0.3, dmg, force, c))
+
+func mob_bolt(o: Monster, aimp: Vector3, spd: float, dmg: float) -> void:
+	var mi := MeshInstance3D.new(); var s := SphereMesh.new(); s.radius = 0.2; s.height = 0.4; s.radial_segments = 8; s.rings = 4
+	mi.mesh = s; mi.material_override = _unlit(Color(0.75, 0.3, 1)); add_child(mi)
+	mi.global_position = o.global_position + Vector3.UP * 1.4 + o.fwd() * 0.6
+	var dir := (aimp + Vector3.UP - mi.global_position).normalized()
+	var proc := Node.new(); mi.add_child(proc); proc.set_script(preload("res://scripts/proj.gd"))
+	proc.init(self, o, dir * spd, ["", dmg, 0, 0, 2, false, "bolt"], "bolt", Color(0.75, 0.3, 1))
+
+func flash_text(p: Vector3, t: String, c: Color, sz := 1.0) -> void:
+	var l := Label3D.new(); l.text = t; l.billboard = BaseMaterial3D.BILLBOARD_ENABLED; l.font_size = int(46 * sz); l.outline_size = 10
+	l.modulate = c; l.outline_modulate = Color(0, 0, 0, 0.9); l.no_depth_test = true; l.pixel_size = 0.006
+	add_child(l); l.global_position = p + Vector3(0, 2.8, 0)
+	var tw := l.create_tween(); tw.set_parallel(); tw.tween_property(l, "global_position:y", l.global_position.y + 0.8, 0.9)
+	tw.tween_property(l, "modulate:a", 0.0, 0.5).set_delay(0.5); tw.chain().tween_callback(l.queue_free)
+
+func boss_intro(m: Monster) -> void:
+	shake(0.4); flash_text(m.global_position + Vector3.UP * 3, m.display_name.to_upper(), Color(0.9, 0.5, 1), 2.2)
+
 # ---------- interface ----------
 func refresh_labels() -> void:
 	pad.labels = K.labels()
@@ -327,11 +465,11 @@ func _snap(n: String) -> void:
 
 func _shots() -> void:
 	DirAccess.make_dir_recursive_absolute("res://shots")
-	await get_tree().create_timer(1.0).timeout
-	var views := [[Vector3(0, 0, 20), 11.0, "mini"]]
+	while is_instance_valid(loading): await get_tree().process_frame
+	var views := [[Vector3(0, 0, 70), 13.0, "camp_a", 2.5], [Vector3(0, 0, 70), 13.0, "camp_b", 1.5], [Vector3(0, 0, 116), 18.0, "boss_a", 2.5], [Vector3(0, 0, 116), 18.0, "boss_b", 1.6]]
 	for v in views:
-		player.global_position = v[0]; cam_dist = v[1]
-		await get_tree().create_timer(0.6).timeout
+		player.global_position = v[0]; cam_dist = v[1]; player.hp = player.hp_max
+		await get_tree().create_timer(v[3]).timeout
 		_snap(v[2])
 	print("SHOTS_DONE")
 	get_tree().quit()

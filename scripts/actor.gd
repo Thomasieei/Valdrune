@@ -81,12 +81,21 @@ var ai_t := 0.0
 var target: Actor = null
 var owner_a: Actor = null
 var tag: Label3D
+var turn_rate := 14.0          # vitesse de rotation (les gros monstres tournent lentement : on peut les contourner)
+var atk_t := 0.0               # >0 juste après le début d'une attaque (lu par l'IA ennemie pour esquiver)
+var size_k := 1.0
+var col_shape: CollisionShape3D
+
+func set_size(k: float) -> void:
+	size_k = k; model.scale = Vector3.ONE * k
+	var cap: CapsuleShape3D = col_shape.shape; cap.radius = 0.38 * k; cap.height = 1.7 * k; col_shape.position.y = 0.85 * k
+	tag.position.y = 2.5 * k
 
 func setup(cname: String, world, t := 0) -> void:
 	w = world; team = t
 	var col := CollisionShape3D.new(); var cap := CapsuleShape3D.new()
 	cap.radius = 0.38; cap.height = 1.7; col.shape = cap; col.position.y = 0.85
-	add_child(col)
+	add_child(col); col_shape = col
 	floor_snap_length = 0.3
 	collision_layer = 2; collision_mask = 3
 	platform_floor_layers = 1; platform_wall_layers = 0
@@ -274,6 +283,7 @@ func do_act(a: Array) -> float:
 	busy = L * 0.72 * spd; combo_t = L + 0.35
 	if full: root_lock = busy
 	var hit_at := L * 0.42 * spd
+	atk_t = hit_at
 	var kind: String = a[6]
 	if kind != "": delay(hit_at, func(): w.projectile(self, kind, a))
 	elif a[1] > 0: delay(hit_at, func(): melee(a[1], a[2], a[3], a[4]))
@@ -385,6 +395,7 @@ func nearest_foe(r: float) -> Actor:
 	return best
 
 func face_target() -> void:
+	if turn_rate < 10: return
 	var t := aim_target if aim_target else nearest_foe(3.5)
 	if t:
 		var d := t.global_position - global_position
@@ -415,7 +426,7 @@ func _think() -> void:
 # ---------- physique ----------
 func _physics_process(dt: float) -> void:
 	if frozen: return
-	busy = max(busy - dt, 0); root_lock = max(root_lock - dt, 0); iframes = max(iframes - dt, 0)
+	busy = max(busy - dt, 0); root_lock = max(root_lock - dt, 0); iframes = max(iframes - dt, 0); atk_t = max(atk_t - dt, 0)
 	combo_t = max(combo_t - dt, 0); state_t += dt
 	shield_t = max(shield_t - dt, 0); taunt_t = max(taunt_t - dt, 0); hyp_t = max(hyp_t - dt, 0)
 	if root_t > 0: root_t -= dt
@@ -435,7 +446,7 @@ func _physics_process(dt: float) -> void:
 		if life_t <= 0: die(); get_tree().create_timer(2.0).timeout.connect(func(): w.remove_actor(self)); return
 	if brain != "":
 		ai_t -= dt
-		if ai_t <= 0: ai_t = 0.25; _think()
+		if ai_t <= 0: ai_t = 0.15; _think()
 	if _queued and busy <= 0: _queued = false; attack()
 	var on_floor := is_on_floor()
 	if not on_floor and lift_t <= 0: velocity.y -= G * dt; air_t += dt
@@ -490,7 +501,7 @@ func _physics_process(dt: float) -> void:
 	else:
 		if hs.length() > 0.5 and root_lock <= 0 and state in ["loco","air","sneak","block"]: face = atan2(hs.x, hs.y)
 		bp = Vector2(0, clamp(hs.length() / RUN, 0, 1))
-	if lift_t <= 0: rotation.y = lerp_angle(rotation.y, face, 1.0 - exp(-14 * dt))
+	if lift_t <= 0: rotation.y = lerp_angle(rotation.y, face, 1.0 - exp(-turn_rate * dt))
 	if is_cat(): cat.tick(hs.length(), dt)
 	else:
 		for p in _BP: tree.set(p, bp)

@@ -18,6 +18,7 @@ func setup(p: PackedVector3Array, rng: RandomNumberGenerator) -> void:
 		elif n is BoneAttachment3D and String(n.name).contains("Helmet"): n.visible = false
 	var tint: Color = PAL[rng.randi_range(0, PAL.size() - 1)]
 	for mi in sk.find_children("*", "MeshInstance3D", true, false):
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF; mi.visibility_range_end = 45.0
 		var src = mi.get_active_material(0)
 		if src is StandardMaterial3D: var nm: StandardMaterial3D = src.duplicate(); nm.albedo_color = tint; mi.material_override = nm
 	scale = Vector3.ONE * rng.randf_range(0.88, 1.0)

@@ -6,6 +6,8 @@ var labels := ["S1","S2","S3","S4"]
 var cd := [0.0, 0.0, 0.0, 0.0]
 var cd_max := [1.0, 1.0, 1.0, 1.0]
 var chan := 0.0
+var hp := 1.0
+var boss = null
 var blocked_rect := Rect2()
 var minimap_rect := Rect2()
 var _free := {}   # doigts libres (ni joystick ni bouton) -> position, pour pincer
@@ -71,6 +73,15 @@ func _draw() -> void:
 		var txt: String = b[3] if k < 0 or cd[k] <= 0 else "%d" % ceil(cd[k])
 		if k >= 0 and cd[k] > 0: fs = 26
 		_text(f, b[1], txt, fs, b[2] * 1.9)
+	# barre de vie du joueur
+	var hr := Rect2(16, 16, 300, 22)
+	draw_rect(hr, Color(0, 0, 0, 0.6)); draw_rect(Rect2(hr.position, Vector2(hr.size.x * clamp(hp, 0, 1), hr.size.y)), Color(0.85, 0.15, 0.15) if hp < 0.3 else Color(0.25, 0.8, 0.3))
+	draw_rect(hr, Color(1, 0.82, 0.35), false, 2)
+	if boss:
+		var br := Rect2(size.x * 0.5 - 300, 70, 600, 20)
+		draw_rect(br, Color(0, 0, 0, 0.65)); draw_rect(Rect2(br.position, Vector2(br.size.x * boss.hp / boss.hp_max, br.size.y)), Color(0.6, 0.2, 0.75))
+		draw_rect(br, Color(1, 0.82, 0.35), false, 2)
+		_text(f, Vector2(size.x * 0.5, 54), boss.display_name + ("  — BOUCLIER" if boss.shield else "") + "  (phase %d)" % boss.phase, 20, 600)
 	if chan > 0:
 		var r := Rect2(size.x * 0.5 - 180, size.y - 120, 360, 22)
 		draw_rect(r, Color(0, 0, 0, 0.6)); draw_rect(Rect2(r.position, Vector2(r.size.x * chan, r.size.y)), Color(0.85, 0.1, 0.2))

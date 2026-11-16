@@ -207,7 +207,7 @@ func _back_lanes() -> void:
 				var tz := rng.randf_range(gz1 + 3, gz0 - 3)
 				_tree(Vector3(side * rng.randf_range(19.5, 25.0), 0, tz), true)
 			for t in 4:
-				put("Bush_%d_A_Color1" % rng.randi_range(1, 4), Vector3(side * rng.randf_range(17.5, 26.0), 0, rng.randf_range(gz1, gz0)), rng.randf() * TAU, S * 1.6)
+				put("Bush_%d_A_Color1" % rng.randi_range(1, 4), Vector3(side * rng.randf_range(17.5, 26.0), 0, rng.randf_range(gz1, gz0)), rng.randf() * TAU, S * 1.0)
 
 # ================= mobilier urbain =================
 func _street_props() -> void:
@@ -216,7 +216,7 @@ func _street_props() -> void:
 			put("lantern", Vector3(side * 6.6, 0.15, z), 0, 1.7)
 			lamps.append(Vector3(side * 6.6, 3.4, z))
 		for z in [40.0, 28.0, -46.0, -58.0]:
-			if rng.randf() < 0.7: put(["Bush_1_A_Color1", "Bush_2_A_Color1", "Bush_4_B_Color1"][rng.randi_range(0, 2)], Vector3(side * 8.6, 0.15, z), rng.randf() * TAU, S * 1.4)
+			if rng.randf() < 0.7: put(["Bush_1_A_Color1", "Bush_2_A_Color1", "Bush_4_B_Color1"][rng.randi_range(0, 2)], Vector3(side * 8.6, 0.15, z), rng.randf() * TAU, S * 0.8)
 	# chemins des habitants : allers-retours sur chaque trottoir + tour de place
 	for side in [-1, 1]:
 		walk_paths.append(PackedVector3Array([Vector3(side * 7.6, 0.15, 46), Vector3(side * 7.6, 0.15, -66)]))
@@ -255,7 +255,7 @@ func _ground() -> void:
 	for side in [-1, 1]:
 		_slab(Vector3(side * 30.4, 0.025, 33.6), Vector3(3.2, 0.03, 34), dirt)            # ruelles arrière
 		_slab(Vector3(side * 30.4, 0.025, -52.8), Vector3(3.2, 0.03, 34), dirt)
-	_slab(Vector3(0, 0.02, 75), Vector3(7, 0.03, 50), dirt)                               # chemin vers la campagne
+	_slab(Vector3(0, 0.02, 81), Vector3(7, 0.03, 62), dirt)                               # chemin vers la campagne
 	var body := StaticBody3D.new(); var cs := CollisionShape3D.new(); var bs := BoxShape3D.new()
 	bs.size = Vector3(320, 1, 320); cs.shape = bs; cs.position.y = -0.5; body.add_child(cs); add_child(body)
 
@@ -269,7 +269,7 @@ func _nature() -> void:
 	# arbres de la place (4 coins) et de l'entrée
 	for p in [Vector3(-18, 0, 6), Vector3(18, 0, 6), Vector3(-18, 0, -25), Vector3(18, 0, -25)]: _tree(p, true)
 	# campagne au sud : bosquets, rochers, prés clôturés
-	for g in [Vector3(-30, 0, 72), Vector3(34, 0, 66), Vector3(-48, 0, 100), Vector3(46, 0, 104), Vector3(-12, 0, 118), Vector3(20, 0, 130)]:
+	for g in [Vector3(-30, 0, 72), Vector3(34, 0, 66), Vector3(-48, 0, 100), Vector3(46, 0, 104), Vector3(-42, 0, 128), Vector3(40, 0, 138)]:
 		for k in rng.randi_range(3, 5): _tree(g + Vector3(rng.randf_range(-6, 6), 0, rng.randf_range(-6, 6)))
 		for k in 3: put("Bush_%d_%s_Color1" % [rng.randi_range(1, 4), ["A", "B", "C"][rng.randi_range(0, 2)]], g + Vector3(rng.randf_range(-8, 8), 0, rng.randf_range(-8, 8)), rng.randf() * TAU, S * 1.8)
 	for k in 10:

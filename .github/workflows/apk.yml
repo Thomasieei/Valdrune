@@ -44,5 +44,5 @@ jobs:
           name: Studio Lab v0.1.${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           make_latest: false
-          body: Village de Bruneval — rue principale, place du marché, taverne, forge, mairie, falaises. Télécharge StudioLab.apk.
+          body: Bruneval — monstres à IA (brute, archer, rôdeur), Seigneur Ossuaire (3 phases), attaques annoncées au sol, mini-carte, zoom. Télécharge StudioLab.apk.
           files: out/StudioLab.apk
