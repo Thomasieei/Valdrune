@@ -299,7 +299,7 @@ func say(cat: String, chance := 1.0) -> void:
 	FX.speech(self, arr[randi() % arr.size()], Color(1, 0.8, 0.7), 2.4 if kind != "orc" else 3.0)
 
 func _physics_process(delta: float) -> void:
-	if target != null and not is_instance_valid(target):
+	if not is_instance_valid(target):
 		target = null
 	for i in range(pending.size() - 1, -1, -1):
 		pending[i][0] -= delta
@@ -379,7 +379,7 @@ func _think(delta: float) -> void:
 		return
 	if busy > 0.0 or hit_stun > 0.0:
 		return
-	if target != null and not is_instance_valid(target):
+	if not is_instance_valid(target):
 		target = null
 	if target and (target.dead or (not is_shadow and not boss and target.global_position.distance_to(home) > leash_r + 6.0)):
 		if target.dead and target == main.hero:
@@ -459,7 +459,7 @@ func _strafe(dir: Vector3, spd: float, delta: float) -> void:
 
 # ---------------------------------------------------------------- ombres : intelligence
 func _shadow_think(delta: float) -> void:
-	if target != null and not is_instance_valid(target):
+	if not is_instance_valid(target):
 		target = null
 	var h: Hero = main.hero
 	if recover_t > 0.0:

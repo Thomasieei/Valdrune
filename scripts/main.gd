@@ -418,12 +418,12 @@ func _make_patrols() -> void:
 			m.patrol_off = Vector3(cos(i * 2.1), 0, sin(i * 2.1)) * 1.5
 	print("PATROLS 2")
 
-func _spawn_squad(k: int) -> void:
+func _spawn_squad(k: int, at = null) -> Dictionary:
 	var route := _route(k + 1)
 	if route.is_empty():
-		return
+		return {}
 	var sq := {"members": [], "cd": 0.0, "last": "", "dead_t": 0.0, "k": k}
-	var start: Vector3 = (route[0] as Vector3).lerp(route[1] as Vector3, 0.5)
+	var start: Vector3 = (route[0] as Vector3).lerp(route[1] as Vector3, 0.5) if at == null else at
 	for i in 3:
 		var m := spawn_free_mob("hunter", start + Vector3(i * 1.3, 0, 0))
 		m.squad = sq
@@ -432,6 +432,7 @@ func _spawn_squad(k: int) -> void:
 		sq["members"].append(m)
 	squads.append(sq)
 	print("SQUAD ", k)
+	return sq
 
 func _update_squads(delta: float) -> void:
 	squad_t -= delta
@@ -1072,6 +1073,7 @@ func _process(delta: float) -> void:
 	speech_cd -= delta
 	_update_loot(delta)
 	_update_squads(delta)
+	msg_panel.visible = not (menu_panel and menu_panel.visible)
 	var mv := hero.global_position - last_pos
 	mv.y = 0
 	if mv.length() < 5.0 and hero.is_on_floor():
@@ -2306,10 +2308,10 @@ func _test_gear_roles() -> void:
 	hero.set_armed(true)
 	yaw = y0 + PI * 0.8
 	await _snap("03_arme_supreme", 25)
-	for k in 3:
-		drop_loot(hero.global_position + hero.forward() * 4.0, "boss")
 	yaw = y0 + PI
 	pitch = -0.35
+	for k in 3:
+		drop_loot(hero.global_position + Vector3(-sin(yaw), 0, -cos(yaw)) * 5.0, "boss")
 	await _snap("03b_butin", 15)
 	_toggle_menu("sac")
 	inv_sel = int(inv[inv.size() - 4]["uid"])
@@ -2357,16 +2359,19 @@ func _test_gear_roles() -> void:
 		mobs.erase(m)
 		(m as Mob).queue_free()
 	# chasseurs
-	if squads.size() > 0:
-		var sq: Dictionary = squads[0]
-		var lead := sq["members"][0] as Mob
-		var hp0 := lead.global_position
+	var hp0 := arena
+	var sq := _spawn_squad(9, hp0)
+	if not sq.is_empty():
+		for m in sq["members"]:
+			(m as Mob).patrol = []
 		for i in 2:
-			var g := spawn_free_mob("goblin", hp0 + Vector3(i * 1.5, 0, -5.0))
-			g.max_hp = 160
-			g.hp = 160
-		_place_hero(hp0 + Vector3(0, 0, 7), hp0)
-		spring.spring_length = 7.0
+			var g := spawn_free_mob("goblin", hp0 + Vector3(i * 1.5 - 0.7, 0, -4.5))
+			g.max_hp = 110
+			g.hp = 110
+		_place_hero(hp0 + Vector3(2, 0, 6), hp0)
+		hero.set_armed(false)
+		spring.spring_length = 5.5
+		pitch = -0.25
 		await _snap("05_chasseurs_combat", 60)
 		await _snap("05b_chasseurs_combat", 90)
 		await _snap("05c_chasseurs_victoire", 120)
