@@ -7,6 +7,9 @@ var cd := [0.0, 0.0, 0.0, 0.0]
 var cd_max := [1.0, 1.0, 1.0, 1.0]
 var chan := 0.0
 var blocked_rect := Rect2()
+var minimap_rect := Rect2()
+var _free := {}   # doigts libres (ni joystick ni bouton) -> position, pour pincer
+var _pinch_d := 0.0
 var _jt := -1
 var _jc := Vector2.ZERO
 var _held := {}
@@ -20,17 +23,26 @@ func _ready() -> void: mouse_filter = MOUSE_FILTER_IGNORE
 func _input(ev: InputEvent) -> void:
 	if ev is InputEventScreenTouch:
 		if ev.pressed:
-			if ev.position.y < 72 or blocked_rect.has_point(ev.position): return
+			if blocked_rect.has_point(ev.position): return
 			for b in _btns():
 				if ev.position.distance_to(b[1]) < b[2] + 12:
 					_held[ev.index] = b[0]; _press(b[0]); return
 			if ev.position.x < size.x * 0.5 and _jt < 0:
 				_jt = ev.index; _jc = ev.position
+			else:
+				_free[ev.index] = ev.position; _pinch_d = 0.0
 		else:
 			if ev.index == _jt: _jt = -1; stick = Vector2.ZERO
-			_held.erase(ev.index)
-	elif ev is InputEventScreenDrag and ev.index == _jt:
-		stick = ((ev.position - _jc) / R).limit_length(1.0)
+			_held.erase(ev.index); _free.erase(ev.index); _pinch_d = 0.0
+	elif ev is InputEventScreenDrag:
+		if ev.index == _jt: stick = ((ev.position - _jc) / R).limit_length(1.0)
+		elif _free.has(ev.index):
+			_free[ev.index] = ev.position
+			if _free.size() >= 2:
+				var v: Array = _free.values()
+				var d: float = v[0].distance_to(v[1])
+				if _pinch_d > 0: main.cam_dist = clamp(main.cam_dist * _pinch_d / max(d, 1.0), 5.0, 26.0)
+				_pinch_d = d
 func _press(b: String) -> void:
 	var p: Actor = main.player
 	match b:

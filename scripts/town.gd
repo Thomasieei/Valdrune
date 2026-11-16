@@ -73,6 +73,7 @@ func wall(n: String, cell_center: Vector3, normal: Vector3, y: float) -> void:
 
 # ================= maisons =================
 ## Maison : origine = coin façade gauche, `fw` = direction le long de la façade, `out` = normale de façade (vers la rue).
+var map_houses: Array = []     # [centre, taille, angle]
 func house(o: Vector3, fw: Vector3, out: Vector3, w: int, d: int, floors: int, kind := "home", ends := [true, true]) -> void:
 	var back := -out
 	var stone := rng.randf() < 0.5
@@ -109,6 +110,7 @@ func house(o: Vector3, fw: Vector3, out: Vector3, w: int, d: int, floors: int, k
 			gable_x.append([Transform3D(b.scaled(Vector3(1, rh, d * S)), ex + Vector3.UP * top), plaster])
 	if rng.randf() < 0.6 or kind != "home":
 		put("chimney", ctr + fw * (rng.randf_range(-0.3, 0.3) * w * S) + back * d * S * 0.15 + Vector3.UP * (top + rh * 0.5), ang, S * 0.9)
+	map_houses.append([Vector2(ctr.x, ctr.z), Vector2(w * S, d * S), ang])
 	# collision : un bloc par maison
 	box(ctr + Vector3.UP * top * 0.5, Vector3(w * S, top + rh, d * S), ang)
 
@@ -223,7 +225,10 @@ func _street_props() -> void:
 	walk_paths.append(PackedVector3Array([Vector3(-36, 0.15, -33.6), Vector3(36, 0.15, -33.6)]))
 
 # ================= sol =================
+var map_rects: Array = []      # [centre, taille, couleur] pour la mini-carte
 func _slab(c: Vector3, size: Vector3, mat: Material) -> void:
+	var col := Color(0.55, 0.43, 0.3) if mat is StandardMaterial3D else Color(0.72, 0.68, 0.6)
+	map_rects.append([Vector2(c.x, c.z), Vector2(size.x, size.z), col])
 	var mi := MeshInstance3D.new(); var bm := BoxMesh.new(); bm.size = size; mi.mesh = bm; mi.material_override = mat
 	mi.position = c; add_child(mi)
 

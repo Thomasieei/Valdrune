@@ -18,6 +18,7 @@ var panel: ItemList
 var overlay: ColorRect
 var blade_mesh: Mesh
 var _wave_t := 0.0
+var town
 
 func _ready() -> void:
 	_extra_anims()
@@ -90,7 +91,7 @@ func _world() -> void:
 	sun.shadow_enabled = true; sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	sun.directional_shadow_max_distance = 40.0
 	add_child(sun)
-	var town := preload("res://scripts/town.gd").new(); add_child(town); town.build()
+	town = preload("res://scripts/town.gd").new(); add_child(town); town.build()
 	var vr := RandomNumberGenerator.new(); vr.seed = 3
 	var vp := preload("res://scripts/villager.gd")
 	for path in town.walk_paths:
@@ -105,7 +106,6 @@ func _world() -> void:
 
 func _process(dt: float) -> void:
 	player.move_in = pad.stick
-	lbl.text = "%d FPS · %s niv.%d · PV %d/%d" % [Engine.get_frames_per_second(), K.CLS[K.cls]["name"], K.lvl, player.hp, player.hp_max]
 	pad.cd = K.cd; pad.cd_max = K.cd_max; pad.chan = K.channel / K.channel_max if K.channel > 0 else 0.0
 	pad.queue_redraw()
 	var t := player.global_position + Vector3(0, 1.0, 0)
@@ -123,7 +123,7 @@ func _process(dt: float) -> void:
 		if _wave_t > 2.5: _wave_t = 0; _wave()
 
 func _unhandled_input(ev: InputEvent) -> void:
-	if ev is InputEventMagnifyGesture: cam_dist = clamp(cam_dist / ev.factor, 5, 18)
+	if ev is InputEventMagnifyGesture: cam_dist = clamp(cam_dist / ev.factor, 5, 26)
 	if ev is InputEventMouseButton and ev.pressed:
 		if ev.button_index == MOUSE_BUTTON_WHEEL_UP: cam_dist = max(cam_dist - 0.6, 5)
 		if ev.button_index == MOUSE_BUTTON_WHEEL_DOWN: cam_dist = min(cam_dist + 0.6, 18)
@@ -300,8 +300,6 @@ func afterimage(a: Actor) -> void:
 # ---------- interface ----------
 func refresh_labels() -> void:
 	pad.labels = K.labels()
-	btn_cls.text = "◀ " + K.CLS[K.cls]["name"] + " ▶"
-	btn_lvl.text = "Niveau %d" % K.lvl
 
 func _ui() -> void:
 	ui = CanvasLayer.new(); add_child(ui)
@@ -317,26 +315,8 @@ func _ui() -> void:
 	var root := Control.new(); root.set_anchors_preset(Control.PRESET_FULL_RECT); root.theme = th
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE; ui.add_child(root)
 	pad = Pad.new(); pad.set_anchors_preset(Control.PRESET_FULL_RECT); pad.main = self; root.add_child(pad)
-	var mk := func(t: String, pos: Vector2, wd: float) -> Button:
-		var b := Button.new(); b.text = t; b.position = pos; b.size = Vector2(wd, 54); b.focus_mode = Control.FOCUS_NONE; root.add_child(b); return b
-	btn_cls = mk.call("", Vector2(12, 12), 250)
-	btn_lvl = mk.call("", Vector2(270, 12), 140)
-	var b_fast: Button = mk.call("Recharge : normale", Vector2(418, 12), 240)
-	var b_anim: Button = mk.call("Animations", Vector2(666, 12), 170)
-	lbl = Label.new(); lbl.position = Vector2(14, 74); lbl.add_theme_font_size_override("font_size", 18)
-	lbl.add_theme_color_override("font_outline_color", Color.BLACK); lbl.add_theme_constant_override("outline_size", 6); root.add_child(lbl)
-	panel = ItemList.new(); panel.visible = false; panel.focus_mode = Control.FOCUS_NONE
-	panel.anchor_left = 1; panel.anchor_right = 1; panel.anchor_bottom = 1
-	panel.offset_left = -400; panel.offset_right = -10; panel.offset_top = 80; panel.offset_bottom = -10
-	root.add_child(panel)
-	var names: Array = Array(Actor.LIB.get_animation_list()); names.sort()
-	for n in names: panel.add_item(n)
-	panel.item_selected.connect(func(i): player.play_any(panel.get_item_text(i)))
-	btn_cls.pressed.connect(func():
-		var ks: Array = K.CLS.keys(); K.cls = ks[(ks.find(K.cls) + 1) % ks.size()]; K.apply_class(); refresh_labels())
-	btn_lvl.pressed.connect(func(): K.lvl = K.lvl % 5 + 1; K.apply_class(); refresh_labels())
-	b_fast.pressed.connect(func(): K.fast = not K.fast; b_fast.text = "Recharge : " + ("rapide" if K.fast else "normale"))
-	b_anim.pressed.connect(func(): panel.visible = not panel.visible; pad.blocked_rect = panel.get_global_rect() if panel.visible else Rect2())
+	var mini := preload("res://scripts/minimap.gd").new(); mini.main = self; root.add_child(mini)
+	pad.minimap_rect = Rect2(Vector2(1280 - 250, 12), Vector2(238, 238))
 
 # ---------- captures automatiques ----------
 func _snap(n: String) -> void:
@@ -345,7 +325,7 @@ func _snap(n: String) -> void:
 func _shots() -> void:
 	DirAccess.make_dir_recursive_absolute("res://shots")
 	await get_tree().create_timer(1.0).timeout
-	var views := [[Vector3(0, 0, 44), 11.0, "rue_sud"], [Vector3(-10, 0, -8), 13.0, "place"], [Vector3(0, 0, -60), 16.0, "mairie"], [Vector3(0, 0, -10), 60.0, "vue_haut"]]
+	var views := [[Vector3(0, 0, 20), 11.0, "mini"]]
 	for v in views:
 		player.global_position = v[0]; cam_dist = v[1]
 		await get_tree().create_timer(0.6).timeout
