@@ -556,7 +556,7 @@ func arise() -> bool:
 	if corpses.is_empty():
 		main.system_msg("Aucun cadavre dans ton domaine d'ombre.")
 		return false
-	var room := max_shadows() - main.shadow_count()
+	var room: int = max_shadows() - int(main.shadow_count())
 	var raised := 0
 	cd["arise"] = CD_MAX["arise"]
 	mp -= MP_COST["arise"]

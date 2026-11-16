@@ -1553,6 +1553,14 @@ func _kill_near(p: Vector3, r: float) -> void:
 		if not mm.dead and mm.team == 1 and mm.global_position.distance_to(p) < r:
 			mm.take_damage(99999, hero)
 
+func _put_hero_near(camp_i: int, dist: float) -> void:
+	var c: Dictionary = camps[mini(camp_i, camps.size() - 1)]
+	var p: Vector3 = c["pos"]
+	var dir := spawn_point - p
+	dir.y = 0
+	dir = dir.normalized() if dir.length() > 0.1 else Vector3(0, 0, 1)
+	_place_hero(p + dir * dist, p)
+
 func _run_shots() -> void:
 	hero.max_hp = 99999
 	hero.hp = 99999
