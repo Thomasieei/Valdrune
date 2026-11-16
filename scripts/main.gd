@@ -89,6 +89,18 @@ var menu_tab := ""
 var menu_refresh := 0.0
 var unarmed_btn: Button
 var base_fov := 64.0
+# inventaire
+var inv: Array = []
+var last_idle_line := ""
+var squads: Array = []
+var squad_t := 0.0
+var equip := {"w": -1, "r": [], "tete": -1, "cape": -1, "plastron": -1, "bottes": -1}
+var next_uid := 1
+var loots: Array = []
+var inv_filter := "w"
+var inv_sel := -1
+const INV_MAX := 40
+const DROP_W := {"normal": [70, 25, 5, 0, 0, 0, 0], "elite": [8, 32, 35, 18, 6, 1, 0], "boss": [0, 0, 8, 28, 36, 22, 6]}
 var speech_cd := 0.0
 # audio, carte, économie, quête, sauvegarde
 var audio: GameAudio
@@ -129,6 +141,9 @@ func _ready() -> void:
 	hero.global_position = spawn_point + Vector3(0, 0.2, 0)
 	_make_camps(spawn_point)
 	_make_elite_camps()
+	_make_patrols()
+	for k in 2:
+		_spawn_squad(k)
 	await _build_dungeon()
 	_build_hall()
 	_spawn_gate(true)
@@ -136,6 +151,12 @@ func _ready() -> void:
 	if shots_mode:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVE_PATH))
 	load_game()
+	if inv.is_empty():
+		var it := {"uid": next_uid, "t": "w", "id": "w1"}
+		next_uid += 1
+		inv.append(it)
+		equip["w"] = int(it["uid"])
+	recalc_gear()
 	last_pos = hero.global_position
 	audio.music("city")
 	system_msg("[ SYSTÈME ]\nUn Portail de rang C est apparu en ville.\nL'Association des Chasseurs le garde.")
@@ -374,6 +395,61 @@ func _fill_camp(camp: Dictionary) -> void:
 		var a := i * TAU / kinds.size()
 		spawn_mob(kinds[i], (camp["pos"] as Vector3) + Vector3(sin(a), 0, cos(a)) * 2.2, camp)
 
+# ---------------------------------------------------------------- patrouilles de monstres et groupes de chasseurs
+func _route(k: int) -> Array:
+	var pts: Array = []
+	var n := camps.size()
+	if n < 3:
+		return pts
+	for j in 4:
+		var c: Vector3 = camps[(k * 3 + j * 2) % n]["pos"]
+		pts.append(c + Vector3(6, 0, 4).rotated(Vector3.UP, j * 1.7))
+	return pts
+
+func _make_patrols() -> void:
+	for k in 2:
+		var route := _route(k + 5)
+		if route.is_empty():
+			return
+		var kinds := ["goblin", "goblin", "orc"] if k == 0 else ["goblin", "shaman", "goblin"]
+		for i in kinds.size():
+			var m := spawn_free_mob(kinds[i], (route[0] as Vector3) + Vector3(i * 1.4, 0, 0))
+			m.patrol = route
+			m.patrol_off = Vector3(cos(i * 2.1), 0, sin(i * 2.1)) * 1.5
+	print("PATROLS 2")
+
+func _spawn_squad(k: int) -> void:
+	var route := _route(k + 1)
+	if route.is_empty():
+		return
+	var sq := {"members": [], "cd": 0.0, "last": "", "dead_t": 0.0, "k": k}
+	var start: Vector3 = (route[0] as Vector3).lerp(route[1] as Vector3, 0.5)
+	for i in 3:
+		var m := spawn_free_mob("hunter", start + Vector3(i * 1.3, 0, 0))
+		m.squad = sq
+		m.patrol = route
+		m.patrol_off = Vector3(cos(i * 2.1), 0, sin(i * 2.1)) * 1.6
+		sq["members"].append(m)
+	squads.append(sq)
+	print("SQUAD ", k)
+
+func _update_squads(delta: float) -> void:
+	squad_t -= delta
+	if squad_t > 0.0:
+		return
+	squad_t = 2.0
+	for i in range(squads.size() - 1, -1, -1):
+		var sq: Dictionary = squads[i]
+		var alive := 0
+		for m in sq["members"]:
+			if is_instance_valid(m) and not (m as Mob).dead:
+				alive += 1
+		if alive == 0:
+			sq["dead_t"] = float(sq["dead_t"]) + 2.0
+			if float(sq["dead_t"]) > 120.0:
+				squads.remove_at(i)
+				_spawn_squad(int(sq["k"]))
+
 # ---------------------------------------------------------------- camps d'élite sur les plateformes
 func _make_elite_camps() -> void:
 	var space := get_world_3d().direct_space_state
@@ -478,6 +554,7 @@ func _camp_cleared(c: Dictionary) -> bool:
 	return true
 
 func _open_elite_chest(c: Dictionary) -> void:
+	drop_loot((c["chest"] as Node3D).global_position + Vector3(1.2, 0, 0), "elite")
 	var g := randi_range(180, 320)
 	gold += g
 	essence += 2
@@ -502,6 +579,12 @@ func _on_mob_died(u: Unit) -> void:
 		tw.tween_property(m, "scale", Vector3(1, 0.01, 1), 0.6)
 		tw.tween_callback(_remove_mob.bind(m))
 		return
+	if m.kind == "hunter":
+		var tw := m.create_tween()
+		tw.tween_interval(20.0)
+		tw.tween_property(m, "scale", Vector3(1, 0.01, 1), 0.8)
+		tw.tween_callback(_remove_mob.bind(m))
+		return
 	if m.kind == "guard":
 		rep = maxi(rep - 6, -50)
 		_check_guards()
@@ -509,7 +592,7 @@ func _on_mob_died(u: Unit) -> void:
 	if m.boss:
 		_on_boss_dead(m)
 		return
-	gold += m.reward_gold
+	gold += int(m.reward_gold * (1.0 + hero.g("gold") / 100.0))
 	quest_add("kills", 1)
 	sfx("coins", m.global_position, -8.0)
 	rep += 3 if m.elite else 1
@@ -517,6 +600,9 @@ func _on_mob_died(u: Unit) -> void:
 	hero.gain_xp(xpv * (3.0 if m.elite else 1.0))
 	if randf() < (0.5 if m.elite else 0.12):
 		essence += 1
+	var luck := hero.g("luck")
+	if randf() * 100.0 < (35.0 if m.elite else 7.0) + luck * 0.3:
+		drop_loot(m.global_position, "elite" if m.elite else "normal")
 	FX.damage_number(self, m.global_position + Vector3(0, -0.8, 0), "+%d or" % m.reward_gold, Color(1, 0.85, 0.3))
 
 func _remove_mob(m: Mob) -> void:
@@ -834,6 +920,8 @@ func _on_boss_dead(b: Mob) -> void:
 
 func _open_boss_chest() -> void:
 	boss_reward_taken = true
+	drop_loot(boss_chest.global_position + Vector3(-1.5, 0, 0), "boss")
+	drop_loot(boss_chest.global_position + Vector3(1.5, 0, 1.0), "boss")
 	gold += 1500
 	essence += 10
 	hero.equip_blade()
@@ -982,6 +1070,8 @@ func _process(delta: float) -> void:
 		boss_bar_fill.size.x = 600.0 * clampf(boss.hp / boss.max_hp, 0, 1)
 	potion_cd -= delta
 	speech_cd -= delta
+	_update_loot(delta)
+	_update_squads(delta)
 	var mv := hero.global_position - last_pos
 	mv.y = 0
 	if mv.length() < 5.0 and hero.is_on_floor():
@@ -1002,7 +1092,7 @@ func _process(delta: float) -> void:
 		focus_target = null
 	if menu_panel.visible:
 		menu_refresh -= delta
-		if menu_refresh <= 0.0:
+		if menu_refresh <= 0.0 and menu_tab != "sac":
 			menu_refresh = 1.0
 			_refresh_menu()
 	_update_interact()
@@ -1147,6 +1237,172 @@ func _skill_button(layer: CanvasLayer, key: String, txt: String, off: Vector2, s
 	b.add_child(cdl)
 	buttons[key] = {"btn": b, "shade": shade, "label": cdl}
 
+
+# ================================================================ inventaire
+func item_by_uid(uid: int) -> Dictionary:
+	for it in inv:
+		if int(it["uid"]) == uid:
+			return it
+	return {}
+
+func is_equipped(uid: int) -> bool:
+	return equip["w"] == uid or (equip["r"] as Array).has(uid) or equip["tete"] == uid or equip["cape"] == uid or equip["plastron"] == uid or equip["bottes"] == uid
+
+func relic_slots() -> int:
+	return 4 if hero.level >= 20 else 3
+
+func add_item(it: Dictionary) -> void:
+	if inv.size() >= INV_MAX:
+		# sac plein : on démantèle automatiquement l'objet le plus faible non équipé
+		var worst := -1
+		for i in inv.size():
+			if not is_equipped(int(inv[i]["uid"])) and (worst < 0 or Items.rarity(inv[i]) < Items.rarity(inv[worst])):
+				worst = i
+		if worst >= 0:
+			essence += Items.dismantle_value(inv[worst])
+			inv.remove_at(worst)
+	inv.append(it)
+
+func grant_item(t: String, id: String, auto_equip := false) -> void:
+	var it := {"uid": next_uid, "t": t, "id": id}
+	next_uid += 1
+	add_item(it)
+	if auto_equip:
+		equip_item(int(it["uid"]))
+	_loot_popup(it)
+
+func drop_loot(pos: Vector3, src: String) -> void:
+	var rk := Items.roll_rank(DROP_W[src], hero.g("luck"))
+	var it := Items.roll_item(rk, next_uid)
+	next_uid += 1
+	var col := Items.color(it)
+	var root := Node3D.new()
+	add_child(root)
+	root.global_position = pos + Vector3(randf_range(-0.6, 0.6), 0.1, randf_range(-0.6, 0.6))
+	var beam := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.02
+	cm.bottom_radius = 0.16
+	cm.height = 3.0 + rk * 0.8
+	beam.mesh = cm
+	beam.material_override = FX.mat(col, 2.5, 0.45)
+	beam.position.y = cm.height * 0.5
+	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(beam)
+	var gem := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.28, 0.28, 0.28)
+	gem.mesh = bm
+	gem.material_override = FX.mat(col, 3.0)
+	gem.position.y = 0.7
+	gem.rotation_degrees = Vector3(45, 0, 45)
+	root.add_child(gem)
+	var tw := gem.create_tween().set_loops()
+	tw.tween_property(gem, "rotation_degrees:y", 360.0, 2.0).from(0.0)
+	var lt := OmniLight3D.new()
+	lt.light_color = col
+	lt.light_energy = 1.5
+	lt.omni_range = 3.5
+	lt.position.y = 0.8
+	root.add_child(lt)
+	var lb := Label3D.new()
+	lb.text = "[%s] %s" % [Items.RAR[rk]["k"], Items.base_of(it)["n"]]
+	lb.font_size = 30
+	lb.pixel_size = 0.0008
+	lb.fixed_size = true
+	lb.outline_size = 8
+	lb.modulate = col
+	lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lb.position.y = 1.3
+	lb.visibility_range_end = 25.0
+	root.add_child(lb)
+	loots.append({"node": root, "item": it, "t": 90.0})
+	if rk >= 3:
+		sfx("levelup", pos, -6.0)
+	print("LOOT [%s] %s" % [Items.RAR[rk]["k"], Items.base_of(it)["n"]])
+
+func _update_loot(delta: float) -> void:
+	for i in range(loots.size() - 1, -1, -1):
+		var l: Dictionary = loots[i]
+		var n: Node3D = l["node"]
+		l["t"] = float(l["t"]) - delta
+		if float(l["t"]) <= 0.0:
+			n.queue_free()
+			loots.remove_at(i)
+			continue
+		if not hero.dead and n.global_position.distance_to(hero.global_position) < 2.0:
+			add_item(l["item"])
+			_loot_popup(l["item"])
+			FX.burst(self, n.global_position + Vector3(0, 0.7, 0), Items.color(l["item"]), 20, 0.07, 2.5, 0.5, 0.0)
+			sfx("coins", n.global_position, -6.0)
+			n.queue_free()
+			loots.remove_at(i)
+
+func _loot_popup(it: Dictionary) -> void:
+	var rk := Items.rarity(it)
+	FX.damage_number(self, hero.global_position + Vector3(0, 0.5, 0), "[%s] %s" % [Items.RAR[rk]["k"], Items.base_of(it)["n"]], Items.color(it), rk >= 3)
+
+func equip_item(uid: int) -> void:
+	var it := item_by_uid(uid)
+	if it.is_empty():
+		return
+	match str(it["t"]):
+		"w":
+			equip["w"] = uid
+		"r":
+			var r: Array = equip["r"]
+			if r.has(uid):
+				return
+			if r.size() >= relic_slots():
+				r.remove_at(0)
+			r.append(uid)
+		"a":
+			equip[str(Items.base_of(it)["slot"])] = uid
+	sfx("draw" if it["t"] == "w" else "cloth")
+	recalc_gear()
+
+func unequip_item(uid: int) -> void:
+	if equip["w"] == uid:
+		equip["w"] = -1
+	(equip["r"] as Array).erase(uid)
+	for s in ["tete", "cape", "plastron", "bottes"]:
+		if equip[s] == uid:
+			equip[s] = -1
+	recalc_gear()
+
+func remove_item(uid: int, sell: bool) -> void:
+	var it := item_by_uid(uid)
+	if it.is_empty():
+		return
+	unequip_item(uid)
+	if sell:
+		gold += Items.sell_price(it)
+		sfx("coins")
+	else:
+		essence += Items.dismantle_value(it)
+		sfx("shadow", null, -6.0)
+	inv.erase(it)
+
+func recalc_gear() -> void:
+	var tot := {}
+	var ids: Array = [equip["w"], equip["tete"], equip["cape"], equip["plastron"], equip["bottes"]]
+	ids.append_array(equip["r"])
+	var w: Dictionary = {}
+	for uid in ids:
+		if int(uid) < 0:
+			continue
+		var it := item_by_uid(int(uid))
+		if it.is_empty():
+			continue
+		var st := Items.stats(it)
+		for k in st.keys():
+			tot[k] = float(tot.get(k, 0.0)) + float(st[k])
+		if it["t"] == "w":
+			w = Items.base_of(it)
+	if w.is_empty():
+		w = Items.WEAPONS[0]
+	hero.gear = tot
+	hero.apply_gear(w)
 
 # ================================================================ audio
 func sfx(n: String, pos = null, vol := 0.0) -> void:
@@ -1322,10 +1578,10 @@ func save_game() -> void:
 	var sh: Array = []
 	for m in shadow_list():
 		var mm := m as Mob
-		sh.append({"kind": mm.kind, "elite": mm.elite, "boss": mm.boss})
+		sh.append({"kind": mm.kind, "elite": mm.elite, "boss": mm.boss, "role": mm.role})
 	var d := {"v": 1, "level": hero.level, "xp": hero.xp, "points": hero.points, "stats": hero.stats, "gold": gold, "essence": essence, "rep": rep,
 		"blade": hero.blade_mult, "unarmed": hero.unarmed_mode, "potions": potions, "shadow_lvl": shadow_lvl, "rank": hunter_rank, "quest": quest, "shadows": sh,
-		"max_hp": hero.max_hp, "max_mp": hero.max_mp, "powers": hero.powers}
+		"base_hp": hero.base_hp, "base_mp": hero.base_mp, "powers": hero.powers, "inv": inv, "equip": equip, "next_uid": next_uid}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f:
 		f.store_string(JSON.stringify(d))
@@ -1347,10 +1603,21 @@ func load_game() -> bool:
 	var st: Dictionary = d.get("stats", {})
 	for k in hero.stats.keys():
 		hero.stats[k] = int(st.get(k, 0))
-	hero.max_hp = float(d.get("max_hp", hero.max_hp))
-	hero.hp = hero.max_hp
-	hero.max_mp = float(d.get("max_mp", hero.max_mp))
-	hero.mp = hero.max_mp
+	hero.base_hp = float(d.get("base_hp", 420.0 + 40.0 * (hero.level - 1)))
+	hero.base_mp = float(d.get("base_mp", 100.0 + 10.0 * (hero.level - 1)))
+	inv = d.get("inv", [])
+	for it in inv:
+		it["uid"] = int(it["uid"])
+	var eq: Dictionary = d.get("equip", {})
+	for k in equip.keys():
+		if eq.has(k):
+			if k == "r":
+				equip["r"] = []
+				for u in eq["r"]:
+					equip["r"].append(int(u))
+			else:
+				equip[k] = int(eq[k])
+	next_uid = int(d.get("next_uid", 1))
 	gold = int(d.get("gold", 0))
 	essence = int(d.get("essence", 0))
 	rep = int(d.get("rep", 0))
@@ -1362,11 +1629,10 @@ func load_game() -> bool:
 		if pw.has(k):
 			hero.powers[k] = int(pw[k])
 	quest = d.get("quest", {})
-	if float(d.get("blade", 1.0)) > 1.0:
-		var b := float(d.get("blade", 1.0))
-		if b >= 1.45:
-			hero.equip_blade()
-		hero.blade_mult = b
+	hero.blade_mult = minf(float(d.get("blade", 1.0)), 2.2)
+	recalc_gear()
+	hero.hp = hero.max_hp
+	hero.mp = hero.max_mp
 	if bool(d.get("unarmed", false)):
 		hero.toggle_unarmed()
 	(hero.domain_ring.mesh as PlaneMesh).size = Vector2(hero.domain_r() * 2.0, hero.domain_r() * 2.0)
@@ -1375,7 +1641,7 @@ func load_game() -> bool:
 		if bool(sdat.get("elite", false)):
 			m.make_elite()
 		m.dead = true
-		m.rise_as_shadow()
+		m.rise_as_shadow(str(sdat.get("role", "")))
 	print("LOAD niveau=%d or=%d ombres=%d" % [hero.level, gold, shadow_count()])
 	return true
 
@@ -1587,7 +1853,7 @@ func _build_menu(layer: CanvasLayer) -> void:
 	qb.pressed.connect(_show_quest)
 	bx.add_child(qb)
 	buttons["menu_quest"] = {"btn": qb, "shade": null, "label": null}
-	for k in [["GRIMOIRE", "grimoire"], ["OMBRES", "ombres"], ["STATS", "stats"]]:
+	for k in [["SAC", "sac"], ["GRIMOIRE", "grimoire"], ["OMBRES", "ombres"], ["STATS", "stats"]]:
 		var b := _small_btn(str(k[0]))
 		b.pressed.connect(_toggle_menu.bind(str(k[1])))
 		bx.add_child(b)
@@ -1663,6 +1929,8 @@ func _refresh_menu() -> void:
 			(o[2] as HBoxContainer).add_child(b)
 		menu_body.add_child(row1)
 		menu_body.add_child(row2)
+	elif menu_tab == "sac":
+		_refresh_bag()
 	elif menu_tab == "grimoire":
 		menu_body.add_child(_lbl("GRIMOIRE DES POUVOIRS", 24, Color(0.8, 0.65, 1)))
 		menu_body.add_child(_lbl("Essences : %d — améliore un pouvoir jusqu'au niveau 5." % essence, 16, Color(0.7, 0.75, 0.9)))
@@ -1701,6 +1969,109 @@ func _refresh_menu() -> void:
 			b.pressed.connect(_add_stat.bind(str(r[0])))
 			hb.add_child(b)
 			menu_body.add_child(hb)
+
+func _refresh_bag() -> void:
+	var wn := "aucune"
+	if equip["w"] >= 0 and not item_by_uid(equip["w"]).is_empty():
+		wn = Items.base_of(item_by_uid(equip["w"]))["n"]
+	menu_body.add_child(_lbl("SAC  %d / %d      Arme : %s" % [inv.size(), INV_MAX, wn], 20, Color(1, 0.85, 0.5)))
+	menu_body.add_child(_lbl("Reliques %d / %d — dégâts %d, vitesse d'attaque x%.2f, critique %d %%" % [(equip["r"] as Array).size(), relic_slots(), int(hero.power()), hero.atk_speed(), int(hero.crit_chance())], 15, Color(0.75, 0.8, 0.95)))
+	var fr := HBoxContainer.new()
+	for f in [["ARMES", "w"], ["RELIQUES", "r"], ["ÉQUIPEMENT", "a"]]:
+		var b := _small_btn(("» " if inv_filter == f[1] else "") + str(f[0]))
+		b.pressed.connect(_set_filter.bind(str(f[1])))
+		fr.add_child(b)
+	menu_body.add_child(fr)
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	var shown := 0
+	var sorted := inv.duplicate()
+	sorted.sort_custom(func(a, b): return Items.rarity(a) > Items.rarity(b))
+	for it in sorted:
+		if it["t"] != inv_filter:
+			continue
+		shown += 1
+		var b := Button.new()
+		var nm := str(Items.base_of(it)["n"])
+		if nm.length() > 17:
+			nm = nm.substr(0, 16) + "."
+		b.text = "[%s] %s%s" % [Items.RAR[Items.rarity(it)]["k"], nm, " [É]" if is_equipped(int(it["uid"])) else ""]
+		b.add_theme_font_size_override("font_size", 14)
+		var col := Items.color(it)
+		b.add_theme_color_override("font_color", col.lightened(0.3))
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(col.r * 0.18, col.g * 0.18, col.b * 0.22, 0.9) if int(it["uid"]) != inv_sel else Color(col.r * 0.4, col.g * 0.4, col.b * 0.45, 0.95)
+		sb.border_color = col
+		sb.set_border_width_all(2 if not is_equipped(int(it["uid"])) else 3)
+		sb.set_corner_radius_all(6)
+		sb.content_margin_left = 6
+		sb.content_margin_right = 6
+		sb.content_margin_top = 6
+		sb.content_margin_bottom = 6
+		b.add_theme_stylebox_override("normal", sb)
+		b.add_theme_stylebox_override("hover", sb)
+		b.add_theme_stylebox_override("pressed", sb)
+		b.custom_minimum_size = Vector2(176, 42)
+		b.focus_mode = Control.FOCUS_NONE
+		b.pressed.connect(_select_item.bind(int(it["uid"])))
+		grid.add_child(b)
+	menu_body.add_child(grid)
+	if shown == 0:
+		menu_body.add_child(_lbl("Rien ici. Les monstres, les coffres d'élite et les boss lâchent du butin (rayon de couleur au sol).", 15))
+	var sel := item_by_uid(inv_sel)
+	if not sel.is_empty() and sel["t"] == inv_filter:
+		var rk := Items.rarity(sel)
+		menu_body.add_child(_lbl("%s  —  %s (%s)" % [Items.base_of(sel)["n"], Items.RAR[rk]["n"], Items.RAR[rk]["k"]], 20, Items.color(sel).lightened(0.2)))
+		var extra := ""
+		if sel["t"] == "w":
+			var cur: Dictionary = hero.weapon
+			extra = "\nComparé à ton arme : dégâts x%.2f → x%.2f, vitesse x%.2f → x%.2f" % [float(cur.get("mult", 1.0)), float(Items.base_of(sel)["mult"]), float(cur.get("spd", 1.0)), float(Items.base_of(sel)["spd"])]
+		menu_body.add_child(_lbl(Items.describe(sel) + extra, 15, Color(0.85, 0.88, 1)))
+		var ar := HBoxContainer.new()
+		var eqd := is_equipped(inv_sel)
+		var be := _small_btn("RETIRER" if eqd else "ÉQUIPER")
+		be.pressed.connect(_toggle_equip.bind(inv_sel))
+		ar.add_child(be)
+		var bs := _small_btn("VENDRE +%d or" % Items.sell_price(sel))
+		bs.pressed.connect(_remove_sel.bind(true))
+		ar.add_child(bs)
+		var bd := _small_btn("DÉMANTELER +%d ess." % Items.dismantle_value(sel))
+		bd.pressed.connect(_remove_sel.bind(false))
+		ar.add_child(bd)
+		menu_body.add_child(ar)
+
+func _set_filter(f: String) -> void:
+	inv_filter = f
+	inv_sel = -1
+	sfx("click", null, -8.0)
+	_refresh_menu()
+
+func _select_item(uid: int) -> void:
+	inv_sel = uid
+	sfx("select", null, -8.0)
+	_refresh_menu()
+
+func _toggle_equip(uid: int) -> void:
+	if is_equipped(uid):
+		unequip_item(uid)
+	else:
+		equip_item(uid)
+	save_game()
+	_refresh_menu()
+
+func _remove_sel(sell: bool) -> void:
+	if inv_sel < 0:
+		return
+	if equip["w"] == inv_sel:
+		sfx("error")
+		system_msg("Impossible : c'est ton arme équipée.")
+		return
+	remove_item(inv_sel, sell)
+	inv_sel = -1
+	save_game()
+	_refresh_menu()
 
 func _upgrade_power(k: String) -> void:
 	if hero.upgrade_power(k):
@@ -1915,6 +2286,96 @@ func _put_hero_near(camp_i: int, dist: float) -> void:
 	dir = dir.normalized() if dir.length() > 0.1 else Vector3(0, 0, 1)
 	_place_hero(p + dir * dist, p)
 
+## Tests inventaire, rôles d'ombres et chasseurs (CI).
+func _test_gear_roles() -> void:
+	var y0 := yaw
+	for id in ["w3", "w2", "w8"]:
+		grant_item("w", id)
+	grant_item("r", "r4")
+	grant_item("r", "r8")
+	grant_item("a", "a5")
+	var s0 := hero.atk_speed()
+	equip_item(int(inv[inv.size() - 6]["uid"]))
+	var s_axe := hero.atk_speed()
+	equip_item(int(inv[inv.size() - 5]["uid"]))
+	var s_dag := hero.atk_speed()
+	equip_item(int(inv[inv.size() - 4]["uid"]))
+	for k in 3:
+		equip_item(int(inv[inv.size() - 3 + k]["uid"]))
+	print("GEAR_TEST katana=%.2f hache=%.2f dague=%.2f supreme=%.2f power=%d crit=%d hp=%d inv=%d" % [s0, s_axe, s_dag, hero.atk_speed(), int(hero.power()), int(hero.crit_chance()), int(hero.max_hp), inv.size()])
+	hero.set_armed(true)
+	yaw = y0 + PI * 0.8
+	await _snap("03_arme_supreme", 25)
+	for k in 3:
+		drop_loot(hero.global_position + hero.forward() * 4.0, "boss")
+	yaw = y0 + PI
+	pitch = -0.35
+	await _snap("03b_butin", 15)
+	_toggle_menu("sac")
+	inv_sel = int(inv[inv.size() - 4]["uid"])
+	_refresh_menu()
+	await _snap("03c_sac", 10)
+	_set_filter("r")
+	await _snap("03d_sac_reliques", 8)
+	menu_panel.visible = false
+	# rôles d'ombres contre une meute
+	var arena := spawn_point + Vector3(0, 0, -14)
+	var foes: Array = []
+	for i in 5:
+		var g := spawn_free_mob("goblin" if i != 2 else "orc", arena + Vector3(i * 1.5 - 3.0, 0, -4.0))
+		g.max_hp = 2000
+		g.hp = 2000
+		foes.append(g)
+	var roles := [["orc", "tank"], ["shaman", "heal"], ["shaman", "fire"], ["goblin", "melee"]]
+	var made: Array = []
+	for r in roles:
+		var m := spawn_free_mob(str(r[0]), arena + Vector3(randf_range(-2, 2), 0, 3.0))
+		m.dead = true
+		m.rise_as_shadow(str(r[1]))
+		m.busy = 0.0
+		m.skill_cd = 0.5
+		m.skill2_cd = 1.5
+		made.append(m)
+	_place_hero(arena + Vector3(0, 0, 6), arena)
+	hero.hp = hero.max_hp * 0.5
+	pitch = -0.45
+	spring.spring_length = 9.0
+	await _snap("04_roles_a", 70)
+	await _snap("04_roles_b", 45)
+	await _snap("04_roles_c", 45)
+	var line := "ROLES"
+	for m in made:
+		line += " %s:%s pv=%d" % [(m as Mob).kind, (m as Mob).role, int((m as Mob).hp)]
+	var hp_foes := 0
+	for f in foes:
+		hp_foes += int((f as Mob).hp)
+	print(line, " foes_hp=", hp_foes, " hero_hp=", int(hero.hp))
+	for f in foes:
+		if is_instance_valid(f) and not (f as Mob).dead:
+			(f as Mob).take_damage(99999, hero)
+	for m in made:
+		mobs.erase(m)
+		(m as Mob).queue_free()
+	# chasseurs
+	if squads.size() > 0:
+		var sq: Dictionary = squads[0]
+		var lead := sq["members"][0] as Mob
+		var hp0 := lead.global_position
+		for i in 2:
+			var g := spawn_free_mob("goblin", hp0 + Vector3(i * 1.5, 0, -5.0))
+			g.max_hp = 160
+			g.hp = 160
+		_place_hero(hp0 + Vector3(0, 0, 7), hp0)
+		spring.spring_length = 7.0
+		await _snap("05_chasseurs_combat", 60)
+		await _snap("05b_chasseurs_combat", 90)
+		await _snap("05c_chasseurs_victoire", 120)
+		await _snap("05d_chasseurs_check", 40)
+	spring.spring_length = 4.7
+	pitch = -0.3
+	hero.max_hp = 99999
+	hero.hp = 99999
+
 func _run_shots() -> void:
 	await _snap("00_quete_quotidienne", 25)
 	close_dialogue()
@@ -1950,6 +2411,9 @@ func _run_shots() -> void:
 	await _snap("02_heros_arme", 20)
 	yaw = y0 + PI * 0.5
 	await _snap("02b_heros_profil", 10)
+	await _test_gear_roles()
+	_place_hero(spawn_point, spawn_point + Vector3(0, 0, -10))
+	yaw = y0 + PI * 0.5
 	hero.set_armed(false)
 	pitch = -0.3
 	spring.spring_length = 4.7

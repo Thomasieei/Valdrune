@@ -49,27 +49,76 @@ var points := 0
 var stats := {"force": 0, "agilite": 0, "vitesse": 0, "domaine": 0}
 var blade_mult := 1.0
 var domain_ring: MeshInstance3D
+# équipement (calculé par main.recalc_gear)
+var gear := {}
+var weapon := {}
+var base_hp := 420.0
+var base_mp := 100.0
+
+func g(k: String) -> float:
+	return float(gear.get(k, 0.0))
 
 func xp_next() -> float:
 	return 80.0 + 45.0 * level * level
 
 func domain_r() -> float:
-	return 12.0 + 3.0 * stats["domaine"]
+	return 12.0 + 3.0 * stats["domaine"] + g("dom")
 
 func max_shadows() -> int:
 	return 4 + int(stats["domaine"] / 2)
 
 func run_speed() -> float:
-	return 7.4 * (1.0 + 0.05 * stats["agilite"])
+	return 7.4 * (1.0 + 0.05 * stats["agilite"] + g("speed") / 100.0)
 
 func sprint_speed() -> float:
-	return 11.5 * (1.0 + 0.05 * stats["agilite"])
+	return 11.5 * (1.0 + 0.05 * stats["agilite"] + g("speed") / 100.0)
 
+## Vitesse d'attaque : propre au type d'arme (dague rapide, hache lente), bornée pour garder des coups lisibles.
 func atk_speed() -> float:
-	return 1.5 * (1.0 + 0.07 * stats["vitesse"])
+	var ws: float = float(weapon.get("spd", 1.0)) if not unarmed_mode else 1.35
+	return clampf(ws * (1.0 + 0.05 * stats["vitesse"] + g("aspd") / 100.0), 0.55, 1.9)
+
+func crit_chance() -> float:
+	return 5.0 + g("crit")
 
 func power() -> float:
-	return 26.0 * (1.0 + 0.1 * stats["force"]) * blade_mult * (0.6 if unarmed_mode else 1.0)
+	var wm: float = float(weapon.get("mult", 1.0)) if not unarmed_mode else 0.6
+	return 26.0 * (1.0 + 0.1 * stats["force"]) * blade_mult * wm * (1.0 + (g("wdmg") + g("all")) / 100.0)
+
+## Applique l'équipement : PV/PM, modèle d'arme en main.
+func apply_gear(w: Dictionary) -> void:
+	var ratio := hp / maxf(max_hp, 1.0)
+	max_hp = base_hp * (1.0 + g("hp") / 100.0)
+	hp = clampf(max_hp * ratio, 1.0, max_hp)
+	max_mp = base_mp * (1.0 + g("mana") / 100.0)
+	mp = minf(mp, max_mp)
+	weapon = w
+	set_weapon_model(str(w.get("model", "katana")), str(w.get("glow", "")))
+	if domain_ring:
+		(domain_ring.mesh as PlaneMesh).size = Vector2(domain_r() * 2.0, domain_r() * 2.0)
+
+func set_weapon_model(m: String, glow: String) -> void:
+	if sword == null:
+		return
+	var holder := sword.get_parent()
+	sword.queue_free()
+	sword = (load("res://assets/%s.glb" % m) as PackedScene).instantiate()
+	holder.add_child(sword)
+	if glow != "":
+		var c := Color(glow)
+		var gm := StandardMaterial3D.new()
+		gm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		gm.albedo_color = Color(c.r, c.g, c.b, 0.35)
+		gm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		for mi in sword.find_children("*", "MeshInstance3D", true, false):
+			(mi as MeshInstance3D).material_overlay = gm
+		var lt := OmniLight3D.new()
+		lt.light_color = c
+		lt.light_energy = 1.2
+		lt.omni_range = 2.5
+		lt.position = Vector3(0, 0, -0.3)
+		sword.add_child(lt)
 
 func setup_hero() -> void:
 	display_name = "Chasseur"
@@ -179,12 +228,13 @@ func gain_xp(v: float) -> void:
 		xp -= xp_next()
 		level += 1
 		points += 3
+		base_hp += 40
+		base_mp += 10
 		if level >= 4 and powers["swap"] == 0:
 			powers["swap"] = 1
 			later(2.5, main.system_msg.bind("[ SYSTÈME ]\nNouveau pouvoir débloqué : ÉCHANGE D'OMBRE.\nConsulte ton Grimoire."))
-		max_hp += 40
+		apply_gear(weapon)
 		hp = max_hp
-		max_mp += 10
 		mp = max_mp
 		FX.arise_pillar(main, global_position)
 		main.sfx("levelup")
@@ -502,11 +552,7 @@ func roll() -> void:
 	FX.trail(main, global_position, global_position + dir * 4.0, Color(0.6, 0.8, 1.0))
 
 func equip_blade() -> void:
-	var holder := sword.get_parent()
-	sword.queue_free()
-	sword = (load("res://assets/sl_sword.glb") as PackedScene).instantiate()
-	holder.add_child(sword)
-	blade_mult = 1.45
+	main.grant_item("w", "w7", true)
 
 # ============================================================ attaque (combo rapide, ruée vers la cible)
 func attack() -> void:
@@ -541,11 +587,9 @@ func attack() -> void:
 	combo_t = 0.9
 	var a := ("Punch%d" if unarmed_mode else "Slash%d") % combo
 	var l := anim_len(a)
-	var spd := atk_speed() * (1.0 if combo < 3 else 1.35)
-	if unarmed_mode:
-		spd *= 1.4
+	var spd := 1.3 * atk_speed() * (1.0 if combo < 3 else 1.25)
 	busy = l / spd * (0.7 if combo < 3 else 0.55)
-	cd["attack"] = CD_MAX["attack"] / (1.0 + 0.07 * stats["vitesse"])
+	cd["attack"] = 0.36 / atk_speed()
 	play(a, 0.04, spd, true)
 	main.sfx(("swing%d" % combo) if not unarmed_mode else "cloth", global_position, -3.0)
 	regen_t = 5.0
@@ -569,8 +613,11 @@ func _slash_hit(c: int) -> void:
 		var to := e.global_position - global_position
 		to.y = 0
 		var ang := forward().angle_to(to.normalized())
-		if gap_to(e) <= arm + 0.6 and ang < deg_to_rad(80 if c < 3 else 120):
-			e.take_damage(power() * mult * randf_range(0.9, 1.1), self, crit)
+		var arc: float = float(weapon.get("arc", 80)) if not unarmed_mode else 70.0
+		var reach := arm + (0.9 if str(weapon.get("type", "")) == "hache" else 0.6)
+		if gap_to(e) <= reach and ang < deg_to_rad(arc if c < 3 else arc + 40.0):
+			var is_crit := crit or randf() * 100.0 < crit_chance()
+			e.take_damage(power() * mult * randf_range(0.9, 1.1) * (1.8 if is_crit and not crit else 1.0), self, is_crit)
 			if c == 3:
 				e.velocity += to.normalized() * 7.0 + Vector3(0, 3.0, 0)
 			hits += 1
@@ -777,7 +824,7 @@ func arise() -> bool:
 	var corpses: Array = []
 	for u in main.all_mobs():
 		var m := u as Mob
-		if m.dead and not m.arisen and m.corpse_time < 45.0 and m.kind != "guard" and m.global_position.distance_to(global_position) < domain_r():
+		if m.dead and not m.arisen and m.corpse_time < 45.0 and m.kind != "guard" and m.kind != "hunter" and m.global_position.distance_to(global_position) < domain_r():
 			corpses.append(m)
 	if corpses.is_empty():
 		main.system_msg("Aucun cadavre dans ton domaine d'ombre.")

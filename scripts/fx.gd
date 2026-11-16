@@ -354,3 +354,156 @@ static func portal(parent: Node, pos: Vector3, col: Color, r := 2.4) -> Node3D:
 	var tw := ring.create_tween().set_loops()
 	tw.tween_property(ring, "rotation_degrees:y", 360.0, 6.0).from(0.0)
 	return gate
+
+
+## Boule de feu : charge dans la main, projectile traçant, explosion avec fumée et brûlure au sol.
+static func fireball(parent: Node, from: Vector3, to: Vector3, on_hit: Callable, charge := 0.35) -> void:
+	var root := Node3D.new()
+	parent.add_child(root)
+	root.global_position = from
+	var core := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.2
+	sm.height = 0.4
+	core.mesh = sm
+	core.material_override = mat(Color(1.0, 0.55, 0.15), 6.0)
+	root.add_child(core)
+	var halo := MeshInstance3D.new()
+	var hm := SphereMesh.new()
+	hm.radius = 0.38
+	hm.height = 0.76
+	halo.mesh = hm
+	halo.material_override = mat(Color(1.0, 0.25, 0.05), 3.0, 0.35)
+	root.add_child(halo)
+	var lt := OmniLight3D.new()
+	lt.light_color = Color(1, 0.5, 0.15)
+	lt.light_energy = 3.0
+	lt.omni_range = 5.0
+	root.add_child(lt)
+	var tr := CPUParticles3D.new()
+	tr.amount = 40
+	tr.lifetime = 0.45
+	tr.local_coords = false
+	tr.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	tr.emission_sphere_radius = 0.15
+	tr.gravity = Vector3(0, 1.5, 0)
+	tr.initial_velocity_min = 0.2
+	tr.initial_velocity_max = 0.8
+	tr.scale_amount_min = 0.06
+	tr.scale_amount_max = 0.14
+	var pm := SphereMesh.new()
+	pm.radius = 0.5
+	pm.height = 1.0
+	pm.radial_segments = 6
+	pm.rings = 3
+	pm.material = mat(Color(1.0, 0.45, 0.1), 4.0, 0.8)
+	tr.mesh = pm
+	var grad := Gradient.new()
+	grad.colors = PackedColorArray([Color(1, 0.9, 0.4), Color(1, 0.3, 0.05), Color(0.2, 0.05, 0.02, 0)])
+	tr.color_ramp = grad
+	root.add_child(tr)
+	root.scale = Vector3.ONE * 0.15
+	var tw := root.create_tween()
+	tw.tween_property(root, "scale", Vector3.ONE, charge).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	var dur := clampf(from.distance_to(to) / 18.0, 0.15, 0.9)
+	tw.tween_property(root, "global_position", to, dur).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func(): FX._fire_explode(parent, root, on_hit))
+
+static func _fire_explode(parent: Node, root: Node3D, on_hit: Callable) -> void:
+	var p := root.global_position
+	root.queue_free()
+	burst(parent, p, Color(1.0, 0.6, 0.15), 40, 0.16, 6.0, 0.5, 2.0)
+	burst(parent, p, Color(1.0, 0.25, 0.05), 25, 0.22, 3.5, 0.6, -1.0)
+	burst(parent, p + Vector3(0, 0.4, 0), Color(0.12, 0.1, 0.1), 18, 0.35, 1.6, 1.1, -1.5)
+	var scorch := ground_disc(1.6, Color(0.05, 0.02, 0.0), 0.75, false)
+	parent.add_child(scorch)
+	scorch.global_position = Vector3(p.x, p.y - 0.95, p.z)
+	var tw := scorch.create_tween()
+	tw.tween_interval(2.0)
+	tw.tween_property(scorch, "scale", Vector3(0.01, 1, 0.01), 1.0)
+	tw.tween_callback(scorch.queue_free)
+	var fl := OmniLight3D.new()
+	fl.light_color = Color(1, 0.55, 0.2)
+	fl.light_energy = 6.0
+	fl.omni_range = 8.0
+	parent.add_child(fl)
+	fl.global_position = p
+	var t2 := fl.create_tween()
+	t2.tween_property(fl, "light_energy", 0.0, 0.35)
+	t2.tween_callback(fl.queue_free)
+	if on_hit.is_valid():
+		on_hit.call(p)
+
+## Pluie de feu : plusieurs zones orange, puis des météores tombent du ciel.
+static func fire_rain(parent: Node, spots: Array, on_hit: Callable) -> void:
+	for i in spots.size():
+		var sp: Vector3 = spots[i]
+		telegraph(parent, sp, 2.2, 1.0 + i * 0.12, Color(1.0, 0.45, 0.05))
+		var t := parent.get_tree().create_timer(0.55 + i * 0.12)
+		var a := sp + Vector3(randf_range(-3, 3), 16, randf_range(-3, 3))
+		var b := sp + Vector3(0, 0.9, 0)
+		t.timeout.connect(func(): FX.fireball(parent, a, b, on_hit, 0.05))
+
+## Zone de soin au sol : cercle vert et particules qui montent.
+static func heal_zone(parent: Node, pos: Vector3, r: float, dur: float) -> Node3D:
+	var root := Node3D.new()
+	parent.add_child(root)
+	root.global_position = pos + Vector3(0, 0.05, 0)
+	root.add_child(ground_disc(r, Color(0.3, 1.0, 0.45), 0.35, false))
+	root.add_child(ground_disc(r, Color(0.5, 1.0, 0.6), 0.9, true))
+	var p := CPUParticles3D.new()
+	p.amount = 45
+	p.lifetime = 1.6
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	p.emission_ring_axis = Vector3(0, 1, 0)
+	p.emission_ring_radius = r * 0.9
+	p.emission_ring_inner_radius = 0.2
+	p.emission_ring_height = 0.1
+	p.direction = Vector3(0, 1, 0)
+	p.spread = 5.0
+	p.gravity = Vector3.ZERO
+	p.initial_velocity_min = 0.8
+	p.initial_velocity_max = 1.8
+	p.scale_amount_min = 0.04
+	p.scale_amount_max = 0.09
+	var sm := SphereMesh.new()
+	sm.radius = 0.5
+	sm.height = 1.0
+	sm.radial_segments = 6
+	sm.rings = 3
+	sm.material = mat(Color(0.5, 1.0, 0.55), 3.0)
+	p.mesh = sm
+	root.add_child(p)
+	var lt := OmniLight3D.new()
+	lt.light_color = Color(0.4, 1.0, 0.5)
+	lt.light_energy = 1.6
+	lt.omni_range = r * 2.0
+	lt.position.y = 1.0
+	root.add_child(lt)
+	var tw := root.create_tween()
+	tw.tween_interval(dur)
+	tw.tween_property(root, "scale", Vector3(0.01, 1, 0.01), 0.4)
+	tw.tween_callback(root.queue_free)
+	return root
+
+## Aura rouge de provocation (tank) : anneau qui s'étend + lueur.
+static func taunt_aura(owner_node: Node3D, r: float, dur: float) -> void:
+	var ring := ground_disc(1.0, Color(1, 0.12, 0.08), 0.9, true)
+	owner_node.add_child(ring)
+	var tw := ring.create_tween()
+	tw.tween_property(ring, "scale", Vector3(r, 1, r), 0.45).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(ring, "scale", Vector3(r * 1.1, 1, r * 1.1), 0.3)
+	tw.tween_callback(ring.queue_free)
+	var aura := ground_disc(1.2, Color(1, 0.1, 0.05), 0.35, false)
+	owner_node.add_child(aura)
+	var lt := OmniLight3D.new()
+	lt.light_color = Color(1, 0.15, 0.1)
+	lt.light_energy = 2.5
+	lt.omni_range = 4.0
+	lt.position.y = 1.2
+	owner_node.add_child(lt)
+	var t2 := lt.create_tween()
+	t2.tween_interval(dur)
+	t2.tween_property(lt, "light_energy", 0.0, 0.4)
+	t2.tween_callback(lt.queue_free)
+	t2.tween_callback(aura.queue_free)
