@@ -22,7 +22,7 @@ jobs:
           blender -b --version | head -1
       - name: Traitement
         env:
-          ONLY: "police_cars civil_cars city_props coffre"
+          ONLY: "police_ford"
         run: ./run.sh srcrepo/src work out
       - name: Publier sur la branche assets-opt (fusion)
         run: |

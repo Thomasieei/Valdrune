@@ -45,3 +45,4 @@ police_cars kit 30000 1024 0
 civil_cars kit 35000 1024 0
 city_props kit 0 1024 0
 coffre kit 0 1024 0
+police_ford env 22000 1024 0
