@@ -347,14 +347,14 @@ func _make_elite_camps() -> void:
 			H[ix * nz + iz] = (hit["position"] as Vector3).y if not hit.is_empty() else -99.0
 	var cands: Array = []
 	for lo: float in [0.08, 0.03]:
-		for ix in range(3, nx - 3):
-			for iz in range(3, nz - 3):
+		for ix in range(4, nx - 4):
+			for iz in range(4, nz - 4):
 				var h0 := H[ix * nz + iz]
-				if h0 < lo or h0 > 2.6:
+				if h0 < lo or h0 > 1.4:
 					continue
 				var flat := true
-				for dx in range(-3, 4):
-					for dz in range(-3, 4):
+				for dx in range(-4, 5):
+					for dz in range(-4, 5):
 						if absf(H[(ix + dx) * nz + iz + dz] - h0) > 0.06:
 							flat = false
 							break

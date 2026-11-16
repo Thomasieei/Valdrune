@@ -74,7 +74,8 @@ func layout() -> void:
 		chain.append(best)
 		rooms.append({"center": best, "mobs": [], "engaged": false, "cleared": false, "kind": kinds[k]})
 	var last: Vector3 = chain[chain.size() - 1]
-	var dir := (last - chain[chain.size() - 2]).normalized()
+	var prev2: Vector3 = chain[chain.size() - 2]
+	var dir: Vector3 = (last - prev2).normalized()
 	throne_door = last + Vector3(dir.x, 0, dir.z) * 9.0
 	var hit2 := space.intersect_ray(PhysicsRayQueryParameters3D.create(throne_door + Vector3(0, 40, 0), throne_door + Vector3(0, -80, 0)))
 	if not hit2.is_empty():
