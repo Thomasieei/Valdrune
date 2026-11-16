@@ -543,8 +543,14 @@ static func fireball(parent: Node, from: Vector3, to: Vector3, on_hit: Callable,
 	var dur := clampf(from.distance_to(to) / 18.0, 0.15, 0.9)
 	tw.tween_property(root, "global_position", to, dur).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	tw.tween_callback(func(): FX._fire_explode(parent, root, on_hit))
+	# sécurité : si le tween est interrompu, la boule explose quand même (jamais d'orbe figée dans le décor)
+	var safety := parent.get_tree().create_timer(charge + dur + 0.6)
+	safety.timeout.connect(func(): FX._fire_explode(parent, root, on_hit))
 
-static func _fire_explode(parent: Node, root: Node3D, on_hit: Callable) -> void:
+static func _fire_explode(parent, rv, on_hit: Callable) -> void:
+	if not is_instance_valid(rv) or not is_instance_valid(parent) or (rv as Node).is_queued_for_deletion():
+		return
+	var root: Node3D = rv
 	var p := root.global_position
 	root.queue_free()
 	burst(parent, p, Color(1.0, 0.6, 0.15), 40, 0.16, 6.0, 0.5, 2.0)

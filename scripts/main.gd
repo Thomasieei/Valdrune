@@ -187,6 +187,7 @@ func _prewarm() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.position -= Vector2(150, 40)
 	fade.add_child(title)
+	var before := get_children()
 	var p := hero.global_position + hero.forward() * 4.0 + Vector3(0, 1.0, 0)
 	var holder := Node3D.new()
 	add_child(holder)
@@ -212,6 +213,10 @@ func _prewarm() -> void:
 		await RenderingServer.frame_post_draw
 	o.queue_free()
 	holder.queue_free()
+	await get_tree().create_timer(0.4).timeout
+	for c in get_children():
+		if not before.has(c) and c is Node3D and not (c is Unit):
+			c.queue_free()
 	var tw := create_tween()
 	tw.tween_property(fade, "modulate:a", 0.0, 0.5)
 	tw.tween_callback(title.queue_free)
@@ -285,7 +290,23 @@ func _build_city() -> void:
 			if mat == null:
 				continue
 			var nm := mat.resource_name.to_lower()
-			if nm.contains("glow"):
+			if nm.contains("glow") and mat.albedo_texture == null:
+				# panneaux/cônes lumineux sans texture : rendus en lueur additive douce (sinon gros aplats blancs)
+				var a := StandardMaterial3D.new()
+				a.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+				a.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+				a.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+				a.cull_mode = BaseMaterial3D.CULL_DISABLED
+				var gc := Color(1, 0.92, 0.7)
+				if nm.contains("red"):
+					gc = Color(1, 0.2, 0.25)
+				elif nm.contains("green"):
+					gc = Color(0.3, 1, 0.5)
+				var big := m.get_aabb().size.length() * CITY_SCALE > 1.5
+				a.albedo_color = Color(gc.r, gc.g, gc.b, 0.12 if big else 0.85)
+				m.set_surface_override_material(i, a)
+				m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			elif nm.contains("glow"):
 				var g := mat.duplicate() as StandardMaterial3D
 				g.emission_enabled = true
 				g.emission_texture = g.albedo_texture
@@ -466,9 +487,16 @@ func _route(k: int) -> Array:
 	var n := camps.size()
 	if n < 3:
 		return pts
-	for j in 4:
+	for j in 8:
 		var c: Vector3 = camps[(k * 3 + j * 2) % n]["pos"]
-		pts.append(c + Vector3(6, 0, 4).rotated(Vector3.UP, j * 1.7))
+		var q := c + Vector3(6, 0, 4).rotated(Vector3.UP, j * 1.7)
+		if q.distance_to(spawn_point) > 38.0 and pts.size() < 4:
+			pts.append(q)
+	if pts.size() < 2:
+		pts.clear()
+		for j in 4:
+			var a := k * 1.3 + j * TAU / 4.0
+			pts.append(spawn_point + Vector3(sin(a), 0, cos(a)) * 60.0)
 	return pts
 
 func _make_patrols() -> void:
@@ -727,9 +755,9 @@ func _spawn_gate(first: bool) -> void:
 			(g as Node).queue_free()
 	guards.clear()
 	for k in 2:
-		var gp := pos + Vector3(-3.5 + 7.0 * k, 0, 2.5)
+		var gp := pos + Vector3(-5.5 + 11.0 * k, 0, 4.0)
 		var g := spawn_free_mob("guard", gp)
-		g.patrol = [pos + Vector3(-5, 0, 4), pos + Vector3(5, 0, 4), pos + Vector3(5, 0, -4), pos + Vector3(-5, 0, -4)]
+		g.patrol = [pos + Vector3(-7, 0, 6), pos + Vector3(7, 0, 6), pos + Vector3(7, 0, -6), pos + Vector3(-7, 0, -6)]
 		g.patrol_i = k * 2
 		guards.append(g)
 	if not first:
@@ -1101,7 +1129,19 @@ func hit_stop(t: float) -> void:
 	await get_tree().create_timer(t, true, false, true).timeout
 	Engine.time_scale = 1.0
 
+## Les unités trop proches de la caméra sont masquées (évite les grosses silhouettes qui bouchent l'écran).
+func _hide_near_camera() -> void:
+	if cam == null:
+		return
+	var cp := cam.global_position
+	for m in mobs:
+		var mm := m as Mob
+		if mm.model:
+			var near := mm.global_position.distance_squared_to(cp) < 2.6 and mm.global_position.distance_squared_to(hero.global_position) > 0.5
+			mm.model.visible = not near
+
 func _process(delta: float) -> void:
+	_hide_near_camera()
 	# camps normaux : réapparition
 	for c in camps:
 		var alive := false
@@ -1395,11 +1435,13 @@ func drop_loot(pos: Vector3, src: String) -> void:
 	root.global_position = pos + Vector3(randf_range(-0.6, 0.6), 0.1, randf_range(-0.6, 0.6))
 	var beam := MeshInstance3D.new()
 	var cm := CylinderMesh.new()
-	cm.top_radius = 0.02
-	cm.bottom_radius = 0.16
-	cm.height = 3.0 + rk * 0.8
+	cm.top_radius = 0.05
+	cm.bottom_radius = 0.22
+	cm.height = 2.0 + rk * 0.7
+	cm.cap_top = false
+	cm.cap_bottom = false
 	beam.mesh = cm
-	beam.material_override = FX.mat(col, 2.5, 0.45)
+	beam.material_override = FX._smat(FX.BEAM_SH, col * (0.8 + rk * 0.15))
 	beam.position.y = cm.height * 0.5
 	beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(beam)
