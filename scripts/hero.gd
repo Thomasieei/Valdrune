@@ -585,7 +585,7 @@ func _slash_hit(c: int) -> void:
 func _plunge_impact() -> void:
 	plunging = false
 	busy = 0.3
-	var r := 3.6 + 0.4 * powers["plunge"]
+	var r: float = 3.6 + 0.4 * powers["plunge"]
 	FX.burst(main, global_position, Color(0.55, 0.8, 1.0), 50, 0.14, 7.0, 0.6, 8.0)
 	FX.telegraph(main, global_position, r, 0.15, Color(0.5, 0.8, 1.0))
 	main.sfx("slam", global_position)
