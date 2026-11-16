@@ -1458,10 +1458,10 @@ func _build_ui() -> void:
 	interact_btn.anchor_right = 0.5
 	interact_btn.anchor_top = 1.0
 	interact_btn.anchor_bottom = 1.0
-	interact_btn.offset_left = -210
-	interact_btn.offset_right = 210
-	interact_btn.offset_top = -200
-	interact_btn.offset_bottom = -130
+	interact_btn.offset_left = -330
+	interact_btn.offset_right = 20
+	interact_btn.offset_top = -205
+	interact_btn.offset_bottom = -140
 	interact_btn.focus_mode = Control.FOCUS_NONE
 	interact_btn.visible = false
 	interact_btn.pressed.connect(_on_interact)
