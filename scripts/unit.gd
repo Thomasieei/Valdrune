@@ -31,6 +31,7 @@ func setup_model(path: String, scale_f: float, ring_col: Color, ring_alpha: floa
 	model = (load(path) as PackedScene).instantiate()
 	model.scale = Vector3.ONE * scale_f
 	add_child(model)
+	_make_opaque()
 	var found := model.find_children("*", "AnimationPlayer", true, false)
 	if found.size() > 0:
 		ap = found[0] as AnimationPlayer
@@ -48,6 +49,20 @@ func setup_model(path: String, scale_f: float, ring_col: Color, ring_alpha: floa
 	collision_mask = 1 | 2
 	ring = FX.ground_disc(body_r + 0.12, ring_col, ring_alpha, true)
 	add_child(ring)
+
+## Les matériaux importés en « transparent » rendaient les persos translucides : on force l'opaque (découpe alpha).
+func _make_opaque() -> void:
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if m.mesh == null:
+			continue
+		for i in m.mesh.get_surface_count():
+			var src := m.mesh.surface_get_material(i) as BaseMaterial3D
+			if src and src.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
+				var d := src.duplicate() as BaseMaterial3D
+				d.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+				d.alpha_scissor_threshold = 0.45
+				m.set_surface_override_material(i, d)
 
 func make_hp_bar(h: float, col: Color) -> void:
 	hp_bar = Node3D.new()

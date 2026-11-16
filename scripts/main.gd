@@ -77,6 +77,18 @@ var boss_bar_root: Control
 var boss_bar_fill: ColorRect
 var boss_bar_name: Label
 var fade: ColorRect
+# ciblage + panneau des ombres / stats
+var focus_target: Unit
+var focus_marker: MeshInstance3D
+var tap_pos := Vector2.ZERO
+var tap_time := 0.0
+var tap_index := -1
+var menu_panel: PanelContainer
+var menu_body: VBoxContainer
+var menu_tab := ""
+var menu_refresh := 0.0
+var unarmed_btn: Button
+var base_fov := 64.0
 
 func _ready() -> void:
 	shots_mode = OS.get_cmdline_user_args().has("--shots")
@@ -271,6 +283,14 @@ func units_of_team(t: int) -> Array:
 func all_mobs() -> Array:
 	return mobs
 
+func shadow_list() -> Array:
+	var out: Array = []
+	for m in mobs:
+		var mm := m as Mob
+		if mm.is_shadow and not mm.dead:
+			out.append(mm)
+	return out
+
 func shadow_count() -> int:
 	var n := 0
 	for m in mobs:
@@ -460,6 +480,8 @@ func _on_mob_died(u: Unit) -> void:
 		return
 	gold += m.reward_gold
 	rep += 3 if m.elite else 1
+	var xpv := {"goblin": 12.0, "shaman": 15.0, "orc": 35.0, "igris": 600.0}.get(m.kind, 10.0) as float
+	hero.gain_xp(xpv * (3.0 if m.elite else 1.0))
 	if randf() < (0.5 if m.elite else 0.12):
 		essence += 1
 	FX.damage_number(self, m.global_position + Vector3(0, -0.8, 0), "+%d or" % m.reward_gold, Color(1, 0.85, 0.3))
@@ -759,6 +781,7 @@ func boss_phase2(b: Mob) -> void:
 
 func _on_boss_dead(b: Mob) -> void:
 	boss_bar_root.visible = false
+	hero.gain_xp(600.0)
 	rep += 25
 	system_msg("[ SYSTÈME ]\nDonjon conquis ! Réputation +25.\nUne ombre d'une puissance exceptionnelle peut être extraite...")
 	boss_chest = (load("res://assets/chest_gold.glb") as PackedScene).instantiate() as Node3D
@@ -843,11 +866,16 @@ func on_hero_died() -> void:
 	hero.hp = hero.max_hp
 	hero.mp = hero.max_mp
 	hero.busy = 0.0
-	hero.collision_layer = 2
+	hero.collision_layer = 4
 	hero.collision_mask = 3
 	hero.ring.visible = true
 	hero.play("Idle", 0.1, 1.0, true)
 	await _teleport(spawn_point, "city")
+
+func fov_kick(a: float) -> void:
+	cam.fov = base_fov + a
+	var tw := create_tween()
+	tw.tween_property(cam, "fov", base_fov, 0.25)
 
 func shake(a: float) -> void:
 	shake_amt = maxf(shake_amt, a)
@@ -906,6 +934,18 @@ func _process(delta: float) -> void:
 		dungeon.update(hero)
 	if boss and is_instance_valid(boss) and boss_bar_root.visible:
 		boss_bar_fill.size.x = 600.0 * clampf(boss.hp / boss.max_hp, 0, 1)
+	if focus_target and is_instance_valid(focus_target) and not focus_target.dead:
+		focus_marker.visible = true
+		focus_marker.global_position = focus_target.global_position + Vector3(0, 3.0 if (focus_target as Mob).kind == "orc" else 2.55, 0) + Vector3(0, sin(Time.get_ticks_msec() * 0.006) * 0.12, 0)
+		focus_marker.rotation.y += delta * 3.0
+	else:
+		focus_marker.visible = false
+		focus_target = null
+	if menu_panel.visible:
+		menu_refresh -= delta
+		if menu_refresh <= 0.0:
+			menu_refresh = 1.0
+			_refresh_menu()
 	_update_interact()
 	_update_ui()
 
@@ -967,7 +1007,7 @@ func _build_camera() -> void:
 	spring.collision_mask = 1
 	cam_pivot.add_child(spring)
 	cam = Camera3D.new()
-	cam.fov = 64.0
+	cam.fov = base_fov
 	cam.far = 700.0
 	spring.add_child(cam)
 	cam.current = true
@@ -1094,6 +1134,19 @@ func _build_ui() -> void:
 	_skill_button(layer, "arise", "ARISE", Vector2(-205, -420), 128, Color(0.75, 0.3, 1.0), _do_arise)
 	_skill_button(layer, "roll", "ESQUIVE", Vector2(-385, -330), 104, Color(0.4, 0.85, 1.0), hero.roll)
 	_skill_button(layer, "jump", "SAUT", Vector2(-545, -130), 104, Color(0.5, 0.9, 0.7), hero.jump)
+	unarmed_btn = _small_btn("MAINS NUES")
+	unarmed_btn.anchor_left = 1.0
+	unarmed_btn.anchor_right = 1.0
+	unarmed_btn.anchor_top = 1.0
+	unarmed_btn.anchor_bottom = 1.0
+	unarmed_btn.offset_left = -560
+	unarmed_btn.offset_right = -420
+	unarmed_btn.offset_top = -205
+	unarmed_btn.offset_bottom = -160
+	unarmed_btn.pressed.connect(_toggle_unarmed)
+	layer.add_child(unarmed_btn)
+	buttons["unarmed"] = {"btn": unarmed_btn, "shade": null, "label": null}
+	_build_menu(layer)
 	# bouton contextuel
 	interact_btn = Button.new()
 	interact_btn.add_theme_font_size_override("font_size", 22)
@@ -1188,6 +1241,165 @@ func _build_ui() -> void:
 	fade.modulate.a = 0.0
 	layer.add_child(fade)
 
+func _small_btn(t: String) -> Button:
+	var b := Button.new()
+	b.text = t
+	b.add_theme_font_size_override("font_size", 17)
+	b.add_theme_color_override("font_color", Color(0.85, 0.9, 1))
+	var sb := _panel_style(Color(0.03, 0.05, 0.14, 0.7), Color(0.45, 0.4, 0.9))
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 6
+	sb.content_margin_left = 12
+	sb.content_margin_right = 12
+	sb.shadow_size = 4
+	b.add_theme_stylebox_override("normal", sb)
+	b.add_theme_stylebox_override("hover", sb)
+	var sp: StyleBoxFlat = sb.duplicate()
+	sp.bg_color = Color(0.2, 0.15, 0.45, 0.9)
+	b.add_theme_stylebox_override("pressed", sp)
+	b.focus_mode = Control.FOCUS_NONE
+	return b
+
+func _toggle_unarmed() -> void:
+	hero.toggle_unarmed()
+	unarmed_btn.text = "ÉPÉE" if hero.unarmed_mode else "MAINS NUES"
+
+# ---------------------------------------------------------------- menu discret : ombres + stats
+func _build_menu(layer: CanvasLayer) -> void:
+	var bx := HBoxContainer.new()
+	bx.anchor_left = 1.0
+	bx.anchor_right = 1.0
+	bx.offset_left = -330
+	bx.offset_right = -20
+	bx.offset_top = 128
+	bx.alignment = BoxContainer.ALIGNMENT_END
+	bx.add_theme_constant_override("separation", 8)
+	layer.add_child(bx)
+	for k in [["OMBRES", "ombres"], ["STATS", "stats"]]:
+		var b := _small_btn(str(k[0]))
+		b.pressed.connect(_toggle_menu.bind(str(k[1])))
+		bx.add_child(b)
+		buttons["menu_" + str(k[1])] = {"btn": b, "shade": null, "label": null}
+	menu_panel = PanelContainer.new()
+	menu_panel.add_theme_stylebox_override("panel", _panel_style(Color(0.02, 0.03, 0.1, 0.88), Color(0.5, 0.35, 1.0)))
+	menu_panel.anchor_left = 0.5
+	menu_panel.anchor_right = 0.5
+	menu_panel.offset_left = -290
+	menu_panel.offset_right = 290
+	menu_panel.offset_top = 110
+	menu_panel.offset_bottom = 560
+	menu_panel.visible = false
+	layer.add_child(menu_panel)
+	var sc := ScrollContainer.new()
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	menu_panel.add_child(sc)
+	menu_body = VBoxContainer.new()
+	menu_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	menu_body.add_theme_constant_override("separation", 8)
+	sc.add_child(menu_body)
+	focus_marker = MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.28
+	cm.bottom_radius = 0.0
+	cm.height = 0.5
+	focus_marker.mesh = cm
+	focus_marker.material_override = FX.mat(Color(1, 0.2, 0.15), 3.0)
+	focus_marker.visible = false
+	add_child(focus_marker)
+
+func _toggle_menu(tab: String) -> void:
+	if menu_panel.visible and menu_tab == tab:
+		menu_panel.visible = false
+		return
+	menu_tab = tab
+	menu_panel.visible = true
+	_refresh_menu()
+
+func _lbl(t: String, size := 20, col := Color(0.85, 0.9, 1)) -> Label:
+	var l := Label.new()
+	l.text = t
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", col)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return l
+
+func _refresh_menu() -> void:
+	for c in menu_body.get_children():
+		c.queue_free()
+	if menu_tab == "ombres":
+		var sh := shadow_list()
+		menu_body.add_child(_lbl("ARMÉE D'OMBRES   %d / %d" % [sh.size(), hero.max_shadows()], 24, Color(0.8, 0.65, 1)))
+		menu_body.add_child(_lbl("Domaine d'ombre : %d m — coche les ombres à commander, puis donne l'ordre. Touche un ennemi à l'écran pour le cibler." % int(hero.domain_r()), 16, Color(0.7, 0.75, 0.9)))
+		if sh.is_empty():
+			menu_body.add_child(_lbl("Aucune ombre. Tue un monstre puis utilise ARISE.", 18))
+		var names := {"auto": "Auto", "attack": "Attaque la cible", "follow": "Me suit", "hold": "Tient la position"}
+		for m in sh:
+			var mm := m as Mob
+			var cb := CheckBox.new()
+			cb.text = "%s  —  PV %d%%  —  %s" % [mm.display_name, int(100.0 * mm.hp / mm.max_hp), names.get(mm.order, mm.order)]
+			cb.button_pressed = mm.selected
+			cb.add_theme_font_size_override("font_size", 18)
+			cb.toggled.connect(_set_sel.bind(mm))
+			cb.focus_mode = Control.FOCUS_NONE
+			menu_body.add_child(cb)
+		var row1 := HBoxContainer.new()
+		var row2 := HBoxContainer.new()
+		for o in [["ATTAQUER LA CIBLE", "attack", row1], ["ME SUIVRE", "follow", row1], ["TENIR POSITION", "hold", row2], ["AUTO", "auto", row2]]:
+			var b := _small_btn(str(o[0]))
+			b.pressed.connect(_order.bind(str(o[1])))
+			(o[2] as HBoxContainer).add_child(b)
+		menu_body.add_child(row1)
+		menu_body.add_child(row2)
+	else:
+		menu_body.add_child(_lbl("CHASSEUR — Niveau %d" % hero.level, 24, Color(1, 0.85, 0.5)))
+		menu_body.add_child(_lbl("XP %d / %d      Points à répartir : %d" % [int(hero.xp), int(hero.xp_next()), hero.points], 18))
+		var rows := [["force", "FORCE", "Dégâts %d" % int(hero.power())], ["agilite", "AGILITÉ", "Course %.1f m/s, escalade, Pas de l'ombre" % hero.run_speed()],
+			["vitesse", "VITESSE D'ATTAQUE", "x%.2f" % hero.atk_speed()], ["domaine", "DOMAINE D'OMBRE", "Rayon %d m, %d ombres max" % [int(hero.domain_r()), hero.max_shadows()]]]
+		for r in rows:
+			var hb := HBoxContainer.new()
+			hb.add_child(_lbl("%s  %d\n%s" % [r[1], hero.stats[r[0]], r[2]], 17))
+			var b := _small_btn("+")
+			b.disabled = hero.points <= 0
+			b.custom_minimum_size = Vector2(56, 44)
+			b.pressed.connect(_add_stat.bind(str(r[0])))
+			hb.add_child(b)
+			menu_body.add_child(hb)
+
+func _set_sel(on: bool, m: Mob) -> void:
+	m.selected = on
+
+func _order(o: String) -> void:
+	var n := 0
+	for m in shadow_list():
+		var mm := m as Mob
+		if not mm.selected:
+			continue
+		mm.order = o
+		mm.target = null
+		mm.hold_pos = mm.global_position
+		n += 1
+		if o == "attack":
+			FX.burst(self, mm.global_position + Vector3(0, 1.5, 0), Color(0.6, 0.3, 1.0), 10, 0.06, 2.0, 0.4, 0.0)
+	if o == "attack" and (focus_target == null or not is_instance_valid(focus_target) or focus_target.dead):
+		focus_target = hero.nearest_enemy(hero.domain_r())
+	system_msg("%d ombre(s) : %s" % [n, {"attack": "à l'attaque !", "follow": "derrière toi.", "hold": "tiennent la position.", "auto": "mode autonome."}[o]])
+	_refresh_menu()
+
+func _add_stat(k: String) -> void:
+	hero.add_stat(k)
+	_refresh_menu()
+
+func _try_select(p: Vector2) -> void:
+	var from := cam.project_ray_origin(p)
+	var to := from + cam.project_ray_normal(p) * 90.0
+	var q := PhysicsRayQueryParameters3D.create(from, to)
+	q.collision_mask = 2
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	if not hit.is_empty() and hit["collider"] is Mob and (hit["collider"] as Mob).team == 1:
+		focus_target = hit["collider"]
+		FX.burst(self, focus_target.global_position + Vector3(0, 2.2, 0), Color(1, 0.3, 0.2), 12, 0.06, 2.0, 0.3, 0.0)
+
 func _outlined(parent: Node, pos: Vector2, size: int, col: Color) -> Label:
 	var l := Label.new()
 	l.position = pos
@@ -1279,6 +1491,8 @@ func _on_button(p: Vector2) -> bool:
 			return true
 	if dlg_panel.visible and dlg_panel.get_global_rect().has_point(p):
 		return true
+	if menu_panel and menu_panel.visible and menu_panel.get_global_rect().has_point(p):
+		return true
 	return false
 
 func _input(event: InputEvent) -> void:
@@ -1294,7 +1508,11 @@ func _input(event: InputEvent) -> void:
 				joy_knob = t.position
 			elif t.position.x >= half and look_touch < 0:
 				look_touch = t.index
+				tap_pos = t.position
+				tap_time = Time.get_ticks_msec() / 1000.0
 		else:
+			if t.index == look_touch and t.position.distance_to(tap_pos) < 16.0 and Time.get_ticks_msec() / 1000.0 - tap_time < 0.35:
+				_try_select(t.position)
 			if t.index == joy_touch:
 				joy_touch = -1
 				hero.move_input = Vector2.ZERO
@@ -1339,74 +1557,98 @@ func _run_shots() -> void:
 	hero.max_hp = 99999
 	hero.hp = 99999
 	await _snap("00_depart", 20)
-	# camp d'élite
-	if elite_camps.size() > 0:
-		var c: Dictionary = elite_camps[0]
-		var cp: Vector3 = c["pos"]
-		_place_hero(cp + Vector3(9, 0, 0), cp)
-		await _snap("01_camp_elite", 50)
-		_kill_near(cp, 20.0)
-		_place_hero(cp + Vector3(2.2, 0, 0), cp)
-		await _snap("02_coffre_pret", 40)
-		_open_elite_chest(c)
-		await _snap("03_coffre_ouvert", 15)
-	# saut et esquive
-	_place_hero(spawn_point, spawn_point + Vector3(0, 0, -10))
-	await _snap("04_x", 10)
+	# héros de face : épée rangée dans le dos, puis en main
+	var y0 := yaw
+	yaw = y0 + PI
+	pitch = -0.1
+	spring.spring_length = 2.6
+	await _snap("01_heros_range", 20)
+	hero.set_armed(true)
+	await _snap("02_heros_arme", 20)
+	yaw = y0 + PI * 0.5
+	await _snap("02b_heros_profil", 10)
+	hero.set_armed(false)
+	pitch = -0.3
+	spring.spring_length = 4.7
+	# sprint
+	yaw = y0
+	hero.move_input = Vector2(0, -1)
+	await _snap("03_sprint", 50)
+	hero.move_input = Vector2.ZERO
+	# escalade d'un immeuble
+	var space := get_world_3d().direct_space_state
+	var best := Vector3.INF
+	var bn := Vector3.ZERO
+	for k in 24:
+		var a := k * TAU / 24.0
+		var d := Vector3(sin(a), 0, cos(a))
+		var o := hero.global_position + Vector3(0, 1.2, 0)
+		var q := PhysicsRayQueryParameters3D.create(o, o + d * 30.0)
+		q.collision_mask = 1
+		var hit := space.intersect_ray(q)
+		if not hit.is_empty() and absf((hit["normal"] as Vector3).y) < 0.2:
+			var top := space.intersect_ray(PhysicsRayQueryParameters3D.create((hit["position"] as Vector3) + d * 0.5 + Vector3(0, 6, 0), (hit["position"] as Vector3) + d * 0.5 + Vector3(0, 5, 0)))
+			if not top.is_empty() or true:
+				if best == Vector3.INF or (hit["position"] as Vector3).distance_to(o) < best.distance_to(o):
+					best = hit["position"]
+					bn = hit["normal"]
+	if best != Vector3.INF:
+		var start := best + bn * 4.0
+		start.y = hero.global_position.y
+		hero.global_position = start
+		yaw = atan2(bn.x, bn.z)
+		hero.move_input = Vector2(0, -1)
+		await _snap("04_course_vers_mur", 14)
+		hero.jump()
+		await _snap("05_escalade", 30)
+		await _snap("06_escalade_haut", 60)
+		await _snap("07_toit", 60)
+		hero.move_input = Vector2.ZERO
+		print("CLIMB_TEST y=%.2f" % hero.global_position.y)
+	# double saut
+	hero.global_position = spawn_point + Vector3(0, 0.3, 0)
+	await _snap("08_x", 15)
 	hero.jump()
-	await _snap("05_saut", 14)
-	await _snap("05b", 40)
-	hero.roll()
-	await _snap("06_esquive", 8)
-	# portail + gardes + dialogue
-	_place_hero(gate_pos + Vector3(0, 0, 9.5), gate_pos)
-	await _snap("07_portail_gardes", 90)
-	if not in_dialogue:
-		_guard_dialogue()
-	await _snap("08_dialogue_garde", 30)
-	gold = 500
-	_dlg_bribe()
-	await _snap("09_pot_de_vin", 25)
-	choose(0)
-	await enter_dungeon()
-	await _snap("10_donjon_entree", 30)
-	# salles
-	for i in range(0, dungeon.rooms.size()):
-		var rc := dungeon.room_center(i)
-		_place_hero(rc + Vector3(0, 1.0, -11), rc)
-		await _snap("1%d_salle%d" % [i, i], 60 if i != 3 else 45)
-		for m in dungeon.rooms[i]["mobs"]:
-			if not (m as Mob).dead:
-				(m as Mob).take_damage(99999, hero)
-		await _snap("1%db_salle%d_nettoyee" % [i, i], 25)
-	_place_hero(dungeon.throne_door + Vector3(0, 1.0, -6), dungeon.throne_door)
-	await _snap("15_porte_trone", 20)
-	await enter_hall()
-	await _snap("16_boss_dialogue", 40)
-	_boss_who()
-	await _snap("17_boss_qui", 30)
-	_boss_taunt()
-	await _snap("18_boss_provoque", 30)
-	_boss_fight()
-	await _snap("19_combat_boss", 70)
-	boss.skill_cd = 0.0
-	_place_hero(boss.global_position + Vector3(-9, 0, 0), boss.global_position)
-	await _snap("20_charge", 30)
-	await _snap("20b_charge", 30)
-	boss.hp = boss.max_hp * 0.45
-	await _snap("21_phase2", 40)
-	await _snap("21b_phase2", 60)
-	_kill_near(boss.global_position, 40.0)
-	boss.take_damage(99999, hero)
-	await _snap("22_boss_mort", 60)
-	hero.global_position = boss.global_position + Vector3(-3, 0.3, 0)
+	await _snap("08_saut", 10)
+	hero.cd["jump"] = 0.0
+	hero.jump()
+	await _snap("09_double_saut_salto", 8)
+	# combat : Pas de l'ombre en chaîne
+	_put_hero_near(2, 6.0)
+	await _snap("10_combat", 50)
+	hero.mp = 100
+	hero.shadow_step()
+	await _snap("11_pas_ombre_1", 8)
+	await _snap("12_pas_ombre_2", 18)
+	_kill_near(hero.global_position, 15.0)
+	await _snap("13_cadavres", 50)
 	hero.cd["arise"] = 0.0
 	hero.mp = 100
 	hero.arise()
-	await _snap("23_arise_igris", 25)
-	await _snap("24_igris_ombre", 90)
-	_place_hero(boss_chest.global_position + Vector3(-2.5, 0, 0), boss_chest.global_position)
-	_open_boss_chest()
-	await _snap("25_coffre_boss", 30)
-	print("SHOTS_DONE gold=%d rep=%d ombres=%d" % [gold, rep, shadow_count()])
+	await _snap("14_arise_masse", 30)
+	await _snap("15_ombres_levees", 80)
+	# les ombres suivent derrière
+	hero.move_input = Vector2(0, -0.7)
+	await _snap("16_ombres_suivent", 90)
+	hero.move_input = Vector2.ZERO
+	await _snap("17_ombres_arret", 60)
+	# panneaux
+	_toggle_menu("ombres")
+	await _snap("18_panneau_ombres", 10)
+	hero.points = 3
+	_toggle_menu("stats")
+	await _snap("19_panneau_stats", 10)
+	menu_panel.visible = false
+	# combat des ombres + célébration
+	_put_hero_near(3, 9.0)
+	for m in shadow_list():
+		(m as Mob).global_position = hero.global_position + Vector3(randf_range(-2, 2), 0.3, randf_range(-2, 2))
+	await _snap("20_ombres_combat", 70)
+	for m in mobs:
+		var mm := m as Mob
+		if mm.team == 1 and not mm.dead and mm.global_position.distance_to(hero.global_position) < 25.0:
+			mm.hp = 1.0
+	await _snap("21_ombres_finissent", 60)
+	await _snap("22_celebration", 50)
+	print("SHOTS_DONE niveau=%d ombres=%d" % [hero.level, shadow_count()])
 	get_tree().quit()

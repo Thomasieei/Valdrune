@@ -32,6 +32,12 @@ var patrol_i := 0
 var reward_gold := 8
 var combo_i := 0
 var room_id := -1
+var order := "auto"          # ombres : auto / attack / follow / hold
+var hold_pos := Vector3.ZERO
+var selected := true
+var fought := false
+var recover_t := 0.0
+var moving := false
 
 const LINES := {
 	"aggro": ["Un humain ? Ici ? Quelle blague.", "Ta race n'est que nourriture.", "Approche, viande. Je vais t'apprendre ta place.", "Les humains rampent. Toi aussi, bientôt.", "Oh ? Le repas vient à nous."],
@@ -97,6 +103,8 @@ func configure(k: String, shadow := false) -> void:
 		bar_col = Color(0.35, 0.65, 1.0)
 	if not boss:
 		make_hp_bar(bar_h, bar_col)
+	collision_layer = 2
+	collision_mask = 1 | 2 | 4 | 8
 	skill_cd = randf_range(2.0, 5.0)
 	skill2_cd = randf_range(6.0, 10.0)
 	play("Idle", 0.0)
@@ -180,6 +188,7 @@ func _make_shadow() -> void:
 		if m.visible:
 			m.material_override = sm
 	(ring.material_override as StandardMaterial3D).albedo_color = Color(0.55, 0.2, 1.0, 0.2)
+	speed = maxf(speed, 6.5)
 	var eye := OmniLight3D.new()
 	eye.light_color = Color(0.5, 0.2, 1)
 	eye.light_energy = 1.2
@@ -262,6 +271,9 @@ func _think(delta: float) -> void:
 	if team == 2:
 		_patrol(delta)
 		return
+	if is_shadow:
+		_shadow_think(delta)
+		return
 	if busy > 0.0 or hit_stun > 0.0:
 		return
 	if target and (target.dead or (not is_shadow and not boss and target.global_position.distance_to(home) > leash_r + 6.0)):
@@ -306,6 +318,152 @@ func _think(delta: float) -> void:
 		play("Idle", 0.2)
 		if in_reach(target) and atk_cd <= 0.0:
 			_basic_attack()
+
+# ---------------------------------------------------------------- ombres : intelligence
+func _shadow_think(delta: float) -> void:
+	var h: Hero = main.hero
+	if recover_t > 0.0:
+		recover_t -= delta
+		global_position = h.global_position - h.forward() * 2.0
+		if recover_t <= 0.0:
+			_reemerge()
+		return
+	if busy > 0.0 or hit_stun > 0.0:
+		return
+	# blessée : elle rentre dans l'ombre du héros pour se régénérer
+	if hp < max_hp * 0.25 and not boss:
+		recover_t = 8.0
+		visible = false
+		collision_layer = 0
+		FX.shadow_puff(main, global_position)
+		main.system_msg("%s se replie dans ton ombre." % display_name)
+		return
+	var dom: float = h.domain_r()
+	match order:
+		"follow":
+			target = null
+			_follow(delta)
+			return
+		"hold":
+			if target == null or target.dead or target.global_position.distance_to(hold_pos) > 9.0:
+				target = _nearest_from(hold_pos, 9.0)
+			if target == null:
+				if global_position.distance_to(hold_pos) > 1.0:
+					_move_towards(hold_pos, speed, delta)
+				else:
+					play("Idle", 0.3)
+				return
+		"attack":
+			var f = main.focus_target
+			if f != null and is_instance_valid(f) and not (f as Unit).dead:
+				target = f as Unit
+			elif target == null or target.dead:
+				order = "auto"
+		_:
+			if target == null or target.dead or target.global_position.distance_to(h.global_position) > dom + 3.0:
+				target = _protect_target(dom)
+	if target == null or target.dead:
+		target = null
+		if fought:
+			fought = false
+			_celebrate()
+			return
+		_follow(delta)
+		return
+	fought = true
+	face_to(target.global_position, false, delta)
+	if _try_skills(global_position.distance_to(target.global_position)):
+		return
+	if gap_to(target) > arm * 0.8 + 0.25:
+		_move_towards(target.global_position, speed * 1.2, delta)
+	else:
+		play("Idle", 0.2)
+		if in_reach(target) and atk_cd <= 0.0:
+			_basic_attack()
+
+## Priorité : les ennemis qui attaquent le héros, puis le plus proche dans le domaine.
+func _protect_target(dom: float) -> Unit:
+	var h: Unit = main.hero
+	var best: Unit = null
+	var bd := 1e9
+	for u in _enemies():
+		var e := u as Unit
+		if e.dead or e.global_position.distance_to(h.global_position) > dom:
+			continue
+		var d := e.global_position.distance_to(global_position)
+		if e is Mob and (e as Mob).target == h:
+			d -= 8.0
+		if d < bd:
+			bd = d
+			best = e
+	return best
+
+func _nearest_from(p: Vector3, r: float) -> Unit:
+	var best: Unit = null
+	var bd := r
+	for u in _enemies():
+		var e := u as Unit
+		if not e.dead and e.global_position.distance_to(p) < bd:
+			bd = e.global_position.distance_to(p)
+			best = e
+	return best
+
+## Formation derrière le héros, sans jamais le gêner ; voyage par l'ombre si trop loin.
+func _follow(delta: float) -> void:
+	var h: Hero = main.hero
+	var shadows: Array = main.shadow_list()
+	var idx := maxi(shadows.find(self), 0)
+	var fwd := h.forward()
+	var right := Vector3(fwd.z, 0, -fwd.x)
+	var row := idx / 3
+	var col := (idx % 3) - 1
+	var slot := h.global_position - fwd * (2.6 + row * 1.6) + right * (col * 1.7)
+	var dist := Vector2(slot.x - global_position.x, slot.z - global_position.z).length()
+	if dist > 18.0:
+		FX.shadow_puff(main, global_position)
+		global_position = slot + Vector3(0, 0.3, 0)
+		FX.shadow_puff(main, global_position)
+		moving = false
+		return
+	if moving and dist < 0.6:
+		moving = false
+	elif not moving and dist > 1.8:
+		moving = true
+	if moving:
+		var spd := clampf(dist * 2.4, 3.0, h.sprint_speed() + 1.5)
+		var d := slot - global_position
+		d.y = 0
+		d = d.normalized()
+		velocity.x = d.x * spd
+		velocity.z = d.z * spd
+		face_to(global_position + d, false, delta)
+		play("Run" if spd > 4.0 else "Walk", 0.25, clampf(spd / 6.0, 0.8, 1.6))
+	else:
+		face_to(global_position + fwd * 5.0, false, delta)
+		play("Idle", 0.3)
+
+func _celebrate() -> void:
+	if randf() > 0.65:
+		return
+	busy = 2.4
+	play("Celebrate", 0.15, 1.0, true)
+	FX.burst(main, global_position + Vector3(0, 1.8, 0), Color(0.55, 0.25, 1.0), 16, 0.07, 2.0, 0.6, -1.0)
+	if randf() < 0.35:
+		FX.speech(self, ["Pour le Monarque !", "Victoire !", "...!", "Gloire à notre Seigneur !"][randi() % 4], Color(0.75, 0.6, 1.0), 2.4 if not boss else 3.4)
+
+func _reemerge() -> void:
+	var h: Unit = main.hero
+	hp = max_hp
+	update_hp_bar()
+	visible = true
+	collision_layer = 8
+	global_position = h.global_position - h.forward() * 2.2 + Vector3(0, 0.3, 0)
+	FX.shadow_puff(main, global_position)
+	busy = 1.2
+	cur_anim = "Death"
+	if ap and ap.has_animation("Death"):
+		ap.play_backwards("Death", 0.0)
+		ap.speed_scale = 2.0
 
 ## Encerclement : chaque monstre prend une place différente autour de la cible.
 func _flank_point() -> Vector3:
@@ -644,9 +802,10 @@ func rise_as_shadow() -> void:
 		hp_bar.position.y = 3.3
 		dmg *= 0.8
 	ring.visible = true
-	collision_layer = 2
+	collision_layer = 8
 	collision_mask = 1 | 2
 	target = null
+	order = "auto"
 	busy = 1.6
 	if ap and ap.has_animation("Death"):
 		cur_anim = "Death"
