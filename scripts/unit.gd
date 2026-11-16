@@ -17,6 +17,7 @@ var speed := 3.5
 var dead := false
 var busy := 0.0               # temps restant d'une action verrouillée (attaque, sort)
 var hit_stun := 0.0
+var invuln := 0.0
 var model: Node3D
 var ap: AnimationPlayer
 var ring: MeshInstance3D
@@ -121,6 +122,9 @@ func in_reach(o: Unit, extra := 0.0) -> bool:
 
 func take_damage(amount: float, from: Unit, crit := false) -> void:
 	if dead:
+		return
+	if invuln > 0.0:
+		FX.damage_number(world, global_position, "ESQUIVE", Color(0.7, 0.9, 1.0), false)
 		return
 	hp -= amount
 	update_hp_bar()

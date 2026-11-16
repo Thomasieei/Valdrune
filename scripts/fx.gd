@@ -248,3 +248,108 @@ static func orb(parent: Node, from: Vector3, col: Color) -> MeshInstance3D:
 	lt.omni_range = 4.0
 	mi.add_child(lt)
 	return mi
+
+
+## Zone d'alerte rectangulaire (charge du boss).
+static func telegraph_line(parent: Node, from: Vector3, to: Vector3, width: float, dur: float, col := Color(1, 0.12, 0.1)) -> void:
+	var d := to - from
+	d.y = 0
+	var L := maxf(d.length(), 0.5)
+	var root := Node3D.new()
+	parent.add_child(root)
+	root.global_position = from + Vector3(0, 0.06, 0)
+	root.rotation.y = atan2(d.x, d.z)
+	var edge := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(width, L)
+	edge.mesh = pm
+	edge.material_override = mat(col, 1.5, 0.22)
+	edge.position.z = L * 0.5
+	root.add_child(edge)
+	var fill := MeshInstance3D.new()
+	var pm2 := PlaneMesh.new()
+	pm2.size = Vector2(width, L)
+	fill.mesh = pm2
+	fill.material_override = mat(col, 2.0, 0.4)
+	fill.position.z = 0.0
+	fill.scale = Vector3(1, 1, 0.01)
+	root.add_child(fill)
+	var tw := root.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(fill, "scale:z", 1.0, dur)
+	tw.tween_property(fill, "position:z", L * 0.5, dur)
+	tw.chain().tween_callback(root.queue_free)
+
+## Bulle de dialogue au-dessus d'une unité.
+static func speech(owner_node: Node3D, txt: String, col := Color(1, 0.85, 0.75), h := 2.6, dur := 2.8) -> void:
+	for c in owner_node.get_children():
+		if c is Label3D and (c as Label3D).has_meta("speech"):
+			c.queue_free()
+	var l := Label3D.new()
+	l.set_meta("speech", true)
+	l.text = txt
+	l.font_size = 40
+	l.pixel_size = 0.0055
+	l.outline_size = 12
+	l.modulate = col
+	l.outline_modulate = Color(0, 0, 0, 0.95)
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.no_depth_test = true
+	l.width = 520
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.position.y = h
+	owner_node.add_child(l)
+	var tw := l.create_tween()
+	tw.tween_interval(dur)
+	tw.tween_property(l, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(l.queue_free)
+
+## Portail bleu (ou rouge) façon Solo Leveling.
+static func portal(parent: Node, pos: Vector3, col: Color, r := 2.4) -> Node3D:
+	var gate := Node3D.new()
+	parent.add_child(gate)
+	gate.global_position = pos + Vector3(0, r + 0.2, 0)
+	var ring := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = r - 0.3
+	tm.outer_radius = r
+	ring.mesh = tm
+	ring.rotation_degrees = Vector3(90, 0, 0)
+	ring.material_override = mat(col, 4.0)
+	gate.add_child(ring)
+	var disc := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = r - 0.25
+	cm.bottom_radius = r - 0.25
+	cm.height = 0.04
+	disc.mesh = cm
+	disc.rotation_degrees = Vector3(90, 0, 0)
+	disc.material_override = mat(col.darkened(0.4), 1.2, 0.45)
+	gate.add_child(disc)
+	var gl := OmniLight3D.new()
+	gl.light_color = col
+	gl.light_energy = 3.0
+	gl.omni_range = 12.0
+	gate.add_child(gl)
+	var p := CPUParticles3D.new()
+	p.amount = 50
+	p.lifetime = 2.0
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	p.emission_ring_axis = Vector3(0, 0, 1)
+	p.emission_ring_radius = r
+	p.emission_ring_inner_radius = r - 0.4
+	p.emission_ring_height = 0.1
+	p.gravity = Vector3(0, 0.6, 0)
+	p.scale_amount_min = 0.04
+	p.scale_amount_max = 0.09
+	var sm := SphereMesh.new()
+	sm.radius = 0.5
+	sm.height = 1.0
+	sm.radial_segments = 6
+	sm.rings = 3
+	sm.material = mat(col.lightened(0.3), 3.0)
+	p.mesh = sm
+	gate.add_child(p)
+	var tw := ring.create_tween().set_loops()
+	tw.tween_property(ring, "rotation_degrees:y", 360.0, 6.0).from(0.0)
+	return gate

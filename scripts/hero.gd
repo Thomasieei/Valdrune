@@ -11,12 +11,16 @@ var cam_yaw := 0.0
 var main
 var combo := 0
 var combo_t := 0.0
-var cd := {"attack": 0.0, "step": 0.0, "arise": 0.0}
-const CD_MAX := {"attack": 0.42, "step": 6.0, "arise": 9.0}
+var cd := {"attack": 0.0, "step": 0.0, "arise": 0.0, "roll": 0.0, "jump": 0.0}
+const CD_MAX := {"attack": 0.42, "step": 6.0, "arise": 9.0, "roll": 2.2, "jump": 0.6}
 const MP_COST := {"step": 18.0, "arise": 30.0}
 var pending: Array = []
 var regen_t := 0.0
 var sword: Node3D
+var sword_mount: Node3D
+var airborne := false
+var roll_t := 0.0
+var roll_dir := Vector3.ZERO
 
 func setup_hero() -> void:
 	display_name = "Chasseur"
@@ -51,6 +55,7 @@ func _attach_sword() -> void:
 	att.bone_idx = bi
 	var mount := Node3D.new()
 	att.add_child(mount)
+	sword_mount = mount
 	sword = (load("res://assets/katana.glb") as PackedScene).instantiate()
 	mount.add_child(sword)
 	# lame dans l'axe de la main ; ajustée via les captures CI
@@ -89,8 +94,29 @@ func _physics_process(delta: float) -> void:
 	if dead:
 		apply_gravity_and_slide(delta)
 		return
+	if main.in_dialogue:
+		play("Idle", 0.3)
+		apply_gravity_and_slide(delta)
+		return
+	invuln -= delta
+	# roulade (esquive) : déplacement rapide, invulnérable
+	if roll_t > 0.0:
+		roll_t -= delta
+		velocity.x = roll_dir.x * 11.0
+		velocity.z = roll_dir.z * 11.0
+		velocity.y -= GRAVITY * delta
+		move_and_slide()
+		return
+	# saut
+	if airborne:
+		if is_on_floor() and velocity.y <= 0.0:
+			airborne = false
+			play("JumpLand", 0.05, 2.2, true)
+			busy = 0.18
+		elif cur_anim != "JumpLoop" and cur_anim != "JumpStart":
+			play("JumpLoop", 0.1)
 	var ml := move_input.length()
-	if busy <= 0.0 and hit_stun <= 0.0 and ml > 0.12:
+	if (busy <= 0.0 or airborne) and hit_stun <= 0.0 and ml > 0.12:
 		var fwd := Vector3(-sin(cam_yaw), 0, -cos(cam_yaw))
 		var right := Vector3(cos(cam_yaw), 0, -sin(cam_yaw))
 		var dir := (right * move_input.x - fwd * move_input.y).normalized()
@@ -98,11 +124,13 @@ func _physics_process(delta: float) -> void:
 		velocity.x = dir.x * spd * minf(ml, 1.0)
 		velocity.z = dir.z * spd * minf(ml, 1.0)
 		face_to(global_position + dir, false, delta)
-		if ml > 0.8:
+		if airborne:
+			pass
+		elif ml > 0.8:
 			play("Run", 0.18, 1.05)
 		else:
 			play("Walk", 0.18, clampf(ml * 1.8, 0.8, 1.4))
-	elif busy <= 0.0 and hit_stun <= 0.0:
+	elif busy <= 0.0 and hit_stun <= 0.0 and not airborne:
 		play("SwordIdle" if combo_t > -3.0 else "Idle", 0.25)
 	apply_gravity_and_slide(delta)
 
@@ -119,9 +147,47 @@ func nearest_enemy(r: float) -> Unit:
 			best = e
 	return best
 
+# ---------------------------------------------------------- saut / esquive
+func jump() -> void:
+	if dead or airborne or cd["jump"] > 0.0 or busy > 0.2 or not is_on_floor():
+		return
+	cd["jump"] = CD_MAX["jump"]
+	velocity.y = 7.2
+	airborne = true
+	busy = 0.0
+	play("JumpStart", 0.05, 2.4, true)
+	FX.burst(main, global_position + Vector3(0, 0.1, 0), Color(0.7, 0.8, 1.0), 10, 0.06, 2.0, 0.4, 4.0)
+
+func roll() -> void:
+	if dead or cd["roll"] > 0.0 or roll_t > 0.0:
+		return
+	cd["roll"] = CD_MAX["roll"]
+	var dir := Vector3.ZERO
+	if move_input.length() > 0.12:
+		var fwd := Vector3(-sin(cam_yaw), 0, -cos(cam_yaw))
+		var right := Vector3(cos(cam_yaw), 0, -sin(cam_yaw))
+		dir = (right * move_input.x - fwd * move_input.y).normalized()
+	else:
+		dir = forward()
+	roll_dir = dir
+	roll_t = 0.36
+	invuln = 0.45
+	busy = 0.5
+	face_to(global_position + dir, true)
+	play("Roll", 0.04, 2.6, true)
+	FX.trail(main, global_position, global_position + dir * 3.8, Color(0.6, 0.8, 1.0))
+
+## Récompense du boss : nouvelle lame.
+func equip_blade() -> void:
+	if sword:
+		sword.queue_free()
+	sword = (load("res://assets/sl_sword.glb") as PackedScene).instantiate()
+	sword_mount.add_child(sword)
+	dmg *= 1.45
+
 # ---------------------------------------------------------- attaque de base (combo 3 coups)
 func attack() -> void:
-	if dead or cd["attack"] > 0.0 or busy > 0.15:
+	if dead or cd["attack"] > 0.0 or busy > 0.15 or main.in_dialogue:
 		return
 	var t := nearest_enemy(5.5)
 	if t:
@@ -153,7 +219,7 @@ func _slash_hit(c: int) -> void:
 	var hits := 0
 	for u in main.units_of_team(1):
 		var e := u as Unit
-		if e.dead:
+		if e.dead or (e is Mob and (e as Mob).team == 2):
 			continue
 		var to := e.global_position - global_position
 		to.y = 0
@@ -167,7 +233,7 @@ func _slash_hit(c: int) -> void:
 
 # ---------------------------------------------------------- Pas de l'ombre
 func shadow_step() -> bool:
-	if not ready_skill("step") or busy > 0.3:
+	if not ready_skill("step") or busy > 0.3 or main.in_dialogue:
 		return false
 	var t := nearest_enemy(14.0)
 	if t == null:
@@ -200,7 +266,7 @@ func _backstab(t: Unit) -> void:
 
 # ---------------------------------------------------------- Arise
 func arise() -> bool:
-	if not ready_skill("arise") or busy > 0.3:
+	if not ready_skill("arise") or busy > 0.3 or main.in_dialogue:
 		return false
 	var corpse: Mob = null
 	var bd := 9.0
@@ -214,7 +280,7 @@ func arise() -> bool:
 	if corpse == null:
 		main.system_msg("Aucun cadavre à relever à proximité.")
 		return false
-	if main.shadow_count() >= 4:
+	if main.shadow_count() >= 4 and not corpse.boss:
 		main.system_msg("Ton armée d'ombres est au complet (4/4).")
 		return false
 	cd["arise"] = CD_MAX["arise"]
