@@ -5,7 +5,7 @@ var actors: Array = []
 var player: Actor
 var K                        # compétences (skills.gd)
 var cam: Camera3D
-var cam_dist := 10.0
+var cam_dist := 11.0
 var shake_t := 0.0
 var tstop := false
 var sfx_lib := {}
@@ -25,7 +25,7 @@ func _ready() -> void:
 	for f in ["swing1","swing2","hit1","hit2","hit3","jump","land","dash","slam"]:
 		sfx_lib[f] = load("res://assets/sfx/%s.ogg" % f)
 	K = preload("res://scripts/skills.gd").new(); K.w = self; add_child(K)
-	player = spawn("Knight", Vector3.ZERO, 0)
+	player = spawn("Knight", Vector3(0, 0, 44), 0)
 	player.died.connect(func(a): get_tree().create_timer(2.0).timeout.connect(func(): a.revive(); a.hp = a.hp_max))
 	_ui()
 	K.apply_class(); refresh_labels()
@@ -50,7 +50,7 @@ func _wave() -> void:
 	for i in 6:
 		var ang := i * TAU / 6 + randf() * 0.4
 		var mage := i % 3 == 2
-		var e := spawn("Skeleton_Mage" if mage else "Skeleton_Rogue", Vector3(cos(ang), 0, sin(ang)) * randf_range(7, 10), 1)
+		var e := spawn("Skeleton_Mage" if mage else "Skeleton_Rogue", Vector3(0, 0, 100) + Vector3(cos(ang), 0, sin(ang)) * randf_range(7, 12), 1)
 		e.brain = "ranged" if mage else "melee"
 		e.hp_max = 110 if mage else 160; e.hp = e.hp_max; e.dmg_mul = 0.6
 		e.busy = e.shot("Skeletons_Awaken_Floor", true); e.root_lock = e.busy
@@ -81,25 +81,24 @@ func _world() -> void:
 	sm.sky_top_color = Color(0.25, 0.45, 0.85); sm.sky_horizon_color = Color(0.85, 0.75, 0.65)
 	sm.ground_horizon_color = Color(0.5, 0.45, 0.4); sky.sky_material = sm
 	e.background_mode = Environment.BG_SKY; e.sky = sky
-	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR; e.ambient_light_color = Color(0.62, 0.66, 0.8); e.ambient_light_energy = 0.55
+	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR; e.ambient_light_color = Color(0.62, 0.66, 0.8); e.ambient_light_energy = 0.42
 	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC; e.tonemap_white = 1.4
+	e.fog_enabled = true; e.fog_light_color = Color(0.75, 0.8, 0.9); e.fog_density = 0.0022
 	env.environment = e; add_child(env)
 	var sun := DirectionalLight3D.new(); sun.rotation_degrees = Vector3(-52, 35, 0)
-	sun.light_energy = 1.05; sun.light_color = Color(1, 0.95, 0.85)
+	sun.light_energy = 0.95; sun.light_color = Color(1, 0.95, 0.85)
 	sun.shadow_enabled = true; sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-	sun.directional_shadow_max_distance = 28.0
+	sun.directional_shadow_max_distance = 40.0
 	add_child(sun)
-	var g := MeshInstance3D.new(); var pm := PlaneMesh.new(); pm.size = Vector2(120, 120); g.mesh = pm
-	var sh := ShaderMaterial.new(); sh.shader = load("res://scripts/ground.gdshader"); g.material_override = sh
-	add_child(g)
-	var body := StaticBody3D.new(); var cs := CollisionShape3D.new(); var bs := BoxShape3D.new()
-	bs.size = Vector3(120, 1, 120); cs.shape = bs; cs.position.y = -0.5; body.add_child(cs); add_child(body)
-	var mat := StandardMaterial3D.new(); mat.albedo_color = Color(0.62, 0.58, 0.52); mat.roughness = 0.9
-	for p in [[Vector3(-12,0.5,-6), Vector3(3,1,3)], [Vector3(-12,1.5,-6), Vector3(1.8,1,1.8)], [Vector3(13,1.6,4), Vector3(2.2,3.2,2.2)]]:
-		var b := StaticBody3D.new(); var c := CollisionShape3D.new(); var x := BoxShape3D.new(); x.size = p[1]; c.shape = x; b.add_child(c)
-		var mi := MeshInstance3D.new(); var bm := BoxMesh.new(); bm.size = p[1]; mi.mesh = bm; mi.material_override = mat; b.add_child(mi)
-		b.position = p[0]; add_child(b)
-	cam = Camera3D.new(); cam.fov = 50; cam.far = 120; add_child(cam)
+	var town := preload("res://scripts/town.gd").new(); add_child(town); town.build()
+	var vr := RandomNumberGenerator.new(); vr.seed = 3
+	var vp := preload("res://scripts/villager.gd")
+	for path in town.walk_paths:
+		for k in (4 if path.size() == 2 and path[0].z != path[1].z else 3):
+			var v := Node3D.new(); v.set_script(vp); add_child(v); v.setup(path, vr)
+	for sp in town.spots:
+		var v := Node3D.new(); v.set_script(vp); add_child(v); v.setup(PackedVector3Array([sp]), vr)
+	cam = Camera3D.new(); cam.fov = 50; cam.far = 260; add_child(cam)
 	var kn: Node = (load("res://assets/chars/Knight.glb") as PackedScene).instantiate()
 	blade_mesh = (kn.find_child("2H_Sword", true, false).get_child(0) as MeshInstance3D).mesh
 	kn.free()
@@ -110,7 +109,7 @@ func _process(dt: float) -> void:
 	pad.cd = K.cd; pad.cd_max = K.cd_max; pad.chan = K.channel / K.channel_max if K.channel > 0 else 0.0
 	pad.queue_redraw()
 	var t := player.global_position + Vector3(0, 1.0, 0)
-	var want := t + Vector3(0, cam_dist * 0.7, cam_dist * 0.75)
+	var want := t + Vector3(0, cam_dist * 0.82, cam_dist * 0.58)
 	cam.global_position = cam.global_position.lerp(want, 1.0 - exp(-8 * dt)) if cam.global_position != Vector3.ZERO else want
 	cam.look_at(t)
 	if shake_t > 0:
@@ -345,17 +344,11 @@ func _snap(n: String) -> void:
 
 func _shots() -> void:
 	DirAccess.make_dir_recursive_absolute("res://shots")
-	K.fast = true
-	await get_tree().create_timer(1.5).timeout
-	var steps := [["chrono",0,0.5,"t_stop"],["chrono",1,0.8,"t_angel"],["chrono",3,0.9,"t_blade"],["druid",0,0.4,"d_cat"],["druid",1,0.8,"d_pets"],["druid",2,1.0,"d_storm"],["druid",3,1.2,"d_sleep"],["vampire",0,1.0,"v_army"],["vampire",2,1.0,"v_embrace"],["vampire",3,0.6,"v_hypno"]]
-	for s in steps:
-		if K.cls != s[0]: K.cls = s[0]; K.lvl = 3; K.apply_class(); refresh_labels(); await get_tree().create_timer(1.0).timeout
-		player.busy = 0; player.root_lock = 0
-		K.cd[s[1]] = 0; K.cast(s[1])
-		if s[3] == "t_stop":
-			await get_tree().create_timer(0.3).timeout
-			for i in 4: player.attack(); await get_tree().create_timer(0.25).timeout
-		await get_tree().create_timer(s[2]).timeout
-		_snap(s[3])
+	await get_tree().create_timer(1.0).timeout
+	var views := [[Vector3(0, 0, 44), 11.0, "rue_sud"], [Vector3(-10, 0, -8), 13.0, "place"], [Vector3(0, 0, -60), 16.0, "mairie"], [Vector3(0, 0, -10), 60.0, "vue_haut"]]
+	for v in views:
+		player.global_position = v[0]; cam_dist = v[1]
+		await get_tree().create_timer(0.6).timeout
+		_snap(v[2])
 	print("SHOTS_DONE")
 	get_tree().quit()

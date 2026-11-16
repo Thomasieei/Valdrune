@@ -44,5 +44,5 @@ jobs:
           name: Studio Lab v0.1.${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           make_latest: false
-          body: Studio Lab — Chronomancien, Druide (forme féline), Vampire. 4 compétences évolutives chacun, vagues de squelettes. Télécharge StudioLab.apk.
+          body: Village de Bruneval — rue principale, place du marché, taverne, forge, mairie, falaises. Télécharge StudioLab.apk.
           files: out/StudioLab.apk

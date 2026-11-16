@@ -1,12 +1,11 @@
 shader_type spatial;
-render_mode diffuse_lambert, specular_disabled;
+render_mode specular_disabled;
+float h(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float n(vec2 p) { vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
 void fragment() {
 	vec3 w = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	float d = length(w.xz);
-	vec2 g = abs(fract(w.xz * 0.5) - 0.5);
-	float line = smoothstep(0.47, 0.5, max(g.x, g.y));
-	vec3 grass = mix(vec3(0.2, 0.36, 0.14), vec3(0.27, 0.42, 0.16), 0.5 + 0.5 * sin(w.x * 0.37) * sin(w.z * 0.29));
-	vec3 stone = mix(vec3(0.5, 0.46, 0.4), vec3(0.36, 0.33, 0.3), line);
-	ALBEDO = mix(stone, grass, smoothstep(9.0, 10.5, d));
-	ROUGHNESS = 0.95;
+	float v = n(w.xz * 0.08) * 0.6 + n(w.xz * 0.5) * 0.4;
+	ALBEDO = mix(vec3(0.22, 0.38, 0.15), vec3(0.36, 0.52, 0.22), v);
+	ROUGHNESS = 1.0;
 }
