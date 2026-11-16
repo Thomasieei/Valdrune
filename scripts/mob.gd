@@ -280,6 +280,8 @@ func _think(delta: float) -> void:
 		return
 	if busy > 0.0 or hit_stun > 0.0:
 		return
+	if target != null and not is_instance_valid(target):
+		target = null
 	if target and (target.dead or (not is_shadow and not boss and target.global_position.distance_to(home) > leash_r + 6.0)):
 		if target.dead and target == main.hero:
 			say("kill")
@@ -325,6 +327,8 @@ func _think(delta: float) -> void:
 
 # ---------------------------------------------------------------- ombres : intelligence
 func _shadow_think(delta: float) -> void:
+	if target != null and not is_instance_valid(target):
+		target = null
 	var h: Hero = main.hero
 	if recover_t > 0.0:
 		recover_t -= delta
