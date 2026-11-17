@@ -44,18 +44,28 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0a0812;font-family:va
 #btnOmbres small{display:grid;place-items:center;min-width:3.2vh;height:3.2vh;border-radius:1.6vh;background:#a879ff;color:#120a24;font-size:1.8vh}
 #btnConstruire{position:absolute;right:calc(1.6vh + env(safe-area-inset-right));top:9.4vh;padding:1vh 1.8vh;font:800 2.1vh var(--f-label);color:#ffe1a8;border:1px solid #ffd27a55}
 #placement[hidden]{display:none}
-#combat{position:absolute;right:calc(2.4vh + env(safe-area-inset-right));bottom:3.4vh;width:15vh;height:15vh;z-index:6}
-#btnAttaque{position:absolute;inset:0;border-radius:50%;border:3px solid #ffd27aaa;background:radial-gradient(circle at 40% 35%,#6a3aaa,#2a1250 70%);box-shadow:0 .8vh 2vh #000a,inset 0 0 2vh #b98aff66}
-#btnAttaque svg{width:60%;height:60%}#btnAttaque.presse,.pw.presse{transform:scale(.92)}
-.pw{position:absolute;width:8.6vh;height:8.6vh;border-radius:50%;border:2px solid #c8a8ff66;background:radial-gradient(circle at 40% 35%,#3a1a6a,#140826 75%);box-shadow:0 .5vh 1.4vh #000a;padding:0;overflow:visible}
-.pw span{position:absolute;inset:14%;display:block}.pw svg{width:100%;height:100%}
-.pw::after{content:'';position:absolute;inset:0;border-radius:50%;background:conic-gradient(#05020cd0 calc(var(--cd,0)*360deg),transparent 0)}
-.pw em{position:absolute;inset:0;display:grid;place-items:center;z-index:2;font:900 2.6vh var(--f-label);color:#fff;font-style:normal;text-shadow:0 1px 3px #000}
-.pw small{position:absolute;left:50%;bottom:-1.9vh;transform:translateX(-50%);font:800 1.15vh var(--f-label);color:#e8dcff;white-space:nowrap;text-shadow:0 1px 2px #000}
-.pw.pret{border-color:#c8a8ff;box-shadow:0 .5vh 1.4vh #000a,0 0 1.6vh #a879ff88}
-#pw-lame{left:-11vh;top:5.5vh}#pw-tele{left:-9vh;top:-6.5vh}#pw-parade{left:1.8vh;top:-12vh}#pw-arise{left:-20.5vh;top:6.5vh}
-#pw-arise.dispo{border-color:#ffd27a;animation:pulse 1s infinite}
-#action{bottom:36vh!important;right:calc(2.4vh + env(safe-area-inset-right))!important}
+#combat{position:absolute;right:var(--decalSorts,16vw);bottom:0;width:60vh;height:50vh;pointer-events:none;z-index:6}
+#combat button{position:absolute;transform:translate(50%,50%);border-radius:50%;padding:0;border:0;background:none;pointer-events:auto;touch-action:none}
+#combat .cadre{position:absolute;inset:0;border-radius:50%;padding:.45vh;background:conic-gradient(from 200deg,#6a5e72,#cbc3d2,#5d5266,#a99fb2,#6a5e72);box-shadow:0 .6vh 1.6vh #000b}
+#combat .cadre>div{position:relative;width:100%;height:100%;border-radius:50%;overflow:hidden;background:radial-gradient(circle at 40% 35%,#3a1a6a,#120a1e 75%)}
+#combat svg{position:absolute;inset:16%;width:68%;height:68%}
+#combat .cd{position:absolute;inset:0;border-radius:50%;background:conic-gradient(#000c calc(var(--cd,0)*360deg),transparent 0)}
+#combat em{position:absolute;inset:0;display:grid;place-items:center;font:900 3.2vh var(--f-label);color:#fff;font-style:normal;text-shadow:0 1px 3px #000}
+#combat small{position:absolute;left:50%;bottom:-2.1vh;transform:translateX(-50%);font:800 1.3vh var(--f-label);color:#e8dcff;white-space:nowrap;text-shadow:0 0 3px #000,0 0 3px #000}
+#combat button:active,#combat .presse{scale:.92}
+#btnAttaque{right:25.2vh;bottom:25.9vh;width:15vh;height:15vh}
+#btnAttaque .cadre{padding:.7vh;background:conic-gradient(from 200deg,#7b7085,#e8e2ee,#6a5e72,#c3bacb,#7b7085)}
+#btnAttaque .cadre>div{background:radial-gradient(circle at 40% 35%,#6a3aaa,#2a1250 70%)}
+#pw-lame{right:40.5vh;bottom:19.4vh;width:9.4vh;height:9.4vh}
+#pw-tele{right:40.5vh;bottom:32.9vh;width:9.4vh;height:9.4vh}
+#pw-parade{right:27.5vh;bottom:41.7vh;width:9.4vh;height:9.4vh}
+#pw-arise{right:13.6vh;bottom:38.9vh;width:9.4vh;height:9.4vh}
+#pw-saut{right:27.5vh;bottom:10.6vh;width:9.4vh;height:9.4vh}
+#pw-dash{right:13.6vh;bottom:13vh;width:9.4vh;height:9.4vh}
+#combat .pret .cadre{background:conic-gradient(from 200deg,#8a6ac8,#f0e6ff,#6a4aa8,#c8a8ff,#8a6ac8)}
+#pw-arise.dispo .cadre{background:conic-gradient(from 0deg,#ffd27a,#fff6d8,#c8902a,#ffd27a);animation:pulse 1s infinite}
+#pw-parade.garde .cadre{background:conic-gradient(#b98aff,#fff,#b98aff);box-shadow:0 0 2.4vh #b98aff}
+#action{bottom:34vh!important;right:calc(2.4vh + env(safe-area-inset-right))!important}
 body.souverain #combat{display:none}
 body.touche::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9;box-shadow:inset 0 0 12vh #ff1a2a99;animation:touche .5s forwards}
 @keyframes touche{to{opacity:0}}
@@ -66,6 +76,7 @@ body.touche::after{content:'';position:fixed;inset:0;pointer-events:none;z-index
 .flot.degat{color:#fff;font-size:2.4vh}.flot.crit{color:#ffd27a;font-size:3.2vh}.flot.mal{color:#ff5a5a;font-size:2.6vh}.flot.alerte{color:#ff3a3a;font-size:4vh;font-weight:900}
 .flot.xp{color:#ffd27a;font-size:1.9vh}.flot.info{color:#cdbfe6;font-size:1.9vh}.flot.parade{color:#fff;font-size:3.4vh;text-shadow:0 0 1.4vh #b98aff}
 .flot.arise{font:900 4.6vh var(--f-titre);color:#d8c0ff;text-shadow:0 0 2vh #7a3aff,0 0 4vh #5a1aff}
+.demolir{display:block;width:100%;margin-top:1.4vh;padding:1.2vh;border-radius:1.2vh;border:1px solid #ff6a5a55;background:#3a101088;color:#ffb0a8;font:800 1.7vh var(--f-label)}.demolir.sur{background:#a02020;color:#fff}
 .stats.suivant{color:#a8ffbf;opacity:.85}
 #guide{position:fixed;left:0;top:0;z-index:15;font-size:6vh;pointer-events:none;opacity:0;margin:-.4vh 0 0 -2.2vh;filter:drop-shadow(0 .4vh .6vh #000a);transition:opacity .3s}
 #guide.on{opacity:1;animation:tape 1s ease-in-out infinite}
@@ -195,7 +206,7 @@ body.souverain #scene{filter:saturate(1.08)}
 <div id="bulles"></div><div id="flots"></div>
 <div id="hud">
   <div id="moi" class="verre"><h1>Le Souverain</h1><div id="pv"><i></i><b>100 / 100</b></div><div id="mana"><i></i><b>100 / 100</b></div><div id="xpb"><i id="xp"></i></div></div>
-  <div id="combat"><button id="btnAttaque"><svg viewBox="0 0 48 48"><path d="M12 36 L34 10 L38 14 L16 40 Z" fill="#fff"/><path d="M10 38 l8 2 l-6 -8 z" fill="#ffd27a"/><path d="M14 30 l6 6" stroke="#ffd27a" stroke-width="3"/></svg></button><button id="pw-lame" class="pw"><span><svg viewBox="0 0 48 48"><path d="M10 38 L30 8 L34 12 L14 40 Z" fill="#e8e4ff"/><path d="M8 40 l6 -2 l-4 -4 z" fill="#b98aff"/><path d="M22 40 L40 14 L43 17 L26 42 Z" fill="#b98aff" opacity=".7"/><path d="M6 30 h10 M4 36 h8 M30 44 h8" stroke="#c8a8ff" stroke-width="2.5" stroke-linecap="round"/></svg></span><em></em><small>Lame</small></button><button id="pw-tele" class="pw"><span><svg viewBox="0 0 48 48"><ellipse cx="24" cy="38" rx="14" ry="4" fill="none" stroke="#b98aff" stroke-width="2.5"/><ellipse cx="24" cy="28" rx="10" ry="3" fill="none" stroke="#c8a8ff" stroke-width="2.5" opacity=".8"/><circle cx="24" cy="15" r="7" fill="#e8e4ff"/><path d="M24 22 v6" stroke="#e8e4ff" stroke-width="3"/><path d="M15 9 l-3 -3 M33 9 l3 -3 M24 4 v-3" stroke="#c8a8ff" stroke-width="2.5" stroke-linecap="round"/></svg></span><em></em><small>Télékinésie</small></button><button id="pw-parade" class="pw"><span><svg viewBox="0 0 48 48"><path d="M24 5 L40 11 V23 C40 33 33 40 24 44 C15 40 8 33 8 23 V11 Z" fill="#2a1650" stroke="#e8e4ff" stroke-width="3"/><path d="M24 12 V36 M16 22 H32" stroke="#b98aff" stroke-width="3" stroke-linecap="round"/></svg></span><em></em><small>Parade</small></button><button id="pw-arise" class="pw"><span><svg viewBox="0 0 48 48"><path d="M6 42 Q24 34 42 42" stroke="#b98aff" stroke-width="3" fill="none"/><circle cx="24" cy="12" r="5" fill="#e8e4ff"/><path d="M24 17 V32 M24 22 L15 14 M24 22 L33 14 M24 32 L18 40 M24 32 L30 40" stroke="#e8e4ff" stroke-width="3" stroke-linecap="round"/><path d="M10 36 l2 -6 M38 36 l-2 -6 M17 38 l1 -4 M31 38 l-1 -4" stroke="#c8a8ff" stroke-width="2" stroke-linecap="round"/></svg></span><em></em><small>Arise</small></button></div>
+  <div id="combat"><button id="btnAttaque"><div class="cadre"><div><svg viewBox="0 0 48 48"><path d="M12 36 L34 10 L38 14 L16 40 Z" fill="#fff"/><path d="M10 38 l8 2 l-6 -8 z" fill="#ffd27a"/><path d="M14 30 l6 6" stroke="#ffd27a" stroke-width="3"/></svg><div class="cd"></div><em></em></div></div></button><button id="pw-lame"><div class="cadre"><div><svg viewBox="0 0 48 48"><path d="M10 38 L30 8 L34 12 L14 40 Z" fill="#e8e4ff"/><path d="M22 40 L40 14 L43 17 L26 42 Z" fill="#b98aff" opacity=".8"/><path d="M6 30 h10 M4 36 h8 M30 44 h8" stroke="#c8a8ff" stroke-width="2.5" stroke-linecap="round"/></svg><div class="cd"></div><em></em></div></div><small>Lame</small></button><button id="pw-tele"><div class="cadre"><div><svg viewBox="0 0 48 48"><ellipse cx="24" cy="40" rx="15" ry="4" fill="none" stroke="#b98aff" stroke-width="2.5"/><ellipse cx="24" cy="31" rx="10" ry="3" fill="none" stroke="#c8a8ff" stroke-width="2.5"/><path d="M17 26 L24 8 L31 26 Z" fill="#e8e4ff"/><path d="M12 12 l-3 -3 M36 12 l3 -3 M24 4 v-3" stroke="#c8a8ff" stroke-width="2.5" stroke-linecap="round"/></svg><div class="cd"></div><em></em></div></div><small>Télékinésie</small></button><button id="pw-parade"><div class="cadre"><div><svg viewBox="0 0 48 48"><path d="M24 5 L40 11 V23 C40 33 33 40 24 44 C15 40 8 33 8 23 V11 Z" fill="#2a1650" stroke="#e8e4ff" stroke-width="3"/><path d="M24 12 V36 M16 22 H32" stroke="#b98aff" stroke-width="3" stroke-linecap="round"/></svg><div class="cd"></div><em></em></div></div><small>Parade</small></button><button id="pw-arise"><div class="cadre"><div><svg viewBox="0 0 48 48"><path d="M6 42 Q24 34 42 42" stroke="#b98aff" stroke-width="3" fill="none"/><circle cx="24" cy="12" r="5" fill="#e8e4ff"/><path d="M24 17 V32 M24 22 L15 14 M24 22 L33 14 M24 32 L18 40 M24 32 L30 40" stroke="#e8e4ff" stroke-width="3" stroke-linecap="round"/></svg><div class="cd"></div><em></em></div></div><small>Arise</small></button><button id="pw-saut"><div class="cadre"><div><svg viewBox="0 0 48 48"><path d="M24 8 L36 22 H28 V36 H20 V22 H12 Z" fill="#e8e4ff"/><path d="M12 42 H36" stroke="#b98aff" stroke-width="3" stroke-linecap="round"/></svg><div class="cd"></div><em></em></div></div><small>Saut</small></button><button id="pw-dash"><div class="cadre"><div><svg viewBox="0 0 48 48"><path d="M20 12 L36 24 L20 36 Z" fill="#e8e4ff"/><path d="M6 18 H16 M4 24 H16 M6 30 H16" stroke="#b98aff" stroke-width="3" stroke-linecap="round"/></svg><div class="cd"></div><em></em></div></div><small>Dash</small></button></div>
   <div id="bois" class="verre">🪵 <b>0</b></div>
   <div id="quete" class="verre"></div>
   <button id="btnOmbres" class="verre">Ombres <small>0</small></button>

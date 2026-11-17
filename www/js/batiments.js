@@ -187,6 +187,24 @@ export function depotProche(pos, res) {
   }
   return best;
 }
+// démolir : le bâtiment disparaît dans un nuage de poussière (la moitié de ce qu'il a coûté est rendue)
+export function demolir(b) {
+  const i = batiments.indexOf(b); if (i < 0) return null;
+  batiments.splice(i, 1); G.scene.remove(b.g); const e = eti.get(b); if (e) { e.remove(); eti.delete(b); }
+  emettre(V(b.g.position.x, b.g.position.y + 1.5, b.g.position.z), { n: 90, c1: '#d8c8a8', c2: '#5a4a3a', vit: 5, vie: 1.1, taille: 0.4, grav: 3 }); son('impactSoft_heavy_000', 0.7, 0.6, b.g.position);
+  const rendu = {}, ajoute = (c) => { for (const [r, n] of Object.entries(c || {})) rendu[r] = (rendu[r] || 0) + n; };
+  ajoute(b.T.cout); for (let k = 1; k < (b.s.niv || 1); k++) ajoute(b.T.niveaux[k].cout);
+  for (const r in rendu) rendu[r] = Math.floor(rendu[r] * 0.5); return rendu;
+}
+// palissade : chaque segment s'accroche au bout du segment voisin, quel que soit l'angle (plus de trous)
+export const LONG_SEGMENT = 2.4;
+export function aimanter(type, x, z, r) {
+  if (!TYPES[type].segment) return null; let best = null, bd = 1.7;
+  for (const b of batiments) { if (!b.T.segment) continue; const a = b.g.rotation.y, ax = Math.cos(a), az = -Math.sin(a), h = LONG_SEGMENT / 2;
+    for (const s of [-1, 1]) { const ex = b.g.position.x + ax * h * s, ez = b.g.position.z + az * h * s;
+      for (const t of [-1, 1]) { const cx = ex + Math.cos(r) * h * t, cz = ez - Math.sin(r) * h * t, d = Math.hypot(cx - x, cz - z); if (d < bd) { bd = d; best = { x: cx, z: cz }; } } } }
+  return best;
+}
 export const chantierProche = (pos) => { let best = null, bd = 1e9; for (const b of batiments) if (enTravaux(b)) { const d = Math.hypot(b.g.position.x - pos.x, b.g.position.z - pos.z); if (d < bd) { bd = d; best = b; } } return best; };
 export const aBatiment = (type) => batiments.some(b => b.fini && b.s.type === type);
 export const meilleur = (type, k) => batiments.reduce((m, b) => b.fini && b.s.type === type ? Math.max(m, niveauDe(b)[k] || 0) : m, 0);
@@ -206,7 +224,7 @@ export function placementValide(type, x, z) {
   const T = TYPES[type], r = T.rayon;
   if (Math.hypot(x, z) > 60) return false;
   if (Math.hypot(x - RESERVE.x, z - RESERVE.z) < r + 2.6) return false;
-  for (const b of batiments) { const d = Math.hypot(b.g.position.x - x, b.g.position.z - z); if (d < r + b.T.rayon - (T.segment && b.T.segment ? 0.6 : 0)) return false; }
+  for (const b of batiments) { const d = Math.hypot(b.g.position.x - x, b.g.position.z - z); if (T.segment && b.T.segment ? d < 0.8 : d < r + b.T.rayon) return false; }
   for (const a of arbres) if (a.etat !== 'souche' && Math.hypot(a.pos.x - x, a.pos.z - z) < r + 0.6) return false;
   return true;
 }

@@ -58,3 +58,4 @@ les envoyer couper / miner / construire / combattre, voir le royaume grandir en 
 6. Routes constructibles, plusieurs styles.
 7. Carte agrandie (place pour camps et zones).
 8. Bâtiments à débloquer : forge, boulangerie, boucherie, épicerie, entrepôt, taverne, tour de défense, caserne, archerie.
+- [FAIT v0.227] Retours Thomas : boutons de combat disposés comme Brèche (cercle complet autour de ⚔️, + Saut et Dash), saut/double saut en salto, dash invulnérable, déplacement avec inertie, monstres agrandis, micro-arrêt à l'impact, recul, arcs de lame, éventail rouge qui blanchit au moment de parer, télékinésie refaite (chaînes, montée, chute + onde + projection, ennemis soulevés ×1,5 dégâts), parade avec Sword_Block et fenêtre 0,4 s, zone rouge qui épouse le relief, sol de carrière peint (fin du héros translucide), palissade aimantée, démolition (rend 50 %).

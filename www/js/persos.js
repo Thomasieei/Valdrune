@@ -13,12 +13,11 @@ export const MODELES = {
   f: { corps: 'Superhero_Female_FullBody', tenues: { paysan: 'Female_Peasant', rodeur: 'Female_Ranger' }, cheveux: ['Hair_Long', 'Hair_Buns'] },
 };
 export async function chargerPersos(progres) {
-  const urls = ['anims.glb', ...Object.values(MODELES).flatMap(m => [m.corps + '.gltf', ...Object.values(m.tenues).map(t => t + '.gltf'), ...m.cheveux.map(c => c + '.gltf')])];
+  const urls = ['anims.glb', 'anims_u1.glb', 'anims_u2.glb', ...Object.values(MODELES).flatMap(m => [m.corps + '.gltf', ...Object.values(m.tenues).map(t => t + '.gltf'), ...m.cheveux.map(c => c + '.gltf')])];
   let n = 0;
   await Promise.all(urls.map(u => charger(P + u).then(() => progres && progres(++n / urls.length))));
-  const a = await charger(P + 'anims.glb');
   // les clips tournent sur place : on retire le déplacement de la racine (sinon le perso « glisse » puis revient)
-  for (const c of a.animations) { c.tracks = c.tracks.filter(t => !(/^root\.(position|scale)$/.test(t.name)) && !/\.scale$/.test(t.name)); CLIPS[c.name] = c; }
+  for (const f of ['anims.glb', 'anims_u1.glb', 'anims_u2.glb']) for (const c of (await charger(P + f)).animations) { c.tracks = c.tracks.filter(t => !(/^root\.(position|scale)$/.test(t.name)) && !/\.scale$/.test(t.name)); CLIPS[c.name] = c; }
 }
 // ne garde que la tête et le cou du corps « Superhero » (le reste est sous la tenue)
 const tetes = new Map();

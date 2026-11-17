@@ -27,6 +27,7 @@ function construireTerrain() {
     c.set('#5f9a3a').lerp(c2.set('#7fb04a'), 0.5 + n * 0.5).offsetHSL(0, 0, y * 0.015);
     const terre = Math.max(0, 1 - Math.abs(d - 0) / 9) * 0.9 + Math.max(0, 1 - Math.hypot(x - RESERVE.x, z - RESERVE.z) / 5) * 0.7; // sol tassé du camp
     c.lerp(c2.set('#9a7a52'), Math.min(0.85, terre));
+    const dc = Math.hypot(x - CARRIERE.x, z - CARRIERE.z); if (dc < 10) c.lerp(c2.set('#8a8070'), Math.min(0.8, (10 - dc) / 3.5)); // carrière : roche et gravier
     C.set([c.r, c.g, c.b], i * 3);
   }
   geo.setAttribute('color', new THREE.BufferAttribute(C, 3)); geo.computeVertexNormals();
@@ -153,7 +154,7 @@ function construireCarriere() {
     for (let i = 0; i < 4; i++) { const c = new THREE.Mesh(new THREE.IcosahedronGeometry(0.16, 0), new THREE.MeshStandardMaterial({ color: '#e6e2d6', emissive: '#3a3830', roughness: 0.4 })); c.position.set(rnd(-0.35, 0.35), rnd(0.25, 0.6), rnd(-0.35, 0.35)); g.add(c); }
     G.scene.add(g); filons.push({ g, pos: g.position, e, pierre: 40, max: 40, ouvriers: 0, repousse: 0 });
   }
-  const sol = new THREE.Mesh(new THREE.CircleGeometry(9, 32).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#8a7d6a', roughness: 1, transparent: true, opacity: 0.85 })); sol.position.set(CARRIERE.x, hauteur(CARRIERE.x, CARRIERE.z) + 0.04, CARRIERE.z); sol.receiveShadow = true; G.scene.add(sol);
+  /* le sol de la carrière est peint dans le terrain lui-même (un disque posé dessus flottait et rendait le héros translucide) */
 }
 export function tailler(f, n, pos) {
   if (f.pierre <= 0) return 0; const pris = Math.min(n, f.pierre); f.pierre -= pris;

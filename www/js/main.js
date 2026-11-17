@@ -5,7 +5,7 @@ import { chargerNature, construireMonde, majMonde, majPile, hauteur, arbreProche
 import { Ombre, RANGS, NOMS, METIERS, parole, surParole, surSignal, xpNiveau, teinteOmbre } from './ombres.js';
 import { initCombat, majCombat, heroOccupe, campLibre, zoneDangereuse, POUVOIRS, xpHeros, pvMaxHeros, heros } from './combat.js';
 import { chargerMonstre } from './persos.js';
-import { chargerBatiments, TYPES, CATS, batiments, creerBatiment, majBatiments, placementValide, fantomeBatiment, majEtiquettesChantiers, aBatiment, marteler, chantierProche, depotProche, ameliorer, enTravaux, niveauDe, prochain, meilleur, bloque, majInterieur, dedans } from './batiments.js';
+import { chargerBatiments, TYPES, CATS, batiments, creerBatiment, majBatiments, placementValide, fantomeBatiment, majEtiquettesChantiers, aBatiment, marteler, demolir, aimanter, LONG_SEGMENT, chantierProche, depotProche, ameliorer, enTravaux, niveauDe, prochain, meilleur, bloque, majInterieur, dedans } from './batiments.js';
 
 const $ = (s) => document.querySelector(s);
 const CLE = 'souverain-v1';
@@ -180,7 +180,7 @@ function ouvrirPouvoirs() {
       <div class="stats suivant">Niveau ${n + 1} : ${P.effet(n + 1)}</div><div class="cout"><button data-pw="${k}" ${h.pts ? '' : 'disabled'}>Améliorer · 1 point</button></div></div>`; }).join('');
 }
 $('#moi').onclick = () => ouvrirPouvoirs();
-function batimentSous(q) { let best = null, bd = 1e9; for (const b of batiments) { if (b.T.segment) continue; const d = Math.hypot(b.g.position.x - q.x, b.g.position.z - q.z); if (d < b.T.rayon && d < bd) { bd = d; best = b; } } return best; }
+function batimentSous(q) { let best = null, bd = 1e9; for (const b of batiments) { const d = Math.hypot(b.g.position.x - q.x, b.g.position.z - q.z); if (d < b.T.rayon && d < bd) { bd = d; best = b; } } return best; }
 const etoiles = (n, max) => '★'.repeat(n) + '<i>' + '★'.repeat(max - n) + '</i>';
 let batOuvert = null;
 function ouvrirBatiment(b) {
@@ -193,6 +193,7 @@ function ouvrirBatiment(b) {
   else { const ok = Object.entries(nx.cout).every(([r, k]) => (J[r] || 0) >= k);
     bas = `<div class="carte bat ${ok ? '' : 'non'}"><div class="tete"><span class="ico">⬆️</span><b>Niveau ${niv + 1}</b><small class="et">${etoiles(niv + 1, max)}</small></div>
       <div class="stats">${nx.effet}</div><div class="cout">${Object.entries(nx.cout).map(([r, k]) => `<span class="${(J[r] || 0) >= k ? '' : 'manque'}">${ICONES[r]} ${k}</span>`).join(' ')}<button data-amel ${ok ? '' : 'disabled'}>Améliorer</button></div></div>`; }
+  bas += `<button class="demolir" data-demolir>🗑️ Démolir · rend la moitié des ressources</button>`;
   p.querySelector('.liste').innerHTML = `<div class="carte bat"><div class="tete"><span class="ico">${b.T.icone}</span><b>Niveau ${niv}</b><small class="et">${etoiles(niv, max)}</small></div><div class="stats">${n.effet}</div></div>` + bas;
 }
 $('#panneau').addEventListener('click', (e) => {
@@ -203,6 +204,11 @@ $('#panneau').addEventListener('click', (e) => {
     $('#panneau').classList.remove('on'); toast(J.ombres.some(o => o.metier === 'construire') ? '⬆️ Échafaudages montés : tes bâtisseurs s’y mettent' : '⬆️ Échafaudages montés ! Mets une ombre en 🔨 Bâtir'); return;
   }
   const pw = e.target.closest('[data-pw]'); if (pw && J.heros.pts > 0) { J.heros.pts--; J.heros.pw[pw.dataset.pw]++; son('jingles_PIZZI01', 0.5); emettre(V(joueur.pos.x, joueur.pos.y + 1, joueur.pos.z), { n: 40, c1: '#ffe9a0', c2: '#b36bff', vit: 3, vie: 0.9, taille: 0.22, grav: -1 }); sauver(); majHud(); ouvrirPouvoirs(); return; }
+  const dm = e.target.closest('[data-demolir]'); if (dm && batOuvert) {
+    if (!dm.classList.contains('sur')) { dm.classList.add('sur'); dm.textContent = '⚠️ Toucher encore pour confirmer'; son('error_004', 0.3); return; }
+    const b = batOuvert, rendu = demolir(b); J.batiments = J.batiments.filter(x => x !== b.s); for (const [r, n] of Object.entries(rendu || {})) J[r] = (J[r] || 0) + n;
+    toast(`🗑️ ${b.T.nom} démoli · ${Object.entries(rendu || {}).map(([r, n]) => `+${n} ${ICONES[r]}`).join(' ')}`); batOuvert = null; appliquerBatiments(); majHud(); sauver(); $('#panneau').classList.remove('on'); return;
+  }
   const og = e.target.closest('[data-onglet]'); if (og) { ouvrirConstruire(og.dataset.onglet); return; }
   const pz = e.target.closest('[data-poser]'); if (pz) { if (pz.classList.contains('non')) { son('error_004', 0.4); toast('Pas assez de ressources'); return; } $('#panneau').classList.remove('on'); commencerPlacement(pz.dataset.poser); return; }
   const fl = e.target.closest('[data-filtre]'); if (fl) { filtreO = fl.dataset.filtre; son('cloth1', 0.25); ouvrirOmbres(); return; }
@@ -225,18 +231,20 @@ function majPlacement() {
   if (!placement) return;
   const T = TYPES[placement.type];
   const assez = Object.entries(T.cout).every(([r, n]) => (J[r] || 0) >= n);
-  placement.ok = assez && placementValide(placement.type, placement.x, placement.z);
-  fantomeBatiment(placement.type, placement.x, placement.z, placement.r, placement.ok);
+  const ai = aimanter(placement.type, placement.x, placement.z, placement.r); placement.aim = ai; const px = ai ? ai.x : placement.x, pz = ai ? ai.z : placement.z;
+  placement.ok = assez && placementValide(placement.type, px, pz);
+  fantomeBatiment(placement.type, px, pz, placement.r, placement.ok);
   const b = $('#btnPoser'); b.disabled = !placement.ok; b.textContent = !assez ? 'Pas assez de ressources' : placement.ok ? `Poser · ${Object.entries(T.cout).map(([r, n]) => ICONES[r] + n).join(' ')}` : 'Place occupée';
 }
 function poser() {
   if (!placement || !placement.ok) { son('error_004', 0.4); return; }
   const T = TYPES[placement.type]; for (const [r, n] of Object.entries(T.cout)) J[r] -= n;
+  if (placement.aim) { placement.x = placement.aim.x; placement.z = placement.aim.z; }
   const s = { type: placement.type, x: +placement.x.toFixed(2), z: +placement.z.toFixed(2), r: placement.r, prog: 0, fini: false };
   J.batiments.push(s); creerBatiment(s, false); son('impactPunch_medium_001', 0.5); emettre(V(s.x, hauteur(s.x, s.z) + 0.2, s.z), { n: 30, c1: '#d8c8a8', c2: '#6a5a4a', vit: 3, vie: 0.7, taille: 0.3, grav: 4 });
   majHud(); sauver();
   if (!J.ombres.some(o => o.metier === 'construire')) toast('Chantier posé ! Mets une ombre en 🔨 Bâtir');
-  if (T.segment && Object.entries(T.cout).every(([r, n]) => (J[r] || 0) >= n)) { placement.x += Math.sin(placement.r + Math.PI / 2) * 2.1; placement.z += Math.cos(placement.r + Math.PI / 2) * 2.1; } // segment suivant juste à côté
+  if (T.segment && Object.entries(T.cout).every(([r, n]) => (J[r] || 0) >= n)) { placement.x += Math.cos(placement.r) * LONG_SEGMENT; placement.z -= Math.sin(placement.r) * LONG_SEGMENT; } // segment suivant, accroché au bout du précédent
   else finPlacement();
 }
 $('#btnPoser').onclick = () => { initAudio(); poser(); };
@@ -295,25 +303,43 @@ function majAnneau() { anneau.visible = !!selection && G.mode === 'souverain'; i
 const scenes = []; let enScene = false; let dernier = performance.now();
 const dir = V();
 function majJoueur(dt) {
-  const p = joueur.perso;
-  if (heroOccupe()) { joueur.chop = null; joueur.bati = null; joueur.pos.y = hauteur(joueur.pos.x, joueur.pos.z); p.maj(dt); J.mana = Math.min(joueur.manaMax, J.mana + dt * 2.2 * (joueur.regen || 1)); return; }
-  const f = directionVoulue(dir);
-  if (f > 0.05) {
-    joueur.chop = null; joueur.bati = null; const v = f > 0.85 ? 6.2 : 3.4;
-    const nx = joueur.pos.x + dir.x * v * dt, nz = joueur.pos.z + dir.z * v * dt;
+  const p = joueur.perso, vel = joueur.vel ||= V();
+  joueur.h ||= 0; joueur.vy ||= 0;
+  // saut : vraie trajectoire (élan conservé, gravité), atterrissage avec poussière
+  const enAir = joueur.h > 0 || joueur.vy > 0;
+  if (enAir) { joueur.vy -= 24 * dt; joueur.h += joueur.vy * dt; if (joueur.h <= 0) { joueur.h = 0; joueur.vy = 0; joueur.sauts = 0; atterrir(); } }
+  if (heroOccupe()) { joueur.chop = null; joueur.bati = null; vel.multiplyScalar(Math.exp(-dt * 10)); joueur.pos.y = hauteur(joueur.pos.x, joueur.pos.z) + joueur.h; p.maj(dt); J.mana = Math.min(joueur.manaMax, J.mana + dt * 2.2 * (joueur.regen || 1)); return; }
+  const f = directionVoulue(dir), vmax = f > 0.05 ? (f > 0.85 ? 6.2 : 3.4) : 0;
+  // inertie : on accélère et on freine (plus crédible qu'un départ/arrêt instantané) ; en l'air on contrôle moins
+  const cible = V(dir.x * vmax, 0, dir.z * vmax), taux = enAir ? 3 : vmax > vel.length() ? 9 : 12;
+  vel.lerp(cible, 1 - Math.exp(-dt * taux));
+  const sp = vel.length();
+  if (sp > 0.05) {
+    joueur.chop = null; joueur.bati = null;
+    const nx = joueur.pos.x + vel.x * dt, nz = joueur.pos.z + vel.z * dt;
     if (Math.hypot(nx, nz) < 78 && libre(nx, nz)) { if (!bloque(nx, nz)) { joueur.pos.x = nx; joueur.pos.z = nz; } else if (!bloque(nx, joueur.pos.z)) joueur.pos.x = nx; else if (!bloque(joueur.pos.x, nz)) joueur.pos.z = nz; } /* glisse le long des murs */
-    let da = Math.atan2(dir.x, dir.z) - p.root.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); p.root.rotation.y += da * Math.min(1, dt * 12);
-    p.jouer(f > 0.85 ? 'Jog_Fwd_Loop' : 'Walk_Loop', { vitesse: f > 0.85 ? 1.15 : 1.1 });
-  } else if (joueur.bati) {
+    if (sp > 0.3) { let da = Math.atan2(vel.x, vel.z) - p.root.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); p.root.rotation.y += da * Math.min(1, dt * (enAir ? 5 : 11)); }
+  }
+  if (enAir) { if (joueur.vy < 0 && p.anim === 'Jump_Start') p.jouer('Jump_Loop'); }
+  else if (joueur.atterrit > 0) joueur.atterrit -= dt;
+  else if (sp > 0.4) p.jouer(sp > 4.6 ? 'Jog_Fwd_Loop' : 'Walk_Loop', { vitesse: sp > 4.6 ? sp / 5.4 : sp / 3.1 });
+  else if (joueur.bati) {
     const b = joueur.bati; if (!enTravaux(b)) { joueur.bati = null; p.jouer('Idle_Loop'); }
     else { p.root.rotation.y = Math.atan2(b.g.position.x - joueur.pos.x, b.g.position.z - joueur.pos.z); p.jouer('Fixing_Kneeling', { vitesse: 1.3 }); joueur.bt = (joueur.bt || 0) - dt; if (joueur.bt <= 0) { joueur.bt = 0.7; if (marteler(b, 1.5, joueur.pos)) { jeu.batimentFini(b, null); joueur.bati = null; } } }
   } else if (joueur.chop) {
     const a = joueur.chop; if (a.etat !== 'debout') { joueur.chop = null; p.jouer('Idle_Loop'); }
-    else { const ang = Math.atan2(a.pos.x - joueur.pos.x, a.pos.z - joueur.pos.z); p.root.rotation.y = ang; p.jouer('TreeChopping_Loop', { vitesse: 1.3 }); const ph = p.phase(); if (joueur.ph < 0.5 && ph >= 0.5) frapperArbre(a, joueur.pos, 2); joueur.ph = ph; }
+    else { const ang = Math.atan2(a.pos.x - joueur.pos.x, a.pos.z - joueur.pos.z); p.root.rotation.y = ang; p.jouer('TreeChopping_Loop', { vitesse: 1.3 }); joueur.tc = (joueur.tc || 0) + dt; const D = p.duree('TreeChopping_Loop') / 1.3; if (joueur.tc >= D) { joueur.tc -= D; frapperArbre(a, joueur.pos, 2); } }
   } else p.jouer('Idle_Loop');
-  joueur.pos.y = hauteur(joueur.pos.x, joueur.pos.z); G.interieur = G.mode !== 'souverain' && !!majInterieur(joueur.pos.x, joueur.pos.z);
+  joueur.pos.y = hauteur(joueur.pos.x, joueur.pos.z) + joueur.h; G.interieur = G.mode !== 'souverain' && !!majInterieur(joueur.pos.x, joueur.pos.z);
   p.maj(dt);
   J.mana = Math.min(joueur.manaMax, J.mana + dt * 2.2 * (joueur.regen || 1));
+}
+function atterrir() { const p = joueur.perso; p.jouer(joueur.salto ? 'NinjaJump_Land' : 'Jump_Land', { boucle: false, forcer: true, vitesse: 1.6 }); joueur.atterrit = 0.25; joueur.salto = false; emettre(V(joueur.pos.x, joueur.pos.y + 0.1, joueur.pos.z), { n: 18, c1: '#d8c8a8', c2: '#6a5a4a', vit: 2.5, vie: 0.5, taille: 0.25, grav: 4 }); son('impactSoft_heavy_000', 0.3, 1.4, joueur.pos); }
+function sauter() { // saut, puis double saut en salto
+  if (G.mode === 'souverain' || heroOccupe()) return; joueur.sauts ||= 0; if (joueur.sauts >= 2) return;
+  const p = joueur.perso; joueur.sauts++; joueur.vy = joueur.sauts === 1 ? 8.2 : 7.2; joueur.h = Math.max(joueur.h, 0.01); joueur.atterrit = 0;
+  if (joueur.sauts === 2) { joueur.salto = true; p.jouer('NinjaJump_Start', { boucle: false, forcer: true, vitesse: 1.4 }); emettre(V(joueur.pos.x, joueur.pos.y + 0.3, joueur.pos.z), { n: 20, c1: '#c8a8ff', c2: '#3a0a7a', vit: 2.5, vie: 0.5, taille: 0.25, grav: 0 }); son('sov_onde', 0.3, 1.8); }
+  else { p.jouer('Jump_Start', { boucle: false, forcer: true, vitesse: 1.8 }); son('cloth1', 0.4, 1.2); }
 }
 // ---------------- Main qui guide (on montre où toucher plutôt que d'expliquer) ----------------
 let guideT = 0;
@@ -363,7 +389,7 @@ async function demarrer() {
   J = charger() || nouvelleSauvegarde(); J.pierre ??= 0; J.batiments ??= [];
   construireMonde(); creerJoueur(); creerDepouilles(); for (const s of J.batiments) creerBatiment(s, !!s.fini); appliquerBatiments();
   J.ombres.forEach((d, k) => ajouterOmbre(d, V(RESERVE.x + Math.cos(k) * 3, 0, RESERVE.z + Math.sin(k) * 3)));
-  initCombat({ J, joueur, jeu, toast, sauver, majQuete, majHud });
+  initCombat({ J, joueur, jeu, toast, sauver, majQuete, majHud, sauter });
   horsLigne();
   majPile(J.bois); majHud(); majQuete();
   initEntrees({ toucher, saisir, glisser });
