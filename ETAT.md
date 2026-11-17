@@ -44,3 +44,17 @@ les envoyer couper / miner / construire / combattre, voir le royaume grandir en 
 
 ## Règle permanente : penser joueur
 À chaque brique, se demander : que voit le joueur, que veut-il faire ensuite, qu'est-ce qui l'agace, comment comprend-il ce qu'il gagne ? Anticiper ses besoins plutôt que d'attendre qu'il les demande.
+
+## Décisions de Thomas (17/11, 13h) — ordre de priorité choisi
+1. [FAIT v0.224] Mode construction repensé : onglets 🏠 Ville / ⚒️ Métiers / ⚔️ Militaire, tuiles à grosse icône, bâtiments à venir visibles (verrouillés). Icône au-dessus de chaque bâtiment (catégorie/métier + étoiles). **Maison** : capacité d'habitants (👥 0/10, puis 0/20…).
+2. [FAIT v0.224] Liste des ombres pensée téléphone : grille compacte, filtres par métier, ordres groupés (pas de défilement sans fin).
+3. Combat du héros — 3 pouvoirs en cercle autour du bouton (comme Brèche, vrais symboles) :
+   - Lame rapide : enchaînement auto jusqu'à 4 ennemis (scène animée).
+   - Télékinésie : soulève 1→3 ennemis au départ, évolue (plus nombreux, plus longtemps, plus de dégâts).
+   - Blocage : maintenir = −15 % dégâts (évolutif) + contre-attaque ; parade au bon moment = 0 dégât + coup plus rapide/puissant.
+   - Vie, compétences, progression du héros.
+4. Monstres gardiens (carrière, spots) : placements soignés, vie, butin, compétences, zone rouge au sol, squelette animé.
+5. Camps de bandits vivants (ex. 5 : 1 guetteur, 2 jouent aux cartes, 1 dort sous tente/cabane…) — mises en scène, pas des ennemis posés.
+6. Routes constructibles, plusieurs styles.
+7. Carte agrandie (place pour camps et zones).
+8. Bâtiments à débloquer : forge, boulangerie, boucherie, épicerie, entrepôt, taverne, tour de défense, caserne, archerie.

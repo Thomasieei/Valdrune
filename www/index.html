@@ -61,6 +61,33 @@ body.souverain #scene{filter:saturate(1.08)}
 #btnPoser{padding:2.2vh 3vh;border-radius:3vh;border:0;font:800 2.4vh var(--f-label);color:#0c2a14;background:linear-gradient(#a8ffbf,#3ccf6a);box-shadow:0 .8vh 0 #1a6a32,0 1.4vh 3vh #0008}
 #btnPoser:disabled{color:#3a1010;background:linear-gradient(#ffb0a8,#d85a4a);box-shadow:0 .8vh 0 #6a1a14}
 #bois .sep{display:inline-block;width:1px;height:2.4vh;background:#ffffff33;margin:0 .4vh}
+.filtres{display:flex;gap:.8vh;overflow-x:auto;margin-bottom:1.2vh;scrollbar-width:none}
+.filtres button{flex:none;padding:.8vh 1.6vh;border-radius:2vh;border:1px solid #ffffff22;background:#ffffff0d;color:#fff;font:800 1.8vh var(--f-label)}
+.filtres button b{color:#ffd27a;margin-left:.3vh}.filtres button.on{background:#7a3aff55;border-color:#c8a8ff}
+.pastilles{display:grid;grid-template-columns:repeat(3,1fr);gap:.8vh;margin-bottom:1.2vh}
+.pastille{display:flex;flex-direction:column;align-items:center;gap:.2vh;padding:.9vh .4vh;border-radius:1.2vh;border:2px solid #ffffff14;background:#ffffff0a;color:#fff}
+.pastille .rg{width:3.2vh;height:3.2vh;font-size:1.8vh}
+.pastille b{font:800 1.6vh var(--f-label);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pastille small{font:800 1.4vh var(--f-label);color:#cdbfe6}
+.pastille.sel{border-color:#c8a8ff;background:#7a3aff40;box-shadow:0 0 1.4vh #7a3aff88}
+.barreOrdres{position:sticky;bottom:0;padding:1vh;border-radius:1.4vh;background:#1a0f30f0;border:1px solid #c8a8ff44}
+.barreOrdres .detail{font:700 1.5vh var(--f-label);color:#cdbfe6;margin-bottom:.8vh;text-align:center}
+.lien{border:0;background:none;color:#c8a8ff;font:800 1.7vh var(--f-label);text-decoration:underline}
+.onglets{display:flex;gap:1vh;margin-bottom:1.4vh}
+.onglets button{flex:1;display:flex;flex-direction:column;align-items:center;gap:.2vh;padding:1vh 0;border-radius:1.4vh;border:2px solid transparent;background:#ffffff0d;color:#fff;font-size:3vh}
+.onglets button small{font:800 1.5vh var(--f-label);color:#e8dcff}
+.onglets button.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 22%,transparent)}
+.tuiles{display:grid;grid-template-columns:repeat(2,1fr);gap:1.2vh}
+.tuile{position:relative;display:flex;flex-direction:column;align-items:center;gap:.4vh;padding:1.4vh 1vh;border-radius:1.6vh;border:1px solid color-mix(in srgb,var(--c,#888) 45%,transparent);background:linear-gradient(color-mix(in srgb,var(--c,#888) 16%,#1a1230),#140c24);color:#fff;text-align:center}
+.tuile i{font-style:normal;font-size:4.6vh;line-height:1}
+.tuile b{font:800 1.9vh var(--f-label)}
+.tuile em{position:absolute;top:.8vh;right:1vh;font:800 1.4vh var(--f-label);color:#ffd27a;font-style:normal}
+.tuile .cout{font:800 1.7vh var(--f-label);color:#ffe1a8}.tuile .cout .manque{color:#ff8a7a}
+.tuile small{font:600 1.3vh var(--f-label);color:#cdbfe6;line-height:1.25}
+.tuile.non{opacity:.6}.tuile.verrou{opacity:.38;filter:grayscale(.8);--c:#777}
+.badge{position:absolute;left:0;top:0;display:flex;flex-direction:column;align-items:center;pointer-events:none}
+.badge i{font-style:normal;width:4.4vh;height:4.4vh;display:flex;align-items:center;justify-content:center;font-size:2.5vh;border-radius:50%;background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--c) 70%,#fff),var(--c) 60%,color-mix(in srgb,var(--c) 50%,#000));border:2px solid #fff8;box-shadow:0 .4vh 1vh #0008}
+.badge u{text-decoration:none;font:900 1.3vh var(--f-label);color:#ffd27a;text-shadow:0 1px 2px #000;margin-top:.2vh}
 .carte .et{color:#ffd27a;letter-spacing:.1em}.carte .et i{color:#ffffff30;font-style:normal}
 .carte.bat .ico{font-size:3vh}.carte.bat.non{opacity:.62}
 .carte .cout{display:flex;align-items:center;gap:1.2vh;margin-top:.8vh;font:800 1.9vh var(--f-label);color:#ffe1a8}

@@ -58,9 +58,18 @@ const meubles = {
     ...(n >= 3 ? [p('Chest', 0.9, 0.02, -1.3, 0, F), p('Shelf_Wall', 1.75, 1.5, 0.3, -R, F), p('Potion_Red', 1.65, 1.55, 0.3, 0, 1.2)] : [])],
 };
 const scie = p('*scie', 0, 0.02, 0.4), caisses = [p('Prop_Crate', 2, 0.02, -1.8, 0.3, 0.8), p('Prop_Crate', 2.1, 0.86, -1.8, 0.9, 0.6)];
+export const CATS = { ville: { nom: 'Ville', icone: '🏠', c: '#7ec8ff' }, metier: { nom: 'Métiers', icone: '⚒️', c: '#ffc46a' }, militaire: { nom: 'Militaire', icone: '⚔️', c: '#ff7a6a' } };
 export const TYPES = {
+  maison: {
+    nom: 'Maison', icone: '🏠', cat: 'ville', cout: { bois: 60 }, travail: 30, rayon: 3.6, demi: 2,
+    niveaux: [
+      { habitants: 10, effet: 'Loge 10 habitants · les humains viendront quand ta ville aura de la réputation', plan: () => maison({ w: 2, d: 2, etages: [{ m: 'platre', n: 'pf', w: 'fp', e: 'pg', s: 'op' }], toit: 'Roof_RoundTiles_4x4', extras: [p('Table_Small', -0.6, 0.02, -1, 0, 0.45), p('Chair', -0.6, 0.02, -0.2, Math.PI, 0.7), p('Chest', 1.1, 0.02, -1.4, 0, F), p('Torch_Wall', -1.75, 1.7, 0.6, R, F)] }) },
+      { habitants: 15, cout: { bois: 140, pierre: 40 }, travail: 50, effet: 'Loge 15 habitants · un étage', plan: () => maison({ w: 2, d: 2, etages: [{ m: 'brique', n: 'pf', w: 'fp', e: 'pp', s: 'op' }, { m: 'platre', n: 'ff', w: 'gf', e: 'fg', s: 'gf' }], toit: 'Roof_RoundTiles_4x4', extras: [p('Table_Small', -0.6, 0.02, -1, 0, 0.45), p('Chair', -0.6, 0.02, -0.2, Math.PI, 0.7), p('Stool_round', 0.3, 0.02, -1, 0, F), p('Chest', 1.1, 0.02, -1.4, 0, F), p('Torch_Wall', -1.75, 1.7, 0.6, R, F), p('Shelf_Wall', 1.75, 1.5, 0.4, -R, F), p('Prop_Chimney', 1.2, 6.2, -1.2, 0, 0.8, true)] }) },
+      { habitants: 20, cout: { bois: 300, pierre: 150 }, travail: 80, effet: 'Loge 20 habitants · maison de pierre', plan: () => maison({ w: 2, d: 2, coins: 'Corner_Exterior_Brick', etages: [{ m: 'brique', n: 'ff', w: 'fp', e: 'pf', s: 'of' }, { m: 'brique', n: 'ff', w: 'ff', e: 'ff', s: 'ff' }], toit: 'Roof_RoundTiles_4x4', extras: [p('Table_Small', -0.6, 0.02, -1, 0, 0.45), p('Chair', -0.6, 0.02, -0.2, Math.PI, 0.7), p('Stool_round', 0.3, 0.02, -1, 0, F), p('Chest', 1.1, 0.02, -1.4, 0, F), p('Torch_Wall', -1.75, 1.7, 0.6, R, F), p('Shelf', 1.5, 0.02, 0.6, -R, 0.6), p('Candlestick', -0.6, 0.4, -1, 0, F), p('Prop_Chimney', 1.2, 6.2, -1.2, 0, 0.8, true)] }) },
+    ],
+  },
   scierie: {
-    nom: 'Scierie', icone: '🪚', cout: { bois: 80 }, travail: 36, rayon: 5.4, demi: 3, depot: 'bois',
+    nom: 'Scierie', icone: '🪵', cat: 'metier', cout: { bois: 80 }, travail: 36, rayon: 5.4, demi: 3, depot: 'bois',
     niveaux: [
       { bonus: 1.3, effet: '+30 % sur chaque livraison de bois', plan: () => maison({ w: 3, d: 3, etages: [{ m: 'platre', n: 'ggg', w: 'gg-' }], toit: 'Roof_RoundTiles_6x6', extras: [...caisses, scie, ...meubles.scierie(1)] }) },
       { bonus: 1.5, repousse: 2, cout: { bois: 220, pierre: 60 }, travail: 60, effet: '+50 % de bois · les arbres repoussent 2× plus vite', plan: () => maison({ w: 3, d: 3, etages: [{ m: 'brique', n: 'pfp', w: 'pp-', e: '-pp' }, { m: 'platre', n: 'ggg', w: 'ggg', e: 'ggg', s: 'gfg' }], toit: 'Roof_RoundTiles_6x6', extras: [...caisses, scie, p('Prop_Chimney', -2, 6.2, -2, 0, 1, true), ...meubles.scierie(2)] }) },
@@ -68,7 +77,7 @@ export const TYPES = {
     ],
   },
   mine: {
-    nom: 'Camp de mineurs', icone: '⛏️', cout: { bois: 150 }, travail: 50, rayon: 4.7, demi: 2, depot: 'pierre',
+    nom: 'Camp de mineurs', icone: '⛏️', cat: 'metier', cout: { bois: 150 }, travail: 50, rayon: 4.7, demi: 2, depot: 'pierre',
     niveaux: [
       { bonus: 1.3, effet: 'Débloque la pierre · +30 % par livraison', plan: () => maison({ w: 2, d: 2, sol: 'Floor_Brick', etages: [{ m: 'brique', n: 'pp' }], toit: 'Roof_RoundTiles_4x4', extras: [p('Prop_Wagon', 3.3, 0, 0.6, 0.15, 0.8), p('Prop_Crate', -1.2, 0.02, -1.2, 0.2, 0.7), ...meubles.mine(1)] }) },
       { bonus: 1.5, repousse: 2, cout: { bois: 260, pierre: 120 }, travail: 70, effet: '+50 % de pierre · les filons reviennent 2× plus vite', plan: () => maison({ w: 2, d: 2, sol: 'Floor_Brick', etages: [{ m: 'brique', n: 'pp', w: 'p-', e: '-p' }, { m: 'platre', n: 'gg', w: 'gg', e: 'gg', s: 'fg' }], toit: 'Roof_RoundTiles_4x4', extras: [p('Prop_Wagon', 3.3, 0, 0.6, 0.15, 0.8), p('Prop_Crate', -1.2, 0.02, -1.2, 0.2, 0.7), p('Prop_Crate', 1.1, 0.02, -1.2, 0.7, 0.6), ...meubles.mine(2)] }) },
@@ -76,11 +85,11 @@ export const TYPES = {
     ],
   },
   palissade: {
-    nom: 'Palissade', icone: '🪵', cout: { bois: 12 }, travail: 6, rayon: 1.2, segment: true, ech: 1,
+    nom: 'Palissade', icone: '🛡️', cat: 'militaire', cout: { bois: 12 }, travail: 6, rayon: 1.2, segment: true, ech: 1,
     niveaux: [{ effet: 'Un segment de 2 m pour protéger ton camp (les raids arrivent bientôt)', plan: () => [p('Prop_WoodenFence_Single', 0, 0, 0, 0, 1.2)] }],
   },
   puits: {
-    nom: 'Puits', icone: '💧', cout: { bois: 40, pierre: 30 }, travail: 20, rayon: 2.6, ech: 1.15,
+    nom: 'Puits', icone: '💧', cat: 'ville', cout: { bois: 40, pierre: 30 }, travail: 20, rayon: 2.6, ech: 1.15,
     niveaux: [
       { mana: 20, effet: 'Cœur du futur village · +20 mana max', plan: () => [p('well_01', 0, 0, 0)] },
       { mana: 45, regen: 1.5, cout: { bois: 120, pierre: 120 }, travail: 40, effet: '+45 mana max · mana 1,5× plus rapide', plan: () => [...dalle(), p('well_01', 0, 0.03, 0), ...briques()] },
@@ -218,7 +227,16 @@ const eti = new Map();
 export function majEtiquettesChantiers() {
   for (const b of batiments) {
     let e = eti.get(b);
-    if (!enTravaux(b) || b.T.segment) { if (e) { e.remove(); eti.delete(b); } continue; }
+    if (b.T.segment) { if (e) { e.remove(); eti.delete(b); } continue; }
+    if (!enTravaux(b)) { // badge du bâtiment : icône du métier sur la couleur de sa catégorie + étoiles
+      const loin = Math.hypot(b.g.position.x - G.camCible.x, b.g.position.z - G.camCible.z) > (G.mode === 'souverain' ? 60 : 26);
+      if (!e) { e = document.createElement('div'); document.getElementById('bulles').appendChild(e); eti.set(b, e); }
+      const html = `<i style="--c:${CATS[b.T.cat].c}">${b.T.icone}</i>${b.T.niveaux.length > 1 ? `<u>${'★'.repeat(b.s.niv || 1)}</u>` : ''}`;
+      if (e._h !== html) { e.innerHTML = html; e._h = html; e.className = 'badge'; }
+      const h = (b.T.demi ? (b.s.niv >= 2 ? 2 : 1) * 3.12 + 5.4 : 2.6) * b.T.ech, s = projeter(V(b.g.position.x, b.g.position.y + h, b.g.position.z));
+      e.style.display = s.devant && !loin ? '' : 'none'; e.style.transform = `translate(${s.x}px,${s.y}px) translate(-50%,-100%)`; continue;
+    }
+    if (e && e.className !== 'eti chantier') { e.className = 'eti chantier'; e._h = ''; }
     if (!e) { e = document.createElement('div'); e.className = 'eti chantier'; document.getElementById('bulles').appendChild(e); eti.set(b, e); }
     const s = projeter(V(b.g.position.x, b.g.position.y + (b.s.amel ? 9 : 2.2), b.g.position.z)), html = `${b.s.amel ? '⬆️' : '🔨'} ${b.T.nom}${b.s.amel ? ' niv. ' + (b.s.niv + 1) : ''} <em>${Math.floor((b.s.prog || 0) * 100)} %</em>`;
     if (e._h !== html) { e.innerHTML = html; e._h = html; } e.style.display = s.devant ? '' : 'none'; e.style.transform = `translate(${s.x}px,${s.y}px) translate(-50%,-100%)`;
