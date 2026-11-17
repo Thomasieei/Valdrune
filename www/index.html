@@ -88,6 +88,18 @@ body.touche::after{content:'';position:fixed;inset:0;pointer-events:none;z-index
 .vie.brise .po u{background:#fff;box-shadow:0 0 1vh #ffd27a}.vie.brise small{color:#ffd27a}
 .vie .etourdi{display:none;margin-left:.4vh}.vie.etou .etourdi{display:inline}
 .flot.alerte-sort{color:#ffb04a;font-size:2.2vh;font-weight:900;text-shadow:0 0 1vh #ff3a10,0 2px 3px #000}
+#cibleUI{position:absolute;left:50%;top:9vh;transform:translate(-50%,-1vh);display:flex;align-items:center;gap:1vh;padding:.8vh 1.4vh .8vh .8vh;border-radius:5vh 1.6vh 1.6vh 5vh;background:linear-gradient(90deg,#1a0a12ee,#120a1ccc);border:1px solid #ff5a5a55;box-shadow:0 .6vh 2vh #0009;opacity:0;pointer-events:none;transition:.2s;z-index:5}
+#cibleUI.on{opacity:1;transform:translate(-50%,0)}
+#cibleUI .por{width:6.4vh;height:6.4vh;border-radius:50%;display:grid;place-items:center;font-size:3.8vh;background:radial-gradient(circle at 40% 35%,#5a2a2a,#1a0808);border:2px solid #ff6a5a99;box-shadow:0 0 1.4vh #ff3a3a55}
+#cibleUI .inf{width:30vh;display:flex;flex-direction:column;gap:.4vh}
+#cibleUI .nom{font:800 1.8vh var(--f-label);color:#ffd8d0}#cibleUI .nom em{color:#ffd27a;font-style:normal;margin-left:.4vh}
+#cibleUI .pv,#cibleUI .mn,#cibleUI .po,#cibleUI .cs{position:relative;border-radius:.6vh;overflow:hidden;background:#0c0408}
+#cibleUI .pv{height:2.2vh}#cibleUI .pv u{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#b0182a,#ff5a4a);transition:width .12s}
+#cibleUI .pv b{position:absolute;inset:0;display:grid;place-items:center;font:800 1.4vh var(--f-label);color:#fff;text-shadow:0 1px 2px #000}
+#cibleUI .mn{height:.9vh}#cibleUI .mn u{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#2a5aff,#6ab0ff)}
+#cibleUI .po{height:.7vh}#cibleUI .po u{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#c8902a,#ffe9a0)}
+#cibleUI.brise .po u{background:#fff;box-shadow:0 0 1vh #ffd27a}#cibleUI.brise .nom::after{content:' · BRISÉ';color:#ffd27a}
+#cibleUI .cs{height:1.8vh;border:1px solid #ffb04a88}#cibleUI .cs u{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#c86a10,#ffd27a)}#cibleUI .cs b{position:absolute;inset:0;display:grid;place-items:center;font:800 1.2vh var(--f-label);color:#fff;text-shadow:0 1px 2px #000}
 #vignette{position:fixed;inset:0;pointer-events:none;z-index:1;background:radial-gradient(ellipse at 50% 55%,transparent 55%,#05020c66 100%)}
 .stats.suivant{color:#a8ffbf;opacity:.85}
 #guide{position:fixed;left:0;top:0;z-index:15;font-size:6vh;pointer-events:none;opacity:0;margin:-.4vh 0 0 -2.2vh;filter:drop-shadow(0 .4vh .6vh #000a);transition:opacity .3s}
@@ -226,6 +238,7 @@ body.souverain #scene{filter:saturate(1.08)}
   <button id="btnMode" class="verre">👑<small>Souverain</small></button>
   <div id="indice"></div>
   <div id="vignette"></div>
+  <div id="cibleUI"><span class="por"></span><div class="inf"><div class="nom"></div><div class="pv"><u></u><b></b></div><div class="mn"><u></u></div><div class="po"><u></u></div><div class="cs"><u></u><b></b></div></div></div>
   <div id="guide">👆</div>
   <div id="retour" hidden><div class="boite"><h3>Bon retour, Souverain</h3><p></p><div class="gains"></div><small>Bientôt : des pillards rôderont pendant ton absence…</small><b>Toucher pour récupérer</b></div></div>
   <div id="placement" hidden><button id="btnTourner" class="verre">↻</button><button id="btnAnnuler" class="verre">✕</button><button id="btnPoser">Poser</button></div>

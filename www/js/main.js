@@ -3,7 +3,7 @@ import { THREE, G, V, initRendu, rendre, majCamera, initEntrees, solSous, direct
 import { chargerPersos, Perso } from './persos.js';
 import { chargerNature, construireMonde, majMonde, majPile, hauteur, arbreProche, frapperArbre, libre, RESERVE, FEU, filons } from './monde.js';
 import { Ombre, RANGS, NOMS, METIERS, parole, surParole, surSignal, xpNiveau, teinteOmbre } from './ombres.js';
-import { initCombat, majCombat, heroOccupe, campLibre, zoneDangereuse, POUVOIRS, xpHeros, pvMaxHeros, heros } from './combat.js';
+import { initCombat, majCombat, heroOccupe, toucherEnnemi, campLibre, zoneDangereuse, POUVOIRS, xpHeros, pvMaxHeros, heros } from './combat.js';
 import { chargerMonstre } from './persos.js';
 import { chargerBatiments, TYPES, CATS, batiments, creerBatiment, majBatiments, placementValide, fantomeBatiment, majEtiquettesChantiers, aBatiment, marteler, demolir, aimanter, LONG_SEGMENT, chantierProche, depotProche, ameliorer, enTravaux, niveauDe, prochain, meilleur, bloque, majInterieur, dedans } from './batiments.js';
 
@@ -267,6 +267,7 @@ function majAction() {
 function ombreSous(x, y) { let best = null, bd = 60; for (const o of ombres) { const s = projeter(V(o.pos.x, o.pos.y + 1, o.pos.z)); const d = Math.hypot(s.x - x, s.y - y); if (s.devant && d < bd) { bd = d; best = o; } } return best; }
 function toucher(x, y) {
   const best = ombreSous(x, y);
+  if (G.mode !== 'souverain' && toucherEnnemi(x, y)) return;
   if (G.mode !== 'souverain') { if (best) { selection = best; best.dire(`${best.d.nom}, rang ${best.d.rang}. J’écoute.`); son('cloth1', 0.4); ouvrirOmbres(); } else { const q = solSous(x, y), bt = q && batimentSous(q); if (bt) ouvrirBatiment(bt); } return; }
   const q = solSous(x, y);
   if (placement) { if (q) { placement.x = q.x; placement.z = q.z; } return; }

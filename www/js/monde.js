@@ -210,7 +210,7 @@ let minT = 0;
 export function filonProche(p, max = 999) { let b = null, bd = max; for (const f of filons) { if (f.pierre <= 0 || f.ouvriers >= 2 || (G.danger && G.danger(f.pos))) continue; const d = Math.hypot(f.pos.x - p.x, f.pos.z - p.z); if (d < bd) { bd = d; b = f; } } return b; }
 export function construireMonde() {
   G.hauteur = hauteur;
-  G.obstacle = (x, z) => { for (const a of arbres) if (a.etat === 'debout' && Math.abs(a.pos.x - x) < 4.5 && Math.abs(a.pos.z - z) < 4.5 && Math.hypot(a.pos.x - x, a.pos.z - z) < 1.6 * a.e) return true; return false; };
+  G.obstacle = (x, z) => { for (const a of arbres) if (a.etat === 'debout' && Math.abs(a.pos.x - x) < 2 && Math.abs(a.pos.z - z) < 2 && Math.hypot(a.pos.x - x, a.pos.z - z) < 0.3 + 0.28 * a.e) return true; return false; }; // seuls les troncs repoussent la caméra (le feuillage, on voit à travers)
   construireTerrain(); construireForet(); construireDecor(); construireReserve(); construireFeu(); construireCarriere();
 }
 export function majMonde(dt) { majMinuteurs(); majBraseros(); majFilons(dt); majChutes(dt); majRepousse(dt); majSecousses(dt); majFeu(dt); }

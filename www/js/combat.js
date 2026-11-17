@@ -112,7 +112,7 @@ class Ennemi {
   subir(n, src, { recul = 0.5, crit = false } = {}) {
     if (!this.vivant) return;
     if (this.lev) n *= 1.5; // soulevé = sans défense
-    if (this.brise > 0 && src && src.isHeros) { n *= 2.5; crit = true; this.brise = 0; this.etourdi = 0.3; this.post = 0; texteFlottant(V(this.pos.x, this.pos.y + 2.8, this.pos.z), 'EXÉCUTION', 'parade'); G.shake = 0.6; }
+    if (this.brise > 0 && src && src.isHeros) { n *= 2.5; crit = true; this.intact = true; this.brise = 0; this.etourdi = 0.3; this.post = 0; texteFlottant(V(this.pos.x, this.pos.y + 2.8, this.pos.z), 'EXÉCUTION', 'parade'); G.shake = 0.6; }
     else if (src && src.isHeros && !this.allie) { this.post = (this.post || 0) + (crit ? 14 : 8) * (src.posture || 1); this.postT = 0; if (this.post >= this.postMax()) this.briser(); }
     if (src && src.isHeros) { G.ralenti = 0.06; G.ralentiT = crit ? 0.09 : 0.05; } // micro-arrêt à l'impact : on sent le coup
     this.pv -= n; this.vu = 4; if (this.etat === 'garde') this.alerte(src && src.isHeros ? 'heros' : src);
@@ -200,18 +200,18 @@ class Ennemi {
     const d = dist(cib.pos, this.pos);
     if (this.etat === 'attaque') { // préparation visible (cercle rouge), puis le coup
       this.tourner(Math.atan2(cib.pos.x - this.pos.x, cib.pos.z - this.pos.z), dt); this.at -= dt; majTelegraphe(this);
-      if (this.at <= 0) { finTelegraphe(this); this.etat = 'poursuite'; this.cd = this.T.cadence + rnd(0.4, 1.4); if (jetons.melee === this) jetons.melee = null; this.recul = 0.9; if (d < this.T.portee + 0.5) { if (cib.heros) subirHeros(this.deg, this); else cib.subir(this.deg, this); } }
+      if (this.at <= 0) { finTelegraphe(this); this.etat = 'poursuite'; this.cd = this.T.cadence + rnd(0.4, 1.4); if (jetons.melee === this) jetons.melee = null; this.recul = 0.9; if (d < this.T.portee + 0.5) { if (cib.heros) { if (heros.action && heros.action.k === 'dash' && !heros.action.esquive) esquiveParfaite(this); else subirHeros(this.deg * (this.lourd ? 1.8 : 1), this, this.lourd); } else cib.subir(this.deg, this); } else if (cib.heros && heros.action && heros.action.k === 'dash' && !heros.action.esquive && d < this.T.portee + 3) esquiveParfaite(this); this.lourd = false; }
       return;
     }
-    this.spCd = (this.spCd ?? 3 + Math.random() * 3) - dt;
-    if (this.T.special && this.spCd <= 0 && d < 9 && this.cd <= 0.5 && libreJeton('sort', this)) { this.spCd = this.T.special.cd; sortEnnemi(this, cib); return; }
+    if (this.T.special) this.mana = Math.min(100, (this.mana ?? rnd(20, 60)) + dt * 100 / this.T.special.cd); // la mana monte : à 100, il lance son sort
+    if (this.T.special && this.mana >= 100 && d < 9 && this.cd <= 0.5 && libreJeton('sort', this)) { this.mana = 0; sortEnnemi(this, cib); return; }
     // un seul ennemi attaque à la fois (les autres tournent autour, menacent, attendent leur tour) : on peut lire chaque coup et y répondre
     const aMoi = jetons.melee === this, veut = this.cd <= 0 && libreJeton('melee', this), garde = aMoi || veut ? this.T.portee * 0.9 : 4.4 + (this.niv % 3) * 0.5;
     if (this.recul > 0) { this.recul -= dt; const a = Math.atan2(this.pos.x - cib.pos.x, this.pos.z - cib.pos.z); this.marcher(V(cib.pos.x + Math.sin(a) * 4.6, 0, cib.pos.z + Math.cos(a) * 4.6), dt, 2.2, 'Walk_Loop'); return; }
     if (d > garde + 0.3) { this.marcher(cib.pos, dt, d > 7 ? this.T.vit : this.T.vit * 0.6, d > 7 ? this.T.course || 'Jog_Fwd_Loop' : 'Walk_Loop'); return; }
     if (!aMoi && !veut) { const sens = this.niv % 2 ? 1 : -1, a = Math.atan2(this.pos.x - cib.pos.x, this.pos.z - cib.pos.z) + sens * dt * 0.35; const dest = V(cib.pos.x + Math.sin(a) * garde, 0, cib.pos.z + Math.cos(a) * garde); this.marcher(dest, dt, 1.4, 'Walk_Loop'); this.tourner(Math.atan2(cib.pos.x - this.pos.x, cib.pos.z - this.pos.z), dt * 2); return; }
     this.tourner(Math.atan2(cib.pos.x - this.pos.x, cib.pos.z - this.pos.z), dt);
-    if (veut || aMoi && this.cd <= 0) { jetons.melee = this; this.etat = 'attaque'; this.at = 0.8; const A = this.T.attaque || ['Sword_Attack'], an = A[Math.floor(Math.random() * A.length)]; this.m.jouer(an, { boucle: false, forcer: true, vitesse: this.m.duree(an) * 0.55 / 0.75 }); debutTelegraphe(this); son('knifeSlice', 0.3, 0.7, this.pos); }
+    if (veut || aMoi && this.cd <= 0) { jetons.melee = this; this.etat = 'attaque'; this.nCoups = (this.nCoups || 0) + 1; this.lourd = this.nCoups % 3 === 0 && this.T.portee > 2; this.at = this.lourd ? 1.15 : 0.8; if (this.lourd) texteFlottant(V(this.pos.x, this.pos.y + this.T.h * this.T.ech + 0.5, this.pos.z), '⚠ IMPARABLE — DASH !', 'alerte-sort'); const A = this.T.attaque || ['Sword_Attack'], an = A[Math.floor(Math.random() * A.length)]; this.m.jouer(an, { boucle: false, forcer: true, vitesse: this.m.duree(an) * 0.55 / 0.75 }); debutTelegraphe(this); son('knifeSlice', 0.3, 0.7, this.pos); }
     else this.m.jouer(this.T.humain ? 'Sword_Idle' : 'Idle_Loop');
   }
   majAllie(dt) { // ombre de combat : suit le héros, se jette sur l'ennemi le plus proche
@@ -245,7 +245,7 @@ function debutTelegraphe(e) {
   const r = e.T.portee + 0.4, g = new THREE.Group(), bord = new THREE.Mesh(new THREE.RingGeometry(r - 0.12, r, 24, 1, -Math.PI / 2 - 0.9, 1.8).rotateX(-Math.PI / 2), telM.clone()), fond = new THREE.Mesh(new THREE.CircleGeometry(r, 24, -Math.PI / 2 - 0.9, 1.8).rotateX(-Math.PI / 2), telM.clone());
   bord.material.opacity = 0.8; g.add(bord, fond); g.userData.fond = fond; G.scene.add(g); e.tel = g; e.atMax = e.at; majTelegraphe(e);
 }
-function majTelegraphe(e) { if (!e.tel) return; const k = 1 - e.at / e.atMax, f = e.tel.userData.fond; e.tel.position.set(e.pos.x, e.pos.y + 0.1, e.pos.z); e.tel.rotation.y = e.m.root.rotation.y; f.scale.setScalar(Math.max(0.05, k)); const blanc = e.at < 0.3; f.material.color.set(blanc ? '#ffffff' : '#ff3040'); f.material.opacity = blanc ? 0.75 : 0.3 + 0.25 * k; }
+function majTelegraphe(e) { if (!e.tel) return; const k = 1 - e.at / e.atMax, f = e.tel.userData.fond; e.tel.position.set(e.pos.x, e.pos.y + 0.1, e.pos.z); e.tel.rotation.y = e.m.root.rotation.y; f.scale.setScalar(Math.max(0.05, k)); const blanc = e.at < 0.3; f.material.color.set(e.lourd ? (blanc ? '#ffb000' : '#ff6a00') : blanc ? '#ffffff' : '#ff3040'); e.tel.children[0].material.color.set(e.lourd ? '#ffb000' : '#ff3040'); f.material.opacity = blanc ? 0.75 : 0.3 + 0.25 * k; }
 function finTelegraphe(e) { if (e.tel) { G.scene.remove(e.tel); e.tel = null; } }
 // ---------------- Sorts ennemis : cercle de runes au sol, barre d'incantation, explosion (on esquive au dash !) ----------------
 let texRunes = null;
@@ -313,14 +313,15 @@ function gagnerXp(n, pos) {
   while (h.xp >= xpHeros(h.niv)) { h.xp -= xpHeros(h.niv); h.niv++; h.pts = (h.pts || 0) + 1; C.joueur.pv = pvMaxHeros(); son('jingles_PIZZI01', 0.6); C.toast(`⭐ Niveau ${h.niv} ! +1 point de pouvoir (touche ton portrait)`); emettre(V(C.joueur.pos.x, C.joueur.pos.y + 1, C.joueur.pos.z), { n: 60, c1: '#ffe9a0', c2: '#b36bff', vit: 4, vie: 1.1, taille: 0.25, grav: -1 }); }
   C.majHud(); C.sauver();
 }
-export function subirHeros(n, src) {
+export function subirHeros(n, src, imparable = false) {
   const J = C.joueur; if (heros.mortT || (heros.action && heros.action.invul)) return;
   heros.horsCombat = 0;
-  if (heros.parade) {
+  if (heros.parade && !imparable) {
     const fen = 0.4 + 0.03 * (nivP('parade') - 1);
     if (G.t - heros.parade.debut < fen && !heros.parade.utilisee) return parfaite(src);
     n *= 1 - Math.min(0.6, 0.15 + 0.05 * (nivP('parade') - 1)); emettre(V(J.pos.x, J.pos.y + 1.2, J.pos.z), { n: 10, c1: '#c8a8ff', c2: '#5a1aff', vit: 3, vie: 0.4, taille: 0.15, grav: 2 }); son('impactMetal_light_000', 0.6, 0.8, J.pos);
   }
+  if (imparable && heros.parade) texteFlottant(V(J.pos.x, J.pos.y + 2.4, J.pos.z), 'Garde brisée !', 'mal');
   J.pv -= n; G.shake = Math.max(G.shake, 0.3); texteFlottant(V(J.pos.x, J.pos.y + 2.2, J.pos.z), `-${Math.round(n)}`, 'mal');
   document.body.classList.remove('touche'); void document.body.offsetWidth; document.body.classList.add('touche');
   if (!heros.action && !heros.parade) J.perso.jouer('Hit_Chest', { boucle: false, forcer: true, vitesse: 1.5 });
@@ -332,15 +333,36 @@ function parfaite(src) { // parade parfaite : aucun dégât, le temps ralentit, 
   texteFlottant(V(J.pos.x, J.pos.y + 2.4, J.pos.z), 'PARADE !', 'parade'); son('impactMetal_light_000', 0.9, 1.4, J.pos); emettre(V(J.pos.x, J.pos.y + 1.2, J.pos.z), { n: 40, c1: '#ffffff', c2: '#b36bff', vit: 5, vie: 0.5, taille: 0.2, grav: 0 });
   if (src && src.vivant) { const a = src.m.root.rotation.y; J.pos.set(src.pos.x - Math.sin(a) * 1.3, J.pos.y, src.pos.z - Math.cos(a) * 1.3); J.perso.root.rotation.y = a; heros.action = { k: 'coup', t: 0, dur: 0.5, frappe: 0.15, cibles: [src], mult: 3, crit: true, invul: true, anim: 'Sword_Regular_C' }; J.perso.jouer('Sword_Regular_C', { boucle: false, forcer: true, vitesse: 1.8 }); src.etourdi = 1.2; src.post = (src.post || 0) + src.postMax() * 0.5; if (src.post >= src.postMax()) src.briser(); }
 }
-const plusProches = (p, r, n) => ennemis.filter(e => e.vivant && dist(e.pos, p) < r).sort((a, b) => dist(a.pos, p) - dist(b.pos, p)).slice(0, n);
+const plusProches = (p, r, n) => ennemis.filter(e => e.vivant && dist(e.pos, p) < r).sort((a, b) => (a === heros.cible ? -1 : b === heros.cible ? 1 : 0) || dist(a.pos, p) - dist(b.pos, p)).slice(0, n); // la cible choisie passe en premier
 export function attaquer() {
   const J = C.joueur; if (heros.mortT || heros.action || G.mode === 'souverain') return;
-  const e = plusProches(J.pos, 5, 1)[0]; if (e) J.perso.root.rotation.y = Math.atan2(e.pos.x - J.pos.x, e.pos.z - J.pos.z);
+  let e = heros.cible && heros.cible.vivant && dist(heros.cible.pos, J.pos) < 6 ? heros.cible : plusProches(J.pos, 6, 1)[0]; if (e && e !== heros.cible) choisirCible(e); if (e) J.perso.root.rotation.y = Math.atan2(e.pos.x - J.pos.x, e.pos.z - J.pos.z);
   const elan = e ? Math.max(0.4, Math.min(2.6, dist(e.pos, J.pos) - 1.5)) : 0.5; // on fond vers la cible : le coup porte
   heros.combo = heros.comboT > 0 ? (heros.combo + 1) % 3 : 0; heros.comboT = 1.1;
   const anim = ['Sword_Regular_A', 'Sword_Regular_B', 'Sword_Regular_C'][heros.combo], dur = J.perso.duree(anim) / 1.6;
   heros.action = { k: 'coup', t: 0, dur: dur * 0.7, frappe: dur * 0.42, mult: heros.combo === 2 ? 1.6 : 1, anim, elan, coupe: true };
   J.perso.jouer(anim, { boucle: false, forcer: true, vitesse: 1.6 }); son('knifeSlice', 0.4, rnd(1, 1.2), J.pos);
+}
+function esquiveParfaite(src) { // dash au moment exact du coup : le temps ralentit, prochain coup critique, +1 point
+  const J = C.joueur; heros.action.esquive = true; heros.critSuivant = true; gagnerPts(1); G.ralenti = 0.3; G.ralentiT = 0.5;
+  texteFlottant(V(J.pos.x, J.pos.y + 2.4, J.pos.z), 'ESQUIVE !', 'parade'); son('sov_onde', 0.6, 2.2); emettre(V(J.pos.x, J.pos.y + 1, J.pos.z), { n: 30, c1: '#ffffff', c2: '#7a3aff', vit: 4, vie: 0.5, taille: 0.25, grav: 0 });
+  if (src && src.vivant) { src.post = (src.post || 0) + src.postMax() * 0.25; if (src.post >= src.postMax()) src.briser(); }
+}
+// ---------------- Cible : sélection au doigt ou à l'attaque, anneau rouge au sol, cadre de cible façon WoW ----------------
+let anneauC = null;
+export function choisirCible(e) { heros.cible = e && e.vivant && !e.allie ? e : null; majCadreCible(true); }
+export function toucherEnnemi(x, y) { let best = null, bd = 70; for (const e of ennemis) { if (!e.vivant) continue; const s = projeter(V(e.pos.x, e.pos.y + e.T.h * e.T.ech * 0.6, e.pos.z)); const d = Math.hypot(s.x - x, s.y - y); if (s.devant && d < bd) { bd = d; best = e; } } if (best) { choisirCible(best); son('cloth1', 0.3, 1.4); return true; } return false; }
+const PORTRAITS = { imp: '👹', puglin: '🐽', bandit: '🗡️' };
+function majCadreCible(force) {
+  const c = heros.cible && heros.cible.vivant ? heros.cible : null, el = document.getElementById('cibleUI');
+  if (!anneauC) { anneauC = new THREE.Mesh(new THREE.RingGeometry(0.8, 0.95, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ff3a3a', transparent: true, opacity: 0.7, depthWrite: false })); G.scene.add(anneauC); }
+  anneauC.visible = !!c; if (!c) { if (el.classList.contains('on')) el.classList.remove('on'); heros.cible = null; return; }
+  const r = 0.55 * c.T.ech * (c.T.h > 1.5 ? 1 : 1.2); anneauC.scale.setScalar(r + Math.sin(G.t * 4) * 0.03); anneauC.position.set(c.pos.x, hauteur(c.pos.x, c.pos.z) + 0.08, c.pos.z);
+  if (force || !el.classList.contains('on')) { el.classList.add('on'); el.querySelector('.por').textContent = PORTRAITS[c.type] || '☠'; el.querySelector('.nom').innerHTML = `${c.T.nom} <em>Nv ${c.niv}</em>`; el.querySelector('.mn').style.display = c.T.special ? '' : 'none'; }
+  el.querySelector('.pv u').style.width = (100 * c.pv / c.pvMax) + '%'; const t = `${Math.ceil(c.pv)} / ${c.pvMax}`; const b = el.querySelector('.pv b'); if (b.textContent !== t) b.textContent = t;
+  if (c.T.special) el.querySelector('.mn u').style.width = (c.mana || 0) + '%';
+  el.querySelector('.po u').style.width = Math.min(100, 100 * (c.post || 0) / c.postMax()) + '%'; el.classList.toggle('brise', c.brise > 0);
+  const cs = el.querySelector('.cs'); cs.style.display = c.cast ? '' : 'none'; if (c.cast) { cs.querySelector('u').style.width = Math.min(100, 100 * c.cast.t / c.cast.dur) + '%'; cs.querySelector('b').textContent = c.cast.nom; }
 }
 export function dash() {
   const J = C.joueur; if (heros.mortT || G.mode === 'souverain' || heros.cds.dash > 0 || (heros.action && heros.action.k !== 'coup')) return;
@@ -383,7 +405,7 @@ function arise(corps, n) {
   texteFlottant(V(corps.pos.x, corps.pos.y + 2.6, corps.pos.z), 'LÈVE-TOI', 'arise');
   let t = 0; const iv = setInterval(() => { t += 0.1; emettre(V(corps.pos.x + rnd(-0.6, 0.6), corps.pos.y + 0.1, corps.pos.z + rnd(-0.6, 0.6)), { n: 4, c1: '#c8a8ff', c2: '#3a0a7a', vit: 1.5, vie: 1, taille: 0.3, grav: -5 }); if (t > 1.2) clearInterval(iv); }, 100);
   setTimeout(() => {
-    const chance = (9 + n) / 100;
+    const chance = Math.min(0.9, (9 + n) / 100 * (corps.intact ? 2 : 1)); // un ennemi exécuté proprement se relève plus volontiers
     if (Math.random() < chance) {
       G.scene.remove(corps.m.root); corps.corpsT = 0;
       const a = new Ennemi(corps.type, corps.pos, { allie: true, niv: corps.niv }); a.etat = 'suit';
@@ -438,7 +460,7 @@ function majHeros(dt) {
     if (!A.fait && A.t >= A.frappe) {
       A.fait = true; const devant = p.root.rotation.y; arc(J.pos, devant, { couleur: A.crit ? '#ffd27a' : '#e8dcff', r: A.mult > 1.4 ? 2.2 : 1.8, large: A.mult > 1.4 ? 3 : 2.2 }); son('knifeSlice', 0.5, rnd(0.9, 1.1), J.pos);
       const cibles = A.cibles || ennemis.filter(e => e.vivant && dist(e.pos, J.pos) < 2.6 && Math.abs(Math.atan2(Math.sin(Math.atan2(e.pos.x - J.pos.x, e.pos.z - J.pos.z) - devant), Math.cos(Math.atan2(e.pos.x - J.pos.x, e.pos.z - J.pos.z) - devant))) < 1);
-      const crit = A.crit || Math.random() < 0.12;
+      const crit = A.crit || heros.critSuivant || Math.random() < 0.12; heros.critSuivant = false;
       for (const e of cibles) e.subir(degHeros() * A.mult * (crit && !A.crit ? 1.5 : 1), { pos: J.pos, isHeros: true }, { crit });
       if (cibles.length && !A.cibles) gagnerPts(crit ? 2 : 1);
       if (cibles.length) G.shake = Math.max(G.shake, 0.15);
@@ -450,7 +472,8 @@ function majHeros(dt) {
     if (A.t < 0.14) { const a = Math.atan2(e.pos.x - J.pos.x, e.pos.z - J.pos.z), d = dist(e.pos, J.pos); if (d > 1.1) { const k = Math.min(1, dt / Math.max(0.01, 0.14 - A.t + dt)); J.pos.x += (e.pos.x - Math.sin(a) * 1.1 - J.pos.x) * k; J.pos.z += (e.pos.z - Math.cos(a) * 1.1 - J.pos.z) * k; J.pos.y = hauteur(J.pos.x, J.pos.z); } p.root.rotation.y = a; emettre(V(J.pos.x, J.pos.y + 1, J.pos.z), { n: 4, c1: '#c8a8ff', c2: '#3a0a7a', vit: 0.5, vie: 0.35, taille: 0.3, grav: 0 }); if (!A.joue) { A.joue = true; p.jouer('Sword_Dash', { boucle: false, forcer: true, vitesse: 2.4 }); } }
     else if (!A.frappe) { A.frappe = true; arc(J.pos, p.root.rotation.y, { couleur: '#b98aff', r: 2.2, large: 2.8 }); e.subir(degHeros() * A.mult, { pos: J.pos, isHeros: true }, { crit: true, recul: 0.8 }); son('knifeSlice', 0.6, 1.3, J.pos); G.shake = Math.max(G.shake, 0.2); }
     if (A.t > 0.34) { A.i++; A.t = 0; A.joue = false; A.frappe = false; if (A.i >= A.cibles.length) { heros.action = null; p.jouer('Idle_Loop'); } }
-  } else if (A.k === 'dash') { // élan foudroyant : traînée d'ombre, invulnérable
+  } else if (A.k === 'dash') { // élan foudroyant : traînée d'ombre, invulnérable ; traverser un ennemi le coupe au passage
+    A.tra ||= new Set(); for (const e of ennemis) if (e.vivant && !A.tra.has(e) && dist(e.pos, J.pos) < 1.3) { A.tra.add(e); e.subir(degHeros() * 0.4, { pos: J.pos, isHeros: true, posture: 1.5 }, { recul: 0.2 }); gagnerPts(1); arc(J.pos, A.a, { couleur: '#b98aff', r: 1.4 }); }
     const v = 30 * (1 - A.t / A.dur) + 6, nx = J.pos.x + Math.sin(A.a) * v * dt, nz = J.pos.z + Math.cos(A.a) * v * dt; if (Math.hypot(nx, nz) < 78) { J.pos.x = nx; J.pos.z = nz; }
     for (let i = 0; i < 3; i++) emettre(V(J.pos.x + rnd(-0.3, 0.3), J.pos.y + rnd(0.3, 1.6), J.pos.z + rnd(-0.3, 0.3)), { n: 1, c1: '#c8a8ff', c2: '#2a0a5a', vit: 0.3, vie: 0.45, taille: 0.35, grav: 0 });
     if (A.t >= A.dur) { heros.action = null; if (J.vel) J.vel.set(Math.sin(A.a) * 5, 0, Math.cos(A.a) * 5); }
@@ -509,7 +532,7 @@ export function initCombat(ctx) {
 }
 export function majCombat(dt) {
   if (G.ralentiT > 0) { G.ralentiT -= dt / Math.max(0.05, G.ralenti); if (G.ralentiT <= 0) G.ralenti = 1; }
-  majHeros(dt); majFx(dt); majAoes(dt);
+  majHeros(dt); majFx(dt); majAoes(dt); majCadreCible(false);
   { let best = null, bd = 16; for (const e of ennemis) if (e.vivant && e.etat !== 'garde' && e.etat !== 'flane' && e.etat !== 'retour') { const d = dist(e.pos, C.joueur.pos); if (d < bd) { bd = d; best = e; } } G.cadre = best ? best.pos : null; }
   for (const e of ennemis) e.maj(dt); for (const a of allies) a.maj(dt);
   for (let i = ennemis.length - 1; i >= 0; i--) if (ennemis[i].etat === 'mort' && ennemis[i].corpsT <= 0 && !ennemis[i].m.root.parent) { const b = barres.get(ennemis[i]); if (b) { b.remove(); barres.delete(ennemis[i]); } ennemis.splice(i, 1); }
