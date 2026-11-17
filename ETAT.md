@@ -48,12 +48,12 @@ les envoyer couper / miner / construire / combattre, voir le royaume grandir en 
 ## Décisions de Thomas (17/11, 13h) — ordre de priorité choisi
 1. [FAIT v0.224] Mode construction repensé : onglets 🏠 Ville / ⚒️ Métiers / ⚔️ Militaire, tuiles à grosse icône, bâtiments à venir visibles (verrouillés). Icône au-dessus de chaque bâtiment (catégorie/métier + étoiles). **Maison** : capacité d'habitants (👥 0/10, puis 0/20…).
 2. [FAIT v0.224] Liste des ombres pensée téléphone : grille compacte, filtres par métier, ordres groupés (pas de défilement sans fin).
-3. Combat du héros — 3 pouvoirs en cercle autour du bouton (comme Brèche, vrais symboles) :
+3. [FAIT v0.225] Combat du héros (4 pouvoirs : Lame, Télékinésie, Parade, ARISE 10 %→) — 3 pouvoirs en cercle autour du bouton (comme Brèche, vrais symboles) :
    - Lame rapide : enchaînement auto jusqu'à 4 ennemis (scène animée).
    - Télékinésie : soulève 1→3 ennemis au départ, évolue (plus nombreux, plus longtemps, plus de dégâts).
    - Blocage : maintenir = −15 % dégâts (évolutif) + contre-attaque ; parade au bon moment = 0 dégât + coup plus rapide/puissant.
    - Vie, compétences, progression du héros.
-4. Monstres gardiens (carrière, spots) : placements soignés, vie, butin, compétences, zone rouge au sol, squelette animé.
+4. [EN COURS v0.225 : Diablotins carrière + Puglins clairière] Monstres gardiens (carrière, spots) : placements soignés, vie, butin, compétences, zone rouge au sol, squelette animé.
 5. Camps de bandits vivants (ex. 5 : 1 guetteur, 2 jouent aux cartes, 1 dort sous tente/cabane…) — mises en scène, pas des ennemis posés.
 6. Routes constructibles, plusieurs styles.
 7. Carte agrandie (place pour camps et zones).

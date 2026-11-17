@@ -19,6 +19,12 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0a0812;font-family:va
 /* haut gauche : le souverain */
 #moi{position:absolute;left:calc(1.6vh + env(safe-area-inset-left));top:1.6vh;padding:1vh 1.4vh;min-width:26vh}
 #moi h1{margin:0 0 .6vh;font:900 2.6vh var(--f-titre);color:var(--or);letter-spacing:.02em}
+#pv{position:relative;height:2.4vh;border-radius:1.2vh;background:#16060a;overflow:hidden;border:1px solid #ff5a5a55;margin-bottom:.6vh}
+#pv i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#c0202a,#ff6a5a);transition:width .25s}
+#pv b{position:absolute;inset:0;display:grid;place-items:center;font:800 1.5vh var(--f-label);text-shadow:0 1px 2px #000}
+#xpb{height:.6vh;margin-top:.5vh;border-radius:.3vh;background:#ffffff14;overflow:hidden}#xp{display:block;height:100%;width:0;background:#ffd27a;transition:width .3s}
+#moi h1 em{font:800 1.5vh var(--f-label);color:#ffd27a;font-style:normal}#moi h1 .pts{display:inline-block;padding:0 .7vh;border-radius:1vh;background:#ffd27a;color:#1a1008;font:900 1.4vh var(--f-label);animation:pulse 1.2s infinite}
+#moi{cursor:pointer}
 #mana{position:relative;height:2.4vh;border-radius:1.2vh;background:#0c0816;overflow:hidden;border:1px solid #a879ff55}
 #mana i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#5a2aff,#b98aff);box-shadow:0 0 1.2vh #a879ff;transition:width .3s}
 #mana b{position:absolute;inset:0;display:grid;place-items:center;font:800 1.5vh var(--f-label);text-shadow:0 1px 2px #000}
@@ -28,7 +34,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0a0812;font-family:va
 #bois.pop{animation:pop .35s}
 @keyframes pop{40%{transform:translateX(-50%) scale(1.18)}}
 /* quête guidée */
-#quete{position:absolute;left:calc(1.6vh + env(safe-area-inset-left));top:11vh;width:34vh;padding:1.1vh 1.4vh}
+#quete{position:absolute;left:calc(1.6vh + env(safe-area-inset-left));top:16.4vh;width:34vh;padding:1.1vh 1.4vh}
 #quete b{display:block;font:800 1.9vh var(--f-label);color:var(--or);margin-bottom:.3vh}
 #quete span{display:block;font-weight:700;font-size:1.75vh;line-height:1.3;color:#e8dcc8}
 #quete i{display:block;height:.9vh;margin-top:.8vh;border-radius:.5vh;background:#0006;overflow:hidden}
@@ -38,6 +44,29 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0a0812;font-family:va
 #btnOmbres small{display:grid;place-items:center;min-width:3.2vh;height:3.2vh;border-radius:1.6vh;background:#a879ff;color:#120a24;font-size:1.8vh}
 #btnConstruire{position:absolute;right:calc(1.6vh + env(safe-area-inset-right));top:9.4vh;padding:1vh 1.8vh;font:800 2.1vh var(--f-label);color:#ffe1a8;border:1px solid #ffd27a55}
 #placement[hidden]{display:none}
+#combat{position:absolute;right:calc(2.4vh + env(safe-area-inset-right));bottom:3.4vh;width:15vh;height:15vh;z-index:6}
+#btnAttaque{position:absolute;inset:0;border-radius:50%;border:3px solid #ffd27aaa;background:radial-gradient(circle at 40% 35%,#6a3aaa,#2a1250 70%);box-shadow:0 .8vh 2vh #000a,inset 0 0 2vh #b98aff66}
+#btnAttaque svg{width:60%;height:60%}#btnAttaque.presse,.pw.presse{transform:scale(.92)}
+.pw{position:absolute;width:8.6vh;height:8.6vh;border-radius:50%;border:2px solid #c8a8ff66;background:radial-gradient(circle at 40% 35%,#3a1a6a,#140826 75%);box-shadow:0 .5vh 1.4vh #000a;padding:0;overflow:visible}
+.pw span{position:absolute;inset:14%;display:block}.pw svg{width:100%;height:100%}
+.pw::after{content:'';position:absolute;inset:0;border-radius:50%;background:conic-gradient(#05020cd0 calc(var(--cd,0)*360deg),transparent 0)}
+.pw em{position:absolute;inset:0;display:grid;place-items:center;z-index:2;font:900 2.6vh var(--f-label);color:#fff;font-style:normal;text-shadow:0 1px 3px #000}
+.pw small{position:absolute;left:50%;bottom:-1.9vh;transform:translateX(-50%);font:800 1.15vh var(--f-label);color:#e8dcff;white-space:nowrap;text-shadow:0 1px 2px #000}
+.pw.pret{border-color:#c8a8ff;box-shadow:0 .5vh 1.4vh #000a,0 0 1.6vh #a879ff88}
+#pw-lame{left:-11vh;top:5.5vh}#pw-tele{left:-9vh;top:-6.5vh}#pw-parade{left:1.8vh;top:-12vh}#pw-arise{left:-20.5vh;top:6.5vh}
+#pw-arise.dispo{border-color:#ffd27a;animation:pulse 1s infinite}
+#action{bottom:36vh!important;right:calc(2.4vh + env(safe-area-inset-right))!important}
+body.souverain #combat{display:none}
+body.touche::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9;box-shadow:inset 0 0 12vh #ff1a2a99;animation:touche .5s forwards}
+@keyframes touche{to{opacity:0}}
+.vie{position:absolute;left:0;top:0;display:flex;flex-direction:column;align-items:center;gap:.3vh;pointer-events:none}
+.vie small{font:800 1.3vh var(--f-label);color:#ffd8d0;text-shadow:0 1px 2px #000;white-space:nowrap}.vie small em{color:#ffd27a;font-style:normal}
+.vie i{display:block;width:8vh;height:.9vh;border-radius:.5vh;background:#1a0608;border:1px solid #0008;overflow:hidden}.vie u{display:block;height:100%;background:linear-gradient(90deg,#c0202a,#ff6a5a)}
+.vie.allie small{color:#e0d0ff}.vie.allie u{background:linear-gradient(90deg,#5a2aff,#b98aff)}
+.flot.degat{color:#fff;font-size:2.4vh}.flot.crit{color:#ffd27a;font-size:3.2vh}.flot.mal{color:#ff5a5a;font-size:2.6vh}.flot.alerte{color:#ff3a3a;font-size:4vh;font-weight:900}
+.flot.xp{color:#ffd27a;font-size:1.9vh}.flot.info{color:#cdbfe6;font-size:1.9vh}.flot.parade{color:#fff;font-size:3.4vh;text-shadow:0 0 1.4vh #b98aff}
+.flot.arise{font:900 4.6vh var(--f-titre);color:#d8c0ff;text-shadow:0 0 2vh #7a3aff,0 0 4vh #5a1aff}
+.stats.suivant{color:#a8ffbf;opacity:.85}
 #guide{position:fixed;left:0;top:0;z-index:15;font-size:6vh;pointer-events:none;opacity:0;margin:-.4vh 0 0 -2.2vh;filter:drop-shadow(0 .4vh .6vh #000a);transition:opacity .3s}
 #guide.on{opacity:1;animation:tape 1s ease-in-out infinite}
 @keyframes tape{0%,100%{translate:0 1.2vh}50%{translate:0 3.4vh}}
@@ -165,7 +194,8 @@ body.souverain #scene{filter:saturate(1.08)}
 <canvas id="scene"></canvas>
 <div id="bulles"></div><div id="flots"></div>
 <div id="hud">
-  <div id="moi" class="verre"><h1>Le Souverain</h1><div id="mana"><i></i><b>100 / 100</b></div></div>
+  <div id="moi" class="verre"><h1>Le Souverain</h1><div id="pv"><i></i><b>100 / 100</b></div><div id="mana"><i></i><b>100 / 100</b></div><div id="xpb"><i id="xp"></i></div></div>
+  <div id="combat"><button id="btnAttaque"><svg viewBox="0 0 48 48"><path d="M12 36 L34 10 L38 14 L16 40 Z" fill="#fff"/><path d="M10 38 l8 2 l-6 -8 z" fill="#ffd27a"/><path d="M14 30 l6 6" stroke="#ffd27a" stroke-width="3"/></svg></button><button id="pw-lame" class="pw"><span><svg viewBox="0 0 48 48"><path d="M10 38 L30 8 L34 12 L14 40 Z" fill="#e8e4ff"/><path d="M8 40 l6 -2 l-4 -4 z" fill="#b98aff"/><path d="M22 40 L40 14 L43 17 L26 42 Z" fill="#b98aff" opacity=".7"/><path d="M6 30 h10 M4 36 h8 M30 44 h8" stroke="#c8a8ff" stroke-width="2.5" stroke-linecap="round"/></svg></span><em></em><small>Lame</small></button><button id="pw-tele" class="pw"><span><svg viewBox="0 0 48 48"><ellipse cx="24" cy="38" rx="14" ry="4" fill="none" stroke="#b98aff" stroke-width="2.5"/><ellipse cx="24" cy="28" rx="10" ry="3" fill="none" stroke="#c8a8ff" stroke-width="2.5" opacity=".8"/><circle cx="24" cy="15" r="7" fill="#e8e4ff"/><path d="M24 22 v6" stroke="#e8e4ff" stroke-width="3"/><path d="M15 9 l-3 -3 M33 9 l3 -3 M24 4 v-3" stroke="#c8a8ff" stroke-width="2.5" stroke-linecap="round"/></svg></span><em></em><small>Télékinésie</small></button><button id="pw-parade" class="pw"><span><svg viewBox="0 0 48 48"><path d="M24 5 L40 11 V23 C40 33 33 40 24 44 C15 40 8 33 8 23 V11 Z" fill="#2a1650" stroke="#e8e4ff" stroke-width="3"/><path d="M24 12 V36 M16 22 H32" stroke="#b98aff" stroke-width="3" stroke-linecap="round"/></svg></span><em></em><small>Parade</small></button><button id="pw-arise" class="pw"><span><svg viewBox="0 0 48 48"><path d="M6 42 Q24 34 42 42" stroke="#b98aff" stroke-width="3" fill="none"/><circle cx="24" cy="12" r="5" fill="#e8e4ff"/><path d="M24 17 V32 M24 22 L15 14 M24 22 L33 14 M24 32 L18 40 M24 32 L30 40" stroke="#e8e4ff" stroke-width="3" stroke-linecap="round"/><path d="M10 36 l2 -6 M38 36 l-2 -6 M17 38 l1 -4 M31 38 l-1 -4" stroke="#c8a8ff" stroke-width="2" stroke-linecap="round"/></svg></span><em></em><small>Arise</small></button></div>
   <div id="bois" class="verre">🪵 <b>0</b></div>
   <div id="quete" class="verre"></div>
   <button id="btnOmbres" class="verre">Ombres <small>0</small></button>

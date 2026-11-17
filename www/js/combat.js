@@ -1,0 +1,330 @@
+// Combat : camps de monstres gardiens (zone rouge), héros avec attaque + 4 pouvoirs (Lame rapide, Télékinésie, Parade, ARISE),
+// ombres de combat relevées sur les ennemis vaincus.
+import { THREE, G, V, emettre, son, texteFlottant, projeter } from './moteur.js';
+import { Monstre } from './persos.js';
+import { hauteur } from './monde.js';
+
+export const TYPES_M = {
+  imp: { nom: 'Diablotin', h: 1.95, pv: 50, deg: 5, vit: 3.2, portee: 1.9, xp: 30, butin: { pierre: [6, 12] }, ech: 1, cadence: 2.1 },
+  puglin: { nom: 'Puglin', h: 1.2, pv: 35, deg: 4, vit: 3.8, portee: 1.6, xp: 18, butin: { bois: [6, 12] }, ech: 1, cadence: 1.8 },
+};
+export const CAMPS = [
+  { id: 'carriere', nom: 'Diablotins de la carrière', type: 'imp', centre: V(21, 0, -19), r: 10, niv: 1, retour: 300, postes: [[17.5, -14.5], [25.5, -15], [21.5, -24]] },
+  { id: 'clairiere', nom: 'Puglins de la clairière', type: 'puglin', centre: V(-34, 0, 30), r: 9, niv: 1, retour: 240, postes: [[-34, 26], [-30, 31], [-38, 33], [-33, 34], [-36, 29]] },
+];
+export const POUVOIRS = {
+  lame: { nom: 'Lame rapide', cd: 9, effet: (n) => `Fond sur ${Math.min(4, 1 + n)} ennemis d'affilée · ${Math.round(180 + 15 * (n - 1))} % de dégâts`, },
+  tele: { nom: 'Télékinésie', cd: 12, mana: 15, effet: (n) => `Soulève ${2 + n} ennemis ${(2.2 + 0.4 * n).toFixed(1)} s puis les écrase (${20 + 10 * n} dégâts)` },
+  parade: { nom: 'Parade', cd: 0, effet: (n) => `Maintenir : −${Math.min(60, 15 + 5 * (n - 1))} % de dégâts · au bon moment : 0 dégât + contre-attaque ×3` },
+  arise: { nom: 'ARISE', cd: 3, mana: 25, effet: (n) => `Relève un ennemi vaincu en ombre de combat · ${9 + n} % de réussite` },
+};
+let C = null; // contexte fourni par main : { J, joueur, jeu, toast, sauver, majQuete, majHud }
+const ennemis = [], allies = [], camps = {};
+export const heros = { action: null, parade: null, cds: { lame: 0, tele: 0, parade: 0, arise: 0 }, combo: 0, comboT: 0, mortT: 0, horsCombat: 0 };
+const teinteAllie = (d) => { d.color.set('#1a1226'); d.emissive = new THREE.Color('#5a1aff'); d.emissiveIntensity = 0.45; d.map = null; };
+// ---------------- utilitaires ----------------
+const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
+const rnd = (a, b) => a + Math.random() * (b - a);
+export const xpHeros = (n) => Math.round(60 * Math.pow(n, 1.4));
+export const pvMaxHeros = () => 100 + 15 * ((C.J.heros.niv || 1) - 1);
+const degHeros = () => 14 + 3 * ((C.J.heros.niv || 1) - 1);
+const nivP = (k) => C.J.heros.pw[k] || 1;
+// ---------------- zone rouge au sol ----------------
+function zone(c) {
+  const g = new THREE.Group(), y = hauteur(c.centre.x, c.centre.z) + 0.07;
+  const mat = new THREE.MeshBasicMaterial({ color: '#ff2a3a', transparent: true, opacity: 0.5, depthWrite: false });
+  const bord = new THREE.Mesh(new THREE.RingGeometry(c.r - 0.25, c.r, 64).rotateX(-Math.PI / 2), mat);
+  const fond = new THREE.Mesh(new THREE.CircleGeometry(c.r - 0.25, 64).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ff2a3a', transparent: true, opacity: 0.07, depthWrite: false }));
+  g.add(bord, fond); g.position.set(c.centre.x, y, c.centre.z); G.scene.add(g); return { g, mat };
+}
+// ---------------- Ennemis (et alliés : même corps, autre camp) ----------------
+class Ennemi {
+  constructor(type, pos, { allie = false, niv = 1, camp = null } = {}) {
+    const T = TYPES_M[type]; this.T = T; this.type = type; this.niv = niv; this.allie = allie; this.camp = camp;
+    this.m = new Monstre(type, { teinte: allie ? teinteAllie : null, echelle: T.ech });
+    this.m.root.position.set(pos.x, hauteur(pos.x, pos.z), pos.z); this.m.root.rotation.y = rnd(0, 6.28);
+    this.poste = this.m.root.position.clone(); G.scene.add(this.m.root);
+    this.pvMax = Math.round(T.pv * (1 + 0.25 * (niv - 1))); this.pv = this.pvMax; this.deg = T.deg * (1 + 0.2 * (niv - 1));
+    this.etat = 'garde'; this.t = rnd(1, 5); this.cible = null; this.cd = rnd(0.3, 1); this.lev = null; this.etourdi = 0; this.vu = 0;
+    this.m.jouer('Idle_Loop', { vitesse: rnd(0.85, 1.1) });
+    (allie ? allies : ennemis).push(this);
+  }
+  get pos() { return this.m.root.position; }
+  get vivant() { return this.pv > 0; }
+  tourner(a, dt) { let da = a - this.m.root.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); this.m.root.rotation.y += da * Math.min(1, dt * 10); }
+  marcher(dest, dt, vit, anim) {
+    const dx = dest.x - this.pos.x, dz = dest.z - this.pos.z, d = Math.hypot(dx, dz); if (d < 0.2) return true;
+    let vx = dx / d, vz = dz / d;
+    for (const o of this.allie ? allies : ennemis) if (o !== this && o.vivant) { const ox = this.pos.x - o.pos.x, oz = this.pos.z - o.pos.z, od = Math.hypot(ox, oz); if (od < 1.2 && od > 0.01) { vx += ox / od * 0.8; vz += oz / od * 0.8; } } // ne pas s'empiler
+    const l = Math.hypot(vx, vz) || 1, pas = Math.min(d, vit * dt); this.pos.x += vx / l * pas; this.pos.z += vz / l * pas; this.pos.y = hauteur(this.pos.x, this.pos.z);
+    this.tourner(Math.atan2(vx, vz), dt); this.m.jouer(anim, { vitesse: anim === 'Walk_Loop' ? vit / 1.6 : vit / 3.6 }); return false;
+  }
+  subir(n, src, { recul = 0.5, crit = false } = {}) {
+    if (!this.vivant) return;
+    this.pv -= n; this.vu = 4; if (this.etat === 'garde') this.alerte(src && src.isHeros ? 'heros' : src);
+    texteFlottant(V(this.pos.x, this.pos.y + 2.2, this.pos.z), `${crit ? '💥' : ''}${Math.round(n)}`, crit ? 'crit' : 'degat');
+    emettre(V(this.pos.x, this.pos.y + 1.1, this.pos.z), { n: crit ? 22 : 10, c1: this.allie ? '#c8a8ff' : '#ff6a5a', c2: '#3a0a10', vit: 3.5, vie: 0.5, taille: 0.16, grav: 7 });
+    son(crit ? 'impactPunch_medium_001' : 'impactPunch_medium_000', 0.45, rnd(0.9, 1.15), this.pos);
+    if (src && recul) { const a = Math.atan2(this.pos.x - src.pos.x, this.pos.z - src.pos.z); this.pos.x += Math.sin(a) * recul; this.pos.z += Math.cos(a) * recul; }
+    if (this.pv <= 0) return this.mourir(src);
+    if (!this.lev && this.etat !== 'attaque') { this.m.jouer('Hit_Chest', { boucle: false, forcer: true, vitesse: 1.4 }); this.etourdi = Math.max(this.etourdi, 0.35); }
+  }
+  alerte(cible) { this.etat = 'poursuite'; this.cible = cible; texteFlottant(V(this.pos.x, this.pos.y + 2.4, this.pos.z), '!', 'alerte'); }
+  mourir(src) {
+    this.pv = 0; this.etat = 'mort'; this.lev = null; finTelegraphe(this); this.corpsT = 40; this.m.jouer('Death01', { boucle: false, forcer: true }); son('impactSoft_heavy_000', 0.5, 0.8, this.pos);
+    if (this.allie) { this.corpsT = 2; this.reforme = 40; texteFlottant(V(this.pos.x, this.pos.y + 2, this.pos.z), 'Dissipée… revient dans 40 s', 'info'); return; }
+    // butin et expérience
+    const gain = []; for (const [r, [a, b]] of Object.entries(this.T.butin)) { const n = Math.round(rnd(a, b) * (1 + 0.3 * (this.niv - 1))); C.jeu.ajouter(r, n, this.pos); gain.push(n); }
+    gagnerXp(Math.round(this.T.xp * (1 + 0.3 * (this.niv - 1))), this.pos);
+    if (this.camp) verifierCamp(this.camp);
+  }
+  maj(dt) {
+    this.m.maj(dt); if (this.vu > 0) this.vu -= dt;
+    if (this.etat === 'mort') {
+      this.corpsT -= dt;
+      if (this.corpsT < 1.5) { this.m.root.position.y -= dt * 0.6; } // le corps s'enfonce puis disparaît
+      if (this.corpsT <= 0 && this.m.root.parent) { G.scene.remove(this.m.root); if (this.allie && this.reforme == null) { /* rien */ } }
+      if (this.allie && this.reforme != null) { this.reforme -= dt; if (this.reforme <= 0) this.revenir(); }
+      return;
+    }
+    if (this.lev) return this.majLev(dt);
+    if (this.etourdi > 0) { this.etourdi -= dt; return; }
+    if (this.cd > 0) this.cd -= dt;
+    return this.allie ? this.majAllie(dt) : this.majEnnemi(dt);
+  }
+  majLev(dt) { // soulevé par la télékinésie : il flotte, se débat, puis retombe lourdement
+    const L = this.lev; L.t += dt; const sol = hauteur(this.pos.x, this.pos.z);
+    if (L.t < 0.45) this.pos.y = sol + L.h * (L.t / 0.45);
+    else if (L.t < L.dur) { this.pos.y = sol + L.h + Math.sin(L.t * 5) * 0.15; this.m.root.rotation.y += dt * 1.5; if (Math.random() < dt * 14) emettre(V(this.pos.x, this.pos.y + 0.8, this.pos.z), { n: 1, c1: '#c8a8ff', c2: '#5a1aff', vit: 0.6, vie: 0.7, taille: 0.22, grav: -0.5 }); }
+    else { this.pos.y = Math.max(sol, this.pos.y - dt * 22); if (this.pos.y <= sol + 0.01) { this.lev = null; G.shake = Math.max(G.shake, 0.4); emettre(V(this.pos.x, sol + 0.2, this.pos.z), { n: 40, c1: '#d8c8a8', c2: '#6a5a4a', vit: 5, vie: 0.7, taille: 0.3, grav: 6 }); son('impactSoft_heavy_000', 0.7, 0.6, this.pos); this.subir(L.deg, { pos: L.src, isHeros: true }, { recul: 0, crit: true }); if (this.vivant) this.etourdi = 0.8; } }
+    if (this.m.anim !== 'Hit_Chest') this.m.jouer('Hit_Chest', { vitesse: 0.4 });
+  }
+  majEnnemi(dt) {
+    const c = camps[this.camp], J = C.joueur, enZone = (p) => dist(p, c.def.centre) < c.def.r;
+    // cibles possibles : le héros ou une ombre de combat qui entre dans la zone rouge
+    if (this.etat === 'garde' || this.etat === 'flane') {
+      this.t -= dt;
+      if (!heros.mortT && enZone(J.pos)) { this.alerte('heros'); return; }
+      const al = allies.find(a => a.vivant && enZone(a.pos)); if (al) { this.alerte(al); return; }
+      if (this.etat === 'garde') { this.m.jouer('Idle_Loop'); if (this.t <= 0) { this.etat = 'flane'; this.but = V(this.poste.x + rnd(-2.5, 2.5), 0, this.poste.z + rnd(-2.5, 2.5)); } }
+      else if (this.marcher(this.but, dt, 1.4, 'Walk_Loop')) { this.etat = 'garde'; this.t = rnd(3, 8); }
+      return;
+    }
+    if (this.etat === 'retour') { if (this.marcher(this.poste, dt, this.T.vit, 'Jog_Fwd_Loop')) { this.etat = 'garde'; this.t = rnd(2, 5); } this.pv = Math.min(this.pvMax, this.pv + dt * this.pvMax * 0.25); return; }
+    const cib = this.cible === 'heros' ? (heros.mortT ? null : { pos: J.pos, heros: true }) : (this.cible && this.cible.vivant ? this.cible : null);
+    if (!cib || dist(cib.pos, c.def.centre) > c.def.r + 7) { this.etat = 'retour'; this.cible = null; return; }
+    const d = dist(cib.pos, this.pos);
+    if (this.etat === 'attaque') { // préparation visible (cercle rouge), puis le coup
+      this.tourner(Math.atan2(cib.pos.x - this.pos.x, cib.pos.z - this.pos.z), dt); this.at -= dt; majTelegraphe(this);
+      if (this.at <= 0) { finTelegraphe(this); this.etat = 'poursuite'; this.cd = this.T.cadence; if (d < this.T.portee + 0.5) { if (cib.heros) subirHeros(this.deg, this); else cib.subir(this.deg, this); } }
+      return;
+    }
+    if (d > this.T.portee) { this.marcher(cib.pos, dt, this.T.vit, 'Jog_Fwd_Loop'); return; }
+    this.tourner(Math.atan2(cib.pos.x - this.pos.x, cib.pos.z - this.pos.z), dt);
+    if (this.cd <= 0) { this.etat = 'attaque'; this.at = 0.6; this.m.jouer('Sword_Attack', { boucle: false, forcer: true, vitesse: 1.25 }); debutTelegraphe(this); son('knifeSlice', 0.3, 0.7, this.pos); }
+    else this.m.jouer('Sword_Idle');
+  }
+  majAllie(dt) { // ombre de combat : suit le héros, se jette sur l'ennemi le plus proche
+    const J = C.joueur;
+    let e = this.cible && this.cible.vivant && dist(this.cible.pos, J.pos) < 18 ? this.cible : null;
+    if (!e) { let bd = 12; for (const x of ennemis) if (x.vivant && !x.lev && (x.etat !== 'garde' && x.etat !== 'flane' || dist(x.pos, J.pos) < 8)) { const d = dist(x.pos, this.pos); if (d < bd) { bd = d; e = x; } } this.cible = e; }
+    if (e) {
+      const d = dist(e.pos, this.pos);
+      if (this.etat === 'attaque') { this.at -= dt; this.tourner(Math.atan2(e.pos.x - this.pos.x, e.pos.z - this.pos.z), dt); if (this.at <= 0) { this.etat = 'suit'; this.cd = this.T.cadence * 0.9; if (d < this.T.portee + 0.6) e.subir(this.deg, this, { recul: 0.3 }); } return; }
+      if (d > this.T.portee) { this.marcher(e.pos, dt, this.T.vit * 1.1, 'Jog_Fwd_Loop'); return; }
+      if (this.cd <= 0) { this.etat = 'attaque'; this.at = 0.45; this.m.jouer('Sword_Attack', { boucle: false, forcer: true, vitesse: 1.4 }); } else this.m.jouer('Sword_Idle');
+      if (e.etat === 'garde' || e.etat === 'flane') e.alerte(this);
+      return;
+    }
+    const k = allies.indexOf(this), ang = J.perso.root.rotation.y + Math.PI + (k % 2 ? 1 : -1) * (0.7 + Math.floor(k / 2) * 0.35), dd = 2.4 + Math.floor(k / 2) * 0.9;
+    const dest = V(J.pos.x + Math.sin(ang) * dd, 0, J.pos.z + Math.cos(ang) * dd), d = dist(dest, this.pos);
+    if (d > 25) { this.pos.set(dest.x, hauteur(dest.x, dest.z), dest.z); return; }
+    if (d > 0.5) this.marcher(dest, dt, d > 4 ? this.T.vit * 1.3 : 2.2, d > 4 ? 'Jog_Fwd_Loop' : 'Walk_Loop'); else { this.m.jouer('Idle_Loop'); this.tourner(J.perso.root.rotation.y, dt); }
+    if (Math.random() < dt * 4) emettre(V(this.pos.x + rnd(-0.3, 0.3), this.pos.y + 0.2, this.pos.z + rnd(-0.3, 0.3)), { n: 1, c1: '#8a5aff', c2: '#1a0a30', vit: 0.3, vie: 0.8, taille: 0.22, grav: -1.2 });
+  }
+  revenir() { // une ombre ne meurt pas vraiment : elle se reforme près du souverain
+    const J = C.joueur; this.reforme = null; this.pv = this.pvMax; this.etat = 'suit'; this.cible = null;
+    this.pos.set(J.pos.x + rnd(-2, 2), hauteur(J.pos.x, J.pos.z), J.pos.z + rnd(-2, 2)); if (!this.m.root.parent) G.scene.add(this.m.root);
+    this.m.jouer('Idle_Loop', { forcer: true }); emettre(V(this.pos.x, this.pos.y + 1, this.pos.z), { n: 40, c1: '#c8a8ff', c2: '#2a0a5a', vit: 2.5, vie: 1, taille: 0.3, grav: -2 });
+  }
+}
+// cercle rouge qui se remplit : le joueur voit le coup arriver et peut parer au bon moment
+const telM = new THREE.MeshBasicMaterial({ color: '#ff3040', transparent: true, opacity: 0.45, depthWrite: false });
+function debutTelegraphe(e) { const m = new THREE.Mesh(new THREE.CircleGeometry(1, 32).rotateX(-Math.PI / 2), telM.clone()); G.scene.add(m); e.tel = m; e.atMax = e.at; majTelegraphe(e); }
+function majTelegraphe(e) { if (!e.tel) return; const k = 1 - e.at / e.atMax, a = e.m.root.rotation.y, r = e.T.portee * 0.6; e.tel.position.set(e.pos.x + Math.sin(a) * r, e.pos.y + 0.08, e.pos.z + Math.cos(a) * r); e.tel.scale.setScalar(0.3 + 0.7 * k); e.tel.material.opacity = 0.25 + 0.4 * k; }
+function finTelegraphe(e) { if (e.tel) { G.scene.remove(e.tel); e.tel = null; } }
+// ---------------- Camps ----------------
+function creerCamp(def) {
+  const c = camps[def.id] = { def, membres: [], zone: zone(def), mortT: 0 };
+  const fin = (C.J.camps || {})[def.id] || 0, reste = (fin - Date.now()) / 1000;
+  if (reste > 0) { c.mortT = reste; c.zone.g.visible = false; return; }
+  peupler(c);
+}
+function peupler(c) { c.membres = c.def.postes.map(([x, z]) => new Ennemi(c.def.type, V(x, 0, z), { niv: c.def.niv, camp: c.def.id })); c.zone.g.visible = true; c.mortT = 0; }
+function verifierCamp(id) {
+  const c = camps[id]; if (c.membres.some(m => m.vivant)) return;
+  c.mortT = c.def.retour; (C.J.camps ||= {})[id] = Date.now() + c.def.retour * 1000; C.sauver();
+  son('jingles_PIZZI03', 0.6); C.toast(`🏆 ${c.def.nom} : zone libérée !`); C.majQuete();
+  setTimeout(() => { c.zone.g.visible = false; }, 1500);
+}
+export const campLibre = (id) => !!camps[id] && camps[id].mortT > 0;
+export function zoneDangereuse(p) { for (const c of Object.values(camps)) if (!c.mortT && dist(p, c.def.centre) < c.def.r + 1) return c; return null; }
+// ---------------- Héros ----------------
+function gagnerXp(n, pos) {
+  const h = C.J.heros; h.xp += n; texteFlottant(V(pos.x, pos.y + 2.8, pos.z), `+${n} XP`, 'xp');
+  while (h.xp >= xpHeros(h.niv)) { h.xp -= xpHeros(h.niv); h.niv++; h.pts = (h.pts || 0) + 1; C.joueur.pv = pvMaxHeros(); son('jingles_PIZZI01', 0.6); C.toast(`⭐ Niveau ${h.niv} ! +1 point de pouvoir (touche ton portrait)`); emettre(V(C.joueur.pos.x, C.joueur.pos.y + 1, C.joueur.pos.z), { n: 60, c1: '#ffe9a0', c2: '#b36bff', vit: 4, vie: 1.1, taille: 0.25, grav: -1 }); }
+  C.majHud(); C.sauver();
+}
+export function subirHeros(n, src) {
+  const J = C.joueur; if (heros.mortT || (heros.action && heros.action.invul)) return;
+  heros.horsCombat = 0;
+  if (heros.parade) {
+    const fen = 0.3 + 0.03 * (nivP('parade') - 1);
+    if (G.t - heros.parade.debut < fen && !heros.parade.utilisee) return parfaite(src);
+    n *= 1 - Math.min(0.6, 0.15 + 0.05 * (nivP('parade') - 1)); emettre(V(J.pos.x, J.pos.y + 1.2, J.pos.z), { n: 10, c1: '#c8a8ff', c2: '#5a1aff', vit: 3, vie: 0.4, taille: 0.15, grav: 2 }); son('impactMetal_light_000', 0.6, 0.8, J.pos);
+  }
+  J.pv -= n; G.shake = Math.max(G.shake, 0.3); texteFlottant(V(J.pos.x, J.pos.y + 2.2, J.pos.z), `-${Math.round(n)}`, 'mal');
+  document.body.classList.remove('touche'); void document.body.offsetWidth; document.body.classList.add('touche');
+  if (!heros.action && !heros.parade) J.perso.jouer('Hit_Chest', { boucle: false, forcer: true, vitesse: 1.5 });
+  if (J.pv <= 0) { J.pv = 0; heros.mortT = 4; heros.action = null; heros.parade = null; J.perso.jouer('Death01', { boucle: false, forcer: true }); C.toast('💀 Tu es tombé… tu te relèves au camp'); }
+  C.majHud();
+}
+function parfaite(src) { // parade parfaite : aucun dégât, le temps ralentit, le héros passe derrière et frappe fort
+  const J = C.joueur; heros.parade.utilisee = true; G.ralenti = 0.25; G.ralentiT = 0.45;
+  texteFlottant(V(J.pos.x, J.pos.y + 2.4, J.pos.z), 'PARADE !', 'parade'); son('impactMetal_light_000', 0.9, 1.4, J.pos); emettre(V(J.pos.x, J.pos.y + 1.2, J.pos.z), { n: 40, c1: '#ffffff', c2: '#b36bff', vit: 5, vie: 0.5, taille: 0.2, grav: 0 });
+  if (src && src.vivant) { const a = src.m.root.rotation.y; J.pos.set(src.pos.x - Math.sin(a) * 1.3, J.pos.y, src.pos.z - Math.cos(a) * 1.3); J.perso.root.rotation.y = a; heros.action = { k: 'coup', t: 0, dur: 0.5, frappe: 0.15, cibles: [src], mult: 3, crit: true, invul: true, anim: 'Sword_Regular_C' }; J.perso.jouer('Sword_Regular_C', { boucle: false, forcer: true, vitesse: 1.8 }); src.etourdi = 1.2; }
+}
+const plusProches = (p, r, n) => ennemis.filter(e => e.vivant && dist(e.pos, p) < r).sort((a, b) => dist(a.pos, p) - dist(b.pos, p)).slice(0, n);
+export function attaquer() {
+  const J = C.joueur; if (heros.mortT || heros.action || G.mode === 'souverain') return;
+  const e = plusProches(J.pos, 3.5, 1)[0]; if (e) J.perso.root.rotation.y = Math.atan2(e.pos.x - J.pos.x, e.pos.z - J.pos.z);
+  heros.combo = heros.comboT > 0 ? (heros.combo + 1) % 3 : 0; heros.comboT = 1.1;
+  const anim = ['Sword_Regular_A', 'Sword_Regular_B', 'Sword_Regular_C'][heros.combo], dur = J.perso.duree(anim) / 1.6;
+  heros.action = { k: 'coup', t: 0, dur: dur * 0.75, frappe: dur * 0.42, mult: heros.combo === 2 ? 1.6 : 1, anim };
+  J.perso.jouer(anim, { boucle: false, forcer: true, vitesse: 1.6 }); son('knifeSlice', 0.4, rnd(1, 1.2), J.pos);
+}
+export function pouvoir(k, appui = true) {
+  const J = C.joueur, P = POUVOIRS[k];
+  if (k === 'parade') { if (appui && !heros.mortT && !heros.action) { heros.parade = { debut: G.t }; J.perso.jouer('Sword_Idle', { forcer: true }); bouclier.visible = true; } else if (!appui) { heros.parade = null; bouclier.visible = false; } return; }
+  if (!appui || heros.mortT || heros.action || G.mode === 'souverain') return;
+  if (heros.cds[k] > 0) { son('error_004', 0.3); return; }
+  if (P.mana && C.J.mana < P.mana) { C.toast(`Pas assez de mana (${P.mana})`); son('error_004', 0.4); return; }
+  const n = nivP(k);
+  if (k === 'lame') {
+    const cibles = plusProches(J.pos, 11, Math.min(4, 1 + n)); if (!cibles.length) { C.toast('Aucun ennemi à portée'); return; }
+    heros.action = { k: 'lame', cibles, i: 0, t: 0, invul: true, mult: 1.8 + 0.15 * (n - 1) }; heros.cds.lame = P.cd; son('sov_onde', 0.5, 1.4);
+  } else if (k === 'tele') {
+    const cibles = plusProches(J.pos, 12, 2 + n).filter(e => !e.lev); if (!cibles.length) { C.toast('Aucun ennemi à portée'); return; }
+    C.J.mana -= P.mana; heros.cds.tele = P.cd; heros.action = { k: 'sort', t: 0, dur: 0.9 };
+    J.perso.jouer('Spell_Simple_Shoot', { boucle: false, forcer: true, vitesse: 1.2 }); son('sov_possession', 0.5, 1.2);
+    for (const e of cibles) { e.lev = { t: 0, dur: 2.2 + 0.4 * n, h: 2.6, deg: 20 + 10 * n, src: J.pos.clone() }; finTelegraphe(e); if (e.etat === 'attaque') e.etat = 'poursuite'; if (e.etat === 'garde' || e.etat === 'flane') e.alerte('heros'); }
+  } else if (k === 'arise') {
+    let corps = null, bd = 9; for (const e of ennemis) if (e.etat === 'mort' && e.corpsT > 2 && !e.leve) { const d = dist(e.pos, J.pos); if (d < bd) { bd = d; corps = e; } }
+    if (!corps) { C.toast('Approche-toi d’un ennemi vaincu'); son('error_004', 0.3); return; }
+    C.J.mana -= P.mana; heros.cds.arise = P.cd; corps.leve = true; arise(corps, n);
+  }
+  C.majHud();
+}
+function arise(corps, n) {
+  const J = C.joueur; heros.action = { k: 'sort', t: 0, dur: 1.3, invul: true }; J.perso.root.rotation.y = Math.atan2(corps.pos.x - J.pos.x, corps.pos.z - J.pos.z);
+  J.perso.jouer('Spell_Simple_Enter', { boucle: false, forcer: true }); son('sov_possession', 0.7, 0.9);
+  texteFlottant(V(corps.pos.x, corps.pos.y + 2.6, corps.pos.z), 'LÈVE-TOI', 'arise');
+  let t = 0; const iv = setInterval(() => { t += 0.1; emettre(V(corps.pos.x + rnd(-0.6, 0.6), corps.pos.y + 0.1, corps.pos.z + rnd(-0.6, 0.6)), { n: 4, c1: '#c8a8ff', c2: '#3a0a7a', vit: 1.5, vie: 1, taille: 0.3, grav: -5 }); if (t > 1.2) clearInterval(iv); }, 100);
+  setTimeout(() => {
+    const chance = (9 + n) / 100;
+    if (Math.random() < chance) {
+      G.scene.remove(corps.m.root); corps.corpsT = 0;
+      const a = new Ennemi(corps.type, corps.pos, { allie: true, niv: corps.niv }); a.etat = 'suit';
+      (C.J.armee ||= []).push({ type: corps.type, niv: corps.niv }); C.sauver(); C.majQuete();
+      son('sov_onde', 0.8, 0.8); G.shake = 0.5; emettre(V(a.pos.x, a.pos.y + 1, a.pos.z), { n: 120, c1: '#c8a8ff', c2: '#2a0a5a', vit: 6, vie: 1.3, taille: 0.35, grav: -3 });
+      texteFlottant(V(a.pos.x, a.pos.y + 3, a.pos.z), 'ARISE !', 'arise'); C.toast(`🜏 ${TYPES_M[corps.type].nom} rejoint ton armée d'ombres !`);
+    } else {
+      corps.corpsT = Math.min(corps.corpsT, 1.4); emettre(V(corps.pos.x, corps.pos.y + 0.6, corps.pos.z), { n: 30, c1: '#4a4a5a', c2: '#101018', vit: 2, vie: 1, taille: 0.3, grav: -2 });
+      texteFlottant(V(corps.pos.x, corps.pos.y + 2.4, corps.pos.z), `Échec… (${Math.round(chance * 100)} %)`, 'info'); son('error_004', 0.4, 0.8);
+    }
+  }, 1250);
+}
+let bouclier = null, dague = null;
+function majHeros(dt) {
+  const J = C.joueur, p = J.perso;
+  for (const k in heros.cds) if (heros.cds[k] > 0) heros.cds[k] -= dt;
+  if (heros.comboT > 0) heros.comboT -= dt;
+  heros.horsCombat += dt; if (heros.horsCombat > 5 && J.pv < pvMaxHeros() && !heros.mortT) J.pv = Math.min(pvMaxHeros(), J.pv + dt * 6);
+  if (heros.mortT) { heros.mortT -= dt; if (heros.mortT <= 0) { heros.mortT = 0; J.pos.set(2, 0, 6); J.pv = pvMaxHeros(); p.jouer('Idle_Loop', { forcer: true }); emettre(V(2, 1, 6), { n: 50, c1: '#c8a8ff', c2: '#2a0a5a', vit: 3, vie: 1, taille: 0.3, grav: -2 }); C.majHud(); } return; }
+  if (bouclier.visible) bouclier.rotation.z += dt * 2;
+  const A = heros.action; if (!A) return;
+  A.t += dt; heros.horsCombat = 0;
+  if (A.k === 'coup') {
+    if (!A.fait && A.t >= A.frappe) {
+      A.fait = true; const devant = p.root.rotation.y;
+      const cibles = A.cibles || ennemis.filter(e => e.vivant && dist(e.pos, J.pos) < 2.6 && Math.abs(Math.atan2(Math.sin(Math.atan2(e.pos.x - J.pos.x, e.pos.z - J.pos.z) - devant), Math.cos(Math.atan2(e.pos.x - J.pos.x, e.pos.z - J.pos.z) - devant))) < 1);
+      const crit = A.crit || Math.random() < 0.12;
+      for (const e of cibles) e.subir(degHeros() * A.mult * (crit && !A.crit ? 1.5 : 1), { pos: J.pos, isHeros: true }, { crit });
+      if (cibles.length) G.shake = Math.max(G.shake, 0.15);
+    }
+    if (A.t >= A.dur) heros.action = null;
+  } else if (A.k === 'lame') { // fond sur chaque cible : élan, coup, suivante
+    const e = A.cibles[A.i];
+    if (!e || !e.vivant) { A.i++; A.t = 0; if (A.i >= A.cibles.length) { heros.action = null; p.jouer('Idle_Loop'); } return; }
+    if (A.t < 0.14) { const a = Math.atan2(e.pos.x - J.pos.x, e.pos.z - J.pos.z), d = dist(e.pos, J.pos); if (d > 1.1) { const k = Math.min(1, dt / Math.max(0.01, 0.14 - A.t + dt)); J.pos.x += (e.pos.x - Math.sin(a) * 1.1 - J.pos.x) * k; J.pos.z += (e.pos.z - Math.cos(a) * 1.1 - J.pos.z) * k; J.pos.y = hauteur(J.pos.x, J.pos.z); } p.root.rotation.y = a; emettre(V(J.pos.x, J.pos.y + 1, J.pos.z), { n: 4, c1: '#c8a8ff', c2: '#3a0a7a', vit: 0.5, vie: 0.35, taille: 0.3, grav: 0 }); if (!A.joue) { A.joue = true; p.jouer('Sword_Regular_C', { boucle: false, forcer: true, vitesse: 2.6 }); } }
+    else if (!A.frappe) { A.frappe = true; e.subir(degHeros() * A.mult, { pos: J.pos, isHeros: true }, { crit: true, recul: 0.8 }); son('knifeSlice', 0.6, 1.3, J.pos); G.shake = Math.max(G.shake, 0.2); }
+    if (A.t > 0.34) { A.i++; A.t = 0; A.joue = false; A.frappe = false; if (A.i >= A.cibles.length) { heros.action = null; p.jouer('Idle_Loop'); } }
+  } else if (A.k === 'sort') { if (A.t >= A.dur) { heros.action = null; p.jouer('Idle_Loop'); } }
+}
+export const heroOccupe = () => !!(heros.action || heros.mortT || heros.parade);
+// ---------------- Barres de vie ----------------
+const barres = new Map();
+function majBarres() {
+  const hote = document.getElementById('bulles');
+  for (const e of [...ennemis, ...allies]) {
+    let b = barres.get(e); const montre = e.vivant && e.m.root.parent && (e.allie || e.vu > 0 || e.etat !== 'garde' && e.etat !== 'flane' || e.pv < e.pvMax);
+    if (!montre) { if (b) b.style.display = 'none'; continue; }
+    if (!b) { b = document.createElement('div'); b.className = 'vie' + (e.allie ? ' allie' : ''); b.innerHTML = `<small>${e.allie ? '🜏 ' : ''}${e.T.nom} <em>Nv ${e.niv}</em></small><i><u></u></i>`; hote.appendChild(b); barres.set(e, b); }
+    const s = projeter(V(e.pos.x, e.pos.y + e.T.h * e.T.ech, e.pos.z)); b.style.display = s.devant ? '' : 'none';
+    b.style.transform = `translate(${s.x}px,${s.y}px) translate(-50%,-100%)`; b.querySelector('u').style.width = (100 * e.pv / e.pvMax) + '%';
+  }
+}
+// ---------------- Boutons : attaque + cercle de pouvoirs ----------------
+function initBoutons() {
+  const at = document.getElementById('btnAttaque');
+  at.addEventListener('pointerdown', (e) => { e.preventDefault(); attaquer(); at.classList.add('presse'); });
+  at.addEventListener('pointerup', () => at.classList.remove('presse'));
+  for (const k of Object.keys(POUVOIRS)) {
+    const b = document.getElementById('pw-' + k);
+    b.addEventListener('pointerdown', (e) => { e.preventDefault(); b.setPointerCapture(e.pointerId); pouvoir(k, true); b.classList.add('presse'); });
+    const fin = () => { b.classList.remove('presse'); if (k === 'parade') pouvoir(k, false); };
+    b.addEventListener('pointerup', fin); b.addEventListener('pointercancel', fin);
+  }
+}
+let cdT = 0;
+function majBoutons(dt) {
+  if ((cdT -= dt) > 0) return; cdT = 0.08;
+  for (const k of Object.keys(POUVOIRS)) {
+    const b = document.getElementById('pw-' + k), P = POUVOIRS[k], r = P.cd ? Math.max(0, heros.cds[k]) / P.cd : 0;
+    b.style.setProperty('--cd', r.toFixed(3)); b.classList.toggle('pret', r <= 0 && (!P.mana || C.J.mana >= P.mana));
+    const t = b.querySelector('em'); const txt = r > 0 ? Math.ceil(heros.cds[k]) : ''; if (t.textContent !== String(txt)) t.textContent = txt;
+  }
+  const lvl = document.getElementById('pw-arise'); lvl.classList.toggle('dispo', ennemis.some(e => e.etat === 'mort' && e.corpsT > 2 && !e.leve && dist(e.pos, C.joueur.pos) < 9));
+}
+// ---------------- Entrée ----------------
+export function initCombat(ctx) {
+  C = ctx; const h = C.J.heros ||= { niv: 1, xp: 0, pts: 0, pw: {} }; h.pw = Object.assign({ lame: 1, tele: 1, parade: 1, arise: 1 }, h.pw);
+  C.joueur.pv = pvMaxHeros(); C.joueur.isHeros = true;
+  // dague du héros et bouclier d'ombre (parade)
+  const g = new THREE.Group(), lame = new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.42, 4), new THREE.MeshStandardMaterial({ color: '#d8d8f0', metalness: 0.8, roughness: 0.25, emissive: '#3a1a8a', emissiveIntensity: 0.6 }));
+  lame.position.y = 0.3; const garde = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.025, 0.04), new THREE.MeshStandardMaterial({ color: '#2a1a3a' })); garde.position.y = 0.08; g.add(lame, garde); g.rotation.set(Math.PI / 2, 0, 0); dague = C.joueur.perso.tenir(g, 'hand_r');
+  bouclier = new THREE.Mesh(new THREE.RingGeometry(0.55, 0.75, 6), new THREE.MeshBasicMaterial({ color: '#b98aff', transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }));
+  bouclier.position.set(0, 1.15, 0.7); bouclier.visible = false; C.joueur.perso.root.add(bouclier);
+  for (const d of CAMPS) creerCamp(d);
+  for (const a of C.J.armee || []) { const x = new Ennemi(a.type, V(C.joueur.pos.x + rnd(-3, 3), 0, C.joueur.pos.z + rnd(-3, 3)), { allie: true, niv: a.niv }); x.etat = 'suit'; }
+  G.danger = zoneDangereuse; initBoutons();
+}
+export function majCombat(dt) {
+  if (G.ralentiT > 0) { G.ralentiT -= dt / Math.max(0.05, G.ralenti); if (G.ralentiT <= 0) G.ralenti = 1; }
+  majHeros(dt);
+  for (const e of ennemis) e.maj(dt); for (const a of allies) a.maj(dt);
+  for (let i = ennemis.length - 1; i >= 0; i--) if (ennemis[i].etat === 'mort' && ennemis[i].corpsT <= 0 && !ennemis[i].m.root.parent) { const b = barres.get(ennemis[i]); if (b) { b.remove(); barres.delete(ennemis[i]); } ennemis.splice(i, 1); }
+  for (const c of Object.values(camps)) if (c.mortT > 0) { c.mortT -= dt; if (c.mortT <= 0) { peupler(c); delete (C.J.camps || {})[c.def.id]; } }
+  majBarres(); majBoutons(dt);
+}
+export const armee = () => allies;

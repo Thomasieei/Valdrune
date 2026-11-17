@@ -3,6 +3,8 @@ import { THREE, G, V, initRendu, rendre, majCamera, initEntrees, solSous, direct
 import { chargerPersos, Perso } from './persos.js';
 import { chargerNature, construireMonde, majMonde, majPile, hauteur, arbreProche, frapperArbre, libre, RESERVE, FEU, filons } from './monde.js';
 import { Ombre, RANGS, NOMS, METIERS, parole, surParole, surSignal, xpNiveau, teinteOmbre } from './ombres.js';
+import { initCombat, majCombat, heroOccupe, campLibre, zoneDangereuse, POUVOIRS, xpHeros, pvMaxHeros, heros } from './combat.js';
+import { chargerMonstre } from './persos.js';
 import { chargerBatiments, TYPES, CATS, batiments, creerBatiment, majBatiments, placementValide, fantomeBatiment, majEtiquettesChantiers, aBatiment, marteler, chantierProche, depotProche, ameliorer, enTravaux, niveauDe, prochain, meilleur, bloque, majInterieur, dedans } from './batiments.js';
 
 const $ = (s) => document.querySelector(s);
@@ -89,10 +91,12 @@ const QUETES = [
   { t: 'Le premier bâtiment', s: 'Touche CONSTRUIRE → ⚒️ Métiers → Scierie et pose-la. Puis touche une ombre et le chantier.', fait: () => aBatiment('scierie'),
     guide: () => { const ch = batiments.find(b => b.s.type === 'scierie'); if (!ch) return placement ? '#btnPoser' : $('#panneau').classList.contains('on') ? (document.querySelector('[data-poser=scierie]') ? '[data-poser=scierie]' : '[data-onglet=metier]') : '#btnConstruire'; if (ombres.some(o => o.d.metier === 'construire')) return null; if (G.mode !== 'souverain') return '#btnMode'; return !selection ? ombres[0] && ombres[0].pos : ch.g.position; } },
   { t: 'Ouvrir la carrière', s: 'Construis le Camp de mineurs : il débloque la pierre (la carrière est au nord-est).', fait: () => aBatiment('mine') },
+  { t: 'Libérer la carrière', s: 'Des diablotins gardent la carrière (zone rouge). Entre et combats : ⚔️ pour frapper, tes pouvoirs autour. Le cercle rouge au sol annonce leur coup : PARADE au bon moment !', fait: () => campLibre('carriere') || J.pierre >= 60, guide: () => G.mode === 'souverain' ? '#btnMode' : null },
   { t: 'Tailler la pierre', s: 'Mets des ombres en ⛏️ Tailleur. Objectif : 60 pierres.', fait: () => J.pierre >= 60, prog: () => [J.pierre, 60] },
   { t: 'Protéger le camp', s: 'Pose 6 segments de Palissade autour du camp. Les raids arrivent bientôt…', fait: () => batiments.filter(b => b.fini && b.s.type === 'palissade').length >= 6, prog: () => [batiments.filter(b => b.fini && b.s.type === 'palissade').length, 6] },
   { t: 'Un toit pour ton peuple', s: 'Construis une Maison (onglet 🏠 Ville) : elle loge 10 habitants.', fait: () => aBatiment('maison') },
   { t: 'Le cœur du village', s: 'Construis un Puits (bois + pierre) : +20 mana max.', fait: () => aBatiment('puits') },
+  { t: 'Ton armée d’ombres', s: 'Bats des monstres (les Puglins de la clairière, à l’ouest) et utilise ARISE sur leur corps : 10 % de chance, qui grandit avec le pouvoir.', fait: () => (J.armee || []).length >= 1 },
   { t: 'Agrandir la scierie', s: 'Touche ta scierie et améliore-la au niveau 2 : plus de bois, arbres plus rapides.', fait: () => batiments.some(b => b.s.type === 'scierie' && b.s.niv >= 2), guide: () => { const b = batiments.find(x => x.s.type === 'scierie'); return $('#panneau').classList.contains('on') ? '[data-amel]' : b && b.g.position; } },
 ];
 function majQuete() {
@@ -109,6 +113,7 @@ function majHud(pop = false) {
   const txt = `🪵 <b>${J.bois}</b>${J.pierre || aBatiment('mine') ? ` <span class="sep"></span> 🪨 <b>${J.pierre}</b>` : ''}${J.habMax ? ` <span class="sep"></span> 👥 <b>${J.habitants || 0}/${J.habMax}</b>` : ''}`;
   if (txt !== boisAff) { $('#bois').innerHTML = txt; boisAff = txt; if (pop) { const b = $('#bois'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); } }
   $('#mana i').style.width = (J.mana / joueur.manaMax * 100) + '%'; $('#mana b').textContent = `${Math.floor(J.mana)} / ${joueur.manaMax}`;
+  if (J.heros) { const pm = pvMaxHeros(); $('#pv i').style.width = (joueur.pv / pm * 100) + '%'; $('#pv b').textContent = `${Math.ceil(joueur.pv)} / ${pm}`; $('#moi h1').innerHTML = `Le Souverain <em>Nv ${J.heros.niv}</em>${J.heros.pts ? ' <span class="pts">+' + J.heros.pts + '</span>' : ''}`; $('#xp').style.width = (J.heros.xp / xpHeros(J.heros.niv) * 100) + '%'; }
   $('#btnOmbres small').textContent = J.ombres.length;
 }
 const bulles = new Map();
@@ -164,6 +169,16 @@ function ouvrirConstruire(onglet) {
   }).join('') + BIENTOT[ongletC].map(([i, n]) => `<div class="tuile verrou"><i>${i}</i><b>${n}</b><span class="cout">🔒 Bientôt</span></div>`).join('');
   p.querySelector('.liste').innerHTML = onglets + `<div class="tuiles">${tuiles}</div>`;
 }
+// ---------------- Pouvoirs du héros (touche ton portrait) ----------------
+const SYMB = { lame: '🗡️', tele: '🌀', parade: '🛡️', arise: '🜏' };
+function ouvrirPouvoirs() {
+  const p = $('#panneau'), h = J.heros; p.classList.add('on'); p.dataset.vue = 'pouvoirs'; p.querySelector('h2').textContent = `Le Souverain · Nv ${h.niv}`; son('confirmation_001', 0.3);
+  p.querySelector('.liste').innerHTML = `<p class="vide">❤️ ${pvMaxHeros()} PV · ⭐ ${h.xp}/${xpHeros(h.niv)} XP · <b>${h.pts || 0}</b> point${(h.pts || 0) > 1 ? 's' : ''} à dépenser</p>` + Object.entries(POUVOIRS).map(([k, P]) => {
+    const n = h.pw[k]; return `<div class="carte bat"><div class="tete"><span class="ico">${SYMB[k]}</span><b>${P.nom}</b><small class="et">Niveau ${n}</small></div>
+      <div class="stats">${P.effet(n)}${P.cd ? ` · recharge ${P.cd} s` : ''}${P.mana ? ` · ${P.mana} mana` : ''}</div>
+      <div class="stats suivant">Niveau ${n + 1} : ${P.effet(n + 1)}</div><div class="cout"><button data-pw="${k}" ${h.pts ? '' : 'disabled'}>Améliorer · 1 point</button></div></div>`; }).join('');
+}
+$('#moi').onclick = () => ouvrirPouvoirs();
 function batimentSous(q) { let best = null, bd = 1e9; for (const b of batiments) { if (b.T.segment) continue; const d = Math.hypot(b.g.position.x - q.x, b.g.position.z - q.z); if (d < b.T.rayon && d < bd) { bd = d; best = b; } } return best; }
 const etoiles = (n, max) => '★'.repeat(n) + '<i>' + '★'.repeat(max - n) + '</i>';
 let batOuvert = null;
@@ -186,6 +201,7 @@ $('#panneau').addEventListener('click', (e) => {
     for (const [r, k] of Object.entries(nx.cout)) J[r] -= k; ameliorer(b); son('impactPunch_medium_001', 0.5); majHud(); sauver();
     $('#panneau').classList.remove('on'); toast(J.ombres.some(o => o.metier === 'construire') ? '⬆️ Échafaudages montés : tes bâtisseurs s’y mettent' : '⬆️ Échafaudages montés ! Mets une ombre en 🔨 Bâtir'); return;
   }
+  const pw = e.target.closest('[data-pw]'); if (pw && J.heros.pts > 0) { J.heros.pts--; J.heros.pw[pw.dataset.pw]++; son('jingles_PIZZI01', 0.5); emettre(V(joueur.pos.x, joueur.pos.y + 1, joueur.pos.z), { n: 40, c1: '#ffe9a0', c2: '#b36bff', vit: 3, vie: 0.9, taille: 0.22, grav: -1 }); sauver(); majHud(); ouvrirPouvoirs(); return; }
   const og = e.target.closest('[data-onglet]'); if (og) { ouvrirConstruire(og.dataset.onglet); return; }
   const pz = e.target.closest('[data-poser]'); if (pz) { if (pz.classList.contains('non')) { son('error_004', 0.4); toast('Pas assez de ressources'); return; } $('#panneau').classList.remove('on'); commencerPlacement(pz.dataset.poser); return; }
   const fl = e.target.closest('[data-filtre]'); if (fl) { filtreO = fl.dataset.filtre; son('cloth1', 0.25); ouvrirOmbres(); return; }
@@ -254,7 +270,7 @@ function toucher(x, y) {
   let m = null, cible = null, cp = q;
   if (ch) { m = 'construire'; cible = ch; cp = ch.g.position; }
   else if (ar) { m = 'bois'; cible = ar; cp = ar.pos; }
-  else if (fi) { if (!aBatiment('mine')) { son('error_004', 0.4); toast('⛏️ Construis d’abord le Camp de mineurs'); return; } m = 'pierre'; cible = fi; cp = fi.pos; }
+  else if (fi) { if (zoneDangereuse(fi.pos)) { son('error_004', 0.4); toast('👹 Des monstres gardent ces rochers : libère la zone d’abord'); return; } if (!aBatiment('mine')) { son('error_004', 0.4); toast('⛏️ Construis d’abord le Camp de mineurs'); return; } m = 'pierre'; cible = fi; cp = fi.pos; }
   if (!m) { selection = null; indice(''); return; }
   selection.ordonner(m, cible); selection.dire(parole(m)); son('confirmation_001', 0.35);
   emettre(V(cp.x, (cp.y || 0) + 0.3, cp.z), { n: 24, c1: '#c8a8ff', c2: '#5a2aff', vit: 2.5, vie: 0.6, taille: 0.2, grav: 0 });
@@ -278,7 +294,9 @@ function majAnneau() { anneau.visible = !!selection && G.mode === 'souverain'; i
 const scenes = []; let enScene = false; let dernier = performance.now();
 const dir = V();
 function majJoueur(dt) {
-  const f = directionVoulue(dir), p = joueur.perso;
+  const p = joueur.perso;
+  if (heroOccupe()) { joueur.chop = null; joueur.bati = null; joueur.pos.y = hauteur(joueur.pos.x, joueur.pos.z); p.maj(dt); J.mana = Math.min(joueur.manaMax, J.mana + dt * 2.2 * (joueur.regen || 1)); return; }
+  const f = directionVoulue(dir);
   if (f > 0.05) {
     joueur.chop = null; joueur.bati = null; const v = f > 0.85 ? 6.2 : 3.4;
     const nx = joueur.pos.x + dir.x * v * dt, nz = joueur.pos.z + dir.z * v * dt;
@@ -326,8 +344,8 @@ function horsLigne() {
 }
 function boucle() {
   requestAnimationFrame(boucle);
-  const now = performance.now(), dtR = Math.min(G.accel ? 0.25 : 0.1, (now - dernier) / 1000); dernier = now; const dt = dtR * (G.accel || 1); G.dt = dt; G.t += dt;
-  majJoueur(dt);
+  const now = performance.now(), dtR = Math.min(G.accel ? 0.25 : 0.1, (now - dernier) / 1000); dernier = now; const dt = dtR * (G.accel || 1) * (G.ralenti || 1); G.dt = dt; G.t += dt;
+  majJoueur(dt); majCombat(dt);
   for (let i = scenes.length - 1; i >= 0; i--) if (scenes[i](dt)) scenes.splice(i, 1);
   let rangSuivre = 0; for (const o of ombres) o.maj(dt, jeu, o.d.metier === 'suivre' ? rangSuivre++ : 0);
   for (const d of depouilles) if (d.p && Math.random() < dt * 1.5) emettre(V(d.p.root.position.x, d.p.root.position.y + 0.3, d.p.root.position.z), { n: 1, c1: '#7a4aff', c2: '#100418', vit: 0.2, vie: 1.4, taille: 0.25, grav: -0.8 });
@@ -340,10 +358,11 @@ function boucle() {
 async function demarrer() {
   initRendu($('#scene'));
   const barre = $('#charge i'), pr = { p: 0, n: 0 }, avance = () => { barre.style.width = Math.round((pr.p + pr.n) / 2 * 100) + '%'; };
-  await Promise.all([chargerPersos((k) => { pr.p = k; avance(); }), chargerNature((k) => { pr.n = k; avance(); }), chargerBatiments(), chargerSons(['chop.ogg', 'drop_002.ogg', 'handleCoins.ogg', 'cloth1.ogg', 'confirmation_001.ogg', 'maximize_006.ogg', 'impactSoft_heavy_000.ogg', 'knifeSlice.ogg', 'jingles_PIZZI01.ogg', 'jingles_PIZZI03.ogg', 'sov_possession.wav', 'sov_onde.wav', 'error_004.ogg', 'impactMetal_light_000.ogg', 'impactPunch_medium_001.ogg', 'handleCoins2.ogg'])]);
+  await Promise.all([chargerPersos((k) => { pr.p = k; avance(); }), chargerNature((k) => { pr.n = k; avance(); }), chargerBatiments(), chargerMonstre('imp'), chargerMonstre('puglin'), chargerSons(['chop.ogg', 'drop_002.ogg', 'handleCoins.ogg', 'cloth1.ogg', 'confirmation_001.ogg', 'maximize_006.ogg', 'impactSoft_heavy_000.ogg', 'knifeSlice.ogg', 'jingles_PIZZI01.ogg', 'jingles_PIZZI03.ogg', 'sov_possession.wav', 'sov_onde.wav', 'error_004.ogg', 'impactMetal_light_000.ogg', 'impactPunch_medium_001.ogg', 'handleCoins2.ogg'])]);
   J = charger() || nouvelleSauvegarde(); J.pierre ??= 0; J.batiments ??= [];
   construireMonde(); creerJoueur(); creerDepouilles(); for (const s of J.batiments) creerBatiment(s, !!s.fini); appliquerBatiments();
   J.ombres.forEach((d, k) => ajouterOmbre(d, V(RESERVE.x + Math.cos(k) * 3, 0, RESERVE.z + Math.sin(k) * 3)));
+  initCombat({ J, joueur, jeu, toast, sauver, majQuete, majHud });
   horsLigne();
   majPile(J.bois); majHud(); majQuete();
   initEntrees({ toucher, saisir, glisser });

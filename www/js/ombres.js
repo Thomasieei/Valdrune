@@ -2,7 +2,7 @@
 // et on les voit vraiment travailler : bois (abattre, débiter, porter), pierre (tailler, porter), construction (marteler).
 import { THREE, G, V, emettre, son, texteFlottant } from './moteur.js';
 import { Perso } from './persos.js';
-import { arbreProche, frapperArbre, debiter, buche, hauteur, filonProche, tailler } from './monde.js';
+import { arbreProche, frapperArbre, debiter, buche, hauteur, filonProche, tailler, CARRIERE } from './monde.js';
 import { depotProche, chantierProche, marteler, enTravaux, bloque } from './batiments.js';
 
 export const RANGS = {
@@ -90,7 +90,7 @@ export class Ombre {
       if (this.force && !(res === 'bois' ? this.force.etat === 'souche' : this.force.pierre <= 0)) c = this.force; this.force = null;
       if (c) {} else if (res === 'bois') c = arbreProche(this.pos, x => x.etat === 'abattu' && x.bois > 0 && x.ouvriers < 3, 40) || arbreProche(this.pos, x => x.etat === 'debout' && x.ouvriers < 3, 70);
       else c = filonProche(this.pos);
-      if (!c) { if (this.charge > 0) this.etat = 'porter'; else { this.montrer(null, null); this.p.jouer('Idle_Loop'); if (!this.oisif) { this.oisif = true; this.dire(res === 'bois' ? 'Plus aucun arbre à portée, maître.' : 'Les filons sont épuisés, maître.'); signalCb && signalCb(this, res === 'bois' ? `🪓 ${this.d.nom} n’a plus d’arbre à portée` : `⛏️ ${this.d.nom} attend que les filons repoussent`); } } return; }
+      if (!c) { if (this.charge > 0) this.etat = 'porter'; else { this.montrer(null, null); this.p.jouer('Idle_Loop'); if (!this.oisif) { this.oisif = true; const garde = res === 'pierre' && G.danger && G.danger(CARRIERE); this.dire(res === 'bois' ? 'Plus aucun arbre à portée, maître.' : garde ? 'Des monstres gardent la carrière, maître !' : 'Les filons sont épuisés, maître.'); signalCb && signalCb(this, res === 'bois' ? `🪓 ${this.d.nom} n’a plus d’arbre à portée` : garde ? `👹 La carrière est gardée : ${this.d.nom} ne peut pas tailler` : `⛏️ ${this.d.nom} attend que les filons repoussent`); } } return; }
       this.oisif = false; this.cible = c; c.ouvriers++; this.etat = 'aller'; this.angBut = Math.random() * 6.28;
     }
     const c = this.cible;

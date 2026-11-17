@@ -39,9 +39,49 @@ function matMobile(m, teinte, variante = '') { // pas de carte de relief ni rugo
   if (teinte) teinte(d);
   matsCache.set(cle, d); return d;
 }
-export class Perso {
+// base commune : mixeur d'animations UAL + jouer / phase / tenir
+class Anime {
+  jouer(nom, { boucle = true, fondu = 0.2, vitesse = 1, fin = null, forcer = false } = {}) {
+    if (this.anim === nom && !forcer) { if (this.actions[nom]) this.actions[nom].timeScale = vitesse; return this.actions[nom]; }
+    const clip = this.clip(nom); if (!clip) return null;
+    let a = this.actions[nom]; if (!a) a = this.actions[nom] = this.mixer.clipAction(clip);
+    a.reset(); a.setLoop(boucle ? THREE.LoopRepeat : THREE.LoopOnce, boucle ? Infinity : 1); a.clampWhenFinished = !boucle; a.timeScale = vitesse;
+    const avant = this.anim && this.actions[this.anim];
+    a.play(); if (avant && avant !== a) a.crossFadeFrom(avant, fondu, false);
+    this.anim = nom; this._fin = fin; this._finA = a;
+    if (fin && !this._ecoute) { this._ecoute = true; this.mixer.addEventListener('finished', (e) => { if (e.action === this._finA && this._fin) { const f = this._fin; this._fin = null; f(); } }); }
+    return a;
+  }
+  clip(nom) { return CLIPS[nom]; }
+  duree(nom) { return CLIPS[nom] ? CLIPS[nom].duration : 1; }
+  phase() { const a = this.actions[this.anim]; return a ? (a.time / a.getClip().duration) % 1 : 0; }
+  maj(dt) { this.mixer.update(dt); }
+  tenir(obj, os = 'hand_r') { const b = this.os[os]; if (b) b.add(obj); return obj; }
+}
+// monstres du bestiaire : même squelette que les personnages, donc mêmes animations (on ne garde que les rotations,
+// et la hauteur du bassin est remise à l'échelle du monstre)
+const clipsMonstre = new Map();
+export async function chargerMonstre(nom) { await charger('assets/monstres/' + nom + '.glb'); }
+export class Monstre extends Anime {
+  constructor(nom, { teinte = null, echelle = 1 } = {}) {
+    super(); const url = 'assets/monstres/' + nom + '.glb';
+    this.root = new THREE.Group(); const base = SkeletonUtils.clone(res[url].scene); base.scale.setScalar(echelle); this.root.add(base);
+    const os = {}; base.traverse(o => { if (o.isBone) os[o.name] = o; }); this.os = os; this.meshes = [];
+    base.traverse(o => { if (o.isSkinnedMesh) { o.castShadow = true; o.frustumCulled = false; o.material = matMobile(o.material, teinte, teinte ? teinte.name : ''); this.meshes.push(o); } });
+    this.mixer = new THREE.AnimationMixer(base); this.actions = {}; this.anim = null; this.pos = this.root.position; this.nom = nom;
+    if (!clipsMonstre.has(nom)) {
+      const hum = res[P + MODELES.h.corps + '.gltf']; let ph = 1, pm = 1; hum.scene.traverse(o => { if (o.isBone && o.name === 'pelvis') ph = o.position.y || 1; }); if (os.pelvis) pm = os.pelvis.position.y || 1;
+      const k = pm / ph, m = {};
+      for (const [n, c] of Object.entries(CLIPS)) m[n] = new THREE.AnimationClip(n, c.duration, c.tracks.filter(t => t.name.endsWith('.quaternion') || t.name === 'pelvis.position').map(t => { if (t.name !== 'pelvis.position') return t; const u = t.clone(); for (let i = 0; i < u.values.length; i++) u.values[i] *= k; return u; }));
+      clipsMonstre.set(nom, m);
+    }
+    this.clips = clipsMonstre.get(nom);
+  }
+  clip(nom) { return this.clips[nom]; }
+}
+export class Perso extends Anime {
   constructor({ sexe = 'h', tenue = 'paysan', cheveux = 0, teinte = null, couleurTenue = null } = {}) {
-    const M = MODELES[sexe];
+    super(); const M = MODELES[sexe];
     this.root = new THREE.Group();
     const base = SkeletonUtils.clone(res[P + M.corps + '.gltf'].scene);
     this.root.add(base);
@@ -67,20 +107,5 @@ export class Perso {
     this.mixer = new THREE.AnimationMixer(base); this.actions = {}; this.anim = null;
     this.pos = this.root.position; this.angle = 0;
   }
-  jouer(nom, { boucle = true, fondu = 0.2, vitesse = 1, fin = null, forcer = false } = {}) {
-    if (this.anim === nom && !forcer) { if (this.actions[nom]) this.actions[nom].timeScale = vitesse; return this.actions[nom]; }
-    const clip = CLIPS[nom]; if (!clip) return null;
-    let a = this.actions[nom]; if (!a) a = this.actions[nom] = this.mixer.clipAction(clip);
-    a.reset(); a.setLoop(boucle ? THREE.LoopRepeat : THREE.LoopOnce, boucle ? Infinity : 1); a.clampWhenFinished = !boucle; a.timeScale = vitesse;
-    const avant = this.anim && this.actions[this.anim];
-    a.play(); if (avant && avant !== a) a.crossFadeFrom(avant, fondu, false);
-    this.anim = nom; this._fin = fin; this._finA = a;
-    if (fin && !this._ecoute) { this._ecoute = true; this.mixer.addEventListener('finished', (e) => { if (e.action === this._finA && this._fin) { const f = this._fin; this._fin = null; f(); } }); }
-    return a;
-  }
-  duree(nom) { return CLIPS[nom] ? CLIPS[nom].duration : 1; }
-  phase() { const a = this.actions[this.anim]; return a ? (a.time / a.getClip().duration) % 1 : 0; }
-  maj(dt) { this.mixer.update(dt); }
-  tenir(obj, os = 'hand_r') { const b = this.os[os]; if (b) b.add(obj); return obj; }
 }
 export const clips = () => CLIPS;
