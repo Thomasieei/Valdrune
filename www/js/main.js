@@ -269,7 +269,7 @@ async function demarrer() {
   majPile(J.bois); majHud(); majQuete();
   initEntrees({ toucher, saisir, glisser });
   G.camYaw = 0.9; G.camCible.copy(joueur.pos);
-  $('#charge').classList.add('pret'); $('#charge .go').onclick = () => { initAudio(); $('#charge').classList.add('fini'); setTimeout(() => $('#charge').remove(), 700); };
+  $('#charge').classList.add('pret'); $('#charge').onclick = () => { if (!$('#charge').classList.contains('pret')) return; initAudio(); $('#charge').classList.add('fini'); setTimeout(() => $('#charge').remove(), 700); };
   boucle();
 }
 window.__s = { get J() { return J; }, get ombres() { return ombres; }, G, joueur, eveiller: (k = 0) => depouilles[k] && eveiller(depouilles[k]), mana: () => { J.mana = 100; }, toucher, mode: changerMode, proj: projeter, arbres: () => import('./monde.js') };
