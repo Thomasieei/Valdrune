@@ -78,6 +78,24 @@ export class Monstre extends Anime {
   }
   clip(nom) { return this.clips[nom]; }
 }
+// créatures à squelette propre (gobelin, orc) : leurs animations portent d'autres noms → table de correspondance,
+// le reste du code continue d'utiliser les noms UAL (Idle_Loop, Hit_Chest…)
+const CORRESP = { Idle_Loop: 'Idle', Idle_FoldArms_Loop: 'Idle', Sword_Idle: 'Idle', Walk_Loop: 'Walk', Jog_Fwd_Loop: 'Run', Death01: 'Death', Hit_Chest: 'Hit', Hit_Head: 'Hit', Hit_Knockback: 'Hit', Sword_Block: 'Block', Crouch_Idle_Loop: 'Choked', Spell_Simple_Enter: 'Cast', Spell_Simple_Shoot: 'CastShoot', Sitting_Idle_Loop: 'Idle', Consume: 'Idle', LayToIdle: 'Idle' };
+const hauteurs = new Map();
+export class ModeleAnime extends Anime {
+  constructor(nom, { hauteur = 1.8, cacher = [], teinte = null } = {}) {
+    super(); const g = res['assets/monstres/' + nom + '.glb'];
+    this.root = new THREE.Group(); const base = SkeletonUtils.clone(g.scene); this.root.add(base);
+    base.traverse(o => { if (o.isMesh) { if (cacher.some(c => o.name.includes(c))) o.visible = false; o.castShadow = true; o.frustumCulled = false; o.material = matMobile(o.material, teinte, nom + (teinte ? '|ombre' : '')); } });
+    if (!hauteurs.has(nom)) { base.updateMatrixWorld(true); const b = new THREE.Box3(); base.traverse(o => { if (o.isMesh && o.visible) b.expandByObject(o, true); }); hauteurs.set(nom, [b.max.y - b.min.y, b.min.y]); }
+    const [h, y0] = hauteurs.get(nom), k = hauteur / h; base.scale.multiplyScalar(k); base.position.y = -y0 * k;
+    const os = {}; base.traverse(o => { if (o.isBone) os[o.name] = o; }); this.os = os;
+    this.mixer = new THREE.AnimationMixer(base); this.actions = {}; this.anim = null; this.pos = this.root.position; this.nom = nom;
+    this.clips = Object.fromEntries(g.animations.map(c => [c.name, c]));
+  }
+  clip(nom) { return this.clips[nom] || this.clips[CORRESP[nom]] || null; }
+  duree(nom) { const c = this.clip(nom); return c ? c.duration : 1; }
+}
 export class Perso extends Anime {
   constructor({ sexe = 'h', tenue = 'paysan', cheveux = 0, teinte = null, couleurTenue = null } = {}) {
     super(); const M = MODELES[sexe];

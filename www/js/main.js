@@ -1,9 +1,9 @@
 // Souverain des Ombres — brique 1 : relever ses ombres, les envoyer au bois, voir le royaume grandir.
 import { THREE, G, V, tmp, initRendu, rendre, majCamera, initEntrees, solSous, directionVoulue, projeter, initAudio, chargerSons, son, emettre, texteFlottant, majFlottants } from './moteur.js';
 import { chargerPersos, Perso } from './persos.js';
-import { chargerNature, construireMonde, majMonde, majPile, hauteur, arbreProche, frapperArbre, libre, RESERVE, FEU, filons } from './monde.js';
+import { PIERRE_DEFI, chargerNature, construireMonde, majMonde, majPile, hauteur, arbreProche, frapperArbre, libre, RESERVE, FEU, filons } from './monde.js';
 import { Ombre, RANGS, NOMS, METIERS, parole, surParole, surSignal, xpNiveau, teinteOmbre } from './ombres.js';
-import { initCombat, majCombat, heroOccupe, toucherEnnemi, campLibre, zoneDangereuse, POUVOIRS, xpHeros, pvMaxHeros, heros } from './combat.js';
+import { initCombat, majCombat, heroOccupe, toucherEnnemi, DEFIS, lancerDefi, campLibre, zoneDangereuse, POUVOIRS, xpHeros, pvMaxHeros, heros } from './combat.js';
 import { chargerMonstre } from './persos.js';
 import { chargerBatiments, TYPES, CATS, batiments, creerBatiment, majBatiments, placementValide, fantomeBatiment, majEtiquettesChantiers, aBatiment, marteler, demolir, aimanter, LONG_SEGMENT, chantierProche, depotProche, ameliorer, enTravaux, niveauDe, prochain, meilleur, bloque, majInterieur, dedans } from './batiments.js';
 
@@ -97,6 +97,7 @@ const QUETES = [
   { t: 'Un toit pour ton peuple', s: 'Construis une Maison (onglet 🏠 Ville) : elle loge 10 habitants.', fait: () => aBatiment('maison') },
   { t: 'Le cœur du village', s: 'Construis un Puits (bois + pierre) : +20 mana max.', fait: () => aBatiment('puits') },
   { t: 'Ton armée d’ombres', s: 'Bats des monstres (les Puglins de la clairière, à l’ouest) et utilise ARISE sur leur corps : 10 % de chance, qui grandit avec le pouvoir.', fait: () => (J.armee || []).length >= 1 },
+  { t: 'L’arène des ombres', s: 'À l’ouest du camp, un cercle de menhirs : touche la pierre du défi. Gobelins, orc, et Grukh le chef de guerre t’y attendent.', fait: () => !!J.areneVue, guide: () => PIERRE_DEFI },
   { t: 'Le camp des pillards', s: 'Au nord-est, cinq pillards campent : un guetteur, deux joueurs de cartes, un qui dort sous la tente… Approche discrètement et frappe le premier. Leur coffre est plein.', fait: () => campLibre('bandits') },
   { t: 'Agrandir la scierie', s: 'Touche ta scierie et améliore-la au niveau 2 : plus de bois, arbres plus rapides.', fait: () => batiments.some(b => b.s.type === 'scierie' && b.s.niv >= 2), guide: () => { const b = batiments.find(x => x.s.type === 'scierie'); return $('#panneau').classList.contains('on') ? '[data-amel]' : b && b.g.position; } },
 ];
@@ -180,6 +181,13 @@ function ouvrirPouvoirs() {
       <div class="stats suivant">Niveau ${n + 1} : ${P.effet(n + 1)}</div><div class="cout"><button data-pw="${k}" ${h.pts ? '' : 'disabled'}>Améliorer · 1 point</button></div></div>`; }).join('');
 }
 $('#moi').onclick = () => ouvrirPouvoirs();
+// ---------------- Arène : choisir un défi (pour le plaisir de bien se battre) ----------------
+function ouvrirArene() {
+  J.areneVue = true; majQuete();
+  const p = $('#panneau'); p.classList.add('on'); p.dataset.vue = 'arene'; p.querySelector('h2').textContent = 'Arène des ombres'; son('confirmation_001', 0.3);
+  p.querySelector('.liste').innerHTML = '<p class="vide">Aucune récompense ici : seulement la maîtrise. Tes résultats s’affichent à la fin.</p>' + Object.entries(DEFIS).map(([k, D]) => `<div class="carte bat"><div class="tete"><span class="ico">${D.icone}</span><b>${D.nom}</b></div><div class="stats">${D.desc}</div><div class="cout"><button data-defi="${k}">Combattre</button></div></div>`).join('');
+}
+function bilan(titre, texte) { const e = $('#retour'); e.querySelector('h3').textContent = titre; e.querySelector('p').textContent = texte; e.querySelector('.gains').innerHTML = ''; e.querySelector('small').textContent = 'Recommence quand tu veux : chaque combat est différent.'; e.querySelector('b').textContent = 'Toucher pour continuer'; e.hidden = false; e.onclick = () => { e.hidden = true; }; }
 function batimentSous(q) { let best = null, bd = 1e9; for (const b of batiments) { const d = Math.hypot(b.g.position.x - q.x, b.g.position.z - q.z); if (d < b.T.rayon && d < bd) { bd = d; best = b; } } return best; }
 const etoiles = (n, max) => '★'.repeat(n) + '<i>' + '★'.repeat(max - n) + '</i>';
 let batOuvert = null;
@@ -209,6 +217,7 @@ $('#panneau').addEventListener('click', (e) => {
     const b = batOuvert, rendu = demolir(b); J.batiments = J.batiments.filter(x => x !== b.s); for (const [r, n] of Object.entries(rendu || {})) J[r] = (J[r] || 0) + n;
     toast(`🗑️ ${b.T.nom} démoli · ${Object.entries(rendu || {}).map(([r, n]) => `+${n} ${ICONES[r]}`).join(' ')}`); batOuvert = null; appliquerBatiments(); majHud(); sauver(); $('#panneau').classList.remove('on'); return;
   }
+  const df = e.target.closest('[data-defi]'); if (df) { $('#panneau').classList.remove('on'); lancerDefi(df.dataset.defi); return; }
   const og = e.target.closest('[data-onglet]'); if (og) { ouvrirConstruire(og.dataset.onglet); return; }
   const pz = e.target.closest('[data-poser]'); if (pz) { if (pz.classList.contains('non')) { son('error_004', 0.4); toast('Pas assez de ressources'); return; } $('#panneau').classList.remove('on'); commencerPlacement(pz.dataset.poser); return; }
   const fl = e.target.closest('[data-filtre]'); if (fl) { filtreO = fl.dataset.filtre; son('cloth1', 0.25); ouvrirOmbres(); return; }
@@ -256,6 +265,7 @@ function action(txt, cb, cls = '') { const b = $('#action'); if (!txt) { b.hidde
 $('#action').onclick = () => { initAudio(); actionCb && actionCb(); };
 function majAction() {
   if (enScene || placement || G.mode === 'souverain') return action(null);
+  if (Math.hypot(PIERRE_DEFI.x - joueur.pos.x, PIERRE_DEFI.z - joueur.pos.z) < 3) return action('⚔️ ARÈNE · choisir un défi', ouvrirArene, 'bois');
   const dep = depouilles.find(d => Math.hypot(d.p.root.position.x - joueur.pos.x, d.p.root.position.z - joueur.pos.z) < 2.6);
   if (dep) return action(`ÉVEILLE-TOI · ${COUT_EVEIL} mana`, () => eveiller(dep), 'eveil');
   const ch = chantierProche(joueur.pos); if (ch && Math.hypot(ch.g.position.x - joueur.pos.x, ch.g.position.z - joueur.pos.z) < ch.T.rayon + 1.5) return action(joueur.bati ? 'Tu construis…' : `Aider à bâtir · ${Math.floor((ch.s.prog || 0) * 100)} %`, () => { joueur.bati = ch; }, 'bois');
@@ -386,11 +396,11 @@ function boucle() {
 async function demarrer() {
   initRendu($('#scene'));
   const barre = $('#charge i'), pr = { p: 0, n: 0 }, avance = () => { barre.style.width = Math.round((pr.p + pr.n) / 2 * 100) + '%'; };
-  await Promise.all([chargerPersos((k) => { pr.p = k; avance(); }), chargerNature((k) => { pr.n = k; avance(); }), chargerBatiments(), chargerMonstre('imp'), chargerMonstre('puglin'), chargerSons(['chop.ogg', 'drop_002.ogg', 'handleCoins.ogg', 'cloth1.ogg', 'confirmation_001.ogg', 'maximize_006.ogg', 'impactSoft_heavy_000.ogg', 'knifeSlice.ogg', 'jingles_PIZZI01.ogg', 'jingles_PIZZI03.ogg', 'sov_possession.wav', 'sov_onde.wav', 'error_004.ogg', 'impactMetal_light_000.ogg', 'impactPunch_medium_001.ogg', 'handleCoins2.ogg'])]);
+  await Promise.all([chargerPersos((k) => { pr.p = k; avance(); }), chargerNature((k) => { pr.n = k; avance(); }), chargerBatiments(), chargerMonstre('imp'), chargerMonstre('puglin'), chargerMonstre('orc'), chargerMonstre('gobelin'), chargerSons(['chop.ogg', 'drop_002.ogg', 'handleCoins.ogg', 'cloth1.ogg', 'confirmation_001.ogg', 'maximize_006.ogg', 'impactSoft_heavy_000.ogg', 'knifeSlice.ogg', 'jingles_PIZZI01.ogg', 'jingles_PIZZI03.ogg', 'sov_possession.wav', 'sov_onde.wav', 'error_004.ogg', 'impactMetal_light_000.ogg', 'impactPunch_medium_001.ogg', 'handleCoins2.ogg'])]);
   J = charger() || nouvelleSauvegarde(); J.pierre ??= 0; J.batiments ??= [];
   construireMonde(); creerJoueur(); creerDepouilles(); for (const s of J.batiments) creerBatiment(s, !!s.fini); appliquerBatiments();
   J.ombres.forEach((d, k) => ajouterOmbre(d, V(RESERVE.x + Math.cos(k) * 3, 0, RESERVE.z + Math.sin(k) * 3)));
-  initCombat({ J, joueur, jeu, toast, sauver, majQuete, majHud, sauter });
+  initCombat({ J, joueur, jeu, toast, sauver, majQuete, majHud, sauter, bilan });
   horsLigne();
   majPile(J.bois); majHud(); majQuete();
   initEntrees({ toucher, saisir, glisser });

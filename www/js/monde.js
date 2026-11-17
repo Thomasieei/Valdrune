@@ -37,6 +37,7 @@ function construireTerrain() {
     const terre = Math.max(0, 1 - Math.abs(d - 0) / 9) * 0.9 + Math.max(0, 1 - Math.hypot(x - RESERVE.x, z - RESERVE.z) / 5) * 0.7; // sol tassé du camp
     c.lerp(c2.set('#9a7a52'), Math.min(0.85, terre));
     const dc = Math.hypot(x - CARRIERE.x, z - CARRIERE.z); if (dc < 10) c.lerp(c2.set('#8a8070'), Math.min(0.8, (10 - dc) / 3.5)); // carrière : roche et gravier
+    const da = Math.hypot(x + 24, z + 6); if (da < 12.5) c.lerp(c2.set('#c8b088'), Math.min(0.9, (12.5 - da) / 1.5)); // sable de l'arène
     const dch = distChemin(x, z) + Math.sin(x * 1.7 + z * 1.3) * 0.35; if (dch < 2.6) c.lerp(c2.set('#a08458').offsetHSL(0, 0, n * 0.03), Math.min(0.92, (2.6 - dch) / 1.1)); // route de terre aux bords irréguliers
     C.set([c.r, c.g, c.b], i * 3);
   }
@@ -59,7 +60,7 @@ function construireForet() {
   const types = ['oak_01', 'birch_01', 'pine_01'], T = { oak_01: [], birch_01: [], pine_01: [] };
   for (let k = 0; k < 140; k++) {
     const a = rnd(0, 6.283), d = rnd(15, 62), x = Math.cos(a) * d, z = Math.sin(a) * d;
-    if (distChemin(x, z) < 3.2 || Math.hypot(x - RESERVE.x, z - RESERVE.z) < 9 || Math.hypot(x - CARRIERE.x, z - CARRIERE.z) < 11 || Math.hypot(x + 34, z - 30) < 11 || Math.hypot(x - 38, z - 30) < 14) continue; /* clairière des Puglins, camp des pillards */
+    if (distChemin(x, z) < 3.2 || Math.hypot(x - RESERVE.x, z - RESERVE.z) < 9 || Math.hypot(x - CARRIERE.x, z - CARRIERE.z) < 11 || Math.hypot(x + 34, z - 30) < 11 || Math.hypot(x - 38, z - 30) < 14 || Math.hypot(x + 24, z + 6) < 15) continue; /* clairière des Puglins, camp des pillards */
     if (arbres.some(b => Math.hypot(b.pos.x - x, b.pos.z - z) < 4.6)) continue;
     const type = types[Math.floor(rnd(0, 3))], e = rnd(1.5, 2.4), p = V(x, hauteur(x, z), z); /* des arbres qui nous dépassent : le monde est grand */
     const ar = { type, i: T[type].length, pos: p, r: rnd(0, 6.28), e, pv: 0, pvMax: 0, etat: 'debout', bois: 0, ouvriers: 0 };
@@ -154,6 +155,15 @@ function construireDecor() {
   construireMontagnes();
   construireBraseros();
 }
+// arène d'entraînement : cercle de menhirs, braseros, pierre du défi
+export const PIERRE_DEFI = V(-24, 0, 4.5);
+function construireArene() {
+  const roc = new THREE.MeshStandardMaterial({ color: '#8a8478', roughness: 0.95, flatShading: true });
+  for (let i = 0; i < 14; i++) { const a = i / 14 * 6.283, x = -24 + Math.sin(a) * 13, z = -6 + Math.cos(a) * 13; if (Math.hypot(x + 24, z - 7) < 3) continue; const h = 2.2 + (i % 3) * 0.7, m = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.7, h, 6), roc); m.position.set(x, hauteur(x, z) + h / 2 - 0.1, z); m.rotation.set((i % 2) * 0.08, a, ((i * 7) % 3 - 1) * 0.06); m.castShadow = m.receiveShadow = true; G.scene.add(m); }
+  const p = PIERRE_DEFI, pierre = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.8, 2.6, 5), new THREE.MeshStandardMaterial({ color: '#5a5664', roughness: 0.8, flatShading: true, emissive: '#3a1a8a', emissiveIntensity: 0.12 }));
+  pierre.position.set(p.x, hauteur(p.x, p.z) + 1.25, p.z); pierre.castShadow = true; G.scene.add(pierre);
+  const rune = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.05, 6, 20), new THREE.MeshBasicMaterial({ color: '#c8a8ff' })); rune.position.set(p.x, hauteur(p.x, p.z) + 1.7, p.z + 0.62); G.scene.add(rune);
+}
 // montagnes à l'horizon : des silhouettes immenses qui rappellent que le monde est vaste
 function construireMontagnes() {
   const mat = new THREE.MeshStandardMaterial({ color: '#6a7a8a', roughness: 1, flatShading: true }), neige = new THREE.MeshStandardMaterial({ color: '#e8eef4', roughness: 1, flatShading: true });
@@ -211,7 +221,7 @@ export function filonProche(p, max = 999) { let b = null, bd = max; for (const f
 export function construireMonde() {
   G.hauteur = hauteur;
   G.obstacle = (x, z) => { for (const a of arbres) if (a.etat === 'debout' && Math.abs(a.pos.x - x) < 2 && Math.abs(a.pos.z - z) < 2 && Math.hypot(a.pos.x - x, a.pos.z - z) < 0.3 + 0.28 * a.e) return true; return false; }; // seuls les troncs repoussent la caméra (le feuillage, on voit à travers)
-  construireTerrain(); construireForet(); construireDecor(); construireReserve(); construireFeu(); construireCarriere();
+  construireTerrain(); construireArene(); construireForet(); construireDecor(); construireReserve(); construireFeu(); construireCarriere();
 }
 export function majMonde(dt) { majMinuteurs(); majBraseros(); majFilons(dt); majChutes(dt); majRepousse(dt); majSecousses(dt); majFeu(dt); }
 export function libre(x, z) { for (const a of arbres) if (a.etat !== 'tombe' && Math.hypot(a.pos.x - x, a.pos.z - z) < 0.42 * a.e) return false; return Math.hypot(x, z) < 80; }
