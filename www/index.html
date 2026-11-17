@@ -240,6 +240,22 @@ body.cinema #jeu::before{top:0}body.cinema #jeu::after{bottom:0}
 #tabMissions .choixM{display:flex;gap:.6vh;margin-top:auto}#tabMissions .choixM .btn{flex:1;padding:.7vh;font-size:1.5vh}
 @media (max-aspect-ratio:4/3){#tabMissions .affiches{grid-template-columns:repeat(2,1fr)}}
   body.v1 #btnAggro, body.v1 #btnDemon, body.v1 #btnPacte, body.v1 #portailMenu .carteSylve, body.v1 #portailMenu .invasion, body.v1 .ordresO [data-ord="arene"], body.v1 .ordresO .grpO:has([data-ord="ile"]) { display: none !important; }
+
+/* ===== V1 : interface épurée et lisible (solo, tactile) ===== */
+body.v1 #escHud, body.v1 #chat { display:none!important }
+@media (pointer:coarse){ .sort .t{display:none} } /* les lettres Q/W/E… ne veulent rien dire au doigt */
+#colonne{gap:2.7vh}
+#colonne .rond{position:relative}
+#outils .rond{position:relative}
+#colonne .rond[data-l]::after,#outils .rond[data-l]::after{content:attr(data-l);position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:.15vh;font:800 1.4vh var(--f-label);letter-spacing:.02em;color:#f6ead2;text-shadow:0 1px 2px #000,0 0 4px #000;white-space:nowrap;pointer-events:none}
+#journal .o{line-height:1.3;max-height:calc(3 * 1.3em);-webkit-line-clamp:3}
+
+.gainsP{display:flex;flex-wrap:wrap;gap:.5vh;margin:.8vh 0 .2vh}
+.gainsP span{font:800 1.6vh var(--f-label);padding:.25vh .8vh;border-radius:1vh;background:#0006;border:1px solid #fff2}
+.gainsP .g1{color:#ffd36a}.gainsP .g2{color:#9fe0ff}.gainsP .g3{color:#e0b8ff}
+.nomInv h2{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:3.4vh}
+.titreInv{flex-wrap:wrap}
+.titreInv .ongletsInv{flex-basis:100%;justify-content:flex-start} /* onglets sous le nom : plus de chevauchement */
 </style>
 <style>
 /* Concept : HUD de MMO sombre (ardoise + bronze) au-dessus d'une scène 3D ; panneaux de commerce en parchemin. Un seul thème, volontairement sombre. */

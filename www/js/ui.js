@@ -804,7 +804,7 @@ const _v = new THREE.Vector3();
 UI.majPlaques = (centre) => {
   for (const [ent, p] of plaques) {
     const pos = ent.pos || ent.root.position;
-    const lim = ent.drapeauPorte ? 70 : 30; let vis = !ent.mort && Math.abs(pos.x - centre.x) < lim && Math.abs(pos.z - centre.z) < lim;
+    const lim = ent.drapeauPorte ? 70 : ent.citoyen ? 14 : (G.camDistReelle || 20) < 8 ? 16 : 30; /* moins d'étiquettes = écran lisible */ let vis = !ent.mort && Math.abs(pos.x - centre.x) < lim && Math.abs(pos.z - centre.z) < lim;
     let s = null;
     if (vis) { _v.set(pos.x, pos.y + p.h + (G.solH ? G.solH(pos.x, pos.z) : 0), pos.z); s = projeter(_v); vis = s.visible && s.x > -80 && s.x < innerWidth + 80 && s.y > -40 && s.y < innerHeight + 40; }
     if (!vis) { if (p.vis !== false) { p.d.style.display = 'none'; p.vis = false; } continue; }
@@ -1150,7 +1150,7 @@ UI.menuPortail = () => {
       const ok = ip >= m.ipConseil;
       return `<div class="mode" style="--c:${m.couleur}"><div class="niv">NIVEAU ${m.id + 1}</div><h3>${m.nom}</h3><div class="lieu">${m.lieu}</div>
       <div class="tiers">${Array.from({ length: m.tiers[1] - m.tiers[0] + 1 }, (_, i) => m.tiers[0] + i).map(t => `<span style="background:${TIERS[t].color}">T${t}</span>`).join('')}</div>
-      <p>${m.texte}</p><div class="ipl"><span>Puissance conseillée</span><b>${m.ipConseil}</b></div><div class="ipl"><span>Ta puissance</span><b class="${ok ? 'ok' : 'ko'}">${ip}</b></div>
+      <div class="gainsP" title="Ce que tu gagnes ici"><span class="g1">🪙 Or ×${m.argent * (m.mult || 1)}</span><span class="g2">✦ XP ×${m.xp}</span><span class="g3">🎁 4 coffres</span></div><p>${m.texte}</p><div class="ipl"><span>Puissance conseillée</span><b>${m.ipConseil}</b></div><div class="ipl"><span>Ta puissance</span><b class="${ok ? 'ok' : 'ko'}">${ip}</b></div>
       <div class="btnsMode"><button class="btn ${ok ? 'or' : ''}" data-m="${m.id}">${ok ? 'Entrer' : 'Entrer quand même'}</button>${m.abime ? '' : `<button class="btn hard" data-h="${m.id}" title="Monstres ×3, or et XP ×3">☠ Hard</button>`}</div></div>`;
     }).join('')}</div></div>`;
   const sy = document.createElement('div'); sy.className = 'carteSylve';
@@ -1240,6 +1240,7 @@ UI.reglages = () => {
     <label>Position des sorts <input type="range" id="rDec" min="0" max="35" step="1" value="${parseInt(getComputedStyle(document.documentElement).getPropertyValue('--decalSorts')) || 18}" style="width:22vh"></label>
     <label>Musique <input type="checkbox" id="rM" ${G.musiqueOn !== false ? 'checked' : ''} style="width:3vh;height:3vh"></label>
     <label>Vue <select id="rVue" class="btn gris">${[['iso', 'Isométrique (classique)'], ['heros', 'Héros : derrière ton perso'], ['libre', 'Libre : tu tournes au doigt']].map(([v, l]) => `<option value="${v}" ${(G.camVue || 'iso') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    <label>Sensibilité caméra <select id="rSens" class="btn gris">${[[0.6, 'Douce'], [1, 'Normale'], [1.5, 'Rapide'], [2, 'Très rapide']].map(([v, l]) => `<option value="${v}" ${(G.camSens || 1) == v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <label>Distance <select id="rCam" class="btn gris">${[['proche', 'Proche : combat intense'], ['normale', 'Normale'], ['large', 'Large : vue d’ensemble']].map(([v, l]) => `<option value="${v}" ${(G.camMode || 'proche') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <label>Paroles des ombres <select id="rOmb" class="btn gris">${[['normal', 'Normales (de temps en temps)'], ['rare', 'Rares'], ['silence', 'Silence : elles ne me parlent plus']].map(([v, l]) => `<option value="${v}" ${(G.ombresParole || 'normal') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <label>Afficher les FPS <input type="checkbox" id="rP" ${G.perfOn ? 'checked' : ''} style="width:3vh;height:3vh"></label>
@@ -1253,6 +1254,7 @@ UI.reglages = () => {
   r.querySelector('#rM').onchange = (e) => { api.musique(e.target.checked); try { localStorage.setItem('breche-musique', e.target.checked ? '1' : '0'); } catch (er) {} };
   r.querySelector('#rS').onchange = (e) => { G.son = e.target.checked; if (G.master) G.master.gain.value = G.son ? 0.6 : 0; };
   r.querySelector('#rVue').onchange = (e) => { G.camVue = e.target.value; try { localStorage.setItem('breche-vue', G.camVue); } catch (er) {} };
+  r.querySelector('#rSens').onchange = (e) => { G.camSens = +e.target.value; try { localStorage.setItem('breche-sens', String(G.camSens)); } catch (er) {} };
   r.querySelector('#rCam').onchange = (e) => { G.camMode = e.target.value; G.camZoom = 1; try { localStorage.setItem('breche-cam', G.camMode); } catch (er) {} };
   r.querySelector('#rOmb').onchange = (e) => { G.ombresParole = e.target.value; try { localStorage.setItem('breche-ombres', G.ombresParole); } catch (er) {} };
   r.querySelector('#rP').onchange = (e) => { G.perfOn = e.target.checked; UI.perf(G.perfOn); try { localStorage.setItem('breche-perf', G.perfOn ? '1' : ''); } catch (er) {} };

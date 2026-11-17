@@ -202,7 +202,7 @@ function lancerHub(premier = false) {
   joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax;
   G.camTarget.copy(joueur.pos); G.camDist = 25; G.scene.fog.density = 0.016;
   G.hemi.intensity = 1.1; G.sun.intensity = 1.3;
-  UI.journal('Place des Cendres', V1 ? 'Ta ville. Ses habitants comptent sur toi : les cultistes de la Brèche attaquent régulièrement. La Brèche rouge mène à leurs donjons.' : 'Brèche rouge : donjons. Portail violet : l’arène. Touche un joueur pour former un groupe.');
+  UI.journal('Place des Cendres', V1 ? 'Protège tes habitants des raids. La Brèche rouge mène aux donjons.' : 'Brèche rouge : donjons. Portail violet : l’arène. Touche un joueur pour former un groupe.');
   G.renderer.compile(G.scene, G.camera);
   if (V1) majBandeauVille(); else UI.zone('Place des Cendres', `Joueurs ${bots.length + 1}/20`);
   $('#btnQuitter').hidden = true;

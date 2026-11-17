@@ -253,7 +253,7 @@ function tirageOmbre(tMin, tMax, source) {
 function forceOmbre() { const a = J.equip.arme || { tier: 1 }; return 0.25 + (a.tier - 1) * 0.02 + (a.ench || 0) * 0.03; }
 function vitesseJoueur() { return joueur.st.vitesse * (joueur.sprintT > 0 ? 1.6 : 1) * (joueur.slowT > 0 ? 0.6 : 1); }
 function fumeeOmbre(p) {
-  emettre(V(p.x, 0.8, p.z), { n: 26, c1: '#b48aff', c2: '#0a0012', vit: 3.5, rayon: 0.6, vie: 0.7, taille: 0.6, grav: -1 });
+  emettre(V(p.x, 0.8, p.z), { n: V1 ? 10 : 26, c1: '#b48aff', c2: '#0a0012', vit: 3.5, rayon: 0.6, vie: 0.6, taille: 0.5, grav: -1 }); // V1 : fumée discrète (moins de bruit visuel)
   lueurSol(p, '#7a3aff', 1.8, 0.4, 0.6);
 }
 function teinteSpectrale(a, couleur, force) {

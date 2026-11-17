@@ -19,25 +19,26 @@ export function initRendu(canvas) {
   const r = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   r.outputColorSpace = THREE.SRGBColorSpace;
   r.toneMapping = THREE.ACESFilmicToneMapping;
-  r.toneMappingExposure = 1.15;
+  r.toneMappingExposure = 1.22;
   r.shadowMap.enabled = true;
-  r.shadowMap.type = THREE.PCFShadowMap;
+  r.shadowMap.type = THREE.PCFSoftShadowMap; // ombres douces (pas d'escalier)
   r.info.autoReset = false;
   r.shadowMap.autoUpdate = false; // ombres recalculées une image sur deux
   G.renderer = r; r.debug.checkShaderErrors = false; // évite des blocages GPU à chaque nouveau shader
   G.scene = new THREE.Scene();
   G.scene.background = new THREE.Color('#120b1b');
-  G.scene.fog = new THREE.FogExp2('#150d20', 0.022);
-  G.camera = new THREE.PerspectiveCamera(38, 1, 0.5, 220);
+  G.scene.fog = new THREE.FogExp2('#1c1430', 0.016);
+  G.camera = new THREE.PerspectiveCamera(38, 1, 0.15, 260);
   // Lumières de base
-  G.hemi = new THREE.HemisphereLight('#8f7cc8', '#2a1830', 1.05);
+  G.hemi = new THREE.HemisphereLight('#b9a8f0', '#3a2632', 1.15);
   G.scene.add(G.hemi);
-  G.sun = new THREE.DirectionalLight('#c9b8ff', 1.25);
+  G.sun = new THREE.DirectionalLight('#ffe6c8', 1.9); // soleil chaud : contraste chaud/froid avec le ciel violet
   G.sun.castShadow = true;
-  G.sun.shadow.mapSize.set(matchMedia('(pointer: coarse)').matches ? 768 : 1024, matchMedia('(pointer: coarse)').matches ? 768 : 1024);
-  const sc = G.sun.shadow.camera; sc.left = -22; sc.right = 22; sc.top = 22; sc.bottom = -22; sc.near = 1; sc.far = 80;
+  G.sun.shadow.mapSize.set(2048, 2048); // 2048 : ombres nettes, sans scintillement
+  const sc = G.sun.shadow.camera; sc.left = -28; sc.right = 28; sc.top = 28; sc.bottom = -28; sc.near = 1; sc.far = 90; G.sun.shadow.radius = 3;
   G.sun.shadow.bias = -0.0008; G.sun.shadow.normalBias = 0.03;
   G.scene.add(G.sun, G.sun.target);
+  try { G.scene.environment = environnementDoux(r); /* r160 : intensité réglée par matériau */ } catch (e) {}
   // Composer + bloom
   // rendu intermédiaire avec anticrénelage (MSAA) : sans ça, les contours des persos sont pixelisés dès que le bloom est actif
   const rt = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: matchMedia('(pointer: coarse)').matches ? 2 : 4 }); // téléphone : 2 échantillons suffisent (la carte graphique saturait)
@@ -47,7 +48,7 @@ export function initRendu(canvas) {
   G.composer.addPass(G.bloom);
   // passe de sortie + étalonnage dans le même shader (aucune passe plein écran en plus) : couleurs vivantes, contraste, vignette
   const sortie = new OutputPass();
-  Object.assign(sortie.uniforms, { uVib: { value: 0.2 }, uCon: { value: 1.06 }, uVig: { value: 0.32 } });
+  Object.assign(sortie.uniforms, { uVib: { value: 0.3 }, uCon: { value: 1.08 }, uVig: { value: 0.22 } });
   sortie.material.fragmentShader = sortie.material.fragmentShader
     .replace('varying vec2 vUv;', 'uniform float uVib, uCon, uVig;\n\t\tvarying vec2 vUv;')
     .replace(/}\s*$/, `	{ vec3 c = gl_FragColor.rgb; float l = dot(c, vec3(0.299, 0.587, 0.114)); float mx = max(c.r, max(c.g, c.b)), mn = min(c.r, min(c.g, c.b));
@@ -68,15 +69,25 @@ export function initRendu(canvas) {
   initParticules();
 }
 
+// ciel doux en dégradé, transformé une fois en carte d'environnement (reflets et lumière d'ambiance réalistes)
+function environnementDoux(r) {
+  const sc = new THREE.Scene(), geo = new THREE.SphereGeometry(10, 32, 16), P = geo.attributes.position, C = new Float32Array(P.count * 3), c = new THREE.Color();
+  for (let i = 0; i < P.count; i++) { const y = P.getY(i) / 10; c.set(y > 0.2 ? '#9a8ad8' : y > -0.1 ? '#f0c8a0' : '#2a2030').lerp(new THREE.Color(y > 0.6 ? '#dcd0ff' : '#000000'), y > 0.6 ? 0.5 : 0); c.multiplyScalar(0.55); C.set([c.r, c.g, c.b], i * 3); }
+  geo.setAttribute('color', new THREE.BufferAttribute(C, 3));
+  sc.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
+  const lum = new THREE.Mesh(new THREE.PlaneGeometry(6, 3), new THREE.MeshBasicMaterial({ color: '#fff4e0' })); lum.position.set(-4, 7, 4); lum.lookAt(0, 0, 0); sc.add(lum);
+  const pm = new THREE.PMREMGenerator(r), t = pm.fromScene(sc, 0.04).texture; pm.dispose(); geo.dispose();
+  return t;
+}
 export function redimensionner() {
   const w = window.innerWidth, h = window.innerHeight;
   const tactile = matchMedia('(pointer: coarse)').matches;
-  const pr = Math.max(0.85, Math.min(window.devicePixelRatio || 1, G.niveau >= 2 ? (tactile ? 1.2 : 1.75) : G.niveau === 1 ? (tactile ? 1.1 : 1.4) : 1.0) * (G.resK || 1)); // même en qualité basse on reste au-dessus de 1 : plus d'image pixelisée
+  const pr = Math.max(1, Math.min(window.devicePixelRatio || 1, G.niveau >= 2 ? (tactile ? 2 : 2) : G.niveau === 1 ? (tactile ? 1.6 : 1.75) : 1.3) * (G.resK || 1)); // téléphone : jusqu'à 2 (net comme un vrai jeu mobile)
   G.renderer.setPixelRatio(pr);
   G.renderer.setSize(w, h, false);
   G.composer.setPixelRatio(pr);
   G.composer.setSize(w, h);
-  G.bloom.resolution.set(w * pr * 0.35, h * pr * 0.35);
+  G.bloom.resolution.set(w * Math.min(pr, 1.5) * 0.35, h * Math.min(pr, 1.5) * 0.35); // le halo n'a pas besoin de haute définition
   G.camera.aspect = w / h;
   // en portrait on recule pour garder la scène lisible
   G.camera.fov = G.fovBase = G._fov = w < h ? 55 : 38;
@@ -88,28 +99,34 @@ const _off = new THREE.Vector3();
 const CAM_K = { proche: 0.66, normale: 0.82, large: 1 };
 const _avT = new THREE.Vector3();
 export function majCamera(dt, cible) {
-  G.camTarget.lerp(cible, 1 - Math.exp(-dt * 8));
-  // caméra rapprochée (réglable, pincer pour zoomer) : on resserre encore un peu en plein combat
-  // trois vues : isométrique (classique), héros (derrière le perso, à la World of Warcraft), libre (tu tournes au doigt)
-  const vue = G.camCible ? 'iso' : (G.camVue || 'iso');
+  G.camTarget.lerp(cible, 1 - Math.exp(-dt * 10));
+  // caméra « à la Roblox » : un doigt tourne librement (360° en continu), deux doigts zooment de l'épaule jusqu'à la vue d'ensemble
+  const vue = G.camCible ? 'iso' : (G.camVue || 'libre');
   const base = vue === 'heros' ? 0.5 : vue === 'libre' ? 0.62 : (CAM_K[G.camMode || 'proche'] || 0.66);
-  const k = base * (G.camZoom || 1) * (G.enCombat ? 0.92 : 1);
-  G._camK = (G._camK || k) + (k - (G._camK || k)) * Math.min(1, dt * 2.5);
-  const pCible = vue === 'heros' ? (G.murs ? 0.66 : 0.5) : vue === 'libre' ? (G.camPitchLibre ?? 0.78) : G.camPitch - (1 - Math.min(1, G._camK)) * 0.32;
-  G._camP = (G._camP ?? pCible) + (pCible - (G._camP ?? pCible)) * Math.min(1, dt * 4);
-  const d = G.camDist * G._camK, p = G._camP;
-  // le joystick suit toujours l'orientation de la caméra
+  const k = base * (G.camZoom || 1);
+  G._camK = (G._camK || k) + (k - (G._camK || k)) * Math.min(1, dt * 6);
+  const pCible = vue === 'heros' ? (G.murs ? 0.66 : 0.5) : vue === 'libre' ? (G.camPitchLibre ?? 0.62) : G.camPitch - (1 - Math.min(1, G._camK)) * 0.32;
+  G._camP = (G._camP ?? pCible) + (pCible - (G._camP ?? pCible)) * Math.min(1, dt * 8);
+  let d = G.camDist * G._camK; const p = G._camP;
+  // de près on regarde la tête du héros (vue à l'épaule), de loin le sol autour de lui
+  const proche = Math.max(0, Math.min(1, (14 - d) / 10)), hVise = 1 + proche * 0.55;
   DIR_HAUT.set(-Math.sin(G.camYaw), 0, -Math.cos(G.camYaw)); DIR_DROITE.set(Math.cos(G.camYaw), 0, -Math.sin(G.camYaw));
+  // pas de caméra dans les murs : on raccourcit le bras dès qu'un mur coupe la vue, on le rallonge en douceur ensuite
+  if (G.camMarche && vue !== 'iso') {
+    const ox = Math.sin(G.camYaw) * Math.cos(p), oz = Math.cos(G.camYaw) * Math.cos(p); let lib = d;
+    for (let f = 0.8; f <= d; f += 0.45) { if (!G.camMarche(G.camTarget.x + ox * f, G.camTarget.z + oz * f)) { lib = Math.max(1.6, f - 0.6); break; } }
+    G._camCol = lib < (G._camCol ?? d) ? lib : (G._camCol ?? d) + (lib - (G._camCol ?? d)) * Math.min(1, dt * 2.5);
+    d = Math.min(d, G._camCol);
+  } else G._camCol = d;
   const off = _off.set(Math.sin(G.camYaw) * Math.cos(p) * d, Math.sin(p) * d, Math.cos(G.camYaw) * Math.cos(p) * d);
-  G.camera.position.copy(G.camTarget).add(off);
+  G.camera.position.copy(G.camTarget).add(off); G.camera.position.y += hVise * 0.6;
   if (G.shake > 0) {
     G.shake = Math.max(0, G.shake - dt * 2.5);
-    // tremblement lissé (bruit sinusoïdal) au lieu d'un bruit blanc : plus lisible, pas de mal de tête
     const s = G.shake * G.shake * 0.45, t = G.t || 0;
     G.camera.position.x += (Math.sin(t * 37.1) + Math.sin(t * 23.7) * 0.6) * s * 0.5; G.camera.position.y += (Math.sin(t * 41.3 + 1) + Math.sin(t * 19.1) * 0.5) * s * 0.4; G.camera.position.z += (Math.sin(t * 31.9 + 2) + Math.sin(t * 27.3) * 0.6) * s * 0.5;
   }
-  G.camera.lookAt(G.camTarget.x, G.camTarget.y + (vue === 'heros' ? 1.6 : 1), G.camTarget.z);
-
+  G.camera.lookAt(G.camTarget.x, G.camTarget.y + (vue === 'heros' ? 1.6 : hVise), G.camTarget.z);
+  G.camDistReelle = d;
   G.sun.position.set(cible.x - 10, 26, cible.z + 6);
   G.sun.target.position.copy(cible);
 }
@@ -128,7 +145,8 @@ function cullActeurs() {
     if (!a._dansScene) { a._dansScene = true; a.fusionner(); if (a.contour !== false && (HUMAINS.has(a.cle) || a.contour)) a.ajouterContour(); }
     const p = a.root.position;
     _sph.center.set(p.x, p.y + a.rayonVis * 0.6, p.z); _sph.radius = a.rayonVis + 2.5;
-    const vis = _frustum.intersectsSphere(_sph);
+    const cp = G.camera.position, dcx = p.x - cp.x, dcz = p.z - cp.z, dcy = p.y + 1 - cp.y;
+    const vis = _frustum.intersectsSphere(_sph) && (a === G.acteurJoueur || dcx * dcx + dcz * dcz + dcy * dcy > 2.6);
     if (vis !== a.vu) { a.vu = vis; a.model.visible = vis; }
     if (vis) {
       const ombre = G.niveau > 0 && Math.abs(p.x - f.x) + Math.abs(p.z - f.z) < 20; // ombres des persos proches seulement
@@ -171,8 +189,9 @@ export function majQualiteAuto(dtReel, actif) {
     if (fps < e.fps * 1.12) { auto.fini = true; appliquerNiveau(e.niveau); return 'inutile'; }
     if (fps >= 48) { auto.fini = true; return null; }
   }
-  if (fps < 48 && G.niveau > 0) { auto.essai = { fps, niveau: G.niveau }; appliquerNiveau(G.niveau - 1); return 'baisse'; }
-  if (fps >= 55) auto.fini = true;
+  if (fps < 34 && (G.resK || 1) > 0.8) { G.resK = 0.8; redimensionner(); return 'baisse'; } // d'abord la définition (invisible ou presque)
+  if (fps < 28 && G.niveau > 0) { auto.essai = { fps, niveau: G.niveau }; appliquerNiveau(G.niveau - 1); return 'baisse'; }
+  if (fps >= 45) auto.fini = true;
   return null;
 }
 // ombres de contact douces sous chaque personnage (une seule passe pour tous) : les persos « tiennent » au sol
@@ -300,7 +319,8 @@ export async function chargerAssets(liste, progres) {
     const box = new THREE.Box3().setFromObject(g.scene);
     g.hauteur = box.max.y - box.min.y;
     g.box = box;
-    g.scene.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; if (o.material) o.material.envMapIntensity = 0.6; } });
+    const ani = Math.min(8, G.renderer ? G.renderer.capabilities.getMaxAnisotropy() : 4);
+    g.scene.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; for (const m of [].concat(o.material || [])) { m.envMapIntensity = 0.6; for (const k of ['map', 'normalMap', 'emissiveMap']) if (m[k]) m[k].anisotropy = ani; } } });
     if (/^(Rock_|n_rock_large|n_stone_large)/.test(cle)) rocheSculptee(g, cle);
     G.assets[cle] = g;
     progres(++fait / liste.length, cle);
@@ -733,7 +753,7 @@ export function texture(nom, w, h, dessin, opts = {}) {
   dessin(c.getContext('2d'), w, h);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   if (opts.repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; }
-  t.anisotropy = 4;
+  t.anisotropy = 8;
   return (texCache[nom] = t);
 }
 export const texRond = () => texture('rond', 64, 64, (g, w) => {

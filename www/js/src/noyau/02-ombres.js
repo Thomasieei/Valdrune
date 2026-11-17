@@ -14,7 +14,7 @@ function creerOmbreEscouade(i) {
   const a = creerCombattant(pos, { nom: 'Ombre', guilde: J.nom.toUpperCase(), equip: J.equip, modele: 'Rogue_Hooded' }, 'allie');
   allies.splice(allies.indexOf(a), 1); // hors des alliés : personne ne la cible, elle ne compte pas dans le groupe
   UI.retirerPlaque(a);
-  a.root.scale.setScalar(0.95); teinteSpectrale(a, '#140c20', 0.8);
+  a.root.scale.setScalar(0.95); teinteSpectrale(a, '#140c20', 0.8); if (V1) for (const mt of a.mats) if (mt.emissive) { mt.emissive.multiplyScalar(0.55); mt.userData.baseEmissive = mt.emissive.clone(); } // lueur plus sobre : on distingue les visages
   const rec = ombresC()[i]; if (rec) a.nom = rec.nom; if (!V1) UI.plaque(a, { nom: rec ? rec.nom : 'Ombre ' + 'ⅠⅡⅢⅣⅤⅥ'[i], guilde: 'OMBRE DE ' + J.nom.toUpperCase(), classe: 'allie', vie: false, lettre: false });
   Object.assign(a, { escIdx: i, escCible: null, escT: 0.3 + i * 0.08, escPhase: 0 });
   fumeeOmbre(pos); a.jouer('Spellcast_Raise', { boucle: false, fin: () => a.jouer(a.armeDef.idle) });
@@ -41,7 +41,7 @@ function teleporterOmbre(o, p) {
 // formation derrière le joueur : chacun a sa place (3 de front, rangs de 1,9 m), on ne rejoint sa place que si on s'en écarte vraiment
 // (hystérésis), la vitesse suit la distance (pas d'arrêts nets), et au repos on regarde dans la même direction que le joueur
 function slotFormation(rang) {
-  const col = [0, -1, 1][rang % 3], ligne = Math.floor(rang / 3), ec = 1.9, rec = 2.4 + ligne * 1.9;
+  const col = [0, -1, 1][rang % 3], ligne = Math.floor(rang / 3), ec = V1 ? 2.8 : 1.9, rec = (V1 ? 3.4 : 2.4) + ligne * (V1 ? 2.4 : 1.9); // V1 : formation plus aérée (la caméra derrière toi voit le héros)
   const fx = Math.sin(joueur.angle), fz = Math.cos(joueur.angle), rx = Math.cos(joueur.angle), rz = -Math.sin(joueur.angle);
   return V(joueur.pos.x + rx * col * ec - fx * rec, 0, joueur.pos.z + rz * col * ec - fz * rec);
 }

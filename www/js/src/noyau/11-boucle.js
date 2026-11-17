@@ -1,4 +1,5 @@
 // ---------------- Boucle ----------------
+const camMarche = (x, z) => monde.marche(x, z); // la caméra ne traverse pas les murs
 let dernier = performance.now(), hudT = 0, miniT = 0, ileT = 2, argentVu = null, gainCumul = 0, gainT = 0;
 const ORBITE = V(0, 0, 0);
 // filet de sécurité : une erreur dans une mise à jour ne doit jamais figer le jeu (l'image continue, l'erreur est notée)
@@ -41,6 +42,7 @@ function boucleCorps() {
     majRumeurs(dt); majFortune(dt); majEchosArene(dt);
     majEscouade(dt); majCommandeOmbres(dt); majAbime(dt); majMeuteJoueur(dt); if (taverne) majTaverne(dt); if (mission) majMission(dt); majEveil(dt); if (goulet) majGoulet(dt); if (!modeActuel) majPortailGoulet();
     G.enCombat = joueur.combatT > 0 && !!modeActuel;
+    G.acteurJoueur = joueur; G.camMarche = G.murs && monde && monde.marche ? camMarche : null;
     majCamera(dt, G.solH && !G.camCible ? V(joueur.pos.x, solY(joueur.pos.x, joueur.pos.z), joueur.pos.z) : (G.camCible || joueur.pos));
     majTorches(joueur.pos);
     if (joueur.comboT > 0) { joueur.comboT -= dt; if (joueur.comboT <= 0) joueur.combo = 0; }

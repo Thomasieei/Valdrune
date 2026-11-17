@@ -157,7 +157,9 @@ async function demarrer() {
   initRendu($('#scene'));
   try { const dc = localStorage.getItem('breche-decal'); if (dc !== null) document.documentElement.style.setProperty('--decalSorts', dc + 'vw'); } catch (e) {}
   try { if (!localStorage.getItem('breche-v169')) { localStorage.setItem('breche-v169', '1'); localStorage.setItem('breche-qualite', 'haute'); localStorage.setItem('breche-cam', 'normale'); localStorage.setItem('breche-vue', 'iso'); localStorage.setItem('breche-zoom', '1'); } } catch (e) {}
-  try { if (!localStorage.getItem('breche-v161')) { localStorage.setItem('breche-v161', '1'); localStorage.setItem('breche-vue', 'iso'); localStorage.setItem('breche-zoom', '1'); } G.camVue = localStorage.getItem('breche-vue') || 'iso'; G.camMode = localStorage.getItem('breche-cam') || 'normale'; G.ombresParole = localStorage.getItem('breche-ombres') || 'normal'; G.camZoom = +(localStorage.getItem('breche-zoom') || 1); } catch (e) {}
+  try { if (!localStorage.getItem('breche-v220')) { localStorage.setItem('breche-v220', '1'); localStorage.setItem('breche-v161', '1'); localStorage.setItem('breche-vue', 'libre'); localStorage.setItem('breche-zoom', '0.8'); } // caméra libre « à la Roblox » par défaut
+  G.camSens = +(localStorage.getItem('breche-sens') || 1);
+  if (!localStorage.getItem('breche-v161')) { localStorage.setItem('breche-v161', '1'); localStorage.setItem('breche-vue', 'iso'); localStorage.setItem('breche-zoom', '1'); } G.camVue = localStorage.getItem('breche-vue') || 'libre'; G.camMode = localStorage.getItem('breche-cam') || 'normale'; G.ombresParole = localStorage.getItem('breche-ombres') || 'normal'; G.camZoom = +(localStorage.getItem('breche-zoom') || 1); } catch (e) {}
   try { const q = localStorage.getItem('breche-qualite'); if (q) G.qualite = q; G.perfOn = !!localStorage.getItem('breche-perf'); } catch (e) {}
   if (G.perfOn) UI.perf(true);
   try { G.musiqueOn = localStorage.getItem('breche-musique') !== '0'; } catch (e) {}

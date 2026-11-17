@@ -287,7 +287,7 @@ function initEntrees() {
   });
   window.addEventListener('keyup', (e) => { entree.clavier[e.key] = false; });
   // zoom : molette, ou deux doigts sur la scène (pincer)
-  const zoomer = (f) => { G.camZoom = Math.max(0.7, Math.min(1.6, (G.camZoom || 1) * f)); try { localStorage.setItem('breche-zoom', G.camZoom.toFixed(2)); } catch (er) {} };
+  const zoomer = (f) => { G.camZoom = Math.max(0.25, Math.min(1.7, (G.camZoom || 1) * f)); try { localStorage.setItem('breche-zoom', G.camZoom.toFixed(2)); } catch (er) {} };
   window.addEventListener('wheel', (e) => { if (e.target.closest && e.target.closest('#regl,#inv,#butin,.parchemin,#dlgRelique,#dialTaverne,#tabMissions,#cmdOmbres')) return; zoomer(e.deltaY > 0 ? 1.06 : 0.94); }, { passive: true });
   let pince = null;
   const scene = $('#scene');
@@ -296,7 +296,7 @@ function initEntrees() {
     scene.addEventListener('pointermove', (e) => {
       if (!dr || e.pointerId !== dr.id || pince) return; const vue = G.camVue || 'iso'; if (vue === 'iso') return;
       const dx = e.clientX - dr.x, dy = e.clientY - dr.y; if (!dr.bouge && Math.hypot(dx, dy) < 12) return; dr.bouge = true;
-      G.camYaw -= dx * 0.009; if (vue === 'libre') G.camPitchLibre = Math.max(0.28, Math.min(1.3, (G.camPitchLibre ?? 0.78) + dy * 0.005));
+      const sens = G.camSens || 1; G.camYaw -= dx * 0.008 * sens; if (vue === 'libre') G.camPitchLibre = Math.max(0.1, Math.min(1.35, (G.camPitchLibre ?? 0.62) + dy * 0.005 * sens));
       dr.x = e.clientX; dr.y = e.clientY; G.dragT = G.t;
     });
     const finDr = (e) => { if (dr && e.pointerId === dr.id) dr = null; }; scene.addEventListener('pointerup', finDr); scene.addEventListener('pointercancel', finDr);

@@ -47,6 +47,8 @@ Règle : on ne rallume un système que quand la 1.0 est solide, et un seul à la
 
 - v1.0-m : AUDIT — vérifs auto : fonctions appelées sans définition (0), UI.* manquants (0), ids DOM (0), sons (0), types de monstres (0), blocs dupliqués ≥ 4 lignes (0), animations (alias OK). Corrections : habitant emprisonné encore ciblé par les pillards ; clé API saisie dans la fenêtre (plus de prompt() natif, « aucune » pour l’effacer) ; ombre en garde = même moteur de combat que les autres ordres (doublon supprimé) ; constructeur d’habitant unique. Appel API testé : atteint api.anthropic.com (401 avec fausse clé → repli mode simple OK).
 
+- v1.0-n : GRAPHISMES + CAMÉRA — définition jusqu’à 2× sur téléphone (avant 1,2× : image pixelisée), ombres 2048 douces, filtrage anisotrope 8×, carte d’environnement (reflets), soleil chaud + ciel violet, étalonnage plus vivant ; qualité auto : baisse d’abord la définition (0,8) sous 34 i/s, ne coupe ombres/halo que sous 28. CAMÉRA LIBRE PAR DÉFAUT « à la Roblox » : un doigt = rotation 360° continue + inclinaison, pincer = zoom de 4 m (épaule) à 26 m, visée à hauteur de tête de près, pas de caméra dans les murs (bras raccourci), persos collés à l’objectif masqués, sensibilité réglable (Réglages). INTERFACE : étiquettes sous les boutons ronds (Sac, Talents, Royaume, Ombres, Réglages, Caméra, Armes, Sortir), lettres Q/W/E masquées au doigt, chat/compteur d’escouade masqués (jeu solo), journal raccourci et sans texte coupé, gains affichés sur chaque donjon (Or ×, XP ×, 4 coffres), en-tête d’inventaire sans chevauchement, moins d’étiquettes de noms (habitants à 14 m), formation des ombres aérée, lueur et fumée des ombres plus sobres.
+
 ## Bugs connus
 - (à remplir avec les retours de test de Thomas)
 

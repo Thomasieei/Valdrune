@@ -1,3 +1,6 @@
+// étiquettes sous les boutons ronds : un joueur de 12 ans comprend sans deviner les icônes
+const ETIQUETTES = { btnInv: 'Sac', btnTalents: 'Talents', btnRoyaume: 'Royaume', btnOmbres: 'Ombres', btnReg: 'Réglages', btnQuitter: 'Sortir', btnDegats: 'Dégâts', btnCam: 'Caméra', btnArmes: 'Armes' };
+setInterval(() => { for (const id in ETIQUETTES) { const b = document.getElementById(id); if (b && !b.dataset.l) b.dataset.l = ETIQUETTES[id]; } }, 1500);
 // ======================= LA VILLE À PROTÉGER (V1) : habitants, raids, enlèvements, deuil =======================
 // Chaque habitant a un nom et un métier. Les morts restent morts. Les enlevés restent enlevés.
 const MODE_VILLE = { id: 'ville', nom: 'Ville', lieu: 'Place des Cendres', argent: 1, xp: 1, tiers: [1, 2], mobTier: 1 };

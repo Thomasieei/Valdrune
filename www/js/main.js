@@ -158,7 +158,9 @@ async function demarrer() {
   initRendu($('#scene'));
   try { const dc = localStorage.getItem('breche-decal'); if (dc !== null) document.documentElement.style.setProperty('--decalSorts', dc + 'vw'); } catch (e) {}
   try { if (!localStorage.getItem('breche-v169')) { localStorage.setItem('breche-v169', '1'); localStorage.setItem('breche-qualite', 'haute'); localStorage.setItem('breche-cam', 'normale'); localStorage.setItem('breche-vue', 'iso'); localStorage.setItem('breche-zoom', '1'); } } catch (e) {}
-  try { if (!localStorage.getItem('breche-v161')) { localStorage.setItem('breche-v161', '1'); localStorage.setItem('breche-vue', 'iso'); localStorage.setItem('breche-zoom', '1'); } G.camVue = localStorage.getItem('breche-vue') || 'iso'; G.camMode = localStorage.getItem('breche-cam') || 'normale'; G.ombresParole = localStorage.getItem('breche-ombres') || 'normal'; G.camZoom = +(localStorage.getItem('breche-zoom') || 1); } catch (e) {}
+  try { if (!localStorage.getItem('breche-v220')) { localStorage.setItem('breche-v220', '1'); localStorage.setItem('breche-v161', '1'); localStorage.setItem('breche-vue', 'libre'); localStorage.setItem('breche-zoom', '0.8'); } // caméra libre « à la Roblox » par défaut
+  G.camSens = +(localStorage.getItem('breche-sens') || 1);
+  if (!localStorage.getItem('breche-v161')) { localStorage.setItem('breche-v161', '1'); localStorage.setItem('breche-vue', 'iso'); localStorage.setItem('breche-zoom', '1'); } G.camVue = localStorage.getItem('breche-vue') || 'libre'; G.camMode = localStorage.getItem('breche-cam') || 'normale'; G.ombresParole = localStorage.getItem('breche-ombres') || 'normal'; G.camZoom = +(localStorage.getItem('breche-zoom') || 1); } catch (e) {}
   try { const q = localStorage.getItem('breche-qualite'); if (q) G.qualite = q; G.perfOn = !!localStorage.getItem('breche-perf'); } catch (e) {}
   if (G.perfOn) UI.perf(true);
   try { G.musiqueOn = localStorage.getItem('breche-musique') !== '0'; } catch (e) {}
@@ -511,7 +513,7 @@ function lancerHub(premier = false) {
   joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax;
   G.camTarget.copy(joueur.pos); G.camDist = 25; G.scene.fog.density = 0.016;
   G.hemi.intensity = 1.1; G.sun.intensity = 1.3;
-  UI.journal('Place des Cendres', V1 ? 'Ta ville. Ses habitants comptent sur toi : les cultistes de la Brèche attaquent régulièrement. La Brèche rouge mène à leurs donjons.' : 'Brèche rouge : donjons. Portail violet : l’arène. Touche un joueur pour former un groupe.');
+  UI.journal('Place des Cendres', V1 ? 'Protège tes habitants des raids. La Brèche rouge mène aux donjons.' : 'Brèche rouge : donjons. Portail violet : l’arène. Touche un joueur pour former un groupe.');
   G.renderer.compile(G.scene, G.camera);
   if (V1) majBandeauVille(); else UI.zone('Place des Cendres', `Joueurs ${bots.length + 1}/20`);
   $('#btnQuitter').hidden = true;
@@ -556,7 +558,7 @@ function creerOmbreEscouade(i) {
   const a = creerCombattant(pos, { nom: 'Ombre', guilde: J.nom.toUpperCase(), equip: J.equip, modele: 'Rogue_Hooded' }, 'allie');
   allies.splice(allies.indexOf(a), 1); // hors des alliés : personne ne la cible, elle ne compte pas dans le groupe
   UI.retirerPlaque(a);
-  a.root.scale.setScalar(0.95); teinteSpectrale(a, '#140c20', 0.8);
+  a.root.scale.setScalar(0.95); teinteSpectrale(a, '#140c20', 0.8); if (V1) for (const mt of a.mats) if (mt.emissive) { mt.emissive.multiplyScalar(0.55); mt.userData.baseEmissive = mt.emissive.clone(); } // lueur plus sobre : on distingue les visages
   const rec = ombresC()[i]; if (rec) a.nom = rec.nom; if (!V1) UI.plaque(a, { nom: rec ? rec.nom : 'Ombre ' + 'ⅠⅡⅢⅣⅤⅥ'[i], guilde: 'OMBRE DE ' + J.nom.toUpperCase(), classe: 'allie', vie: false, lettre: false });
   Object.assign(a, { escIdx: i, escCible: null, escT: 0.3 + i * 0.08, escPhase: 0 });
   fumeeOmbre(pos); a.jouer('Spellcast_Raise', { boucle: false, fin: () => a.jouer(a.armeDef.idle) });
@@ -583,7 +585,7 @@ function teleporterOmbre(o, p) {
 // formation derrière le joueur : chacun a sa place (3 de front, rangs de 1,9 m), on ne rejoint sa place que si on s'en écarte vraiment
 // (hystérésis), la vitesse suit la distance (pas d'arrêts nets), et au repos on regarde dans la même direction que le joueur
 function slotFormation(rang) {
-  const col = [0, -1, 1][rang % 3], ligne = Math.floor(rang / 3), ec = 1.9, rec = 2.4 + ligne * 1.9;
+  const col = [0, -1, 1][rang % 3], ligne = Math.floor(rang / 3), ec = V1 ? 2.8 : 1.9, rec = (V1 ? 3.4 : 2.4) + ligne * (V1 ? 2.4 : 1.9); // V1 : formation plus aérée (la caméra derrière toi voit le héros)
   const fx = Math.sin(joueur.angle), fz = Math.cos(joueur.angle), rx = Math.cos(joueur.angle), rz = -Math.sin(joueur.angle);
   return V(joueur.pos.x + rx * col * ec - fx * rec, 0, joueur.pos.z + rz * col * ec - fz * rec);
 }
@@ -4371,7 +4373,7 @@ function initEntrees() {
   });
   window.addEventListener('keyup', (e) => { entree.clavier[e.key] = false; });
   // zoom : molette, ou deux doigts sur la scène (pincer)
-  const zoomer = (f) => { G.camZoom = Math.max(0.7, Math.min(1.6, (G.camZoom || 1) * f)); try { localStorage.setItem('breche-zoom', G.camZoom.toFixed(2)); } catch (er) {} };
+  const zoomer = (f) => { G.camZoom = Math.max(0.25, Math.min(1.7, (G.camZoom || 1) * f)); try { localStorage.setItem('breche-zoom', G.camZoom.toFixed(2)); } catch (er) {} };
   window.addEventListener('wheel', (e) => { if (e.target.closest && e.target.closest('#regl,#inv,#butin,.parchemin,#dlgRelique,#dialTaverne,#tabMissions,#cmdOmbres')) return; zoomer(e.deltaY > 0 ? 1.06 : 0.94); }, { passive: true });
   let pince = null;
   const scene = $('#scene');
@@ -4380,7 +4382,7 @@ function initEntrees() {
     scene.addEventListener('pointermove', (e) => {
       if (!dr || e.pointerId !== dr.id || pince) return; const vue = G.camVue || 'iso'; if (vue === 'iso') return;
       const dx = e.clientX - dr.x, dy = e.clientY - dr.y; if (!dr.bouge && Math.hypot(dx, dy) < 12) return; dr.bouge = true;
-      G.camYaw -= dx * 0.009; if (vue === 'libre') G.camPitchLibre = Math.max(0.28, Math.min(1.3, (G.camPitchLibre ?? 0.78) + dy * 0.005));
+      const sens = G.camSens || 1; G.camYaw -= dx * 0.008 * sens; if (vue === 'libre') G.camPitchLibre = Math.max(0.1, Math.min(1.35, (G.camPitchLibre ?? 0.62) + dy * 0.005 * sens));
       dr.x = e.clientX; dr.y = e.clientY; G.dragT = G.t;
     });
     const finDr = (e) => { if (dr && e.pointerId === dr.id) dr = null; }; scene.addEventListener('pointerup', finDr); scene.addEventListener('pointercancel', finDr);
@@ -4480,6 +4482,7 @@ function rapportProf(n, dureeMs) {
   return top;
 }
 // ---------------- Boucle ----------------
+const camMarche = (x, z) => monde.marche(x, z); // la caméra ne traverse pas les murs
 let dernier = performance.now(), hudT = 0, miniT = 0, ileT = 2, argentVu = null, gainCumul = 0, gainT = 0;
 const ORBITE = V(0, 0, 0);
 // filet de sécurité : une erreur dans une mise à jour ne doit jamais figer le jeu (l'image continue, l'erreur est notée)
@@ -4522,6 +4525,7 @@ function boucleCorps() {
     majRumeurs(dt); majFortune(dt); majEchosArene(dt);
     majEscouade(dt); majCommandeOmbres(dt); majAbime(dt); majMeuteJoueur(dt); if (taverne) majTaverne(dt); if (mission) majMission(dt); majEveil(dt); if (goulet) majGoulet(dt); if (!modeActuel) majPortailGoulet();
     G.enCombat = joueur.combatT > 0 && !!modeActuel;
+    G.acteurJoueur = joueur; G.camMarche = G.murs && monde && monde.marche ? camMarche : null;
     majCamera(dt, G.solH && !G.camCible ? V(joueur.pos.x, solY(joueur.pos.x, joueur.pos.z), joueur.pos.z) : (G.camCible || joueur.pos));
     majTorches(joueur.pos);
     if (joueur.comboT > 0) { joueur.comboT -= dt; if (joueur.comboT <= 0) joueur.combo = 0; }
@@ -6704,7 +6708,7 @@ function tirageOmbre(tMin, tMax, source) {
 function forceOmbre() { const a = J.equip.arme || { tier: 1 }; return 0.25 + (a.tier - 1) * 0.02 + (a.ench || 0) * 0.03; }
 function vitesseJoueur() { return joueur.st.vitesse * (joueur.sprintT > 0 ? 1.6 : 1) * (joueur.slowT > 0 ? 0.6 : 1); }
 function fumeeOmbre(p) {
-  emettre(V(p.x, 0.8, p.z), { n: 26, c1: '#b48aff', c2: '#0a0012', vit: 3.5, rayon: 0.6, vie: 0.7, taille: 0.6, grav: -1 });
+  emettre(V(p.x, 0.8, p.z), { n: V1 ? 10 : 26, c1: '#b48aff', c2: '#0a0012', vit: 3.5, rayon: 0.6, vie: 0.6, taille: 0.5, grav: -1 }); // V1 : fumée discrète (moins de bruit visuel)
   lueurSol(p, '#7a3aff', 1.8, 0.4, 0.6);
 }
 function teinteSpectrale(a, couleur, force) {
@@ -7341,6 +7345,9 @@ function dissiper(a) {
 }
 
 // accès de débogage (console)
+// étiquettes sous les boutons ronds : un joueur de 12 ans comprend sans deviner les icônes
+const ETIQUETTES = { btnInv: 'Sac', btnTalents: 'Talents', btnRoyaume: 'Royaume', btnOmbres: 'Ombres', btnReg: 'Réglages', btnQuitter: 'Sortir', btnDegats: 'Dégâts', btnCam: 'Caméra', btnArmes: 'Armes' };
+setInterval(() => { for (const id in ETIQUETTES) { const b = document.getElementById(id); if (b && !b.dataset.l) b.dataset.l = ETIQUETTES[id]; } }, 1500);
 // ======================= LA VILLE À PROTÉGER (V1) : habitants, raids, enlèvements, deuil =======================
 // Chaque habitant a un nom et un métier. Les morts restent morts. Les enlevés restent enlevés.
 const MODE_VILLE = { id: 'ville', nom: 'Ville', lieu: 'Place des Cendres', argent: 1, xp: 1, tiers: [1, 2], mobTier: 1 };
@@ -8033,7 +8040,7 @@ window.__jeu = { get modeActuel() { return modeActuel; }, demon: () => basculerD
     return r; }), ouvrirDomaine: () => ouvrirDomaine(), deployerAura: () => deployerAura(), ouvrirApparat: () => ouvrirApparat(), ombres: () => ombresC(), cmdOmbres: () => ouvrirCommandeOmbres(), exploit: (i) => exploit(i), renommee: () => ouvrirRenommee(), forcerInitiative: () => { prochaineInitiative = 1; derniereSceneO = -999; ombresT = 0; }, acheterIle: (t, ta) => acheterIle(t, ta), get sceneOmbre() { return sceneOmbre; }, entrerTaverne: () => entrerTaverne(), rejoindreFile: () => rejoindreFile(), dissimuler: (o) => dissimuler(o), reveler: () => revelerPuissance(), ouvrirMissions: () => ouvrirMissions(), entrerMission: (o, e) => entrerMission(o, e), get mission() { return mission; }, get taverne() { return taverne; }, tuerJoueur: () => { joueur.pv = 0; mourirJoueur(); }, get meute() { return meute; }, envoyerLoup: (i, x, y) => { loupChoisi = meute[i]; envoyerLoup(x, y); }, entrerGoulet: () => entrerGoulet(), get goulet() { return goulet; }, get dangers() { return dangers; }, creerCoffre: (p, c, b) => creerCoffre(p, c, b), entrerArene, construireJoueur: () => construireJoueur(joueur.pos.clone()), get entree() { return entree; }, API, G, UI, tirageOrage, changerRang, apparitionErrant, get errant() { return errant; }, tuerUn: (e) => { e.pv = 0; tuer(e); }, groupeTest: () => { groupe = donneesBot(statsHeros(J.equip).ip); return groupe.nom; }, trahir: () => allies.forEach(a => a.autonome && trahir(a)), invasionTest: () => { invasion = { mode: "subie", t: 0, rival: null }; lancerInvasion(); }, entrerSylve: (o) => entrerSylve(o), get sylve() { return sylve; }, invoquerOmbres, tirageOmbre, hub: () => lancerHub(), majRaids, get raid() { return raid; }, entrerDonjon, entrerIle, lancerAssaut: () => lancerAssaut(monde.ile), majAssauts, get iles() { return J.iles; }, get monde() { return monde; }, set raidT(v) { J.prochainRaid = v; }, tuerTout: () => ennemis.forEach(e => { if (!e.mort) { e.pv = 0; tuer(e); } }), get bots() { return bots; }, get allies() { return allies; }, get arene() { return arene; }, ecran: (p) => projeter(V(p.x, 1.2, p.z)), get invasion() { return invasion; }, set invasion(v) { invasion = v; }, lancerSort, ouvrirCoffre, get joueur() { return joueur; }, get ennemis() { return ennemis; }, get coffres() { return coffres; }, get J() { return J; }, get monde() { return monde; } };
 
 // outils de test de la V1 (raids forcés, etc.) : uniquement avec localStorage['breche-debug'] = '1'
-if ((() => { try { return localStorage.getItem('breche-debug') === '1'; } catch (e) { return false; } })()) Object.defineProperties(window.__jeu, Object.getOwnPropertyDescriptors({ portail: () => ouvrirPortailVille(), fermerTest: () => { joueur.pos.copy(portailV.pos).add(V(1.5, 0, 0)); portailV.canal = true; }, get portailV() { return portailV && Math.round(portailV.ferme * 100); }, tombesTest: () => { etatVille().gens[0].statut = 'mort'; construireCimetiere(); return tombes.length; }, interroger: () => interrogerAccuse(royaume().affaires[0]), royaume: () => ouvrirRoyaume(), affaire: () => { prochaineAffaire = 0; royaume().affaires = []; nouvelleAffaire(); }, get comps() { return compActeurs.map(a => a.nom + (a.mort ? '†' : '')).join(','); }, tuerComp: () => blesserAllie(compActeurs[0], 1e9, null), enlever: () => { const g = etatVille().gens.find(x => x.statut === 'vivant'); g.statut = 'enleve'; g.lieu = 0; g.enleveLe = Date.now(); return g.nom; }, get captif() { return captifV && (captifV.g.nom + ':' + captifV.libre); }, liberer: () => libererCaptif(), raidVille: () => lancerRaidVille(), parler: () => { const e = pillards().find(x => x.champion); if (e) parlerChampion(e); return !!e; }, testOmbre: () => blesserOmbre(escouade[0], 1e9, null), get nbOmbres() { return escouade.length; }, get pillardsN() { return pillards().length; }, get citoyens() { return citoyens; } }));
+if ((() => { try { return localStorage.getItem('breche-debug') === '1'; } catch (e) { return false; } })()) Object.defineProperties(window.__jeu, Object.getOwnPropertyDescriptors({ ecran: (k) => { ({ portail: () => UI.menuPortail(), inv: () => UI.ouvrirInventaire(), marchand: () => UI.dialogueMarchand(), regl: () => UI.reglages() })[k](); }, portail: () => ouvrirPortailVille(), fermerTest: () => { joueur.pos.copy(portailV.pos).add(V(1.5, 0, 0)); portailV.canal = true; }, get portailV() { return portailV && Math.round(portailV.ferme * 100); }, tombesTest: () => { etatVille().gens[0].statut = 'mort'; construireCimetiere(); return tombes.length; }, interroger: () => interrogerAccuse(royaume().affaires[0]), royaume: () => ouvrirRoyaume(), affaire: () => { prochaineAffaire = 0; royaume().affaires = []; nouvelleAffaire(); }, get comps() { return compActeurs.map(a => a.nom + (a.mort ? '†' : '')).join(','); }, tuerComp: () => blesserAllie(compActeurs[0], 1e9, null), enlever: () => { const g = etatVille().gens.find(x => x.statut === 'vivant'); g.statut = 'enleve'; g.lieu = 0; g.enleveLe = Date.now(); return g.nom; }, get captif() { return captifV && (captifV.g.nom + ':' + captifV.libre); }, liberer: () => libererCaptif(), raidVille: () => lancerRaidVille(), parler: () => { const e = pillards().find(x => x.champion); if (e) parlerChampion(e); return !!e; }, testOmbre: () => blesserOmbre(escouade[0], 1e9, null), get nbOmbres() { return escouade.length; }, get pillardsN() { return pillards().length; }, get citoyens() { return citoyens; } }));
 
 initEntrees();
 demarrer();
