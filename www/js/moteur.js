@@ -9,7 +9,7 @@ export { THREE };
 export const TACTILE = matchMedia('(pointer: coarse)').matches;
 export const G = {
   t: 0, dt: 0, scene: null, camera: null, renderer: null, composer: null,
-  camYaw: 0.6, camPitch: 0.5, camZoom: 0.32, camDist: 14, camCible: new THREE.Vector3(), shake: 0,
+  camYaw: 0.6, camPitch: 0.34, camZoom: 0.22, camDist: 14, camCible: new THREE.Vector3(), shake: 0,
   sens: 1, hauteur: null,
 };
 export const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -23,8 +23,8 @@ export function initRendu(canvas) {
   G.renderer = r;
   const sc = G.scene = new THREE.Scene();
   sc.background = new THREE.Color('#9fc4e8');
-  sc.fog = new THREE.Fog('#b8d2ea', 45, 130);
-  G.camera = new THREE.PerspectiveCamera(50, 1, 0.12, 300);
+  sc.fog = new THREE.Fog('#b8d2ea', 55, 230);
+  G.camera = new THREE.PerspectiveCamera(50, 1, 0.12, 420);
   G.hemi = new THREE.HemisphereLight('#cfe4ff', '#5a6a3a', 1.1); sc.add(G.hemi);
   const sun = G.sun = new THREE.DirectionalLight('#fff1d6', 2.4);
   sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
@@ -72,8 +72,8 @@ export function majCamera(dt, cible) {
   const souv = G.mode === 'souverain', k = 1 - Math.exp(-dt * 6);
   if (souv) { const r = Math.hypot(G.focus.x, G.focus.z); if (r > 75) G.focus.multiplyScalar(75 / r); G.focus.y = G.hauteur ? G.hauteur(G.focus.x, G.focus.z) : 0; }
   // caméra de combat : elle recule un peu, monte, et cadre le héros ET sa cible ; en marche elle se replace doucement derrière lui
-  const cad = !souv && G.cadre, vise = cad ? _cad.set(cible.x + (G.cadre.x - cible.x) * 0.3, cible.y, cible.z + (G.cadre.z - cible.z) * 0.3) : cible;
-  if (!souv && G.suivreYaw != null && performance.now() - (G.camMain || 0) > 1600) { let dy = G.suivreYaw - G.camYaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); G.camYaw += dy * Math.min(1, dt * (cad ? 0.6 : 1.3)); }
+  const cad = false, vise = cad ? _cad.set(cible.x + (G.cadre.x - cible.x) * 0.3, cible.y, cible.z + (G.cadre.z - cible.z) * 0.3) : cible;
+  if (false) { let dy = G.suivreYaw - G.camYaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); G.camYaw += dy * Math.min(1, dt * (cad ? 0.6 : 1.3)); }
   G.camCible.lerp(souv ? G.focus : vise, 1 - Math.exp(-dt * (souv ? 14 : 8)));
   G._d = G._d ?? 4 + G.camZoom * 26; G._p = G._p ?? G.camPitch;
   const inte = G.interieur && !souv; /* dans un bâtiment : caméra proche et plongeante, le toit s'efface */

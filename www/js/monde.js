@@ -27,7 +27,7 @@ export const CHEMINS = [
 ];
 export function distChemin(x, z) { let best = 1e9; for (const L of CHEMINS) for (let i = 0; i < L.length - 1; i++) { const [ax, az] = L[i], [bx, bz] = L[i + 1], dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2)), d = Math.hypot(x - ax - dx * t, z - az - dz * t); if (d < best) best = d; } return best; }
 function bruit(x, z) { return Math.sin(x * 0.071) * Math.cos(z * 0.063) * 0.9 + Math.sin(x * 0.17 + z * 0.13) * 0.35 + Math.cos(x * 0.031 - z * 0.047) * 1.4; }
-export function hauteur(x, z) { const d = Math.hypot(x, z); const k = Math.min(1, Math.max(0, (d - 13) / 14)); return bruit(x, z) * k * k * (3 - 2 * k); }
+export function hauteur(x, z) { const d = Math.hypot(x, z); const k = Math.min(1, Math.max(0, (d - 13) / 14)), m = Math.min(1, Math.max(0, (d - 58) / 26)); return bruit(x, z) * k * k * (3 - 2 * k) + m * m * (3 - 2 * m) * (14 + bruit(x * 1.7, z * 1.7) * 5); } // les bords du monde montent en collines
 function construireTerrain() {
   const T = 170, geo = new THREE.PlaneGeometry(T, T, 120, 120).rotateX(-Math.PI / 2), P = geo.attributes.position, C = new Float32Array(P.count * 3), c = new THREE.Color(), c2 = new THREE.Color();
   for (let i = 0; i < P.count; i++) {
@@ -60,10 +60,10 @@ function construireForet() {
   for (let k = 0; k < 140; k++) {
     const a = rnd(0, 6.283), d = rnd(15, 62), x = Math.cos(a) * d, z = Math.sin(a) * d;
     if (distChemin(x, z) < 3.2 || Math.hypot(x - RESERVE.x, z - RESERVE.z) < 9 || Math.hypot(x - CARRIERE.x, z - CARRIERE.z) < 11 || Math.hypot(x + 34, z - 30) < 11 || Math.hypot(x - 38, z - 30) < 14) continue; /* clairière des Puglins, camp des pillards */
-    if (arbres.some(b => Math.hypot(b.pos.x - x, b.pos.z - z) < 3.2)) continue;
-    const type = types[Math.floor(rnd(0, 3))], e = rnd(0.85, 1.25), p = V(x, hauteur(x, z), z);
+    if (arbres.some(b => Math.hypot(b.pos.x - x, b.pos.z - z) < 4.6)) continue;
+    const type = types[Math.floor(rnd(0, 3))], e = rnd(1.5, 2.4), p = V(x, hauteur(x, z), z); /* des arbres qui nous dépassent : le monde est grand */
     const ar = { type, i: T[type].length, pos: p, r: rnd(0, 6.28), e, pv: 0, pvMax: 0, etat: 'debout', bois: 0, ouvriers: 0 };
-    ar.pvMax = ar.pv = Math.round(10 * e); T[type].push({ p, r: ar.r, e }); arbres.push(ar);
+    ar.pvMax = ar.pv = Math.round(7 * e); T[type].push({ p, r: ar.r, e }); arbres.push(ar);
   }
   for (const t of types) parType[t] = instancier(N[t], T[t]);
 }
@@ -93,9 +93,9 @@ function majChutes(dt) {
     if (k >= 1 && !c.fini) { c.fini = true; G.shake = Math.max(G.shake, 0.25); son('impactSoft_heavy_000', 0.6, 0.5, c.ar.pos); emettre(V(c.piv.position.x + Math.sin(c.piv.rotation.y) * 3, c.ar.pos.y + 0.3, c.piv.position.z + Math.cos(c.piv.rotation.y) * 3), { n: 30, c1: '#cfe08a', c2: '#4a6a2a', vit: 4, vie: 0.8, taille: 0.18, grav: 5 }); }
     if (c.t > 1.9) {
       G.scene.remove(c.piv); chutes.splice(i, 1);
-      const ar = c.ar; ar.etat = 'abattu'; ar.bois = Math.round(18 * ar.e);
+      const ar = c.ar; ar.etat = 'abattu'; ar.bois = Math.round(14 * ar.e);
       // le tronc reste au sol : les ouvriers le débitent ; la souche reste
-      const tronc = buche(0.3 * ar.e, 3.6 * ar.e); tronc.rotation.y = c.piv.rotation.y + Math.PI / 2; tronc.position.copy(ar.pos).add(V(Math.sin(c.piv.rotation.y) * 2.1, 0.3 * ar.e, Math.cos(c.piv.rotation.y) * 2.1)); G.scene.add(tronc); ar.tronc = tronc; ar.posTronc = ar.pos.clone().add(V(Math.sin(c.piv.rotation.y) * 1.8, 0, Math.cos(c.piv.rotation.y) * 1.8));
+      const tronc = buche(0.3 * ar.e, 3.6 * ar.e); tronc.rotation.y = c.piv.rotation.y + Math.PI / 2; tronc.position.copy(ar.pos).add(V(Math.sin(c.piv.rotation.y) * 2.1 * ar.e, 0.3 * ar.e, Math.cos(c.piv.rotation.y) * 2.1 * ar.e)); G.scene.add(tronc); ar.tronc = tronc; ar.posTronc = ar.pos.clone().add(V(Math.sin(c.piv.rotation.y) * 2.1 * ar.e, 0, Math.cos(c.piv.rotation.y) * 2.1 * ar.e));
       const s = N.stump_01.clone(); s.scale.setScalar(ar.e); s.position.copy(ar.pos); s.rotation.y = ar.r; G.scene.add(s); ar.souche = s;
     }
   }
@@ -104,7 +104,7 @@ function majChutes(dt) {
 export function debiter(ar, n) {
   if (ar.etat !== 'abattu' || ar.bois <= 0) return 0;
   const pris = Math.min(n, ar.bois); ar.bois -= pris;
-  if (ar.tronc) { const k = 0.35 + 0.65 * ar.bois / Math.round(18 * ar.e); ar.tronc.scale.set(k, 1, 1); }
+  if (ar.tronc) { const k = 0.35 + 0.65 * ar.bois / Math.round(14 * ar.e); ar.tronc.scale.set(k, 1, 1); }
   emettre(V(ar.posTronc.x, ar.pos.y + 0.4, ar.posTronc.z), { n: 5, c1: '#e8c48a', c2: '#7a5530', vit: 2.5, vie: 0.5, taille: 0.12, grav: 9 });
   son('chop', 0.4, 1.1, ar.posTronc);
   if (ar.bois <= 0) { G.scene.remove(ar.tronc); ar.tronc = null; ar.etat = 'souche'; ar.repousse = 0; }
@@ -149,9 +149,19 @@ function majFeu(dt) {
 function construireDecor() {
   const T = (cle, n, dmin, dmax, emin, emax, eviteCamp = 11) => { const L = []; for (let k = 0; k < n; k++) { const a = rnd(0, 6.283), d = rnd(dmin, dmax), x = Math.cos(a) * d, z = Math.sin(a) * d; if (Math.hypot(x, z) < eviteCamp || Math.hypot(x - RESERVE.x, z - RESERVE.z) < 5 || (cle !== 'grass_01' && cle !== 'flowers_01' && distChemin(x, z) < 2.4)) continue; L.push({ p: V(x, hauteur(x, z), z), r: rnd(0, 6.28), e: rnd(emin, emax) }); } instancier(N[cle], L); };
   T('grass_01', 260, 6, 70, 0.7, 1.3, 6); T('flowers_01', 90, 8, 60, 0.7, 1.2, 8); T('fern_01', 70, 14, 65, 0.8, 1.3); T('bush_01', 45, 13, 66, 0.8, 1.3);
-  T('mushrooms_01', 30, 16, 60, 0.8, 1.2); T('rocks_01', 25, 12, 66, 0.6, 1.2); T('boulder_01', 12, 20, 70, 0.8, 1.6, 18); T('rock_mossy_01', 14, 18, 70, 0.7, 1.3); T('pebbles_01', 30, 4, 50, 0.7, 1.1, 3);
-  T('deadtree_01', 6, 30, 70, 0.9, 1.3, 25);
+  T('mushrooms_01', 30, 16, 60, 0.8, 1.2); T('rocks_01', 25, 12, 66, 0.6, 1.2); T('boulder_01', 16, 22, 78, 1.8, 3.6, 18); T('rock_mossy_01', 16, 18, 76, 1.2, 2.4); T('pebbles_01', 30, 4, 50, 0.7, 1.1, 3);
+  T('deadtree_01', 8, 30, 76, 1.5, 2.3, 25);
+  construireMontagnes();
   construireBraseros();
+}
+// montagnes à l'horizon : des silhouettes immenses qui rappellent que le monde est vaste
+function construireMontagnes() {
+  const mat = new THREE.MeshStandardMaterial({ color: '#6a7a8a', roughness: 1, flatShading: true }), neige = new THREE.MeshStandardMaterial({ color: '#e8eef4', roughness: 1, flatShading: true });
+  for (let i = 0; i < 26; i++) {
+    const a = i / 26 * 6.283 + rnd(-0.1, 0.1), d = rnd(110, 150), h = rnd(30, 75), r = rnd(22, 40);
+    const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 7, 3), mat); m.position.set(Math.cos(a) * d, h / 2 - 4, Math.sin(a) * d); m.rotation.y = rnd(0, 3); G.scene.add(m);
+    if (h > 55) { const c = new THREE.Mesh(new THREE.ConeGeometry(r * 0.32, h * 0.32, 7, 1), neige); c.position.set(m.position.x, h - 4 - h * 0.16, m.position.z); c.rotation.y = m.rotation.y; G.scene.add(c); }
+  }
 }
 // braseros le long des routes : on voit où aller, et les combats de nuit ont de la gueule
 const braseros = [];
@@ -200,8 +210,8 @@ let minT = 0;
 export function filonProche(p, max = 999) { let b = null, bd = max; for (const f of filons) { if (f.pierre <= 0 || f.ouvriers >= 2 || (G.danger && G.danger(f.pos))) continue; const d = Math.hypot(f.pos.x - p.x, f.pos.z - p.z); if (d < bd) { bd = d; b = f; } } return b; }
 export function construireMonde() {
   G.hauteur = hauteur;
-  G.obstacle = (x, z) => { for (const a of arbres) if (a.etat === 'debout' && Math.abs(a.pos.x - x) < 2 && Math.abs(a.pos.z - z) < 2 && Math.hypot(a.pos.x - x, a.pos.z - z) < 1.6 * a.e) return true; return false; };
+  G.obstacle = (x, z) => { for (const a of arbres) if (a.etat === 'debout' && Math.abs(a.pos.x - x) < 4.5 && Math.abs(a.pos.z - z) < 4.5 && Math.hypot(a.pos.x - x, a.pos.z - z) < 1.6 * a.e) return true; return false; };
   construireTerrain(); construireForet(); construireDecor(); construireReserve(); construireFeu(); construireCarriere();
 }
 export function majMonde(dt) { majMinuteurs(); majBraseros(); majFilons(dt); majChutes(dt); majRepousse(dt); majSecousses(dt); majFeu(dt); }
-export function libre(x, z) { for (const a of arbres) if (a.etat !== 'tombe' && Math.hypot(a.pos.x - x, a.pos.z - z) < 0.7) return false; return Math.hypot(x, z) < 80; }
+export function libre(x, z) { for (const a of arbres) if (a.etat !== 'tombe' && Math.hypot(a.pos.x - x, a.pos.z - z) < 0.42 * a.e) return false; return Math.hypot(x, z) < 80; }

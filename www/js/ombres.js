@@ -98,7 +98,7 @@ export class Ombre {
     const epuise = () => res === 'bois' ? (c.etat === 'souche' || (c.etat === 'abattu' && c.bois <= 0)) : c.pierre <= 0;
     if (this.etat === 'aller') {
       if (!c || epuise()) { this.liberer(); this.etat = this.charge ? 'porter' : 'chercher'; return; }
-      const k = centre(), r = res === 'pierre' ? 0.75 * c.e + 0.45 : c.etat === 'abattu' ? 1.25 : 1.05;
+      const k = centre(), r = res === 'pierre' ? 0.75 * c.e + 0.45 : c.etat === 'abattu' ? 0.35 * c.e + 0.9 : 0.42 * c.e + 0.55;
       this.but.set(k.x + Math.cos(this.angBut) * r, 0, k.z + Math.sin(this.angBut) * r);
       this.montrer(res, null);
       if (this.aller(this.but, dt, this.R.vit * 0.85)) { this.etat = 'travail'; this.tc = 0; this.kc = 0; }
@@ -107,7 +107,7 @@ export class Ombre {
     if (this.etat === 'travail') {
       if (res === 'bois' && c.etat === 'tombe') { this.p.jouer('Idle_Loop'); return; } // il regarde l'arbre tomber
       if (!c || epuise()) { this.liberer(); this.etat = this.charge ? 'porter' : 'chercher'; return; }
-      const k = centre(); if (Math.hypot(k.x - this.pos.x, k.z - this.pos.z) > 2.6) { this.etat = 'aller'; return; }
+      const k = centre(); if (Math.hypot(k.x - this.pos.x, k.z - this.pos.z) > 1.6 + 0.6 * c.e) { this.etat = 'aller'; return; }
       this.tourner(Math.atan2(k.x - this.pos.x, k.z - this.pos.z), dt);
       this.p.jouer('TreeChopping_Loop', { vitesse: this.vitesse(res) });
       if (this.coup(dt)) {

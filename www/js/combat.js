@@ -6,9 +6,9 @@ import { modele } from './batiments.js';
 import { hauteur } from './monde.js';
 
 export const TYPES_M = {
-  imp: { special: { nom: 'Flammes infernales', cd: 9, r: 2.6, delai: 1.5, mult: 2.4, surCible: true, couleur: '#ff4a1a' }, nom: 'Diablotin', h: 1.85, pv: 55, deg: 5, vit: 3.3, portee: 2.5, xp: 30, butin: { pierre: [6, 12] }, ech: 1.35, cadence: 2.1, attaque: ['Zombie_Scratch'], course: 'Jog_Fwd_Loop' },
-  bandit: { special: { nom: 'Tourbillon', cd: 11, r: 3.2, delai: 1.1, mult: 1.8, surCible: false, couleur: '#ff2a3a' }, nom: 'Pillard', h: 2.05, pv: 60, deg: 6, vit: 3.5, portee: 2.1, xp: 35, butin: { bois: [3, 6] }, ech: 1, cadence: 1.9, humain: true, attaque: ['Sword_Regular_A', 'Sword_Regular_B', 'Melee_Hook'], course: 'Jog_Fwd_Loop' },
-  puglin: { nom: 'Puglin', h: 1.0, pv: 35, deg: 4, vit: 3.9, portee: 2.0, xp: 18, butin: { bois: [6, 12] }, ech: 1.55, cadence: 1.8, attaque: ['Punch_Jab', 'Punch_Cross'], course: 'Jog_Fwd_Loop' },
+  imp: { special: { nom: 'Flammes infernales', cd: 9, r: 2.6, delai: 1.5, mult: 2.4, surCible: true, couleur: '#ff4a1a' }, nom: 'Diablotin', h: 1.85, pv: 55, deg: 8, vit: 3.3, portee: 2.5, xp: 30, butin: { pierre: [6, 12] }, ech: 1.35, cadence: 2.1, attaque: ['Zombie_Scratch'], course: 'Jog_Fwd_Loop' },
+  bandit: { special: { nom: 'Tourbillon', cd: 11, r: 3.2, delai: 1.1, mult: 1.8, surCible: false, couleur: '#ff2a3a' }, nom: 'Pillard', h: 2.05, pv: 60, deg: 9, vit: 3.5, portee: 2.1, xp: 35, butin: { bois: [3, 6] }, ech: 1, cadence: 1.9, humain: true, attaque: ['Sword_Regular_A', 'Sword_Regular_B', 'Melee_Hook'], course: 'Jog_Fwd_Loop' },
+  puglin: { nom: 'Puglin', h: 1.0, pv: 35, deg: 6, vit: 3.9, portee: 2.0, xp: 18, butin: { bois: [6, 12] }, ech: 1.55, cadence: 1.8, attaque: ['Punch_Jab', 'Punch_Cross'], course: 'Jog_Fwd_Loop' },
 };
 export const CAMPS = [
   { id: 'carriere', nom: 'Diablotins de la carrière', type: 'imp', centre: V(21, 0, -19), r: 10, niv: 1, retour: 300, postes: [[17.5, -14.5], [25.5, -15], [21.5, -24]] },
@@ -112,6 +112,8 @@ class Ennemi {
   subir(n, src, { recul = 0.5, crit = false } = {}) {
     if (!this.vivant) return;
     if (this.lev) n *= 1.5; // soulevé = sans défense
+    if (this.brise > 0 && src && src.isHeros) { n *= 2.5; crit = true; this.brise = 0; this.etourdi = 0.3; this.post = 0; texteFlottant(V(this.pos.x, this.pos.y + 2.8, this.pos.z), 'EXÉCUTION', 'parade'); G.shake = 0.6; }
+    else if (src && src.isHeros && !this.allie) { this.post = (this.post || 0) + (crit ? 14 : 8) * (src.posture || 1); this.postT = 0; if (this.post >= this.postMax()) this.briser(); }
     if (src && src.isHeros) { G.ralenti = 0.06; G.ralentiT = crit ? 0.09 : 0.05; } // micro-arrêt à l'impact : on sent le coup
     this.pv -= n; this.vu = 4; if (this.etat === 'garde') this.alerte(src && src.isHeros ? 'heros' : src);
     texteFlottant(V(this.pos.x, this.pos.y + 2.2, this.pos.z), `${crit ? '💥' : ''}${Math.round(n)}`, crit ? 'crit' : 'degat');
@@ -120,7 +122,7 @@ class Ennemi {
     if (src && recul && !this.lev) { const a = Math.atan2(this.pos.x - src.pos.x, this.pos.z - src.pos.z); this.kb = { x: Math.sin(a) * recul * 7, z: Math.cos(a) * recul * 7 }; }
     if (this.pv <= 0) return this.mourir(src);
     if (crit && this.etat === 'incante') { this.cast = null; this.etat = 'poursuite'; texteFlottant(V(this.pos.x, this.pos.y + 2.4, this.pos.z), 'Interrompu !', 'parade'); }
-    if (!this.lev && (this.etat !== 'attaque' || crit)) { if (this.etat === 'attaque') { this.etat = 'poursuite'; finTelegraphe(this); this.cd = 0.6; } this.m.jouer(crit ? 'Hit_Knockback' : Math.random() < 0.5 ? 'Hit_Chest' : 'Hit_Head', { boucle: false, forcer: true, vitesse: crit ? 1.2 : 1.5 }); this.etourdi = Math.max(this.etourdi, crit ? 0.7 : 0.35); }
+    if (!this.lev && !(this.brise > 0) && (this.etat !== 'attaque' || crit)) { if (this.etat === 'attaque') { this.etat = 'poursuite'; finTelegraphe(this); this.cd = 0.6; } this.m.jouer(crit ? 'Hit_Knockback' : Math.random() < 0.5 ? 'Hit_Chest' : 'Hit_Head', { boucle: false, forcer: true, vitesse: crit ? 1.2 : 1.5 }); this.etourdi = Math.max(this.etourdi, crit ? 0.7 : 0.35); }
   }
   poser() { // la pose de son rôle dans la scène du camp
     const r = this.role;
@@ -128,6 +130,11 @@ class Ennemi {
     else if (r === 'dort') { const a = this.m.jouer('LayToIdle', { boucle: false, forcer: true }); if (a) { a.time = 0; a.paused = true; } }
     else if (r === 'feu') this.m.jouer('Consume', { forcer: true, vitesse: 0.7 });
     else if (r === 'guet') this.m.jouer('Idle_FoldArms_Loop', { forcer: true });
+  }
+  postMax() { return this.pvMax * 0.7; }
+  briser() { // garde brisée : il titube, à genoux — la prochaine frappe est une exécution
+    this.post = this.postMax(); this.brise = 2.6; this.etourdi = 2.6; finTelegraphe(this); this.cast = null; if (this.etat === 'attaque' || this.etat === 'incante') this.etat = 'poursuite'; if (jetons.melee === this) jetons.melee = null;
+    this.m.jouer('Crouch_Idle_Loop', { forcer: true, fondu: 0.15 }); texteFlottant(V(this.pos.x, this.pos.y + 2.6, this.pos.z), 'BRISÉ !', 'crit'); son('impactMetal_light_000', 0.8, 0.6, this.pos); emettre(V(this.pos.x, this.pos.y + 1.6, this.pos.z), { n: 30, c1: '#ffe9a0', c2: '#ffffff', vit: 3, vie: 0.6, taille: 0.2, grav: 2 });
   }
   alerte(cible) {
     if (this.role && camps[this.camp] && !camps[this.camp].alerte) return alerteCamp(camps[this.camp], cible);
@@ -152,6 +159,8 @@ class Ennemi {
       return;
     }
     if (this.lev) return this.majLev(dt);
+    this.postT = (this.postT || 0) + dt; if (this.post > 0 && this.postT > 2.5 && !(this.brise > 0)) this.post = Math.max(0, this.post - this.postMax() * 0.18 * dt);
+    if (this.brise > 0) { this.brise -= dt; if (this.brise <= 0) this.post = 0; }
     if (this.etourdi > 0) { this.etourdi -= dt; return; }
     if (this.cd > 0) this.cd -= dt;
     return this.allie ? this.majAllie(dt) : this.majEnnemi(dt);
@@ -160,7 +169,7 @@ class Ennemi {
     const L = this.lev; L.t += dt; const sol = hauteur(this.pos.x, this.pos.z);
     if (L.t < 0.45) { const k = L.t / 0.45; this.pos.y = sol + L.h * (1 - (1 - k) * (1 - k)); }
     else if (L.t < L.dur) { this.pos.y = sol + L.h + Math.sin(L.t * 5) * 0.15; this.m.root.rotation.y += dt * 1.5; if (Math.random() < dt * 14) emettre(V(this.pos.x, this.pos.y + 0.8, this.pos.z), { n: 1, c1: '#c8a8ff', c2: '#5a1aff', vit: 0.6, vie: 0.7, taille: 0.22, grav: -0.5 }); }
-    else { L.vy = (L.vy || 0) + dt * 60; this.pos.y = Math.max(sol, this.pos.y - L.vy * dt); if (this.pos.y <= sol + 0.01) { this.lev = null; G.shake = Math.max(G.shake, 0.55); onde(this.pos, { r: 3.5, couleur: '#e8d8ff' }); { const a = Math.atan2(this.pos.x - L.src.x, this.pos.z - L.src.z); this.kb = { x: Math.sin(a) * 9, z: Math.cos(a) * 9 }; } emettre(V(this.pos.x, sol + 0.2, this.pos.z), { n: 40, c1: '#d8c8a8', c2: '#6a5a4a', vit: 5, vie: 0.7, taille: 0.3, grav: 6 }); son('impactSoft_heavy_000', 0.7, 0.6, this.pos); this.subir(L.deg, { pos: L.src, isHeros: true }, { recul: 0, crit: true }); if (this.vivant) this.etourdi = 0.8; } }
+    else { L.vy = (L.vy || 0) + dt * 60; this.pos.y = Math.max(sol, this.pos.y - L.vy * dt); if (this.pos.y <= sol + 0.01) { this.lev = null; G.shake = Math.max(G.shake, 0.55); onde(this.pos, { r: 3.5, couleur: '#e8d8ff' }); { const a = Math.atan2(this.pos.x - L.src.x, this.pos.z - L.src.z); this.kb = { x: Math.sin(a) * 9, z: Math.cos(a) * 9 }; } emettre(V(this.pos.x, sol + 0.2, this.pos.z), { n: 40, c1: '#d8c8a8', c2: '#6a5a4a', vit: 5, vie: 0.7, taille: 0.3, grav: 6 }); son('impactSoft_heavy_000', 0.7, 0.6, this.pos); this.subir(L.deg, { pos: L.src, isHeros: true, posture: 3 }, { recul: 0, crit: true }); if (this.vivant) this.etourdi = 0.8; } }
     if (this.m.anim !== 'Hit_Knockback') this.m.jouer('Hit_Knockback', { vitesse: 0.5 });
   }
   majEnnemi(dt) {
@@ -191,15 +200,19 @@ class Ennemi {
     const d = dist(cib.pos, this.pos);
     if (this.etat === 'attaque') { // préparation visible (cercle rouge), puis le coup
       this.tourner(Math.atan2(cib.pos.x - this.pos.x, cib.pos.z - this.pos.z), dt); this.at -= dt; majTelegraphe(this);
-      if (this.at <= 0) { finTelegraphe(this); this.etat = 'poursuite'; this.cd = this.T.cadence; if (d < this.T.portee + 0.5) { if (cib.heros) subirHeros(this.deg, this); else cib.subir(this.deg, this); } }
+      if (this.at <= 0) { finTelegraphe(this); this.etat = 'poursuite'; this.cd = this.T.cadence + rnd(0.4, 1.4); if (jetons.melee === this) jetons.melee = null; this.recul = 0.9; if (d < this.T.portee + 0.5) { if (cib.heros) subirHeros(this.deg, this); else cib.subir(this.deg, this); } }
       return;
     }
     this.spCd = (this.spCd ?? 3 + Math.random() * 3) - dt;
-    if (this.T.special && this.spCd <= 0 && d < 9 && this.cd <= 0.5) { this.spCd = this.T.special.cd; sortEnnemi(this, cib); return; }
-    if (d > this.T.portee) { this.marcher(cib.pos, dt, this.T.vit, this.T.course || 'Jog_Fwd_Loop'); return; }
+    if (this.T.special && this.spCd <= 0 && d < 9 && this.cd <= 0.5 && libreJeton('sort', this)) { this.spCd = this.T.special.cd; sortEnnemi(this, cib); return; }
+    // un seul ennemi attaque à la fois (les autres tournent autour, menacent, attendent leur tour) : on peut lire chaque coup et y répondre
+    const aMoi = jetons.melee === this, veut = this.cd <= 0 && libreJeton('melee', this), garde = aMoi || veut ? this.T.portee * 0.9 : 4.4 + (this.niv % 3) * 0.5;
+    if (this.recul > 0) { this.recul -= dt; const a = Math.atan2(this.pos.x - cib.pos.x, this.pos.z - cib.pos.z); this.marcher(V(cib.pos.x + Math.sin(a) * 4.6, 0, cib.pos.z + Math.cos(a) * 4.6), dt, 2.2, 'Walk_Loop'); return; }
+    if (d > garde + 0.3) { this.marcher(cib.pos, dt, d > 7 ? this.T.vit : this.T.vit * 0.6, d > 7 ? this.T.course || 'Jog_Fwd_Loop' : 'Walk_Loop'); return; }
+    if (!aMoi && !veut) { const sens = this.niv % 2 ? 1 : -1, a = Math.atan2(this.pos.x - cib.pos.x, this.pos.z - cib.pos.z) + sens * dt * 0.35; const dest = V(cib.pos.x + Math.sin(a) * garde, 0, cib.pos.z + Math.cos(a) * garde); this.marcher(dest, dt, 1.4, 'Walk_Loop'); this.tourner(Math.atan2(cib.pos.x - this.pos.x, cib.pos.z - this.pos.z), dt * 2); return; }
     this.tourner(Math.atan2(cib.pos.x - this.pos.x, cib.pos.z - this.pos.z), dt);
-    if (this.cd <= 0) { this.etat = 'attaque'; this.at = 0.75; const A = this.T.attaque || ['Sword_Attack'], an = A[Math.floor(Math.random() * A.length)]; this.m.jouer(an, { boucle: false, forcer: true, vitesse: this.m.duree(an) * 0.55 / 0.75 }); debutTelegraphe(this); son('knifeSlice', 0.3, 0.7, this.pos); }
-    else this.m.jouer(this.T.humain ? 'Sword_Idle' : 'Idle_Loop'); /* entre deux coups il tourne autour de toi */ if (this.cd > 0.3 && !this.T.humain) { const a = Math.atan2(this.pos.x - cib.pos.x, this.pos.z - cib.pos.z) + dt * 0.5 * (this.niv % 2 ? 1 : -1); this.pos.x = cib.pos.x + Math.sin(a) * d; this.pos.z = cib.pos.z + Math.cos(a) * d; }
+    if (veut || aMoi && this.cd <= 0) { jetons.melee = this; this.etat = 'attaque'; this.at = 0.8; const A = this.T.attaque || ['Sword_Attack'], an = A[Math.floor(Math.random() * A.length)]; this.m.jouer(an, { boucle: false, forcer: true, vitesse: this.m.duree(an) * 0.55 / 0.75 }); debutTelegraphe(this); son('knifeSlice', 0.3, 0.7, this.pos); }
+    else this.m.jouer(this.T.humain ? 'Sword_Idle' : 'Idle_Loop');
   }
   majAllie(dt) { // ombre de combat : suit le héros, se jette sur l'ennemi le plus proche
     const J = C.joueur;
@@ -244,6 +257,8 @@ function runes() {
   texRunes = new THREE.CanvasTexture(c); return texRunes;
 }
 const aoes = [];
+const jetons = { melee: null, sort: null };
+function libreJeton(k, e) { const h = jetons[k]; if (h === e) return true; if (h && h.vivant && !h.lev && (h.etat === 'attaque' || h.etat === 'incante' || h.etat === 'poursuite' && h.cd <= 0.2)) return false; jetons[k] = e; return true; }
 function sortEnnemi(e, cible) {
   const S = e.T.special, p = S.surCible ? V(cible.pos.x, 0, cible.pos.z) : e.pos.clone();
   const m = new THREE.Mesh(new THREE.PlaneGeometry(S.r * 2, S.r * 2).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: runes(), color: S.couleur, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending }));
@@ -267,7 +282,7 @@ function majAoes(dt) {
         for (const a of allies) if (a.vivant && dist(a.pos, A.p) < A.S.r) a.subir(A.e.deg * A.S.mult, A.e);
         A.e.etat = 'poursuite'; A.e.cd = 0.8;
       }
-      A.e.cast = null;
+      A.e.cast = null; if (jetons.sort === A.e) jetons.sort = null;
     }
   }
 }
@@ -315,7 +330,7 @@ export function subirHeros(n, src) {
 function parfaite(src) { // parade parfaite : aucun dégât, le temps ralentit, le héros passe derrière et frappe fort
   const J = C.joueur; heros.parade.utilisee = true; G.ralenti = 0.25; G.ralentiT = 0.45;
   texteFlottant(V(J.pos.x, J.pos.y + 2.4, J.pos.z), 'PARADE !', 'parade'); son('impactMetal_light_000', 0.9, 1.4, J.pos); emettre(V(J.pos.x, J.pos.y + 1.2, J.pos.z), { n: 40, c1: '#ffffff', c2: '#b36bff', vit: 5, vie: 0.5, taille: 0.2, grav: 0 });
-  if (src && src.vivant) { const a = src.m.root.rotation.y; J.pos.set(src.pos.x - Math.sin(a) * 1.3, J.pos.y, src.pos.z - Math.cos(a) * 1.3); J.perso.root.rotation.y = a; heros.action = { k: 'coup', t: 0, dur: 0.5, frappe: 0.15, cibles: [src], mult: 3, crit: true, invul: true, anim: 'Sword_Regular_C' }; J.perso.jouer('Sword_Regular_C', { boucle: false, forcer: true, vitesse: 1.8 }); src.etourdi = 1.2; }
+  if (src && src.vivant) { const a = src.m.root.rotation.y; J.pos.set(src.pos.x - Math.sin(a) * 1.3, J.pos.y, src.pos.z - Math.cos(a) * 1.3); J.perso.root.rotation.y = a; heros.action = { k: 'coup', t: 0, dur: 0.5, frappe: 0.15, cibles: [src], mult: 3, crit: true, invul: true, anim: 'Sword_Regular_C' }; J.perso.jouer('Sword_Regular_C', { boucle: false, forcer: true, vitesse: 1.8 }); src.etourdi = 1.2; src.post = (src.post || 0) + src.postMax() * 0.5; if (src.post >= src.postMax()) src.briser(); }
 }
 const plusProches = (p, r, n) => ennemis.filter(e => e.vivant && dist(e.pos, p) < r).sort((a, b) => dist(a.pos, p) - dist(b.pos, p)).slice(0, n);
 export function attaquer() {
@@ -449,9 +464,9 @@ function majBarres() {
   for (const e of [...ennemis, ...allies]) {
     let b = barres.get(e); const montre = e.vivant && e.m.root.parent && (e.allie || e.vu > 0 || e.etat !== 'garde' && e.etat !== 'flane' || e.pv < e.pvMax);
     if (!montre) { if (b) b.style.display = 'none'; continue; }
-    if (!b) { b = document.createElement('div'); b.className = 'vie' + (e.allie ? ' allie' : ''); b.innerHTML = `<small>${e.allie ? '🜏 ' : ''}${e.T.nom} <em>Nv ${e.niv}</em><span class="etourdi">💫</span></small><i><u></u></i><s><q></q><span></span></s>`; hote.appendChild(b); barres.set(e, b); }
+    if (!b) { b = document.createElement('div'); b.className = 'vie' + (e.allie ? ' allie' : ''); b.innerHTML = `<small>${e.allie ? '🜏 ' : ''}${e.T.nom} <em>Nv ${e.niv}</em><span class="etourdi">💫</span></small><i><u></u></i><b class="po"><u></u></b><s><q></q><span></span></s>`; hote.appendChild(b); barres.set(e, b); }
     const s = projeter(V(e.pos.x, e.pos.y + e.T.h * e.T.ech, e.pos.z)); b.style.display = s.devant ? '' : 'none';
-    b.style.transform = `translate(${s.x}px,${s.y}px) translate(-50%,-100%)`; b.querySelector('u').style.width = (100 * e.pv / e.pvMax) + '%'; b.classList.toggle('etou', e.etourdi > 0.5 || !!e.lev); const cs = b.querySelector('s'); cs.style.display = e.cast ? '' : 'none'; if (e.cast) { cs.querySelector('q').style.width = Math.min(100, 100 * e.cast.t / e.cast.dur) + '%'; const sp = cs.querySelector('span'); if (sp.textContent !== e.cast.nom) sp.textContent = e.cast.nom; }
+    b.style.transform = `translate(${s.x}px,${s.y}px) translate(-50%,-100%)`; b.querySelector('u').style.width = (100 * e.pv / e.pvMax) + '%'; b.classList.toggle('etou', e.etourdi > 0.5 || !!e.lev); if (!e.allie) { const po = b.querySelector('.po'); po.style.visibility = e.post > 0 ? 'visible' : 'hidden'; po.firstChild.style.width = Math.min(100, 100 * (e.post || 0) / e.postMax()) + '%'; b.classList.toggle('brise', e.brise > 0); } const cs = b.querySelector('s'); cs.style.display = e.cast ? '' : 'none'; if (e.cast) { cs.querySelector('q').style.width = Math.min(100, 100 * e.cast.t / e.cast.dur) + '%'; const sp = cs.querySelector('span'); if (sp.textContent !== e.cast.nom) sp.textContent = e.cast.nom; }
   }
 }
 // ---------------- Boutons : attaque + cercle de pouvoirs ----------------

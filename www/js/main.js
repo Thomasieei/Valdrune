@@ -259,7 +259,7 @@ function majAction() {
   const dep = depouilles.find(d => Math.hypot(d.p.root.position.x - joueur.pos.x, d.p.root.position.z - joueur.pos.z) < 2.6);
   if (dep) return action(`ÉVEILLE-TOI · ${COUT_EVEIL} mana`, () => eveiller(dep), 'eveil');
   const ch = chantierProche(joueur.pos); if (ch && Math.hypot(ch.g.position.x - joueur.pos.x, ch.g.position.z - joueur.pos.z) < ch.T.rayon + 1.5) return action(joueur.bati ? 'Tu construis…' : `Aider à bâtir · ${Math.floor((ch.s.prog || 0) * 100)} %`, () => { joueur.bati = ch; }, 'bois');
-  const a = arbreProche(joueur.pos, x => x.etat === 'debout', 2.4);
+  const a = arbreProche(joueur.pos, x => x.etat === 'debout' && Math.hypot(x.pos.x - joueur.pos.x, x.pos.z - joueur.pos.z) < 1.2 + 0.5 * x.e, 6);
   if (a) return action(joueur.chop ? 'Tu coupes…' : 'Couper l’arbre', () => { joueur.chop = a; }, 'bois');
   action(null);
 }
