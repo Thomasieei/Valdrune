@@ -7,6 +7,7 @@ import { buche, hauteur, arbres, RESERVE } from './monde.js';
 const loader = new GLTFLoader(), texL = new THREE.TextureLoader();
 const B = 'assets/batiments/';
 const PIECES = ['Corner_Exterior_Brick', 'Wall_UnevenBrick_Door_Round', 'Wall_UnevenBrick_Window_Wide_Round', 'Floor_WoodLight', 'Prop_Support', 'Prop_Brick1', 'Prop_Brick2', 'Prop_MetalFence_Ornament', 'Floor_WoodDark', 'Floor_Brick', 'Corner_Exterior_Wood', 'Wall_Plaster_WoodGrid', 'Wall_Plaster_Straight', 'Wall_Plaster_Door_Round', 'Wall_UnevenBrick_Straight', 'Wall_Plaster_Window_Wide_Round', 'Roof_RoundTiles_6x6', 'Roof_RoundTiles_4x4', 'Prop_Crate', 'Prop_Wagon', 'Prop_WoodenFence_Single', 'Prop_Chimney'];
+const MEUBLES = ['Table_Small', 'Chair', 'Bench', 'Stool_round', 'Shelf_Wall', 'Shelf', 'Barrel_Closed', 'Bucket', 'Chest', 'Candlestick', 'Torch_Wall', 'Book_Big_Brown', 'Potion_Red'];
 const VILLAGE = ['fire_01', 'well_01', 'stall_01', 'ladder_01'];
 const M = {};
 const TEX = { MI_WoodTrim: 'woodtrim', MI_WoodTrim_Wear: 'woodtrim', MI_Plaster: 'plaster', MI_RockTrim: 'rocktrim', MI_Brick: 'brick', MI_RoundTiles: 'roundtiles', MI_UnevenBrick: 'unevenbrick', MI_MetalOrnaments: 'metal', MI_RedBrick: 'redbrick' };
@@ -18,6 +19,7 @@ function matKit(m) { // les pièces du kit n'ont pas de texture embarquée : on 
 }
 export async function chargerBatiments() {
   await Promise.all([...PIECES.map(n => loader.loadAsync(B + n + '.gltf').then(g => { g.scene.traverse(o => { if (o.isMesh) { o.material = matKit(o.material); o.castShadow = o.receiveShadow = true; } }); M[n] = g.scene; })),
+    ...MEUBLES.map(n => loader.loadAsync('assets/interieur/' + n + '.glb').then(g => { g.scene.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; if (o.material.map) { o.material.map.magFilter = THREE.NearestFilter; o.material.map.colorSpace = THREE.SRGBColorSpace; } if (o.material.emissive && o.material.emissive.r > 0.5) o.material.emissiveIntensity = 3; } }); M[n] = g.scene; })),
     ...VILLAGE.map(n => loader.loadAsync(B + n + '.glb').then(g => { g.scene.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } }); M[n] = g.scene; }))]);
 }
 // ---------------- Plans ----------------
@@ -46,22 +48,31 @@ function maison({ w, d, sol = 'Floor_WoodDark', coins = 'Corner_Exterior_Wood', 
   return L.concat(extras);
 }
 const dalle = () => [-1, 1].flatMap(x => [-1, 1].map(z => p('Floor_Brick', x, 0.02, z))), briques = () => [[1.5, 1.2], [1.7, 1.0], [-1.6, -1.3]].map(([x, z], i) => p('Prop_Brick' + (i % 2 + 1), x, 0.11, z, i, 1.4));
+const F = 0.85; /* mobilier : vraies proportions, légèrement réduites dans le bâti agrandi */
+const meubles = {
+  scierie: (n) => [p('Barrel_Closed', -2.2, 0.02, -2.2, 0, F), p('Bucket', -1.4, 0.02, -2.35, 0.5, F), p('Torch_Wall', 0, 1.7, -2.7, 0, F), p('Bench', -2.3, 0.02, 0.6, R, F),
+    ...(n >= 2 ? [p('Table_Small', 1.6, 0.02, 1.6, 0, 0.6), p('Stool_round', 1.0, 0.02, 2.4, 0, F), p('Torch_Wall', -2.75, 1.7, -0.6, R, F), p('Shelf_Wall', 2.75, 1.5, 0, -R, F)] : []),
+    ...(n >= 3 ? [p('Chest', -1.4, 0.02, 2.3, Math.PI, F), p('Candlestick', 1.4, 0.55, 1.6, 0, F), p('Book_Big_Brown', 1.9, 0.55, 1.4, 0.4, F)] : [])],
+  mine: (n) => [p('Torch_Wall', 0, 1.7, -1.7, 0, F), p('Bucket', 1.2, 0.02, 1.1, 0, F),
+    ...(n >= 2 ? [p('Barrel_Closed', -1.3, 0.02, 1.2, 0, F), p('Torch_Wall', -1.75, 1.7, 0.4, R, F)] : []),
+    ...(n >= 3 ? [p('Chest', 0.9, 0.02, -1.3, 0, F), p('Shelf_Wall', 1.75, 1.5, 0.3, -R, F), p('Potion_Red', 1.65, 1.55, 0.3, 0, 1.2)] : [])],
+};
 const scie = p('*scie', 0, 0.02, 0.4), caisses = [p('Prop_Crate', 2, 0.02, -1.8, 0.3, 0.8), p('Prop_Crate', 2.1, 0.86, -1.8, 0.9, 0.6)];
 export const TYPES = {
   scierie: {
     nom: 'Scierie', icone: '🪚', cout: { bois: 80 }, travail: 36, rayon: 5.4, demi: 3, depot: 'bois',
     niveaux: [
-      { bonus: 1.3, effet: '+30 % sur chaque livraison de bois', plan: () => maison({ w: 3, d: 3, etages: [{ m: 'platre', n: 'ggg', w: 'gg-' }], toit: 'Roof_RoundTiles_6x6', extras: [...caisses, scie] }) },
-      { bonus: 1.5, repousse: 2, cout: { bois: 220, pierre: 60 }, travail: 60, effet: '+50 % de bois · les arbres repoussent 2× plus vite', plan: () => maison({ w: 3, d: 3, etages: [{ m: 'brique', n: 'pfp', w: 'pp-', e: '-pp' }, { m: 'platre', n: 'ggg', w: 'ggg', e: 'ggg', s: 'gfg' }], toit: 'Roof_RoundTiles_6x6', extras: [...caisses, scie, p('Prop_Chimney', -2, 6.2, -2, 0, 1, true)] }) },
-      { bonus: 1.8, repousse: 3, charge: 2, cout: { bois: 500, pierre: 200 }, travail: 90, effet: '+80 % de bois · repousse 3× · tes bûcherons portent +2', plan: () => maison({ w: 3, d: 3, coins: 'Corner_Exterior_Brick', etages: [{ m: 'brique', n: 'pfp', w: 'fpf', e: 'fpf', s: 'p-p' }, { m: 'platre', n: 'fff', w: 'fgf', e: 'fgf', s: 'fgf' }], toit: 'Roof_RoundTiles_6x6', extras: [...caisses, scie, p('Prop_Wagon', 1.8, 0, 4.6, 0.2, 0.8), p('Prop_Chimney', -2, 6.2, -2, 0, 1, true)] }) },
+      { bonus: 1.3, effet: '+30 % sur chaque livraison de bois', plan: () => maison({ w: 3, d: 3, etages: [{ m: 'platre', n: 'ggg', w: 'gg-' }], toit: 'Roof_RoundTiles_6x6', extras: [...caisses, scie, ...meubles.scierie(1)] }) },
+      { bonus: 1.5, repousse: 2, cout: { bois: 220, pierre: 60 }, travail: 60, effet: '+50 % de bois · les arbres repoussent 2× plus vite', plan: () => maison({ w: 3, d: 3, etages: [{ m: 'brique', n: 'pfp', w: 'pp-', e: '-pp' }, { m: 'platre', n: 'ggg', w: 'ggg', e: 'ggg', s: 'gfg' }], toit: 'Roof_RoundTiles_6x6', extras: [...caisses, scie, p('Prop_Chimney', -2, 6.2, -2, 0, 1, true), ...meubles.scierie(2)] }) },
+      { bonus: 1.8, repousse: 3, charge: 2, cout: { bois: 500, pierre: 200 }, travail: 90, effet: '+80 % de bois · repousse 3× · tes bûcherons portent +2', plan: () => maison({ w: 3, d: 3, coins: 'Corner_Exterior_Brick', etages: [{ m: 'brique', n: 'pfp', w: 'fpf', e: 'fpf', s: 'p-p' }, { m: 'platre', n: 'fff', w: 'fgf', e: 'fgf', s: 'fgf' }], toit: 'Roof_RoundTiles_6x6', extras: [...caisses, scie, p('Prop_Wagon', 1.8, 0, 4.6, 0.2, 0.8), p('Prop_Chimney', -2, 6.2, -2, 0, 1, true), ...meubles.scierie(3)] }) },
     ],
   },
   mine: {
     nom: 'Camp de mineurs', icone: '⛏️', cout: { bois: 150 }, travail: 50, rayon: 4.7, demi: 2, depot: 'pierre',
     niveaux: [
-      { bonus: 1.3, effet: 'Débloque la pierre · +30 % par livraison', plan: () => maison({ w: 2, d: 2, sol: 'Floor_Brick', etages: [{ m: 'brique', n: 'pp' }], toit: 'Roof_RoundTiles_4x4', extras: [p('Prop_Wagon', 3.3, 0, 0.6, 0.15, 0.8), p('Prop_Crate', -1.2, 0.02, -1.2, 0.2, 0.7)] }) },
-      { bonus: 1.5, repousse: 2, cout: { bois: 260, pierre: 120 }, travail: 70, effet: '+50 % de pierre · les filons reviennent 2× plus vite', plan: () => maison({ w: 2, d: 2, sol: 'Floor_Brick', etages: [{ m: 'brique', n: 'pp', w: 'p-', e: '-p' }, { m: 'platre', n: 'gg', w: 'gg', e: 'gg', s: 'fg' }], toit: 'Roof_RoundTiles_4x4', extras: [p('Prop_Wagon', 3.3, 0, 0.6, 0.15, 0.8), p('Prop_Crate', -1.2, 0.02, -1.2, 0.2, 0.7), p('Prop_Crate', 1.1, 0.02, -1.2, 0.7, 0.6)] }) },
-      { bonus: 1.8, repousse: 3, charge: 2, cout: { bois: 550, pierre: 300 }, travail: 100, effet: '+80 % de pierre · repousse 3× · tes tailleurs portent +2', plan: () => maison({ w: 2, d: 2, sol: 'Floor_Brick', coins: 'Corner_Exterior_Brick', etages: [{ m: 'brique', n: 'pp', w: 'fp', e: 'pf' }, { m: 'brique', n: 'ff', w: 'ff', e: 'ff', s: 'ff' }], toit: 'Roof_RoundTiles_4x4', extras: [p('Prop_Wagon', 3.3, 0, 0.6, 0.15, 0.8), p('Prop_Crate', -1.2, 0.02, -1.2, 0.2, 0.7), p('Prop_Crate', 1.1, 0.02, -1.2, 0.7, 0.6)] }) },
+      { bonus: 1.3, effet: 'Débloque la pierre · +30 % par livraison', plan: () => maison({ w: 2, d: 2, sol: 'Floor_Brick', etages: [{ m: 'brique', n: 'pp' }], toit: 'Roof_RoundTiles_4x4', extras: [p('Prop_Wagon', 3.3, 0, 0.6, 0.15, 0.8), p('Prop_Crate', -1.2, 0.02, -1.2, 0.2, 0.7), ...meubles.mine(1)] }) },
+      { bonus: 1.5, repousse: 2, cout: { bois: 260, pierre: 120 }, travail: 70, effet: '+50 % de pierre · les filons reviennent 2× plus vite', plan: () => maison({ w: 2, d: 2, sol: 'Floor_Brick', etages: [{ m: 'brique', n: 'pp', w: 'p-', e: '-p' }, { m: 'platre', n: 'gg', w: 'gg', e: 'gg', s: 'fg' }], toit: 'Roof_RoundTiles_4x4', extras: [p('Prop_Wagon', 3.3, 0, 0.6, 0.15, 0.8), p('Prop_Crate', -1.2, 0.02, -1.2, 0.2, 0.7), p('Prop_Crate', 1.1, 0.02, -1.2, 0.7, 0.6), ...meubles.mine(2)] }) },
+      { bonus: 1.8, repousse: 3, charge: 2, cout: { bois: 550, pierre: 300 }, travail: 100, effet: '+80 % de pierre · repousse 3× · tes tailleurs portent +2', plan: () => maison({ w: 2, d: 2, sol: 'Floor_Brick', coins: 'Corner_Exterior_Brick', etages: [{ m: 'brique', n: 'pp', w: 'fp', e: 'pf' }, { m: 'brique', n: 'ff', w: 'ff', e: 'ff', s: 'ff' }], toit: 'Roof_RoundTiles_4x4', extras: [p('Prop_Wagon', 3.3, 0, 0.6, 0.15, 0.8), p('Prop_Crate', -1.2, 0.02, -1.2, 0.2, 0.7), p('Prop_Crate', 1.1, 0.02, -1.2, 0.7, 0.6), ...meubles.mine(3)] }) },
     ],
   },
   palissade: {

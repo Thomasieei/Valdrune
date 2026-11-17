@@ -38,6 +38,17 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0a0812;font-family:va
 #btnOmbres small{display:grid;place-items:center;min-width:3.2vh;height:3.2vh;border-radius:1.6vh;background:#a879ff;color:#120a24;font-size:1.8vh}
 #btnConstruire{position:absolute;right:calc(1.6vh + env(safe-area-inset-right));top:9.4vh;padding:1vh 1.8vh;font:800 2.1vh var(--f-label);color:#ffe1a8;border:1px solid #ffd27a55}
 #placement[hidden]{display:none}
+#guide{position:fixed;left:0;top:0;z-index:15;font-size:6vh;pointer-events:none;opacity:0;margin:-.4vh 0 0 -2.2vh;filter:drop-shadow(0 .4vh .6vh #000a);transition:opacity .3s}
+#guide.on{opacity:1;animation:tape 1s ease-in-out infinite}
+@keyframes tape{0%,100%{translate:0 1.2vh}50%{translate:0 3.4vh}}
+#retour{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;background:#05020cb8}
+#retour[hidden]{display:none}
+#retour .boite{min-width:46vh;padding:3vh 4vh;border-radius:2.4vh;text-align:center;background:linear-gradient(#2a1650,#140a26);border:1px solid #c8a8ff55;box-shadow:0 0 6vh #7a3aff66;color:#f2eaff}
+#retour h3{margin:0 0 1vh;font:900 4.4vh var(--f-titre);color:#ffd27a}
+#retour p{margin:0 0 2vh;font:600 2.2vh var(--f-label)}
+#retour .gains{display:flex;gap:3vh;justify-content:center;font:900 4.6vh var(--f-label);margin-bottom:2vh}
+#retour small{display:block;font:600 1.7vh var(--f-label);color:#c8a8ffaa;margin-bottom:2vh}
+#retour b{display:inline-block;padding:1.4vh 3.4vh;border-radius:3vh;font:800 2.2vh var(--f-label);background:linear-gradient(#a879ff,#5a1fd6);animation:pulse 1.4s infinite}
 #btnMode{position:absolute;z-index:6;left:calc(1.6vh + env(safe-area-inset-left));bottom:30vh;width:9vh;height:9vh;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:3.6vh;line-height:1;border:2px solid #c8a8ff66;color:#fff}
 #btnMode small{font:800 1.2vh var(--f-label);margin-top:.4vh;color:#e8dcff}
 body.souverain #btnMode{left:auto;right:calc(3vh + env(safe-area-inset-right));bottom:26vh;border-color:#ffd27a88}
@@ -133,6 +144,8 @@ body.souverain #scene{filter:saturate(1.08)}
   <button id="btnConstruire" class="verre">🔨 Construire</button>
   <button id="btnMode" class="verre">👑<small>Souverain</small></button>
   <div id="indice"></div>
+  <div id="guide">👆</div>
+  <div id="retour" hidden><div class="boite"><h3>Bon retour, Souverain</h3><p></p><div class="gains"></div><small>Bientôt : des pillards rôderont pendant ton absence…</small><b>Toucher pour récupérer</b></div></div>
   <div id="placement" hidden><button id="btnTourner" class="verre">↻</button><button id="btnAnnuler" class="verre">✕</button><button id="btnPoser">Poser</button></div>
   <div id="zoneJoy"></div><div id="joy"><i></i></div>
   <button id="action" hidden></button>

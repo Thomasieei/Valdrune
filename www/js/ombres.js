@@ -3,7 +3,7 @@
 import { THREE, G, V, emettre, son, texteFlottant } from './moteur.js';
 import { Perso } from './persos.js';
 import { arbreProche, frapperArbre, debiter, buche, hauteur, filonProche, tailler } from './monde.js';
-import { depotProche, chantierProche, marteler, enTravaux } from './batiments.js';
+import { depotProche, chantierProche, marteler, enTravaux, bloque } from './batiments.js';
 
 export const RANGS = {
   E: { c: '#a7b0bb', coupe: 1.0, charge: 4, vit: 3.2 },
@@ -40,7 +40,7 @@ function outil(type) {
   g.rotation.set(Math.PI / 2, 0, 0); g.position.set(0.02, 0.05, 0.02); g.visible = false; return g;
 }
 const PIERRE = new THREE.Mesh(new THREE.DodecahedronGeometry(0.28, 0), new THREE.MeshStandardMaterial({ color: '#9a9aa2', roughness: 0.9 }));
-let bulleCb = null; export function surParole(f) { bulleCb = f; }
+let bulleCb = null, signalCb = null; export function surParole(f) { bulleCb = f; } export function surSignal(f) { signalCb = f; }
 export class Ombre {
   constructor(data, pos) {
     this.d = data;
@@ -62,8 +62,14 @@ export class Ombre {
   aller(dest, dt, vit, anim = 'Walk_Loop') {
     const dx = dest.x - this.pos.x, dz = dest.z - this.pos.z, d = Math.hypot(dx, dz);
     if (d < 0.25) return true;
-    const pas = Math.min(d, vit * dt); this.pos.x += dx / d * pas; this.pos.z += dz / d * pas; this.pos.y = hauteur(this.pos.x, this.pos.z);
-    this.tourner(Math.atan2(dx, dz), dt);
+    const pas = Math.min(d, vit * dt); let a = Math.atan2(dx, dz);
+    // contourne les murs : essaie de dévier de plus en plus, en gardant le côté choisi pour ne pas hésiter
+    if (bloque(this.pos.x + Math.sin(a) * 0.5, this.pos.z + Math.cos(a) * 0.5, 0.3)) {
+      this.cote ??= Math.random() < 0.5 ? 1 : -1;
+      for (const k of [0.5, 0.9, 1.3, 1.7, 2.2]) { const b = a + k * this.cote; if (!bloque(this.pos.x + Math.sin(b) * 0.5, this.pos.z + Math.cos(b) * 0.5, 0.3)) { a = b; break; } }
+    } else if (Math.random() < dt) this.cote = null;
+    this.pos.x += Math.sin(a) * pas; this.pos.z += Math.cos(a) * pas; this.pos.y = hauteur(this.pos.x, this.pos.z);
+    this.tourner(a, dt);
     this.p.jouer(anim, { vitesse: anim === 'Walk_Loop' ? vit / 1.6 : anim === 'Walk_Carry_Loop' ? vit / 1.5 : vit / 3.4 });
     return false;
   }
@@ -79,8 +85,8 @@ export class Ombre {
       if (this.force && !(res === 'bois' ? this.force.etat === 'souche' : this.force.pierre <= 0)) c = this.force; this.force = null;
       if (c) {} else if (res === 'bois') c = arbreProche(this.pos, x => x.etat === 'abattu' && x.bois > 0 && x.ouvriers < 3, 40) || arbreProche(this.pos, x => x.etat === 'debout' && x.ouvriers < 3, 70);
       else c = filonProche(this.pos);
-      if (!c) { if (this.charge > 0) this.etat = 'porter'; else { this.montrer(null, null); this.p.jouer('Idle_Loop'); } return; }
-      this.cible = c; c.ouvriers++; this.etat = 'aller'; this.angBut = Math.random() * 6.28;
+      if (!c) { if (this.charge > 0) this.etat = 'porter'; else { this.montrer(null, null); this.p.jouer('Idle_Loop'); if (!this.oisif) { this.oisif = true; this.dire(res === 'bois' ? 'Plus aucun arbre à portée, maître.' : 'Les filons sont épuisés, maître.'); signalCb && signalCb(this, res === 'bois' ? `🪓 ${this.d.nom} n’a plus d’arbre à portée` : `⛏️ ${this.d.nom} attend que les filons repoussent`); } } return; }
+      this.oisif = false; this.cible = c; c.ouvriers++; this.etat = 'aller'; this.angBut = Math.random() * 6.28;
     }
     const c = this.cible;
     const centre = () => res === 'bois' ? (c.etat === 'abattu' ? c.posTronc : c.pos) : c.pos;
@@ -125,7 +131,10 @@ export class Ombre {
     if (this.force) { this.cible = enTravaux(this.force) ? this.force : null; this.force = null; this.angBut = Math.random() * 6.28; }
     let b = this.cible && this.cible.T && enTravaux(this.cible) ? this.cible : null;
     if (!b) { b = chantierProche(this.pos); this.cible = b; this.angBut = Math.random() * 6.28; }
-    if (!b) { this.majRepos(dt); return; }
+    if (!b) { // plus de chantier : il retourne à son ancien métier au lieu de rester planté
+      const av = this.d.avant; if (av === 'bois' || av === 'pierre') { this.changerMetier(av); this.dire(av === 'bois' ? 'Le chantier est fini. Je retourne au bois.' : 'Le chantier est fini. Je retourne à la carrière.'); return; }
+      if (!this.oisif) { this.oisif = true; signalCb && signalCb(this, `🔨 ${this.d.nom} n’a plus de chantier`); } this.majRepos(dt); return; }
+    this.oisif = false;
     const r = b.T.rayon * 0.9, k = b.g.position; this.but.set(k.x + Math.cos(this.angBut) * r, 0, k.z + Math.sin(this.angBut) * r);
     this.montrer('construire', null);
     if (Math.hypot(this.but.x - this.pos.x, this.but.z - this.pos.z) > 0.4) { this.aller(this.but, dt, this.R.vit); return; }
@@ -153,7 +162,7 @@ export class Ombre {
   }
   majRepos(dt) { this.montrer(null, null); const dest = V(-1.5 + Math.cos(this.d.id * 1.3) * 3.2, 0, -1.5 + Math.sin(this.d.id * 1.3) * 3.2); if (this.aller(dest, dt, this.R.vit)) { this.p.jouer('Sitting_Idle_Loop'); this.tourner(Math.atan2(-1.5 - this.pos.x, -1.5 - this.pos.z), dt); } }
   ordonner(m, cible) { this.changerMetier(m); this.force = cible; }
-  changerMetier(m) { this.liberer(); this.charge = 0; this.etat = 'chercher'; this.d.metier = m; this.montrer(null, null); }
+  changerMetier(m) { if (m === 'construire' && this.d.metier !== 'construire') this.d.avant = this.d.metier; this.oisif = false; this.liberer(); this.charge = 0; this.etat = 'chercher'; this.d.metier = m; this.montrer(null, null); }
   maj(dt, j, rang) {
     this.p.maj(dt);
     if (this.scene) return this.scene(dt);

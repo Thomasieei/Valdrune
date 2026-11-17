@@ -33,7 +33,7 @@ les envoyer couper / miner / construire / combattre, voir le royaume grandir en 
 - [FAIT v0.218] Deux caméras : ⚔️ Héros (3e pers.) / 👑 Souverain (vue AoE : glisser, pincer, tourner à 2 doigts, toucher ombre → toucher arbre/rocher/chantier = ordre ; placement au doigt).
 - [FAIT v0.220] Échelle ×1,3, intérieurs visitables (toit/étage/murs côté caméra s’effacent, collisions murs, portes), niveaux 1→3 (scierie, camp, puits) avec échafaudages. À venir : mobilier intérieur, trône/âge qui plafonne les niveaux, dégâts de raid.
 
-- [À FAIRE] Menus enfantins : icônes d'abord, une action par écran, main animée qui guide, détails chiffrés sur appui long.
+- [EN COURS v0.221] Menus enfantins : main 👆 qui guide les quêtes (gestes Souverain), retour hors-ligne, ombres qui signalent qu’elles n’ont plus rien à faire et reprennent leur métier après un chantier, contournement des murs, mobilier intérieur (pack donjon FBX converti). Reste : appui long = détails chiffrés, escalier vers l’étage.
 - Puis brique 3 : donjon fait main.
 
 ## Vision long terme (Thomas, 17/11) — APRÈS bugs, carte et briques en cours
