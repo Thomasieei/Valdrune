@@ -111,7 +111,7 @@ function decorHorde(def) {
   }
   // atelier de guerre et vie du fort
   pose(modele('fire_01'), 0, 1, 0, 1.1);
-  const feu = new THREE.PointLight('#ff8a3a', 7, 12, 1.6); feu.position.set(0, hauteur(cx, cz + 1) + 1.2, 1); g.add(feu);
+  /* pas de lumière en plus : chaque lumière alourdit tout l'écran sur téléphone */
   pose(prop('WeaponStand'), -7.5, -2, 1.2); pose(prop('WeaponStand'), 7.5, -2.5, -1.2);
   pose(prop('Anvil'), 6.5, 3, -0.6, 1.2); pose(prop('Barrel'), 8, 4.5); pose(prop('Barrel'), 7.4, 5.4, 1, 0.9); pose(prop('Crate_Wooden'), -8, 4, 0.4, 0.9);
   pose(prop('Cauldron'), -2.6, -3.4, 0, 1.1); pose(prop('Chain_Coil'), 4, -4.5, 0.7);
@@ -712,7 +712,8 @@ function initBoutons() {
   const z = document.createElement('div'); z.id = 'pts'; z.innerHTML = '<i></i><i></i><i></i><i></i><i></i>'; document.getElementById('combat').appendChild(z);
   const at = document.getElementById('btnAttaque');
   at.addEventListener('pointerdown', (e) => { e.preventDefault(); try { at.setPointerCapture(e.pointerId); } catch (er) {} heros.appui = G.t; at.classList.add('presse'); });
-  const lache = () => { if (heros.appui != null) { const ch = G.t - heros.appui; heros.appui = null; at.classList.remove('charge'); attaquer(ch > 0.33 ? 'lourde' : 'rapide'); } at.classList.remove('presse'); }; // toucher = rapide · maintenir puis lâcher = lourde at.addEventListener('pointerup', lache); at.addEventListener('pointercancel', lache);
+  const lache = () => { if (heros.appui != null) { const ch = G.t - heros.appui; heros.appui = null; at.classList.remove('charge'); attaquer(ch > 0.33 ? 'lourde' : 'rapide'); } at.classList.remove('presse'); }; /* toucher = rapide · maintenir puis lâcher = lourde */
+  at.addEventListener('pointerup', lache); at.addEventListener('pointercancel', lache);
   for (const [id, f] of [['pw-saut', () => C.sauter()], ['pw-dash', dash]]) { const b = document.getElementById(id); b.addEventListener('pointerdown', (e) => { e.preventDefault(); f(); b.classList.add('presse'); }); b.addEventListener('pointerup', () => b.classList.remove('presse')); b.addEventListener('pointercancel', () => b.classList.remove('presse')); }
   for (const k of Object.keys(POUVOIRS)) {
     const b = document.getElementById('pw-' + k);

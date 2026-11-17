@@ -48,7 +48,7 @@ function environnement(r) { // ciel en dégradé → carte d'environnement (refl
   const pm = new THREE.PMREMGenerator(r), t = pm.fromScene(sc, 0.04).texture; pm.dispose(); return t;
 }
 export function redimensionner() {
-  const w = innerWidth, h = innerHeight, pr = Math.min(devicePixelRatio || 1, 1.6) * (G.resK || 1); // 1,6 suffit sur un écran de téléphone (au-delà : 50 % de pixels en plus pour un gain invisible)
+  const w = innerWidth, h = innerHeight, pr = Math.min(devicePixelRatio || 1, 2) * (G.resK || 1); // 1,6 suffit sur un écran de téléphone (au-delà : 50 % de pixels en plus pour un gain invisible)
   G.renderer.setPixelRatio(pr); G.renderer.setSize(w, h, false);
   G.composer.setPixelRatio(pr); G.composer.setSize(w, h);
   G.bloom.resolution.set(w * 0.3, h * 0.3);
@@ -59,7 +59,7 @@ const perf = { t: 0, n: 0 };
 function majPerf(dtReel) {
   perf.t += dtReel; perf.n++; if (perf.t < 3) return;
   const fps = perf.n / perf.t; perf.t = perf.n = 0; G.fps = Math.round(fps);
-  if (fps < 32 && (G.resK || 1) > 0.6) { G.resK = Math.max(0.6, (G.resK || 1) - 0.12); redimensionner(); }
+  if (fps < 30 && (G.resK || 1) > 0.8) { G.resK = Math.max(0.8, (G.resK || 1) - 0.1); redimensionner(); } // jamais sous 80 % : en dessous l'image devient floue
   else if (fps < 24 && G.bloom.enabled && G.sun.shadow.mapSize.x <= 1024) G.bloom.enabled = false; // tout dernier recours : sans halo
   else if (fps < 26 && G.sun.shadow.mapSize.x > 1024) { G.sun.shadow.mapSize.set(1024, 1024); G.sun.shadow.map?.dispose(); G.sun.shadow.map = null; } // en dernier recours : ombres moins fines
   else if (fps > 55 && (G.resK || 1) < 1) { G.resK = Math.min(1, G.resK + 0.06); redimensionner(); } // ça tourne bien : on remonte
