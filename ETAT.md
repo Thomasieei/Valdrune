@@ -113,3 +113,9 @@ Toute décision de combat se vérifie contre ses 7 piliers : adversaire qui réf
 ## Villages voisins refaits (la ville du joueur reste au joueur)
 - Valcourt = ville fortifiée (model.glb fourni) : remparts, tours, porte, taverne, échoppes, tour du mage, marché, fontaine, canal ; allégée (1,4 M → 330 k triangles, 15 matières) + version lointaine 160 k
 - Hameau des Saules / Port-au-Lac : rue qui serpente, maisons en quinconce portes sur rue, jardins clôturés + potagers, champs de blé, place (puits, étal, feu), lanternes, panneau
+
+## Capitale Valcourt
+- Grande porte (tours 5 niveaux, herse, battants ouverts, bannières, 4 gardes), rempart + tours octogonales à toit conique
+- Avenue royale à lanternes, place du marché (étals + marchands qui crient), quartiers d habitation, forges, patrouille
+- Palais : escalier, tours, salle du trône (tapis rouge, colonnes, trône, lustres, bannières), roi Aldric couronné + garde royale ; toit masqué quand on entre ; audience avec le roi (texte selon réputation)
+- Assets : MegaKit complet + Dungeon kit (Throne, Pillar, Carpet, Banner, Chandelier, Portcullis, DoorGate) de royaume-villes

@@ -7,8 +7,8 @@ import { prop } from './persos.js';
 
 const loader = new GLTFLoader(), texL = new THREE.TextureLoader();
 const B = 'assets/batiments/';
-const PIECES = ['Corner_Exterior_Brick', 'Wall_UnevenBrick_Door_Round', 'Wall_UnevenBrick_Window_Wide_Round', 'Floor_WoodLight', 'Prop_Support', 'Prop_Brick1', 'Prop_Brick2', 'Prop_MetalFence_Ornament', 'Floor_WoodDark', 'Floor_Brick', 'Corner_Exterior_Wood', 'Wall_Plaster_WoodGrid', 'Wall_Plaster_Straight', 'Wall_Plaster_Door_Round', 'Wall_UnevenBrick_Straight', 'Wall_Plaster_Window_Wide_Round', 'Roof_RoundTiles_6x6', 'Roof_RoundTiles_4x4', 'Prop_Crate', 'Prop_Wagon', 'Prop_WoodenFence_Single', 'Prop_Chimney'];
-const MEUBLES = ['Chest_Lid', 'Table_Small', 'Chair', 'Bench', 'Stool_round', 'Shelf_Wall', 'Shelf', 'Barrel_Closed', 'Bucket', 'Chest', 'Candlestick', 'Torch_Wall', 'Book_Big_Brown', 'Potion_Red'];
+const PIECES = ['Roof_RoundTiles_6x8', 'Roof_Tower_RoundTiles', 'Wall_Arch', 'Stairs_Exterior_Straight', 'Door_8_Round', 'DoorFrame_Round_Brick', 'Balcony_Simple_Straight', 'Prop_ExteriorBorder_Straight1', 'Corner_Exterior_Brick', 'Wall_UnevenBrick_Door_Round', 'Wall_UnevenBrick_Window_Wide_Round', 'Floor_WoodLight', 'Prop_Support', 'Prop_Brick1', 'Prop_Brick2', 'Prop_MetalFence_Ornament', 'Floor_WoodDark', 'Floor_Brick', 'Corner_Exterior_Wood', 'Wall_Plaster_WoodGrid', 'Wall_Plaster_Straight', 'Wall_Plaster_Door_Round', 'Wall_UnevenBrick_Straight', 'Wall_Plaster_Window_Wide_Round', 'Roof_RoundTiles_6x6', 'Roof_RoundTiles_4x4', 'Prop_Crate', 'Prop_Wagon', 'Prop_WoodenFence_Single', 'Prop_Chimney'];
+const MEUBLES = ['Throne', 'Pillar', 'Carpet_Red', 'Banner', 'Chandelier', 'Portcullis_Wood', 'DoorGate_Wooden_Left', 'DoorGate_Wooden_Right', 'Chest_Lid', 'Table_Small', 'Chair', 'Bench', 'Stool_round', 'Shelf_Wall', 'Shelf', 'Barrel_Closed', 'Bucket', 'Chest', 'Candlestick', 'Torch_Wall', 'Book_Big_Brown', 'Potion_Red'];
 const VILLAGE = ['fire_01', 'well_01', 'stall_01', 'ladder_01', 'hearth_01', 'sign_inn_01'];
 const M = {};
 const TEX = { MI_WoodTrim: 'woodtrim', MI_WoodTrim_Wear: 'woodtrim', MI_Plaster: 'plaster', MI_RockTrim: 'rocktrim', MI_Brick: 'brick', MI_RoundTiles: 'roundtiles', MI_UnevenBrick: 'unevenbrick', MI_MetalOrnaments: 'metal', MI_RedBrick: 'redbrick' };
@@ -42,7 +42,7 @@ function poste(n) {
   return L;
 }
 // maison modulaire : w×d cases de 2 m ; chaque étage décrit ses 4 côtés case par case (p plein, g colombage, f fenêtre, o porte, - ouvert)
-function maison({ w, d, sol = 'Floor_WoodDark', coins = 'Corner_Exterior_Wood', etages, toit, extras = [] }) {
+export function maison({ w, d, sol = 'Floor_WoodDark', coins = 'Corner_Exterior_Wood', etages, toit, extras = [] }) {
   const L = [], cases = (n) => Array.from({ length: n }, (_, i) => -n + 1 + 2 * i);
   for (const x of cases(w)) for (const z of cases(d)) L.push(p(sol, x, 0.02, z));
   etages.forEach((et, k) => {
@@ -157,14 +157,15 @@ export function montrerTerritoire(oui) { // limites dessinées au sol pendant la
     const m = new THREE.Mesh(g, mat); m.frustumCulled = false; G.scene.add(m); anneaux.push(m); }
 }
 // un bâtiment « décor » (villages humains) : mêmes plans que les tiens, sans chantier
-export function plan3D(type, niv = 1) { const T = TYPES[type], g = new THREE.Group(), c = new THREE.Group(); c.scale.setScalar(T.ech); g.add(c); for (const d of T.niveaux[niv - 1].plan()) { const o = piece(d); o.position.set(d.x, d.y, d.z); o.rotation.y = d.r; o.scale.setScalar(d.e); c.add(o); } return g; }
+const INTERIEUR = new Set(['Table_Small', 'Chair', 'Stool_round', 'Shelf_Wall', 'Shelf', 'Book_Big_Brown', 'Candlestick', 'Potion_Red', 'Chest', 'Chest_Lid', 'Bucket', 'Torch_Wall', 'Floor_WoodLight', 'Stair_Interior_Solid']);
+export function plan3D(type, niv = 1) { const T = TYPES[type], g = new THREE.Group(), c = new THREE.Group(); c.scale.setScalar(T.ech); g.add(c); for (const d of T.niveaux[niv - 1].plan()) { if (INTERIEUR.has(d.n)) continue; /* vu de dehors : pas de mobilier invisible */ const o = piece(d); o.position.set(d.x, d.y, d.z); o.rotation.y = d.r; o.scale.setScalar(d.e); c.add(o); } return g; }
 // ---------------- Instances ----------------
 export const batiments = [];
-function piece(d) {
+export function piece(d) {
   if (d.n[0] === '@') return prop(d.n.slice(1));
   if (d.n === '*banniere') return banniere();
   if (d.n === '*scie') { const g = new THREE.Group(); const b = buche(0.32, 2.4); b.position.y = 0.75; g.add(b); for (const s of [-0.9, 0.9]) { const t = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.75, 0.9), new THREE.MeshStandardMaterial({ color: '#6b4426' })); t.position.set(s, 0.37, 0); t.castShadow = true; g.add(t); } return g; }
-  return M[d.n].clone();
+  return M[d.n] ? M[d.n].clone() : new THREE.Group(); // pièce manquante : on n'écroule pas tout le jeu
 }
 function monter(b, visibles) { // (re)crée les pièces du niveau courant
   if (b.corps) b.g.remove(b.corps);

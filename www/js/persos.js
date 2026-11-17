@@ -57,7 +57,7 @@ class Anime {
   // animation à la demande : rien hors champ, 15 images/s au loin, pleine cadence de près
   maj(dt) {
     this.skip = (this.skip || 0) + dt; const p = this.root.position, c = G.camera.position, d2 = (p.x - c.x) ** 2 + (p.z - c.z) ** 2;
-    if (d2 > 8100 || !dansChamp(p, (this.rayonVue || 2.5))) { /* hors champ ou à plus de 90 m : ni dessiné ni animé */ if (this.root.visible) this.root.visible = false; if (this.skip > 0.5) { this.mixer.update(this.skip); this.skip = 0; } return; }
+    if (d2 > (this.portee || 90) ** 2 || !dansChamp(p, (this.rayonVue || 2.5))) { /* hors champ ou à plus de 90 m : ni dessiné ni animé */ if (this.root.visible) this.root.visible = false; if (this.skip > 0.5) { this.mixer.update(this.skip); this.skip = 0; } return; }
     if (!this.root.visible) this.root.visible = true;
     const loin = d2 > 900;
     if (loin && this.skip < 1 / 15) return;

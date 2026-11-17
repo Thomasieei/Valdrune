@@ -36,11 +36,11 @@ export const CHEMINS = [
   lisse([[4, 8], [6, 30], [12, 60], [24, 95], [36, 130], [42, 160]]), // sud : les collines et la tour des pillards
   lisse([[70, 8], [72, -40], [70, -88], [62, -112]]),          // raccourci plaine → lac du Col
   lisse([[70, 8], [76, 30], [82, 52], [87, 63]]),               // vers Port-au-Lac
-  lisse([[140, -8], [158, 25], [170, 70], [166, 104], [158, 118]]), // la grande route de Valcourt
+  lisse([[140, -8], [158, 25], [170, 70], [166, 98], [160, 114]]), // la grande route de Valcourt
   lisse([[-6, -80], [-24, -78], [-40, -76], [-46, -75]]),       // vers le Hameau des Saules
 ];
 // les humains : villages et ville, autonomes (voir humains.js)
-export const VILLAGES = [{ id: 'saules', nom: 'Hameau des Saules', x: -66, z: -76, r: 20, type: 'village', porte: [-50, -75] }, { id: 'portlac', nom: 'Port-au-Lac', x: 90, z: 86, r: 20, type: 'village', porte: [88, 66] }, { id: 'valcourt', nom: 'Valcourt', x: 160, z: 152, r: 33, type: 'ville', porte: [158, 120] }];
+export const VILLAGES = [{ id: 'saules', nom: 'Hameau des Saules', x: -66, z: -76, r: 20, type: 'village', porte: [-50, -75] }, { id: 'portlac', nom: 'Port-au-Lac', x: 90, z: 86, r: 20, type: 'village', porte: [88, 66] }, { id: 'valcourt', nom: 'Valcourt', x: 160, z: 154, r: 40, type: 'ville', porte: [160, 110] }];
 // la rue principale de chaque village : elle part de l'entrée et serpente jusqu'à l'autre bout
 for (const V of VILLAGES) { V.entree = Math.atan2(V.porte[0] - V.x, V.porte[1] - V.z); V.rue = []; if (V.type === 'ville') continue; const e = V.entree; for (let t = V.r + 4; t >= -V.r; t -= 2) V.rue.push([V.x + Math.sin(e) * t + Math.cos(e) * Math.sin(t * 0.11) * 3, V.z + Math.cos(e) * t - Math.sin(e) * Math.sin(t * 0.11) * 3]); }
 const distRue = (V, x, z) => { let b = 1e9; for (const [a, c] of V.rue) { const d = (a - x) ** 2 + (c - z) ** 2; if (d < b) b = d; } return Math.sqrt(b); };
@@ -81,7 +81,7 @@ function couleurSol(x, z, y, c, c2) {
   const terre = Math.max(0, 1 - d / 9) * 0.9 + Math.max(0, 1 - Math.hypot(x - RESERVE.x, z - RESERVE.z) / 5) * 0.7; c.lerp(c2.set('#9a7a52'), Math.min(0.85, terre)); // sol tassé du camp
   const dc = Math.hypot(x - CARRIERE.x, z - CARRIERE.z); if (dc < 10) c.lerp(c2.set('#8a8070'), Math.min(0.8, (10 - dc) / 3.5)); // carrière : roche et gravier
   const da = Math.hypot(x + 24, z + 6); if (da < 12.5) c.lerp(c2.set('#c8b088'), Math.min(0.9, (12.5 - da) / 1.5)); // sable de l'arène
-  for (const V of VILLAGES) { if (V.type === 'ville') { const q = Math.max(Math.abs(x - V.x), Math.abs(z - V.z)); if (q < 31) c.lerp(c2.set('#8c8476').offsetHSL(0, 0, n * 0.05), 0.85); continue; } if (Math.hypot(x - V.x, z - V.z) > V.r + 8) continue; const dr = distRue(V, x, z) + Math.sin(x * 2.1 + z * 1.7) * 0.3; if (dr < 2.4) c.lerp(c2.set('#9a8058'), Math.min(0.9, (2.4 - dr) / 1)); if (Math.hypot(x - V.x, z - V.z) < 4.5) c.lerp(c2.set('#a08a62'), 0.75); } // rues de terre, pavés de la ville
+  for (const V of VILLAGES) { if (V.type === 'ville') { const q = Math.max(Math.abs(x - V.x), Math.abs(z - V.z)); if (q < 37) c.lerp(c2.set('#8c8476').offsetHSL(0, 0, n * 0.05), 0.85); continue; } if (Math.hypot(x - V.x, z - V.z) > V.r + 8) continue; const dr = distRue(V, x, z) + Math.sin(x * 2.1 + z * 1.7) * 0.3; if (dr < 2.4) c.lerp(c2.set('#9a8058'), Math.min(0.9, (2.4 - dr) / 1)); if (Math.hypot(x - V.x, z - V.z) < 4.5) c.lerp(c2.set('#a08a62'), 0.75); } // rues de terre, pavés de la ville
   const dch = distChemin(x, z) + Math.sin(x * 1.7 + z * 1.3) * 0.35; if (dch < 2.6) c.lerp(c2.set('#a08458').offsetHSL(0, 0, n * 0.03), Math.min(0.92, (2.6 - dch) / 1.1)); // route de terre aux bords irréguliers
 }
 function construireTerrain() {
