@@ -30,6 +30,8 @@ Règle : on ne rallume un système que quand la 1.0 est solide, et un seul à la
 
 - v1.0-h : ÉTAPE 5 COMPAGNONS — 3 compagnons d’armes nommés (`J.ville.compagnons`) qui te suivent sur la Place et dans la Brèche (« Parler à » : venir en expédition / rester garder la ville) ; MORT DÉFINITIVE (journal, moral −8, deuil des autres) ; volontaire de remplacement 20 min après une perte ; le captif libéré est ciblable (45 % de tes PV) et peut mourir pendant l’évasion.
 
+- v1.0-i : ÉTAPE 6 ROYAUME — bouton couronne (Place) : trésor de la ville (impôts par habitant/min × moral, perçus aussi hors ligne, 8 h max), impôt léger/normal/lourd (moral), fortifications 0–3 (raids plus petits et espacés), festin (+15 moral), te servir dans le trésor (moral −8), chronique. JUSTICE : affaires toutes les 4–7 min (vol, rixe, complicité avec la Brèche, désertion) avec vérité cachée ; enquête par une ombre (3 min, 90 % fiable) ; acquitter / amende / prison 20 min / bannir (définitif) ; la vérité éclate plus tard (innocent puni → moral −4 à −15 ; complice acquitté → raid massif +3). Niveaux des compagnons alignés sur le tien.
+
 ## Bugs connus
 - (à remplir avec les retours de test de Thomas)
 
