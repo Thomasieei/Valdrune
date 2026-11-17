@@ -32,6 +32,8 @@ Règle : on ne rallume un système que quand la 1.0 est solide, et un seul à la
 
 - v1.0-i : ÉTAPE 6 ROYAUME — bouton couronne (Place) : trésor de la ville (impôts par habitant/min × moral, perçus aussi hors ligne, 8 h max), impôt léger/normal/lourd (moral), fortifications 0–3 (raids plus petits et espacés), festin (+15 moral), te servir dans le trésor (moral −8), chronique. JUSTICE : affaires toutes les 4–7 min (vol, rixe, complicité avec la Brèche, désertion) avec vérité cachée ; enquête par une ombre (3 min, 90 % fiable) ; acquitter / amende / prison 20 min / bannir (définitif) ; la vérité éclate plus tard (innocent puni → moral −4 à −15 ; complice acquitté → raid massif +3). Niveaux des compagnons alignés sur le tien.
 
+- v1.0-j : ÉTAPE 7 PAROLE LIBRE — « 💬 Parler librement » avec champions, compagnons, et « Interroger l’accusé·e » en justice. Sans clé : mode simple par mots-clés (menace, raisonner, duel, question, avoue…). Avec clé API Anthropic (saisie dans la fenêtre, stockée seulement sur le téléphone, modèle claude-haiku-5-5) : réponses libres en JSON {reponse, action} → actions réelles (retraite, combat, duel, suivre, garder, aveu). L’accusé connaît sa culpabilité cachée et ment s’il est coupable.
+
 ## Bugs connus
 - (à remplir avec les retours de test de Thomas)
 

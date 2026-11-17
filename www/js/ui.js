@@ -1833,6 +1833,24 @@ UI.dialogueTaverne = (d) => {
   try { bustePersonnage(d.modele || 'Rogue', m.querySelector('canvas'), d.ombre ? '#1a0a2a' : '#2a1a10', d.ombre ? TEINTES_OMBRE : null); } catch (e) {}
   m.onclick = (e) => { if (e.target.closest('[data-x]')) return UI.dialogueTaverne(null); const o = e.target.closest('[data-o]'); if (o && !o.disabled) { api.son('select_001', 0.4); d.options[+o.dataset.o].action(); } };
 };
+// conversation libre : historique + champ de saisie
+UI.saisieLibre = (d, envoyer) => {
+  let m = document.getElementById('saisieLibre');
+  if (!d) { if (m) m.remove(); return; }
+  if (!m) { m = document.createElement('div'); m.id = 'saisieLibre'; $('#jeu').appendChild(m); m.addEventListener('pointerdown', (e) => e.stopPropagation()); m.addEventListener('keydown', (e) => e.stopPropagation()); }
+  const ancien = m.querySelector('input'), val = ancien ? ancien.value : '';
+  m.innerHTML = `<div class="boiteT" style="max-height:92vh"><button class="fermer" data-x aria-label="Fermer">×</button><div class="visageT"><canvas width="160" height="160"></canvas></div>
+    <div class="corpsT2" style="display:flex;flex-direction:column;min-height:0"><h3>${d.nom}<small>${d.titre || ''}</small></h3>
+    <div class="fil" style="overflow-y:auto;max-height:38vh;font-size:2.4vh;line-height:1.35;padding-right:4px">${d.lignes.length ? d.lignes.map(l => `<p style="margin:.4vh 0;${l.qui === 'toi' ? 'color:#ffd36a;text-align:right' : 'color:#f2e6d0'}">${l.qui === 'toi' ? '' : '<b>' + d.nom.split(' ')[0] + ' :</b> '}${String(l.t).replace(/</g, '&lt;')}</p>`).join('') : '<p style="opacity:.6">Écris ce que tu veux lui dire.</p>'}${d.attente ? '<p style="opacity:.6">…</p>' : ''}</div>
+    <div style="display:flex;gap:1vh;margin-top:1vh"><input maxlength="220" placeholder="Ta réplique…" style="flex:1;font-size:2.6vh;padding:1vh;border-radius:8px;border:1px solid #8a6a3a;background:#1a120a;color:#fff" ${d.attente ? 'disabled' : ''}><button class="optT" data-env style="flex:0 0 auto"><b>Dire</b></button></div>
+    ${d.sansCle ? '<button class="optT" data-cle style="margin-top:.8vh"><small>Mode simple (mots-clés). Ajouter une clé API pour des réponses libres</small></button>' : '<button class="optT" data-cle style="margin-top:.8vh;opacity:.6"><small>Changer la clé API</small></button>'}</div></div>`;
+  try { bustePersonnage(d.modele || 'Rogue', m.querySelector('canvas'), '#2a1a10', null); } catch (e) {}
+  const inp = m.querySelector('input'); inp.value = d.attente ? val : ''; const fil = m.querySelector('.fil'); fil.scrollTop = fil.scrollHeight;
+  if (!d.attente) setTimeout(() => inp.focus(), 50);
+  const go = () => { const t = inp.value.trim(); if (t) envoyer(t); };
+  inp.onkeydown = (e) => { if (e.key === 'Enter') go(); };
+  m.onclick = (e) => { if (e.target.closest('[data-x]')) return UI.saisieLibre(null); if (e.target.closest('[data-env]')) return go(); if (e.target.closest('[data-cle]')) return envoyer('__cle__'); };
+};
 // commandement des ombres : choisir une, plusieurs ou toutes, puis donner l'ordre
 const PERSO_LBL = { silencieux: 'Silencieux', fier: 'Fière', avide: 'Avide', joueuse: 'Rieuse', prudent: 'Prudent', ambitieux: 'Ambitieux' };
 let selOmbres = null;

@@ -7687,6 +7687,7 @@ function parlerChampion(e) {
   if (victime) opts.push({ label: `Tu as détruit ${victime.nom}. Tu vas le payer.`, sous: 'Vengeance', action: () => scene(P === 'arrogant' ? `${victime.nom} ? Elle s’est dissoute en hurlant. Je n’ai jamais rien entendu d’aussi drôle.` : P === 'prudent' ? `C’était elle ou moi. Tu aurais fait pareil.` : `Ton ombre a nourri la Brèche. Toi aussi, bientôt.`, [{ label: 'Assez parlé.', action: () => { e.dmg *= 1.0; joueur.st.degats *= 1; combat('Viens venger ta poupée !'); } }, { label: 'Pars, et je t’oublierai.', sous: 'Le raisonner', action: () => opts[0].action() }]) });
   if (enleve) opts.push({ label: `Où avez-vous emmené ${enleve.nom} ?`, sous: 'Interroger', action: () => scene(P === 'fanatique' ? `${enleve.nom} attend dans ${LIEUX[enleve.lieu ?? 0]}. Le Seigneur Écarlate a besoin de chair vivante.` : P === 'prudent' ? `Dans la Brèche. ${LIEUX[enleve.lieu ?? 0]}, je crois. Encore en vie… pour l’instant.` : `${enleve.nom} ? Ça pleurait encore quand on l’a jeté dans ${LIEUX[enleve.lieu ?? 0]}. Va le chercher, si tu l’oses.`, [{ label: 'Merci pour l’information. Maintenant, meurs.', action: () => combat('Ha !') }, { label: 'Rentre chez toi.', sous: 'Le raisonner', action: () => opts[0].action() }]) });
   opts.push({ label: 'Regarde mes ombres. Regarde-moi. Tu veux vraiment mourir ici ?', sous: 'Intimider', action: () => menacer(0) });
+  opts.push({ label: '💬 Lui parler librement', sous: 'Écris ce que tu veux', action: () => { UI.dialogueTaverne(null); parlerLibreChampion(e); } });
   opts.push({ label: 'Assez parlé.', sous: 'Combattre', action: () => combat(P === 'arrogant' ? 'ENFIN !' : P === 'prudent' ? 'Tu l’auras voulu.' : 'Pour la Brèche !') });
   function menacer(bonus) {
     const chance = Math.max(0, Math.min(0.95, (F - 0.7) * 0.8 + (1 - pvP) * 0.7 + bonus + { prudent: 0.3, arrogant: -0.25, fanatique: -2 }[P]));
@@ -7790,6 +7791,7 @@ function parlerCompagnon(a) {
   UI.dialogueTaverne({ nom: c.nom, titre: `Compagnon d’armes · ${c.expeditions} expédition(s) · ${c.ordre === 'expedition' ? 'te suit dans la Brèche' : 'garde la ville'}`, modele: a.data.modele || 'Knight', texte, options: [
     { label: 'Viens avec moi dans la Brèche.', sous: 'Il ou elle t’accompagnera en donjon', action: () => { c.ordre = 'expedition'; UI.dialogueTaverne(null); UI.parole(a, 'Je te couvre.'); sauver(); } },
     { label: 'Reste ici et protège la ville.', sous: 'Restera sur la Place pendant tes expéditions', action: () => { c.ordre = 'ville'; UI.dialogueTaverne(null); UI.parole(a, 'Personne ne touchera à la Place.'); sauver(); } },
+    { label: '💬 Parler librement', sous: 'Écris ce que tu veux', action: () => { UI.dialogueTaverne(null); parlerLibreCompagnon(a); } },
     { label: 'Rien. Repose-toi.', action: () => UI.dialogueTaverne(null) }] });
 }
 function volontaires() {
@@ -7860,10 +7862,12 @@ function ouvrirAffaire(af) {
   const a = parId(af.accuse), b = parId(af.plaignant); if (!a) return;
   const now = Date.now();
   let texte = af.recit + ` <br><i>La foule murmure : « ${Math.random() < (af.coupable ? 0.7 : 0.3) ? 'Coupable !' : 'Laissez-le·la tranquille !'} »</i>`;
+  if (af.aveu) texte += `<br><b style="color:#ff8a6a">${a.nom} A AVOUÉ.</b>`;
   if (af.enquete && now >= af.enquete) texte += `<br><b>Rapport de ton ombre :</b> ${(Math.random() < 0.9) === af.coupable ? `${a.nom} est coupable.` : `${a.nom} est innocent·e.`}`;
   else if (af.enquete) texte += `<br><b>Une ombre enquête…</b> rapport dans ${Math.ceil((af.enquete - now) / 60000)} min.`;
   const opts = [];
   if (!af.enquete) opts.push({ label: '🕵 Enquêter d’abord', sous: 'Une ombre fouille la vérité (3 min)', action: () => { af.enquete = Date.now() + 3 * 60000; UI.dialogueTaverne(null); UI.toast('Une ombre se glisse dans la ville…'); sauver(); } });
+  opts.push({ label: '💬 Interroger l’accusé·e', sous: 'Écris tes questions', action: () => { UI.dialogueTaverne(null); interrogerAccuse(af); } });
   opts.push({ label: 'Acquitter', sous: 'Libre', action: () => rendreVerdict(af, 'acquitter') });
   opts.push({ label: 'Amende', sous: '+300 ¤ au trésor', action: () => rendreVerdict(af, 'amende') });
   opts.push({ label: 'Emprisonner', sous: '20 min hors de la Place', action: () => rendreVerdict(af, 'prison') });
@@ -7893,7 +7897,77 @@ function majRoyaume() {
   if (G.t > prochaineAffaire) { prochaineAffaire = G.t + rnd(240, 420); if (!raidV) nouvelleAffaire(); }
 }
 
-window.__jeu = { royaume: () => ouvrirRoyaume(), affaire: () => { prochaineAffaire = 0; royaume().affaires = []; nouvelleAffaire(); }, get comps() { return compActeurs.map(a => a.nom + (a.mort ? '†' : '')).join(','); }, tuerComp: () => blesserAllie(compActeurs[0], 1e9, null), enlever: () => { const g = etatVille().gens.find(x => x.statut === 'vivant'); g.statut = 'enleve'; g.lieu = 0; g.enleveLe = Date.now(); return g.nom; }, get captif() { return captifV && (captifV.g.nom + ':' + captifV.libre); }, liberer: () => libererCaptif(), raidVille: () => lancerRaidVille(), parler: () => { const e = pillards().find(x => x.champion); if (e) parlerChampion(e); return !!e; }, testOmbre: () => blesserOmbre(escouade[0], 1e9, null), get nbOmbres() { return escouade.length; }, get pillardsN() { return pillards().length; }, get citoyens() { return citoyens; }, get modeActuel() { return modeActuel; }, demon: () => basculerDemon(), pacte: () => pacteInvocation(), autel: () => ouvrirAutel(), tirer: (n) => tirerCartes(n), transfert: () => transfert(), code: (c) => utiliserCode(c), get J() { return J; }, entrerTerres: () => entrerTerres(), entrerAncestrales: (e) => entrerAncestrales(e), get terres() { return terres; }, dbgAggro: () => { const c = choisirCible(joueur.st.portee); return [c ? c.nom : null, passantsProches().length, G.agression]; }, domaineTest: (n = 4) => { if (!J.domaine) J.domaine = { niveau: n, serviteurs: [], tresor: 0, maj: Date.now(), graine: 7, journal: [] }; J.domaine.niveau = n; if (!iles().length) J.iles = J.iles || []; return entrerDomaine(); }, bilan: () => MODES.map(m => {
+// ======================= ÉTAPE 7 : PARLER LIBREMENT (IA si clé, sinon mode simple) =======================
+const CLE_IA = 'breche-cle-ia';
+function cleIA() { try { return localStorage.getItem(CLE_IA) || ''; } catch (e) { return ''; } }
+async function demanderIA(systeme, histo) {
+  const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'content-type': 'application/json', 'x-api-key': cleIA(), 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({ model: 'claude-haiku-5-5', max_tokens: 300, system: systeme + '\nRéponds UNIQUEMENT en JSON : {"reponse": "ta réplique en français, 1 à 3 phrases, dans le personnage", "action": "<une des actions permises>"}. Ne sors jamais du personnage, ne mentionne jamais que tu es une IA.', messages: histo }) });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const j = await r.json(), t = (j.content || []).map(c => c.text || '').join('');
+  const m = t.match(/\{[\s\S]*\}/); try { return m ? JSON.parse(m[0]) : { reponse: t, action: 'rien' }; } catch (e) { return { reponse: t.replace(/[{}"]/g, ''), action: 'rien' }; }
+}
+function intentionLocale(txt) {
+  const t = txt.toLowerCase();
+  if (/duel|seul à seul|un contre un|sans (mes )?ombres/.test(t)) return 'duel';
+  if (/avoue|aveu|la vérité|mens|menteu/.test(t)) return 'pression';
+  if (/meur|tuer|tue |crever|détrui|massacr|regarde|peur|écraser|briser/.test(t)) return 'menace';
+  if (/pars|va-t|quitte|rentre|laisse|paix|épargn|recule|fuis/.test(t)) return 'raisonner';
+  if (/viens|suis-moi|avec moi|accompagne/.test(t)) return 'suivre';
+  if (/reste|garde|protège la ville/.test(t)) return 'garder';
+  if (/\?|pourquoi|qui |où |comment|quand/.test(t)) return 'question';
+  return 'autre';
+}
+// conversation générique : p = { nom, titre, modele, systeme(), local(intention, texte) -> {reponse, action}, appliquer(action) -> true si la scène se termine }
+function conversationLibre(p) {
+  const histo = [], lignes = [];
+  const afficher = (attente) => UI.saisieLibre({ nom: p.nom, titre: p.titre + (cleIA() ? ' · IA' : ' · mode simple'), modele: p.modele, lignes, attente, sansCle: !cleIA() }, envoyer);
+  async function envoyer(txt) {
+    if (txt === '__cle__') { const k = prompt('Ta clé API Anthropic (reste uniquement sur ce téléphone) :', cleIA()); if (k !== null) { try { localStorage.setItem(CLE_IA, k.trim()); } catch (e) {} } return afficher(false); }
+    if (!txt) return; lignes.push({ qui: 'toi', t: txt }); afficher(true);
+    let rep;
+    if (cleIA()) { histo.push({ role: 'user', content: txt }); try { rep = await demanderIA(p.systeme(), histo); histo.push({ role: 'assistant', content: JSON.stringify(rep) }); } catch (e) { histo.pop(); rep = p.local(intentionLocale(txt), txt); rep.reponse += ' (IA injoignable : ' + e.message + ')'; } }
+    else rep = p.local(intentionLocale(txt), txt);
+    lignes.push({ qui: 'lui', t: rep.reponse || '…' });
+    if (rep.action && rep.action !== 'rien' && p.appliquer(rep.action)) { afficher(false); setTimeout(() => UI.saisieLibre(null), 2200); return; }
+    afficher(false);
+  }
+  afficher(false);
+}
+function parlerLibreChampion(e) {
+  const P = e.persoC, F = rapportForce(e), O = ombresC(), victime = O.find(r => r.bourreau === e.nomChampion), enleve = etatVille().gens.find(g => g.statut === 'enleve');
+  conversationLibre({ nom: e.nomChampion, titre: 'Champion de la Brèche', modele: 'Barbarian',
+    systeme: () => `Tu es ${e.nomChampion}, champion des cultistes de la Brèche Écarlate, personnalité ${P} (arrogant = méprisant, cède très rarement ; prudent = calculateur, recule si le gardien est plus fort ; fanatique = ne recule JAMAIS, vit pour le Seigneur Écarlate). Tu attaques la Place des Cendres, une ville protégée par le gardien ${J.nom}, qui commande des ombres. Rapport de force : ${F > 1.5 ? 'le gardien est nettement plus fort que toi' : F > 0.9 ? 'vous êtes à peu près égaux' : 'tu es plus fort que lui'}. Tu as ${Math.round(e.pv / e.pvMax * 100)} % de tes forces. ${victime ? `Tu as détruit son ombre ${victime.nom}.` : ''} ${enleve ? `Tes cultistes ont enlevé ${enleve.nom} et l'ont emmené·e dans ${LIEUX[enleve.lieu ?? 0]} (tu peux le révéler ou non).` : ''} ${e.revenu ? 'Tu as déjà affronté ce gardien et tu es revenu te venger.' : ''} Actions permises : "rien" (la conversation continue), "retraite" (tu abandonnes l'attaque — seulement si c'est crédible pour ta personnalité et le rapport de force), "combat" (tu attaques), "duel" (tu acceptes un duel singulier sans ombres).`,
+    local: (i) => {
+      if (i === 'menace') { const ch = Math.max(0, (F - 0.7) * 0.8 + (1 - e.pv / e.pvMax) * 0.7 + { prudent: 0.3, arrogant: -0.25, fanatique: -2 }[P]); return Math.random() < ch ? { reponse: 'Tch… Très bien. Je pars. Pour cette fois.', action: 'retraite' } : { reponse: P === 'fanatique' ? 'Me menacer ? Je meurs pour la Brèche avec joie !' : 'Des mots. Rien que des mots, gardien.', action: Math.random() < 0.5 ? 'combat' : 'rien' }; }
+      if (i === 'raisonner') return P === 'prudent' && F > 0.9 ? { reponse: 'Soit. La Brèche se souviendra de toi.', action: 'retraite' } : { reponse: P === 'arrogant' ? 'Partir ? Bats-toi seul contre moi si tu veux que je parte.' : 'La Brèche ne recule pas.', action: 'rien' };
+      if (i === 'duel') return P === 'prudent' ? { reponse: 'Un duel ? Je ne suis pas idiot.', action: 'rien' } : { reponse: 'ENFIN un peu de courage ! Que personne n’intervienne !', action: 'duel' };
+      if (i === 'question') return enleve ? { reponse: P === 'arrogant' ? `${enleve.nom} ? Va voir dans ${LIEUX[enleve.lieu ?? 0]}… si tu l’oses.` : `Le Seigneur Écarlate nous envoie. Tes habitants nourrissent la Brèche.`, action: 'rien' } : { reponse: 'Le Seigneur Écarlate nous envoie. Ta ville est sur son chemin.', action: 'rien' };
+      return { reponse: hasard(OUVERTURES[P]), action: 'rien' };
+    },
+    appliquer: (a) => {
+      if (a === 'retraite' && P !== 'fanatique') { retraiteChampion(e, 'Je pars…', F > 1.8); return true; }
+      if (a === 'combat') { e.parle = false; UI.parole(e, 'Assez parlé !', 'menace'); return true; }
+      if (a === 'duel') { duelV = e; for (const r of ombresC()) if (!r.mission) { r.ordreAvantDuel = r.ordre; r.ordre = 'escorte'; } e.parle = false; UI.toast('DUEL — tes ombres reculent', true); return true; }
+      return false;
+    } });
+}
+function parlerLibreCompagnon(a) {
+  const c = a.compagnonV, morts = compagnons().filter(x => x.statut === 'mort').map(x => x.nom);
+  conversationLibre({ nom: c.nom, titre: 'Compagnon d’armes', modele: a.data.modele || 'Knight',
+    systeme: () => `Tu es ${c.nom}, compagnon·ne d'armes du gardien ${J.nom}, qui protège la Place des Cendres contre les cultistes de la Brèche Écarlate. Tu as fait ${c.expeditions} expéditions avec lui. ${morts.length ? `Tes camarades morts : ${morts.join(', ')}. Ça te pèse.` : ''} Moral de la ville : ${Math.round(etatVille().moral)} %. Tu es loyal·e mais franc·he, tu peux exprimer peur, doutes, désaccord. Actions permises : "rien", "suivre" (tu acceptes de l'accompagner dans la Brèche), "garder" (tu restes protéger la ville).`,
+    local: (i) => i === 'suivre' ? { reponse: 'Je te couvre, comme toujours.', action: 'suivre' } : i === 'garder' ? { reponse: 'Personne ne touchera à la Place.', action: 'garder' } : { reponse: morts.length ? `Je pense encore à ${morts[0]}… Mais je suis là.` : hasard(['Prêt·e quand tu l’es.', 'La Brèche ne me fait pas peur, tant qu’on reste ensemble.']), action: 'rien' },
+    appliquer: (x) => { if (x === 'suivre') c.ordre = 'expedition'; else if (x === 'garder') c.ordre = 'ville'; else return false; sauver(); return false; } });
+}
+function interrogerAccuse(af) {
+  const a = parId(af.accuse), b = parId(af.plaignant); if (!a) return;
+  conversationLibre({ nom: a.nom, titre: `Accusé·e · ${a.metier}`, modele: a.modele,
+    systeme: () => `Tu es ${a.nom}, ${a.metier} de la Place des Cendres. Tu es jugé·e par le seigneur ${J.nom} : « ${af.titre} ». Les faits : ${af.recit} En vérité tu es ${af.coupable ? 'COUPABLE : tu mens et tu te défends, tu n\'avoues que si le seigneur te pousse intelligemment ou trouve une contradiction' : 'INNOCENT·E : tu te défends sincèrement, tu peux être en colère ou effrayé·e, tu n\'avoues jamais'}. Actions permises : "rien", "aveu" (uniquement si coupable et que tu craques).`,
+    local: (i) => i === 'pression' || i === 'menace' ? (af.coupable && Math.random() < 0.35 ? { reponse: '…D’accord. C’est moi. Je… je n’avais pas le choix.', action: 'aveu' } : { reponse: af.coupable ? 'Je n’ai rien fait ! Demandez à qui vous voulez !' : `Je suis innocent·e ! ${b ? b.nom + ' ment !' : ''}`, action: 'rien' }) : { reponse: af.coupable ? 'Je… j’étais ailleurs. Je le jure.' : 'Je vous dis la vérité, seigneur. Je n’ai rien fait.', action: 'rien' },
+    appliquer: (x) => { if (x === 'aveu' && af.coupable) { af.aveu = true; sauver(); return true; } return false; } });
+}
+
+window.__jeu = { interroger: () => interrogerAccuse(royaume().affaires[0]), royaume: () => ouvrirRoyaume(), affaire: () => { prochaineAffaire = 0; royaume().affaires = []; nouvelleAffaire(); }, get comps() { return compActeurs.map(a => a.nom + (a.mort ? '†' : '')).join(','); }, tuerComp: () => blesserAllie(compActeurs[0], 1e9, null), enlever: () => { const g = etatVille().gens.find(x => x.statut === 'vivant'); g.statut = 'enleve'; g.lieu = 0; g.enleveLe = Date.now(); return g.nom; }, get captif() { return captifV && (captifV.g.nom + ':' + captifV.libre); }, liberer: () => libererCaptif(), raidVille: () => lancerRaidVille(), parler: () => { const e = pillards().find(x => x.champion); if (e) parlerChampion(e); return !!e; }, testOmbre: () => blesserOmbre(escouade[0], 1e9, null), get nbOmbres() { return escouade.length; }, get pillardsN() { return pillards().length; }, get citoyens() { return citoyens; }, get modeActuel() { return modeActuel; }, demon: () => basculerDemon(), pacte: () => pacteInvocation(), autel: () => ouvrirAutel(), tirer: (n) => tirerCartes(n), transfert: () => transfert(), code: (c) => utiliserCode(c), get J() { return J; }, entrerTerres: () => entrerTerres(), entrerAncestrales: (e) => entrerAncestrales(e), get terres() { return terres; }, dbgAggro: () => { const c = choisirCible(joueur.st.portee); return [c ? c.nom : null, passantsProches().length, G.agression]; }, domaineTest: (n = 4) => { if (!J.domaine) J.domaine = { niveau: n, serviteurs: [], tresor: 0, maj: Date.now(), graine: 7, journal: [] }; J.domaine.niveau = n; if (!iles().length) J.iles = J.iles || []; return entrerDomaine(); }, bilan: () => MODES.map(m => {
     const eq = genererEquipRival(m.ipConseil, 'epee'), niv = nivBot(eq), st = statsHeros(eq, niv), dps = st.degats * st.vitesseAtk * (1 + st.crit / 200);
     const mob = creerEnnemi(MOBS.guerrier, V(900, 0, 900), m.mobTier, -9), mi = creerEnnemi(MOBS.minion, V(900, 0, 900), m.mobTier, -9), b = creerBoss(BOSS[0], V(905, 0, 905), m.bossTier[0], null), b3 = creerBoss(BOSS[3], V(905, 0, 905), m.bossTier[3], null);
     const r = { mode: m.lieu, ip: m.ipConseil, niv, pv: Math.round(st.pvMax), dps: Math.round(dps), red: +st.reduction.toFixed(2), ttkMinion: +(mi.pvMax / dps).toFixed(1), ttkGuerrier: +(mob.pvMax / dps).toFixed(1), ttkBoss1: Math.round(b.pvMax / dps), ttkBoss4: Math.round(b3.pvMax / dps), coupsGuerrierPourMourir: +(st.pvMax / (mob.dmg * (1 - st.reduction))).toFixed(1), coupsBossPourMourir: +(st.pvMax / (b.dmg * (1 - st.reduction))).toFixed(1) };
