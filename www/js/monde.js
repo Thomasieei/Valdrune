@@ -1,5 +1,5 @@
 // Le monde : clairière du camp, forêt (arbres qu'on abat vraiment), réserve de bois, feu de camp, dépouilles.
-import { THREE, G, V, emettre, son } from './moteur.js';
+import { THREE, G, V, emettre, son, projeter } from './moteur.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const loader = new GLTFLoader();
@@ -70,7 +70,7 @@ export function frapperArbre(ar, depuis, force = 1) {
 }
 const chutes = [];
 function abattre(ar, depuis) {
-  ar.etat = 'tombe'; parType[ar.type].maj(ar.i, { p: ar.pos, r: ar.r, e: 0.0001 });
+  ar.etat = 'tombe'; ar.secoue = 0; parType[ar.type].maj(ar.i, { p: ar.pos, r: ar.r, e: 0.0001 });
   const g = N[ar.type].clone(); g.scale.setScalar(ar.e); g.rotation.y = ar.r; const piv = new THREE.Group(); piv.position.copy(ar.pos); piv.add(g); G.scene.add(piv);
   const dir = Math.atan2(ar.pos.x - depuis.x, ar.pos.z - depuis.z); piv.rotation.y = dir; g.rotation.y = ar.r - dir;
   chutes.push({ ar, piv, t: 0 });
@@ -107,7 +107,7 @@ function majRepousse(dt) {
     if (ar.repousse > 90) { const k = Math.min(1, (ar.repousse - 90) / 60); parType[ar.type].maj(ar.i, { p: ar.pos, r: ar.r, e: ar.e * (0.15 + 0.85 * k) }); if (ar.souche && k > 0.2) { G.scene.remove(ar.souche); ar.souche = null; } if (k >= 1) { ar.etat = 'debout'; ar.pv = ar.pvMax; } }
   }
 }
-function majSecousses(dt) { for (const ar of arbres) if (ar.secoue > 0) { ar.secoue -= dt; const k = Math.max(0, ar.secoue) * 0.25; parType[ar.type].maj(ar.i, { p: V(ar.pos.x + Math.sin(G.t * 60) * k * 0.3, ar.pos.y, ar.pos.z), r: ar.r + Math.sin(G.t * 50) * k, e: ar.e }); } }
+function majSecousses(dt) { for (const ar of arbres) if (ar.secoue > 0 && ar.etat === 'debout') { /* jamais sur un arbre déjà tombé : sinon il réapparaissait debout */ ar.secoue -= dt; const k = Math.max(0, ar.secoue) * 0.25; parType[ar.type].maj(ar.i, { p: V(ar.pos.x + Math.sin(G.t * 60) * k * 0.3, ar.pos.y, ar.pos.z), r: ar.r + Math.sin(G.t * 50) * k, e: ar.e }); } }
 // ---------------- Réserve de bois : la pile grandit vraiment ----------------
 const pile = []; let pileGroupe = null;
 function construireReserve() {
@@ -158,15 +158,26 @@ function construireCarriere() {
 export function tailler(f, n, pos) {
   if (f.pierre <= 0) return 0; const pris = Math.min(n, f.pierre); f.pierre -= pris;
   emettre(V(f.pos.x, f.pos.y + 0.9, f.pos.z), { n: 8, c1: '#f0ece0', c2: '#6a6a70', vit: 3, vie: 0.5, taille: 0.12, grav: 9 }); son('impactMetal_light_000', 0.35, 0.7 + Math.random() * 0.2, f.pos);
-  const k = 0.35 + 0.65 * f.pierre / f.max; f.g.scale.setScalar(f.e * k); if (f.pierre <= 0) { f.g.visible = false; f.repousse = 0; }
+  const k = 0.35 + 0.65 * f.pierre / f.max; f.g.scale.setScalar(f.e * k); if (f.pierre <= 0) { f.g.scale.setScalar(f.e * 0.22); f.repousse = 0; emettre(V(f.pos.x, f.pos.y + 0.5, f.pos.z), { n: 30, c1: '#d8d4c8', c2: '#5a5a60', vit: 4, vie: 0.8, taille: 0.25, grav: 8 }); } /* il reste des gravats, le filon se reforme peu à peu */
   return pris;
 }
-function majFilons(dt) { for (const f of filons) if (f.pierre <= 0) { f.repousse += dt * (G.repoussePierre || 1); if (f.repousse > 120) { f.pierre = f.max; f.g.visible = true; f.g.scale.setScalar(f.e); } } }
+export const REPOUSSE = { bois: 150, pierre: 120 };
+function majFilons(dt) { for (const f of filons) if (f.pierre <= 0) { f.repousse += dt * (G.repoussePierre || 1); const k = Math.min(1, f.repousse / REPOUSSE.pierre); f.g.scale.setScalar(f.e * (0.22 + 0.78 * k * k)); if (k >= 1) { f.pierre = f.max; emettre(V(f.pos.x, f.pos.y + 1, f.pos.z), { n: 20, c1: '#fff6d8', c2: '#9a9aa2', vit: 2, vie: 0.7, taille: 0.2, grav: -1 }); } } }
+// minuteurs de repousse visibles près de la caméra : le joueur sait quand la ressource revient
+const minut = [];
+function majMinuteurs() {
+  const hote = document.getElementById('bulles'); if (!hote) return; let k = 0; const c = G.camCible, fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+  const ajoute = (p, txt) => { if (k >= 14) return; const s = projeter(V(p.x, p.y + 1.6, p.z)); if (!s.devant) return; let e = minut[k]; if (!e) { e = document.createElement('div'); e.className = 'eti repousse'; hote.appendChild(e); minut[k] = e; } if (e._t !== txt) { e.textContent = txt; e._t = txt; } e.style.display = ''; e.style.transform = `translate(${s.x}px,${s.y}px) translate(-50%,-100%)`; k++; };
+  for (const a of arbres) if (a.etat === 'souche' && Math.hypot(a.pos.x - c.x, a.pos.z - c.z) < 22) ajoute(a.pos, '🌱 ' + fmt(Math.max(0, (REPOUSSE.bois - a.repousse) / (G.repousseBois || 1))));
+  for (const f of filons) if (f.pierre <= 0 && Math.hypot(f.pos.x - c.x, f.pos.z - c.z) < 22) ajoute(f.pos, '⛏️ ' + fmt(Math.max(0, (REPOUSSE.pierre - f.repousse) / (G.repoussePierre || 1))));
+  for (let i = k; i < minut.length; i++) minut[i].style.display = 'none';
+}
+let minT = 0;
 export function filonProche(p, max = 999) { let b = null, bd = max; for (const f of filons) { if (f.pierre <= 0 || f.ouvriers >= 2) continue; const d = Math.hypot(f.pos.x - p.x, f.pos.z - p.z); if (d < bd) { bd = d; b = f; } } return b; }
 export function construireMonde() {
   G.hauteur = hauteur;
   G.obstacle = (x, z) => { for (const a of arbres) if (a.etat === 'debout' && Math.abs(a.pos.x - x) < 2 && Math.abs(a.pos.z - z) < 2 && Math.hypot(a.pos.x - x, a.pos.z - z) < 1.6 * a.e) return true; return false; };
   construireTerrain(); construireForet(); construireDecor(); construireReserve(); construireFeu(); construireCarriere();
 }
-export function majMonde(dt) { majFilons(dt); majChutes(dt); majRepousse(dt); majSecousses(dt); majFeu(dt); }
+export function majMonde(dt) { majMinuteurs(); majFilons(dt); majChutes(dt); majRepousse(dt); majSecousses(dt); majFeu(dt); }
 export function libre(x, z) { for (const a of arbres) if (a.etat !== 'tombe' && Math.hypot(a.pos.x - x, a.pos.z - z) < 0.7) return false; return Math.hypot(x, z) < 80; }

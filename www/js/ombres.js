@@ -63,11 +63,15 @@ export class Ombre {
     const dx = dest.x - this.pos.x, dz = dest.z - this.pos.z, d = Math.hypot(dx, dz);
     if (d < 0.25) return true;
     const pas = Math.min(d, vit * dt); let a = Math.atan2(dx, dz);
+    // bloquée plus de 2,5 s ? l'ombre se fond et passe à travers (c'est une ombre) plutôt que d'errer
+    if (this.fantome > 0) this.fantome -= dt;
+    else if (this.blq > 2.5) { this.fantome = 2.5; this.blq = 0; }
     // contourne les murs : essaie de dévier de plus en plus, en gardant le côté choisi pour ne pas hésiter
-    if (bloque(this.pos.x + Math.sin(a) * 0.5, this.pos.z + Math.cos(a) * 0.5, 0.3)) {
+    if (!(this.fantome > 0) && bloque(this.pos.x + Math.sin(a) * 0.5, this.pos.z + Math.cos(a) * 0.5, 0.3)) {
       this.cote ??= Math.random() < 0.5 ? 1 : -1;
+      this.blq = (this.blq || 0) + dt;
       for (const k of [0.5, 0.9, 1.3, 1.7, 2.2]) { const b = a + k * this.cote; if (!bloque(this.pos.x + Math.sin(b) * 0.5, this.pos.z + Math.cos(b) * 0.5, 0.3)) { a = b; break; } }
-    } else if (Math.random() < dt) this.cote = null;
+    } else { this.blq = Math.max(0, (this.blq || 0) - dt * 0.5); if (Math.random() < dt) this.cote = null; }
     this.pos.x += Math.sin(a) * pas; this.pos.z += Math.cos(a) * pas; this.pos.y = hauteur(this.pos.x, this.pos.z);
     this.tourner(a, dt);
     this.p.jouer(anim, { vitesse: anim === 'Walk_Loop' ? vit / 1.6 : anim === 'Walk_Carry_Loop' ? vit / 1.5 : vit / 3.4 });
@@ -75,7 +79,8 @@ export class Ombre {
   }
   tourner(a, dt) { let da = a - this.p.root.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); this.p.root.rotation.y += da * Math.min(1, dt * 9); }
   liberer() { if (this.cible && typeof this.cible.ouvriers === 'number') this.cible.ouvriers = Math.max(0, this.cible.ouvriers - 1); this.cible = null; }
-  coup() { const ph = this.p.phase(), ok = this.ph < 0.5 && ph >= 0.5; this.ph = ph; return ok; } // l'instant où l'outil frappe
+  // l'instant où l'outil frappe : compté sur le temps écoulé (fiable même si l'image saute, téléphone lent ou temps accéléré)
+  coup(dt) { const a = this.p.actions[this.p.anim]; if (!a) return false; const D = a.getClip().duration / (a.timeScale || 1); this.tc = (this.tc || 0) + dt; const k = Math.floor(this.tc / D + 0.5); if (k > (this.kc || 0)) { this.kc = k; return true; } return false; }
   // ---------- récolte (bois ou pierre), étape par étape ----------
   majRecolte(dt, j, res) {
     if (this.etat !== 'aller' && this.etat !== 'travail' && this.etat !== 'porter' && this.etat !== 'depose') this.etat = 'chercher';
@@ -96,7 +101,7 @@ export class Ombre {
       const k = centre(), r = res === 'pierre' ? 0.75 * c.e + 0.45 : c.etat === 'abattu' ? 1.25 : 1.05;
       this.but.set(k.x + Math.cos(this.angBut) * r, 0, k.z + Math.sin(this.angBut) * r);
       this.montrer(res, null);
-      if (this.aller(this.but, dt, this.R.vit * 0.85)) { this.etat = 'travail'; this.ph = 0; }
+      if (this.aller(this.but, dt, this.R.vit * 0.85)) { this.etat = 'travail'; this.tc = 0; this.kc = 0; }
       return;
     }
     if (this.etat === 'travail') {
@@ -105,7 +110,7 @@ export class Ombre {
       const k = centre(); if (Math.hypot(k.x - this.pos.x, k.z - this.pos.z) > 2.6) { this.etat = 'aller'; return; }
       this.tourner(Math.atan2(k.x - this.pos.x, k.z - this.pos.z), dt);
       this.p.jouer('TreeChopping_Loop', { vitesse: this.vitesse(res) });
-      if (this.coup()) {
+      if (this.coup(dt)) {
         const par = 1 + Math.floor('EDCBAS'.indexOf(this.d.rang) / 2), place = this.capacite(res) - this.charge;
         if (res === 'bois' && c.etat === 'debout') frapperArbre(c, this.pos, 1);
         else this.charge += res === 'bois' ? debiter(c, Math.min(place, par)) : tailler(c, Math.min(place, par), this.pos);
@@ -135,7 +140,7 @@ export class Ombre {
       const av = this.d.avant; if (av === 'bois' || av === 'pierre') { this.changerMetier(av); this.dire(av === 'bois' ? 'Le chantier est fini. Je retourne au bois.' : 'Le chantier est fini. Je retourne à la carrière.'); return; }
       if (!this.oisif) { this.oisif = true; signalCb && signalCb(this, `🔨 ${this.d.nom} n’a plus de chantier`); } this.majRepos(dt); return; }
     this.oisif = false;
-    const r = b.T.rayon * 0.9, k = b.g.position; this.but.set(k.x + Math.cos(this.angBut) * r, 0, k.z + Math.sin(this.angBut) * r);
+    const r = Math.max(b.T.rayon * 0.9, (b.T.demi || 0) * b.T.ech * 1.45 + 0.6), k = b.g.position; /* poste de travail toujours hors des murs */ this.but.set(k.x + Math.cos(this.angBut) * r, 0, k.z + Math.sin(this.angBut) * r);
     this.montrer('construire', null);
     if (Math.hypot(this.but.x - this.pos.x, this.but.z - this.pos.z) > 0.4) { this.aller(this.but, dt, this.R.vit); return; }
     this.tourner(Math.atan2(k.x - this.pos.x, k.z - this.pos.z), dt);
