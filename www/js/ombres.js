@@ -3,7 +3,7 @@
 import { THREE, G, V, emettre, son, texteFlottant } from './moteur.js';
 import { Perso } from './persos.js';
 import { arbreProche, frapperArbre, debiter, buche, hauteur, filonProche, tailler } from './monde.js';
-import { depotProche, chantierProche, marteler } from './batiments.js';
+import { depotProche, chantierProche, marteler, enTravaux } from './batiments.js';
 
 export const RANGS = {
   E: { c: '#a7b0bb', coupe: 1.0, charge: 4, vit: 3.2 },
@@ -56,7 +56,7 @@ export class Ombre {
   get R() { return RANGS[this.d.rang]; }
   mt(k = this.d.metier) { return this.d.maitrise[k] || { niv: 1, xp: 0 }; }
   vitesse(k) { return this.R.coupe * (1 + 0.04 * (this.mt(k).niv - 1)); }
-  capacite(k) { return this.R.charge + Math.floor((this.mt(k).niv - 1) / 4); }
+  capacite(k) { return this.R.charge + Math.floor((this.mt(k).niv - 1) / 4) + ((G.chargeBonus || {})[k] || 0); }
   dire(t) { bulleCb && bulleCb(this, t); }
   montrer(outilK, portK) { for (const k in this.outils) this.outils[k].visible = k === outilK; for (const k in this.port) this.port[k].visible = k === portK; }
   aller(dest, dt, vit, anim = 'Walk_Loop') {
@@ -109,7 +109,7 @@ export class Ombre {
     }
     if (this.etat === 'porter') {
       const dep = depotProche(this.pos, res); this.montrer(null, res);
-      const dest = V(dep.pos.x + Math.cos(this.d.id * 1.7) * 2.4, 0, dep.pos.z + Math.sin(this.d.id * 1.7) * 2.4);
+      const dest = V(dep.pos.x + Math.cos(this.d.id * 1.7) * dep.r, 0, dep.pos.z + Math.sin(this.d.id * 1.7) * dep.r);
       if (this.aller(dest, dt, this.R.vit * 0.75, 'Walk_Carry_Loop')) {
         this.montrer(null, null); const n = Math.round(this.charge * dep.bonus); this.charge = 0;
         j.ajouter(res, n, dep.pos); this.gagnerXp(res, n);
@@ -122,8 +122,8 @@ export class Ombre {
   }
   // ---------- construction : marteler le chantier le plus proche ----------
   majConstruire(dt, j) {
-    if (this.force) { this.cible = this.force.fini ? null : this.force; this.force = null; this.angBut = Math.random() * 6.28; }
-    let b = this.cible && this.cible.T && !this.cible.fini ? this.cible : null;
+    if (this.force) { this.cible = enTravaux(this.force) ? this.force : null; this.force = null; this.angBut = Math.random() * 6.28; }
+    let b = this.cible && this.cible.T && enTravaux(this.cible) ? this.cible : null;
     if (!b) { b = chantierProche(this.pos); this.cible = b; this.angBut = Math.random() * 6.28; }
     if (!b) { this.majRepos(dt); return; }
     const r = b.T.rayon * 0.9, k = b.g.position; this.but.set(k.x + Math.cos(this.angBut) * r, 0, k.z + Math.sin(this.angBut) * r);

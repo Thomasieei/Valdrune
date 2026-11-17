@@ -3,7 +3,7 @@ import { THREE, G, V, initRendu, rendre, majCamera, initEntrees, solSous, direct
 import { chargerPersos, Perso } from './persos.js';
 import { chargerNature, construireMonde, majMonde, majPile, hauteur, arbreProche, frapperArbre, libre, RESERVE, FEU, filons } from './monde.js';
 import { Ombre, RANGS, NOMS, METIERS, parole, surParole, xpNiveau, teinteOmbre } from './ombres.js';
-import { chargerBatiments, TYPES, batiments, creerBatiment, majBatiments, placementValide, fantomeBatiment, majEtiquettesChantiers, aBatiment, marteler, chantierProche } from './batiments.js';
+import { chargerBatiments, TYPES, batiments, creerBatiment, majBatiments, placementValide, fantomeBatiment, majEtiquettesChantiers, aBatiment, marteler, chantierProche, ameliorer, enTravaux, niveauDe, prochain, meilleur, bloque, majInterieur, dedans } from './batiments.js';
 
 const $ = (s) => document.querySelector(s);
 const CLE = 'souverain-v1';
@@ -67,12 +67,16 @@ const jeu = {
     texteFlottant(V(pos.x, (pos.y || 0) + 2.4, pos.z), `+${n} ${ICONES[res]}`, 'bois'); majHud(res); majQuete();
   },
   batimentFini(b, o) {
-    son('jingles_PIZZI03', 0.5); toast(`${b.T.icone} ${b.T.nom} terminé${b.T.nom.endsWith('e') ? 'e' : ''} !`);
+    son('jingles_PIZZI03', 0.5); toast(b.s.niv > 1 ? `${b.T.icone} ${b.T.nom} passe niveau ${b.s.niv} ! ${'⭐'.repeat(b.s.niv)}` : `${b.T.icone} ${b.T.nom} terminé${b.T.nom.endsWith('e') ? 'e' : ''} !`);
     emettre(V(b.g.position.x, b.g.position.y + 2, b.g.position.z), { n: 80, c1: '#ffe9a0', c2: '#b36bff', vit: 5, vie: 1.1, taille: 0.25, grav: 1 });
     if (o && !b.T.segment) o.dire('C’est fait, maître.'); appliquerBatiments(); sauver(); majQuete(); if ($('#panneau').classList.contains('on') && $('#panneau').dataset.vue === 'ombres') ouvrirOmbres();
   },
 };
-function appliquerBatiments() { joueur.manaMax = 100 + batiments.filter(b => b.fini && b.s.type === 'puits').length * 20; }
+function appliquerBatiments() {
+  joueur.manaMax = 100 + batiments.reduce((m, b) => m + (b.fini && b.s.type === 'puits' ? niveauDe(b).mana : 0), 0); joueur.regen = Math.max(1, meilleur('puits', 'regen'));
+  G.repousseBois = Math.max(1, meilleur('scierie', 'repousse')); G.repoussePierre = Math.max(1, meilleur('mine', 'repousse'));
+  G.chargeBonus = { bois: meilleur('scierie', 'charge'), pierre: meilleur('mine', 'charge') };
+}
 Object.defineProperty(jeu, 'pos', { get: () => joueur.pos }); Object.defineProperty(jeu, 'perso', { get: () => joueur.perso });
 // ---------------- Quête guidée (on comprend en 10 secondes quoi faire) ----------------
 const QUETES = [
@@ -135,11 +139,31 @@ function ouvrirConstruire() {
     const ok = Object.entries(T.cout).every(([r, n]) => (J[r] || 0) >= n), nb = batiments.filter(b => b.s.type === k).length;
     const cout = Object.entries(T.cout).map(([r, n]) => `<span class="${(J[r] || 0) >= n ? '' : 'manque'}">${ICONES[r]} ${n}</span>`).join(' ');
     return `<div class="carte bat ${ok ? '' : 'non'}" data-b="${k}"><div class="tete"><span class="ico">${T.icone}</span><b>${T.nom}</b>${nb ? `<small>× ${nb}</small>` : ''}</div>
-      <div class="stats">${T.effet}</div><div class="cout">${cout}<button data-poser="${k}" ${ok ? '' : 'disabled'}>Placer</button></div></div>`;
+      <div class="stats">${T.niveaux[0].effet}${T.niveaux.length > 1 ? ` · <em>améliorable jusqu’au niveau ${T.niveaux.length}</em>` : ""}</div><div class="cout">${cout}<button data-poser="${k}" ${ok ? '' : 'disabled'}>Placer</button></div></div>`;
   }).join('') + '<p class="vide">Une fois posé, le chantier attend tes bâtisseurs : mets une ou plusieurs ombres en 🔨 Bâtir.</p>';
+}
+function batimentSous(q) { let best = null, bd = 1e9; for (const b of batiments) { if (b.T.segment) continue; const d = Math.hypot(b.g.position.x - q.x, b.g.position.z - q.z); if (d < b.T.rayon && d < bd) { bd = d; best = b; } } return best; }
+const etoiles = (n, max) => '★'.repeat(n) + '<i>' + '★'.repeat(max - n) + '</i>';
+let batOuvert = null;
+function ouvrirBatiment(b) {
+  batOuvert = b; const p = $('#panneau'); p.classList.add('on'); p.dataset.vue = 'batiment'; p.querySelector('h2').textContent = b.T.nom; son('confirmation_001', 0.3);
+  const n = niveauDe(b), nx = prochain(b), max = b.T.niveaux.length, niv = b.s.niv || 1;
+  let bas;
+  if (!b.fini) bas = `<p class="vide">🔨 En construction · ${Math.floor((b.s.prog || 0) * 100)} % — mets des ombres en Bâtir.</p>`;
+  else if (b.s.amel) bas = `<p class="vide">⬆️ Amélioration en cours · ${Math.floor((b.s.prog || 0) * 100)} % — tes bâtisseurs y travaillent.</p>`;
+  else if (!nx) bas = '<p class="vide">👑 Niveau maximum atteint.</p>';
+  else { const ok = Object.entries(nx.cout).every(([r, k]) => (J[r] || 0) >= k);
+    bas = `<div class="carte bat ${ok ? '' : 'non'}"><div class="tete"><span class="ico">⬆️</span><b>Niveau ${niv + 1}</b><small class="et">${etoiles(niv + 1, max)}</small></div>
+      <div class="stats">${nx.effet}</div><div class="cout">${Object.entries(nx.cout).map(([r, k]) => `<span class="${(J[r] || 0) >= k ? '' : 'manque'}">${ICONES[r]} ${k}</span>`).join(' ')}<button data-amel ${ok ? '' : 'disabled'}>Améliorer</button></div></div>`; }
+  p.querySelector('.liste').innerHTML = `<div class="carte bat"><div class="tete"><span class="ico">${b.T.icone}</span><b>Niveau ${niv}</b><small class="et">${etoiles(niv, max)}</small></div><div class="stats">${n.effet}</div></div>` + bas;
 }
 $('#panneau').addEventListener('click', (e) => {
   if (e.target.closest('[data-x]')) { $('#panneau').classList.remove('on'); return; }
+  if (e.target.closest('[data-amel]') && batOuvert) {
+    const b = batOuvert, nx = prochain(b); if (!nx || !Object.entries(nx.cout).every(([r, k]) => (J[r] || 0) >= k)) return;
+    for (const [r, k] of Object.entries(nx.cout)) J[r] -= k; ameliorer(b); son('impactPunch_medium_001', 0.5); majHud(); sauver();
+    $('#panneau').classList.remove('on'); toast(J.ombres.some(o => o.metier === 'construire') ? '⬆️ Échafaudages montés : tes bâtisseurs s’y mettent' : '⬆️ Échafaudages montés ! Mets une ombre en 🔨 Bâtir'); return;
+  }
   const pz = e.target.closest('[data-poser]'); if (pz) { $('#panneau').classList.remove('on'); commencerPlacement(pz.dataset.poser); return; }
   const b = e.target.closest('[data-o]'); if (!b || b.disabled) return;
   const d = J.ombres.find(x => x.id === +b.closest('[data-id]').dataset.id), o = ombres.find(x => x.d === d);
@@ -192,13 +216,13 @@ function majAction() {
 function ombreSous(x, y) { let best = null, bd = 60; for (const o of ombres) { const s = projeter(V(o.pos.x, o.pos.y + 1, o.pos.z)); const d = Math.hypot(s.x - x, s.y - y); if (s.devant && d < bd) { bd = d; best = o; } } return best; }
 function toucher(x, y) {
   const best = ombreSous(x, y);
-  if (G.mode !== 'souverain') { if (best) { selection = best; best.dire(`${best.d.nom}, rang ${best.d.rang}. J’écoute.`); son('cloth1', 0.4); ouvrirOmbres(); } return; }
+  if (G.mode !== 'souverain') { if (best) { selection = best; best.dire(`${best.d.nom}, rang ${best.d.rang}. J’écoute.`); son('cloth1', 0.4); ouvrirOmbres(); } else { const q = solSous(x, y), bt = q && batimentSous(q); if (bt) ouvrirBatiment(bt); } return; }
   const q = solSous(x, y);
   if (placement) { if (q) { placement.x = q.x; placement.z = q.z; } return; }
   if (best) { selection = best; son('cloth1', 0.4); best.dire(parole('eveil')); indice('Touche un arbre 🪓, un rocher ⛏️ ou un chantier 🔨'); return; }
-  if (!selection || !q) { if (selection) { selection = null; indice(''); } return; }
+  if (!selection || !q) { if (selection) { selection = null; indice(''); return; } const bt = q && batimentSous(q); if (bt) ouvrirBatiment(bt); return; }
   // ordre direct dans le monde : on touche la cible, l'ombre y va
-  const ch = batiments.find(b => !b.fini && Math.hypot(b.g.position.x - q.x, b.g.position.z - q.z) < b.T.rayon + 0.5);
+  const ch = batiments.find(b => enTravaux(b) && Math.hypot(b.g.position.x - q.x, b.g.position.z - q.z) < b.T.rayon + 0.5);
   const ar = !ch && arbreProche(q, a => a.etat === 'debout' || (a.etat === 'abattu' && a.bois > 0), 2.4);
   const fi = !ch && !ar && filons.find(f => f.pierre > 0 && Math.hypot(f.pos.x - q.x, f.pos.z - q.z) < 0.75 * f.e + 1.2);
   let m = null, cible = null, cp = q;
@@ -232,19 +256,19 @@ function majJoueur(dt) {
   if (f > 0.05) {
     joueur.chop = null; joueur.bati = null; const v = f > 0.85 ? 6.2 : 3.4;
     const nx = joueur.pos.x + dir.x * v * dt, nz = joueur.pos.z + dir.z * v * dt;
-    if (Math.hypot(nx, nz) < 78 && libre(nx, nz)) { joueur.pos.x = nx; joueur.pos.z = nz; }
+    if (Math.hypot(nx, nz) < 78 && libre(nx, nz)) { if (!bloque(nx, nz)) { joueur.pos.x = nx; joueur.pos.z = nz; } else if (!bloque(nx, joueur.pos.z)) joueur.pos.x = nx; else if (!bloque(joueur.pos.x, nz)) joueur.pos.z = nz; } /* glisse le long des murs */
     let da = Math.atan2(dir.x, dir.z) - p.root.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); p.root.rotation.y += da * Math.min(1, dt * 12);
     p.jouer(f > 0.85 ? 'Jog_Fwd_Loop' : 'Walk_Loop', { vitesse: f > 0.85 ? 1.15 : 1.1 });
   } else if (joueur.bati) {
-    const b = joueur.bati; if (b.fini) { joueur.bati = null; p.jouer('Idle_Loop'); }
+    const b = joueur.bati; if (!enTravaux(b)) { joueur.bati = null; p.jouer('Idle_Loop'); }
     else { p.root.rotation.y = Math.atan2(b.g.position.x - joueur.pos.x, b.g.position.z - joueur.pos.z); p.jouer('Fixing_Kneeling', { vitesse: 1.3 }); joueur.bt = (joueur.bt || 0) - dt; if (joueur.bt <= 0) { joueur.bt = 0.7; if (marteler(b, 1.5, joueur.pos)) { jeu.batimentFini(b, null); joueur.bati = null; } } }
   } else if (joueur.chop) {
     const a = joueur.chop; if (a.etat !== 'debout') { joueur.chop = null; p.jouer('Idle_Loop'); }
     else { const ang = Math.atan2(a.pos.x - joueur.pos.x, a.pos.z - joueur.pos.z); p.root.rotation.y = ang; p.jouer('TreeChopping_Loop', { vitesse: 1.3 }); const ph = p.phase(); if (joueur.ph < 0.5 && ph >= 0.5) frapperArbre(a, joueur.pos, 2); joueur.ph = ph; }
   } else p.jouer('Idle_Loop');
-  joueur.pos.y = hauteur(joueur.pos.x, joueur.pos.z);
+  joueur.pos.y = hauteur(joueur.pos.x, joueur.pos.z); G.interieur = G.mode !== 'souverain' && !!majInterieur(joueur.pos.x, joueur.pos.z);
   p.maj(dt);
-  J.mana = Math.min(joueur.manaMax, J.mana + dt * 2.2);
+  J.mana = Math.min(joueur.manaMax, J.mana + dt * 2.2 * (joueur.regen || 1));
 }
 function boucle() {
   requestAnimationFrame(boucle);
@@ -272,5 +296,5 @@ async function demarrer() {
   $('#charge').classList.add('pret'); $('#charge').onclick = () => { if (!$('#charge').classList.contains('pret')) return; initAudio(); $('#charge').classList.add('fini'); setTimeout(() => $('#charge').remove(), 700); };
   boucle();
 }
-window.__s = { get J() { return J; }, get ombres() { return ombres; }, G, joueur, eveiller: (k = 0) => depouilles[k] && eveiller(depouilles[k]), mana: () => { J.mana = 100; }, toucher, mode: changerMode, proj: projeter, arbres: () => import('./monde.js') };
+window.__s = { get J() { return J; }, get ombres() { return ombres; }, G, joueur, eveiller: (k = 0) => depouilles[k] && eveiller(depouilles[k]), mana: () => { J.mana = 100; }, toucher, mode: changerMode, bats: batiments, amel: (b) => { ameliorer(b); }, finir: (b) => marteler(b, 9999, b.g.position), ouvrirBat: ouvrirBatiment, proj: projeter, arbres: () => import('./monde.js') };
 demarrer().catch(e => { document.body.insertAdjacentHTML('beforeend', `<pre style="position:fixed;inset:0;color:#fff;background:#300;z-index:99;padding:2em;white-space:pre-wrap">${e.stack || e}</pre>`); });

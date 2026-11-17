@@ -73,10 +73,11 @@ export function majCamera(dt, cible) {
   if (souv) { const r = Math.hypot(G.focus.x, G.focus.z); if (r > 75) G.focus.multiplyScalar(75 / r); G.focus.y = G.hauteur ? G.hauteur(G.focus.x, G.focus.z) : 0; }
   G.camCible.lerp(souv ? G.focus : cible, 1 - Math.exp(-dt * (souv ? 14 : 10)));
   G._d = G._d ?? 4 + G.camZoom * 26; G._p = G._p ?? G.camPitch;
-  G._d += ((souv ? 14 + G.zoomS * 38 : 4 + G.camZoom * 26) - G._d) * k; G._p += ((souv ? 0.98 : G.camPitch) - G._p) * k;
+  const inte = G.interieur && !souv; /* dans un bâtiment : caméra proche et plongeante, le toit s'efface */
+  G._d += ((souv ? 14 + G.zoomS * 38 : inte ? Math.min(7, 4 + G.camZoom * 26) : 4 + G.camZoom * 26) - G._d) * k; G._p += ((souv ? 0.98 : inte ? Math.max(0.75, G.camPitch) : G.camPitch) - G._p) * k;
   let d = G._d; const p = G._p;
   // comme Roblox : un arbre entre toi et la caméra ? elle se rapproche, puis recule en douceur
-  if (G.obstacle && !souv) { const ox = Math.sin(G.camYaw) * Math.cos(p), oz = Math.cos(G.camYaw) * Math.cos(p), oy = Math.sin(p); let lib = d; for (let f = 1.5; f <= d; f += 0.5) { if (G.camCible.y + 1 + oy * f < 6 && G.obstacle(G.camCible.x + ox * f, G.camCible.z + oz * f)) { lib = Math.max(2.2, f - 0.8); break; } } G._col = lib < (G._col ?? d) ? lib : (G._col ?? d) + (lib - (G._col ?? d)) * Math.min(1, dt * 2); d = Math.min(d, G._col); }
+  if (G.obstacle && !souv && !inte) { const ox = Math.sin(G.camYaw) * Math.cos(p), oz = Math.cos(G.camYaw) * Math.cos(p), oy = Math.sin(p); let lib = d; for (let f = 1.5; f <= d; f += 0.5) { if (G.camCible.y + 1 + oy * f < 6 && G.obstacle(G.camCible.x + ox * f, G.camCible.z + oz * f)) { lib = Math.max(2.2, f - 0.8); break; } } G._col = lib < (G._col ?? d) ? lib : (G._col ?? d) + (lib - (G._col ?? d)) * Math.min(1, dt * 2); d = Math.min(d, G._col); }
   const proche = Math.max(0, Math.min(1, (14 - d) / 10)), hv = 1.1 + proche * 0.5;
   _off.set(Math.sin(G.camYaw) * Math.cos(p) * d, Math.sin(p) * d, Math.cos(G.camYaw) * Math.cos(p) * d);
   G.camera.position.copy(G.camCible).add(_off); G.camera.position.y += hv * 0.5;

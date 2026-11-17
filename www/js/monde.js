@@ -103,7 +103,7 @@ export function debiter(ar, n) {
 function majRepousse(dt) {
   for (const ar of arbres) {
     if (ar.etat !== 'souche') continue;
-    ar.repousse += dt;
+    ar.repousse += dt * (G.repousseBois || 1);
     if (ar.repousse > 90) { const k = Math.min(1, (ar.repousse - 90) / 60); parType[ar.type].maj(ar.i, { p: ar.pos, r: ar.r, e: ar.e * (0.15 + 0.85 * k) }); if (ar.souche && k > 0.2) { G.scene.remove(ar.souche); ar.souche = null; } if (k >= 1) { ar.etat = 'debout'; ar.pv = ar.pvMax; } }
   }
 }
@@ -161,7 +161,7 @@ export function tailler(f, n, pos) {
   const k = 0.35 + 0.65 * f.pierre / f.max; f.g.scale.setScalar(f.e * k); if (f.pierre <= 0) { f.g.visible = false; f.repousse = 0; }
   return pris;
 }
-function majFilons(dt) { for (const f of filons) if (f.pierre <= 0) { f.repousse += dt; if (f.repousse > 120) { f.pierre = f.max; f.g.visible = true; f.g.scale.setScalar(f.e); } } }
+function majFilons(dt) { for (const f of filons) if (f.pierre <= 0) { f.repousse += dt * (G.repoussePierre || 1); if (f.repousse > 120) { f.pierre = f.max; f.g.visible = true; f.g.scale.setScalar(f.e); } } }
 export function filonProche(p, max = 999) { let b = null, bd = max; for (const f of filons) { if (f.pierre <= 0 || f.ouvriers >= 2) continue; const d = Math.hypot(f.pos.x - p.x, f.pos.z - p.z); if (d < bd) { bd = d; b = f; } } return b; }
 export function construireMonde() {
   G.hauteur = hauteur;
