@@ -5,7 +5,7 @@ import { PIERRE_DEFI, chargerNature, construireMonde, majMonde, majPile, hauteur
 import { Ombre, RANGS, NOMS, METIERS, parole, surParole, surSignal, xpNiveau, teinteOmbre } from './ombres.js';
 import { initCombat, majCombat, heroOccupe, toucherEnnemi, DEFIS, lancerDefi, campLibre, zoneDangereuse, POUVOIRS, xpHeros, pvMaxHeros, heros } from './combat.js';
 import { chargerMonstre, chargerProps } from './persos.js';
-import { chargerBatiments, TYPES, CATS, batiments, creerBatiment, majBatiments, placementValide, fantomeBatiment, majEtiquettesChantiers, aBatiment, marteler, demolir, aimanter, LONG_SEGMENT, chantierProche, depotProche, ameliorer, enTravaux, niveauDe, prochain, meilleur, bloque, majInterieur, dedans } from './batiments.js';
+import { chargerBatiments, TYPES, CATS, batiments, creerBatiment, majBatiments, placementValide, fantomeBatiment, majEtiquettesChantiers, aBatiment, marteler, demolir, aimanter, LONG_SEGMENT, chantierProche, depotProche, montrerTerritoire, dansTerritoire, ameliorer, enTravaux, niveauDe, prochain, meilleur, bloque, majInterieur, dedans } from './batiments.js';
 
 const $ = (s) => document.querySelector(s);
 const CLE = 'souverain-v1';
@@ -77,7 +77,8 @@ const jeu = {
 function appliquerBatiments() {
   joueur.manaMax = 100 + batiments.reduce((m, b) => m + (b.fini && b.s.type === 'puits' ? niveauDe(b).mana : 0), 0); joueur.regen = Math.max(1, meilleur('puits', 'regen'));
   G.repousseBois = Math.max(1, meilleur('scierie', 'repousse')); G.repoussePierre = Math.max(1, meilleur('mine', 'repousse'));
-  G.chargeBonus = { bois: meilleur('scierie', 'charge'), pierre: meilleur('mine', 'charge') };
+  G.chargeBonus = { bois: meilleur('scierie', 'charge') + meilleur('entrepot', 'charge'), pierre: meilleur('mine', 'charge') + meilleur('entrepot', 'charge') };
+  G.forge = Math.max(1, meilleur('forge', 'arme'));
   J.habMax = batiments.reduce((m, b) => m + (b.fini ? niveauDe(b).habitants || 0 : 0), 0);
 }
 Object.defineProperty(jeu, 'pos', { get: () => joueur.pos }); Object.defineProperty(jeu, 'perso', { get: () => joueur.perso });
@@ -234,9 +235,9 @@ $('#btnOmbres').onclick = () => ouvrirOmbres();
 $('#btnConstruire').onclick = () => ouvrirConstruire();
 // ---------------- Placement d'un bâtiment (fantôme vert = OK, rouge = impossible) ----------------
 let placement = null;
-function commencerPlacement(type) { changerMode('souverain'); const q = solSous(innerWidth / 2, innerHeight / 2) || G.focus; placement = { type, r: 0, x: q.x, z: q.z };
+function commencerPlacement(type) { changerMode('souverain'); montrerTerritoire(true); const q = solSous(innerWidth / 2, innerHeight / 2) || G.focus; placement = { type, r: 0, x: q.x, z: q.z };
   for (let i = 0; i < 160; i++) { const an = i * 2.4, rr = Math.sqrt(i) * 1.6, x = q.x + Math.cos(an) * rr, z = q.z + Math.sin(an) * rr; if (placementValide(type, x, z)) { placement.x = x; placement.z = z; G.focus.set(x, 0, z); break; } } /* premier endroit libre près du centre */ $('#placement').hidden = false; indice('Fais glisser le bâtiment, puis touche POSER'); }
-function finPlacement() { if (placement) indice(''); placement = null; fantomeBatiment(null); $('#placement').hidden = true; }
+function finPlacement() { if (placement) indice(''); montrerTerritoire(false); placement = null; fantomeBatiment(null); $('#placement').hidden = true; }
 function majPlacement() {
   if (!placement) return;
   const T = TYPES[placement.type];
@@ -244,7 +245,7 @@ function majPlacement() {
   const ai = aimanter(placement.type, placement.x, placement.z, placement.r); placement.aim = ai; const px = ai ? ai.x : placement.x, pz = ai ? ai.z : placement.z;
   placement.ok = assez && placementValide(placement.type, px, pz);
   fantomeBatiment(placement.type, px, pz, placement.r, placement.ok);
-  const b = $('#btnPoser'); b.disabled = !placement.ok; b.textContent = !assez ? 'Pas assez de ressources' : placement.ok ? `Poser · ${Object.entries(T.cout).map(([r, n]) => ICONES[r] + n).join(' ')}` : 'Place occupée';
+  const b = $('#btnPoser'); b.disabled = !placement.ok; b.textContent = !assez ? 'Pas assez de ressources' : placement.ok ? `Poser · ${Object.entries(T.cout).map(([r, n]) => ICONES[r] + n).join(' ')}` : !T.partout && !dansTerritoire(px, pz) ? 'Hors de ton territoire (cercle violet)' : 'Place occupée';
 }
 function poser() {
   if (!placement || !placement.ok) { son('error_004', 0.4); return; }

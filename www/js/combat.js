@@ -139,7 +139,7 @@ const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const rnd = (a, b) => a + Math.random() * (b - a);
 export const xpHeros = (n) => Math.round(60 * Math.pow(n, 1.4));
 export const pvMaxHeros = () => 100 + 15 * ((C.J.heros.niv || 1) - 1);
-const degHeros = () => 14 + 3 * ((C.J.heros.niv || 1) - 1);
+const degHeros = () => (14 + 3 * ((C.J.heros.niv || 1) - 1)) * (G.forge || 1); // la forge améliore ton arme
 const nivP = (k) => C.J.heros.pw[k] || 1;
 // ---------------- zone rouge au sol ----------------
 function zone(c) {
@@ -391,7 +391,7 @@ class Ennemi {
     if (!e) { let bd = 12; for (const x of ennemis) if (x.vivant && !x.lev && (x.etat !== 'garde' && x.etat !== 'flane' || dist(x.pos, J.pos) < 8)) { const d = dist(x.pos, this.pos); if (d < bd) { bd = d; e = x; } } this.cible = e; }
     if (e) {
       const d = dist(e.pos, this.pos);
-      if (this.etat === 'attaque') { this.at -= dt; this.tourner(Math.atan2(e.pos.x - this.pos.x, e.pos.z - this.pos.z), dt); if (this.at <= 0) { this.etat = 'suit'; this.cd = this.T.cadence * 0.9; if (d < this.T.portee + 0.6) e.subir(this.deg, this, { recul: 0.3 }); } return; }
+      if (this.etat === 'attaque') { this.at -= dt; this.tourner(Math.atan2(e.pos.x - this.pos.x, e.pos.z - this.pos.z), dt); if (this.at <= 0) { this.etat = 'suit'; this.cd = this.T.cadence * 0.9; if (d < this.T.portee + 0.6) e.subir(this.deg * (G.forge || 1), this, { recul: 0.3 }); } return; }
       if (d > this.T.portee) { this.marcher(e.pos, dt, this.T.vit * 1.1, 'Jog_Fwd_Loop'); return; }
       if (this.cd <= 0) { this.etat = 'attaque'; this.at = 0.45; this.m.jouer('Sword_Attack', { boucle: false, forcer: true, vitesse: 1.4 }); } else this.m.jouer('Sword_Idle');
       if (e.etat === 'garde' || e.etat === 'flane') e.alerte(this);

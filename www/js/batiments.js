@@ -2,13 +2,14 @@
 // Pièces Quaternius « Medieval Village MegaKit » (même style que les personnages).
 import { THREE, G, V, tmp, emettre, son, projeter } from './moteur.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { buche, hauteur, arbres, RESERVE } from './monde.js';
+import { buche, hauteur, arbres, RESERVE, eau, MONDE } from './monde.js';
+import { prop } from './persos.js';
 
 const loader = new GLTFLoader(), texL = new THREE.TextureLoader();
 const B = 'assets/batiments/';
 const PIECES = ['Corner_Exterior_Brick', 'Wall_UnevenBrick_Door_Round', 'Wall_UnevenBrick_Window_Wide_Round', 'Floor_WoodLight', 'Prop_Support', 'Prop_Brick1', 'Prop_Brick2', 'Prop_MetalFence_Ornament', 'Floor_WoodDark', 'Floor_Brick', 'Corner_Exterior_Wood', 'Wall_Plaster_WoodGrid', 'Wall_Plaster_Straight', 'Wall_Plaster_Door_Round', 'Wall_UnevenBrick_Straight', 'Wall_Plaster_Window_Wide_Round', 'Roof_RoundTiles_6x6', 'Roof_RoundTiles_4x4', 'Prop_Crate', 'Prop_Wagon', 'Prop_WoodenFence_Single', 'Prop_Chimney'];
 const MEUBLES = ['Chest_Lid', 'Table_Small', 'Chair', 'Bench', 'Stool_round', 'Shelf_Wall', 'Shelf', 'Barrel_Closed', 'Bucket', 'Chest', 'Candlestick', 'Torch_Wall', 'Book_Big_Brown', 'Potion_Red'];
-const VILLAGE = ['fire_01', 'well_01', 'stall_01', 'ladder_01'];
+const VILLAGE = ['fire_01', 'well_01', 'stall_01', 'ladder_01', 'hearth_01'];
 const M = {};
 const TEX = { MI_WoodTrim: 'woodtrim', MI_WoodTrim_Wear: 'woodtrim', MI_Plaster: 'plaster', MI_RockTrim: 'rocktrim', MI_Brick: 'brick', MI_RoundTiles: 'roundtiles', MI_UnevenBrick: 'unevenbrick', MI_MetalOrnaments: 'metal', MI_RedBrick: 'redbrick' };
 const mats = {};
@@ -32,6 +33,14 @@ const MURS = {
   platre: { p: 'Wall_Plaster_Straight', g: 'Wall_Plaster_WoodGrid', f: 'Wall_Plaster_Window_Wide_Round', o: 'Wall_Plaster_Door_Round' },
   brique: { p: 'Wall_UnevenBrick_Straight', g: 'Wall_UnevenBrick_Straight', f: 'Wall_UnevenBrick_Window_Wide_Round', o: 'Wall_UnevenBrick_Door_Round' },
 };
+// avant-poste : enclos de pieux, feu de garde, caisses, et la bannière du Souverain
+function poste(n) {
+  const L = [p('*banniere', 0, 0, 0), p('fire_01', 1.6, 0, 1.4, 0, 0.8), p('Prop_Crate', -1.6, 0.02, 1.5, 0.4, 0.7)];
+  const k = 6 + n * 2; for (let i = 0; i < k; i++) { const a = i / k * 6.283; if (Math.abs(Math.sin(a / 2)) < 0.15) continue; L.push(p('Prop_WoodenFence_Single', Math.sin(a) * 3, 0, Math.cos(a) * 3, a + R, 1)); }
+  if (n >= 2) L.push(p('@Torch_Metal', -0.3, 1.4, 0.15, 0, 1), p('Barrel_Closed', -1.2, 0.02, -1.6, 0, F));
+  if (n >= 3) L.push(p('@WeaponStand', 1.5, 0.02, -1.5, 0.6, 0.8), p('@Banner_2', 0.1, 2.6, 0, 0, 0.8));
+  return L;
+}
 // maison modulaire : w×d cases de 2 m ; chaque étage décrit ses 4 côtés case par case (p plein, g colombage, f fenêtre, o porte, - ouvert)
 function maison({ w, d, sol = 'Floor_WoodDark', coins = 'Corner_Exterior_Wood', etages, toit, extras = [] }) {
   const L = [], cases = (n) => Array.from({ length: n }, (_, i) => -n + 1 + 2 * i);
@@ -85,6 +94,30 @@ export const TYPES = {
       { bonus: 1.8, repousse: 3, charge: 2, cout: { bois: 550, pierre: 300 }, travail: 100, effet: '+80 % de pierre · repousse 3× · tes tailleurs portent +2', plan: () => maison({ w: 2, d: 2, sol: 'Floor_Brick', coins: 'Corner_Exterior_Brick', etages: [{ m: 'brique', n: 'pp', w: 'fp', e: 'pf' }, { m: 'brique', n: 'ff', w: 'ff', e: 'ff', s: 'ff' }], toit: 'Roof_RoundTiles_4x4', extras: [p('Prop_Wagon', 3.3, 0, 0.6, 0.15, 0.8), p('Prop_Crate', -1.2, 0.02, -1.2, 0.2, 0.7), p('Prop_Crate', 1.1, 0.02, -1.2, 0.7, 0.6), ...meubles.mine(3)] }) },
     ],
   },
+  entrepot: {
+    nom: 'Entrepôt', icone: '📦', cat: 'metier', cout: { bois: 100 }, travail: 40, rayon: 5.4, demi: 3, depot: ['bois', 'pierre'],
+    niveaux: [
+      { bonus: 1.1, effet: 'Dépôt de bois ET de pierre : construis-le près d’une forêt lointaine, tes ombres n’auront plus à rentrer au camp · +10 %', plan: () => maison({ w: 3, d: 3, etages: [{ m: 'platre', n: 'gpg', w: 'ggg', e: 'ggg', s: 'g-g' }], toit: 'Roof_RoundTiles_6x6', extras: [...caisses, p('Prop_Crate', -2, 0.02, 1.2, 0.5, 0.8), p('Barrel_Closed', 1.6, 0.02, 1.5, 0, F), p('@Crate_Wooden', -1.6, 0.02, -1.4, 0.2, 1)] }) },
+      { bonus: 1.2, cout: { bois: 250, pierre: 100 }, travail: 60, effet: 'Dépôt bois + pierre · +20 % par livraison', plan: () => maison({ w: 3, d: 3, etages: [{ m: 'brique', n: 'gpg', w: 'ppp', e: 'ppp', s: 'p-p' }], toit: 'Roof_RoundTiles_6x6', extras: [...caisses, p('Prop_Wagon', 4.2, 0, 0.4, 0.1, 0.8), p('@Crate_Wooden', -1.6, 0.02, -1.4, 0.2, 1), p('@Barrel', 1.6, 0.02, 1.3, 0, 1), p('@Barrel', 2.2, 0.02, 0.5, 1, 0.9)] }) },
+      { bonus: 1.3, charge: 1, cout: { bois: 500, pierre: 250 }, travail: 90, effet: 'Dépôt bois + pierre · +30 % · toutes tes ombres portent +1', plan: () => maison({ w: 3, d: 3, coins: 'Corner_Exterior_Brick', etages: [{ m: 'brique', n: 'fpf', w: 'ppp', e: 'ppp', s: 'p-p' }, { m: 'platre', n: 'gfg', w: 'ggg', e: 'ggg', s: 'gfg' }], toit: 'Roof_RoundTiles_6x6', extras: [...caisses, p('Prop_Wagon', 4.2, 0, 0.4, 0.1, 0.8), p('@Crate_Wooden', -1.6, 0.02, -1.4, 0.2, 1), p('@Barrel', 1.6, 0.02, 1.3, 0, 1), p('@Barrel', 2.2, 0.02, 0.5, 1, 0.9), p('@Coin_Pile', 0, 0.02, -1.2, 0, 2)] }) },
+    ],
+  },
+  forge: {
+    nom: 'Forge', icone: '⚒️', cat: 'militaire', cout: { bois: 120, pierre: 80 }, travail: 45, rayon: 4.2, demi: 2,
+    niveaux: [
+      { arme: 1.15, effet: 'Tes armes et celles de tes ombres de combat : +15 % de dégâts', plan: () => maison({ w: 2, d: 2, sol: 'Floor_Brick', etages: [{ m: 'brique', n: 'pp', w: 'p-', e: '-p' }], toit: 'Roof_RoundTiles_4x4', extras: [p('hearth_01', 0, 0.02, -1.2, 0, 0.9), p('Prop_Chimney', 1, HE + 0.6, -1, 0, 1), p('@Anvil', 0.3, 0.02, 1, 0.3, 1.1), p('@Barrel', -1.4, 0.02, 1.3, 0, 0.9)] }) },
+      { arme: 1.3, cout: { bois: 300, pierre: 200 }, travail: 70, effet: '+30 % de dégâts (toi et tes ombres)', plan: () => maison({ w: 2, d: 2, sol: 'Floor_Brick', coins: 'Corner_Exterior_Brick', etages: [{ m: 'brique', n: 'pp', w: 'pf', e: 'fp' }], toit: 'Roof_RoundTiles_4x4', extras: [p('hearth_01', 0, 0.02, -1.2, 0, 0.9), p('Prop_Chimney', 1, HE + 0.6, -1, 0, 1), p('@Anvil', 0.3, 0.02, 1, 0.3, 1.1), p('@Barrel', -1.4, 0.02, 1.3, 0, 0.9), p('@WeaponStand', 3, 0.02, 0.5, -R, 0.9)] }) },
+      { arme: 1.5, cout: { bois: 600, pierre: 450 }, travail: 100, effet: '+50 % de dégâts (toi et tes ombres)', plan: () => maison({ w: 2, d: 2, sol: 'Floor_Brick', coins: 'Corner_Exterior_Brick', etages: [{ m: 'brique', n: 'pp', w: 'pf', e: 'fp' }, { m: 'platre', n: 'gg', w: 'gf', e: 'fg', s: 'gg' }], toit: 'Roof_RoundTiles_4x4', extras: [p('hearth_01', 0, 0.02, -1.2, 0, 0.9), p('Prop_Chimney', 1, 2 * HE + 0.6, -1, 0, 1), p('@Anvil', 0.3, 0.02, 1, 0.3, 1.1), p('@Barrel', -1.4, 0.02, 1.3, 0, 0.9), p('@WeaponStand', 3, 0.02, 0.5, -R, 0.9), p('@WeaponStand', 3, 0.02, -1.5, -R, 0.9)] }) },
+    ],
+  },
+  avantposte: {
+    nom: 'Avant-poste', icone: '🚩', cat: 'militaire', cout: { bois: 120, pierre: 40 }, travail: 40, rayon: 3.4, ech: 1, partout: true,
+    niveaux: [
+      { territoire: 30, effet: 'Étend ton territoire de 30 m autour de lui — n’importe où sur la carte (hors camps ennemis)', plan: () => poste(1) },
+      { territoire: 40, cout: { bois: 220, pierre: 120 }, travail: 60, effet: 'Territoire : 40 m', plan: () => poste(2) },
+      { territoire: 50, cout: { bois: 450, pierre: 300 }, travail: 90, effet: 'Territoire : 50 m', plan: () => poste(3) },
+    ],
+  },
   palissade: {
     nom: 'Palissade', icone: '🛡️', cat: 'militaire', cout: { bois: 12 }, travail: 6, rayon: 1.2, segment: true, ech: 1,
     niveaux: [{ effet: 'Un segment de 2 m pour protéger ton camp (les raids arrivent bientôt)', plan: () => [p('Prop_WoodenFence_Single', 0, 0, 0, 0, 1.2)] }],
@@ -102,9 +135,32 @@ for (const T of Object.values(TYPES)) T.ech ??= ECH;
 export const niveauDe = (b) => b.T.niveaux[(b.s.niv || 1) - 1];
 export const prochain = (b) => b.T.niveaux[b.s.niv || 1];
 export const enTravaux = (b) => !b.fini || !!b.s.amel;
+// bannière du Souverain : mât sombre et étendard violet frappé d'un œil d'ombre
+function banniere() {
+  const g = new THREE.Group(), bois = new THREE.MeshStandardMaterial({ color: '#2a2030', roughness: 0.8 }), mat = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 4.6, 6), bois); mat.position.y = 2.3; mat.castShadow = true; g.add(mat);
+  const c = document.createElement('canvas'); c.width = 64; c.height = 128; const x = c.getContext('2d'); x.fillStyle = '#3a1670'; x.fillRect(0, 0, 64, 128); x.fillStyle = '#c8a8ff'; x.beginPath(); x.ellipse(32, 52, 20, 10, 0, 0, 6.29); x.fill(); x.fillStyle = '#1a0a30'; x.beginPath(); x.arc(32, 52, 7, 0, 6.29); x.fill(); x.fillStyle = '#c8a8ff'; x.fillRect(4, 116, 56, 4);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const e = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.8), new THREE.MeshStandardMaterial({ map: t, side: THREE.DoubleSide, emissive: '#3a1a8a', emissiveIntensity: 0.25 })); e.position.set(0.5, 3.4, 0); e.castShadow = true; g.add(e);
+  return g;
+}
+// territoire : le camp (60 m) + chaque avant-poste terminé. On ne construit qu'à l'intérieur.
+export const TERRITOIRE_CAMP = 60;
+export function territoires() { const L = [{ x: 0, z: 0, r: TERRITOIRE_CAMP }]; for (const b of batiments) if (b.fini && niveauDe(b).territoire) L.push({ x: b.g.position.x, z: b.g.position.z, r: niveauDe(b).territoire }); return L; }
+export const dansTerritoire = (x, z) => territoires().some(t => Math.hypot(x - t.x, z - t.z) < t.r);
+let anneaux = null;
+export function montrerTerritoire(oui) { // limites dessinées au sol pendant la construction
+  if (anneaux) { for (const m of anneaux) { G.scene.remove(m); m.geometry.dispose(); } anneaux = null; }
+  if (!oui) return; anneaux = [];
+  const mat = new THREE.MeshBasicMaterial({ color: '#b98aff', transparent: true, opacity: 0.55, depthWrite: false });
+  for (const t of territoires()) { const n = Math.max(64, Math.round(t.r * 3)), P = []; for (let i = 0; i <= n; i++) { const a = i / n * 6.2832; for (const k of [-0.35, 0.35]) { const x = t.x + Math.sin(a) * (t.r + k), z = t.z + Math.cos(a) * (t.r + k); P.push(x, hauteur(x, z) + 0.15, z); } }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); const I = []; for (let i = 0; i < n; i++) { const a = i * 2; I.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } g.setIndex(I);
+    const m = new THREE.Mesh(g, mat); m.frustumCulled = false; G.scene.add(m); anneaux.push(m); }
+}
 // ---------------- Instances ----------------
 export const batiments = [];
 function piece(d) {
+  if (d.n[0] === '@') return prop(d.n.slice(1));
+  if (d.n === '*banniere') return banniere();
   if (d.n === '*scie') { const g = new THREE.Group(); const b = buche(0.32, 2.4); b.position.y = 0.75; g.add(b); for (const s of [-0.9, 0.9]) { const t = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.75, 0.9), new THREE.MeshStandardMaterial({ color: '#6b4426' })); t.position.set(s, 0.37, 0); t.castShadow = true; g.add(t); } return g; }
   return M[d.n].clone();
 }
@@ -181,7 +237,7 @@ export function bloque(x, z, r = 0.35) {
 // dépôt le plus proche pour une ressource : on livre devant le bâtiment, pas à travers les murs
 export function depotProche(pos, res) {
   let best = { pos: RESERVE, bonus: 1, nom: 'reserve', r: 2.4 }, bd = Math.hypot(RESERVE.x - pos.x, RESERVE.z - pos.z);
-  for (const b of batiments) if (b.fini && b.T.depot === res) {
+  for (const b of batiments) if (b.fini && (b.T.depot === res || (Array.isArray(b.T.depot) && b.T.depot.includes(res)))) {
     const f = (b.T.demi + 1.4) * b.T.ech, a = b.g.rotation.y, pt = V(b.g.position.x + Math.sin(a) * f, b.g.position.y, b.g.position.z + Math.cos(a) * f);
     const d = Math.hypot(pt.x - pos.x, pt.z - pos.z); if (d < bd) { bd = d; best = { pos: pt, bonus: niveauDe(b).bonus, nom: b.T.nom, r: 1.1 }; }
   }
@@ -222,7 +278,9 @@ export function majInterieur(x, z) {
 // ---------------- Placement ----------------
 export function placementValide(type, x, z) {
   const T = TYPES[type], r = T.rayon;
-  if (Math.hypot(x, z) > 60) return false;
+  if (Math.abs(x) > MONDE - 4 || Math.abs(z) > MONDE - 4 || eau(x, z)) return false;
+  if (!T.partout && !dansTerritoire(x, z)) return false;
+  if (T.partout && G.danger && G.danger(V(x, 0, z))) return false; // pas au milieu d'un camp ennemi
   if (Math.hypot(x - RESERVE.x, z - RESERVE.z) < r + 2.6) return false;
   for (const b of batiments) { const d = Math.hypot(b.g.position.x - x, b.g.position.z - z); if (T.segment && b.T.segment ? d < 0.8 : d < r + b.T.rayon) return false; }
   for (const a of arbres) if (a.etat !== 'souche' && Math.hypot(a.pos.x - x, a.pos.z - z) < r + 0.6) return false;

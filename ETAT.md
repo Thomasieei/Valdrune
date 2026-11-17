@@ -97,3 +97,8 @@ Toute décision de combat se vérifie contre ses 7 piliers : adversaire qui réf
 - Régions : Grande Plaine + lac d Argent (est), Forêt profonde + étang des Brumes (ouest), les Hauteurs + lac du Col (nord), collines (sud), muraille de montagnes
 - 9 routes avec braseros ; nouveaux lieux : Repaire gobelin, Avant-poste des pillards ; 5 groupes errants (puglins, gobelins, pillards, diablotins, éclaireurs de la Horde)
 - Perf : terrain en 36 morceaux, arbres lointains simplifiés (LOD), décor dessiné à portée, persos > 90 m masqués
+
+## Territoire + 3 bâtiments
+- Territoire : camp 60 m + avant-postes (30/40/50 m) posables partout hors camps ennemis ; cercles violets au sol pendant la construction
+- Entrepôt : dépôt bois ET pierre (+10/20/30 %, niv 3 : +1 charge pour toutes les ombres)
+- Forge : +15/30/50 % de dégâts (héros et ombres de combat)
