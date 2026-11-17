@@ -35,3 +35,12 @@ les envoyer couper / miner / construire / combattre, voir le royaume grandir en 
 
 - [À FAIRE] Menus enfantins : icônes d'abord, une action par écran, main animée qui guide, détails chiffrés sur appui long.
 - Puis brique 3 : donjon fait main.
+
+## Vision long terme (Thomas, 17/11) — APRÈS bugs, carte et briques en cours
+- **Or / minerai rare** : sert au commerce avec d'autres villes, à améliorer bâtiments et compétences, à faire monter les ombres de niveau, à payer chaque jour les ouvriers humains. Sources : donjons, filons rares (riches ou pauvres) parfois loin du camp.
+- **Absence du joueur** : risque élevé de raids (pillards…) sur ressources, bâtiments, habitants. Le joueur peut intervenir en se déplaçant via une ombre.
+- **Humains** : viennent si le village a de la réputation (ressources, habitations, nombre de bâtiments, puissance militaire, bonnes relations avec les autres villes). Ils ne travaillent pas sans lit ; horaires de travail réels, repas → nourriture indispensable ; confort et sécurité de la ville comptent.
+- À approfondir avant de coder.
+
+## Règle permanente : penser joueur
+À chaque brique, se demander : que voit le joueur, que veut-il faire ensuite, qu'est-ce qui l'agace, comment comprend-il ce qu'il gagne ? Anticiper ses besoins plutôt que d'attendre qu'il les demande.
