@@ -6,8 +6,8 @@ import { modele } from './batiments.js';
 import { hauteur } from './monde.js';
 
 export const TYPES_M = {
-  imp: { nom: 'Diablotin', h: 1.85, pv: 55, deg: 5, vit: 3.3, portee: 2.5, xp: 30, butin: { pierre: [6, 12] }, ech: 1.35, cadence: 2.1, attaque: ['Zombie_Scratch'], course: 'Jog_Fwd_Loop' },
-  bandit: { nom: 'Pillard', h: 2.05, pv: 60, deg: 6, vit: 3.5, portee: 2.1, xp: 35, butin: { bois: [3, 6] }, ech: 1, cadence: 1.9, humain: true, attaque: ['Sword_Regular_A', 'Sword_Regular_B', 'Melee_Hook'], course: 'Jog_Fwd_Loop' },
+  imp: { special: { nom: 'Flammes infernales', cd: 9, r: 2.6, delai: 1.5, mult: 2.4, surCible: true, couleur: '#ff4a1a' }, nom: 'Diablotin', h: 1.85, pv: 55, deg: 5, vit: 3.3, portee: 2.5, xp: 30, butin: { pierre: [6, 12] }, ech: 1.35, cadence: 2.1, attaque: ['Zombie_Scratch'], course: 'Jog_Fwd_Loop' },
+  bandit: { special: { nom: 'Tourbillon', cd: 11, r: 3.2, delai: 1.1, mult: 1.8, surCible: false, couleur: '#ff2a3a' }, nom: 'Pillard', h: 2.05, pv: 60, deg: 6, vit: 3.5, portee: 2.1, xp: 35, butin: { bois: [3, 6] }, ech: 1, cadence: 1.9, humain: true, attaque: ['Sword_Regular_A', 'Sword_Regular_B', 'Melee_Hook'], course: 'Jog_Fwd_Loop' },
   puglin: { nom: 'Puglin', h: 1.0, pv: 35, deg: 4, vit: 3.9, portee: 2.0, xp: 18, butin: { bois: [6, 12] }, ech: 1.55, cadence: 1.8, attaque: ['Punch_Jab', 'Punch_Cross'], course: 'Jog_Fwd_Loop' },
 };
 export const CAMPS = [
@@ -31,7 +31,7 @@ export const POUVOIRS = {
 };
 let C = null; // contexte fourni par main : { J, joueur, jeu, toast, sauver, majQuete, majHud }
 const ennemis = [], allies = [], camps = {};
-export const heros = { action: null, parade: null, cds: { lame: 0, tele: 0, parade: 0, arise: 0, dash: 0 }, combo: 0, comboT: 0, mortT: 0, horsCombat: 0 };
+export const heros = { action: null, parade: null, pts: 0, gcd: 0, cds: { lame: 0, tele: 0, parade: 0, arise: 0, dash: 0 }, combo: 0, comboT: 0, mortT: 0, horsCombat: 0 };
 const teinteAllie = (d) => { d.color.set('#1a1226'); d.emissive = new THREE.Color('#5a1aff'); d.emissiveIntensity = 0.45; d.map = null; };
 const teinteAllieP = function teinteAllieP(d) { if (/eye/i.test(d.name || '')) { d.color.set('#c8a8ff'); d.emissive = new THREE.Color('#9a5aff'); d.emissiveIntensity = 2; d.map = null; return; } d.color.set('#1a1226'); d.emissive = new THREE.Color('#4a14a0'); d.emissiveIntensity = 0.4; };
 function epee() { const g = new THREE.Group(), fer = new THREE.MeshStandardMaterial({ color: '#b8bcc8', metalness: 0.8, roughness: 0.3 }); const l = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.75, 0.012), fer); l.position.y = 0.5; const gd = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.04, 0.05), new THREE.MeshStandardMaterial({ color: '#4a3020' })); gd.position.y = 0.12; g.add(l, gd); g.rotation.set(Math.PI / 2, 0, 0); return g; }
@@ -119,6 +119,7 @@ class Ennemi {
     son(crit ? 'impactPunch_medium_001' : 'impactPunch_medium_000', 0.45, rnd(0.9, 1.15), this.pos);
     if (src && recul && !this.lev) { const a = Math.atan2(this.pos.x - src.pos.x, this.pos.z - src.pos.z); this.kb = { x: Math.sin(a) * recul * 7, z: Math.cos(a) * recul * 7 }; }
     if (this.pv <= 0) return this.mourir(src);
+    if (crit && this.etat === 'incante') { this.cast = null; this.etat = 'poursuite'; texteFlottant(V(this.pos.x, this.pos.y + 2.4, this.pos.z), 'Interrompu !', 'parade'); }
     if (!this.lev && (this.etat !== 'attaque' || crit)) { if (this.etat === 'attaque') { this.etat = 'poursuite'; finTelegraphe(this); this.cd = 0.6; } this.m.jouer(crit ? 'Hit_Knockback' : Math.random() < 0.5 ? 'Hit_Chest' : 'Hit_Head', { boucle: false, forcer: true, vitesse: crit ? 1.2 : 1.5 }); this.etourdi = Math.max(this.etourdi, crit ? 0.7 : 0.35); }
   }
   poser() { // la pose de son rôle dans la scène du camp
@@ -181,6 +182,7 @@ class Ennemi {
       else if (this.marcher(this.but, dt, 1.4, 'Walk_Loop')) { this.etat = 'garde'; this.t = rnd(3, 8); }
       return;
     }
+    if (this.etat === 'incante') { if (this.cast) { this.cast.t += dt; const cib0 = this.cible === 'heros' ? C.joueur : this.cible; if (cib0 && cib0.pos) this.tourner(Math.atan2(cib0.pos.x - this.pos.x, cib0.pos.z - this.pos.z), dt); } else this.etat = 'poursuite'; return; }
     if (this.etat === 'reveil') { this.reveil -= dt; if (this.reveil <= 0) { this.etat = 'poursuite'; this.cible = this.cibleA; } return; }
     if (this.etat === 'attendre') { this.reveil -= dt; if (this.reveil <= 0) { this.etat = 'poursuite'; } return; }
     if (this.etat === 'retour') { if (this.marcher(this.poste, dt, this.T.vit, 'Jog_Fwd_Loop')) { this.etat = 'garde'; this.t = rnd(2, 5); if (this.role) { if (this.regard != null) this.m.root.rotation.y = this.regard; this.poser(); } if (c.alerte && c.membres.every(m => !m.vivant || m.etat === 'garde')) c.alerte = false; } this.pv = Math.min(this.pvMax, this.pv + dt * this.pvMax * 0.25); return; }
@@ -192,6 +194,8 @@ class Ennemi {
       if (this.at <= 0) { finTelegraphe(this); this.etat = 'poursuite'; this.cd = this.T.cadence; if (d < this.T.portee + 0.5) { if (cib.heros) subirHeros(this.deg, this); else cib.subir(this.deg, this); } }
       return;
     }
+    this.spCd = (this.spCd ?? 3 + Math.random() * 3) - dt;
+    if (this.T.special && this.spCd <= 0 && d < 9 && this.cd <= 0.5) { this.spCd = this.T.special.cd; sortEnnemi(this, cib); return; }
     if (d > this.T.portee) { this.marcher(cib.pos, dt, this.T.vit, this.T.course || 'Jog_Fwd_Loop'); return; }
     this.tourner(Math.atan2(cib.pos.x - this.pos.x, cib.pos.z - this.pos.z), dt);
     if (this.cd <= 0) { this.etat = 'attaque'; this.at = 0.75; const A = this.T.attaque || ['Sword_Attack'], an = A[Math.floor(Math.random() * A.length)]; this.m.jouer(an, { boucle: false, forcer: true, vitesse: this.m.duree(an) * 0.55 / 0.75 }); debutTelegraphe(this); son('knifeSlice', 0.3, 0.7, this.pos); }
@@ -230,6 +234,43 @@ function debutTelegraphe(e) {
 }
 function majTelegraphe(e) { if (!e.tel) return; const k = 1 - e.at / e.atMax, f = e.tel.userData.fond; e.tel.position.set(e.pos.x, e.pos.y + 0.1, e.pos.z); e.tel.rotation.y = e.m.root.rotation.y; f.scale.setScalar(Math.max(0.05, k)); const blanc = e.at < 0.3; f.material.color.set(blanc ? '#ffffff' : '#ff3040'); f.material.opacity = blanc ? 0.75 : 0.3 + 0.25 * k; }
 function finTelegraphe(e) { if (e.tel) { G.scene.remove(e.tel); e.tel = null; } }
+// ---------------- Sorts ennemis : cercle de runes au sol, barre d'incantation, explosion (on esquive au dash !) ----------------
+let texRunes = null;
+function runes() {
+  if (texRunes) return texRunes; const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d');
+  x.translate(128, 128); x.strokeStyle = '#fff'; x.fillStyle = '#fff'; x.lineWidth = 6; x.beginPath(); x.arc(0, 0, 120, 0, 6.283); x.stroke(); x.lineWidth = 3; x.beginPath(); x.arc(0, 0, 96, 0, 6.283); x.stroke();
+  x.font = 'bold 22px serif'; x.textAlign = 'center'; const R = 'ᚠᚢᚦᚨᚱᚲᚷᚹᚺᚾᛁᛃᛇᛈᛉᛊᛏᛒᛖᛗ'; for (let i = 0; i < 20; i++) { x.save(); x.rotate(i / 20 * 6.283); x.fillText(R[i], 0, -102); x.restore(); }
+  x.lineWidth = 4; x.beginPath(); for (let i = 0; i <= 5; i++) { const a = i * 4 * Math.PI / 5 - Math.PI / 2; x.lineTo(Math.cos(a) * 80, Math.sin(a) * 80); } x.stroke();
+  texRunes = new THREE.CanvasTexture(c); return texRunes;
+}
+const aoes = [];
+function sortEnnemi(e, cible) {
+  const S = e.T.special, p = S.surCible ? V(cible.pos.x, 0, cible.pos.z) : e.pos.clone();
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(S.r * 2, S.r * 2).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: runes(), color: S.couleur, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending }));
+  const rempl = new THREE.Mesh(new THREE.CircleGeometry(S.r, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: S.couleur, transparent: true, opacity: 0.25, depthWrite: false }));
+  for (const o of [m, rempl]) { o.position.set(p.x, hauteur(p.x, p.z) + 0.12, p.z); G.scene.add(o); }
+  e.cast = { t: 0, dur: S.delai, nom: S.nom }; e.etat = 'incante'; e.m.jouer(e.T.humain ? 'Sword_Block' : 'Spell_Simple_Enter', { boucle: false, forcer: true });
+  texteFlottant(V(e.pos.x, e.pos.y + e.T.h * e.T.ech + 0.6, e.pos.z), S.nom, 'alerte-sort'); son('sov_possession', 0.4, 0.6, e.pos);
+  aoes.push({ e, p, m, rempl, S, t: 0 });
+}
+function majAoes(dt) {
+  for (let i = aoes.length - 1; i >= 0; i--) {
+    const A = aoes[i]; A.t += dt; const k = Math.min(1, A.t / A.S.delai);
+    if (!A.S.surCible && A.e.vivant) { A.p.copy(A.e.pos); A.m.position.set(A.p.x, A.p.y + 0.12, A.p.z); A.rempl.position.copy(A.m.position); }
+    A.m.rotation.y += dt * 1.5; A.m.material.opacity = 0.35 + 0.6 * k; A.rempl.scale.setScalar(Math.max(0.02, k)); A.rempl.material.opacity = k > 0.85 ? 0.6 : 0.25;
+    const fini = k >= 1 || !A.e.vivant || A.e.lev || !A.e.cast;
+    if (fini) {
+      G.scene.remove(A.m); G.scene.remove(A.rempl); aoes.splice(i, 1);
+      if (A.e.vivant && !A.e.lev && A.e.cast) {
+        onde(V(A.p.x, hauteur(A.p.x, A.p.z), A.p.z), { r: A.S.r * 1.6, couleur: A.S.couleur, vie: 0.5 }); emettre(V(A.p.x, hauteur(A.p.x, A.p.z) + 0.4, A.p.z), { n: 70, c1: '#ffd27a', c2: A.S.couleur, vit: 6, vie: 0.7, taille: 0.35, grav: 2 }); G.shake = Math.max(G.shake, 0.4); son('impactSoft_heavy_000', 0.7, 0.7, A.p);
+        const J = C.joueur; if (!heros.mortT && dist(J.pos, A.p) < A.S.r + 0.3) subirHeros(A.e.deg * A.S.mult, A.e);
+        for (const a of allies) if (a.vivant && dist(a.pos, A.p) < A.S.r) a.subir(A.e.deg * A.S.mult, A.e);
+        A.e.etat = 'poursuite'; A.e.cd = 0.8;
+      }
+      A.e.cast = null;
+    }
+  }
+}
 // ---------------- Camps ----------------
 function creerCamp(def) {
   const c = camps[def.id] = { def, membres: [], zone: zone(def), mortT: 0 }; if (def.decor) decorBandits(def);
@@ -296,12 +337,13 @@ export function pouvoir(k, appui = true) {
   const J = C.joueur, P = POUVOIRS[k];
   if (k === 'parade') { if (appui && !heros.mortT && (!heros.action || heros.action.k === 'coup')) { heros.action = null; heros.parade = { debut: G.t }; J.perso.jouer('Sword_Block', { boucle: false, forcer: true, vitesse: 2 }); bouclier.visible = true; } else if (!appui) { heros.parade = null; bouclier.visible = false; if (!heros.action) J.perso.jouer('Idle_Loop', { forcer: true }); } document.getElementById('pw-parade').classList.toggle('garde', !!heros.parade); return; }
   if (!appui || heros.mortT || heros.action || G.mode === 'souverain') return;
-  if (heros.cds[k] > 0) { son('error_004', 0.3); return; }
+  if (heros.cds[k] > 0 || heros.gcd > 0) { son('error_004', 0.3); return; }
   if (P.mana && C.J.mana < P.mana) { C.toast(`Pas assez de mana (${P.mana})`); son('error_004', 0.4); return; }
-  const n = nivP(k);
+  const n = nivP(k); heros.gcd = 0.6; // temps de recharge global : chaque sort compte
   if (k === 'lame') {
     const cibles = plusProches(J.pos, 11, Math.min(4, 1 + n)); if (!cibles.length) { C.toast('Aucun ennemi à portée'); return; }
-    heros.action = { k: 'lame', cibles, i: 0, t: 0, invul: true, mult: 1.8 + 0.15 * (n - 1) }; heros.cds.lame = P.cd; son('sov_onde', 0.5, 1.4);
+    const bonus = 1 + 0.3 * heros.pts; if (heros.pts) texteFlottant(V(J.pos.x, J.pos.y + 2.5, J.pos.z), `${'◆'.repeat(heros.pts)} ×${bonus.toFixed(1)}`, 'crit'); heros.pts = 0; majPts();
+    heros.action = { k: 'lame', cibles, i: 0, t: 0, invul: true, mult: (1.8 + 0.15 * (n - 1)) * bonus }; heros.cds.lame = P.cd; son('sov_onde', 0.5, 1.4);
   } else if (k === 'tele') { // la main se lève, des chaînes violettes saisissent les ennemis, ils montent… puis s'écrasent et sont projetés
     const cibles = plusProches(J.pos, 13, 2 + n).filter(e => !e.lev); if (!cibles.length) { C.toast('Aucun ennemi à portée'); return; }
     C.J.mana -= P.mana; heros.cds.tele = P.cd; heros.action = { k: 'sort', t: 0, dur: 0.7 };
@@ -340,6 +382,20 @@ function arise(corps, n) {
   }, 1250);
 }
 let bouclier = null, dague = null;
+// points d'ombre (comme les points de combo) : chaque coup en donne, la Lame rapide les dépense
+function gagnerPts(n) { const av = heros.pts; heros.pts = Math.min(5, heros.pts + n); if (heros.pts !== av) majPts(); }
+function majPts() { const z = document.getElementById('pts'); if (z) [...z.children].forEach((d, i) => d.classList.toggle('on', i < heros.pts)); document.getElementById('pw-lame')?.classList.toggle('charge', heros.pts >= 3); }
+// traînée lumineuse de la dague pendant les coups
+const NT = 14; let trainee = null; const histo = [];
+function majTrainee() {
+  if (!trainee) { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(NT * 2 * 3), 3)); g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(NT * 2 * 3), 3)); const idx = []; for (let i = 0; i < NT - 1; i++) { const a = i * 2; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } g.setIndex(idx); trainee = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending })); trainee.frustumCulled = false; G.scene.add(trainee); }
+  const actif = heros.action && (heros.action.k === 'coup' || heros.action.k === 'lame' || heros.action.k === 'dash');
+  if (actif && dague) { dague.updateWorldMatrix(true, false); histo.unshift([dague.localToWorld(V(0, 0.55, 0)), dague.localToWorld(V(0, 0.1, 0))]); } else histo.unshift(null);
+  histo.length = Math.min(histo.length, NT);
+  const P = trainee.geometry.attributes.position, Co = trainee.geometry.attributes.color; let vu = false;
+  for (let i = 0; i < NT; i++) { const h = histo[i] || histo.find(x => x) || [V(), V()], f = histo[i] ? 1 - i / NT : 0; if (histo[i]) vu = true; P.setXYZ(i * 2, h[0].x, h[0].y, h[0].z); P.setXYZ(i * 2 + 1, h[1].x, h[1].y, h[1].z); Co.setXYZ(i * 2, 0.85 * f, 0.7 * f, 1 * f); Co.setXYZ(i * 2 + 1, 0.35 * f, 0.1 * f, 0.8 * f); }
+  P.needsUpdate = Co.needsUpdate = true; trainee.visible = vu;
+}
 // effets : arcs de lame, ondes de choc, rayons de télékinésie (durée courte, mis à jour chaque image)
 const fx = [];
 function arc(pos, angle, { r = 1.6, couleur = '#e8dcff', large = 2.2, y = 1.05, vie = 0.2 } = {}) {
@@ -354,7 +410,8 @@ function onde(pos, { r = 4, couleur = '#c8a8ff', vie = 0.45 } = {}) {
 function majFx(dt) { for (let i = fx.length - 1; i >= 0; i--) { const f = fx[i]; f.t += dt; const k = Math.min(1, f.t / f.vie); f.maj(k, dt); if (k >= 1) { G.scene.remove(f.o); f.m.dispose(); fx.splice(i, 1); } } }
 function majHeros(dt) {
   const J = C.joueur, p = J.perso;
-  for (const k in heros.cds) if (heros.cds[k] > 0) heros.cds[k] -= dt;
+  for (const k in heros.cds) if (heros.cds[k] > 0) heros.cds[k] -= dt; if (heros.gcd > 0) heros.gcd -= dt;
+  majTrainee();
   if (heros.comboT > 0) heros.comboT -= dt;
   heros.horsCombat += dt; if (heros.horsCombat > 5 && J.pv < pvMaxHeros() && !heros.mortT) J.pv = Math.min(pvMaxHeros(), J.pv + dt * 6);
   if (heros.mortT) { heros.mortT -= dt; if (heros.mortT <= 0) { heros.mortT = 0; J.pos.set(2, 0, 6); J.pv = pvMaxHeros(); p.jouer('Idle_Loop', { forcer: true }); emettre(V(2, 1, 6), { n: 50, c1: '#c8a8ff', c2: '#2a0a5a', vit: 3, vie: 1, taille: 0.3, grav: -2 }); C.majHud(); } return; }
@@ -368,6 +425,7 @@ function majHeros(dt) {
       const cibles = A.cibles || ennemis.filter(e => e.vivant && dist(e.pos, J.pos) < 2.6 && Math.abs(Math.atan2(Math.sin(Math.atan2(e.pos.x - J.pos.x, e.pos.z - J.pos.z) - devant), Math.cos(Math.atan2(e.pos.x - J.pos.x, e.pos.z - J.pos.z) - devant))) < 1);
       const crit = A.crit || Math.random() < 0.12;
       for (const e of cibles) e.subir(degHeros() * A.mult * (crit && !A.crit ? 1.5 : 1), { pos: J.pos, isHeros: true }, { crit });
+      if (cibles.length && !A.cibles) gagnerPts(crit ? 2 : 1);
       if (cibles.length) G.shake = Math.max(G.shake, 0.15);
     }
     if (A.t >= A.dur) heros.action = null;
@@ -391,13 +449,14 @@ function majBarres() {
   for (const e of [...ennemis, ...allies]) {
     let b = barres.get(e); const montre = e.vivant && e.m.root.parent && (e.allie || e.vu > 0 || e.etat !== 'garde' && e.etat !== 'flane' || e.pv < e.pvMax);
     if (!montre) { if (b) b.style.display = 'none'; continue; }
-    if (!b) { b = document.createElement('div'); b.className = 'vie' + (e.allie ? ' allie' : ''); b.innerHTML = `<small>${e.allie ? '🜏 ' : ''}${e.T.nom} <em>Nv ${e.niv}</em></small><i><u></u></i>`; hote.appendChild(b); barres.set(e, b); }
+    if (!b) { b = document.createElement('div'); b.className = 'vie' + (e.allie ? ' allie' : ''); b.innerHTML = `<small>${e.allie ? '🜏 ' : ''}${e.T.nom} <em>Nv ${e.niv}</em><span class="etourdi">💫</span></small><i><u></u></i><s><q></q><span></span></s>`; hote.appendChild(b); barres.set(e, b); }
     const s = projeter(V(e.pos.x, e.pos.y + e.T.h * e.T.ech, e.pos.z)); b.style.display = s.devant ? '' : 'none';
-    b.style.transform = `translate(${s.x}px,${s.y}px) translate(-50%,-100%)`; b.querySelector('u').style.width = (100 * e.pv / e.pvMax) + '%';
+    b.style.transform = `translate(${s.x}px,${s.y}px) translate(-50%,-100%)`; b.querySelector('u').style.width = (100 * e.pv / e.pvMax) + '%'; b.classList.toggle('etou', e.etourdi > 0.5 || !!e.lev); const cs = b.querySelector('s'); cs.style.display = e.cast ? '' : 'none'; if (e.cast) { cs.querySelector('q').style.width = Math.min(100, 100 * e.cast.t / e.cast.dur) + '%'; const sp = cs.querySelector('span'); if (sp.textContent !== e.cast.nom) sp.textContent = e.cast.nom; }
   }
 }
 // ---------------- Boutons : attaque + cercle de pouvoirs ----------------
 function initBoutons() {
+  const z = document.createElement('div'); z.id = 'pts'; z.innerHTML = '<i></i><i></i><i></i><i></i><i></i>'; document.getElementById('combat').appendChild(z);
   const at = document.getElementById('btnAttaque');
   at.addEventListener('pointerdown', (e) => { e.preventDefault(); attaquer(); at.classList.add('presse'); });
   at.addEventListener('pointerup', () => at.classList.remove('presse'));
@@ -413,9 +472,9 @@ let cdT = 0;
 function majBoutons(dt) {
   if ((cdT -= dt) > 0) return; cdT = 0.08;
   for (const k of Object.keys(POUVOIRS)) {
-    const b = document.getElementById('pw-' + k), P = POUVOIRS[k], r = P.cd ? Math.max(0, heros.cds[k]) / P.cd : 0;
+    const b = document.getElementById('pw-' + k), P = POUVOIRS[k], r = Math.max(P.cd ? Math.max(0, heros.cds[k]) / P.cd : 0, k !== 'parade' ? Math.max(0, heros.gcd) / 0.6 * 0.999 : 0);
     b.style.setProperty('--cd', r.toFixed(3)); b.classList.toggle('pret', r <= 0 && (!P.mana || C.J.mana >= P.mana));
-    const t = b.querySelector('em'); const txt = r > 0 ? Math.ceil(heros.cds[k]) : ''; if (t.textContent !== String(txt)) t.textContent = txt;
+    const t = b.querySelector('em'); const txt = heros.cds[k] > 0.05 ? Math.ceil(heros.cds[k]) : ''; if (t.textContent !== String(txt)) t.textContent = txt;
   }
   { const b = document.getElementById('pw-dash'), r = Math.max(0, heros.cds.dash) / 1.1; b.style.setProperty('--cd', r.toFixed(3)); }
   const lvl = document.getElementById('pw-arise'); lvl.classList.toggle('dispo', ennemis.some(e => e.etat === 'mort' && e.corpsT > 2 && !e.leve && dist(e.pos, C.joueur.pos) < 9));
@@ -435,7 +494,8 @@ export function initCombat(ctx) {
 }
 export function majCombat(dt) {
   if (G.ralentiT > 0) { G.ralentiT -= dt / Math.max(0.05, G.ralenti); if (G.ralentiT <= 0) G.ralenti = 1; }
-  majHeros(dt); majFx(dt);
+  majHeros(dt); majFx(dt); majAoes(dt);
+  { let best = null, bd = 16; for (const e of ennemis) if (e.vivant && e.etat !== 'garde' && e.etat !== 'flane' && e.etat !== 'retour') { const d = dist(e.pos, C.joueur.pos); if (d < bd) { bd = d; best = e; } } G.cadre = best ? best.pos : null; }
   for (const e of ennemis) e.maj(dt); for (const a of allies) a.maj(dt);
   for (let i = ennemis.length - 1; i >= 0; i--) if (ennemis[i].etat === 'mort' && ennemis[i].corpsT <= 0 && !ennemis[i].m.root.parent) { const b = barres.get(ennemis[i]); if (b) { b.remove(); barres.delete(ennemis[i]); } ennemis.splice(i, 1); }
   for (const c of Object.values(camps)) if (c.mortT > 0) { c.mortT -= dt; if (c.mortT <= 0) { peupler(c); delete (C.J.camps || {})[c.def.id]; } }

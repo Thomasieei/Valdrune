@@ -320,6 +320,7 @@ function majJoueur(dt) {
     if (Math.hypot(nx, nz) < 78 && libre(nx, nz)) { if (!bloque(nx, nz)) { joueur.pos.x = nx; joueur.pos.z = nz; } else if (!bloque(nx, joueur.pos.z)) joueur.pos.x = nx; else if (!bloque(joueur.pos.x, nz)) joueur.pos.z = nz; } /* glisse le long des murs */
     if (sp > 0.3) { let da = Math.atan2(vel.x, vel.z) - p.root.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); p.root.rotation.y += da * Math.min(1, dt * (enAir ? 5 : 11)); }
   }
+  G.suivreYaw = sp > 2.5 && !enAir ? p.root.rotation.y + Math.PI : null;
   if (enAir) { if (joueur.vy < 0 && p.anim === 'Jump_Start') p.jouer('Jump_Loop'); }
   else if (joueur.atterrit > 0) joueur.atterrit -= dt;
   else if (sp > 0.4) p.jouer(sp > 4.6 ? 'Jog_Fwd_Loop' : 'Walk_Loop', { vitesse: sp > 4.6 ? sp / 5.4 : sp / 3.1 });

@@ -77,6 +77,16 @@ body.touche::after{content:'';position:fixed;inset:0;pointer-events:none;z-index
 .flot.xp{color:#ffd27a;font-size:1.9vh}.flot.info{color:#cdbfe6;font-size:1.9vh}.flot.parade{color:#fff;font-size:3.4vh;text-shadow:0 0 1.4vh #b98aff}
 .flot.arise{font:900 4.6vh var(--f-titre);color:#d8c0ff;text-shadow:0 0 2vh #7a3aff,0 0 4vh #5a1aff}
 .demolir{display:block;width:100%;margin-top:1.4vh;padding:1.2vh;border-radius:1.2vh;border:1px solid #ff6a5a55;background:#3a101088;color:#ffb0a8;font:800 1.7vh var(--f-label)}.demolir.sur{background:#a02020;color:#fff}
+#pts{position:absolute;right:25.2vh;bottom:16.9vh;transform:translate(50%,50%);display:flex;gap:.7vh;pointer-events:none}
+#pts i{width:1.6vh;height:1.6vh;transform:rotate(45deg);border:1.5px solid #c8a8ff88;background:#140a24;border-radius:.2vh;transition:.15s}
+#pts i.on{background:linear-gradient(135deg,#fff,#b98aff);border-color:#fff;box-shadow:0 0 1vh #b98aff}
+#pw-lame.charge .cadre{background:conic-gradient(from 0deg,#b98aff,#fff,#6a2aff,#fff,#b98aff);animation:pulse .9s infinite}
+.vie s{display:block;position:relative;width:10vh;height:1.3vh;margin-top:.3vh;border-radius:.4vh;background:#1a0c04;border:1px solid #ffb04a88;overflow:hidden;text-decoration:none}
+.vie s q{display:block;height:100%;width:0;background:linear-gradient(90deg,#c86a10,#ffd27a)}.vie s q::before,.vie s q::after{content:none}
+.vie s span{position:absolute;inset:0;display:grid;place-items:center;font:800 1vh var(--f-label);color:#fff;text-shadow:0 1px 2px #000}
+.vie .etourdi{display:none;margin-left:.4vh}.vie.etou .etourdi{display:inline}
+.flot.alerte-sort{color:#ffb04a;font-size:2.2vh;font-weight:900;text-shadow:0 0 1vh #ff3a10,0 2px 3px #000}
+#vignette{position:fixed;inset:0;pointer-events:none;z-index:1;background:radial-gradient(ellipse at 50% 55%,transparent 55%,#05020c66 100%)}
 .stats.suivant{color:#a8ffbf;opacity:.85}
 #guide{position:fixed;left:0;top:0;z-index:15;font-size:6vh;pointer-events:none;opacity:0;margin:-.4vh 0 0 -2.2vh;filter:drop-shadow(0 .4vh .6vh #000a);transition:opacity .3s}
 #guide.on{opacity:1;animation:tape 1s ease-in-out infinite}
@@ -213,6 +223,7 @@ body.souverain #scene{filter:saturate(1.08)}
   <button id="btnConstruire" class="verre">🔨 Construire</button>
   <button id="btnMode" class="verre">👑<small>Souverain</small></button>
   <div id="indice"></div>
+  <div id="vignette"></div>
   <div id="guide">👆</div>
   <div id="retour" hidden><div class="boite"><h3>Bon retour, Souverain</h3><p></p><div class="gains"></div><small>Bientôt : des pillards rôderont pendant ton absence…</small><b>Toucher pour récupérer</b></div></div>
   <div id="placement" hidden><button id="btnTourner" class="verre">↻</button><button id="btnAnnuler" class="verre">✕</button><button id="btnPoser">Poser</button></div>

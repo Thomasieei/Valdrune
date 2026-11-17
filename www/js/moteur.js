@@ -67,14 +67,17 @@ export function rendre(dtReel) { majPerf(dtReel); majParticules(G.dt); G.compose
 const _off = V(), _vise = V();
 export const DIR_AV = V(0, 0, -1), DIR_DR = V(1, 0, 0);
 // deux caméras : HÉROS (derrière toi, façon Roblox) et SOUVERAIN (vue du dessus façon Age of Empires) ; on glisse de l'une à l'autre
-G.mode = 'heros'; G.focus = new THREE.Vector3(); G.zoomS = 0.35;
+G.mode = 'heros'; G.focus = new THREE.Vector3(); G.zoomS = 0.35; const _cad = new THREE.Vector3();
 export function majCamera(dt, cible) {
   const souv = G.mode === 'souverain', k = 1 - Math.exp(-dt * 6);
   if (souv) { const r = Math.hypot(G.focus.x, G.focus.z); if (r > 75) G.focus.multiplyScalar(75 / r); G.focus.y = G.hauteur ? G.hauteur(G.focus.x, G.focus.z) : 0; }
-  G.camCible.lerp(souv ? G.focus : cible, 1 - Math.exp(-dt * (souv ? 14 : 10)));
+  // caméra de combat : elle recule un peu, monte, et cadre le héros ET sa cible ; en marche elle se replace doucement derrière lui
+  const cad = !souv && G.cadre, vise = cad ? _cad.set(cible.x + (G.cadre.x - cible.x) * 0.3, cible.y, cible.z + (G.cadre.z - cible.z) * 0.3) : cible;
+  if (!souv && G.suivreYaw != null && performance.now() - (G.camMain || 0) > 1600) { let dy = G.suivreYaw - G.camYaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); G.camYaw += dy * Math.min(1, dt * (cad ? 0.6 : 1.3)); }
+  G.camCible.lerp(souv ? G.focus : vise, 1 - Math.exp(-dt * (souv ? 14 : 8)));
   G._d = G._d ?? 4 + G.camZoom * 26; G._p = G._p ?? G.camPitch;
   const inte = G.interieur && !souv; /* dans un bâtiment : caméra proche et plongeante, le toit s'efface */
-  G._d += ((souv ? 14 + G.zoomS * 38 : inte ? Math.min(7, 4 + G.camZoom * 26) : 4 + G.camZoom * 26) - G._d) * k; G._p += ((souv ? 0.98 : inte ? Math.max(0.75, G.camPitch) : G.camPitch) - G._p) * k;
+  G._d += ((souv ? 14 + G.zoomS * 38 : inte ? Math.min(7, 4 + G.camZoom * 26) : cad ? Math.max(11.5, 4 + G.camZoom * 26) : 4 + G.camZoom * 26) - G._d) * k * (cad ? 0.5 : 1); G._p += ((souv ? 0.98 : inte ? Math.max(0.75, G.camPitch) : cad ? Math.max(0.6, G.camPitch) : G.camPitch) - G._p) * k * (cad ? 0.5 : 1);
   let d = G._d; const p = G._p;
   // comme Roblox : un arbre entre toi et la caméra ? elle se rapproche, puis recule en douceur
   if (G.obstacle && !souv && !inte) { const ox = Math.sin(G.camYaw) * Math.cos(p), oz = Math.cos(G.camYaw) * Math.cos(p), oy = Math.sin(p); let lib = d; for (let f = 1.5; f <= d; f += 0.5) { if (G.camCible.y + 1 + oy * f < 6 && G.obstacle(G.camCible.x + ox * f, G.camCible.z + oz * f)) { lib = Math.max(2.2, f - 0.8); break; } } G._col = lib < (G._col ?? d) ? lib : (G._col ?? d) + (lib - (G._col ?? d)) * Math.min(1, dt * 2); d = Math.min(d, G._col); }
@@ -114,7 +117,7 @@ export function initEntrees({ toucher, saisir, glisser }) {
     if (dep && Math.hypot(e.clientX - dep.x, e.clientY - dep.y) > 10) dep.bouge = true;
     if (dep && dep.bouge && dep.saisi) { glisser(e.clientX, e.clientY); return; }
     if (dep && dep.bouge && G.mode === 'souverain') { const f = G._d * 0.0016; G.focus.addScaledVector(DIR_DR, -dx * f).addScaledVector(DIR_AV, dy * f); return; }
-    if (dep && dep.bouge) { G.camYaw -= dx * 0.008 * G.sens; G.camPitch = Math.max(0.08, Math.min(1.35, G.camPitch + dy * 0.005 * G.sens)); }
+    if (dep && dep.bouge) { G.camMain = performance.now(); G.camYaw -= dx * 0.008 * G.sens; G.camPitch = Math.max(0.08, Math.min(1.35, G.camPitch + dy * 0.005 * G.sens)); }
   });
   const leve = (e) => { if (dep && !dep.bouge && doigts.size === 1 && performance.now() - dep.t < 350) toucher(e.clientX, e.clientY); doigts.delete(e.pointerId); if (doigts.size < 2) pince = 0; if (!doigts.size) dep = null; };
   sc.addEventListener('pointerup', leve); sc.addEventListener('pointercancel', (e) => { doigts.delete(e.pointerId); dep = null; });
@@ -195,12 +198,13 @@ function majParticules(dt) {
 const flottants = [];
 export function texteFlottant(pos, txt, cls = '') {
   const d = document.createElement('div'); d.className = 'flot ' + cls; d.textContent = txt; document.getElementById('flots').appendChild(d);
-  flottants.push({ d, pos: pos.clone(), t: 0 });
+  flottants.push({ d, pos: pos.clone(), t: 0, dx: (Math.random() - 0.5) * 1.6, dz: (Math.random() - 0.5) * 1.6, gros: /crit|parade|arise/.test(cls) });
 }
 export function majFlottants(dt) {
   for (let i = flottants.length - 1; i >= 0; i--) {
-    const f = flottants[i]; f.t += dt; f.pos.y += dt * 1.1;
-    const s = projeter(f.pos); f.d.style.transform = `translate(${s.x}px,${s.y}px) translate(-50%,-50%) scale(${Math.min(1, 0.6 + f.t * 4)})`; f.d.style.opacity = f.t > 1.1 ? Math.max(0, 1 - (f.t - 1.1) / 0.5) : 1;
+    const f = flottants[i]; f.t += dt; f.pos.y += dt * (1.6 - f.t); f.pos.x += f.dx * dt; f.pos.z += f.dz * dt; // les chiffres jaillissent en arc, les critiques éclatent
+    const sc = f.gros ? (f.t < 0.12 ? 0.6 + f.t * 12 : Math.max(1, 2 - (f.t - 0.12) * 5)) : Math.min(1, 0.6 + f.t * 4);
+    const s = projeter(f.pos); f.d.style.transform = `translate(${s.x}px,${s.y}px) translate(-50%,-50%) scale(${sc})`; f.d.style.opacity = f.t > 1.1 ? Math.max(0, 1 - (f.t - 1.1) / 0.5) : 1;
     if (f.t > 1.6 || !s.devant) { f.d.remove(); flottants.splice(i, 1); }
   }
 }

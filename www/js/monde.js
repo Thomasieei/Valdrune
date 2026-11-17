@@ -17,6 +17,15 @@ export function buche(rayon, longueur) {
 }
 // ---------------- Terrain ----------------
 export const CAMP = V(0, 0, 0), RESERVE = V(5, 0, 4), FEU = V(-1.5, 0, -1.5), CARRIERE = V(21, 0, -19);
+// ---------------- Chemins : de vraies routes de terre qui relient le camp aux zones (on s'y bat, on s'y repère) ----------------
+const lisse = (pts) => { const out = []; for (let i = 0; i < pts.length - 1; i++) { const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)]; for (let t = 0; t < 1; t += 0.125) { const t2 = t * t, t3 = t2 * t; out.push([0.5 * (2 * p1[0] + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3), 0.5 * (2 * p1[1] + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3)]); } } out.push(pts[pts.length - 1]); return out; };
+export const CHEMINS = [
+  lisse([[2, -3], [8, -9], [12, -15], [17, -17]]),             // camp → carrière
+  lisse([[3, 6], [10, 13], [20, 18], [28, 22], [33, 26]]),     // camp → camp des pillards
+  lisse([[-4, 3], [-12, 10], [-20, 16], [-26, 24], [-30, 27]]), // camp → clairière des Puglins
+  lisse([[-3, -4], [-8, -14], [-12, -26], [-14, -40], [-12, -55]]), // vers le nord, la suite du monde
+];
+export function distChemin(x, z) { let best = 1e9; for (const L of CHEMINS) for (let i = 0; i < L.length - 1; i++) { const [ax, az] = L[i], [bx, bz] = L[i + 1], dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2)), d = Math.hypot(x - ax - dx * t, z - az - dz * t); if (d < best) best = d; } return best; }
 function bruit(x, z) { return Math.sin(x * 0.071) * Math.cos(z * 0.063) * 0.9 + Math.sin(x * 0.17 + z * 0.13) * 0.35 + Math.cos(x * 0.031 - z * 0.047) * 1.4; }
 export function hauteur(x, z) { const d = Math.hypot(x, z); const k = Math.min(1, Math.max(0, (d - 13) / 14)); return bruit(x, z) * k * k * (3 - 2 * k); }
 function construireTerrain() {
@@ -28,6 +37,7 @@ function construireTerrain() {
     const terre = Math.max(0, 1 - Math.abs(d - 0) / 9) * 0.9 + Math.max(0, 1 - Math.hypot(x - RESERVE.x, z - RESERVE.z) / 5) * 0.7; // sol tassé du camp
     c.lerp(c2.set('#9a7a52'), Math.min(0.85, terre));
     const dc = Math.hypot(x - CARRIERE.x, z - CARRIERE.z); if (dc < 10) c.lerp(c2.set('#8a8070'), Math.min(0.8, (10 - dc) / 3.5)); // carrière : roche et gravier
+    const dch = distChemin(x, z) + Math.sin(x * 1.7 + z * 1.3) * 0.35; if (dch < 2.6) c.lerp(c2.set('#a08458').offsetHSL(0, 0, n * 0.03), Math.min(0.92, (2.6 - dch) / 1.1)); // route de terre aux bords irréguliers
     C.set([c.r, c.g, c.b], i * 3);
   }
   geo.setAttribute('color', new THREE.BufferAttribute(C, 3)); geo.computeVertexNormals();
@@ -49,7 +59,7 @@ function construireForet() {
   const types = ['oak_01', 'birch_01', 'pine_01'], T = { oak_01: [], birch_01: [], pine_01: [] };
   for (let k = 0; k < 140; k++) {
     const a = rnd(0, 6.283), d = rnd(15, 62), x = Math.cos(a) * d, z = Math.sin(a) * d;
-    if (Math.hypot(x - RESERVE.x, z - RESERVE.z) < 9 || Math.hypot(x - CARRIERE.x, z - CARRIERE.z) < 11 || Math.hypot(x + 34, z - 30) < 11 || Math.hypot(x - 38, z - 30) < 14) continue; /* clairière des Puglins, camp des pillards */
+    if (distChemin(x, z) < 3.2 || Math.hypot(x - RESERVE.x, z - RESERVE.z) < 9 || Math.hypot(x - CARRIERE.x, z - CARRIERE.z) < 11 || Math.hypot(x + 34, z - 30) < 11 || Math.hypot(x - 38, z - 30) < 14) continue; /* clairière des Puglins, camp des pillards */
     if (arbres.some(b => Math.hypot(b.pos.x - x, b.pos.z - z) < 3.2)) continue;
     const type = types[Math.floor(rnd(0, 3))], e = rnd(0.85, 1.25), p = V(x, hauteur(x, z), z);
     const ar = { type, i: T[type].length, pos: p, r: rnd(0, 6.28), e, pv: 0, pvMax: 0, etat: 'debout', bois: 0, ouvriers: 0 };
@@ -137,11 +147,24 @@ function majFeu(dt) {
 }
 // ---------------- Décor ----------------
 function construireDecor() {
-  const T = (cle, n, dmin, dmax, emin, emax, eviteCamp = 11) => { const L = []; for (let k = 0; k < n; k++) { const a = rnd(0, 6.283), d = rnd(dmin, dmax), x = Math.cos(a) * d, z = Math.sin(a) * d; if (Math.hypot(x, z) < eviteCamp || Math.hypot(x - RESERVE.x, z - RESERVE.z) < 5) continue; L.push({ p: V(x, hauteur(x, z), z), r: rnd(0, 6.28), e: rnd(emin, emax) }); } instancier(N[cle], L); };
+  const T = (cle, n, dmin, dmax, emin, emax, eviteCamp = 11) => { const L = []; for (let k = 0; k < n; k++) { const a = rnd(0, 6.283), d = rnd(dmin, dmax), x = Math.cos(a) * d, z = Math.sin(a) * d; if (Math.hypot(x, z) < eviteCamp || Math.hypot(x - RESERVE.x, z - RESERVE.z) < 5 || (cle !== 'grass_01' && cle !== 'flowers_01' && distChemin(x, z) < 2.4)) continue; L.push({ p: V(x, hauteur(x, z), z), r: rnd(0, 6.28), e: rnd(emin, emax) }); } instancier(N[cle], L); };
   T('grass_01', 260, 6, 70, 0.7, 1.3, 6); T('flowers_01', 90, 8, 60, 0.7, 1.2, 8); T('fern_01', 70, 14, 65, 0.8, 1.3); T('bush_01', 45, 13, 66, 0.8, 1.3);
   T('mushrooms_01', 30, 16, 60, 0.8, 1.2); T('rocks_01', 25, 12, 66, 0.6, 1.2); T('boulder_01', 12, 20, 70, 0.8, 1.6, 18); T('rock_mossy_01', 14, 18, 70, 0.7, 1.3); T('pebbles_01', 30, 4, 50, 0.7, 1.1, 3);
   T('deadtree_01', 6, 30, 70, 0.9, 1.3, 25);
+  construireBraseros();
 }
+// braseros le long des routes : on voit où aller, et les combats de nuit ont de la gueule
+const braseros = [];
+function construireBraseros() {
+  const fer = new THREE.MeshStandardMaterial({ color: '#2a2622', metalness: 0.6, roughness: 0.5 }), braise = new THREE.MeshStandardMaterial({ color: '#ff7a2a', emissive: '#ff5a10', emissiveIntensity: 3 });
+  for (const L of CHEMINS) for (let i = 4; i < L.length - 2; i += 6) {
+    const [x, z] = L[i], [x2, z2] = L[i + 1], a = Math.atan2(x2 - x, z2 - z), cote = (i / 6) % 2 ? 1 : -1, px = x + Math.cos(a) * 2.9 * cote, pz = z - Math.sin(a) * 2.9 * cote;
+    if (Math.hypot(px, pz) < 8) continue;
+    const g = new THREE.Group(), pied = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 1.3, 6), fer); pied.position.y = 0.65; const coupe = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.18, 0.28, 8, 1, true), fer); coupe.position.y = 1.38;
+    const feu = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 0), braise); feu.position.y = 1.45; g.add(pied, coupe, feu); g.position.set(px, hauteur(px, pz), pz); g.traverse(o => { if (o.isMesh) o.castShadow = true; }); G.scene.add(g); braseros.push(g);
+  }
+}
+function majBraseros() { const c = G.camCible; for (const b of braseros) if (Math.hypot(b.position.x - c.x, b.position.z - c.z) < 30 && Math.random() < 0.35) emettre(V(b.position.x + (Math.random() - 0.5) * 0.2, b.position.y + 1.55, b.position.z + (Math.random() - 0.5) * 0.2), { n: 1, c1: '#ffd27a', c2: '#ff3a10', vit: 0.6, vie: 0.6, taille: 0.2, grav: -2.5 }); }
 // ---------------- Carrière : filons de pierre ----------------
 export const filons = [];
 function construireCarriere() {
@@ -180,5 +203,5 @@ export function construireMonde() {
   G.obstacle = (x, z) => { for (const a of arbres) if (a.etat === 'debout' && Math.abs(a.pos.x - x) < 2 && Math.abs(a.pos.z - z) < 2 && Math.hypot(a.pos.x - x, a.pos.z - z) < 1.6 * a.e) return true; return false; };
   construireTerrain(); construireForet(); construireDecor(); construireReserve(); construireFeu(); construireCarriere();
 }
-export function majMonde(dt) { majMinuteurs(); majFilons(dt); majChutes(dt); majRepousse(dt); majSecousses(dt); majFeu(dt); }
+export function majMonde(dt) { majMinuteurs(); majBraseros(); majFilons(dt); majChutes(dt); majRepousse(dt); majSecousses(dt); majFeu(dt); }
 export function libre(x, z) { for (const a of arbres) if (a.etat !== 'tombe' && Math.hypot(a.pos.x - x, a.pos.z - z) < 0.7) return false; return Math.hypot(x, z) < 80; }
