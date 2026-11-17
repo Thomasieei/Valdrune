@@ -1,0 +1,189 @@
+// Souverain des Ombres — brique 1 : relever ses ombres, les envoyer au bois, voir le royaume grandir.
+import { THREE, G, V, initRendu, rendre, majCamera, initEntrees, directionVoulue, projeter, initAudio, chargerSons, son, emettre, texteFlottant, majFlottants } from './moteur.js';
+import { chargerPersos, Perso } from './persos.js';
+import { chargerNature, construireMonde, majMonde, majPile, hauteur, arbreProche, frapperArbre, libre, RESERVE, FEU } from './monde.js';
+import { Ombre, RANGS, NOMS, parole, surParole, xpNiveau, teinteOmbre } from './ombres.js';
+
+const $ = (s) => document.querySelector(s);
+const CLE = 'souverain-v1';
+// ---------------- Sauvegarde ----------------
+let J = null;
+function nouvelleSauvegarde() { return { bois: 0, mana: 100, ombres: [], depouilles: [0, 1, 2, 3, 4], quete: 0, total: 0 }; }
+function charger() { try { const s = localStorage.getItem(CLE); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+let sauveT = 0; function sauver() { try { localStorage.setItem(CLE, JSON.stringify(J)); } catch (e) {} }
+// ---------------- Le souverain ----------------
+const joueur = { perso: null, pos: null, manaMax: 100, chop: null };
+const DEP = [V(-9, 0, 6), V(-11.5, 0, 3), V(-8, 0, 9.5), V(-12.5, 0, 7.5), V(-10, 0, 11.5)];
+const depouilles = []; const ombres = []; let selection = null;
+function creerJoueur() {
+  const p = joueur.perso = new Perso({ sexe: 'h', tenue: 'rodeur', cheveux: 1 });
+  p.root.position.set(2, 0, 6); G.scene.add(p.root); joueur.pos = p.root.position; p.jouer('Idle_Loop');
+}
+function creerDepouilles() {
+  for (const i of J.depouilles) {
+    const p = new Perso({ sexe: i % 3 === 1 ? 'f' : 'h', tenue: 'paysan', cheveux: i, couleurTenue: ['#8a6a4a', '#5a6a8a', '#7a4a4a', '#6a7a5a', '#8a7a5a'][i] });
+    p.root.position.copy(DEP[i]); p.root.position.y = hauteur(DEP[i].x, DEP[i].z); p.root.rotation.y = i * 1.3; G.scene.add(p.root);
+    const a = p.jouer('Death01', { boucle: false }); if (a) { a.time = a.getClip().duration; } p.maj(0.01);
+    // une lame brisée et une tache sombre : un champ de bataille, pas un décor
+    const tache = new THREE.Mesh(new THREE.CircleGeometry(0.9, 20).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#1a0a14', transparent: true, opacity: 0.45, depthWrite: false })); tache.position.set(DEP[i].x, p.root.position.y + 0.03, DEP[i].z); G.scene.add(tache);
+    depouilles.push({ i, p, tache });
+  }
+}
+function ajouterOmbre(d, pos) { const o = new Ombre(d, pos); ombres.push(o); return o; }
+// ---------------- Éveil (ARISE) ----------------
+const COUT_EVEIL = 40;
+function tirerRang() { const r = Math.random(); return r < 0.02 ? 'A' : r < 0.08 ? 'B' : r < 0.25 ? 'C' : r < 0.55 ? 'D' : 'E'; }
+function eveiller(dep) {
+  if (J.mana < COUT_EVEIL) { toast(`Pas assez de mana (${COUT_EVEIL})`); son('error_004', 0.4); return; }
+  J.mana -= COUT_EVEIL; enScene = true;
+  J.depouilles = J.depouilles.filter(i => i !== dep.i); depouilles.splice(depouilles.indexOf(dep), 1);
+  const pos = dep.p.root.position.clone();
+  $('#eveil').classList.add('on'); son('sov_possession', 0.7, 0.9); G.shake = 0.35;
+  const cercle = new THREE.Mesh(new THREE.RingGeometry(0.2, 2.2, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#7a3aff', transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending, depthWrite: false })); cercle.position.set(pos.x, pos.y + 0.05, pos.z); G.scene.add(cercle);
+  let t = 0; const id = (J.ombres.reduce((m, o) => Math.max(m, o.id), 0) || 0) + 1;
+  const d = { id, nom: NOMS[(id - 1) % NOMS.length], rang: tirerRang(), metier: 'suivre', sexe: dep.i % 3 === 1 ? 'f' : 'h', cheveux: dep.i, maitrise: { bois: { niv: 1, xp: 0 } } };
+  const anim = (dt) => {
+    t += dt; cercle.rotation.y += dt * 2; cercle.scale.setScalar(1 + Math.sin(t * 6) * 0.06);
+    if (Math.random() < 0.9) emettre(V(pos.x + (Math.random() - 0.5) * 2, pos.y + 0.1, pos.z + (Math.random() - 0.5) * 2), { n: 3, c1: '#b48aff', c2: '#140820', vit: 0.6, vie: 1.2, taille: 0.35, grav: -3, haut: 2 });
+    if (t > 1.1 && dep.p) { G.scene.remove(dep.p.root); G.scene.remove(dep.tache); dep.p = null; const o = ajouterOmbre(d, pos); o.p.root.rotation.y = Math.atan2(joueur.pos.x - pos.x, joueur.pos.z - pos.z); o.p.jouer('LayToIdle', { boucle: false, forcer: true, fondu: 0 }); o.scene = () => {}; nouvelle = o; son('sov_onde', 0.6, 0.8); emettre(V(pos.x, pos.y + 1, pos.z), { n: 70, c1: '#d8c0ff', c2: '#3a0a7a', vit: 5, vie: 1, taille: 0.3, grav: 0 }); }
+    if (t > 3.2 && nouvelle && !nouvelle._kneel) { nouvelle._kneel = true; nouvelle.p.jouer('Fixing_Kneeling', { boucle: true }); nouvelle.dire(parole('eveil')); revelerRang(d); }
+    if (t > 6.2) { G.scene.remove(cercle); $('#eveil').classList.remove('on'); if (nouvelle) { nouvelle.scene = null; nouvelle.p.jouer('Idle_Loop'); } nouvelle = null; enScene = false; J.ombres.push(d); sauver(); majQuete(); return true; }
+  };
+  let nouvelle = null; scenes.push(anim);
+}
+function revelerRang(d) {
+  const R = RANGS[d.rang], el = $('#rangRevele');
+  el.innerHTML = `<small>Nouvelle ombre</small><b>${d.nom}</b><span class="rang" style="--c:${R.c}">RANG ${d.rang}</span><em>Bûcheronnage ×${R.coupe.toFixed(2)} · porte ${R.charge} bûches</em>`;
+  el.classList.remove('on'); void el.offsetWidth; el.classList.add('on'); son('CBAS'.includes(d.rang) ? 'jingles_PIZZI03' : 'confirmation_001', 0.5);
+  setTimeout(() => el.classList.remove('on'), 3800);
+}
+// ---------------- Économie ----------------
+const jeu = {
+  ajouterBois(n, o) {
+    J.bois += n; J.total += n; majPile(J.bois); son('drop_002', 0.35, 1, o ? o.pos : null);
+    texteFlottant(V(RESERVE.x, 2.4, RESERVE.z), `+${n} 🪵`, 'bois'); majHud(true); majQuete();
+  },
+};
+Object.defineProperty(jeu, 'pos', { get: () => joueur.pos }); Object.defineProperty(jeu, 'perso', { get: () => joueur.perso });
+// ---------------- Quête guidée (on comprend en 10 secondes quoi faire) ----------------
+const QUETES = [
+  { t: 'Éveille une ombre', s: 'Approche-toi d’un corps sur le champ de bataille et touche ÉVEILLE-TOI.', fait: () => J.ombres.length >= 1 },
+  { t: 'Envoie-la au bois', s: 'Ouvre OMBRES, choisis ton ombre et touche 🪓 Bois.', fait: () => J.ombres.some(o => o.metier === 'bois') },
+  { t: 'Remplis la réserve', s: 'Regarde-la abattre, débiter et porter le bois. Objectif : 60 bûches.', fait: () => J.bois >= 60, prog: () => [J.bois, 60] },
+  { t: 'Une armée de bûcherons', s: 'Éveille 3 ombres et mets-les toutes au bois : la réserve monte bien plus vite.', fait: () => J.ombres.filter(o => o.metier === 'bois').length >= 3 },
+  { t: 'Royaume en marche', s: 'Atteins 300 bûches. (La suite arrive : construire avec ce bois.)', fait: () => J.bois >= 300, prog: () => [J.bois, 300] },
+];
+function majQuete() {
+  while (J.quete < QUETES.length && QUETES[J.quete].fait()) { J.quete++; son('maximize_006', 0.5); if (J.quete < QUETES.length) toast('Objectif accompli !'); }
+  const q = QUETES[J.quete], el = $('#quete');
+  if (!q) { el.innerHTML = '<b>Royaume en marche</b><span>Tu as tout accompli. La construction arrive dans la prochaine version.</span>'; return; }
+  const p = q.prog ? q.prog() : null;
+  el.innerHTML = `<b>${q.t}</b><span>${q.s}</span>${p ? `<i><u style="width:${Math.min(100, p[0] / p[1] * 100)}%"></u></i>` : ''}`;
+}
+// ---------------- Interface ----------------
+function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; $('#toasts').appendChild(d); setTimeout(() => d.remove(), 2600); }
+let boisAff = -1;
+function majHud(pop = false) {
+  if (J.bois !== boisAff) { $('#bois b').textContent = J.bois; boisAff = J.bois; if (pop) { const b = $('#bois'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); } }
+  $('#mana i').style.width = (J.mana / joueur.manaMax * 100) + '%'; $('#mana b').textContent = `${Math.floor(J.mana)} / ${joueur.manaMax}`;
+  $('#btnOmbres small').textContent = J.ombres.length;
+}
+const bulles = new Map();
+surParole((o, t) => { let b = bulles.get(o); if (!b) { b = document.createElement('div'); b.className = 'bulle'; $('#bulles').appendChild(b); bulles.set(o, b); } b.textContent = t; b.dataset.t = String(G.t + 3.2); b.style.display = ''; });
+const etiquettes = new Map();
+function majEtiquettes() {
+  for (const o of ombres) {
+    let e = etiquettes.get(o); if (!e) { e = document.createElement('div'); e.className = 'eti'; $('#bulles').appendChild(e); etiquettes.set(o, e); }
+    const s = projeter(V(o.pos.x, o.pos.y + 2.15, o.pos.z)), loin = Math.hypot(o.pos.x - joueur.pos.x, o.pos.z - joueur.pos.z) > 22;
+    const html = `<span class="rg" style="--c:${o.R.c}">${o.d.rang}</span>${o.d.nom}${o.charge ? ` <em>🪵${o.charge}</em>` : ''}`; if (e._h !== html) { e.innerHTML = html; e._h = html; }
+    e.style.display = s.devant && !loin ? '' : 'none'; e.classList.toggle('sel', selection === o); e.style.transform = `translate(${s.x}px,${s.y}px) translate(-50%,-100%)`;
+    const b = bulles.get(o); if (b && b.style.display !== 'none') { if (G.t > +b.dataset.t || !s.devant || loin) b.style.display = 'none'; else b.style.transform = `translate(${s.x}px,${s.y - 26}px) translate(-50%,-100%)`; }
+  }
+}
+function ouvrirOmbres() {
+  const p = $('#panneau'); p.classList.add('on'); son('confirmation_001', 0.3);
+  const metiers = { bois: '🪓 Bûcheron', suivre: '👣 Te suit', repos: '🔥 Au repos' };
+  p.querySelector('.liste').innerHTML = J.ombres.length ? J.ombres.map(d => {
+    const R = RANGS[d.rang], m = d.maitrise.bois, o = ombres.find(x => x.d === d);
+    return `<div class="carte ${selection && selection.d === d ? 'sel' : ''}" data-id="${d.id}">
+      <div class="tete"><span class="rg" style="--c:${R.c}">${d.rang}</span><b>${d.nom}</b><small>${metiers[d.metier]}</small></div>
+      <div class="stats">Coupe ×${(R.coupe * (1 + 0.04 * (m.niv - 1))).toFixed(2)} · porte ${R.charge + Math.floor((m.niv - 1) / 4)} · vitesse ${R.vit}</div>
+      <div class="maitrise"><span>Maîtrise du bois <b>${m.niv}</b></span><i><u style="width:${m.xp / xpNiveau(m.niv) * 100}%"></u></i></div>
+      <div class="ordres"><button data-o="bois" class="${d.metier === 'bois' ? 'on' : ''}">🪓 Bois</button><button data-o="suivre" class="${d.metier === 'suivre' ? 'on' : ''}">👣 Suivre</button><button data-o="repos" class="${d.metier === 'repos' ? 'on' : ''}">🔥 Repos</button></div>
+    </div>`;
+  }).join('') : '<p class="vide">Aucune ombre. Approche-toi d’un corps sur le champ de bataille et éveille-le.</p>';
+}
+$('#panneau').addEventListener('click', (e) => {
+  if (e.target.closest('[data-x]')) { $('#panneau').classList.remove('on'); return; }
+  const b = e.target.closest('[data-o]'); if (!b) return;
+  const d = J.ombres.find(x => x.id === +b.closest('[data-id]').dataset.id), o = ombres.find(x => x.d === d);
+  d.metier = b.dataset.o; son('select_001', 0.4); son('cloth1', 0.4);
+  if (o) { if (o.cible) o.lacher(); o.etat = 'chercher'; o.dire(parole(d.metier)); }
+  sauver(); majQuete(); ouvrirOmbres();
+});
+$('#btnOmbres').onclick = () => ouvrirOmbres();
+// ---------------- Action contextuelle (un seul gros bouton, comme Roblox) ----------------
+let actionCb = null;
+function action(txt, cb, cls = '') { const b = $('#action'); if (!txt) { b.hidden = true; actionCb = null; return; } if (b.textContent !== txt) b.textContent = txt; b.className = cls; b.hidden = false; actionCb = cb; }
+$('#action').onclick = () => { initAudio(); actionCb && actionCb(); };
+function majAction() {
+  if (enScene) return action(null);
+  const dep = depouilles.find(d => Math.hypot(d.p.root.position.x - joueur.pos.x, d.p.root.position.z - joueur.pos.z) < 2.6);
+  if (dep) return action(`ÉVEILLE-TOI · ${COUT_EVEIL} mana`, () => eveiller(dep), 'eveil');
+  const a = arbreProche(joueur.pos, x => x.etat === 'debout', 2.4);
+  if (a) return action(joueur.chop ? 'Tu coupes…' : 'Couper l’arbre', () => { joueur.chop = a; }, 'bois');
+  action(null);
+}
+// ---------------- Sélection au doigt ----------------
+function toucher(x, y) {
+  let best = null, bd = 60;
+  for (const o of ombres) { const s = projeter(V(o.pos.x, o.pos.y + 1, o.pos.z)); const d = Math.hypot(s.x - x, s.y - y); if (s.devant && d < bd) { bd = d; best = o; } }
+  if (best) { selection = best; best.dire(`${best.d.nom}, rang ${best.d.rang}. J’écoute.`); son('cloth1', 0.4); ouvrirOmbres(); }
+}
+// ---------------- Boucle ----------------
+const scenes = []; let enScene = false; let dernier = performance.now();
+const dir = V();
+function majJoueur(dt) {
+  const f = directionVoulue(dir), p = joueur.perso;
+  if (f > 0.05) {
+    joueur.chop = null; const v = f > 0.85 ? 6.2 : 3.4;
+    const nx = joueur.pos.x + dir.x * v * dt, nz = joueur.pos.z + dir.z * v * dt;
+    if (Math.hypot(nx, nz) < 78 && libre(nx, nz)) { joueur.pos.x = nx; joueur.pos.z = nz; }
+    let da = Math.atan2(dir.x, dir.z) - p.root.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); p.root.rotation.y += da * Math.min(1, dt * 12);
+    p.jouer(f > 0.85 ? 'Jog_Fwd_Loop' : 'Walk_Loop', { vitesse: f > 0.85 ? 1.15 : 1.1 });
+  } else if (joueur.chop) {
+    const a = joueur.chop; if (a.etat !== 'debout') { joueur.chop = null; p.jouer('Idle_Loop'); }
+    else { const ang = Math.atan2(a.pos.x - joueur.pos.x, a.pos.z - joueur.pos.z); p.root.rotation.y = ang; p.jouer('TreeChopping_Loop', { vitesse: 1.3 }); const ph = p.phase(); if (joueur.ph < 0.5 && ph >= 0.5) frapperArbre(a, joueur.pos, 2); joueur.ph = ph; }
+  } else p.jouer('Idle_Loop');
+  joueur.pos.y = hauteur(joueur.pos.x, joueur.pos.z);
+  p.maj(dt);
+  J.mana = Math.min(joueur.manaMax, J.mana + dt * 2.2);
+}
+function boucle() {
+  requestAnimationFrame(boucle);
+  const now = performance.now(), dtR = Math.min(G.accel ? 0.25 : 0.1, (now - dernier) / 1000); dernier = now; const dt = dtR * (G.accel || 1); G.dt = dt; G.t += dt;
+  majJoueur(dt);
+  for (let i = scenes.length - 1; i >= 0; i--) if (scenes[i](dt)) scenes.splice(i, 1);
+  let rangSuivre = 0; for (const o of ombres) o.maj(dt, jeu, o.d.metier === 'suivre' ? rangSuivre++ : 0);
+  for (const d of depouilles) if (d.p && Math.random() < dt * 1.5) emettre(V(d.p.root.position.x, d.p.root.position.y + 0.3, d.p.root.position.z), { n: 1, c1: '#7a4aff', c2: '#100418', vit: 0.2, vie: 1.4, taille: 0.25, grav: -0.8 });
+  majMonde(dt); majCamera(dt, V(joueur.pos.x, joueur.pos.y, joueur.pos.z)); majFlottants(dt); majEtiquettes(); majAction();
+  if ((sauveT -= dt) <= 0) { sauveT = 5; sauver(); majHud(); }
+  else if (Math.floor(G.t * 10) !== Math.floor((G.t - dt) * 10)) majHud();
+  rendre(dtR);
+}
+// ---------------- Démarrage ----------------
+async function demarrer() {
+  initRendu($('#scene'));
+  const barre = $('#charge i'), pr = { p: 0, n: 0 }, avance = () => { barre.style.width = Math.round((pr.p + pr.n) / 2 * 100) + '%'; };
+  await Promise.all([chargerPersos((k) => { pr.p = k; avance(); }), chargerNature((k) => { pr.n = k; avance(); }), chargerSons(['chop.ogg', 'drop_002.ogg', 'handleCoins.ogg', 'cloth1.ogg', 'confirmation_001.ogg', 'maximize_006.ogg', 'impactSoft_heavy_000.ogg', 'knifeSlice.ogg', 'jingles_PIZZI01.ogg', 'jingles_PIZZI03.ogg', 'sov_possession.wav', 'sov_onde.wav', 'error_004.ogg'])]);
+  J = charger() || nouvelleSauvegarde();
+  construireMonde(); creerJoueur(); creerDepouilles();
+  J.ombres.forEach((d, k) => ajouterOmbre(d, V(RESERVE.x + Math.cos(k) * 3, 0, RESERVE.z + Math.sin(k) * 3)));
+  majPile(J.bois); majHud(); majQuete();
+  initEntrees({ toucher });
+  G.camYaw = 0.9; G.camCible.copy(joueur.pos);
+  $('#charge').classList.add('pret'); $('#charge .go').onclick = () => { initAudio(); $('#charge').classList.add('fini'); setTimeout(() => $('#charge').remove(), 700); };
+  boucle();
+}
+window.__s = { get J() { return J; }, get ombres() { return ombres; }, G, joueur, eveiller: (k = 0) => depouilles[k] && eveiller(depouilles[k]), mana: () => { J.mana = 100; } };
+demarrer().catch(e => { document.body.insertAdjacentHTML('beforeend', `<pre style="position:fixed;inset:0;color:#fff;background:#300;z-index:99;padding:2em;white-space:pre-wrap">${e.stack || e}</pre>`); });

@@ -1,0 +1,86 @@
+// Personnages Quaternius : corps de base (tête seule) + tenue + coiffure, sur le squelette universel,
+// animés par la bibliothèque UAL (couper du bois, porter, s'agenouiller, se relever…).
+import { THREE, G } from './moteur.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+
+const loader = new GLTFLoader();
+const cache = {}, res = {}; let CLIPS = {};
+const charger = (url) => cache[url] || (cache[url] = loader.loadAsync(url).then(g => (res[url] = g)));
+const P = 'assets/perso/';
+export const MODELES = {
+  h: { corps: 'Superhero_Male_FullBody', tenues: { paysan: 'Male_Peasant', rodeur: 'Male_Ranger' }, cheveux: ['Hair_Buzzed', 'Hair_SimpleParted', 'Hair_Beard'] },
+  f: { corps: 'Superhero_Female_FullBody', tenues: { paysan: 'Female_Peasant', rodeur: 'Female_Ranger' }, cheveux: ['Hair_Long', 'Hair_Buns'] },
+};
+export async function chargerPersos(progres) {
+  const urls = ['anims.glb', ...Object.values(MODELES).flatMap(m => [m.corps + '.gltf', ...Object.values(m.tenues).map(t => t + '.gltf'), ...m.cheveux.map(c => c + '.gltf')])];
+  let n = 0;
+  await Promise.all(urls.map(u => charger(P + u).then(() => progres && progres(++n / urls.length))));
+  const a = await charger(P + 'anims.glb');
+  // les clips tournent sur place : on retire le déplacement de la racine (sinon le perso « glisse » puis revient)
+  for (const c of a.animations) { c.tracks = c.tracks.filter(t => !(/^root\.(position|scale)$/.test(t.name)) && !/\.scale$/.test(t.name)); CLIPS[c.name] = c; }
+}
+// ne garde que la tête et le cou du corps « Superhero » (le reste est sous la tenue)
+const tetes = new Map();
+function teteSeule(geo) {
+  if (tetes.has(geo)) return tetes.get(geo);
+  const p = geo.attributes.position, idx = geo.index, garde = [];
+  for (let i = 0; i < idx.count; i += 3) {
+    let ok = true; for (let k = 0; k < 3; k++) { const v = idx.getX(i + k); if (p.getY(v) < 1.40 || Math.abs(p.getX(v)) > 0.24) { ok = false; break; } }
+    if (ok) garde.push(idx.getX(i), idx.getX(i + 1), idx.getX(i + 2));
+  }
+  const g = geo.clone(); g.setIndex(garde); tetes.set(geo, g); return g;
+}
+const matsCache = new Map();
+function matMobile(m, teinte, variante = '') { // pas de carte de relief ni rugosité : moins cher, invisible à cette distance
+  const cle = m.uuid + '|' + variante;
+  if (matsCache.has(cle)) return matsCache.get(cle);
+  const d = m.clone(); d.normalMap = null; d.roughnessMap = null; d.metalnessMap = null; d.aoMap = null; d.metalness = 0; d.roughness = 0.82; d.envMapIntensity = 0.5;
+  if (teinte) teinte(d);
+  matsCache.set(cle, d); return d;
+}
+export class Perso {
+  constructor({ sexe = 'h', tenue = 'paysan', cheveux = 0, teinte = null, couleurTenue = null } = {}) {
+    const M = MODELES[sexe];
+    this.root = new THREE.Group();
+    const base = SkeletonUtils.clone(res[P + M.corps + '.gltf'].scene);
+    this.root.add(base);
+    const os = {}; base.traverse(o => { if (o.isBone) os[o.name] = o; });
+    this.os = os; this.meshes = [];
+    const habiller = (m) => {
+      m.castShadow = true; m.receiveShadow = false; m.frustumCulled = false;
+      m.material = matMobile(m.material, (d) => { if (couleurTenue && /Peasant|Ranger/i.test(m.name + d.name) && d.map) d.color.set(couleurTenue); if (teinte) teinte(d); }, (couleurTenue || '') + '|' + (teinte ? teinte.name : ''));
+      this.meshes.push(m);
+    };
+    base.traverse(o => { if (o.isSkinnedMesh) { if (/SuperHero|Superhero/i.test(o.name)) o.geometry = teteSeule(o.geometry); habiller(o); } });
+    const greffer = (nom) => {
+      const s = SkeletonUtils.clone(res[P + nom + '.gltf'].scene); const aj = [];
+      s.traverse(o => { if (o.isSkinnedMesh) aj.push(o); });
+      for (const m of aj) {
+        const bones = m.skeleton.bones.map(b => os[b.name] || b);
+        m.bind(new THREE.Skeleton(bones, m.skeleton.boneInverses), m.bindMatrix);
+        base.add(m); habiller(m);
+      }
+    };
+    greffer(M.tenues[tenue] || M.tenues.paysan);
+    if (cheveux >= 0) greffer(M.cheveux[cheveux % M.cheveux.length]);
+    this.mixer = new THREE.AnimationMixer(base); this.actions = {}; this.anim = null;
+    this.pos = this.root.position; this.angle = 0;
+  }
+  jouer(nom, { boucle = true, fondu = 0.2, vitesse = 1, fin = null, forcer = false } = {}) {
+    if (this.anim === nom && !forcer) { if (this.actions[nom]) this.actions[nom].timeScale = vitesse; return this.actions[nom]; }
+    const clip = CLIPS[nom]; if (!clip) return null;
+    let a = this.actions[nom]; if (!a) a = this.actions[nom] = this.mixer.clipAction(clip);
+    a.reset(); a.setLoop(boucle ? THREE.LoopRepeat : THREE.LoopOnce, boucle ? Infinity : 1); a.clampWhenFinished = !boucle; a.timeScale = vitesse;
+    const avant = this.anim && this.actions[this.anim];
+    a.play(); if (avant && avant !== a) a.crossFadeFrom(avant, fondu, false);
+    this.anim = nom; this._fin = fin; this._finA = a;
+    if (fin && !this._ecoute) { this._ecoute = true; this.mixer.addEventListener('finished', (e) => { if (e.action === this._finA && this._fin) { const f = this._fin; this._fin = null; f(); } }); }
+    return a;
+  }
+  duree(nom) { return CLIPS[nom] ? CLIPS[nom].duration : 1; }
+  phase() { const a = this.actions[this.anim]; return a ? (a.time / a.getClip().duration) % 1 : 0; }
+  maj(dt) { this.mixer.update(dt); }
+  tenir(obj, os = 'hand_r') { const b = this.os[os]; if (b) b.add(obj); return obj; }
+}
+export const clips = () => CLIPS;

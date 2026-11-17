@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Souverain des Ombres</title>
+<style>
+@font-face{font-family:'Grenze Gotisch';src:url(assets/fonts/grenze.woff) format('woff');font-weight:100 900;font-display:swap}
+@font-face{font-family:'Alegreya Sans';src:url(assets/fonts/as700.woff) format('woff');font-weight:700;font-display:swap}
+@font-face{font-family:'Alegreya Sans';src:url(assets/fonts/as800.woff) format('woff');font-weight:800;font-display:swap}
+@font-face{font-family:'Alegreya Sans SC';src:url(assets/fonts/sc800.woff) format('woff');font-weight:800;font-display:swap}
+:root{--or:#ffd27a;--violet:#a879ff;--f-titre:'Grenze Gotisch',serif;--f-label:'Alegreya Sans SC',sans-serif;--f-texte:'Alegreya Sans',sans-serif}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{margin:0;height:100%;overflow:hidden;background:#0a0812;font-family:var(--f-texte);color:#f6eedd}
+#scene{position:fixed;inset:0;width:100%;height:100%;touch-action:none;display:block}
+#hud{position:fixed;inset:0;pointer-events:none}
+#hud>*{pointer-events:auto}
+.verre{background:linear-gradient(#1e1830e6,#120e1ee6);border:1px solid #ffffff1f;border-radius:1.6vh;box-shadow:0 .6vh 2vh #0007}
+/* haut gauche : le souverain */
+#moi{position:absolute;left:calc(1.6vh + env(safe-area-inset-left));top:1.6vh;padding:1vh 1.4vh;min-width:26vh}
+#moi h1{margin:0 0 .6vh;font:900 2.6vh var(--f-titre);color:var(--or);letter-spacing:.02em}
+#mana{position:relative;height:2.4vh;border-radius:1.2vh;background:#0c0816;overflow:hidden;border:1px solid #a879ff55}
+#mana i{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#5a2aff,#b98aff);box-shadow:0 0 1.2vh #a879ff;transition:width .3s}
+#mana b{position:absolute;inset:0;display:grid;place-items:center;font:800 1.5vh var(--f-label);text-shadow:0 1px 2px #000}
+/* haut centre : la richesse du royaume */
+#bois{position:absolute;left:50%;top:1.6vh;transform:translateX(-50%);padding:.8vh 2.2vh;display:flex;align-items:center;gap:1vh;font:800 2.8vh var(--f-label)}
+#bois b{color:#ffe1a8;min-width:4ch;text-align:left}
+#bois.pop{animation:pop .35s}
+@keyframes pop{40%{transform:translateX(-50%) scale(1.18)}}
+/* quête guidée */
+#quete{position:absolute;left:calc(1.6vh + env(safe-area-inset-left));top:11vh;width:34vh;padding:1.1vh 1.4vh}
+#quete b{display:block;font:800 1.9vh var(--f-label);color:var(--or);margin-bottom:.3vh}
+#quete span{display:block;font-weight:700;font-size:1.75vh;line-height:1.3;color:#e8dcc8}
+#quete i{display:block;height:.9vh;margin-top:.8vh;border-radius:.5vh;background:#0006;overflow:hidden}
+#quete u{display:block;height:100%;background:linear-gradient(90deg,#c88a3a,#ffd27a)}
+/* droite : ombres */
+#btnOmbres{position:absolute;right:calc(1.6vh + env(safe-area-inset-right));top:1.6vh;display:flex;align-items:center;gap:1vh;padding:1vh 1.8vh;font:800 2.2vh var(--f-label);color:#e8d8ff;border:1px solid #a879ff66}
+#btnOmbres small{display:grid;place-items:center;min-width:3.2vh;height:3.2vh;border-radius:1.6vh;background:#a879ff;color:#120a24;font-size:1.8vh}
+/* gros bouton d'action (zone du pouce droit) */
+#action{position:absolute;right:calc(3vh + env(safe-area-inset-right));bottom:5vh;padding:2.2vh 3.4vh;border-radius:3vh;border:0;font:800 2.6vh var(--f-label);color:#1a1008;background:linear-gradient(#ffe2a0,#e0a948);box-shadow:0 .8vh 0 #8a5a1a,0 1.4vh 3vh #0008;letter-spacing:.03em}
+#action.eveil{color:#fff;background:linear-gradient(#a879ff,#5a1fd6);box-shadow:0 .8vh 0 #2a0a6a,0 0 3vh #a879ffaa;animation:pulse 1.4s infinite}
+#action:active{transform:translateY(.5vh);box-shadow:0 .3vh 0 #8a5a1a}
+@keyframes pulse{50%{box-shadow:0 .8vh 0 #2a0a6a,0 0 5vh #c8a8ff}}
+/* joystick */
+#zoneJoy{position:absolute;left:0;bottom:0;width:42vw;height:62vh;touch-action:none}
+#joy{position:absolute;left:calc(5vh + env(safe-area-inset-left));bottom:6vh;width:17vh;height:17vh;border-radius:50%;background:radial-gradient(#ffffff10,#ffffff06);border:2px solid #ffffff2a;pointer-events:none}
+#joy i{position:absolute;left:50%;top:50%;width:7.4vh;height:7.4vh;margin:-3.7vh;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff9,#ffffff30);border:2px solid #fff5}
+#joy.actif{position:fixed;bottom:auto}
+/* étiquettes, bulles, textes flottants */
+#bulles,#flots{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+.eti{position:absolute;left:0;top:0;white-space:nowrap;font:800 1.7vh var(--f-label);color:#efe4ff;text-shadow:0 1px 3px #000,0 0 6px #000;display:flex;align-items:center;gap:.5vh}
+.eti em{font-style:normal;color:#ffe1a8;font-size:1.5vh}
+.eti.sel{color:#fff;filter:drop-shadow(0 0 6px #a879ff)}
+.rg{display:inline-grid;place-items:center;min-width:2.4vh;height:2.4vh;padding:0 .4vh;border-radius:.6vh;background:var(--c);color:#100a18;font:800 1.5vh var(--f-label);box-shadow:0 0 1vh var(--c)}
+.bulle{position:absolute;left:0;top:0;max-width:30vh;padding:.8vh 1.2vh;border-radius:1.2vh;background:#f6eedd;color:#1a1020;font-weight:800;font-size:1.7vh;box-shadow:0 .4vh 1.4vh #0008}
+.flot{position:absolute;left:0;top:0;font:800 2.6vh var(--f-label);color:#fff;text-shadow:0 2px 3px #000,0 0 8px #000;white-space:nowrap}
+.flot.bois{color:#ffe1a8}.flot.niveau{color:#e0c8ff;font-size:2.3vh}
+/* panneau des ombres */
+#panneau{position:fixed;right:0;top:0;bottom:0;width:min(46vh,92vw);padding:2vh 1.8vh calc(2vh + env(safe-area-inset-bottom));transform:translateX(105%);transition:transform .28s;display:flex;flex-direction:column;border-radius:2vh 0 0 2vh;z-index:5}
+#panneau.on{transform:none}
+#panneau h2{margin:0 0 1.2vh;font:900 3.2vh var(--f-titre);color:#d8c0ff}
+#panneau .x{position:absolute;right:1.6vh;top:1.6vh;width:5vh;height:5vh;border-radius:50%;border:0;background:#ffffff18;color:#fff;font:800 2.6vh var(--f-label)}
+#panneau .liste{overflow-y:auto;display:flex;flex-direction:column;gap:1.2vh;padding-right:.4vh}
+.carte{padding:1.2vh 1.3vh;border-radius:1.4vh;background:#ffffff0c;border:1px solid #ffffff14}
+.carte.sel{border-color:#a879ff;box-shadow:0 0 1.4vh #a879ff55}
+.carte .tete{display:flex;align-items:center;gap:1vh}
+.carte .tete b{font:800 2.3vh var(--f-label)}
+.carte .tete small{margin-left:auto;font-weight:800;font-size:1.6vh;color:#cdbfe6}
+.carte .stats{margin:.6vh 0;font-weight:700;font-size:1.6vh;color:#bfb2d6}
+.maitrise{display:flex;align-items:center;gap:1vh;font-weight:800;font-size:1.6vh;color:#ffe1a8}
+.maitrise i{flex:1;height:.9vh;border-radius:.5vh;background:#0006;overflow:hidden}.maitrise u{display:block;height:100%;background:linear-gradient(90deg,#c88a3a,#ffd27a)}
+.ordres{display:flex;gap:.8vh;margin-top:1vh}
+.ordres button{flex:1;padding:1.2vh 0;border-radius:1.2vh;border:1px solid #ffffff22;background:#ffffff10;color:#f0e6ff;font:800 1.8vh var(--f-label)}
+.ordres button.on{background:linear-gradient(#a879ff,#6a2ae0);border-color:#c8a8ff;color:#fff}
+.vide{font-weight:700;font-size:1.9vh;color:#cdbfe6;line-height:1.4}
+/* révélation du rang, éveil */
+#rangRevele{position:fixed;left:50%;top:24%;transform:translate(-50%,-20px);opacity:0;text-align:center;pointer-events:none;transition:all .4s;text-shadow:0 2px 6px #000}
+#rangRevele.on{opacity:1;transform:translate(-50%,0)}
+#rangRevele small{display:block;font:800 1.9vh var(--f-label);color:#cdbfe6;letter-spacing:.2em}
+#rangRevele b{display:block;font:900 6vh var(--f-titre);color:#fff;line-height:1}
+#rangRevele .rang{display:inline-block;margin:.8vh 0;padding:.4vh 1.6vh;border-radius:1vh;background:var(--c);color:#100a18;font:800 2.6vh var(--f-label);box-shadow:0 0 3vh var(--c)}
+#rangRevele em{display:block;font-style:normal;font-weight:800;font-size:1.8vh;color:#efe4ff}
+#eveil{position:fixed;inset:0;pointer-events:none;background:radial-gradient(transparent 35%,#1a0838cc);opacity:0;transition:opacity .6s;display:grid;place-items:center}
+#eveil::after{content:'ÉVEILLE-TOI';font:900 9vh var(--f-titre);color:#e8d8ff;letter-spacing:.06em;text-shadow:0 0 3vh #a879ff,0 0 7vh #5a1fd6;opacity:0;transform:scale(1.3);transition:all .7s .15s}
+#eveil.on{opacity:1}#eveil.on::after{opacity:1;transform:none}
+#toasts{position:fixed;left:50%;top:9vh;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:.8vh;pointer-events:none}
+.toast{padding:.9vh 2vh;border-radius:2vh;background:#120e1ee6;border:1px solid #ffd27a66;font:800 2vh var(--f-label);color:var(--or);animation:tst 2.6s forwards}
+@keyframes tst{0%{opacity:0;transform:translateY(-8px)}10%,80%{opacity:1;transform:none}100%{opacity:0}}
+/* chargement */
+#charge{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3vh;background:radial-gradient(ellipse at 50% 60%,#3a1a6a,#0a0614 70%);transition:opacity .7s}
+#charge.fini{opacity:0;pointer-events:none}
+#charge h1{margin:0;font:900 11vh var(--f-titre);line-height:.9;text-align:center;background:linear-gradient(#fff3d6,#ffd27a 45%,#b98aff);-webkit-background-clip:text;color:transparent;filter:drop-shadow(0 0 2vh #7a3affaa)}
+#charge h1 small{display:block;font-size:4vh;letter-spacing:.3em;color:#cdbfe6;-webkit-text-fill-color:#cdbfe6}
+#charge .barre{width:40vh;height:1.2vh;border-radius:.6vh;background:#ffffff14;overflow:hidden}
+#charge .barre i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7a3aff,#ffd27a);transition:width .2s}
+#charge .go{display:none;padding:2vh 5vh;border-radius:3vh;border:0;font:800 3vh var(--f-label);color:#fff;background:linear-gradient(#a879ff,#5a1fd6);box-shadow:0 0 4vh #a879ff99;animation:pulse 1.4s infinite}
+#charge.pret .barre{display:none}#charge.pret .go{display:block}
+#charge::before{content:'';position:absolute;inset:0;background:radial-gradient(2px 2px at 20% 30%,#fff8,transparent),radial-gradient(2px 2px at 70% 20%,#fff6,transparent),radial-gradient(1.5px 1.5px at 40% 80%,#c8a8ff,transparent),radial-gradient(1.5px 1.5px at 85% 70%,#fff5,transparent);opacity:.8}
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div id="bulles"></div><div id="flots"></div>
+<div id="hud">
+  <div id="moi" class="verre"><h1>Le Souverain</h1><div id="mana"><i></i><b>100 / 100</b></div></div>
+  <div id="bois" class="verre">🪵 <b>0</b></div>
+  <div id="quete" class="verre"></div>
+  <button id="btnOmbres" class="verre">Ombres <small>0</small></button>
+  <div id="zoneJoy"></div><div id="joy"><i></i></div>
+  <button id="action" hidden></button>
+</div>
+<div id="panneau" class="verre"><button class="x" data-x>×</button><h2>Tes ombres</h2><div class="liste"></div></div>
+<div id="rangRevele"></div><div id="eveil"></div><div id="toasts"></div>
+<div id="charge"><h1>Souverain<small>des ombres</small></h1><div class="barre"><i></i></div><button class="go">Toucher pour commencer</button></div>
+<script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}</script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
