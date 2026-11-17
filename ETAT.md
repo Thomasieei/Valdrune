@@ -63,3 +63,15 @@ les envoyer couper / miner / construire / combattre, voir le royaume grandir en 
 - [FAIT v0.229] Retour Thomas « caméra gênante, pas de sensation de grandeur, 17 ennemis qui tapent » : caméra rendue au joueur (plus d'automatismes), plus basse et proche ; arbres ×1,8, rochers ×2, collines aux bords, montagnes enneigées à l'horizon ; jetons d'attaque (un seul ennemi frappe à la fois, les autres tournent autour et attendent ; un seul lanceur de sort), dégâts ennemis plus forts mais lisibles ; posture (barre dorée) : coups, parade parfaite et télékinésie la remplissent → BRISÉ (à genoux 2,6 s) → EXÉCUTION ×2,5.
 - [FAIT v0.230] Cible (doigt ou attaque) : anneau rouge au sol + cadre de cible WoW (portrait, PV en temps réel, mana du sort, garde, barre d'incantation). Dash utile : esquive parfaite (ralenti, prochain coup critique, +1 point, entame la garde), traverser un ennemi le coupe (+1 point). Coups IMPARABLES (orange, 1 sur 3) : seul le dash sauve. Exécution → ARISE ×2. Caméra : seuls les troncs la repoussent (recul libre au pincement).
 - [FAIT v0.231] Rythme : coups à cadence fixe (0,85 / 0,9 / 1,2 s, plus rapide ×1,65 seulement sur ennemi sonné/brisé/soulevé), maintenir ⚔️ = attaques au rythme, tap trop tôt mis en attente ; temps de recharge global 1,3 s entre sorts (balayage visible), Lame 11 s, Télékinésie 15 s ; corps tués en l'air retombent.
+
+## BIBLE DU COMBAT (docs/BIBLE_COMBAT.md) — référence permanente fournie par Thomas
+Toute décision de combat se vérifie contre ses 7 piliers : adversaire qui réfléchit, rythme (préparation/actif/récupération), positionnement, attaques ↔ contres multiples, impacts ressentis, danger compréhensible, combats qui évoluent. Boucle centrale : initiative → réaction → adaptation, dans les deux sens.
+
+### Écarts actuels (v0.231) et plan pour s'y conformer
+1. **Endurance** (barre verte) : esquive et garde en coûtent ; sans endurance on ne peut plus tout annuler. Parade parfaite 0,2 s (bible : 0,15–0,25).
+2. **Attaque rapide / lourde** : toucher = rapide (0,5 s), maintenir = lourde chargée (1,1 s, brise la garde, mais ratée = ouverture pour l'ennemi). Les phases préparation/actif/récupération sont réelles (dégâts au moment visuel du coup).
+3. **IA en couches** : perception (vue, distance, délai de réaction 0,25–0,4 s) → intention par scores d'utilité (attaquer, se protéger, reculer, contourner, punir, soigner/aider) → exécution → évaluation. Personnalités : Diablotin (harceleur, recule, sorts), Pillard (garde, feinte, punit les attaques lourdes ratées), Puglin (opportuniste, contourne). L'ennemi bloque, recule, se repositionne, punit.
+4. **Coordination de la pression** (déjà : un attaquant + un lanceur) étendue : rôles d'encerclement, menace dans le dos annoncée.
+5. **Contres multiples, pas de défense universelle** : coups normaux (parer/esquiver/interrompre), imparables (esquiver), sorts (interrompre/sortir/soulever), garde ennemie (lourde ou contourner).
+6. **Boss orc** (orc de sl-city : Slam, Roar…) selon la section 8 : bouclier levé → ouverture → feinte lisible → changement de posture → dénouement, 45–90 s.
+7. Ensuite : impacts différenciés par arme, autres classes.
