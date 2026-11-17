@@ -71,7 +71,7 @@ function construireForet() {
   const types = ['oak_01', 'birch_01', 'pine_01'], T = { oak_01: [], birch_01: [], pine_01: [] };
   for (let k = 0; k < 140; k++) {
     const a = rnd(0, 6.283), d = rnd(15, 62), x = Math.cos(a) * d, z = Math.sin(a) * d;
-    if (distChemin(x, z) < 3.2 || Math.hypot(x - RESERVE.x, z - RESERVE.z) < 9 || Math.hypot(x - CARRIERE.x, z - CARRIERE.z) < 11 || Math.hypot(x + 34, z - 30) < 11 || Math.hypot(x - 38, z - 30) < 14 || Math.hypot(x + 24, z + 6) < 15) continue; /* clairière des Puglins, camp des pillards */
+    if (distChemin(x, z) < 3.2 || Math.hypot(x - RESERVE.x, z - RESERVE.z) < 9 || Math.hypot(x - CARRIERE.x, z - CARRIERE.z) < 11 || Math.hypot(x + 34, z - 30) < 11 || Math.hypot(x - 38, z - 30) < 14 || Math.hypot(x + 24, z + 6) < 15 || Math.hypot(x + 12, z + 46) < 20) continue; /* clairière des Puglins, camp des pillards */
     if (arbres.some(b => Math.hypot(b.pos.x - x, b.pos.z - z) < 4.6)) continue;
     const type = types[Math.floor(rnd(0, 3))], e = rnd(1.5, 2.4), p = V(x, hauteur(x, z), z); /* des arbres qui nous dépassent : le monde est grand */
     const ar = { type, i: T[type].length, pos: p, r: rnd(0, 6.28), e, pv: 0, pvMax: 0, etat: 'debout', bois: 0, ouvriers: 0 };
@@ -159,7 +159,7 @@ function majFeu(dt) {
 }
 // ---------------- Décor ----------------
 function construireDecor() {
-  const T = (cle, n, dmin, dmax, emin, emax, eviteCamp = 11) => { const L = []; for (let k = 0; k < n; k++) { const a = rnd(0, 6.283), d = rnd(dmin, dmax), x = Math.cos(a) * d, z = Math.sin(a) * d; if (Math.hypot(x, z) < eviteCamp || Math.hypot(x - RESERVE.x, z - RESERVE.z) < 5 || (cle !== 'grass_01' && cle !== 'flowers_01' && distChemin(x, z) < 2.4)) continue; L.push({ p: V(x, hauteur(x, z), z), r: rnd(0, 6.28), e: rnd(emin, emax) }); } instancier(N[cle], L, { ombre: !/grass|flowers|pebbles|mushrooms|fern/.test(cle) }); }; // les petites plantes ne projettent pas d'ombre (gros gain sur téléphone)
+  const T = (cle, n, dmin, dmax, emin, emax, eviteCamp = 11) => { const L = []; for (let k = 0; k < n; k++) { const a = rnd(0, 6.283), d = rnd(dmin, dmax), x = Math.cos(a) * d, z = Math.sin(a) * d; if (Math.hypot(x, z) < eviteCamp || Math.hypot(x - RESERVE.x, z - RESERVE.z) < 5 || (cle !== 'grass_01' && cle !== 'flowers_01' && distChemin(x, z) < 2.4) || (cle !== 'grass_01' && Math.hypot(x + 12, z + 46) < 15)) continue; L.push({ p: V(x, hauteur(x, z), z), r: rnd(0, 6.28), e: rnd(emin, emax) }); } instancier(N[cle], L, { ombre: !/grass|flowers|pebbles|mushrooms|fern/.test(cle) }); }; // les petites plantes ne projettent pas d'ombre (gros gain sur téléphone)
   T('grass_01', 260, 6, 70, 0.7, 1.3, 6); T('flowers_01', 90, 8, 60, 0.7, 1.2, 8); T('fern_01', 70, 14, 65, 0.8, 1.3); T('bush_01', 45, 13, 66, 0.8, 1.3);
   T('mushrooms_01', 30, 16, 60, 0.8, 1.2); T('rocks_01', 25, 12, 66, 0.6, 1.2); T('boulder_01', 16, 22, 78, 1.8, 3.6, 18); T('rock_mossy_01', 16, 18, 76, 1.2, 2.4); T('pebbles_01', 30, 4, 50, 0.7, 1.1, 3);
   T('deadtree_01', 8, 30, 76, 1.5, 2.3, 25);

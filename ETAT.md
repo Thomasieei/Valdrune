@@ -84,3 +84,11 @@ Toute décision de combat se vérifie contre ses 7 piliers : adversaire qui réf
 - Décor instancié par secteurs 32 m + culling, plantes sans ombre, statiques fusionnés (montagnes, menhirs, braseros)
 - Animations coupées hors champ, 15 Hz au loin ; densité pixels ≤1,6 ; qualité adaptative (résolution, ombres, bloom)
 - Mesure headless : 496→222 appels de dessin, 1,96 M→0,59 M triangles
+
+## La Horde (nouveaux assets)
+- Fantasy Races Kit : corps d orcs sur le squelette des héros + tenues ; Props MegaKit : haches, bouclier, bannières, coffre, cages, forge, chaudron
+- Berserker orc : série de 3 coups (3e imparable) puis essoufflé (+50 % dégâts subis) ; s enrage quand on le frappe
+- Chamane orque : rayon de soin + bouclier sur l allié le plus blessé, interrompu par n importe quel coup (+1 point d ombre)
+- Boss Morgrak le Sanglant (1350 PV niv 3) : bouclier/garde, appelle 2 berserkers à 66 %, furie + 3 séismes en chaîne à 33 %
+- Fort de la Horde au bout de la route nord (palissade, trône, coffre 220 bois/160 pierre), quête + 2 défis d arène
+- Écartés : Downtown City (style moderne), elfes (plus tard : elfes noirs), ville fortifiée model.glb (14 Mo, style à valider)

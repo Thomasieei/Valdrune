@@ -105,10 +105,11 @@ export class ModeleAnime extends Anime {
   duree(nom) { const c = this.clip(nom); return c ? c.duration : 1; }
 }
 export class Perso extends Anime {
-  constructor({ sexe = 'h', tenue = 'paysan', cheveux = 0, teinte = null, couleurTenue = null } = {}) {
+  // corps : un autre corps du même squelette (orc, orque…) habillé avec les mêmes tenues
+  constructor({ sexe = 'h', tenue = 'paysan', cheveux = 0, teinte = null, couleurTenue = null, corps = null } = {}) {
     super(); const M = MODELES[sexe];
     this.root = new THREE.Group();
-    const base = SkeletonUtils.clone(res[P + M.corps + '.gltf'].scene);
+    const base = SkeletonUtils.clone(corps ? res['assets/monstres/' + corps + '.glb'].scene : res[P + M.corps + '.gltf'].scene);
     this.root.add(base);
     const os = {}; base.traverse(o => { if (o.isBone) os[o.name] = o; });
     this.os = os; this.meshes = [];
@@ -117,7 +118,7 @@ export class Perso extends Anime {
       m.material = matMobile(m.material, (d) => { if (couleurTenue && /Peasant|Ranger/i.test(m.name + d.name) && d.map) d.color.set(couleurTenue); if (teinte) teinte(d); }, (couleurTenue || '') + '|' + (teinte ? teinte.name : ''));
       this.meshes.push(m);
     };
-    base.traverse(o => { if (o.isSkinnedMesh) { if (/SuperHero|Superhero/i.test(o.name)) o.geometry = teteSeule(o.geometry); habiller(o); } });
+    base.traverse(o => { if (o.isSkinnedMesh) { if (/SuperHero|Superhero|_Body/i.test(o.name)) o.geometry = teteSeule(o.geometry); habiller(o); } });
     const greffer = (nom) => {
       const s = SkeletonUtils.clone(res[P + nom + '.gltf'].scene); const aj = [];
       s.traverse(o => { if (o.isSkinnedMesh) aj.push(o); });
@@ -134,3 +135,6 @@ export class Perso extends Anime {
   }
 }
 export const clips = () => CLIPS;
+// objets du Fantasy Props MegaKit (armes, bannières, coffre…) : même famille Quaternius que le reste
+export async function chargerProps(noms) { await Promise.all(noms.map(n => charger('assets/props/' + n + '.gltf'))); }
+export function prop(n) { const r = res['assets/props/' + n + '.gltf']; if (!r) return new THREE.Group(); const o = SkeletonUtils.clone(r.scene); o.traverse(m => { if (m.isMesh) { if (m.isSkinnedMesh) m.frustumCulled = false; m.castShadow = true; m.receiveShadow = true; m.material = matMobile(m.material); } }); return o; }
