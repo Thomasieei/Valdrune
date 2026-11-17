@@ -109,3 +109,7 @@ Toute décision de combat se vérifie contre ses 7 piliers : adversaire qui réf
 - Visites : un habitant vient flâner à ton camp toutes les 2,5–4 min puis rentre
 - Appels à l aide (toutes les 7–11 min) : un messager court jusqu à toi, mission guidée, villageois cachés ; victoire = réputation +10 + ressources, échec en 7 min = réputation −5
 - À venir : la réputation attire des humains dans ta ville
+
+## Villages voisins refaits (la ville du joueur reste au joueur)
+- Valcourt = ville fortifiée (model.glb fourni) : remparts, tours, porte, taverne, échoppes, tour du mage, marché, fontaine, canal ; allégée (1,4 M → 330 k triangles, 15 matières) + version lointaine 160 k
+- Hameau des Saules / Port-au-Lac : rue qui serpente, maisons en quinconce portes sur rue, jardins clôturés + potagers, champs de blé, place (puits, étal, feu), lanternes, panneau

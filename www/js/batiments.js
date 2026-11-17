@@ -9,7 +9,7 @@ const loader = new GLTFLoader(), texL = new THREE.TextureLoader();
 const B = 'assets/batiments/';
 const PIECES = ['Corner_Exterior_Brick', 'Wall_UnevenBrick_Door_Round', 'Wall_UnevenBrick_Window_Wide_Round', 'Floor_WoodLight', 'Prop_Support', 'Prop_Brick1', 'Prop_Brick2', 'Prop_MetalFence_Ornament', 'Floor_WoodDark', 'Floor_Brick', 'Corner_Exterior_Wood', 'Wall_Plaster_WoodGrid', 'Wall_Plaster_Straight', 'Wall_Plaster_Door_Round', 'Wall_UnevenBrick_Straight', 'Wall_Plaster_Window_Wide_Round', 'Roof_RoundTiles_6x6', 'Roof_RoundTiles_4x4', 'Prop_Crate', 'Prop_Wagon', 'Prop_WoodenFence_Single', 'Prop_Chimney'];
 const MEUBLES = ['Chest_Lid', 'Table_Small', 'Chair', 'Bench', 'Stool_round', 'Shelf_Wall', 'Shelf', 'Barrel_Closed', 'Bucket', 'Chest', 'Candlestick', 'Torch_Wall', 'Book_Big_Brown', 'Potion_Red'];
-const VILLAGE = ['fire_01', 'well_01', 'stall_01', 'ladder_01', 'hearth_01'];
+const VILLAGE = ['fire_01', 'well_01', 'stall_01', 'ladder_01', 'hearth_01', 'sign_inn_01'];
 const M = {};
 const TEX = { MI_WoodTrim: 'woodtrim', MI_WoodTrim_Wear: 'woodtrim', MI_Plaster: 'plaster', MI_RockTrim: 'rocktrim', MI_Brick: 'brick', MI_RoundTiles: 'roundtiles', MI_UnevenBrick: 'unevenbrick', MI_MetalOrnaments: 'metal', MI_RedBrick: 'redbrick' };
 const mats = {};

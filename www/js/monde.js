@@ -35,12 +35,15 @@ export const CHEMINS = [
   lisse([[-72, 12], [-86, 40], [-98, 66], [-104, 80]]),       // embranchement : l'étang des Brumes
   lisse([[4, 8], [6, 30], [12, 60], [24, 95], [36, 130], [42, 160]]), // sud : les collines et la tour des pillards
   lisse([[70, 8], [72, -40], [70, -88], [62, -112]]),          // raccourci plaine → lac du Col
-  lisse([[70, 8], [76, 30], [82, 52], [88, 66]]),               // vers Port-au-Lac
-  lisse([[140, -8], [158, 25], [170, 70], [168, 110], [160, 128]]), // la grande route de Valcourt
-  lisse([[-6, -80], [-24, -78], [-44, -76], [-52, -75]]),       // vers le Hameau des Saules
+  lisse([[70, 8], [76, 30], [82, 52], [87, 63]]),               // vers Port-au-Lac
+  lisse([[140, -8], [158, 25], [170, 70], [166, 104], [158, 118]]), // la grande route de Valcourt
+  lisse([[-6, -80], [-24, -78], [-40, -76], [-46, -75]]),       // vers le Hameau des Saules
 ];
 // les humains : villages et ville, autonomes (voir humains.js)
-export const VILLAGES = [{ id: 'saules', nom: 'Hameau des Saules', x: -62, z: -75, r: 15, type: 'village' }, { id: 'portlac', nom: 'Port-au-Lac', x: 90, z: 80, r: 15, type: 'village' }, { id: 'valcourt', nom: 'Valcourt', x: 160, z: 150, r: 26, type: 'ville' }];
+export const VILLAGES = [{ id: 'saules', nom: 'Hameau des Saules', x: -66, z: -76, r: 20, type: 'village', porte: [-50, -75] }, { id: 'portlac', nom: 'Port-au-Lac', x: 90, z: 86, r: 20, type: 'village', porte: [88, 66] }, { id: 'valcourt', nom: 'Valcourt', x: 160, z: 152, r: 33, type: 'ville', porte: [158, 120] }];
+// la rue principale de chaque village : elle part de l'entrée et serpente jusqu'à l'autre bout
+for (const V of VILLAGES) { V.entree = Math.atan2(V.porte[0] - V.x, V.porte[1] - V.z); V.rue = []; if (V.type === 'ville') continue; const e = V.entree; for (let t = V.r + 4; t >= -V.r; t -= 2) V.rue.push([V.x + Math.sin(e) * t + Math.cos(e) * Math.sin(t * 0.11) * 3, V.z + Math.cos(e) * t - Math.sin(e) * Math.sin(t * 0.11) * 3]); }
+const distRue = (V, x, z) => { let b = 1e9; for (const [a, c] of V.rue) { const d = (a - x) ** 2 + (c - z) ** 2; if (d < b) b = d; } return Math.sqrt(b); };
 export function distChemin(x, z) { let best = 1e9; for (const L of CHEMINS) for (let i = 0; i < L.length - 1; i++) { const [ax, az] = L[i], [bx, bz] = L[i + 1], dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2)), d = Math.hypot(x - ax - dx * t, z - az - dz * t); if (d < best) best = d; } return best; }
 function bruit(x, z) { return Math.sin(x * 0.071) * Math.cos(z * 0.063) * 0.9 + Math.sin(x * 0.17 + z * 0.13) * 0.35 + Math.cos(x * 0.031 - z * 0.047) * 1.4; }
 // ---------------- Le monde : 500 m × 500 m, des régions qui se lisent au premier coup d'œil ----------------
@@ -55,7 +58,7 @@ export const hautes = (x, z) => lisser(-85, -140, z);
 const bord = (x, z) => lisser(205, 240, Math.max(Math.abs(x), Math.abs(z)) + Math.sin(x * 0.05) * 6 + Math.cos(z * 0.045) * 6);
 export function hauteur(x, z) { // les villages sont posés sur un replat
   let h = hauteurBrute(x, z);
-  for (const V of VILLAGES) { const d = Math.hypot(x - V.x, z - V.z); if (d < V.r + 12) { V.h0 ??= hauteurBrute(V.x, V.z); h += (V.h0 - h) * lisser(V.r + 12, V.r + 2, d); } }
+  for (const V of VILLAGES) { const d = V.type === 'ville' ? Math.max(Math.abs(x - V.x), Math.abs(z - V.z)) : Math.hypot(x - V.x, z - V.z); if (d < V.r + 12) { V.h0 ??= hauteurBrute(V.x, V.z); h += (V.h0 - h) * lisser(V.r + 12, V.r + 2, d); } }
   return h;
 }
 function hauteurBrute(x, z) {
@@ -78,7 +81,7 @@ function couleurSol(x, z, y, c, c2) {
   const terre = Math.max(0, 1 - d / 9) * 0.9 + Math.max(0, 1 - Math.hypot(x - RESERVE.x, z - RESERVE.z) / 5) * 0.7; c.lerp(c2.set('#9a7a52'), Math.min(0.85, terre)); // sol tassé du camp
   const dc = Math.hypot(x - CARRIERE.x, z - CARRIERE.z); if (dc < 10) c.lerp(c2.set('#8a8070'), Math.min(0.8, (10 - dc) / 3.5)); // carrière : roche et gravier
   const da = Math.hypot(x + 24, z + 6); if (da < 12.5) c.lerp(c2.set('#c8b088'), Math.min(0.9, (12.5 - da) / 1.5)); // sable de l'arène
-  for (const V of VILLAGES) { const dv = Math.hypot(x - V.x, z - V.z); if (dv < V.r + 2) c.lerp(c2.set('#9a8a62'), Math.min(0.75, (V.r + 2 - dv) / 4) * (0.6 + n * 0.3)); } // sol battu des villages
+  for (const V of VILLAGES) { if (V.type === 'ville') { const q = Math.max(Math.abs(x - V.x), Math.abs(z - V.z)); if (q < 31) c.lerp(c2.set('#a89e8a').offsetHSL(0, 0, n * 0.04), 0.9); continue; } if (Math.hypot(x - V.x, z - V.z) > V.r + 8) continue; const dr = distRue(V, x, z) + Math.sin(x * 2.1 + z * 1.7) * 0.3; if (dr < 2.4) c.lerp(c2.set('#9a8058'), Math.min(0.9, (2.4 - dr) / 1)); if (Math.hypot(x - V.x, z - V.z) < 4.5) c.lerp(c2.set('#a08a62'), 0.75); } // rues de terre, pavés de la ville
   const dch = distChemin(x, z) + Math.sin(x * 1.7 + z * 1.3) * 0.35; if (dch < 2.6) c.lerp(c2.set('#a08458').offsetHSL(0, 0, n * 0.03), Math.min(0.92, (2.6 - dch) / 1.1)); // route de terre aux bords irréguliers
 }
 function construireTerrain() {
@@ -136,7 +139,7 @@ let graine = 7; const rnd = (a = 0, b = 1) => { graine = (graine * 16807) % 2147
 // ---------------- Arbres ----------------
 export const arbres = []; const parType = {};
 // endroits à garder dégagés : camps, arène, carrière, réserve, fort, repaire, tour
-export const CLAIRIERES = [[RESERVE.x, RESERVE.z, 9], [CARRIERE.x, CARRIERE.z, 11], [-34, 30, 11], [38, 30, 14], [-24, -6, 15], [-12, -46, 20], [-150, -18, 16], [42, 160, 14], [0, 0, 15], ...VILLAGES.map(V => [V.x, V.z, V.r + 6])];
+export const CLAIRIERES = [[RESERVE.x, RESERVE.z, 9], [CARRIERE.x, CARRIERE.z, 11], [-34, 30, 11], [38, 30, 14], [-24, -6, 15], [-12, -46, 20], [-150, -18, 16], [42, 160, 14], [0, 0, 15], ...VILLAGES.map(V => [V.x, V.z, V.r + (V.type === 'ville' ? 15 : 6)])];
 const degage = (x, z, marge = 0) => { for (const [cx, cz, r] of CLAIRIERES) if (Math.hypot(x - cx, z - cz) < r + marge) return true; for (const L of LACS) if (Math.hypot(x - L.x, z - L.z) < L.r * 1.12 + marge) return true; return false; };
 function construireForet() {
   // grille brouillée : une forêt dense mais aérée (on y voit loin, on y circule), des bosquets dans la plaine
