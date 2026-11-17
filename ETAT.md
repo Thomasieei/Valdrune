@@ -24,6 +24,8 @@ Règle : on ne rallume un système que quand la 1.0 est solide, et un seul à la
 
 - v1.0-e : ÉTAPE 2 OMBRES — plus d’exécutions instantanées (vrais coups, 0,9× tes dégâts) ; ombres ciblables (PV = 50 % des tiens), détruites → réinvocation auto après 5 s pour 20 % de mana max (attend si mana insuffisante) ; ordres « Patrouiller la ville » (ronde de 8 points, attaque tout dans 11 m) et « Attaquer ma cible » ; dès le 2e raid un champion arrogant (×4 PV, ×3 dégâts) qui raille quand il détruit une ombre ; bourreau et défaites mémorisés par ombre (pour l’étape 3).
 
+- v1.0-f : ÉTAPE 3 PERSONNALITÉS — champions arrogant / prudent / fanatique ; bouton « Parlementer » (< 5,5 m) : raisonner, intimider (chance selon rapport de force, PV restants, personnalité), venger une ombre, interroger sur un enlevé, duel d’honneur (ombres reculent, non ciblables) ; retraite visible (et peut entraîner tout le raid) ; reddition rare à 30 % PV si tu es bien plus fort (épargner / achever) ; rivaux mémorisés (`J.ville.rivaux`) qui reviennent plus forts (40 %).
+
 ## Bugs connus
 - (à remplir avec les retours de test de Thomas)
 
