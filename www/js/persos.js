@@ -137,4 +137,4 @@ export class Perso extends Anime {
 export const clips = () => CLIPS;
 // objets du Fantasy Props MegaKit (armes, bannières, coffre…) : même famille Quaternius que le reste
 export async function chargerProps(noms) { await Promise.all(noms.map(n => charger('assets/props/' + n + '.gltf'))); }
-export function prop(n) { const r = res['assets/props/' + n + '.gltf']; if (!r) return new THREE.Group(); const o = SkeletonUtils.clone(r.scene); o.traverse(m => { if (m.isMesh) { if (m.isSkinnedMesh) m.frustumCulled = false; m.castShadow = true; m.receiveShadow = true; m.material = matMobile(m.material); } }); return o; }
+export function prop(n) { const r = res['assets/props/' + n + '.gltf']; if (!r) return new THREE.Group(); const o = SkeletonUtils.clone(r.scene); o.traverse(m => { if (m.isMesh) { if (m.isSkinnedMesh) m.frustumCulled = false; m.castShadow = true; m.receiveShadow = true; m.material = matMobile(m.material); m.material.metalness = 0; m.material.roughness = Math.max(0.7, m.material.roughness ?? 0.8); } }); return o; } /* sans carte d'environnement, le métal ressortait noir */

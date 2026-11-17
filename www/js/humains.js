@@ -114,11 +114,12 @@ function construireVille(Vg) {
   pose(prop('Barrel'), mx + 4, mz - 3.5, 0.3); pose(prop('Crate_Wooden'), mx - 4.2, mz + 3.4, 0.8, 0.9); pose(modele('Prop_Wagon'), mx + 12, mz + 5, 1.2, 1);
   // ---- maisons : le long de l'avenue et de la rue des artisans (est-ouest, z = −10) ----
   const maisons = [];
-  for (const z of [-28, -20, 2, 10]) for (const s of [-1, 1]) maisons.push([s * 11, z, s > 0 ? -Math.PI / 2 : Math.PI / 2]);
-  for (const x of [-30, -22, 22, 30]) for (const s of [-1, 1]) maisons.push([x, -10 + s * 9, s > 0 ? Math.PI : 0]);
-  maisons.forEach(([lx, lz, r], i) => { const [x, z] = L(lx, lz); pose(plan3D(i % 5 === 1 ? 'forge' : 'maison', i % 3 === 0 ? 3 : 2), x, z, r + Math.PI); blocs.push({ x, z, r: 3.3 });
-    const fx = Math.sin(r), fz = Math.cos(r), px = x - fx * 3.8 - fz * 1.3, pz = z - fz * 3.8 + fx * 1.3; portes.push(V(px, 0, pz)); spots.push({ x: px, z: pz, anim: 'Interact', dur: [2, 4], regard: r });
-    if (i % 2) pose(prop(i % 4 === 1 ? 'Barrel' : 'Crate_Wooden'), x - fx * 3.4 + fz * 2.3, z - fz * 3.4 - fx * 2.3, i, 0.85); else pose(modele('Bench'), x - fx * 3.6 + fz * 2.2, z - fz * 3.6 - fx * 2.2, r + Math.PI / 2, 0.85); });
+  for (const z of [-28, -21, 1, 8]) for (const s of [-1, 1]) maisons.push([s * 10.5, z, s > 0 ? -Math.PI / 2 : Math.PI / 2]); // façades alignées sur l'avenue
+  for (const x of [-30, -23, 23, 30]) for (const s of [-1, 1]) maisons.push([x, -10 + s * 9.5, s > 0 ? Math.PI : 0]); // rue des artisans
+  // r = direction de la porte (vers la rue). La porte du plan est sur la face +z, à gauche (x = −1,3).
+  maisons.forEach(([lx, lz, r], i) => { const [x, z] = L(lx, lz); pose(plan3D(i % 5 === 1 ? 'forge' : 'maison', i % 3 === 0 ? 3 : 2), x, z, r); blocs.push({ x, z, r: 3.3 });
+    const fx = Math.sin(r), fz = Math.cos(r), px = x + fx * 3.8 - fz * 1.3, pz = z + fz * 3.8 + fx * 1.3; portes.push(V(px, 0, pz)); spots.push({ x: px, z: pz, anim: 'Interact', dur: [2, 4], regard: r + Math.PI });
+    if (i % 2) pose(prop(i % 4 === 1 ? 'Barrel' : 'Crate_Wooden'), x + fx * 3.3 + fz * 2.2, z + fz * 3.3 - fx * 2.2, i, 0.85); else pose(modele('Bench'), x + fx * 3.5 + fz * 2.2, z + fz * 3.5 - fx * 2.2, r + Math.PI / 2, 0.85); });
   // ---- le palais (z = +24) : escalier, porte monumentale, tours, salle du trône ----
   const PK = 1.55, [px0, pz0] = L(0, 25), pw = 3, pd = 4, demiW = pw * PK, demiD = pd * PK;
   const spec = maison({ w: pw, d: pd, sol: 'Floor_Brick', coins: 'Corner_Exterior_Brick', etages: [{ m: 'brique', n: 'pop', w: 'pfpf', e: 'fpfp', s: 'ppp' }, { m: 'brique', n: 'fpf', w: 'fpfp', e: 'pfpf', s: 'pfp' }], toit: 'Roof_RoundTiles_6x8', extras: [] });
