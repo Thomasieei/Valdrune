@@ -7,7 +7,7 @@ import { buche, hauteur, arbres, RESERVE } from './monde.js';
 const loader = new GLTFLoader(), texL = new THREE.TextureLoader();
 const B = 'assets/batiments/';
 const PIECES = ['Corner_Exterior_Brick', 'Wall_UnevenBrick_Door_Round', 'Wall_UnevenBrick_Window_Wide_Round', 'Floor_WoodLight', 'Prop_Support', 'Prop_Brick1', 'Prop_Brick2', 'Prop_MetalFence_Ornament', 'Floor_WoodDark', 'Floor_Brick', 'Corner_Exterior_Wood', 'Wall_Plaster_WoodGrid', 'Wall_Plaster_Straight', 'Wall_Plaster_Door_Round', 'Wall_UnevenBrick_Straight', 'Wall_Plaster_Window_Wide_Round', 'Roof_RoundTiles_6x6', 'Roof_RoundTiles_4x4', 'Prop_Crate', 'Prop_Wagon', 'Prop_WoodenFence_Single', 'Prop_Chimney'];
-const MEUBLES = ['Table_Small', 'Chair', 'Bench', 'Stool_round', 'Shelf_Wall', 'Shelf', 'Barrel_Closed', 'Bucket', 'Chest', 'Candlestick', 'Torch_Wall', 'Book_Big_Brown', 'Potion_Red'];
+const MEUBLES = ['Chest_Lid', 'Table_Small', 'Chair', 'Bench', 'Stool_round', 'Shelf_Wall', 'Shelf', 'Barrel_Closed', 'Bucket', 'Chest', 'Candlestick', 'Torch_Wall', 'Book_Big_Brown', 'Potion_Red'];
 const VILLAGE = ['fire_01', 'well_01', 'stall_01', 'ladder_01'];
 const M = {};
 const TEX = { MI_WoodTrim: 'woodtrim', MI_WoodTrim_Wear: 'woodtrim', MI_Plaster: 'plaster', MI_RockTrim: 'rocktrim', MI_Brick: 'brick', MI_RoundTiles: 'roundtiles', MI_UnevenBrick: 'unevenbrick', MI_MetalOrnaments: 'metal', MI_RedBrick: 'redbrick' };
@@ -22,6 +22,7 @@ export async function chargerBatiments() {
     ...MEUBLES.map(n => loader.loadAsync('assets/interieur/' + n + '.glb').then(g => { g.scene.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; if (o.material.map) { o.material.map.magFilter = THREE.NearestFilter; o.material.map.colorSpace = THREE.SRGBColorSpace; } if (o.material.emissive && o.material.emissive.r > 0.5) o.material.emissiveIntensity = 3; } }); M[n] = g.scene; })),
     ...VILLAGE.map(n => loader.loadAsync(B + n + '.glb').then(g => { g.scene.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } }); M[n] = g.scene; }))]);
 }
+export const modele = (n) => M[n] ? M[n].clone() : new THREE.Group();
 // ---------------- Plans ----------------
 // Proportions de jeu : tout le bâti est agrandi ×1,3 (murs ≈ 2,2× le perso, portes ≈ 1,6×) pour que la caméra entre dedans.
 export const ECH = 1.3;

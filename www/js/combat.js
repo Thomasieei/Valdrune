@@ -1,15 +1,26 @@
 // Combat : camps de monstres gardiens (zone rouge), héros avec attaque + 4 pouvoirs (Lame rapide, Télékinésie, Parade, ARISE),
 // ombres de combat relevées sur les ennemis vaincus.
 import { THREE, G, V, emettre, son, texteFlottant, projeter } from './moteur.js';
-import { Monstre } from './persos.js';
+import { Monstre, Perso } from './persos.js';
+import { modele } from './batiments.js';
 import { hauteur } from './monde.js';
 
 export const TYPES_M = {
   imp: { nom: 'Diablotin', h: 1.95, pv: 50, deg: 5, vit: 3.2, portee: 1.9, xp: 30, butin: { pierre: [6, 12] }, ech: 1, cadence: 2.1 },
+  bandit: { nom: 'Pillard', h: 2.05, pv: 60, deg: 6, vit: 3.5, portee: 1.9, xp: 35, butin: { bois: [3, 6] }, ech: 1, cadence: 1.9, humain: true },
   puglin: { nom: 'Puglin', h: 1.2, pv: 35, deg: 4, vit: 3.8, portee: 1.6, xp: 18, butin: { bois: [6, 12] }, ech: 1, cadence: 1.8 },
 };
 export const CAMPS = [
   { id: 'carriere', nom: 'Diablotins de la carrière', type: 'imp', centre: V(21, 0, -19), r: 10, niv: 1, retour: 300, postes: [[17.5, -14.5], [25.5, -15], [21.5, -24]] },
+  { id: 'bandits', nom: 'Camp des pillards', type: 'bandit', centre: V(38, 0, 30), r: 12, niv: 2, retour: 420, decor: true,
+    // une vraie scène : un guetteur, deux joueurs de cartes, un dormeur sous la tente, un qui mange près du feu
+    membres: [
+      { x: 31.5, z: 25.5, role: 'guet', regard: -2.3, sexe: 'h', cheveux: 2, couleur: '#c8a080' },
+      { x: 38.9, z: 31.2, role: 'cartes', regard: -Math.PI / 2, sexe: 'h', cheveux: 0, couleur: '#c07a70' },
+      { x: 37.1, z: 31.2, role: 'cartes', regard: Math.PI / 2, sexe: 'f', cheveux: 1, couleur: '#8a92b8' },
+      { x: 43.2, z: 34.6, role: 'dort', regard: 0.4, sexe: 'h', cheveux: 1, couleur: '#a8a888' },
+      { x: 35.2, z: 27.6, role: 'feu', regard: 0.9, sexe: 'f', cheveux: 0, couleur: '#b8889a' },
+    ] },
   { id: 'clairiere', nom: 'Puglins de la clairière', type: 'puglin', centre: V(-34, 0, 30), r: 9, niv: 1, retour: 240, postes: [[-34, 26], [-30, 31], [-38, 33], [-33, 34], [-36, 29]] },
 ];
 export const POUVOIRS = {
@@ -22,6 +33,40 @@ let C = null; // contexte fourni par main : { J, joueur, jeu, toast, sauver, maj
 const ennemis = [], allies = [], camps = {};
 export const heros = { action: null, parade: null, cds: { lame: 0, tele: 0, parade: 0, arise: 0 }, combo: 0, comboT: 0, mortT: 0, horsCombat: 0 };
 const teinteAllie = (d) => { d.color.set('#1a1226'); d.emissive = new THREE.Color('#5a1aff'); d.emissiveIntensity = 0.45; d.map = null; };
+const teinteAllieP = function teinteAllieP(d) { if (/eye/i.test(d.name || '')) { d.color.set('#c8a8ff'); d.emissive = new THREE.Color('#9a5aff'); d.emissiveIntensity = 2; d.map = null; return; } d.color.set('#1a1226'); d.emissive = new THREE.Color('#4a14a0'); d.emissiveIntensity = 0.4; };
+function epee() { const g = new THREE.Group(), fer = new THREE.MeshStandardMaterial({ color: '#b8bcc8', metalness: 0.8, roughness: 0.3 }); const l = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.75, 0.012), fer); l.position.y = 0.5; const gd = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.04, 0.05), new THREE.MeshStandardMaterial({ color: '#4a3020' })); gd.position.y = 0.12; g.add(l, gd); g.rotation.set(Math.PI / 2, 0, 0); return g; }
+// tout le camp se réveille : le guetteur crie, les joueurs lâchent leurs cartes, le dormeur se lève
+function alerteCamp(c, cible) {
+  c.alerte = true; const g = c.membres.find(m => m.role === 'guet' && m.vivant) || c.membres.find(m => m.vivant);
+  if (g) { texteFlottant(V(g.pos.x, g.pos.y + 2.6, g.pos.z), 'Intrus !', 'alerte'); son('sov_onde', 0.4, 1.6, g.pos); }
+  for (const m of c.membres) { if (!m.vivant || m.etat !== 'garde') continue; m.ronde = false;
+    if (m.role === 'dort') { m.alerteD = true; m.role = 'dort'; Ennemi.prototype.alerte.call(Object.assign(m, {}), cible); continue; }
+    m.etat = 'attendre'; m.cible = cible; m.reveil = m.role === 'guet' ? 0 : m.role === 'feu' ? 0.5 : 0.9; texteFlottant(V(m.pos.x, m.pos.y + 2.3, m.pos.z), '!', 'alerte'); m.m.jouer('Idle_Loop', { forcer: true, fondu: 0.4 }); }
+}
+// décor du camp des pillards : feu, tente, abri, table de cartes, tabourets, tonneaux, coffre du butin
+function decorBandits(def) {
+  const g = new THREE.Group(), pose = (o, x, z, r = 0, e = 1, y = 0) => { o.position.set(x - def.centre.x, hauteur(x, z) + y, z - def.centre.z); o.rotation.y = r; o.scale.setScalar(e); o.traverse(m => { if (m.isMesh) { m.castShadow = m.receiveShadow = true; } }); g.add(o); return o; };
+  g.position.set(def.centre.x, 0, def.centre.z);
+  pose(modele('fire_01'), 35.9, 26.4, 0, 1);
+  const feu = new THREE.PointLight('#ff9a4a', 6, 9, 1.6); feu.position.set(35.9 - def.centre.x, hauteur(35.9, 26.4) + 1, 26.4 - def.centre.z); g.add(feu); def._feu = feu;
+  pose(modele('stall_01'), 30.5, 33.5, 0.9, 1.2);
+  // tente de toile (deux pans + mât)
+  const toile = new THREE.MeshStandardMaterial({ color: '#c8b48a', roughness: 0.95, flatShading: true }), tente = new THREE.Group();
+  const corps = new THREE.Mesh(new THREE.CylinderGeometry(1.35, 1.35, 3, 3, 1, true), toile); corps.rotation.set(-Math.PI / 2, 0, 0); corps.position.y = 0.675; tente.add(corps); // prisme triangulaire : une vraie tente en A
+  const fond = new THREE.Mesh(new THREE.CircleGeometry(1.35, 3), new THREE.MeshStandardMaterial({ color: '#8a7454', roughness: 1, flatShading: true })); fond.rotation.z = Math.PI / 2; fond.position.set(0, 0.675, -1.5); tente.add(fond);
+  const porte = new THREE.Mesh(new THREE.CircleGeometry(0.75, 3), new THREE.MeshBasicMaterial({ color: '#1a120a' })); porte.rotation.z = Math.PI / 2; porte.position.set(0, 0.38, 1.49); tente.add(porte);
+  for (const z of [-1.52, 1.52]) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.3, 6), new THREE.MeshStandardMaterial({ color: '#5a3a20' })); m.position.set(0, 1.15, z); tente.add(m); }
+  const sol = new THREE.Mesh(new THREE.PlaneGeometry(2.2, 3).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#6a5a40', roughness: 1 })); sol.position.y = 0.02; tente.add(sol);
+  pose(tente, 43.4, 34.2, 0.4);
+  pose(modele('Table_Small'), 38, 31.2, Math.PI / 2, 0.42);
+  pose(modele('Stool_round'), 39.2, 31.2, 0, 0.9); pose(modele('Stool_round'), 36.8, 31.2, 0, 0.9);
+  const cm = new THREE.MeshStandardMaterial({ color: '#f4eee0' }), cr = new THREE.MeshStandardMaterial({ color: '#c03040' });
+  for (let i = 0; i < 7; i++) { const c = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.005, 0.13), i % 3 ? cm : cr); c.position.set(38 - def.centre.x + rnd(-0.35, 0.35), hauteur(38, 31.2) + 0.37, 31.2 - def.centre.z + rnd(-0.2, 0.2)); c.rotation.y = rnd(0, 3); g.add(c); }
+  pose(modele('Barrel_Closed'), 32, 31.5, 0, 0.9); pose(modele('Barrel_Closed'), 32.6, 32.4, 1, 0.8); pose(modele('Prop_Crate'), 41.5, 27.5, 0.3, 0.7);
+  // coffre du butin : s'ouvre quand le camp est vaincu
+  const coffre = pose(modele('Chest'), 41.5, 30, -1.2, 1.1), piv = new THREE.Group(); piv.position.set(0, 0.47, -0.28); const lid = modele('Chest_Lid'); lid.position.set(0, 0, 0.28); piv.add(lid); coffre.add(piv); def._couvercle = piv; def._coffre = coffre;
+  G.scene.add(g);
+}
 // ---------------- utilitaires ----------------
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -39,14 +84,18 @@ function zone(c) {
 }
 // ---------------- Ennemis (et alliés : même corps, autre camp) ----------------
 class Ennemi {
-  constructor(type, pos, { allie = false, niv = 1, camp = null } = {}) {
+  constructor(type, pos, opts = {}) {
+    const { allie = false, niv = 1, camp = null } = opts;
     const T = TYPES_M[type]; this.T = T; this.type = type; this.niv = niv; this.allie = allie; this.camp = camp;
-    this.m = new Monstre(type, { teinte: allie ? teinteAllie : null, echelle: T.ech });
+    this.m = T.humain ? new Perso({ sexe: opts.sexe || 'h', tenue: 'rodeur', cheveux: opts.cheveux ?? 0, couleurTenue: allie ? null : opts.couleur || '#6a3a3a', teinte: allie ? teinteAllieP : null }) : new Monstre(type, { teinte: allie ? teinteAllie : null, echelle: T.ech });
+    if (T.humain) this.m.tenir(epee(), 'hand_r');
+    this.role = opts.role || null; this.regard = opts.regard ?? null; this.reveil = 0;
     this.m.root.position.set(pos.x, hauteur(pos.x, pos.z), pos.z); this.m.root.rotation.y = rnd(0, 6.28);
     this.poste = this.m.root.position.clone(); G.scene.add(this.m.root);
     this.pvMax = Math.round(T.pv * (1 + 0.25 * (niv - 1))); this.pv = this.pvMax; this.deg = T.deg * (1 + 0.2 * (niv - 1));
     this.etat = 'garde'; this.t = rnd(1, 5); this.cible = null; this.cd = rnd(0.3, 1); this.lev = null; this.etourdi = 0; this.vu = 0;
-    this.m.jouer('Idle_Loop', { vitesse: rnd(0.85, 1.1) });
+    this.m.jouer('Idle_Loop', { vitesse: rnd(0.85, 1.1) }); if (this.regard != null) this.m.root.rotation.y = this.regard;
+    if (this.role) this.poser();
     (allie ? allies : ennemis).push(this);
   }
   get pos() { return this.m.root.position; }
@@ -69,7 +118,17 @@ class Ennemi {
     if (this.pv <= 0) return this.mourir(src);
     if (!this.lev && this.etat !== 'attaque') { this.m.jouer('Hit_Chest', { boucle: false, forcer: true, vitesse: 1.4 }); this.etourdi = Math.max(this.etourdi, 0.35); }
   }
-  alerte(cible) { this.etat = 'poursuite'; this.cible = cible; texteFlottant(V(this.pos.x, this.pos.y + 2.4, this.pos.z), '!', 'alerte'); }
+  poser() { // la pose de son rôle dans la scène du camp
+    const r = this.role;
+    if (r === 'cartes') this.m.jouer('Sitting_Idle_Loop', { forcer: true });
+    else if (r === 'dort') { const a = this.m.jouer('LayToIdle', { boucle: false, forcer: true }); if (a) { a.time = 0; a.paused = true; } }
+    else if (r === 'feu') this.m.jouer('Consume', { forcer: true, vitesse: 0.7 });
+    else if (r === 'guet') this.m.jouer('Idle_FoldArms_Loop', { forcer: true });
+  }
+  alerte(cible) {
+    if (this.role && camps[this.camp] && !camps[this.camp].alerte) return alerteCamp(camps[this.camp], cible);
+    if (this.role === 'dort' && this.etat === 'garde') { const a = this.actions && this.m.actions.LayToIdle; this.m.jouer('LayToIdle', { boucle: false, forcer: true, vitesse: 1.3 }); this.etat = 'reveil'; this.reveil = this.m.duree('LayToIdle') / 1.3; this.cibleA = cible; this.role = 'feu'; return; }
+    this.etat = 'poursuite'; this.cible = cible; texteFlottant(V(this.pos.x, this.pos.y + 2.4, this.pos.z), '!', 'alerte'); }
   mourir(src) {
     this.pv = 0; this.etat = 'mort'; this.lev = null; finTelegraphe(this); this.corpsT = 40; this.m.jouer('Death01', { boucle: false, forcer: true }); son('impactSoft_heavy_000', 0.5, 0.8, this.pos);
     if (this.allie) { this.corpsT = 2; this.reforme = 40; texteFlottant(V(this.pos.x, this.pos.y + 2, this.pos.z), 'Dissipée… revient dans 40 s', 'info'); return; }
@@ -104,13 +163,23 @@ class Ennemi {
     // cibles possibles : le héros ou une ombre de combat qui entre dans la zone rouge
     if (this.etat === 'garde' || this.etat === 'flane') {
       this.t -= dt;
+      if (this.role) { // scène du camp : seul le guetteur surveille vraiment, les autres ne voient que de près
+        const portee = this.role === 'guet' ? 9 : this.role === 'dort' ? 2 : 4;
+        if (!heros.mortT && dist(J.pos, this.pos) < portee) { this.alerte('heros'); return; }
+        const al = allies.find(a => a.vivant && dist(a.pos, this.pos) < portee); if (al) { this.alerte(al); return; }
+        if (this.role === 'guet') { this.t -= dt; if (this.t <= 0) { this.t = rnd(5, 9); this.but = V(this.poste.x + rnd(-3, 3), 0, this.poste.z + rnd(-3, 3)); this.ronde = true; } if (this.ronde) { if (this.marcher(this.but, dt, 1.3, 'Walk_Loop')) { this.ronde = false; this.m.jouer('Idle_FoldArms_Loop'); } } else this.tourner(this.regard + Math.sin(G.t * 0.4 + this.poste.x) * 0.9, dt * 0.3); }
+        if (this.role === 'dort' && Math.random() < dt * 0.4) texteFlottant(V(this.pos.x, this.pos.y + 0.8, this.pos.z), 'z', 'info');
+        return;
+      }
       if (!heros.mortT && enZone(J.pos)) { this.alerte('heros'); return; }
       const al = allies.find(a => a.vivant && enZone(a.pos)); if (al) { this.alerte(al); return; }
       if (this.etat === 'garde') { this.m.jouer('Idle_Loop'); if (this.t <= 0) { this.etat = 'flane'; this.but = V(this.poste.x + rnd(-2.5, 2.5), 0, this.poste.z + rnd(-2.5, 2.5)); } }
       else if (this.marcher(this.but, dt, 1.4, 'Walk_Loop')) { this.etat = 'garde'; this.t = rnd(3, 8); }
       return;
     }
-    if (this.etat === 'retour') { if (this.marcher(this.poste, dt, this.T.vit, 'Jog_Fwd_Loop')) { this.etat = 'garde'; this.t = rnd(2, 5); } this.pv = Math.min(this.pvMax, this.pv + dt * this.pvMax * 0.25); return; }
+    if (this.etat === 'reveil') { this.reveil -= dt; if (this.reveil <= 0) { this.etat = 'poursuite'; this.cible = this.cibleA; } return; }
+    if (this.etat === 'attendre') { this.reveil -= dt; if (this.reveil <= 0) { this.etat = 'poursuite'; } return; }
+    if (this.etat === 'retour') { if (this.marcher(this.poste, dt, this.T.vit, 'Jog_Fwd_Loop')) { this.etat = 'garde'; this.t = rnd(2, 5); if (this.role) { if (this.regard != null) this.m.root.rotation.y = this.regard; this.poser(); } if (c.alerte && c.membres.every(m => !m.vivant || m.etat === 'garde')) c.alerte = false; } this.pv = Math.min(this.pvMax, this.pv + dt * this.pvMax * 0.25); return; }
     const cib = this.cible === 'heros' ? (heros.mortT ? null : { pos: J.pos, heros: true }) : (this.cible && this.cible.vivant ? this.cible : null);
     if (!cib || dist(cib.pos, c.def.centre) > c.def.r + 7) { this.etat = 'retour'; this.cible = null; return; }
     const d = dist(cib.pos, this.pos);
@@ -155,16 +224,21 @@ function majTelegraphe(e) { if (!e.tel) return; const k = 1 - e.at / e.atMax, a 
 function finTelegraphe(e) { if (e.tel) { G.scene.remove(e.tel); e.tel = null; } }
 // ---------------- Camps ----------------
 function creerCamp(def) {
-  const c = camps[def.id] = { def, membres: [], zone: zone(def), mortT: 0 };
+  const c = camps[def.id] = { def, membres: [], zone: zone(def), mortT: 0 }; if (def.decor) decorBandits(def);
   const fin = (C.J.camps || {})[def.id] || 0, reste = (fin - Date.now()) / 1000;
   if (reste > 0) { c.mortT = reste; c.zone.g.visible = false; return; }
   peupler(c);
 }
-function peupler(c) { c.membres = c.def.postes.map(([x, z]) => new Ennemi(c.def.type, V(x, 0, z), { niv: c.def.niv, camp: c.def.id })); c.zone.g.visible = true; c.mortT = 0; }
+function peupler(c) { c.alerte = false; c.membres = c.def.membres ? c.def.membres.map(m => new Ennemi(c.def.type, V(m.x, 0, m.z), { ...m, niv: c.def.niv, camp: c.def.id })) : c.def.postes.map(([x, z]) => new Ennemi(c.def.type, V(x, 0, z), { niv: c.def.niv, camp: c.def.id })); c.zone.g.visible = true; c.mortT = 0; if (c.def._couvercle) { c.def._couvercle.rotation.x = 0; c.ouvert = false; } }
 function verifierCamp(id) {
   const c = camps[id]; if (c.membres.some(m => m.vivant)) return;
   c.mortT = c.def.retour; (C.J.camps ||= {})[id] = Date.now() + c.def.retour * 1000; C.sauver();
   son('jingles_PIZZI03', 0.6); C.toast(`🏆 ${c.def.nom} : zone libérée !`); C.majQuete();
+  if (c.def._couvercle) { // le coffre des pillards s'ouvre : gros butin
+    const lid = c.def._couvercle, p = c.def._coffre.getWorldPosition(V()); let t = 0; const iv = setInterval(() => { t += 0.05; lid.rotation.x = -Math.min(1.9, t * 3); if (t > 0.7) clearInterval(iv); }, 50);
+    son('handleCoins2', 0.7); emettre(V(p.x, p.y + 0.8, p.z), { n: 80, c1: '#ffe9a0', c2: '#c8902a', vit: 4, vie: 1.2, taille: 0.22, grav: 4 });
+    setTimeout(() => { C.jeu.ajouter('bois', 60, p); C.jeu.ajouter('pierre', 40, V(p.x + 0.5, p.y, p.z)); }, 600);
+  }
   setTimeout(() => { c.zone.g.visible = false; }, 1500);
 }
 export const campLibre = (id) => !!camps[id] && camps[id].mortT > 0;

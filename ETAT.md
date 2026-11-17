@@ -54,7 +54,7 @@ les envoyer couper / miner / construire / combattre, voir le royaume grandir en 
    - Blocage : maintenir = −15 % dégâts (évolutif) + contre-attaque ; parade au bon moment = 0 dégât + coup plus rapide/puissant.
    - Vie, compétences, progression du héros.
 4. [EN COURS v0.225 : Diablotins carrière + Puglins clairière] Monstres gardiens (carrière, spots) : placements soignés, vie, butin, compétences, zone rouge au sol, squelette animé.
-5. Camps de bandits vivants (ex. 5 : 1 guetteur, 2 jouent aux cartes, 1 dort sous tente/cabane…) — mises en scène, pas des ennemis posés.
+5. [FAIT v0.226] Camps de bandits vivants (ex. 5 : 1 guetteur, 2 jouent aux cartes, 1 dort sous tente/cabane…) — mises en scène, pas des ennemis posés.
 6. Routes constructibles, plusieurs styles.
 7. Carte agrandie (place pour camps et zones).
 8. Bâtiments à débloquer : forge, boulangerie, boucherie, épicerie, entrepôt, taverne, tour de défense, caserne, archerie.

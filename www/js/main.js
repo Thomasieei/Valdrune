@@ -97,6 +97,7 @@ const QUETES = [
   { t: 'Un toit pour ton peuple', s: 'Construis une Maison (onglet 🏠 Ville) : elle loge 10 habitants.', fait: () => aBatiment('maison') },
   { t: 'Le cœur du village', s: 'Construis un Puits (bois + pierre) : +20 mana max.', fait: () => aBatiment('puits') },
   { t: 'Ton armée d’ombres', s: 'Bats des monstres (les Puglins de la clairière, à l’ouest) et utilise ARISE sur leur corps : 10 % de chance, qui grandit avec le pouvoir.', fait: () => (J.armee || []).length >= 1 },
+  { t: 'Le camp des pillards', s: 'Au nord-est, cinq pillards campent : un guetteur, deux joueurs de cartes, un qui dort sous la tente… Approche discrètement et frappe le premier. Leur coffre est plein.', fait: () => campLibre('bandits') },
   { t: 'Agrandir la scierie', s: 'Touche ta scierie et améliore-la au niveau 2 : plus de bois, arbres plus rapides.', fait: () => batiments.some(b => b.s.type === 'scierie' && b.s.niv >= 2), guide: () => { const b = batiments.find(x => x.s.type === 'scierie'); return $('#panneau').classList.contains('on') ? '[data-amel]' : b && b.g.position; } },
 ];
 function majQuete() {
