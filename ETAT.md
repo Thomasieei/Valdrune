@@ -14,6 +14,13 @@ Tout le reste est **gelé** par `const V1 = true;` (haut de `www/js/main.js`) : 
 Sanctuaire, Terres Écarlates/Ancestrales, invasions, ombres, mode agression. Rien n'est supprimé.
 Règle : on ne rallume un système que quand la 1.0 est solide, et un seul à la fois.
 
+## Structure du code (IMPORTANT)
+- **Ne jamais modifier `www/js/main.js`** : il est GÉNÉRÉ par `node tools/assembler.mjs` à partir de `www/js/src/` (ordre dans `src/ORDRE.txt`). Le build APK le régénère tout seul.
+- `src/noyau/` : le jeu d'origine découpé par système (00-base, 01-place, 02-ombres, 06-donjon-combat-sorts, 09-ia-ennemis-boss, 11-boucle…).
+- `src/v1/` : la vision « ville à protéger » — `ville.js` (habitants, raids), `ombres.js` (escouade, combats, mort, mana), `champions.js`, `captifs.js`, `compagnons.js`, `royaume.js`, `dialogues.js` (parole libre), `vie-ville.js` (cimetière, portails).
+- Tout est dans la même portée (concaténation) : une fonction d'un fichier est visible des autres.
+- Outils de test (raid forcé, etc.) : seulement si `localStorage['breche-debug'] = '1'`.
+
 ## Fait
 - v1.0-a : gel des modes secondaires (portails arène/îles/Goulet cachés, cartes du menu Brèche masquées, invasions coupées).
 - v1.0-b : crash des bots sur la Place corrigé (portails gelés) ; noms complets sur les plaques (la 1re lettre était remplacée par un badge, on lisait « HOMAS »).
@@ -35,6 +42,8 @@ Règle : on ne rallume un système que quand la 1.0 est solide, et un seul à la
 - v1.0-j : ÉTAPE 7 PAROLE LIBRE — « 💬 Parler librement » avec champions, compagnons, et « Interroger l’accusé·e » en justice. Sans clé : mode simple par mots-clés (menace, raisonner, duel, question, avoue…). Avec clé API Anthropic (saisie dans la fenêtre, stockée seulement sur le téléphone, modèle claude-haiku-5-5) : réponses libres en JSON {reponse, action} → actions réelles (retraite, combat, duel, suivre, garder, aveu). L’accusé connaît sa culpabilité cachée et ment s’il est coupable.
 
 - v1.0-k : VILLE VIVANTE II — colonne de lumière rouge sur l’entrée du raid + direction relative à l’écran ; CIMETIÈRE (tombe nommée pour chaque habitant mort/sacrifié et compagnon tombé, coin ouest de la Place) ; PORTAILS À REFERMER toutes les 5–8 min hors raid : un habitant court te prévenir, le portail crache des monstres toutes les 14 s (vagues croissantes) tant qu’il est ouvert, bouton « Refermer » (4 s à moins de 3 m), récompense dégressive selon ta rapidité.
+
+- v1.0-l : NETTOYAGE — main.js découpé en 29 fichiers (src/), assemblage automatique au build ; outils de test cachés derrière breche-debug ; corrections : duel jamais terminé si on quitte la Place (ombres bloquées en escorte), captif sans stats de combat, portails plafonnés à 14 monstres, liste des pillards calculée une fois par image ; lisibilité : plus de plaques sur les ombres, plaque compagnon allégée. Test intégré OK (raid + champion + duel + portail + affaire + sauvetage).
 
 ## Bugs connus
 - (à remplir avec les retours de test de Thomas)

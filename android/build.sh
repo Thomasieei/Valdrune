@@ -8,7 +8,9 @@ JAR="$(ls -d "$SDK"/platforms/android-* | sort -V | tail -1)/android.jar"
 VER="${VERSION_CODE:-1}"
 echo "build-tools: $BT"; echo "platform: $JAR"
 W="$ROOT/build"; rm -rf "$W"; mkdir -p "$W/classes" "$W/apk/assets" "$ROOT/out"
+node "$ROOT/tools/assembler.mjs"
 cp -r "$ROOT/www" "$W/apk/assets/www"
+rm -rf "$W/apk/assets/www/js/src"
 "$BT/aapt2" compile --dir "$ROOT/android/res" -o "$W/res.zip"
 "$BT/aapt2" link -o "$W/base.apk" -I "$JAR" --manifest "$ROOT/android/AndroidManifest.xml" \
   --min-sdk-version 24 --target-sdk-version 34 --version-code "$VER" --version-name "1.0.$VER" \
