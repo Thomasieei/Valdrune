@@ -16,7 +16,7 @@ export function buche(rayon, longueur) {
   const g = new THREE.Group(), b = new THREE.Mesh(GEO_BUCHE, [MAT_ECORCE, MAT_COEUR, MAT_COEUR]); b.scale.set(longueur, rayon, rayon); b.castShadow = b.receiveShadow = true; g.add(b); return g;
 }
 // ---------------- Terrain ----------------
-export const CAMP = V(0, 0, 0), RESERVE = V(5, 0, 4), FEU = V(-1.5, 0, -1.5);
+export const CAMP = V(0, 0, 0), RESERVE = V(5, 0, 4), FEU = V(-1.5, 0, -1.5), CARRIERE = V(21, 0, -19);
 function bruit(x, z) { return Math.sin(x * 0.071) * Math.cos(z * 0.063) * 0.9 + Math.sin(x * 0.17 + z * 0.13) * 0.35 + Math.cos(x * 0.031 - z * 0.047) * 1.4; }
 export function hauteur(x, z) { const d = Math.hypot(x, z); const k = Math.min(1, Math.max(0, (d - 13) / 14)); return bruit(x, z) * k * k * (3 - 2 * k); }
 function construireTerrain() {
@@ -48,7 +48,7 @@ function construireForet() {
   const types = ['oak_01', 'birch_01', 'pine_01'], T = { oak_01: [], birch_01: [], pine_01: [] };
   for (let k = 0; k < 140; k++) {
     const a = rnd(0, 6.283), d = rnd(15, 62), x = Math.cos(a) * d, z = Math.sin(a) * d;
-    if (Math.hypot(x - RESERVE.x, z - RESERVE.z) < 9) continue;
+    if (Math.hypot(x - RESERVE.x, z - RESERVE.z) < 9 || Math.hypot(x - CARRIERE.x, z - CARRIERE.z) < 11) continue;
     if (arbres.some(b => Math.hypot(b.pos.x - x, b.pos.z - z) < 3.2)) continue;
     const type = types[Math.floor(rnd(0, 3))], e = rnd(0.85, 1.25), p = V(x, hauteur(x, z), z);
     const ar = { type, i: T[type].length, pos: p, r: rnd(0, 6.28), e, pv: 0, pvMax: 0, etat: 'debout', bois: 0, ouvriers: 0 };
@@ -141,10 +141,32 @@ function construireDecor() {
   T('mushrooms_01', 30, 16, 60, 0.8, 1.2); T('rocks_01', 25, 12, 66, 0.6, 1.2); T('boulder_01', 12, 20, 70, 0.8, 1.6, 18); T('rock_mossy_01', 14, 18, 70, 0.7, 1.3); T('pebbles_01', 30, 4, 50, 0.7, 1.1, 3);
   T('deadtree_01', 6, 30, 70, 0.9, 1.3, 25);
 }
+// ---------------- Carrière : filons de pierre ----------------
+export const filons = [];
+function construireCarriere() {
+  const gris = new THREE.MeshStandardMaterial({ color: '#8a8a92', roughness: 0.9 });
+  for (let k = 0; k < 7; k++) {
+    const a = k / 7 * 6.283 + 0.3, d = k ? 4.5 + (k % 2) * 1.6 : 0, x = CARRIERE.x + Math.cos(a) * d, z = CARRIERE.z + Math.sin(a) * d;
+    const g = N.boulder_01.clone(), e = rnd(1.5, 2.1); g.scale.setScalar(e); g.position.set(x, hauteur(x, z) - 0.1, z); g.rotation.y = rnd(0, 6.28);
+    g.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.color.multiplyScalar(0.95); } });
+    // veines claires : on voit que c'est une ressource
+    for (let i = 0; i < 4; i++) { const c = new THREE.Mesh(new THREE.IcosahedronGeometry(0.16, 0), new THREE.MeshStandardMaterial({ color: '#e6e2d6', emissive: '#3a3830', roughness: 0.4 })); c.position.set(rnd(-0.35, 0.35), rnd(0.25, 0.6), rnd(-0.35, 0.35)); g.add(c); }
+    G.scene.add(g); filons.push({ g, pos: g.position, e, pierre: 40, max: 40, ouvriers: 0, repousse: 0 });
+  }
+  const sol = new THREE.Mesh(new THREE.CircleGeometry(9, 32).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#8a7d6a', roughness: 1, transparent: true, opacity: 0.85 })); sol.position.set(CARRIERE.x, hauteur(CARRIERE.x, CARRIERE.z) + 0.04, CARRIERE.z); sol.receiveShadow = true; G.scene.add(sol);
+}
+export function tailler(f, n, pos) {
+  if (f.pierre <= 0) return 0; const pris = Math.min(n, f.pierre); f.pierre -= pris;
+  emettre(V(f.pos.x, f.pos.y + 0.9, f.pos.z), { n: 8, c1: '#f0ece0', c2: '#6a6a70', vit: 3, vie: 0.5, taille: 0.12, grav: 9 }); son('impactMetal_light_000', 0.35, 0.7 + Math.random() * 0.2, f.pos);
+  const k = 0.35 + 0.65 * f.pierre / f.max; f.g.scale.setScalar(f.e * k); if (f.pierre <= 0) { f.g.visible = false; f.repousse = 0; }
+  return pris;
+}
+function majFilons(dt) { for (const f of filons) if (f.pierre <= 0) { f.repousse += dt; if (f.repousse > 120) { f.pierre = f.max; f.g.visible = true; f.g.scale.setScalar(f.e); } } }
+export function filonProche(p, max = 999) { let b = null, bd = max; for (const f of filons) { if (f.pierre <= 0 || f.ouvriers >= 2) continue; const d = Math.hypot(f.pos.x - p.x, f.pos.z - p.z); if (d < bd) { bd = d; b = f; } } return b; }
 export function construireMonde() {
   G.hauteur = hauteur;
   G.obstacle = (x, z) => { for (const a of arbres) if (a.etat === 'debout' && Math.abs(a.pos.x - x) < 2 && Math.abs(a.pos.z - z) < 2 && Math.hypot(a.pos.x - x, a.pos.z - z) < 1.6 * a.e) return true; return false; };
-  construireTerrain(); construireForet(); construireDecor(); construireReserve(); construireFeu();
+  construireTerrain(); construireForet(); construireDecor(); construireReserve(); construireFeu(); construireCarriere();
 }
-export function majMonde(dt) { majChutes(dt); majRepousse(dt); majSecousses(dt); majFeu(dt); }
+export function majMonde(dt) { majFilons(dt); majChutes(dt); majRepousse(dt); majSecousses(dt); majFeu(dt); }
 export function libre(x, z) { for (const a of arbres) if (a.etat !== 'tombe' && Math.hypot(a.pos.x - x, a.pos.z - z) < 0.7) return false; return Math.hypot(x, z) < 80; }

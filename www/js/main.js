@@ -2,13 +2,14 @@
 import { THREE, G, V, initRendu, rendre, majCamera, initEntrees, directionVoulue, projeter, initAudio, chargerSons, son, emettre, texteFlottant, majFlottants } from './moteur.js';
 import { chargerPersos, Perso } from './persos.js';
 import { chargerNature, construireMonde, majMonde, majPile, hauteur, arbreProche, frapperArbre, libre, RESERVE, FEU } from './monde.js';
-import { Ombre, RANGS, NOMS, parole, surParole, xpNiveau, teinteOmbre } from './ombres.js';
+import { Ombre, RANGS, NOMS, METIERS, parole, surParole, xpNiveau, teinteOmbre } from './ombres.js';
+import { chargerBatiments, TYPES, batiments, creerBatiment, majBatiments, placementValide, fantomeBatiment, majEtiquettesChantiers, aBatiment, marteler, chantierProche } from './batiments.js';
 
 const $ = (s) => document.querySelector(s);
 const CLE = 'souverain-v1';
 // ---------------- Sauvegarde ----------------
 let J = null;
-function nouvelleSauvegarde() { return { bois: 0, mana: 100, ombres: [], depouilles: [0, 1, 2, 3, 4], quete: 0, total: 0 }; }
+function nouvelleSauvegarde() { return { bois: 0, pierre: 0, mana: 100, ombres: [], depouilles: [0, 1, 2, 3, 4], batiments: [], quete: 0, total: 0 }; }
 function charger() { try { const s = localStorage.getItem(CLE); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
 let sauveT = 0; function sauver() { try { localStorage.setItem(CLE, JSON.stringify(J)); } catch (e) {} }
 // ---------------- Le souverain ----------------
@@ -58,12 +59,20 @@ function revelerRang(d) {
   setTimeout(() => el.classList.remove('on'), 3800);
 }
 // ---------------- Économie ----------------
+const ICONES = { bois: '🪵', pierre: '🪨' };
 const jeu = {
-  ajouterBois(n, o) {
-    J.bois += n; J.total += n; majPile(J.bois); son('drop_002', 0.35, 1, o ? o.pos : null);
-    texteFlottant(V(RESERVE.x, 2.4, RESERVE.z), `+${n} 🪵`, 'bois'); majHud(true); majQuete();
+  ajouter(res, n, pos) {
+    J[res] = (J[res] || 0) + n; if (res === 'bois') { J.total += n; majPile(J.bois); }
+    son(res === 'bois' ? 'drop_002' : 'impactPunch_medium_001', 0.35, 1, pos);
+    texteFlottant(V(pos.x, (pos.y || 0) + 2.4, pos.z), `+${n} ${ICONES[res]}`, 'bois'); majHud(res); majQuete();
+  },
+  batimentFini(b, o) {
+    son('jingles_PIZZI03', 0.5); toast(`${b.T.icone} ${b.T.nom} terminé${b.T.nom.endsWith('e') ? 'e' : ''} !`);
+    emettre(V(b.g.position.x, b.g.position.y + 2, b.g.position.z), { n: 80, c1: '#ffe9a0', c2: '#b36bff', vit: 5, vie: 1.1, taille: 0.25, grav: 1 });
+    if (o && !b.T.segment) o.dire('C’est fait, maître.'); appliquerBatiments(); sauver(); majQuete(); if ($('#panneau').classList.contains('on') && $('#panneau').dataset.vue === 'ombres') ouvrirOmbres();
   },
 };
+function appliquerBatiments() { joueur.manaMax = 100 + batiments.filter(b => b.fini && b.s.type === 'puits').length * 20; }
 Object.defineProperty(jeu, 'pos', { get: () => joueur.pos }); Object.defineProperty(jeu, 'perso', { get: () => joueur.perso });
 // ---------------- Quête guidée (on comprend en 10 secondes quoi faire) ----------------
 const QUETES = [
@@ -71,12 +80,16 @@ const QUETES = [
   { t: 'Envoie-la au bois', s: 'Ouvre OMBRES, choisis ton ombre et touche 🪓 Bois.', fait: () => J.ombres.some(o => o.metier === 'bois') },
   { t: 'Remplis la réserve', s: 'Regarde-la abattre, débiter et porter le bois. Objectif : 60 bûches.', fait: () => J.bois >= 60, prog: () => [J.bois, 60] },
   { t: 'Une armée de bûcherons', s: 'Éveille 3 ombres et mets-les toutes au bois : la réserve monte bien plus vite.', fait: () => J.ombres.filter(o => o.metier === 'bois').length >= 3 },
-  { t: 'Royaume en marche', s: 'Atteins 300 bûches. (La suite arrive : construire avec ce bois.)', fait: () => J.bois >= 300, prog: () => [J.bois, 300] },
+  { t: 'Le premier bâtiment', s: 'Touche CONSTRUIRE, pose une Scierie près de la forêt, puis mets une ombre en 🔨 Bâtisseur.', fait: () => aBatiment('scierie') },
+  { t: 'Ouvrir la carrière', s: 'Construis le Camp de mineurs : il débloque la pierre (la carrière est au nord-est).', fait: () => aBatiment('mine') },
+  { t: 'Tailler la pierre', s: 'Mets des ombres en ⛏️ Tailleur. Objectif : 60 pierres.', fait: () => J.pierre >= 60, prog: () => [J.pierre, 60] },
+  { t: 'Protéger le camp', s: 'Pose 6 segments de Palissade autour du camp. Les raids arrivent bientôt…', fait: () => batiments.filter(b => b.fini && b.s.type === 'palissade').length >= 6, prog: () => [batiments.filter(b => b.fini && b.s.type === 'palissade').length, 6] },
+  { t: 'Le cœur du village', s: 'Construis un Puits (bois + pierre) : +20 mana max.', fait: () => aBatiment('puits') },
 ];
 function majQuete() {
   while (J.quete < QUETES.length && QUETES[J.quete].fait()) { J.quete++; son('maximize_006', 0.5); if (J.quete < QUETES.length) toast('Objectif accompli !'); }
   const q = QUETES[J.quete], el = $('#quete');
-  if (!q) { el.innerHTML = '<b>Royaume en marche</b><span>Tu as tout accompli. La construction arrive dans la prochaine version.</span>'; return; }
+  if (!q) { el.innerHTML = '<b>Royaume en marche</b><span>Ton camp est bâti. Prochaine étape : le premier vrai donjon.</span>'; return; }
   const p = q.prog ? q.prog() : null;
   el.innerHTML = `<b>${q.t}</b><span>${q.s}</span>${p ? `<i><u style="width:${Math.min(100, p[0] / p[1] * 100)}%"></u></i>` : ''}`;
 }
@@ -84,7 +97,8 @@ function majQuete() {
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; $('#toasts').appendChild(d); setTimeout(() => d.remove(), 2600); }
 let boisAff = -1;
 function majHud(pop = false) {
-  if (J.bois !== boisAff) { $('#bois b').textContent = J.bois; boisAff = J.bois; if (pop) { const b = $('#bois'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); } }
+  const txt = `🪵 <b>${J.bois}</b>${J.pierre || aBatiment('mine') ? ` <span class="sep"></span> 🪨 <b>${J.pierre}</b>` : ''}`;
+  if (txt !== boisAff) { $('#bois').innerHTML = txt; boisAff = txt; if (pop) { const b = $('#bois'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); } }
   $('#mana i').style.width = (J.mana / joueur.manaMax * 100) + '%'; $('#mana b').textContent = `${Math.floor(J.mana)} / ${joueur.manaMax}`;
   $('#btnOmbres small').textContent = J.ombres.length;
 }
@@ -101,35 +115,75 @@ function majEtiquettes() {
   }
 }
 function ouvrirOmbres() {
-  const p = $('#panneau'); p.classList.add('on'); son('confirmation_001', 0.3);
-  const metiers = { bois: '🪓 Bûcheron', suivre: '👣 Te suit', repos: '🔥 Au repos' };
+  const p = $('#panneau'); p.classList.add('on'); p.dataset.vue = 'ombres'; p.querySelector('h2').textContent = 'Tes ombres'; son('confirmation_001', 0.3);
+  const mine = aBatiment('mine');
   p.querySelector('.liste').innerHTML = J.ombres.length ? J.ombres.map(d => {
-    const R = RANGS[d.rang], m = d.maitrise.bois, o = ombres.find(x => x.d === d);
+    const R = RANGS[d.rang], m = d.metier, mt = (d.maitrise[m] || d.maitrise.bois);
+    const k = ['bois', 'pierre', 'construire'].includes(m) ? m : 'bois';
+    const mm = d.maitrise[k] || { niv: 1, xp: 0 };
     return `<div class="carte ${selection && selection.d === d ? 'sel' : ''}" data-id="${d.id}">
-      <div class="tete"><span class="rg" style="--c:${R.c}">${d.rang}</span><b>${d.nom}</b><small>${metiers[d.metier]}</small></div>
-      <div class="stats">Coupe ×${(R.coupe * (1 + 0.04 * (m.niv - 1))).toFixed(2)} · porte ${R.charge + Math.floor((m.niv - 1) / 4)} · vitesse ${R.vit}</div>
-      <div class="maitrise"><span>Maîtrise du bois <b>${m.niv}</b></span><i><u style="width:${m.xp / xpNiveau(m.niv) * 100}%"></u></i></div>
-      <div class="ordres"><button data-o="bois" class="${d.metier === 'bois' ? 'on' : ''}">🪓 Bois</button><button data-o="suivre" class="${d.metier === 'suivre' ? 'on' : ''}">👣 Suivre</button><button data-o="repos" class="${d.metier === 'repos' ? 'on' : ''}">🔥 Repos</button></div>
+      <div class="tete"><span class="rg" style="--c:${R.c}">${d.rang}</span><b>${d.nom}</b><small>${METIERS[m].icone} ${METIERS[m].nom}</small></div>
+      <div class="stats">Force de travail ×${R.coupe.toFixed(2)} · porte ${R.charge} · vitesse ${R.vit}</div>
+      <div class="maitrise"><span>${METIERS[k].icone} Maîtrise <b>${mm.niv}</b></span><i><u style="width:${mm.xp / xpNiveau(mm.niv) * 100}%"></u></i></div>
+      <div class="ordres">${['bois', 'pierre', 'construire', 'suivre', 'repos'].map(o => `<button data-o="${o}" class="${m === o ? 'on' : ''}" ${o === 'pierre' && !mine ? 'disabled title="Construis le Camp de mineurs"' : ''}>${METIERS[o].icone}<small>${o === 'pierre' && !mine ? 'Camp requis' : { bois: 'Bois', pierre: 'Pierre', construire: 'Bâtir', suivre: 'Suivre', repos: 'Repos' }[o]}</small></button>`).join('')}</div>
     </div>`;
   }).join('') : '<p class="vide">Aucune ombre. Approche-toi d’un corps sur le champ de bataille et éveille-le.</p>';
 }
+function ouvrirConstruire() {
+  const p = $('#panneau'); p.classList.add('on'); p.dataset.vue = 'construire'; p.querySelector('h2').textContent = 'Construire'; son('confirmation_001', 0.3);
+  p.querySelector('.liste').innerHTML = Object.entries(TYPES).map(([k, T]) => {
+    const ok = Object.entries(T.cout).every(([r, n]) => (J[r] || 0) >= n), nb = batiments.filter(b => b.s.type === k).length;
+    const cout = Object.entries(T.cout).map(([r, n]) => `<span class="${(J[r] || 0) >= n ? '' : 'manque'}">${ICONES[r]} ${n}</span>`).join(' ');
+    return `<div class="carte bat ${ok ? '' : 'non'}" data-b="${k}"><div class="tete"><span class="ico">${T.icone}</span><b>${T.nom}</b>${nb ? `<small>× ${nb}</small>` : ''}</div>
+      <div class="stats">${T.effet}</div><div class="cout">${cout}<button data-poser="${k}" ${ok ? '' : 'disabled'}>Placer</button></div></div>`;
+  }).join('') + '<p class="vide">Une fois posé, le chantier attend tes bâtisseurs : mets une ou plusieurs ombres en 🔨 Bâtir.</p>';
+}
 $('#panneau').addEventListener('click', (e) => {
   if (e.target.closest('[data-x]')) { $('#panneau').classList.remove('on'); return; }
-  const b = e.target.closest('[data-o]'); if (!b) return;
+  const pz = e.target.closest('[data-poser]'); if (pz) { $('#panneau').classList.remove('on'); commencerPlacement(pz.dataset.poser); return; }
+  const b = e.target.closest('[data-o]'); if (!b || b.disabled) return;
   const d = J.ombres.find(x => x.id === +b.closest('[data-id]').dataset.id), o = ombres.find(x => x.d === d);
-  d.metier = b.dataset.o; son('select_001', 0.4); son('cloth1', 0.4);
-  if (o) { if (o.cible) o.lacher(); o.etat = 'chercher'; o.dire(parole(d.metier)); }
+  son('cloth1', 0.4);
+  if (o) { o.changerMetier(b.dataset.o); o.dire(parole(b.dataset.o)); } else d.metier = b.dataset.o;
   sauver(); majQuete(); ouvrirOmbres();
 });
 $('#btnOmbres').onclick = () => ouvrirOmbres();
+$('#btnConstruire').onclick = () => ouvrirConstruire();
+// ---------------- Placement d'un bâtiment (fantôme vert = OK, rouge = impossible) ----------------
+let placement = null;
+function commencerPlacement(type) { placement = { type, r: joueur.perso.root.rotation.y }; $('#placement').hidden = false; toast('Déplace-toi pour choisir l’endroit, puis touche POSER'); }
+function finPlacement() { placement = null; fantomeBatiment(null); $('#placement').hidden = true; }
+function majPlacement() {
+  if (!placement) return;
+  const T = TYPES[placement.type], a = joueur.perso.root.rotation.y, dist = T.rayon + 1.6;
+  placement.x = joueur.pos.x + Math.sin(a) * dist; placement.z = joueur.pos.z + Math.cos(a) * dist;
+  const assez = Object.entries(T.cout).every(([r, n]) => (J[r] || 0) >= n);
+  placement.ok = assez && placementValide(placement.type, placement.x, placement.z);
+  fantomeBatiment(placement.type, placement.x, placement.z, placement.r, placement.ok);
+  const b = $('#btnPoser'); b.disabled = !placement.ok; b.textContent = !assez ? 'Pas assez de ressources' : placement.ok ? `Poser · ${Object.entries(T.cout).map(([r, n]) => ICONES[r] + n).join(' ')}` : 'Place occupée';
+}
+function poser() {
+  if (!placement || !placement.ok) { son('error_004', 0.4); return; }
+  const T = TYPES[placement.type]; for (const [r, n] of Object.entries(T.cout)) J[r] -= n;
+  const s = { type: placement.type, x: +placement.x.toFixed(2), z: +placement.z.toFixed(2), r: placement.r, prog: 0, fini: false };
+  J.batiments.push(s); creerBatiment(s, false); son('impactPunch_medium_001', 0.5); emettre(V(s.x, hauteur(s.x, s.z) + 0.2, s.z), { n: 30, c1: '#d8c8a8', c2: '#6a5a4a', vit: 3, vie: 0.7, taille: 0.3, grav: 4 });
+  majHud(); sauver();
+  if (!J.ombres.some(o => o.metier === 'construire')) toast('Chantier posé ! Mets une ombre en 🔨 Bâtir');
+  if (T.segment && Object.entries(T.cout).every(([r, n]) => (J[r] || 0) >= n)) { joueur.pos.x += Math.sin(placement.r + Math.PI / 2) * 2.1; joueur.pos.z += Math.cos(placement.r + Math.PI / 2) * 2.1; } // segment suivant juste à côté
+  else finPlacement();
+}
+$('#btnPoser').onclick = () => { initAudio(); poser(); };
+$('#btnTourner').onclick = () => { if (placement) placement.r += Math.PI / 4; son('cloth1', 0.3); };
+$('#btnAnnuler').onclick = () => finPlacement();
 // ---------------- Action contextuelle (un seul gros bouton, comme Roblox) ----------------
 let actionCb = null;
 function action(txt, cb, cls = '') { const b = $('#action'); if (!txt) { b.hidden = true; actionCb = null; return; } if (b.textContent !== txt) b.textContent = txt; b.className = cls; b.hidden = false; actionCb = cb; }
 $('#action').onclick = () => { initAudio(); actionCb && actionCb(); };
 function majAction() {
-  if (enScene) return action(null);
+  if (enScene || placement) return action(null);
   const dep = depouilles.find(d => Math.hypot(d.p.root.position.x - joueur.pos.x, d.p.root.position.z - joueur.pos.z) < 2.6);
   if (dep) return action(`ÉVEILLE-TOI · ${COUT_EVEIL} mana`, () => eveiller(dep), 'eveil');
+  const ch = chantierProche(joueur.pos); if (ch && Math.hypot(ch.g.position.x - joueur.pos.x, ch.g.position.z - joueur.pos.z) < ch.T.rayon + 1.5) return action(joueur.bati ? 'Tu construis…' : `Aider à bâtir · ${Math.floor((ch.s.prog || 0) * 100)} %`, () => { joueur.bati = ch; }, 'bois');
   const a = arbreProche(joueur.pos, x => x.etat === 'debout', 2.4);
   if (a) return action(joueur.chop ? 'Tu coupes…' : 'Couper l’arbre', () => { joueur.chop = a; }, 'bois');
   action(null);
@@ -146,11 +200,14 @@ const dir = V();
 function majJoueur(dt) {
   const f = directionVoulue(dir), p = joueur.perso;
   if (f > 0.05) {
-    joueur.chop = null; const v = f > 0.85 ? 6.2 : 3.4;
+    joueur.chop = null; joueur.bati = null; const v = f > 0.85 ? 6.2 : 3.4;
     const nx = joueur.pos.x + dir.x * v * dt, nz = joueur.pos.z + dir.z * v * dt;
     if (Math.hypot(nx, nz) < 78 && libre(nx, nz)) { joueur.pos.x = nx; joueur.pos.z = nz; }
     let da = Math.atan2(dir.x, dir.z) - p.root.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); p.root.rotation.y += da * Math.min(1, dt * 12);
     p.jouer(f > 0.85 ? 'Jog_Fwd_Loop' : 'Walk_Loop', { vitesse: f > 0.85 ? 1.15 : 1.1 });
+  } else if (joueur.bati) {
+    const b = joueur.bati; if (b.fini) { joueur.bati = null; p.jouer('Idle_Loop'); }
+    else { p.root.rotation.y = Math.atan2(b.g.position.x - joueur.pos.x, b.g.position.z - joueur.pos.z); p.jouer('Fixing_Kneeling', { vitesse: 1.3 }); joueur.bt = (joueur.bt || 0) - dt; if (joueur.bt <= 0) { joueur.bt = 0.7; if (marteler(b, 1.5, joueur.pos)) { jeu.batimentFini(b, null); joueur.bati = null; } } }
   } else if (joueur.chop) {
     const a = joueur.chop; if (a.etat !== 'debout') { joueur.chop = null; p.jouer('Idle_Loop'); }
     else { const ang = Math.atan2(a.pos.x - joueur.pos.x, a.pos.z - joueur.pos.z); p.root.rotation.y = ang; p.jouer('TreeChopping_Loop', { vitesse: 1.3 }); const ph = p.phase(); if (joueur.ph < 0.5 && ph >= 0.5) frapperArbre(a, joueur.pos, 2); joueur.ph = ph; }
@@ -166,7 +223,7 @@ function boucle() {
   for (let i = scenes.length - 1; i >= 0; i--) if (scenes[i](dt)) scenes.splice(i, 1);
   let rangSuivre = 0; for (const o of ombres) o.maj(dt, jeu, o.d.metier === 'suivre' ? rangSuivre++ : 0);
   for (const d of depouilles) if (d.p && Math.random() < dt * 1.5) emettre(V(d.p.root.position.x, d.p.root.position.y + 0.3, d.p.root.position.z), { n: 1, c1: '#7a4aff', c2: '#100418', vit: 0.2, vie: 1.4, taille: 0.25, grav: -0.8 });
-  majMonde(dt); majCamera(dt, V(joueur.pos.x, joueur.pos.y, joueur.pos.z)); majFlottants(dt); majEtiquettes(); majAction();
+  majMonde(dt); majBatiments(dt); majPlacement(); majCamera(dt, V(joueur.pos.x, joueur.pos.y, joueur.pos.z)); majFlottants(dt); majEtiquettes(); majEtiquettesChantiers(); majAction();
   if ((sauveT -= dt) <= 0) { sauveT = 5; sauver(); majHud(); }
   else if (Math.floor(G.t * 10) !== Math.floor((G.t - dt) * 10)) majHud();
   rendre(dtR);
@@ -175,9 +232,9 @@ function boucle() {
 async function demarrer() {
   initRendu($('#scene'));
   const barre = $('#charge i'), pr = { p: 0, n: 0 }, avance = () => { barre.style.width = Math.round((pr.p + pr.n) / 2 * 100) + '%'; };
-  await Promise.all([chargerPersos((k) => { pr.p = k; avance(); }), chargerNature((k) => { pr.n = k; avance(); }), chargerSons(['chop.ogg', 'drop_002.ogg', 'handleCoins.ogg', 'cloth1.ogg', 'confirmation_001.ogg', 'maximize_006.ogg', 'impactSoft_heavy_000.ogg', 'knifeSlice.ogg', 'jingles_PIZZI01.ogg', 'jingles_PIZZI03.ogg', 'sov_possession.wav', 'sov_onde.wav', 'error_004.ogg'])]);
-  J = charger() || nouvelleSauvegarde();
-  construireMonde(); creerJoueur(); creerDepouilles();
+  await Promise.all([chargerPersos((k) => { pr.p = k; avance(); }), chargerNature((k) => { pr.n = k; avance(); }), chargerBatiments(), chargerSons(['chop.ogg', 'drop_002.ogg', 'handleCoins.ogg', 'cloth1.ogg', 'confirmation_001.ogg', 'maximize_006.ogg', 'impactSoft_heavy_000.ogg', 'knifeSlice.ogg', 'jingles_PIZZI01.ogg', 'jingles_PIZZI03.ogg', 'sov_possession.wav', 'sov_onde.wav', 'error_004.ogg', 'impactMetal_light_000.ogg', 'impactPunch_medium_001.ogg', 'handleCoins2.ogg'])]);
+  J = charger() || nouvelleSauvegarde(); J.pierre ??= 0; J.batiments ??= [];
+  construireMonde(); creerJoueur(); creerDepouilles(); for (const s of J.batiments) creerBatiment(s, !!s.fini); appliquerBatiments();
   J.ombres.forEach((d, k) => ajouterOmbre(d, V(RESERVE.x + Math.cos(k) * 3, 0, RESERVE.z + Math.sin(k) * 3)));
   majPile(J.bois); majHud(); majQuete();
   initEntrees({ toucher });
