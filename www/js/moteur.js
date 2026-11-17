@@ -48,10 +48,10 @@ function environnement(r) { // ciel en dégradé → carte d'environnement (refl
   const pm = new THREE.PMREMGenerator(r), t = pm.fromScene(sc, 0.04).texture; pm.dispose(); return t;
 }
 export function redimensionner() {
-  const w = innerWidth, h = innerHeight, pr = Math.min(devicePixelRatio || 1, 1.6) * (G.resK || 1); // 1,6 suffit sur un écran de téléphone (au-delà : 50 % de pixels en plus pour un gain invisible)
+  const w = innerWidth, h = innerHeight, pr = Math.min(devicePixelRatio || 1, 2) * (G.resK || 1);
   G.renderer.setPixelRatio(pr); G.renderer.setSize(w, h, false);
   G.composer.setPixelRatio(pr); G.composer.setSize(w, h);
-  G.bloom.resolution.set(w * 0.3, h * 0.3);
+  G.bloom.resolution.set(w * 0.4, h * 0.4);
   G.camera.aspect = w / h; G.camera.fov = w < h ? 62 : 50; G.camera.updateProjectionMatrix();
 }
 // qualité auto : si ça rame vraiment, on baisse un peu la définition (jamais les ombres d'abord)
@@ -60,7 +60,6 @@ function majPerf(dtReel) {
   perf.t += dtReel; perf.n++; if (perf.t < 3) return;
   const fps = perf.n / perf.t; perf.t = perf.n = 0; G.fps = Math.round(fps);
   if (fps < 32 && (G.resK || 1) > 0.6) { G.resK = Math.max(0.6, (G.resK || 1) - 0.12); redimensionner(); }
-  else if (fps < 24 && G.bloom.enabled && G.sun.shadow.mapSize.x <= 1024) G.bloom.enabled = false; // tout dernier recours : sans halo
   else if (fps < 26 && G.sun.shadow.mapSize.x > 1024) { G.sun.shadow.mapSize.set(1024, 1024); G.sun.shadow.map?.dispose(); G.sun.shadow.map = null; } // en dernier recours : ombres moins fines
   else if (fps > 55 && (G.resK || 1) < 1) { G.resK = Math.min(1, G.resK + 0.06); redimensionner(); } // ça tourne bien : on remonte
 }
@@ -71,9 +70,6 @@ const _off = V(), _vise = V();
 export const DIR_AV = V(0, 0, -1), DIR_DR = V(1, 0, 0);
 // deux caméras : HÉROS (derrière toi, façon Roblox) et SOUVERAIN (vue du dessus façon Age of Empires) ; on glisse de l'une à l'autre
 G.mode = 'heros'; G.focus = new THREE.Vector3(); G.zoomS = 0.35;
-// ce que voit la caméra : sert à ne pas animer ni dessiner les personnages hors champ
-const _fr = new THREE.Frustum(), _mat = new THREE.Matrix4(), _sph = new THREE.Sphere();
-export function dansChamp(p, r = 2.5) { _sph.center.set(p.x, p.y + r * 0.6, p.z); _sph.radius = r; return _fr.intersectsSphere(_sph); }
 export function majCamera(dt, cible) {
   const souv = G.mode === 'souverain', k = 1 - Math.exp(-dt * 6);
   if (souv) { const r = Math.hypot(G.focus.x, G.focus.z); if (r > 75) G.focus.multiplyScalar(75 / r); G.focus.y = G.hauteur ? G.hauteur(G.focus.x, G.focus.z) : 0; }
@@ -95,7 +91,6 @@ export function majCamera(dt, cible) {
   G.camera.lookAt(_vise.set(G.camCible.x, G.camCible.y + hv, G.camCible.z));
   DIR_AV.set(-Math.sin(G.camYaw), 0, -Math.cos(G.camYaw)); DIR_DR.set(Math.cos(G.camYaw), 0, -Math.sin(G.camYaw));
   G.sun.position.set(cible.x + 18, 34, cible.z + 12); G.sun.target.position.copy(cible);
-  G.camera.updateMatrixWorld(); _fr.setFromProjectionMatrix(_mat.multiplyMatrices(G.camera.projectionMatrix, G.camera.matrixWorldInverse));
 }
 
 // ---------------- Commandes ----------------

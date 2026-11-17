@@ -1,7 +1,7 @@
 // Combat : camps de monstres gardiens (zone rouge), héros avec attaque + 4 pouvoirs (Lame rapide, Télékinésie, Parade, ARISE),
 // ombres de combat relevées sur les ennemis vaincus.
 import { THREE, G, V, tmp, emettre, son, texteFlottant, projeter } from './moteur.js';
-import { Monstre, Perso, ModeleAnime, prop } from './persos.js';
+import { Monstre, Perso, ModeleAnime } from './persos.js';
 import { modele } from './batiments.js';
 import { hauteur } from './monde.js';
 
@@ -17,15 +17,6 @@ Object.assign(TYPES_M, {
   orc: { nom: 'Orc', profil: 'defensif', modele: 'orc', h: 2.35, ech: 1, pv: 120, deg: 11, vit: 3.0, portee: 2.7, xp: 60, butin: { pierre: [10, 18] }, cadence: 2.3, attaque: ['Attack', 'Bash'], course: 'Run', bloque: true, lourd: true },
   boss: { nom: 'Grukh, chef de guerre', profil: 'boss', boss: true, modele: 'orc', h: 3.3, ech: 1, pv: 420, deg: 15, vit: 3.1, portee: 3.5, xp: 400, butin: { bois: [80, 120], pierre: [60, 90] }, cadence: 2.2, attaque: ['Attack', 'Bash'], course: 'Run', bloque: true, lourd: true, special: { nom: 'Fracas', cd: 11, r: 4.4, delai: 1.6, mult: 2.0, surCible: false, couleur: '#ff3a1a' } },
 });
-// la Horde (Fantasy Races Kit : vrais corps d'orcs sur le squelette des héros, habillés et armés du Props MegaKit)
-Object.assign(TYPES_M, {
-  // enchaîne 3 coups (le 3e est imparable) puis reste essoufflé : on esquive la série, on punit après. Chaque coup reçu l'enrage.
-  berserker: { nom: 'Berserker orc', profil: 'berserker', humain: true, corps: 'orc_male', sexe: 'h', tenue: 'paysan', couleur: '#c86a3a', armes: ['hache', 'hacheG'], h: 1.85, ech: 1.08, pv: 110, deg: 9, vit: 4.3, portee: 2.3, xp: 70, butin: { bois: [10, 18], pierre: [6, 12] }, cadence: 2.0, serie: ['Sword_Regular_A', 'Sword_Regular_B', 'Sword_Regular_C'], course: 'Sprint_Loop', rage: true },
-  // reste en retrait et soigne + protège l'allié le plus blessé : il faut l'interrompre (n'importe quel coup) ou la tuer d'abord
-  chamane: { nom: 'Chamane orque', profil: 'soutien', humain: true, corps: 'orc_female', sexe: 'f', tenue: 'paysan', couleur: '#9ab86a', armes: ['orbe'], h: 1.75, ech: 1.05, pv: 70, deg: 7, vit: 3.4, portee: 2.0, xp: 65, butin: { pierre: [10, 16] }, cadence: 2.2, attaque: ['Sword_Attack'], course: 'Jog_Fwd_Loop', soin: { cd: 7, dur: 1.8, part: 0.3, bouclier: 35 }, special: { nom: 'Malédiction', cd: 10, r: 2.4, delai: 1.6, mult: 2.2, surCible: true, couleur: '#5aff6a' } },
-  // boss en 3 phases : garde au bouclier → appelle la Horde (66 %) → furie et séismes en chaîne (33 %)
-  morgrak: { nom: 'Morgrak le Sanglant', profil: 'boss', boss: true, humain: true, corps: 'orc_male', sexe: 'h', tenue: 'paysan', couleur: '#8a2a22', armes: ['grandeHache', 'bouclier'], h: 1.85, ech: 1.75, pv: 900, deg: 19, vit: 3.4, portee: 3.6, xp: 900, butin: { bois: [150, 220], pierre: [120, 180] }, cadence: 2.1, attaque: ['Sword_Attack', 'Sword_Regular_C', 'Sword_Heavy_Combo'], course: 'Jog_Fwd_Loop', bloque: true, lourd: true, renforts: ['berserker', 'berserker'], furieA: 0.33, animSort: 'Sword_Heavy_Combo', special: { nom: 'Séisme', cd: 9, r: 3.0, delai: 1.15, mult: 1.9, surCible: true, couleur: '#ff3a1a', repete: 3 } },
-});
 export const CAMPS = [
   { id: 'carriere', nom: 'Diablotins de la carrière', type: 'imp', centre: V(21, 0, -19), r: 10, niv: 1, retour: 300, postes: [[17.5, -14.5], [25.5, -15], [21.5, -24]] },
   { id: 'bandits', nom: 'Camp des pillards', type: 'bandit', centre: V(38, 0, 30), r: 12, niv: 2, retour: 420, decor: true,
@@ -37,8 +28,6 @@ export const CAMPS = [
       { x: 43.2, z: 34.6, role: 'dort', regard: 0.4, sexe: 'h', cheveux: 1, couleur: '#a8a888' },
       { x: 35.2, z: 27.6, role: 'feu', regard: 0.9, sexe: 'f', cheveux: 0, couleur: '#b8889a' },
     ] },
-  { id: 'fort', nom: 'Fort de la Horde', type: 'berserker', centre: V(-12, 0, -46), r: 13, niv: 3, retour: 900, decor: 'horde', coffre: { bois: 220, pierre: 160 },
-    membres: [{ type: 'morgrak', x: -12, z: -52.5, regard: 0 }, { type: 'chamane', x: -12, z: -49, regard: 0 }, { type: 'berserker', x: -15.5, z: -41.5, regard: 0.4 }, { type: 'berserker', x: -8.5, z: -42, regard: -0.4 }] },
   { id: 'clairiere', nom: 'Puglins de la clairière', type: 'puglin', centre: V(-34, 0, 30), r: 9, niv: 1, retour: 240, postes: [[-34, 26], [-30, 31], [-38, 33], [-33, 34], [-36, 29]] },
 ];
 export const POUVOIRS = {
@@ -52,13 +41,6 @@ const ennemis = [], allies = [], camps = {};
 export const heros = { action: null, parade: null, pts: 0, gcd: 0, end: 100, endT: 0, cds: { lame: 0, tele: 0, parade: 0, arise: 0, dash: 0 }, combo: 0, comboT: 0, mortT: 0, horsCombat: 0 };
 const teinteAllie = (d) => { d.color.set('#1a1226'); d.emissive = new THREE.Color('#5a1aff'); d.emissiveIntensity = 0.45; d.map = null; };
 const teinteAllieP = function teinteAllieP(d) { if (/eye/i.test(d.name || '')) { d.color.set('#c8a8ff'); d.emissive = new THREE.Color('#9a5aff'); d.emissiveIntensity = 2; d.map = null; return; } d.color.set('#1a1226'); d.emissive = new THREE.Color('#4a14a0'); d.emissiveIntensity = 0.4; };
-function arme(k) { // armes du Props MegaKit, tenues comme l'épée (lame vers l'avant de la main)
-  const g = new THREE.Group();
-  if (k === 'orbe') { const o = new THREE.Mesh(new THREE.IcosahedronGeometry(0.12, 1), new THREE.MeshBasicMaterial({ color: '#8aff7a' })); o.position.set(0, 0.06, 0.08); g.add(o); return g; }
-  const o = prop(k === 'bouclier' ? 'Shield_Wooden' : 'Axe_Bronze');
-  if (k === 'bouclier') { o.scale.setScalar(1.25); o.rotation.set(0, Math.PI / 2, 0); o.position.set(0.12, 0.05, 0); g.add(o); return g; }
-  o.scale.setScalar(k === 'grandeHache' ? 1.5 : 1.05); o.rotation.set(0, 0, -Math.PI / 2); o.position.y = 0.32 * o.scale.x; g.add(o); g.rotation.set(Math.PI / 2, 0, 0); return g;
-}
 function epee() { const g = new THREE.Group(), fer = new THREE.MeshStandardMaterial({ color: '#b8bcc8', metalness: 0.8, roughness: 0.3 }); const l = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.75, 0.012), fer); l.position.y = 0.5; const gd = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.04, 0.05), new THREE.MeshStandardMaterial({ color: '#4a3020' })); gd.position.y = 0.12; g.add(l, gd); g.rotation.set(Math.PI / 2, 0, 0); return g; }
 // tout le camp se réveille : le guetteur crie, les joueurs lâchent leurs cartes, le dormeur se lève
 function alerteCamp(c, cible) {
@@ -92,39 +74,6 @@ function decorBandits(def) {
   const coffre = pose(modele('Chest'), 41.5, 30, -1.2, 1.1), piv = new THREE.Group(); piv.position.set(0, 0.47, -0.28); const lid = modele('Chest_Lid'); lid.position.set(0, 0, 0.28); piv.add(lid); coffre.add(piv); def._couvercle = piv; def._coffre = coffre;
   G.scene.add(g);
 }
-// fort de la Horde : palissade de pieux, porte à bannières, forge, chaudron de la chamane, cages, trône et coffre de Morgrak
-function decorHorde(def) {
-  const g = new THREE.Group(), cx = def.centre.x, cz = def.centre.z; g.position.set(cx, 0, cz);
-  const pose = (o, x, z, r = 0, e = 1, y = 0) => { o.position.set(x, hauteur(cx + x, cz + z) + y, z); o.rotation.y = r; o.scale.multiplyScalar(e); g.add(o); return o; };
-  // palissade : ~70 pieux taillés, une ouverture face à la route (sud) et une poterne au nord
-  const geo = new THREE.CylinderGeometry(0.04, 0.2, 3, 6).translate(0, 1.3, 0), mat = new THREE.MeshStandardMaterial({ color: '#5a3c24', roughness: 1, flatShading: true });
-  const pos = []; for (let a = 0; a < 6.283; a += 0.088) { if (Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) < 0.3) continue; if (Math.abs(a - Math.PI) < 0.12) continue; pos.push(a); }
-  const pal = new THREE.InstancedMesh(geo, mat, pos.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler();
-  pos.forEach((a, i) => { const R = def.r - 1 + Math.sin(a * 7) * 0.25, x = Math.sin(a) * R, z = Math.cos(a) * R; e.set(Math.cos(a) * 0.18, 0, -Math.sin(a) * 0.18); q.setFromEuler(e); m4.compose(V(x, hauteur(cx + x, cz + z) - 0.2, z), q, V(1, 0.85 + Math.random() * 0.35, 1)); pal.setMatrixAt(i, m4); });
-  pal.castShadow = pal.receiveShadow = true; g.add(pal);
-  // porte : deux grands mâts, bannières rouges et torches
-  const mat2 = new THREE.MeshStandardMaterial({ color: '#3e2818', roughness: 1, flatShading: true });
-  for (const sx of [-1, 1]) {
-    const x = sx * 3.6, z = def.r - 0.6, mt = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.24, 5, 6), mat2); mt.castShadow = true; pose(mt, x, z, 0, 1, 2.3);
-    const b = pose(prop('Banner_1'), x, z, sx < 0 ? Math.PI : 0, 1.1, 3.8); const cl = prop('Banner_1_Cloth'); b.add(cl);
-    pose(prop('Torch_Metal'), x - sx * 0.05, z + 0.25, 0, 1.2, 2.2);
-  }
-  // atelier de guerre et vie du fort
-  pose(modele('fire_01'), 0, 1, 0, 1.1);
-  const feu = new THREE.PointLight('#ff8a3a', 7, 12, 1.6); feu.position.set(0, hauteur(cx, cz + 1) + 1.2, 1); g.add(feu);
-  pose(prop('WeaponStand'), -7.5, -2, 1.2); pose(prop('WeaponStand'), 7.5, -2.5, -1.2);
-  pose(prop('Anvil'), 6.5, 3, -0.6, 1.2); pose(prop('Barrel'), 8, 4.5); pose(prop('Barrel'), 7.4, 5.4, 1, 0.9); pose(prop('Crate_Wooden'), -8, 4, 0.4, 0.9);
-  pose(prop('Cauldron'), -2.6, -3.4, 0, 1.1); pose(prop('Chain_Coil'), 4, -4.5, 0.7);
-  pose(prop('Cage_Small'), -7.8, -6, 0.3, 1.6); pose(prop('Cage_Small'), -6.2, -7.6, -0.4, 1.6); pose(prop('Dummy'), 5, 7.5, 2.6);
-  // trône de Morgrak : estrade de rondins et deux bannières
-  const est = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.5, 0.35, 8), mat2); est.receiveShadow = true; pose(est, 0, -6.8, 0, 1, 0.1);
-  for (const sx of [-1, 1]) { const mt = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 4.2, 6), mat2); pose(mt, sx * 2.6, -8, 0, 1, 2); const b = pose(prop('Banner_2'), sx * 2.6, -8, sx < 0 ? Math.PI : 0, 1, 3.4); b.add(prop('Banner_2_Cloth')); }
-  // coffre du butin : s'ouvre à la mort du dernier défenseur
-  const coffre = pose(prop('Chest_Wood'), 0, -9.6, 0, 1.3); pose(prop('Coin_Pile'), 1.2, -9.4, 0, 2.5); pose(prop('Coin_Pile_2'), -1.3, -9.2, 1, 2.5);
-  let lid = null; coffre.traverse(o => { if (o.name === 'Chest_Top') lid = o; });
-  if (lid) { def._couvercle = lid; def._coffre = coffre; }
-  G.scene.add(g);
-}
 // ---------------- utilitaires ----------------
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -146,12 +95,11 @@ class Ennemi {
   constructor(type, pos, opts = {}) {
     const { allie = false, niv = 1, camp = null } = opts;
     const T = TYPES_M[type]; this.T = T; this.type = type; this.niv = niv; this.allie = allie; this.camp = camp;
-    this.m = T.modele ? new ModeleAnime(T.modele, { hauteur: T.h, cacher: ['pCylinder'], teinte: allie ? teinteAllie : null }) : T.humain ? new Perso({ sexe: opts.sexe || T.sexe || 'h', tenue: T.tenue || 'rodeur', cheveux: T.corps ? -1 : opts.cheveux ?? 0, corps: T.corps, couleurTenue: allie ? null : opts.couleur || T.couleur || '#6a3a3a', teinte: allie ? teinteAllieP : null }) : new Monstre(type, { teinte: allie ? teinteAllie : null, echelle: T.ech });
-    if (T.armes) { this.m.tenir(arme(T.armes[0]), 'hand_r'); if (T.armes[1]) this.m.tenir(arme(T.armes[1] === 'hacheG' ? 'hache' : T.armes[1]), 'hand_l'); } else if (T.humain) this.m.tenir(epee(), 'hand_r');
-    if (T.humain && T.ech && T.ech !== 1) this.m.root.scale.setScalar(T.ech);
+    this.m = T.modele ? new ModeleAnime(T.modele, { hauteur: T.h, cacher: ['pCylinder'], teinte: allie ? teinteAllie : null }) : T.humain ? new Perso({ sexe: opts.sexe || 'h', tenue: 'rodeur', cheveux: opts.cheveux ?? 0, couleurTenue: allie ? null : opts.couleur || '#6a3a3a', teinte: allie ? teinteAllieP : null }) : new Monstre(type, { teinte: allie ? teinteAllie : null, echelle: T.ech });
+    if (T.humain) this.m.tenir(epee(), 'hand_r');
     this.role = opts.role || null; this.regard = opts.regard ?? null; this.reveil = 0;
     this.m.root.position.set(pos.x, hauteur(pos.x, pos.z), pos.z); this.m.root.rotation.y = rnd(0, 6.28);
-    this.poste = this.m.root.position.clone(); G.scene.add(this.m.root); this.m.rayonVue = Math.max(2.5, T.h * T.ech * 1.1);
+    this.poste = this.m.root.position.clone(); G.scene.add(this.m.root);
     this.pvMax = Math.round(T.pv * (1 + 0.25 * (niv - 1))); this.pv = this.pvMax; this.deg = T.deg * (1 + 0.2 * (niv - 1));
     this.etat = 'garde'; this.t = rnd(1, 5); this.cible = null; this.cd = rnd(0.3, 1); this.lev = null; this.etourdi = 0; this.vu = 0;
     this.m.jouer('Idle_Loop', { vitesse: rnd(0.85, 1.1) }); if (this.regard != null) this.m.root.rotation.y = this.regard;
@@ -176,10 +124,6 @@ class Ennemi {
       if (face && !src.lourde) { this.post = (this.post || 0) + 3; this.bloque = Math.max(this.bloque, 0.4); texteFlottant(tmp(this.pos.x, this.pos.y + 2.2, this.pos.z), 'Bloqué', 'info'); son('impactMetal_light_000', 0.6, 1.3, this.pos); emettre(tmp(this.pos.x, this.pos.y + 1.2, this.pos.z), { n: 12, c1: '#fff6d8', c2: '#ffb04a', vit: 4, vie: 0.3, taille: 0.12, grav: 4 }); G.ralenti = 0.05; G.ralentiT = 0.06; this.riposte = 0.35; return; }
       if (face && src.lourde) { this.bloque = 0; texteFlottant(tmp(this.pos.x, this.pos.y + 2.4, this.pos.z), 'Garde rompue !', 'crit'); n *= 0.6; this.etourdi = Math.max(this.etourdi, 0.8); }
     }
-    if (this.canal && src && src.isHeros) { this.finCanal(); this.soinT = this.T.soin.cd * 0.6; texteFlottant(tmp(this.pos.x, this.pos.y + 2.4, this.pos.z), 'Soin interrompu !', 'parade'); gagnerPts(1); }
-    if (this.bouclier > 0) { const a = Math.min(n, this.bouclier); this.bouclier -= a; n -= a; emettre(tmp(this.pos.x, this.pos.y + 1.2, this.pos.z), { n: 10, c1: '#c8ffb8', c2: '#2a8a3a', vit: 3, vie: 0.4, taille: 0.15, grav: 1 }); if (this.bouclier <= 0) { this.bouclier = 0; jeter(this.bulle); this.bulle = null; texteFlottant(tmp(this.pos.x, this.pos.y + 2.4, this.pos.z), 'Bouclier brisé', 'parade'); } else texteFlottant(tmp(this.pos.x, this.pos.y + 2.2, this.pos.z), 'Absorbé', 'info'); if (n <= 0) return; }
-    if (this.souffle > 0 && src && src.isHeros) { n *= 1.5; crit = true; }
-    if (this.T.rage && src && src.isHeros) { const av = this.rage || 0; this.rage = Math.min(1, av + 0.12); if (av < 1 && this.rage >= 1) texteFlottant(tmp(this.pos.x, this.pos.y + 2.6, this.pos.z), 'ENRAGÉ !', 'alerte-sort'); }
     if (this.lev) n *= 1.5; // soulevé = sans défense
     if (this.brise > 0 && src && src.isHeros) { n *= 2.5; crit = true; this.intact = true; this.brise = 0; this.etourdi = 0.3; this.post = 0; texteFlottant(tmp(this.pos.x, this.pos.y + 2.8, this.pos.z), 'EXÉCUTION', 'parade'); G.shake = 0.6; }
     else if (src && src.isHeros && !this.allie) { this.post = (this.post || 0) + (crit ? 14 : 8) * (src.posture || 1); this.postT = 0; if (this.post >= this.postMax()) this.briser(); }
@@ -211,7 +155,7 @@ class Ennemi {
     if (this.role === 'dort' && this.etat === 'garde') { this.m.jouer('LayToIdle', { boucle: false, forcer: true, vitesse: 1.3 }); this.etat = 'reveil'; this.reveil = this.m.duree('LayToIdle') / 1.3; this.cibleA = cible; this.role = 'feu'; return; }
     this.etat = 'poursuite'; this.cible = cible; texteFlottant(tmp(this.pos.x, this.pos.y + 2.4, this.pos.z), '!', 'alerte'); }
   mourir(src) {
-    this.pv = 0; this.etat = 'mort'; this.lev = null; finTelegraphe(this); this.finCanal(); if (this.bulle) { jeter(this.bulle); this.bulle = null; this.bouclier = 0; } this.corpsT = 40; this.m.jouer('Death01', { boucle: false, forcer: true }); son('impactSoft_heavy_000', 0.5, 0.8, this.pos);
+    this.pv = 0; this.etat = 'mort'; this.lev = null; finTelegraphe(this); this.corpsT = 40; this.m.jouer('Death01', { boucle: false, forcer: true }); son('impactSoft_heavy_000', 0.5, 0.8, this.pos);
     if (this.allie) { this.corpsT = 2; this.reforme = 40; texteFlottant(tmp(this.pos.x, this.pos.y + 2, this.pos.z), 'Dissipée… revient dans 40 s', 'info'); return; }
     // butin et expérience
     const gain = []; for (const [r, [a, b]] of Object.entries(this.T.butin)) { const n = Math.round(rnd(a, b) * (1 + 0.3 * (this.niv - 1))); C.jeu.ajouter(r, n, this.pos); gain.push(n); }
@@ -238,9 +182,6 @@ class Ennemi {
     if (this.riposte > 0) { this.riposte -= dt; if (this.riposte <= 0 && this.etat === 'poursuite') { this.cd = 0; jetons.melee = this; } } // après un blocage il punit
     this.postT = (this.postT || 0) + dt; if (this.post > 0 && this.postT > 2.5 && !(this.brise > 0)) this.post = Math.max(0, this.post - this.postMax() * 0.18 * dt);
     if (this.brise > 0) { this.brise -= dt; if (this.brise <= 0) this.post = 0; }
-    if (this.souffle > 0) this.souffle -= dt;
-    if (this.rage > 0.3 && Math.random() < dt * this.rage * 10) emettre(tmp(this.pos.x + rnd(-0.3, 0.3), this.pos.y + rnd(0.5, 1.8), this.pos.z + rnd(-0.3, 0.3)), { n: 1, c1: '#ff4a2a', c2: '#3a0000', vit: 0.6, vie: 0.6, taille: 0.18, grav: -1.5 });
-    if (this.canal && (this.etourdi > 0 || this.lev)) this.finCanal();
     if (this.etourdi > 0) { this.etourdi -= dt; return; }
     if (this.cd > 0) this.cd -= dt;
     return this.allie ? this.majAllie(dt) : this.majEnnemi(dt);
@@ -276,23 +217,21 @@ class Ennemi {
     if (this.etat === 'attendre') { this.reveil -= dt; if (this.reveil <= 0) { this.etat = 'poursuite'; } return; }
     if (this.etat === 'retour') { if (this.marcher(this.poste, dt, this.T.vit, 'Jog_Fwd_Loop')) { this.etat = 'garde'; this.t = rnd(2, 5); if (this.role) { if (this.regard != null) this.m.root.rotation.y = this.regard; this.poser(); } if (c.alerte && c.membres.every(m => !m.vivant || m.etat === 'garde')) c.alerte = false; } this.pv = Math.min(this.pvMax, this.pv + dt * this.pvMax * 0.25); return; }
     const cib = this.cible === 'heros' ? (heros.mortT ? null : { pos: J.pos, heros: true }) : (this.cible && this.cible.vivant ? this.cible : null);
-    if (!cib || dist(cib.pos, c.def.centre) > c.def.r + 7) { this.etat = 'retour'; this.cible = null; this.finCanal(); return; }
+    if (!cib || dist(cib.pos, c.def.centre) > c.def.r + 7) { this.etat = 'retour'; this.cible = null; return; }
     const d = dist(cib.pos, this.pos);
     if (this.etat === 'attaque') { // préparation visible (cercle rouge), puis le coup
       this.tourner(Math.atan2(cib.pos.x - this.pos.x, cib.pos.z - this.pos.z), dt * (this.T.boss ? 0.6 : 1)); this.at -= dt; majTelegraphe(this);
       if (this.feinte && this.at < 0.38) { this.feinte = false; finTelegraphe(this); this.at = 0.65; texteFlottant(tmp(this.pos.x, this.pos.y + this.T.h * this.T.ech + 0.3, this.pos.z), 'Feinte !', 'info'); this.m.jouer(this.anAtt, { boucle: false, forcer: true, vitesse: this.m.duree(this.anAtt) * 0.55 / 0.65 }); debutTelegraphe(this); return; } // il amorce… puis frappe pour de vrai
-      if (this.at <= 0) { finTelegraphe(this); this.etat = 'poursuite'; this.cd = this.T.cadence + rnd(0.4, 1.4); if (jetons.melee === this) jetons.melee = null; this.recul = 0.9; if (this.T.serie) { if (this.serie < 3) { this.cd = 0.05; this.recul = 0; jetons.melee = this; } else { this.serie = 0; this.souffle = 1.9; this.etourdi = 1.9; this.recul = 0; this.m.jouer('Idle_Shield_Break', { boucle: false, forcer: true }); texteFlottant(tmp(this.pos.x, this.pos.y + 2.5, this.pos.z), 'Essoufflé — FRAPPE !', 'parade'); } } if (this.furie && !this.enchaine) { this.enchaine = true; this.cd = 0.25; this.recul = 0; } else if (this.furie) { this.enchaine = false; this.cd = 1.9; texteFlottant(tmp(this.pos.x, this.pos.y + this.T.h + 0.3, this.pos.z), 'À bout de souffle', 'info'); } // en furie : deux coups, puis une vraie ouverture
-        if (d < this.T.portee + 0.5) { if (cib.heros) { if (heros.action && heros.action.k === 'dash' && !heros.action.esquive) esquiveParfaite(this); else { const k = (this.lourd ? 1.8 : 1) * (this.dos ? 1.35 : 1) * (1 + 0.5 * (this.rage || 0)); if (this.dos) texteFlottant(tmp(C.joueur.pos.x, C.joueur.pos.y + 2.6, C.joueur.pos.z), 'Dans le dos !', 'mal'); subirHeros(this.deg * k, this, this.lourd); if (this.T.boss && !heros.parade && C.joueur.vel) { const a = Math.atan2(C.joueur.pos.x - this.pos.x, C.joueur.pos.z - this.pos.z); C.joueur.vel.set(Math.sin(a) * 9, 0, Math.cos(a) * 9); } } } else cib.subir(this.deg, this); } else if (cib.heros && heros.action && heros.action.k === 'dash' && !heros.action.esquive && d < this.T.portee + 3) esquiveParfaite(this); this.lourd = false; }
+      if (this.at <= 0) { finTelegraphe(this); this.etat = 'poursuite'; this.cd = this.T.cadence + rnd(0.4, 1.4); if (jetons.melee === this) jetons.melee = null; this.recul = 0.9; if (this.furie && !this.enchaine) { this.enchaine = true; this.cd = 0.25; this.recul = 0; } else if (this.furie) { this.enchaine = false; this.cd = 1.9; texteFlottant(tmp(this.pos.x, this.pos.y + this.T.h + 0.3, this.pos.z), 'À bout de souffle', 'info'); } // en furie : deux coups, puis une vraie ouverture
+        if (d < this.T.portee + 0.5) { if (cib.heros) { if (heros.action && heros.action.k === 'dash' && !heros.action.esquive) esquiveParfaite(this); else { const k = (this.lourd ? 1.8 : 1) * (this.dos ? 1.35 : 1); if (this.dos) texteFlottant(tmp(C.joueur.pos.x, C.joueur.pos.y + 2.6, C.joueur.pos.z), 'Dans le dos !', 'mal'); subirHeros(this.deg * k, this, this.lourd); if (this.T.boss && !heros.parade && C.joueur.vel) { const a = Math.atan2(C.joueur.pos.x - this.pos.x, C.joueur.pos.z - this.pos.z); C.joueur.vel.set(Math.sin(a) * 9, 0, Math.cos(a) * 9); } } } else cib.subir(this.deg, this); } else if (cib.heros && heros.action && heros.action.k === 'dash' && !heros.action.esquive && d < this.T.portee + 3) esquiveParfaite(this); this.lourd = false; }
       return;
     }
-    if (this.T.soin && this.majSoin(dt, c)) return;
     if (this.T.special) this.mana = Math.min(100, (this.mana ?? rnd(20, 60)) + dt * 100 / this.T.special.cd); // la mana monte : à 100, il lance son sort
     if (this.T.special && (!this.T.boss || this.furie) && this.mana >= 100 && d < (this.T.profil === 'mage' ? 11 : 9) && this.cd <= 0.5 && libreJeton('sort', this)) { this.mana = 0; sortEnnemi(this, cib); return; }
     // ---- IA en couches : perception (avec délai de réaction) → intention (scores d'utilité) → exécution ----
     const P = PROFILS[this.T.profil || 'standard'];
     if ((this.decT = (this.decT || 0) - dt) <= 0) { this.decT = 0.2; this.decider(cib, d, P); }
-    if (this.T.renforts && !this.cri && this.pv < this.pvMax * 0.66) return this.crier(c);
-    if (this.T.boss && !this.furie && (this.pv < this.pvMax * (this.T.furieA || 0.5) || (!this.T.furieA && (this.nBrise || 0) >= 2))) return this.entrerFurie();
+    if (this.T.boss && !this.furie && (this.pv < this.pvMax * 0.5 || (this.nBrise || 0) >= 2)) return this.entrerFurie();
     const aMoi = jetons.melee === this, veut = this.cd <= 0 && (aMoi || libreJeton('melee', this));
     const versCib = Math.atan2(cib.pos.x - this.pos.x, cib.pos.z - this.pos.z);
     if (this.recul > 0) { this.recul -= dt; const a = Math.atan2(this.pos.x - cib.pos.x, this.pos.z - cib.pos.z); this.marcher(V(cib.pos.x + Math.sin(a) * 4.6, 0, cib.pos.z + Math.cos(a) * 4.6), dt, 2.2, 'Walk_Loop'); this.tourner(versCib, dt * 2); return; }
@@ -336,42 +275,15 @@ class Ennemi {
     jetons.melee = this; this.etat = 'attaque'; this.nCoups = (this.nCoups || 0) + 1;
     this.lourd = !vite && this.nCoups % 3 === 0 && this.T.portee > 2; this.at = vite ? 0.55 : this.lourd ? 1.15 : 0.8;
     this.feinte = !vite && !this.lourd && P.feinte && ((memoire[this.type] || 0) >= 2 || Math.random() < 0.12); if (this.feinte) memoire[this.type] = 0; // tu esquives trop tôt ? il feinte
-    if (this.T.serie) { if (G.t - (this.serieT || 0) > 2.5) this.serie = 0; this.serie = (this.serie || 0) + 1; this.serieT = G.t; this.lourd = this.serie === 3; this.at = this.serie === 3 ? 0.95 : this.serie === 1 ? 0.7 : 0.42; this.feinte = false; }
-    this.dos = (this.T.profil === 'agile' || this.T.profil === 'berserker') && cib.heros && this.dansLeDos();
+    this.dos = this.T.profil === 'agile' && cib.heros && this.dansLeDos();
     if (this.lourd) texteFlottant(tmp(this.pos.x, this.pos.y + this.T.h * this.T.ech + 0.5, this.pos.z), '⚠ IMPARABLE — DASH !', 'alerte-sort');
-    const A = this.T.serie ? [this.T.serie[this.serie - 1]] : this.T.attaque || ['Sword_Attack'], an = A[Math.floor(Math.random() * A.length)]; this.anAtt = an; this.m.jouer(an, { boucle: false, forcer: true, vitesse: this.m.duree(an) * 0.55 / this.at });
+    const A = this.T.attaque || ['Sword_Attack'], an = A[Math.floor(Math.random() * A.length)]; this.anAtt = an; this.m.jouer(an, { boucle: false, forcer: true, vitesse: this.m.duree(an) * 0.55 / this.at });
     debutTelegraphe(this); son('knifeSlice', 0.3, 0.7, this.pos);
   }
   entrerFurie() { // changement de posture : il abandonne la garde, devient dangereux… et plus ouvert
     this.furie = true; this.deg *= 1.3; this.T = { ...this.T, vit: this.T.vit * 1.2, cadence: 1.6, bloque: false }; this.etourdi = 1.6; this.brise = 0; this.post = 0; this.mana = 60;
     this.m.jouer('Roar', { boucle: false, forcer: true }); G.shake = 0.6; son('sov_possession', 0.8, 0.5, this.pos); onde(this.pos, { r: 7, couleur: '#ff3a1a', vie: 0.8 });
     texteFlottant(tmp(this.pos.x, this.pos.y + this.T.h + 0.8, this.pos.z), `${this.T.nom} entre en FURIE !`, 'parade');
-  }
-  crier(c) { // Morgrak appelle la Horde : deux berserkers surgissent, toute la Horde s'enrage
-    this.cri = true; this.etourdi = 1.5; finTelegraphe(this); this.m.jouer('Spell_Simple_Shoot', { boucle: false, forcer: true, vitesse: 0.8 }); G.shake = 0.7; son('sov_possession', 0.8, 0.45, this.pos); onde(this.pos, { r: 9, couleur: '#ff3a1a', vie: 0.9 });
-    texteFlottant(tmp(this.pos.x, this.pos.y + 4, this.pos.z), `${this.T.nom} appelle la Horde !`, 'parade');
-    this.T.renforts.forEach((t, i) => { const a = this.m.root.rotation.y + (i ? 1.4 : -1.4), p = V(this.pos.x + Math.sin(a) * 7, 0, this.pos.z + Math.cos(a) * 7); const e = new Ennemi(t, p, { niv: c.def.niv, camp: c.def.id }); e.etat = 'attendre'; e.reveil = 0.8 + i * 0.3; e.cible = 'heros'; e.rage = 0.5; e.m.root.rotation.y = Math.atan2(C.joueur.pos.x - p.x, C.joueur.pos.z - p.z); c.membres.push(e); emettre(tmp(p.x, p.y + 1, p.z), { n: 50, c1: '#ff6a3a', c2: '#2a0a0a', vit: 3.5, vie: 0.9, taille: 0.35, grav: -1 }); });
-    for (const m of c.membres) if (m.vivant && m.T.rage) m.rage = Math.max(m.rage || 0, 0.5);
-  }
-  majSoin(dt, c) { // chamane : canalise un rayon de soin sur l'allié le plus blessé (1,8 s) puis le protège d'un bouclier
-    const S = this.T.soin;
-    if (this.canal) {
-      const K = this.canal; K.t += dt; if (!K.cible.vivant) { this.finCanal(); return false; }
-      this.tourner(Math.atan2(K.cible.pos.x - this.pos.x, K.cible.pos.z - this.pos.z), dt); const a = tmp(this.pos.x, this.pos.y + 1.5, this.pos.z), b = V(K.cible.pos.x, K.cible.pos.y + 1.2 * (K.cible.T.humain ? K.cible.T.ech || 1 : 1), K.cible.pos.z);
-      K.l.position.copy(a).lerp(b, 0.5); K.l.lookAt(b); K.l.scale.set(1 + Math.sin(G.t * 30) * 0.3, 1 + Math.sin(G.t * 30) * 0.3, a.distanceTo(b)); if (Math.random() < dt * 25) emettre(b, { n: 2, c1: '#c8ffb8', c2: '#2a8a3a', vit: 1.2, vie: 0.5, taille: 0.16, grav: -2 });
-      if (K.t >= S.dur) { const n = Math.round(K.cible.pvMax * (K.cible.T.boss ? 0.08 : S.part)); K.cible.pv = Math.min(K.cible.pvMax, K.cible.pv + n); texteFlottant(tmp(K.cible.pos.x, K.cible.pos.y + 2.4, K.cible.pos.z), `+${n}`, 'xp'); K.cible.proteger(S.bouclier); son('sov_onde', 0.4, 1.4, K.cible.pos); this.m.jouer('Spell_Simple_Shoot', { boucle: false, forcer: true }); this.finCanal(); this.soinT = S.cd; }
-      return true;
-    }
-    this.soinT = (this.soinT ?? 3) - dt; if (this.soinT > 0) return false;
-    let best = null, bp = 0.85; for (const o of c.membres) if (o !== this && o.vivant && !o.lev && dist(o.pos, this.pos) < 14) { const p = o.pv / o.pvMax; if (p < bp) { bp = p; best = o; } }
-    if (!best) { this.soinT = 1; return false; }
-    const l = new THREE.Mesh(geoRayon, matRayon); G.scene.add(l); this.canal = { cible: best, t: 0, l };
-    this.m.jouer('Spell_Simple_Enter', { boucle: false, forcer: true, vitesse: 0.7 }); texteFlottant(tmp(this.pos.x, this.pos.y + 2.4, this.pos.z), 'Soin de sang — interromps-la !', 'alerte-sort'); return true;
-  }
-  finCanal() { if (this.canal) { G.scene.remove(this.canal.l); this.canal = null; } }
-  proteger(n) { // bulle verte : absorbe les prochains dégâts
-    this.bouclier = n; if (this.bulle) return; const h = this.T.humain ? this.T.h : this.T.h * (this.T.ech || 1);
-    this.bulle = new THREE.Mesh(new THREE.IcosahedronGeometry(h * 0.62, 2), new THREE.MeshBasicMaterial({ color: '#6aff7a', transparent: true, opacity: 0.18, depthWrite: false, blending: THREE.AdditiveBlending })); this.bulle.position.y = h * 0.5; this.m.root.add(this.bulle);
   }
   majAllie(dt) { // ombre de combat : suit le héros, se jette sur l'ennemi le plus proche
     const J = C.joueur;
@@ -416,7 +328,6 @@ function runes() {
   texRunes = new THREE.CanvasTexture(c); return texRunes;
 }
 const aoes = [];
-const geoRayon = new THREE.CylinderGeometry(0.07, 0.07, 1, 6, 1, true).rotateX(Math.PI / 2), matRayon = new THREE.MeshBasicMaterial({ color: '#7aff6a', transparent: true, opacity: 0.75, depthWrite: false, blending: THREE.AdditiveBlending });
 const jetons = { melee: null, sort: null };
 // profils de comportement (bible §7) : délai de réaction, envie de punir, prudence, styles
 const PROFILS = {
@@ -425,8 +336,6 @@ const PROFILS = {
   mage: { reac: 0.35, punir: 0.4, prudence: 1.0, distance: true },                 // diablotin, sorcier : garde l'écart, incante
   defensif: { reac: 0.3, punir: 1.3, prudence: 0.3, feinte: true },                // pillard, orc : garde, riposte, feinte
   boss: { reac: 0.25, punir: 1.5, prudence: 0.15, feinte: true, charge: true },
-  berserker: { reac: 0.22, punir: 1.4, prudence: 0.15, contourne: false },            // fonce, enchaîne, s'essouffle
-  soutien: { reac: 0.35, punir: 0.3, prudence: 1.3, distance: true },              // chamane : reste derrière ses guerriers
 };
 const memoire = {}; // habitudes du joueur repérées par type d'ennemi (ex. esquive trop tôt)
 function libreJeton(k, e) { const h = jetons[k]; if (h === e) return true; if (h && h.vivant && !h.lev && (h.etat === 'attaque' || h.etat === 'incante' || h.etat === 'poursuite' && h.cd <= 0.2)) return false; jetons[k] = e; return true; }
@@ -435,7 +344,7 @@ function sortEnnemi(e, cible) {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(S.r * 2, S.r * 2).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: runes(), color: S.couleur, transparent: true, opacity: 0.2, depthWrite: false, blending: THREE.AdditiveBlending }));
   const rempl = new THREE.Mesh(new THREE.CircleGeometry(S.r, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: S.couleur, transparent: true, opacity: 0.25, depthWrite: false }));
   for (const o of [m, rempl]) { o.position.set(p.x, hauteur(p.x, p.z) + 0.12, p.z); G.scene.add(o); }
-  e.cast = { t: 0, dur: S.delai, nom: S.nom }; e.etat = 'incante'; { const an = e.T.animSort || (e.T.boss ? 'Slam' : e.T.humain && !e.T.soin ? 'Sword_Block' : 'Spell_Simple_Enter'); e.m.jouer(an, { boucle: false, forcer: true, vitesse: e.T.boss ? e.m.duree(an) / (S.delai + 0.7) : 1 }); }
+  e.cast = { t: 0, dur: S.delai, nom: S.nom }; e.etat = 'incante'; { const an = e.T.boss ? 'Slam' : e.T.humain ? 'Sword_Block' : 'Spell_Simple_Enter'; e.m.jouer(an, { boucle: false, forcer: true, vitesse: e.T.boss ? e.m.duree('Slam') / (S.delai + 0.7) : 1 }); }
   texteFlottant(tmp(e.pos.x, e.pos.y + e.T.h * e.T.ech + 0.6, e.pos.z), S.nom, 'alerte-sort'); son('sov_possession', 0.4, 0.6, e.pos);
   aoes.push({ e, p, m, rempl, S, t: 0 });
 }
@@ -454,18 +363,17 @@ function majAoes(dt) {
         A.e.etat = 'poursuite'; A.e.cd = 0.8;
       }
       A.e.cast = null; if (jetons.sort === A.e) jetons.sort = null;
-      if (A.S.repete && A.e.vivant && !A.e.lev && !heros.mortT) { A.e.rep = (A.e.rep ?? A.S.repete) - 1; if (A.e.rep > 0) sortEnnemi(A.e, { pos: C.joueur.pos }); else A.e.rep = null; } // séismes en chaîne : il te suit, ne t'arrête pas
     }
   }
 }
 // ---------------- Camps ----------------
 function creerCamp(def) {
-  const c = camps[def.id] = { def, membres: [], zone: zone(def), mortT: 0 }; if (def.decor === 'horde') decorHorde(def); else if (def.decor) decorBandits(def);
+  const c = camps[def.id] = { def, membres: [], zone: zone(def), mortT: 0 }; if (def.decor) decorBandits(def);
   const fin = (C.J.camps || {})[def.id] || 0, reste = (fin - Date.now()) / 1000;
   if (reste > 0) { c.mortT = reste; c.zone.g.visible = false; return; }
   peupler(c);
 }
-function peupler(c) { c.alerte = false; c.membres = c.def.membres ? c.def.membres.map(m => new Ennemi(m.type || c.def.type, V(m.x, 0, m.z), { ...m, niv: c.def.niv, camp: c.def.id })) : c.def.postes.map(([x, z]) => new Ennemi(c.def.type, V(x, 0, z), { niv: c.def.niv, camp: c.def.id })); c.zone.g.visible = true; c.mortT = 0; if (c.def._couvercle) { c.def._couvercle.rotation.x = 0; c.ouvert = false; } c.membres = c.membres.filter(Boolean); }
+function peupler(c) { c.alerte = false; c.membres = c.def.membres ? c.def.membres.map(m => new Ennemi(c.def.type, V(m.x, 0, m.z), { ...m, niv: c.def.niv, camp: c.def.id })) : c.def.postes.map(([x, z]) => new Ennemi(c.def.type, V(x, 0, z), { niv: c.def.niv, camp: c.def.id })); c.zone.g.visible = true; c.mortT = 0; if (c.def._couvercle) { c.def._couvercle.rotation.x = 0; c.ouvert = false; } }
 function verifierCamp(id) {
   const c = camps[id]; if (!c || c.membres.some(m => m.vivant)) return;
   if (c.def.arene) return finArene(true);
@@ -474,7 +382,7 @@ function verifierCamp(id) {
   if (c.def._couvercle) { // le coffre des pillards s'ouvre : gros butin
     const lid = c.def._couvercle, p = c.def._coffre.getWorldPosition(V()); let t = 0; const iv = setInterval(() => { t += 0.05; lid.rotation.x = -Math.min(1.9, t * 3); if (t > 0.7) clearInterval(iv); }, 50);
     son('handleCoins2', 0.7); emettre(tmp(p.x, p.y + 0.8, p.z), { n: 80, c1: '#ffe9a0', c2: '#c8902a', vit: 4, vie: 1.2, taille: 0.22, grav: 4 });
-    const B = c.def.coffre || { bois: 60, pierre: 40 }; setTimeout(() => { C.jeu.ajouter('bois', B.bois, p); C.jeu.ajouter('pierre', B.pierre, V(p.x + 0.5, p.y, p.z)); }, 600);
+    setTimeout(() => { C.jeu.ajouter('bois', 60, p); C.jeu.ajouter('pierre', 40, V(p.x + 0.5, p.y, p.z)); }, 600);
   }
   setTimeout(() => { c.zone.g.visible = false; }, 1500);
 }
@@ -484,8 +392,6 @@ export const DEFIS = {
   gobelins: { nom: 'Meute de gobelins', icone: '🗡️', desc: '3 gobelins agiles : ils contournent, roulent et frappent dans le dos.', vagues: ['gobelin', 'gobelin', 'gobelin'] },
   mixte: { nom: 'Pillards et sorcier', icone: '🔥', desc: '2 pillards qui bloquent et feintent, protégés par un sorcier qui incante.', vagues: ['bandit', 'bandit', 'sorcier'] },
   orc: { nom: 'Orc défensif', icone: '🛡️', desc: 'Garde levée, riposte, feinte. Brise sa garde ou prends-le de côté.', vagues: ['orc'] },
-  horde: { nom: 'La Horde', icone: '🪓', desc: '2 berserkers (3 coups puis essoufflés) soignés par une chamane. Interromps-la !', vagues: ['berserker', 'berserker', 'chamane'] },
-  morgrak: { nom: 'Boss : Morgrak', icone: '💀', desc: 'Seigneur de la Horde. Bouclier, renforts à 66 %, séismes en chaîne à 33 %.', vagues: ['morgrak'] },
   boss: { nom: 'Boss : Grukh', icone: '👑', desc: 'Chef de guerre orc. Garde, charge, feintes… puis la furie.', vagues: ['boss'] },
 };
 export const stats = { parades: 0, esquives: 0, encaisses: 0, coups: 0 };
@@ -735,7 +641,7 @@ function majBoutons(dt) {
   const lvl = document.getElementById('pw-arise'); lvl.classList.toggle('dispo', ennemis.some(e => e.etat === 'mort' && e.corpsT > 2 && !e.leve && dist(e.pos, C.joueur.pos) < 9));
 }
 // ---------------- Entrée ----------------
-export function initCombat(ctx) { window.__c = { ennemis, camps, heros, TYPES_M };
+export function initCombat(ctx) {
   C = ctx; const h = C.J.heros ||= { niv: 1, xp: 0, pts: 0, pw: {} }; h.pw = Object.assign({ lame: 1, tele: 1, parade: 1, arise: 1 }, h.pw);
   C.joueur.pv = pvMaxHeros(); C.joueur.isHeros = true;
   // dague du héros et bouclier d'ombre (parade)

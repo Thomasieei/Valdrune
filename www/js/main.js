@@ -4,7 +4,7 @@ import { chargerPersos, Perso } from './persos.js';
 import { PIERRE_DEFI, chargerNature, construireMonde, majMonde, majPile, hauteur, arbreProche, frapperArbre, libre, RESERVE, FEU, filons } from './monde.js';
 import { Ombre, RANGS, NOMS, METIERS, parole, surParole, surSignal, xpNiveau, teinteOmbre } from './ombres.js';
 import { initCombat, majCombat, heroOccupe, toucherEnnemi, DEFIS, lancerDefi, campLibre, zoneDangereuse, POUVOIRS, xpHeros, pvMaxHeros, heros } from './combat.js';
-import { chargerMonstre, chargerProps } from './persos.js';
+import { chargerMonstre } from './persos.js';
 import { chargerBatiments, TYPES, CATS, batiments, creerBatiment, majBatiments, placementValide, fantomeBatiment, majEtiquettesChantiers, aBatiment, marteler, demolir, aimanter, LONG_SEGMENT, chantierProche, depotProche, ameliorer, enTravaux, niveauDe, prochain, meilleur, bloque, majInterieur, dedans } from './batiments.js';
 
 const $ = (s) => document.querySelector(s);
@@ -98,7 +98,6 @@ const QUETES = [
   { t: 'Le cœur du village', s: 'Construis un Puits (bois + pierre) : +20 mana max.', fait: () => aBatiment('puits') },
   { t: 'Ton armée d’ombres', s: 'Bats des monstres (les Puglins de la clairière, à l’ouest) et utilise ARISE sur leur corps : 10 % de chance, qui grandit avec le pouvoir.', fait: () => (J.armee || []).length >= 1 },
   { t: 'L’arène des ombres', s: 'À l’ouest du camp, un cercle de menhirs : touche la pierre du défi. Gobelins, orc, et Grukh le chef de guerre t’y attendent.', fait: () => !!J.areneVue, guide: () => PIERRE_DEFI },
-  { t: 'Le Fort de la Horde', s: 'Tout au nord, au bout de la route : le fort de Morgrak le Sanglant. Ses berserkers frappent trois fois, sa chamane les soigne — interromps-la.', fait: () => !!(J.camps || {}).fort, guide: () => V(-13, 0, -36) },
   { t: 'Le camp des pillards', s: 'Au nord-est, cinq pillards campent : un guetteur, deux joueurs de cartes, un qui dort sous la tente… Approche discrètement et frappe le premier. Leur coffre est plein.', fait: () => campLibre('bandits') },
   { t: 'Agrandir la scierie', s: 'Touche ta scierie et améliore-la au niveau 2 : plus de bois, arbres plus rapides.', fait: () => batiments.some(b => b.s.type === 'scierie' && b.s.niv >= 2), guide: () => { const b = batiments.find(x => x.s.type === 'scierie'); return $('#panneau').classList.contains('on') ? '[data-amel]' : b && b.g.position; } },
 ];
@@ -397,7 +396,7 @@ function boucle() {
 async function demarrer() {
   initRendu($('#scene'));
   const barre = $('#charge i'), pr = { p: 0, n: 0 }, avance = () => { barre.style.width = Math.round((pr.p + pr.n) / 2 * 100) + '%'; };
-  await Promise.all([chargerPersos((k) => { pr.p = k; avance(); }), chargerNature((k) => { pr.n = k; avance(); }), chargerBatiments(), chargerMonstre('imp'), chargerMonstre('puglin'), chargerMonstre('orc'), chargerMonstre('gobelin'), chargerMonstre('orc_male'), chargerMonstre('orc_female'), chargerProps(['Axe_Bronze', 'Shield_Wooden', 'Banner_1', 'Banner_1_Cloth', 'Banner_2', 'Banner_2_Cloth', 'Torch_Metal', 'WeaponStand', 'Chest_Wood', 'Coin_Pile', 'Coin_Pile_2', 'Cage_Small', 'Anvil', 'Cauldron', 'Crate_Wooden', 'Barrel', 'Dummy', 'Chain_Coil']), chargerSons(['chop.ogg', 'drop_002.ogg', 'handleCoins.ogg', 'cloth1.ogg', 'confirmation_001.ogg', 'maximize_006.ogg', 'impactSoft_heavy_000.ogg', 'knifeSlice.ogg', 'jingles_PIZZI01.ogg', 'jingles_PIZZI03.ogg', 'sov_possession.wav', 'sov_onde.wav', 'error_004.ogg', 'impactMetal_light_000.ogg', 'impactPunch_medium_001.ogg', 'handleCoins2.ogg'])]);
+  await Promise.all([chargerPersos((k) => { pr.p = k; avance(); }), chargerNature((k) => { pr.n = k; avance(); }), chargerBatiments(), chargerMonstre('imp'), chargerMonstre('puglin'), chargerMonstre('orc'), chargerMonstre('gobelin'), chargerSons(['chop.ogg', 'drop_002.ogg', 'handleCoins.ogg', 'cloth1.ogg', 'confirmation_001.ogg', 'maximize_006.ogg', 'impactSoft_heavy_000.ogg', 'knifeSlice.ogg', 'jingles_PIZZI01.ogg', 'jingles_PIZZI03.ogg', 'sov_possession.wav', 'sov_onde.wav', 'error_004.ogg', 'impactMetal_light_000.ogg', 'impactPunch_medium_001.ogg', 'handleCoins2.ogg'])]);
   J = charger() || nouvelleSauvegarde(); J.pierre ??= 0; J.batiments ??= [];
   construireMonde(); creerJoueur(); creerDepouilles(); for (const s of J.batiments) creerBatiment(s, !!s.fini); appliquerBatiments();
   J.ombres.forEach((d, k) => ajouterOmbre(d, V(RESERVE.x + Math.cos(k) * 3, 0, RESERVE.z + Math.sin(k) * 3)));
