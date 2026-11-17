@@ -22,6 +22,8 @@ Règle : on ne rallume un système que quand la 1.0 est solide, et un seul à la
 
 - v1.0-d : ombres toujours actives en V1 (plus besoin du code THOMAS83), bouton Ombres + touche O pour le panneau de commandement.
 
+- v1.0-e : ÉTAPE 2 OMBRES — plus d’exécutions instantanées (vrais coups, 0,9× tes dégâts) ; ombres ciblables (PV = 50 % des tiens), détruites → réinvocation auto après 5 s pour 20 % de mana max (attend si mana insuffisante) ; ordres « Patrouiller la ville » (ronde de 8 points, attaque tout dans 11 m) et « Attaquer ma cible » ; dès le 2e raid un champion arrogant (×4 PV, ×3 dégâts) qui raille quand il détruit une ombre ; bourreau et défaites mémorisés par ombre (pour l’étape 3).
+
 ## Bugs connus
 - (à remplir avec les retours de test de Thomas)
 

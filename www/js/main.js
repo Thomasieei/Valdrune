@@ -501,7 +501,7 @@ function lancerHub(premier = false) {
   invasion = null; arene = null; selection = null;
   if (V1) J.accepteInvasion = false;
   if (!premier) { viderMonde(); monde = construireHub(); creerMarchand(); if (!V1) creerPasseur(); creerGraveuse(); creerBots(); }
-  if (V1) { monde.entreesVille = ['portailArene', 'portailIle'].filter(k => monde[k]).map(k => monde[k].pos.clone()); for (const k of ['portailArene', 'portailIle', 'portailGoulet']) if (monde[k]) { monde[k].groupe.visible = false; monde[k] = null; } }
+  if (V1) { monde.patrouille = Array.from({ length: 8 }, (_, k) => pointLibrePres(V(Math.sin(k / 8 * 6.283) * 15, 0, Math.cos(k / 8 * 6.283) * 15), 0, 3)); monde.entreesVille = ['portailArene', 'portailIle'].filter(k => monde[k]).map(k => monde[k].pos.clone()); for (const k of ['portailArene', 'portailIle', 'portailGoulet']) if (monde[k]) { monde[k].groupe.visible = false; monde[k] = null; } }
   const revientDeMode = !!modeActuel;
   modeActuel = V1 ? MODE_VILLE : null; enJeu = true;
   if (V1) { prochainRaidV = G.t + 40; if (!citoyens.length) creerCitoyens(); if (!J.escouade) { J.escouade = true; J.escStats = { debut: Date.now(), argent0: J.argent, xp: 0, kills: 0, coffres: 0 }; } } // V1 : tes ombres font partie de toi, plus besoin de code
@@ -651,6 +651,65 @@ function majOmbreGarde(o, dt) {
   }
   return true;
 }
+// ---- ÉTAPE 2 : ombres vulnérables, vrais combats, patrouille, chasse, réinvocation qui coûte la mana ----
+let cibleChasseO = null; const reinvocO = {};
+const RAILLERIES = ['C’est ça, tes ombres ?', 'Une de moins. Envoie la suivante.', 'Tes ombres sont aussi faibles que toi.', 'Hahaha ! Elles se dissolvent comme de la fumée !', 'Viens toi-même, lâche !'];
+function pvOmbreMax() { return Math.round(joueur.st.pvMax * 0.5); }
+function blesserOmbre(o, d, src) {
+  if (o.mort) return;
+  o.pvO = (o.pvO ?? pvOmbreMax()) - d; o.frapper && o.frapper();
+  UI.nombre(V(o.pos.x, 2.2, o.pos.z), Math.round(d), 'allie');
+  if (o.pvO > 0) { if (!o.crieT || G.t > o.crieT) { o.crieT = G.t + 8; if (o.pvO < pvOmbreMax() * 0.35) direOmbre(ombresC()[o.escIdx], 'Maître… je faiblis.'); } return; }
+  detruireOmbre(o, src);
+}
+function detruireOmbre(o, src) {
+  o.mort = true; const r = ombresC()[o.escIdx];
+  fumeeOmbre(o.pos); emettre(V(o.pos.x, 1.2, o.pos.z), { n: 60, c1: '#d8b8ff', c2: '#1a0830', vit: 7, vie: 1, taille: 0.5 }); son('forceField_000', 0.6, 0.5);
+  G.scene.remove(o.root); UI.retirerPlaque(o); const k = escouade.indexOf(o); if (k >= 0) escouade.splice(k, 1);
+  const tueur = src ? (src.champion ? src.nomChampion : (src.def && src.def.nom) || src.nom || 'un ennemi') : 'un ennemi';
+  UI.toast(`${r ? r.nom : 'Une ombre'} a été détruite par ${tueur}`, true);
+  if (r) { r.defaites = (r.defaites || 0) + 1; r.bourreau = tueur; souvenir(r, 'detruite'); r.loyaute = Math.max(0, r.loyaute - 2); reinvocO[r.i] = { t: G.t + 5, dit: false }; }
+  if (src && src.champion && !src.mort) UI.parole(src, hasard(RAILLERIES), 'menace');
+  sauver();
+}
+// renvoie false si l'ombre doit encore attendre (délai ou mana)
+function reinvoquerOmbre(i) {
+  const R = reinvocO[i]; if (!R) return true;
+  if (G.t < R.t) return false;
+  const cout = Math.round(joueur.st.energieMax * 0.2);
+  if (joueur.energie < cout) { if (!R.dit) { R.dit = true; UI.toast(`Pas assez de mana pour relever ${ombresC()[i].nom} (${cout})`); } return false; }
+  joueur.energie -= cout; delete reinvocO[i];
+  UI.nombre(V(joueur.pos.x, 2.8, joueur.pos.z), `-${cout} mana`, 'info');
+  return true;
+}
+function engagerOmbre(o, c, dt, tp) {
+  const d = dist2D(o.pos, c.pos);
+  if (d > 8 && tp) { teleporterOmbre(o, c.pos); return; }
+  if (d > (c.rayon || 0.6) + 1.3) { allerVers(o, c.pos, dt, joueur.st.vitesse * 1.25); o.jouer(o.armeDef.run); return; }
+  o.angle = tourner(o.angle, Math.atan2(c.pos.x - o.pos.x, c.pos.z - o.pos.z), dt * 12); o.root.rotation.y = o.angle;
+  o.coupT = (o.coupT || 0) - dt; if (o.coupT > 0) return;
+  o.coupT = 0.8 + Math.random() * 0.35;
+  o.jouer(hasard(['1H_Melee_Attack_Chop', '1H_Melee_Attack_Slice_Diagonal', '1H_Melee_Attack_Stab']), { boucle: false, forcer: true, vitesse: 1.4, fin: () => o.jouer(o.armeDef.idle) });
+  programmer(0.22, () => { if (c.mort || o.mort) return; arcTaille(c.pos, o.angle - Math.PI / 2, 2.2, '#b07aff', Math.PI * 0.7, 0.2);
+    const dmg = Math.max(1, joueur.st.degats * 0.9 * (c.boss || c.champion ? 0.6 : 1));
+    sansChoc(() => { if (c.pv - dmg <= 0) { c.pv = 0; tuer(c); statsEscouade().kills++; } else { c.pv -= dmg; c.flash = 0.12; UI.nombre(V(c.pos.x, 2.3, c.pos.z), fmtN(Math.round(dmg)), ''); if (c.etat === 'idle' || c.etat === 'dormant') reveiller(c); } });
+    son('knifeSlice', 0.25, 1.1 + Math.random() * 0.3); });
+}
+function majOmbreCombat(o, dt, ord) {
+  let c = o.combatCible;
+  const patr = ord === 'patrouille' && monde.patrouille, centre = patr ? o.pos : joueur.pos, R = patr ? 11 : 16;
+  if (ord === 'chasse') {
+    c = cibleChasseO && !cibleChasseO.mort && !cibleChasseO.parti ? cibleChasseO : null;
+    if (!c) { const r = ombresC()[o.escIdx]; if (r && r.ordre === 'chasse') { r.ordre = 'combat'; direOmbre(r, 'Cible abattue. Je reviens à tes côtés.'); } }
+  } else if (!c || c.mort || c.descendre || c.parti || dist2D(c.pos, centre) > R + 4) {
+    c = null; let bd = R;
+    for (const e of ennemis) { if (e.mort || e.descendre || e.parti || e.etat === 'dormant' || (e.etat === 'idle' && dist2D(e.pos, joueur.pos) > 11)) continue; const dd = dist2D(e.pos, centre); if (dd < bd) { bd = dd; c = e; } }
+  }
+  o.combatCible = c;
+  if (c) { engagerOmbre(o, c, dt, !patr); return true; }
+  if (patr) { const P = monde.patrouille; if (o.patI === undefined) o.patI = o.escIdx * 2; let p = P[o.patI % P.length]; if (dist2D(o.pos, p) < 1.6) { o.patI++; p = P[o.patI % P.length]; } allerVers(o, p, dt, 2.4); o.jouer('Walking_A'); return true; }
+  return false;
+}
 function majEscouade(dt) {
   { const b = $('#btnOmbres'); if (b && b.hidden === !!J.escouade) b.hidden = !J.escouade; }
   if (!J.escouade || !joueur || joueur.mort && !arene) { if (escouade.length && !J.escouade) viderEscouade(); return; }
@@ -659,7 +718,7 @@ function majEscouade(dt) {
   // seules les ombres présentes (ni en mission, ni blessées, ni renvoyées) marchent avec toi
   const R = ombresC();
   for (let k = escouade.length - 1; k >= 0; k--) { const o = escouade[k]; if (o.sceneOmbre) continue; if (!presenteOmbre(R[o.escIdx])) { fumeeOmbre(o.pos); G.scene.remove(o.root); UI.retirerPlaque(o); escouade.splice(k, 1); } }
-  for (const r of R) if (presenteOmbre(r) && !escouade.some(o => o.escIdx === r.i)) escouade.push(creerOmbreEscouade(r.i));
+  for (const r of R) if (presenteOmbre(r) && !escouade.some(o => o.escIdx === r.i) && reinvoquerOmbre(r.i)) { const o = creerOmbreEscouade(r.i); o.pvO = pvOmbreMax(); escouade.push(o); }
   const prises = new Set(escouade.map(o => o.escCible).filter(c => c && !c.mort));
   const coffresPris = new Set(escouade.map(o => o.escCoffre).filter(Boolean));
   for (const o of escouade) {
@@ -668,6 +727,7 @@ function majEscouade(dt) {
     const rec = R[o.escIdx], passive = rec && rec.ordre === 'escorte', garde = rec && rec.ordre === 'garde';
     if (passive) { o.escCible = null; o.escCoffre = null; }
     if (garde) { if (majOmbreGarde(o, dt)) continue; o.escCible = null; o.escCoffre = null; }
+    else if (!passive && !o.escCoffre && majOmbreCombat(o, dt, rec ? rec.ordre : 'combat')) continue;
     o.escT -= dt;
     if (o.escCible && o.escCible.mort) o.escCible = null;
     if (o.escT > 0) continue;
@@ -678,7 +738,7 @@ function majEscouade(dt) {
       const pret = coffres.find(x => !x.ouvert && !x.final && !coffresPris.has(x) && (!x.boss || x.boss.mort || !x.boss.pv || x.boss.etat === 'possede'));
       const resteBoss = ennemis.some(e => e.boss && !e.mort && !prises.has(e));
       if (pret && !resteBoss) { o.escCoffre = pret; coffresPris.add(pret); teleporterOmbre(o, pret.pos); o.escT = 0.2; continue; }
-      const c = cibleLibre(o, prises);
+      const c = null; // plus d'exécutions instantanées : les ombres se battent vraiment (majOmbreCombat)
       if (c) { o.escCible = c; prises.add(c); teleporterOmbre(o, c.pos); o.angle = Math.atan2(c.pos.x - o.pos.x, c.pos.z - o.pos.z); o.root.rotation.y = o.angle;
         o.jouer('1H_Melee_Attack_Chop', { boucle: false, forcer: true, vitesse: 2.2, fin: () => o.jouer(o.armeDef.idle) }); o.escT = 0.14; continue; }
       // 2) plus d'ennemis : les coffres
@@ -751,7 +811,7 @@ function ombresC() {
   return J.ombresC;
 }
 const NOM_O = (r) => `${r.nom} ${r.ep}`;
-function presenteOmbre(r) { return !r.mission && (r.ordre === 'combat' || r.ordre === 'escorte' || r.ordre === 'garde') && Date.now() > (r.blesseeJusqua || 0) && !r.rapport; }
+function presenteOmbre(r) { return !r.mission && ['combat', 'escorte', 'garde', 'patrouille', 'chasse'].includes(r.ordre) && Date.now() > (r.blesseeJusqua || 0) && !r.rapport; }
 const LIEUX = ['les Cryptes Oubliées', 'la Forteresse des Ossements', 'le Gouffre Écarlate', 'l’Abîme Écarlate'];
 function ombreActeur(i) { return escouade.find(o => o.escIdx === i && !o.sceneOmbre) || null; }
 function direOmbre(r, texte) { const o = ombreActeur(r.i); if (o) UI.parole(o, texte); else UI.chat(NOM_O(r), texte); }
@@ -775,7 +835,12 @@ function ordonner(cibles, ordre, extra = {}) {
     } else if (ordre === 'ile') {
       const kI = extra.ile ?? 0; r.mission = { type: 'ile', ile: kI >= iles().length ? -1 : kI, debut: now, fin: Infinity };
       direOmbre(r, ligneOmbre('o_ile'));
-    } else { r.ordre = ordre; direOmbre(r, ligneOmbre('o_' + ordre)); }
+    } else if (ordre === 'chasse') {
+      const c = joueur.cible && !joueur.cible.mort ? joueur.cible : null;
+      if (!c) { UI.toast('Vise d’abord un ennemi (touche-le), puis donne l’ordre'); break; }
+      cibleChasseO = c; r.ordre = 'chasse'; direOmbre(r, hasard(['Il ne verra pas l’aube.', 'Je m’en charge.', 'Considère-le comme mort.']));
+    } else if (ordre === 'patrouille') { r.ordre = 'patrouille'; direOmbre(r, hasard(['Je veille sur ta ville.', 'Rien ne passera.', 'Je fais ma ronde, maître.'])); }
+    else { r.ordre = ordre; direOmbre(r, ligneOmbre('o_' + ordre)); }
   }
   sauver(); UI.commandeOmbres && document.getElementById('cmdOmbres') && ouvrirCommandeOmbres();
 }
@@ -4818,7 +4883,7 @@ function creerCombattant(pos, data, camp = 'ennemi') {
 
 // ---- camps, cibles et dégâts ----
 function coequipiers() { return allies.filter(a => !a.garde && !a.invoc); }
-function equipeJoueur() { const l = []; if (!joueur.mort && !(joueur.furtifT > 0)) l.push(joueur); for (const a of allies) if (!a.mort) l.push(a); return l; }
+function equipeJoueur() { const l = []; if (!joueur.mort && !(joueur.furtifT > 0)) l.push(joueur); for (const a of allies) if (!a.mort) l.push(a); for (const o of escouade) if (!o.mort && !o.sceneOmbre && o.root.visible) l.push(o); return l; }
 function adversaires(e) { return e.camp === 'allie' ? vivants() : equipeJoueur(); }
 function cibleIA(e) {
   let liste;
@@ -4863,6 +4928,7 @@ function toucherZone(src, p, r, d, opts = {}) {
 }
 function blesserAllie(a, d, src, opts = {}) {
   if (a.mort) return;
+  if (a.escIdx !== undefined) return blesserOmbre(a, d * (1 - (a.reduction || 0)), src);
   d = d * (1 - a.reduction) * rnd(0.92, 1.08) * (a.invoc ? 1 : 1.3);
   a.coupT = 5;
   if (a.bouclierIA > 0) { const b = Math.min(a.bouclierIA, d); a.bouclierIA -= b; d -= b; if (d <= 0) return; }
@@ -7419,7 +7485,7 @@ function journalVille(t) { const v = etatVille(); v.journal.unshift({ t: Date.no
 function majBandeauVille() {
   if (!modeActuel || modeActuel.id !== 'ville') return;
   const v = etatVille(), n = v.gens.filter(g => g.statut === 'vivant').length;
-  UI.zone('Place des Cendres', `${n} habitants · moral ${Math.round(v.moral)}%${raidV ? ' · ⚠ RAID' : ''}`);
+  UI.zone('Place des Cendres', `👥 ${n}  ·  moral ${Math.round(v.moral)}%${raidV ? '  ·  ⚠ RAID' : ''}`);
 }
 function moralVille(d) { const v = etatVille(); v.moral = Math.max(0, Math.min(100, v.moral + d)); majBandeauVille(); }
 function creerCitoyens() {
@@ -7497,10 +7563,18 @@ function lancerRaidVille() {
     if (e.ravisseur) UI.plaque(e, { nom: 'Ravisseur', classe: 'ennemi', lettre: false });
     effetArrivee(p);
   }
+  if (v.raids >= 2) {
+    const p = pointLibrePres(entree, 0, 4), nomC = hasard(['Gorvak l’Arrogant', 'Skarn le Moqueur', 'Brakka Sang-Fier', 'Vorth l’Insolent']);
+    const e = creerEnnemi(MOBS.brute, p, tier * 1.3, 900 + v.raids); e.raidV = true; e.champion = true; e.nomChampion = nomC; e.etat = 'chasse';
+    e.pvMax = e.pv = e.pvMax * 4; e.dmg *= 3; e.root.scale.multiplyScalar(1.35); e.hauteurPlaque *= 1.35;
+    UI.retirerPlaque(e); UI.plaque(e, { nom: nomC, classe: 'ennemi', lettre: false }); effetArrivee(p);
+    programmer(1.5, () => { if (!e.mort) UI.parole(e, hasard(['Où est le soi-disant protecteur de cette ville ?', 'Montrez-moi vos fameuses ombres !', 'Cette ville sera à moi avant la nuit !']), 'menace'); });
+  }
   majBandeauVille();
 }
 // renvoie true si le pillard s'occupe des habitants (sinon combat normal contre toi et tes ombres)
 function majPillardVille(e, d, dt) {
+  if (e.champion) return false; // le champion cherche le combat : toi et tes ombres
   if (e.pv < e.pvMax && !e.porte && d < 14) return false; // tu l'as provoqué : il se retourne contre toi
   if (d < 4.5 && !e.porte) return false;
   if (e.porte) { // il emporte un habitant vers la sortie
@@ -7553,7 +7627,7 @@ function majVille(dt) {
   majBandeauVille(); sauver();
 }
 
-window.__jeu = { raidVille: () => lancerRaidVille(), get pillardsN() { return pillards().length; }, get citoyens() { return citoyens; }, get modeActuel() { return modeActuel; }, demon: () => basculerDemon(), pacte: () => pacteInvocation(), autel: () => ouvrirAutel(), tirer: (n) => tirerCartes(n), transfert: () => transfert(), code: (c) => utiliserCode(c), get J() { return J; }, entrerTerres: () => entrerTerres(), entrerAncestrales: (e) => entrerAncestrales(e), get terres() { return terres; }, dbgAggro: () => { const c = choisirCible(joueur.st.portee); return [c ? c.nom : null, passantsProches().length, G.agression]; }, domaineTest: (n = 4) => { if (!J.domaine) J.domaine = { niveau: n, serviteurs: [], tresor: 0, maj: Date.now(), graine: 7, journal: [] }; J.domaine.niveau = n; if (!iles().length) J.iles = J.iles || []; return entrerDomaine(); }, bilan: () => MODES.map(m => {
+window.__jeu = { raidVille: () => lancerRaidVille(), testOmbre: () => blesserOmbre(escouade[0], 1e9, null), get nbOmbres() { return escouade.length; }, get pillardsN() { return pillards().length; }, get citoyens() { return citoyens; }, get modeActuel() { return modeActuel; }, demon: () => basculerDemon(), pacte: () => pacteInvocation(), autel: () => ouvrirAutel(), tirer: (n) => tirerCartes(n), transfert: () => transfert(), code: (c) => utiliserCode(c), get J() { return J; }, entrerTerres: () => entrerTerres(), entrerAncestrales: (e) => entrerAncestrales(e), get terres() { return terres; }, dbgAggro: () => { const c = choisirCible(joueur.st.portee); return [c ? c.nom : null, passantsProches().length, G.agression]; }, domaineTest: (n = 4) => { if (!J.domaine) J.domaine = { niveau: n, serviteurs: [], tresor: 0, maj: Date.now(), graine: 7, journal: [] }; J.domaine.niveau = n; if (!iles().length) J.iles = J.iles || []; return entrerDomaine(); }, bilan: () => MODES.map(m => {
     const eq = genererEquipRival(m.ipConseil, 'epee'), niv = nivBot(eq), st = statsHeros(eq, niv), dps = st.degats * st.vitesseAtk * (1 + st.crit / 200);
     const mob = creerEnnemi(MOBS.guerrier, V(900, 0, 900), m.mobTier, -9), mi = creerEnnemi(MOBS.minion, V(900, 0, 900), m.mobTier, -9), b = creerBoss(BOSS[0], V(905, 0, 905), m.bossTier[0], null), b3 = creerBoss(BOSS[3], V(905, 0, 905), m.bossTier[3], null);
     const r = { mode: m.lieu, ip: m.ipConseil, niv, pv: Math.round(st.pvMax), dps: Math.round(dps), red: +st.reduction.toFixed(2), ttkMinion: +(mi.pvMax / dps).toFixed(1), ttkGuerrier: +(mob.pvMax / dps).toFixed(1), ttkBoss1: Math.round(b.pvMax / dps), ttkBoss4: Math.round(b3.pvMax / dps), coupsGuerrierPourMourir: +(st.pvMax / (mob.dmg * (1 - st.reduction))).toFixed(1), coupsBossPourMourir: +(st.pvMax / (b.dmg * (1 - st.reduction))).toFixed(1) };
