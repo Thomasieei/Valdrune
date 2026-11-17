@@ -39,6 +39,15 @@ export const CAMPS = [
     ] },
   { id: 'fort', nom: 'Fort de la Horde', type: 'berserker', centre: V(-12, 0, -46), r: 13, niv: 3, retour: 900, decor: 'horde', coffre: { bois: 220, pierre: 160 },
     membres: [{ type: 'morgrak', x: -12, z: -52.5, regard: 0 }, { type: 'chamane', x: -12, z: -49, regard: 0 }, { type: 'berserker', x: -15.5, z: -41.5, regard: 0.4 }, { type: 'berserker', x: -8.5, z: -42, regard: -0.4 }] },
+  // nouveaux lieux du grand monde
+  { id: 'repaire', nom: 'Repaire gobelin', type: 'gobelin', centre: V(-150, 0, -18), r: 12, niv: 2, retour: 420, membres: [{ type: 'gobelin', x: -146, z: -14 }, { type: 'gobelin', x: -154.5, z: -13 }, { type: 'sorcier', x: -150, z: -24 }, { type: 'gobelin', x: -144.5, z: -21 }] },
+  { id: 'tour', nom: 'Avant-poste des pillards', type: 'bandit', centre: V(42, 0, 160), r: 12, niv: 3, retour: 480, membres: [{ type: 'bandit', x: 38, z: 156, sexe: 'h', cheveux: 2, couleur: '#a86a50' }, { type: 'bandit', x: 46, z: 157, sexe: 'f', cheveux: 1, couleur: '#7a6a9a' }, { type: 'sorcier', x: 42, z: 165 }, { type: 'bandit', x: 42, z: 152, sexe: 'h', cheveux: 0, couleur: '#8a8a6a' }] },
+  // groupes errants : ils suivent leur route, s'arrêtent, repartent… on les croise
+  { id: 'harde', nom: 'Harde de puglins', type: 'puglin', errant: [[70, -15], [105, -25], [160, 5], [158, 72], [95, 80], [62, 42]], r: 9, niv: 1, retour: 300, postes: [[0, 0], [2, 1.5], [-2, 1], [1, -2]] },
+  { id: 'meute', nom: 'Meute de gobelins', type: 'gobelin', errant: [[-70, -35], [-120, -55], [-175, -5], [-135, 45], [-85, 35]], r: 9, niv: 2, retour: 360, postes: [[0, 0], [2, 1], [-1.5, 1.8]] },
+  { id: 'patrouille', nom: 'Patrouille de pillards', type: 'bandit', errant: [[12, 50], [24, 95], [46, 135], [8, 120], [0, 72]], r: 9, niv: 2, retour: 360, postes: [[0, 0], [1.8, 1], [-1.8, 1]] },
+  { id: 'diablotins', nom: 'Diablotins des Hauteurs', type: 'imp', errant: [[0, -118], [45, -152], [15, -195], [-40, -162]], r: 9, niv: 2, retour: 300, postes: [[0, 0], [2, 2], [-2, 1.5]] },
+  { id: 'eclaireurs', nom: 'Éclaireurs de la Horde', type: 'berserker', errant: [[-55, -100], [-100, -140], [-62, -188], [-25, -132]], r: 9, niv: 3, retour: 480, postes: [[0, 0], [2.5, 1]] },
   { id: 'clairiere', nom: 'Puglins de la clairière', type: 'puglin', centre: V(-34, 0, 30), r: 9, niv: 1, retour: 240, postes: [[-34, 26], [-30, 31], [-38, 33], [-33, 34], [-36, 29]] },
 ];
 export const POUVOIRS = {
@@ -149,7 +158,7 @@ class Ennemi {
     this.m = T.modele ? new ModeleAnime(T.modele, { hauteur: T.h, cacher: ['pCylinder'], teinte: allie ? teinteAllie : null }) : T.humain ? new Perso({ sexe: opts.sexe || T.sexe || 'h', tenue: T.tenue || 'rodeur', cheveux: T.corps ? -1 : opts.cheveux ?? 0, corps: T.corps, couleurTenue: allie ? null : opts.couleur || T.couleur || '#6a3a3a', teinte: allie ? teinteAllieP : null }) : new Monstre(type, { teinte: allie ? teinteAllie : null, echelle: T.ech });
     if (T.armes) { this.m.tenir(arme(T.armes[0]), 'hand_r'); if (T.armes[1]) this.m.tenir(arme(T.armes[1] === 'hacheG' ? 'hache' : T.armes[1]), 'hand_l'); } else if (T.humain) this.m.tenir(epee(), 'hand_r');
     if (T.humain && T.ech && T.ech !== 1) this.m.root.scale.setScalar(T.ech);
-    this.role = opts.role || null; this.regard = opts.regard ?? null; this.reveil = 0;
+    this.off = opts.off || null; this.role = opts.role || null; this.regard = opts.regard ?? null; this.reveil = 0;
     this.m.root.position.set(pos.x, hauteur(pos.x, pos.z), pos.z); this.m.root.rotation.y = rnd(0, 6.28);
     this.poste = this.m.root.position.clone(); G.scene.add(this.m.root); this.m.rayonVue = Math.max(2.5, T.h * T.ech * 1.1);
     this.pvMax = Math.round(T.pv * (1 + 0.25 * (niv - 1))); this.pv = this.pvMax; this.deg = T.deg * (1 + 0.2 * (niv - 1));
@@ -209,7 +218,8 @@ class Ennemi {
   alerte(cible) {
     if (this.role && camps[this.camp] && !camps[this.camp].alerte) return alerteCamp(camps[this.camp], cible);
     if (this.role === 'dort' && this.etat === 'garde') { this.m.jouer('LayToIdle', { boucle: false, forcer: true, vitesse: 1.3 }); this.etat = 'reveil'; this.reveil = this.m.duree('LayToIdle') / 1.3; this.cibleA = cible; this.role = 'feu'; return; }
-    this.etat = 'poursuite'; this.cible = cible; texteFlottant(tmp(this.pos.x, this.pos.y + 2.4, this.pos.z), '!', 'alerte'); }
+    this.etat = 'poursuite'; this.cible = cible; texteFlottant(tmp(this.pos.x, this.pos.y + 2.4, this.pos.z), '!', 'alerte');
+    if (this.off && camps[this.camp]) for (const m of camps[this.camp].membres) if (m !== this && m.vivant && (m.etat === 'garde' || m.etat === 'flane')) { m.etat = 'attendre'; m.reveil = rnd(0.2, 0.6); m.cible = cible; } } // un groupe errant réagit ensemble
   mourir(src) {
     this.pv = 0; this.etat = 'mort'; this.lev = null; finTelegraphe(this); this.finCanal(); if (this.bulle) { jeter(this.bulle); this.bulle = null; this.bouclier = 0; } this.corpsT = 40; this.m.jouer('Death01', { boucle: false, forcer: true }); son('impactSoft_heavy_000', 0.5, 0.8, this.pos);
     if (this.allie) { this.corpsT = 2; this.reforme = 40; texteFlottant(tmp(this.pos.x, this.pos.y + 2, this.pos.z), 'Dissipée… revient dans 40 s', 'info'); return; }
@@ -254,6 +264,7 @@ class Ennemi {
   }
   majEnnemi(dt) {
     const c = camps[this.camp], J = C.joueur, enZone = (p) => dist(p, c.def.centre) < c.def.r;
+    if (this.off) this.poste.set(c.def.centre.x + this.off[0], 0, c.def.centre.z + this.off[1]); // groupe errant : sa place bouge avec le groupe
     // cibles possibles : le héros ou une ombre de combat qui entre dans la zone rouge
     if (this.etat === 'garde' || this.etat === 'flane') {
       this.t -= dt;
@@ -267,6 +278,7 @@ class Ennemi {
       }
       if (!heros.mortT && enZone(J.pos)) { this.alerte('heros'); return; }
       const al = allies.find(a => a.vivant && enZone(a.pos)); if (al) { this.alerte(al); return; }
+      if (this.off) { if (dist(this.poste, this.pos) > 1.4) { this.etat = 'garde'; this.marcher(this.poste, dt, 1.7, 'Walk_Loop'); } else this.m.jouer('Idle_Loop'); return; }
       if (this.etat === 'garde') { this.m.jouer('Idle_Loop'); if (this.t <= 0) { this.etat = 'flane'; this.but = V(this.poste.x + rnd(-2.5, 2.5), 0, this.poste.z + rnd(-2.5, 2.5)); } }
       else if (this.marcher(this.but, dt, 1.4, 'Walk_Loop')) { this.etat = 'garde'; this.t = rnd(3, 8); }
       return;
@@ -460,12 +472,13 @@ function majAoes(dt) {
 }
 // ---------------- Camps ----------------
 function creerCamp(def) {
+  if (def.errant) { def.centre = V(def.errant[0][0], 0, def.errant[0][1]); def.wp = 1; def.pause = 0; }
   const c = camps[def.id] = { def, membres: [], zone: zone(def), mortT: 0 }; if (def.decor === 'horde') decorHorde(def); else if (def.decor) decorBandits(def);
   const fin = (C.J.camps || {})[def.id] || 0, reste = (fin - Date.now()) / 1000;
   if (reste > 0) { c.mortT = reste; c.zone.g.visible = false; return; }
   peupler(c);
 }
-function peupler(c) { c.alerte = false; c.membres = c.def.membres ? c.def.membres.map(m => new Ennemi(m.type || c.def.type, V(m.x, 0, m.z), { ...m, niv: c.def.niv, camp: c.def.id })) : c.def.postes.map(([x, z]) => new Ennemi(c.def.type, V(x, 0, z), { niv: c.def.niv, camp: c.def.id })); c.zone.g.visible = true; c.mortT = 0; if (c.def._couvercle) { c.def._couvercle.rotation.x = 0; c.ouvert = false; } c.membres = c.membres.filter(Boolean); }
+function peupler(c) { c.alerte = false; c.membres = c.def.membres ? c.def.membres.map(m => new Ennemi(m.type || c.def.type, V(m.x, 0, m.z), { ...m, niv: c.def.niv, camp: c.def.id })) : c.def.postes.map(([x, z]) => c.def.errant ? new Ennemi(c.def.type, V(c.def.centre.x + x, 0, c.def.centre.z + z), { niv: c.def.niv, camp: c.def.id, off: [x, z] }) : new Ennemi(c.def.type, V(x, 0, z), { niv: c.def.niv, camp: c.def.id })); c.zone.g.visible = !c.def.errant; c.mortT = 0; if (c.def._couvercle) { c.def._couvercle.rotation.x = 0; c.ouvert = false; } c.membres = c.membres.filter(Boolean); }
 function verifierCamp(id) {
   const c = camps[id]; if (!c || c.membres.some(m => m.vivant)) return;
   if (c.def.arene) return finArene(true);
@@ -500,6 +513,13 @@ function finArene(victoire) {
   const c = camps.arene; if (!c) return; delete camps.arene;
   for (const e of c.membres) { if (e.vivant) { e.pv = 0; e.etat = 'mort'; e.corpsT = 0.01; } } setTimeout(() => G.scene.remove(c.zone.g), 600);
   if (victoire) { const t = Math.round(G.t - c.def.debut); C.bilan(`🏆 ${c.def.nom} vaincu en ${t} s`, `🛡️ ${stats.parades} parade${stats.parades > 1 ? 's' : ''} parfaite${stats.parades > 1 ? 's' : ''} · 💨 ${stats.esquives} esquive${stats.esquives > 1 ? 's' : ''} parfaite${stats.esquives > 1 ? 's' : ''} · 💢 ${stats.encaisses} coup${stats.encaisses > 1 ? 's' : ''} encaissé${stats.encaisses > 1 ? 's' : ''}`); son('jingles_PIZZI03', 0.7); }
+}
+function majErrant(c, dt) { // le groupe avance sur sa route, fait halte, repart — et s'arrête dès qu'il se bat
+  const D = c.def; if (!c.membres.every(m => !m.vivant || m.etat === 'garde' || m.etat === 'flane')) return;
+  if (D.pause > 0) { D.pause -= dt; return; }
+  const [tx, tz] = D.errant[D.wp], dx = tx - D.centre.x, dz = tz - D.centre.z, d = Math.hypot(dx, dz);
+  if (d < 0.5) { D.wp = (D.wp + 1) % D.errant.length; D.pause = rnd(6, 16); return; }
+  const pas = Math.min(d, 1.25 * dt); D.centre.x += dx / d * pas; D.centre.z += dz / d * pas; c.zone.g.position.set(D.centre.x, hauteur(D.centre.x, D.centre.z), D.centre.z);
 }
 export const campLibre = (id) => !!camps[id] && camps[id].mortT > 0;
 export function zoneDangereuse(p) { for (const c of Object.values(camps)) if (!c.mortT && dist(p, c.def.centre) < c.def.r + 1) return c; return null; }
@@ -753,6 +773,7 @@ export function majCombat(dt) {
   majHeros(dt); majFx(dt); majAoes(dt); majCadreCible(false);
   for (const e of ennemis) e.maj(dt); for (const a of allies) a.maj(dt);
   for (let i = ennemis.length - 1; i >= 0; i--) if (ennemis[i].etat === 'mort' && ennemis[i].corpsT <= 0 && !ennemis[i].m.root.parent) { const b = barres.get(ennemis[i]); if (b) { b.remove(); barres.delete(ennemis[i]); } ennemis.splice(i, 1); }
+  for (const c of Object.values(camps)) if (c.def.errant && !c.mortT) majErrant(c, dt);
   for (const c of Object.values(camps)) if (c.mortT > 0) { c.mortT -= dt; if (c.mortT <= 0) { peupler(c); delete (C.J.camps || {})[c.def.id]; } }
   majBarres(); majBoutons(dt);
 }

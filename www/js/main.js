@@ -329,7 +329,7 @@ function majJoueur(dt) {
   if (sp > 0.05) {
     joueur.chop = null; joueur.bati = null;
     const nx = joueur.pos.x + vel.x * dt, nz = joueur.pos.z + vel.z * dt;
-    if (Math.hypot(nx, nz) < 78 && libre(nx, nz)) { if (!bloque(nx, nz)) { joueur.pos.x = nx; joueur.pos.z = nz; } else if (!bloque(nx, joueur.pos.z)) joueur.pos.x = nx; else if (!bloque(joueur.pos.x, nz)) joueur.pos.z = nz; } /* glisse le long des murs */
+    if (libre(nx, nz)) { if (!bloque(nx, nz)) { joueur.pos.x = nx; joueur.pos.z = nz; } else if (!bloque(nx, joueur.pos.z)) joueur.pos.x = nx; else if (!bloque(joueur.pos.x, nz)) joueur.pos.z = nz; } /* glisse le long des murs */
     if (sp > 0.3) { let da = Math.atan2(vel.x, vel.z) - p.root.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); p.root.rotation.y += da * Math.min(1, dt * (enAir ? 5 : 11)); }
   }
   if (enAir) { if (joueur.vy < 0 && p.anim === 'Jump_Start') p.jouer('Jump_Loop'); }

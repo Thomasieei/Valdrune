@@ -23,7 +23,7 @@ export function initRendu(canvas) {
   G.renderer = r;
   const sc = G.scene = new THREE.Scene();
   sc.background = new THREE.Color('#9fc4e8');
-  sc.fog = new THREE.Fog('#b8d2ea', 55, 230);
+  sc.fog = new THREE.Fog('#b8d2ea', 70, 250);
   G.camera = new THREE.PerspectiveCamera(50, 1, 0.12, 420);
   G.hemi = new THREE.HemisphereLight('#cfe4ff', '#5a6a3a', 1.1); sc.add(G.hemi);
   const sun = G.sun = new THREE.DirectionalLight('#fff1d6', 2.4);
@@ -76,7 +76,7 @@ const _fr = new THREE.Frustum(), _mat = new THREE.Matrix4(), _sph = new THREE.Sp
 export function dansChamp(p, r = 2.5) { _sph.center.set(p.x, p.y + r * 0.6, p.z); _sph.radius = r; return _fr.intersectsSphere(_sph); }
 export function majCamera(dt, cible) {
   const souv = G.mode === 'souverain', k = 1 - Math.exp(-dt * 6);
-  if (souv) { const r = Math.hypot(G.focus.x, G.focus.z); if (r > 75) G.focus.multiplyScalar(75 / r); G.focus.y = G.hauteur ? G.hauteur(G.focus.x, G.focus.z) : 0; }
+  if (souv) { const r = Math.hypot(G.focus.x, G.focus.z); if (r > 230) G.focus.multiplyScalar(230 / r); G.focus.y = G.hauteur ? G.hauteur(G.focus.x, G.focus.z) : 0; }
   // caméra de combat : elle recule un peu, monte, et cadre le héros ET sa cible ; en marche elle se replace doucement derrière lui
   const vise = cible;
   G.camCible.lerp(souv ? G.focus : vise, 1 - Math.exp(-dt * (souv ? 14 : 8)));

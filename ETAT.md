@@ -92,3 +92,8 @@ Toute décision de combat se vérifie contre ses 7 piliers : adversaire qui réf
 - Boss Morgrak le Sanglant (1350 PV niv 3) : bouclier/garde, appelle 2 berserkers à 66 %, furie + 3 séismes en chaîne à 33 %
 - Fort de la Horde au bout de la route nord (palissade, trône, coffre 220 bois/160 pierre), quête + 2 défis d arène
 - Écartés : Downtown City (style moderne), elfes (plus tard : elfes noirs), ville fortifiée model.glb (14 Mo, style à valider)
+
+## Grand monde (500 m)
+- Régions : Grande Plaine + lac d Argent (est), Forêt profonde + étang des Brumes (ouest), les Hauteurs + lac du Col (nord), collines (sud), muraille de montagnes
+- 9 routes avec braseros ; nouveaux lieux : Repaire gobelin, Avant-poste des pillards ; 5 groupes errants (puglins, gobelins, pillards, diablotins, éclaireurs de la Horde)
+- Perf : terrain en 36 morceaux, arbres lointains simplifiés (LOD), décor dessiné à portée, persos > 90 m masqués

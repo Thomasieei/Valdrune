@@ -29,55 +29,118 @@ export const CHEMINS = [
   lisse([[2, -3], [8, -9], [12, -15], [17, -17]]),             // camp → carrière
   lisse([[3, 6], [10, 13], [20, 18], [28, 22], [33, 26]]),     // camp → camp des pillards
   lisse([[-4, 3], [-12, 10], [-20, 16], [-26, 24], [-30, 27]]), // camp → clairière des Puglins
-  lisse([[-3, -4], [-8, -14], [-12, -26], [-14, -40], [-12, -55]]), // vers le nord, la suite du monde
+  lisse([[-3, -4], [-8, -14], [-12, -26], [-14, -40], [-12, -55], [-6, -80], [6, -110], [22, -140], [30, -172]]), // nord : fort de la Horde puis les Hauteurs
+  lisse([[33, 26], [48, 20], [70, 8], [88, 2], [110, -6], [140, -8], [175, -30], [205, -45]]), // est : la Grande Plaine, le long du lac d'Argent
+  lisse([[-30, 27], [-48, 22], [-72, 12], [-100, 2], [-128, -8], [-150, -18]]), // ouest : la Forêt profonde jusqu'au repaire gobelin
+  lisse([[-72, 12], [-86, 40], [-98, 66], [-104, 80]]),       // embranchement : l'étang des Brumes
+  lisse([[4, 8], [6, 30], [12, 60], [24, 95], [36, 130], [42, 160]]), // sud : les collines et la tour des pillards
+  lisse([[70, 8], [72, -40], [70, -88], [62, -112]]),          // raccourci plaine → lac du Col
 ];
 export function distChemin(x, z) { let best = 1e9; for (const L of CHEMINS) for (let i = 0; i < L.length - 1; i++) { const [ax, az] = L[i], [bx, bz] = L[i + 1], dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2)), d = Math.hypot(x - ax - dx * t, z - az - dz * t); if (d < best) best = d; } return best; }
 function bruit(x, z) { return Math.sin(x * 0.071) * Math.cos(z * 0.063) * 0.9 + Math.sin(x * 0.17 + z * 0.13) * 0.35 + Math.cos(x * 0.031 - z * 0.047) * 1.4; }
-export function hauteur(x, z) { const d = Math.hypot(x, z); const k = Math.min(1, Math.max(0, (d - 13) / 14)), m = Math.min(1, Math.max(0, (d - 58) / 26)); return bruit(x, z) * k * k * (3 - 2 * k) + m * m * (3 - 2 * m) * (14 + bruit(x * 1.7, z * 1.7) * 5); } // les bords du monde montent en collines
+// ---------------- Le monde : 500 m × 500 m, des régions qui se lisent au premier coup d'œil ----------------
+// est : Grande Plaine et lac d'Argent · ouest : Forêt profonde et étang des Brumes · nord : les Hauteurs (rocailles, pins)
+// sud : collines · tout autour : une muraille de montagnes. Le camp reste au centre, sur un replat.
+export const MONDE = 236;
+export const LACS = [{ x: 118, z: 34, r: 34, nom: 'Lac d’Argent' }, { x: -110, z: 94, r: 22, nom: 'Étang des Brumes' }, { x: 74, z: -132, r: 17, nom: 'Lac du Col' }];
+export const NIVEAU_EAU = -0.7;
+const lisser = (a, b, v) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
+export const foret = (x, z) => Math.max(lisser(-40, -85, x) * (1 - lisser(130, 175, z)), lisser(0.55, 0.8, Math.sin(x * 0.021 + 1.3) * Math.cos(z * 0.019 - 0.7)) * 0.8); // + bosquets épars
+export const hautes = (x, z) => lisser(-85, -140, z);
+const bord = (x, z) => lisser(205, 240, Math.max(Math.abs(x), Math.abs(z)) + Math.sin(x * 0.05) * 6 + Math.cos(z * 0.045) * 6);
+export function hauteur(x, z) {
+  const d = Math.hypot(x, z), k = lisser(13, 27, d), H = hautes(x, z), B = bord(x, z);
+  let h = bruit(x, z) * k + lisser(40, 90, d) * Math.sin(x * 0.013 + 0.5) * Math.cos(z * 0.011) * 4 // grandes ondulations au large
+    + H * (5 + Math.abs(Math.sin(x * 0.045) * Math.cos(z * 0.05)) * 9 + bruit(x * 2.1, z * 2.1) * 1.5) // les Hauteurs : crêtes et rocailles
+    + lisser(120, 200, z) * (3 + bruit(x * 0.8, z * 0.8) * 2) // les collines du sud
+    + B * B * (34 + bruit(x * 1.3, z * 1.3) * 8); // la muraille de montagnes
+  for (const L of LACS) { const dl = Math.hypot(x - L.x, z - L.z) / L.r; if (dl < 1.35) h = h + (-3.2 - h) * lisser(1.35, 0.8, dl); }
+  return h;
+}
+export const eau = (x, z) => { for (const L of LACS) if (Math.hypot(x - L.x, z - L.z) < L.r * 0.93) return true; return false; };
+function couleurSol(x, z, y, c, c2) {
+  const n = Math.sin(x * 0.9) * Math.cos(z * 0.8) * 0.5 + Math.sin(x * 0.23 + z * 0.31) * 0.5, d = Math.hypot(x, z), F = foret(x, z), H = hautes(x, z), B = bord(x, z);
+  c.set('#5f9a3a').lerp(c2.set('#7fb04a'), 0.5 + n * 0.5).offsetHSL(0, 0, y * 0.006);
+  c.lerp(c2.set('#3f6a2c'), F * 0.75); // sous-bois sombre
+  c.lerp(c2.set('#7a7f62'), H * (0.45 + n * 0.2)); // rocaille des Hauteurs
+  c.lerp(c2.set('#7c7a74'), Math.min(1, B * 1.4)); if (y > 26) c.lerp(c2.set('#eef2f6'), lisser(26, 34, y + n * 3)); // roche, puis neige
+  for (const L of LACS) { const dl = Math.hypot(x - L.x, z - L.z) / L.r; if (dl < 1.25) c.lerp(c2.set(dl < 0.95 ? '#5a6a50' : '#c8b88a'), lisser(1.25, 1.02, dl) * 0.9); } // plage de sable puis vase
+  const terre = Math.max(0, 1 - d / 9) * 0.9 + Math.max(0, 1 - Math.hypot(x - RESERVE.x, z - RESERVE.z) / 5) * 0.7; c.lerp(c2.set('#9a7a52'), Math.min(0.85, terre)); // sol tassé du camp
+  const dc = Math.hypot(x - CARRIERE.x, z - CARRIERE.z); if (dc < 10) c.lerp(c2.set('#8a8070'), Math.min(0.8, (10 - dc) / 3.5)); // carrière : roche et gravier
+  const da = Math.hypot(x + 24, z + 6); if (da < 12.5) c.lerp(c2.set('#c8b088'), Math.min(0.9, (12.5 - da) / 1.5)); // sable de l'arène
+  const dch = distChemin(x, z) + Math.sin(x * 1.7 + z * 1.3) * 0.35; if (dch < 2.6) c.lerp(c2.set('#a08458').offsetHSL(0, 0, n * 0.03), Math.min(0.92, (2.6 - dch) / 1.1)); // route de terre aux bords irréguliers
+}
 function construireTerrain() {
-  const T = 170, geo = new THREE.PlaneGeometry(T, T, 120, 120).rotateX(-Math.PI / 2), P = geo.attributes.position, C = new Float32Array(P.count * 3), c = new THREE.Color(), c2 = new THREE.Color();
-  for (let i = 0; i < P.count; i++) {
-    const x = P.getX(i), z = P.getZ(i), y = hauteur(x, z); P.setY(i, y);
-    const n = Math.sin(x * 0.9) * Math.cos(z * 0.8) * 0.5 + Math.sin(x * 0.23 + z * 0.31) * 0.5, d = Math.hypot(x, z);
-    c.set('#5f9a3a').lerp(c2.set('#7fb04a'), 0.5 + n * 0.5).offsetHSL(0, 0, y * 0.015);
-    const terre = Math.max(0, 1 - Math.abs(d - 0) / 9) * 0.9 + Math.max(0, 1 - Math.hypot(x - RESERVE.x, z - RESERVE.z) / 5) * 0.7; // sol tassé du camp
-    c.lerp(c2.set('#9a7a52'), Math.min(0.85, terre));
-    const dc = Math.hypot(x - CARRIERE.x, z - CARRIERE.z); if (dc < 10) c.lerp(c2.set('#8a8070'), Math.min(0.8, (10 - dc) / 3.5)); // carrière : roche et gravier
-    const da = Math.hypot(x + 24, z + 6); if (da < 12.5) c.lerp(c2.set('#c8b088'), Math.min(0.9, (12.5 - da) / 1.5)); // sable de l'arène
-    const dch = distChemin(x, z) + Math.sin(x * 1.7 + z * 1.3) * 0.35; if (dch < 2.6) c.lerp(c2.set('#a08458').offsetHSL(0, 0, n * 0.03), Math.min(0.92, (2.6 - dch) / 1.1)); // route de terre aux bords irréguliers
-    C.set([c.r, c.g, c.b], i * 3);
+  // 6 × 6 morceaux de ~83 m : la caméra ne dessine que ceux qu'elle voit
+  const N = 6, T = 500, Tc = T / N, seg = 34, c = new THREE.Color(), c2 = new THREE.Color(), mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 });
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+    const ox = -T / 2 + Tc * (i + 0.5), oz = -T / 2 + Tc * (j + 0.5), geo = new THREE.PlaneGeometry(Tc, Tc, seg, seg).rotateX(-Math.PI / 2), P = geo.attributes.position, C = new Float32Array(P.count * 3);
+    for (let v = 0; v < P.count; v++) { const x = P.getX(v) + ox, z = P.getZ(v) + oz, y = hauteur(x, z); P.setXYZ(v, x, y, z); couleurSol(x, z, y, c, c2); C.set([c.r, c.g, c.b], v * 3); }
+    geo.setAttribute('color', new THREE.BufferAttribute(C, 3)); geo.computeVertexNormals(); geo.computeBoundingSphere();
+    const sol = new THREE.Mesh(geo, mat); sol.receiveShadow = true; G.scene.add(sol);
   }
-  geo.setAttribute('color', new THREE.BufferAttribute(C, 3)); geo.computeVertexNormals();
-  const sol = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 })); sol.receiveShadow = true; G.scene.add(sol);
+  // les lacs : une surface d'eau qui reflète le ciel
+  const matEau = new THREE.MeshStandardMaterial({ color: '#3d7fb0', roughness: 0.08, metalness: 0.35, transparent: true, opacity: 0.86, envMapIntensity: 1.4 });
+  for (const L of LACS) { const m = new THREE.Mesh(new THREE.CircleGeometry(L.r * 1.18, 56).rotateX(-Math.PI / 2), matEau); m.position.set(L.x, NIVEAU_EAU, L.z); m.receiveShadow = true; G.scene.add(m); L.eau = m; }
 }
 // ---------------- Décor en instances (un seul appel de dessin par type) ----------------
 // décor en instances, découpé en secteurs de 32 m : la caméra ne dessine que les secteurs visibles (au lieu de toute la forêt)
-const SECTEUR = 32, _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _m4 = new THREE.Matrix4(), _m5 = new THREE.Matrix4(), _y = new THREE.Vector3(0, 1, 0);
-function instancier(modele, transforms, { ombre = true } = {}) {
+const SECTEUR = 64, secteursVus = [], macrosVus = [], _zero = new THREE.Matrix4().makeScale(0, 0, 0), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _m4 = new THREE.Matrix4(), _m5 = new THREE.Matrix4(), _y = new THREE.Vector3(0, 1, 0);
+// arbre lointain : quelques dizaines de triangles au lieu de 3 000 (silhouette et couleur suffisent à 60 m+)
+const MAT_LOD = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+function arbreSimple(modele, type) { // tronc + houppier fusionnés, couleurs dans les sommets : 1 seul appel de dessin par type et par secteur
+  const b = new THREE.Box3().setFromObject(modele), H = b.max.y - b.min.y, W = Math.max(b.max.x - b.min.x, b.max.z - b.min.z);
+  const peint = (g, col) => { g = g.toNonIndexed(); const c = new THREE.Color(col), n = g.attributes.position.count, C = new Float32Array(n * 3); for (let i = 0; i < n; i++) C.set([c.r, c.g, c.b], i * 3); g.setAttribute('color', new THREE.BufferAttribute(C, 3)); g.deleteAttribute('uv'); return g; };
+  const t = peint(new THREE.CylinderGeometry(W * 0.05, W * 0.08, H * 0.45, 5).translate(0, H * 0.225, 0), '#5e4430');
+  const col = { pine_01: '#2e5a36', birch_01: '#8cba58', oak_01: '#4c8a36' }[type] || '#4c8a36';
+  const c = peint(type === 'pine_01' ? new THREE.ConeGeometry(W * 0.48, H * 0.85, 7).translate(0, H * 0.57, 0) : new THREE.IcosahedronGeometry(W * 0.46, 0).scale(1, (H * 0.55) / W * 1.1, 1).translate(0, H * 0.66, 0), col);
+  return new THREE.Mesh(mergeGeometries([t, c]), MAT_LOD);
+}
+function instancier(modele, transforms, { ombre = true, loin = 260, lod = null, pres = 30 } = {}) {
   const meshes = []; modele.updateMatrixWorld(true); modele.traverse(o => { if (o.isMesh) meshes.push(o); });
+
   const groupe = new THREE.Group(), secteurs = new Map(), place = [];
   transforms.forEach((t, i) => { const k = Math.floor(t.p.x / SECTEUR) + ',' + Math.floor(t.p.z / SECTEUR); if (!secteurs.has(k)) secteurs.set(k, []); const L = secteurs.get(k); place[i] = { k, li: L.length }; L.push(t); });
   const parSecteur = new Map();
-  for (const [k, L] of secteurs) parSecteur.set(k, meshes.map(m => { const im = new THREE.InstancedMesh(m.geometry, m.material, L.length); im.castShadow = ombre && m.castShadow; im.receiveShadow = true; im.userData.local = m.matrixWorld.clone(); groupe.add(im); return im; }));
+  const mk = (m, n, parent, omb) => { const im = new THREE.InstancedMesh(m.geometry, m.material, n); im.castShadow = omb; im.receiveShadow = true; im.userData.local = m.matrixWorld.clone(); parent.add(im); return im; };
+  for (const [k, L] of secteurs) {
+    const sg = new THREE.Group(), [a, b] = k.split(',').map(Number); sg.visible = false; groupe.add(sg);
+    if (lod) { sg.userData.c = [(a + 0.5) * SECTEUR, (b + 0.5) * SECTEUR, pres]; sg.userData.lod = { L, macro: null }; parSecteur.set(k, meshes.map(m => mk(m, L.length, sg, ombre && m.castShadow))); }
+    else { sg.userData.c = [(a + 0.5) * SECTEUR, (b + 0.5) * SECTEUR, loin]; parSecteur.set(k, meshes.map(m => mk(m, L.length, sg, ombre && m.castShadow))); }
+    secteursVus.push(sg);
+  }
   const poser = (im, li, t) => { _q.setFromAxisAngle(_y, t.r); _s.setScalar(t.e); _m4.compose(t.p, _q, _s); im.setMatrixAt(li, _m5.multiplyMatrices(_m4, im.userData.local)); };
   for (const [k, L] of secteurs) { const ims = parSecteur.get(k); L.forEach((t, li) => { for (const im of ims) poser(im, li, t); }); for (const im of ims) { im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); } }
   G.scene.add(groupe);
-  return { transforms, maj(i, t) { const P = place[i], ims = parSecteur.get(P.k); for (const im of ims) { poser(im, P.li, t); im.instanceMatrix.needsUpdate = true; } } };
+  // arbres lointains : un seul maillage simplifié par grand secteur de 144 m ; un arbre dessiné en détail y est escamoté
+  if (lod) {
+    const macros = new Map(); for (const [k, L] of secteurs) { const [a, b] = k.split(',').map(Number), mk2 = Math.floor(a / 3) + ',' + Math.floor(b / 3); if (!macros.has(mk2)) macros.set(mk2, []); macros.get(mk2).push(k); }
+    for (const [mk2, ks] of macros) { let n = 0; for (const k of ks) n += secteurs.get(k).length; const im = new THREE.InstancedMesh(lod.geometry, lod.material, n), [a, b] = mk2.split(',').map(Number); im.userData.local = new THREE.Matrix4(); im.userData.c = [(a + 0.5) * SECTEUR * 3, (b + 0.5) * SECTEUR * 3, loin + 40]; let j = 0;
+      for (const k of ks) { const sg = groupe.children.find(g => g.userData.lod && g.userData.lod.L === secteurs.get(k)); sg.userData.lod.macro = im; sg.userData.lod.j0 = j; for (const t of secteurs.get(k)) poser(im, j++, t); }
+      im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); groupe.add(im); macrosVus.push(im); }
+  }
+  return { transforms, maj(i, t) { const P = place[i], ims = parSecteur.get(P.k); Object.assign(transforms[i], t); for (const im of ims) { poser(im, P.li, t); im.instanceMatrix.needsUpdate = true; } const sg = parSecteur.get(P.k)[0].parent, D = sg.userData.lod; if (D && !sg.visible) { _q.setFromAxisAngle(_y, t.r); _s.setScalar(t.e); D.macro.setMatrixAt(D.j0 + P.li, _m4.compose(t.p, _q, _s)); D.macro.instanceMatrix.needsUpdate = true; } } };
 }
 let graine = 7; const rnd = (a = 0, b = 1) => { graine = (graine * 16807) % 2147483647; return a + (graine / 2147483647) * (b - a); };
 // ---------------- Arbres ----------------
 export const arbres = []; const parType = {};
+// endroits à garder dégagés : camps, arène, carrière, réserve, fort, repaire, tour
+export const CLAIRIERES = [[RESERVE.x, RESERVE.z, 9], [CARRIERE.x, CARRIERE.z, 11], [-34, 30, 11], [38, 30, 14], [-24, -6, 15], [-12, -46, 20], [-150, -18, 16], [42, 160, 14], [0, 0, 15]];
+const degage = (x, z, marge = 0) => { for (const [cx, cz, r] of CLAIRIERES) if (Math.hypot(x - cx, z - cz) < r + marge) return true; for (const L of LACS) if (Math.hypot(x - L.x, z - L.z) < L.r * 1.12 + marge) return true; return false; };
 function construireForet() {
-  const types = ['oak_01', 'birch_01', 'pine_01'], T = { oak_01: [], birch_01: [], pine_01: [] };
-  for (let k = 0; k < 140; k++) {
-    const a = rnd(0, 6.283), d = rnd(15, 62), x = Math.cos(a) * d, z = Math.sin(a) * d;
-    if (distChemin(x, z) < 3.2 || Math.hypot(x - RESERVE.x, z - RESERVE.z) < 9 || Math.hypot(x - CARRIERE.x, z - CARRIERE.z) < 11 || Math.hypot(x + 34, z - 30) < 11 || Math.hypot(x - 38, z - 30) < 14 || Math.hypot(x + 24, z + 6) < 15 || Math.hypot(x + 12, z + 46) < 20) continue; /* clairière des Puglins, camp des pillards */
-    if (arbres.some(b => Math.hypot(b.pos.x - x, b.pos.z - z) < 4.6)) continue;
-    const type = types[Math.floor(rnd(0, 3))], e = rnd(1.5, 2.4), p = V(x, hauteur(x, z), z); /* des arbres qui nous dépassent : le monde est grand */
+  // grille brouillée : une forêt dense mais aérée (on y voit loin, on y circule), des bosquets dans la plaine
+  const T = { oak_01: [], birch_01: [], pine_01: [] }, pas = 6.5;
+  for (let gx = -MONDE; gx < MONDE; gx += pas) for (let gz = -MONDE; gz < MONDE; gz += pas) {
+    const x = gx + rnd(-2, 2), z = gz + rnd(-2, 2), F = foret(x, z), H = hautes(x, z), B = bord(x, z);
+    const clair = lisser(0.5, 0.75, Math.sin(x * 0.07) * Math.cos(z * 0.06)); // petites clairières dans les bois
+    const p0 = (F * 0.72 * (1 - clair * 0.8) + H * 0.22 + 0.025 + lisser(120, 200, z) * 0.06) * (1 - B * 0.8) * lisser(15, 30, Math.hypot(x, z));
+    if (rnd() > p0 || distChemin(x, z) < 3.6 || degage(x, z)) continue;
+    const r0 = rnd(), type = H > 0.5 || B > 0.3 ? 'pine_01' : F > 0.5 ? (r0 < 0.45 ? 'pine_01' : r0 < 0.8 ? 'oak_01' : 'birch_01') : r0 < 0.6 ? 'oak_01' : 'birch_01';
+    const e = rnd(1.5, 2.4) * (F > 0.5 ? 1.1 : 1), p = V(x, hauteur(x, z), z); /* des arbres qui nous dépassent : le monde est grand */
     const ar = { type, i: T[type].length, pos: p, r: rnd(0, 6.28), e, pv: 0, pvMax: 0, etat: 'debout', bois: 0, ouvriers: 0 };
     ar.pvMax = ar.pv = Math.round(7 * e); T[type].push({ p, r: ar.r, e }); arbres.push(ar);
   }
-  for (const t of types) parType[t] = instancier(N[t], T[t]);
+  for (const t of Object.keys(T)) parType[t] = instancier(N[t], T[t], { lod: arbreSimple(N[t], t) });
 }
 export function arbreProche(p, filtre, max = 999) { let b = null, bd = max; for (const a of arbres) { if (!filtre(a)) continue; const d = Math.hypot(a.pos.x - p.x, a.pos.z - p.z); if (d < bd) { bd = d; b = a; } } return b; }
 // un coup de hache : copeaux, son ; à 0 PV l'arbre tombe vraiment
@@ -159,10 +222,15 @@ function majFeu(dt) {
 }
 // ---------------- Décor ----------------
 function construireDecor() {
-  const T = (cle, n, dmin, dmax, emin, emax, eviteCamp = 11) => { const L = []; for (let k = 0; k < n; k++) { const a = rnd(0, 6.283), d = rnd(dmin, dmax), x = Math.cos(a) * d, z = Math.sin(a) * d; if (Math.hypot(x, z) < eviteCamp || Math.hypot(x - RESERVE.x, z - RESERVE.z) < 5 || (cle !== 'grass_01' && cle !== 'flowers_01' && distChemin(x, z) < 2.4) || (cle !== 'grass_01' && Math.hypot(x + 12, z + 46) < 15)) continue; L.push({ p: V(x, hauteur(x, z), z), r: rnd(0, 6.28), e: rnd(emin, emax) }); } instancier(N[cle], L, { ombre: !/grass|flowers|pebbles|mushrooms|fern/.test(cle) }); }; // les petites plantes ne projettent pas d'ombre (gros gain sur téléphone)
-  T('grass_01', 260, 6, 70, 0.7, 1.3, 6); T('flowers_01', 90, 8, 60, 0.7, 1.2, 8); T('fern_01', 70, 14, 65, 0.8, 1.3); T('bush_01', 45, 13, 66, 0.8, 1.3);
-  T('mushrooms_01', 30, 16, 60, 0.8, 1.2); T('rocks_01', 25, 12, 66, 0.6, 1.2); T('boulder_01', 16, 22, 78, 1.8, 3.6, 18); T('rock_mossy_01', 16, 18, 76, 1.2, 2.4); T('pebbles_01', 30, 4, 50, 0.7, 1.1, 3);
-  T('deadtree_01', 8, 30, 76, 1.5, 2.3, 25);
+  // chaque plante pousse là où elle a sa place ; les petites ne sont dessinées que de près (invisibles au loin de toute façon)
+  const T = (cle, n, ou, emin, emax, loin = 260) => { const L = []; for (let k = 0; k < n; k++) { const x = rnd(-MONDE, MONDE), z = rnd(-MONDE, MONDE), d = Math.hypot(x, z); if (rnd() > ou(x, z, d) || degage(x, z, -4) || bord(x, z) > 0.6 || (d < 11 && cle !== 'grass_01') || (cle !== 'grass_01' && cle !== 'flowers_01' && distChemin(x, z) < 2.4)) continue; L.push({ p: V(x, hauteur(x, z), z), r: rnd(0, 6.28), e: rnd(emin, emax) }); } instancier(N[cle], L, { ombre: !/grass|flowers|pebbles|mushrooms|fern/.test(cle), loin }); };
+  const plaine = (x, z) => (1 - foret(x, z)) * (1 - hautes(x, z));
+  T('grass_01', 5200, (x, z, d) => d < 6 ? 0 : plaine(x, z) * 0.9 + 0.15, 0.7, 1.3, 50); T('flowers_01', 1800, (x, z) => plaine(x, z), 0.7, 1.2, 50);
+  T('fern_01', 1400, (x, z) => foret(x, z) * 0.9 + 0.05, 0.8, 1.4, 55); T('bush_01', 900, (x, z) => 0.35 + foret(x, z) * 0.5, 0.8, 1.3, 90);
+  T('mushrooms_01', 500, (x, z) => foret(x, z), 0.8, 1.2, 35); T('rocks_01', 500, (x, z) => 0.3 + hautes(x, z) * 0.7, 0.6, 1.2, 60); T('pebbles_01', 600, (x, z) => 0.3 + hautes(x, z) * 0.7, 0.7, 1.1, 35);
+  T('boulder_01', 260, (x, z, d) => d < 18 ? 0 : 0.2 + hautes(x, z) * 0.8, 1.8, 3.8); T('rock_mossy_01', 260, (x, z, d) => d < 18 ? 0 : 0.15 + foret(x, z) * 0.85, 1.2, 2.4);
+  T('deadtree_01', 90, (x, z, d) => d < 25 ? 0 : 0.08 + hautes(x, z) * 0.9, 1.5, 2.3);
+  T('stump_01', 120, (x, z, d) => d < 15 ? 0 : foret(x, z), 0.9, 1.3, 60); T('log_01', 90, (x, z, d) => d < 15 ? 0 : foret(x, z) * 0.9, 0.9, 1.3, 70);
   construireMontagnes();
   construireBraseros();
 }
@@ -178,11 +246,11 @@ function construireArene() {
 }
 // montagnes à l'horizon : des silhouettes immenses qui rappellent que le monde est vaste
 function construireMontagnes() {
-  const monts = [], mat = new THREE.MeshStandardMaterial({ color: '#6a7a8a', roughness: 1, flatShading: true }), neige = new THREE.MeshStandardMaterial({ color: '#e8eef4', roughness: 1, flatShading: true });
-  for (let i = 0; i < 26; i++) {
-    const a = i / 26 * 6.283 + rnd(-0.1, 0.1), d = rnd(110, 150), h = rnd(30, 75), r = rnd(22, 40);
+  const monts = [], mat = new THREE.MeshStandardMaterial({ color: '#8094a8', roughness: 1, flatShading: true, fog: false }), neige = new THREE.MeshStandardMaterial({ color: '#eef2f8', roughness: 1, flatShading: true, fog: false }); // au-delà du brouillard : silhouettes bleutées
+  for (let i = 0; i < 34; i++) {
+    const a = i / 34 * 6.283 + rnd(-0.08, 0.08), d = rnd(290, 340), h = rnd(70, 150), r = rnd(45, 80);
     const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 7, 3), mat); m.position.set(Math.cos(a) * d, h / 2 - 4, Math.sin(a) * d); m.rotation.y = rnd(0, 3); monts.push(m);
-    if (h > 55) { const c = new THREE.Mesh(new THREE.ConeGeometry(r * 0.32, h * 0.32, 7, 1), neige); c.position.set(m.position.x, h - 4 - h * 0.16, m.position.z); c.rotation.y = m.rotation.y; monts.push(c); }
+    if (h > 95) { const c = new THREE.Mesh(new THREE.ConeGeometry(r * 0.32, h * 0.32, 7, 1), neige); c.position.set(m.position.x, h - 4 - h * 0.16, m.position.z); c.rotation.y = m.rotation.y; monts.push(c); }
   }
   fusionner(monts, false);
 }
@@ -237,5 +305,8 @@ export function construireMonde() {
   G.obstacle = (x, z) => { for (const a of arbres) if (a.etat === 'debout' && Math.abs(a.pos.x - x) < 2 && Math.abs(a.pos.z - z) < 2 && Math.hypot(a.pos.x - x, a.pos.z - z) < 0.3 + 0.28 * a.e) return true; return false; }; // seuls les troncs repoussent la caméra (le feuillage, on voit à travers)
   construireTerrain(); construireArene(); construireForet(); construireDecor(); construireReserve(); construireFeu(); construireCarriere();
 }
-export function majMonde(dt) { majMinuteurs(); majBraseros(); majFilons(dt); majChutes(dt); majRepousse(dt); majSecousses(dt); majFeu(dt); }
-export function libre(x, z) { for (const a of arbres) if (a.etat !== 'tombe' && Math.hypot(a.pos.x - x, a.pos.z - z) < 0.42 * a.e) return false; return Math.hypot(x, z) < 80; }
+export function majMonde(dt) { majSecteurs(dt); majMinuteurs(); majBraseros(); majFilons(dt); majChutes(dt); majRepousse(dt); majSecousses(dt); majFeu(dt); }
+export function libre(x, z) { if (Math.abs(x) > MONDE || Math.abs(z) > MONDE || eau(x, z)) return false; for (const a of arbres) if (a.etat !== 'tombe' && Math.abs(a.pos.x - x) < 1.2 && Math.abs(a.pos.z - z) < 1.2 && Math.hypot(a.pos.x - x, a.pos.z - z) < 0.42 * a.e) return false; return true; }
+// ne dessine les secteurs de décor qu'à portée (herbe : 70 m, arbres : jusqu'au brouillard)
+let visT = 0; function majSecteurs(dt) { if ((visT -= dt) > 0) return; visT = 0.4; const c = G.camera.position; for (const g of secteursVus) { const [x, z, l] = g.userData.c, v = Math.hypot(x - c.x, z - c.z) < l + 34; if (v === g.visible) continue; g.visible = v; const D = g.userData.lod; if (D) { let j = D.j0; for (const t of D.L) { if (v) D.macro.setMatrixAt(j++, _zero); else { _q.setFromAxisAngle(_y, t.r); _s.setScalar(t.e); D.macro.setMatrixAt(j++, _m4.compose(t.p, _q, _s)); } } D.macro.instanceMatrix.needsUpdate = true; } }
+  for (const m of macrosVus) { const [x, z, l] = m.userData.c; m.visible = Math.hypot(x - c.x, z - c.z) < l + 100; } }

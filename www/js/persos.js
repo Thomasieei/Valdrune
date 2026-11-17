@@ -56,10 +56,10 @@ class Anime {
   phase() { const a = this.actions[this.anim]; return a ? (a.time / a.getClip().duration) % 1 : 0; }
   // animation à la demande : rien hors champ, 15 images/s au loin, pleine cadence de près
   maj(dt) {
-    this.skip = (this.skip || 0) + dt; const p = this.root.position;
-    if (!dansChamp(p, (this.rayonVue || 2.5))) { if (this.root.visible) this.root.visible = false; if (this.skip > 0.5) { this.mixer.update(this.skip); this.skip = 0; } return; }
+    this.skip = (this.skip || 0) + dt; const p = this.root.position, c = G.camera.position, d2 = (p.x - c.x) ** 2 + (p.z - c.z) ** 2;
+    if (d2 > 8100 || !dansChamp(p, (this.rayonVue || 2.5))) { /* hors champ ou à plus de 90 m : ni dessiné ni animé */ if (this.root.visible) this.root.visible = false; if (this.skip > 0.5) { this.mixer.update(this.skip); this.skip = 0; } return; }
     if (!this.root.visible) this.root.visible = true;
-    const c = G.camera.position, loin = (p.x - c.x) ** 2 + (p.z - c.z) ** 2 > 900;
+    const loin = d2 > 900;
     if (loin && this.skip < 1 / 15) return;
     this.mixer.update(this.skip); this.skip = 0;
   }
