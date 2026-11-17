@@ -1,6 +1,12 @@
 // Le monde : clairière du camp, forêt (arbres qu'on abat vraiment), réserve de bois, feu de camp, dépouilles.
 import { THREE, G, V, tmp, emettre, son, projeter } from './moteur.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+// fusionne des objets fixes de même matière en un seul (des dizaines d'appels de dessin → un seul)
+function fusionner(objets, ombre = true) {
+  const parMat = new Map(); for (const o of objets) { o.updateMatrixWorld(true); o.traverse(m => { if (!m.isMesh) return; const g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone(); g.applyMatrix4(m.matrixWorld); for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k); if (!parMat.has(m.material)) parMat.set(m.material, []); parMat.get(m.material).push(g); }); }
+  for (const [mat, L] of parMat) { const m = new THREE.Mesh(mergeGeometries(L), mat); m.castShadow = ombre; m.receiveShadow = true; G.scene.add(m); L.forEach(g => g.dispose()); }
+}
 
 const loader = new GLTFLoader();
 const N = {};
@@ -45,13 +51,18 @@ function construireTerrain() {
   const sol = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 })); sol.receiveShadow = true; G.scene.add(sol);
 }
 // ---------------- Décor en instances (un seul appel de dessin par type) ----------------
-function instancier(modele, transforms) {
+// décor en instances, découpé en secteurs de 32 m : la caméra ne dessine que les secteurs visibles (au lieu de toute la forêt)
+const SECTEUR = 32, _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _m4 = new THREE.Matrix4(), _m5 = new THREE.Matrix4(), _y = new THREE.Vector3(0, 1, 0);
+function instancier(modele, transforms, { ombre = true } = {}) {
   const meshes = []; modele.updateMatrixWorld(true); modele.traverse(o => { if (o.isMesh) meshes.push(o); });
-  const groupe = new THREE.Group(), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = V();
-  const liste = meshes.map(m => { const im = new THREE.InstancedMesh(m.geometry, m.material, transforms.length); im.castShadow = m.castShadow; im.receiveShadow = true; im.userData.local = m.matrixWorld.clone(); groupe.add(im); return im; });
-  transforms.forEach((t, i) => { q.setFromAxisAngle(V(0, 1, 0), t.r); s.setScalar(t.e); m4.compose(t.p, q, s); for (const im of liste) im.setMatrixAt(i, m4.clone().multiply(im.userData.local)); });
-  for (const im of liste) { im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); }
-  G.scene.add(groupe); return { liste, transforms, maj(i, t) { q.setFromAxisAngle(V(0, 1, 0), t.r); s.setScalar(t.e); m4.compose(t.p, q, s); for (const im of liste) { im.setMatrixAt(i, m4.clone().multiply(im.userData.local)); im.instanceMatrix.needsUpdate = true; } } };
+  const groupe = new THREE.Group(), secteurs = new Map(), place = [];
+  transforms.forEach((t, i) => { const k = Math.floor(t.p.x / SECTEUR) + ',' + Math.floor(t.p.z / SECTEUR); if (!secteurs.has(k)) secteurs.set(k, []); const L = secteurs.get(k); place[i] = { k, li: L.length }; L.push(t); });
+  const parSecteur = new Map();
+  for (const [k, L] of secteurs) parSecteur.set(k, meshes.map(m => { const im = new THREE.InstancedMesh(m.geometry, m.material, L.length); im.castShadow = ombre && m.castShadow; im.receiveShadow = true; im.userData.local = m.matrixWorld.clone(); groupe.add(im); return im; }));
+  const poser = (im, li, t) => { _q.setFromAxisAngle(_y, t.r); _s.setScalar(t.e); _m4.compose(t.p, _q, _s); im.setMatrixAt(li, _m5.multiplyMatrices(_m4, im.userData.local)); };
+  for (const [k, L] of secteurs) { const ims = parSecteur.get(k); L.forEach((t, li) => { for (const im of ims) poser(im, li, t); }); for (const im of ims) { im.instanceMatrix.needsUpdate = true; im.computeBoundingSphere(); } }
+  G.scene.add(groupe);
+  return { transforms, maj(i, t) { const P = place[i], ims = parSecteur.get(P.k); for (const im of ims) { poser(im, P.li, t); im.instanceMatrix.needsUpdate = true; } } };
 }
 let graine = 7; const rnd = (a = 0, b = 1) => { graine = (graine * 16807) % 2147483647; return a + (graine / 2147483647) * (b - a); };
 // ---------------- Arbres ----------------
@@ -148,7 +159,7 @@ function majFeu(dt) {
 }
 // ---------------- Décor ----------------
 function construireDecor() {
-  const T = (cle, n, dmin, dmax, emin, emax, eviteCamp = 11) => { const L = []; for (let k = 0; k < n; k++) { const a = rnd(0, 6.283), d = rnd(dmin, dmax), x = Math.cos(a) * d, z = Math.sin(a) * d; if (Math.hypot(x, z) < eviteCamp || Math.hypot(x - RESERVE.x, z - RESERVE.z) < 5 || (cle !== 'grass_01' && cle !== 'flowers_01' && distChemin(x, z) < 2.4)) continue; L.push({ p: V(x, hauteur(x, z), z), r: rnd(0, 6.28), e: rnd(emin, emax) }); } instancier(N[cle], L); };
+  const T = (cle, n, dmin, dmax, emin, emax, eviteCamp = 11) => { const L = []; for (let k = 0; k < n; k++) { const a = rnd(0, 6.283), d = rnd(dmin, dmax), x = Math.cos(a) * d, z = Math.sin(a) * d; if (Math.hypot(x, z) < eviteCamp || Math.hypot(x - RESERVE.x, z - RESERVE.z) < 5 || (cle !== 'grass_01' && cle !== 'flowers_01' && distChemin(x, z) < 2.4)) continue; L.push({ p: V(x, hauteur(x, z), z), r: rnd(0, 6.28), e: rnd(emin, emax) }); } instancier(N[cle], L, { ombre: !/grass|flowers|pebbles|mushrooms|fern/.test(cle) }); }; // les petites plantes ne projettent pas d'ombre (gros gain sur téléphone)
   T('grass_01', 260, 6, 70, 0.7, 1.3, 6); T('flowers_01', 90, 8, 60, 0.7, 1.2, 8); T('fern_01', 70, 14, 65, 0.8, 1.3); T('bush_01', 45, 13, 66, 0.8, 1.3);
   T('mushrooms_01', 30, 16, 60, 0.8, 1.2); T('rocks_01', 25, 12, 66, 0.6, 1.2); T('boulder_01', 16, 22, 78, 1.8, 3.6, 18); T('rock_mossy_01', 16, 18, 76, 1.2, 2.4); T('pebbles_01', 30, 4, 50, 0.7, 1.1, 3);
   T('deadtree_01', 8, 30, 76, 1.5, 2.3, 25);
@@ -158,20 +169,22 @@ function construireDecor() {
 // arène d'entraînement : cercle de menhirs, braseros, pierre du défi
 export const PIERRE_DEFI = V(-24, 0, 4.5);
 function construireArene() {
-  const roc = new THREE.MeshStandardMaterial({ color: '#8a8478', roughness: 0.95, flatShading: true });
-  for (let i = 0; i < 14; i++) { const a = i / 14 * 6.283, x = -24 + Math.sin(a) * 13, z = -6 + Math.cos(a) * 13; if (Math.hypot(x + 24, z - 7) < 3) continue; const h = 2.2 + (i % 3) * 0.7, m = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.7, h, 6), roc); m.position.set(x, hauteur(x, z) + h / 2 - 0.1, z); m.rotation.set((i % 2) * 0.08, a, ((i * 7) % 3 - 1) * 0.06); m.castShadow = m.receiveShadow = true; G.scene.add(m); }
+  const roc = new THREE.MeshStandardMaterial({ color: '#8a8478', roughness: 0.95, flatShading: true }), menhirs = [];
+  for (let i = 0; i < 14; i++) { const a = i / 14 * 6.283, x = -24 + Math.sin(a) * 13, z = -6 + Math.cos(a) * 13; if (Math.hypot(x + 24, z - 7) < 3) continue; const h = 2.2 + (i % 3) * 0.7, m = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.7, h, 6), roc); m.position.set(x, hauteur(x, z) + h / 2 - 0.1, z); m.rotation.set((i % 2) * 0.08, a, ((i * 7) % 3 - 1) * 0.06); menhirs.push(m); }
+  fusionner(menhirs);
   const p = PIERRE_DEFI, pierre = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.8, 2.6, 5), new THREE.MeshStandardMaterial({ color: '#5a5664', roughness: 0.8, flatShading: true, emissive: '#3a1a8a', emissiveIntensity: 0.12 }));
   pierre.position.set(p.x, hauteur(p.x, p.z) + 1.25, p.z); pierre.castShadow = true; G.scene.add(pierre);
   const rune = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.05, 6, 20), new THREE.MeshBasicMaterial({ color: '#c8a8ff' })); rune.position.set(p.x, hauteur(p.x, p.z) + 1.7, p.z + 0.62); G.scene.add(rune);
 }
 // montagnes à l'horizon : des silhouettes immenses qui rappellent que le monde est vaste
 function construireMontagnes() {
-  const mat = new THREE.MeshStandardMaterial({ color: '#6a7a8a', roughness: 1, flatShading: true }), neige = new THREE.MeshStandardMaterial({ color: '#e8eef4', roughness: 1, flatShading: true });
+  const monts = [], mat = new THREE.MeshStandardMaterial({ color: '#6a7a8a', roughness: 1, flatShading: true }), neige = new THREE.MeshStandardMaterial({ color: '#e8eef4', roughness: 1, flatShading: true });
   for (let i = 0; i < 26; i++) {
     const a = i / 26 * 6.283 + rnd(-0.1, 0.1), d = rnd(110, 150), h = rnd(30, 75), r = rnd(22, 40);
-    const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 7, 3), mat); m.position.set(Math.cos(a) * d, h / 2 - 4, Math.sin(a) * d); m.rotation.y = rnd(0, 3); G.scene.add(m);
-    if (h > 55) { const c = new THREE.Mesh(new THREE.ConeGeometry(r * 0.32, h * 0.32, 7, 1), neige); c.position.set(m.position.x, h - 4 - h * 0.16, m.position.z); c.rotation.y = m.rotation.y; G.scene.add(c); }
+    const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 7, 3), mat); m.position.set(Math.cos(a) * d, h / 2 - 4, Math.sin(a) * d); m.rotation.y = rnd(0, 3); monts.push(m);
+    if (h > 55) { const c = new THREE.Mesh(new THREE.ConeGeometry(r * 0.32, h * 0.32, 7, 1), neige); c.position.set(m.position.x, h - 4 - h * 0.16, m.position.z); c.rotation.y = m.rotation.y; monts.push(c); }
   }
+  fusionner(monts, false);
 }
 // braseros le long des routes : on voit où aller, et les combats de nuit ont de la gueule
 const braseros = [];
@@ -181,8 +194,9 @@ function construireBraseros() {
     const [x, z] = L[i], [x2, z2] = L[i + 1], a = Math.atan2(x2 - x, z2 - z), cote = (i / 6) % 2 ? 1 : -1, px = x + Math.cos(a) * 2.9 * cote, pz = z - Math.sin(a) * 2.9 * cote;
     if (Math.hypot(px, pz) < 8) continue;
     const g = new THREE.Group(), pied = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.1, 1.3, 6), fer); pied.position.y = 0.65; const coupe = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.18, 0.28, 8, 1, true), fer); coupe.position.y = 1.38;
-    const feu = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 0), braise); feu.position.y = 1.45; g.add(pied, coupe, feu); g.position.set(px, hauteur(px, pz), pz); g.traverse(o => { if (o.isMesh) o.castShadow = true; }); G.scene.add(g); braseros.push(g);
+    const feu = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 0), braise); feu.position.y = 1.45; g.add(pied, coupe, feu); g.position.set(px, hauteur(px, pz), pz); braseros.push(g);
   }
+  fusionner(braseros);
 }
 function majBraseros() { const c = G.camCible; for (const b of braseros) if (Math.hypot(b.position.x - c.x, b.position.z - c.z) < 30 && Math.random() < 0.35) emettre(tmp(b.position.x + (Math.random() - 0.5) * 0.2, b.position.y + 1.55, b.position.z + (Math.random() - 0.5) * 0.2), { n: 1, c1: '#ffd27a', c2: '#ff3a10', vit: 0.6, vie: 0.6, taille: 0.2, grav: -2.5 }); }
 // ---------------- Carrière : filons de pierre ----------------

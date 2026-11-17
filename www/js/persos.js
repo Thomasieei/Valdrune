@@ -1,6 +1,6 @@
 // Personnages Quaternius : corps de base (tête seule) + tenue + coiffure, sur le squelette universel,
 // animés par la bibliothèque UAL (couper du bois, porter, s'agenouiller, se relever…).
-import { THREE, G } from './moteur.js';
+import { THREE, G, dansChamp } from './moteur.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
@@ -54,7 +54,15 @@ class Anime {
   clip(nom) { return CLIPS[nom]; }
   duree(nom) { return CLIPS[nom] ? CLIPS[nom].duration : 1; }
   phase() { const a = this.actions[this.anim]; return a ? (a.time / a.getClip().duration) % 1 : 0; }
-  maj(dt) { this.mixer.update(dt); }
+  // animation à la demande : rien hors champ, 15 images/s au loin, pleine cadence de près
+  maj(dt) {
+    this.skip = (this.skip || 0) + dt; const p = this.root.position;
+    if (!dansChamp(p, (this.rayonVue || 2.5))) { if (this.root.visible) this.root.visible = false; if (this.skip > 0.5) { this.mixer.update(this.skip); this.skip = 0; } return; }
+    if (!this.root.visible) this.root.visible = true;
+    const c = G.camera.position, loin = (p.x - c.x) ** 2 + (p.z - c.z) ** 2 > 900;
+    if (loin && this.skip < 1 / 15) return;
+    this.mixer.update(this.skip); this.skip = 0;
+  }
   tenir(obj, os = 'hand_r') { const b = this.os[os]; if (b) b.add(obj); return obj; }
 }
 // monstres du bestiaire : même squelette que les personnages, donc mêmes animations (on ne garde que les rotations,

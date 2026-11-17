@@ -99,7 +99,7 @@ class Ennemi {
     if (T.humain) this.m.tenir(epee(), 'hand_r');
     this.role = opts.role || null; this.regard = opts.regard ?? null; this.reveil = 0;
     this.m.root.position.set(pos.x, hauteur(pos.x, pos.z), pos.z); this.m.root.rotation.y = rnd(0, 6.28);
-    this.poste = this.m.root.position.clone(); G.scene.add(this.m.root);
+    this.poste = this.m.root.position.clone(); G.scene.add(this.m.root); this.m.rayonVue = Math.max(2.5, T.h * T.ech * 1.1);
     this.pvMax = Math.round(T.pv * (1 + 0.25 * (niv - 1))); this.pv = this.pvMax; this.deg = T.deg * (1 + 0.2 * (niv - 1));
     this.etat = 'garde'; this.t = rnd(1, 5); this.cible = null; this.cd = rnd(0.3, 1); this.lev = null; this.etourdi = 0; this.vu = 0;
     this.m.jouer('Idle_Loop', { vitesse: rnd(0.85, 1.1) }); if (this.regard != null) this.m.root.rotation.y = this.regard;
