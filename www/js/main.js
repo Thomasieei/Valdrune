@@ -504,7 +504,7 @@ function lancerHub(premier = false) {
   if (V1) { monde.patrouille = Array.from({ length: 8 }, (_, k) => pointLibrePres(V(Math.sin(k / 8 * 6.283) * 15, 0, Math.cos(k / 8 * 6.283) * 15), 0, 3)); monde.entreesVille = ['portailArene', 'portailIle'].filter(k => monde[k]).map(k => monde[k].pos.clone()); for (const k of ['portailArene', 'portailIle', 'portailGoulet']) if (monde[k]) { monde[k].groupe.visible = false; monde[k] = null; } }
   const revientDeMode = !!modeActuel;
   modeActuel = V1 ? MODE_VILLE : null; enJeu = true;
-  if (V1) { verifierSacrifices(); volontaires(); percevoirImpots(); prochaineAffaire = G.t + 90; prochainRaidV = G.t + 40 + 30 * (royaume().fortif || 0); if (!citoyens.length) creerCitoyens(); programmer(0.4, () => { if (joueur && modeActuel && modeActuel.id === 'ville' && !compActeurs.length) deployerCompagnons(false); }); if (!J.escouade) { J.escouade = true; J.escStats = { debut: Date.now(), argent0: J.argent, xp: 0, kills: 0, coffres: 0 }; } } // V1 : tes ombres font partie de toi, plus besoin de code
+  if (V1) { verifierSacrifices(); volontaires(); percevoirImpots(); prochaineAffaire = G.t + 90; prochainRaidV = G.t + 40 + 30 * (royaume().fortif || 0); if (!citoyens.length) creerCitoyens(); prochainPortail = G.t + 150; programmer(0.4, () => { if (joueur && modeActuel && modeActuel.id === 'ville') construireCimetiere(); if (joueur && modeActuel && modeActuel.id === 'ville' && !compActeurs.length) deployerCompagnons(false); }); if (!J.escouade) { J.escouade = true; J.escStats = { debut: Date.now(), argent0: J.argent, xp: 0, kills: 0, coffres: 0 }; } } // V1 : tes ombres font partie de toi, plus besoin de code
   construireJoueur(monde.spawn.clone());
   if (revientDeMode && !premier) setTimeout(() => proposerRefaire(60), 900); else UI.boutonRefaire(null);
   joueur.pv = joueur.st.pvMax; joueur.energie = joueur.st.energieMax;
@@ -4348,6 +4348,7 @@ function majInteractions() {
   if (modeActuel && modeActuel.id === 'terres') { const r = interactionsTerres(); if (r !== null) return r; }
   if (captifV && !captifV.libre && dist2D(captifV.pos, joueur.pos) < 3.2) return UI.action(`Libérer ${captifV.g.nom}`, () => libererCaptif());
   if (!modeActuel || modeActuel.id === 'ville') {
+    if (portailV && dist2D(portailV.pos, joueur.pos) < 3.2) return UI.action(portailV.canal ? `Refermer le portail… ${Math.round(portailV.ferme * 100)} %` : 'Refermer le portail', () => { portailV.canal = true; });
     for (const a of compActeurs) if (!a.mort && dist2D(a.pos, joueur.pos) < 2.6) return UI.action(`Parler à ${a.nom}`, () => parlerCompagnon(a));
     if (raidV) for (const e of pillards()) if (e.champion && !e.parle && !e.retraite && dist2D(e.pos, joueur.pos) < 5.5) return UI.action(`Parlementer avec ${e.nomChampion}`, () => parlerChampion(e));
     if (!V1 && monde.taverne && dist2D(joueur.pos, monde.taverne.porte) < 4) return UI.action('Entrer au Croc-Rouge', () => entrerTaverne());
@@ -7520,7 +7521,7 @@ function creerCitoyens() {
     citoyens.push(a);
   }
 }
-function viderVille() { { const b = $('#btnRoyaume'); if (b) b.hidden = true; } finirCaptif(); compActeurs = []; for (const c of citoyens) { G.scene.remove(c.root); UI.retirerPlaque(c); } citoyens = []; raidV = null; }
+function viderVille() { viderPortailVille(); if (raidV && raidV.beam) G.scene.remove(raidV.beam); { const b = $('#btnRoyaume'); if (b) b.hidden = true; } finirCaptif(); compActeurs = []; for (const c of citoyens) { G.scene.remove(c.root); UI.retirerPlaque(c); } citoyens = []; raidV = null; }
 function pillards() { return ennemis.filter(e => e.raidV && !e.mort && !e.parti); }
 function majCitoyens(dt) {
   for (const c of citoyens) {
@@ -7556,6 +7557,7 @@ function mortCitoyen(c, tueur) {
   const temoin = citoyens.find(x => x !== c && x.etat !== 'mort' && x.etat !== 'capture' && dist2D(x.pos, c.pos) < 16);
   if (temoin) programmer(1.2, () => UI.parole(temoin, hasard(CRIS_DEUIL).split('{n}').join(c.g.nom)));
   setTimeout(() => { if (citoyens.includes(c)) { UI.retirerPlaque(c); c.descendre = true; } }, 4000);
+  programmer(6, () => { if (modeActuel && modeActuel.id === 'ville') construireCimetiere(); });
   sauver();
 }
 function lancerRaidVille() {
@@ -7563,8 +7565,8 @@ function lancerRaidVille() {
   const ip = statsHeros(J.equip).ip, tier = Math.max(1, Math.min(8, (ip - 300) / 100 + 1)) * 0.9;
   const tr = v.traitre ? parId(v.traitre) : null; if (tr) { delete v.traitre; UI.toast(`${tr.nom} a ouvert la porte : le raid est massif !`, true); }
   const n = Math.max(3, Math.min(11, 4 + Math.floor(v.raids / 2) - (v.fortif || 0) + (tr ? 3 : 0))), entree = hasard(monde.entreesVille);
-  raidV = { entree, morts: [], enleves: [], sauves: 0, n };
-  UI.toast('ALERTE — des cultistes de la Brèche attaquent la Place !', true); UI.flashInvasion && UI.flashInvasion();
+  raidV = { entree, morts: [], enleves: [], sauves: 0, n, beam: colonneLumiere(entree, '#ff3a2a') };
+  UI.toast(`ALERTE — des cultistes attaquent (${directionDe(entree)}) — colonne rouge !`, true); UI.flashInvasion && UI.flashInvasion();
   son('lowFrequency_explosion_000', 0.7, 0.7); G.shake = 0.4;
   for (let i = 0; i < n; i++) {
     const cle = i < 2 ? 'cultiste' : hasard(['minion', 'guerrier', 'brute', 'cultiste']);
@@ -7628,11 +7630,11 @@ function finPillard(e) {
   programmer(0.8, () => UI.parole(c, hasard(MERCI))); UI.toast(`${c.g.nom} est sauvé·e !`, true); son('jingle_win', 0.5);
 }
 function majVille(dt) {
-  majCitoyens(dt); majRoyaume();
+  majCitoyens(dt); majRoyaume(); majPortailVille(dt);
   if (!raidV) { if (G.t > prochainRaidV && !transition) lancerRaidVille(); return; }
   if (pillards().length) return;
   // bilan du raid
-  const R = raidV; raidV = null; finDuel(); prochainRaidV = G.t + rnd(150, 240) + 30 * (royaume().fortif || 0);
+  const R = raidV; raidV = null; finDuel(); if (R.beam) G.scene.remove(R.beam); prochainRaidV = G.t + rnd(150, 240) + 30 * (royaume().fortif || 0);
   const pertes = R.morts.length + R.enleves.length;
   if (!pertes) { moralVille(6); J.argent += 400 * R.n; journalVille(`Raid repoussé sans perte (${R.n} assaillants).`); }
   else journalVille(`Raid repoussé. Morts : ${R.morts.join(', ') || 'aucun'}. Enlevés : ${R.enleves.join(', ') || 'aucun'}.`);
@@ -7967,7 +7969,69 @@ function interrogerAccuse(af) {
     appliquer: (x) => { if (x === 'aveu' && af.coupable) { af.aveu = true; sauver(); return true; } return false; } });
 }
 
-window.__jeu = { interroger: () => interrogerAccuse(royaume().affaires[0]), royaume: () => ouvrirRoyaume(), affaire: () => { prochaineAffaire = 0; royaume().affaires = []; nouvelleAffaire(); }, get comps() { return compActeurs.map(a => a.nom + (a.mort ? '†' : '')).join(','); }, tuerComp: () => blesserAllie(compActeurs[0], 1e9, null), enlever: () => { const g = etatVille().gens.find(x => x.statut === 'vivant'); g.statut = 'enleve'; g.lieu = 0; g.enleveLe = Date.now(); return g.nom; }, get captif() { return captifV && (captifV.g.nom + ':' + captifV.libre); }, liberer: () => libererCaptif(), raidVille: () => lancerRaidVille(), parler: () => { const e = pillards().find(x => x.champion); if (e) parlerChampion(e); return !!e; }, testOmbre: () => blesserOmbre(escouade[0], 1e9, null), get nbOmbres() { return escouade.length; }, get pillardsN() { return pillards().length; }, get citoyens() { return citoyens; }, get modeActuel() { return modeActuel; }, demon: () => basculerDemon(), pacte: () => pacteInvocation(), autel: () => ouvrirAutel(), tirer: (n) => tirerCartes(n), transfert: () => transfert(), code: (c) => utiliserCode(c), get J() { return J; }, entrerTerres: () => entrerTerres(), entrerAncestrales: (e) => entrerAncestrales(e), get terres() { return terres; }, dbgAggro: () => { const c = choisirCible(joueur.st.portee); return [c ? c.nom : null, passantsProches().length, G.agression]; }, domaineTest: (n = 4) => { if (!J.domaine) J.domaine = { niveau: n, serviteurs: [], tresor: 0, maj: Date.now(), graine: 7, journal: [] }; J.domaine.niveau = n; if (!iles().length) J.iles = J.iles || []; return entrerDomaine(); }, bilan: () => MODES.map(m => {
+// ======================= VILLE VIVANTE II : repère du raid, cimetière, portails à refermer =======================
+function directionDe(p) { // relatif à l'écran du joueur : plus clair qu'une boussole
+  try { const a = p.clone().setY(0).project(G.camera), b = (joueur ? joueur.pos.clone() : V()).setY(0).project(G.camera); const ang = Math.atan2(a.y - b.y, a.x - b.x) * 180 / Math.PI;
+    return ['à droite de l’écran', 'en haut à droite', 'en haut de l’écran', 'en haut à gauche', 'à gauche de l’écran', 'en bas à gauche', 'en bas de l’écran', 'en bas à droite'][Math.round(((ang + 360) % 360) / 45) % 8]; } catch (e) { return 'près de la Place'; } }
+function colonneLumiere(pos, couleur) {
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 1.1, 40, 16, 1, true), new THREE.MeshBasicMaterial({ color: couleur, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  m.position.set(pos.x, 20, pos.z); G.scene.add(m); return m;
+}
+// ---- cimetière : chaque mort a sa tombe ----
+let tombes = [];
+function construireCimetiere() {
+  for (const t of tombes) { G.scene.remove(t); UI.retirerPlaque(t.plq); } tombes = [];
+  const v = etatVille(), morts = [...v.gens.filter(g => g.statut === 'mort' || g.statut === 'sacrifie'), ...compagnons().filter(c => c.statut === 'mort').map(c => ({ nom: c.nom, metier: 'compagnon d’armes', statut: 'mort' }))];
+  if (!morts.length) return;
+  const base = monde.cimetiere || (monde.cimetiere = pointLibrePres(V(-19, 0, 14), 0, 5, 2.5));
+  const pierre = new THREE.MeshStandardMaterial({ color: '#7d7c86', roughness: 0.95 }), terre = new THREE.MeshStandardMaterial({ color: '#3a2a20', roughness: 1 });
+  morts.slice(-18).forEach((g, k) => {
+    const grp = new THREE.Group(), x = (k % 6) * 1.3 - 3.2, z = Math.floor(k / 6) * 1.6;
+    const st = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.8, 0.16), pierre); st.position.y = 0.4; grp.add(st);
+    const haut = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.16, 16, 1, false, 0, Math.PI), pierre); haut.rotation.set(Math.PI / 2, 0, Math.PI / 2); haut.position.y = 0.8; grp.add(haut);
+    const tas = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.12, 1.2), terre); tas.position.set(0, 0.06, 0.7); grp.add(tas);
+    grp.position.set(base.x + x, 0, base.z + z); grp.rotation.y = rnd(-0.08, 0.08); G.scene.add(grp);
+    grp.pos = grp.position; grp.hauteurPlaque = 1.4; grp.plq = grp;
+    UI.plaque(grp, { nom: '† ' + g.nom, guilde: g.statut === 'sacrifie' ? 'SACRIFIÉ·E PAR LA BRÈCHE' : (g.metier || '').toUpperCase(), classe: 'pnj', vie: false, lettre: false });
+    tombes.push(grp);
+  });
+}
+// ---- portails : un habitant vient te chercher ----
+let portailV = null, prochainPortail = 0;
+function ouvrirPortailVille() {
+  let p, k = 0; do { const a = rnd(0, 6.28), r = rnd(16, 23); p = V(Math.sin(a) * r, 0, Math.cos(a) * r); } while (!libre(p.x, p.z, 1.2) && ++k < 30);
+  const anneau = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.18, 10, 40), new THREE.MeshBasicMaterial({ color: '#ff2a3a', blending: THREE.AdditiveBlending, transparent: true }));
+  anneau.position.set(p.x, 1.9, p.z); G.scene.add(anneau);
+  portailV = { pos: p, anneau, beam: colonneLumiere(p, '#ff2a3a'), spawnT: 4, ferme: 0, debut: G.t, vagues: 0 };
+  effetArrivee(p.clone()); son('forceField_000', 0.7, 0.6);
+  const msg = citoyens.filter(c => c.etat === 'flane').sort((a, b) => dist2D(a.pos, joueur.pos) - dist2D(b.pos, joueur.pos))[0];
+  const ou = directionDe(p);
+  if (msg) { msg.but = joueur.pos.clone(); UI.parole(msg, `Gardien ! Un portail vient de s’ouvrir ! Là-bas, ${ou} ! Vite !`, 'menace'); }
+  UI.toast(`⚠ Un portail s’ouvre (${ou}) — suis la colonne rouge !`, true);
+}
+function majPortailVille(dt) {
+  const P = portailV; if (!P) { if (!raidV && G.t > prochainPortail) { prochainPortail = G.t + rnd(300, 480); ouvrirPortailVille(); } return; }
+  P.anneau.rotation.y += dt * 1.5; P.anneau.scale.setScalar(1 + Math.sin(G.t * 4) * 0.06);
+  P.spawnT -= dt;
+  if (P.spawnT <= 0) { // tant qu'il est ouvert, il crache des monstres
+    P.spawnT = 14; P.vagues++; const ip = statsHeros(J.equip).ip, tier = Math.max(1, Math.min(8, (ip - 300) / 100 + 1)) * 0.9;
+    for (let i = 0; i < 2 + Math.floor(P.vagues / 3); i++) { const q = pointLibrePres(P.pos, 0.5, 2.5); const e = creerEnnemi(MOBS[hasard(['minion', 'guerrier', 'cultiste'])], q, tier, 950); e.raidV = true; e.etat = 'chasse'; effetArrivee(q); }
+  }
+  if (dist2D(joueur.pos, P.pos) < 3.2 && !joueur.mort) {
+    if (P.canal) { P.ferme += dt / 4; emettre(V(P.pos.x, 1.9, P.pos.z), { n: 2, c1: '#ffd0d0', c2: '#ff2a3a', vit: 2, vie: 0.5, taille: 0.25 }); }
+    if (P.ferme >= 1) return fermerPortailVille();
+  } else P.canal = false;
+}
+function fermerPortailVille() {
+  const P = portailV; portailV = null;
+  G.scene.remove(P.anneau); G.scene.remove(P.beam); emettre(V(P.pos.x, 1.9, P.pos.z), { n: 80, c1: '#ffffff', c2: '#ff2a3a', vit: 9, vie: 0.9, taille: 0.5 }); G.shake = 0.35; son('lowFrequency_explosion_000', 0.6, 1.2);
+  const dur = Math.round(G.t - P.debut), gain = Math.max(200, 1200 - dur * 4);
+  J.argent += gain; moralVille(dur < 60 ? 5 : 2); journalVille(`Tu as refermé un portail en ${dur} s.`);
+  UI.toast(`Portail refermé ! +${fmtN(gain)} ¤`, true); sauver();
+}
+function viderPortailVille() { if (portailV) { G.scene.remove(portailV.anneau); G.scene.remove(portailV.beam); portailV = null; } for (const t of tombes) { G.scene.remove(t); UI.retirerPlaque(t); } tombes = []; }
+
+window.__jeu = { portail: () => ouvrirPortailVille(), fermerTest: () => { joueur.pos.copy(portailV.pos).add(V(1.5, 0, 0)); portailV.canal = true; }, get portailV() { return portailV && Math.round(portailV.ferme * 100); }, tombesTest: () => { etatVille().gens[0].statut = 'mort'; construireCimetiere(); return tombes.length; }, interroger: () => interrogerAccuse(royaume().affaires[0]), royaume: () => ouvrirRoyaume(), affaire: () => { prochaineAffaire = 0; royaume().affaires = []; nouvelleAffaire(); }, get comps() { return compActeurs.map(a => a.nom + (a.mort ? '†' : '')).join(','); }, tuerComp: () => blesserAllie(compActeurs[0], 1e9, null), enlever: () => { const g = etatVille().gens.find(x => x.statut === 'vivant'); g.statut = 'enleve'; g.lieu = 0; g.enleveLe = Date.now(); return g.nom; }, get captif() { return captifV && (captifV.g.nom + ':' + captifV.libre); }, liberer: () => libererCaptif(), raidVille: () => lancerRaidVille(), parler: () => { const e = pillards().find(x => x.champion); if (e) parlerChampion(e); return !!e; }, testOmbre: () => blesserOmbre(escouade[0], 1e9, null), get nbOmbres() { return escouade.length; }, get pillardsN() { return pillards().length; }, get citoyens() { return citoyens; }, get modeActuel() { return modeActuel; }, demon: () => basculerDemon(), pacte: () => pacteInvocation(), autel: () => ouvrirAutel(), tirer: (n) => tirerCartes(n), transfert: () => transfert(), code: (c) => utiliserCode(c), get J() { return J; }, entrerTerres: () => entrerTerres(), entrerAncestrales: (e) => entrerAncestrales(e), get terres() { return terres; }, dbgAggro: () => { const c = choisirCible(joueur.st.portee); return [c ? c.nom : null, passantsProches().length, G.agression]; }, domaineTest: (n = 4) => { if (!J.domaine) J.domaine = { niveau: n, serviteurs: [], tresor: 0, maj: Date.now(), graine: 7, journal: [] }; J.domaine.niveau = n; if (!iles().length) J.iles = J.iles || []; return entrerDomaine(); }, bilan: () => MODES.map(m => {
     const eq = genererEquipRival(m.ipConseil, 'epee'), niv = nivBot(eq), st = statsHeros(eq, niv), dps = st.degats * st.vitesseAtk * (1 + st.crit / 200);
     const mob = creerEnnemi(MOBS.guerrier, V(900, 0, 900), m.mobTier, -9), mi = creerEnnemi(MOBS.minion, V(900, 0, 900), m.mobTier, -9), b = creerBoss(BOSS[0], V(905, 0, 905), m.bossTier[0], null), b3 = creerBoss(BOSS[3], V(905, 0, 905), m.bossTier[3], null);
     const r = { mode: m.lieu, ip: m.ipConseil, niv, pv: Math.round(st.pvMax), dps: Math.round(dps), red: +st.reduction.toFixed(2), ttkMinion: +(mi.pvMax / dps).toFixed(1), ttkGuerrier: +(mob.pvMax / dps).toFixed(1), ttkBoss1: Math.round(b.pvMax / dps), ttkBoss4: Math.round(b3.pvMax / dps), coupsGuerrierPourMourir: +(st.pvMax / (mob.dmg * (1 - st.reduction))).toFixed(1), coupsBossPourMourir: +(st.pvMax / (b.dmg * (1 - st.reduction))).toFixed(1) };

@@ -34,6 +34,8 @@ Règle : on ne rallume un système que quand la 1.0 est solide, et un seul à la
 
 - v1.0-j : ÉTAPE 7 PAROLE LIBRE — « 💬 Parler librement » avec champions, compagnons, et « Interroger l’accusé·e » en justice. Sans clé : mode simple par mots-clés (menace, raisonner, duel, question, avoue…). Avec clé API Anthropic (saisie dans la fenêtre, stockée seulement sur le téléphone, modèle claude-haiku-5-5) : réponses libres en JSON {reponse, action} → actions réelles (retraite, combat, duel, suivre, garder, aveu). L’accusé connaît sa culpabilité cachée et ment s’il est coupable.
 
+- v1.0-k : VILLE VIVANTE II — colonne de lumière rouge sur l’entrée du raid + direction relative à l’écran ; CIMETIÈRE (tombe nommée pour chaque habitant mort/sacrifié et compagnon tombé, coin ouest de la Place) ; PORTAILS À REFERMER toutes les 5–8 min hors raid : un habitant court te prévenir, le portail crache des monstres toutes les 14 s (vagues croissantes) tant qu’il est ouvert, bouton « Refermer » (4 s à moins de 3 m), récompense dégressive selon ta rapidité.
+
 ## Bugs connus
 - (à remplir avec les retours de test de Thomas)
 
