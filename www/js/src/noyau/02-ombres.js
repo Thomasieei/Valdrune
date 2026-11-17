@@ -95,19 +95,7 @@ function majOmbreGarde(o, dt) {
     o.gardeCible = c;
   }
   if (!c) return false;
-  const d = dist2D(o.pos, c.pos);
-  if (d > 8) { teleporterOmbre(o, c.pos); return true; }
-  if (d > (c.rayon || 0.6) + 1.3) { allerVers(o, c.pos, dt, joueur.st.vitesse * 1.3); o.jouer(o.armeDef.run); return true; }
-  o.angle = tourner(o.angle, Math.atan2(c.pos.x - o.pos.x, c.pos.z - o.pos.z), dt * 12); o.root.rotation.y = o.angle;
-  o.coupT = (o.coupT || 0) - dt;
-  if (o.coupT <= 0) {
-    o.coupT = 0.75 + Math.random() * 0.3;
-    o.jouer(hasard(['1H_Melee_Attack_Chop', '1H_Melee_Attack_Slice_Diagonal', '1H_Melee_Attack_Stab']), { boucle: false, forcer: true, vitesse: 1.4, fin: () => o.jouer(o.armeDef.idle) });
-    programmer(0.22, () => { if (c.mort) return; arcTaille(c.pos, o.angle - Math.PI / 2, 2.2, '#b07aff', Math.PI * 0.7, 0.2);
-      const dmg = Math.max(1, joueur.st.degats * 1.6 * (c.boss ? 0.6 : 1));
-      sansChoc(() => { if (c.pv - dmg <= 0) { c.pv = 0; tuer(c); statsEscouade().kills++; } else { c.pv -= dmg; c.flash = 0.12; UI.nombre(V(c.pos.x, 2.3, c.pos.z), fmtN(Math.round(dmg)), ''); if (c.etat === 'idle' || c.etat === 'dormant') reveiller(c); } });
-      son('knifeSlice', 0.25, 1.1 + Math.random() * 0.3); });
-  }
+  engagerOmbre(o, c, dt, true); // même moteur de combat que les autres ordres (v1/ombres.js)
   return true;
 }
 // ======================= COMMANDEMENT DES OMBRES (code THOMAS83) =======================

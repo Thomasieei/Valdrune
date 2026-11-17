@@ -30,7 +30,7 @@ function rendreVerdict(af, verdict) {
   if (!a || a.statut !== 'vivant') return;
   const puni = verdict !== 'acquitter', C = af.coupable;
   if (verdict === 'amende') { v.tresor += 300; }
-  if (verdict === 'prison') { a.statut = 'prison'; a.libereLe = Date.now() + 20 * 60000; const c = citoyens.find(x => x.g === a); if (c) { fumeeOmbre(c.pos); G.scene.remove(c.root); UI.retirerPlaque(c); citoyens.splice(citoyens.indexOf(c), 1); } }
+  if (verdict === 'prison') { a.statut = 'prison'; a.libereLe = Date.now() + 20 * 60000; const c = citoyens.find(x => x.g === a); if (c) { c.etat = 'parti'; fumeeOmbre(c.pos); G.scene.remove(c.root); UI.retirerPlaque(c); citoyens.splice(citoyens.indexOf(c), 1); } }
   if (verdict === 'bannir') { a.statut = 'banni'; const c = citoyens.find(x => x.g === a); if (c) { c.etat = 'parti'; UI.parole(c, C ? '…Je ne reviendrai pas.' : 'Je suis innocent·e ! Vous le regretterez tous !'); setTimeout(() => { G.scene.remove(c.root); UI.retirerPlaque(c); }, 2500); } }
   const lib = { acquitter: 'acquitté·e', amende: 'condamné·e à une amende', prison: 'emprisonné·e 20 min', bannir: 'banni·e de la ville' }[verdict];
   journalVille(`Jugement : ${a.nom} ${lib} (${af.titre.toLowerCase()}).`);

@@ -21,11 +21,12 @@ function intentionLocale(txt) {
 }
 // conversation générique : p = { nom, titre, modele, systeme(), local(intention, texte) -> {reponse, action}, appliquer(action) -> true si la scène se termine }
 function conversationLibre(p) {
-  const histo = [], lignes = [];
+  const histo = [], lignes = []; let modeCle = false;
   const afficher = (attente) => UI.saisieLibre({ nom: p.nom, titre: p.titre + (cleIA() ? ' · IA' : ' · mode simple'), modele: p.modele, lignes, attente, sansCle: !cleIA() }, envoyer);
   async function envoyer(txt) {
-    if (txt === '__cle__') { const k = prompt('Ta clé API Anthropic (reste uniquement sur ce téléphone) :', cleIA()); if (k !== null) { try { localStorage.setItem(CLE_IA, k.trim()); } catch (e) {} } return afficher(false); }
-    if (!txt) return; lignes.push({ qui: 'toi', t: txt }); afficher(true);
+    if (txt === '__cle__') { modeCle = true; lignes.push({ qui: 'lui', t: '[Colle ta clé API Anthropic (sk-ant-…) puis touche Dire. Elle reste uniquement sur ce téléphone. Écris « aucune » pour revenir au mode simple.]' }); return afficher(false); }
+    if (!txt) return;
+    if (modeCle) { modeCle = false; const k = txt.trim(); try { if (/^aucune$/i.test(k)) localStorage.removeItem(CLE_IA); else localStorage.setItem(CLE_IA, k); } catch (e) {} lignes.push({ qui: 'lui', t: cleIA() ? '[Clé enregistrée : réponses libres activées.]' : '[Mode simple.]' }); return afficher(false); } lignes.push({ qui: 'toi', t: txt }); afficher(true);
     let rep;
     if (cleIA()) { histo.push({ role: 'user', content: txt }); try { rep = await demanderIA(p.systeme(), histo); histo.push({ role: 'assistant', content: JSON.stringify(rep) }); } catch (e) { histo.pop(); rep = p.local(intentionLocale(txt), txt); rep.reponse += ' (IA injoignable : ' + e.message + ')'; } }
     else rep = p.local(intentionLocale(txt), txt);

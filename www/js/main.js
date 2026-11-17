@@ -637,19 +637,7 @@ function majOmbreGarde(o, dt) {
     o.gardeCible = c;
   }
   if (!c) return false;
-  const d = dist2D(o.pos, c.pos);
-  if (d > 8) { teleporterOmbre(o, c.pos); return true; }
-  if (d > (c.rayon || 0.6) + 1.3) { allerVers(o, c.pos, dt, joueur.st.vitesse * 1.3); o.jouer(o.armeDef.run); return true; }
-  o.angle = tourner(o.angle, Math.atan2(c.pos.x - o.pos.x, c.pos.z - o.pos.z), dt * 12); o.root.rotation.y = o.angle;
-  o.coupT = (o.coupT || 0) - dt;
-  if (o.coupT <= 0) {
-    o.coupT = 0.75 + Math.random() * 0.3;
-    o.jouer(hasard(['1H_Melee_Attack_Chop', '1H_Melee_Attack_Slice_Diagonal', '1H_Melee_Attack_Stab']), { boucle: false, forcer: true, vitesse: 1.4, fin: () => o.jouer(o.armeDef.idle) });
-    programmer(0.22, () => { if (c.mort) return; arcTaille(c.pos, o.angle - Math.PI / 2, 2.2, '#b07aff', Math.PI * 0.7, 0.2);
-      const dmg = Math.max(1, joueur.st.degats * 1.6 * (c.boss ? 0.6 : 1));
-      sansChoc(() => { if (c.pv - dmg <= 0) { c.pv = 0; tuer(c); statsEscouade().kills++; } else { c.pv -= dmg; c.flash = 0.12; UI.nombre(V(c.pos.x, 2.3, c.pos.z), fmtN(Math.round(dmg)), ''); if (c.etat === 'idle' || c.etat === 'dormant') reveiller(c); } });
-      son('knifeSlice', 0.25, 1.1 + Math.random() * 0.3); });
-  }
+  engagerOmbre(o, c, dt, true); // même moteur de combat que les autres ordres (v1/ombres.js)
   return true;
 }
 // ======================= COMMANDEMENT DES OMBRES (code THOMAS83) =======================
@@ -7379,6 +7367,11 @@ function majBandeauVille() {
   UI.zone('Place des Cendres', `👥 ${n} · ♥ ${Math.round(v.moral)}%${raidV ? ' · ⚠ RAID' : ''}`);
 }
 function moralVille(d) { const v = etatVille(); v.moral = Math.max(0, Math.min(100, v.moral + d)); majBandeauVille(); }
+function acteurHabitant(modele) { // habitant désarmé (ville, captifs)
+  const a = new Acteur(modele, { hauteur: 1.95 });
+  a.montrerSeul([], Object.keys(a.nodes).filter(n => /Sword|Axe|Shield|Crossbow|Staff|Wand|Knife|Throwable|Spellbook|Offhand/.test(n)));
+  return a;
+}
 function creerCitoyens() {
   const v = etatVille();
   // un nouveau venu s'installe de temps en temps si la ville se vide
@@ -7392,8 +7385,7 @@ function creerCitoyens() {
   citoyens = [];
   for (const g of v.gens) {
     if (g.statut !== 'vivant') continue;
-    const a = new Acteur(g.modele, { hauteur: 1.95 });
-    a.montrerSeul([], Object.keys(a.nodes).filter(n => /Sword|Axe|Shield|Crossbow|Staff|Wand|Knife|Throwable|Spellbook|Offhand/.test(n)));
+    const a = acteurHabitant(g.modele);
     let p, k = 0; do { p = V(rnd(-24, 22), 0, rnd(-20, 20)); } while (!libre(p.x, p.z, 0.6) && ++k < 30);
     a.root.position.copy(p); a.root.rotation.y = rnd(0, 6.28); G.scene.add(a.root);
     Object.assign(a, { g, pos: a.root.position, angle: a.root.rotation.y, etat: 'flane', t: rnd(0, 5), but: null, coups: 3, criT: 0, hauteurPlaque: 2.5, citoyen: true });
@@ -7728,8 +7720,7 @@ function placerCaptif(id) {
   const v = etatVille(); verifierSacrifices();
   const g = v.gens.find(x => x.statut === 'enleve' && x.lieu === id); if (!g) return;
   const s = monde.bossSalles[3] || monde.bossSalles[monde.bossSalles.length - 1]; if (!s) return;
-  const a = new Acteur(g.modele, { hauteur: 1.95 });
-  a.montrerSeul([], Object.keys(a.nodes).filter(n => /Sword|Axe|Shield|Crossbow|Staff|Wand|Knife|Throwable|Spellbook|Offhand/.test(n)));
+  const a = acteurHabitant(g.modele);
   a.root.position.copy(pointLibrePres(s.centre.clone().add(V(-2.5, 0, -2.5)), 0, 2)); G.scene.add(a.root);
   Object.assign(a, { g, pos: a.root.position, angle: 0, libre: false, criT: 0, hauteurPlaque: 2.4, camp: 'allie', mort: false, rayon: 0.5, pv: Math.round(joueur.st.pvMax * 0.45), pvMax: Math.round(joueur.st.pvMax * 0.45), reduction: 0, st: { pvMax: Math.round(joueur.st.pvMax * 0.45), reduction: 0 }, stunT: 0, slowT: 0, invuln: 0, dots: [] });
   a.jouer('Sit_Floor_Idle'); 
@@ -7846,7 +7837,7 @@ function rendreVerdict(af, verdict) {
   if (!a || a.statut !== 'vivant') return;
   const puni = verdict !== 'acquitter', C = af.coupable;
   if (verdict === 'amende') { v.tresor += 300; }
-  if (verdict === 'prison') { a.statut = 'prison'; a.libereLe = Date.now() + 20 * 60000; const c = citoyens.find(x => x.g === a); if (c) { fumeeOmbre(c.pos); G.scene.remove(c.root); UI.retirerPlaque(c); citoyens.splice(citoyens.indexOf(c), 1); } }
+  if (verdict === 'prison') { a.statut = 'prison'; a.libereLe = Date.now() + 20 * 60000; const c = citoyens.find(x => x.g === a); if (c) { c.etat = 'parti'; fumeeOmbre(c.pos); G.scene.remove(c.root); UI.retirerPlaque(c); citoyens.splice(citoyens.indexOf(c), 1); } }
   if (verdict === 'bannir') { a.statut = 'banni'; const c = citoyens.find(x => x.g === a); if (c) { c.etat = 'parti'; UI.parole(c, C ? '…Je ne reviendrai pas.' : 'Je suis innocent·e ! Vous le regretterez tous !'); setTimeout(() => { G.scene.remove(c.root); UI.retirerPlaque(c); }, 2500); } }
   const lib = { acquitter: 'acquitté·e', amende: 'condamné·e à une amende', prison: 'emprisonné·e 20 min', bannir: 'banni·e de la ville' }[verdict];
   journalVille(`Jugement : ${a.nom} ${lib} (${af.titre.toLowerCase()}).`);
@@ -7924,11 +7915,12 @@ function intentionLocale(txt) {
 }
 // conversation générique : p = { nom, titre, modele, systeme(), local(intention, texte) -> {reponse, action}, appliquer(action) -> true si la scène se termine }
 function conversationLibre(p) {
-  const histo = [], lignes = [];
+  const histo = [], lignes = []; let modeCle = false;
   const afficher = (attente) => UI.saisieLibre({ nom: p.nom, titre: p.titre + (cleIA() ? ' · IA' : ' · mode simple'), modele: p.modele, lignes, attente, sansCle: !cleIA() }, envoyer);
   async function envoyer(txt) {
-    if (txt === '__cle__') { const k = prompt('Ta clé API Anthropic (reste uniquement sur ce téléphone) :', cleIA()); if (k !== null) { try { localStorage.setItem(CLE_IA, k.trim()); } catch (e) {} } return afficher(false); }
-    if (!txt) return; lignes.push({ qui: 'toi', t: txt }); afficher(true);
+    if (txt === '__cle__') { modeCle = true; lignes.push({ qui: 'lui', t: '[Colle ta clé API Anthropic (sk-ant-…) puis touche Dire. Elle reste uniquement sur ce téléphone. Écris « aucune » pour revenir au mode simple.]' }); return afficher(false); }
+    if (!txt) return;
+    if (modeCle) { modeCle = false; const k = txt.trim(); try { if (/^aucune$/i.test(k)) localStorage.removeItem(CLE_IA); else localStorage.setItem(CLE_IA, k); } catch (e) {} lignes.push({ qui: 'lui', t: cleIA() ? '[Clé enregistrée : réponses libres activées.]' : '[Mode simple.]' }); return afficher(false); } lignes.push({ qui: 'toi', t: txt }); afficher(true);
     let rep;
     if (cleIA()) { histo.push({ role: 'user', content: txt }); try { rep = await demanderIA(p.systeme(), histo); histo.push({ role: 'assistant', content: JSON.stringify(rep) }); } catch (e) { histo.pop(); rep = p.local(intentionLocale(txt), txt); rep.reponse += ' (IA injoignable : ' + e.message + ')'; } }
     else rep = p.local(intentionLocale(txt), txt);

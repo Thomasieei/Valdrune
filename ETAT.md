@@ -45,6 +45,8 @@ Règle : on ne rallume un système que quand la 1.0 est solide, et un seul à la
 
 - v1.0-l : NETTOYAGE — main.js découpé en 29 fichiers (src/), assemblage automatique au build ; outils de test cachés derrière breche-debug ; corrections : duel jamais terminé si on quitte la Place (ombres bloquées en escorte), captif sans stats de combat, portails plafonnés à 14 monstres, liste des pillards calculée une fois par image ; lisibilité : plus de plaques sur les ombres, plaque compagnon allégée. Test intégré OK (raid + champion + duel + portail + affaire + sauvetage).
 
+- v1.0-m : AUDIT — vérifs auto : fonctions appelées sans définition (0), UI.* manquants (0), ids DOM (0), sons (0), types de monstres (0), blocs dupliqués ≥ 4 lignes (0), animations (alias OK). Corrections : habitant emprisonné encore ciblé par les pillards ; clé API saisie dans la fenêtre (plus de prompt() natif, « aucune » pour l’effacer) ; ombre en garde = même moteur de combat que les autres ordres (doublon supprimé) ; constructeur d’habitant unique. Appel API testé : atteint api.anthropic.com (401 avec fausse clé → repli mode simple OK).
+
 ## Bugs connus
 - (à remplir avec les retours de test de Thomas)
 

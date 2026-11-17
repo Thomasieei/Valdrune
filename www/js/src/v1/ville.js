@@ -24,6 +24,11 @@ function majBandeauVille() {
   UI.zone('Place des Cendres', `👥 ${n} · ♥ ${Math.round(v.moral)}%${raidV ? ' · ⚠ RAID' : ''}`);
 }
 function moralVille(d) { const v = etatVille(); v.moral = Math.max(0, Math.min(100, v.moral + d)); majBandeauVille(); }
+function acteurHabitant(modele) { // habitant désarmé (ville, captifs)
+  const a = new Acteur(modele, { hauteur: 1.95 });
+  a.montrerSeul([], Object.keys(a.nodes).filter(n => /Sword|Axe|Shield|Crossbow|Staff|Wand|Knife|Throwable|Spellbook|Offhand/.test(n)));
+  return a;
+}
 function creerCitoyens() {
   const v = etatVille();
   // un nouveau venu s'installe de temps en temps si la ville se vide
@@ -37,8 +42,7 @@ function creerCitoyens() {
   citoyens = [];
   for (const g of v.gens) {
     if (g.statut !== 'vivant') continue;
-    const a = new Acteur(g.modele, { hauteur: 1.95 });
-    a.montrerSeul([], Object.keys(a.nodes).filter(n => /Sword|Axe|Shield|Crossbow|Staff|Wand|Knife|Throwable|Spellbook|Offhand/.test(n)));
+    const a = acteurHabitant(g.modele);
     let p, k = 0; do { p = V(rnd(-24, 22), 0, rnd(-20, 20)); } while (!libre(p.x, p.z, 0.6) && ++k < 30);
     a.root.position.copy(p); a.root.rotation.y = rnd(0, 6.28); G.scene.add(a.root);
     Object.assign(a, { g, pos: a.root.position, angle: a.root.rotation.y, etat: 'flane', t: rnd(0, 5), but: null, coups: 3, criT: 0, hauteurPlaque: 2.5, citoyen: true });

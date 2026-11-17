@@ -12,8 +12,7 @@ function placerCaptif(id) {
   const v = etatVille(); verifierSacrifices();
   const g = v.gens.find(x => x.statut === 'enleve' && x.lieu === id); if (!g) return;
   const s = monde.bossSalles[3] || monde.bossSalles[monde.bossSalles.length - 1]; if (!s) return;
-  const a = new Acteur(g.modele, { hauteur: 1.95 });
-  a.montrerSeul([], Object.keys(a.nodes).filter(n => /Sword|Axe|Shield|Crossbow|Staff|Wand|Knife|Throwable|Spellbook|Offhand/.test(n)));
+  const a = acteurHabitant(g.modele);
   a.root.position.copy(pointLibrePres(s.centre.clone().add(V(-2.5, 0, -2.5)), 0, 2)); G.scene.add(a.root);
   Object.assign(a, { g, pos: a.root.position, angle: 0, libre: false, criT: 0, hauteurPlaque: 2.4, camp: 'allie', mort: false, rayon: 0.5, pv: Math.round(joueur.st.pvMax * 0.45), pvMax: Math.round(joueur.st.pvMax * 0.45), reduction: 0, st: { pvMax: Math.round(joueur.st.pvMax * 0.45), reduction: 0 }, stunT: 0, slowT: 0, invuln: 0, dots: [] });
   a.jouer('Sit_Floor_Idle'); 
