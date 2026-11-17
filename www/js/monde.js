@@ -90,7 +90,7 @@ const SECTEUR = 64, secteursVus = [], macrosVus = [], _zero = new THREE.Matrix4(
 const MAT_LOD = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
 function arbreSimple(modele, type) { // tronc + houppier fusionnés, couleurs dans les sommets : 1 seul appel de dessin par type et par secteur
   const b = new THREE.Box3().setFromObject(modele), H = b.max.y - b.min.y, W = Math.max(b.max.x - b.min.x, b.max.z - b.min.z);
-  const peint = (g, col) => { g = g.toNonIndexed(); const c = new THREE.Color(col), n = g.attributes.position.count, C = new Float32Array(n * 3); for (let i = 0; i < n; i++) C.set([c.r, c.g, c.b], i * 3); g.setAttribute('color', new THREE.BufferAttribute(C, 3)); g.deleteAttribute('uv'); return g; };
+  const peint = (g, col) => { if (g.index) g = g.toNonIndexed(); const c = new THREE.Color(col), n = g.attributes.position.count, C = new Float32Array(n * 3); for (let i = 0; i < n; i++) C.set([c.r, c.g, c.b], i * 3); g.setAttribute('color', new THREE.BufferAttribute(C, 3)); g.deleteAttribute('uv'); return g; };
   const t = peint(new THREE.CylinderGeometry(W * 0.05, W * 0.08, H * 0.45, 5).translate(0, H * 0.225, 0), '#5e4430');
   const col = { pine_01: '#2e5a36', birch_01: '#8cba58', oak_01: '#4c8a36' }[type] || '#4c8a36';
   const c = peint(type === 'pine_01' ? new THREE.ConeGeometry(W * 0.48, H * 0.85, 7).translate(0, H * 0.57, 0) : new THREE.IcosahedronGeometry(W * 0.46, 0).scale(1, (H * 0.55) / W * 1.1, 1).translate(0, H * 0.66, 0), col);
