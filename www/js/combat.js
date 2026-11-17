@@ -557,7 +557,7 @@ function parfaite(src) { // parade parfaite : aucun dégât, le temps ralentit, 
 const plusProches = (p, r, n) => ennemis.filter(e => e.vivant && dist(e.pos, p) < r).sort((a, b) => (a === heros.cible ? -1 : b === heros.cible ? 1 : 0) || dist(a.pos, p) - dist(b.pos, p)).slice(0, n); // la cible choisie passe en premier
 export function attaquer(type = 'rapide') {
   const J = C.joueur; if (heros.mortT || G.mode === 'souverain') return;
-  if (heros.action || heros.atkCd > 0) { heros.tampon = 0.15; heros.tamponType = type; return; } // tampon court (0,15 s) : l'intention n'est pas perdue, sans rendre la commande molle
+  if (heros.action || heros.atkCd > 0) { heros.tampon = 0.5; heros.tamponType = type; return; } /* tampon 0,5 s : un appui pendant un coup est gardé et part dès que possible (sinon le bouton semble « ne marcher qu'à moitié ») */
   const lourde = type === 'lourde';
   if (lourde && heros.end < 20) { texteFlottant(tmp(J.pos.x, J.pos.y + 2.2, J.pos.z), 'Épuisé', 'info'); return attaquer('rapide'); }
   let e = heros.cible && heros.cible.vivant && dist(heros.cible.pos, J.pos) < 6 ? heros.cible : plusProches(J.pos, 6, 1)[0]; if (e && e !== heros.cible) choisirCible(e); if (e) J.perso.root.rotation.y = Math.atan2(e.pos.x - J.pos.x, e.pos.z - J.pos.z);
@@ -606,9 +606,9 @@ export function pouvoir(k, appui = true) {
   const J = C.joueur, P = POUVOIRS[k];
   if (k === 'parade') { if (appui && !heros.mortT && (!heros.action || heros.action.k === 'coup')) { heros.action = null; heros.parade = { debut: G.t }; J.perso.jouer('Sword_Block', { boucle: false, forcer: true, vitesse: 2 }); bouclier.visible = true; } else if (!appui) { heros.parade = null; bouclier.visible = false; if (!heros.action) J.perso.jouer('Idle_Loop', { forcer: true }); } document.getElementById('pw-parade').classList.toggle('garde', !!heros.parade); return; }
   if (!appui || heros.mortT || heros.action || G.mode === 'souverain') return;
-  if (heros.cds[k] > 0 || heros.gcd > 0) { son('error_004', 0.3); return; }
+  if (heros.cds[k] > 0 || heros.gcd > 0) { const reste = Math.max(heros.cds[k] || 0, heros.gcd); if (reste < 0.6) { heros.tamponP = k; heros.tamponPt = 0.65; return; } son('error_004', 0.3); texteFlottant(tmp(C.joueur.pos.x, C.joueur.pos.y + 2.2, C.joueur.pos.z), `Pas prêt (${reste.toFixed(1)} s)`, 'info'); return; } /* presque prêt : on garde l'appui */
   if (P.mana && C.J.mana < P.mana) { C.toast(`Pas assez de mana (${P.mana})`); son('error_004', 0.4); return; }
-  const n = nivP(k); heros.gcd = 1.3; heros.atkCd = Math.max(heros.atkCd || 0, 0.5); // temps de recharge global : un sort, une respiration, puis la suite
+  const n = nivP(k); heros.gcd = 1.0; heros.atkCd = Math.max(heros.atkCd || 0, 0.5); // temps de recharge global : un sort, une respiration, puis la suite
   if (k === 'lame') {
     const cibles = plusProches(J.pos, 11, Math.min(4, 1 + n)); if (!cibles.length) { C.toast('Aucun ennemi à portée'); return; }
     const bonus = 1 + 0.3 * heros.pts; if (heros.pts) texteFlottant(tmp(J.pos.x, J.pos.y + 2.5, J.pos.z), `${'◆'.repeat(heros.pts)} ×${bonus.toFixed(1)}`, 'crit'); heros.pts = 0; majPts();
@@ -681,7 +681,7 @@ function jeter(o) { if (!o) return; G.scene.remove(o); o.traverse(m => { if (m.g
 function majFx(dt) { for (let i = fx.length - 1; i >= 0; i--) { const f = fx[i]; f.t += dt; const k = Math.min(1, f.t / f.vie); f.maj(k, dt); if (k >= 1) { jeter(f.o); if (f.aura) jeter(f.aura); fx.splice(i, 1); } } }
 function majHeros(dt) {
   const J = C.joueur, p = J.perso;
-  for (const k in heros.cds) if (heros.cds[k] > 0) heros.cds[k] -= dt; if (heros.gcd > 0) heros.gcd -= dt; if (heros.atkCd > 0) heros.atkCd -= dt; if (heros.tampon > 0) heros.tampon -= dt;
+  for (const k in heros.cds) if (heros.cds[k] > 0) heros.cds[k] -= dt; if (heros.gcd > 0) heros.gcd -= dt; if (heros.atkCd > 0) heros.atkCd -= dt; if (heros.tampon > 0) heros.tampon -= dt; if (heros.tamponPt > 0) { heros.tamponPt -= dt; if (heros.gcd <= 0 && !(heros.cds[heros.tamponP] > 0)) { const k = heros.tamponP; heros.tamponPt = 0; pouvoir(k); } }
   if (!heros.action && !heros.mortT && heros.atkCd <= 0 && heros.tampon > 0) { heros.tampon = 0; attaquer(heros.tamponType); }
   heros.endT = (heros.endT || 0) + dt; if (heros.parade) { heros.end -= 6 * dt; heros.endT = 0; } else if (heros.endT > 0.6) heros.end = Math.min(100, heros.end + 32 * dt);
   if (heros.appui != null) { const ch = G.t - heros.appui; document.getElementById('btnAttaque').classList.toggle('charge', ch > 0.33); }

@@ -81,7 +81,7 @@ function couleurSol(x, z, y, c, c2) {
   const terre = Math.max(0, 1 - d / 9) * 0.9 + Math.max(0, 1 - Math.hypot(x - RESERVE.x, z - RESERVE.z) / 5) * 0.7; c.lerp(c2.set('#9a7a52'), Math.min(0.85, terre)); // sol tassé du camp
   const dc = Math.hypot(x - CARRIERE.x, z - CARRIERE.z); if (dc < 10) c.lerp(c2.set('#8a8070'), Math.min(0.8, (10 - dc) / 3.5)); // carrière : roche et gravier
   const da = Math.hypot(x + 24, z + 6); if (da < 12.5) c.lerp(c2.set('#c8b088'), Math.min(0.9, (12.5 - da) / 1.5)); // sable de l'arène
-  for (const V of VILLAGES) { if (V.type === 'ville') { const q = Math.max(Math.abs(x - V.x), Math.abs(z - V.z)); if (q < 31) c.lerp(c2.set('#a89e8a').offsetHSL(0, 0, n * 0.04), 0.9); continue; } if (Math.hypot(x - V.x, z - V.z) > V.r + 8) continue; const dr = distRue(V, x, z) + Math.sin(x * 2.1 + z * 1.7) * 0.3; if (dr < 2.4) c.lerp(c2.set('#9a8058'), Math.min(0.9, (2.4 - dr) / 1)); if (Math.hypot(x - V.x, z - V.z) < 4.5) c.lerp(c2.set('#a08a62'), 0.75); } // rues de terre, pavés de la ville
+  for (const V of VILLAGES) { if (V.type === 'ville') { const q = Math.max(Math.abs(x - V.x), Math.abs(z - V.z)); if (q < 31) c.lerp(c2.set('#8c8476').offsetHSL(0, 0, n * 0.05), 0.85); continue; } if (Math.hypot(x - V.x, z - V.z) > V.r + 8) continue; const dr = distRue(V, x, z) + Math.sin(x * 2.1 + z * 1.7) * 0.3; if (dr < 2.4) c.lerp(c2.set('#9a8058'), Math.min(0.9, (2.4 - dr) / 1)); if (Math.hypot(x - V.x, z - V.z) < 4.5) c.lerp(c2.set('#a08a62'), 0.75); } // rues de terre, pavés de la ville
   const dch = distChemin(x, z) + Math.sin(x * 1.7 + z * 1.3) * 0.35; if (dch < 2.6) c.lerp(c2.set('#a08458').offsetHSL(0, 0, n * 0.03), Math.min(0.92, (2.6 - dch) / 1.1)); // route de terre aux bords irréguliers
 }
 function construireTerrain() {

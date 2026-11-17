@@ -50,7 +50,6 @@ function construire(Vg) {
     const px = x + fx * 3.6, pz = z + fz * 3.6; portes.push(V(px, 0, pz)); spots.push({ x: px, z: pz, anim: 'Interact', dur: [2, 4], regard: versRue + Math.PI });
     // jardin clôturé sur le côté, avec un potager
     const gx = x + lx * 5.2 - fx * 0.5, gz = z + lz * 5.2 - fz * 0.5;
-    for (let i = -1; i <= 1; i++) { pose(modele('Prop_WoodenFence_Single'), gx + fx * 2.2 + lx * i * 1.4, gz + fz * 2.2 + lz * i * 1.4, versRue + Math.PI / 2, 0.9); pose(modele('Prop_WoodenFence_Single'), gx + lx * 2.2 + fx * i * 1.4, gz + lz * 2.2 + fz * i * 1.4, versRue, 0.9); }
     autres.add(champ(gx - fx * 0.2, gz - fz * 0.2, versRue, 3.2, 3.3, false));
     spots.push({ x: gx + fx * 1.2, z: gz + fz * 1.2, anim: 'Farm_Harvest', dur: [8, 16], regard: versRue + Math.PI });
     // devant la porte : tonneaux, caisses, banc, tas de bois — jamais deux maisons pareilles
@@ -73,30 +72,47 @@ function construire(Vg) {
   const g = new THREE.Group(); fusionner(brut, g); g.add(autres); G.scene.add(g); Vg.g = g; Vg.spots = spots; Vg.portes = portes;
 }
 const MAT_POTEAU = new THREE.MeshStandardMaterial({ color: '#4a3524', roughness: 0.9 });
-// ---- Valcourt : la ville fortifiée (remparts, tours, taverne, échoppes, tour du mage, marché, fontaine, canal) ----
-let valcourt = null;
-export async function chargerValcourt() {
-  const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js'), L = new GLTFLoader();
-  const [pres, loin, pts] = await Promise.all([L.loadAsync('assets/batiments/valcourt.glb'), L.loadAsync('assets/batiments/valcourt_loin.glb'), fetch('assets/batiments/valcourt.json').then(r => r.json())]);
-  for (const s of [pres.scene, loin.scene]) s.traverse(o => { if (o.isMesh) { o.material.flatShading = true; o.material.needsUpdate = true; o.castShadow = o.receiveShadow = true; } });
-  valcourt = { pres: pres.scene, loin: loin.scene, pts };
-}
-const RAYONS = { 'city-tavern': 5, 'general-store': 4.4, 'apothecary-shop': 4.2, 'city-smithy': 3.6, 'arcane-mage-tower': 3, 'wall-corner-tower': 3.4, 'wall-gate-tower': 2.6, 'curtain-wall-bay': 2.1, 'wall-postern-bay': 1.8, 'retaining-wall-bay': 1.8, 'market-stall': 1.1, 'plaza-fountain': 2.2, 'city-well': 1.1, 'city-broadleaf-tree': 0.6, 'cypress-tree': 0.5, 'anvil-and-quench-trough': 1, 'canal-water-tile': 2 };
+// ---- Valcourt : une ville bâtie avec les mêmes pièces que le reste du jeu (style cohérent), rues larges pour la caméra :
+// rempart de briques avec porte au nord, grand-rue nord-sud et rue est-ouest, place du marché au carrefour ----
 function construireVille(Vg) {
-  const g = new THREE.Group(), y = hauteur(Vg.x, Vg.z); g.position.set(Vg.x, y, Vg.z); g.add(valcourt.pres, valcourt.loin); valcourt.loin.visible = false; G.scene.add(g); Vg.g = g; Vg.lod = valcourt;
-  const spots = [], portes = [];
-  for (const p of valcourt.pts) {
-    const x = Vg.x + p.x, z = Vg.z + p.z, r = RAYONS[p.c]; if (r) blocs.push({ x, z, r });
-    const fx = Math.sin(p.ry), fz = Math.cos(p.ry);
-    if (/tavern|store|apothecary|smithy|mage/.test(p.c)) { const d = (RAYONS[p.c] || 4) + 1.2; portes.push(V(x + fx * d, 0, z + fz * d)); spots.push({ x: x + fx * d, z: z + fz * d, anim: 'Interact', dur: [2, 5], regard: p.ry + Math.PI }); }
-    if (p.c === 'market-stall') { spots.push({ x: x + fx * 1.9, z: z + fz * 1.9, anim: 'Idle_Talking_Loop', dur: [6, 14], regard: p.ry + Math.PI }); }
-    if (p.c === 'plaza-fountain') for (let k = 0; k < 4; k++) { const a = k * 1.57 + 0.4; spots.push({ x: x + Math.sin(a) * 3.2, z: z + Math.cos(a) * 3.2, anim: 'Idle_Talking_Loop', dur: [8, 18], regard: a + Math.PI, place: true }); }
-    if (p.c === 'city-well' || p.c === 'notice-board') spots.push({ x: x + fx * 1.6, z: z + fz * 1.6, anim: p.c === 'notice-board' ? 'Idle_FoldArms_Loop' : 'Interact', dur: [4, 9], regard: p.ry + Math.PI });
-    if (p.c === 'tavern-bench') spots.push({ x: x + fx * 0.9, z: z + fz * 0.9, anim: 'Idle_Talking_Loop', dur: [10, 20], regard: p.ry + Math.PI, place: true });
-    if (p.c === 'anvil-and-quench-trough') spots.push({ x: x + fx * 1.3, z: z + fz * 1.3, anim: 'Fixing_Kneeling', dur: [8, 16], regard: p.ry + Math.PI });
+  const brut = new THREE.Group(), cx = Vg.x, cz = Vg.z, spots = [], portes = [], H = 30;
+  const pose = (o, x, z, r = 0, k = 1, dy = 0) => { o.position.set(x, hauteur(x, z) + dy, z); o.rotation.y = r; o.scale.multiplyScalar(k); brut.add(o); return o; };
+  // rempart : modules de 2 m × 2 niveaux, créneaux de pierre, porte de 8 m face à la route
+  for (const [sx, sz, r] of [[0, -1, 0], [0, 1, Math.PI], [-1, 0, Math.PI / 2], [1, 0, -Math.PI / 2]]) for (let t = -H; t < H; t += 2.6) {
+    const x = cx + (sz ? t + 1.3 : sx * H), z = cz + (sz ? sz * H : t + 1.3); if (sz === -1 && Math.abs(x - cx) < 4) continue;
+    for (let k = 0; k < 2; k++) pose(modele(k ? 'Wall_UnevenBrick_Window_Wide_Round' : 'Wall_UnevenBrick_Straight'), x, z, r, 1.3, k * HE * 1.3 * 0.98).visible = true;
+    blocs.push({ x, z, r: 1.6 });
   }
-  Vg.spots = spots.filter(s => !bloqueHumain(s.x, s.z)); Vg.portes = portes.filter(p => !bloqueHumain(p.x, p.z)); if (!Vg.portes.length) Vg.portes = [V(Vg.x, 0, Vg.z)];
+  for (const sx of [-1, 1]) { const x = cx + sx * 4.6, z = cz - H; const t = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.9, 9, 8), MAT_PIERRE); t.position.y = 4.5; const g = new THREE.Group(); g.add(t); const c = new THREE.Mesh(new THREE.ConeGeometry(2.3, 3, 8), MAT_TOIT); c.position.y = 10.5; g.add(c); pose(g, x, z); blocs.push({ x, z, r: 2 }); const b = pose(prop('Banner_1'), x + sx * -1.7, z - 0.4, sx < 0 ? Math.PI : 0, 1.1, 4.5); b.add(prop('Banner_1_Cloth')); }
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const x = cx + sx * H, z = cz + sz * H; const t = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.6, 10, 8), MAT_PIERRE); t.position.y = 5; const g = new THREE.Group(); g.add(t); const c = new THREE.Mesh(new THREE.ConeGeometry(3, 4, 8), MAT_TOIT); c.position.y = 12; g.add(c); pose(g, x, z); blocs.push({ x, z, r: 2.6 }); }
+  // maisons le long des deux rues (portes sur la rue), plus hautes et plus riches qu'au village
+  const rues = [[0, 1], [1, 0]]; let n = 0;
+  for (const [dx, dz] of rues) for (let t = -H + 6; t <= H - 6; t += 9) {
+    if (Math.abs(t) < 10) continue; // la place
+    for (const s of [-1, 1]) {
+      if (dz && t < -H + 9) continue; // dégagement derrière la porte
+      const off = 8.2 + (n % 3) * 0.4, x = cx + dx * t + dz * off * s, z = cz + dz * t + dx * off * s, r = Math.atan2(cx + dx * t - x, cz + dz * t - z);
+      if (Math.abs(x - cx) > H - 4 || Math.abs(z - cz) > H - 4) continue;
+      const niv = n % 3 === 0 ? 3 : 2; pose(plan3D('maison', niv), x, z, r); blocs.push({ x, z, r: 3.2 });
+      const fx = Math.sin(r), fz = Math.cos(r), px = x + fx * 3.6 - fz * 1.3, pz = z + fz * 3.6 + fx * 1.3; portes.push(V(px, 0, pz)); spots.push({ x: px, z: pz, anim: 'Interact', dur: [2, 4], regard: r + Math.PI });
+      if (n % 2) pose(prop(n % 4 === 1 ? 'Barrel' : 'Crate_Wooden'), x + fx * 3.3 + fz * 2.2, z + fz * 3.3 - fx * 2.2, n, 0.85); else pose(modele('Bench'), x + fx * 3.5 + fz * 2.1, z + fz * 3.5 - fx * 2.1, r + Math.PI / 2, 0.85);
+      n++;
+    }
+  }
+  // la place du marché : puits, 4 étals, feu, lanternes
+  pose(modele('well_01'), cx, cz, 0, 1.3); blocs.push({ x: cx, z: cz, r: 1.5 });
+  for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2 + Math.PI / 4, x = cx + Math.sin(a) * 6.5, z = cz + Math.cos(a) * 6.5, r = a + Math.PI; pose(modele('stall_01'), x, z, r, 1.15); blocs.push({ x, z, r: 1.1 }); spots.push({ x: x + Math.sin(r + Math.PI) * -1.9, z: z + Math.cos(r + Math.PI) * -1.9, anim: 'Idle_Talking_Loop', dur: [6, 14], regard: r + Math.PI }); spots.push({ x: x + Math.sin(r) * -1.1, z: z + Math.cos(r) * -1.1, anim: 'PickUp_Table', dur: [5, 10], regard: r }); }
+  for (let k = 0; k < 4; k++) { const a = k * 1.57 + 0.2; spots.push({ x: cx + Math.sin(a) * 2.6, z: cz + Math.cos(a) * 2.6, anim: 'Idle_Talking_Loop', dur: [8, 18], regard: a + Math.PI, place: true }); }
+  for (const [x, z] of [[cx + 3.5, cz - 16], [cx - 3.5, cz - 16], [cx + 3.5, cz + 16], [cx - 3.5, cz + 16], [cx + 16, cz + 3.5], [cx - 16, cz - 3.5]]) { const g = new THREE.Group(), p0 = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.11, 2.6, 6), MAT_POTEAU); p0.position.y = 1.3; g.add(p0); const tq = prop('Torch_Metal'); tq.position.set(0, 1.7, -0.15); g.add(tq); pose(g, x, z, Math.atan2(cx - x, cz - z)); }
+  { const x = cx - 10, z = cz + 10; pose(modele('fire_01'), x, z, 0, 1.2); Vg.feu = V(x, hauteur(x, z), z); spots.push({ x: x + 1.5, z, anim: 'Idle_Talking_Loop', dur: [8, 15], regard: -Math.PI / 2 }); }
+  { const x = cx + 4.5, z = cz - H - 3; pose(modele('sign_inn_01'), x, z, 0, 1.2); }
+  // champs hors les murs
+  for (const s of [-1, 1]) { const x = cx + s * (H + 12), z = cz + 6; const g = champ(x, z, 0, 18, 9, true); brut.parent; spots.push({ x: x - s * 5, z: z - 4, anim: 'Farm_Harvest', dur: [10, 20], regard: s * Math.PI / 2 }); Vg.champs ||= []; Vg.champs.push(g); }
+  const g = new THREE.Group(); fusionner(brut, g); for (const c of Vg.champs) g.add(c); G.scene.add(g); Vg.g = g; Vg.spots = spots; Vg.portes = portes;
 }
+const HE = 3.12;
+const MAT_PIERRE = new THREE.MeshStandardMaterial({ color: '#9a9488', roughness: 0.95, flatShading: true }), MAT_TOIT = new THREE.MeshStandardMaterial({ color: '#8a3a2a', roughness: 0.9, flatShading: true });
+export async function chargerValcourt() {}
 
 // ---------------- Les habitants ----------------
 class Villageois {
@@ -172,7 +188,7 @@ export function initHumains(ctx) {
   for (const Vg of VILLAGES) {
     construire(Vg);
     const n = Vg.type === 'ville' ? 16 : 8; for (let i = 0; i < n; i++) { const s = pick(Vg.spots); new Villageois(Vg, s.x + rnd(-1, 1), s.z + rnd(-1, 1)); }
-    if (Vg.type === 'ville') for (const sx of [-1, 1]) { const g = new Villageois(Vg, Vg.x - 2 + sx * 2.6, Vg.z - 31.5, { garde: true }); g.regard = Math.PI; g.m.root.rotation.y = Math.PI; } // deux gardes devant la porte nord
+    if (Vg.type === 'ville') for (const sx of [-1, 1]) { const g = new Villageois(Vg, Vg.x + sx * 2.6, Vg.z - 32.5, { garde: true }); g.regard = Math.PI; g.m.root.rotation.y = Math.PI; } // deux gardes devant la porte nord
   }
 }
 let lent = 0;
@@ -180,7 +196,7 @@ export function majHumains(dt) {
   for (const Vg of VILLAGES) if (Vg.feu && dist(Vg.feu, G.camera.position) < 60 && Math.random() < dt * 30) emettre(tmp(Vg.feu.x + rnd(-0.3, 0.3), Vg.feu.y + 0.4, Vg.feu.z + rnd(-0.3, 0.3)), { n: 1, c1: '#ffd27a', c2: '#ff3a0a', vit: 0.6, vie: 0.8, taille: 0.3, grav: -2.5 }); // le feu de la place crépite
   for (const h of habitants) { const c = G.camera.position, loin = (h.pos.x - c.x) ** 2 + (h.pos.z - c.z) ** 2 > 14400; if (!loin || h.etat === 'messager' || h.etat === 'visite') h.maj(dt); else if ((h.lent = (h.lent || 0) + dt) > 0.5) { h.maj(h.lent); h.lent = 0; } } // loin de la caméra : vie au ralenti
   if ((lent += dt) < 1) return; const d = lent; lent = 0;
-  for (const Vg of VILLAGES) if (Vg.g) { const dc = dist(Vg, G.camera.position); Vg.g.visible = dc < 280; if (Vg.lod) { Vg.lod.pres.visible = dc < 95; Vg.lod.loin.visible = !Vg.lod.pres.visible; } }
+  for (const Vg of VILLAGES) if (Vg.g) { const dc = dist(Vg, G.camera.position); Vg.g.visible = dc < 280; }
   if (inv) { inv.t -= d; if (inv.t <= 0) finAttaque(false); return; }
   if ((tInv -= d) <= 0) { tInv = rnd(420, 660); appelAide(); }
   if ((tVis -= d) <= 0) { tVis = rnd(150, 240); visite(); }
