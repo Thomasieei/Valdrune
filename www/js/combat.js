@@ -24,8 +24,8 @@ export const CAMPS = [
   { id: 'clairiere', nom: 'Puglins de la clairière', type: 'puglin', centre: V(-34, 0, 30), r: 9, niv: 1, retour: 240, postes: [[-34, 26], [-30, 31], [-38, 33], [-33, 34], [-36, 29]] },
 ];
 export const POUVOIRS = {
-  lame: { nom: 'Lame rapide', cd: 9, effet: (n) => `Fond sur ${Math.min(4, 1 + n)} ennemis d'affilée · ${Math.round(180 + 15 * (n - 1))} % de dégâts`, },
-  tele: { nom: 'Télékinésie', cd: 12, mana: 15, effet: (n) => `Soulève ${2 + n} ennemis ${(2.2 + 0.4 * n).toFixed(1)} s puis les écrase (${20 + 10 * n} dégâts)` },
+  lame: { nom: 'Lame rapide', cd: 11, effet: (n) => `Fond sur ${Math.min(4, 1 + n)} ennemis d'affilée · ${Math.round(180 + 15 * (n - 1))} % de dégâts`, },
+  tele: { nom: 'Télékinésie', cd: 15, mana: 15, effet: (n) => `Soulève ${2 + n} ennemis ${(2.2 + 0.4 * n).toFixed(1)} s puis les écrase (${20 + 10 * n} dégâts)` },
   parade: { nom: 'Parade', cd: 0, effet: (n) => `Maintenir : −${Math.min(60, 15 + 5 * (n - 1))} % de dégâts · au bon moment : 0 dégât + contre-attaque ×3` },
   arise: { nom: 'ARISE', cd: 3, mana: 25, effet: (n) => `Relève un ennemi vaincu en ombre de combat · ${9 + n} % de réussite` },
 };
@@ -153,6 +153,7 @@ class Ennemi {
     if (this.kb) { this.pos.x += this.kb.x * dt; this.pos.z += this.kb.z * dt; this.pos.y = this.lev ? this.pos.y : hauteur(this.pos.x, this.pos.z); const k = Math.exp(-dt * 9); this.kb.x *= k; this.kb.z *= k; if (Math.abs(this.kb.x) + Math.abs(this.kb.z) < 0.05) this.kb = null; }
     if (this.etat === 'mort') {
       this.corpsT -= dt;
+      { const sol = hauteur(this.pos.x, this.pos.z); if (this.corpsT > 1.5 && this.pos.y > sol + 0.02) { this.vyM = (this.vyM || 0) + 28 * dt; this.pos.y = Math.max(sol, this.pos.y - this.vyM * dt); if (this.pos.y <= sol + 0.02) { G.shake = Math.max(G.shake, 0.2); emettre(V(this.pos.x, sol + 0.2, this.pos.z), { n: 25, c1: '#d8c8a8', c2: '#6a5a4a', vit: 3, vie: 0.6, taille: 0.3, grav: 5 }); son('impactSoft_heavy_000', 0.5, 0.7, this.pos); } } } // un corps tué en l'air retombe
       if (this.corpsT < 1.5) { this.m.root.position.y -= dt * 0.6; } // le corps s'enfonce puis disparaît
       if (this.corpsT <= 0 && this.m.root.parent) { G.scene.remove(this.m.root); if (this.allie && this.reforme == null) { /* rien */ } }
       if (this.allie && this.reforme != null) { this.reforme -= dt; if (this.reforme <= 0) this.revenir(); }
@@ -335,13 +336,17 @@ function parfaite(src) { // parade parfaite : aucun dégât, le temps ralentit, 
 }
 const plusProches = (p, r, n) => ennemis.filter(e => e.vivant && dist(e.pos, p) < r).sort((a, b) => (a === heros.cible ? -1 : b === heros.cible ? 1 : 0) || dist(a.pos, p) - dist(b.pos, p)).slice(0, n); // la cible choisie passe en premier
 export function attaquer() {
-  const J = C.joueur; if (heros.mortT || heros.action || G.mode === 'souverain') return;
+  const J = C.joueur; if (heros.mortT || G.mode === 'souverain') return;
+  if (heros.action || heros.atkCd > 0) { heros.tampon = 0.35; return; } // trop tôt : le coup est mis en attente, il partira au bon rythme
   let e = heros.cible && heros.cible.vivant && dist(heros.cible.pos, J.pos) < 6 ? heros.cible : plusProches(J.pos, 6, 1)[0]; if (e && e !== heros.cible) choisirCible(e); if (e) J.perso.root.rotation.y = Math.atan2(e.pos.x - J.pos.x, e.pos.z - J.pos.z);
   const elan = e ? Math.max(0.4, Math.min(2.6, dist(e.pos, J.pos) - 1.5)) : 0.5; // on fond vers la cible : le coup porte
-  heros.combo = heros.comboT > 0 ? (heros.combo + 1) % 3 : 0; heros.comboT = 1.1;
-  const anim = ['Sword_Regular_A', 'Sword_Regular_B', 'Sword_Regular_C'][heros.combo], dur = J.perso.duree(anim) / 1.6;
-  heros.action = { k: 'coup', t: 0, dur: dur * 0.7, frappe: dur * 0.42, mult: heros.combo === 2 ? 1.6 : 1, anim, elan, coupe: true };
-  J.perso.jouer(anim, { boucle: false, forcer: true, vitesse: 1.6 }); son('knifeSlice', 0.4, rnd(1, 1.2), J.pos);
+  heros.combo = heros.comboT > 0 ? (heros.combo + 1) % 3 : 0; heros.comboT = 2;
+  // rythme fixe : un coup ≈ 0,9 s (le 3e, plus lourd, 1,2 s). Plus vite seulement quand l'ennemi est sonné ou brisé : c'est la fenêtre pour tout donner
+  const ouvert = e && (e.etourdi > 0.4 || e.brise > 0 || e.lev), rythme = [0.85, 0.9, 1.2][heros.combo] * (ouvert ? 0.6 : 1);
+  const anim = ['Sword_Regular_A', 'Sword_Regular_B', 'Sword_Regular_C'][heros.combo], vit = Math.max(1.1, J.perso.duree(anim) / (rythme * 0.95)), dur = J.perso.duree(anim) / vit;
+  heros.atkCd = rythme; heros.atkMax = rythme;
+  heros.action = { k: 'coup', t: 0, dur: Math.min(dur * 0.8, rythme * 0.75), frappe: dur * 0.42, mult: heros.combo === 2 ? 1.7 : 1, anim, elan, coupe: true };
+  J.perso.jouer(anim, { boucle: false, forcer: true, vitesse: vit }); son('knifeSlice', 0.4, rnd(1, 1.2), J.pos);
 }
 function esquiveParfaite(src) { // dash au moment exact du coup : le temps ralentit, prochain coup critique, +1 point
   const J = C.joueur; heros.action.esquive = true; heros.critSuivant = true; gagnerPts(1); G.ralenti = 0.3; G.ralentiT = 0.5;
@@ -376,7 +381,7 @@ export function pouvoir(k, appui = true) {
   if (!appui || heros.mortT || heros.action || G.mode === 'souverain') return;
   if (heros.cds[k] > 0 || heros.gcd > 0) { son('error_004', 0.3); return; }
   if (P.mana && C.J.mana < P.mana) { C.toast(`Pas assez de mana (${P.mana})`); son('error_004', 0.4); return; }
-  const n = nivP(k); heros.gcd = 0.6; // temps de recharge global : chaque sort compte
+  const n = nivP(k); heros.gcd = 1.3; heros.atkCd = Math.max(heros.atkCd || 0, 0.5); // temps de recharge global : un sort, une respiration, puis la suite
   if (k === 'lame') {
     const cibles = plusProches(J.pos, 11, Math.min(4, 1 + n)); if (!cibles.length) { C.toast('Aucun ennemi à portée'); return; }
     const bonus = 1 + 0.3 * heros.pts; if (heros.pts) texteFlottant(V(J.pos.x, J.pos.y + 2.5, J.pos.z), `${'◆'.repeat(heros.pts)} ×${bonus.toFixed(1)}`, 'crit'); heros.pts = 0; majPts();
@@ -447,7 +452,8 @@ function onde(pos, { r = 4, couleur = '#c8a8ff', vie = 0.45 } = {}) {
 function majFx(dt) { for (let i = fx.length - 1; i >= 0; i--) { const f = fx[i]; f.t += dt; const k = Math.min(1, f.t / f.vie); f.maj(k, dt); if (k >= 1) { G.scene.remove(f.o); f.m.dispose(); fx.splice(i, 1); } } }
 function majHeros(dt) {
   const J = C.joueur, p = J.perso;
-  for (const k in heros.cds) if (heros.cds[k] > 0) heros.cds[k] -= dt; if (heros.gcd > 0) heros.gcd -= dt;
+  for (const k in heros.cds) if (heros.cds[k] > 0) heros.cds[k] -= dt; if (heros.gcd > 0) heros.gcd -= dt; if (heros.atkCd > 0) heros.atkCd -= dt; if (heros.tampon > 0) heros.tampon -= dt;
+  if (!heros.action && !heros.mortT && heros.atkCd <= 0 && (heros.tenir || heros.tampon > 0)) { heros.tampon = 0; attaquer(); } // maintenir = attaques au rythme, pas plus vite
   majTrainee();
   if (heros.comboT > 0) heros.comboT -= dt;
   heros.horsCombat += dt; if (heros.horsCombat > 5 && J.pv < pvMaxHeros() && !heros.mortT) J.pv = Math.min(pvMaxHeros(), J.pv + dt * 6);
@@ -496,8 +502,8 @@ function majBarres() {
 function initBoutons() {
   const z = document.createElement('div'); z.id = 'pts'; z.innerHTML = '<i></i><i></i><i></i><i></i><i></i>'; document.getElementById('combat').appendChild(z);
   const at = document.getElementById('btnAttaque');
-  at.addEventListener('pointerdown', (e) => { e.preventDefault(); attaquer(); at.classList.add('presse'); });
-  at.addEventListener('pointerup', () => at.classList.remove('presse'));
+  at.addEventListener('pointerdown', (e) => { e.preventDefault(); try { at.setPointerCapture(e.pointerId); } catch (er) {} heros.tenir = true; attaquer(); at.classList.add('presse'); });
+  const lache = () => { heros.tenir = false; at.classList.remove('presse'); }; at.addEventListener('pointerup', lache); at.addEventListener('pointercancel', lache);
   for (const [id, f] of [['pw-saut', () => C.sauter()], ['pw-dash', dash]]) { const b = document.getElementById(id); b.addEventListener('pointerdown', (e) => { e.preventDefault(); f(); b.classList.add('presse'); }); b.addEventListener('pointerup', () => b.classList.remove('presse')); b.addEventListener('pointercancel', () => b.classList.remove('presse')); }
   for (const k of Object.keys(POUVOIRS)) {
     const b = document.getElementById('pw-' + k);
@@ -510,11 +516,12 @@ let cdT = 0;
 function majBoutons(dt) {
   if ((cdT -= dt) > 0) return; cdT = 0.08;
   for (const k of Object.keys(POUVOIRS)) {
-    const b = document.getElementById('pw-' + k), P = POUVOIRS[k], r = Math.max(P.cd ? Math.max(0, heros.cds[k]) / P.cd : 0, k !== 'parade' ? Math.max(0, heros.gcd) / 0.6 * 0.999 : 0);
+    const b = document.getElementById('pw-' + k), P = POUVOIRS[k], r = Math.max(P.cd ? Math.max(0, heros.cds[k]) / P.cd : 0, k !== 'parade' ? Math.max(0, heros.gcd) / 1.3 * 0.999 : 0);
     b.style.setProperty('--cd', r.toFixed(3)); b.classList.toggle('pret', r <= 0 && (!P.mana || C.J.mana >= P.mana));
     const t = b.querySelector('em'); const txt = heros.cds[k] > 0.05 ? Math.ceil(heros.cds[k]) : ''; if (t.textContent !== String(txt)) t.textContent = txt;
   }
   { const b = document.getElementById('pw-dash'), r = Math.max(0, heros.cds.dash) / 1.1; b.style.setProperty('--cd', r.toFixed(3)); }
+  { const b = document.getElementById('btnAttaque'), r = Math.max(0, heros.atkCd || 0) / (heros.atkMax || 1); b.style.setProperty('--cd', (r * 0.6).toFixed(3)); }
   const lvl = document.getElementById('pw-arise'); lvl.classList.toggle('dispo', ennemis.some(e => e.etat === 'mort' && e.corpsT > 2 && !e.leve && dist(e.pos, C.joueur.pos) < 9));
 }
 // ---------------- Entrée ----------------
