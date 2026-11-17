@@ -43,7 +43,7 @@ export const CAMPS = [
   { id: 'repaire', nom: 'Repaire gobelin', type: 'gobelin', centre: V(-150, 0, -18), r: 12, niv: 2, retour: 420, membres: [{ type: 'gobelin', x: -146, z: -14 }, { type: 'gobelin', x: -154.5, z: -13 }, { type: 'sorcier', x: -150, z: -24 }, { type: 'gobelin', x: -144.5, z: -21 }] },
   { id: 'tour', nom: 'Avant-poste des pillards', type: 'bandit', centre: V(42, 0, 160), r: 12, niv: 3, retour: 480, membres: [{ type: 'bandit', x: 38, z: 156, sexe: 'h', cheveux: 2, couleur: '#a86a50' }, { type: 'bandit', x: 46, z: 157, sexe: 'f', cheveux: 1, couleur: '#7a6a9a' }, { type: 'sorcier', x: 42, z: 165 }, { type: 'bandit', x: 42, z: 152, sexe: 'h', cheveux: 0, couleur: '#8a8a6a' }] },
   // groupes errants : ils suivent leur route, s'arrêtent, repartent… on les croise
-  { id: 'harde', nom: 'Harde de puglins', type: 'puglin', errant: [[70, -15], [105, -25], [160, 5], [158, 72], [95, 80], [62, 42]], r: 9, niv: 1, retour: 300, postes: [[0, 0], [2, 1.5], [-2, 1], [1, -2]] },
+  { id: 'harde', nom: 'Harde de puglins', type: 'puglin', errant: [[70, -15], [105, -32], [160, -5], [192, -60], [130, -62]], r: 9, niv: 1, retour: 300, postes: [[0, 0], [2, 1.5], [-2, 1], [1, -2]] },
   { id: 'meute', nom: 'Meute de gobelins', type: 'gobelin', errant: [[-70, -35], [-120, -55], [-175, -5], [-135, 45], [-85, 35]], r: 9, niv: 2, retour: 360, postes: [[0, 0], [2, 1], [-1.5, 1.8]] },
   { id: 'patrouille', nom: 'Patrouille de pillards', type: 'bandit', errant: [[12, 50], [24, 95], [46, 135], [8, 120], [0, 72]], r: 9, niv: 2, retour: 360, postes: [[0, 0], [1.8, 1], [-1.8, 1]] },
   { id: 'diablotins', nom: 'Diablotins des Hauteurs', type: 'imp', errant: [[0, -118], [45, -152], [15, -195], [-40, -162]], r: 9, niv: 2, retour: 300, postes: [[0, 0], [2, 2], [-2, 1.5]] },
@@ -68,7 +68,7 @@ function arme(k) { // armes du Props MegaKit, tenues comme l'épée (lame vers l
   if (k === 'bouclier') { o.scale.setScalar(1.25); o.rotation.set(0, Math.PI / 2, 0); o.position.set(0.12, 0.05, 0); g.add(o); return g; }
   o.scale.setScalar(k === 'grandeHache' ? 1.5 : 1.05); o.rotation.set(0, 0, -Math.PI / 2); o.position.y = 0.32 * o.scale.x; g.add(o); g.rotation.set(Math.PI / 2, 0, 0); return g;
 }
-function epee() { const g = new THREE.Group(), fer = new THREE.MeshStandardMaterial({ color: '#b8bcc8', metalness: 0.8, roughness: 0.3 }); const l = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.75, 0.012), fer); l.position.y = 0.5; const gd = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.04, 0.05), new THREE.MeshStandardMaterial({ color: '#4a3020' })); gd.position.y = 0.12; g.add(l, gd); g.rotation.set(Math.PI / 2, 0, 0); return g; }
+export function epee() { const g = new THREE.Group(), fer = new THREE.MeshStandardMaterial({ color: '#b8bcc8', metalness: 0.8, roughness: 0.3 }); const l = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.75, 0.012), fer); l.position.y = 0.5; const gd = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.04, 0.05), new THREE.MeshStandardMaterial({ color: '#4a3020' })); gd.position.y = 0.12; g.add(l, gd); g.rotation.set(Math.PI / 2, 0, 0); return g; }
 // tout le camp se réveille : le guetteur crie, les joueurs lâchent leurs cartes, le dormeur se lève
 function alerteCamp(c, cible) {
   c.alerte = true; const g = c.membres.find(m => m.role === 'guet' && m.vivant) || c.membres.find(m => m.vivant);
@@ -482,6 +482,7 @@ function peupler(c) { c.alerte = false; c.membres = c.def.membres ? c.def.membre
 function verifierCamp(id) {
   const c = camps[id]; if (!c || c.membres.some(m => m.vivant)) return;
   if (c.def.arene) return finArene(true);
+  if (c.def.invasion) { delete camps[id]; setTimeout(() => G.scene.remove(c.zone.g), 1500); if (c.def.fin) c.def.fin(true); return; }
   c.mortT = c.def.retour; (C.J.camps ||= {})[id] = Date.now() + c.def.retour * 1000; C.sauver();
   son('jingles_PIZZI03', 0.6); C.toast(`🏆 ${c.def.nom} : zone libérée !`); C.majQuete();
   if (c.def._couvercle) { // le coffre des pillards s'ouvre : gros butin
@@ -521,6 +522,9 @@ function majErrant(c, dt) { // le groupe avance sur sa route, fait halte, repart
   if (d < 0.5) { D.wp = (D.wp + 1) % D.errant.length; D.pause = rnd(6, 16); return; }
   const pas = Math.min(d, 1.25 * dt); D.centre.x += dx / d * pas; D.centre.z += dz / d * pas; c.zone.g.position.set(D.centre.x, hauteur(D.centre.x, D.centre.z), D.centre.z);
 }
+// invasion d'un village humain : un camp temporaire posé dans le village (voir humains.js)
+export function lancerInvasion(def) { def.retour = 1e9; def.invasion = true; creerCamp(def); return camps[def.id]; }
+export function finirInvasion(id) { const c = camps[id]; if (!c) return; for (const e of c.membres) if (e.vivant) { e.pv = 0; e.etat = 'mort'; e.corpsT = 0.01; } G.scene.remove(c.zone.g); delete camps[id]; }
 export const campLibre = (id) => !!camps[id] && camps[id].mortT > 0;
 export function zoneDangereuse(p) { for (const c of Object.values(camps)) if (!c.mortT && dist(p, c.def.centre) < c.def.r + 1) return c; return null; }
 // ---------------- Héros ----------------

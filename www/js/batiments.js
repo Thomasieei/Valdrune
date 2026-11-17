@@ -156,6 +156,8 @@ export function montrerTerritoire(oui) { // limites dessinées au sol pendant la
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); const I = []; for (let i = 0; i < n; i++) { const a = i * 2; I.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); } g.setIndex(I);
     const m = new THREE.Mesh(g, mat); m.frustumCulled = false; G.scene.add(m); anneaux.push(m); }
 }
+// un bâtiment « décor » (villages humains) : mêmes plans que les tiens, sans chantier
+export function plan3D(type, niv = 1) { const T = TYPES[type], g = new THREE.Group(), c = new THREE.Group(); c.scale.setScalar(T.ech); g.add(c); for (const d of T.niveaux[niv - 1].plan()) { const o = piece(d); o.position.set(d.x, d.y, d.z); o.rotation.y = d.r; o.scale.setScalar(d.e); c.add(o); } return g; }
 // ---------------- Instances ----------------
 export const batiments = [];
 function piece(d) {

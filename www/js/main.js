@@ -5,6 +5,7 @@ import { PIERRE_DEFI, chargerNature, construireMonde, majMonde, majPile, hauteur
 import { Ombre, RANGS, NOMS, METIERS, parole, surParole, surSignal, xpNiveau, teinteOmbre } from './ombres.js';
 import { initCombat, majCombat, heroOccupe, toucherEnnemi, DEFIS, lancerDefi, campLibre, zoneDangereuse, POUVOIRS, xpHeros, pvMaxHeros, heros } from './combat.js';
 import { chargerMonstre, chargerProps } from './persos.js';
+import { initHumains, majHumains, bloqueHumain, humainsDebug } from './humains.js';
 import { chargerBatiments, TYPES, CATS, batiments, creerBatiment, majBatiments, placementValide, fantomeBatiment, majEtiquettesChantiers, aBatiment, marteler, demolir, aimanter, LONG_SEGMENT, chantierProche, depotProche, montrerTerritoire, dansTerritoire, ameliorer, enTravaux, niveauDe, prochain, meilleur, bloque, majInterieur, dedans } from './batiments.js';
 
 const $ = (s) => document.querySelector(s);
@@ -105,7 +106,7 @@ const QUETES = [
 ];
 function majQuete() {
   while (J.quete < QUETES.length && QUETES[J.quete].fait()) { J.quete++; son('maximize_006', 0.5); if (J.quete < QUETES.length) toast('Objectif accompli !'); }
-  const q = QUETES[J.quete], el = $('#quete');
+  const q = G.mission || QUETES[J.quete], el = $('#quete'); // une mission urgente (appel à l'aide) passe devant la quête
   if (!q) { el.innerHTML = '<b>Royaume en marche</b><span>Ton camp est bâti. Prochaine étape : le premier vrai donjon.</span>'; return; }
   const p = q.prog ? q.prog() : null;
   el.innerHTML = `<b>${q.t}</b><span>${q.s}</span>${p ? `<i><u style="width:${Math.min(100, p[0] / p[1] * 100)}%"></u></i>` : ''}`;
@@ -114,7 +115,7 @@ function majQuete() {
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; $('#toasts').appendChild(d); setTimeout(() => d.remove(), 2600); }
 let boisAff = -1;
 function majHud(pop = false) {
-  const txt = `🪵 <b>${J.bois}</b>${J.pierre || aBatiment('mine') ? ` <span class="sep"></span> 🪨 <b>${J.pierre}</b>` : ''}${J.habMax ? ` <span class="sep"></span> 👥 <b>${J.habitants || 0}/${J.habMax}</b>` : ''}`;
+  const txt = `🪵 <b>${J.bois}</b>${J.pierre || aBatiment('mine') ? ` <span class="sep"></span> 🪨 <b>${J.pierre}</b>` : ''}${J.habMax ? ` <span class="sep"></span> 👥 <b>${J.habitants || 0}/${J.habMax}</b>` : ''}${J.reputation ? ` <span class="sep"></span> ⭐ <b>${J.reputation}</b>` : ''}`;
   if (txt !== boisAff) { $('#bois').innerHTML = txt; boisAff = txt; if (pop) { const b = $('#bois'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); } }
   $('#mana i').style.width = (J.mana / joueur.manaMax * 100) + '%'; $('#mana b').textContent = `${Math.floor(J.mana)} / ${joueur.manaMax}`;
   if (J.heros) { const pm = pvMaxHeros(); $('#pv i').style.width = (joueur.pv / pm * 100) + '%'; $('#pv b').textContent = `${Math.ceil(joueur.pv)} / ${pm}`; $('#moi h1').innerHTML = `Le Souverain <em>Nv ${J.heros.niv}</em>${J.heros.pts ? ' <span class="pts">+' + J.heros.pts + '</span>' : ''}`; $('#xp').style.width = (J.heros.xp / xpHeros(J.heros.niv) * 100) + '%'; }
@@ -330,7 +331,7 @@ function majJoueur(dt) {
   if (sp > 0.05) {
     joueur.chop = null; joueur.bati = null;
     const nx = joueur.pos.x + vel.x * dt, nz = joueur.pos.z + vel.z * dt;
-    if (libre(nx, nz)) { if (!bloque(nx, nz)) { joueur.pos.x = nx; joueur.pos.z = nz; } else if (!bloque(nx, joueur.pos.z)) joueur.pos.x = nx; else if (!bloque(joueur.pos.x, nz)) joueur.pos.z = nz; } /* glisse le long des murs */
+    if (libre(nx, nz) && !bloqueHumain(nx, nz)) { if (!bloque(nx, nz)) { joueur.pos.x = nx; joueur.pos.z = nz; } else if (!bloque(nx, joueur.pos.z)) joueur.pos.x = nx; else if (!bloque(joueur.pos.x, nz)) joueur.pos.z = nz; } /* glisse le long des murs */
     if (sp > 0.3) { let da = Math.atan2(vel.x, vel.z) - p.root.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); p.root.rotation.y += da * Math.min(1, dt * (enAir ? 5 : 11)); }
   }
   if (enAir) { if (joueur.vy < 0 && p.anim === 'Jump_Start') p.jouer('Jump_Loop'); }
@@ -358,7 +359,7 @@ function sauter() { // saut, puis double saut en salto
 let guideT = 0;
 function majGuide(dt) {
   if ((guideT -= dt) > 0) return; guideT = 0.1;
-  const m = $('#guide'), q = QUETES[J.quete], c = q && q.guide && !enScene ? q.guide() : null;
+  const m = $('#guide'), q = G.mission || QUETES[J.quete], c = q && q.guide && !enScene ? q.guide() : null;
   let x = null, y = null;
   if (typeof c === 'string') { const e = document.querySelector(c); if (e && e.offsetWidth) { const r = e.getBoundingClientRect(); x = r.x + r.width / 2; y = r.y + r.height / 2; } }
   else if (c) { const s = projeter(tmp(c.x, (c.y || 0) + 1, c.z)); if (s.devant && s.x > 0 && s.x < innerWidth && s.y > 0 && s.y < innerHeight) { x = s.x; y = s.y; } }
@@ -385,7 +386,7 @@ function horsLigne() {
 function boucle() {
   requestAnimationFrame(boucle);
   const now = performance.now(), dtR = Math.min(G.accel ? 0.25 : 0.1, (now - dernier) / 1000); dernier = now; const dt = dtR * (G.accel || 1) * (G.ralenti || 1); G.dt = dt; G.t += dt;
-  majJoueur(dt); majCombat(dt);
+  majJoueur(dt); majCombat(dt); majHumains(dt);
   for (let i = scenes.length - 1; i >= 0; i--) if (scenes[i](dt)) scenes.splice(i, 1);
   let rangSuivre = 0; for (const o of ombres) o.maj(dt, jeu, o.d.metier === 'suivre' ? rangSuivre++ : 0);
   for (const d of depouilles) if (d.p && Math.random() < dt * 1.5) emettre(tmp(d.p.root.position.x, d.p.root.position.y + 0.3, d.p.root.position.z), { n: 1, c1: '#7a4aff', c2: '#100418', vit: 0.2, vie: 1.4, taille: 0.25, grav: -0.8 });
@@ -403,6 +404,7 @@ async function demarrer() {
   construireMonde(); creerJoueur(); creerDepouilles(); for (const s of J.batiments) creerBatiment(s, !!s.fini); appliquerBatiments();
   J.ombres.forEach((d, k) => ajouterOmbre(d, V(RESERVE.x + Math.cos(k) * 3, 0, RESERVE.z + Math.sin(k) * 3)));
   initCombat({ J, joueur, jeu, toast, sauver, majQuete, majHud, sauter, bilan });
+  initHumains({ J, joueur, toast, sauver, majHud, majQuete, ajouter: (r, n, p) => jeu.ajouter(r, n, p) });
   horsLigne();
   majPile(J.bois); majHud(); majQuete();
   initEntrees({ toucher, saisir, glisser });
@@ -413,5 +415,5 @@ async function demarrer() {
 // Android met l'appli en pause sans prévenir : on sauvegarde dès qu'elle passe en arrière-plan (progrès + chrono hors ligne justes)
 addEventListener('visibilitychange', () => { if (document.hidden && J) sauver(); });
 addEventListener('pagehide', () => { if (J) sauver(); });
-window.__s = { get J() { return J; }, get ombres() { return ombres; }, G, joueur, eveiller: (k = 0) => depouilles[k] && eveiller(depouilles[k]), mana: () => { J.mana = 100; }, toucher, mode: changerMode, bats: batiments, amel: (b) => { ameliorer(b); }, finir: (b) => marteler(b, 9999, b.g.position), ouvrirBat: ouvrirBatiment, proj: projeter, arbres: () => import('./monde.js') };
+window.__s = { humains: humainsDebug, get J() { return J; }, get ombres() { return ombres; }, G, joueur, eveiller: (k = 0) => depouilles[k] && eveiller(depouilles[k]), mana: () => { J.mana = 100; }, toucher, mode: changerMode, bats: batiments, amel: (b) => { ameliorer(b); }, finir: (b) => marteler(b, 9999, b.g.position), ouvrirBat: ouvrirBatiment, proj: projeter, arbres: () => import('./monde.js') };
 demarrer().catch(e => { document.body.insertAdjacentHTML('beforeend', `<pre style="position:fixed;inset:0;color:#fff;background:#300;z-index:99;padding:2em;white-space:pre-wrap">${e.stack || e}</pre>`); });

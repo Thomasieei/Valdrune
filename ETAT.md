@@ -102,3 +102,10 @@ Toute décision de combat se vérifie contre ses 7 piliers : adversaire qui réf
 - Territoire : camp 60 m + avant-postes (30/40/50 m) posables partout hors camps ennemis ; cercles violets au sol pendant la construction
 - Entrepôt : dépôt bois ET pierre (+10/20/30 %, niv 3 : +1 charge pour toutes les ombres)
 - Forge : +15/30/50 % de dégâts (héros et ombres de combat)
+
+## Humains
+- Valcourt (ville fortifiée, 10 maisons, gardes, marché) au sud-est ; Hameau des Saules (forêt nord-ouest) ; Port-au-Lac (rive du lac d Argent) ; routes vers chacun
+- Habitants autonomes : travaillent, discutent, marchandent, portent des charges, se croisent
+- Visites : un habitant vient flâner à ton camp toutes les 2,5–4 min puis rentre
+- Appels à l aide (toutes les 7–11 min) : un messager court jusqu à toi, mission guidée, villageois cachés ; victoire = réputation +10 + ressources, échec en 7 min = réputation −5
+- À venir : la réputation attire des humains dans ta ville
