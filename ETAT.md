@@ -26,6 +26,8 @@ Règle : on ne rallume un système que quand la 1.0 est solide, et un seul à la
 
 - v1.0-f : ÉTAPE 3 PERSONNALITÉS — champions arrogant / prudent / fanatique ; bouton « Parlementer » (< 5,5 m) : raisonner, intimider (chance selon rapport de force, PV restants, personnalité), venger une ombre, interroger sur un enlevé, duel d’honneur (ombres reculent, non ciblables) ; retraite visible (et peut entraîner tout le raid) ; reddition rare à 30 % PV si tu es bien plus fort (épargner / achever) ; rivaux mémorisés (`J.ville.rivaux`) qui reviennent plus forts (40 %).
 
+- v1.0-g : ÉTAPE 4 SAUVETAGE — chaque enlevé est retenu dans un donjon précis (`g.lieu`), près du 4e gardien ; bouton « Libérer » ; il te suit, et rentre vivant si tu sors du donjon sans mourir (moral +12) ; sacrifié au bout de 45 min réelles (moral −10) ; l’interrogatoire du champion révèle le bon donjon ; métiers accordés au genre du prénom.
+
 ## Bugs connus
 - (à remplir avec les retours de test de Thomas)
 
