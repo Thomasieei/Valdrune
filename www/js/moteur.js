@@ -24,7 +24,7 @@ export function initRendu(canvas) {
   const sc = G.scene = new THREE.Scene();
   sc.background = new THREE.Color('#9fc4e8');
   sc.fog = new THREE.Fog('#b8d2ea', 70, 250);
-  G.camera = new THREE.PerspectiveCamera(50, 1, 0.12, 420);
+  G.camera = new THREE.PerspectiveCamera(50, 1, 0.2, 700);
   G.hemi = new THREE.HemisphereLight('#cfe4ff', '#5a6a3a', 1.1); sc.add(G.hemi);
   const sun = G.sun = new THREE.DirectionalLight('#fff1d6', 2.4);
   sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);

@@ -36,11 +36,13 @@ export const CHEMINS = [
   lisse([[4, 8], [6, 30], [12, 60], [24, 95], [36, 130], [42, 160]]), // sud : les collines et la tour des pillards
   lisse([[70, 8], [72, -40], [70, -88], [62, -112]]),          // raccourci plaine → lac du Col
   lisse([[70, 8], [76, 30], [82, 52], [87, 63]]),               // vers Port-au-Lac
-  lisse([[140, -8], [158, 25], [170, 70], [166, 98], [160, 114]]), // la grande route de Valcourt
+  lisse([[140, -8], [158, 25], [172, 60], [174, 85], [172, 106]]), // la grande route de Valcourt
   lisse([[-6, -80], [-24, -78], [-40, -76], [-46, -75]]),       // vers le Hameau des Saules
 ];
 // les humains : villages et ville, autonomes (voir humains.js)
-export const VILLAGES = [{ id: 'saules', nom: 'Hameau des Saules', x: -66, z: -76, r: 20, type: 'village', porte: [-50, -75] }, { id: 'portlac', nom: 'Port-au-Lac', x: 90, z: 86, r: 20, type: 'village', porte: [88, 66] }, { id: 'valcourt', nom: 'Valcourt', x: 160, z: 154, r: 40, type: 'ville', porte: [160, 110] }];
+// plan de la capitale (coordonnées locales, porte au nord) : partagé par le sol peint et par capitale.js
+export const CAPITALE = { H: 56, vx: [-30, 0, 30], hz: [-34, -12, 10], zMin: -48, zMax: 30, xMin: -50, xMax: 50, place: { z: -12, r: 13 } };
+export const VILLAGES = [{ id: 'saules', nom: 'Hameau des Saules', x: -66, z: -76, r: 20, type: 'village', porte: [-50, -75] }, { id: 'portlac', nom: 'Port-au-Lac', x: 90, z: 86, r: 20, type: 'village', porte: [88, 66] }, { id: 'valcourt', nom: 'Valcourt', x: 172, z: 166, r: 58, type: 'ville', porte: [172, 104] }];
 // la rue principale de chaque village : elle part de l'entrée et serpente jusqu'à l'autre bout
 for (const V of VILLAGES) { V.entree = Math.atan2(V.porte[0] - V.x, V.porte[1] - V.z); V.rue = []; if (V.type === 'ville') continue; const e = V.entree; for (let t = V.r + 4; t >= -V.r; t -= 2) V.rue.push([V.x + Math.sin(e) * t + Math.cos(e) * Math.sin(t * 0.11) * 3, V.z + Math.cos(e) * t - Math.sin(e) * Math.sin(t * 0.11) * 3]); }
 const distRue = (V, x, z) => { let b = 1e9; for (const [a, c] of V.rue) { const d = (a - x) ** 2 + (c - z) ** 2; if (d < b) b = d; } return Math.sqrt(b); };
@@ -81,11 +83,11 @@ function couleurSol(x, z, y, c, c2) {
   const terre = Math.max(0, 1 - d / 9) * 0.9 + Math.max(0, 1 - Math.hypot(x - RESERVE.x, z - RESERVE.z) / 5) * 0.7; c.lerp(c2.set('#9a7a52'), Math.min(0.85, terre)); // sol tassé du camp
   const dc = Math.hypot(x - CARRIERE.x, z - CARRIERE.z); if (dc < 10) c.lerp(c2.set('#8a8070'), Math.min(0.8, (10 - dc) / 3.5)); // carrière : roche et gravier
   const da = Math.hypot(x + 24, z + 6); if (da < 12.5) c.lerp(c2.set('#c8b088'), Math.min(0.9, (12.5 - da) / 1.5)); // sable de l'arène
-  for (const V of VILLAGES) { if (V.type === 'ville') { // dans la capitale : herbe entre les maisons, rues pavées (avenue nord-sud, rue des artisans, place, parvis du palais)
-      const lx = x - V.x, lz = z - V.z, q = Math.max(Math.abs(lx), Math.abs(lz)); if (q > 37) continue; c.lerp(c2.set('#5f8a3c'), 0.4);
-      const pave = (Math.abs(lx) < 4.6 && lz > -40 && lz < 18) || (Math.abs(lz + 10) < 3.6 && Math.abs(lx) < 36) || Math.hypot(lx, lz + 10) < 11.5 || (lz > 14 && lz < 38 && Math.abs(lx) < 13);
-      const bord = Math.min(Math.abs(Math.abs(lx) - 4.6), Math.abs(Math.abs(lz + 10) - 3.6) + (Math.abs(lx) < 36 ? 0 : 9), Math.abs(Math.hypot(lx, lz + 10) - 11.5));
-      if (pave) c.set('#4e4840').offsetHSL(0, 0, n * 0.03 + Math.sin(x * 3.1) * Math.cos(z * 2.9) * 0.015); else if (bord < 1.1) c.set('#3c362e'); else c.lerp(c2.set('#4f7a30'), 0.35);
+  for (const V of VILLAGES) { if (V.type === 'ville') { // dans la capitale : herbe, rues pavées avec bordures, place, parvis du palais, passage de la porte
+      const lx = x - V.x, lz = z - V.z, CP = CAPITALE, q = Math.max(Math.abs(lx), Math.abs(lz)); if (q > CP.H + 1) continue; c.lerp(c2.set('#5a8a38'), 0.45);
+      let dr = 99; for (const vx of CP.vx) if (lz > CP.zMin - 4 && lz < CP.zMax + 4) dr = Math.min(dr, Math.abs(lx - vx)); for (const hz of CP.hz) if (lx > CP.xMin - 4 && lx < CP.xMax + 4) dr = Math.min(dr, Math.abs(lz - hz));
+      if (Math.abs(lx) < 4.2 && lz < CP.zMin) dr = Math.min(dr, Math.abs(lx)); const pl = Math.hypot(lx, lz - CP.place.z) - CP.place.r, pv = lz > CP.zMax - 2 && lz < CP.zMax + 22 && Math.abs(lx) < 14;
+      if (dr < 3.6 || pl < 0 || pv) c.set('#4e4840').offsetHSL(0, 0, n * 0.03 + Math.sin(x * 3.1) * Math.cos(z * 2.9) * 0.015); else if (dr < 4.6 || pl < 1) c.set('#3c362e');
       continue; } if (Math.hypot(x - V.x, z - V.z) > V.r + 8) continue; const dr = distRue(V, x, z) + Math.sin(x * 2.1 + z * 1.7) * 0.3; if (dr < 2.4) c.lerp(c2.set('#9a8058'), Math.min(0.9, (2.4 - dr) / 1)); if (Math.hypot(x - V.x, z - V.z) < 4.5) c.lerp(c2.set('#a08a62'), 0.75); } // rues de terre, pavés de la ville
   const dch = distChemin(x, z) + Math.sin(x * 1.7 + z * 1.3) * 0.35; if (dch < 2.6) c.lerp(c2.set('#a08458').offsetHSL(0, 0, n * 0.03), Math.min(0.92, (2.6 - dch) / 1.1)); // route de terre aux bords irréguliers
 }
@@ -144,7 +146,7 @@ let graine = 7; const rnd = (a = 0, b = 1) => { graine = (graine * 16807) % 2147
 // ---------------- Arbres ----------------
 export const arbres = []; const parType = {};
 // endroits à garder dégagés : camps, arène, carrière, réserve, fort, repaire, tour
-export const CLAIRIERES = [[RESERVE.x, RESERVE.z, 9], [CARRIERE.x, CARRIERE.z, 11], [-34, 30, 11], [38, 30, 14], [-24, -6, 15], [-12, -46, 20], [-150, -18, 16], [42, 160, 14], [0, 0, 15], ...VILLAGES.map(V => [V.x, V.z, V.r + (V.type === 'ville' ? 15 : 6)])];
+export const CLAIRIERES = [[RESERVE.x, RESERVE.z, 9], [CARRIERE.x, CARRIERE.z, 11], [-34, 30, 11], [38, 30, 14], [-24, -6, 15], [-12, -46, 20], [-150, -18, 16], [42, 160, 14], [0, 0, 15], ...VILLAGES.map(V => [V.x, V.z, V.r + (V.type === 'ville' ? 26 : 6)])];
 const degage = (x, z, marge = 0) => { for (const [cx, cz, r] of CLAIRIERES) if (Math.hypot(x - cx, z - cz) < r + marge) return true; for (const L of LACS) if (Math.hypot(x - L.x, z - L.z) < L.r * 1.12 + marge) return true; return false; };
 function construireForet() {
   // grille brouillée : une forêt dense mais aérée (on y voit loin, on y circule), des bosquets dans la plaine
@@ -267,7 +269,7 @@ function construireArene() {
 function construireMontagnes() {
   const monts = [], mat = new THREE.MeshStandardMaterial({ color: '#8094a8', roughness: 1, flatShading: true, fog: false }), neige = new THREE.MeshStandardMaterial({ color: '#eef2f8', roughness: 1, flatShading: true, fog: false }); // au-delà du brouillard : silhouettes bleutées
   for (let i = 0; i < 34; i++) {
-    const a = i / 34 * 6.283 + rnd(-0.08, 0.08), d = rnd(290, 340), h = rnd(70, 150), r = rnd(45, 80);
+    const a = i / 34 * 6.283 + rnd(-0.08, 0.08), r = rnd(45, 75), d = rnd(345, 380) + Math.max(0, r - 60), h = rnd(80, 160); /* toujours au-delà du monde jouable (sinon ils recouvraient Valcourt) */
     const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 7, 3), mat); m.position.set(Math.cos(a) * d, h / 2 - 4, Math.sin(a) * d); m.rotation.y = rnd(0, 3); monts.push(m);
     if (h > 95) { const c = new THREE.Mesh(new THREE.ConeGeometry(r * 0.32, h * 0.32, 7, 1), neige); c.position.set(m.position.x, h - 4 - h * 0.16, m.position.z); c.rotation.y = m.rotation.y; monts.push(c); }
   }
