@@ -28,3 +28,10 @@ les envoyer couper / miner / construire / combattre, voir le royaume grandir en 
 4. Ombres de combat, défense, raids sur la base, mort et réinvocation (mana).
 5. Humains (mort définitive, remplacés), dialogues, ennemis conscients.
 6. Expansion : autres camps, zones, l'eau.
+
+## Idées de Thomas (17/11) — feuille de route
+- [FAIT v0.218] Deux caméras : ⚔️ Héros (3e pers.) / 👑 Souverain (vue AoE : glisser, pincer, tourner à 2 doigts, toucher ombre → toucher arbre/rocher/chantier = ordre ; placement au doigt).
+- [À FAIRE] Échelle des bâtiments : proportions de jeu (porte ≈1,5× perso, plafond ≥2×), intérieurs visitables et meublés, caméra qui se rapproche en intérieur.
+- [À FAIRE] Évolution des bâtiments : niveaux 1→3/4 visibles (bois/chaume → pierre/bois étage → pierre/tuiles/bannières), chantier d'amélioration avec échafaudages, déblocages par niveau, niveau max lié à l'âge du royaume (trône), dégâts de raid = bonus perdu jusqu'à réparation.
+- [À FAIRE] Menus enfantins : icônes d'abord, une action par écran, main animée qui guide, détails chiffrés sur appui long.
+- Puis brique 3 : donjon fait main.

@@ -66,11 +66,17 @@ export function rendre(dtReel) { majPerf(dtReel); majParticules(G.dt); G.compose
 // ---------------- Caméra « à la Roblox » ----------------
 const _off = V(), _vise = V();
 export const DIR_AV = V(0, 0, -1), DIR_DR = V(1, 0, 0);
+// deux caméras : HÉROS (derrière toi, façon Roblox) et SOUVERAIN (vue du dessus façon Age of Empires) ; on glisse de l'une à l'autre
+G.mode = 'heros'; G.focus = new THREE.Vector3(); G.zoomS = 0.35;
 export function majCamera(dt, cible) {
-  G.camCible.lerp(cible, 1 - Math.exp(-dt * 10));
-  let d = 4 + G.camZoom * 26; const p = G.camPitch;
+  const souv = G.mode === 'souverain', k = 1 - Math.exp(-dt * 6);
+  if (souv) { const r = Math.hypot(G.focus.x, G.focus.z); if (r > 75) G.focus.multiplyScalar(75 / r); G.focus.y = G.hauteur ? G.hauteur(G.focus.x, G.focus.z) : 0; }
+  G.camCible.lerp(souv ? G.focus : cible, 1 - Math.exp(-dt * (souv ? 14 : 10)));
+  G._d = G._d ?? 4 + G.camZoom * 26; G._p = G._p ?? G.camPitch;
+  G._d += ((souv ? 14 + G.zoomS * 38 : 4 + G.camZoom * 26) - G._d) * k; G._p += ((souv ? 0.98 : G.camPitch) - G._p) * k;
+  let d = G._d; const p = G._p;
   // comme Roblox : un arbre entre toi et la caméra ? elle se rapproche, puis recule en douceur
-  if (G.obstacle) { const ox = Math.sin(G.camYaw) * Math.cos(p), oz = Math.cos(G.camYaw) * Math.cos(p), oy = Math.sin(p); let lib = d; for (let f = 1.5; f <= d; f += 0.5) { if (G.camCible.y + 1 + oy * f < 6 && G.obstacle(G.camCible.x + ox * f, G.camCible.z + oz * f)) { lib = Math.max(2.2, f - 0.8); break; } } G._col = lib < (G._col ?? d) ? lib : (G._col ?? d) + (lib - (G._col ?? d)) * Math.min(1, dt * 2); d = Math.min(d, G._col); }
+  if (G.obstacle && !souv) { const ox = Math.sin(G.camYaw) * Math.cos(p), oz = Math.cos(G.camYaw) * Math.cos(p), oy = Math.sin(p); let lib = d; for (let f = 1.5; f <= d; f += 0.5) { if (G.camCible.y + 1 + oy * f < 6 && G.obstacle(G.camCible.x + ox * f, G.camCible.z + oz * f)) { lib = Math.max(2.2, f - 0.8); break; } } G._col = lib < (G._col ?? d) ? lib : (G._col ?? d) + (lib - (G._col ?? d)) * Math.min(1, dt * 2); d = Math.min(d, G._col); }
   const proche = Math.max(0, Math.min(1, (14 - d) / 10)), hv = 1.1 + proche * 0.5;
   _off.set(Math.sin(G.camYaw) * Math.cos(p) * d, Math.sin(p) * d, Math.cos(G.camYaw) * Math.cos(p) * d);
   G.camera.position.copy(G.camCible).add(_off); G.camera.position.y += hv * 0.5;
@@ -84,7 +90,7 @@ export function majCamera(dt, cible) {
 
 // ---------------- Commandes ----------------
 export const entree = { x: 0, y: 0, clavier: {} };
-export function initEntrees({ toucher }) {
+export function initEntrees({ toucher, saisir, glisser }) {
   const zj = document.getElementById('zoneJoy'), joy = document.getElementById('joy'), bout = joy.querySelector('i');
   let jid = null, c0 = null;
   const R = () => joy.offsetWidth * 0.42;
@@ -92,19 +98,26 @@ export function initEntrees({ toucher }) {
   zj.addEventListener('pointermove', (e) => { if (e.pointerId !== jid) return; let dx = e.clientX - c0.x, dy = e.clientY - c0.y; const l = Math.hypot(dx, dy), m = R(); if (l > m) { dx *= m / l; dy *= m / l; } bout.style.transform = `translate(${dx}px,${dy}px)`; entree.x = dx / m; entree.y = dy / m; });
   const fin = (e) => { if (e.pointerId !== jid) return; jid = null; entree.x = entree.y = 0; bout.style.transform = ''; joy.classList.remove('actif'); joy.style.left = ''; joy.style.top = ''; };
   zj.addEventListener('pointerup', fin); zj.addEventListener('pointercancel', fin);
-  // un doigt sur la scène : tourner (360° sans limite) · toucher court : sélectionner · deux doigts : zoomer
-  const sc = document.getElementById('scene'), doigts = new Map(); let pince = 0, dep = null;
-  sc.addEventListener('pointerdown', (e) => { doigts.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (doigts.size === 1) dep = { x: e.clientX, y: e.clientY, t: performance.now(), bouge: false }; if (doigts.size === 2) { const [a, b] = [...doigts.values()]; pince = Math.hypot(a.x - b.x, a.y - b.y); dep = null; } });
+  // HÉROS : un doigt tourne la caméra · SOUVERAIN : un doigt fait glisser la carte · deux doigts : zoomer (et tourner en souverain) · toucher court : sélectionner / ordonner
+  const sc = document.getElementById('scene'), doigts = new Map(); let pince = 0, angle = 0, dep = null;
+  sc.addEventListener('pointerdown', (e) => { doigts.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (doigts.size === 1) dep = { x: e.clientX, y: e.clientY, t: performance.now(), bouge: false, saisi: G.mode === 'souverain' && saisir && saisir(e.clientX, e.clientY) }; if (doigts.size === 2) { const [a, b] = [...doigts.values()]; pince = Math.hypot(a.x - b.x, a.y - b.y); angle = Math.atan2(b.y - a.y, b.x - a.x); dep = null; } });
   sc.addEventListener('pointermove', (e) => {
     const d = doigts.get(e.pointerId); if (!d) return;
     const dx = e.clientX - d.x, dy = e.clientY - d.y; d.x = e.clientX; d.y = e.clientY;
-    if (doigts.size === 2) { const [a, b] = [...doigts.values()], l = Math.hypot(a.x - b.x, a.y - b.y); if (pince) G.camZoom = Math.max(0, Math.min(1, G.camZoom * (pince / l))); pince = l; return; }
+    if (doigts.size === 2) {
+      const [a, b] = [...doigts.values()], l = Math.hypot(a.x - b.x, a.y - b.y), an = Math.atan2(b.y - a.y, b.x - a.x);
+      if (G.mode === 'souverain') { if (pince) G.zoomS = Math.max(0, Math.min(1, G.zoomS + (pince - l) * 0.004)); let da = an - angle; da = Math.atan2(Math.sin(da), Math.cos(da)); G.camYaw -= da; }
+      else if (pince) G.camZoom = Math.max(0, Math.min(1, G.camZoom * (pince / l)));
+      pince = l; angle = an; return;
+    }
     if (dep && Math.hypot(e.clientX - dep.x, e.clientY - dep.y) > 10) dep.bouge = true;
+    if (dep && dep.bouge && dep.saisi) { glisser(e.clientX, e.clientY); return; }
+    if (dep && dep.bouge && G.mode === 'souverain') { const f = G._d * 0.0016; G.focus.addScaledVector(DIR_DR, -dx * f).addScaledVector(DIR_AV, dy * f); return; }
     if (dep && dep.bouge) { G.camYaw -= dx * 0.008 * G.sens; G.camPitch = Math.max(0.08, Math.min(1.35, G.camPitch + dy * 0.005 * G.sens)); }
   });
   const leve = (e) => { if (dep && !dep.bouge && doigts.size === 1 && performance.now() - dep.t < 350) toucher(e.clientX, e.clientY); doigts.delete(e.pointerId); if (doigts.size < 2) pince = 0; if (!doigts.size) dep = null; };
   sc.addEventListener('pointerup', leve); sc.addEventListener('pointercancel', (e) => { doigts.delete(e.pointerId); dep = null; });
-  sc.addEventListener('wheel', (e) => { G.camZoom = Math.max(0, Math.min(1, G.camZoom + (e.deltaY > 0 ? 0.05 : -0.05))); }, { passive: true });
+  sc.addEventListener('wheel', (e) => { if (G.mode === 'souverain') { G.zoomS = Math.max(0, Math.min(1, G.zoomS + (e.deltaY > 0 ? 0.05 : -0.05))); return; } G.camZoom = Math.max(0, Math.min(1, G.camZoom + (e.deltaY > 0 ? 0.05 : -0.05))); }, { passive: true });
   addEventListener('keydown', (e) => { entree.clavier[e.key.toLowerCase()] = true; }); addEventListener('keyup', (e) => { entree.clavier[e.key.toLowerCase()] = false; });
 }
 export function directionVoulue(out) {
@@ -114,7 +127,14 @@ export function directionVoulue(out) {
   const l = out.length(); if (l > 1) out.divideScalar(l);
   return Math.min(1, l);
 }
-const _p = V();
+const _p = V(), _ray = new THREE.Raycaster(), _ndc = new THREE.Vector2();
+// point du sol sous le doigt (plan, puis affiné deux fois avec le relief)
+export function solSous(x, y) {
+  _ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1); _ray.setFromCamera(_ndc, G.camera);
+  const o = _ray.ray.origin, d = _ray.ray.direction; if (d.y > -0.01) return null; let h = 0, q = null;
+  for (let i = 0; i < 3; i++) { const t = (h - o.y) / d.y; q = V(o.x + d.x * t, h, o.z + d.z * t); h = G.hauteur ? G.hauteur(q.x, q.z) : 0; }
+  q.y = h; return q;
+}
 export function projeter(v) { _p.copy(v).project(G.camera); return { x: (_p.x + 1) / 2 * innerWidth, y: (1 - _p.y) / 2 * innerHeight, devant: _p.z < 1 }; }
 
 // ---------------- Sons ----------------

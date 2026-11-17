@@ -76,7 +76,8 @@ export class Ombre {
     if (this.etat === 'chercher') {
       if (this.charge >= this.capacite(res)) { this.etat = 'porter'; return; }
       let c = null;
-      if (res === 'bois') c = arbreProche(this.pos, x => x.etat === 'abattu' && x.bois > 0 && x.ouvriers < 3, 40) || arbreProche(this.pos, x => x.etat === 'debout' && x.ouvriers < 3, 70);
+      if (this.force && !(res === 'bois' ? this.force.etat === 'souche' : this.force.pierre <= 0)) c = this.force; this.force = null;
+      if (c) {} else if (res === 'bois') c = arbreProche(this.pos, x => x.etat === 'abattu' && x.bois > 0 && x.ouvriers < 3, 40) || arbreProche(this.pos, x => x.etat === 'debout' && x.ouvriers < 3, 70);
       else c = filonProche(this.pos);
       if (!c) { if (this.charge > 0) this.etat = 'porter'; else { this.montrer(null, null); this.p.jouer('Idle_Loop'); } return; }
       this.cible = c; c.ouvriers++; this.etat = 'aller'; this.angBut = Math.random() * 6.28;
@@ -121,6 +122,7 @@ export class Ombre {
   }
   // ---------- construction : marteler le chantier le plus proche ----------
   majConstruire(dt, j) {
+    if (this.force) { this.cible = this.force.fini ? null : this.force; this.force = null; this.angBut = Math.random() * 6.28; }
     let b = this.cible && this.cible.T && !this.cible.fini ? this.cible : null;
     if (!b) { b = chantierProche(this.pos); this.cible = b; this.angBut = Math.random() * 6.28; }
     if (!b) { this.majRepos(dt); return; }
@@ -150,6 +152,7 @@ export class Ombre {
     else { this.p.jouer('Idle_Loop'); this.tourner(j.perso.root.rotation.y, dt); }
   }
   majRepos(dt) { this.montrer(null, null); const dest = V(-1.5 + Math.cos(this.d.id * 1.3) * 3.2, 0, -1.5 + Math.sin(this.d.id * 1.3) * 3.2); if (this.aller(dest, dt, this.R.vit)) { this.p.jouer('Sitting_Idle_Loop'); this.tourner(Math.atan2(-1.5 - this.pos.x, -1.5 - this.pos.z), dt); } }
+  ordonner(m, cible) { this.changerMetier(m); this.force = cible; }
   changerMetier(m) { this.liberer(); this.charge = 0; this.etat = 'chercher'; this.d.metier = m; this.montrer(null, null); }
   maj(dt, j, rang) {
     this.p.maj(dt);

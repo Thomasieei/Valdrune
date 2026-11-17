@@ -38,6 +38,13 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0a0812;font-family:va
 #btnOmbres small{display:grid;place-items:center;min-width:3.2vh;height:3.2vh;border-radius:1.6vh;background:#a879ff;color:#120a24;font-size:1.8vh}
 #btnConstruire{position:absolute;right:calc(1.6vh + env(safe-area-inset-right));top:9.4vh;padding:1vh 1.8vh;font:800 2.1vh var(--f-label);color:#ffe1a8;border:1px solid #ffd27a55}
 #placement[hidden]{display:none}
+#btnMode{position:absolute;left:calc(1.6vh + env(safe-area-inset-left));bottom:30vh;width:9vh;height:9vh;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:3.6vh;line-height:1;border:2px solid #c8a8ff66;color:#fff}
+#btnMode small{font:800 1.2vh var(--f-label);margin-top:.4vh;color:#e8dcff}
+body.souverain #btnMode{left:auto;right:calc(3vh + env(safe-area-inset-right));bottom:26vh;border-color:#ffd27a88}
+body.souverain #zoneJoy,body.souverain #joy,body.souverain #action{display:none!important}
+body.souverain #scene{filter:saturate(1.08)}
+#indice{position:absolute;left:50%;bottom:4vh;transform:translate(-50%,2vh);padding:1.2vh 2.6vh;border-radius:3vh;background:#120a22d8;border:1px solid #c8a8ff55;color:#f2eaff;font:800 2vh var(--f-label);opacity:0;transition:.25s;pointer-events:none;white-space:nowrap}
+#indice.on{opacity:1;transform:translate(-50%,0)}
 #placement{position:absolute;right:calc(3vh + env(safe-area-inset-right));bottom:5vh;display:flex;gap:1.2vh;align-items:center}
 #placement .verre{width:7vh;height:7vh;border-radius:50%;font:800 3vh var(--f-label);color:#fff}
 #btnPoser{padding:2.2vh 3vh;border-radius:3vh;border:0;font:800 2.4vh var(--f-label);color:#0c2a14;background:linear-gradient(#a8ffbf,#3ccf6a);box-shadow:0 .8vh 0 #1a6a32,0 1.4vh 3vh #0008}
@@ -123,6 +130,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:#0a0812;font-family:va
   <div id="quete" class="verre"></div>
   <button id="btnOmbres" class="verre">Ombres <small>0</small></button>
   <button id="btnConstruire" class="verre">🔨 Construire</button>
+  <button id="btnMode" class="verre">👑<small>Souverain</small></button>
+  <div id="indice"></div>
   <div id="placement" hidden><button id="btnTourner" class="verre">↻</button><button id="btnAnnuler" class="verre">✕</button><button id="btnPoser">Poser</button></div>
   <div id="zoneJoy"></div><div id="joy"><i></i></div>
   <button id="action" hidden></button>
