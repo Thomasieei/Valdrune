@@ -1,5 +1,5 @@
 // Le monde : clairière du camp, forêt (arbres qu'on abat vraiment), réserve de bois, feu de camp, dépouilles.
-import { THREE, G, V, emettre, son, projeter } from './moteur.js';
+import { THREE, G, V, tmp, emettre, son, projeter } from './moteur.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const loader = new GLTFLoader();
@@ -90,7 +90,7 @@ function abattre(ar, depuis) {
 function majChutes(dt) {
   for (let i = chutes.length - 1; i >= 0; i--) {
     const c = chutes[i]; c.t += dt; const k = Math.min(1, c.t / 1.3); c.piv.rotation.x = (k * k) * Math.PI / 2 * 0.98;
-    if (k >= 1 && !c.fini) { c.fini = true; G.shake = Math.max(G.shake, 0.25); son('impactSoft_heavy_000', 0.6, 0.5, c.ar.pos); emettre(V(c.piv.position.x + Math.sin(c.piv.rotation.y) * 3, c.ar.pos.y + 0.3, c.piv.position.z + Math.cos(c.piv.rotation.y) * 3), { n: 30, c1: '#cfe08a', c2: '#4a6a2a', vit: 4, vie: 0.8, taille: 0.18, grav: 5 }); }
+    if (k >= 1 && !c.fini) { c.fini = true; G.shake = Math.max(G.shake, 0.25); son('impactSoft_heavy_000', 0.6, 0.5, c.ar.pos); emettre(tmp(c.piv.position.x + Math.sin(c.piv.rotation.y) * 3, c.ar.pos.y + 0.3, c.piv.position.z + Math.cos(c.piv.rotation.y) * 3), { n: 30, c1: '#cfe08a', c2: '#4a6a2a', vit: 4, vie: 0.8, taille: 0.18, grav: 5 }); }
     if (c.t > 1.9) {
       G.scene.remove(c.piv); chutes.splice(i, 1);
       const ar = c.ar; ar.etat = 'abattu'; ar.bois = Math.round(14 * ar.e);
@@ -105,7 +105,7 @@ export function debiter(ar, n) {
   if (ar.etat !== 'abattu' || ar.bois <= 0) return 0;
   const pris = Math.min(n, ar.bois); ar.bois -= pris;
   if (ar.tronc) { const k = 0.35 + 0.65 * ar.bois / Math.round(14 * ar.e); ar.tronc.scale.set(k, 1, 1); }
-  emettre(V(ar.posTronc.x, ar.pos.y + 0.4, ar.posTronc.z), { n: 5, c1: '#e8c48a', c2: '#7a5530', vit: 2.5, vie: 0.5, taille: 0.12, grav: 9 });
+  emettre(tmp(ar.posTronc.x, ar.pos.y + 0.4, ar.posTronc.z), { n: 5, c1: '#e8c48a', c2: '#7a5530', vit: 2.5, vie: 0.5, taille: 0.12, grav: 9 });
   son('chop', 0.4, 1.1, ar.posTronc);
   if (ar.bois <= 0) { G.scene.remove(ar.tronc); ar.tronc = null; ar.etat = 'souche'; ar.repousse = 0; }
   return pris;
@@ -142,7 +142,7 @@ function construireFeu() {
   feuLum = new THREE.PointLight('#ff9a4a', 6, 11, 1.8); feuLum.position.set(FEU.x, 1.2, FEU.z); G.scene.add(feuLum);
 }
 function majFeu(dt) {
-  if (Math.random() < dt * 40) emettre(V(FEU.x + (Math.random() - 0.5) * 0.4, 0.35, FEU.z + (Math.random() - 0.5) * 0.4), { n: 1, c1: '#ffd27a', c2: '#ff3a0a', vit: 0.6, vie: 0.9, taille: 0.35, grav: -2.5, haut: 1.5 });
+  if (Math.random() < dt * 40) emettre(tmp(FEU.x + (Math.random() - 0.5) * 0.4, 0.35, FEU.z + (Math.random() - 0.5) * 0.4), { n: 1, c1: '#ffd27a', c2: '#ff3a0a', vit: 0.6, vie: 0.9, taille: 0.35, grav: -2.5, haut: 1.5 });
   if (feuLum) feuLum.intensity = 5 + Math.sin(G.t * 13) * 0.8 + Math.sin(G.t * 7.3) * 0.6;
 }
 // ---------------- Décor ----------------
@@ -174,7 +174,7 @@ function construireBraseros() {
     const feu = new THREE.Mesh(new THREE.IcosahedronGeometry(0.22, 0), braise); feu.position.y = 1.45; g.add(pied, coupe, feu); g.position.set(px, hauteur(px, pz), pz); g.traverse(o => { if (o.isMesh) o.castShadow = true; }); G.scene.add(g); braseros.push(g);
   }
 }
-function majBraseros() { const c = G.camCible; for (const b of braseros) if (Math.hypot(b.position.x - c.x, b.position.z - c.z) < 30 && Math.random() < 0.35) emettre(V(b.position.x + (Math.random() - 0.5) * 0.2, b.position.y + 1.55, b.position.z + (Math.random() - 0.5) * 0.2), { n: 1, c1: '#ffd27a', c2: '#ff3a10', vit: 0.6, vie: 0.6, taille: 0.2, grav: -2.5 }); }
+function majBraseros() { const c = G.camCible; for (const b of braseros) if (Math.hypot(b.position.x - c.x, b.position.z - c.z) < 30 && Math.random() < 0.35) emettre(tmp(b.position.x + (Math.random() - 0.5) * 0.2, b.position.y + 1.55, b.position.z + (Math.random() - 0.5) * 0.2), { n: 1, c1: '#ffd27a', c2: '#ff3a10', vit: 0.6, vie: 0.6, taille: 0.2, grav: -2.5 }); }
 // ---------------- Carrière : filons de pierre ----------------
 export const filons = [];
 function construireCarriere() {
@@ -191,17 +191,17 @@ function construireCarriere() {
 }
 export function tailler(f, n, pos) {
   if (f.pierre <= 0) return 0; const pris = Math.min(n, f.pierre); f.pierre -= pris;
-  emettre(V(f.pos.x, f.pos.y + 0.9, f.pos.z), { n: 8, c1: '#f0ece0', c2: '#6a6a70', vit: 3, vie: 0.5, taille: 0.12, grav: 9 }); son('impactMetal_light_000', 0.35, 0.7 + Math.random() * 0.2, f.pos);
-  const k = 0.35 + 0.65 * f.pierre / f.max; f.g.scale.setScalar(f.e * k); if (f.pierre <= 0) { f.g.scale.setScalar(f.e * 0.22); f.repousse = 0; emettre(V(f.pos.x, f.pos.y + 0.5, f.pos.z), { n: 30, c1: '#d8d4c8', c2: '#5a5a60', vit: 4, vie: 0.8, taille: 0.25, grav: 8 }); } /* il reste des gravats, le filon se reforme peu à peu */
+  emettre(tmp(f.pos.x, f.pos.y + 0.9, f.pos.z), { n: 8, c1: '#f0ece0', c2: '#6a6a70', vit: 3, vie: 0.5, taille: 0.12, grav: 9 }); son('impactMetal_light_000', 0.35, 0.7 + Math.random() * 0.2, f.pos);
+  const k = 0.35 + 0.65 * f.pierre / f.max; f.g.scale.setScalar(f.e * k); if (f.pierre <= 0) { f.g.scale.setScalar(f.e * 0.22); f.repousse = 0; emettre(tmp(f.pos.x, f.pos.y + 0.5, f.pos.z), { n: 30, c1: '#d8d4c8', c2: '#5a5a60', vit: 4, vie: 0.8, taille: 0.25, grav: 8 }); } /* il reste des gravats, le filon se reforme peu à peu */
   return pris;
 }
 export const REPOUSSE = { bois: 150, pierre: 120 };
-function majFilons(dt) { for (const f of filons) if (f.pierre <= 0) { f.repousse += dt * (G.repoussePierre || 1); const k = Math.min(1, f.repousse / REPOUSSE.pierre); f.g.scale.setScalar(f.e * (0.22 + 0.78 * k * k)); if (k >= 1) { f.pierre = f.max; emettre(V(f.pos.x, f.pos.y + 1, f.pos.z), { n: 20, c1: '#fff6d8', c2: '#9a9aa2', vit: 2, vie: 0.7, taille: 0.2, grav: -1 }); } } }
+function majFilons(dt) { for (const f of filons) if (f.pierre <= 0) { f.repousse += dt * (G.repoussePierre || 1); const k = Math.min(1, f.repousse / REPOUSSE.pierre); f.g.scale.setScalar(f.e * (0.22 + 0.78 * k * k)); if (k >= 1) { f.pierre = f.max; emettre(tmp(f.pos.x, f.pos.y + 1, f.pos.z), { n: 20, c1: '#fff6d8', c2: '#9a9aa2', vit: 2, vie: 0.7, taille: 0.2, grav: -1 }); } } }
 // minuteurs de repousse visibles près de la caméra : le joueur sait quand la ressource revient
 const minut = [];
 function majMinuteurs() {
   const hote = document.getElementById('bulles'); if (!hote) return; let k = 0; const c = G.camCible, fmt = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-  const ajoute = (p, txt) => { if (k >= 14) return; const s = projeter(V(p.x, p.y + 1.6, p.z)); if (!s.devant) return; let e = minut[k]; if (!e) { e = document.createElement('div'); e.className = 'eti repousse'; hote.appendChild(e); minut[k] = e; } if (e._t !== txt) { e.textContent = txt; e._t = txt; } e.style.display = ''; e.style.transform = `translate(${s.x}px,${s.y}px) translate(-50%,-100%)`; k++; };
+  const ajoute = (p, txt) => { if (k >= 14) return; const s = projeter(tmp(p.x, p.y + 1.6, p.z)); if (!s.devant) return; let e = minut[k]; if (!e) { e = document.createElement('div'); e.className = 'eti repousse'; hote.appendChild(e); minut[k] = e; } if (e._t !== txt) { e.textContent = txt; e._t = txt; } e.style.display = ''; e.style.transform = `translate(${s.x}px,${s.y}px) translate(-50%,-100%)`; k++; };
   for (const a of arbres) if (a.etat === 'souche' && Math.hypot(a.pos.x - c.x, a.pos.z - c.z) < 22) ajoute(a.pos, '🌱 ' + fmt(Math.max(0, (REPOUSSE.bois - a.repousse) / (G.repousseBois || 1))));
   for (const f of filons) if (f.pierre <= 0 && Math.hypot(f.pos.x - c.x, f.pos.z - c.z) < 22) ajoute(f.pos, '⛏️ ' + fmt(Math.max(0, (REPOUSSE.pierre - f.repousse) / (G.repoussePierre || 1))));
   for (let i = k; i < minut.length; i++) minut[i].style.display = 'none';

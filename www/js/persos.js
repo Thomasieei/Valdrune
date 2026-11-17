@@ -71,7 +71,7 @@ export class Monstre extends Anime {
     if (!clipsMonstre.has(nom)) {
       const hum = res[P + MODELES.h.corps + '.gltf']; let ph = 1, pm = 1; hum.scene.traverse(o => { if (o.isBone && o.name === 'pelvis') ph = o.position.y || 1; }); if (os.pelvis) pm = os.pelvis.position.y || 1;
       const k = pm / ph, m = {};
-      for (const [n, c] of Object.entries(CLIPS)) m[n] = new THREE.AnimationClip(n, c.duration, c.tracks.filter(t => t.name.endsWith('.quaternion') || t.name === 'pelvis.position').map(t => { if (t.name !== 'pelvis.position') return t; const u = t.clone(); for (let i = 0; i < u.values.length; i++) u.values[i] *= k; return u; }));
+      for (const [n, c] of Object.entries(CLIPS)) m[n] = new THREE.AnimationClip(n, c.duration, c.tracks.filter(t => (t.name.endsWith('.quaternion') || t.name === 'pelvis.position') && os[t.name.split('.')[0]]).map(t => { if (t.name !== 'pelvis.position') return t; const u = t.clone(); for (let i = 0; i < u.values.length; i++) u.values[i] *= k; return u; }));
       clipsMonstre.set(nom, m);
     }
     this.clips = clipsMonstre.get(nom);

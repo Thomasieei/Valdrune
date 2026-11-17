@@ -59,7 +59,9 @@ const perf = { t: 0, n: 0 };
 function majPerf(dtReel) {
   perf.t += dtReel; perf.n++; if (perf.t < 3) return;
   const fps = perf.n / perf.t; perf.t = perf.n = 0; G.fps = Math.round(fps);
-  if (fps < 32 && (G.resK || 1) > 0.75) { G.resK = Math.max(0.75, (G.resK || 1) - 0.12); redimensionner(); }
+  if (fps < 32 && (G.resK || 1) > 0.6) { G.resK = Math.max(0.6, (G.resK || 1) - 0.12); redimensionner(); }
+  else if (fps < 26 && G.sun.shadow.mapSize.x > 1024) { G.sun.shadow.mapSize.set(1024, 1024); G.sun.shadow.map?.dispose(); G.sun.shadow.map = null; } // en dernier recours : ombres moins fines
+  else if (fps > 55 && (G.resK || 1) < 1) { G.resK = Math.min(1, G.resK + 0.06); redimensionner(); } // ça tourne bien : on remonte
 }
 export function rendre(dtReel) { majPerf(dtReel); majParticules(G.dt); G.composer.render(); }
 
@@ -67,17 +69,16 @@ export function rendre(dtReel) { majPerf(dtReel); majParticules(G.dt); G.compose
 const _off = V(), _vise = V();
 export const DIR_AV = V(0, 0, -1), DIR_DR = V(1, 0, 0);
 // deux caméras : HÉROS (derrière toi, façon Roblox) et SOUVERAIN (vue du dessus façon Age of Empires) ; on glisse de l'une à l'autre
-G.mode = 'heros'; G.focus = new THREE.Vector3(); G.zoomS = 0.35; const _cad = new THREE.Vector3();
+G.mode = 'heros'; G.focus = new THREE.Vector3(); G.zoomS = 0.35;
 export function majCamera(dt, cible) {
   const souv = G.mode === 'souverain', k = 1 - Math.exp(-dt * 6);
   if (souv) { const r = Math.hypot(G.focus.x, G.focus.z); if (r > 75) G.focus.multiplyScalar(75 / r); G.focus.y = G.hauteur ? G.hauteur(G.focus.x, G.focus.z) : 0; }
   // caméra de combat : elle recule un peu, monte, et cadre le héros ET sa cible ; en marche elle se replace doucement derrière lui
-  const cad = false, vise = cad ? _cad.set(cible.x + (G.cadre.x - cible.x) * 0.3, cible.y, cible.z + (G.cadre.z - cible.z) * 0.3) : cible;
-  if (false) { let dy = G.suivreYaw - G.camYaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); G.camYaw += dy * Math.min(1, dt * (cad ? 0.6 : 1.3)); }
+  const vise = cible;
   G.camCible.lerp(souv ? G.focus : vise, 1 - Math.exp(-dt * (souv ? 14 : 8)));
   G._d = G._d ?? 4 + G.camZoom * 26; G._p = G._p ?? G.camPitch;
   const inte = G.interieur && !souv; /* dans un bâtiment : caméra proche et plongeante, le toit s'efface */
-  G._d += ((souv ? 14 + G.zoomS * 38 : inte ? Math.min(7, 4 + G.camZoom * 26) : cad ? Math.max(11.5, 4 + G.camZoom * 26) : 4 + G.camZoom * 26) - G._d) * k * (cad ? 0.5 : 1); G._p += ((souv ? 0.98 : inte ? Math.max(0.75, G.camPitch) : cad ? Math.max(0.6, G.camPitch) : G.camPitch) - G._p) * k * (cad ? 0.5 : 1);
+  G._d += ((souv ? 14 + G.zoomS * 38 : inte ? Math.min(7, 4 + G.camZoom * 26) : 4 + G.camZoom * 26) - G._d) * k; G._p += ((souv ? 0.98 : inte ? Math.max(0.75, G.camPitch) : G.camPitch) - G._p) * k;
   let d = G._d; const p = G._p;
   // comme Roblox : un arbre entre toi et la caméra ? elle se rapproche, puis recule en douceur
   if (G.obstacle && !souv && !inte) { const ox = Math.sin(G.camYaw) * Math.cos(p), oz = Math.cos(G.camYaw) * Math.cos(p), oy = Math.sin(p); let lib = d; for (let f = 1.5; f <= d; f += 0.5) { if (G.camCible.y + 1 + oy * f < 6 && G.obstacle(G.camCible.x + ox * f, G.camCible.z + oz * f)) { lib = Math.max(2.2, f - 0.8); break; } } G._col = lib < (G._col ?? d) ? lib : (G._col ?? d) + (lib - (G._col ?? d)) * Math.min(1, dt * 2); d = Math.min(d, G._col); }
@@ -157,8 +158,10 @@ export function son(nom, vol = 0.5, hauteur = 1, pos = null) {
 }
 
 // ---------------- Particules (un seul nuage de points, très peu coûteux) ----------------
-const MAXP = 1500; let PG = null, PA = null;
-const parts = [];
+// particules : tableaux typés (aucune allocation pendant le jeu = pas d'à-coups du ramasse-miettes),
+// chaque particule retombe sur le vrai relief (et pas sur y = 0)
+const MAXP = 1500; let PG = null, PA = null, NP = 0;
+const PX = new Float32Array(MAXP * 3), PV = new Float32Array(MAXP * 3), PC = new Float32Array(MAXP * 6), PT = new Float32Array(MAXP * 5); // t, vie, taille, grav, sol
 function initParticules() {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAXP * 3), 3));
@@ -172,27 +175,36 @@ function initParticules() {
   PG = new THREE.Points(geo, mat); PG.frustumCulled = false; PA = geo; G.scene.add(PG);
 }
 const _c1 = new THREE.Color(), _c2 = new THREE.Color();
-export function emettre(pos, { n = 10, c1 = '#ffffff', c2 = null, vit = 3, vie = 0.7, taille = 0.25, grav = 6, haut = 0.5, normal = false } = {}) {
-  _c1.set(c1); _c2.set(c2 || c1);
-  for (let i = 0; i < n && parts.length < MAXP; i++) {
-    const a = Math.random() * 6.283, v = vit * (0.4 + Math.random() * 0.6);
-    parts.push({ x: pos.x, y: pos.y, z: pos.z, vx: Math.cos(a) * v, vy: (Math.random() * 0.8 + haut) * v, vz: Math.sin(a) * v, t: 0, vie: vie * (0.7 + Math.random() * 0.6), r: _c1.r, g: _c1.g, b: _c1.b, r2: _c2.r, g2: _c2.g, b2: _c2.b, s: taille * (0.6 + Math.random() * 0.8), grav, normal });
+export function emettre(pos, { n = 10, c1 = '#ffffff', c2 = null, vit = 3, vie = 0.7, taille = 0.25, grav = 6, haut = 0.5 } = {}) {
+  _c1.set(c1); _c2.set(c2 || c1); const sol = G.hauteur ? G.hauteur(pos.x, pos.z) + 0.03 : 0.03;
+  for (let i = 0; i < n && NP < MAXP; i++, NP++) {
+    const a = Math.random() * 6.283, v = vit * (0.4 + Math.random() * 0.6), j = NP * 3, c = NP * 6, t = NP * 5;
+    PX[j] = pos.x; PX[j + 1] = pos.y; PX[j + 2] = pos.z; PV[j] = Math.cos(a) * v; PV[j + 1] = (Math.random() * 0.8 + haut) * v; PV[j + 2] = Math.sin(a) * v;
+    PC[c] = _c1.r; PC[c + 1] = _c1.g; PC[c + 2] = _c1.b; PC[c + 3] = _c2.r; PC[c + 4] = _c2.g; PC[c + 5] = _c2.b;
+    PT[t] = 0; PT[t + 1] = vie * (0.7 + Math.random() * 0.6); PT[t + 2] = taille * (0.7 + Math.random() * 0.6); PT[t + 3] = grav; PT[t + 4] = sol;
   }
 }
 function majParticules(dt) {
   const P = PA.attributes.position.array, C = PA.attributes.color.array, S = PA.attributes.taille.array;
-  let n = 0;
-  for (let i = parts.length - 1; i >= 0; i--) { const p = parts[i]; p.t += dt; if (p.t >= p.vie) { parts[i] = parts[parts.length - 1]; parts.pop(); } }
-  for (const p of parts) {
-    p.vy -= p.grav * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt; if (p.y < 0.03 && p.grav > 0) { p.y = 0.03; p.vx *= 0.7; p.vz *= 0.7; p.vy *= -0.2; }
-    const k = p.t / p.vie, f = 1 - k;
-    P[n * 3] = p.x; P[n * 3 + 1] = p.y; P[n * 3 + 2] = p.z;
-    C[n * 3] = (p.r + (p.r2 - p.r) * k) * f; C[n * 3 + 1] = (p.g + (p.g2 - p.g) * k) * f; C[n * 3 + 2] = (p.b + (p.b2 - p.b) * k) * f;
-    S[n] = p.s * (0.6 + f * 0.6); n++;
+  for (let i = NP - 1; i >= 0; i--) { // fin de vie : on recopie la dernière à sa place
+    if ((PT[i * 5] += dt) < PT[i * 5 + 1]) continue;
+    NP--; if (i !== NP) { PX.copyWithin(i * 3, NP * 3, NP * 3 + 3); PV.copyWithin(i * 3, NP * 3, NP * 3 + 3); PC.copyWithin(i * 6, NP * 6, NP * 6 + 6); PT.copyWithin(i * 5, NP * 5, NP * 5 + 5); }
   }
-  PA.setDrawRange(0, n); PA.attributes.position.needsUpdate = PA.attributes.color.needsUpdate = PA.attributes.taille.needsUpdate = true;
+  for (let i = 0; i < NP; i++) {
+    const j = i * 3, c = i * 6, t = i * 5, g = PT[t + 3];
+    PV[j + 1] -= g * dt; PX[j] += PV[j] * dt; PX[j + 1] += PV[j + 1] * dt; PX[j + 2] += PV[j + 2] * dt;
+    if (g > 0 && PX[j + 1] < PT[t + 4]) { PX[j + 1] = PT[t + 4]; PV[j] *= 0.7; PV[j + 2] *= 0.7; PV[j + 1] *= -0.2; }
+    const k = PT[t] / PT[t + 1], f = 1 - k;
+    P[j] = PX[j]; P[j + 1] = PX[j + 1]; P[j + 2] = PX[j + 2];
+    C[j] = (PC[c] + (PC[c + 3] - PC[c]) * k) * f; C[j + 1] = (PC[c + 1] + (PC[c + 4] - PC[c + 1]) * k) * f; C[j + 2] = (PC[c + 2] + (PC[c + 5] - PC[c + 2]) * k) * f;
+    S[i] = PT[t + 2] * (0.6 + f * 0.6);
+  }
+  PA.setDrawRange(0, NP); PA.attributes.position.needsUpdate = PA.attributes.color.needsUpdate = PA.attributes.taille.needsUpdate = true;
   PG.material.uniforms.k.value = innerHeight * G.renderer.getPixelRatio() * 0.6;
 }
+// vecteurs de travail réutilisés (pour projeter / émettre / afficher un texte : ces fonctions recopient la position)
+const _ring = Array.from({ length: 32 }, () => new THREE.Vector3()); let _ri = 0;
+export const tmp = (x, y, z) => _ring[(_ri = (_ri + 1) & 31)].set(x, y, z);
 
 // ---------------- Textes flottants ----------------
 const flottants = [];

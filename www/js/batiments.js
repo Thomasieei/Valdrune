@@ -1,6 +1,6 @@
 // Bâtiments : on choisit, on pose un chantier, les ombres le construisent pièce par pièce sous tes yeux.
 // Pièces Quaternius « Medieval Village MegaKit » (même style que les personnages).
-import { THREE, G, V, emettre, son, projeter } from './moteur.js';
+import { THREE, G, V, tmp, emettre, son, projeter } from './moteur.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { buche, hauteur, arbres, RESERVE } from './monde.js';
 
@@ -136,7 +136,7 @@ export function marteler(b, force, pos) {
   if (!enTravaux(b)) return true;
   const amel = !!b.s.amel, T = amel ? prochain(b) : b.T;
   b.s.prog = Math.min(1, (b.s.prog || 0) + force / (T.travail || b.T.travail));
-  emettre(V(pos.x, pos.y + 0.3, pos.z), { n: 5, c1: '#f2e0b8', c2: '#8a7050', vit: 1.8, vie: 0.5, taille: 0.12, grav: 6 });
+  emettre(tmp(pos.x, pos.y + 0.3, pos.z), { n: 5, c1: '#f2e0b8', c2: '#8a7050', vit: 1.8, vie: 0.5, taille: 0.12, grav: 6 });
   son('impactMetal_light_000', 0.32, 1 + Math.random() * 0.2, pos);
   if (!amel) {
     const voulu = Math.floor(b.s.prog * b.pcs.length + 1e-6);
@@ -146,7 +146,7 @@ export function marteler(b, force, pos) {
   if (amel) { // le nouveau niveau surgit en cascade, l'échafaudage tombe
     b.s.niv++; b.s.amel = false; b.echaf.visible = false; monter(b, true);
     b.pcs.forEach((o, i) => { o.scale.setScalar(0.01); b.pop.push({ o, t: -i * 0.035 }); });
-    emettre(V(b.g.position.x, b.g.position.y + 3, b.g.position.z), { n: 120, c1: '#ffe9a0', c2: '#8a7050', vit: 6, vie: 1.2, taille: 0.3, grav: 3 });
+    emettre(tmp(b.g.position.x, b.g.position.y + 3, b.g.position.z), { n: 120, c1: '#ffe9a0', c2: '#8a7050', vit: 6, vie: 1.2, taille: 0.3, grav: 3 });
   }
   b.fini = b.s.fini = true; b.chantier.visible = false; for (const o of b.pcs) o.visible = true; return true;
 }
@@ -191,7 +191,7 @@ export function depotProche(pos, res) {
 export function demolir(b) {
   const i = batiments.indexOf(b); if (i < 0) return null;
   batiments.splice(i, 1); G.scene.remove(b.g); const e = eti.get(b); if (e) { e.remove(); eti.delete(b); }
-  emettre(V(b.g.position.x, b.g.position.y + 1.5, b.g.position.z), { n: 90, c1: '#d8c8a8', c2: '#5a4a3a', vit: 5, vie: 1.1, taille: 0.4, grav: 3 }); son('impactSoft_heavy_000', 0.7, 0.6, b.g.position);
+  emettre(tmp(b.g.position.x, b.g.position.y + 1.5, b.g.position.z), { n: 90, c1: '#d8c8a8', c2: '#5a4a3a', vit: 5, vie: 1.1, taille: 0.4, grav: 3 }); son('impactSoft_heavy_000', 0.7, 0.6, b.g.position);
   const rendu = {}, ajoute = (c) => { for (const [r, n] of Object.entries(c || {})) rendu[r] = (rendu[r] || 0) + n; };
   ajoute(b.T.cout); for (let k = 1; k < (b.s.niv || 1); k++) ajoute(b.T.niveaux[k].cout);
   for (const r in rendu) rendu[r] = Math.floor(rendu[r] * 0.5); return rendu;
@@ -252,12 +252,12 @@ export function majEtiquettesChantiers() {
       if (!e) { e = document.createElement('div'); document.getElementById('bulles').appendChild(e); eti.set(b, e); }
       const html = `<i style="--c:${CATS[b.T.cat].c}">${b.T.icone}</i>${b.T.niveaux.length > 1 ? `<u>${'★'.repeat(b.s.niv || 1)}</u>` : ''}`;
       if (e._h !== html) { e.innerHTML = html; e._h = html; e.className = 'badge'; }
-      const h = (b.T.demi ? (b.s.niv >= 2 ? 2 : 1) * 3.12 + 5.4 : 2.6) * b.T.ech, s = projeter(V(b.g.position.x, b.g.position.y + h, b.g.position.z));
+      const h = (b.T.demi ? (b.s.niv >= 2 ? 2 : 1) * 3.12 + 5.4 : 2.6) * b.T.ech, s = projeter(tmp(b.g.position.x, b.g.position.y + h, b.g.position.z));
       e.style.display = s.devant && !loin ? '' : 'none'; e.style.transform = `translate(${s.x}px,${s.y}px) translate(-50%,-100%)`; continue;
     }
     if (e && e.className !== 'eti chantier') { e.className = 'eti chantier'; e._h = ''; }
     if (!e) { e = document.createElement('div'); e.className = 'eti chantier'; document.getElementById('bulles').appendChild(e); eti.set(b, e); }
-    const s = projeter(V(b.g.position.x, b.g.position.y + (b.s.amel ? 9 : 2.2), b.g.position.z)), html = `${b.s.amel ? '⬆️' : '🔨'} ${b.T.nom}${b.s.amel ? ' niv. ' + (b.s.niv + 1) : ''} <em>${Math.floor((b.s.prog || 0) * 100)} %</em>`;
+    const s = projeter(tmp(b.g.position.x, b.g.position.y + (b.s.amel ? 9 : 2.2), b.g.position.z)), html = `${b.s.amel ? '⬆️' : '🔨'} ${b.T.nom}${b.s.amel ? ' niv. ' + (b.s.niv + 1) : ''} <em>${Math.floor((b.s.prog || 0) * 100)} %</em>`;
     if (e._h !== html) { e.innerHTML = html; e._h = html; } e.style.display = s.devant ? '' : 'none'; e.style.transform = `translate(${s.x}px,${s.y}px) translate(-50%,-100%)`;
   }
 }

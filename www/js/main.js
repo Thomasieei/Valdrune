@@ -1,5 +1,5 @@
 // Souverain des Ombres — brique 1 : relever ses ombres, les envoyer au bois, voir le royaume grandir.
-import { THREE, G, V, initRendu, rendre, majCamera, initEntrees, solSous, directionVoulue, projeter, initAudio, chargerSons, son, emettre, texteFlottant, majFlottants } from './moteur.js';
+import { THREE, G, V, tmp, initRendu, rendre, majCamera, initEntrees, solSous, directionVoulue, projeter, initAudio, chargerSons, son, emettre, texteFlottant, majFlottants } from './moteur.js';
 import { chargerPersos, Perso } from './persos.js';
 import { chargerNature, construireMonde, majMonde, majPile, hauteur, arbreProche, frapperArbre, libre, RESERVE, FEU, filons } from './monde.js';
 import { Ombre, RANGS, NOMS, METIERS, parole, surParole, surSignal, xpNiveau, teinteOmbre } from './ombres.js';
@@ -47,8 +47,8 @@ function eveiller(dep) {
   const d = { id, nom: NOMS[(id - 1) % NOMS.length], rang: tirerRang(), metier: 'suivre', sexe: dep.i % 3 === 1 ? 'f' : 'h', cheveux: dep.i, maitrise: { bois: { niv: 1, xp: 0 } } };
   const anim = (dt) => {
     t += dt; cercle.rotation.y += dt * 2; cercle.scale.setScalar(1 + Math.sin(t * 6) * 0.06);
-    if (Math.random() < 0.9) emettre(V(pos.x + (Math.random() - 0.5) * 2, pos.y + 0.1, pos.z + (Math.random() - 0.5) * 2), { n: 3, c1: '#b48aff', c2: '#140820', vit: 0.6, vie: 1.2, taille: 0.35, grav: -3, haut: 2 });
-    if (t > 1.1 && dep.p) { G.scene.remove(dep.p.root); G.scene.remove(dep.tache); dep.p = null; const o = ajouterOmbre(d, pos); o.p.root.rotation.y = Math.atan2(joueur.pos.x - pos.x, joueur.pos.z - pos.z); o.p.jouer('LayToIdle', { boucle: false, forcer: true, fondu: 0 }); o.scene = () => {}; nouvelle = o; son('sov_onde', 0.6, 0.8); emettre(V(pos.x, pos.y + 1, pos.z), { n: 70, c1: '#d8c0ff', c2: '#3a0a7a', vit: 5, vie: 1, taille: 0.3, grav: 0 }); }
+    if (Math.random() < 0.9) emettre(tmp(pos.x + (Math.random() - 0.5) * 2, pos.y + 0.1, pos.z + (Math.random() - 0.5) * 2), { n: 3, c1: '#b48aff', c2: '#140820', vit: 0.6, vie: 1.2, taille: 0.35, grav: -3, haut: 2 });
+    if (t > 1.1 && dep.p) { G.scene.remove(dep.p.root); G.scene.remove(dep.tache); dep.p = null; const o = ajouterOmbre(d, pos); o.p.root.rotation.y = Math.atan2(joueur.pos.x - pos.x, joueur.pos.z - pos.z); o.p.jouer('LayToIdle', { boucle: false, forcer: true, fondu: 0 }); o.scene = () => {}; nouvelle = o; son('sov_onde', 0.6, 0.8); emettre(tmp(pos.x, pos.y + 1, pos.z), { n: 70, c1: '#d8c0ff', c2: '#3a0a7a', vit: 5, vie: 1, taille: 0.3, grav: 0 }); }
     if (t > 3.2 && nouvelle && !nouvelle._kneel) { nouvelle._kneel = true; nouvelle.p.jouer('Fixing_Kneeling', { boucle: true }); nouvelle.dire(parole('eveil')); revelerRang(d); }
     if (t > 6.2) { G.scene.remove(cercle); $('#eveil').classList.remove('on'); if (nouvelle) { nouvelle.scene = null; nouvelle.p.jouer('Idle_Loop'); } nouvelle = null; enScene = false; J.ombres.push(d); sauver(); majQuete(); return true; }
   };
@@ -66,11 +66,11 @@ const jeu = {
   ajouter(res, n, pos) {
     J[res] = (J[res] || 0) + n; if (res === 'bois') { J.total += n; majPile(J.bois); }
     son(res === 'bois' ? 'drop_002' : 'impactPunch_medium_001', 0.35, 1, pos);
-    texteFlottant(V(pos.x, (pos.y || 0) + 2.4, pos.z), `+${n} ${ICONES[res]}`, 'bois'); majHud(res); majQuete();
+    texteFlottant(tmp(pos.x, (pos.y || 0) + 2.4, pos.z), `+${n} ${ICONES[res]}`, 'bois'); majHud(res); majQuete();
   },
   batimentFini(b, o) {
     son('jingles_PIZZI03', 0.5); toast(b.s.niv > 1 ? `${b.T.icone} ${b.T.nom} passe niveau ${b.s.niv} ! ${'⭐'.repeat(b.s.niv)}` : `${b.T.icone} ${b.T.nom} terminé${b.T.nom.endsWith('e') ? 'e' : ''} !`);
-    emettre(V(b.g.position.x, b.g.position.y + 2, b.g.position.z), { n: 80, c1: '#ffe9a0', c2: '#b36bff', vit: 5, vie: 1.1, taille: 0.25, grav: 1 });
+    emettre(tmp(b.g.position.x, b.g.position.y + 2, b.g.position.z), { n: 80, c1: '#ffe9a0', c2: '#b36bff', vit: 5, vie: 1.1, taille: 0.25, grav: 1 });
     if (o && !b.T.segment) o.dire('C’est fait, maître.'); appliquerBatiments(); sauver(); majQuete(); if ($('#panneau').classList.contains('on') && $('#panneau').dataset.vue === 'ombres') ouvrirOmbres();
   },
 };
@@ -124,7 +124,7 @@ const etiquettes = new Map();
 function majEtiquettes() {
   for (const o of ombres) {
     let e = etiquettes.get(o); if (!e) { e = document.createElement('div'); e.className = 'eti'; $('#bulles').appendChild(e); etiquettes.set(o, e); }
-    const s = projeter(V(o.pos.x, o.pos.y + 2.15, o.pos.z)), loin = Math.hypot(o.pos.x - joueur.pos.x, o.pos.z - joueur.pos.z) > 22;
+    const s = projeter(tmp(o.pos.x, o.pos.y + 2.15, o.pos.z)), loin = Math.hypot(o.pos.x - joueur.pos.x, o.pos.z - joueur.pos.z) > 22;
     const html = `<span class="rg" style="--c:${o.R.c}">${o.d.rang}</span>${o.d.nom}${o.charge ? ` <em>🪵${o.charge}</em>` : ''}`; if (e._h !== html) { e.innerHTML = html; e._h = html; }
     e.style.display = s.devant && !loin ? '' : 'none'; e.classList.toggle('sel', selection === o); e.style.transform = `translate(${s.x}px,${s.y}px) translate(-50%,-100%)`;
     const b = bulles.get(o); if (b && b.style.display !== 'none') { if (G.t > +b.dataset.t || !s.devant || loin) b.style.display = 'none'; else b.style.transform = `translate(${s.x}px,${s.y - 26}px) translate(-50%,-100%)`; }
@@ -203,7 +203,7 @@ $('#panneau').addEventListener('click', (e) => {
     for (const [r, k] of Object.entries(nx.cout)) J[r] -= k; ameliorer(b); son('impactPunch_medium_001', 0.5); majHud(); sauver();
     $('#panneau').classList.remove('on'); toast(J.ombres.some(o => o.metier === 'construire') ? '⬆️ Échafaudages montés : tes bâtisseurs s’y mettent' : '⬆️ Échafaudages montés ! Mets une ombre en 🔨 Bâtir'); return;
   }
-  const pw = e.target.closest('[data-pw]'); if (pw && J.heros.pts > 0) { J.heros.pts--; J.heros.pw[pw.dataset.pw]++; son('jingles_PIZZI01', 0.5); emettre(V(joueur.pos.x, joueur.pos.y + 1, joueur.pos.z), { n: 40, c1: '#ffe9a0', c2: '#b36bff', vit: 3, vie: 0.9, taille: 0.22, grav: -1 }); sauver(); majHud(); ouvrirPouvoirs(); return; }
+  const pw = e.target.closest('[data-pw]'); if (pw && J.heros.pts > 0) { J.heros.pts--; J.heros.pw[pw.dataset.pw]++; son('jingles_PIZZI01', 0.5); emettre(tmp(joueur.pos.x, joueur.pos.y + 1, joueur.pos.z), { n: 40, c1: '#ffe9a0', c2: '#b36bff', vit: 3, vie: 0.9, taille: 0.22, grav: -1 }); sauver(); majHud(); ouvrirPouvoirs(); return; }
   const dm = e.target.closest('[data-demolir]'); if (dm && batOuvert) {
     if (!dm.classList.contains('sur')) { dm.classList.add('sur'); dm.textContent = '⚠️ Toucher encore pour confirmer'; son('error_004', 0.3); return; }
     const b = batOuvert, rendu = demolir(b); J.batiments = J.batiments.filter(x => x !== b.s); for (const [r, n] of Object.entries(rendu || {})) J[r] = (J[r] || 0) + n;
@@ -241,7 +241,7 @@ function poser() {
   const T = TYPES[placement.type]; for (const [r, n] of Object.entries(T.cout)) J[r] -= n;
   if (placement.aim) { placement.x = placement.aim.x; placement.z = placement.aim.z; }
   const s = { type: placement.type, x: +placement.x.toFixed(2), z: +placement.z.toFixed(2), r: placement.r, prog: 0, fini: false };
-  J.batiments.push(s); creerBatiment(s, false); son('impactPunch_medium_001', 0.5); emettre(V(s.x, hauteur(s.x, s.z) + 0.2, s.z), { n: 30, c1: '#d8c8a8', c2: '#6a5a4a', vit: 3, vie: 0.7, taille: 0.3, grav: 4 });
+  J.batiments.push(s); creerBatiment(s, false); son('impactPunch_medium_001', 0.5); emettre(tmp(s.x, hauteur(s.x, s.z) + 0.2, s.z), { n: 30, c1: '#d8c8a8', c2: '#6a5a4a', vit: 3, vie: 0.7, taille: 0.3, grav: 4 });
   majHud(); sauver();
   if (!J.ombres.some(o => o.metier === 'construire')) toast('Chantier posé ! Mets une ombre en 🔨 Bâtir');
   if (T.segment && Object.entries(T.cout).every(([r, n]) => (J[r] || 0) >= n)) { placement.x += Math.cos(placement.r) * LONG_SEGMENT; placement.z -= Math.sin(placement.r) * LONG_SEGMENT; } // segment suivant, accroché au bout du précédent
@@ -264,7 +264,7 @@ function majAction() {
   action(null);
 }
 // ---------------- Sélection au doigt ----------------
-function ombreSous(x, y) { let best = null, bd = 60; for (const o of ombres) { const s = projeter(V(o.pos.x, o.pos.y + 1, o.pos.z)); const d = Math.hypot(s.x - x, s.y - y); if (s.devant && d < bd) { bd = d; best = o; } } return best; }
+function ombreSous(x, y) { let best = null, bd = 60; for (const o of ombres) { const s = projeter(tmp(o.pos.x, o.pos.y + 1, o.pos.z)); const d = Math.hypot(s.x - x, s.y - y); if (s.devant && d < bd) { bd = d; best = o; } } return best; }
 function toucher(x, y) {
   const best = ombreSous(x, y);
   if (G.mode !== 'souverain' && toucherEnnemi(x, y)) return;
@@ -283,7 +283,7 @@ function toucher(x, y) {
   else if (fi) { if (zoneDangereuse(fi.pos)) { son('error_004', 0.4); toast('👹 Des monstres gardent ces rochers : libère la zone d’abord'); return; } if (!aBatiment('mine')) { son('error_004', 0.4); toast('⛏️ Construis d’abord le Camp de mineurs'); return; } m = 'pierre'; cible = fi; cp = fi.pos; }
   if (!m) { selection = null; indice(''); return; }
   selection.ordonner(m, cible); selection.dire(parole(m)); son('confirmation_001', 0.35);
-  emettre(V(cp.x, (cp.y || 0) + 0.3, cp.z), { n: 24, c1: '#c8a8ff', c2: '#5a2aff', vit: 2.5, vie: 0.6, taille: 0.2, grav: 0 });
+  emettre(tmp(cp.x, (cp.y || 0) + 0.3, cp.z), { n: 24, c1: '#c8a8ff', c2: '#5a2aff', vit: 2.5, vie: 0.6, taille: 0.2, grav: 0 });
   sauver(); majQuete(); selection = null; indice('');
 }
 // le fantôme du bâtiment se fait glisser au doigt
@@ -321,7 +321,6 @@ function majJoueur(dt) {
     if (Math.hypot(nx, nz) < 78 && libre(nx, nz)) { if (!bloque(nx, nz)) { joueur.pos.x = nx; joueur.pos.z = nz; } else if (!bloque(nx, joueur.pos.z)) joueur.pos.x = nx; else if (!bloque(joueur.pos.x, nz)) joueur.pos.z = nz; } /* glisse le long des murs */
     if (sp > 0.3) { let da = Math.atan2(vel.x, vel.z) - p.root.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); p.root.rotation.y += da * Math.min(1, dt * (enAir ? 5 : 11)); }
   }
-  G.suivreYaw = sp > 2.5 && !enAir ? p.root.rotation.y + Math.PI : null;
   if (enAir) { if (joueur.vy < 0 && p.anim === 'Jump_Start') p.jouer('Jump_Loop'); }
   else if (joueur.atterrit > 0) joueur.atterrit -= dt;
   else if (sp > 0.4) p.jouer(sp > 4.6 ? 'Jog_Fwd_Loop' : 'Walk_Loop', { vitesse: sp > 4.6 ? sp / 5.4 : sp / 3.1 });
@@ -336,11 +335,11 @@ function majJoueur(dt) {
   p.maj(dt);
   J.mana = Math.min(joueur.manaMax, J.mana + dt * 2.2 * (joueur.regen || 1));
 }
-function atterrir() { const p = joueur.perso; p.jouer(joueur.salto ? 'NinjaJump_Land' : 'Jump_Land', { boucle: false, forcer: true, vitesse: 1.6 }); joueur.atterrit = 0.25; joueur.salto = false; emettre(V(joueur.pos.x, joueur.pos.y + 0.1, joueur.pos.z), { n: 18, c1: '#d8c8a8', c2: '#6a5a4a', vit: 2.5, vie: 0.5, taille: 0.25, grav: 4 }); son('impactSoft_heavy_000', 0.3, 1.4, joueur.pos); }
+function atterrir() { const p = joueur.perso; p.jouer(joueur.salto ? 'NinjaJump_Land' : 'Jump_Land', { boucle: false, forcer: true, vitesse: 1.6 }); joueur.atterrit = 0.25; joueur.salto = false; emettre(tmp(joueur.pos.x, joueur.pos.y + 0.1, joueur.pos.z), { n: 18, c1: '#d8c8a8', c2: '#6a5a4a', vit: 2.5, vie: 0.5, taille: 0.25, grav: 4 }); son('impactSoft_heavy_000', 0.3, 1.4, joueur.pos); }
 function sauter() { // saut, puis double saut en salto
   if (G.mode === 'souverain' || heroOccupe()) return; joueur.sauts ||= 0; if (joueur.sauts >= 2) return;
   const p = joueur.perso; joueur.sauts++; joueur.vy = joueur.sauts === 1 ? 8.2 : 7.2; joueur.h = Math.max(joueur.h, 0.01); joueur.atterrit = 0;
-  if (joueur.sauts === 2) { joueur.salto = true; p.jouer('NinjaJump_Start', { boucle: false, forcer: true, vitesse: 1.4 }); emettre(V(joueur.pos.x, joueur.pos.y + 0.3, joueur.pos.z), { n: 20, c1: '#c8a8ff', c2: '#3a0a7a', vit: 2.5, vie: 0.5, taille: 0.25, grav: 0 }); son('sov_onde', 0.3, 1.8); }
+  if (joueur.sauts === 2) { joueur.salto = true; p.jouer('NinjaJump_Start', { boucle: false, forcer: true, vitesse: 1.4 }); emettre(tmp(joueur.pos.x, joueur.pos.y + 0.3, joueur.pos.z), { n: 20, c1: '#c8a8ff', c2: '#3a0a7a', vit: 2.5, vie: 0.5, taille: 0.25, grav: 0 }); son('sov_onde', 0.3, 1.8); }
   else { p.jouer('Jump_Start', { boucle: false, forcer: true, vitesse: 1.8 }); son('cloth1', 0.4, 1.2); }
 }
 // ---------------- Main qui guide (on montre où toucher plutôt que d'expliquer) ----------------
@@ -350,7 +349,7 @@ function majGuide(dt) {
   const m = $('#guide'), q = QUETES[J.quete], c = q && q.guide && !enScene ? q.guide() : null;
   let x = null, y = null;
   if (typeof c === 'string') { const e = document.querySelector(c); if (e && e.offsetWidth) { const r = e.getBoundingClientRect(); x = r.x + r.width / 2; y = r.y + r.height / 2; } }
-  else if (c) { const s = projeter(V(c.x, (c.y || 0) + 1, c.z)); if (s.devant && s.x > 0 && s.x < innerWidth && s.y > 0 && s.y < innerHeight) { x = s.x; y = s.y; } }
+  else if (c) { const s = projeter(tmp(c.x, (c.y || 0) + 1, c.z)); if (s.devant && s.x > 0 && s.x < innerWidth && s.y > 0 && s.y < innerHeight) { x = s.x; y = s.y; } }
   m.classList.toggle('on', x !== null); if (x !== null) m.style.transform = `translate(${x}px,${y}px)`;
 }
 // ---------------- Retour du joueur : ce que les ombres ont fait pendant son absence ----------------
@@ -377,7 +376,7 @@ function boucle() {
   majJoueur(dt); majCombat(dt);
   for (let i = scenes.length - 1; i >= 0; i--) if (scenes[i](dt)) scenes.splice(i, 1);
   let rangSuivre = 0; for (const o of ombres) o.maj(dt, jeu, o.d.metier === 'suivre' ? rangSuivre++ : 0);
-  for (const d of depouilles) if (d.p && Math.random() < dt * 1.5) emettre(V(d.p.root.position.x, d.p.root.position.y + 0.3, d.p.root.position.z), { n: 1, c1: '#7a4aff', c2: '#100418', vit: 0.2, vie: 1.4, taille: 0.25, grav: -0.8 });
+  for (const d of depouilles) if (d.p && Math.random() < dt * 1.5) emettre(tmp(d.p.root.position.x, d.p.root.position.y + 0.3, d.p.root.position.z), { n: 1, c1: '#7a4aff', c2: '#100418', vit: 0.2, vie: 1.4, taille: 0.25, grav: -0.8 });
   majMonde(dt); majBatiments(dt); majPlacement(); majCamera(dt, V(joueur.pos.x, joueur.pos.y, joueur.pos.z)); majFlottants(dt); majEtiquettes(); majEtiquettesChantiers(); majAction(); majAnneau(); majGuide(dt);
   if ((sauveT -= dt) <= 0) { sauveT = 5; sauver(); majHud(); }
   else if (Math.floor(G.t * 10) !== Math.floor((G.t - dt) * 10)) majHud();
@@ -399,5 +398,8 @@ async function demarrer() {
   $('#charge').classList.add('pret'); $('#charge').onclick = () => { if (!$('#charge').classList.contains('pret')) return; initAudio(); $('#charge').classList.add('fini'); setTimeout(() => $('#charge').remove(), 700); if (retourPret) setTimeout(retourPret, 500); };
   boucle();
 }
+// Android met l'appli en pause sans prévenir : on sauvegarde dès qu'elle passe en arrière-plan (progrès + chrono hors ligne justes)
+addEventListener('visibilitychange', () => { if (document.hidden && J) sauver(); });
+addEventListener('pagehide', () => { if (J) sauver(); });
 window.__s = { get J() { return J; }, get ombres() { return ombres; }, G, joueur, eveiller: (k = 0) => depouilles[k] && eveiller(depouilles[k]), mana: () => { J.mana = 100; }, toucher, mode: changerMode, bats: batiments, amel: (b) => { ameliorer(b); }, finir: (b) => marteler(b, 9999, b.g.position), ouvrirBat: ouvrirBatiment, proj: projeter, arbres: () => import('./monde.js') };
 demarrer().catch(e => { document.body.insertAdjacentHTML('beforeend', `<pre style="position:fixed;inset:0;color:#fff;background:#300;z-index:99;padding:2em;white-space:pre-wrap">${e.stack || e}</pre>`); });

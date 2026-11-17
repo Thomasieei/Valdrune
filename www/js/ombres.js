@@ -1,6 +1,6 @@
 // Les ombres : relevées des morts, elles ont un rang (E → S), une maîtrise par métier qui grandit en travaillant,
 // et on les voit vraiment travailler : bois (abattre, débiter, porter), pierre (tailler, porter), construction (marteler).
-import { THREE, G, V, emettre, son, texteFlottant } from './moteur.js';
+import { THREE, G, V, tmp, emettre, son, texteFlottant } from './moteur.js';
 import { Perso } from './persos.js';
 import { arbreProche, frapperArbre, debiter, buche, hauteur, filonProche, tailler, CARRIERE } from './monde.js';
 import { depotProche, chantierProche, marteler, enTravaux, bloque } from './batiments.js';
@@ -154,7 +154,7 @@ export class Ombre {
   }
   gagnerXp(k, n) {
     const m = this.d.maitrise[k]; if (!m) return; m.xp += n;
-    while (m.xp >= xpNiveau(m.niv)) { m.xp -= xpNiveau(m.niv); m.niv++; texteFlottant(V(this.pos.x, this.pos.y + 2.6, this.pos.z), `${METIERS[k].icone} Maîtrise ${m.niv} !`, 'niveau'); son('jingles_PIZZI01', 0.35); emettre(V(this.pos.x, this.pos.y + 1, this.pos.z), { n: 30, c1: '#ffe9a0', c2: '#b36bff', vit: 3, vie: 0.9, taille: 0.18, grav: -1 }); this.dire(parole('niveau')); }
+    while (m.xp >= xpNiveau(m.niv)) { m.xp -= xpNiveau(m.niv); m.niv++; texteFlottant(tmp(this.pos.x, this.pos.y + 2.6, this.pos.z), `${METIERS[k].icone} Maîtrise ${m.niv} !`, 'niveau'); son('jingles_PIZZI01', 0.35); emettre(tmp(this.pos.x, this.pos.y + 1, this.pos.z), { n: 30, c1: '#ffe9a0', c2: '#b36bff', vit: 3, vie: 0.9, taille: 0.18, grav: -1 }); this.dire(parole('niveau')); }
   }
   majSuivre(dt, j, rang) {
     this.montrer(null, null);
@@ -176,6 +176,6 @@ export class Ombre {
     else if (m === 'construire') this.majConstruire(dt, j);
     else if (m === 'suivre') this.majSuivre(dt, j, rang);
     else this.majRepos(dt);
-    if (Math.random() < dt * 6) emettre(V(this.pos.x + (Math.random() - 0.5) * 0.5, this.pos.y + 0.2, this.pos.z + (Math.random() - 0.5) * 0.5), { n: 1, c1: '#8a5aff', c2: '#1a0a30', vit: 0.3, vie: 0.8, taille: 0.22, grav: -1.2 });
+    if (Math.random() < dt * 6) emettre(tmp(this.pos.x + (Math.random() - 0.5) * 0.5, this.pos.y + 0.2, this.pos.z + (Math.random() - 0.5) * 0.5), { n: 1, c1: '#8a5aff', c2: '#1a0a30', vit: 0.3, vie: 0.8, taille: 0.22, grav: -1.2 });
   }
 }
