@@ -28,6 +28,8 @@ Règle : on ne rallume un système que quand la 1.0 est solide, et un seul à la
 
 - v1.0-g : ÉTAPE 4 SAUVETAGE — chaque enlevé est retenu dans un donjon précis (`g.lieu`), près du 4e gardien ; bouton « Libérer » ; il te suit, et rentre vivant si tu sors du donjon sans mourir (moral +12) ; sacrifié au bout de 45 min réelles (moral −10) ; l’interrogatoire du champion révèle le bon donjon ; métiers accordés au genre du prénom.
 
+- v1.0-h : ÉTAPE 5 COMPAGNONS — 3 compagnons d’armes nommés (`J.ville.compagnons`) qui te suivent sur la Place et dans la Brèche (« Parler à » : venir en expédition / rester garder la ville) ; MORT DÉFINITIVE (journal, moral −8, deuil des autres) ; volontaire de remplacement 20 min après une perte ; le captif libéré est ciblable (45 % de tes PV) et peut mourir pendant l’évasion.
+
 ## Bugs connus
 - (à remplir avec les retours de test de Thomas)
 
