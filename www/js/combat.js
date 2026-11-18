@@ -544,6 +544,7 @@ function majErrant(c, dt) { // le groupe avance sur sa route, fait halte, repart
 // invasion d'un village humain : un camp temporaire posé dans le village (voir humains.js)
 export function lancerInvasion(def) { def.retour = 1e9; def.invasion = true; creerCamp(def); return camps[def.id]; }
 export function finirInvasion(id) { const c = camps[id]; if (!c) return; for (const e of c.membres) if (e.vivant) { e.pv = 0; e.etat = 'mort'; e.corpsT = 0.01; } G.scene.remove(c.zone.g); delete camps[id]; }
+export function campsCarte() { return Object.values(camps).filter(c => !c.def.arene).map(c => ({ x: c.def.centre.x, z: c.def.centre.z, nom: c.def.nom, niv: c.def.niv || 1, boss: c.def.membres?.some(m => TYPES_M[m.type]?.boss) || TYPES_M[c.def.type]?.boss, errant: !!c.def.errant, vide: c.mortT > 0 })); }
 export const campLibre = (id) => !!camps[id] && camps[id].mortT > 0;
 export function zoneDangereuse(p) { for (const c of Object.values(camps)) if (!c.mortT && dist(p, c.def.centre) < c.def.r + 1) return c; return null; }
 // ---------------- Héros ----------------

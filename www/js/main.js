@@ -6,6 +6,7 @@ import { Ombre, RANGS, NOMS, METIERS, parole, surParole, surSignal, xpNiveau, te
 import { initCombat, majCombat, heroOccupe, toucherEnnemi, DEFIS, lancerDefi, campLibre, zoneDangereuse, POUVOIRS, xpHeros, pvMaxHeros, heros } from './combat.js';
 import { chargerMonstre, chargerProps } from './persos.js';
 import { initHumains, majHumains, bloqueHumain, humainsDebug, chargerValcourt } from './humains.js';
+import { initCarte, majCarte } from './carte.js';
 import { chargerBatiments, TYPES, CATS, batiments, creerBatiment, majBatiments, placementValide, fantomeBatiment, majEtiquettesChantiers, aBatiment, marteler, demolir, aimanter, LONG_SEGMENT, chantierProche, depotProche, montrerTerritoire, dansTerritoire, ameliorer, enTravaux, niveauDe, prochain, meilleur, bloque, majInterieur, dedans } from './batiments.js';
 
 const $ = (s) => document.querySelector(s);
@@ -386,7 +387,7 @@ function horsLigne() {
 function boucle() {
   requestAnimationFrame(boucle);
   const now = performance.now(), dtR = Math.min(G.accel ? 0.25 : 0.1, (now - dernier) / 1000); dernier = now; const dt = dtR * (G.accel || 1) * (G.ralenti || 1); G.dt = dt; G.t += dt;
-  majJoueur(dt); majCombat(dt); majHumains(dt);
+  majJoueur(dt); majCombat(dt); majHumains(dt); majCarte(dt);
   for (let i = scenes.length - 1; i >= 0; i--) if (scenes[i](dt)) scenes.splice(i, 1);
   let rangSuivre = 0; for (const o of ombres) o.maj(dt, jeu, o.d.metier === 'suivre' ? rangSuivre++ : 0);
   for (const d of depouilles) if (d.p && Math.random() < dt * 1.5) emettre(tmp(d.p.root.position.x, d.p.root.position.y + 0.3, d.p.root.position.z), { n: 1, c1: '#7a4aff', c2: '#100418', vit: 0.2, vie: 1.4, taille: 0.25, grav: -0.8 });
@@ -405,6 +406,7 @@ async function demarrer() {
   J.ombres.forEach((d, k) => ajouterOmbre(d, V(RESERVE.x + Math.cos(k) * 3, 0, RESERVE.z + Math.sin(k) * 3)));
   initCombat({ J, joueur, jeu, toast, sauver, majQuete, majHud, sauter, bilan });
   initHumains({ J, joueur, toast, sauver, majHud, majQuete, ajouter: (r, n, p) => jeu.ajouter(r, n, p) });
+  initCarte({ joueur, cible: () => { const q = G.mission || QUETES[J.quete]; return q && q.guide ? q.guide() : null; } });
   horsLigne();
   majPile(J.bois); majHud(); majQuete();
   initEntrees({ toucher, saisir, glisser });

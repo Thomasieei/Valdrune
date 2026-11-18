@@ -73,6 +73,7 @@ function hauteurBrute(x, z) {
   return h;
 }
 export const eau = (x, z) => { for (const L of LACS) if (Math.hypot(x - L.x, z - L.z) < L.r * 0.93) return true; return false; };
+export function couleurCarte(x, z, c, c2) { couleurSol(x, z, hauteur(x, z), c, c2); }
 function couleurSol(x, z, y, c, c2) {
   const n = Math.sin(x * 0.9) * Math.cos(z * 0.8) * 0.5 + Math.sin(x * 0.23 + z * 0.31) * 0.5, d = Math.hypot(x, z), F = foret(x, z), H = hautes(x, z), B = bord(x, z);
   c.set('#5f9a3a').lerp(c2.set('#7fb04a'), 0.5 + n * 0.5).offsetHSL(0, 0, y * 0.006);
