@@ -44,7 +44,7 @@ export const CHEMINS = [
 // les humains : villages et ville, autonomes (voir humains.js)
 // plan de la capitale (coordonnées locales, porte au nord) : partagé par le sol peint et par capitale.js
 export const CAPITALE = { H: 56, vx: [-30, 0, 30], hz: [-34, -12, 10], zMin: -48, zMax: 30, xMin: -50, xMax: 50, place: { z: -12, r: 13 } };
-export const VILLAGES = [{ id: 'saules', nom: 'Hameau des Saules', x: -66, z: -76, r: 20, type: 'village', porte: [-50, -75] }, { id: 'portlac', nom: 'Port-au-Lac', x: 90, z: 86, r: 20, type: 'village', porte: [88, 66] }, { id: 'valcourt', nom: 'Valcourt', x: 172, z: 166, r: 58, type: 'ville', porte: [172, 104] }];
+export const VILLAGES = [{ id: 'saules', nom: 'Hameau des Saules', x: -66, z: -76, r: 24, type: 'village', porte: [-50, -75] }, { id: 'portlac', nom: 'Port-au-Lac', x: 90, z: 86, r: 24, type: 'village', porte: [88, 66] }, { id: 'valcourt', nom: 'Valcourt', x: 172, z: 166, r: 58, type: 'ville', porte: [172, 104] }];
 // la rue principale de chaque village : elle part de l'entrée et serpente jusqu'à l'autre bout
 for (const V of VILLAGES) { V.entree = Math.atan2(V.porte[0] - V.x, V.porte[1] - V.z); V.rue = []; if (V.type === 'ville') continue; const e = V.entree; for (let t = V.r + 4; t >= -V.r; t -= 2) V.rue.push([V.x + Math.sin(e) * t + Math.cos(e) * Math.sin(t * 0.11) * 3, V.z + Math.cos(e) * t - Math.sin(e) * Math.sin(t * 0.11) * 3]); }
 const distRue = (V, x, z) => { let b = 1e9; for (const [a, c] of V.rue) { const d = (a - x) ** 2 + (c - z) ** 2; if (d < b) b = d; } return Math.sqrt(b); };
@@ -166,7 +166,7 @@ let graine = 7; const rnd = (a = 0, b = 1) => { graine = (graine * 16807) % 2147
 // ---------------- Arbres ----------------
 export const arbres = []; const parType = {};
 // endroits à garder dégagés : camps, arène, carrière, réserve, fort, repaire, tour
-export const CLAIRIERES = [[RESERVE.x, RESERVE.z, 9], [CARRIERE.x, CARRIERE.z, 11], [-34, 30, 11], [38, 30, 14], [-24, -6, 15], [-12, -46, 20], [-150, -18, 16], [42, 160, 14], [0, 0, 15], ...VILLAGES.map(V => [V.x, V.z, V.r + (V.type === 'ville' ? 26 : 6)])];
+export const CLAIRIERES = [[RESERVE.x, RESERVE.z, 9], [CARRIERE.x, CARRIERE.z, 11], [-34, 30, 11], [38, 30, 14], [-24, -6, 15], [-12, -46, 20], [-150, -18, 16], [42, 160, 14], [0, 0, 15], ...VILLAGES.map(V => [V.x, V.z, V.r + (V.type === 'ville' ? 26 : 12)])];
 const degage = (x, z, marge = 0) => { for (const [cx, cz, r] of CLAIRIERES) if (Math.hypot(x - cx, z - cz) < r + marge) return true; for (const L of LACS) if (Math.hypot(x - L.x, z - L.z) < L.r * 1.12 + marge) return true; return false; };
 function construireForet() {
   // grille brouillée : une forêt dense mais aérée (on y voit loin, on y circule), des bosquets dans la plaine
