@@ -19,6 +19,7 @@ Object.assign(TYPES_M, {
 });
 // les pillards ne portent plus la même tenue que le héros (on les confondait en combat)
 TYPES_M.bandit.tenue = 'paysan';
+
 // la Horde (Fantasy Races Kit : vrais corps d'orcs sur le squelette des héros, habillés et armés du Props MegaKit)
 Object.assign(TYPES_M, {
   // enchaîne 3 coups (le 3e est imparable) puis reste essoufflé : on esquive la série, on punit après. Chaque coup reçu l'enrage.
@@ -28,6 +29,11 @@ Object.assign(TYPES_M, {
   // boss en 3 phases : garde au bouclier → appelle la Horde (66 %) → furie et séismes en chaîne (33 %)
   morgrak: { nom: 'Morgrak le Sanglant', profil: 'boss', boss: true, humain: true, corps: 'orc_male', sexe: 'h', tenue: 'paysan', couleur: '#8a2a22', armes: ['grandeHache', 'bouclier'], h: 1.85, ech: 1.75, pv: 900, deg: 19, vit: 3.4, portee: 3.6, xp: 900, butin: { bois: [150, 220], pierre: [120, 180] }, cadence: 2.1, attaque: ['Sword_Attack', 'Sword_Regular_C', 'Sword_Heavy_Combo'], course: 'Jog_Fwd_Loop', bloque: true, lourd: true, renforts: ['berserker', 'berserker'], furieA: 0.33, animSort: 'Sword_Heavy_Combo', special: { nom: 'Séisme', cd: 9, r: 3.0, delai: 1.15, mult: 1.9, surCible: true, couleur: '#ff3a1a', repete: 3 } },
 });
+// MASSE : le poids d'un corps. Léger = projeté et sonné par chaque coup ; lourd = encaisse les coups rapides sans broncher
+// (il faut une lourde pour le faire plier), tourne lentement, frappe en arc et fait trembler le sol.
+const MASSE = { puglin: 0.6, gobelin: 0.7, imp: 0.8, sorcier: 0.9, bandit: 1, chamane: 1, orc: 2.2, berserker: 1.6, morgrak: 3.2, boss: 3.4 };
+for (const [k, m] of Object.entries(MASSE)) if (TYPES_M[k]) TYPES_M[k].masse = m;
+TYPES_M.orc.ech = (TYPES_M.orc.ech || 1) * 1.15; TYPES_M.berserker.ech = 1.18; // les brutes dominent le héros d'une tête
 export const CAMPS = [
   { id: 'carriere', nom: 'Diablotins de la carrière', type: 'imp', centre: V(21, 0, -19), r: 10, niv: 1, retour: 300, postes: [[17.5, -14.5], [25.5, -15], [21.5, -24]] },
   { id: 'bandits', nom: 'Camp des pillards', type: 'bandit', centre: V(38, 0, 30), r: 12, niv: 2, retour: 420, decor: true,
@@ -171,7 +177,7 @@ class Ennemi {
   }
   get pos() { return this.m.root.position; }
   get vivant() { return this.pv > 0; }
-  tourner(a, dt) { let da = a - this.m.root.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); this.m.root.rotation.y += da * Math.min(1, dt * 10); }
+  tourner(a, dt) { let da = a - this.m.root.rotation.y; da = Math.atan2(Math.sin(da), Math.cos(da)); this.m.root.rotation.y += da * Math.min(1, dt * 10 / Math.sqrt(this.T.masse || 1)); } // un lourd pivote lentement : on peut le contourner
   marcher(dest, dt, vit, anim) {
     const dx = dest.x - this.pos.x, dz = dest.z - this.pos.z, d = Math.hypot(dx, dz); if (d < 0.2) return true;
     let vx = dx / d, vz = dz / d;
@@ -194,15 +200,18 @@ class Ennemi {
     if (this.lev) n *= 1.5; // soulevé = sans défense
     if (this.brise > 0 && src && src.isHeros) { n *= 2.5; crit = true; this.intact = true; this.brise = 0; this.etourdi = 0.3; this.post = 0; texteFlottant(tmp(this.pos.x, this.pos.y + 2.8, this.pos.z), 'EXÉCUTION', 'parade'); G.shake = 0.6; }
     else if (src && src.isHeros && !this.allie) { this.post = (this.post || 0) + (crit ? 14 : 8) * (src.posture || 1); this.postT = 0; if (this.post >= this.postMax()) this.briser(); }
-    if (src && src.isHeros) { G.ralenti = 0.06; G.ralentiT = crit ? 0.09 : 0.05; } // micro-arrêt à l'impact : on sent le coup
+    if (src && src.isHeros) { G.ralenti = 0.06; G.ralentiT = (crit ? 0.09 : 0.05) * (0.8 + 0.25 * Math.min(3, this.T.masse || 1)); } // micro-arrêt : plus long sur un corps lourd (on cogne dans un mur)
     this.pv -= n; this.vu = 4; if (this.etat === 'garde') this.alerte(src && src.isHeros ? 'heros' : src);
     texteFlottant(tmp(this.pos.x, this.pos.y + 2.2, this.pos.z), `${crit ? '💥' : ''}${Math.round(n)}`, crit ? 'crit' : 'degat');
     emettre(tmp(this.pos.x, this.pos.y + 1.1, this.pos.z), { n: crit ? 22 : 10, c1: this.allie ? '#c8a8ff' : '#ff6a5a', c2: '#3a0a10', vit: 3.5, vie: 0.5, taille: 0.16, grav: 7 });
     son(crit ? 'impactPunch_medium_001' : 'impactPunch_medium_000', 0.45, rnd(0.9, 1.15), this.pos);
-    if (src && recul && !this.lev) { const a = Math.atan2(this.pos.x - src.pos.x, this.pos.z - src.pos.z); this.kb = { x: Math.sin(a) * recul * 7, z: Math.cos(a) * recul * 7 }; }
+    const M = this.T.masse || 1, lourdCoup = crit || (src && src.lourde);
+    if (src && recul && !this.lev) { const a = Math.atan2(this.pos.x - src.pos.x, this.pos.z - src.pos.z), f = recul * 7 / M * (lourdCoup ? 1.6 : 1); this.kb = { x: Math.sin(a) * f, z: Math.cos(a) * f }; } // un léger vole, un lourd glisse à peine
+    this.pop = 1; // l'ennemi « encaisse » visiblement (écrasement bref)
     if (this.pv <= 0) return this.mourir(src);
     if (crit && this.etat === 'incante') { this.cast = null; this.etat = 'poursuite'; texteFlottant(tmp(this.pos.x, this.pos.y + 2.4, this.pos.z), 'Interrompu !', 'parade'); }
-    if (!this.lev && !(this.brise > 0) && (this.etat !== 'attaque' || crit)) { if (this.etat === 'attaque') { this.etat = 'poursuite'; finTelegraphe(this); this.cd = 0.6; } this.m.jouer(crit ? 'Hit_Knockback' : Math.random() < 0.5 ? 'Hit_Chest' : 'Hit_Head', { boucle: false, forcer: true, vitesse: crit ? 1.2 : 1.5 }); this.etourdi = Math.max(this.etourdi, crit ? 0.7 : 0.35); }
+    if (M >= 1.5 && !lourdCoup && src && src.isHeros) { if (Math.random() < 0.5) texteFlottant(tmp(this.pos.x, this.pos.y + this.T.h * (this.T.ech || 1) + 0.2, this.pos.z), 'Inébranlable', 'info'); return; } // trop lourd pour être sonné par un coup rapide
+    if (!this.lev && !(this.brise > 0) && (this.etat !== 'attaque' || crit || M < 0.85)) { if (this.etat === 'attaque') { this.etat = 'poursuite'; finTelegraphe(this); this.cd = 0.6; } this.m.jouer(crit ? 'Hit_Knockback' : Math.random() < 0.5 ? 'Hit_Chest' : 'Hit_Head', { boucle: false, forcer: true, vitesse: crit ? 1.2 : 1.5 }); this.etourdi = Math.max(this.etourdi, crit ? 0.7 : 0.35); }
   }
   poser() { // la pose de son rôle dans la scène du camp
     const r = this.role;
@@ -231,6 +240,7 @@ class Ennemi {
     if (this.camp) verifierCamp(this.camp);
   }
   maj(dt) {
+    if (this.pop > 0) { this.pop = Math.max(0, this.pop - dt * 9); const b = this.baseS ??= this.m.root.scale.x, p = this.pop; this.m.root.scale.set(b * (1 + 0.07 * p), b * (1 - 0.09 * p), b * (1 + 0.07 * p)); } // écrasement bref à l'impact
     this.m.maj(dt); if (this.vu > 0) this.vu -= dt;
     if (this.kb) { this.pos.x += this.kb.x * dt; this.pos.z += this.kb.z * dt; this.pos.y = this.lev ? this.pos.y : hauteur(this.pos.x, this.pos.z); const k = Math.exp(-dt * 9); this.kb.x *= k; this.kb.z *= k; if (Math.abs(this.kb.x) + Math.abs(this.kb.z) < 0.05) this.kb = null; }
     if (this.etat === 'mort') {
@@ -296,7 +306,10 @@ class Ennemi {
       this.tourner(Math.atan2(cib.pos.x - this.pos.x, cib.pos.z - this.pos.z), dt * (this.T.boss ? 0.6 : 1)); this.at -= dt; majTelegraphe(this);
       if (this.feinte && this.at < 0.38) { this.feinte = false; finTelegraphe(this); this.at = 0.65; texteFlottant(tmp(this.pos.x, this.pos.y + this.T.h * this.T.ech + 0.3, this.pos.z), 'Feinte !', 'info'); this.m.jouer(this.anAtt, { boucle: false, forcer: true, vitesse: this.m.duree(this.anAtt) * 0.55 / 0.65 }); debutTelegraphe(this); return; } // il amorce… puis frappe pour de vrai
       if (this.at <= 0) { finTelegraphe(this); this.etat = 'poursuite'; this.cd = this.T.cadence + rnd(0.4, 1.4); if (jetons.melee === this) jetons.melee = null; this.recul = 0.9; if (this.T.serie) { if (this.serie < 3) { this.cd = 0.05; this.recul = 0; jetons.melee = this; } else { this.serie = 0; this.souffle = 1.9; this.etourdi = 1.9; this.recul = 0; this.m.jouer('Idle_Shield_Break', { boucle: false, forcer: true }); texteFlottant(tmp(this.pos.x, this.pos.y + 2.5, this.pos.z), 'Essoufflé — FRAPPE !', 'parade'); } } if (this.furie && !this.enchaine) { this.enchaine = true; this.cd = 0.25; this.recul = 0; } else if (this.furie) { this.enchaine = false; this.cd = 1.9; texteFlottant(tmp(this.pos.x, this.pos.y + this.T.h + 0.3, this.pos.z), 'À bout de souffle', 'info'); } // en furie : deux coups, puis une vraie ouverture
-        if (d < this.T.portee + 0.5) { if (cib.heros) { if (heros.action && heros.action.k === 'dash' && !heros.action.esquive) esquiveParfaite(this); else { const k = (this.lourd ? 1.8 : 1) * (this.dos ? 1.35 : 1) * (1 + 0.5 * (this.rage || 0)); if (this.dos) texteFlottant(tmp(C.joueur.pos.x, C.joueur.pos.y + 2.6, C.joueur.pos.z), 'Dans le dos !', 'mal'); subirHeros(this.deg * k, this, this.lourd); if (this.T.boss && !heros.parade && C.joueur.vel) { const a = Math.atan2(C.joueur.pos.x - this.pos.x, C.joueur.pos.z - this.pos.z); C.joueur.vel.set(Math.sin(a) * 9, 0, Math.cos(a) * 9); } } } else cib.subir(this.deg, this); } else if (cib.heros && heros.action && heros.action.k === 'dash' && !heros.action.esquive && d < this.T.portee + 3) esquiveParfaite(this); this.lourd = false; }
+        { const M = this.T.masse || 1, a = this.m.root.rotation.y, pas = M < 1 ? 1.2 : M < 2 ? 0.7 : 0.4; if (d > this.T.portee * 0.6) { this.kb = { x: Math.sin(a) * pas * 9, z: Math.cos(a) * pas * 9 }; } if (M >= 1.5) { G.shake = Math.max(G.shake, 0.18 * M); emettre(tmp(this.pos.x + Math.sin(a) * 1.4, this.pos.y + 0.1, this.pos.z + Math.cos(a) * 1.4), { n: 14, c1: '#d8c8a8', c2: '#6a5a40', vit: 3, vie: 0.5, taille: 0.25, grav: 5 }); } } // il se fend vers toi ; un lourd fait trembler le sol
+        const angCib = Math.atan2(cib.pos.x - this.pos.x, cib.pos.z - this.pos.z), dA = Math.abs(Math.atan2(Math.sin(angCib - this.m.root.rotation.y), Math.cos(angCib - this.m.root.rotation.y))), cone = this.T.boss || (this.T.masse || 1) >= 1.5 ? 1.15 : 0.8;
+        if (d < this.T.portee + 0.5 && dA > cone) { texteFlottant(tmp(this.pos.x, this.pos.y + 2, this.pos.z), 'Raté', 'info'); } // le coup part devant lui : un pas de côté suffit
+        else if (d < this.T.portee + 0.5) { if (cib.heros) { if (heros.action && heros.action.k === 'dash' && !heros.action.esquive) esquiveParfaite(this); else { const k = (this.lourd ? 1.8 : 1) * (this.dos ? 1.35 : 1) * (1 + 0.5 * (this.rage || 0)); if (this.dos) texteFlottant(tmp(C.joueur.pos.x, C.joueur.pos.y + 2.6, C.joueur.pos.z), 'Dans le dos !', 'mal'); subirHeros(this.deg * k, this, this.lourd); if (this.T.boss && !heros.parade && C.joueur.vel) { const a = Math.atan2(C.joueur.pos.x - this.pos.x, C.joueur.pos.z - this.pos.z); C.joueur.vel.set(Math.sin(a) * 9, 0, Math.cos(a) * 9); } } } else cib.subir(this.deg, this); } else if (cib.heros && heros.action && heros.action.k === 'dash' && !heros.action.esquive && d < this.T.portee + 3) esquiveParfaite(this); this.lourd = false; }
       return;
     }
     if (this.T.soin && this.majSoin(dt, c)) return;
@@ -324,7 +337,11 @@ class Ennemi {
     if (P.charge && d > 8 && !this.chargeT) { this.chargeT = 2.5; texteFlottant(tmp(this.pos.x, this.pos.y + this.T.h + 0.6, this.pos.z), 'CHARGE !', 'alerte-sort'); son('sov_onde', 0.5, 0.6, this.pos); }
     if (this.chargeT > 0) { this.chargeT -= dt; if (d > this.T.portee) { this.marcher(cib.pos, dt, this.T.vit * 2, this.T.course || 'Jog_Fwd_Loop'); return; } this.chargeT = 0; if (veut) return this.attaquer(cib, true); }
     if (dp > rayon + 0.3 && !(I === 'contourner' && d < this.T.portee && veut && this.dansLeDos())) { this.marcher(poste, dt, d > 7 || I === 'contourner' ? this.T.vit : this.T.vit * 0.6, d > 7 || I === 'contourner' ? this.T.course || 'Jog_Fwd_Loop' : 'Walk_Loop'); return; }
-    if (!aMoi && !veut) { const sens = this.niv % 2 ? 1 : -1, a = Math.atan2(this.pos.x - cib.pos.x, this.pos.z - cib.pos.z) + sens * dt * 0.35; this.marcher(V(cib.pos.x + Math.sin(a) * rayon, 0, cib.pos.z + Math.cos(a) * rayon), dt, 1.4, 'Walk_Loop'); this.tourner(versCib, dt * 2); return; }
+    if (!aMoi && !veut) { // en attente de son tour : il prend SA place dans l'encerclement (pas d'empilement), garde la distance, menace
+      const a = this.place ?? Math.atan2(this.pos.x - cib.pos.x, this.pos.z - cib.pos.z), r = 3.4 + (this.T.masse || 1) * 0.35 + (this.T.portee > 2.5 ? 0.6 : 0), but = V(cib.pos.x + Math.sin(a) * r, 0, cib.pos.z + Math.cos(a) * r);
+      if (dist(but, this.pos) > 0.6) this.marcher(but, dt, Math.min(this.T.vit, 2.6), dist(but, this.pos) > 2.5 ? (this.T.course || 'Jog_Fwd_Loop') : 'Walk_Loop');
+      else { this.m.jouer(this.T.humain ? 'Sword_Idle' : 'Idle_Loop'); if ((this.menace = (this.menace ?? rnd(2, 5)) - dt) <= 0) { this.menace = rnd(3, 6); this.kb = { x: Math.sin(versCib) * 4, z: Math.cos(versCib) * 4 }; } } // de temps en temps, un pas menaçant vers toi
+      this.tourner(versCib, dt * 2); return; }
     this.tourner(versCib, dt);
     if (veut && d < this.T.portee + 0.4) this.attaquer(cib, I === 'punir');
     else this.m.jouer(this.T.humain ? 'Sword_Idle' : 'Idle_Loop');
@@ -348,7 +365,7 @@ class Ennemi {
   attaquer(cib, vite = false) {
     const P = PROFILS[this.T.profil || 'standard'];
     jetons.melee = this; this.etat = 'attaque'; this.nCoups = (this.nCoups || 0) + 1;
-    this.lourd = !vite && this.nCoups % 3 === 0 && this.T.portee > 2; this.at = vite ? 0.55 : this.lourd ? 1.15 : 0.8;
+    this.lourd = !vite && this.nCoups % 3 === 0 && this.T.portee > 2; this.at = (vite ? 0.55 : this.lourd ? 1.15 : 0.8) * (0.85 + 0.15 * Math.min(2.5, this.T.masse || 1)); // un lourd arme plus longtemps son coup (lisible, punissable)
     this.feinte = !vite && !this.lourd && P.feinte && ((memoire[this.type] || 0) >= 2 || Math.random() < 0.12); if (this.feinte) memoire[this.type] = 0; // tu esquives trop tôt ? il feinte
     if (this.T.serie) { if (G.t - (this.serieT || 0) > 2.5) this.serie = 0; this.serie = (this.serie || 0) + 1; this.serieT = G.t; this.lourd = this.serie === 3; this.at = this.serie === 3 ? 0.95 : this.serie === 1 ? 0.7 : 0.42; this.feinte = false; }
     this.dos = (this.T.profil === 'agile' || this.T.profil === 'berserker') && cib.heros && this.dansLeDos();
@@ -774,7 +791,13 @@ export function initCombat(ctx) { window.__c = { ennemis, camps, heros, TYPES_M 
   for (const a of C.J.armee || []) { const x = new Ennemi(a.type, V(C.joueur.pos.x + rnd(-3, 3), 0, C.joueur.pos.z + rnd(-3, 3)), { allie: true, niv: a.niv }); x.etat = 'suit'; }
   G.danger = zoneDangereuse; initBoutons();
 }
+function placerEncerclement() { // répartit les ennemis engagés autour de leur cible, chacun garde son côté (pas de croisements)
+  const groupes = new Map(); for (const e of ennemis) { if (!e.vivant || e.allie || e.etat !== 'poursuite') { e.place = null; continue; } const c = e.cible === 'heros' ? 'heros' : e.cible; if (!c) continue; if (!groupes.has(c)) groupes.set(c, []); groupes.get(c).push(e); }
+  for (const [c, L] of groupes) { const p = c === 'heros' ? C.joueur.pos : c.pos; if (!p) continue; const A = L.map(e => ({ e, a: Math.atan2(e.pos.x - p.x, e.pos.z - p.z) })).sort((x, y) => x.a - y.a), n = A.length; if (n === 1) { A[0].e.place = A[0].a; continue; }
+    const moy = Math.atan2(A.reduce((s, x) => s + Math.sin(x.a), 0), A.reduce((s, x) => s + Math.cos(x.a), 0)), ec = Math.min(2 * Math.PI / n, 1.25, 3.6 / (n - 1)); A.forEach((x, i) => { x.e.place = moy + (i - (n - 1) / 2) * ec; }); } // en arc d'au plus ~200° : ils t'entourent sans te prendre systématiquement à revers
+}
 export function majCombat(dt) {
+  if ((placerEncerclement.t = (placerEncerclement.t || 0) + dt) > 0.3) { placerEncerclement.t = 0; placerEncerclement(); }
   if (G.ralentiT > 0) { G.ralentiT -= dt / Math.max(0.05, G.ralenti); if (G.ralentiT <= 0) G.ralenti = 1; }
   majHeros(dt); majFx(dt); majAoes(dt); majCadreCible(false);
   for (const e of ennemis) e.maj(dt); for (const a of allies) a.maj(dt);
