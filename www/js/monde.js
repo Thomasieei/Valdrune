@@ -2,6 +2,7 @@
 import { THREE, G, V, tmp, emettre, son, projeter } from './moteur.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { materiauSol, animerEau, venter } from './rendu.js';
 // fusionne des objets fixes de même matière en un seul (des dizaines d'appels de dessin → un seul)
 function fusionner(objets, ombre = true) {
   const parMat = new Map(); for (const o of objets) { o.updateMatrixWorld(true); o.traverse(m => { if (!m.isMesh) return; const g = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone(); g.applyMatrix4(m.matrixWorld); for (const k of Object.keys(g.attributes)) if (k !== 'position' && k !== 'normal') g.deleteAttribute(k); if (!parMat.has(m.material)) parMat.set(m.material, []); parMat.get(m.material).push(g); }); }
@@ -13,7 +14,8 @@ const N = {};
 const NATURE = ['oak_01', 'birch_01', 'pine_01', 'stump_01', 'log_01', 'boulder_01', 'rocks_01', 'rock_mossy_01', 'bush_01', 'fern_01', 'flowers_01', 'grass_01', 'mushrooms_01', 'pebbles_01', 'deadtree_01'];
 export async function chargerNature(progres) {
   let n = 0;
-  await Promise.all(NATURE.map(k => loader.loadAsync(`assets/nature/${k}.glb`).then(g => { N[k] = g.scene; g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.material) o.material.envMapIntensity = 0.6; } }); progres && progres(++n / NATURE.length); })));
+  const VENT = { grass_01: 1.4, flowers_01: 1.4, fern_01: 1.1, bush_01: 0.5, oak_01: 0.12, birch_01: 0.16, pine_01: 0.08, oak_sapling_01: 0.5, pine_sapling_01: 0.5, mushrooms_01: 0 };
+  await Promise.all(NATURE.map(k => loader.loadAsync(`assets/nature/${k}.glb`).then(g => { N[k] = g.scene; if (VENT[k]) g.scene.traverse(o => { if (o.isMesh) venter(o.material, VENT[k]); }); /* le vent fait onduler la végétation */ g.scene.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (o.material) o.material.envMapIntensity = 0.6; } }); progres && progres(++n / NATURE.length); })));
 }
 // bûche : écorce brune, cœur clair (lisible même de loin)
 const GEO_BUCHE = new THREE.CylinderGeometry(1, 1, 1, 10, 1).rotateZ(Math.PI / 2);
@@ -73,6 +75,22 @@ function hauteurBrute(x, z) {
   return h;
 }
 export const eau = (x, z) => { for (const L of LACS) if (Math.hypot(x - L.x, z - L.z) < L.r * 0.93) return true; return false; };
+// poids des 4 textures de détail du sol : [herbe, terre, roche, pavés]
+function poidsSol(x, z, y) {
+  const d = Math.hypot(x, z), H = hautes(x, z), B = bord(x, z); let T = 0, R = Math.max(Math.min(1, B * 1.5), H * 0.45, y > 24 ? 0.8 : 0), P = 0;
+  for (const L of LACS) { const dl = Math.hypot(x - L.x, z - L.z) / L.r; if (dl < 1.25) T = Math.max(T, lisser(1.25, 1.02, dl)); }
+  T = Math.max(T, Math.min(0.9, Math.max(0, 1 - d / 9) * 0.9 + Math.max(0, 1 - Math.hypot(x - RESERVE.x, z - RESERVE.z) / 5) * 0.7));
+  const dc = Math.hypot(x - CARRIERE.x, z - CARRIERE.z); if (dc < 10) R = Math.max(R, Math.min(0.9, (10 - dc) / 3.5));
+  const da = Math.hypot(x + 24, z + 6); if (da < 12.5) T = Math.max(T, Math.min(0.9, (12.5 - da) / 1.5));
+  for (const V of VILLAGES) { if (V.type === 'ville') { const lx = x - V.x, lz = z - V.z, CP = CAPITALE; if (Math.max(Math.abs(lx), Math.abs(lz)) > CP.H + 1) continue;
+      let dr = 99; for (const vx of CP.vx) if (lz > CP.zMin - 4 && lz < CP.zMax + 4) dr = Math.min(dr, Math.abs(lx - vx)); for (const hz of CP.hz) if (lx > CP.xMin - 4 && lx < CP.xMax + 4) dr = Math.min(dr, Math.abs(lz - hz));
+      if (Math.abs(lx) < 4.2 && lz < CP.zMin) dr = Math.min(dr, Math.abs(lx)); const pl = Math.hypot(lx, lz - CP.place.z) - CP.place.r, pv = lz > CP.zMax - 2 && lz < CP.zMax + 22 && Math.abs(lx) < 14;
+      if (dr < 4.6 || pl < 1 || pv) P = 1; continue; }
+    if (Math.hypot(x - V.x, z - V.z) > V.r + 8) continue; const dr = distRue(V, x, z); if (dr < 2.6) T = Math.max(T, Math.min(1, (2.6 - dr) / 1)); if (Math.hypot(x - V.x, z - V.z) < 4.5) T = Math.max(T, 0.8); }
+  const dch = distChemin(x, z); if (dch < 2.8) T = Math.max(T, Math.min(1, (2.8 - dch) / 1.1));
+  if (P) return [0, 0, 0, 1];
+  const G2 = Math.max(0.05, 1 - T - R); return [G2, T, R, 0];
+}
 export function couleurCarte(x, z, c, c2) { couleurSol(x, z, hauteur(x, z), c, c2); }
 function couleurSol(x, z, y, c, c2) {
   const n = Math.sin(x * 0.9) * Math.cos(z * 0.8) * 0.5 + Math.sin(x * 0.23 + z * 0.31) * 0.5, d = Math.hypot(x, z), F = foret(x, z), H = hautes(x, z), B = bord(x, z);
@@ -94,15 +112,16 @@ function couleurSol(x, z, y, c, c2) {
 }
 function construireTerrain() {
   // 6 × 6 morceaux de ~83 m : la caméra ne dessine que ceux qu'elle voit
-  const N = 6, T = 500, Tc = T / N, seg = 34, c = new THREE.Color(), c2 = new THREE.Color(), mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 });
+  const N = 6, T = 500, Tc = T / N, seg = 34, c = new THREE.Color(), c2 = new THREE.Color(), mat = materiauSol(); // sol texturé (rendu.js)
   for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
     const ox = -T / 2 + Tc * (i + 0.5), oz = -T / 2 + Tc * (j + 0.5), geo = new THREE.PlaneGeometry(Tc, Tc, seg, seg).rotateX(-Math.PI / 2), P = geo.attributes.position, C = new Float32Array(P.count * 3);
-    for (let v = 0; v < P.count; v++) { const x = P.getX(v) + ox, z = P.getZ(v) + oz, y = hauteur(x, z); P.setXYZ(v, x, y, z); couleurSol(x, z, y, c, c2); C.set([c.r, c.g, c.b], v * 3); }
-    geo.setAttribute('color', new THREE.BufferAttribute(C, 3)); geo.computeVertexNormals(); geo.computeBoundingSphere();
+    const W = new Float32Array(P.count * 4);
+    for (let v = 0; v < P.count; v++) { const x = P.getX(v) + ox, z = P.getZ(v) + oz, y = hauteur(x, z); P.setXYZ(v, x, y, z); couleurSol(x, z, y, c, c2); C.set([c.r, c.g, c.b], v * 3); W.set(poidsSol(x, z, y), v * 4); }
+    geo.setAttribute('color', new THREE.BufferAttribute(C, 3)); geo.setAttribute('poids', new THREE.BufferAttribute(W, 4)); geo.computeVertexNormals(); geo.computeBoundingSphere();
     const sol = new THREE.Mesh(geo, mat); sol.receiveShadow = true; G.scene.add(sol);
   }
   // les lacs : une surface d'eau qui reflète le ciel
-  const matEau = new THREE.MeshStandardMaterial({ color: '#3d7fb0', roughness: 0.08, metalness: 0.35, transparent: true, opacity: 0.86, envMapIntensity: 1.4 });
+  const matEau = new THREE.MeshStandardMaterial({ color: '#2f78a8', roughness: 0.06, metalness: 0.4, transparent: true, opacity: 0.84, envMapIntensity: 1.6 }); animerEau(matEau);
   for (const L of LACS) { const m = new THREE.Mesh(new THREE.CircleGeometry(L.r * 1.18, 56).rotateX(-Math.PI / 2), matEau); m.position.set(L.x, NIVEAU_EAU, L.z); m.receiveShadow = true; G.scene.add(m); L.eau = m; }
 }
 // ---------------- Décor en instances (un seul appel de dessin par type) ----------------

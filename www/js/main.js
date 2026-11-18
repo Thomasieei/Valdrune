@@ -7,6 +7,7 @@ import { initCombat, majCombat, heroOccupe, toucherEnnemi, DEFIS, lancerDefi, ca
 import { chargerMonstre, chargerProps } from './persos.js';
 import { initHumains, majHumains, bloqueHumain, humainsDebug, chargerValcourt } from './humains.js';
 import { initCarte, majCarte } from './carte.js';
+import { initRendu as initCiel, majRendu } from './rendu.js';
 import { chargerBatiments, TYPES, CATS, batiments, creerBatiment, majBatiments, placementValide, fantomeBatiment, majEtiquettesChantiers, aBatiment, marteler, demolir, aimanter, LONG_SEGMENT, chantierProche, depotProche, montrerTerritoire, dansTerritoire, ameliorer, enTravaux, niveauDe, prochain, meilleur, bloque, majInterieur, dedans } from './batiments.js';
 
 const $ = (s) => document.querySelector(s);
@@ -407,7 +408,7 @@ function horsLigne() {
 function boucle() {
   requestAnimationFrame(boucle);
   const now = performance.now(), dtR = Math.min(G.accel ? 0.25 : 0.1, (now - dernier) / 1000); dernier = now; const dt = dtR * (G.accel || 1) * (G.ralenti || 1); G.dt = dt; G.t += dt;
-  majJoueur(dt); majCombat(dt); majHumains(dt); majCarte(dt);
+  majJoueur(dt); majCombat(dt); majHumains(dt); majCarte(dt); majRendu(dt);
   { const m = G.marchandT && G.t - G.marchandT < 0.4; const b = $('#btnCommerce'); if ((b.style.display === 'block') !== !!m) b.style.display = m ? 'block' : 'none'; }
   for (let i = scenes.length - 1; i >= 0; i--) if (scenes[i](dt)) scenes.splice(i, 1);
   let rangSuivre = 0; for (const o of ombres) o.maj(dt, jeu, o.d.metier === 'suivre' ? rangSuivre++ : 0);
@@ -427,6 +428,7 @@ async function demarrer() {
   J.ombres.forEach((d, k) => ajouterOmbre(d, V(RESERVE.x + Math.cos(k) * 3, 0, RESERVE.z + Math.sin(k) * 3)));
   initCombat({ J, joueur, jeu, toast, sauver, majQuete, majHud, sauter, bilan });
   initHumains({ J, joueur, toast, sauver, majHud, majQuete, ajouter: (r, n, p) => jeu.ajouter(r, n, p) });
+  initCiel();
   initCarte({ joueur, cible: () => { const q = G.mission || QUETES[J.quete]; return q && q.guide ? q.guide() : null; } });
   horsLigne();
   majPile(J.bois); majHud(); majQuete();
