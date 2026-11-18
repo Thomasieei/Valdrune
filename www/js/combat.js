@@ -17,6 +17,8 @@ Object.assign(TYPES_M, {
   orc: { nom: 'Orc', profil: 'defensif', modele: 'orc', h: 2.35, ech: 1, pv: 120, deg: 11, vit: 3.0, portee: 2.7, xp: 60, butin: { pierre: [10, 18] }, cadence: 2.3, attaque: ['Attack', 'Bash'], course: 'Run', bloque: true, lourd: true },
   boss: { nom: 'Grukh, chef de guerre', profil: 'boss', boss: true, modele: 'orc', h: 3.3, ech: 1, pv: 420, deg: 15, vit: 3.1, portee: 3.5, xp: 400, butin: { bois: [80, 120], pierre: [60, 90] }, cadence: 2.2, attaque: ['Attack', 'Bash'], course: 'Run', bloque: true, lourd: true, special: { nom: 'Fracas', cd: 11, r: 4.4, delai: 1.6, mult: 2.0, surCible: false, couleur: '#ff3a1a' } },
 });
+// les pillards ne portent plus la même tenue que le héros (on les confondait en combat)
+TYPES_M.bandit.tenue = 'paysan';
 // la Horde (Fantasy Races Kit : vrais corps d'orcs sur le squelette des héros, habillés et armés du Props MegaKit)
 Object.assign(TYPES_M, {
   // enchaîne 3 coups (le 3e est imparable) puis reste essoufflé : on esquive la série, on punit après. Chaque coup reçu l'enrage.
@@ -145,10 +147,10 @@ const nivP = (k) => C.J.heros.pw[k] || 1;
 function zone(c) {
   const g = new THREE.Group(), y = hauteur(c.centre.x, c.centre.z) + 0.07;
   const mat = new THREE.MeshBasicMaterial({ color: '#ff2a3a', transparent: true, opacity: 0.5, depthWrite: false });
-  const bord = new THREE.Mesh(new THREE.RingGeometry(c.r - 0.25, c.r, 64).rotateX(-Math.PI / 2), mat);
+  const bord = new THREE.Mesh(new THREE.RingGeometry(c.r - 0.14, c.r, 96).rotateX(-Math.PI / 2), mat);
   const fond = new THREE.Mesh(new THREE.CircleGeometry(c.r - 0.25, 64).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: '#ff2a3a', transparent: true, opacity: 0.07, depthWrite: false }));
   for (const m of [bord, fond]) { const P = m.geometry.attributes.position; for (let i = 0; i < P.count; i++) P.setY(i, hauteur(c.centre.x + P.getX(i), c.centre.z + P.getZ(i)) + 0.09 - y + 0.07); P.needsUpdate = true; } // la zone épouse le relief : visible partout
-  mat.opacity = 0.7; g.add(bord, fond); g.position.set(c.centre.x, y - 0.07, c.centre.z); G.scene.add(g); return { g, mat };
+  mat.opacity = 0.38; g.add(bord, fond); /* discrète : on la voit sans qu'elle barre l'écran */ g.position.set(c.centre.x, y - 0.07, c.centre.z); G.scene.add(g); return { g, mat };
 }
 // ---------------- Ennemis (et alliés : même corps, autre camp) ----------------
 class Ennemi {

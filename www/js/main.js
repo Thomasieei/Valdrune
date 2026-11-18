@@ -158,9 +158,9 @@ function ouvrirOmbres() {
 }
 // mode construction : trois onglets, de grosses tuiles, et ce qui arrive bientôt (le joueur voit où il va)
 const BIENTOT = {
-  ville: [['📦', 'Entrepôt'], ['🍺', 'Taverne'], ['⛪', 'Autel des ombres']],
-  metier: [['⚒️', 'Forge'], ['🥖', 'Boulangerie'], ['🥩', 'Boucherie'], ['🛒', 'Épicerie']],
-  militaire: [['🗼', 'Tour de défense'], ['🛡️', 'Caserne'], ['🏹', 'Archerie']],
+  ville: [['🍺', 'Taverne'], ['⛪', 'Autel des ombres']],
+  metier: [['🥖', 'Boulangerie'], ['🥩', 'Boucherie']],
+  militaire: [['🗼', 'Tour de garde'], ['🛡️', 'Caserne d’ombres']],
 };
 let ongletC = 'ville';
 function ouvrirConstruire(onglet) {
