@@ -549,7 +549,7 @@ export function zoneDangereuse(p) { for (const c of Object.values(camps)) if (!c
 // ---------------- Héros ----------------
 function gagnerXp(n, pos) {
   const h = C.J.heros; h.xp += n; texteFlottant(tmp(pos.x, pos.y + 2.8, pos.z), `+${n} XP`, 'xp');
-  while (h.xp >= xpHeros(h.niv)) { h.xp -= xpHeros(h.niv); h.niv++; h.pts = (h.pts || 0) + 1; C.joueur.pv = pvMaxHeros(); son('jingles_PIZZI01', 0.6); C.toast(`⭐ Niveau ${h.niv} ! +1 point de pouvoir (touche ton portrait)`); emettre(tmp(C.joueur.pos.x, C.joueur.pos.y + 1, C.joueur.pos.z), { n: 60, c1: '#ffe9a0', c2: '#b36bff', vit: 4, vie: 1.1, taille: 0.25, grav: -1 }); }
+  while (h.xp >= xpHeros(h.niv)) { h.xp -= xpHeros(h.niv); h.niv++; for (const [k, n] of Object.entries(DEBLOCAGE)) if (n === h.niv) setTimeout(() => { C.bilan(`✦ Nouvelle compétence : ${POUVOIRS[k].nom}`, POUVOIRS[k].effet(1)); majVerrous(); }, 1200); h.pts = (h.pts || 0) + 1; C.joueur.pv = pvMaxHeros(); son('jingles_PIZZI01', 0.6); C.toast(`⭐ Niveau ${h.niv} ! +1 point de pouvoir (touche ton portrait)`); emettre(tmp(C.joueur.pos.x, C.joueur.pos.y + 1, C.joueur.pos.z), { n: 60, c1: '#ffe9a0', c2: '#b36bff', vit: 4, vie: 1.1, taille: 0.25, grav: -1 }); }
   C.majHud(); C.sauver();
 }
 export function subirHeros(n, src, imparable = false) {
@@ -584,11 +584,11 @@ export function attaquer(type = 'rapide') {
   const ouvert = e && (e.etourdi > 0.4 || e.brise > 0 || e.lev);
   let anim, rythme, frappe, mult;
   if (lourde) { heros.end -= 20; heros.endT = 0; heros.combo = 0; anim = 'Sword_Regular_C'; rythme = 1.15; frappe = 0.5; mult = 2.3; }
-  else { heros.combo = heros.comboT > 0 ? (heros.combo + 1) % 2 : 0; heros.comboT = 1.2; anim = heros.combo ? 'Sword_Regular_B' : 'Sword_Regular_A'; rythme = 0.55 * (ouvert ? 0.75 : 1); frappe = 0.24; mult = 1; }
+  else { heros.combo = heros.comboT > 0 ? (heros.combo + 1) % 4 : 0; heros.comboT = 1.3; const fin = heros.combo === 3; anim = ['Sword_Regular_A', 'Sword_Regular_B', 'Sword_Regular_A', 'Sword_Attack'][heros.combo]; rythme = (fin ? 0.78 : 0.52) * (ouvert ? 0.75 : 1); frappe = 0.24; mult = fin ? 1.9 : heros.combo === 2 ? 1.15 : 1; } // enchaînement de 4 : le 4ᵉ est une FINALE large qui repousse
   const vit = Math.max(1, J.perso.duree(anim) / (rythme * 1.05));
   heros.atkCd = rythme; heros.atkMax = rythme;
   // préparation → actif (frappe) → récupération : la lourde engage vraiment (récupération longue = ouverture si elle rate)
-  heros.action = { k: lourde ? 'lourde' : 'coup', t: 0, dur: rythme * 0.92, frappe: rythme * (lourde ? 0.48 : 0.42), mult, anim, elan, lourde, coupe: true };
+  heros.action = { k: lourde ? 'lourde' : 'coup', t: 0, dur: rythme * 0.92, frappe: rythme * (lourde ? 0.48 : 0.42), mult, anim, elan, lourde, coupe: true, finale: !lourde && heros.combo === 3 };
   J.perso.jouer(anim, { boucle: false, forcer: true, vitesse: vit }); son('knifeSlice', lourde ? 0.6 : 0.4, lourde ? 0.75 : rnd(1, 1.2), J.pos);
   heros.annonce = { t: G.t, lourde }; // visible par les ennemis (ils réagiront avec un délai)
 }
@@ -621,8 +621,12 @@ export function dash() {
   heros.parade = null; bouclier.visible = false; heros.action = { k: 'dash', t: 0, dur: 0.24, a: v, invul: true }; heros.cds.dash = 1.1;
   J.perso.root.rotation.y = v; J.perso.jouer('Sword_Dash', { boucle: false, forcer: true, vitesse: 2.6 }); son('sov_onde', 0.35, 2); G.shake = Math.max(G.shake, 0.08);
 }
+export const DEBLOCAGE = { lame: 2, tele: 4 }; // ARISE et la parade dès le début ; le reste se mérite
+export const debloque = (k) => !DEBLOCAGE[k] || (C.J.heros.niv || 1) >= DEBLOCAGE[k];
+export function majVerrous() { for (const k of Object.keys(DEBLOCAGE)) { const b = document.getElementById('pw-' + k); if (b) { b.classList.toggle('verrou', !debloque(k)); b.dataset.niv = 'Nv ' + DEBLOCAGE[k]; } } }
 export function pouvoir(k, appui = true) {
   const J = C.joueur, P = POUVOIRS[k];
+  if (!debloque(k)) { if (appui) { son('error_004', 0.3); texteFlottant(tmp(J.pos.x, J.pos.y + 2.2, J.pos.z), `${P.nom} : niveau ${DEBLOCAGE[k]}`, 'info'); } return; }
   if (k === 'parade') { if (appui && !heros.mortT && (!heros.action || heros.action.k === 'coup')) { heros.action = null; heros.parade = { debut: G.t }; J.perso.jouer('Sword_Block', { boucle: false, forcer: true, vitesse: 2 }); bouclier.visible = true; } else if (!appui) { heros.parade = null; bouclier.visible = false; if (!heros.action) J.perso.jouer('Idle_Loop', { forcer: true }); } document.getElementById('pw-parade').classList.toggle('garde', !!heros.parade); return; }
   if (!appui || heros.mortT || heros.action || G.mode === 'souverain') return;
   if (heros.cds[k] > 0 || heros.gcd > 0) { const reste = Math.max(heros.cds[k] || 0, heros.gcd); if (reste < 0.6) { heros.tamponP = k; heros.tamponPt = 0.65; return; } son('error_004', 0.3); texteFlottant(tmp(C.joueur.pos.x, C.joueur.pos.y + 2.2, C.joueur.pos.z), `Pas prêt (${reste.toFixed(1)} s)`, 'info'); return; } /* presque prêt : on garde l'appui */
@@ -715,10 +719,10 @@ function majHeros(dt) {
   if (A.k === 'coup' || A.k === 'lourde') {
     if (A.elan && A.t < A.frappe) { const v = A.elan / A.frappe * dt, a = p.root.rotation.y, nx = J.pos.x + Math.sin(a) * v, nz = J.pos.z + Math.cos(a) * v; if (!ennemis.some(e => e.vivant && dist(e.pos, { x: nx, z: nz }) < 1.1)) { J.pos.x = nx; J.pos.z = nz; } }
     if (!A.fait && A.t >= A.frappe) {
-      A.fait = true; const devant = p.root.rotation.y; arc(J.pos, devant, { couleur: A.crit ? '#ffd27a' : '#e8dcff', r: A.mult > 1.4 ? 2.2 : 1.8, large: A.mult > 1.4 ? 3 : 2.2 }); son('knifeSlice', 0.5, rnd(0.9, 1.1), J.pos);
-      const cibles = A.cibles || ennemis.filter(e => e.vivant && dist(e.pos, J.pos) < 2.6 && Math.abs(Math.atan2(Math.sin(Math.atan2(e.pos.x - J.pos.x, e.pos.z - J.pos.z) - devant), Math.cos(Math.atan2(e.pos.x - J.pos.x, e.pos.z - J.pos.z) - devant))) < 1);
+      A.fait = true; const devant = p.root.rotation.y; arc(J.pos, devant, { couleur: A.finale ? '#c8a8ff' : A.crit ? '#ffd27a' : '#e8dcff', r: A.finale ? 2.7 : A.mult > 1.4 ? 2.2 : 1.8, large: A.finale ? 3.6 : A.mult > 1.4 ? 3 : 2.2 }); if (A.finale) { onde(J.pos, { r: 3, couleur: '#b98aff', vie: 0.35 }); G.shake = Math.max(G.shake, 0.3); } son('knifeSlice', 0.5, rnd(0.9, 1.1), J.pos);
+      const cibles = A.cibles || ennemis.filter(e => e.vivant && dist(e.pos, J.pos) < (A.finale ? 3.1 : 2.6) && Math.abs(Math.atan2(Math.sin(Math.atan2(e.pos.x - J.pos.x, e.pos.z - J.pos.z) - devant), Math.cos(Math.atan2(e.pos.x - J.pos.x, e.pos.z - J.pos.z) - devant))) < 1);
       const crit = A.crit || heros.critSuivant || Math.random() < 0.12; heros.critSuivant = false;
-      for (const e of cibles) e.subir(degHeros() * A.mult * (crit && !A.crit ? 1.5 : 1), { pos: J.pos, isHeros: true, posture: A.lourde ? 3 : 1, lourde: A.lourde }, { crit, recul: A.lourde ? 1.1 : 0.4 });
+      for (const e of cibles) e.subir(degHeros() * A.mult * (crit && !A.crit ? 1.5 : 1), { pos: J.pos, isHeros: true, posture: A.lourde ? 3 : A.finale ? 2 : 1, lourde: A.lourde || A.finale }, { crit, recul: A.lourde ? 1.1 : A.finale ? 0.9 : 0.4 });
       if (A.lourde && !cibles.length) { texteFlottant(tmp(J.pos.x, J.pos.y + 2.2, J.pos.z), 'Raté', 'info'); heros.atkCd += 0.35; heros.rateT = G.t; } // lourde dans le vide : on reste exposé
       if (cibles.length && !A.cibles) gagnerPts(crit ? 2 : 1);
       if (cibles.length) G.shake = Math.max(G.shake, 0.15);
@@ -789,7 +793,7 @@ export function initCombat(ctx) { window.__c = { ennemis, camps, heros, TYPES_M 
   bouclier.position.set(0, 1.15, 0.7); bouclier.visible = false; C.joueur.perso.root.add(bouclier);
   for (const d of CAMPS) creerCamp(d);
   for (const a of C.J.armee || []) { const x = new Ennemi(a.type, V(C.joueur.pos.x + rnd(-3, 3), 0, C.joueur.pos.z + rnd(-3, 3)), { allie: true, niv: a.niv }); x.etat = 'suit'; }
-  G.danger = zoneDangereuse; initBoutons();
+  G.danger = zoneDangereuse; initBoutons(); majVerrous();
 }
 function placerEncerclement() { // répartit les ennemis engagés autour de leur cible, chacun garde son côté (pas de croisements)
   const groupes = new Map(); for (const e of ennemis) { if (!e.vivant || e.allie || e.etat !== 'poursuite') { e.place = null; continue; } const c = e.cible === 'heros' ? 'heros' : e.cible; if (!c) continue; if (!groupes.has(c)) groupes.set(c, []); groupes.get(c).push(e); }
