@@ -169,7 +169,7 @@ class Ennemi {
     this.off = opts.off || null; this.role = opts.role || null; this.regard = opts.regard ?? null; this.reveil = 0;
     this.m.root.position.set(pos.x, hauteur(pos.x, pos.z), pos.z); this.m.root.rotation.y = rnd(0, 6.28);
     this.poste = this.m.root.position.clone(); G.scene.add(this.m.root); this.m.rayonVue = Math.max(2.5, T.h * T.ech * 1.1);
-    this.pvMax = Math.round(T.pv * (1 + 0.25 * (niv - 1))); this.pv = this.pvMax; this.deg = T.deg * (1 + 0.2 * (niv - 1));
+    this.pvMax = Math.round(T.pv * (T.boss ? 1 : 1.5) * (1 + 0.25 * (niv - 1))); // +50 % de vie : un vrai échange de coups, pas des fétus de paille this.pv = this.pvMax; this.deg = T.deg * (1 + 0.2 * (niv - 1));
     this.etat = 'garde'; this.t = rnd(1, 5); this.cible = null; this.cd = rnd(0.3, 1); this.lev = null; this.etourdi = 0; this.vu = 0;
     this.m.jouer('Idle_Loop', { vitesse: rnd(0.85, 1.1) }); if (this.regard != null) this.m.root.rotation.y = this.regard;
     if (this.role) this.poser();
@@ -375,7 +375,7 @@ class Ennemi {
   }
   entrerFurie() { // changement de posture : il abandonne la garde, devient dangereux… et plus ouvert
     this.furie = true; this.deg *= 1.3; this.T = { ...this.T, vit: this.T.vit * 1.2, cadence: 1.6, bloque: false }; this.etourdi = 1.6; this.brise = 0; this.post = 0; this.mana = 60;
-    this.m.jouer('Roar', { boucle: false, forcer: true }); G.shake = 0.6; son('sov_possession', 0.8, 0.5, this.pos); onde(this.pos, { r: 7, couleur: '#ff3a1a', vie: 0.8 });
+    this.m.jouer(this.T.humain ? 'Spell_Simple_Shoot' : 'Roar', { boucle: false, forcer: true }); G.shake = 0.6; son('sov_possession', 0.8, 0.5, this.pos); onde(this.pos, { r: 7, couleur: '#ff3a1a', vie: 0.8 });
     texteFlottant(tmp(this.pos.x, this.pos.y + this.T.h + 0.8, this.pos.z), `${this.T.nom} entre en FURIE !`, 'parade');
   }
   crier(c) { // Morgrak appelle la Horde : deux berserkers surgissent, toute la Horde s'enrage
@@ -562,7 +562,9 @@ export function subirHeros(n, src, imparable = false) {
     if (heros.end <= 0) { heros.end = 0; heros.parade = null; bouclier.visible = false; texteFlottant(tmp(J.pos.x, J.pos.y + 2.4, J.pos.z), 'Garde brisée !', 'mal'); heros.action = { k: 'sonne', t: 0, dur: 1 }; J.perso.jouer('Hit_Knockback', { boucle: false, forcer: true }); document.getElementById('pw-parade').classList.remove('garde'); } else n *= 1 - red; emettre(tmp(J.pos.x, J.pos.y + 1.2, J.pos.z), { n: 10, c1: '#c8a8ff', c2: '#5a1aff', vit: 3, vie: 0.4, taille: 0.15, grav: 2 }); son('impactMetal_light_000', 0.6, 0.8, J.pos);
   }
   if (imparable && heros.parade) texteFlottant(tmp(J.pos.x, J.pos.y + 2.4, J.pos.z), 'Garde brisée !', 'mal');
-  stats.encaisses++; J.pv -= n; G.shake = Math.max(G.shake, 0.3); texteFlottant(tmp(J.pos.x, J.pos.y + 2.2, J.pos.z), `-${Math.round(n)}`, 'mal');
+  stats.encaisses++; J.pv -= n; G.shake = Math.max(G.shake, 0.3);
+  if (src && src.pos) { const M = (src.T && src.T.masse) || 1, a = Math.atan2(J.pos.x - src.pos.x, J.pos.z - src.pos.z), f = (imparable || M >= 1.5 ? 7 : 2.6) * Math.sqrt(M); heros.kb = { x: Math.sin(a) * f, z: Math.cos(a) * f }; // tu recules sous le coup, d'autant plus que l'ennemi est lourd
+    if ((M >= 1.5 || imparable) && !heros.parade) { heros.action = { k: 'sonne', t: 0, dur: 0.38 }; J.perso.jouer('Hit_Knockback', { boucle: false, forcer: true, vitesse: 1.3 }); } } texteFlottant(tmp(J.pos.x, J.pos.y + 2.2, J.pos.z), `-${Math.round(n)}`, 'mal');
   document.body.classList.remove('touche'); void document.body.offsetWidth; document.body.classList.add('touche');
   if (!heros.action && !heros.parade) J.perso.jouer('Hit_Chest', { boucle: false, forcer: true, vitesse: 1.5 });
   if (J.pv <= 0) { J.pv = 0; heros.mortT = 4; heros.action = null; heros.parade = null; J.perso.jouer('Death01', { boucle: false, forcer: true }); C.toast('💀 Tu es tombé… tu te relèves au camp'); if (camps.arene) { C.bilan('💀 Défaite', `${camps.arene.def.nom} : ${stats.parades} parade(s), ${stats.esquives} esquive(s). Relis ses coups et retente !`); finArene(false); } }
@@ -709,6 +711,7 @@ function majHeros(dt) {
   heros.endT = (heros.endT || 0) + dt; if (heros.parade) { heros.end -= 6 * dt; heros.endT = 0; } else if (heros.endT > 0.6) heros.end = Math.min(100, heros.end + 32 * dt);
   if (heros.appui != null) { const ch = G.t - heros.appui; document.getElementById('btnAttaque').classList.toggle('charge', ch > 0.33); }
   majTrainee();
+  if (heros.kb) { const k = heros.kb; J.pos.x += k.x * dt; J.pos.z += k.z * dt; const r = Math.max(0, 1 - 9 * dt); k.x *= r; k.z *= r; if (Math.abs(k.x) + Math.abs(k.z) < 0.2) heros.kb = null; }
   if (heros.comboT > 0) heros.comboT -= dt;
   heros.horsCombat += dt; if (heros.horsCombat > 5 && J.pv < pvMaxHeros() && !heros.mortT) J.pv = Math.min(pvMaxHeros(), J.pv + dt * 6);
   if (heros.mortT) { heros.mortT -= dt; if (heros.mortT <= 0) { heros.mortT = 0; J.pos.set(2, 0, 6); J.pv = pvMaxHeros(); p.jouer('Idle_Loop', { forcer: true }); emettre(tmp(2, 1, 6), { n: 50, c1: '#c8a8ff', c2: '#2a0a5a', vit: 3, vie: 1, taille: 0.3, grav: -2 }); C.majHud(); } return; }
@@ -783,7 +786,7 @@ function majBoutons(dt) {
   const lvl = document.getElementById('pw-arise'); lvl.classList.toggle('dispo', ennemis.some(e => e.etat === 'mort' && e.corpsT > 2 && !e.leve && dist(e.pos, C.joueur.pos) < 9));
 }
 // ---------------- Entrée ----------------
-export function initCombat(ctx) { window.__c = { ennemis, camps, heros, TYPES_M };
+export function initCombat(ctx) { window.__c = { ennemis, camps, heros, TYPES_M, Ennemi: (t, p, o) => new Ennemi(t, p, o) };
   C = ctx; const h = C.J.heros ||= { niv: 1, xp: 0, pts: 0, pw: {} }; h.pw = Object.assign({ lame: 1, tele: 1, parade: 1, arise: 1 }, h.pw);
   C.joueur.pv = pvMaxHeros(); C.joueur.isHeros = true;
   // dague du héros et bouclier d'ombre (parade)
