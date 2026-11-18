@@ -3,7 +3,7 @@ import { THREE, G, V, tmp, initRendu, rendre, majCamera, initEntrees, solSous, d
 import { chargerPersos, Perso } from './persos.js';
 import { PIERRE_DEFI, chargerNature, construireMonde, majMonde, majPile, hauteur, arbreProche, frapperArbre, libre, RESERVE, FEU, filons } from './monde.js';
 import { Ombre, RANGS, NOMS, METIERS, parole, surParole, surSignal, xpNiveau, teinteOmbre } from './ombres.js';
-import { initCombat, majCombat, heroOccupe, toucherEnnemi, DEFIS, lancerDefi, campLibre, zoneDangereuse, POUVOIRS, xpHeros, pvMaxHeros, heros } from './combat.js';
+import { initCombat, majCombat, heroOccupe, toucherEnnemi, DEFIS, lancerDefi, campLibre, zoneDangereuse, POUVOIRS, xpHeros, pvMaxHeros, heros, boirePotion } from './combat.js';
 import { chargerMonstre, chargerProps } from './persos.js';
 import { initHumains, majHumains, bloqueHumain, humainsDebug, chargerValcourt } from './humains.js';
 import { initCarte, majCarte } from './carte.js';
@@ -63,7 +63,7 @@ function revelerRang(d) {
   setTimeout(() => el.classList.remove('on'), 3800);
 }
 // ---------------- Économie ----------------
-const ICONES = { bois: '🪵', pierre: '🪨' };
+const ICONES = { bois: '🪵', pierre: '🪨', or: '🪙' };
 const jeu = {
   ajouter(res, n, pos) {
     J[res] = (J[res] || 0) + n; if (res === 'bois') { J.total += n; majPile(J.bois); }
@@ -116,8 +116,9 @@ function majQuete() {
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; $('#toasts').appendChild(d); setTimeout(() => d.remove(), 2600); }
 let boisAff = -1;
 function majHud(pop = false) {
-  const txt = `🪵 <b>${J.bois}</b>${J.pierre || aBatiment('mine') ? ` <span class="sep"></span> 🪨 <b>${J.pierre}</b>` : ''}${J.habMax ? ` <span class="sep"></span> 👥 <b>${J.habitants || 0}/${J.habMax}</b>` : ''}${J.reputation ? ` <span class="sep"></span> ⭐ <b>${J.reputation}</b>` : ''}`;
+  const txt = `🪵 <b>${J.bois}</b>${J.pierre || aBatiment('mine') ? ` <span class="sep"></span> 🪨 <b>${J.pierre}</b>` : ''}${J.habMax ? ` <span class="sep"></span> 👥 <b>${J.habitants || 0}/${J.habMax}</b>` : ''}${J.or ? ` <span class="sep"></span> 🪙 <b>${J.or}</b>` : ''}${J.reputation ? ` <span class="sep"></span> ⭐ <b>${J.reputation}</b>` : ''}`;
   if (txt !== boisAff) { $('#bois').innerHTML = txt; boisAff = txt; if (pop) { const b = $('#bois'); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); } }
+  { const b = $('#btnPotion'), n = J.heros?.potions || 0; b.style.display = n ? 'block' : 'none'; b.querySelector('small').textContent = n; }
   $('#mana i').style.width = (J.mana / joueur.manaMax * 100) + '%'; $('#mana b').textContent = `${Math.floor(J.mana)} / ${joueur.manaMax}`;
   if (J.heros) { const pm = pvMaxHeros(); $('#pv i').style.width = (joueur.pv / pm * 100) + '%'; $('#pv b').textContent = `${Math.ceil(joueur.pv)} / ${pm}`; $('#moi h1').innerHTML = `Le Souverain <em>Nv ${J.heros.niv}</em>${J.heros.pts ? ' <span class="pts">+' + J.heros.pts + '</span>' : ''}`; $('#xp').style.width = (J.heros.xp / xpHeros(J.heros.niv) * 100) + '%'; }
   $('#btnOmbres small').textContent = J.ombres.length;
@@ -163,6 +164,23 @@ const BIENTOT = {
   metier: [['🥖', 'Boulangerie'], ['🥩', 'Boucherie']],
   militaire: [['🗼', 'Tour de garde'], ['🛡️', 'Caserne d’ombres']],
 };
+// ---- le marché de Valcourt : vendre ses ressources, acheter potions et équipement ----
+const MARCHE = {
+  vendre: [['bois', 20, 6], ['pierre', 20, 8]],
+  acheter: [
+    { k: 'potions', nom: 'Potion de soin', icone: '🧪', prix: 30, max: 5, effet: 'Rend 45 % de ta vie (bouton 🧪 à gauche)' },
+    { k: 'affute', nom: 'Pierre à aiguiser', icone: '🗡️', prix: 120, max: 5, effet: '+8 % de dégâts, pour toujours' },
+    { k: 'armure', nom: 'Cuirasse renforcée', icone: '🛡️', prix: 150, max: 5, effet: '+20 points de vie maximum' },
+  ],
+};
+function ouvrirMarche() {
+  const p = $('#panneau'); p.classList.add('on'); p.dataset.vue = 'marche'; p.querySelector('h2').textContent = '💰 Marché de Valcourt'; son('confirmation_001', 0.3); const h = J.heros;
+  const v = MARCHE.vendre.map(([r, n, or]) => `<button class="carte bat ${(J[r] || 0) >= n ? '' : 'non'}" data-vendre="${r}"><div class="tete"><span class="ico">${ICONES[r]}</span><b>Vendre ${n} ${r}</b><small class="et">→ 🪙 ${or}</small></div><p>Tu en as ${J[r] || 0}.</p></button>`).join('');
+  const a = MARCHE.acheter.map(o => { const n = h[o.k] || 0, ok = (J.or || 0) >= o.prix && n < o.max; return `<button class="carte bat ${ok ? '' : 'non'}" data-acheter="${o.k}"><div class="tete"><span class="ico">${o.icone}</span><b>${o.nom}</b><small class="et">🪙 ${o.prix}</small></div><p>${o.effet} · ${n}/${o.max}</p></button>`; }).join('');
+  p.querySelector('.liste').innerHTML = `<p class="info">🪙 Ton or : <b>${J.or || 0}</b> — les monstres et les coffres en laissent tomber.</p><h3>Vendre</h3>${v}<h3>Acheter</h3>${a}`;
+}
+$('#btnCommerce').addEventListener('click', ouvrirMarche);
+$('#btnPotion').addEventListener('pointerdown', (e) => { e.stopPropagation(); boirePotion(); });
 let ongletC = 'ville';
 function ouvrirConstruire(onglet) {
   if (onglet) ongletC = onglet;
@@ -221,6 +239,8 @@ $('#panneau').addEventListener('click', (e) => {
     const b = batOuvert, rendu = demolir(b); J.batiments = J.batiments.filter(x => x !== b.s); for (const [r, n] of Object.entries(rendu || {})) J[r] = (J[r] || 0) + n;
     toast(`🗑️ ${b.T.nom} démoli · ${Object.entries(rendu || {}).map(([r, n]) => `+${n} ${ICONES[r]}`).join(' ')}`); batOuvert = null; appliquerBatiments(); majHud(); sauver(); $('#panneau').classList.remove('on'); return;
   }
+  const vd = e.target.closest('[data-vendre]'); if (vd) { const [r, n, or] = MARCHE.vendre.find(x => x[0] === vd.dataset.vendre); if ((J[r] || 0) >= n) { J[r] -= n; jeu.ajouter('or', or, joueur.pos); son('jingles_PIZZI03', 0.4); sauver(); majHud(true); } else son('error_004', 0.3); ouvrirMarche(); return; }
+  const ac = e.target.closest('[data-acheter]'); if (ac) { const o = MARCHE.acheter.find(x => x.k === ac.dataset.acheter), h = J.heros; if ((J.or || 0) >= o.prix && (h[o.k] || 0) < o.max) { J.or -= o.prix; h[o.k] = (h[o.k] || 0) + 1; son('jingles_PIZZI01', 0.5); toast(`${o.icone} ${o.nom} achetée !`); if (o.k === 'armure') joueur.pv += 20; sauver(); majHud(true); } else son('error_004', 0.3); ouvrirMarche(); return; }
   const df = e.target.closest('[data-defi]'); if (df) { $('#panneau').classList.remove('on'); lancerDefi(df.dataset.defi); return; }
   const og = e.target.closest('[data-onglet]'); if (og) { ouvrirConstruire(og.dataset.onglet); return; }
   const pz = e.target.closest('[data-poser]'); if (pz) { if (pz.classList.contains('non')) { son('error_004', 0.4); toast('Pas assez de ressources'); return; } $('#panneau').classList.remove('on'); commencerPlacement(pz.dataset.poser); return; }
@@ -388,6 +408,7 @@ function boucle() {
   requestAnimationFrame(boucle);
   const now = performance.now(), dtR = Math.min(G.accel ? 0.25 : 0.1, (now - dernier) / 1000); dernier = now; const dt = dtR * (G.accel || 1) * (G.ralenti || 1); G.dt = dt; G.t += dt;
   majJoueur(dt); majCombat(dt); majHumains(dt); majCarte(dt);
+  { const m = G.marchandT && G.t - G.marchandT < 0.4; const b = $('#btnCommerce'); if ((b.style.display === 'block') !== !!m) b.style.display = m ? 'block' : 'none'; }
   for (let i = scenes.length - 1; i >= 0; i--) if (scenes[i](dt)) scenes.splice(i, 1);
   let rangSuivre = 0; for (const o of ombres) o.maj(dt, jeu, o.d.metier === 'suivre' ? rangSuivre++ : 0);
   for (const d of depouilles) if (d.p && Math.random() < dt * 1.5) emettre(tmp(d.p.root.position.x, d.p.root.position.y + 0.3, d.p.root.position.z), { n: 1, c1: '#7a4aff', c2: '#100418', vit: 0.2, vie: 1.4, taille: 0.25, grav: -0.8 });

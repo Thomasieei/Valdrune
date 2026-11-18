@@ -32,7 +32,7 @@ function dessiner(cv, cx, cz, rayon, grand) {
   // humains
   for (const V of VILLAGES) { const [x, z] = P(V.x, V.z); icone(g, x, z, V.type === 'ville' ? '🏰' : '🏘️', s * (V.type === 'ville' ? 1.5 : 1.1)); if (grand) { g.font = `bold ${s * 0.75}px Georgia`; g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 3; g.strokeText(V.nom, x, z + s * 1.2); g.fillText(V.nom, x, z + s * 1.2); } if (V.attaque && (G.t * 3 | 0) % 2) { g.strokeStyle = '#ff3a2a'; g.lineWidth = 3; g.beginPath(); g.arc(x, z, s * 1.1, 0, 6.29); g.stroke(); } }
   // ennemis : camps (crâne / couronne pour un boss), groupes errants (points rouges)
-  for (const c of campsCarte()) { const [x, z] = P(c.x, c.z); if (c.errant) { g.fillStyle = '#ff4a3a'; g.beginPath(); g.arc(x, z, Math.max(2.5, s * 0.22), 0, 6.29); g.fill(); continue; } icone(g, x, z, c.boss ? '👹' : c.vide ? '✔️' : '💀', s * (c.boss ? 1.1 : 0.85)); if (grand && !c.vide) { g.font = `${s * 0.6}px Georgia`; g.fillStyle = '#ffb0a0'; g.strokeStyle = '#000'; g.lineWidth = 3; g.strokeText(c.nom + ' · Nv ' + c.niv, x, z + s * 0.95); g.fillText(c.nom + ' · Nv ' + c.niv, x, z + s * 0.95); } }
+  let ic = 0; for (const c of campsCarte()) { const [x, z] = P(c.x, c.z); ic++; if (c.errant) { g.fillStyle = '#ff4a3a'; g.beginPath(); g.arc(x, z, Math.max(2.5, s * 0.22), 0, 6.29); g.fill(); continue; } icone(g, x, z, c.boss ? '👹' : c.vide ? '✔️' : '💀', s * (c.boss ? 1.1 : 0.85)); if (grand && !c.vide) { g.font = `${s * 0.6}px Georgia`; g.fillStyle = '#ffb0a0'; g.strokeStyle = '#000'; g.lineWidth = 3; const dy = ic % 2 ? s * 0.95 : -s * 0.75; g.strokeText(c.nom + ' · Nv ' + c.niv, x, z + dy); g.fillText(c.nom + ' · Nv ' + c.niv, x, z + dy); /* une étiquette sur deux au-dessus : moins de chevauchements */ } }
   // objectif
   const cible = C.cible(); if (cible) { const [x, z] = P(cible.x, cible.z); icone(g, x, z, '⭐', s * 1.1); }
   g.restore();
@@ -43,7 +43,7 @@ function dessiner(cv, cx, cz, rayon, grand) {
 export function initCarte(ctx) {
   C = ctx; peindreFond();
   const st = document.createElement('style'); st.textContent = `
-#miniCarte{position:absolute;right:calc(1.6vh + env(safe-area-inset-right));top:16vh;width:19vh;height:19vh;border-radius:50%;box-shadow:0 .6vh 2vh rgba(0,0,0,.55);z-index:6;touch-action:none}
+#miniCarte{position:absolute;right:calc(1.6vh + env(safe-area-inset-right));top:16vh;width:19vh;height:19vh;border-radius:50%;box-shadow:0 .6vh 2vh rgba(0,0,0,.55);z-index:3;touch-action:none}
 #grandeCarte{position:fixed;inset:0;background:rgba(8,6,16,.82);display:none;align-items:center;justify-content:center;z-index:60;flex-direction:column;gap:1.2vh}
 #grandeCarte.on{display:flex}#grandeCarte canvas{width:min(84vh,92vw);height:min(84vh,92vw);border:.4vh solid #ffe28a88;border-radius:1.6vh;box-shadow:0 0 4vh #000}
 #grandeCarte p{margin:0;font:700 1.8vh var(--f-label);color:#e8dcc8;text-align:center}`; document.head.appendChild(st);

@@ -146,8 +146,8 @@ function decorHorde(def) {
 const dist = (a, b) => Math.hypot(a.x - b.x, a.z - b.z);
 const rnd = (a, b) => a + Math.random() * (b - a);
 export const xpHeros = (n) => Math.round(60 * Math.pow(n, 1.4));
-export const pvMaxHeros = () => 100 + 15 * ((C.J.heros.niv || 1) - 1);
-const degHeros = () => (14 + 3 * ((C.J.heros.niv || 1) - 1)) * (G.forge || 1); // la forge améliore ton arme
+export const pvMaxHeros = () => 100 + 15 * ((C.J.heros.niv || 1) - 1) + 20 * (C.J.heros.armure || 0); // + cuirasses achetées à Valcourt
+const degHeros = () => (14 + 3 * ((C.J.heros.niv || 1) - 1)) * (G.forge || 1) * (1 + 0.08 * (C.J.heros.affute || 0)); // forge + pierres à aiguiser // la forge améliore ton arme
 const nivP = (k) => C.J.heros.pw[k] || 1;
 // ---------------- zone rouge au sol ----------------
 function zone(c) {
@@ -237,6 +237,7 @@ class Ennemi {
     // butin et expérience
     const gain = []; for (const [r, [a, b]] of Object.entries(this.T.butin)) { const n = Math.round(rnd(a, b) * (1 + 0.3 * (this.niv - 1))); C.jeu.ajouter(r, n, this.pos); gain.push(n); }
     gagnerXp(Math.round(this.T.xp * (1 + 0.3 * (this.niv - 1))), this.pos);
+    { const or = Math.round((this.T.boss ? rnd(80, 120) : rnd(1, 3.5) * (this.T.masse || 1)) * (1 + 0.3 * (this.niv - 1))); if (this.camp !== 'arene') setTimeout(() => C.jeu.ajouter('or', or, this.pos), 350); } // l'or : de quoi commercer à Valcourt
     if (this.camp) verifierCamp(this.camp);
   }
   maj(dt) {
@@ -507,7 +508,7 @@ function verifierCamp(id) {
   if (c.def._couvercle) { // le coffre des pillards s'ouvre : gros butin
     const lid = c.def._couvercle, p = c.def._coffre.getWorldPosition(V()); let t = 0; const iv = setInterval(() => { t += 0.05; lid.rotation.x = -Math.min(1.9, t * 3); if (t > 0.7) clearInterval(iv); }, 50);
     son('handleCoins2', 0.7); emettre(tmp(p.x, p.y + 0.8, p.z), { n: 80, c1: '#ffe9a0', c2: '#c8902a', vit: 4, vie: 1.2, taille: 0.22, grav: 4 });
-    const B = c.def.coffre || { bois: 60, pierre: 40 }; setTimeout(() => { C.jeu.ajouter('bois', B.bois, p); C.jeu.ajouter('pierre', B.pierre, V(p.x + 0.5, p.y, p.z)); }, 600);
+    const B = c.def.coffre || { bois: 60, pierre: 40 }; setTimeout(() => { C.jeu.ajouter('bois', B.bois, p); C.jeu.ajouter('pierre', B.pierre, V(p.x + 0.5, p.y, p.z)); C.jeu.ajouter('or', c.def.coffre ? 120 : 30, V(p.x - 0.5, p.y, p.z)); }, 600);
   }
   setTimeout(() => { c.zone.g.visible = false; }, 1500);
 }
@@ -544,6 +545,8 @@ function majErrant(c, dt) { // le groupe avance sur sa route, fait halte, repart
 // invasion d'un village humain : un camp temporaire posé dans le village (voir humains.js)
 export function lancerInvasion(def) { def.retour = 1e9; def.invasion = true; creerCamp(def); return camps[def.id]; }
 export function finirInvasion(id) { const c = camps[id]; if (!c) return; for (const e of c.membres) if (e.vivant) { e.pv = 0; e.etat = 'mort'; e.corpsT = 0.01; } G.scene.remove(c.zone.g); delete camps[id]; }
+// potion de soin (achetée à Valcourt) : rend 45 % de la vie, 15 s de recharge
+export function boirePotion() { const h = C.J.heros; if (!h.potions || heros.mortT || (heros.cds.potion > 0)) { son('error_004', 0.3); return; } h.potions--; heros.cds.potion = 15; const J = C.joueur, n = Math.round(pvMaxHeros() * 0.45); J.pv = Math.min(pvMaxHeros(), J.pv + n); texteFlottant(tmp(J.pos.x, J.pos.y + 2.2, J.pos.z), `+${n}`, 'xp'); emettre(tmp(J.pos.x, J.pos.y + 1, J.pos.z), { n: 30, c1: '#ff8aa0', c2: '#8a1a3a', vit: 1.5, vie: 0.9, taille: 0.25, grav: -2 }); son('drop_002', 0.5, 1.4); C.majHud(); C.sauver(); }
 export function campsCarte() { return Object.values(camps).filter(c => !c.def.arene).map(c => ({ x: c.def.centre.x, z: c.def.centre.z, nom: c.def.nom, niv: c.def.niv || 1, boss: c.def.membres?.some(m => TYPES_M[m.type]?.boss) || TYPES_M[c.def.type]?.boss, errant: !!c.def.errant, vide: c.mortT > 0 })); }
 export const campLibre = (id) => !!camps[id] && camps[id].mortT > 0;
 export function zoneDangereuse(p) { for (const c of Object.values(camps)) if (!c.mortT && dist(p, c.def.centre) < c.def.r + 1) return c; return null; }
@@ -626,7 +629,7 @@ export function dash() {
 }
 export const DEBLOCAGE = { lame: 2, tele: 4 }; // ARISE et la parade dès le début ; le reste se mérite
 export const debloque = (k) => !DEBLOCAGE[k] || (C.J.heros.niv || 1) >= DEBLOCAGE[k];
-export function majVerrous() { for (const k of Object.keys(DEBLOCAGE)) { const b = document.getElementById('pw-' + k); if (b) { b.classList.toggle('verrou', !debloque(k)); b.dataset.niv = 'Nv ' + DEBLOCAGE[k]; } } }
+export function majVerrous() { for (const k of Object.keys(DEBLOCAGE)) { const b = document.getElementById('pw-' + k); if (b) { b.classList.toggle('pw-verrou', !debloque(k)); b.dataset.niv = 'Nv ' + DEBLOCAGE[k]; } } }
 export function pouvoir(k, appui = true) {
   const J = C.joueur, P = POUVOIRS[k];
   if (!debloque(k)) { if (appui) { son('error_004', 0.3); texteFlottant(tmp(J.pos.x, J.pos.y + 2.2, J.pos.z), `${P.nom} : niveau ${DEBLOCAGE[k]}`, 'info'); } return; }
