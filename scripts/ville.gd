@@ -295,6 +295,7 @@ func _ready() -> void:
 	add_child(camera)
 	_sphere_cam.radius = 0.35
 	_cam_pos = DEPART
+	_generer_zones()
 	for p in postes():
 		var m := Monstre.new()
 		m.configurer(p[0], Vector3(p[1], _sol(p[1], p[2]), p[2]), deg_to_rad(p[3]))
@@ -332,8 +333,55 @@ func _ready() -> void:
 				p.ville = self
 				add_child(p)
 
+var _postes_gen: Array = []
+
+# Découpe la ville en zones de rang selon la distance au départ : E proche, puis D, C, B au loin.
+func _generer_zones() -> void:
+	var etat := get_world_3d().direct_space_state
+	var sphere := SphereShape3D.new()
+	sphere.radius = 1.6
+	var pts := []
+	seed(1234)
+	for k in 900:
+		var x := randf_range(-420.0, 160.0)
+		var z := randf_range(-320.0, 90.0)
+		var r := etat.intersect_ray(PhysicsRayQueryParameters3D.create(Vector3(x, 60, z), Vector3(x, -5, z)))
+		if r.is_empty() or r["position"].y > 0.7 or r["position"].y < -0.4:
+			continue
+		var q := PhysicsShapeQueryParameters3D.new()
+		q.shape = sphere
+		q.transform = Transform3D(Basis.IDENTITY, r["position"] + Vector3(0, 2.0, 0))
+		if not etat.intersect_shape(q, 1).is_empty():
+			continue
+		var p: Vector3 = r["position"]
+		if pts.any(func (o): return o.distance_to(p) < 14.0):
+			continue
+		pts.append(p)
+	randomize()
+	if pts.size() < 24:
+		_postes_gen = POSTES
+		return
+	var par_rang := [0, 0, 0, 0]
+	for p in pts:
+		var d: float = Vector2(p.x - DEPART.x, p.z - DEPART.z).length()
+		var rg := mini(int(d / 75.0), 3)
+		if par_rang[rg] >= 14:
+			continue
+		par_rang[rg] += 1
+		var l: Array = Partie.ESPECES_RANG[rg]
+		for j in 2:
+			_postes_gen.append([l[(j + par_rang[rg]) % 2], p.x + j * 3.0, p.z + randf_range(-2, 2), randf() * 360.0])
+	for b in POSTES:
+		if Partie.ESPECES[b[0]].get("boss", false):
+			_postes_gen.append(b)
+	POSTES_V = _postes_gen
+	print("[ZONES] points=", pts.size(), " par rang=", par_rang)
+
+func rang_zone(p: Vector3) -> int:
+	return mini(int(Vector2(p.x - DEPART.x, p.z - DEPART.z).length() / 75.0), 3)
+
 func postes() -> Array:
-	return [] if OS.get_cmdline_user_args().has("--pilote=tailles") else POSTES
+	return [] if OS.get_cmdline_user_args().has("--pilote=tailles") else (_postes_gen if not _postes_gen.is_empty() else POSTES)
 
 func _environnement() -> void:
 	var we := WorldEnvironment.new()

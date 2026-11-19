@@ -16,6 +16,7 @@ var _b_frapper: Control
 var _b_eveil: Control
 var _b_comp := {}
 var _barre := {}
+var _fioles := {}
 var _flash: ColorRect
 var _voile: ColorRect
 var _sys: Panel
@@ -60,7 +61,7 @@ func systeme(titre: String, lignes: Array) -> void:
 var _flash_msg_t := 0.0
 const BARRE := [["arise", "ARISE", "arise"], ["fureur", "ATTAQUE", "attack"], ["auto", "OMBRES", "cmd_attack"],
 	["rappel", "RAPPEL", "essence"], ["potion", "POTION", "role_heal"], ["equip", "ÉQUIPE", "items"],
-	["diviser", "DIVISER", "role_melee"], ["monarque", "MONARQUE", "w8"], ["rangees", "RANGER", "ombres"], ["fourreau", "FOURREAU", "tab_w"]]
+	["diviser", "DIVISER", "role_melee"], ["monarque", "MONARQUE", "w8"], ["rangees", "RANGER", "ombres"], ["fourreau", "FOURREAU", "tab_w"], ["patrouille", "PATROUILLE", "q_run"]]
 
 func _barre_on(k: String) -> bool:
 	match k:
@@ -93,7 +94,7 @@ func _barre_basculer(k: String) -> void:
 			Partie.auto_ombres = not Partie.auto_ombres
 		_:
 			Partie.opts[k] = not bool(Partie.opts[k])
-	var nom: String = {"arise": "Arise auto", "fureur": "Attaque auto", "auto": "Ombres auto", "rappel": "Rappel des ombres", "potion": "Potion auto", "equip": "Équipement auto", "diviser": "Ombres divisées", "monarque": "Arme du Monarque (%d mana / coup)" % int(Partie.MANA_ECLAIR), "rangees": "Ombres rangées dans le sol", "fourreau": "Arme au fourreau"}[k]
+	var nom: String = {"arise": "Arise auto", "fureur": "Attaque auto", "auto": "Ombres auto", "rappel": "Rappel des ombres", "potion": "Potion auto", "equip": "Équipement auto", "diviser": "Ombres divisées", "monarque": "Arme du Monarque (%d mana / coup)" % int(Partie.MANA_ECLAIR), "rangees": "Ombres rangées dans le sol", "fourreau": "Arme au fourreau", "patrouille": "Ombres en patrouille (sans rappel)"}[k]
 	dire("%s : %s" % [nom, "ACTIVÉ" if _barre_on(k) else "désactivé"], Color(0.5, 1.0, 0.6) if _barre_on(k) else Color(0.8, 0.8, 0.9))
 	Partie.sauver()
 	Partie.change.emit()
@@ -186,7 +187,7 @@ func _ready() -> void:
 	_b_eveil = _rond("ÉVEIL", "arise", 128.0, Color(0.35, 0.1, 0.7))
 	_b_eveil.visible = false
 	for b in BARRE:
-		var bb := _rond(b[1], b[2], 58.0, Color(0.35, 0.25, 0.05) if b[0] == "monarque" else Color(0.1, 0.16, 0.38))
+		var bb := _rond(b[1], b[2], 54.0, Color(0.35, 0.25, 0.05) if b[0] == "monarque" else Color(0.1, 0.16, 0.38))
 		bb.set_meta("on", false)
 		bb.set_meta("fs", 10)
 		_barre[b[0]] = bb
@@ -195,6 +196,21 @@ func _ready() -> void:
 	_voile.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_voile.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_racine.add_child(_voile)
+	for k in ["pv", "mana"]:
+		var f := Control.new()
+		f.size = Vector2(54, 74)
+		f.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var kk: String = k
+		f.draw.connect(func ():
+			var col := Color(0.95, 0.15, 0.2) if kk == "pv" else Color(0.2, 0.45, 1.0)
+			f.draw_rect(Rect2(19, 4, 16, 14), Color(0.75, 0.6, 0.4))
+			f.draw_circle(Vector2(27, 44), 24, Color(0.9, 0.95, 1.0, 0.85))
+			f.draw_circle(Vector2(27, 46), 20, col)
+			f.draw_circle(Vector2(20, 38), 5, Color(1, 1, 1, 0.6))
+			var n := str(int(Partie.potions[kk]))
+			_texte(f, Vector2(36, 72), n, 20, Color.WHITE, 6))
+		_racine.add_child(f)
+		_fioles[k] = f
 	_flash = ColorRect.new()
 	_flash.color = Color(1.0, 0.05, 0.05, 0.0)
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -323,13 +339,15 @@ func _disposer() -> void:
 	_b_eveil.position = Vector2(w - 640, h - 270)
 	_b_action.position = Vector2(w - 180, h - 446)
 	for k in BARRE.size():
-		_barre[BARRE[k][0]].position = Vector2(w / 2.0 - 5.0 * 62.0 + k * 62.0, h - 74.0)
+		_barre[BARRE[k][0]].position = Vector2(w / 2.0 - 5.5 * 58.0 + k * 58.0, h - 70.0)
 	_b_comp["esquive"].position = Vector2(w - 330, h - 118)
 	_b_comp["brise"].position = Vector2(w - 318, h - 250)
 	_b_comp["cri"].position = Vector2(w - 196, h - 318)
 	_b_comp["domaine"].position = Vector2(w - 330, h - 380)
 	_b_comp["echange"].position = Vector2(w - 440, h - 214)
 	_b_comp["pacte"].position = Vector2(w - 440, h - 330)
+	_fioles["pv"].position = Vector2(258, h - 156)
+	_fioles["mana"].position = Vector2(258, h - 82)
 	_haut.position = Vector2(16, 10)
 	_droite.position = Vector2(w - 340, 120)
 	_evt.position = Vector2(w - 340, 68)
@@ -558,6 +576,8 @@ func _process(dt: float) -> void:
 		bc.set_meta("pauvre", Partie.mana < float(Partie.COMPETENCES[k]["mana"]))
 		bc.queue_redraw()
 	_flash_msg_t -= dt
+	for k in _fioles:
+		_fioles[k].queue_redraw()
 	_reconstruire_t -= dt
 	if _a_reconstruire and _reconstruire_t <= 0.0:
 		_a_reconstruire = false
@@ -603,7 +623,7 @@ func _dessiner_haut() -> void:
 		c.draw_rect(Rect2(8, y, 300, 14), Color(0.05, 0.05, 0.12, 0.85))
 		c.draw_rect(Rect2(8, y, 300 * clampf(fr, 0.0, 1.0), 14), col)
 		c.draw_rect(Rect2(8, y, 300, 14), Color(1, 1, 1, 0.5), false, 1.5)
-		var t := "PV %d / %d" % [int(Partie.pv), int(Partie.pv_max())] if k == 0 else "Mana %d / %d" % [int(Partie.mana), int(Partie.mana_max())]
+		var t := "PV %d / %d" % [int(Partie.pv), int(Partie.pv_max())] if k == 0 else "Mana %d / %d  ·  Zone %s" % [int(Partie.mana), int(Partie.mana_max()), Partie.RANGS[ville.rang_zone(ville.joueur.global_position)]]
 		_texte(c, Vector2(316, y + 13), t, 15, col.lightened(0.35), 4)
 
 
@@ -1098,8 +1118,8 @@ const OFFRES := [
 	["gacha", "Sac de gacha", "+20 de chaque monnaie d'autel.", "4,99 €", "roll"],
 	["cle", "Clé du château rouge", "Une entrée au château (250 étages).", "0,99 €", "tele"],
 	["coffre", "Coffre du donjon", "Un objet de donjon garanti, rang B.", "1,99 €", "items"],
-	["soin", "Potion de soin", "Rend tous tes points de vie.", "", "role_heal"],
-	["mana", "Fiole de mana", "Remplit ta réserve de mana.", "", "essence"],
+	["soin", "5 potions de soin", "Fiole rouge : +50 % PV chacune.", "", "role_heal"],
+	["mana", "5 fioles de mana", "Fiole bleue : +60 % mana chacune.", "", "essence"],
 ]
 
 func _boutique() -> void:
@@ -1178,9 +1198,9 @@ func _boutique() -> void:
 					"cle":
 						Partie.donner_cle()
 					"soin":
-						Partie.pv = Partie.pv_max()
+						Partie.potions["pv"] = int(Partie.potions["pv"]) + 5
 					"mana":
-						Partie.mana = Partie.mana_max()
+						Partie.potions["mana"] = int(Partie.potions["mana"]) + 5
 				Fx.son("coins", -2.0)
 				Partie.sauver()
 				Partie.change.emit())
@@ -1323,6 +1343,16 @@ func _poser(i: int, p: Vector2) -> void:
 		_doigts[i] = {"role": "ui"}
 		fermer()
 		return
+	for k in _fioles:
+		if _dans(_fioles[k], p):
+			_doigts[i] = {"role": "bouton"}
+			if Partie.boire(k):
+				Fx.son("orb", -2.0, 1.2)
+				dire("+%s (%d restantes)" % ["50 % PV" if k == "pv" else "60 % mana", int(Partie.potions[k])], Color(0.6, 0.9, 1.0))
+			else:
+				dire("Plus de potion de %s — boutique ou butin" % ("soin" if k == "pv" else "mana"), Color(1.0, 0.6, 0.5))
+			_fioles[k].queue_redraw()
+			return
 	for k in _barre:
 		if _dans(_barre[k], p):
 			_doigts[i] = {"role": "bouton"}

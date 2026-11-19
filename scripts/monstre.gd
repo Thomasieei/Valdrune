@@ -193,7 +193,9 @@ func _combat(dt: float) -> void:
 		return
 	_zone_t -= dt
 	if _zone_t <= 0.0:
-		_zone_t = CADENCE_ZONE[r] * randf_range(0.85, 1.15) * (0.8 if elite else 1.0) * (0.5 if enrage else 1.0)
+		var rapport := puissance() / maxf(Partie.dps_total(), 1.0)
+		var calme := 3.0 if rapport < 0.3 else (1.8 if rapport < 1.0 else 1.0)
+		_zone_t = CADENCE_ZONE[r] * randf_range(0.85, 1.15) * (0.8 if elite else 1.0) * (0.5 if enrage else 1.0) * calme
 		var cible: Vector3 = j.global_position
 		var ombres := get_tree().get_nodes_in_group("ombres").filter(func (o): return not o.mort and o.global_position.distance_to(global_position) < 16.0)
 		if not ombres.is_empty() and randf() < 0.35:

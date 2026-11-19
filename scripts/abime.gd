@@ -65,7 +65,9 @@ func _suivant() -> void:
 	sortie = null
 	_decor = Node3D.new()
 	add_child(_decor)
-	var teinte := Color.from_hsv(fmod(etage * 0.137, 1.0), 0.55, 0.75)
+	var bloc := (etage - 1) / 10
+	var style := bloc % 4
+	var teinte := Color.from_hsv(fmod(bloc * 0.237, 1.0), 0.55, 0.75)
 	var sol := _mat(teinte.darkened(0.3))
 	var mur := _mat(teinte.darkened(0.55), 0.15)
 	var nb := 1 + (etage % 3)
@@ -77,8 +79,21 @@ func _suivant() -> void:
 		var L: float = TAILLES[genre]
 		var c := Vector3(ORIGINE.x, 0, z + L / 2.0)
 		_boite(_decor, Vector3(L, 0.4, L), c + Vector3(0, -0.2, 0), sol)
+		var hm := [3.0, 1.0, 6.0, 2.0][style]
 		for cote in [-1.0, 1.0]:
-			_boite(_decor, Vector3(1, 3.0, L), c + Vector3(cote * (L / 2.0 + 0.5), 1.5, 0), mur)
+			_boite(_decor, Vector3(1, hm, L), c + Vector3(cote * (L / 2.0 + 0.5), hm / 2.0, 0), mur)
+		match style:
+			1:
+				for a in 8:
+					var an := TAU * a / 8.0
+					_boite(_decor, Vector3(1.4, 7.0, 1.4), c + Vector3(cos(an), 0, sin(an)) * (L * 0.38) + Vector3(0, 3.5, 0), mur)
+			2:
+				for a in int(L / 4.0):
+					_boite(_decor, Vector3(1.0, 6.0, 1.0), c + Vector3(randf_range(-L / 2 + 2, L / 2 - 2), 3.0, randf_range(-L / 2 + 2, L / 2 - 2)), mur)
+			3:
+				for a in 4:
+					var pl := _boite(_decor, Vector3(L * 0.3, 0.5, L * 0.3), c + Vector3(randf_range(-L / 4, L / 4), 1.6 + a * 1.2, randf_range(-L / 4, L / 4)), _mat(teinte.lightened(0.15), 0.4))
+					pl.rotation.y = randf() * TAU
 		if s == 0:
 			_boite(_decor, Vector3(L, 3.0, 1), c + Vector3(0, 1.5, -L / 2.0 - 0.5), mur)
 			_depart = c + Vector3(0, 0, -L / 2.0 + 2.5)
@@ -116,7 +131,7 @@ func _suivant() -> void:
 	for m in monstres:
 		if is_instance_valid(m) and m.allie:
 			m.global_position = _depart + Vector3(2.0, 0, 1.0)
-	Partie.message.emit("Abîme : étage %d / %d  (%d salle%s)" % [etage, ETAGES, nb, "s" if nb > 1 else ""], Color(0.6, 1.0, 0.85))
+	Partie.message.emit("Abîme : étage %d / %d  (%d salle%s) · %s" % [etage, ETAGES, nb, "s" if nb > 1 else "", ["Salles de pierre", "Cercles de colonnes", "Forêt de piliers", "Dalles suspendues"][style]], Color(0.6, 1.0, 0.85))
 
 var _sortie_z := 0.0
 

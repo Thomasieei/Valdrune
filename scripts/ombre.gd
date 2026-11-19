@@ -87,7 +87,7 @@ func _process(dt: float) -> void:
 		_etiquette.text = "✝ Rappel : %d mana" % int(Partie.cout_rappel(donnees)) if Partie.mana < Partie.cout_rappel(donnees) else "✝ Rappel…"
 		_rappel_t -= dt
 		if _rappel_t <= 0.0:
-			if Partie.opts["rappel"] and Partie.depenser_mana(Partie.cout_rappel(donnees)):
+			if Partie.opts["rappel"] and not Partie.opts["patrouille"] and Partie.depenser_mana(Partie.cout_rappel(donnees)):
 				_revenir()
 			else:
 				_rappel_t = 1.0
@@ -151,7 +151,23 @@ func _a_portee(m: Monstre) -> bool:
 
 var _garde: Monstre = null
 
+func _a_portee_patrouille(m) -> bool:
+	return m != null and is_instance_valid(m) and not m.mort and not m.allie
+
 func _choisir_cible(dt: float) -> Monstre:
+	if Partie.opts["patrouille"]:
+		_auto_t -= dt
+		if _auto_t <= 0.0 or not _a_portee_patrouille(_garde):
+			_auto_t = 1.0
+			_garde = null
+			var mieux := INF
+			for m in joueur.get_parent().monstres:
+				if _a_portee_patrouille(m):
+					var dd: float = m.global_position.distance_to(global_position) + (0.0 if m.sans_chrono == false else 999.0)
+					if dd < mieux:
+						mieux = dd
+						_garde = m
+		return _garde if _a_portee_patrouille(_garde) else null
 	if Partie.opts["diviser"]:
 		_auto_t -= dt
 		if _auto_t <= 0.0 or not _a_portee(_garde):

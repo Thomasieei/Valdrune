@@ -246,6 +246,7 @@ func _frapper() -> void:
 	await get_tree().create_timer(0.16).timeout
 	if c == null or not is_instance_valid(c) or c.mort:
 		return
+	Partie.en_combat()
 	var crit := randf() < Partie.chance_crit()
 	var deg := Partie.dps_joueur() * CADENCE * (2.0 if crit else 1.0) * randf_range(0.9, 1.1)
 	c.frapper(deg, crit)
@@ -339,6 +340,7 @@ func competence(k: String) -> String:
 		Fx.son("shadow", -2.0, 1.4)
 		return ""
 	Partie.depenser_mana(d["mana"])
+	Partie.en_combat()
 	recharges[k] = d["cd"]
 	match k:
 		"esquive":
@@ -416,7 +418,7 @@ func _arme_monarque(dt: float) -> void:
 	_eclair_t -= dt
 	if _eclair_t > 0.0:
 		return
-	_eclair_t = 0.14
+	_eclair_t = 0.3
 	if Partie.mana < Partie.MANA_ECLAIR:
 		return
 	var l: Array = get_parent().monstres.filter(func (m): return is_instance_valid(m) and not m.mort and m.global_position.distance_to(global_position) < 12.0 and _visible(m))
@@ -425,11 +427,15 @@ func _arme_monarque(dt: float) -> void:
 	_eclair_i = (_eclair_i + 1) % l.size()
 	var m: Monstre = l[_eclair_i]
 	Partie.depenser_mana(Partie.MANA_ECLAIR)
+	Partie.en_combat()
 	var depart := global_position
 	var v := m.global_position - global_position
 	v.y = 0
-	if v.length() > 2.0:
-		global_position = m.global_position - v.normalized() * (1.2 + m.haut() * 0.25)
+	var dist := v.length() - (1.2 + m.haut() * 0.25)
+	if dist > 0.5:
+		# ruée physique (plus de téléportation qui faisait traverser le sol et planter la caméra)
+		_dash = v.normalized() * 28.0
+		_dash_t = minf(dist / 28.0, 0.3)
 	_corps.rotation.y = atan2(v.x, v.z)
 	Fx.anneau(depart, Color(1.0, 0.85, 0.3), 0.8)
 	Fx.anneau(global_position, Color(1.0, 0.75, 0.2), 1.4)

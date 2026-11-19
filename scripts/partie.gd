@@ -224,7 +224,7 @@ func bot_etage(d: Dictionary) -> int:
 			break
 		f += 1
 	return f
-var opts := {"arise": false, "potion": false, "rappel": true, "equip": false, "diviser": false, "monarque": false, "rangees": false, "fourreau": false}
+var opts := {"arise": false, "potion": false, "rappel": true, "equip": false, "diviser": false, "monarque": false, "rangees": false, "fourreau": false, "patrouille": false}
 var speciale := "echange"
 var abime_max := 0
 var pactes_morts := {}
@@ -538,11 +538,9 @@ func _process(dt: float) -> void:
 		mana = mana_max()
 		pv = pv_max()
 	_potion_t -= dt
-	if opts["potion"] and _potion_t <= 0.0 and pv < pv_max() * 0.3 and pieces >= cout_potion():
-		_potion_t = 15.0
-		pieces -= cout_potion()
-		pv = pv_max()
-		message.emit("Potion auto : PV restaurés (-%d)" % cout_potion(), Color(0.5, 1.0, 0.6))
+	if opts["potion"] and _potion_t <= 0.0 and pv < pv_max() * 0.3 and boire("pv"):
+		_potion_t = 8.0
+		message.emit("Potion auto : +50 % PV (%d restantes)" % int(potions["pv"]), Color(0.5, 1.0, 0.6))
 	_sauver_t += dt
 	if _sauver_t > 8.0:
 		_sauver_t = 0.0
@@ -748,8 +746,26 @@ func pv_max() -> float:
 func mana_max() -> float:
 	return 100.0 * (1.0 + bonus("mana") / 100.0) * mult_rang()
 
+var dernier_combat := -100.0
+var potions := {"pv": 5, "mana": 5}
+
+func en_combat() -> void:
+	dernier_combat = _t
+
 func regen_mana() -> float:
-	return 1.2 * (1.0 + bonus("mana") / 100.0)
+	# la mana ne remonte qu'au repos (4 s sans combattre)
+	return 2.0 * (1.0 + bonus("mana") / 100.0) if _t - dernier_combat > 4.0 else 0.0
+
+func boire(k: String) -> bool:
+	if int(potions[k]) <= 0:
+		return false
+	potions[k] = int(potions[k]) - 1
+	if k == "pv":
+		pv = minf(pv_max(), pv + pv_max() * 0.5)
+	else:
+		mana = minf(mana_max(), mana + mana_max() * 0.6)
+	change.emit()
+	return true
 
 func atk_monstre(espece: String, elite := false) -> float:
 	var r: int = mini(int(ESPECES[espece]["rang"]), ATK_RANG.size() - 1)
@@ -870,6 +886,10 @@ func gagner(espece: String, elite := false, mult := 1.0) -> int:
 	pieces += gain
 	or_total += gain
 	tues[espece] = int(tues.get(espece, 0)) + 1
+	if randf() < 0.02 + (0.05 if elite else 0.0):
+		var kp: String = ["pv", "mana"].pick_random()
+		potions[kp] = int(potions[kp]) + 1
+		message.emit("+1 potion de %s" % ("soin" if kp == "pv" else "mana"), Color(0.6, 0.85, 1.0))
 	progres("kills")
 	charger_domaine(10.0 if e.get("boss", false) else 3.0)
 	if verdict(espece, elite, mult)["possible"] == false and e.get("lieu", "") == "":
@@ -1100,7 +1120,7 @@ func sauver() -> void:
 			"auto_attaque": auto_attaque, "records": records, "finis": donjons_finis,
 			"chasseurs": chasseurs, "elo": elo, "jetons": jetons, "arene_v": arene_v, "arene_d": arene_d,
 			"quitte": Time.get_unix_time_from_system(), "rang_chasseur": rang_chasseur, "or_total": or_total, "opts": opts, "cles": cles, "etage_max": etage_max,
-			"quete": quete, "pts_bonus": points_bonus, "secretes": secretes, "kills_total": kills_total, "general": general_uid, "speciale": speciale, "abime_max": abime_max}))
+			"quete": quete, "pts_bonus": points_bonus, "secretes": secretes, "kills_total": kills_total, "general": general_uid, "speciale": speciale, "abime_max": abime_max, "potions": potions}))
 
 func charger() -> void:
 	if OS.get_cmdline_user_args().has("--sans-sauvegarde") or not FileAccess.file_exists(CHEMIN):
@@ -1144,6 +1164,8 @@ func charger() -> void:
 	general_uid = int(d.get("general", -1))
 	speciale = str(d.get("speciale", "echange"))
 	abime_max = int(d.get("abime_max", 0))
+	var pp: Dictionary = d.get("potions", {})
+	potions = {"pv": int(pp.get("pv", 5)), "mana": int(pp.get("mana", 5))}
 	etage_max = int(d.get("etage_max", 0))
 	for k in opts:
 		opts[k] = bool(d.get("opts", {}).get(k, opts[k]))
