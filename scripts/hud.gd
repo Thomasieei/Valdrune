@@ -174,7 +174,7 @@ func _ready() -> void:
 	_droite.size = Vector2(330, 300)
 	_droite.draw.connect(_dessiner_droite)
 	_racine.add_child(_droite)
-	for d in [["inventaire", "Inventaire", "sac"], ["ombres", "Ombres", "ombres"], ["stats", "Compétences", "q_skills"], ["index", "Index", "q_kills"], ["boutique", "Boutique", "potion"], ["classement", "Classement", "best"], ["journal", "Journal", "quest"], ["grimoire", "Anos", "grimoire"]]:
+	for d in [["inventaire", "Inventaire", "sac"], ["ombres", "Ombres", "ombres"], ["stats", "Compétences", "q_skills"], ["index", "Index", "q_kills"], ["boutique", "Boutique", "potion"], ["classement", "Classement", "best"], ["journal", "Journal", "quest"], ["grimoire", "Anos", "grimoire"], ["menu", "Menu", "menu"]]:
 		var h := Ui.hexagone(d[1], d[2], 96.0)
 		var type: String = d[0]
 		h.pressed.connect(func (): ouvrir(type))
@@ -361,7 +361,7 @@ func _disposer() -> void:
 		lb.position = Vector2(0, 0 if n == "Titre" else 70)
 
 	var o := Vector2(20, 150)
-	var pos := {"inventaire": o, "ombres": o + Vector2(86, 50), "stats": o + Vector2(0, 100), "index": o + Vector2(86, 150), "boutique": o + Vector2(0, 200), "classement": o + Vector2(86, 250), "journal": o + Vector2(0, 300), "grimoire": o + Vector2(86, 350)}
+	var pos := {"inventaire": o, "ombres": o + Vector2(86, 50), "stats": o + Vector2(0, 100), "index": o + Vector2(86, 150), "boutique": o + Vector2(0, 200), "classement": o + Vector2(86, 250), "journal": o + Vector2(0, 300), "grimoire": o + Vector2(86, 350), "menu": o}
 	for k in _hex:
 		_hex[k].position = pos[k]
 	_msg.position = Vector2(w / 2.0 - 450, h * 0.62)
@@ -584,7 +584,10 @@ func _process(dt: float) -> void:
 		_reconstruire_t = 0.5
 		if _panneau and not _roll_actif and _type != "mort":
 			_construire()
-	_hex["grimoire"].visible = Partie.createur
+	for k in _hex:
+		if k != "menu":
+			_hex[k].visible = _menu_ouvert and (k != "grimoire" or Partie.createur)
+	_hex["menu"].visible = not _menu_ouvert
 	for k in _barre:
 		var on := _barre_on(k)
 		if _barre[k].get_meta("on") != on:
@@ -650,7 +653,7 @@ func _dessiner_droite() -> void:
 	var y := 140.0
 	var couleurs := {"eveil": Color(0.35, 1.0, 0.45), "ombres": Color(0.7, 0.45, 1.0), "arme": Color(1.0, 0.35, 0.35),
 		"pieces": Color(1.0, 0.8, 0.25), "xp": Color(0.4, 0.8, 1.0), "vitesse": Color(0.5, 1.0, 0.9), "crit": Color(1.0, 0.6, 0.2)}
-	for k in ["eveil", "ombres", "arme", "pieces", "xp", "vitesse", "crit"]:
+	for k in []:
 		var b := Partie.bonus(k)
 		if b <= 0.0:
 			continue
@@ -707,7 +710,13 @@ func _dessiner_cadre() -> void:
 	_texte(c, Vector2(bx + (bw - pw) / 2.0, 96), pt, 16, Color.WHITE, 5)
 
 
+var _menu_ouvert := false
+
 func ouvrir(type: String) -> void:
+	if type == "menu":
+		_menu_ouvert = true
+		get_tree().create_timer(6.0).timeout.connect(func (): _menu_ouvert = false)
+		return
 	if _panneau and _type == type:
 		fermer()
 		return
@@ -1034,7 +1043,7 @@ const DESC_POINTS := {"ombres": "+0,1 % de dégâts des ombres par point", "arme
 	"vitesse": "+0,1 % de vitesse de course par point (max 250)", "legion": "+1 ombre au combat tous les 5 points (max 20)",
 	"pieces": "+0,1 % de pièces gagnées par point", "eveil": "+0,1 point de chance d'éveil par point (max 300)",
 	"vie": "+0,1 % de points de vie (toi et tes ombres)", "mana": "+0,1 % de mana max et de régénération",
-	"portee": "+0,1 m de portée d'attaque des ombres (max 120)", "vit_ombre": "+0,1 % de vitesse des ombres (max 500)"}
+	"portee": "+0,25 m de portée des ombres (base 18 m, max 48 m)", "vit_ombre": "+0,1 % de vitesse des ombres (max 500)"}
 const ICONES_POINTS := {"ombres": "ombres", "arme": "attack", "vitesse": "sprint", "legion": "q_skills", "pieces": "cash", "eveil": "arise",
 	"vie": "role_heal", "mana": "essence", "portee": "cmd_attack", "vit_ombre": "q_run"}
 var _defil_stats := 0

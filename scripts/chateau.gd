@@ -168,7 +168,7 @@ func _process(dt: float) -> void:
 		if _pause <= 0.0:
 			_suivant()
 		return
-	if _vague.all(func (m): return not is_instance_valid(m) or m.mort):
+	if _vague.all(func (m): return not is_instance_valid(m) or m.mort or m.allie):
 		var boss := etage % 10 == 0
 		temps += BONUS_BOSS if boss else BONUS_ETAGE
 		Partie.etage_franchi(etage, boss)

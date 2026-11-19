@@ -435,7 +435,7 @@ func demarrer() -> void:
 func restants() -> int:
 	if salle >= _par_salle.size():
 		return 0
-	return _par_salle[salle].filter(func (m): return not m.mort).size()
+	return _par_salle[salle].filter(func (m): return is_instance_valid(m) and not m.mort and not m.allie).size()
 
 func _process(dt: float) -> void:
 	var t0 := Time.get_ticks_msec() / 1000.0

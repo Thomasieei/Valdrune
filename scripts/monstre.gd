@@ -394,7 +394,6 @@ func blesser_pacte(d: float) -> void:
 		Partie.message.emit("Ton pacte est rompu : %s est mort pour de bon." % e["nom"], Color(1.0, 0.5, 0.45))
 		var tw := create_tween()
 		tw.tween_property(_corps, "scale", Vector3.ONE * 0.01, 0.8)
-		tw.tween_callback(queue_free)
 
 func _ia_pacte(dt: float) -> void:
 	var v := get_tree().get_first_node_in_group("ville")
@@ -406,7 +405,7 @@ func _ia_pacte(dt: float) -> void:
 		for m in v.monstres:
 			if is_instance_valid(m) and not m.mort and not m.allie and m != self:
 				var dd: float = m.global_position.distance_to(global_position)
-				if dd < mieux and dd < 45.0:
+				if dd < mieux:
 					mieux = dd
 					_pacte_cible = m
 	if _pacte_cible == null:

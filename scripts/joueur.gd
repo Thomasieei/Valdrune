@@ -125,8 +125,8 @@ func cible_devant(monstres: Array, portee := 16.0) -> Monstre:
 	avant = avant.normalized()
 	var mieux: Monstre = null
 	var score := INF
-	for m: Monstre in monstres:
-		if m.mort or m.allie:
+	for m in monstres:
+		if not is_instance_valid(m) or m.mort or m.allie:
 			continue
 		var v := m.global_position - global_position
 		v.y = 0
@@ -286,7 +286,7 @@ func competence(k: String) -> String:
 	if k == "pacte":
 		var c2 := cible
 		if c2 == null or not is_instance_valid(c2) or c2.mort or c2.allie:
-			c2 = cible_devant(vil.monstres, 20.0)
+			c2 = cible_devant(vil.monstres, 40.0)
 		if c2 == null:
 			return "Vise l'ennemi à ensorceler"
 		if Partie.mana < d["mana"]:
@@ -421,7 +421,7 @@ func _arme_monarque(dt: float) -> void:
 	_eclair_t = 0.3
 	if Partie.mana < Partie.MANA_ECLAIR:
 		return
-	var l: Array = get_parent().monstres.filter(func (m): return is_instance_valid(m) and not m.mort and m.global_position.distance_to(global_position) < 12.0 and _visible(m))
+	var l: Array = get_parent().monstres.filter(func (m): return is_instance_valid(m) and not m.mort and not m.allie and m.global_position.distance_to(global_position) < 30.0)
 	if l.is_empty():
 		return
 	_eclair_i = (_eclair_i + 1) % l.size()

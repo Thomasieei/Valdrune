@@ -137,7 +137,7 @@ const EFFET_POINT := {"ombres": 0.1, "arme": 0.1, "vitesse": 0.1, "legion": 0.0,
 const MAX_POINTS := {"vitesse": 250, "legion": 20, "eveil": 300, "portee": 120, "vit_ombre": 500}
 const LEGION_PAR_PLACE := 5
 const POINTS_PAR_NIVEAU := 3
-const PORTEE_OMBRES := 7.0
+const PORTEE_OMBRES := 18.0
 
 
 const PROBA_ROLL := [0.62, 0.27, 0.09, 0.019, 0.001]
@@ -735,7 +735,7 @@ func cout_rappel(o: Dictionary) -> float:
 	return 20.0 + 15.0 * rang_ombre(o) + 5.0 * int(o["etoiles"])
 
 func portee_ombres() -> float:
-	return PORTEE_OMBRES + points["portee"] * EFFET_POINT["portee"]
+	return PORTEE_OMBRES + points["portee"] * 0.25
 
 func vit_ombre() -> float:
 	return (1.0 + bonus("vit_ombre") / 100.0) * (1.3 if cri_actif() else 1.0)
