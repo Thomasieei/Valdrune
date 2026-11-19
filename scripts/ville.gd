@@ -107,6 +107,7 @@ var raid_boss: Monstre = null
 var _raid_fin := 0.0
 var _raid_fait := -1
 var _nettoyage_t := 30.0
+var _lod_t := 1.0
 
 func _maj_raid() -> void:
 	var t := Time.get_datetime_dict_from_system()
@@ -365,7 +366,7 @@ func _generer_zones() -> void:
 	for p in pts:
 		var d: float = Vector2(p.x - DEPART.x, p.z - DEPART.z).length()
 		var rg := mini(int(d / 75.0), 3)
-		if par_rang[rg] >= 14:
+		if par_rang[rg] >= 8:
 			continue
 		par_rang[rg] += 1
 		var l: Array = Partie.ESPECES_RANG[rg]
@@ -1082,6 +1083,19 @@ func _process(dt: float) -> void:
 	joueur.camera_lacet = _lacet
 	_maj_gates(dt)
 	_maj_raid()
+	_lod_t -= dt
+	if _lod_t <= 0.0:
+		_lod_t = 1.0
+		var pj := joueur.global_position
+		for m in monstres:
+			if is_instance_valid(m) and not m.allie:
+				var loin: bool = m.global_position.distance_to(pj) > 85.0 and m != raid_boss and m != boss_evt
+				if m.visible == loin:
+					m.visible = not loin
+					m.set_process(not loin)
+		for c in chasseurs:
+			if is_instance_valid(c) and c.mode == "ville":
+				c.visible = c.global_position.distance_to(pj) < 85.0
 	_nettoyage_t -= dt
 	if _nettoyage_t <= 0.0:
 		_nettoyage_t = 30.0

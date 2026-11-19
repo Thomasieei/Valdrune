@@ -43,9 +43,9 @@ const ESPECES := {
 	"roi_puglin": {"nom": "Grolm, roi des glaces", "modele": "puglin", "haut": 3.2, "rang": 1, "pv": 120000, "temps": 9999.0, "pieces": 2500, "xp": 1500, "eveil": 0.04, "teinte": Color(0.65, 0.85, 1.15), "boss": true, "lieu": "donjon", "donjon": 1, "icone": "sh_puglin", "monnaie": "trefle"},
 	"seigneur_braise": {"nom": "Vorgath, seigneur de braise", "modele": "orc_warrior", "haut": 3.6, "rang": 2, "pv": 900000, "temps": 9999.0, "pieces": 9000, "xp": 5000, "eveil": 0.025, "teinte": Color(1.25, 0.55, 0.4), "boss": true, "lieu": "donjon", "donjon": 2, "icone": "sh_orc_warrior", "monnaie": "insigne",
 		"competence": {"nom": "Frappe de braise", "cd": 14.0, "mult": 12.0}},
-	"naruto": {"nom": "Naruto", "modele": "naruto", "haut": 2.2, "rang": 3, "pv": 12000000, "temps": 9999.0, "pieces": 40000, "xp": 15000, "eveil": 0.01, "boss": true, "lieu": "donjon", "donjon": 3, "icone": "best", "monnaie": "eclat", "clones": true,
+	"naruto": {"nom": "Naruto", "modele": "hunter", "teinte": Color(1.5, 0.75, 0.25), "haut": 2.2, "rang": 3, "pv": 12000000, "temps": 9999.0, "pieces": 40000, "xp": 15000, "eveil": 0.01, "boss": true, "lieu": "donjon", "donjon": 3, "icone": "best", "monnaie": "eclat", "clones": true,
 		"competence": {"nom": "Rasengan", "cd": 10.0, "mult": 25.0}},
-	"clone_naruto": {"nom": "Clone de l'ombre", "modele": "naruto", "haut": 2.0, "rang": 3, "pv": 400000, "temps": 9999.0, "pieces": 0, "xp": 0, "eveil": 0.0, "lieu": "clone", "icone": "best", "monnaie": "eclat"},
+	"clone_naruto": {"nom": "Clone de l'ombre", "modele": "hunter", "teinte": Color(1.5, 0.75, 0.25), "haut": 2.0, "rang": 3, "pv": 400000, "temps": 9999.0, "pieces": 0, "xp": 0, "eveil": 0.0, "lieu": "clone", "icone": "best", "monnaie": "eclat"},
 
 	"rival": {"nom": "Chasseur rival", "modele": "hero", "haut": 1.85, "rang": 3, "pv": 1000, "temps": 9999.0, "pieces": 0, "xp": 0, "eveil": 0.0, "lieu": "arene", "icone": "attack", "monnaie": "eclat", "teinte": Color(1.2, 0.55, 0.55)},
 
