@@ -128,13 +128,13 @@ func cible_devant(monstres: Array, portee := 16.0) -> Monstre:
 	for m in monstres:
 		if not is_instance_valid(m) or m.mort or m.allie:
 			continue
-		var v := m.global_position - global_position
+		var v: Vector3 = m.global_position - global_position
 		v.y = 0
-		var d := v.length()
+		var d: float = v.length()
 		if d > portee:
 			continue
-		var face := avant.dot(v.normalized()) if d > 0.1 else 1.0
-		var s := d * (2.2 - face)
+		var face: float = avant.dot(v.normalized()) if d > 0.1 else 1.0
+		var s: float = d * (2.2 - face)
 		if s < score:
 			score = s
 			mieux = m

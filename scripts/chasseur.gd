@@ -85,10 +85,10 @@ func _choisir_ville() -> void:
 	for m in ville.monstres:
 		if not _valide(m) or m.allie or m.sans_chrono or m.e.get("lieu", "") != "" or m == ville.joueur.cible or int(pris.get(m, 0)) >= 2:
 			continue
-		var st := Partie.stats_monstre(m.espece, m.elite, m.mult)
+		var st: Dictionary = Partie.stats_monstre(m.espece, m.elite, m.mult)
 		if st["pv"] / dps > st["temps"] * 0.95:
 			continue
-		var dist := m.global_position.distance_to(global_position)
+		var dist: float = m.global_position.distance_to(global_position)
 		var s: float = st["xp"] / (st["pv"] / dps + 4.0 + dist / 7.0)
 		if s > score:
 			score = s
