@@ -13,35 +13,43 @@ const RANGS := ["E", "D", "C", "B", "A", "S"]
 const COULEURS_RANG := [Color(0.7, 0.72, 0.75), Color(0.4, 0.85, 0.45), Color(0.35, 0.65, 1.0),
 	Color(0.72, 0.42, 1.0), Color(1.0, 0.62, 0.2), Color(1.0, 0.25, 0.3)]
 
-const RARETES := ["Commun", "Rare", "Épique", "Légendaire", "Mythique", "Unique", "Shiny"]
-const SIGLES := ["C", "R", "É", "L", "M", "U", "★"]
+const RARETES := ["Rang E", "Rang D", "Rang C", "Rang B", "Rang A", "Unique (rang A)", "Shiny (rang A)"]
+const SIGLES := ["E", "D", "C", "B", "A", "A", "A"]
+
+const RANG_MAX_ZONE := 3
+const RANG_MAX_EVENEMENT := 4
 const COULEURS_RARETE := [Color(0.62, 0.66, 0.72), Color(0.3, 0.6, 1.0), Color(0.72, 0.35, 1.0),
 	Color(1.0, 0.68, 0.15), Color(1.0, 0.25, 0.35), Color(1.0, 0.78, 0.28), Color(0.86, 0.42, 1.0)]
-const MULT_RARETE := [1.0, 1.7, 2.9, 4.8, 8.0, 1.0, 1.0]
+const MULT_RARETE := [1.0, 1.35, 1.8, 2.4, 3.2, 1.0, 1.0]
 const UNIQUE := 5
 const SHINY := 6
 
 
 
 const ESPECES := {
-	"gobelin": {"nom": "Gobelin", "modele": "goblin", "haut": 1.25, "rang": 0, "pv": 140, "temps": 20.0, "pieces": 6, "xp": 10, "eveil": 0.6, "icone": "sh_goblin"},
-	"puglin": {"nom": "Puglin", "modele": "puglin", "haut": 1.3, "rang": 0, "pv": 380, "temps": 20.0, "pieces": 14, "xp": 18, "eveil": 0.55, "icone": "sh_puglin"},
-	"gobelin_chef": {"nom": "Gobelin enragé", "modele": "goblin", "haut": 1.55, "rang": 1, "pv": 1100, "temps": 25.0, "pieces": 40, "xp": 40, "eveil": 0.45, "teinte": Color(1.0, 0.55, 0.45), "icone": "sh_goblin"},
-	"puglin_brute": {"nom": "Puglin brutal", "modele": "puglin", "peau": "T_Puglin_BaseColor_2", "haut": 1.75, "rang": 1, "pv": 2800, "temps": 25.0, "pieces": 85, "xp": 70, "eveil": 0.4, "icone": "sh_puglin"},
-	"orc": {"nom": "Orc pillard", "modele": "orc", "haut": 2.15, "rang": 2, "pv": 7000, "temps": 30.0, "pieces": 220, "xp": 160, "eveil": 0.3, "icone": "sh_orc"},
-	"diablotin": {"nom": "Diablotin des marais", "modele": "imp", "peau": "T_Imp_BaseColor_2", "haut": 1.9, "rang": 2, "pv": 17000, "temps": 30.0, "pieces": 450, "xp": 300, "eveil": 0.27, "icone": "sh_imp"},
-	"orc_guerrier": {"nom": "Seigneur orc", "modele": "orc_warrior", "haut": 2.5, "rang": 3, "pv": 45000, "temps": 35.0, "pieces": 1200, "xp": 650, "eveil": 0.2, "icone": "sh_orc_warrior"},
-	"demon": {"nom": "Démon écarlate", "modele": "imp", "haut": 2.6, "rang": 3, "pv": 110000, "temps": 38.0, "pieces": 2600, "xp": 1300, "eveil": 0.17, "icone": "sh_imp"},
-	"chevalier": {"nom": "Chevalier de sang", "modele": "igris", "haut": 4.0, "rang": 4, "pv": 300000, "temps": 45.0, "pieces": 8000, "xp": 3000, "eveil": 0.12, "boss": true, "icone": "sh_igris"},
-	"seigneur_givre": {"nom": "Seigneur du givre", "modele": "imp", "peau": "T_Imp_BaseColor_3", "haut": 3.4, "rang": 4, "pv": 850000, "temps": 50.0, "pieces": 21000, "xp": 7000, "eveil": 0.1, "boss": true, "icone": "sh_imp"},
+	"gobelin": {"nom": "Gobelin", "modele": "goblin", "haut": 1.25, "rang": 0, "pv": 140, "temps": 20.0, "pieces": 5, "xp": 8, "eveil": 0.3, "icone": "sh_goblin", "monnaie": "insigne"},
+	"puglin": {"nom": "Puglin", "modele": "puglin", "haut": 1.3, "rang": 0, "pv": 420, "temps": 20.0, "pieces": 12, "xp": 15, "eveil": 0.25, "icone": "sh_puglin", "monnaie": "trefle"},
+	"gobelin_chef": {"nom": "Gobelin enragé", "modele": "goblin", "haut": 1.55, "rang": 1, "pv": 1800, "temps": 25.0, "pieces": 35, "xp": 34, "eveil": 0.15, "teinte": Color(1.0, 0.55, 0.45), "icone": "sh_goblin", "monnaie": "insigne"},
+	"puglin_brute": {"nom": "Puglin brutal", "modele": "puglin", "peau": "T_Puglin_BaseColor_2", "haut": 1.75, "rang": 1, "pv": 5200, "temps": 25.0, "pieces": 75, "xp": 60, "eveil": 0.12, "icone": "sh_puglin", "monnaie": "trefle"},
+	"orc": {"nom": "Orc pillard", "modele": "orc", "haut": 2.15, "rang": 2, "pv": 24000, "temps": 30.0, "pieces": 210, "xp": 140, "eveil": 0.07, "icone": "sh_orc", "monnaie": "insigne"},
+	"diablotin": {"nom": "Diablotin des marais", "modele": "imp", "peau": "T_Imp_BaseColor_2", "haut": 1.9, "rang": 2, "pv": 60000, "temps": 30.0, "pieces": 420, "xp": 260, "eveil": 0.06, "icone": "sh_imp", "monnaie": "eclat"},
+	"orc_guerrier": {"nom": "Seigneur orc", "modele": "orc_warrior", "haut": 2.5, "rang": 3, "pv": 260000, "temps": 35.0, "pieces": 1100, "xp": 560, "eveil": 0.035, "icone": "sh_orc_warrior", "monnaie": "insigne"},
+	"demon": {"nom": "Démon écarlate", "modele": "imp", "haut": 2.6, "rang": 3, "pv": 650000, "temps": 38.0, "pieces": 2300, "xp": 1100, "eveil": 0.03, "icone": "sh_imp", "monnaie": "eclat"},
+	"chevalier": {"nom": "Chevalier de sang", "modele": "igris", "haut": 4.0, "rang": 3, "pv": 2400000, "temps": 45.0, "pieces": 7000, "xp": 2600, "eveil": 0.015, "boss": true, "icone": "sh_igris", "monnaie": "trefle"},
+	"seigneur_givre": {"nom": "Seigneur du givre", "modele": "imp", "peau": "T_Imp_BaseColor_3", "haut": 3.4, "rang": 3, "pv": 6500000, "temps": 50.0, "pieces": 18000, "xp": 6000, "eveil": 0.01, "boss": true, "icone": "sh_imp", "monnaie": "eclat"},
 
-	"roi_gobelin": {"nom": "Kargash, roi gobelin", "modele": "goblin", "haut": 3.3, "rang": 0, "pv": 9000, "temps": 9999.0, "pieces": 900, "xp": 600, "eveil": 0.25, "teinte": Color(1.0, 0.82, 0.45), "boss": true, "lieu": "donjon", "icone": "sh_goblin"},
+	"roi_gobelin": {"nom": "Kargash, roi gobelin", "modele": "goblin", "haut": 3.3, "rang": 1, "pv": 30000, "temps": 9999.0, "pieces": 900, "xp": 600, "eveil": 0.05, "teinte": Color(1.0, 0.82, 0.45), "boss": true, "lieu": "donjon", "icone": "sh_goblin", "monnaie": "insigne"},
 
-	"baran": {"nom": "Baran, roi des démons", "modele": "imp", "haut": 5.2, "rang": 3, "pv": 650000, "temps": 90.0, "pieces": 30000, "xp": 9000, "eveil": 0.001, "boss": true, "lieu": "evenement",
-		"teinte": Color(0.55, 0.35, 0.45), "icone": "sh_baran", "rang_ombre": 5,
+	"baran": {"nom": "Baran, roi des démons", "modele": "imp", "haut": 5.2, "rang": 4, "pv": 9000000, "temps": 90.0, "pieces": 30000, "xp": 9000, "eveil": 0.001, "boss": true, "lieu": "evenement",
+		"teinte": Color(0.55, 0.35, 0.45), "icone": "sh_baran", "rang_ombre": 4, "monnaie": "eclat",
 		"competence": {"nom": "Chaînes infernales", "cd": 12.0, "mult": 30.0}},
 }
-const PITIE := 5
+const PITIE := 12
+const FAMILLES_MONNAIE := {"insigne": "Gobelins & orcs", "trefle": "Puglins & chevalier", "eclat": "Diablotins & démons"}
+
+const ATK_RANG := [12.0, 28.0, 60.0, 130.0, 280.0]
+const PV_OMBRE_RANG := [60.0, 140.0, 300.0, 650.0, 1400.0]
+const PALIERS_QUETE := [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
 
 
 const OBJETS := {
@@ -52,64 +60,71 @@ const OBJETS := {
 	"monarque": {"nom": "Lame du monarque", "type": "arme", "modele": "sl_sword", "icone": "w8", "dps": 100.0},
 
 	"croc_roi": {"nom": "Croc du roi gobelin", "type": "arme", "modele": "hache", "icone": "u_croc", "dps": 230.0, "effet": "unique",
-		"attrs": {"ombres": 15.0, "pieces": 20.0}},
+		"attrs": {"ombres": 4.0, "pieces": 5.0}},
 	"faux_neant": {"nom": "Lame du Néant", "type": "arme", "modele": "lame", "icone": "u_neant", "dps": 1500.0, "effet": "shiny",
-		"attrs": {"ombres": 30.0, "crit": 10.0, "vitesse": 10.0}},
-	"capuche": {"nom": "Capuche de l'ombre", "type": "tete", "icone": "a1", "stat": "arme", "val": 6.0},
-	"heaume": {"nom": "Heaume d'acier", "type": "tete", "icone": "a2", "stat": "arme", "val": 9.0},
-	"couronne": {"nom": "Couronne du roi déchu", "type": "tete", "icone": "a3", "stat": "arme", "val": 14.0},
-	"masque": {"nom": "Masque tribal", "type": "tete", "icone": "a11", "stat": "eveil", "val": 3.0},
-	"cape_jade": {"nom": "Cape de jade", "type": "cape", "icone": "a4", "stat": "ombres", "val": 8.0},
-	"cape_or": {"nom": "Cape dorée", "type": "cape", "icone": "a5", "stat": "ombres", "val": 13.0},
-	"plastron": {"nom": "Plastron de fer", "type": "armure", "icone": "a6", "stat": "pieces", "val": 8.0},
-	"armure_spectre": {"nom": "Armure spectrale", "type": "armure", "icone": "a7", "stat": "ombres", "val": 10.0},
-	"armure_rose": {"nom": "Armure de la reine", "type": "armure", "icone": "a8", "stat": "arme", "val": 11.0},
-	"bottes": {"nom": "Bottes de pisteur", "type": "bottes", "icone": "a9", "stat": "eveil", "val": 2.5},
-	"bottes_sang": {"nom": "Bottes de sang", "type": "bottes", "icone": "a10", "stat": "pieces", "val": 12.0},
-	"bourse": {"nom": "Bourse sans fond", "type": "relique", "icone": "r1", "stat": "pieces", "val": 10.0},
-	"os": {"nom": "Os ancien", "type": "relique", "icone": "r2", "stat": "ombres", "val": 7.0},
-	"pepite": {"nom": "Pépite brute", "type": "relique", "icone": "r3", "stat": "pieces", "val": 6.0},
-	"boussole": {"nom": "Boussole du chasseur", "type": "relique", "icone": "r4", "stat": "xp", "val": 10.0},
-	"oeuf_rubis": {"nom": "Œuf de rubis", "type": "relique", "icone": "r5", "stat": "eveil", "val": 3.0},
-	"oeuf_azur": {"nom": "Œuf d'azur", "type": "relique", "icone": "r6", "stat": "eveil", "val": 4.0},
-	"crane": {"nom": "Crâne du roi", "type": "relique", "icone": "r7", "stat": "arme", "val": 9.0},
-	"grimoire": {"nom": "Grimoire interdit", "type": "relique", "icone": "r8", "stat": "xp", "val": 15.0},
-	"coffre": {"nom": "Coffre du pillard", "type": "relique", "icone": "r9", "stat": "pieces", "val": 14.0},
-	"oeuf_jade": {"nom": "Œuf de jade", "type": "relique", "icone": "r10", "stat": "ombres", "val": 9.0},
+		"attrs": {"ombres": 8.0, "crit": 3.0, "vitesse": 2.0}},
+	"capuche": {"nom": "Capuche de l'ombre", "type": "tete", "icone": "a1", "stat": "arme", "val": 1.5},
+	"heaume": {"nom": "Heaume d'acier", "type": "tete", "icone": "a2", "stat": "arme", "val": 2.2},
+	"couronne": {"nom": "Couronne du roi déchu", "type": "tete", "icone": "a3", "stat": "arme", "val": 3.5},
+	"masque": {"nom": "Masque tribal", "type": "tete", "icone": "a11", "stat": "eveil", "val": 0.6},
+	"cape_jade": {"nom": "Cape de jade", "type": "cape", "icone": "a4", "stat": "ombres", "val": 2.0},
+	"cape_or": {"nom": "Cape dorée", "type": "cape", "icone": "a5", "stat": "ombres", "val": 3.2},
+	"plastron": {"nom": "Plastron de fer", "type": "armure", "icone": "a6", "stat": "pieces", "val": 2.0},
+	"armure_spectre": {"nom": "Armure spectrale", "type": "armure", "icone": "a7", "stat": "ombres", "val": 2.5},
+	"armure_rose": {"nom": "Armure de la reine", "type": "armure", "icone": "a8", "stat": "arme", "val": 3.0},
+	"bottes": {"nom": "Bottes de pisteur", "type": "bottes", "icone": "a9", "stat": "eveil", "val": 0.5},
+	"bottes_sang": {"nom": "Bottes de sang", "type": "bottes", "icone": "a10", "stat": "pieces", "val": 3.0},
+	"bourse": {"nom": "Bourse sans fond", "type": "relique", "icone": "r1", "stat": "pieces", "val": 2.5},
+	"os": {"nom": "Os ancien", "type": "relique", "icone": "r2", "stat": "ombres", "val": 1.8},
+	"pepite": {"nom": "Pépite brute", "type": "relique", "icone": "r3", "stat": "pieces", "val": 1.5},
+	"boussole": {"nom": "Boussole du chasseur", "type": "relique", "icone": "r4", "stat": "xp", "val": 2.5},
+	"oeuf_rubis": {"nom": "Œuf de rubis", "type": "relique", "icone": "r5", "stat": "eveil", "val": 0.6},
+	"oeuf_azur": {"nom": "Œuf d'azur", "type": "relique", "icone": "r6", "stat": "eveil", "val": 0.8},
+	"crane": {"nom": "Crâne du roi", "type": "relique", "icone": "r7", "stat": "arme", "val": 2.2},
+	"grimoire": {"nom": "Grimoire interdit", "type": "relique", "icone": "r8", "stat": "xp", "val": 4.0},
+	"coffre": {"nom": "Coffre du pillard", "type": "relique", "icone": "r9", "stat": "pieces", "val": 3.5},
+	"oeuf_jade": {"nom": "Œuf de jade", "type": "relique", "icone": "r10", "stat": "ombres", "val": 3.0},
 }
 const NOMS_STATS := {"arme": "Dégâts des armes", "ombres": "Dégâts des ombres", "pieces": "Pièces gagnées",
-	"eveil": "Chance d'éveil", "xp": "Expérience", "vitesse": "Vitesse", "crit": "Coups critiques"}
+	"eveil": "Chance d'éveil", "xp": "Expérience", "vitesse": "Vitesse", "crit": "Coups critiques",
+	"vie": "Points de vie", "mana": "Mana", "vit_ombre": "Vitesse des ombres"}
 
 const BUTIN_RANG := [
 	["dague", "katana", "capuche", "cape_jade", "plastron", "bottes", "bourse", "pepite", "os"],
 	["katana", "hache", "capuche", "heaume", "cape_jade", "plastron", "bottes", "masque", "bourse", "os", "boussole", "oeuf_rubis"],
-	["hache", "lame", "heaume", "masque", "cape_or", "armure_spectre", "bottes_sang", "boussole", "oeuf_rubis", "crane", "coffre"],
-	["lame", "monarque", "couronne", "cape_or", "armure_rose", "armure_spectre", "bottes_sang", "oeuf_azur", "crane", "grimoire", "coffre"],
-	["monarque", "couronne", "armure_rose", "cape_or", "oeuf_azur", "oeuf_jade", "grimoire"],
+	["hache", "heaume", "masque", "cape_or", "armure_spectre", "bottes_sang", "boussole", "oeuf_rubis", "crane", "coffre"],
+	["hache", "heaume", "cape_or", "armure_spectre", "bottes_sang", "oeuf_azur", "crane", "coffre"],
 ]
-const CHANCE_BUTIN := [0.1, 0.14, 0.2, 0.3, 1.0]
+
+const BUTIN_DONJON := ["lame", "monarque", "couronne", "armure_rose", "oeuf_jade", "grimoire", "oeuf_azur"]
+const CHANCE_BUTIN := [0.03, 0.04, 0.05, 0.06]
+const SEUILS_RARETE := [0.70, 0.92, 0.985]
 
 const POINTS := {"ombres": "Puissance des ombres", "arme": "Maîtrise d'arme", "vitesse": "Pas du chasseur",
-	"legion": "Légion d'ombres", "pieces": "Flair du pillard", "eveil": "Appel des ombres"}
-const EFFET_POINT := {"ombres": 5.0, "arme": 5.0, "vitesse": 2.0, "legion": 0.0, "pieces": 5.0, "eveil": 1.0}
-const MAX_POINTS := {"vitesse": 25, "legion": 20, "eveil": 30}
+	"legion": "Légion d'ombres", "pieces": "Flair du pillard", "eveil": "Appel des ombres",
+	"vie": "Vigueur", "mana": "Réserve de mana", "portee": "Portée des ombres", "vit_ombre": "Célérité des ombres"}
+const ORDRE_POINTS := ["ombres", "arme", "portee", "vit_ombre", "mana", "vie", "legion", "eveil", "pieces", "vitesse"]
+const EFFET_POINT := {"ombres": 0.1, "arme": 0.1, "vitesse": 0.1, "legion": 0.0, "pieces": 0.1, "eveil": 0.1,
+	"vie": 0.1, "mana": 0.1, "portee": 0.1, "vit_ombre": 0.1}
+const MAX_POINTS := {"vitesse": 250, "legion": 20, "eveil": 300, "portee": 120, "vit_ombre": 500}
 const LEGION_PAR_PLACE := 5
 const POINTS_PAR_NIVEAU := 3
+const PORTEE_OMBRES := 7.0
 
 
-const PROBA_ROLL := [0.5, 0.28, 0.14, 0.059, 0.02, 0.001]
+const PROBA_ROLL := [0.62, 0.27, 0.09, 0.019, 0.001]
 const ROLLS := {
 	"ombres": {"autel": "Autel des ombres", "pnj": "Esil, l'invocatrice", "monnaie": "eclat", "stat": "ombres",
-		"valeurs": [10.0, 14.0, 18.0, 22.0, 26.0, 30.0], "unite": "%"},
+		"valeurs": [2.0, 4.0, 7.0, 11.0, 16.0], "unite": "%"},
 	"arme": {"autel": "Forge des lames", "pnj": "Kang, le forgeron", "monnaie": "insigne", "stat": "arme",
-		"valeurs": [10.0, 15.0, 20.0, 26.0, 33.0, 40.0], "unite": "%"},
+		"valeurs": [2.0, 4.0, 7.0, 11.0, 16.0], "unite": "%"},
 	"chance": {"autel": "Roue de fortune", "pnj": "Mira, la diseuse", "monnaie": "trefle", "stat": "eveil",
-		"valeurs": [2.0, 3.0, 4.0, 6.0, 8.0, 12.0], "unite": " pts", "stat2": "pieces", "valeurs2": [10.0, 20.0, 30.0, 45.0, 60.0, 100.0]},
+		"valeurs": [0.2, 0.4, 0.7, 1.0, 1.5], "unite": " pts", "stat2": "pieces", "valeurs2": [3.0, 6.0, 10.0, 15.0, 25.0]},
 }
 const MONNAIES := {"eclat": {"nom": "Éclat d'ombre", "pluriel": "Éclats d'ombre", "couleur": Color(0.7, 0.45, 1.0)},
 	"insigne": {"nom": "Insigne de lame", "pluriel": "Insignes de lame", "couleur": Color(1.0, 0.42, 0.35)},
 	"trefle": {"nom": "Trèfle doré", "pluriel": "Trèfles dorés", "couleur": Color(0.4, 0.95, 0.5)}}
-const CHANCE_ELITE := 0.12
+const CHANCE_ELITE := 0.08
 
 var pieces := 0
 var niveau := 1
@@ -117,7 +132,7 @@ var xp := 0
 var inventaire: Array = []
 var equipe := {}
 var ombres: Array = []
-var points := {"ombres": 0, "arme": 0, "vitesse": 0, "legion": 0, "pieces": 0, "eveil": 0}
+var points := {"ombres": 0, "arme": 0, "vitesse": 0, "legion": 0, "pieces": 0, "eveil": 0, "vie": 0, "mana": 0, "portee": 0, "vit_ombre": 0}
 var echecs_eveil := 0
 var tues := {}
 var rolls := {"ombres": -1, "arme": -1, "chance": -1}
@@ -127,6 +142,14 @@ var tirages := 0
 var donjons := 0
 var record_donjon := 0.0
 var uniques_obtenus := {}
+var arises := {}
+var quetes := {}
+var achats_boutique := {}
+var auto_ombres := false
+var pv := 120.0
+var mana := 100.0
+var morts_serie := 0
+var derniere_mort := -1000.0
 
 var _fenetre := []
 var _t := 0.0
@@ -141,6 +164,8 @@ func _ready() -> void:
 
 func _process(dt: float) -> void:
 	_t += dt
+	pv = minf(pv_max(), pv + pv_max() * 0.015 * dt)
+	mana = minf(mana_max(), mana + regen_mana() * dt)
 	_sauver_t += dt
 	if _sauver_t > 8.0:
 		_sauver_t = 0.0
@@ -213,7 +238,7 @@ func valeur(o: Dictionary) -> float:
 	if o.is_empty():
 		return 0.0
 	var b := base(o)
-	var k: float = MULT_RARETE[o["rarete"]] * pow(1.22, o["niv"])
+	var k: float = MULT_RARETE[o["rarete"]] * (1.0 + 0.03 * o["niv"])
 	return (b["dps"] if b["type"] == "arme" else b["val"]) * k
 
 func cout_amelioration(o: Dictionary) -> int:
@@ -274,13 +299,14 @@ func bonus(stat: String) -> float:
 			b += valeur(o)
 		var at: Dictionary = bo.get("attrs", {})
 		if at.has(stat):
-			b += float(at[stat]) * (1.0 + 0.08 * o["niv"])
+			b += float(at[stat]) * (1.0 + 0.02 * o["niv"])
 	if points.has(stat):
 		b += points[stat] * EFFET_POINT[stat]
 	for k in ROLLS:
 		var r: int = rolls[k]
 		if r < 0:
 			continue
+		r = mini(r, PROBA_ROLL.size() - 1)
 		if ROLLS[k]["stat"] == stat:
 			b += ROLLS[k]["valeurs"][r]
 		if ROLLS[k].get("stat2", "") == stat:
@@ -291,7 +317,7 @@ func attrs_texte(o: Dictionary) -> Array:
 	var l := []
 	var at: Dictionary = base(o).get("attrs", {})
 	for k in at:
-		l.append("%s : +%.0f %%" % [NOMS_STATS[k], float(at[k]) * (1.0 + 0.08 * o["niv"])])
+		l.append("%s : +%.1f %%" % [NOMS_STATS[k], float(at[k]) * (1.0 + 0.02 * o["niv"])])
 	return l
 
 func vitesse() -> float:
@@ -301,7 +327,7 @@ func chance_crit() -> float:
 	return 0.15 + bonus("crit") / 100.0
 
 func bonus_niveau() -> float:
-	return 1.0 + (niveau - 1) * 0.06
+	return 1.0 + (niveau - 1) * 0.03
 
 func dps_joueur() -> float:
 	var a := arme()
@@ -311,17 +337,80 @@ func dps_joueur() -> float:
 func dps_ombre(o: Dictionary) -> float:
 	var e: Dictionary = ESPECES[o["espece"]]
 	var temps: float = minf(float(e["temps"]), 45.0)
-	var k := 0.35
+	var k := 0.12
 	if e.get("lieu", "") == "evenement":
-		k = 0.6
-	return float(e["pv"]) / temps * k * pow(1.7, int(o["etoiles"])) * (1.0 + bonus("ombres") / 100.0)
+		k = 0.2
+	return float(e["pv"]) / temps * k * pow(1.35, int(o["etoiles"])) * (1.0 + bonus("ombres") / 100.0) * vit_ombre()
 
 func rang_ombre(o: Dictionary) -> int:
 	var e: Dictionary = ESPECES[o["espece"]]
-	return int(e.get("rang_ombre", e["rang"]))
+	return mini(int(e.get("rang_ombre", e["rang"])), RANG_MAX_EVENEMENT)
+
+func ombre_rouge(o: Dictionary) -> bool:
+	return ESPECES[o["espece"]].get("lieu", "") == "evenement"
+
+func pv_ombre(o: Dictionary) -> float:
+	return PV_OMBRE_RANG[rang_ombre(o)] * pow(1.3, int(o["etoiles"])) * (1.0 + bonus("vie") / 100.0)
+
+func cout_rappel(o: Dictionary) -> float:
+	return 20.0 + 15.0 * rang_ombre(o) + 5.0 * int(o["etoiles"])
+
+func portee_ombres() -> float:
+	return PORTEE_OMBRES + points["portee"] * EFFET_POINT["portee"]
+
+func vit_ombre() -> float:
+	return 1.0 + bonus("vit_ombre") / 100.0
+
+func pv_max() -> float:
+	return 120.0 * (1.0 + (niveau - 1) * 0.04) * (1.0 + bonus("vie") / 100.0)
+
+func mana_max() -> float:
+	return 100.0 * (1.0 + bonus("mana") / 100.0)
+
+func regen_mana() -> float:
+	return 1.2 * (1.0 + bonus("mana") / 100.0)
+
+func atk_monstre(espece: String, elite := false) -> float:
+	var r: int = mini(int(ESPECES[espece]["rang"]), ATK_RANG.size() - 1)
+	return ATK_RANG[r] * (1.6 if elite else 1.0)
+
+func blesser(d: float) -> bool:
+	if pv <= 0.0:
+		return false
+	pv = maxf(0.0, pv - d)
+	return pv <= 0.0
+
+func mourir() -> Dictionary:
+	var maintenant := _t
+	if maintenant - derniere_mort <= 300.0:
+		morts_serie += 1
+	else:
+		morts_serie = 0
+	derniere_mort = maintenant
+	var facteur := int(pow(2, mini(morts_serie, 3)))
+	var perte_or := int(pieces * minf(0.1 * facteur, 0.8))
+	pieces -= perte_or
+	var perdus := []
+	for k in facteur:
+		var libres := inventaire.filter(func (o): return not est_equipe(o))
+		if libres.is_empty():
+			break
+		var o: Dictionary = libres.pick_random()
+		inventaire.erase(o)
+		perdus.append(base(o)["nom"])
+	pv = pv_max()
+	change.emit()
+	sauver()
+	return {"or": perte_or, "objets": perdus, "facteur": facteur}
+
+func depenser_mana(m: float) -> bool:
+	if mana < m:
+		return false
+	mana -= m
+	return true
 
 func places_ombres() -> int:
-	return mini(4 + (niveau - 1) / 8, 8) + points["legion"] / LEGION_PAR_PLACE
+	return mini(3 + (niveau - 1) / 12, 8) + points["legion"] / LEGION_PAR_PLACE
 
 func ombres_equipees() -> Array:
 	return ombres.filter(func (o): return o.get("eq", false))
@@ -333,7 +422,7 @@ func dps_total() -> float:
 	return d
 
 func xp_requise() -> int:
-	return int(40.0 * pow(1.28, niveau - 1))
+	return int(60.0 * pow(1.28, niveau - 1))
 
 func points_libres() -> int:
 	var u := 0
@@ -395,21 +484,21 @@ func gagner(espece: String, elite := false, mult := 1.0) -> int:
 			var liste: Array = BUTIN_RANG[mini(r, BUTIN_RANG.size() - 1)]
 			var tirage := randf()
 			var rarete := 0
-			for seuil in [0.45, 0.78, 0.93, 0.985]:
+			for seuil in SEUILS_RARETE:
 				if tirage > seuil:
 					rarete += 1
-			rarete = mini(rarete + (1 if r >= 3 else 0) + (1 if elite else 0), 4)
+			rarete = mini(rarete + (1 if elite else 0), mini(r + 1, RANG_MAX_ZONE))
 			ajouter_objet(liste.pick_random(), rarete)
 
 	var n := 0
 	if elite:
 		n = 1 + r
-	elif randf() < 0.06 + r * 0.03:
+	elif randf() < 0.04 + r * 0.02:
 		n = 1
 	if e.get("boss", false):
-		n += 2 + r
+		n += 1 + r
 	if n > 0:
-		donner_monnaie(MONNAIES.keys().pick_random(), n)
+		donner_monnaie(e.get("monnaie", "eclat"), n)
 	change.emit()
 	return gain
 
@@ -421,7 +510,8 @@ func donner_monnaie(m: String, n: int) -> void:
 
 func butin_unique(b: String) -> bool:
 	var deja := int(uniques_obtenus.get(b, 0))
-	if deja > 0 and randf() > 0.35:
+	var chance := (0.04 if b == "croc_roi" else 0.02) if deja == 0 else 0.01
+	if randf() > chance:
 		return false
 	uniques_obtenus[b] = deja + 1
 	var r := UNIQUE if OBJETS[b].get("effet", "") == "unique" else SHINY
@@ -508,16 +598,49 @@ func eveiller(espece: String) -> Dictionary:
 	var o := {"uid": _uid, "espece": espece, "etoiles": 0, "eq": ombres_equipees().size() < places_ombres()}
 	_uid += 1
 	ombres.append(o)
-	_fusionner(espece)
+	arises[espece] = int(arises.get(espece, 0)) + 1
+	_verifier_quete(espece)
+	fusion_globale()
 	change.emit()
 	sauver()
 	return o
+
+func palier_quete(espece: String) -> int:
+	var k := int(quetes.get(espece, 0))
+	return PALIERS_QUETE[k] if k < PALIERS_QUETE.size() else -1
+
+func _verifier_quete(espece: String) -> void:
+	var cible := palier_quete(espece)
+	if cible < 0 or int(arises.get(espece, 0)) < cible:
+		return
+	var k := int(quetes.get(espece, 0))
+	quetes[espece] = k + 1
+	var e: Dictionary = ESPECES[espece]
+	var gain := int(float(e["pieces"]) * 5.0 * (k + 1))
+	pieces += gain
+	donner_monnaie(e.get("monnaie", "eclat"), k + 1)
+	message.emit("Quête d'éveil : %d %s levés !  +%s pièces" % [cible, e["nom"], str(gain)], Color(0.95, 0.8, 0.4))
+
+func butin_donjon() -> Dictionary:
+	var x := randf()
+	if x < 0.005:
+		return ajouter_objet(BUTIN_DONJON.pick_random(), 4)
+	if x < 0.06:
+		return ajouter_objet(BUTIN_DONJON.pick_random(), 3)
+	return {}
+
+func fusion_globale() -> void:
+	var especes := {}
+	for o in ombres:
+		especes[o["espece"]] = true
+	for esp in especes:
+		_fusionner(esp)
 
 func _fusionner(espece: String) -> void:
 	var fini := false
 	while not fini:
 		fini = true
-		for et in 5:
+		for et in 10:
 			var memes := ombres.filter(func (x): return x["espece"] == espece and int(x["etoiles"]) == et)
 			if memes.size() >= 3:
 				var eq := memes.slice(0, 3).any(func (x): return x.get("eq", false))
@@ -560,10 +683,11 @@ func sauver() -> void:
 		return
 	var f := FileAccess.open(CHEMIN, FileAccess.WRITE)
 	if f:
-		f.store_string(JSON.stringify({"v": 4, "pieces": pieces, "niveau": niveau, "xp": xp, "inventaire": inventaire,
+		f.store_string(JSON.stringify({"v": 5, "pieces": pieces, "niveau": niveau, "xp": xp, "inventaire": inventaire,
 			"equipe": equipe, "ombres": ombres, "points": points, "echecs": echecs_eveil, "tues": tues, "uid": _uid,
 			"rolls": rolls, "monnaies": monnaies, "achats": achats, "tirages": tirages, "donjons": donjons,
-			"record": record_donjon, "uniques": uniques_obtenus}))
+			"record": record_donjon, "uniques": uniques_obtenus, "arises": arises, "quetes": quetes,
+			"boutique": achats_boutique, "auto": auto_ombres, "pv": pv, "mana": mana}))
 
 func charger() -> void:
 	if OS.get_cmdline_user_args().has("--sans-sauvegarde") or not FileAccess.file_exists(CHEMIN):
@@ -588,9 +712,16 @@ func charger() -> void:
 	donjons = int(d.get("donjons", 0))
 	record_donjon = float(d.get("record", 0.0))
 	uniques_obtenus = d.get("uniques", {})
+	arises = d.get("arises", {})
+	quetes = d.get("quetes", {})
+	achats_boutique = d.get("boutique", {})
+	auto_ombres = bool(d.get("auto", false))
 	for o in d.get("inventaire", []):
 		if OBJETS.has(o.get("base", "")):
-			inventaire.append({"uid": int(o["uid"]), "base": o["base"], "rarete": int(o["rarete"]), "niv": int(o["niv"])})
+			var rr := int(o["rarete"])
+			if rr < UNIQUE:
+				rr = mini(rr, RANG_MAX_EVENEMENT)
+			inventaire.append({"uid": int(o["uid"]), "base": o["base"], "rarete": rr, "niv": int(o["niv"])})
 			_uid = maxi(_uid, int(o["uid"]) + 1)
 	for e in d.get("equipe", {}):
 		equipe[e] = int(d["equipe"][e])
@@ -603,6 +734,9 @@ func charger() -> void:
 		var a := ajouter_objet("dague", 0, false)
 		a["niv"] = int(d["niv_arme"])
 		equipe["arme"] = a["uid"]
+	fusion_globale()
 	var eq := ombres_equipees()
 	for k in range(eq.size() - 1, places_ombres() - 1, -1):
 		eq[k]["eq"] = false
+	pv = clampf(float(d.get("pv", pv_max())), 1.0, pv_max())
+	mana = clampf(float(d.get("mana", mana_max())), 0.0, mana_max())

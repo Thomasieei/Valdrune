@@ -407,6 +407,7 @@ func _victoire() -> void:
 	Partie.donner_monnaie(m1, 3)
 	Partie.donner_monnaie(m2, 2)
 	var unique := Partie.butin_unique("croc_roi")
+	Partie.butin_donjon()
 	gains = {"pieces": gain, "monnaies": [[m1, 3], [m2, 2]], "unique": unique, "temps": t, "record": record}
 	coffre = _prop("Chest_Wood", c + Vector3(0, 0, 7.5), PI, 1.6)
 	Fx.anneau(coffre.global_position, Color(1.0, 0.75, 0.2), 4.0)

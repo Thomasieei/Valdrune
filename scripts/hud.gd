@@ -73,7 +73,7 @@ func _ready() -> void:
 	_racine.add_child(joy)
 	_haut = Control.new()
 	_haut.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_haut.size = Vector2(420, 96)
+	_haut.size = Vector2(420, 140)
 	_haut.draw.connect(_dessiner_haut)
 	_racine.add_child(_haut)
 	_droite = Control.new()
@@ -81,7 +81,7 @@ func _ready() -> void:
 	_droite.size = Vector2(330, 300)
 	_droite.draw.connect(_dessiner_droite)
 	_racine.add_child(_droite)
-	for d in [["inventaire", "Inventaire", "sac"], ["ombres", "Ombres", "ombres"], ["stats", "Compétences", "q_skills"], ["index", "Index", "q_kills"]]:
+	for d in [["inventaire", "Inventaire", "sac"], ["ombres", "Ombres", "ombres"], ["stats", "Compétences", "q_skills"], ["index", "Index", "q_kills"], ["boutique", "Boutique", "potion"]]:
 		var h := Ui.hexagone(d[1], d[2], 96.0)
 		var type: String = d[0]
 		h.pressed.connect(func (): ouvrir(type))
@@ -206,8 +206,8 @@ func _disposer() -> void:
 		lb.size = Vector2(1000, 70)
 		lb.position = Vector2(0, 0 if n == "Titre" else 70)
 
-	var o := Vector2(20, 118)
-	var pos := {"inventaire": o, "ombres": o + Vector2(86, 50), "stats": o + Vector2(0, 100), "index": o + Vector2(86, 150)}
+	var o := Vector2(20, 150)
+	var pos := {"inventaire": o, "ombres": o + Vector2(86, 50), "stats": o + Vector2(0, 100), "index": o + Vector2(86, 150), "boutique": o + Vector2(0, 200)}
 	for k in _hex:
 		_hex[k].position = pos[k]
 	_msg.position = Vector2(w / 2.0 - 450, h * 0.62)
@@ -348,6 +348,7 @@ func _process(dt: float) -> void:
 	_aff_j = lerpf(_aff_j, dj[0], minf(1.0, dt * 4.0))
 	_aff_o = lerpf(_aff_o, dj[1], minf(1.0, dt * 4.0))
 	_droite.queue_redraw()
+	_haut.queue_redraw()
 	if _roll_actif:
 		_avancer_roll(dt)
 	_msg_t -= dt
@@ -382,6 +383,15 @@ func _dessiner_haut() -> void:
 	_texte(c, Vector2(100, 34), "Chasseur  ·  Niveau %d" % Partie.niveau, 22, Color(0.8, 0.9, 1.0))
 	c.draw_texture_rect(Ui.tex("r1"), Rect2(98, 44, 36, 36), false)
 	_texte(c, Vector2(140, 74), Fx.court(Partie.pieces), 30, Color(1.0, 0.85, 0.3), 7)
+	for k in 2:
+		var y := 100.0 + k * 20.0
+		var fr: float = Partie.pv / Partie.pv_max() if k == 0 else Partie.mana / Partie.mana_max()
+		var col := Color(0.95, 0.25, 0.3) if k == 0 else Color(0.35, 0.55, 1.0)
+		c.draw_rect(Rect2(8, y, 300, 14), Color(0.05, 0.05, 0.12, 0.85))
+		c.draw_rect(Rect2(8, y, 300 * clampf(fr, 0.0, 1.0), 14), col)
+		c.draw_rect(Rect2(8, y, 300, 14), Color(1, 1, 1, 0.5), false, 1.5)
+		var t := "PV %d / %d" % [int(Partie.pv), int(Partie.pv_max())] if k == 0 else "Mana %d / %d" % [int(Partie.mana), int(Partie.mana_max())]
+		_texte(c, Vector2(316, y + 13), t, 15, col.lightened(0.35), 4)
 
 
 func _dessiner_droite() -> void:
@@ -508,6 +518,9 @@ func _construire() -> void:
 		"index":
 			_panneau = Ui.panneau("Index des monstres", "q_kills", Vector2(900, 610), fermer)
 			_index()
+		"boutique":
+			_panneau = Ui.panneau("Boutique", "potion", Vector2(820, 600), fermer)
+			_boutique()
 		"autel":
 			_panneau = Ui.panneau(Partie.ROLLS[_autel]["autel"], {"ombres": "ombres", "arme": "attack", "chance": "best"}[_autel], Vector2(1000, 610), fermer)
 			_autel_panneau()
@@ -694,7 +707,9 @@ func _montrer_detail(genre: String, o: Dictionary) -> void:
 		var rang: int = Partie.rang_ombre(o)
 		var lignes2 := [["Rang : %s" % Partie.RANGS[rang], Partie.COULEURS_RANG[rang]],
 			["Étoiles : %s" % ("★".repeat(o["etoiles"]) if o["etoiles"] > 0 else "aucune"), Color(0.8, 0.6, 1.0)],
-			["Dégâts : %s / s" % Fx.court(Partie.dps_ombre(o)), Color(1.0, 0.4, 0.4)]]
+			["Dégâts : %s / s" % Fx.court(Partie.dps_ombre(o)), Color(1.0, 0.4, 0.4)],
+			["Fusion : %d / 3 identiques" % Partie.ombres.filter(func (x): return x["espece"] == o["espece"] and int(x["etoiles"]) == int(o["etoiles"])).size(), Color(0.75, 0.6, 1.0)],
+			["Rappel : %d mana" % int(Partie.cout_rappel(o)), Color(0.45, 0.65, 1.0)]]
 		if e.has("competence"):
 			var cp: Dictionary = e["competence"]
 			lignes2.append(["%s : toutes les %d s" % [cp["nom"], int(cp["cd"])], Color(1.0, 0.45, 0.45)])
@@ -743,7 +758,7 @@ func _ombres() -> void:
 			var rang: int = Partie.rang_ombre(o)
 			var c := Ui.carte(e["nom"], e["icone"], Partie.RANGS[rang], Partie.COULEURS_RANG[rang], o["eq"],
 				("★".repeat(o["etoiles"]) + " " if o["etoiles"] > 0 else "") + "%s/s" % Fx.court(Partie.dps_ombre(o)),
-				Vector2(150, 166), "rouge" if rang >= 5 else "")
+				Vector2(150, 166), "rouge" if Partie.ombre_rouge(o) else "")
 			c.pressed.connect(func (): _montrer_detail("ombre", o))
 			return c)
 	var m := Ui.bouton("Équiper le meilleur", Ui.VERT, Vector2(260, 54))
@@ -761,55 +776,132 @@ func _ombres() -> void:
 
 
 const COULEURS_POINTS := {"ombres": Color(0.62, 0.35, 1.0), "arme": Color(1.0, 0.25, 0.3), "vitesse": Color(0.3, 0.95, 0.9),
-	"legion": Color(0.85, 0.55, 1.0), "pieces": Color(1.0, 0.78, 0.2), "eveil": Color(0.3, 0.95, 0.45)}
-const DESC_POINTS := {"ombres": "+5 % de dégâts des ombres par point", "arme": "+5 % de dégâts de l'arme par point",
-	"vitesse": "+2 % de vitesse de course par point (max 25)", "legion": "+1 ombre au combat tous les 5 points (max 20)",
-	"pieces": "+5 % de pièces gagnées par point", "eveil": "+1 point de chance d'éveil par point (max 30)"}
-const ICONES_POINTS := {"ombres": "ombres", "arme": "attack", "vitesse": "sprint", "legion": "q_skills", "pieces": "cash", "eveil": "arise"}
+	"legion": Color(0.85, 0.55, 1.0), "pieces": Color(1.0, 0.78, 0.2), "eveil": Color(0.3, 0.95, 0.45),
+	"vie": Color(1.0, 0.4, 0.45), "mana": Color(0.4, 0.6, 1.0), "portee": Color(0.75, 0.45, 1.0), "vit_ombre": Color(0.55, 0.85, 1.0)}
+const DESC_POINTS := {"ombres": "+0,1 % de dégâts des ombres par point", "arme": "+0,1 % de dégâts de l'arme par point",
+	"vitesse": "+0,1 % de vitesse de course par point (max 250)", "legion": "+1 ombre au combat tous les 5 points (max 20)",
+	"pieces": "+0,1 % de pièces gagnées par point", "eveil": "+0,1 point de chance d'éveil par point (max 300)",
+	"vie": "+0,1 % de points de vie (toi et tes ombres)", "mana": "+0,1 % de mana max et de régénération",
+	"portee": "+0,1 m de portée d'attaque des ombres (max 120)", "vit_ombre": "+0,1 % de vitesse des ombres (max 500)"}
+const ICONES_POINTS := {"ombres": "ombres", "arme": "attack", "vitesse": "sprint", "legion": "q_skills", "pieces": "cash", "eveil": "arise",
+	"vie": "role_heal", "mana": "essence", "portee": "cmd_attack", "vit_ombre": "q_run"}
+var _defil_stats := 0
 
 func _stats() -> void:
 	_ajouter(Ui.label("Niveau %d" % Partie.niveau, 30, Color.WHITE, 8), Vector2(40, 80))
 	var libres := Partie.points_libres()
 	_ajouter(Ui.label("Points à répartir : %d" % libres, 26, Color(0.4, 1.0, 0.45) if libres > 0 else Color(0.7, 0.7, 0.8), 7), Vector2(230, 84))
 	_ajouter(Ui.label("+%d par niveau" % Partie.POINTS_PAR_NIVEAU, 18, Color(0.7, 0.75, 1.0)), Vector2(560, 92))
-	var y := 128.0
-	for k in ["ombres", "arme", "vitesse", "legion", "pieces", "eveil"]:
+	var sc := ScrollContainer.new()
+	sc.size = Vector2(700, 404)
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.scroll_deadzone = 14
+	_ajouter(sc, Vector2(30, 126))
+	var zone := Control.new()
+	zone.custom_minimum_size = Vector2(690, Partie.ORDRE_POINTS.size() * 68.0 + 4.0)
+	sc.add_child(zone)
+	var y := 2.0
+	for k in Partie.ORDRE_POINTS:
 		var c: Color = COULEURS_POINTS[k]
 		var ligne := Panel.new()
-		ligne.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ligne.mouse_filter = Control.MOUSE_FILTER_PASS
 		ligne.add_theme_stylebox_override("panel", Ui.boite(Color(0.05, 0.07, 0.18), c.darkened(0.2), 2, 10))
 		ligne.size = Vector2(680, 62)
-		_ajouter(ligne, Vector2(40, y))
+		ligne.position = Vector2(4, y)
+		zone.add_child(ligne)
 		var ic := TextureRect.new()
 		ic.texture = Ui.tex(ICONES_POINTS[k])
 		ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		ic.size = Vector2(48, 48)
+		ic.position = Vector2(10, 7)
 		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_ajouter(ic, Vector2(50, y + 7))
-		_ajouter(Ui.label(Partie.POINTS[k], 24, c, 7), Vector2(108, y + 2))
-		_ajouter(Ui.label(DESC_POINTS[k], 15, Color(0.85, 0.85, 0.95), 4), Vector2(108, y + 36))
+		ligne.add_child(ic)
+		var nom := Ui.label(Partie.POINTS[k], 24, c, 7)
+		nom.position = Vector2(68, 2)
+		ligne.add_child(nom)
+		var desc := Ui.label(DESC_POINTS[k], 15, Color(0.85, 0.85, 0.95), 4)
+		desc.position = Vector2(68, 36)
+		ligne.add_child(desc)
 		var val := str(Partie.points[k])
 		if k == "legion":
 			val += "  (+%d)" % (Partie.points[k] / Partie.LEGION_PAR_PLACE)
 		elif Partie.MAX_POINTS.has(k):
-			val += " / %d" % Partie.MAX_POINTS[k]
-		_ajouter(Ui.label(val, 28, c, 8), Vector2(440, y + 12))
+			val += "/%d" % Partie.MAX_POINTS[k]
+		var lv := Ui.label(val, 22, c, 8)
+		lv.position = Vector2(410, 14)
+		ligne.add_child(lv)
 		var plein: bool = Partie.MAX_POINTS.has(k) and Partie.points[k] >= Partie.MAX_POINTS[k]
-		var plus := Ui.bouton("+1", Ui.VERT, Vector2(64, 46), 22)
-		plus.disabled = libres <= 0 or plein
 		var cle: String = k
-		plus.pressed.connect(func (): Partie.depenser_point(cle))
-		_ajouter(plus, Vector2(568, y + 8))
-		var plus10 := Ui.bouton("+10", Color(0.1, 0.55, 0.25), Vector2(64, 46), 20)
-		plus10.disabled = libres <= 0 or plein
-		plus10.pressed.connect(func (): Partie.depenser_point(cle, 10))
-		_ajouter(plus10, Vector2(642, y + 8))
+		var x := 524.0
+		for n in [1, 10]:
+			var b := Ui.bouton("+%d" % n, Ui.VERT if n == 1 else Color(0.1, 0.55, 0.25), Vector2(68, 50), 22 if n == 1 else 20)
+			b.disabled = libres <= 0 or plein
+			var nb: int = n
+			b.pressed.connect(func (): Partie.depenser_point(cle, nb))
+			b.position = Vector2(x, 6)
+			ligne.add_child(b)
+			x += 76.0
 		y += 68.0
+	sc.get_v_scroll_bar().value_changed.connect(func (v): _defil_stats = int(v))
+	sc.set_deferred("scroll_vertical", _defil_stats)
 	var r := Ui.bouton("Réinitialiser les points", Ui.ROUGE, Vector2(300, 48), 20)
 	r.pressed.connect(func (): Partie.reinitialiser_points())
 	_ajouter(r, Vector2(40, 542))
-	_ajouter(Ui.label("Ombres au combat : %d" % Partie.places_ombres(), 20, Color(0.8, 0.65, 1.0)), Vector2(370, 554))
+	_ajouter(Ui.label("Ombres : %d  ·  Portée %.1f m" % [Partie.places_ombres(), Partie.portee_ombres()], 20, Color(0.8, 0.65, 1.0)), Vector2(360, 554))
+
+
+func _boutique() -> void:
+	_ajouter(Ui.label("BOUTIQUE", 34, Color.WHITE, 8), Vector2(36, 80))
+	var offres := [
+		["auto", "Instinct de meute", "Tes ombres frappent seules tout ennemi dans leur portée,\nsans que tu aies à cibler. Achat définitif.", 60000, "cmd_attack"],
+		["soin", "Potion de soin", "Rend tous tes points de vie.", 150 * Partie.niveau, "role_heal"],
+		["mana", "Fiole de mana", "Remplit ta réserve de mana (rappel des ombres).", 250 * Partie.niveau, "essence"],
+	]
+	var y := 140.0
+	for of in offres:
+		var id: String = of[0]
+		var prix: int = of[3]
+		var ligne := Panel.new()
+		ligne.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ligne.add_theme_stylebox_override("panel", Ui.boite(Color(0.05, 0.07, 0.18), Color(0.4, 0.5, 1.0), 2, 10))
+		ligne.size = Vector2(740, 112)
+		_ajouter(ligne, Vector2(36, y))
+		var ic := TextureRect.new()
+		ic.texture = Ui.tex(of[4])
+		ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		ic.size = Vector2(72, 72)
+		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_ajouter(ic, Vector2(50, y + 20))
+		_ajouter(Ui.label(of[1], 26, Color(0.85, 0.9, 1.0), 7), Vector2(136, y + 8))
+		_ajouter(Ui.label(of[2], 16, Color(0.8, 0.82, 0.95), 4), Vector2(136, y + 46))
+		if id == "auto" and Partie.achats_boutique.has("auto"):
+			var t := Ui.bouton("ACTIVÉ" if Partie.auto_ombres else "DÉSACTIVÉ", Ui.VERT if Partie.auto_ombres else Ui.ROUGE, Vector2(170, 56), 20)
+			t.pressed.connect(func ():
+				Partie.auto_ombres = not Partie.auto_ombres
+				Partie.change.emit())
+			_ajouter(t, Vector2(590, y + 28))
+		else:
+			var b := Ui.bouton(Fx.court(prix), Ui.OR, Vector2(170, 56), 22)
+			b.disabled = Partie.pieces < prix
+			b.pressed.connect(func ():
+				if Partie.pieces < prix:
+					return
+				Partie.pieces -= prix
+				match id:
+					"auto":
+						Partie.achats_boutique["auto"] = true
+						Partie.auto_ombres = true
+					"soin":
+						Partie.pv = Partie.pv_max()
+					"mana":
+						Partie.mana = Partie.mana_max()
+				Fx.son("coins", -2.0)
+				Partie.sauver()
+				Partie.change.emit())
+			_ajouter(b, Vector2(590, y + 28))
+		y += 126.0
 
 
 func _index() -> void:
@@ -855,7 +947,11 @@ func _index() -> void:
 		var v := Partie.verdict(esp)
 		if e.get("lieu", "") != "donjon":
 			_ajouter(Ui.label(v["texte"], 26, v["couleur"], 7), Vector2(650, y + 10))
-		_ajouter(Ui.label("Vaincus : %d" % int(Partie.tues.get(esp, 0)), 18, Color(0.8, 0.8, 0.9)), Vector2(650, y + 52))
+		var pq := Partie.palier_quete(esp)
+		var qt := "Levés : %d / %d" % [int(Partie.arises.get(esp, 0)), pq] if pq > 0 else "Quête d'éveil finie"
+		_ajouter(Ui.label("Vaincus : %d  ·  %s" % [int(Partie.tues.get(esp, 0)), qt], 16, Color(0.8, 0.8, 0.9)), Vector2(560, y + 54))
+		var mo: Dictionary = Partie.MONNAIES[e.get("monnaie", "eclat")]
+		_ajouter(Ui.label(mo["nom"], 15, mo["couleur"], 4), Vector2(560, y + 34))
 		y += 100.0
 
 
@@ -1120,7 +1216,7 @@ func _autel_panneau() -> void:
 	var c: Color = Pnj.COULEURS[_autel]
 	_ajouter(Ui.label(r["pnj"], 28, c.lightened(0.3), 8), Vector2(36, 80))
 	var quoi := "dégâts des ombres" if _autel == "ombres" else("dégâts de l'arme" if _autel == "arme" else "chance d'éveil et pièces")
-	_ajouter(Ui.label("Fais tourner la roue : un bonus permanent de %s, du rang E au rang S." % quoi, 17, Color(0.85, 0.85, 0.95), 4), Vector2(36, 118))
+	_ajouter(Ui.label("Fais tourner la roue : un bonus permanent de %s, du rang E au rang A (A : 0,1 %)." % quoi, 17, Color(0.85, 0.85, 0.95), 4), Vector2(36, 118))
 
 	var act: int = Partie.rolls[_autel]
 	var cadre := Panel.new()
@@ -1146,14 +1242,14 @@ func _autel_panneau() -> void:
 	_ajouter(bande, Vector2(40, 182))
 
 	var x := 40.0
-	for k in 6:
+	for k in Partie.PROBA_ROLL.size():
 		var pr: float = Partie.PROBA_ROLL[k] * 100.0
 		var t := "%s  %s%%" % [Partie.RANGS[k], ("%.1f" % pr) if pr < 1.0 else str(snappedf(pr, 0.1))]
 		if pr >= 1.0 and pr == floor(pr):
 			t = "%s  %d%%" % [Partie.RANGS[k], int(pr)]
 		_ajouter(Ui.label(t, 19, Partie.COULEURS_RANG[k], 5), Vector2(x, 344))
 		_ajouter(Ui.label(_texte_roll(_autel, k, true), 14, Color(0.8, 0.82, 0.95), 4), Vector2(x, 370))
-		x += 153.0
+		x += 184.0
 
 	if _roll_txt != "":
 		var lr := Ui.label(_roll_txt, 24, _roll_res.get("couleur", Color.WHITE), 7)
@@ -1186,7 +1282,7 @@ func _texte_roll(k: String, rang: int, court := false) -> String:
 	var r: Dictionary = Partie.ROLLS[k]
 	var v: float = r["valeurs"][rang]
 	if k == "chance":
-		return ("+%d éveil · +%d%% ●" if court else "+%d pts d'éveil · +%d %% pièces") % [int(v), int(r["valeurs2"][rang])]
+		return ("+%.1f éveil · +%d%% ●" if court else "+%.1f pt d'éveil · +%d %% pièces") % [v, int(r["valeurs2"][rang])]
 	return ("+%d%%" if court else "+%d %% " + Partie.NOMS_STATS[r["stat"]].to_lower()) % int(v)
 
 

@@ -22,6 +22,12 @@ const POSTES := [
 	["demon", -98.0, -48.0, 0.0], ["demon", -88.0, -40.0, -40.0],
 	["chevalier", -140.0, -45.0, 0.0],
 	["seigneur_givre", -90.0, -18.0, -20.0],
+	["gobelin", -174.5, -71.2, 85.0], ["gobelin", -188.5, -71.2, 90.0],
+	["puglin", -124.0, -71.0, -90.0], ["puglin", -116.0, -71.3, -90.0],
+	["gobelin_chef", -163.0, -106.0, 90.0], ["gobelin_chef", -173.0, -106.0, 90.0],
+	["puglin_brute", -89.0, -96.5, 180.0], ["puglin_brute", -89.0, -108.5, 175.0],
+	["orc", -141.0, -107.0, 180.0], ["diablotin", -107.5, -106.0, 180.0],
+	["orc_guerrier", -121.0, -48.0, 5.0], ["demon", -93.0, -44.0, -20.0],
 ]
 
 const AUTELS := [["ombres", -177.0, -57.5], ["arme", -167.0, -57.5], ["chance", -157.0, -57.5]]
@@ -53,12 +59,14 @@ var evt_fin := 0.0
 var prochain_evt := 0.0
 
 func _ready() -> void:
+	add_to_group("ville")
 	Ui.preparer()
 	Fx.preparer(self)
 	_environnement()
 	_ville()
 	joueur = Joueur.new()
 	joueur.name = "Joueur"
+	joueur.add_to_group("joueur")
 	add_child(joueur)
 	joueur.global_position = DEPART
 	camera = Camera3D.new()
@@ -82,7 +90,7 @@ func _ready() -> void:
 	Partie.change.connect(_maj_ombres)
 	_maj_ombres()
 	_musique()
-	hud.dire("Tape les monstres avant la fin du chrono. Trop fort ? Renforce-toi !", Color(0.85, 0.75, 1.0))
+	hud.dire("Zones rouges au sol : sors-en vite !  Bouclier bleu = PARADE : arrête de frapper.", Color(0.85, 0.75, 1.0))
 	if OS.get_cmdline_user_args().size() > 0:
 		for a in OS.get_cmdline_user_args():
 			if a.begins_with("--pilote="):
@@ -393,9 +401,36 @@ func eveiller() -> void:
 		Fx.anneau(m.global_position, Color(0.75, 0.4, 1.0), 4.5)
 		if m.e.get("lieu", "") == "evenement":
 			Fx.anneau(m.global_position, Color(1.0, 0.15, 0.25), 9.0)
-			hud.annonce("OMBRE LÉGENDAIRE", "Baran se relève à tes côtés — carte rouge de rang S !", Color(1.0, 0.25, 0.3))
+			hud.annonce("OMBRE LÉGENDAIRE", "Baran se relève à tes côtés — carte rouge de rang A !", Color(1.0, 0.25, 0.3))
 		else:
 			hud.dire("Nouvelle ombre : %s [%s]" % [m.e["nom"], Partie.RANGS[m.e["rang"]]], Color(0.8, 0.6, 1.0))
+
+var _mort_en_cours := false
+
+func mort_joueur() -> void:
+	if _mort_en_cours:
+		return
+	_mort_en_cours = true
+	joueur.viser(null)
+	Fx.son("error", 0.0)
+	var r := Partie.mourir()
+	await hud.fondu(true)
+	if donjon:
+		for m in donjon.monstres:
+			monstres.erase(m)
+		donjon.queue_free()
+		donjon = null
+		_ambiance(false)
+		_musique("city")
+	_teleporter(DEPART, 1.45)
+	await hud.fondu(false)
+	var perdus: Array = r["objets"]
+	var t := "-%s pièces" % Fx.court(r["or"])
+	if not perdus.is_empty():
+		t += "  ·  perdu : " + ", ".join(perdus)
+	hud.annonce("TU ES MORT" + ("  ×%d" % r["facteur"] if r["facteur"] > 1 else ""), t, Color(1.0, 0.3, 0.3))
+	hud.dire("Mourir à nouveau dans les 5 minutes doublera la pénalité.", Color(1.0, 0.55, 0.5))
+	_mort_en_cours = false
 
 func tourner_camera(rel: Vector2) -> void:
 	_lacet -= rel.x * 0.006

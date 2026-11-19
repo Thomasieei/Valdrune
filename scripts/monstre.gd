@@ -35,6 +35,13 @@ var _reapparait := 0.0
 var _flash := 0.0
 var _aura: Node3D
 var _base_haut := 1.0
+var _zone_t := 3.0
+var _parade := 0.0
+var _parade_cd := 8.0
+var _bouclier: Node3D
+
+const CADENCE_ZONE := [6.5, 5.5, 4.6, 3.9, 3.2]
+const RAYON_ZONE := [2.4, 2.8, 3.2, 3.7, 4.3]
 
 func configurer(p_espece: String, pos: Vector3, angle: float) -> void:
 	espece = p_espece
@@ -160,7 +167,91 @@ func _maj_plaque() -> void:
 	else:
 		_plaque.modulate = OR_ELITE.lightened(0.2) if elite else v["couleur"]
 
+func _combat(dt: float) -> void:
+	var j: Node3D = get_tree().get_first_node_in_group("joueur")
+	if j == null or chrono < 0.0 or global_position.distance_to(j.global_position) > 20.0:
+		return
+	var r: int = mini(int(e["rang"]), 4)
+	_zone_t -= dt
+	if _zone_t <= 0.0:
+		_zone_t = CADENCE_ZONE[r] * randf_range(0.85, 1.15) * (0.8 if elite else 1.0)
+		var cible: Vector3 = j.global_position
+		var ombres := get_tree().get_nodes_in_group("ombres").filter(func (o): return not o.mort and o.global_position.distance_to(global_position) < 16.0)
+		if not ombres.is_empty() and randf() < 0.35:
+			cible = ombres.pick_random().global_position
+		_zone(cible, RAYON_ZONE[r] * (1.2 if elite else 1.0), 1.5 if r < 3 else 1.2)
+	if r >= 1:
+		if _parade > 0.0:
+			_parade -= dt
+			if _parade <= 0.0 and _bouclier:
+				_bouclier.queue_free()
+				_bouclier = null
+		else:
+			_parade_cd -= dt
+			if _parade_cd <= 0.0:
+				_parade_cd = randf_range(7.0, 11.0) - r
+				_parade = 1.3
+				_bouclier = _cercle(Color(0.35, 0.75, 1.0), maxf(1.1, _base_haut * 0.6))
+				_bouclier.position.y = haut() * 0.5
+				_bouclier.scale = Vector3(1, 0.25, 1)
+				add_child(_bouclier)
+				Fx.texte(global_position + Vector3(0, haut() + 0.8, 0), "PARADE !", Color(0.45, 0.8, 1.0), 1.3, 1.0)
+				Fx.son("sheath", -4.0)
+
+func en_parade() -> bool:
+	return _parade > 0.0
+
+func _zone(p: Vector3, rayon: float, delai: float) -> void:
+	var mi := MeshInstance3D.new()
+	var cy := CylinderMesh.new()
+	cy.top_radius = rayon
+	cy.bottom_radius = rayon
+	cy.height = 0.04
+	mi.mesh = cy
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_color = Color(1.0, 0.15, 0.1, 0.28)
+	m.no_depth_test = false
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var bord := _cercle(Color(1.0, 0.25, 0.15), rayon)
+	var racine := Node3D.new()
+	racine.add_child(mi)
+	racine.add_child(bord)
+	get_parent().add_child(racine)
+	racine.global_position = p + Vector3(0, 0.08, 0)
+	mi.scale = Vector3(0.05, 1, 0.05)
+	var tw := racine.create_tween()
+	tw.tween_property(mi, "scale", Vector3.ONE, delai)
+	tw.tween_callback(_impact.bind(racine, rayon))
+	tw.tween_callback(racine.queue_free)
+
+func _impact(racine: Node3D, rayon: float) -> void:
+	var atk := Partie.atk_monstre(espece, elite)
+	if not mort:
+		var j: Node3D = get_tree().get_first_node_in_group("joueur")
+		if j and _dans_zone(j.global_position, racine.global_position, rayon):
+			_toucher_joueur(j, atk)
+		for o in get_tree().get_nodes_in_group("ombres"):
+			if not o.mort and _dans_zone(o.global_position, racine.global_position, rayon):
+				o.blesser(atk)
+		Fx.anneau(racine.global_position, Color(1.0, 0.35, 0.15), rayon)
+		Fx.son("slam", -8.0)
+
+func _dans_zone(a: Vector3, c: Vector3, r: float) -> bool:
+	return Vector2(a.x - c.x, a.z - c.z).length() <= r and absf(a.y - c.y) < 3.0
+
+func _toucher_joueur(j: Node3D, d: float) -> void:
+	Fx.texte(j.global_position + Vector3(0, 2.3, 0), "-%d" % int(d), Color(1.0, 0.25, 0.25), 1.2, 0.9)
+	if Partie.blesser(d):
+		var v := get_tree().get_first_node_in_group("ville")
+		if v:
+			v.mort_joueur()
+
 func _process(dt: float) -> void:
+	if not mort:
+		_combat(dt)
 	if _aura:
 		_aura.rotation.y += dt * 1.2
 	if _flash > 0.0:
@@ -179,6 +270,7 @@ func _process(dt: float) -> void:
 		if chrono >= temps_max:
 
 			chrono = -1.0
+			_zone_t = 3.0
 			pv = pv_max
 			Fx.texte(global_position + Vector3(0, haut() + 0.6, 0), "Régénéré !", Color(1.0, 0.35, 0.3), 1.4)
 			Partie.message.emit("%s s'est régénéré : il te faut plus de puissance." % e["nom"], Color(1.0, 0.45, 0.4))
@@ -194,6 +286,13 @@ func frapper(degats: float, crit: bool, source := "joueur") -> void:
 		return
 	if chrono < 0.0:
 		chrono = 0.0
+	if _parade > 0.0 and source != "evenement":
+		Fx.texte(global_position + Vector3(0, haut() * 0.8, 0), "PARÉ", Color(0.5, 0.85, 1.0), 1.0, 0.6)
+		if source == "joueur":
+			var j: Node3D = get_tree().get_first_node_in_group("joueur")
+			if j:
+				_toucher_joueur(j, Partie.atk_monstre(espece, elite) * 0.6)
+		return
 	var reel := minf(degats, pv)
 	pv -= degats
 	Partie.compter(reel, source)
@@ -215,6 +314,10 @@ func _mourir() -> void:
 	mort = true
 	pv = 0.0
 	chrono = -1.0
+	_parade = 0.0
+	if _bouclier:
+		_bouclier.queue_free()
+		_bouclier = null
 	_plaque.visible = false
 	if Modele.jouer(_ap, "Death", 1.0, 0.08) <= 0.0:
 

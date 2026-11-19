@@ -13,6 +13,12 @@ var _anim := 0.0
 var _y := 0.0
 var _comp: Dictionary = {}
 var _comp_t := 0.0
+var pv := 1.0
+var pv_max := 1.0
+var mort := false
+var _rappel_t := 0.0
+var _auto: Monstre = null
+var _auto_t := 0.0
 
 func _ready() -> void:
 	var e: Dictionary = Partie.ESPECES[donnees["espece"]]
@@ -22,7 +28,10 @@ func _ready() -> void:
 	add_child(_corps)
 	_ap = Modele.lecteur(_corps)
 
-	var rouge := Partie.rang_ombre(donnees) >= 5
+	add_to_group("ombres")
+	pv_max = Partie.pv_ombre(donnees)
+	pv = pv_max
+	var rouge := Partie.ombre_rouge(donnees)
 	var mat := Shaders.ombre(Color(1.0, 0.12, 0.2) if rouge else Color(0.42, 0.2, 1.0))
 	for m in _corps.find_children("*", "MeshInstance3D", true, false):
 		(m as MeshInstance3D).material_override = mat
@@ -47,10 +56,19 @@ func _process(dt: float) -> void:
 	if joueur == null:
 		return
 	_anim -= dt
-	var c: Monstre = joueur.cible
+	if mort:
+		_rappel_t -= dt
+		if _rappel_t <= 0.0:
+			if Partie.depenser_mana(Partie.cout_rappel(donnees)):
+				_revenir()
+			else:
+				_rappel_t = 1.0
+		return
+	pv = minf(pv_max, pv + pv_max * 0.01 * dt)
+	var c: Monstre = _choisir_cible(dt)
 	var vise: Vector3
 
-	var attaque := c != null and is_instance_valid(c) and not c.mort
+	var attaque := c != null
 	if attaque:
 
 		var a := place * TAU / 8.0 + 0.8
@@ -66,7 +84,7 @@ func _process(dt: float) -> void:
 	v.y = 0
 	var d := v.length()
 	if d > 0.35:
-		var vit := clampf(d * 3.0, 2.0, 16.0)
+		var vit := clampf(d * 3.0, 2.0, 16.0) * Partie.vit_ombre()
 		global_position += v.normalized() * minf(d, vit * dt)
 		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(v.x, v.z), minf(1.0, dt * 10.0))
 		if _anim <= 0.0:
@@ -95,6 +113,51 @@ func _process(dt: float) -> void:
 
 	global_position.y = lerpf(global_position.y, joueur.global_position.y, minf(1.0, dt * 8.0))
 
+
+func _a_portee(m: Monstre) -> bool:
+	if m == null or not is_instance_valid(m) or m.mort:
+		return false
+	var v := m.global_position - joueur.global_position
+	v.y = 0
+	return v.length() <= Partie.portee_ombres() + m.haut() * 0.3
+
+func _choisir_cible(dt: float) -> Monstre:
+	var c: Monstre = joueur.cible
+	if _a_portee(c):
+		return c
+	if not Partie.auto_ombres:
+		return null
+	_auto_t -= dt
+	if _auto_t <= 0.0 or not _a_portee(_auto):
+		_auto_t = 0.5
+		_auto = null
+		var mieux := INF
+		for m in joueur.get_parent().monstres:
+			if _a_portee(m):
+				var d: float = m.global_position.distance_to(joueur.global_position)
+				if d < mieux:
+					mieux = d
+					_auto = m
+	return _auto if _a_portee(_auto) else null
+
+func blesser(d: float) -> void:
+	if mort:
+		return
+	pv -= d
+	Fx.texte(global_position + Vector3(0, 2.0, 0), "-%d" % int(d), Color(0.85, 0.5, 1.0), 0.9, 0.7)
+	if pv <= 0.0:
+		mort = true
+		_rappel_t = 4.0
+		visible = false
+		Fx.anneau(global_position, Color(0.4, 0.15, 0.7), 1.6)
+
+func _revenir() -> void:
+	mort = false
+	pv = pv_max
+	visible = true
+	global_position = joueur.global_position + Vector3(randf_range(-1.5, 1.5), 0, randf_range(-1.5, 1.5))
+	Fx.anneau(global_position, Color(0.6, 0.3, 1.0), 2.0)
+	Fx.son("shadow", -8.0)
 
 func _competence(c: Monstre) -> void:
 	Modele.jouer(_ap, "Attack", 1.0, 0.08)
