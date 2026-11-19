@@ -39,6 +39,8 @@ var _zone_t := 3.0
 var _parade := 0.0
 var _parade_cd := 8.0
 var _bouclier: Node3D
+var enrage := false
+var _etourdi := 0.0
 
 const CADENCE_ZONE := [6.5, 5.5, 4.6, 3.9, 3.2]
 const RAYON_ZONE := [2.4, 2.8, 3.2, 3.7, 4.3]
@@ -172,9 +174,12 @@ func _combat(dt: float) -> void:
 	if j == null or chrono < 0.0 or global_position.distance_to(j.global_position) > 20.0:
 		return
 	var r: int = mini(int(e["rang"]), 4)
+	if _etourdi > 0.0:
+		_etourdi -= dt
+		return
 	_zone_t -= dt
 	if _zone_t <= 0.0:
-		_zone_t = CADENCE_ZONE[r] * randf_range(0.85, 1.15) * (0.8 if elite else 1.0)
+		_zone_t = CADENCE_ZONE[r] * randf_range(0.85, 1.15) * (0.8 if elite else 1.0) * (0.5 if enrage else 1.0)
 		var cible: Vector3 = j.global_position
 		var ombres := get_tree().get_nodes_in_group("ombres").filter(func (o): return not o.mort and o.global_position.distance_to(global_position) < 16.0)
 		if not ombres.is_empty() and randf() < 0.35:
@@ -200,6 +205,19 @@ func _combat(dt: float) -> void:
 
 func en_parade() -> bool:
 	return _parade > 0.0
+
+func briser(degats: float) -> void:
+	if mort:
+		return
+	var avait := _parade > 0.0
+	_parade = 0.0
+	if _bouclier:
+		_bouclier.queue_free()
+		_bouclier = null
+	_etourdi = 2.0 if avait else 1.0
+	Fx.anneau(global_position, Color(0.5, 0.85, 1.0), 3.5)
+	Fx.texte(global_position + Vector3(0, haut() + 0.9, 0), "GARDE BRISÉE !" if avait else "ÉTOURDI", Color(0.6, 0.9, 1.0), 1.4, 1.1)
+	frapper(degats * (1.5 if avait else 1.0), true)
 
 func _zone(p: Vector3, rayon: float, delai: float) -> void:
 	var mi := MeshInstance3D.new()
@@ -228,7 +246,7 @@ func _zone(p: Vector3, rayon: float, delai: float) -> void:
 	tw.tween_callback(racine.queue_free)
 
 func _impact(racine: Node3D, rayon: float) -> void:
-	var atk := Partie.atk_monstre(espece, elite)
+	var atk := Partie.atk_monstre(espece, elite) * (2.0 if enrage else 1.0)
 	if not mort:
 		var j: Node3D = get_tree().get_first_node_in_group("joueur")
 		if j and _dans_zone(j.global_position, racine.global_position, rayon):
@@ -243,6 +261,10 @@ func _dans_zone(a: Vector3, c: Vector3, r: float) -> bool:
 	return Vector2(a.x - c.x, a.z - c.z).length() <= r and absf(a.y - c.y) < 3.0
 
 func _toucher_joueur(j: Node3D, d: float) -> void:
+	var jj := j as Joueur
+	if jj and jj.invulnerable > 0.0:
+		Fx.texte(j.global_position + Vector3(0, 2.3, 0), "ESQUIVÉ", Color(0.5, 1.0, 0.8), 1.1, 0.7)
+		return
 	Fx.texte(j.global_position + Vector3(0, 2.3, 0), "-%d" % int(d), Color(1.0, 0.25, 0.25), 1.2, 0.9)
 	if Partie.blesser(d):
 		var v := get_tree().get_first_node_in_group("ville")
@@ -267,16 +289,24 @@ func _process(dt: float) -> void:
 		return
 	if chrono >= 0.0:
 		chrono += dt
-		if chrono >= temps_max:
-
-			chrono = -1.0
-			_zone_t = 3.0
-			pv = pv_max
-			Fx.texte(global_position + Vector3(0, haut() + 0.6, 0), "Régénéré !", Color(1.0, 0.35, 0.3), 1.4)
-			Partie.message.emit("%s s'est régénéré : il te faut plus de puissance." % e["nom"], Color(1.0, 0.45, 0.4))
+		if chrono >= temps_max and not enrage:
+			enrage = true
+			Fx.texte(global_position + Vector3(0, haut() + 0.6, 0), "ENRAGÉ !", Color(1.0, 0.25, 0.2), 1.6, 1.4)
+			Fx.anneau(global_position, Color(1.0, 0.2, 0.15), 4.0)
+			Partie.message.emit("%s est enragé : dégâts doublés, finis-le vite !" % e["nom"], Color(1.0, 0.45, 0.4))
 			Modele.jouer(_ap, "Roar" if _ap and _ap.has_animation("Roar") else "Celebrate")
-			regenere.emit(self)
+			for mi in _corps.find_children("*", "MeshInstance3D", true, false):
+				(mi as MeshInstance3D).material_overlay = Shaders.halo(Color(1.0, 0.15, 0.1), 1.6)
 			_retour_idle(1.5)
+		if enrage and j_loin():
+			enrage = false
+			chrono = -1.0
+			pv = pv_max
+			_appliquer_rang()
+
+func j_loin() -> bool:
+	var j: Node3D = get_tree().get_first_node_in_group("joueur")
+	return j == null or j.global_position.distance_to(global_position) > 28.0
 
 func temps_restant() -> float:
 	return temps_max - maxf(chrono, 0.0)
@@ -314,6 +344,8 @@ func _mourir() -> void:
 	mort = true
 	pv = 0.0
 	chrono = -1.0
+	enrage = false
+	_etourdi = 0.0
 	_parade = 0.0
 	if _bouclier:
 		_bouclier.queue_free()

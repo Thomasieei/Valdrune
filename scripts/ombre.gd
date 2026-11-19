@@ -19,6 +19,7 @@ var mort := false
 var _rappel_t := 0.0
 var _auto: Monstre = null
 var _auto_t := 0.0
+var _etiquette: Label3D
 
 func _ready() -> void:
 	var e: Dictionary = Partie.ESPECES[donnees["espece"]]
@@ -57,6 +58,8 @@ func _process(dt: float) -> void:
 		return
 	_anim -= dt
 	if mort:
+		global_position = global_position.lerp(joueur.global_position + Vector3(0, 0, 1.5), minf(1.0, dt * 3.0))
+		_etiquette.text = "✝ Rappel : %d mana" % int(Partie.cout_rappel(donnees)) if Partie.mana < Partie.cout_rappel(donnees) else "✝ Rappel…"
 		_rappel_t -= dt
 		if _rappel_t <= 0.0:
 			if Partie.depenser_mana(Partie.cout_rappel(donnees)):
@@ -148,13 +151,27 @@ func blesser(d: float) -> void:
 	if pv <= 0.0:
 		mort = true
 		_rappel_t = 4.0
-		visible = false
+		_corps.visible = false
+		if _etiquette == null:
+			_etiquette = Label3D.new()
+			_etiquette.fixed_size = true
+			_etiquette.pixel_size = 0.0016
+			_etiquette.font_size = 20
+			_etiquette.outline_size = 6
+			_etiquette.modulate = Color(0.6, 0.65, 1.0)
+			_etiquette.font = Ui.police
+			_etiquette.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			_etiquette.position.y = 1.2
+			add_child(_etiquette)
+		_etiquette.visible = true
 		Fx.anneau(global_position, Color(0.4, 0.15, 0.7), 1.6)
 
 func _revenir() -> void:
 	mort = false
 	pv = pv_max
-	visible = true
+	_corps.visible = true
+	if _etiquette:
+		_etiquette.visible = false
 	global_position = joueur.global_position + Vector3(randf_range(-1.5, 1.5), 0, randf_range(-1.5, 1.5))
 	Fx.anneau(global_position, Color(0.6, 0.3, 1.0), 2.0)
 	Fx.son("shadow", -8.0)

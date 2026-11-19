@@ -150,6 +150,23 @@ var pv := 120.0
 var mana := 100.0
 var morts_serie := 0
 var derniere_mort := -1000.0
+var cri_fin := -1.0
+
+const COMPETENCES := {
+	"esquive": {"nom": "ESQUIVE", "icone": "q_run", "cd": 4.0, "mana": 8.0},
+	"brise": {"nom": "BRISE-GARDE", "icone": "tk_crush", "cd": 10.0, "mana": 20.0},
+	"cri": {"nom": "CRI", "icone": "ombres", "cd": 25.0, "mana": 30.0},
+}
+const DUREE_CRI := 8.0
+
+func temps() -> float:
+	return _t
+
+func cri_actif() -> bool:
+	return _t < cri_fin
+
+func fenetre_mort() -> float:
+	return maxf(0.0, 300.0 - (_t - derniere_mort))
 
 var _fenetre := []
 var _t := 0.0
@@ -340,7 +357,7 @@ func dps_ombre(o: Dictionary) -> float:
 	var k := 0.12
 	if e.get("lieu", "") == "evenement":
 		k = 0.2
-	return float(e["pv"]) / temps * k * pow(1.35, int(o["etoiles"])) * (1.0 + bonus("ombres") / 100.0) * vit_ombre()
+	return float(e["pv"]) / temps * k * pow(1.35, int(o["etoiles"])) * (1.0 + bonus("ombres") / 100.0) * vit_ombre() * (1.3 if cri_actif() else 1.0)
 
 func rang_ombre(o: Dictionary) -> int:
 	var e: Dictionary = ESPECES[o["espece"]]
@@ -359,7 +376,7 @@ func portee_ombres() -> float:
 	return PORTEE_OMBRES + points["portee"] * EFFET_POINT["portee"]
 
 func vit_ombre() -> float:
-	return 1.0 + bonus("vit_ombre") / 100.0
+	return (1.0 + bonus("vit_ombre") / 100.0) * (1.3 if cri_actif() else 1.0)
 
 func pv_max() -> float:
 	return 120.0 * (1.0 + (niveau - 1) * 0.04) * (1.0 + bonus("vie") / 100.0)
@@ -397,7 +414,7 @@ func mourir() -> Dictionary:
 			break
 		var o: Dictionary = libres.pick_random()
 		inventaire.erase(o)
-		perdus.append(base(o)["nom"])
+		perdus.append(o)
 	pv = pv_max()
 	change.emit()
 	sauver()

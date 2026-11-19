@@ -14,6 +14,7 @@ var _joy_actif := false
 const JOY_R := 85.0
 var _b_frapper: Control
 var _b_eveil: Control
+var _b_comp := {}
 var _hex := {}
 var _haut: Control
 var _droite: Control
@@ -93,6 +94,9 @@ func _ready() -> void:
 	_b_frapper = _rond("FRAPPER", "attack", 150.0, Color(0.15, 0.3, 0.85))
 	_b_eveil = _rond("ÉVEIL", "arise", 128.0, Color(0.35, 0.1, 0.7))
 	_b_eveil.visible = false
+	for k in Partie.COMPETENCES:
+		var d: Dictionary = Partie.COMPETENCES[k]
+		_b_comp[k] = _rond(d["nom"], d["icone"], 104.0, {"esquive": Color(0.1, 0.5, 0.45), "brise": Color(0.15, 0.4, 0.75), "cri": Color(0.4, 0.15, 0.7)}[k])
 	_cadre = Control.new()
 	_cadre.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_cadre.size = Vector2(560, 118)
@@ -181,7 +185,17 @@ func _rond(texte: String, icone: String, taille: float, fond: Color) -> Control:
 		var w := Ui.police.get_string_size(tx, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		var p := ctr + Vector2(- w / 2.0, r * 0.66)
 		c.draw_string_outline(Ui.police, p, tx, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 6, Color.BLACK)
-		c.draw_string(Ui.police, p, tx, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE))
+		c.draw_string(Ui.police, p, tx, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+		var cdf: float = c.get_meta("cd", 0.0)
+		if cdf > 0.0:
+			c.draw_circle(ctr, r, Color(0, 0, 0, 0.55))
+			c.draw_arc(ctr, r - 4, -PI / 2.0, -PI / 2.0 + TAU * cdf, 48, Color(1, 1, 1, 0.85), 6.0, true)
+			var ct := "%.0f" % ceilf(c.get_meta("cds", 0.0))
+			var cw := Ui.police.get_string_size(ct, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
+			c.draw_string_outline(Ui.police, ctr + Vector2(- cw / 2.0, 10), ct, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, 6, Color.BLACK)
+			c.draw_string(Ui.police, ctr + Vector2(- cw / 2.0, 10), ct, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Color.WHITE)
+		elif c.get_meta("pauvre", false):
+			c.draw_circle(ctr, r, Color(0.05, 0.1, 0.4, 0.5)))
 	_racine.add_child(c)
 	return c
 
@@ -192,8 +206,11 @@ func _disposer() -> void:
 	_joy_centre = Vector2(170, h - 160)
 	_joy_pos = _joy_centre
 	_b_frapper.position = Vector2(w - 200, h - 200)
-	_b_eveil.position = Vector2(w - 360, h - 170)
-	_b_action.position = Vector2(w - 176, h - 340)
+	_b_eveil.position = Vector2(w - 500, h - 300)
+	_b_action.position = Vector2(w - 480, h - 150)
+	_b_comp["esquive"].position = Vector2(w - 330, h - 118)
+	_b_comp["brise"].position = Vector2(w - 318, h - 250)
+	_b_comp["cri"].position = Vector2(w - 196, h - 318)
 	_haut.position = Vector2(16, 10)
 	_droite.position = Vector2(w - 340, 120)
 	_evt.position = Vector2(w - 340, 68)
@@ -225,7 +242,7 @@ func _maj() -> void:
 	_hex["inventaire"].set_meta("alerte", _nouveaux > 0)
 	for k in _hex:
 		_hex[k].queue_redraw()
-	if _panneau and not _roll_actif:
+	if _panneau and not _roll_actif and _type != "mort":
 		_construire()
 
 func dire(t: String, c: Color = Color.WHITE) -> void:
@@ -283,6 +300,40 @@ func annonce(titre: String, sous: String, c: Color) -> void:
 	tw.parallel().tween_property(_annonce, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.tween_interval(2.6)
 	tw.tween_property(_annonce, "modulate:a", 0.0, 0.5)
+
+func ecran_mort(r: Dictionary) -> void:
+	fermer()
+	_type = "mort"
+	_panneau = Ui.panneau("Tu es mort" + ("  ×%d" % r["facteur"] if r["facteur"] > 1 else ""), "close", Vector2(820, 520), fermer)
+	_ajouter(Ui.label("-%s pièces  (%d %% de ton or)" % [Fx.court(r["or"]), mini(10 * int(r["facteur"]), 80)], 28, Color(1.0, 0.8, 0.3), 7), Vector2(40, 84))
+	var perdus: Array = r["objets"]
+	if perdus.is_empty():
+		_ajouter(Ui.label("Aucun objet perdu (rien de non équipé dans le sac).", 20, Color(0.8, 0.85, 1.0)), Vector2(40, 140))
+	else:
+		_ajouter(Ui.label("Objets perdus :", 22, Color(1.0, 0.5, 0.5), 6), Vector2(40, 134))
+		for k in mini(perdus.size(), 4):
+			var o: Dictionary = perdus[k]
+			var b := Partie.base(o)
+			var c := Ui.carte(b["nom"], b["icone"], Partie.SIGLES[o["rarete"]], Partie.COULEURS_RARETE[o["rarete"]], false, "Niv. %d" % o["niv"], Vector2(150, 166), b.get("effet", ""))
+			c.disabled = true
+			_ajouter(c, Vector2(40 + k * 166, 172))
+	var l := Ui.label("", 20, Color(1.0, 0.55, 0.5), 6)
+	l.position = Vector2(40, 372)
+	_panneau.add_child(l)
+	var maj := func ():
+		var f := Partie.fenetre_mort()
+		l.text = "Pénalité doublée si tu meurs encore dans %d:%02d" % [int(f) / 60, int(f) % 60] if f > 0.0 else "Pénalité revenue à la normale."
+	maj.call()
+	var tm := Timer.new()
+	tm.wait_time = 1.0
+	tm.autostart = true
+	tm.timeout.connect(maj)
+	_panneau.add_child(tm)
+	var ok := Ui.bouton("Repartir", Ui.VERT, Vector2(240, 56))
+	ok.pressed.connect(fermer)
+	_ajouter(ok, Vector2(290, 430))
+	_racine.add_child(_panneau)
+	_placer_panneau()
 
 func fondu(noir: bool) -> void:
 	var tw := _fondu.create_tween()
@@ -357,7 +408,14 @@ func _process(dt: float) -> void:
 	_b_eveil.visible = eveil != null
 	_b_eveil.set_meta("pulse", 0.5 + 0.5 * sin(Time.get_ticks_msec() / 160.0))
 	_b_eveil.queue_redraw()
-	for b in [_b_frapper, _b_eveil, _b_action]:
+	for k in _b_comp:
+		var bc: Control = _b_comp[k]
+		var rc: float = ville.joueur.recharges[k]
+		bc.set_meta("cd", rc / float(Partie.COMPETENCES[k]["cd"]))
+		bc.set_meta("cds", rc)
+		bc.set_meta("pauvre", Partie.mana < float(Partie.COMPETENCES[k]["mana"]))
+		bc.queue_redraw()
+	for b in [_b_frapper, _b_eveil, _b_action] + _b_comp.values():
 		var a: float = b.get_meta("appuye")
 		if a > 0.0:
 			b.set_meta("appuye", maxf(0.0, a - dt * 5.0))
@@ -453,9 +511,9 @@ func _dessiner_cadre() -> void:
 	_texte(c, Vector2(118, 66), m.e["nom"], 32, Color.WHITE, 8)
 	if not m.sans_chrono:
 		var tr: float = m.temps_restant()
-		var tt := "%02d:%02d" % [int(tr) / 60, int(tr) % 60]
+		var tt := "%02d:%02d" % [int(tr) / 60, int(tr) % 60] if not m.enrage else "RAGE"
 		var tw := Ui.police.get_string_size(tt, HORIZONTAL_ALIGNMENT_LEFT, -1, 38).x
-		var urgent: bool = m.chrono >= 0.0 and tr / m.temps_max < 0.3
+		var urgent: bool = m.enrage or (m.chrono >= 0.0 and tr / m.temps_max < 0.3)
 		_texte(c, Vector2(r.size.x - tw - 16, 62), tt, 38, Color(1, 0.35, 0.3) if urgent else Color.WHITE, 8)
 		_texte(c, Vector2(r.size.x - tw - 16, 26), "CHRONO", 15, Color(0.4, 0.9, 1.0))
 	var bx := 118.0
@@ -986,6 +1044,16 @@ func _poser(i: int, p: Vector2) -> void:
 		_doigts[i] = {"role": "ui"}
 		fermer()
 		return
+	for k in _b_comp:
+		if _dans(_b_comp[k], p):
+			_doigts[i] = {"role": "bouton"}
+			_b_comp[k].set_meta("appuye", 1.0)
+			Input.vibrate_handheld(10)
+			var err: String = ville.joueur.competence(k)
+			if err != "":
+				dire(err, Color(1.0, 0.6, 0.5))
+				Fx.son("error", -8.0)
+			return
 	for pair in [[_b_frapper, "frapper"], [_b_eveil, "eveil"], [_b_action, "action"]]:
 		if _dans(pair[0], p):
 			_doigts[i] = {"role": "bouton"}

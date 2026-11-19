@@ -406,6 +406,40 @@ func eveiller() -> void:
 			hud.dire("Nouvelle ombre : %s [%s]" % [m.e["nom"], Partie.RANGS[m.e["rang"]]], Color(0.8, 0.6, 1.0))
 
 var _mort_en_cours := false
+var _cercle_portee: MeshInstance3D
+var _portee_vue := 0.0
+
+func _maj_portee(dt: float) -> void:
+	if _cercle_portee == null:
+		_cercle_portee = MeshInstance3D.new()
+		var t := TorusMesh.new()
+		t.inner_radius = 0.97
+		t.outer_radius = 1.0
+		t.rings = 64
+		t.ring_segments = 4
+		_cercle_portee.mesh = t
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.albedo_color = Color(0.7, 0.4, 1.0, 0.7)
+		_cercle_portee.material_override = m
+		_cercle_portee.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(_cercle_portee)
+	var c := joueur.cible
+	if c and is_instance_valid(c) and not c.mort and not ombres.is_empty():
+		var v := c.global_position - joueur.global_position
+		v.y = 0
+		if v.length() > Partie.portee_ombres() + c.haut() * 0.3:
+			if _portee_vue <= 0.0:
+				hud.dire("Cible hors de portée de tes ombres : rapproche-toi.", Color(0.8, 0.6, 1.0))
+			_portee_vue = 2.5
+	_portee_vue -= dt
+	_cercle_portee.visible = _portee_vue > 0.0
+	if _cercle_portee.visible:
+		var r := Partie.portee_ombres()
+		_cercle_portee.global_position = joueur.global_position + Vector3(0, 0.12, 0)
+		_cercle_portee.scale = Vector3(r, 0.05, r)
+		(_cercle_portee.material_override as StandardMaterial3D).albedo_color.a = clampf(_portee_vue, 0.0, 0.7)
 
 func mort_joueur() -> void:
 	if _mort_en_cours:
@@ -424,12 +458,7 @@ func mort_joueur() -> void:
 		_musique("city")
 	_teleporter(DEPART, 1.45)
 	await hud.fondu(false)
-	var perdus: Array = r["objets"]
-	var t := "-%s pièces" % Fx.court(r["or"])
-	if not perdus.is_empty():
-		t += "  ·  perdu : " + ", ".join(perdus)
-	hud.annonce("TU ES MORT" + ("  ×%d" % r["facteur"] if r["facteur"] > 1 else ""), t, Color(1.0, 0.3, 0.3))
-	hud.dire("Mourir à nouveau dans les 5 minutes doublera la pénalité.", Color(1.0, 0.55, 0.5))
+	hud.ecran_mort(r)
 	_mort_en_cours = false
 
 func tourner_camera(rel: Vector2) -> void:
@@ -454,6 +483,7 @@ func _process(dt: float) -> void:
 		hud.dire("Baran est reparti dans les ténèbres…", Color(1.0, 0.45, 0.5))
 		_fin_evenement()
 	joueur.camera_lacet = _lacet
+	_maj_portee(dt)
 	_cam_pos = _cam_pos.lerp(joueur.global_position + Vector3(0, 1.6, 0), minf(1.0, dt * 9.0))
 	var dir := Vector3(sin(_lacet) * cos(_tangage), -sin(_tangage), cos(_lacet) * cos(_tangage))
 	var voulu := _cam_pos + dir * _dist

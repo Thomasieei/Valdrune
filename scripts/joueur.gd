@@ -20,6 +20,10 @@ var _dernier_coup := 0
 var camera_lacet := 0.0
 var _main: BoneAttachment3D
 var _arme_vue := ""
+var invulnerable := 0.0
+var _dash := Vector3.ZERO
+var _dash_t := 0.0
+var recharges := {"esquive": 0.0, "brise": 0.0, "cri": 0.0}
 
 
 func _maj_arme() -> void:
@@ -141,9 +145,16 @@ func _physics_process(dt: float) -> void:
 		distance = v.length() - cible.haut() * 0.25
 		if distance > PORTEE and dir == Vector3.ZERO:
 			dir = v.normalized()
+	for k in recharges:
+		recharges[k] = maxf(0.0, recharges[k] - dt)
+	invulnerable = maxf(0.0, invulnerable - dt)
 	var vit := VITESSE * Partie.vitesse()
 	velocity.x = dir.x * vit
 	velocity.z = dir.z * vit
+	if _dash_t > 0.0:
+		_dash_t -= dt
+		velocity.x = _dash.x
+		velocity.z = _dash.z
 	velocity.y = -2.0 if is_on_floor() else velocity.y - 30.0 * dt
 	move_and_slide()
 
@@ -196,6 +207,55 @@ func _frapper() -> void:
 	c.frapper(deg, crit)
 	Fx.son(["hit1", "hit2", "hit3"][randi() % 3], -2.0 if crit else -5.0)
 
+
+func competence(k: String) -> String:
+	var d: Dictionary = Partie.COMPETENCES[k]
+	if recharges[k] > 0.0:
+		return "Recharge : %.1f s" % recharges[k]
+	if Partie.mana < d["mana"]:
+		return "Pas assez de mana (%d)" % int(d["mana"])
+	var c := cible
+	if k == "brise":
+		if c == null or not is_instance_valid(c) or c.mort:
+			return "Aucune cible"
+		var v := c.global_position - global_position
+		v.y = 0
+		if v.length() - c.haut() * 0.25 > PORTEE + 1.2:
+			return "Trop loin"
+	Partie.depenser_mana(d["mana"])
+	recharges[k] = d["cd"]
+	match k:
+		"esquive":
+			var dir := Vector3.ZERO
+			if entree.length() < 0.2:
+				dir = -_corps.global_transform.basis.z
+			else:
+				var b := Basis(Vector3.UP, camera_lacet)
+				dir = b * Vector3(entree.x, 0, -entree.y)
+			dir.y = 0
+			_dash = dir.normalized() * 24.0
+			_dash_t = 0.22
+			invulnerable = 0.45
+			cible = null
+			Modele.jouer(_ap, "Roll" if _ap and _ap.has_animation("Roll") else "Run", 1.6, 0.05)
+			_anim_coup = 0.3
+			Fx.son("swing2", -2.0, 1.3)
+			Fx.anneau(global_position, Color(0.5, 1.0, 0.85), 1.4)
+		"brise":
+			_anim_coup = Modele.jouer(_ap, "Slash3", 1.4, 0.05) * 0.9
+			Fx.son("slam", -2.0)
+			_brise_differe(c)
+		"cri":
+			Partie.cri_fin = Partie.temps() + Partie.DUREE_CRI
+			Fx.son("arise", -2.0, 0.8)
+			Fx.anneau(global_position, Color(0.65, 0.3, 1.0), 7.0)
+			Fx.texte(global_position + Vector3(0, 2.8, 0), "CRI DU MONARQUE", Color(0.8, 0.55, 1.0), 1.5, 1.4)
+	return ""
+
+func _brise_differe(cc: Monstre) -> void:
+	await get_tree().create_timer(0.3).timeout
+	if is_instance_valid(cc) and not cc.mort:
+		cc.briser(Partie.dps_joueur() * CADENCE * 4.0)
 
 func _etincelles(c: Color) -> GPUParticles3D:
 	var p := GPUParticles3D.new()
