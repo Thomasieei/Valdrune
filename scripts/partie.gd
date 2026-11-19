@@ -158,6 +158,7 @@ var pieces := 0
 var niveau := 1
 var xp := 0
 var inventaire: Array = []
+var _objets_par_uid := {}
 var equipe := {}
 var ombres: Array = []
 var points := {"ombres": 0, "arme": 0, "vitesse": 0, "legion": 0, "pieces": 0, "eveil": 0, "vie": 0, "mana": 0, "portee": 0, "vit_ombre": 0}
@@ -224,7 +225,7 @@ func bot_etage(d: Dictionary) -> int:
 			break
 		f += 1
 	return f
-var opts := {"arise": false, "potion": false, "rappel": true, "equip": false, "diviser": false, "monarque": false, "rangees": false, "fourreau": false, "patrouille": false}
+var opts := {"arise": false, "potion": false, "rappel": true, "equip": false, "diviser": false, "monarque": false, "rangees": false, "fourreau": false, "patrouille": false, "rendu_leger": false}
 var speciale := "echange"
 var abime_max := 0
 var pactes_morts := {}
@@ -532,13 +533,15 @@ func _ready() -> void:
 
 func _process(dt: float) -> void:
 	_t += dt
-	pv = minf(pv_max(), pv + pv_max() * 0.015 * dt)
-	mana = minf(mana_max(), mana + regen_mana() * dt)
+	var plafond_pv := pv_max()
+	var plafond_mana := mana_max()
+	pv = minf(plafond_pv, pv + plafond_pv * 0.015 * dt)
+	mana = minf(plafond_mana, mana + regen_mana() * dt)
 	if createur:
-		mana = mana_max()
-		pv = pv_max()
+		mana = plafond_mana
+		pv = plafond_pv
 	_potion_t -= dt
-	if opts["potion"] and _potion_t <= 0.0 and pv < pv_max() * 0.3 and boire("pv"):
+	if opts["potion"] and _potion_t <= 0.0 and pv < plafond_pv * 0.3 and boire("pv"):
 		_potion_t = 8.0
 		message.emit("Potion auto : +50 % PV (%d restantes)" % int(potions["pv"]), Color(0.5, 1.0, 0.6))
 	_sauver_t += dt
@@ -555,15 +558,20 @@ func base(o: Dictionary) -> Dictionary:
 	return OBJETS[o["base"]]
 
 func objet(uid: int) -> Dictionary:
-	for o in inventaire:
-		if o["uid"] == uid:
-			return o
-	return {}
+	return _objets_par_uid.get(uid, {})
+
+func _indexer_objet(o: Dictionary) -> void:
+	inventaire.append(o)
+	_objets_par_uid[o["uid"]] = o
+
+func _retirer_objet(o: Dictionary) -> void:
+	inventaire.erase(o)
+	_objets_par_uid.erase(o["uid"])
 
 func ajouter_objet(b: String, rarete: int, annoncer := true) -> Dictionary:
 	var o := {"uid": _uid, "base": b, "rarete": rarete, "niv": 0}
 	_uid += 1
-	inventaire.append(o)
+	_indexer_objet(o)
 	if annoncer:
 		butin.emit(o)
 		if opts["equip"]:
@@ -640,10 +648,10 @@ func prix_vente(o: Dictionary) -> int:
 	return int(cout_amelioration(o) * 0.35) + 4
 
 func vendre(o: Dictionary) -> bool:
-	if est_equipe(o):
+	if not _objets_par_uid.has(o["uid"]) or est_equipe(o):
 		return false
 	pieces += prix_vente(o)
-	inventaire.erase(o)
+	_retirer_objet(o)
 	change.emit()
 	return true
 
@@ -793,7 +801,7 @@ func mourir() -> Dictionary:
 		if libres.is_empty():
 			break
 		var o: Dictionary = libres.pick_random()
-		inventaire.erase(o)
+		_retirer_objet(o)
 		perdus.append(o)
 	pv = pv_max()
 	change.emit()
@@ -1183,7 +1191,7 @@ func charger() -> void:
 			var rr := int(o["rarete"])
 			if rr < UNIQUE:
 				rr = mini(rr, RANG_MAX_EVENEMENT)
-			inventaire.append({"uid": int(o["uid"]), "base": o["base"], "rarete": rr, "niv": int(o["niv"])})
+			_indexer_objet({"uid": int(o["uid"]), "base": o["base"], "rarete": rr, "niv": int(o["niv"])})
 			_uid = maxi(_uid, int(o["uid"]) + 1)
 	for e in d.get("equipe", {}):
 		equipe[e] = int(d["equipe"][e])

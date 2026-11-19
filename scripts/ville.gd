@@ -49,13 +49,14 @@ var joueur: Joueur
 var camera: Camera3D
 var monstres: Array = []
 var ombres: Array = []
+var _composition_ombres := []
 var hud: Hud
 var _lacet := 1.45
 var _tangage := -0.42
 var _dist := 8.5
 var _cam_pos := Vector3.ZERO
 var _soleil: DirectionalLight3D
-var _sphere_cam := SphereShape3D.new()
+var _requete_camera := PhysicsShapeQueryParameters3D.new()
 var _env: Environment
 var pnjs: Array = []
 var portail: Node3D
@@ -294,7 +295,10 @@ func _ready() -> void:
 	camera.fov = 62
 	camera.far = 420
 	add_child(camera)
-	_sphere_cam.radius = 0.35
+	var sphere := SphereShape3D.new()
+	sphere.radius = 0.35
+	_requete_camera.shape = sphere
+	_requete_camera.exclude = [joueur.get_rid()]
 	_cam_pos = DEPART
 	_generer_zones()
 	for p in postes():
@@ -341,6 +345,8 @@ func _generer_zones() -> void:
 	var etat := get_world_3d().direct_space_state
 	var sphere := SphereShape3D.new()
 	sphere.radius = 1.6
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = sphere
 	var pts := []
 	seed(1234)
 	for k in 900:
@@ -349,8 +355,6 @@ func _generer_zones() -> void:
 		var r := etat.intersect_ray(PhysicsRayQueryParameters3D.create(Vector3(x, 60, z), Vector3(x, -5, z)))
 		if r.is_empty() or r["position"].y > 0.7 or r["position"].y < -0.4:
 			continue
-		var q := PhysicsShapeQueryParameters3D.new()
-		q.shape = sphere
 		q.transform = Transform3D(Basis.IDENTITY, r["position"] + Vector3(0, 2.0, 0))
 		if not etat.intersect_shape(q, 1).is_empty():
 			continue
@@ -403,7 +407,6 @@ func _environnement() -> void:
 	e.fog_enabled = true
 	e.fog_light_color = Color(0.55, 0.6, 0.75)
 	e.fog_density = 0.0022
-	e.glow_enabled = true
 	e.glow_intensity = 0.5
 	we.environment = e
 	add_child(we)
@@ -411,10 +414,17 @@ func _environnement() -> void:
 	_soleil.rotation_degrees = Vector3(-42, 35, 0)
 	_soleil.light_color = Color(1.0, 0.9, 0.8)
 	_soleil.light_energy = 1.25
-	_soleil.shadow_enabled = true
 	_soleil.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	_soleil.directional_shadow_max_distance = 40.0
 	add_child(_soleil)
+	appliquer_rendu()
+
+func appliquer_rendu() -> void:
+	var leger := bool(Partie.opts["rendu_leger"])
+	get_viewport().scaling_3d_scale = 0.75 if leger else 1.0
+	get_viewport().msaa_3d = Viewport.MSAA_DISABLED if leger else Viewport.MSAA_2X
+	_soleil.shadow_enabled = not leger
+	_env.glow_enabled = not leger
 
 func _ville() -> void:
 	var v: Node3D = load("res://assets/city.glb").instantiate()
@@ -876,10 +886,13 @@ func _fin_evenement() -> void:
 
 func _maj_ombres() -> void:
 	var eq := Partie.ombres_equipees()
-	var cles := eq.map(func (o): return "%s|%d|%s|%s" % [o["espece"], o["etoiles"], o.get("evo", false), Partie.est_general(o)])
-	var actuelles := ombres.map(func (o): return "%s|%d|%s|%s" % [o.donnees["espece"], o.donnees["etoiles"], o.donnees.get("evo", false), Partie.est_general(o.donnees)])
-	if cles == actuelles:
+	# Les dictionnaires de Partie sont modifiés sur place (évolution, étoiles, général).
+	var composition := []
+	for o in eq:
+		composition.append([o["uid"], o["espece"], o["etoiles"], o.get("evo", false), Partie.est_general(o)])
+	if composition == _composition_ombres:
 		return
+	_composition_ombres = composition
 	for o in ombres:
 		o.queue_free()
 	ombres.clear()
@@ -1082,10 +1095,10 @@ func _process(dt: float) -> void:
 		_fin_evenement()
 	joueur.camera_lacet = _lacet
 	_maj_gates(dt)
-	_maj_raid()
 	_lod_t -= dt
 	if _lod_t <= 0.0:
 		_lod_t = 1.0
+		_maj_raid()
 		var pj := joueur.global_position
 		for m in monstres:
 			if is_instance_valid(m) and not m.allie:
@@ -1120,12 +1133,9 @@ func _process(dt: float) -> void:
 	var voulu := _cam_pos + dir * _dist
 
 
-	var q := PhysicsShapeQueryParameters3D.new()
-	q.shape = _sphere_cam
-	q.transform = Transform3D(Basis.IDENTITY, _cam_pos)
-	q.motion = voulu - _cam_pos
-	q.exclude = [joueur.get_rid()]
-	var f := get_world_3d().direct_space_state.cast_motion(q)
+	_requete_camera.transform = Transform3D(Basis.IDENTITY, _cam_pos)
+	_requete_camera.motion = voulu - _cam_pos
+	var f := get_world_3d().direct_space_state.cast_motion(_requete_camera)
 	if f[0] < 1.0:
 		voulu = _cam_pos + (voulu - _cam_pos) * maxf(f[0] - 0.02, 0.0)
 	camera.global_position = voulu

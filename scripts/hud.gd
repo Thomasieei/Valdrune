@@ -11,6 +11,7 @@ var _doigts := {}
 var _joy_centre := Vector2.ZERO
 var _joy_pos := Vector2.ZERO
 var _joy_actif := false
+var _joy := Control.new()
 const JOY_R := 85.0
 var _b_frapper: Control
 var _b_eveil: Control
@@ -60,7 +61,7 @@ func systeme(titre: String, lignes: Array) -> void:
 	Fx.son("open", -2.0, 1.3)
 var _flash_msg_t := 0.0
 const BARRE := [["arise", "ARISE", "arise"], ["fureur", "ATTAQUE", "attack"], ["auto", "OMBRES", "cmd_attack"],
-	["rappel", "RAPPEL", "essence"], ["potion", "POTION", "role_heal"], ["equip", "ÉQUIPE", "items"],
+	["rappel", "RAPPEL", "essence"], ["potion", "POTION", "role_heal"], ["equip", "ÉQUIPE", "sac"],
 	["diviser", "DIVISER", "role_melee"], ["monarque", "MONARQUE", "w8"], ["rangees", "RANGER", "ombres"], ["fourreau", "FOURREAU", "tab_w"], ["patrouille", "PATROUILLE", "q_run"]]
 
 func _barre_on(k: String) -> bool:
@@ -155,15 +156,14 @@ func _ready() -> void:
 	_racine.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_racine.theme = Ui.preparer()
 	add_child(_racine)
-	var joy := Control.new()
-	joy.name = "Joy"
-	joy.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	joy.set_anchors_preset(Control.PRESET_FULL_RECT)
-	joy.draw.connect(func ():
-		joy.draw_circle(_joy_centre, JOY_R, Color(0, 0, 0, 0.28))
-		joy.draw_arc(_joy_centre, JOY_R, 0, TAU, 48, Color(0.45, 0.7, 1.0, 0.6), 3.0, true)
-		joy.draw_circle(_joy_pos, 38, Color(0.55, 0.75, 1.0, 0.8 if _joy_actif else 0.55)))
-	_racine.add_child(joy)
+	_joy.name = "Joy"
+	_joy.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_joy.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_joy.draw.connect(func ():
+		_joy.draw_circle(_joy_centre, JOY_R, Color(0, 0, 0, 0.28))
+		_joy.draw_arc(_joy_centre, JOY_R, 0, TAU, 48, Color(0.45, 0.7, 1.0, 0.6), 3.0, true)
+		_joy.draw_circle(_joy_pos, 38, Color(0.55, 0.75, 1.0, 0.8 if _joy_actif else 0.55)))
+	_racine.add_child(_joy)
 	_haut = Control.new()
 	_haut.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_haut.size = Vector2(420, 140)
@@ -174,7 +174,7 @@ func _ready() -> void:
 	_droite.size = Vector2(330, 300)
 	_droite.draw.connect(_dessiner_droite)
 	_racine.add_child(_droite)
-	for d in [["inventaire", "Inventaire", "sac"], ["ombres", "Ombres", "ombres"], ["stats", "Compétences", "q_skills"], ["index", "Index", "q_kills"], ["boutique", "Boutique", "potion"], ["classement", "Classement", "best"], ["journal", "Journal", "quest"], ["grimoire", "Anos", "grimoire"], ["menu", "Menu", "menu"]]:
+	for d in [["inventaire", "Inventaire", "sac"], ["ombres", "Ombres", "ombres"], ["stats", "Compétences", "q_skills"], ["index", "Index", "q_kills"], ["boutique", "Boutique", "potion"], ["classement", "Classement", "best"], ["journal", "Journal", "quest"], ["grimoire", "Anos", "grimoire"], ["affichage", "Affichage", "gfx"], ["menu", "Menu", "menu"]]:
 		var h := Ui.hexagone(d[1], d[2], 96.0)
 		var type: String = d[0]
 		h.pressed.connect(func (): ouvrir(type))
@@ -335,6 +335,7 @@ func _disposer() -> void:
 	var h := _taille.y
 	_joy_centre = Vector2(170, h - 160)
 	_joy_pos = _joy_centre
+	_joy.queue_redraw()
 	_b_frapper.position = Vector2(w - 200, h - 200)
 	_b_eveil.position = Vector2(w - 640, h - 270)
 	_b_action.position = Vector2(w - 180, h - 446)
@@ -361,7 +362,7 @@ func _disposer() -> void:
 		lb.position = Vector2(0, 0 if n == "Titre" else 70)
 
 	var o := Vector2(20, 150)
-	var pos := {"inventaire": o, "ombres": o + Vector2(86, 50), "stats": o + Vector2(0, 100), "index": o + Vector2(86, 150), "boutique": o + Vector2(0, 200), "classement": o + Vector2(86, 250), "journal": o + Vector2(0, 300), "grimoire": o + Vector2(86, 350), "menu": o}
+	var pos := {"inventaire": o, "ombres": o + Vector2(86, 50), "stats": o + Vector2(0, 100), "index": o + Vector2(86, 150), "boutique": o + Vector2(0, 200), "classement": o + Vector2(86, 250), "journal": o + Vector2(0, 300), "grimoire": o + Vector2(86, 350), "affichage": o + Vector2(172, 0), "menu": o}
 	for k in _hex:
 		_hex[k].position = pos[k]
 	_msg.position = Vector2(w / 2.0 - 450, h * 0.62)
@@ -373,6 +374,8 @@ func _disposer() -> void:
 		_placer_panneau()
 
 func _maj() -> void:
+	for f in _fioles.values():
+		f.queue_redraw()
 	_haut.queue_redraw()
 	_droite.queue_redraw()
 	_hex["stats"].set_meta("alerte", Partie.points_libres() > 0)
@@ -576,8 +579,6 @@ func _process(dt: float) -> void:
 		bc.set_meta("pauvre", Partie.mana < float(Partie.COMPETENCES[k]["mana"]))
 		bc.queue_redraw()
 	_flash_msg_t -= dt
-	for k in _fioles:
-		_fioles[k].queue_redraw()
 	_reconstruire_t -= dt
 	if _a_reconstruire and _reconstruire_t <= 0.0:
 		_a_reconstruire = false
@@ -600,7 +601,6 @@ func _process(dt: float) -> void:
 			b.queue_redraw()
 	_cadre.queue_redraw()
 	ville.joueur.entree = (_joy_pos - _joy_centre) / JOY_R * Vector2(1, -1) if _joy_actif else Vector2.ZERO
-	_racine.get_node("Joy").queue_redraw()
 
 
 func _texte(c: Control, p: Vector2, t: String, taille: int, coul: Color, contour := 6) -> void:
@@ -748,6 +748,17 @@ func _construire() -> void:
 		_panneau.queue_free()
 	_detail = null
 	match _type:
+		"affichage":
+			_panneau = Ui.panneau("Affichage", "gfx", Vector2(650, 280), fermer)
+			var leger := bool(Partie.opts["rendu_leger"])
+			var bouton := Ui.bouton("Rendu léger : " + ("activé" if leger else "désactivé"), Ui.VIOLET, Vector2(370, 56))
+			_ajouter(bouton, Vector2(40, 92))
+			_ajouter(Ui.label("Allège les ombres, les effets et la résolution 3D.", 20, Color.WHITE), Vector2(40, 174))
+			bouton.pressed.connect(func ():
+				Partie.opts["rendu_leger"] = not leger
+				ville.appliquer_rendu()
+				Partie.sauver()
+				_construire())
 		"inventaire":
 			_panneau = Ui.panneau("Inventaire", "sac", Vector2(1060, 610), fermer)
 			_inventaire()
@@ -1392,11 +1403,12 @@ func _poser(i: int, p: Vector2) -> void:
 			else:
 				ville.eveiller()
 			return
-	if p.x < _taille.x * 0.42 and p.y > _taille.y * 0.4:
+	if not _joy_actif and p.x < _taille.x * 0.42 and p.y > _taille.y * 0.4:
 		_doigts[i] = {"role": "joy"}
 		_joy_actif = true
 		_joy_centre = p
 		_joy_pos = p
+		_joy.queue_redraw()
 		return
 	_doigts[i] = {"role": "camera", "depart": p, "t": Time.get_ticks_msec()}
 
@@ -1405,6 +1417,7 @@ func _glisser(i: int, p: Vector2, rel: Vector2) -> void:
 	match d.get("role", ""):
 		"joy":
 			_joy_pos = _joy_centre + (p - _joy_centre).limit_length(JOY_R)
+			_joy.queue_redraw()
 		"camera":
 			ville.tourner_camera(rel)
 
@@ -1414,6 +1427,7 @@ func _lever(i: int, p: Vector2) -> void:
 		_joy_actif = false
 		_joy_centre = Vector2(170, _taille.y - 160)
 		_joy_pos = _joy_centre
+		_joy.queue_redraw()
 	elif d.get("role", "") == "camera":
 		if p.distance_to(d["depart"]) < 18.0 and Time.get_ticks_msec() - int(d["t"]) < 350:
 			ville.toucher_monde(p)
@@ -1425,14 +1439,15 @@ func _maj_action() -> void:
 	var v := not _action.is_empty()
 	if v:
 		var t: String = {"autel": "PARLER", "donjon": "ENTRER", "sortir": "SORTIR", "chateau": "CHÂTEAU", "abime": "ABÎME", "quitter_abime": "SORTIR"}[_action["type"]]
-		_b_action.set_meta("texte", t)
+		if _b_action.get_meta("texte", "") != t:
+			_b_action.set_meta("texte", t)
+			_b_action.queue_redraw()
 	if v != _b_action.visible:
 		_b_action.visible = v
 		if v:
 			_b_action.scale = Vector2.ONE * 0.6
 			var tw := _b_action.create_tween()
 			tw.tween_property(_b_action, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_b_action.queue_redraw()
 
 func agir() -> void:
 	match _action.get("type", ""):
