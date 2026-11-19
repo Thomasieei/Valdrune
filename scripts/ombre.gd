@@ -33,11 +33,33 @@ func _ready() -> void:
 	pv_max = Partie.pv_ombre(donnees)
 	pv = pv_max
 	var rouge := Partie.ombre_rouge(donnees)
+	if Partie.est_general(donnees) or donnees.get("evo", false):
+		_corps.scale = Vector3.ONE * (1.25 if Partie.est_general(donnees) else 1.12)
+		var cl := Label3D.new()
+		cl.text = "♛ GÉNÉRAL" if Partie.est_general(donnees) else "◆ ÉLITE"
+		cl.font = Ui.police
+		cl.font_size = 22
+		cl.outline_size = 7
+		cl.pixel_size = 0.0016
+		cl.fixed_size = true
+		cl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		cl.modulate = Color(1.0, 0.82, 0.3)
+		cl.position.y = h * 1.25 + 0.55
+		add_child(cl)
+		var lum := OmniLight3D.new()
+		lum.light_color = Color(1.0, 0.75, 0.3) if Partie.est_general(donnees) else Color(0.7, 0.5, 1.0)
+		lum.light_energy = 1.5
+		lum.omni_range = 4.0
+		lum.position.y = 1.2
+		add_child(lum)
+	if Partie.est_general(donnees) and e.get("competence", {}).is_empty():
+		_comp = {"nom": "Ordre du général", "cd": 15.0, "mult": 8.0}
 	var mat := Shaders.ombre(Color(1.0, 0.12, 0.2) if rouge else Color(0.42, 0.2, 1.0))
 	for m in _corps.find_children("*", "MeshInstance3D", true, false):
 		(m as MeshInstance3D).material_override = mat
 		(m as MeshInstance3D).material_overlay = null
-	_comp = e.get("competence", {})
+	if _comp.is_empty():
+		_comp = e.get("competence", {})
 	_comp_t = float(_comp.get("cd", 0.0)) * 0.5
 	var etoiles := int(donnees["etoiles"])
 	if etoiles > 0:

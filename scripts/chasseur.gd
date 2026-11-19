@@ -57,6 +57,9 @@ func _valide(m) -> bool:
 	return m != null and is_instance_valid(m) and not m.mort
 
 func _choisir_ville() -> void:
+	if ville.raid_boss and is_instance_valid(ville.raid_boss) and not ville.raid_boss.mort:
+		cible = ville.raid_boss
+		return
 	var dps := Partie.bot_dps(d)
 	var mieux: Monstre = null
 	var score := -INF

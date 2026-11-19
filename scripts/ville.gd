@@ -69,6 +69,71 @@ var chateau: Chateau = null
 var gates: Array = []
 var _gate_t := 240.0
 var _break_boss: Monstre = null
+var raid_boss: Monstre = null
+var _raid_fin := 0.0
+var _raid_fait := -1
+var _nettoyage_t := 30.0
+
+func _maj_raid() -> void:
+	var t := Time.get_datetime_dict_from_system()
+	var h: int = t["hour"]
+	if raid_boss == null and t["minute"] >= 7 and t["minute"] < 12 and _raid_fait != h and donjon == null and chateau == null and arene == null and boss_evt == null:
+		_raid_fait = h
+		_lancer_raid()
+	elif raid_boss and is_instance_valid(raid_boss) and not raid_boss.mort and Time.get_unix_time_from_system() > _raid_fin:
+		_fin_raid(false)
+
+func _lancer_raid() -> void:
+	var total := Partie.dps_total()
+	for c in Partie.chasseurs:
+		total += Partie.bot_dps(c)
+	Partie.raid_degats = {}
+	var p := LIEU_EVENEMENT + Vector3(0, _sol(LIEU_EVENEMENT.x, LIEU_EVENEMENT.z), 0)
+	raid_boss = Monstre.new()
+	raid_boss.configurer("titan", p, deg_to_rad(-30))
+	raid_boss.reapparait_auto = false
+	raid_boss.sans_chrono = true
+	raid_boss.pv_perso = total * 240.0
+	raid_boss.atk_perso = Partie.ATK_RANG[mini(Partie.rang_chasseur + 1, 4)]
+	add_child(raid_boss)
+	raid_boss.chrono = 0.0
+	monstres.append(raid_boss)
+	raid_boss.vaincu.connect(func (_m): _fin_raid(true))
+	_raid_fin = Time.get_unix_time_from_system() + 480.0
+	Fx.son("portal", 2.0, 0.5)
+	hud.annonce("RAID MONDIAL", "Gorrath, titan des failles, frappe l'esplanade ! Tous les chasseurs y vont.", Color(1.0, 0.55, 0.2))
+
+func _fin_raid(victoire: bool) -> void:
+	if raid_boss == null:
+		return
+	var b := raid_boss
+	raid_boss = null
+	var l := []
+	for k in Partie.raid_degats:
+		l.append([k, float(Partie.raid_degats[k])])
+	l.sort_custom(func (a, c): return a[1] > c[1])
+	var lignes := []
+	var ma_place := -1
+	for k in l.size():
+		if l[k][0] == "Toi":
+			ma_place = k
+		if k < 5:
+			lignes.append("#%d  %s  —  %s dégâts" % [k + 1, l[k][0], Fx.court(l[k][1])])
+	if victoire and ma_place >= 0:
+		var gain := int(5000.0 * pow(4.0, Partie.rang_chasseur) / (ma_place + 1))
+		Partie.pieces += gain
+		Partie.or_total += gain
+		Partie.donner_cle(3 if ma_place == 0 else 1)
+		if ma_place == 0:
+			Partie.ajouter_objet(Partie.BUTIN_DONJON.pick_random(), 4)
+			lignes.append("1re place : objet de rang A + 3 clés !")
+		lignes.append("Ta place : #%d  ·  +%s pièces" % [ma_place + 1, Fx.court(gain)])
+	elif not victoire:
+		lignes.append("Le titan s'est retiré dans la faille…")
+		monstres.erase(b)
+		b.queue_free()
+	hud.systeme("RAID MONDIAL — %s" % ("VICTOIRE" if victoire else "ÉCHEC"), lignes)
+
 var _break_fin := 0.0
 const COULEURS_GATE := [Color(0.6, 0.65, 0.75), Color(0.3, 0.9, 0.4), Color(0.3, 0.6, 1.0), Color(0.75, 0.35, 1.0), Color(1.0, 0.6, 0.15)]
 
@@ -708,8 +773,8 @@ func _fin_evenement() -> void:
 
 func _maj_ombres() -> void:
 	var eq := Partie.ombres_equipees()
-	var cles := eq.map(func (o): return "%s|%d" % [o["espece"], o["etoiles"]])
-	var actuelles := ombres.map(func (o): return "%s|%d" % [o.donnees["espece"], o.donnees["etoiles"]])
+	var cles := eq.map(func (o): return "%s|%d|%s|%s" % [o["espece"], o["etoiles"], o.get("evo", false), Partie.est_general(o)])
+	var actuelles := ombres.map(func (o): return "%s|%d|%s|%s" % [o.donnees["espece"], o.donnees["etoiles"], o.donnees.get("evo", false), Partie.est_general(o.donnees)])
 	if cles == actuelles:
 		return
 	for o in ombres:
@@ -906,6 +971,14 @@ func _process(dt: float) -> void:
 		_fin_evenement()
 	joueur.camera_lacet = _lacet
 	_maj_gates(dt)
+	_maj_raid()
+	_nettoyage_t -= dt
+	if _nettoyage_t <= 0.0:
+		_nettoyage_t = 30.0
+		for m in monstres.duplicate():
+			if is_instance_valid(m) and m.mort and not m.reapparait_auto and not m.eveillable and m.get_parent() == self and m != boss_evt:
+				monstres.erase(m)
+				m.queue_free()
 	if _break_boss and is_instance_valid(_break_boss) and not _break_boss.mort and Time.get_unix_time_from_system() > _break_fin:
 		var perte := int(Partie.pieces * 0.1)
 		Partie.pieces -= perte

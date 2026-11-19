@@ -23,7 +23,7 @@ var _arme_vue := ""
 var invulnerable := 0.0
 var _dash := Vector3.ZERO
 var _dash_t := 0.0
-var recharges := {"esquive": 0.0, "brise": 0.0, "cri": 0.0, "domaine": 0.0}
+var recharges := {"esquive": 0.0, "brise": 0.0, "cri": 0.0, "domaine": 0.0, "echange": 0.0}
 
 
 func _maj_arme() -> void:
@@ -240,6 +240,25 @@ func competence(k: String) -> String:
 		v.y = 0
 		if v.length() - c.haut() * 0.25 > PORTEE + 1.2:
 			return "Trop loin"
+	var vil := get_parent()
+	if k == "echange":
+		var vivantes: Array = vil.ombres.filter(func (o): return not o.mort)
+		if vivantes.is_empty():
+			return "Aucune ombre à échanger"
+		var reference: Vector3 = cible.global_position if c and is_instance_valid(c) and not c.mort else global_position + _corps.global_transform.basis.z * 100.0
+		vivantes.sort_custom(func (a, b): return a.global_position.distance_to(reference) < b.global_position.distance_to(reference))
+		var o: Node3D = vivantes[0]
+		Partie.depenser_mana(d["mana"])
+		recharges[k] = d["cd"]
+		var ici := global_position
+		Fx.anneau(ici, Color(0.5, 0.25, 1.0), 2.0)
+		global_position = o.global_position + Vector3(0, 0.3, 0)
+		o.global_position = ici
+		velocity = Vector3.ZERO
+		invulnerable = 0.6
+		Fx.anneau(global_position, Color(0.5, 0.25, 1.0), 2.4)
+		Fx.son("shadow", -2.0, 1.4)
+		return ""
 	Partie.depenser_mana(d["mana"])
 	recharges[k] = d["cd"]
 	match k:

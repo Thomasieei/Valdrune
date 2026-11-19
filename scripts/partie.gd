@@ -62,6 +62,8 @@ const ESPECES := {
 	"b_ozzug": {"nom": "Ozzug, grand chaman", "modele": "chaman", "haut": 4.2, "rang": 3, "pv": 2500000, "temps": 9999.0, "pieces": 25000, "xp": 11000, "eveil": 0.004, "boss": true, "lieu": "chateau", "icone": "essence", "monnaie": "eclat", "teinte": Color(0.7, 1.1, 0.6), "meca": "totems",
 		"competence": {"nom": "Malédiction", "cd": 12.0, "mult": 24.0}},
 
+	"titan": {"nom": "Gorrath, titan des failles", "modele": "orc_warrior", "haut": 9.0, "rang": 4, "pv": 1000000, "temps": 9999.0, "pieces": 0, "xp": 0, "eveil": 0.0, "boss": true, "lieu": "raid", "icone": "sh_orc_warrior", "monnaie": "eclat", "teinte": Color(0.4, 0.3, 0.55)},
+
 	"baran": {"nom": "Baran, roi des démons", "modele": "imp", "haut": 5.2, "rang": 4, "pv": 9000000, "temps": 90.0, "pieces": 30000, "xp": 9000, "eveil": 0.001, "boss": true, "lieu": "evenement",
 		"teinte": Color(0.55, 0.35, 0.45), "icone": "sh_baran", "rang_ombre": 4, "monnaie": "eclat",
 		"competence": {"nom": "Chaînes infernales", "cd": 12.0, "mult": 30.0}},
@@ -402,10 +404,47 @@ const COMPETENCES := {
 	"brise": {"nom": "BRISE-GARDE", "icone": "tk_crush", "cd": 10.0, "mana": 20.0},
 	"cri": {"nom": "CRI", "icone": "ombres", "cd": 25.0, "mana": 30.0},
 	"domaine": {"nom": "DOMAINE", "icone": "arise", "cd": 1.0, "mana": 0.0},
+	"echange": {"nom": "ÉCHANGE", "icone": "swap", "cd": 8.0, "mana": 15.0},
 }
 const DUREE_DOMAINE := 10.0
 var charge := 0.0
 var createur := false
+var general_uid := -1
+var raid_degats := {}
+const NOMS_GENERAUX := ["Kaelith", "Vorn", "Moros", "Thaëlis", "Grimvald", "Nyx"]
+const ETOILES_EVO := 3
+
+func est_general(o: Dictionary) -> bool:
+	return int(o["uid"]) == general_uid
+
+func nom_ombre(o: Dictionary) -> String:
+	var n: String = ESPECES[o["espece"]]["nom"]
+	if o.get("evo", false):
+		n = "Élite " + n
+	if est_general(o):
+		n = "%s, général (%s)" % [NOMS_GENERAUX[int(o["uid"]) % NOMS_GENERAUX.size()], n]
+	return n
+
+func nommer_general(o: Dictionary) -> void:
+	general_uid = int(o["uid"])
+	message.emit("%s devient ton général !" % nom_ombre(o), Color(1.0, 0.8, 0.3))
+	sauver()
+	change.emit()
+
+func cout_evolution(o: Dictionary) -> int:
+	return int(ESPECES[o["espece"]]["pieces"]) * 400
+
+func evoluer(o: Dictionary) -> bool:
+	var m: String = ESPECES[o["espece"]].get("monnaie", "eclat")
+	if o.get("evo", false) or int(o["etoiles"]) < ETOILES_EVO or pieces < cout_evolution(o) or int(monnaies[m]) < 20:
+		return false
+	pieces -= cout_evolution(o)
+	monnaies[m] = int(monnaies[m]) - 20
+	o["evo"] = true
+	message.emit("ÉVOLUTION ! %s" % nom_ombre(o), Color(1.0, 0.8, 0.3))
+	sauver()
+	change.emit()
+	return true
 var domaine_fin := -1.0
 
 func domaine_actif() -> bool:
@@ -672,17 +711,18 @@ func dps_ombre(o: Dictionary) -> float:
 	var k := 0.12
 	if e.get("lieu", "") == "evenement":
 		k = 0.2
-	return float(e["pv"]) / temps * k * pow(1.35, int(o["etoiles"])) * (1.0 + bonus("ombres") / 100.0) * vit_ombre() * (1.3 if cri_actif() else 1.0) * mult_rang() * (3.0 if domaine_actif() else 1.0) * (1000.0 if createur else 1.0)
+	var aura := 15.0 if general_uid >= 0 and not est_general(o) and ombres.any(func (x): return est_general(x) and x.get("eq", false)) else 0.0
+	return float(e["pv"]) / temps * k * pow(1.35, int(o["etoiles"])) * (1.0 + (bonus("ombres") + aura) / 100.0) * (2.5 if o.get("evo", false) else 1.0) * (2.0 if est_general(o) else 1.0) * vit_ombre() * (1.3 if cri_actif() else 1.0) * mult_rang() * (3.0 if domaine_actif() else 1.0) * (1000.0 if createur else 1.0)
 
 func rang_ombre(o: Dictionary) -> int:
 	var e: Dictionary = ESPECES[o["espece"]]
-	return mini(int(e.get("rang_ombre", e["rang"])), RANG_MAX_EVENEMENT)
+	return mini(int(e.get("rang_ombre", e["rang"])) + (1 if o.get("evo", false) else 0), RANG_MAX_EVENEMENT)
 
 func ombre_rouge(o: Dictionary) -> bool:
 	return ESPECES[o["espece"]].get("lieu", "") == "evenement"
 
 func pv_ombre(o: Dictionary) -> float:
-	return PV_OMBRE_RANG[rang_ombre(o)] * pow(1.3, int(o["etoiles"])) * (1.0 + bonus("vie") / 100.0)
+	return PV_OMBRE_RANG[rang_ombre(o)] * pow(1.3, int(o["etoiles"])) * (1.0 + bonus("vie") / 100.0) * (2.0 if o.get("evo", false) else 1.0) * (1.5 if est_general(o) else 1.0)
 
 func cout_rappel(o: Dictionary) -> float:
 	return 20.0 + 15.0 * rang_ombre(o) + 5.0 * int(o["etoiles"])
@@ -1034,7 +1074,7 @@ func sauver() -> void:
 			"auto_attaque": auto_attaque, "records": records, "finis": donjons_finis,
 			"chasseurs": chasseurs, "elo": elo, "jetons": jetons, "arene_v": arene_v, "arene_d": arene_d,
 			"quitte": Time.get_unix_time_from_system(), "rang_chasseur": rang_chasseur, "or_total": or_total, "opts": opts, "cles": cles, "etage_max": etage_max,
-			"quete": quete, "pts_bonus": points_bonus, "secretes": secretes, "kills_total": kills_total}))
+			"quete": quete, "pts_bonus": points_bonus, "secretes": secretes, "kills_total": kills_total, "general": general_uid}))
 
 func charger() -> void:
 	if OS.get_cmdline_user_args().has("--sans-sauvegarde") or not FileAccess.file_exists(CHEMIN):
@@ -1075,6 +1115,7 @@ func charger() -> void:
 	points_bonus = int(d.get("pts_bonus", 0))
 	secretes = d.get("secretes", {})
 	kills_total = int(d.get("kills_total", 0))
+	general_uid = int(d.get("general", -1))
 	etage_max = int(d.get("etage_max", 0))
 	for k in opts:
 		opts[k] = bool(d.get("opts", {}).get(k, opts[k]))
@@ -1098,8 +1139,8 @@ func charger() -> void:
 		equipe[e] = int(d["equipe"][e])
 	for o in d.get("ombres", []):
 		if ESPECES.has(o.get("espece", "")):
-			ombres.append({"uid": _uid, "espece": o["espece"], "etoiles": int(o.get("etoiles", 0)), "eq": bool(o.get("eq", true))})
-			_uid += 1
+			ombres.append({"uid": int(o.get("uid", _uid)), "espece": o["espece"], "etoiles": int(o.get("etoiles", 0)), "eq": bool(o.get("eq", true)), "evo": bool(o.get("evo", false))})
+			_uid = maxi(_uid, int(o.get("uid", _uid)) + 1)
 
 	if inventaire.is_empty() and d.has("niv_arme"):
 		var a := ajouter_objet("dague", 0, false)

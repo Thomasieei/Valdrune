@@ -376,6 +376,9 @@ func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) ->
 	pv -= degats
 	if source == "joueur" or source == "ombres":
 		Partie.compter(reel, source)
+	if espece == "titan":
+		var qui_nom: String = "Toi" if source in ["joueur", "ombres", "evenement"] else (str(qui.d["nom"]) if qui and is_instance_valid(qui) and "d" in qui else "?")
+		Partie.raid_degats[qui_nom] = float(Partie.raid_degats.get(qui_nom, 0.0)) + reel
 	_flash = 1.0
 	var h := haut()
 	if source == "bot" or source == "allie":

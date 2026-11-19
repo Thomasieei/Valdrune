@@ -189,7 +189,7 @@ func _ready() -> void:
 	_racine.add_child(_flash)
 	for k in Partie.COMPETENCES:
 		var d: Dictionary = Partie.COMPETENCES[k]
-		_b_comp[k] = _rond(d["nom"], d["icone"], 104.0, {"esquive": Color(0.1, 0.5, 0.45), "brise": Color(0.15, 0.4, 0.75), "cri": Color(0.4, 0.15, 0.7), "domaine": Color(0.3, 0.05, 0.5)}[k])
+		_b_comp[k] = _rond(d["nom"], d["icone"], 104.0, {"esquive": Color(0.1, 0.5, 0.45), "brise": Color(0.15, 0.4, 0.75), "cri": Color(0.4, 0.15, 0.7), "domaine": Color(0.3, 0.05, 0.5), "echange": Color(0.2, 0.15, 0.55)}[k])
 	_cadre = Control.new()
 	_cadre.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_cadre.size = Vector2(560, 118)
@@ -313,6 +313,7 @@ func _disposer() -> void:
 	_b_comp["brise"].position = Vector2(w - 318, h - 250)
 	_b_comp["cri"].position = Vector2(w - 196, h - 318)
 	_b_comp["domaine"].position = Vector2(w - 330, h - 380)
+	_b_comp["echange"].position = Vector2(w - 456, h - 430)
 	_haut.position = Vector2(16, 10)
 	_droite.position = Vector2(w - 340, 120)
 	_evt.position = Vector2(w - 340, 68)
@@ -913,12 +914,19 @@ func _montrer_detail(genre: String, o: Dictionary) -> void:
 			boutons2.append(["ÉQUIPER" if not plein else "ÉQUIPE PLEINE", Ui.VERT, func ():
 				_choix = []
 				Partie.equiper_ombre(o, true), plein])
+		if not Partie.est_general(o):
+			boutons2.append(["NOMMER GÉNÉRAL", Color(0.75, 0.55, 0.1), func (): Partie.nommer_general(o)])
+		if not o.get("evo", false):
+			var peut := int(o["etoiles"]) >= Partie.ETOILES_EVO
+			boutons2.append([("ÉVOLUER (%s + 20 ●)" % Fx.court(Partie.cout_evolution(o))) if peut else "ÉVOLUTION : ★★★ requis", Color(0.6, 0.35, 0.9), func ():
+				if Partie.evoluer(o):
+					Fx.son("levelup", -2.0), not peut or Partie.pieces < Partie.cout_evolution(o)])
 		boutons2.append(["LIBÉRER  (%s)" % Fx.court(Partie.prix_ombre(o)), Ui.OR, func ():
 			_choix = []
 			Partie.liberer_ombre(o)
 			Fx.son("coins", -2.0)])
 		boutons2.append(["ANNULER", Ui.ROUGE, func (): _fermer_detail()])
-		p = Ui.detail(e["nom"], Partie.COULEURS_RANG[rang], lignes2, boutons2)
+		p = Ui.detail(Partie.nom_ombre(o), Partie.COULEURS_RANG[rang], lignes2, boutons2)
 	p.position = Vector2(_panneau.size.x / 2.0 - 150, 96)
 	_panneau.add_child(p)
 	_detail = p
