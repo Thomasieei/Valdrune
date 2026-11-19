@@ -8,6 +8,8 @@ signal change
 signal message(texte: String, couleur: Color)
 signal butin(objet: Dictionary)
 
+var chapitre := 0
+var _principal_valide := false
 const CHEMIN := "user://partie.json"
 const RANGS := ["E", "D", "C", "B", "A", "S"]
 const COULEURS_RANG := [Color(0.7, 0.72, 0.75), Color(0.4, 0.85, 0.45), Color(0.35, 0.65, 1.0),
@@ -1017,10 +1019,11 @@ func chance_eveil(espece: String) -> float:
 
 var force_eveil := false
 
-func eveiller(espece: String) -> Dictionary:
+func eveiller(espece: String, initiation := false) -> Dictionary:
 	var e: Dictionary = ESPECES[espece]
 	var evenement: bool = e.get("lieu", "") == "evenement"
-	var ok := randf() < chance_eveil(espece) or force_eveil or (echecs_eveil >= PITIE and not evenement)
+	var premiere := initiation and chapitre == 1
+	var ok := premiere or randf() < chance_eveil(espece) or force_eveil or (echecs_eveil >= PITIE and not evenement)
 	if not ok:
 		if not evenement:
 			echecs_eveil += 1
@@ -1031,6 +1034,8 @@ func eveiller(espece: String) -> Dictionary:
 	var o := {"uid": _uid, "espece": espece, "etoiles": 0, "eq": ombres_equipees().size() < places_ombres()}
 	_uid += 1
 	ombres.append(o)
+	if premiere:
+		chapitre = 2
 	arises[espece] = int(arises.get(espece, 0)) + 1
 	progres("ombres")
 	if ombres.size() >= 20:
@@ -1118,9 +1123,9 @@ func liberer_ombre(o: Dictionary) -> int:
 func sauver() -> void:
 	if OS.get_cmdline_user_args().has("--sans-sauvegarde"):
 		return
-	var f := FileAccess.open(CHEMIN, FileAccess.WRITE)
+	var f := FileAccess.open(CHEMIN + ".tmp", FileAccess.WRITE)
 	if f:
-		f.store_string(JSON.stringify({"v": 5, "pieces": pieces, "niveau": niveau, "xp": xp, "inventaire": inventaire,
+		f.store_string(JSON.stringify({"v": 5, "chapitre": chapitre, "pieces": pieces, "niveau": niveau, "xp": xp, "inventaire": inventaire,
 			"equipe": equipe, "ombres": ombres, "points": points, "echecs": echecs_eveil, "tues": tues, "uid": _uid,
 			"rolls": rolls, "monnaies": monnaies, "achats": achats, "tirages": tirages, "donjons": donjons,
 			"record": record_donjon, "uniques": uniques_obtenus, "arises": arises, "quetes": quetes,
@@ -1129,13 +1134,31 @@ func sauver() -> void:
 			"chasseurs": chasseurs, "elo": elo, "jetons": jetons, "arene_v": arene_v, "arene_d": arene_d,
 			"quitte": Time.get_unix_time_from_system(), "rang_chasseur": rang_chasseur, "or_total": or_total, "opts": opts, "cles": cles, "etage_max": etage_max,
 			"quete": quete, "pts_bonus": points_bonus, "secretes": secretes, "kills_total": kills_total, "general": general_uid, "speciale": speciale, "abime_max": abime_max, "potions": potions}))
+		f.flush()
+		if f.get_error() != OK:
+			return
+		f.close()
+		if _principal_valide and FileAccess.file_exists(CHEMIN):
+			if DirAccess.rename_absolute(CHEMIN, CHEMIN + ".bak") != OK:
+				return
+			_principal_valide = false
+		if DirAccess.rename_absolute(CHEMIN + ".tmp", CHEMIN) == OK:
+			_principal_valide = true
 
 func charger() -> void:
-	if OS.get_cmdline_user_args().has("--sans-sauvegarde") or not FileAccess.file_exists(CHEMIN):
+	if OS.get_cmdline_user_args().has("--sans-sauvegarde"):
 		return
-	var d = JSON.parse_string(FileAccess.get_file_as_string(CHEMIN))
-	if typeof(d) != TYPE_DICTIONARY:
+	var d: Dictionary = {}
+	for chemin in [CHEMIN, CHEMIN + ".bak"]:
+		if FileAccess.file_exists(chemin):
+			var contenu = JSON.parse_string(FileAccess.get_file_as_string(chemin))
+			if contenu is Dictionary and contenu.get("inventaire", []) is Array and contenu.has("niveau"):
+				d = contenu
+				_principal_valide = chemin == CHEMIN
+				break
+	if d.is_empty():
 		return
+	chapitre = clampi(int(d.get("chapitre", 3 if not d.get("ombres", []).is_empty() else 0)), 0, 3)
 	pieces = int(d.get("pieces", 0))
 	niveau = int(d.get("niveau", 1))
 	xp = int(d.get("xp", 0))
@@ -1186,6 +1209,10 @@ func charger() -> void:
 			simuler_bot(c, absent)
 	records = d.get("records", {})
 	donjons_finis = d.get("finis", {})
+	inventaire.clear()
+	_objets_par_uid.clear()
+	equipe.clear()
+	ombres.clear()
 	for o in d.get("inventaire", []):
 		if OBJETS.has(o.get("base", "")):
 			var rr := int(o["rarete"])

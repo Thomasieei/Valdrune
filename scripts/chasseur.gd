@@ -117,6 +117,8 @@ func _choisir_donjon() -> void:
 				cible = m
 
 func _destination() -> Vector3:
+	if mode == "guide":
+		return ville.guide_destination()
 	if mode in ["vers_portail", "vers_groupe"]:
 		return ville.portail.global_position
 	if mode == "donjon":
@@ -201,7 +203,7 @@ func _physics_process(dt: float) -> void:
 			velocity = Vector3.ZERO
 			Fx.anneau(global_position, Color(0.4, 0.7, 1.0), 2.0)
 			return
-	else:
+	elif mode != "guide":
 		_choix_t -= dt
 		if _choix_t <= 0.0:
 			_choix_t = 1.0

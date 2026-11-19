@@ -63,6 +63,11 @@ var portail: Node3D
 var donjon: Donjon = null
 var arene: Arene = null
 var chasseurs: Array = []
+var mentor: Chasseur
+var _entree_en_cours := false
+var proie: Monstre
+const PISTE := Vector3(-182, 0, -73)
+
 var _adversaire := {}
 var POSTES_V: Array = POSTES
 var _arise_t := 0.0
@@ -323,7 +328,13 @@ func _ready() -> void:
 		c.ville = self
 		add_child(c)
 		var p: Array = _postes_gen[(k * 3) % _postes_gen.size()]
-		c.placer(Vector3(p[1] + 2.0, _sol(p[1], p[2]) + 0.3, p[2] + 2.0))
+		if k == 0 and Partie.chapitre < 3:
+			mentor = c
+			c.placer(DEPART + Vector3(-2, 0, -1))
+			c.mode = "guide"
+			c._plaque.text = "%s · Guide de l’Association" % c.d.nom
+		else:
+			c.placer(Vector3(p[1] + 2.0, _sol(p[1], p[2]) + 0.3, p[2] + 2.0))
 		chasseurs.append(c)
 	prochain_evt = _quart_suivant()
 	hud = Hud.new()
@@ -335,7 +346,7 @@ func _ready() -> void:
 	Partie.systeme.connect(func (t, l): hud.systeme(t, l))
 	if Partie.penalite_due:
 		get_tree().create_timer(3.0).timeout.connect(_penalite)
-	else:
+	elif Partie.chapitre >= 3:
 		get_tree().create_timer(3.0).timeout.connect(func (): hud.systeme("QUÊTE QUOTIDIENNE", ["Préparation pour devenir fort :", "• 100 monstres vaincus", "• 10 ombres levées", "• 1 donjon terminé", "Avant minuit. Sinon : zone de pénalité."]))
 	hud.dire("Zones rouges au sol : sors-en vite !  Bouclier bleu = PARADE : arrête de frapper.", Color(0.85, 0.75, 1.0))
 	if OS.get_cmdline_user_args().size() > 0:
@@ -598,6 +609,38 @@ func _pole() -> void:
 	portail.add_child(l)
 
 
+func guide_destination() -> Vector3:
+	if Partie.chapitre == 0 or joueur.global_position.distance_to(mentor.global_position) > 8.0:
+		return mentor.global_position
+	return portail.global_position if Partie.chapitre == 2 else PISTE
+
+func _premiere_chasse() -> void:
+	if Partie.chapitre != 1 or donjon or chateau or abime or arene:
+		return
+	if not is_instance_valid(proie) and joueur.global_position.distance_to(PISTE) < 10:
+		proie = Monstre.new()
+		proie.configurer("gobelin", PISTE + Vector3(0, _sol_quartier(PISTE.x, PISTE.z), 0), PI)
+		proie.nom_perso = "Éclaireur des entrepôts"
+		proie.sans_chrono = true
+		add_child(proie)
+		monstres.append(proie)
+		hud.dire("Kaito : « Touche l’éclaireur, puis FRAPPER. Je surveille la rue. »", Color.GOLD)
+		proie.vaincu.connect(func (_m): hud.dire("Son ombre résiste encore. Approche et touche ÉVEIL.", Color.GOLD))
+	if is_instance_valid(proie) and proie.mort and proie.eveillable:
+		proie._eveil_fin = Time.get_ticks_msec() / 1000.0 + 5.0
+		proie._reapparait = 12.0
+
+func parler_guide() -> void:
+	if Partie.chapitre == 0:
+		Partie.chapitre = 1
+		hud.systeme("MA PREMIÈRE OMBRE", ["Kaito : « Un éclaireur rôde dans les entrepôts. »", "Suis-moi au joystick. Je t’attends si tu t’arrêtes."])
+	elif Partie.chapitre == 2:
+		Partie.chapitre = 3
+		mentor.mode = "ville"
+		mentor._maj_plaque()
+		hud.systeme("CHASSEUR DE L’ASSOCIATION", ["Ta première ombre marche avec toi.", "Au portail : choisis le Repaire, seul ou en groupe."])
+	Partie.sauver()
+
 func action_proche() -> Dictionary:
 	var p := joueur.global_position
 	if abime:
@@ -608,6 +651,9 @@ func action_proche() -> Dictionary:
 		if donjon.sortie and p.distance_to(donjon.sortie.global_position) < 4.0:
 			return {"type": "sortir"}
 		return {}
+	if not arene and is_instance_valid(mentor) and p.distance_to(mentor.global_position) < 4.0:
+		if Partie.chapitre == 0 or (Partie.chapitre == 2 and p.distance_to(portail.global_position) < 6.0):
+			return {"type": "guide"}
 	for n: Pnj in pnjs:
 		if p.distance_to(n.global_position) < 3.6:
 			return {"type": "autel", "autel": n.autel}
@@ -695,7 +741,7 @@ func sort_anos(id: String) -> void:
 		"legion":
 			var n := 0
 			for m in monstres:
-				if is_instance_valid(m) and m.eveillable and m.global_position.distance_to(p) < 35.0:
+				if is_instance_valid(m) and m != proie and m.eveillable and m.global_position.distance_to(p) < 35.0:
 					Partie.force_eveil = true
 					Partie.eveiller(m.espece)
 					Partie.force_eveil = false
@@ -798,8 +844,9 @@ func entrer_test() -> void:
 	hud.annonce("TEST DE RANG %s" % Partie.RANGS[donjon.test_rang], "10 salles · %d minutes · ne flanche pas" % (int(Partie.DUREE_TEST) / 60), Color(1.0, 0.75, 0.3))
 
 func entrer_donjon(n := 0, groupe := false) -> void:
-	if donjon or arene:
+	if _entree_en_cours or donjon or arene or chateau or abime:
 		return
+	_entree_en_cours = true
 	var equipe := []
 	if groupe:
 		hud.annonce("RECHERCHE DE GROUPE", "Matchmaking en cours…", Color(0.5, 0.85, 1.0))
@@ -815,6 +862,7 @@ func entrer_donjon(n := 0, groupe := false) -> void:
 		hud.dire("Groupe trouvé : " + ", ".join(equipe.map(func (c): return "%s (niv %d)" % [c.d["nom"], int(c.d["niveau"])])), Color(0.5, 1.0, 0.7))
 	await hud.fondu(true)
 	donjon = Donjon.new()
+	_entree_en_cours = false
 	donjon.niv = n
 	donjon.groupe = not equipe.is_empty()
 	var aide := 0.0
@@ -1003,6 +1051,8 @@ func frapper() -> void:
 	joueur.viser(c)
 
 func monstre_eveillable() -> Monstre:
+	if Partie.chapitre == 1 and is_instance_valid(proie) and proie.eveillable and proie.global_position.distance_to(joueur.global_position) < 12.0:
+		return proie
 	for m: Monstre in monstres:
 		if is_instance_valid(m) and m.eveillable and m.global_position.distance_to(joueur.global_position) < 12.0:
 			return m
@@ -1017,7 +1067,10 @@ func eveiller() -> void:
 	Fx.anneau(m.global_position, Color(0.55, 0.2, 1.0), 3.0)
 	Fx.texte(m.global_position + Vector3(0, 2.5, 0), "LÈVE-TOI", Color(0.8, 0.55, 1.0), 1.8, 1.4)
 	await get_tree().create_timer(0.8).timeout
-	var o := Partie.eveiller(m.espece)
+	if not is_instance_valid(m) or m.is_queued_for_deletion():
+		return
+	var initiation := m == proie and Partie.chapitre == 1
+	var o := Partie.eveiller(m.espece, initiation)
 	if o.is_empty():
 		m.eveil_rate()
 		if m.e.get("lieu", "") == "evenement":
@@ -1027,6 +1080,11 @@ func eveiller() -> void:
 		Fx.son("error", -4.0)
 	else:
 		m.eveil_reussi()
+		if initiation:
+			monstres.erase(m)
+			m.reapparait_auto = false
+			get_tree().create_timer(2.0).timeout.connect(m.queue_free)
+			hud.annonce("PREMIÈRE OMBRE", "Rejoins Kaito au portail des entrepôts", Color.MEDIUM_PURPLE)
 		Fx.son("shadow", 0.0)
 		Fx.anneau(m.global_position, Color(0.75, 0.4, 1.0), 4.5)
 		if m.e.get("lieu", "") == "evenement":
@@ -1174,6 +1232,7 @@ func toucher_monde(p: Vector2) -> void:
 			joueur.viser(m)
 
 func _process(dt: float) -> void:
+	_premiere_chasse()
 	if boss_evt == null and donjon == null and arene == null and chateau == null and abime == null and temps_avant_evt() <= 0.0:
 		lancer_evenement()
 	elif boss_evt and not boss_evt.mort and evt_restant() <= 0.0:

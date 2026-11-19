@@ -1330,6 +1330,23 @@ func _index() -> void:
 		y += 100.0
 
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_PAUSED and is_instance_valid(_joy):
+		_doigts.clear()
+		_joy_actif = false
+		_joy_centre = Vector2(170, _taille.y - 160)
+		_joy_pos = _joy_centre
+		_joy.queue_redraw()
+		if is_instance_valid(ville) and is_instance_valid(ville.joueur):
+			ville.joueur.entree = Vector2.ZERO
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		if is_instance_valid(_detail):
+			_fermer_detail()
+		elif is_instance_valid(_panneau):
+			fermer()
+		else:
+			_menu_ouvert = not _menu_ouvert
+
 func _input(ev: InputEvent) -> void:
 	if ev is InputEventScreenTouch:
 		if ev.pressed:
@@ -1439,7 +1456,7 @@ func _maj_action() -> void:
 	_action = ville.action_proche() if _panneau == null else {}
 	var v := not _action.is_empty()
 	if v:
-		var t: String = {"autel": "PARLER", "donjon": "ENTRER", "sortir": "SORTIR", "chateau": "CHÂTEAU", "abime": "ABÎME", "quitter_abime": "SORTIR"}[_action["type"]]
+		var t: String = {"guide": "PARLER", "autel": "PARLER", "donjon": "ENTRER", "sortir": "SORTIR", "chateau": "CHÂTEAU", "abime": "ABÎME", "quitter_abime": "SORTIR"}[_action["type"]]
 		if _b_action.get_meta("texte", "") != t:
 			_b_action.set_meta("texte", t)
 			_b_action.queue_redraw()
@@ -1452,6 +1469,8 @@ func _maj_action() -> void:
 
 func agir() -> void:
 	match _action.get("type", ""):
+		"guide":
+			ville.parler_guide()
 		"autel":
 			_autel = _action["autel"]
 			_bande = []
@@ -1494,6 +1513,15 @@ func _dessiner_evt() -> void:
 
 
 func _dessiner_fleche() -> void:
+	if Partie.chapitre < 3 and not _panneau and not _menu_ouvert and not (ville.donjon or ville.chateau or ville.abime or ville.arene):
+		var consigne := "Touche PARLER près de Kaito"
+		if Partie.chapitre == 1:
+			consigne = "Suis Kaito aux entrepôts"
+			if is_instance_valid(ville.proie):
+				consigne = "Touche ÉVEIL près de l’éclaireur" if ville.proie.mort else "Touche l’éclaireur pour l’attaquer"
+		elif Partie.chapitre == 2:
+			consigne = "Retrouve Kaito au portail bleu"
+		_texte(_fleche, Vector2(24, 134), consigne, 21, Color.GOLD)
 	var b: Monstre = ville.boss_evt
 	if b == null or not is_instance_valid(b) or b.mort or ville.donjon != null:
 		return
