@@ -133,8 +133,10 @@ func _physics_process(dt: float) -> void:
 		dir = droite * entree.x + avant * entree.y
 		if dir.length() > 1.0:
 			dir = dir.normalized()
-		if entree.length() > 0.5:
+		if entree.length() > 0.5 and not Partie.auto_attaque:
 			cible = null
+	if Partie.auto_attaque and entree.length() < 0.2 and (cible == null or not is_instance_valid(cible) or cible.mort):
+		cible = cible_devant(get_parent().monstres, 14.0)
 	var en_combat := cible != null and is_instance_valid(cible) and not cible.mort
 	if cible and (not is_instance_valid(cible) or cible.mort):
 		cible = null

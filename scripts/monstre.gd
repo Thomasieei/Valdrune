@@ -41,6 +41,9 @@ var _parade_cd := 8.0
 var _bouclier: Node3D
 var enrage := false
 var _etourdi := 0.0
+var _clones_faits := 0
+var _clones: Array = []
+var _t_vie := 0.0
 
 const CADENCE_ZONE := [6.5, 5.5, 4.6, 3.9, 3.2]
 const RAYON_ZONE := [2.4, 2.8, 3.2, 3.7, 4.3]
@@ -274,6 +277,10 @@ func _toucher_joueur(j: Node3D, d: float) -> void:
 func _process(dt: float) -> void:
 	if not mort:
 		_combat(dt)
+		if _ap == null:
+			_t_vie += dt
+			_corps.position.y = absf(sin(_t_vie * 2.2)) * 0.12
+			_corps.rotation.z = sin(_t_vie * 1.1) * 0.05
 	if _aura:
 		_aura.rotation.y += dt * 1.2
 	if _flash > 0.0:
@@ -329,11 +336,35 @@ func frapper(degats: float, crit: bool, source := "joueur") -> void:
 	_flash = 1.0
 	var h := haut()
 	Fx.degats(global_position + Vector3(randf_range(-0.9, 0.9), h * randf_range(0.55, 1.05), randf_range(-0.3, 0.3)), degats, crit, source == "ombres")
+	if e.get("clones", false) and pv > 0.0:
+		var seuils := [0.66, 0.33]
+		if _clones_faits < seuils.size() and pv / pv_max < seuils[_clones_faits]:
+			_clones_faits += 1
+			_invoquer_clones()
 	if pv <= 0.0:
 		_mourir()
 	elif randf() < 0.35 and _ap and _ap.current_animation != "Hit" and _ap.current_animation != "Hit_Chest":
 		Modele.jouer(_ap, "Hit", 1.3, 0.05)
 		_retour_idle(0.45)
+
+func _invoquer_clones() -> void:
+	Fx.texte(global_position + Vector3(0, haut() + 1.0, 0), "MULTICLONAGE !", Color(1.0, 0.6, 0.15), 1.6, 1.4)
+	Fx.son("portal", 0.0)
+	var v := get_tree().get_first_node_in_group("ville")
+	for k in 3:
+		var a := TAU * k / 3.0
+		var cl := Monstre.new()
+		cl.configurer("clone_naruto", global_position + Vector3(cos(a), 0, sin(a)) * 3.5, _orientation)
+		cl.sans_chrono = true
+		cl.reapparait_auto = false
+		var par := get_parent()
+		par.add_child(cl)
+		if par is Donjon:
+			(par as Donjon).monstres.append(cl)
+		Fx.anneau(cl.global_position, Color(1.0, 1.0, 1.0), 1.8)
+		_clones.append(cl)
+		if v:
+			v.monstres.append(cl)
 
 func _retour_idle(apres: float) -> void:
 	await get_tree().create_timer(apres).timeout
@@ -355,7 +386,10 @@ func _mourir() -> void:
 
 		var tw := create_tween()
 		tw.tween_property(_corps, "rotation:x", -PI / 2.0, 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	eveillable = true
+	eveillable = float(e.get("eveil", 0.0)) > 0.0
+	for cl in _clones:
+		if is_instance_valid(cl) and not cl.mort:
+			cl.frapper(cl.pv + 1.0, false, "evenement")
 	_eveil_fin = Time.get_ticks_msec() / 1000.0 + FENETRE_EVEIL
 	_reapparait = REAPPARITION + (6.0 if e.get("boss", false) else 0.0)
 	var gain := Partie.gagner(espece, elite, mult)

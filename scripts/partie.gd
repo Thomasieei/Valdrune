@@ -40,6 +40,13 @@ const ESPECES := {
 
 	"roi_gobelin": {"nom": "Kargash, roi gobelin", "modele": "goblin", "haut": 3.3, "rang": 1, "pv": 30000, "temps": 9999.0, "pieces": 900, "xp": 600, "eveil": 0.05, "teinte": Color(1.0, 0.82, 0.45), "boss": true, "lieu": "donjon", "icone": "sh_goblin", "monnaie": "insigne"},
 
+	"roi_puglin": {"nom": "Grolm, roi des glaces", "modele": "puglin", "haut": 3.2, "rang": 1, "pv": 120000, "temps": 9999.0, "pieces": 2500, "xp": 1500, "eveil": 0.04, "teinte": Color(0.65, 0.85, 1.15), "boss": true, "lieu": "donjon", "donjon": 1, "icone": "sh_puglin", "monnaie": "trefle"},
+	"seigneur_braise": {"nom": "Vorgath, seigneur de braise", "modele": "orc_warrior", "haut": 3.6, "rang": 2, "pv": 900000, "temps": 9999.0, "pieces": 9000, "xp": 5000, "eveil": 0.025, "teinte": Color(1.25, 0.55, 0.4), "boss": true, "lieu": "donjon", "donjon": 2, "icone": "sh_orc_warrior", "monnaie": "insigne",
+		"competence": {"nom": "Frappe de braise", "cd": 14.0, "mult": 12.0}},
+	"naruto": {"nom": "Naruto", "modele": "naruto", "haut": 2.2, "rang": 3, "pv": 12000000, "temps": 9999.0, "pieces": 40000, "xp": 15000, "eveil": 0.01, "boss": true, "lieu": "donjon", "donjon": 3, "icone": "best", "monnaie": "eclat", "clones": true,
+		"competence": {"nom": "Rasengan", "cd": 10.0, "mult": 25.0}},
+	"clone_naruto": {"nom": "Clone de l'ombre", "modele": "naruto", "haut": 2.0, "rang": 3, "pv": 400000, "temps": 9999.0, "pieces": 0, "xp": 0, "eveil": 0.0, "lieu": "clone", "icone": "best", "monnaie": "eclat"},
+
 	"baran": {"nom": "Baran, roi des démons", "modele": "imp", "haut": 5.2, "rang": 4, "pv": 9000000, "temps": 90.0, "pieces": 30000, "xp": 9000, "eveil": 0.001, "boss": true, "lieu": "evenement",
 		"teinte": Color(0.55, 0.35, 0.45), "icone": "sh_baran", "rang_ombre": 4, "monnaie": "eclat",
 		"competence": {"nom": "Chaînes infernales", "cd": 12.0, "mult": 30.0}},
@@ -151,6 +158,9 @@ var mana := 100.0
 var morts_serie := 0
 var derniere_mort := -1000.0
 var cri_fin := -1.0
+var auto_attaque := false
+var records := {}
+var donjons_finis := {}
 
 const COMPETENCES := {
 	"esquive": {"nom": "ESQUIVE", "icone": "q_run", "cd": 4.0, "mana": 8.0},
@@ -638,11 +648,11 @@ func _verifier_quete(espece: String) -> void:
 	donner_monnaie(e.get("monnaie", "eclat"), k + 1)
 	message.emit("Quête d'éveil : %d %s levés !  +%s pièces" % [cible, e["nom"], str(gain)], Color(0.95, 0.8, 0.4))
 
-func butin_donjon() -> Dictionary:
+func butin_donjon(niv := 0) -> Dictionary:
 	var x := randf()
-	if x < 0.005:
+	if x < 0.005 + 0.005 * niv:
 		return ajouter_objet(BUTIN_DONJON.pick_random(), 4)
-	if x < 0.06:
+	if x < 0.06 + 0.04 * niv:
 		return ajouter_objet(BUTIN_DONJON.pick_random(), 3)
 	return {}
 
@@ -704,7 +714,8 @@ func sauver() -> void:
 			"equipe": equipe, "ombres": ombres, "points": points, "echecs": echecs_eveil, "tues": tues, "uid": _uid,
 			"rolls": rolls, "monnaies": monnaies, "achats": achats, "tirages": tirages, "donjons": donjons,
 			"record": record_donjon, "uniques": uniques_obtenus, "arises": arises, "quetes": quetes,
-			"boutique": achats_boutique, "auto": auto_ombres, "pv": pv, "mana": mana}))
+			"boutique": achats_boutique, "auto": auto_ombres, "pv": pv, "mana": mana,
+			"auto_attaque": auto_attaque, "records": records, "finis": donjons_finis}))
 
 func charger() -> void:
 	if OS.get_cmdline_user_args().has("--sans-sauvegarde") or not FileAccess.file_exists(CHEMIN):
@@ -733,6 +744,9 @@ func charger() -> void:
 	quetes = d.get("quetes", {})
 	achats_boutique = d.get("boutique", {})
 	auto_ombres = bool(d.get("auto", false))
+	auto_attaque = bool(d.get("auto_attaque", false))
+	records = d.get("records", {})
+	donjons_finis = d.get("finis", {})
 	for o in d.get("inventaire", []):
 		if OBJETS.has(o.get("base", "")):
 			var rr := int(o["rarete"])

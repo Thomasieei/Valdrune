@@ -184,7 +184,7 @@ func _pole() -> void:
 	portail.rotation.y = PI / 2.0
 	portail.add_child(Portail.creer(Color(0.15, 0.45, 1.0), Color(0.6, 0.25, 1.0), 2.0))
 	var l := Label3D.new()
-	l.text = "DONJON DE RANG E\nLe repaire du roi gobelin"
+	l.text = "PORTAIL DES DONJONS\nRangs E · D · C · B"
 	l.font = Ui.police
 	l.font_size = 34
 	l.outline_size = 10
@@ -211,11 +211,12 @@ func action_proche() -> Dictionary:
 	return {}
 
 
-func entrer_donjon() -> void:
+func entrer_donjon(n := 0) -> void:
 	if donjon:
 		return
 	await hud.fondu(true)
 	donjon = Donjon.new()
+	donjon.niv = n
 	donjon.ville = self
 	add_child(donjon)
 	donjon.termine.connect(_fin_donjon)
@@ -224,10 +225,11 @@ func entrer_donjon() -> void:
 	joueur.viser(null)
 	_teleporter(donjon.point_depart(), PI)
 	_ambiance(true)
+	donjon.appliquer_ambiance(_env)
 	donjon.demarrer()
 	_musique("dungeon")
 	await hud.fondu(false)
-	hud.annonce("DONJON DE RANG E", "Salle 1 / 6 : %s" % Donjon.NOMS_SALLES[0], Color(0.7, 0.5, 1.0))
+	hud.annonce("DONJON DE RANG %s" % Partie.RANGS[n], "%s  ·  Salle 1 / 6 : %s" % [donjon.cfg["nom"], donjon.NOMS_SALLES[0]], Color(0.7, 0.5, 1.0))
 
 func _fin_donjon(victoire: bool) -> void:
 	if victoire:

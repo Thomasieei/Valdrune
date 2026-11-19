@@ -12,12 +12,62 @@ const PAS := 36.0
 const DEMI := 11.0
 const HAUT_MUR := 7.0
 const LARGE_PASSAGE := 6.0
-const DUREE := 270.0
-const RANG := 0
-const PUISSANCE_CONSEILLEE := 120.0
+const DONJONS := [
+	{"nom": "Repaire du roi gobelin", "theme": "pierre", "duree": 270.0, "niveau": 1, "puissance": 120.0, "or": 1500, "boss": "Kargash, le roi gobelin",
+		"noms": ["Le hall des crocs", "La fosse aux puglins", "La garde enragée", "Les cages", "L'antichambre", "Le trône de Kargash"]},
+	{"nom": "Grotte gelée", "theme": "neige", "duree": 330.0, "niveau": 15, "puissance": 2500.0, "or": 9000, "boss": "Grolm, roi des glaces",
+		"noms": ["Le seuil givré", "La galerie de glace", "Le lac gelé", "Les stalactites", "La tempête", "Le trône de Grolm"]},
+	{"nom": "Forge de braise", "theme": "braise", "duree": 390.0, "niveau": 30, "puissance": 40000.0, "or": 45000, "boss": "Vorgath, seigneur de braise",
+		"noms": ["Les scories", "La coulée", "Le marteau-pilon", "Les fosses ardentes", "Le creuset", "Le cœur de la forge"]},
+	{"nom": "Sanctuaire du renard", "theme": "nuit", "duree": 480.0, "niveau": 45, "puissance": 400000.0, "or": 200000, "boss": "Naruto",
+		"noms": ["La forêt de nuit", "Le pont suspendu", "Les statues", "La cascade", "Le cercle des clones", "L'arène de Naruto"]},
+]
+const SALLES_PAR_NIV := [[
+	[["gobelin", -4.5, 1.0, false], ["gobelin", 4.5, 1.0, false], ["gobelin", -2.0, 5.5, false], ["gobelin", 2.5, 5.5, false]],
+	[["puglin", -5.0, 2.0, false], ["puglin", 5.0, 2.0, false], ["puglin", 0.0, 6.5, false], ["gobelin", 0.0, 1.0, true]],
+	[["gobelin_chef", -4.0, 4.0, false], ["gobelin_chef", 4.0, 4.0, false], ["gobelin", -6.5, 0.0, false], ["gobelin", 6.5, 0.0, false]],
+	[["puglin", -5.5, 0.5, false], ["puglin", 5.5, 0.5, false], ["puglin", -2.5, 6.0, false], ["puglin", 2.5, 6.0, true]],
+	[["puglin_brute", -4.0, 3.0, false], ["puglin_brute", 4.0, 3.0, false], ["gobelin_chef", 0.0, 6.5, true]],
+	[["roi_gobelin", 0.0, 4.0, false]],
+], [
+	[["gobelin_chef", -4.5, 1.0, false], ["gobelin_chef", 4.5, 1.0, false], ["gobelin_chef", 0.0, 5.5, false], ["puglin", 0.0, 2.0, true]],
+	[["puglin_brute", -5.0, 2.0, false], ["puglin_brute", 5.0, 2.0, false], ["gobelin_chef", -2.0, 6.5, false], ["gobelin_chef", 2.0, 6.5, false]],
+	[["puglin_brute", -4.0, 4.0, false], ["puglin_brute", 4.0, 4.0, false], ["puglin_brute", 0.0, 1.0, true]],
+	[["orc", 0.0, 5.0, false], ["gobelin_chef", -6.0, 1.0, false], ["gobelin_chef", 6.0, 1.0, false]],
+	[["puglin_brute", -4.0, 2.0, false], ["puglin_brute", 4.0, 2.0, false], ["orc", 0.0, 6.0, true]],
+	[["roi_puglin", 0.0, 4.0, false]],
+], [
+	[["orc", -4.5, 1.0, false], ["orc", 4.5, 1.0, false], ["orc", 0.0, 5.5, false]],
+	[["diablotin", -5.0, 2.0, false], ["diablotin", 5.0, 2.0, false], ["orc", 0.0, 6.0, false]],
+	[["orc", -4.0, 4.0, false], ["orc", 4.0, 4.0, false], ["diablotin", 0.0, 1.0, true]],
+	[["diablotin", -5.5, 1.0, false], ["diablotin", 5.5, 1.0, false], ["diablotin", 0.0, 6.0, false]],
+	[["orc_guerrier", 0.0, 5.0, false], ["diablotin", -5.0, 1.0, false], ["diablotin", 5.0, 1.0, false]],
+	[["seigneur_braise", 0.0, 4.0, false]],
+], [
+	[["orc_guerrier", -4.5, 1.5, false], ["orc_guerrier", 4.5, 1.5, false], ["demon", 0.0, 5.5, false]],
+	[["demon", -5.0, 2.0, false], ["demon", 5.0, 2.0, false], ["orc_guerrier", 0.0, 6.0, true]],
+	[["orc_guerrier", -5.0, 3.0, false], ["orc_guerrier", 5.0, 3.0, false], ["orc_guerrier", 0.0, 6.5, false]],
+	[["demon", -5.0, 1.0, false], ["demon", 5.0, 1.0, false], ["demon", 0.0, 6.0, true]],
+	[["chevalier", 0.0, 4.5, false]],
+	[["naruto", 0.0, 4.0, false]],
+]]
+const THEMES := {
+	"pierre": {"sol": Color(0.85, 0.82, 0.9), "mur": Color(0.8, 0.78, 0.88), "feu": Color(1.0, 0.62, 0.3), "rune": Color(0.55, 0.2, 1.0, 0.55),
+		"brume": Color(0.1, 0.05, 0.16), "ambiance": Color(0.22, 0.18, 0.32), "fond": Color(0.01, 0.0, 0.02), "meteo": ""},
+	"neige": {"sol": Color(1.15, 1.2, 1.35), "mur": Color(0.75, 0.85, 1.05), "feu": Color(0.55, 0.8, 1.0), "rune": Color(0.3, 0.75, 1.0, 0.6),
+		"brume": Color(0.55, 0.65, 0.8), "ambiance": Color(0.45, 0.55, 0.75), "fond": Color(0.6, 0.7, 0.85), "meteo": "neige"},
+	"braise": {"sol": Color(0.45, 0.32, 0.3), "mur": Color(0.5, 0.3, 0.25), "feu": Color(1.0, 0.4, 0.12), "rune": Color(1.0, 0.35, 0.05, 0.7),
+		"brume": Color(0.35, 0.08, 0.02), "ambiance": Color(0.4, 0.18, 0.1), "fond": Color(0.08, 0.01, 0.0), "meteo": "braises"},
+	"nuit": {"sol": Color(0.5, 0.6, 0.55), "mur": Color(0.45, 0.55, 0.5), "feu": Color(0.95, 0.75, 0.35), "rune": Color(1.0, 0.55, 0.1, 0.65),
+		"brume": Color(0.06, 0.1, 0.2), "ambiance": Color(0.2, 0.25, 0.4), "fond": Color(0.02, 0.03, 0.08), "meteo": "feuilles"},
+}
 
-
-const SALLES := [
+var niv := 0
+var cfg: Dictionary
+var th: Dictionary
+var SALLES: Array
+var NOMS_SALLES: Array
+var DUREE := 270.0
 	[["gobelin", -4.5, 1.0, false], ["gobelin", 4.5, 1.0, false], ["gobelin", -2.0, 5.5, false], ["gobelin", 2.5, 5.5, false]],
 	[["puglin", -5.0, 2.0, false], ["puglin", 5.0, 2.0, false], ["puglin", 0.0, 6.5, false], ["gobelin", 0.0, 1.0, true]],
 	[["gobelin_chef", -4.0, 4.0, false], ["gobelin_chef", 4.0, 4.0, false], ["gobelin", -6.5, 0.0, false], ["gobelin", 6.5, 0.0, false]],
@@ -25,8 +75,6 @@ const SALLES := [
 	[["puglin_brute", -4.0, 3.0, false], ["puglin_brute", 4.0, 3.0, false], ["gobelin_chef", 0.0, 6.5, true]],
 	[["roi_gobelin", 0.0, 4.0, false]],
 ]
-const NOMS_SALLES := ["Le hall des crocs", "La fosse aux puglins", "La garde enragée", "Les cages", "L'antichambre", "Le trône de Kargash"]
-
 var ville: Node
 var salle := 0
 var temps := DUREE
@@ -49,6 +97,12 @@ func point_depart() -> Vector3:
 	return centre(0) + Vector3(0, 0.3, -8.5)
 
 func _ready() -> void:
+	cfg = DONJONS[niv]
+	th = THEMES[cfg["theme"]]
+	SALLES = SALLES_PAR_NIV[niv]
+	NOMS_SALLES = cfg["noms"]
+	DUREE = cfg["duree"]
+	temps = DUREE
 	_materiaux()
 	for i in 6:
 		_salle(i)
@@ -57,6 +111,7 @@ func _ready() -> void:
 	for i in 6:
 		_peupler(i)
 	_decor()
+	_meteo()
 	for n in get_children():
 		if n.has_meta("vacille"):
 			n.set_meta("base", n.light_energy)
@@ -74,7 +129,10 @@ func _materiaux() -> void:
 	_mat_sol.roughness = 0.82
 	_mat_sol.uv1_triplanar = true
 	_mat_sol.uv1_scale = Vector3(0.25, 0.25, 0.25)
-	_mat_sol.albedo_color = Color(0.85, 0.82, 0.9)
+	_mat_sol.albedo_color = th["sol"]
+	if cfg["theme"] == "neige":
+		_mat_sol.roughness = 0.35
+		_mat_sol.metallic_specular = 0.8
 	_mat_mur = StandardMaterial3D.new()
 	_mat_mur.albedo_texture = load("res://assets/fx/mur.png")
 	_mat_mur.normal_enabled = true
@@ -82,7 +140,7 @@ func _materiaux() -> void:
 	_mat_mur.roughness = 0.9
 	_mat_mur.uv1_triplanar = true
 	_mat_mur.uv1_scale = Vector3(0.28, 0.28, 0.28)
-	_mat_mur.albedo_color = Color(0.8, 0.78, 0.88)
+	_mat_mur.albedo_color = th["mur"]
 
 func _boite(taille: Vector3, pos: Vector3, mat: Material, collision := true) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
@@ -157,7 +215,7 @@ func _salle(i: int) -> void:
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	m.albedo_texture = load("res://assets/fx/magic_02.png")
-	m.albedo_color = Color(0.55, 0.2, 1.0, 0.55) if i < 5 else Color(1.0, 0.55, 0.15, 0.7)
+	m.albedo_color = th["rune"] if i < 5 else Color(1.0, 0.55, 0.15, 0.7)
 	rune.material_override = m
 	rune.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	rune.position = c + Vector3(0, 0.03, 3.0 if i == 5 else 2.0)
@@ -166,7 +224,7 @@ func _salle(i: int) -> void:
 
 	for cote in [-1, 1]:
 		var l := OmniLight3D.new()
-		l.light_color = Color(1.0, 0.62, 0.3)
+		l.light_color = th["feu"]
 		l.light_energy = 5.0
 		l.omni_range = 17.0
 		l.omni_attenuation = 1.0
@@ -177,7 +235,7 @@ func _salle(i: int) -> void:
 		l.set_meta("vacille", randf() * 10.0)
 		add_child(l)
 	var lv := OmniLight3D.new()
-	lv.light_color = Color(0.55, 0.25, 1.0) if i < 5 else Color(1.0, 0.45, 0.2)
+	lv.light_color = Color(th["rune"].r, th["rune"].g, th["rune"].b) if i < 5 else Color(1.0, 0.45, 0.2)
 	lv.light_energy = 2.4 if i < 5 else 3.6
 	lv.omni_range = 14.0
 	lv.position = c + Vector3(0, 1.2, 2.0)
@@ -196,7 +254,7 @@ func _couloir(i: int) -> void:
 	_boite(Vector3(1, HAUT_MUR, long + 2.0), Vector3(x - LARGE_PASSAGE / 2.0 - 0.5, HAUT_MUR / 2.0, zc), _mat_mur)
 	_boite(Vector3(1, HAUT_MUR, long + 2.0), Vector3(x + LARGE_PASSAGE / 2.0 + 0.5, HAUT_MUR / 2.0, zc), _mat_mur)
 	var l := OmniLight3D.new()
-	l.light_color = Color(1.0, 0.6, 0.3)
+	l.light_color = th["feu"]
 	l.light_energy = 3.2
 	l.omni_range = 11.0
 	l.position = Vector3(x, 3.2, zc)
@@ -372,13 +430,118 @@ func _process(dt: float) -> void:
 			_ouvrir(salle)
 			salle += 1
 			if salle == 5:
-				Partie.message.emit("Le roi gobelin vous attend…", Color(1.0, 0.75, 0.3))
+				Partie.message.emit("%s vous attend…" % cfg["boss"], Color(1.0, 0.75, 0.3))
 				Fx.son("portal", 0.0)
 			else:
 				Partie.message.emit("Salle %d / 6 : %s" % [salle + 1, NOMS_SALLES[salle]], Color(0.8, 0.6, 1.0))
 		else:
 			actif = false
 			_victoire()
+
+func appliquer_ambiance(env: Environment) -> void:
+	env.background_color = th["fond"]
+	env.ambient_light_color = th["ambiance"]
+	env.fog_light_color = th["brume"]
+	env.fog_density = 0.02 if cfg["theme"] == "neige" else 0.012
+
+func _meteo() -> void:
+	var m: String = th["meteo"]
+	if m == "":
+		return
+	for i in 6:
+		var p := GPUParticles3D.new()
+		p.amount = 260 if m == "neige" else 90
+		p.lifetime = 6.0
+		p.preprocess = 6.0
+		p.visibility_aabb = AABB(Vector3(-14, -8, -14), Vector3(28, 18, 28))
+		var pm := ParticleProcessMaterial.new()
+		pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+		pm.emission_box_extents = Vector3(DEMI, 0.5, DEMI)
+		var col: Color
+		match m:
+			"neige":
+				pm.direction = Vector3(0.2, -1, 0.1)
+				pm.gravity = Vector3(0.15, -0.6, 0)
+				pm.initial_velocity_min = 0.6
+				pm.initial_velocity_max = 1.4
+				pm.turbulence_enabled = true
+				pm.turbulence_noise_strength = 0.6
+				col = Color(1, 1, 1, 0.9)
+			"braises":
+				pm.direction = Vector3(0, 1, 0)
+				pm.gravity = Vector3(0, 0.4, 0)
+				pm.initial_velocity_min = 0.3
+				pm.initial_velocity_max = 0.9
+				col = Color(1.0, 0.45, 0.1, 1.0)
+			_:
+				pm.direction = Vector3(0.4, -1, 0.3)
+				pm.gravity = Vector3(0.3, -0.35, 0.2)
+				pm.initial_velocity_min = 0.4
+				pm.initial_velocity_max = 1.0
+				pm.angular_velocity_min = -90.0
+				pm.angular_velocity_max = 90.0
+				col = Color(1.0, 0.6, 0.2, 0.9)
+		pm.scale_min = 0.6
+		pm.scale_max = 1.3
+		pm.color = col
+		p.process_material = pm
+		var q := QuadMesh.new()
+		q.size = Vector2(0.09, 0.09) if m == "neige" else Vector2(0.12, 0.12)
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD if m == "braises" else BaseMaterial3D.BLEND_MODE_MIX
+		mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		mat.vertex_color_use_as_albedo = true
+		mat.albedo_texture = load("res://assets/fx/etincelle.png") if m == "braises" else load("res://assets/fx/circle_05.png")
+		q.material = mat
+		p.draw_pass_1 = q
+		p.position = centre(i) + Vector3(0, 0.5 if m == "braises" else HAUT_MUR + 1.0, 0)
+		add_child(p)
+	if m == "neige":
+		for i in 6:
+			for k in 5:
+				var pic := MeshInstance3D.new()
+				var cy := CylinderMesh.new()
+				cy.top_radius = 0.0
+				cy.bottom_radius = randf_range(0.25, 0.5)
+				cy.height = randf_range(1.2, 2.6)
+				cy.radial_segments = 6
+				pic.mesh = cy
+				var gm := StandardMaterial3D.new()
+				gm.albedo_color = Color(0.7, 0.88, 1.0, 0.75)
+				gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+				gm.roughness = 0.1
+				gm.metallic_specular = 1.0
+				gm.emission_enabled = true
+				gm.emission = Color(0.3, 0.55, 0.9)
+				gm.emission_energy_multiplier = 0.4
+				pic.material_override = gm
+				pic.rotation_degrees.x = 180.0
+				pic.position = centre(i) + Vector3(randf_range(-DEMI + 1, DEMI - 1), HAUT_MUR - cy.height / 2.0, randf_range(-DEMI + 1, DEMI - 1))
+				pic.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				add_child(pic)
+	elif m == "braises":
+		for i in 6:
+			for p2 in [Vector3(-8.5, 0, 0), Vector3(8.5, 0, 0)]:
+				var lave := MeshInstance3D.new()
+				var pl := PlaneMesh.new()
+				pl.size = Vector2(3.0, 5.0)
+				lave.mesh = pl
+				var lm := StandardMaterial3D.new()
+				lm.albedo_color = Color(1.0, 0.35, 0.05)
+				lm.emission_enabled = true
+				lm.emission = Color(1.0, 0.3, 0.02)
+				lm.emission_energy_multiplier = 2.5
+				lave.material_override = lm
+				lave.position = centre(i) + p2 + Vector3(0, 0.02, 0)
+				add_child(lave)
+				var ll := OmniLight3D.new()
+				ll.light_color = Color(1.0, 0.4, 0.1)
+				ll.light_energy = 2.0
+				ll.omni_range = 6.0
+				ll.position = lave.position + Vector3(0, 0.8, 0)
+				add_child(ll)
 
 func _ouvrir(i: int) -> void:
 	var b: Array = _barrieres[i]
@@ -395,20 +558,24 @@ func duree() -> float:
 func _victoire() -> void:
 	var c := centre(5)
 	var t := duree()
-	var record := Partie.record_donjon <= 0.0 or t < Partie.record_donjon
+	var ancien := float(Partie.records.get(str(niv), 0.0))
+	var record := ancien <= 0.0 or t < ancien
 	if record:
+		Partie.records[str(niv)] = t
+	if niv == 0 and (Partie.record_donjon <= 0.0 or t < Partie.record_donjon):
 		Partie.record_donjon = t
 	Partie.donjons += 1
-	var gain := int(round(1500.0 * (1.0 + Partie.bonus("pieces") / 100.0)))
+	Partie.donjons_finis[str(niv)] = int(Partie.donjons_finis.get(str(niv), 0)) + 1
+	var gain := int(round(float(cfg["or"]) * (1.0 + Partie.bonus("pieces") / 100.0)))
 	Partie.pieces += gain
 	var m1: String = Partie.MONNAIES.keys().pick_random()
 	var autres: Array = Partie.MONNAIES.keys().filter(func (x): return x != m1)
 	var m2: String = autres.pick_random()
-	Partie.donner_monnaie(m1, 3)
-	Partie.donner_monnaie(m2, 2)
-	var unique := Partie.butin_unique("croc_roi")
-	Partie.butin_donjon()
-	gains = {"pieces": gain, "monnaies": [[m1, 3], [m2, 2]], "unique": unique, "temps": t, "record": record}
+	Partie.donner_monnaie(m1, 3 + niv * 2)
+	Partie.donner_monnaie(m2, 2 + niv * 2)
+	var unique := Partie.butin_unique("croc_roi") if niv == 0 else false
+	Partie.butin_donjon(niv)
+	gains = {"pieces": gain, "monnaies": [[m1, 3 + niv * 2], [m2, 2 + niv * 2]], "unique": unique, "temps": t, "record": record}
 	coffre = _prop("Chest_Wood", c + Vector3(0, 0, 7.5), PI, 1.6)
 	Fx.anneau(coffre.global_position, Color(1.0, 0.75, 0.2), 4.0)
 	Fx.son("chest", 0.0)

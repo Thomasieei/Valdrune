@@ -912,6 +912,7 @@ func _stats() -> void:
 func _boutique() -> void:
 	_ajouter(Ui.label("BOUTIQUE", 34, Color.WHITE, 8), Vector2(36, 80))
 	var offres := [
+		["fureur", "Fureur continue", "Tu attaques sans t'arrêter : cible auto du monstre le plus\nproche, enchaîne après chaque kill. Achat définitif.", 40000, "attack"],
 		["auto", "Instinct de meute", "Tes ombres frappent seules tout ennemi dans leur portée,\nsans que tu aies à cibler. Achat définitif.", 60000, "cmd_attack"],
 		["soin", "Potion de soin", "Rend tous tes points de vie.", 150 * Partie.niveau, "role_heal"],
 		["mana", "Fiole de mana", "Remplit ta réserve de mana (rappel des ombres).", 250 * Partie.niveau, "essence"],
@@ -923,7 +924,7 @@ func _boutique() -> void:
 		var ligne := Panel.new()
 		ligne.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		ligne.add_theme_stylebox_override("panel", Ui.boite(Color(0.05, 0.07, 0.18), Color(0.4, 0.5, 1.0), 2, 10))
-		ligne.size = Vector2(740, 112)
+		ligne.size = Vector2(740, 100)
 		_ajouter(ligne, Vector2(36, y))
 		var ic := TextureRect.new()
 		ic.texture = Ui.tex(of[4])
@@ -934,12 +935,16 @@ func _boutique() -> void:
 		_ajouter(ic, Vector2(50, y + 20))
 		_ajouter(Ui.label(of[1], 26, Color(0.85, 0.9, 1.0), 7), Vector2(136, y + 8))
 		_ajouter(Ui.label(of[2], 16, Color(0.8, 0.82, 0.95), 4), Vector2(136, y + 46))
-		if id == "auto" and Partie.achats_boutique.has("auto"):
-			var t := Ui.bouton("ACTIVÉ" if Partie.auto_ombres else "DÉSACTIVÉ", Ui.VERT if Partie.auto_ombres else Ui.ROUGE, Vector2(170, 56), 20)
+		if id in ["auto", "fureur"] and Partie.achats_boutique.has(id):
+			var actif: bool = Partie.auto_ombres if id == "auto" else Partie.auto_attaque
+			var t := Ui.bouton("ACTIVÉ" if actif else "DÉSACTIVÉ", Ui.VERT if actif else Ui.ROUGE, Vector2(170, 56), 20)
 			t.pressed.connect(func ():
-				Partie.auto_ombres = not Partie.auto_ombres
+				if id == "auto":
+					Partie.auto_ombres = not Partie.auto_ombres
+				else:
+					Partie.auto_attaque = not Partie.auto_attaque
 				Partie.change.emit())
-			_ajouter(t, Vector2(590, y + 28))
+			_ajouter(t, Vector2(590, y + 22))
 		else:
 			var b := Ui.bouton(Fx.court(prix), Ui.OR, Vector2(170, 56), 22)
 			b.disabled = Partie.pieces < prix
@@ -951,6 +956,9 @@ func _boutique() -> void:
 					"auto":
 						Partie.achats_boutique["auto"] = true
 						Partie.auto_ombres = true
+					"fureur":
+						Partie.achats_boutique["fureur"] = true
+						Partie.auto_attaque = true
 					"soin":
 						Partie.pv = Partie.pv_max()
 					"mana":
@@ -958,13 +966,13 @@ func _boutique() -> void:
 				Fx.son("coins", -2.0)
 				Partie.sauver()
 				Partie.change.emit())
-			_ajouter(b, Vector2(590, y + 28))
-		y += 126.0
+			_ajouter(b, Vector2(590, y + 22))
+		y += 108.0
 
 
 func _index() -> void:
 	var y := 86.0
-	var toutes: Array = Partie.ESPECES.keys()
+	var toutes: Array = Partie.ESPECES.keys().filter(func (k): return Partie.ESPECES[k].get("lieu", "") != "clone")
 	var pages := ceili(toutes.size() / 5.0)
 	_page = clampi(_page, 0, pages - 1)
 	if pages > 1:
@@ -999,7 +1007,7 @@ func _index() -> void:
 		_ajouter(ic, Vector2(40, y + 6))
 		_ajouter(Ui.label("[%s] %s" % [Partie.RANGS[rang], e["nom"]], 26, c, 7), Vector2(130, y + 8))
 		var ch := Partie.chance_eveil(esp) * 100.0
-		var lieu: String = {"donjon": "  ·  Donjon E", "evenement": "  ·  Événement"}.get(e.get("lieu", ""), "")
+		var lieu: String = {"donjon": "  ·  Donjon %s" % Partie.RANGS[int(e.get("donjon", 0))], "evenement": "  ·  Événement"}.get(e.get("lieu", ""), "")
 		var chrono := "Chrono global" if e.get("lieu", "") == "donjon" else "Chrono %d s" % int(e["temps"])
 		_ajouter(Ui.label("Vie %s  ·  %s  ·  Éveil %s %%%s" % [Fx.court(e["pv"]), chrono, ("%.2f" % ch) if ch < 1.0 else str(int(round(ch))), lieu], 18, Color(0.85, 0.88, 1.0), 4), Vector2(130, y + 52))
 		var v := Partie.verdict(esp)
@@ -1189,8 +1197,8 @@ func _dessiner_donjon() -> void:
 	var r := Rect2(Vector2.ZERO, c.size)
 	c.draw_style_box(Ui.boite(Color(0.08, 0.02, 0.14, 0.92), Color(0.75, 0.3, 1.0), 3, 12), r)
 	var n := mini(dj.salle + 1, 6)
-	_texte(c, Vector2(16, 28), "DONJON RANG E  ·  SALLE %d / 6" % n, 19, Color(0.85, 0.65, 1.0), 6)
-	_texte(c, Vector2(16, 58), Donjon.NOMS_SALLES[mini(dj.salle, 5)], 24, Color.WHITE, 7)
+	_texte(c, Vector2(16, 28), "DONJON RANG %s  ·  SALLE %d / 6" % [Partie.RANGS[dj.niv], n], 19, Color(0.85, 0.65, 1.0), 6)
+	_texte(c, Vector2(16, 58), dj.NOMS_SALLES[mini(dj.salle, 5)], 24, Color.WHITE, 7)
 	for k in 6:
 		var col := Color(0.35, 0.2, 0.5)
 		if k < dj.salle or (k == 5 and not dj.actif and dj.sortie):
@@ -1209,39 +1217,40 @@ func _dessiner_donjon() -> void:
 
 func _donjon_panneau() -> void:
 	var puissance := Partie.dps_total()
-	_ajouter(Ui.label("Repaire du roi gobelin", 32, Color(0.7, 0.85, 1.0), 8), Vector2(36, 82))
-	_ajouter(Ui.label("DONJON DE RANG E", 22, Partie.COULEURS_RANG[0].lightened(0.2), 6), Vector2(36, 124))
-	var lignes := ["6 salles à vider, une barrière s'ouvre à chaque salle nettoyée.",
-		"Un seul chronomètre pour tout le donjon : 4 min 30.",
-		"Salle 6 : Kargash, le roi gobelin.",
-		"Les monstres du donjon ne se régénèrent pas."]
-	var y := 160.0
-	for l in lignes:
-		_ajouter(Ui.label("•  " + l, 19, Color(0.88, 0.9, 1.0), 4), Vector2(40, y))
-		y += 30.0
-	var conseil := Donjon.PUISSANCE_CONSEILLEE
-	var ok := puissance >= conseil
-	_ajouter(Ui.label("Puissance conseillée : %s/s" % Fx.court(conseil), 21, Color(1.0, 0.8, 0.4), 6), Vector2(40, y + 12))
-	_ajouter(Ui.label("Ta puissance : %s/s" % Fx.court(puissance), 21, Color(0.45, 1.0, 0.5) if ok else Color(1.0, 0.4, 0.4), 6), Vector2(40, y + 44))
-	var rec := "Meilleur temps : %d:%02d" % [int(Partie.record_donjon) / 60, int(Partie.record_donjon) % 60] if Partie.record_donjon > 0 else "Pas encore terminé"
-	_ajouter(Ui.label(rec + "   ·   Terminé %d fois" % Partie.donjons, 18, Color(0.75, 0.75, 0.9)), Vector2(40, y + 84))
-
-	var b: Dictionary = Partie.OBJETS["croc_roi"]
-	var carte := Ui.carte(b["nom"], b["icone"], "U", Partie.COULEURS_RARETE[Partie.UNIQUE], false, "%s/s" % Fx.court(b["dps"]), Vector2(190, 210), "unique")
-	_ajouter(carte, Vector2(588, 84))
-	_ajouter(Ui.label("Butin du boss", 18, Color(1.0, 0.8, 0.4), 5), Vector2(624, 300))
-	var yy := 326.0
-	for k in b["attrs"]:
-		_ajouter(Ui.label("+%d %% %s" % [int(b["attrs"][k]), Partie.NOMS_STATS[k].to_lower()], 16, Color(0.95, 0.75, 1.0), 4), Vector2(596, yy))
-		yy += 22.0
-	var e := Ui.bouton("ENTRER", Ui.VERT, Vector2(300, 60), 26)
-	e.pressed.connect(func ():
-		fermer()
-		ville.entrer_donjon())
-	_ajouter(e, Vector2(40, 512))
-	var a := Ui.bouton("Annuler", Ui.ROUGE, Vector2(200, 60), 22)
-	a.pressed.connect(fermer)
-	_ajouter(a, Vector2(360, 512))
+	_ajouter(Ui.label("Ta puissance : %s/s  ·  Niveau %d" % [Fx.court(puissance), Partie.niveau], 20, Color(0.8, 0.85, 1.0), 6), Vector2(36, 84))
+	var couleurs := {"pierre": Color(0.6, 0.4, 1.0), "neige": Color(0.55, 0.85, 1.0), "braise": Color(1.0, 0.45, 0.15), "nuit": Color(1.0, 0.65, 0.2)}
+	var y := 120.0
+	for n in Donjon.DONJONS.size():
+		var d: Dictionary = Donjon.DONJONS[n]
+		var col: Color = couleurs[d["theme"]]
+		var precedent_ok: bool = n == 0 or int(Partie.donjons_finis.get(str(n - 1), 0)) > 0
+		var niveau_ok: bool = Partie.niveau >= int(d["niveau"])
+		var ouvert := precedent_ok and niveau_ok
+		var ligne := Panel.new()
+		ligne.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ligne.add_theme_stylebox_override("panel", Ui.boite(Color(0.05, 0.06, 0.16), col if ouvert else Color(0.3, 0.3, 0.4), 2, 10))
+		ligne.size = Vector2(750, 104)
+		_ajouter(ligne, Vector2(36, y))
+		_ajouter(Ui.label("RANG %s" % Partie.RANGS[n], 30, Partie.COULEURS_RANG[n], 8), Vector2(50, y + 8))
+		_ajouter(Ui.label(d["nom"], 24, col.lightened(0.2) if ouvert else Color(0.6, 0.6, 0.7), 7), Vector2(180, y + 6))
+		var rec: float = float(Partie.records.get(str(n), 0.0))
+		var infos := "Boss : %s  ·  %d:%02d  ·  %s/s conseillés" % [d["boss"], int(d["duree"]) / 60, int(d["duree"]) % 60, Fx.court(d["puissance"])]
+		_ajouter(Ui.label(infos, 15, Color(0.85, 0.85, 0.95), 4), Vector2(180, y + 42))
+		var etat := "Record %d:%02d" % [int(rec) / 60, int(rec) % 60] if rec > 0.0 else "Jamais terminé"
+		if not precedent_ok:
+			etat = "Termine d'abord le donjon de rang %s" % Partie.RANGS[n - 1]
+		elif not niveau_ok:
+			etat = "Niveau %d requis" % int(d["niveau"])
+		_ajouter(Ui.label(etat, 15, Color(0.45, 1.0, 0.5) if ouvert else Color(1.0, 0.45, 0.45), 4), Vector2(180, y + 68))
+		var e := Ui.bouton("ENTRER" if ouvert else "FERMÉ", Ui.VERT if ouvert else Color(0.3, 0.3, 0.38), Vector2(140, 56), 22)
+		e.disabled = not ouvert
+		var nn: int = n
+		e.pressed.connect(func ():
+			fermer()
+			ville.entrer_donjon(nn))
+		_ajouter(e, Vector2(630, y + 24))
+		y += 114.0
+	_ajouter(Ui.label("Modèle 3D « Naruto » : TRSgamings (Sketchfab), licence CC-BY 4.0", 13, Color(0.6, 0.6, 0.75), 3), Vector2(36, 578))
 
 var _gains := {}
 func recompenses_donjon(g: Dictionary) -> void:
