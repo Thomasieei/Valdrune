@@ -270,23 +270,26 @@ func bot_dps(d: Dictionary) -> float:
 		o += l[k]
 	return (arme + o) * MULT_RANG[int(d["rang"])]
 
-func bot_gagner(d: Dictionary, espece: String, elite := false, mult := 1.0) -> void:
+func bot_gagner(d: Dictionary, espece: String, elite := false, mult := 1.0, n := 1) -> void:
 	var st := stats_monstre(espece, elite, mult)
 	var mr: float = MULT_RANG[int(d["rang"])]
-	var g := int(st["pieces"] * mr)
+	var g := int(st["pieces"] * mr) * n
 	d["or"] = int(d["or"]) + g
 	d["or_total"] = int(d["or_total"]) + g
-	d["xp"] = int(d["xp"]) + int(st["xp"] * mr)
+	d["xp"] = int(d["xp"]) + int(st["xp"] * mr) * n
 	var e: Dictionary = ESPECES[espece]
 	if e.get("lieu", "") != "clone" and float(e["eveil"]) > 0.0:
-		if randf() < float(e["eveil"]) or int(d["echecs"]) >= PITIE:
-			d["echecs"] = 0
+		var p := float(e["eveil"])
+		var levees := int(n * p) + (1 if randf() < fmod(n * p, 1.0) else 0)
+		var echecs := int(d["echecs"]) + n - levees
+		if levees == 0 and echecs >= PITIE:
+			levees = 1
+		d["echecs"] = 0 if levees > 0 else echecs
+		for k in mini(levees, 6):
 			d["ombres"].append(espece)
-			if d["ombres"].size() > 16:
-				d["ombres"].sort_custom(func (a, b): return _dps_ombre_base(a) > _dps_ombre_base(b))
-				d["ombres"].resize(16)
-		else:
-			d["echecs"] = int(d["echecs"]) + 1
+		if d["ombres"].size() > 16:
+			d["ombres"].sort_custom(func (a, b): return _dps_ombre_base(a) > _dps_ombre_base(b))
+			d["ombres"].resize(16)
 	var cout := int(round(20.0 * pow(1.45, int(d["arme_niv"]))))
 	while int(d["or"]) >= cout and int(d["arme_niv"]) < 60:
 		d["or"] = int(d["or"]) - cout
@@ -315,10 +318,9 @@ func simuler_bot(d: Dictionary, secondes: float) -> void:
 				mieux = esp
 		if mieux == "":
 			return
-		var kills := int(60.0 * taux * float(d["talent"]) / float(ESPECES[mieux]["xp"]))
-		for k in maxi(kills, 1):
-			bot_gagner(d, mieux)
-		reste -= 60.0
+		var kills := int(300.0 * taux * float(d["talent"]) / float(ESPECES[mieux]["xp"]))
+		bot_gagner(d, mieux, false, 1.0, maxi(kills, 1))
+		reste -= 300.0
 		var act := bot_activite(d)
 		if not act.is_empty():
 			reste -= float(act["duree"])
@@ -711,7 +713,7 @@ func dps_ombre(o: Dictionary) -> float:
 	var k := 0.12
 	if e.get("lieu", "") == "evenement":
 		k = 0.2
-	var aura := 15.0 if general_uid >= 0 and not est_general(o) and ombres.any(func (x): return est_general(x) and x.get("eq", false)) else 0.0
+	var aura := 15.0 if not est_general(o) and _general_au_combat() else 0.0
 	return float(e["pv"]) / temps * k * pow(1.35, int(o["etoiles"])) * (1.0 + (bonus("ombres") + aura) / 100.0) * (2.5 if o.get("evo", false) else 1.0) * (2.0 if est_general(o) else 1.0) * vit_ombre() * (1.3 if cri_actif() else 1.0) * mult_rang() * (3.0 if domaine_actif() else 1.0) * (1000.0 if createur else 1.0)
 
 func rang_ombre(o: Dictionary) -> int:
@@ -787,11 +789,28 @@ func places_ombres() -> int:
 func ombres_equipees() -> Array:
 	return ombres.filter(func (o): return o.get("eq", false))
 
+var _dps_cache := 0.0
+var _dps_frame := -1
+var _gen_cache := false
+var _gen_frame := -1
+
 func dps_total() -> float:
+	var f := Engine.get_process_frames()
+	if f == _dps_frame:
+		return _dps_cache
 	var d := dps_joueur()
 	for o in ombres_equipees():
 		d += dps_ombre(o)
+	_dps_frame = f
+	_dps_cache = d
 	return d
+
+func _general_au_combat() -> bool:
+	var f := Engine.get_process_frames()
+	if f != _gen_frame:
+		_gen_frame = f
+		_gen_cache = general_uid >= 0 and ombres.any(func (x): return est_general(x) and x.get("eq", false))
+	return _gen_cache
 
 func xp_requise() -> int:
 	return int(60.0 * pow(1.28, niveau - 1))

@@ -44,6 +44,8 @@ var _etourdi := 0.0
 var _clones_faits := 0
 var _clones: Array = []
 var _t_vie := 0.0
+var _plaque_sale := false
+var _plaque_t := 0.0
 var pv_perso := -1.0
 var atk_perso := -1.0
 var nom_perso := ""
@@ -104,7 +106,7 @@ func _ready() -> void:
 	_plaque.visibility_range_end = 40.0
 	_plaque.font = Ui.police
 	add_child(_plaque)
-	Partie.change.connect(_maj_plaque)
+	Partie.change.connect(func (): _plaque_sale = true)
 	_appliquer_rang()
 
 func _construire_corps() -> void:
@@ -286,6 +288,12 @@ func _toucher_joueur(j: Node3D, d: float, raison := "ZONE") -> void:
 			v.mort_joueur()
 
 func _process(dt: float) -> void:
+	_plaque_t -= dt
+	if _plaque_sale and _plaque_t <= 0.0:
+		_plaque_t = 0.6
+		_plaque_sale = false
+		if _plaque.visible:
+			_maj_plaque()
 	if not mort:
 		_combat(dt)
 		_errer(dt)

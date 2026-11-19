@@ -23,6 +23,21 @@ var _arme_vue := ""
 var invulnerable := 0.0
 var _dash := Vector3.ZERO
 var _dash_t := 0.0
+var _pause_auto := 0.0
+var _auto_t := 0.0
+var _progres_t := 0.0
+var _derniere_dist := INF
+var _ignores: Array = []
+
+func _visible(m: Monstre) -> bool:
+	var q := PhysicsRayQueryParameters3D.create(global_position + Vector3(0, 1.2, 0), m.global_position + Vector3(0, 1.0, 0))
+	q.exclude = [get_rid()]
+	q.collision_mask = 1
+	var r := get_world_3d().direct_space_state.intersect_ray(q)
+	if r.is_empty():
+		return true
+	var col: Object = r["collider"]
+	return col is Node and (col as Node).get_parent() == m
 var recharges := {"esquive": 0.0, "brise": 0.0, "cri": 0.0, "domaine": 0.0, "echange": 0.0}
 
 
@@ -133,10 +148,31 @@ func _physics_process(dt: float) -> void:
 		dir = droite * entree.x + avant * entree.y
 		if dir.length() > 1.0:
 			dir = dir.normalized()
-		if entree.length() > 0.5 and not Partie.auto_attaque:
+		if entree.length() > 0.5:
 			cible = null
-	if Partie.auto_attaque and entree.length() < 0.2 and (cible == null or not is_instance_valid(cible) or cible.mort):
-		cible = cible_devant(get_parent().monstres, 14.0)
+	if entree.length() > 0.2:
+		_pause_auto = 1.5
+	_pause_auto -= dt
+	if Partie.auto_attaque and _pause_auto <= 0.0 and (cible == null or not is_instance_valid(cible) or cible.mort) and get_parent().action_proche().is_empty():
+		_auto_t -= dt
+		if _auto_t <= 0.0:
+			_auto_t = 0.4
+			var c0 := cible_devant(get_parent().monstres.filter(func (m): return not m in _ignores), 9.0)
+			if c0 and _visible(c0):
+				cible = c0
+				_progres_t = 0.0
+				_derniere_dist = INF
+	if Partie.auto_attaque and cible and is_instance_valid(cible) and not cible.mort:
+		var dd := global_position.distance_to(cible.global_position)
+		if dd > PORTEE + cible.haut() * 0.25 + 0.5:
+			_progres_t += dt
+			if _progres_t > 1.0:
+				if dd > _derniere_dist - 0.5:
+					_ignores.append(cible)
+					get_tree().create_timer(6.0).timeout.connect(func (): _ignores.pop_front())
+					cible = null
+				_progres_t = 0.0
+				_derniere_dist = dd
 	var en_combat := cible != null and is_instance_valid(cible) and not cible.mort
 	if cible and (not is_instance_valid(cible) or cible.mort):
 		cible = null

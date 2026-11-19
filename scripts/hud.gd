@@ -346,7 +346,10 @@ func _maj() -> void:
 	for k in _hex:
 		_hex[k].queue_redraw()
 	if _panneau and not _roll_actif and _type != "mort":
-		_construire()
+		_a_reconstruire = true
+
+var _a_reconstruire := false
+var _reconstruire_t := 0.0
 
 func dire(t: String, c: Color = Color.WHITE) -> void:
 	_msg.text = t
@@ -531,6 +534,12 @@ func _process(dt: float) -> void:
 		bc.set_meta("pauvre", Partie.mana < float(Partie.COMPETENCES[k]["mana"]))
 		bc.queue_redraw()
 	_flash_msg_t -= dt
+	_reconstruire_t -= dt
+	if _a_reconstruire and _reconstruire_t <= 0.0:
+		_a_reconstruire = false
+		_reconstruire_t = 0.5
+		if _panneau and not _roll_actif and _type != "mort":
+			_construire()
 	_hex["grimoire"].visible = Partie.createur
 	for k in _barre:
 		var on := _barre_on(k)
