@@ -87,6 +87,20 @@ static func _visage(squel: Skeleton3D, femme: bool) -> void:
 	corps.free()
 
 
+static func chasseur(look: int) -> Node3D:
+	var femme := look % 2 == 1
+	var base: Node3D = load(P + ("Female_Ranger.gltf" if femme else "Male_Peasant.gltf")).instantiate()
+	var sq: Skeleton3D = base.find_child("Skeleton3D", true, false)
+	_visage(sq, femme)
+	var teintes := [Color(0.25, 0.3, 0.45), Color(0.6, 0.2, 0.25), Color(0.2, 0.45, 0.35), Color(0.35, 0.3, 0.6)]
+	var cheveux := [Color(0.1, 0.08, 0.08), Color(0.85, 0.85, 0.9), Color(0.55, 0.3, 0.15), Color(0.15, 0.2, 0.45)]
+	if femme:
+		_cheveux(sq, ["Hair_Long"], cheveux[look], "T_Hair_2_BaseColor.png")
+	else:
+		_cheveux(sq, ["Hair_Buzzed"], cheveux[look])
+	_teinter(sq, "Female_Ranger" if femme else "Male_Peasant", teintes[look])
+	return base
+
 static func kang() -> Node3D:
 	var base: Node3D = load(P + "Male_Peasant.gltf").instantiate()
 	var sq: Skeleton3D = base.find_child("Skeleton3D", true, false)

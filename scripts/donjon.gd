@@ -63,6 +63,8 @@ const THEMES := {
 }
 
 var niv := 0
+var groupe := false
+var allies: Array = []
 var cfg: Dictionary
 var th: Dictionary
 var SALLES: Array
@@ -386,6 +388,8 @@ func _peupler(i: int) -> void:
 		m.elite_fixe = d[3]
 		m.sans_chrono = true
 		m.reapparait_auto = false
+		if groupe:
+			m.mult = 1.8
 		add_child(m)
 		liste.append(m)
 		monstres.append(m)

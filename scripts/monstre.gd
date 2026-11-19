@@ -44,6 +44,11 @@ var _etourdi := 0.0
 var _clones_faits := 0
 var _clones: Array = []
 var _t_vie := 0.0
+var pv_perso := -1.0
+var atk_perso := -1.0
+var nom_perso := ""
+var _dernier := ""
+var _dernier_bot: Node = null
 
 const CADENCE_ZONE := [6.5, 5.5, 4.6, 3.9, 3.2]
 const RAYON_ZONE := [2.4, 2.8, 3.2, 3.7, 4.3]
@@ -127,7 +132,7 @@ func _construire_corps() -> void:
 
 func _appliquer_rang() -> void:
 	var st := Partie.stats_monstre(espece, elite, mult)
-	pv_max = st["pv"]
+	pv_max = pv_perso if pv_perso > 0.0 else st["pv"]
 	pv = pv_max
 	temps_max = 1000000000.0 if sans_chrono else st["temps"]
 	_corps.scale = Vector3.ONE * (1.22 if elite else 1.0)
@@ -166,7 +171,7 @@ func _cercle(c: Color, r: float) -> Node3D:
 func _maj_plaque() -> void:
 	var v: Dictionary = Partie.verdict(espece, elite, mult) if not sans_chrono else {"texte": "", "couleur": Color.WHITE}
 	var tete := "★ ÉLITE  " if elite else ""
-	_plaque.text = "%s[%s] %s%s" % [tete, Partie.RANGS[e["rang"]], e["nom"], ("\n" + v["texte"]) if v["texte"] != "" else ""]
+	_plaque.text = "%s[%s] %s%s" % [tete, Partie.RANGS[e["rang"]], nom_perso if nom_perso != "" else e["nom"], ("\n" + v["texte"]) if v["texte"] != "" else ""]
 	if sans_chrono:
 		_plaque.modulate = OR_ELITE.lightened(0.2) if elite else(Partie.COULEURS_RANG[e["rang"]] as Color).lightened(0.25)
 	else:
@@ -249,7 +254,7 @@ func _zone(p: Vector3, rayon: float, delai: float) -> void:
 	tw.tween_callback(racine.queue_free)
 
 func _impact(racine: Node3D, rayon: float) -> void:
-	var atk := Partie.atk_monstre(espece, elite) * (2.0 if enrage else 1.0)
+	var atk := (atk_perso if atk_perso > 0.0 else Partie.atk_monstre(espece, elite)) * (2.0 if enrage else 1.0)
 	if not mort:
 		var j: Node3D = get_tree().get_first_node_in_group("joueur")
 		if j and _dans_zone(j.global_position, racine.global_position, rayon):
@@ -318,9 +323,11 @@ func j_loin() -> bool:
 func temps_restant() -> float:
 	return temps_max - maxf(chrono, 0.0)
 
-func frapper(degats: float, crit: bool, source := "joueur") -> void:
+func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) -> void:
 	if mort:
 		return
+	_dernier = source
+	_dernier_bot = qui
 	if chrono < 0.0:
 		chrono = 0.0
 	if _parade > 0.0 and source != "evenement":
@@ -332,7 +339,8 @@ func frapper(degats: float, crit: bool, source := "joueur") -> void:
 		return
 	var reel := minf(degats, pv)
 	pv -= degats
-	Partie.compter(reel, source)
+	if source == "joueur" or source == "ombres":
+		Partie.compter(reel, source)
 	_flash = 1.0
 	var h := haut()
 	Fx.degats(global_position + Vector3(randf_range(-0.9, 0.9), h * randf_range(0.55, 1.05), randf_range(-0.3, 0.3)), degats, crit, source == "ombres")
@@ -392,9 +400,13 @@ func _mourir() -> void:
 			cl.frapper(cl.pv + 1.0, false, "evenement")
 	_eveil_fin = Time.get_ticks_msec() / 1000.0 + FENETRE_EVEIL
 	_reapparait = REAPPARITION + (6.0 if e.get("boss", false) else 0.0)
-	var gain := Partie.gagner(espece, elite, mult)
-	Fx.pieces(global_position + Vector3(0, 1.0, 0), gain)
-	Fx.son("coins")
+	if _dernier == "bot" and _dernier_bot and is_instance_valid(_dernier_bot):
+		eveillable = false
+		_dernier_bot.a_tue(espece, elite, mult)
+	else:
+		var gain := Partie.gagner(espece, elite, mult)
+		Fx.pieces(global_position + Vector3(0, 1.0, 0), gain)
+		Fx.son("coins")
 	if elite:
 		Fx.anneau(global_position, OR_ELITE, 3.0)
 	vaincu.emit(self)

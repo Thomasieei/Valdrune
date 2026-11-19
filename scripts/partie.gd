@@ -47,6 +47,8 @@ const ESPECES := {
 		"competence": {"nom": "Rasengan", "cd": 10.0, "mult": 25.0}},
 	"clone_naruto": {"nom": "Clone de l'ombre", "modele": "naruto", "haut": 2.0, "rang": 3, "pv": 400000, "temps": 9999.0, "pieces": 0, "xp": 0, "eveil": 0.0, "lieu": "clone", "icone": "best", "monnaie": "eclat"},
 
+	"rival": {"nom": "Chasseur rival", "modele": "hero", "haut": 1.85, "rang": 3, "pv": 1000, "temps": 9999.0, "pieces": 0, "xp": 0, "eveil": 0.0, "lieu": "arene", "icone": "attack", "monnaie": "eclat", "teinte": Color(1.2, 0.55, 0.55)},
+
 	"baran": {"nom": "Baran, roi des démons", "modele": "imp", "haut": 5.2, "rang": 4, "pv": 9000000, "temps": 90.0, "pieces": 30000, "xp": 9000, "eveil": 0.001, "boss": true, "lieu": "evenement",
 		"teinte": Color(0.55, 0.35, 0.45), "icone": "sh_baran", "rang_ombre": 4, "monnaie": "eclat",
 		"competence": {"nom": "Chaînes infernales", "cd": 12.0, "mult": 30.0}},
@@ -90,6 +92,10 @@ const OBJETS := {
 	"crane": {"nom": "Crâne du roi", "type": "relique", "icone": "r7", "stat": "arme", "val": 2.2},
 	"grimoire": {"nom": "Grimoire interdit", "type": "relique", "icone": "r8", "stat": "xp", "val": 4.0},
 	"coffre": {"nom": "Coffre du pillard", "type": "relique", "icone": "r9", "stat": "pieces", "val": 3.5},
+	"lame_gladiateur": {"nom": "Lame du gladiateur", "type": "arme", "modele": "katana", "icone": "w1", "dps": 160.0, "effet": "unique",
+		"attrs": {"arme": 5.0, "crit": 3.0}},
+	"cape_champion": {"nom": "Cape du champion", "type": "cape", "icone": "a5", "stat": "ombres", "val": 4.5},
+	"embleme_arene": {"nom": "Emblème de l'arène", "type": "relique", "icone": "r7", "stat": "xp", "val": 5.0},
 	"oeuf_jade": {"nom": "Œuf de jade", "type": "relique", "icone": "r10", "stat": "ombres", "val": 3.0},
 }
 const NOMS_STATS := {"arme": "Dégâts des armes", "ombres": "Dégâts des ombres", "pieces": "Pièces gagnées",
@@ -159,6 +165,95 @@ var morts_serie := 0
 var derniere_mort := -1000.0
 var cri_fin := -1.0
 var auto_attaque := false
+var chasseurs: Array = []
+var elo := 1000
+var jetons := 0
+var arene_v := 0
+var arene_d := 0
+
+const NOMS_CHASSEURS := ["Kaito", "Yuna", "Ren", "Aria", "Sung-ho", "Mika", "Draven", "Lysa", "Tetsu", "Nova"]
+const SALLES_BOSS := ["gobelin_chef", "puglin_brute", "diablotin", "demon"]
+const BOUTIQUE_ARENE := [["lame_gladiateur", 12], ["cape_champion", 7], ["embleme_arene", 7]]
+
+func mult_prog() -> float:
+	return 5.0 if achats_boutique.has("pass") else 1.0
+
+func _creer_chasseurs() -> void:
+	chasseurs.clear()
+	for k in NOMS_CHASSEURS.size():
+		chasseurs.append({"nom": NOMS_CHASSEURS[k], "look": k % 4, "niveau": 1, "xp": 0, "talent": randf_range(0.8, 1.2),
+			"premium": k == 6 or k == 9, "elo": 1000 + randi_range(-40, 40)})
+
+func bot_dps(d: Dictionary) -> float:
+	return 15.0 * pow(1.25, int(d["niveau"]) - 1) * float(d["talent"])
+
+func bot_gagner(d: Dictionary, espece: String, elite := false, mult := 1.0) -> void:
+	var st := stats_monstre(espece, elite, mult)
+	d["xp"] = int(d["xp"]) + int(st["xp"] * (5.0 if d.get("premium", false) else 1.0))
+	while int(d["xp"]) >= int(60.0 * pow(1.28, int(d["niveau"]) - 1)):
+		d["xp"] = int(d["xp"]) - int(60.0 * pow(1.28, int(d["niveau"]) - 1))
+		d["niveau"] = int(d["niveau"]) + 1
+
+func simuler_bot(d: Dictionary, secondes: float) -> void:
+	var reste := minf(secondes, 12.0 * 3600.0)
+	while reste > 0.0:
+		var dps := bot_dps(d)
+		var mieux := ""
+		var taux := 0.0
+		for esp in ESPECES:
+			var e: Dictionary = ESPECES[esp]
+			if e.get("lieu", "") != "":
+				continue
+			var t: float = float(e["pv"]) / dps
+			if t > float(e["temps"]) * 0.6:
+				continue
+			var tx: float = float(e["xp"]) / (t + 8.0)
+			if tx > taux:
+				taux = tx
+				mieux = esp
+		if mieux == "":
+			return
+		var kills := int(60.0 * taux / float(ESPECES[mieux]["xp"]))
+		for k in maxi(kills, 1):
+			bot_gagner(d, mieux)
+		reste -= 60.0
+
+func classement() -> Array:
+	var l := chasseurs.duplicate()
+	l.append({"nom": "Toi", "niveau": niveau, "elo": elo, "moi": true, "premium": achats_boutique.has("pass")})
+	l.sort_custom(func (a, b):
+		if int(a["niveau"]) != int(b["niveau"]):
+			return int(a["niveau"]) > int(b["niveau"])
+		return int(a["elo"]) > int(b["elo"]))
+	return l
+
+func adversaire_arene() -> Dictionary:
+	var l := chasseurs.duplicate()
+	l.sort_custom(func (a, b): return absi(int(a["elo"]) - elo) + absi(int(a["niveau"]) - niveau) * 15 < absi(int(b["elo"]) - elo) + absi(int(b["niveau"]) - niveau) * 15)
+	return l[randi() % mini(3, l.size())]
+
+func fin_arene(d: Dictionary, victoire: bool) -> Dictionary:
+	var ecart := int(d["elo"]) - elo
+	var delta := clampi(20 + ecart / 20, 8, 40) if victoire else -clampi(15 - ecart / 25, 5, 30)
+	elo = maxi(0, elo + delta)
+	d["elo"] = maxi(0, int(d["elo"]) - delta)
+	var j := 3 if victoire else 1
+	jetons += j
+	if victoire:
+		arene_v += 1
+	else:
+		arene_d += 1
+	sauver()
+	change.emit()
+	return {"elo": delta, "jetons": j}
+
+func acheter_arene(b: String, prix: int) -> bool:
+	if jetons < prix:
+		return false
+	jetons -= prix
+	ajouter_objet(b, UNIQUE if OBJETS[b].get("effet", "") == "unique" else 3)
+	sauver()
+	return true
 var records := {}
 var donjons_finis := {}
 
@@ -185,6 +280,8 @@ var _sauver_t := 0.0
 
 func _ready() -> void:
 	charger()
+	if chasseurs.size() != NOMS_CHASSEURS.size():
+		_creer_chasseurs()
 	if inventaire.is_empty():
 		var d := ajouter_objet("dague", 0, false)
 		equipe["arme"] = d["uid"]
@@ -437,7 +534,7 @@ func depenser_mana(m: float) -> bool:
 	return true
 
 func places_ombres() -> int:
-	return mini(3 + (niveau - 1) / 12, 8) + points["legion"] / LEGION_PAR_PLACE
+	return mini(3 + (niveau - 1) / 12, 8) + points["legion"] / LEGION_PAR_PLACE + int(achats_boutique.get("place", 0))
 
 func ombres_equipees() -> Array:
 	return ombres.filter(func (o): return o.get("eq", false))
@@ -495,10 +592,10 @@ signal monnaie_gagnee(m: String, n: int)
 func gagner(espece: String, elite := false, mult := 1.0) -> int:
 	var e: Dictionary = ESPECES[espece]
 	var st := stats_monstre(espece, elite, mult)
-	var gain := int(round(st["pieces"] * (1.0 + bonus("pieces") / 100.0)))
+	var gain := int(round(st["pieces"] * (1.0 + bonus("pieces") / 100.0) * mult_prog()))
 	pieces += gain
 	tues[espece] = int(tues.get(espece, 0)) + 1
-	xp += int(round(st["xp"] * (1.0 + bonus("xp") / 100.0)))
+	xp += int(round(st["xp"] * (1.0 + bonus("xp") / 100.0) * mult_prog()))
 	while xp >= xp_requise():
 		xp -= xp_requise()
 		niveau += 1
@@ -715,7 +812,9 @@ func sauver() -> void:
 			"rolls": rolls, "monnaies": monnaies, "achats": achats, "tirages": tirages, "donjons": donjons,
 			"record": record_donjon, "uniques": uniques_obtenus, "arises": arises, "quetes": quetes,
 			"boutique": achats_boutique, "auto": auto_ombres, "pv": pv, "mana": mana,
-			"auto_attaque": auto_attaque, "records": records, "finis": donjons_finis}))
+			"auto_attaque": auto_attaque, "records": records, "finis": donjons_finis,
+			"chasseurs": chasseurs, "elo": elo, "jetons": jetons, "arene_v": arene_v, "arene_d": arene_d,
+			"quitte": Time.get_unix_time_from_system()}))
 
 func charger() -> void:
 	if OS.get_cmdline_user_args().has("--sans-sauvegarde") or not FileAccess.file_exists(CHEMIN):
@@ -745,6 +844,15 @@ func charger() -> void:
 	achats_boutique = d.get("boutique", {})
 	auto_ombres = bool(d.get("auto", false))
 	auto_attaque = bool(d.get("auto_attaque", false))
+	elo = int(d.get("elo", 1000))
+	jetons = int(d.get("jetons", 0))
+	arene_v = int(d.get("arene_v", 0))
+	arene_d = int(d.get("arene_d", 0))
+	chasseurs = d.get("chasseurs", [])
+	var absent := Time.get_unix_time_from_system() - float(d.get("quitte", Time.get_unix_time_from_system()))
+	if absent > 60.0:
+		for c in chasseurs:
+			simuler_bot(c, absent)
 	records = d.get("records", {})
 	donjons_finis = d.get("finis", {})
 	for o in d.get("inventaire", []):

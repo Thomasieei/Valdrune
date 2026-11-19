@@ -51,6 +51,9 @@ var _env: Environment
 var pnjs: Array = []
 var portail: Node3D
 var donjon: Donjon = null
+var arene: Arene = null
+var chasseurs: Array = []
+var _adversaire := {}
 var _musique_p: AudioStreamPlayer
 
 var boss_evt: Monstre = null
@@ -83,6 +86,14 @@ func _ready() -> void:
 		monstres.append(m)
 		m.regenere.connect(func (x): if joueur.cible == x: joueur.viser(null))
 	_pole()
+	for k in Partie.chasseurs.size():
+		var c := Chasseur.new()
+		c.d = Partie.chasseurs[k]
+		c.ville = self
+		add_child(c)
+		var p: Array = POSTES[(k * 3) % POSTES.size()]
+		c.placer(Vector3(p[1] + 2.0, _sol(p[1], p[2]) + 0.3, p[2] + 2.0))
+		chasseurs.append(c)
 	prochain_evt = _quart_suivant()
 	hud = Hud.new()
 	hud.ville = self
@@ -211,12 +222,21 @@ func action_proche() -> Dictionary:
 	return {}
 
 
-func entrer_donjon(n := 0) -> void:
-	if donjon:
+func entrer_donjon(n := 0, groupe := false) -> void:
+	if donjon or arene:
 		return
+	var equipe := []
+	if groupe:
+		hud.annonce("RECHERCHE DE GROUPE", "Matchmaking en cours…", Color(0.5, 0.85, 1.0))
+		await get_tree().create_timer(2.5).timeout
+		var dispo := chasseurs.filter(func (c): return c.mode == "ville")
+		dispo.sort_custom(func (a, b): return absi(int(a.d["niveau"]) - Partie.niveau) < absi(int(b.d["niveau"]) - Partie.niveau))
+		equipe = dispo.slice(0, 3)
+		hud.dire("Groupe trouvé : " + ", ".join(equipe.map(func (c): return "%s (niv %d)" % [c.d["nom"], int(c.d["niveau"])])), Color(0.5, 1.0, 0.7))
 	await hud.fondu(true)
 	donjon = Donjon.new()
 	donjon.niv = n
+	donjon.groupe = not equipe.is_empty()
 	donjon.ville = self
 	add_child(donjon)
 	donjon.termine.connect(_fin_donjon)
@@ -224,6 +244,12 @@ func entrer_donjon(n := 0) -> void:
 		monstres.append(m)
 	joueur.viser(null)
 	_teleporter(donjon.point_depart(), PI)
+	for k in equipe.size():
+		var c: Chasseur = equipe[k]
+		c.mode = "donjon"
+		c.donjon = donjon
+		c.placer(donjon.point_depart() + Vector3((k - 1) * 1.6, 0, -1.0))
+	donjon.allies = equipe
 	_ambiance(true)
 	donjon.appliquer_ambiance(_env)
 	donjon.demarrer()
@@ -246,6 +272,7 @@ func quitter_donjon() -> void:
 	await hud.fondu(true)
 	for m in donjon.monstres:
 		monstres.erase(m)
+	_liberer_allies()
 	joueur.viser(null)
 	donjon.queue_free()
 	donjon = null
@@ -408,6 +435,53 @@ func eveiller() -> void:
 			hud.dire("Nouvelle ombre : %s [%s]" % [m.e["nom"], Partie.RANGS[m.e["rang"]]], Color(0.8, 0.6, 1.0))
 
 var _mort_en_cours := false
+
+func _liberer_allies() -> void:
+	if donjon == null:
+		return
+	for c: Chasseur in donjon.allies:
+		if is_instance_valid(c):
+			c.mode = "ville"
+			c.donjon = null
+			c.placer(PORTAIL + Vector3(randf_range(3, 6), 0.3, randf_range(-3, 3)))
+			if donjon.sortie:
+				for k in 6:
+					Partie.bot_gagner(c.d, Partie.SALLES_BOSS[donjon.niv])
+			c._maj_plaque()
+
+func lancer_arene() -> void:
+	if donjon or arene:
+		return
+	_adversaire = Partie.adversaire_arene()
+	hud.annonce("ARÈNE", "Adversaire : %s  ·  niveau %d  ·  ÉLO %d" % [_adversaire["nom"], int(_adversaire["niveau"]), int(_adversaire["elo"])], Color(1.0, 0.7, 0.3))
+	await get_tree().create_timer(1.8).timeout
+	await hud.fondu(true)
+	arene = Arene.new()
+	arene.adversaire = _adversaire
+	add_child(arene)
+	monstres.append(arene.rival)
+	arene.termine.connect(_fin_arene)
+	joueur.viser(arene.rival)
+	_teleporter(arene.point_depart(), 0.0)
+	Partie.pv = Partie.pv_max()
+	arene.demarrer()
+	await hud.fondu(false)
+	hud.annonce("COMBAT !", "90 secondes pour vaincre %s" % _adversaire["nom"], Color(1.0, 0.55, 0.25))
+
+func _fin_arene(victoire: bool) -> void:
+	if arene == null:
+		return
+	var a := arene
+	arene = null
+	a.actif = false
+	var r := Partie.fin_arene(_adversaire, victoire)
+	monstres.erase(a.rival)
+	joueur.viser(null)
+	await hud.fondu(true)
+	a.queue_free()
+	_teleporter(PORTAIL + Vector3(4.0, 0.3, 0.0), -PI / 2.0)
+	await hud.fondu(false)
+	hud.annonce("VICTOIRE !" if victoire else "DÉFAITE", "ÉLO %+d  ·  +%d jeton%s d'arène" % [r["elo"], r["jetons"], "s" if r["jetons"] > 1 else ""], Color(0.5, 1.0, 0.5) if victoire else Color(1.0, 0.4, 0.4))
 var _cercle_portee: MeshInstance3D
 var _portee_vue := 0.0
 
@@ -449,11 +523,17 @@ func mort_joueur() -> void:
 	_mort_en_cours = true
 	joueur.viser(null)
 	Fx.son("error", 0.0)
+	if arene:
+		_fin_arene(false)
+		Partie.pv = Partie.pv_max()
+		_mort_en_cours = false
+		return
 	var r := Partie.mourir()
 	await hud.fondu(true)
 	if donjon:
 		for m in donjon.monstres:
 			monstres.erase(m)
+		_liberer_allies()
 		donjon.queue_free()
 		donjon = null
 		_ambiance(false)
@@ -479,7 +559,7 @@ func toucher_monde(p: Vector2) -> void:
 			joueur.viser(m)
 
 func _process(dt: float) -> void:
-	if boss_evt == null and donjon == null and temps_avant_evt() <= 0.0:
+	if boss_evt == null and donjon == null and arene == null and temps_avant_evt() <= 0.0:
 		lancer_evenement()
 	elif boss_evt and not boss_evt.mort and evt_restant() <= 0.0:
 		hud.dire("Baran est reparti dans les ténèbres…", Color(1.0, 0.45, 0.5))

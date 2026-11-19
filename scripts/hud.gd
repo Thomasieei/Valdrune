@@ -82,7 +82,7 @@ func _ready() -> void:
 	_droite.size = Vector2(330, 300)
 	_droite.draw.connect(_dessiner_droite)
 	_racine.add_child(_droite)
-	for d in [["inventaire", "Inventaire", "sac"], ["ombres", "Ombres", "ombres"], ["stats", "Compétences", "q_skills"], ["index", "Index", "q_kills"], ["boutique", "Boutique", "potion"]]:
+	for d in [["inventaire", "Inventaire", "sac"], ["ombres", "Ombres", "ombres"], ["stats", "Compétences", "q_skills"], ["index", "Index", "q_kills"], ["boutique", "Boutique", "potion"], ["classement", "Classement", "best"]]:
 		var h := Ui.hexagone(d[1], d[2], 96.0)
 		var type: String = d[0]
 		h.pressed.connect(func (): ouvrir(type))
@@ -224,7 +224,7 @@ func _disposer() -> void:
 		lb.position = Vector2(0, 0 if n == "Titre" else 70)
 
 	var o := Vector2(20, 150)
-	var pos := {"inventaire": o, "ombres": o + Vector2(86, 50), "stats": o + Vector2(0, 100), "index": o + Vector2(86, 150), "boutique": o + Vector2(0, 200)}
+	var pos := {"inventaire": o, "ombres": o + Vector2(86, 50), "stats": o + Vector2(0, 100), "index": o + Vector2(86, 150), "boutique": o + Vector2(0, 200), "classement": o + Vector2(86, 250)}
 	for k in _hex:
 		_hex[k].position = pos[k]
 	_msg.position = Vector2(w / 2.0 - 450, h * 0.62)
@@ -387,6 +387,8 @@ func _jeton(c: Control, ctr: Vector2, r: float, m: String) -> void:
 
 func _process(dt: float) -> void:
 	_maj_action()
+	if ville.arene and ville.arene.actif:
+		dire("ARÈNE  ·  %d s" % int(ville.arene.temps), Color(1.0, 0.7, 0.3))
 	_donj.visible = ville.donjon != null
 	_quitter.visible = ville.donjon != null and ville.donjon.actif
 	_evt.visible = ville.donjon == null
@@ -579,6 +581,9 @@ func _construire() -> void:
 		"boutique":
 			_panneau = Ui.panneau("Boutique", "potion", Vector2(820, 600), fermer)
 			_boutique()
+		"classement":
+			_panneau = Ui.panneau("Classement des chasseurs", "best", Vector2(980, 610), fermer)
+			_classement()
 		"autel":
 			_panneau = Ui.panneau(Partie.ROLLS[_autel]["autel"], {"ombres": "ombres", "arme": "attack", "chance": "best"}[_autel], Vector2(1000, 610), fermer)
 			_autel_panneau()
@@ -909,56 +914,91 @@ func _stats() -> void:
 	_ajouter(Ui.label("Ombres : %d  ·  Portée %.1f m" % [Partie.places_ombres(), Partie.portee_ombres()], 20, Color(0.8, 0.65, 1.0)), Vector2(360, 554))
 
 
+var _defil_boutique := 0
+const OFFRES := [
+	["pass", "Pass du Monarque", "×5 expérience et ×5 pièces, à vie.", "9,99 €", "best"],
+	["fureur", "Fureur continue", "Attaque sans t'arrêter : cible auto, enchaîne les kills.", "2,99 €", "attack"],
+	["auto", "Instinct de meute", "Tes ombres frappent seules tout ennemi à portée.", "2,99 €", "cmd_attack"],
+	["place", "Emplacement d'ombre", "+1 ombre au combat (2 achats max).", "3,99 €", "ombres"],
+	["gacha", "Sac de gacha", "+20 de chaque monnaie d'autel.", "4,99 €", "roll"],
+	["coffre", "Coffre du donjon", "Un objet de donjon garanti, rang B.", "1,99 €", "items"],
+	["soin", "Potion de soin", "Rend tous tes points de vie.", "", "role_heal"],
+	["mana", "Fiole de mana", "Remplit ta réserve de mana.", "", "essence"],
+]
+
 func _boutique() -> void:
-	_ajouter(Ui.label("BOUTIQUE", 34, Color.WHITE, 8), Vector2(36, 80))
-	var offres := [
-		["fureur", "Fureur continue", "Tu attaques sans t'arrêter : cible auto du monstre le plus\nproche, enchaîne après chaque kill. Achat définitif.", 40000, "attack"],
-		["auto", "Instinct de meute", "Tes ombres frappent seules tout ennemi dans leur portée,\nsans que tu aies à cibler. Achat définitif.", 60000, "cmd_attack"],
-		["soin", "Potion de soin", "Rend tous tes points de vie.", 150 * Partie.niveau, "role_heal"],
-		["mana", "Fiole de mana", "Remplit ta réserve de mana (rappel des ombres).", 250 * Partie.niveau, "essence"],
-	]
-	var y := 140.0
-	for of in offres:
+	_ajouter(Ui.label("BOUTIQUE  ·  gratuite pendant la bêta", 26, Color.WHITE, 8), Vector2(36, 80))
+	var sc := ScrollContainer.new()
+	sc.size = Vector2(760, 470)
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.scroll_deadzone = 14
+	_ajouter(sc, Vector2(30, 118))
+	var zone := Control.new()
+	zone.custom_minimum_size = Vector2(750, OFFRES.size() * 104.0)
+	sc.add_child(zone)
+	var y := 0.0
+	for of in OFFRES:
 		var id: String = of[0]
-		var prix: int = of[3]
 		var ligne := Panel.new()
-		ligne.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		ligne.add_theme_stylebox_override("panel", Ui.boite(Color(0.05, 0.07, 0.18), Color(0.4, 0.5, 1.0), 2, 10))
-		ligne.size = Vector2(740, 100)
-		_ajouter(ligne, Vector2(36, y))
+		ligne.mouse_filter = Control.MOUSE_FILTER_PASS
+		ligne.add_theme_stylebox_override("panel", Ui.boite(Color(0.05, 0.07, 0.18), Color(1.0, 0.75, 0.3) if of[3] != "" else Color(0.4, 0.5, 1.0), 2, 10))
+		ligne.size = Vector2(740, 96)
+		ligne.position = Vector2(0, y)
+		zone.add_child(ligne)
 		var ic := TextureRect.new()
 		ic.texture = Ui.tex(of[4])
 		ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		ic.size = Vector2(72, 72)
+		ic.size = Vector2(64, 64)
+		ic.position = Vector2(12, 16)
 		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_ajouter(ic, Vector2(50, y + 20))
-		_ajouter(Ui.label(of[1], 26, Color(0.85, 0.9, 1.0), 7), Vector2(136, y + 8))
-		_ajouter(Ui.label(of[2], 16, Color(0.8, 0.82, 0.95), 4), Vector2(136, y + 46))
-		if id in ["auto", "fureur"] and Partie.achats_boutique.has(id):
+		ligne.add_child(ic)
+		var t := Ui.label(of[1], 24, Color(0.9, 0.92, 1.0), 7)
+		t.position = Vector2(90, 6)
+		ligne.add_child(t)
+		var ds := Ui.label(of[2], 16, Color(0.8, 0.82, 0.95), 4)
+		ds.position = Vector2(90, 40)
+		ligne.add_child(ds)
+		if of[3] != "":
+			var pr := Ui.label("Bientôt : %s" % of[3], 15, Color(1.0, 0.75, 0.35), 4)
+			pr.position = Vector2(90, 66)
+			ligne.add_child(pr)
+		var b: Button
+		var possede := Partie.achats_boutique.has(id)
+		if id in ["fureur", "auto"] and possede:
 			var actif: bool = Partie.auto_ombres if id == "auto" else Partie.auto_attaque
-			var t := Ui.bouton("ACTIVÉ" if actif else "DÉSACTIVÉ", Ui.VERT if actif else Ui.ROUGE, Vector2(170, 56), 20)
-			t.pressed.connect(func ():
+			b = Ui.bouton("ACTIVÉ" if actif else "DÉSACTIVÉ", Ui.VERT if actif else Ui.ROUGE, Vector2(160, 54), 19)
+			b.pressed.connect(func ():
 				if id == "auto":
 					Partie.auto_ombres = not Partie.auto_ombres
 				else:
 					Partie.auto_attaque = not Partie.auto_attaque
 				Partie.change.emit())
-			_ajouter(t, Vector2(590, y + 22))
 		else:
-			var b := Ui.bouton(Fx.court(prix), Ui.OR, Vector2(170, 56), 22)
-			b.disabled = Partie.pieces < prix
+			var fini: bool = (id == "pass" and possede) or (id == "place" and int(Partie.achats_boutique.get("place", 0)) >= 2)
+			var prix_or := 0 if of[3] != "" else (150 if id == "soin" else 250) * Partie.niveau
+			b = Ui.bouton("POSSÉDÉ" if fini else ("GRATUIT" if prix_or == 0 else Fx.court(prix_or)), Ui.VERT if prix_or == 0 else Ui.OR, Vector2(160, 54), 20)
+			b.disabled = fini or Partie.pieces < prix_or
 			b.pressed.connect(func ():
-				if Partie.pieces < prix:
+				if Partie.pieces < prix_or:
 					return
-				Partie.pieces -= prix
+				Partie.pieces -= prix_or
 				match id:
-					"auto":
-						Partie.achats_boutique["auto"] = true
-						Partie.auto_ombres = true
+					"pass":
+						Partie.achats_boutique["pass"] = true
 					"fureur":
 						Partie.achats_boutique["fureur"] = true
 						Partie.auto_attaque = true
+					"auto":
+						Partie.achats_boutique["auto"] = true
+						Partie.auto_ombres = true
+					"place":
+						Partie.achats_boutique["place"] = int(Partie.achats_boutique.get("place", 0)) + 1
+					"gacha":
+						for m in Partie.monnaies:
+							Partie.donner_monnaie(m, 20)
+					"coffre":
+						Partie.ajouter_objet(Partie.BUTIN_DONJON.pick_random(), 3)
 					"soin":
 						Partie.pv = Partie.pv_max()
 					"mana":
@@ -966,9 +1006,47 @@ func _boutique() -> void:
 				Fx.son("coins", -2.0)
 				Partie.sauver()
 				Partie.change.emit())
-			_ajouter(b, Vector2(590, y + 22))
-		y += 108.0
+		b.position = Vector2(566, 21)
+		ligne.add_child(b)
+		y += 104.0
+	sc.get_v_scroll_bar().value_changed.connect(func (v): _defil_boutique = int(v))
+	sc.set_deferred("scroll_vertical", _defil_boutique)
 
+
+func _classement() -> void:
+	_ajouter(Ui.label("ÉLO %d  ·  %d V / %d D  ·  %d jetons" % [Partie.elo, Partie.arene_v, Partie.arene_d, Partie.jetons], 22, Color(1.0, 0.8, 0.4), 7), Vector2(36, 82))
+	var l := Partie.classement()
+	var y := 122.0
+	for k in l.size():
+		var c: Dictionary = l[k]
+		var moi: bool = c.get("moi", false)
+		var col := Color(0.45, 1.0, 0.55) if moi else (Color(1.0, 0.82, 0.4) if c.get("premium", false) else Color(0.85, 0.88, 1.0))
+		var txt := "#%d   %s%s" % [k + 1, "◆ " if c.get("premium", false) else "", c["nom"]]
+		_ajouter(Ui.label(txt, 19, col, 5), Vector2(40, y))
+		_ajouter(Ui.label("Niv. %d" % int(c["niveau"]), 19, col, 5), Vector2(300, y))
+		_ajouter(Ui.label("ÉLO %d" % int(c["elo"]), 19, col, 5), Vector2(400, y))
+		y += 38.0
+	_ajouter(Ui.label("◆ = joueur avec Pass (×5)", 14, Color(0.7, 0.7, 0.85), 3), Vector2(40, y + 4))
+	var a := Ui.bouton("ARÈNE : COMBATTRE", Ui.ROUGE, Vector2(300, 60), 22)
+	a.disabled = ville.donjon != null or ville.arene != null
+	a.pressed.connect(func ():
+		fermer()
+		ville.lancer_arene())
+	_ajouter(a, Vector2(560, 120))
+	_ajouter(Ui.label("Victoire : +3 jetons · Défaite : +1", 16, Color(0.85, 0.85, 0.95), 4), Vector2(560, 186))
+	_ajouter(Ui.label("RÉCOMPENSES UNIQUES", 20, Color(1.0, 0.75, 0.35), 6), Vector2(560, 226))
+	var yy := 258.0
+	for r in Partie.BOUTIQUE_ARENE:
+		var b: Dictionary = Partie.OBJETS[r[0]]
+		var prix: int = r[1]
+		var bt := Ui.bouton("%s  (%d jetons)" % [b["nom"], prix], Ui.VIOLET, Vector2(380, 54), 17)
+		bt.disabled = Partie.jetons < prix
+		var id: String = r[0]
+		bt.pressed.connect(func ():
+			if Partie.acheter_arene(id, prix):
+				Fx.son("levelup", -4.0))
+		_ajouter(bt, Vector2(560, yy))
+		yy += 64.0
 
 func _index() -> void:
 	var y := 86.0
@@ -1242,13 +1320,15 @@ func _donjon_panneau() -> void:
 		elif not niveau_ok:
 			etat = "Niveau %d requis" % int(d["niveau"])
 		_ajouter(Ui.label(etat, 15, Color(0.45, 1.0, 0.5) if ouvert else Color(1.0, 0.45, 0.45), 4), Vector2(180, y + 68))
-		var e := Ui.bouton("ENTRER" if ouvert else "FERMÉ", Ui.VERT if ouvert else Color(0.3, 0.3, 0.38), Vector2(140, 56), 22)
-		e.disabled = not ouvert
 		var nn: int = n
-		e.pressed.connect(func ():
-			fermer()
-			ville.entrer_donjon(nn))
-		_ajouter(e, Vector2(630, y + 24))
+		for g in [false, true]:
+			var e := Ui.bouton(("GROUPE" if g else "SOLO") if ouvert else "FERMÉ", (Ui.BLEU if g else Ui.VERT) if ouvert else Color(0.3, 0.3, 0.38), Vector2(108, 52), 19)
+			e.disabled = not ouvert
+			var gg: bool = g
+			e.pressed.connect(func ():
+				fermer()
+				ville.entrer_donjon(nn, gg))
+			_ajouter(e, Vector2(560 + (116 if g else 0), y + 26))
 		y += 114.0
 	_ajouter(Ui.label("Modèle 3D « Naruto » : TRSgamings (Sketchfab), licence CC-BY 4.0", 13, Color(0.6, 0.6, 0.75), 3), Vector2(36, 578))
 
