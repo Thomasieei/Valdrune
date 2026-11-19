@@ -32,20 +32,20 @@ func systeme(titre: String, lignes: Array) -> void:
 		_sys.queue_free()
 	_sys = Panel.new()
 	_sys.add_theme_stylebox_override("panel", Ui.boite(Color(0.02, 0.06, 0.16, 0.95), Color(0.35, 0.75, 1.0), 3, 6))
-	_sys.size = Vector2(620, 110 + lignes.size() * 32)
-	_sys.position = (_taille - _sys.size) / 2.0 - Vector2(0, 60)
-	var t := Ui.label(titre, 28, Color(0.55, 0.9, 1.0), 8)
-	t.size = Vector2(620, 40)
+	_sys.size = Vector2(520, 70 + lignes.size() * 24)
+	_sys.position = Vector2((_taille.x - _sys.size.x) / 2.0, 96)
+	var t := Ui.label(titre, 20, Color(0.55, 0.9, 1.0), 7)
+	t.size = Vector2(520, 30)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	t.position = Vector2(0, 16)
+	t.position = Vector2(0, 8)
 	_sys.add_child(t)
 	for k in lignes.size():
-		var l := Ui.label(lignes[k], 20, Color(0.85, 0.92, 1.0), 5)
-		l.size = Vector2(620, 30)
+		var l := Ui.label(lignes[k], 15, Color(0.85, 0.92, 1.0), 4)
+		l.size = Vector2(520, 22)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		l.position = Vector2(0, 66 + k * 32)
+		l.position = Vector2(0, 44 + k * 24)
 		_sys.add_child(l)
-	_sys.mouse_filter = Control.MOUSE_FILTER_STOP
+	_sys.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_racine.add_child(_sys)
 	_sys.modulate.a = 0.0
 	_sys.scale = Vector2(1, 0.1)
@@ -53,7 +53,7 @@ func systeme(titre: String, lignes: Array) -> void:
 	var tw := _sys.create_tween()
 	tw.tween_property(_sys, "modulate:a", 1.0, 0.15)
 	tw.parallel().tween_property(_sys, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK)
-	tw.tween_interval(5.0)
+	tw.tween_interval(3.5)
 	tw.tween_property(_sys, "modulate:a", 0.0, 0.4)
 	tw.tween_callback(_sys.queue_free)
 	Fx.son("open", -2.0, 1.3)
@@ -188,6 +188,7 @@ func _ready() -> void:
 	for b in BARRE:
 		var bb := _rond(b[1], b[2], 58.0, Color(0.35, 0.25, 0.05) if b[0] == "monarque" else Color(0.1, 0.16, 0.38))
 		bb.set_meta("on", false)
+		bb.set_meta("fs", 10)
 		_barre[b[0]] = bb
 	_voile = ColorRect.new()
 	_voile.color = Color(0.25, 0.0, 0.45, 0.0)
@@ -293,7 +294,7 @@ func _rond(texte: String, icone: String, taille: float, fond: Color) -> Control:
 		var tex := Ui.tex(icone)
 		var ti := r * 1.0
 		c.draw_texture_rect(tex, Rect2(ctr - Vector2(ti, ti) / 2.0 - Vector2(0, r * 0.14), Vector2(ti, ti)), false)
-		var fs := int(clampf(taille * 0.15, 15, 22))
+		var fs: int = c.get_meta("fs", int(clampf(taille * 0.15, 15, 22)))
 		var tx: String = c.get_meta("texte", texte)
 		var w := Ui.police.get_string_size(tx, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		var p := ctr + Vector2(- w / 2.0, r * 0.66)
@@ -319,7 +320,7 @@ func _disposer() -> void:
 	_joy_centre = Vector2(170, h - 160)
 	_joy_pos = _joy_centre
 	_b_frapper.position = Vector2(w - 200, h - 200)
-	_b_eveil.position = Vector2(w - 500, h - 300)
+	_b_eveil.position = Vector2(w - 640, h - 270)
 	_b_action.position = Vector2(w - 180, h - 446)
 	for k in BARRE.size():
 		_barre[BARRE[k][0]].position = Vector2(w / 2.0 - 5.0 * 62.0 + k * 62.0, h - 74.0)
@@ -327,7 +328,7 @@ func _disposer() -> void:
 	_b_comp["brise"].position = Vector2(w - 318, h - 250)
 	_b_comp["cri"].position = Vector2(w - 196, h - 318)
 	_b_comp["domaine"].position = Vector2(w - 330, h - 380)
-	_b_comp["echange"].position = Vector2(w - 456, h - 430)
+	_b_comp["echange"].position = Vector2(w - 440, h - 214)
 	_haut.position = Vector2(16, 10)
 	_droite.position = Vector2(w - 340, 120)
 	_evt.position = Vector2(w - 340, 68)

@@ -34,7 +34,7 @@ jobs:
           if grep -E "SCRIPT ERROR|Parse Error" run.log; then exit 1; fi
       - name: Tour du jeu (captures)
         run: |
-          timeout 300 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 -- --pilote=tour --sans-sauvegarde > tour.log 2>&1 || true
+          timeout 520 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 -- --pilote=tour --sans-sauvegarde > tour.log 2>&1 || true
           grep -E "CAPTURE|SCRIPT ERROR|TOUR|PILOTE|at: " tour.log | grep -v "mesh_get_surface" | head -80 || true
           mkdir -p shots && cp /tmp/caps_arise/*.png shots/ 2>/dev/null || true
           cp tour.log shots/
