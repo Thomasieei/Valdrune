@@ -213,7 +213,7 @@ func _physics_process(dt: float) -> void:
 			if not (Partie.auto_attaque and cible.en_parade()):
 				_frapper()
 	elif _anim_coup <= 0.0:
-		Modele.jouer(_ap, "SwordIdle" if en_combat else "Idle")
+		Modele.jouer(_ap, "Idle" if Partie.opts["fourreau"] else "SwordIdle")
 
 const MARCHE_MAX := 0.45
 func _monter_marche(dir: Vector3) -> void:
@@ -233,6 +233,10 @@ func _monter_marche(dir: Vector3) -> void:
 	global_transform = t
 
 func _frapper() -> void:
+	if Partie.opts["fourreau"]:
+		Partie.opts["fourreau"] = false
+		maj_fourreau()
+		Fx.son("sheath", -2.0)
 	_coup_n = (_coup_n + 1) % 3
 	var anim: String = ["Slash1", "Slash2", "Slash3"][_coup_n]
 	_dernier_coup = Time.get_ticks_msec()
@@ -278,6 +282,20 @@ func competence(k: String) -> String:
 		if v.length() - c.haut() * 0.25 > PORTEE + 1.2:
 			return "Trop loin"
 	var vil := get_parent()
+	if k == "echange" and Partie.speciale == "telekinesie":
+		var l: Array = vil.monstres.filter(func (m): return is_instance_valid(m) and not m.mort and m.global_position.distance_to(global_position) < 10.0)
+		if l.is_empty():
+			return "Aucun ennemi à soulever"
+		var dt2: Dictionary = Partie.COMPETENCES["telekinesie"]
+		if Partie.mana < dt2["mana"]:
+			return "Pas assez de mana (%d)" % int(dt2["mana"])
+		Partie.depenser_mana(dt2["mana"])
+		recharges[k] = dt2["cd"]
+		for m in l:
+			m.lever()
+		Fx.son("portal", -4.0, 1.5)
+		vil.hud.menu_telekinesie(l)
+		return ""
 	if k == "echange":
 		var vivantes: Array = vil.ombres.filter(func (o): return not o.mort)
 		if vivantes.is_empty():
@@ -362,6 +380,11 @@ func _trainee(duree: float) -> void:
 
 var _eclair_t := 0.0
 var _eclair_i := 0
+
+func maj_fourreau() -> void:
+	if _main:
+		_main.visible = not Partie.opts["fourreau"]
+	Modele.jouer(_ap, "Idle" if Partie.opts["fourreau"] else "SwordIdle")
 
 func _arme_monarque(dt: float) -> void:
 	if not Partie.opts["monarque"] or Partie.niveau < Partie.NIVEAU_MONARQUE or entree.length() > 0.2 or _dash_t > 0.0:

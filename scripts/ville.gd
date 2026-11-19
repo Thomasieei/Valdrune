@@ -788,6 +788,8 @@ func _maj_ombres() -> void:
 		add_child(o)
 		o.global_position = joueur.global_position + Vector3(randf_range(-2, 2), 0, randf_range(1, 3))
 		ombres.append(o)
+		if Partie.opts["rangees"]:
+			o.ranger.call_deferred(true)
 
 
 func frapper() -> void:

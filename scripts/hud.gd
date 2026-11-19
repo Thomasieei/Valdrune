@@ -60,7 +60,7 @@ func systeme(titre: String, lignes: Array) -> void:
 var _flash_msg_t := 0.0
 const BARRE := [["arise", "ARISE", "arise"], ["fureur", "ATTAQUE", "attack"], ["auto", "OMBRES", "cmd_attack"],
 	["rappel", "RAPPEL", "essence"], ["potion", "POTION", "role_heal"], ["equip", "ÉQUIPE", "items"],
-	["diviser", "DIVISER", "role_melee"], ["monarque", "MONARQUE", "w8"]]
+	["diviser", "DIVISER", "role_melee"], ["monarque", "MONARQUE", "w8"], ["rangees", "RANGER", "ombres"], ["fourreau", "FOURREAU", "tab_w"]]
 
 func _barre_on(k: String) -> bool:
 	match k:
@@ -79,13 +79,21 @@ func _barre_basculer(k: String) -> void:
 		ouvrir("boutique")
 		return
 	match k:
+		"rangees":
+			Partie.opts["rangees"] = not Partie.opts["rangees"]
+			for o in ville.ombres:
+				o.ranger(Partie.opts["rangees"])
+		"fourreau":
+			Partie.opts["fourreau"] = not Partie.opts["fourreau"]
+			ville.joueur.maj_fourreau()
+			Fx.son("sheath", -2.0)
 		"fureur":
 			Partie.auto_attaque = not Partie.auto_attaque
 		"auto":
 			Partie.auto_ombres = not Partie.auto_ombres
 		_:
 			Partie.opts[k] = not bool(Partie.opts[k])
-	var nom: String = {"arise": "Arise auto", "fureur": "Attaque auto", "auto": "Ombres auto", "rappel": "Rappel des ombres", "potion": "Potion auto", "equip": "Équipement auto", "diviser": "Ombres divisées", "monarque": "Arme du Monarque (%d mana / coup)" % int(Partie.MANA_ECLAIR)}[k]
+	var nom: String = {"arise": "Arise auto", "fureur": "Attaque auto", "auto": "Ombres auto", "rappel": "Rappel des ombres", "potion": "Potion auto", "equip": "Équipement auto", "diviser": "Ombres divisées", "monarque": "Arme du Monarque (%d mana / coup)" % int(Partie.MANA_ECLAIR), "rangees": "Ombres rangées dans le sol", "fourreau": "Arme au fourreau"}[k]
 	dire("%s : %s" % [nom, "ACTIVÉ" if _barre_on(k) else "désactivé"], Color(0.5, 1.0, 0.6) if _barre_on(k) else Color(0.8, 0.8, 0.9))
 	Partie.sauver()
 	Partie.change.emit()
@@ -178,7 +186,7 @@ func _ready() -> void:
 	_b_eveil = _rond("ÉVEIL", "arise", 128.0, Color(0.35, 0.1, 0.7))
 	_b_eveil.visible = false
 	for b in BARRE:
-		var bb := _rond(b[1], b[2], 66.0, Color(0.35, 0.25, 0.05) if b[0] == "monarque" else Color(0.1, 0.16, 0.38))
+		var bb := _rond(b[1], b[2], 58.0, Color(0.35, 0.25, 0.05) if b[0] == "monarque" else Color(0.1, 0.16, 0.38))
 		bb.set_meta("on", false)
 		_barre[b[0]] = bb
 	_voile = ColorRect.new()
@@ -312,7 +320,7 @@ func _disposer() -> void:
 	_b_eveil.position = Vector2(w - 500, h - 300)
 	_b_action.position = Vector2(w - 180, h - 446)
 	for k in BARRE.size():
-		_barre[BARRE[k][0]].position = Vector2(w / 2.0 - 4.0 * 72.0 + k * 72.0, h - 82.0)
+		_barre[BARRE[k][0]].position = Vector2(w / 2.0 - 5.0 * 62.0 + k * 62.0, h - 74.0)
 	_b_comp["esquive"].position = Vector2(w - 330, h - 118)
 	_b_comp["brise"].position = Vector2(w - 318, h - 250)
 	_b_comp["cri"].position = Vector2(w - 196, h - 318)
@@ -531,6 +539,14 @@ func _process(dt: float) -> void:
 			bc.set_meta("texte", "ACTIF" if Partie.domaine_actif() else ("PRÊT !" if Partie.charge >= 100.0 else "%d %%" % int(Partie.charge)))
 			bc.set_meta("pauvre", Partie.charge < 100.0 and not Partie.domaine_actif())
 			bc.set_meta("pulse", 0.5 + 0.5 * sin(Time.get_ticks_msec() / 140.0) if Partie.charge >= 100.0 else 0.0)
+			bc.queue_redraw()
+			continue
+		if k == "echange":
+			var sp: Dictionary = Partie.COMPETENCES[Partie.speciale]
+			bc.set_meta("texte", sp["nom"])
+			bc.set_meta("cd", rc / float(sp["cd"]))
+			bc.set_meta("cds", rc)
+			bc.set_meta("pauvre", Partie.mana < float(sp["mana"]))
 			bc.queue_redraw()
 			continue
 		bc.set_meta("cd", rc / float(Partie.COMPETENCES[k]["cd"]))
@@ -1055,12 +1071,18 @@ func _stats() -> void:
 			ligne.add_child(b)
 			x += 76.0
 		y += 68.0
+	var sp := Ui.bouton("Spéciale : %s  ⇄" % Partie.COMPETENCES[Partie.speciale]["nom"], Ui.VIOLET, Vector2(330, 46), 18)
+	sp.pressed.connect(func ():
+		Partie.speciale = "telekinesie" if Partie.speciale == "echange" else "echange"
+		Partie.sauver()
+		_construire())
+	_ajouter(sp, Vector2(400, 540))
 	sc.get_v_scroll_bar().value_changed.connect(func (v): _defil_stats = int(v))
 	sc.set_deferred("scroll_vertical", _defil_stats)
 	var r := Ui.bouton("Réinitialiser les points", Ui.ROUGE, Vector2(300, 48), 20)
 	r.pressed.connect(func (): Partie.reinitialiser_points())
 	_ajouter(r, Vector2(40, 542))
-	_ajouter(Ui.label("Ombres : %d  ·  Portée %.1f m" % [Partie.places_ombres(), Partie.portee_ombres()], 20, Color(0.8, 0.65, 1.0)), Vector2(360, 554))
+	_ajouter(Ui.label("Portée des ombres %.1f m" % Partie.portee_ombres(), 16, Color(0.8, 0.65, 1.0)), Vector2(400, 512))
 
 
 var _defil_boutique := 0
@@ -1287,6 +1309,9 @@ func _dans(c: Control, p: Vector2) -> bool:
 	return c.visible and p.distance_to(c.position + c.size / 2.0) < c.size.x / 2.0 + 8.0
 
 func _poser(i: int, p: Vector2) -> void:
+	if _tk and _tk.get_global_rect().has_point(p):
+		_doigts[i] = {"role": "ui"}
+		return
 	if _sur_interface(p):
 		_doigts[i] = {"role": "ui"}
 		return
@@ -1861,3 +1886,65 @@ func _grimoire() -> void:
 		bt.position = Vector2(676, 12)
 		ligne.add_child(bt)
 		y += 84.0
+
+
+var _tk: Panel
+var _tk_cibles: Array = []
+
+func menu_telekinesie(l: Array) -> void:
+	_tk_cibles = l
+	_tk_menu(false)
+	get_tree().create_timer(7.0).timeout.connect(func ():
+		if _tk and _tk_cibles == l:
+			_tk_fermer(false))
+
+func _tk_menu(parler: bool) -> void:
+	if _tk:
+		_tk.queue_free()
+	_tk = Panel.new()
+	_tk.add_theme_stylebox_override("panel", Ui.boite(Color(0.02, 0.06, 0.16, 0.88), Color(0.4, 0.8, 1.0), 2, 12))
+	var choix := [["TUER", Ui.ROUGE, "tuer"], ["PARLER", Ui.BLEU, "parler"]] if not parler else [["Ton butin, et file.", Ui.OR, "butin"], ["Sers-moi.", Ui.VIOLET, "servir"], ["Disparais.", Color(0.3, 0.35, 0.5), "partir"]]
+	_tk.size = Vector2(20 + choix.size() * 210, 100)
+	_tk.position = Vector2(_taille.x / 2.0 - _tk.size.x / 2.0, _taille.y - 220)
+	var t := Ui.label("%d ennemi%s suspendu%s…" % [_tk_cibles.size(), "s" if _tk_cibles.size() > 1 else "", "s" if _tk_cibles.size() > 1 else ""] if not parler else "Ils te supplient. Ta décision ?", 16, Color(0.7, 0.9, 1.0), 4)
+	t.position = Vector2(14, 4)
+	_tk.add_child(t)
+	for k in choix.size():
+		var b := Ui.bouton(choix[k][0], choix[k][1], Vector2(196, 56), 17)
+		b.position = Vector2(12 + k * 210, 34)
+		var id: String = choix[k][2]
+		b.pressed.connect(func ():
+			if id == "parler":
+				_tk_menu(true)
+			else:
+				_tk_decider(id))
+		_tk.add_child(b)
+	_racine.add_child(_tk)
+
+func _tk_decider(id: String) -> void:
+	var boss := 0
+	for m in _tk_cibles:
+		if not is_instance_valid(m) or m.mort:
+			continue
+		if id == "tuer":
+			m.reposer(true)
+		elif m.e.get("boss", false) or m.e.get("lieu", "") in ["clone", "raid", "arene"]:
+			boss += 1
+			m.reposer(false)
+		else:
+			m.capituler(id)
+	if boss > 0:
+		dire("Les boss refusent de supplier : il faudra les abattre.", Color(1.0, 0.5, 0.45))
+	elif id != "tuer":
+		dire({"butin": "Ils lâchent leur butin et s'enfuient.", "servir": "Ils s'agenouillent… certains deviennent tes ombres.", "partir": "Ils s'évanouissent dans la ville."}[id], Color(0.6, 0.9, 1.0))
+	_tk_fermer(true)
+
+func _tk_fermer(deja: bool) -> void:
+	if not deja:
+		for m in _tk_cibles:
+			if is_instance_valid(m):
+				m.reposer(false)
+	_tk_cibles = []
+	if _tk:
+		_tk.queue_free()
+		_tk = null

@@ -350,6 +350,59 @@ func _errer(dt: float) -> void:
 	elif _ap and _ap.current_animation == "Walk":
 		Modele.jouer(_ap, "Idle")
 
+var leve := false
+
+func lever() -> void:
+	if mort:
+		return
+	leve = true
+	_etourdi = 6.0
+	_parade = 0.0
+	var tw := create_tween()
+	tw.tween_property(_corps, "position:y", 2.6, 0.6).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	tw.parallel().tween_property(_corps, "rotation:z", 0.35, 0.6)
+	Fx.anneau(global_position, Color(0.4, 0.8, 1.0), 2.0)
+
+func reposer(ecraser := false) -> void:
+	if not leve:
+		return
+	leve = false
+	_etourdi = 0.0
+	var tw := create_tween()
+	tw.tween_property(_corps, "position:y", 0.0, 0.18 if ecraser else 0.5).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(_corps, "rotation:z", 0.0, 0.3)
+	if ecraser:
+		tw.tween_callback(func ():
+			Fx.anneau(global_position, Color(0.5, 0.85, 1.0), 3.5)
+			Fx.son("slam", 0.0)
+			frapper(Partie.dps_joueur() * 12.0, true, "evenement"))
+
+func capituler(choix: String) -> void:
+	if mort:
+		return
+	leve = false
+	mort = true
+	eveillable = false
+	pv = 0.0
+	chrono = -1.0
+	_plaque.visible = false
+	if choix == "butin":
+		var gain := Partie.gagner(espece, elite, mult)
+		for k in 2:
+			if randf() < 0.5:
+				Partie.gagner(espece, elite, mult)
+		Fx.pieces(global_position + Vector3(0, 1.0, 0), gain)
+		Fx.son("coins")
+	elif choix == "servir":
+		Partie.force_eveil = randf() < 0.5
+		Partie.eveiller(espece)
+		Partie.force_eveil = false
+	var tw := create_tween()
+	tw.tween_property(_corps, "position:y", 0.0, 0.3)
+	tw.tween_property(_corps, "scale", Vector3.ONE * 0.01, 0.5)
+	_reapparait = REAPPARITION + 4.0
+	vaincu.emit(self)
+
 func j_loin() -> bool:
 	var j: Node3D = get_tree().get_first_node_in_group("joueur")
 	return j == null or j.global_position.distance_to(global_position) > 28.0

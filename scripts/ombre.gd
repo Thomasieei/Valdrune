@@ -79,6 +79,9 @@ func _process(dt: float) -> void:
 	if joueur == null:
 		return
 	_anim -= dt
+	if rangee:
+		global_position = joueur.global_position
+		return
 	if mort:
 		global_position = global_position.lerp(joueur.global_position + Vector3(0, 0, 1.5), minf(1.0, dt * 3.0))
 		_etiquette.text = "✝ Rappel : %d mana" % int(Partie.cout_rappel(donnees)) if Partie.mana < Partie.cout_rappel(donnees) else "✝ Rappel…"
@@ -178,7 +181,94 @@ func _choisir_cible(dt: float) -> Monstre:
 					_auto = m
 	return _auto if _a_portee(_auto) else null
 
+var rangee := false
+
+static func fumee(pos: Vector3, parent: Node, sortie: bool) -> void:
+	var p := GPUParticles3D.new()
+	p.amount = 46
+	p.lifetime = 1.4
+	p.one_shot = true
+	p.explosiveness = 0.75
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
+	pm.emission_ring_axis = Vector3(0, 1, 0)
+	pm.emission_ring_radius = 0.9
+	pm.emission_ring_inner_radius = 0.2
+	pm.emission_ring_height = 0.1
+	pm.direction = Vector3(0, 1, 0)
+	pm.spread = 25.0
+	pm.initial_velocity_min = 0.6
+	pm.initial_velocity_max = 2.2 if sortie else 1.2
+	pm.gravity = Vector3(0, 0.4, 0)
+	pm.scale_min = 2.5
+	pm.scale_max = 5.0
+	pm.turbulence_enabled = true
+	pm.turbulence_noise_strength = 0.8
+	var g := Gradient.new()
+	g.set_color(0, Color(0.12, 0.02, 0.22, 0.9))
+	g.add_point(0.45, Color(0.05, 0.0, 0.1, 0.7))
+	g.set_color(g.get_point_count() - 1, Color(0.0, 0.0, 0.0, 0.0))
+	var gt := GradientTexture1D.new()
+	gt.gradient = g
+	pm.color_ramp = gt
+	p.process_material = pm
+	var q := QuadMesh.new()
+	q.size = Vector2(0.5, 0.5)
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	m.vertex_color_use_as_albedo = true
+	m.albedo_texture = load("res://assets/fx/smoke_02.png")
+	q.material = m
+	p.draw_pass_1 = q
+	parent.add_child(p)
+	p.global_position = pos
+	p.emitting = true
+	var flaque := MeshInstance3D.new()
+	var cy := CylinderMesh.new()
+	cy.top_radius = 1.3
+	cy.bottom_radius = 1.3
+	cy.height = 0.02
+	flaque.mesh = cy
+	var fm := StandardMaterial3D.new()
+	fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	fm.albedo_color = Color(0.02, 0.0, 0.05, 0.85)
+	flaque.material_override = fm
+	flaque.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	parent.add_child(flaque)
+	flaque.global_position = pos + Vector3(0, 0.04, 0)
+	flaque.scale = Vector3(0.1, 1, 0.1)
+	var tw := flaque.create_tween()
+	tw.tween_property(flaque, "scale", Vector3.ONE, 0.3)
+	tw.tween_interval(0.9)
+	tw.tween_property(fm, "albedo_color:a", 0.0, 0.6)
+	tw.tween_callback(flaque.queue_free)
+	tw.tween_callback(p.queue_free)
+
+func ranger(oui: bool) -> void:
+	if oui == rangee or mort:
+		return
+	rangee = oui
+	var h := _corps.get_meta("h", 2.0) as float
+	fumee(global_position, get_parent(), not oui)
+	var tw := create_tween()
+	if oui:
+		tw.tween_interval(0.15)
+		tw.tween_property(_corps, "position:y", -2.6, 0.7).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+		tw.tween_callback(func (): _corps.visible = false)
+	else:
+		global_position = joueur.global_position + Vector3(randf_range(-2.5, 2.5), 0, randf_range(-2.5, 2.5))
+		_corps.position.y = -2.6
+		_corps.visible = true
+		tw.tween_interval(0.2)
+		tw.tween_property(_corps, "position:y", 0.0, 0.6).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+	Fx.son("shadow", -6.0, 0.7 if oui else 1.0)
+
 func blesser(d: float) -> void:
+	if rangee:
+		return
 	if mort:
 		return
 	pv -= d
