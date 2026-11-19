@@ -87,6 +87,10 @@ var _depart_t := 0.0
 var sortie: Node3D = null
 var coffre: Node3D = null
 var gains := {}
+var degats_equipe := {"joueur": 0.0, "ombres": 0.0, "allie": 0.0}
+var _alerte_reglee := false
+var _cage: Node3D
+var _prisonnier: Chasseur
 var _animes: Array = []
 
 func centre(i: int) -> Vector3:
@@ -135,6 +139,20 @@ func _ready() -> void:
 	for i in N:
 		_peupler(i)
 	_decor()
+	if niv == 0 and test_rang < 0:
+		var sentinelle: Monstre = _par_salle[0][0]
+		sentinelle.nom_perso = "Guetteur du roi"
+		sentinelle._maj_plaque()
+		_cage = _prop("Cage_Small", centre(3) + Vector3(-8, 0, 3), 0, 1.7)
+		_prisonnier = Chasseur.new()
+		_prisonnier.d = Partie.chasseurs[0].duplicate(true)
+		_prisonnier.d["nom"] = "Éclaireur captif"
+		_prisonnier.ville = ville
+		_prisonnier.mode = "donjon"
+		_prisonnier.donjon = self
+		_prisonnier.position = _cage.position
+		add_child(_prisonnier)
+		_prisonnier.set_physics_process(false)
 	_meteo()
 	for n in get_children():
 		if n.has_meta("vacille"):
@@ -447,6 +465,8 @@ func _process(dt: float) -> void:
 			n.rotation.y += dt * float(n.get_meta("tourne"))
 	if not actif:
 		return
+	if niv == 0 and test_rang < 0:
+		_repaire(dt)
 	temps -= dt
 	if temps <= 0.0:
 		temps = 0.0
@@ -465,6 +485,47 @@ func _process(dt: float) -> void:
 		else:
 			actif = false
 			_victoire()
+
+func _repaire(dt: float) -> void:
+	if salle == 0 and not _alerte_reglee:
+		var guetteur: Monstre = _par_salle[0][0]
+		if guetteur.mort or guetteur.allie:
+			_alerte_reglee = true
+			ville.hud.dire("Guetteur neutralisé. La garde ne sera pas renforcée.", Color.LIGHT_GREEN)
+		elif guetteur.has_meta("alerte") or ville.joueur.global_position.distance_to(centre(0)) < 10.0:
+			if not guetteur.has_meta("alerte"):
+				guetteur.set_meta("alerte", true)
+				ville.hud.dire("Le guetteur court donner l’alerte !", Color.GOLD)
+			if not guetteur.leve and guetteur._etourdi <= 0.0:
+				var cloche := centre(0) + Vector3(0, 0, 9)
+				var dir := guetteur.position.direction_to(cloche)
+				guetteur.position = guetteur.position.move_toward(cloche, 1.3 * dt)
+				guetteur._corps.rotation.y = atan2(dir.x, dir.z)
+				Modele.jouer(guetteur._ap, "Walk")
+				if guetteur.position.distance_to(cloche) < 0.25:
+					_alerte_reglee = true
+					for x in [-3, 3]:
+						var garde := Monstre.new()
+						garde.configurer("gobelin", centre(1) + Vector3(x, 0, -3), PI)
+						garde.sans_chrono = true
+						garde.reapparait_auto = false
+						garde.mult = mult_groupe
+						add_child(garde)
+						_par_salle[1].append(garde)
+						monstres.append(garde)
+						ville.monstres.append(garde)
+					ville.hud.dire("L’alarme a sonné. Deux gardes rejoignent la fosse.", Color.ORANGE)
+	if salle == 3 and is_instance_valid(_cage):
+		if not _cage.has_meta("signal"):
+			_cage.set_meta("signal", true)
+			ville.hud.dire("Un éclaireur appelle à gauche. Approche de sa cage pour le libérer.", Color.GOLD)
+		if ville.joueur.global_position.distance_to(_cage.global_position) < 3.0:
+			_cage.queue_free()
+			_cage = null
+			_prisonnier.d["nom"] = "Éclaireur libéré"
+			_prisonnier._maj_plaque()
+			_prisonnier.set_physics_process(true)
+			ville.hud.dire("L’éclaireur combat à tes côtés jusqu’au trône.", Color.LIGHT_GREEN)
 
 func appliquer_ambiance(env: Environment) -> void:
 	env.background_color = th["fond"]
@@ -623,7 +684,7 @@ func _victoire() -> void:
 	Partie.butin_donjon(niv)
 	if randf() < 0.2 + 0.05 * niv:
 		Partie.donner_cle()
-	gains = {"pieces": gain, "monnaies": [[m1, 3 + niv * 2], [m2, 2 + niv * 2]], "unique": unique, "temps": t, "record": record}
+	gains = {"boss": cfg["boss"], "degats": degats_equipe.duplicate(), "pieces": gain, "monnaies": [[m1, 3 + niv * 2], [m2, 2 + niv * 2]], "unique": unique, "temps": t, "record": record}
 	coffre = _prop("Chest_Wood", c + Vector3(0, 0, 7.5), PI, 1.6)
 	Fx.anneau(coffre.global_position, Color(1.0, 0.75, 0.2), 4.0)
 	Fx.son("chest", 0.0)

@@ -102,7 +102,7 @@ func quitter_abime() -> void:
 	await hud.fondu(false)
 
 var gates: Array = []
-var _gate_t := 240.0
+var _gate_t := 75.0
 var _break_boss: Monstre = null
 var raid_boss: Monstre = null
 var _raid_fin := 0.0
@@ -175,8 +175,15 @@ const COULEURS_GATE := [Color(0.6, 0.65, 0.75), Color(0.3, 0.9, 0.4), Color(0.3,
 
 func _ouvrir_gate() -> void:
 	var r := clampi(Partie.rang_chasseur + (1 if randf() < 0.3 else 0) - (1 if randf() < 0.3 else 0), 0, 3)
-	var p: Array = POSTES.pick_random()
-	var pos := Vector3(p[1], _sol(p[1], p[2]), p[2]) + Vector3(randf_range(-3, 3), 0, randf_range(-3, 3))
+	var libres := []
+	for k in [8, 9]:
+		var site: Vector2i = SITES[r][k]
+		if not gates.any(func (g): return g["site"] == site):
+			libres.append(site)
+	if libres.is_empty():
+		return
+	var site: Vector2i = libres.pick_random()
+	var pos := Vector3(site.x, _sol_quartier(site.x, site.y), site.y)
 	var n := Node3D.new()
 	add_child(n)
 	n.position = pos
@@ -195,15 +202,16 @@ func _ouvrir_gate() -> void:
 	var l_esp: Array = Partie.ESPECES_RANG[r]
 	for k in 3 + r:
 		var m := Monstre.new()
-		var a := TAU * k / (3 + r)
-		m.configurer(l_esp[k % 2], pos + Vector3(cos(a), 0, sin(a)) * 4.0, a)
+		var poste: Vector2i = site + FORMATION[k]
+		m.configurer(l_esp[k % 2], Vector3(poste.x, _sol_quartier(poste.x, poste.y), poste.y), TAU * k / (3 + r))
 		m.reapparait_auto = false
 		m.elite_fixe = k == 0
 		add_child(m)
 		monstres.append(m)
 		gardes.append(m)
-	gates.append({"noeud": n, "label": l, "rang": r, "fin": Time.get_unix_time_from_system() + 600.0, "gardes": gardes})
-	hud.annonce("PORTAIL DE RANG %s OUVERT !" % Partie.RANGS[r], "Ferme-le en 10 min ou ses monstres envahiront la ville", COULEURS_GATE[r])
+	_faisceau(n, COULEURS_GATE[r], 27.0)
+	gates.append({"site": site, "noeud": n, "label": l, "rang": r, "fin": Time.get_unix_time_from_system() + 600.0, "gardes": gardes})
+	hud.annonce("PORTAIL DE RANG %s OUVERT !" % Partie.RANGS[r], "%s · Suis le faisceau. Ferme le portail en 10 min." % QUARTIERS[r], COULEURS_GATE[r])
 
 func _maj_gates(dt: float) -> void:
 	_gate_t -= dt
@@ -303,7 +311,7 @@ func _ready() -> void:
 	_generer_zones()
 	for p in postes():
 		var m := Monstre.new()
-		m.configurer(p[0], Vector3(p[1], _sol(p[1], p[2]), p[2]), deg_to_rad(p[3]))
+		m.configurer(p[0], Vector3(p[1], _sol_quartier(p[1], p[2]), p[2]), deg_to_rad(p[3]))
 		m.elite = not Partie.ESPECES[p[0]].get("boss", false) and randf() < Partie.CHANCE_ELITE
 		add_child(m)
 		monstres.append(m)
@@ -314,7 +322,7 @@ func _ready() -> void:
 		c.d = Partie.chasseurs[k]
 		c.ville = self
 		add_child(c)
-		var p: Array = POSTES[(k * 3) % POSTES.size()]
+		var p: Array = _postes_gen[(k * 3) % _postes_gen.size()]
 		c.placer(Vector3(p[1] + 2.0, _sol(p[1], p[2]) + 0.3, p[2] + 2.0))
 		chasseurs.append(c)
 	prochain_evt = _quart_suivant()
@@ -340,50 +348,40 @@ func _ready() -> void:
 
 var _postes_gen: Array = []
 
-# Découpe la ville en zones de rang selon la distance au départ : E proche, puis D, C, B au loin.
+const QUARTIERS := ["Entrepôts", "Quais", "Fonderie", "Périphérie"]
+# Huit patrouilles et deux parvis de faille par quartier, relevés sur la ville et son réseau piéton.
+const SITES := [
+	[Vector2i(-182, -73), Vector2i(-182, -105), Vector2i(-198, -69), Vector2i(-166, -105), Vector2i(-214, -73), Vector2i(-146, -85), Vector2i(-206, -57), Vector2i(-214, -105), Vector2i(-150, -105), Vector2i(-146, -69)],
+	[Vector2i(-258, -29), Vector2i(-246, -37), Vector2i(-246, -21), Vector2i(-266, -41), Vector2i(-266, -17), Vector2i(-274, -29), Vector2i(-254, -49), Vector2i(-254, -9), Vector2i(-234, -29), Vector2i(-238, -49)],
+	[Vector2i(-86, -145), Vector2i(-70, -145), Vector2i(-102, -145), Vector2i(-74, -129), Vector2i(-106, -161), Vector2i(-58, -153), Vector2i(-86, -177), Vector2i(-106, -129), Vector2i(-58, -137), Vector2i(-70, -177)],
+	[Vector2i(74, -137), Vector2i(82, -125), Vector2i(66, -125), Vector2i(86, -145), Vector2i(62, -145), Vector2i(74, -153), Vector2i(94, -133), Vector2i(54, -133), Vector2i(74, -113), Vector2i(94, -117)]
+]
+const FORMATION := [Vector2i(-4, 0), Vector2i(4, 0), Vector2i(0, -4), Vector2i(0, 4), Vector2i(-4, -4), Vector2i(4, 4)]
+
 func _generer_zones() -> void:
-	var etat := get_world_3d().direct_space_state
-	var sphere := SphereShape3D.new()
-	sphere.radius = 1.6
-	var q := PhysicsShapeQueryParameters3D.new()
-	q.shape = sphere
-	var pts := []
-	seed(1234)
-	for k in 900:
-		var x := randf_range(-420.0, 160.0)
-		var z := randf_range(-320.0, 90.0)
-		var r := etat.intersect_ray(PhysicsRayQueryParameters3D.create(Vector3(x, 60, z), Vector3(x, -5, z)))
-		if r.is_empty() or r["position"].y > 0.7 or r["position"].y < -0.4:
-			continue
-		q.transform = Transform3D(Basis.IDENTITY, r["position"] + Vector3(0, 2.0, 0))
-		if not etat.intersect_shape(q, 1).is_empty():
-			continue
-		var p: Vector3 = r["position"]
-		if pts.any(func (o): return o.distance_to(p) < 14.0):
-			continue
-		pts.append(p)
-	randomize()
-	if pts.size() < 24:
-		_postes_gen = POSTES
-		return
-	var par_rang := [0, 0, 0, 0]
-	for p in pts:
-		var d: float = Vector2(p.x - DEPART.x, p.z - DEPART.z).length()
-		var rg := mini(int(d / 75.0), 3)
-		if par_rang[rg] >= 8:
-			continue
-		par_rang[rg] += 1
-		var l: Array = Partie.ESPECES_RANG[rg]
-		for j in 2:
-			_postes_gen.append([l[(j + par_rang[rg]) % 2], p.x + j * 3.0, p.z + randf_range(-2, 2), randf() * 360.0])
-	for b in POSTES:
-		if Partie.ESPECES[b[0]].get("boss", false):
-			_postes_gen.append(b)
+	for rang in SITES.size():
+		var especes: Array = Partie.ESPECES_RANG[rang]
+		for k in 8:
+			var site: Vector2i = SITES[rang][k]
+			for j in 2:
+				var p: Vector2i = site + FORMATION[j]
+				_postes_gen.append([especes[(k + j) % 2], p.x, p.y, 90.0 if j == 0 else -90.0])
+	for ancien in POSTES:
+		if Partie.ESPECES[ancien[0]].get("boss", false):
+			var site: Vector2i = SITES[3][6 if ancien[0] == "chevalier" else 7]
+			_postes_gen.append([ancien[0], site.x, site.y + 4, ancien[3]])
 	POSTES_V = _postes_gen
-	print("[ZONES] points=", pts.size(), " par rang=", par_rang)
 
 func rang_zone(p: Vector3) -> int:
-	return mini(int(Vector2(p.x - DEPART.x, p.z - DEPART.z).length() / 75.0), 3)
+	var rang := 0
+	var proche := INF
+	for k in SITES.size():
+		for site in SITES[k]:
+			var distance := Vector2(p.x, p.z).distance_squared_to(Vector2(site))
+			if distance < proche:
+				proche = distance
+				rang = k
+	return rang
 
 func postes() -> Array:
 	return [] if OS.get_cmdline_user_args().has("--pilote=tailles") else (_postes_gen if not _postes_gen.is_empty() else POSTES)
@@ -434,6 +432,9 @@ func _ville() -> void:
 	for m in v.find_children("*", "MeshInstance3D", true, false):
 		var mi := m as MeshInstance3D
 		mi.create_trimesh_collision()
+		for enfant in mi.get_children():
+			if enfant is StaticBody3D:
+				enfant.set_collision_layer_value(16, true)
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 
 	var sol := StaticBody3D.new()
@@ -444,6 +445,77 @@ func _ville() -> void:
 	sol.add_child(cs)
 	sol.position = Vector3(-107, -0.52, -107)
 	add_child(sol)
+	_littoral()
+
+func _littoral() -> void:
+	var mer := MeshInstance3D.new()
+	var surface := PlaneMesh.new()
+	surface.size = Vector2(1450, 1000)
+	mer.mesh = surface
+	var eau := StandardMaterial3D.new()
+	eau.albedo_color = Color("#286777")
+	eau.roughness = 0.32
+	mer.material_override = eau
+	mer.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mer.position = Vector3(-107, -1.4, -107)
+	add_child(mer)
+	var pierre := StandardMaterial3D.new()
+	pierre.albedo_color = Color("#776e63")
+	for bord in [[Vector3(-107,-0.9,9),Vector3(558,4,1.6)], [Vector3(-107,-0.9,-224),Vector3(558,4,1.6)], [Vector3(-385.5,-0.9,-107.5),Vector3(1.6,4,234)], [Vector3(171.5,-0.9,-107.5),Vector3(1.6,4,234)]]:
+		var quai := MeshInstance3D.new()
+		var bloc := BoxMesh.new()
+		bloc.size = bord[1]
+		quai.mesh = bloc
+		quai.material_override = pierre
+		quai.position = bord[0]
+		add_child(quai)
+		quai.create_trimesh_collision()
+	var roche := StandardMaterial3D.new()
+	roche.albedo_color = Color("#405b54")
+	for relief in [[-320, 78, 23],[-218, 94, 16],[-73, 116, 25],[87, 81, 14],[-440,-126,22],[-250,-300,19],[212,-210,16]]:
+		var ile := MeshInstance3D.new()
+		var pic := SphereMesh.new()
+		pic.radial_segments = 9
+		pic.rings = 3
+		ile.mesh = pic
+		ile.material_override = roche
+		ile.position = Vector3(relief[0], -6, relief[1])
+		ile.scale = Vector3(77, relief[2], 52)
+		add_child(ile)
+
+func _faisceau(parent: Node3D, couleur: Color, hauteur: float) -> void:
+	var rayon := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.height = hauteur
+	cyl.top_radius = 0.18
+	cyl.bottom_radius = 0.65
+	cyl.radial_segments = 8
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(couleur, 0.7)
+	rayon.mesh = cyl
+	rayon.material_override = mat
+	rayon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	rayon.position.y = hauteur * 0.5
+	parent.add_child(rayon)
+
+func _panneau_rue(texte: String, point: Vector3) -> void:
+	var l := Label3D.new()
+	l.text = texte
+	l.font = Ui.police
+	l.font_size = 36
+	l.pixel_size = 0.016
+	l.outline_size = 8
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.visibility_range_end = 38.0
+	l.position = point + Vector3.UP * 3.5
+	add_child(l)
+
+func _sol_quartier(x: float, z: float) -> float:
+	var q := PhysicsRayQueryParameters3D.create(Vector3(x, 40, z), Vector3(x, -5, z), 1 << 15)
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	return hit.position.y if not hit.is_empty() else 0.0
 
 func _sol(x: float, z: float) -> float:
 	var q := PhysicsRayQueryParameters3D.create(Vector3(x, 40, z), Vector3(x, -5, z))
@@ -463,6 +535,10 @@ func _musique(nom := "city") -> void:
 
 
 func _pole() -> void:
+	_panneau_rue("ASSOCIATION DES CHASSEURS\n← Entrepôts et portail E", DEPART + Vector3(-3, 0, -3))
+	for rang in SITES.size():
+		var site: Vector2i = SITES[rang][0]
+		_panneau_rue("%s · RANG %s" % [QUARTIERS[rang].to_upper(), Partie.RANGS[rang]], Vector3(site.x, 0, site.y))
 	for a in AUTELS:
 		var p := Pnj.new()
 		p.autel = a[0]
@@ -473,6 +549,7 @@ func _pole() -> void:
 	portail = Node3D.new()
 	add_child(portail)
 	portail.position = PORTAIL + Vector3(0, _sol(PORTAIL.x, PORTAIL.z), 0)
+	_faisceau(portail, Color(0.25, 0.65, 1), 18.0)
 	portail.rotation.y = PI / 2.0
 	portail.add_child(Portail.creer(Color(0.15, 0.45, 1.0), Color(0.6, 0.25, 1.0), 2.0))
 	var l := Label3D.new()
@@ -609,7 +686,7 @@ func sort_anos(id: String) -> void:
 				if is_instance_valid(m) and not m.mort and m.global_position.distance_to(p) < 35.0:
 					m._etourdi = 8.0
 					m._parade = 0.0
-					m.frapper(m.pv_max * 0.3, true, "evenement")
+					m.frapper(m.pv_max * 0.3, true, "evenement", joueur)
 		"lance":
 			var c := joueur.cible if joueur.cible and is_instance_valid(joueur.cible) else joueur.cible_devant(monstres, 40.0)
 			if c:

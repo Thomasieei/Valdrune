@@ -1557,8 +1557,11 @@ func _dessiner_donjon() -> void:
 		_texte(c, Vector2(300 - 8, 26), "Restants : %d" % dj.restants(), 16, Color(1.0, 0.6, 0.6), 5)
 
 func _donjon_panneau() -> void:
-	var puissance := Partie.dps_total()
-	_ajouter(Ui.label("Ta puissance : %s/s  ·  Rang %s  ·  Niveau %d" % [Fx.court(puissance), Partie.RANGS[Partie.rang_chasseur], Partie.niveau], 20, Color(0.8, 0.85, 1.0), 6), Vector2(36, 80))
+	var perso := Partie.dps_joueur()
+	var ombres := 0.0
+	for o in Partie.ombres_equipees():
+		ombres += Partie.dps_ombre(o)
+	_ajouter(Ui.label("Puissance équipée · Toi %s/s + Ombres %s/s  ·  Rang %s" % [Fx.court(perso), Fx.court(ombres), Partie.RANGS[Partie.rang_chasseur]], 20, Color(0.8, 0.85, 1.0), 6), Vector2(36, 80))
 	var rc := Partie.rang_chasseur
 	var tl := Panel.new()
 	tl.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1591,7 +1594,11 @@ func _donjon_panneau() -> void:
 		_ajouter(Ui.label("RANG %s" % Partie.RANGS[n], 30, Partie.COULEURS_RANG[n], 8), Vector2(50, y + 8))
 		_ajouter(Ui.label(d["nom"], 24, col.lightened(0.2) if ouvert else Color(0.6, 0.6, 0.7), 7), Vector2(180, y + 6))
 		var rec: float = float(Partie.records.get(str(n), 0.0))
-		var infos := "Boss : %s  ·  %d:%02d  ·  %s/s conseillés" % [d["boss"], int(d["duree"]) / 60, int(d["duree"]) % 60, Fx.court(d["puissance"])]
+		var total_pv := 0.0
+		for salle in Donjon.SALLES_PAR_NIV[n]:
+			for ennemi in salle:
+				total_pv += Partie.stats_monstre(ennemi[0], ennemi[3]).pv
+		var infos := "%s · %d:%02d · %s PV de base en solo" % [d["boss"], int(d["duree"]) / 60, int(d["duree"]) % 60, Fx.court(total_pv)]
 		_ajouter(Ui.label(infos, 15, Color(0.85, 0.85, 0.95), 4), Vector2(180, y + 42))
 		var etat := "Record %d:%02d" % [int(rec) / 60, int(rec) % 60] if rec > 0.0 else "Jamais terminé"
 		if not precedent_ok:
@@ -1620,7 +1627,7 @@ func recompenses_donjon(g: Dictionary) -> void:
 
 func _recompenses_panneau() -> void:
 	var g := _gains
-	_ajouter(Ui.label("Kargash est vaincu !", 32, Color(1.0, 0.82, 0.35), 8), Vector2(36, 82))
+	_ajouter(Ui.label("%s vaincu !" % g.get("boss", "Boss"), 32, Color(1.0, 0.82, 0.35), 8), Vector2(36, 82))
 	_ajouter(Ui.label("Temps : %d:%02d%s" % [int(g.get("temps", 0)) / 60, int(g.get("temps", 0)) % 60, "   NOUVEAU RECORD !" if g.get("record", false) else ""], 22, Color.WHITE, 6), Vector2(36, 130))
 	_ajouter(Ui.label("+%s pièces" % Fx.court(g.get("pieces", 0)), 26, Color(1.0, 0.85, 0.3), 7), Vector2(40, 180))
 	var y := 226.0
@@ -1637,8 +1644,11 @@ func _recompenses_panneau() -> void:
 		var b: Dictionary = Partie.OBJETS["croc_roi"]
 		_ajouter(Ui.carte(b["nom"], b["icone"], "U", Partie.COULEURS_RARETE[Partie.UNIQUE], false, "ARME UNIQUE", Vector2(200, 220), "unique"), Vector2(510, 90))
 		_ajouter(Ui.label("Équipe-la dans l'inventaire !", 18, Color(0.95, 0.75, 1.0), 5), Vector2(496, 320))
-	else:
+	elif g.get("boss", "") == "Kargash, le roi gobelin":
 		_ajouter(Ui.label("Le Croc du roi n'est pas tombé cette fois\n(1 chance sur 3 après la première).", 18, Color(0.8, 0.75, 0.9), 5), Vector2(400, 200))
+	var degats: Dictionary = g.get("degats", {})
+	if not degats.is_empty():
+		_ajouter(Ui.label("Dégâts infligés · Toi %s   Ombres %s   Alliés %s" % [Fx.court(degats.joueur), Fx.court(degats.ombres), Fx.court(degats.allie)], 18, Color.WHITE), Vector2(40, 388))
 	_ajouter(Ui.label("Le portail de sortie s'est ouvert derrière toi.", 19, Color(0.6, 0.85, 1.0), 5), Vector2(40, 420))
 	var ok := Ui.bouton("CONTINUER", Ui.VERT, Vector2(280, 58), 24)
 	ok.pressed.connect(fermer)

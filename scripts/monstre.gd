@@ -519,7 +519,7 @@ func reposer(ecraser := false) -> void:
 		tw.tween_callback(func ():
 			Fx.anneau(global_position, Color(0.5, 0.85, 1.0), 3.5)
 			Fx.son("slam", 0.0)
-			frapper(Partie.dps_joueur() * 12.0, true, "evenement"))
+			frapper(Partie.dps_joueur() * 12.0, true, "evenement", get_tree().get_first_node_in_group("joueur")))
 
 func capituler(choix: String) -> void:
 	if mort:
@@ -577,6 +577,11 @@ func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) ->
 				_toucher_joueur(j, Partie.atk_monstre(espece, elite) * 0.6, "RIPOSTE (parade)")
 		return
 	var reel := minf(degats, pv)
+	var instance := get_parent() as Donjon
+	if instance and instance.actif:
+		var auteur := "joueur" if source == "evenement" and qui is Joueur else source
+		if instance.degats_equipe.has(auteur):
+			instance.degats_equipe[auteur] += reel
 	pv -= degats
 	if source == "joueur" or source == "ombres":
 		Partie.compter(reel, source)
