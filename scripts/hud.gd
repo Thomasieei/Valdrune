@@ -528,7 +528,18 @@ func _jeton(c: Control, ctr: Vector2, r: float, m: String) -> void:
 				c.draw_circle(ctr + Vector2(cos(a), sin(a)) * r * 0.3, r * 0.28, Color(0.85, 1.0, 0.85))
 	c.draw_arc(ctr, r, 0, TAU, 32, col.lightened(0.4), 2.0, true)
 
+var _temps_affichage := 0.0
+
 func _process(dt: float) -> void:
+	ville.joueur.entree = (_joy_pos - _joy_centre) / JOY_R * Vector2(1, -1) if _joy_actif else Vector2.ZERO
+	if _roll_actif:
+		_avancer_roll(dt)
+	_temps_affichage += dt
+	var intervalle := 1.0 / 12.0 if Partie.opts["rendu_leger"] else 1.0 / 24.0
+	if _temps_affichage < intervalle:
+		return
+	dt = _temps_affichage
+	_temps_affichage = 0.0
 	_maj_action()
 	if ville.arene and ville.arene.actif:
 		dire("ARÈNE  ·  %d s" % int(ville.arene.temps), Color(1.0, 0.7, 0.3))
@@ -548,8 +559,6 @@ func _process(dt: float) -> void:
 	_aff_o = lerpf(_aff_o, dj[1], minf(1.0, dt * 4.0))
 	_droite.queue_redraw()
 	_haut.queue_redraw()
-	if _roll_actif:
-		_avancer_roll(dt)
 	_msg_t -= dt
 	_msg.modulate.a = clampf(_msg_t / 0.5, 0.0, 1.0)
 	var eveil: Monstre = ville.monstre_eveillable()
@@ -600,7 +609,6 @@ func _process(dt: float) -> void:
 			b.set_meta("appuye", maxf(0.0, a - dt * 5.0))
 			b.queue_redraw()
 	_cadre.queue_redraw()
-	ville.joueur.entree = (_joy_pos - _joy_centre) / JOY_R * Vector2(1, -1) if _joy_actif else Vector2.ZERO
 
 
 func _texte(c: Control, p: Vector2, t: String, taille: int, coul: Color, contour := 6) -> void:
@@ -1513,6 +1521,9 @@ func _dessiner_evt() -> void:
 
 
 func _dessiner_fleche() -> void:
+	var repere: Node3D
+	var nom := "Baran"
+	var couleur := Color(1.0, 0.25, 0.35)
 	if Partie.chapitre < 3 and not _panneau and not _menu_ouvert and not (ville.donjon or ville.chateau or ville.abime or ville.arene):
 		var consigne := "Touche PARLER près de Kaito"
 		if Partie.chapitre == 1:
@@ -1521,12 +1532,23 @@ func _dessiner_fleche() -> void:
 				consigne = "Touche ÉVEIL près de l’éclaireur" if ville.proie.mort else "Touche l’éclaireur pour l’attaquer"
 		elif Partie.chapitre == 2:
 			consigne = "Retrouve Kaito au portail bleu"
+		repere = ville.mentor
+		nom = "Kaito"
+		couleur = Color.GOLD
+		if Partie.chapitre == 1 and is_instance_valid(ville.proie):
+			repere = ville.proie
+			nom = "Éclaireur"
+			if ville.proie.frappe_annoncee:
+				consigne = "Écarte-toi du cercle rouge"
+			elif ville.proie.ouverture > 0.0:
+				consigne = "Reviens frapper pendant l’ouverture"
 		_texte(_fleche, Vector2(24, 134), consigne, 21, Color.GOLD)
-	var b: Monstre = ville.boss_evt
-	if b == null or not is_instance_valid(b) or b.mort or ville.donjon != null:
-		return
+	if not is_instance_valid(repere):
+		if not is_instance_valid(ville.boss_evt) or ville.boss_evt.mort or ville.donjon != null:
+			return
+		repere = ville.boss_evt
 	var cam: Camera3D = ville.camera
-	var p3 := b.global_position + Vector3(0, 3.0, 0)
+	var p3 := repere.global_position + Vector3(0, 3.0, 0)
 	var derriere := cam.is_position_behind(p3)
 	var p := cam.unproject_position(p3)
 	var marge := 70.0
@@ -1548,11 +1570,11 @@ func _dessiner_fleche() -> void:
 	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 150.0)
 	var a := d.angle()
 	var pts := PackedVector2Array([pos + Vector2.from_angle(a) * 30, pos + Vector2.from_angle(a + 2.5) * 22, pos + Vector2.from_angle(a - 2.5) * 22])
-	_fleche.draw_colored_polygon(pts, Color(1.0, 0.25, 0.35, 0.7 + 0.3 * pulse))
+	_fleche.draw_colored_polygon(pts, Color(couleur, 0.7 + 0.3 * pulse))
 	pts.append(pts[0])
 	_fleche.draw_polyline(pts, Color(1, 0.9, 0.9), 3.0, true)
-	var dist := int(ville.joueur.global_position.distance_to(b.global_position))
-	var txt := "Baran  %d m" % dist
+	var dist := int(ville.joueur.global_position.distance_to(repere.global_position))
+	var txt := "%s  %d m" % [nom, dist]
 	var w := Ui.police.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
 	_texte(_fleche, pos - d * 46 - Vector2(w / 2.0, -6), txt, 18, Color(1.0, 0.75, 0.75), 6)
 

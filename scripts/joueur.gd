@@ -148,7 +148,7 @@ func _physics_process(dt: float) -> void:
 		dir = droite * entree.x + avant * entree.y
 		if dir.length() > 1.0:
 			dir = dir.normalized()
-		if entree.length() > 0.5:
+		if is_instance_valid(cible) and global_position.distance_squared_to(cible.global_position) > 64.0 and dir.dot(global_position.direction_to(cible.global_position)) < -0.3:
 			cible = null
 	if entree.length() > 0.2:
 		_pause_auto = 1.5
@@ -162,7 +162,7 @@ func _physics_process(dt: float) -> void:
 				cible = c0
 				_progres_t = 0.0
 				_derniere_dist = INF
-	if Partie.auto_attaque and cible and is_instance_valid(cible) and not cible.mort:
+	if Partie.auto_attaque and _pause_auto <= 0.0 and cible and is_instance_valid(cible) and not cible.mort:
 		var dd := global_position.distance_to(cible.global_position)
 		if dd > PORTEE + cible.haut() * 0.25 + 0.5:
 			_progres_t += dt
@@ -181,7 +181,7 @@ func _physics_process(dt: float) -> void:
 		var v := cible.global_position - global_position
 		v.y = 0
 		distance = v.length() - cible.haut() * 0.25
-		if distance > PORTEE and dir == Vector3.ZERO:
+		if distance > PORTEE and dir == Vector3.ZERO and not cible.frappe_annoncee:
 			dir = v.normalized()
 	for k in recharges:
 		recharges[k] = maxf(0.0, recharges[k] - dt)

@@ -89,6 +89,8 @@ var coffre: Node3D = null
 var gains := {}
 var degats_equipe := {"joueur": 0.0, "ombres": 0.0, "allie": 0.0}
 var _alerte_reglee := false
+var _entrave := 0.0
+var _cloche: Node3D
 var _cage: Node3D
 var _prisonnier: Chasseur
 var _animes: Array = []
@@ -141,6 +143,7 @@ func _ready() -> void:
 	_decor()
 	if niv == 0 and test_rang < 0:
 		var sentinelle: Monstre = _par_salle[0][0]
+		_installer_cloche()
 		sentinelle.nom_perso = "Guetteur du roi"
 		sentinelle._maj_plaque()
 		_cage = _prop("Cage_Small", centre(3) + Vector3(-8, 0, 3), 0, 1.7)
@@ -486,17 +489,58 @@ func _process(dt: float) -> void:
 			actif = false
 			_victoire()
 
+func _installer_cloche() -> void:
+	var pos := centre(0) + Vector3(0, 0, 9)
+	var bois := StandardMaterial3D.new()
+	bois.albedo_color = Color("#784e39")
+	for montant in [Vector3(-0.8, 1.2, 0), Vector3(0.8, 1.2, 0), Vector3(0, 2.4, 0)]:
+		var poutre := BoxMesh.new()
+		poutre.size = Vector3(1.85, 0.18, 0.24) if montant.y > 2 else Vector3(0.18, 2.4, 0.24)
+		poutre.material = bois
+		var support := MeshInstance3D.new()
+		support.mesh = poutre
+		add_child(support)
+		support.position = pos + montant
+	_cloche = Node3D.new()
+	add_child(_cloche)
+	_cloche.position = pos + Vector3.UP * 2.32
+	var bronze := StandardMaterial3D.new()
+	bronze.albedo_color = Color("#d09c48")
+	bronze.metallic = 0.45
+	for forme in [Vector3(0.16, 0.37, 0.55), Vector3(0.37, 0.50, 0.16)]:
+		var corps := CylinderMesh.new()
+		corps.radial_segments = 12
+		corps.rings = 0
+		corps.top_radius = forme.x
+		corps.bottom_radius = forme.y
+		corps.height = forme.z
+		corps.material = bronze
+		var morceau := MeshInstance3D.new()
+		morceau.mesh = corps
+		_cloche.add_child(morceau)
+		morceau.position.y = -forme.z * 0.5 if forme.x < 0.2 else -0.55 - forme.z * 0.5
+
 func _repaire(dt: float) -> void:
 	if salle == 0 and not _alerte_reglee:
 		var guetteur: Monstre = _par_salle[0][0]
 		if guetteur.mort or guetteur.allie:
 			_alerte_reglee = true
 			ville.hud.dire("Guetteur neutralisé. La garde ne sera pas renforcée.", Color.LIGHT_GREEN)
-		elif guetteur.has_meta("alerte") or ville.joueur.global_position.distance_to(centre(0)) < 10.0:
+		elif guetteur.has_meta("alerte") or guetteur.chrono >= 0.0 or ville.joueur.global_position.distance_to(centre(0)) < 10.0:
 			if not guetteur.has_meta("alerte"):
 				guetteur.set_meta("alerte", true)
 				ville.hud.dire("Le guetteur court donner l’alerte !", Color.GOLD)
-			if not guetteur.leve and guetteur._etourdi <= 0.0:
+			if not guetteur.has_meta("interception") and ville.joueur.cible == guetteur:
+				for o: Ombre in ville.ombres:
+					if not o.mort and not o.rangee and o.global_position.distance_squared_to(guetteur.global_position) < 6.25:
+						guetteur.set_meta("interception", true)
+						_entrave = 8.0
+						Fx.anneau(guetteur.global_position, Color.MEDIUM_PURPLE, 2.3)
+						Fx.texte(guetteur.global_position + Vector3.UP * guetteur.haut(), "INTERCEPTÉ", Color.PLUM, 1.4, 1.1)
+						ville.hud.dire("Ton ombre retient le guetteur. Frappe avant qu’il reparte !", Color.PLUM)
+						break
+			_entrave = maxf(0.0, _entrave - dt)
+			if not guetteur.leve and guetteur._etourdi <= 0.0 and _entrave <= 0.0:
 				var cloche := centre(0) + Vector3(0, 0, 9)
 				var dir := guetteur.position.direction_to(cloche)
 				guetteur.position = guetteur.position.move_toward(cloche, 1.3 * dt)
@@ -504,6 +548,11 @@ func _repaire(dt: float) -> void:
 				Modele.jouer(guetteur._ap, "Walk")
 				if guetteur.position.distance_to(cloche) < 0.25:
 					_alerte_reglee = true
+					Fx.son("alert", -2.0)
+					var balancement := _cloche.create_tween().set_loops(3)
+					balancement.tween_property(_cloche, "rotation:z", 0.32, 0.16)
+					balancement.tween_property(_cloche, "rotation:z", -0.32, 0.23)
+					balancement.tween_property(_cloche, "rotation:z", 0.0, 0.14)
 					for x in [-3, 3]:
 						var garde := Monstre.new()
 						garde.configurer("gobelin", centre(1) + Vector3(x, 0, -3), PI)

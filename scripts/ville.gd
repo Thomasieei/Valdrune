@@ -620,11 +620,12 @@ func _premiere_chasse() -> void:
 	if not is_instance_valid(proie) and joueur.global_position.distance_to(PISTE) < 10:
 		proie = Monstre.new()
 		proie.configurer("gobelin", PISTE + Vector3(0, _sol_quartier(PISTE.x, PISTE.z), 0), PI)
+		proie.initiation = true
 		proie.nom_perso = "Éclaireur des entrepôts"
 		proie.sans_chrono = true
 		add_child(proie)
 		monstres.append(proie)
-		hud.dire("Kaito : « Touche l’éclaireur, puis FRAPPER. Je surveille la rue. »", Color.GOLD)
+		hud.dire("Kaito : « Touche l’éclaireur. Sors du cercle quand il arme son coup. »", Color.GOLD)
 		proie.vaincu.connect(func (_m): hud.dire("Son ombre résiste encore. Approche et touche ÉVEIL.", Color.GOLD))
 	if is_instance_valid(proie) and proie.mort and proie.eveillable:
 		proie._eveil_fin = Time.get_ticks_msec() / 1000.0 + 5.0

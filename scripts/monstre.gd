@@ -50,6 +50,9 @@ var _reapparait := 0.0
 var _flash := 0.0
 var _aura: Node3D
 var _base_haut := 1.0
+var initiation := false
+var frappe_annoncee := false
+var ouverture := 0.0
 var _zone_t := 3.0
 var _parade := 0.0
 var _parade_cd := 8.0
@@ -246,6 +249,7 @@ func _combat(dt: float) -> void:
 	var j: Node3D = get_tree().get_first_node_in_group("joueur")
 	if j == null or chrono < 0.0 or global_position.distance_to(j.global_position) > 20.0:
 		return
+	ouverture = maxf(0.0, ouverture - dt)
 	var r: int = mini(int(e["rang"]), 4)
 	if _etourdi > 0.0:
 		_etourdi -= dt
@@ -259,6 +263,12 @@ func _combat(dt: float) -> void:
 		var ombres := get_tree().get_nodes_in_group("ombres").filter(func (o): return not o.mort and o.global_position.distance_to(global_position) < 16.0)
 		if not ombres.is_empty() and randf() < 0.35:
 			cible = ombres.pick_random().global_position
+		if initiation:
+			frappe_annoncee = true
+			_zone_t = 5.5
+			Fx.texte(global_position + Vector3.UP * (haut() + 0.5), "COUP LOURD", Color.ORANGE, 1.2, 0.85)
+			_zone(j.global_position, 2.5, 1.35)
+			return
 		_zone(cible, RAYON_ZONE[r] * (1.2 if elite else 1.0), 1.5 if r < 3 else 1.2)
 	if r >= 1:
 		if _parade > 0.0:
@@ -322,10 +332,17 @@ func _zone(p: Vector3, rayon: float, delai: float) -> void:
 
 func _impact(racine: Node3D, rayon: float) -> void:
 	var atk := (atk_perso if atk_perso > 0.0 else Partie.atk_monstre(espece, elite)) * (2.0 if enrage else 1.0)
+	frappe_annoncee = false
+	if initiation:
+		atk *= 1.8
 	if not mort:
 		var j: Node3D = get_tree().get_first_node_in_group("joueur")
 		if j and _dans_zone(j.global_position, racine.global_position, rayon):
 			_toucher_joueur(j, atk)
+		if initiation and j and j.global_position.distance_to(global_position) < 9.0 and (not _dans_zone(j.global_position, racine.global_position, rayon) or (j as Joueur).invulnerable > 0.0):
+			ouverture = 3.0
+			_etourdi = 1.0
+			Fx.texte(global_position + Vector3.UP * haut(), "OUVERTURE !", Color.GOLD, 1.2, 1.0)
 		for o in get_tree().get_nodes_in_group("ombres"):
 			if not o.mort and _dans_zone(o.global_position, racine.global_position, rayon):
 				o.blesser(atk)
@@ -576,6 +593,10 @@ func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) ->
 			if j:
 				_toucher_joueur(j, Partie.atk_monstre(espece, elite) * 0.6, "RIPOSTE (parade)")
 		return
+	if ouverture > 0.0 and source == "joueur":
+		ouverture = 0.0
+		degats *= 2.5
+		Fx.texte(global_position + Vector3.UP * haut(), "RIPOSTE", Color.GOLD, 1.2, 0.8)
 	var reel := minf(degats, pv)
 	var instance := get_parent() as Donjon
 	if instance and instance.actif:
