@@ -49,6 +49,10 @@ var atk_perso := -1.0
 var nom_perso := ""
 var _dernier := ""
 var _dernier_bot: Node = null
+var totems: Array = []
+var _origine := Vector3.ZERO
+var _errance := Vector3.ZERO
+var _errance_t := 0.0
 
 const CADENCE_ZONE := [6.5, 5.5, 4.6, 3.9, 3.2]
 const RAYON_ZONE := [2.4, 2.8, 3.2, 3.7, 4.3]
@@ -284,6 +288,7 @@ func _toucher_joueur(j: Node3D, d: float, raison := "ZONE") -> void:
 func _process(dt: float) -> void:
 	if not mort:
 		_combat(dt)
+		_errer(dt)
 		if _ap == null:
 			_t_vie += dt
 			_corps.position.y = absf(sin(_t_vie * 2.2)) * 0.12
@@ -318,6 +323,25 @@ func _process(dt: float) -> void:
 			pv = pv_max
 			_appliquer_rang()
 
+func _errer(dt: float) -> void:
+	if not reapparait_auto or chrono >= 0.0 or e.get("boss", false) or e.get("lieu", "") != "":
+		return
+	if _origine == Vector3.ZERO:
+		_origine = global_position
+	_errance_t -= dt
+	if _errance_t <= 0.0:
+		_errance_t = randf_range(4.0, 9.0)
+		_errance = _origine + Vector3(randf_range(-4, 4), 0, randf_range(-4, 4)) if randf() < 0.7 else global_position
+	var v := _errance - global_position
+	v.y = 0
+	if v.length() > 0.3:
+		global_position += v.normalized() * minf(v.length(), 1.2 * dt)
+		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(v.x, v.z), minf(1.0, dt * 5.0))
+		if _ap and _ap.current_animation != "Walk" and _ap.current_animation != "Hit":
+			Modele.jouer(_ap, "Walk", 0.8)
+	elif _ap and _ap.current_animation == "Walk":
+		Modele.jouer(_ap, "Idle")
+
 func j_loin() -> bool:
 	var j: Node3D = get_tree().get_first_node_in_group("joueur")
 	return j == null or j.global_position.distance_to(global_position) > 28.0
@@ -327,6 +351,15 @@ func temps_restant() -> float:
 
 func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) -> void:
 	if mort:
+		return
+	var meca: String = e.get("meca", "")
+	if meca == "ombres_seules" and source == "joueur":
+		if randf() < 0.3:
+			Fx.texte(global_position + Vector3(0, haut() * 0.8, 0), "IMMUNISÉ — ombres seules", Color(0.75, 0.6, 1.0), 1.0, 0.7)
+		return
+	if meca == "totems" and totems.any(func (t): return is_instance_valid(t) and not t.mort):
+		if randf() < 0.3:
+			Fx.texte(global_position + Vector3(0, haut() * 0.8, 0), "PROTÉGÉ — détruis les totems", Color(1.0, 0.45, 0.4), 1.0, 0.7)
 		return
 	_dernier = source
 	_dernier_bot = qui

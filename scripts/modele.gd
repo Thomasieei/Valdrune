@@ -163,6 +163,10 @@ static func jouer(ap: AnimationPlayer, nom: String, vitesse := 1.0, fondu := 0.1
 	if ap == null:
 		return 0.0
 	if not ap.has_animation(nom):
+		var alt: String = {"Idle": "Animacion", "Walk": "Walk_Cycle", "Run": "Walk_Cycle"}.get(nom, "")
+		if alt != "" and ap.has_animation(alt):
+			nom = alt
+	if not ap.has_animation(nom):
 		var r: Dictionary = ap.get_meta("remap", {})
 		nom = r.get(nom, "")
 		if nom == "" or not ap.has_animation(nom):

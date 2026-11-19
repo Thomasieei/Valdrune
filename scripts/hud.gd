@@ -172,8 +172,12 @@ func _ready() -> void:
 	_donj.draw.connect(_dessiner_donjon)
 	_donj.visible = false
 	_racine.add_child(_donj)
-	_quitter = Ui.bouton("Quitter le donjon", Ui.ROUGE, Vector2(220, 46), 19)
-	_quitter.pressed.connect(func (): ville.quitter_donjon())
+	_quitter = Ui.bouton("Quitter", Ui.ROUGE, Vector2(220, 46), 19)
+	_quitter.pressed.connect(func ():
+		if ville.chateau:
+			ville.chateau._fin()
+		else:
+			ville.quitter_donjon())
 	_quitter.visible = false
 	_racine.add_child(_quitter)
 	_fleche = Control.new()
@@ -441,8 +445,11 @@ func _process(dt: float) -> void:
 	_maj_action()
 	if ville.arene and ville.arene.actif:
 		dire("ARÈNE  ·  %d s" % int(ville.arene.temps), Color(1.0, 0.7, 0.3))
+	if ville.chateau and ville.chateau.actif and _flash_msg_t <= 0.0:
+		var tc: float = ville.chateau.temps
+		dire("CHÂTEAU  ·  ÉTAGE %d / 250  ·  %d:%02d" % [ville.chateau.etage, int(tc) / 60, int(tc) % 60], Color(1.0, 0.45, 0.4))
 	_donj.visible = ville.donjon != null
-	_quitter.visible = ville.donjon != null and ville.donjon.actif
+	_quitter.visible = (ville.donjon != null and ville.donjon.actif) or (ville.chateau != null and ville.chateau.actif)
 	_evt.visible = ville.donjon == null
 	_cadre.position.y = 86.0 if ville.donjon else 8.0
 	if _donj.visible:
@@ -642,6 +649,9 @@ func _construire() -> void:
 		"classement":
 			_panneau = Ui.panneau("Classement des chasseurs", "best", Vector2(980, 610), fermer)
 			_classement()
+		"chateau":
+			_panneau = Ui.panneau("Château rouge", "tele", Vector2(900, 610), fermer)
+			_chateau_panneau()
 		"autel":
 			_panneau = Ui.panneau(Partie.ROLLS[_autel]["autel"], {"ombres": "ombres", "arme": "attack", "chance": "best"}[_autel], Vector2(1000, 610), fermer)
 			_autel_panneau()
@@ -979,6 +989,7 @@ const OFFRES := [
 	["auto", "Instinct de meute", "Tes ombres frappent seules tout ennemi à portée.", "2,99 €", "cmd_attack"],
 	["place", "Emplacement d'ombre", "+1 ombre au combat (2 achats max).", "3,99 €", "ombres"],
 	["gacha", "Sac de gacha", "+20 de chaque monnaie d'autel.", "4,99 €", "roll"],
+	["cle", "Clé du château rouge", "Une entrée au château (250 étages).", "0,99 €", "tele"],
 	["coffre", "Coffre du donjon", "Un objet de donjon garanti, rang B.", "1,99 €", "items"],
 	["soin", "Potion de soin", "Rend tous tes points de vie.", "", "role_heal"],
 	["mana", "Fiole de mana", "Remplit ta réserve de mana.", "", "essence"],
@@ -1057,6 +1068,8 @@ func _boutique() -> void:
 							Partie.donner_monnaie(m, 20)
 					"coffre":
 						Partie.ajouter_objet(Partie.BUTIN_DONJON.pick_random(), 3)
+					"cle":
+						Partie.donner_cle()
 					"soin":
 						Partie.pv = Partie.pv_max()
 					"mana":
@@ -1262,7 +1275,7 @@ func _maj_action() -> void:
 	_action = ville.action_proche() if _panneau == null else {}
 	var v := not _action.is_empty()
 	if v:
-		var t: String = {"autel": "PARLER", "donjon": "ENTRER", "sortir": "SORTIR"}[_action["type"]]
+		var t: String = {"autel": "PARLER", "donjon": "ENTRER", "sortir": "SORTIR", "chateau": "CHÂTEAU"}[_action["type"]]
 		_b_action.set_meta("texte", t)
 	if v != _b_action.visible:
 		_b_action.visible = v
@@ -1282,6 +1295,9 @@ func agir() -> void:
 			Fx.son("open", -4.0)
 		"donjon":
 			ouvrir("donjon")
+			Fx.son("portal", -6.0)
+		"chateau":
+			ouvrir("chateau")
 			Fx.son("portal", -6.0)
 		"sortir":
 			fermer()
@@ -1677,3 +1693,31 @@ func _sac() -> void:
 		_ajouter(Ui.label("%s : %d" % [d["pluriel"], int(Partie.monnaies[m])], 20, (d["couleur"] as Color).lightened(0.3), 6), Vector2(xx + 48, y + 46))
 		xx += 296.0
 	_ajouter(Ui.label("Les monnaies tombent des monstres (beaucoup plus des élites et des boss).\nVa voir les trois gardiens au pôle des chasseurs, en face du départ, pour tourner les roues.", 16, Color(0.78, 0.8, 0.95), 4), Vector2(36, 508))
+
+
+func _chateau_panneau() -> void:
+	_ajouter(Ui.label("250 étages dans une seule salle. Un boss tous les 10 étages.", 19, Color(0.9, 0.85, 0.9), 5), Vector2(36, 82))
+	_ajouter(Ui.label("Temps de départ 2:30 · +25 s par étage · +1 min par boss.", 17, Color(0.8, 0.8, 0.9), 4), Vector2(36, 112))
+	_ajouter(Ui.label("Chaque étage : ennemis ×1,07 plus forts. Les boss ont des mécaniques :", 17, Color(0.8, 0.8, 0.9), 4), Vector2(36, 140))
+	var y := 170.0
+	for k in Partie.MECAS:
+		_ajouter(Ui.label("•  " + Partie.MECAS[k], 16, Color(1.0, 0.55, 0.5), 4), Vector2(46, y))
+		y += 24.0
+	_ajouter(Ui.label("Clés : %d   ·   Ton record : étage %d" % [Partie.cles, Partie.etage_max], 24, Color(1.0, 0.45, 0.4), 7), Vector2(36, y + 12))
+	_ajouter(Ui.label("Clés : donjons (20 % +), élites (rare), boss du château, boutique.", 15, Color(0.75, 0.75, 0.88), 4), Vector2(36, y + 48))
+	var l := []
+	for c in Partie.chasseurs:
+		l.append([c["nom"], Partie.bot_etage(c)])
+	l.append(["Toi", Partie.etage_max])
+	l.sort_custom(func (a, b): return a[1] > b[1])
+	_ajouter(Ui.label("CLASSEMENT DU CHÂTEAU", 20, Color(1.0, 0.75, 0.35), 6), Vector2(590, 170))
+	var yy := 200.0
+	for k in mini(l.size(), 8):
+		_ajouter(Ui.label("#%d  %s  —  étage %d" % [k + 1, l[k][0], l[k][1]], 16, Color(0.45, 1.0, 0.55) if l[k][0] == "Toi" else Color(0.85, 0.85, 0.95), 4), Vector2(590, yy))
+		yy += 26.0
+	var e := Ui.bouton("ENTRER (1 clé)", Ui.ROUGE, Vector2(300, 60), 24)
+	e.disabled = Partie.cles <= 0
+	e.pressed.connect(func ():
+		fermer()
+		ville.entrer_chateau())
+	_ajouter(e, Vector2(36, 520))

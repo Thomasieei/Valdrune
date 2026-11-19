@@ -28,7 +28,16 @@ const POSTES := [
 	["puglin_brute", -89.0, -96.5, 180.0], ["puglin_brute", -89.0, -108.5, 175.0],
 	["orc", -141.0, -107.0, 180.0], ["diablotin", -107.5, -106.0, 180.0],
 	["orc_guerrier", -121.0, -48.0, 5.0], ["demon", -93.0, -44.0, -20.0],
+	["gobelin", -181.0, -66.0, 80.0], ["gobelin", -167.0, -76.0, 95.0], ["gobelin", -195.0, -76.0, 90.0],
+	["puglin", -132.0, -70.0, -90.0], ["puglin", -108.0, -70.0, -90.0],
+	["gobelin_chef", -153.0, -104.0, 90.0], ["gobelin_chef", -183.0, -106.0, 85.0],
+	["puglin_brute", -92.0, -120.0, 180.0], ["puglin_brute", -86.0, -85.0, 170.0],
+	["orc", -145.0, -112.0, 180.0], ["orc", -137.0, -101.0, 175.0],
+	["diablotin", -111.0, -111.0, 180.0], ["diablotin", -104.0, -101.0, 180.0],
+	["orc_guerrier", -111.0, -53.0, 0.0], ["orc_guerrier", -131.0, -43.0, 10.0],
+	["demon", -84.0, -36.0, -30.0], ["demon", -103.0, -52.0, 0.0],
 ]
+const PORTAIL_ROUGE := Vector3(-127.0, 0.0, -30.0)
 
 const AUTELS := [["ombres", -177.0, -57.5], ["arme", -167.0, -57.5], ["chance", -157.0, -57.5]]
 const PORTAIL := Vector3(-191.0, 0.0, -56.0)
@@ -56,6 +65,8 @@ var chasseurs: Array = []
 var _adversaire := {}
 var POSTES_V: Array = POSTES
 var _arise_t := 0.0
+var chateau: Chateau = null
+var portail_rouge: Node3D
 var _musique_p: AudioStreamPlayer
 
 var boss_evt: Monstre = null
@@ -198,6 +209,22 @@ func _pole() -> void:
 	portail.add_child(Portail.creer(Color(0.15, 0.45, 1.0), Color(0.6, 0.25, 1.0), 2.0))
 	var l := Label3D.new()
 	l.text = "PORTAIL DES DONJONS\nRangs E · D · C · B"
+	portail_rouge = Node3D.new()
+	add_child(portail_rouge)
+	portail_rouge.position = PORTAIL_ROUGE + Vector3(0, _sol(PORTAIL_ROUGE.x, PORTAIL_ROUGE.z), 0)
+	portail_rouge.add_child(Portail.creer(Color(1.0, 0.1, 0.1), Color(0.5, 0.0, 0.05), 2.6))
+	var lr := Label3D.new()
+	lr.text = "CHÂTEAU ROUGE\n250 étages · clé requise"
+	lr.font = Ui.police
+	lr.font_size = 34
+	lr.outline_size = 10
+	lr.pixel_size = 0.0018
+	lr.fixed_size = true
+	lr.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lr.modulate = Color(1.0, 0.4, 0.4)
+	lr.position.y = 7.6
+	lr.visibility_range_end = 70.0
+	portail_rouge.add_child(lr)
 	l.font = Ui.police
 	l.font_size = 34
 	l.outline_size = 10
@@ -212,6 +239,8 @@ func _pole() -> void:
 
 func action_proche() -> Dictionary:
 	var p := joueur.global_position
+	if chateau:
+		return {}
 	if donjon:
 		if donjon.sortie and p.distance_to(donjon.sortie.global_position) < 4.0:
 			return {"type": "sortir"}
@@ -221,8 +250,45 @@ func action_proche() -> Dictionary:
 			return {"type": "autel", "autel": n.autel}
 	if p.distance_to(portail.global_position) < 4.5:
 		return {"type": "donjon"}
+	if p.distance_to(portail_rouge.global_position) < 5.0:
+		return {"type": "chateau"}
 	return {}
 
+
+func entrer_chateau() -> void:
+	if donjon or arene or chateau or Partie.cles <= 0:
+		return
+	Partie.cles -= 1
+	await hud.fondu(true)
+	chateau = Chateau.new()
+	chateau.ville = self
+	add_child(chateau)
+	chateau.termine.connect(_fin_chateau)
+	joueur.viser(null)
+	_teleporter(chateau.point_depart(), PI)
+	_ambiance(true)
+	_env.fog_light_color = Color(0.3, 0.02, 0.02)
+	_env.ambient_light_color = Color(0.45, 0.15, 0.15)
+	_musique("boss")
+	await hud.fondu(false)
+	hud.annonce("CHÂTEAU ROUGE", "Monte le plus haut possible avant la fin du temps", Color(1.0, 0.3, 0.3))
+	chateau.demarrer()
+
+func _fin_chateau(etage: int) -> void:
+	if chateau == null:
+		return
+	var c := chateau
+	chateau = null
+	for m in c.monstres:
+		monstres.erase(m)
+	joueur.viser(null)
+	await hud.fondu(true)
+	c.queue_free()
+	_ambiance(false)
+	_teleporter(PORTAIL_ROUGE + Vector3(5.0, 0.3, 0.0), -PI / 2.0)
+	_musique("city")
+	await hud.fondu(false)
+	hud.annonce("CHÂTEAU : ÉTAGE %d" % etage, "Record : étage %d / 250" % Partie.etage_max, Color(1.0, 0.45, 0.4))
 
 func entrer_test() -> void:
 	if donjon or arene:
@@ -262,7 +328,7 @@ func entrer_donjon(n := 0, groupe := false) -> void:
 	var aide := 0.0
 	for c in equipe:
 		aide += Partie.bot_dps(c.d)
-	donjon.mult_groupe = 1.0 + clampf(aide / maxf(Partie.dps_total(), 1.0), 0.0, 0.8)
+	donjon.mult_groupe = 1.0 + 0.75 * equipe.size()
 	donjon.ville = self
 	add_child(donjon)
 	donjon.termine.connect(_fin_donjon)
@@ -563,6 +629,12 @@ func mort_joueur() -> void:
 		Partie.pv = Partie.pv_max()
 		_mort_en_cours = false
 		return
+	if chateau:
+		var r0 := Partie.mourir()
+		chateau._fin()
+		hud.ecran_mort(r0)
+		_mort_en_cours = false
+		return
 	var r := Partie.mourir()
 	await hud.fondu(true)
 	if donjon:
@@ -594,7 +666,7 @@ func toucher_monde(p: Vector2) -> void:
 			joueur.viser(m)
 
 func _process(dt: float) -> void:
-	if boss_evt == null and donjon == null and arene == null and temps_avant_evt() <= 0.0:
+	if boss_evt == null and donjon == null and arene == null and chateau == null and temps_avant_evt() <= 0.0:
 		lancer_evenement()
 	elif boss_evt and not boss_evt.mort and evt_restant() <= 0.0:
 		hud.dire("Baran est reparti dans les ténèbres…", Color(1.0, 0.45, 0.5))

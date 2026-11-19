@@ -49,6 +49,19 @@ const ESPECES := {
 
 	"rival": {"nom": "Chasseur rival", "modele": "hero", "haut": 1.85, "rang": 3, "pv": 1000, "temps": 9999.0, "pieces": 0, "xp": 0, "eveil": 0.0, "lieu": "arene", "icone": "attack", "monnaie": "eclat", "teinte": Color(1.2, 0.55, 0.55)},
 
+	"chaman_demon": {"nom": "Chaman démoniaque", "modele": "chaman", "haut": 2.0, "rang": 2, "pv": 60000, "temps": 9999.0, "pieces": 450, "xp": 280, "eveil": 0.02, "lieu": "chateau", "icone": "essence", "monnaie": "eclat"},
+	"chasseur_dechu": {"nom": "Chasseur déchu", "modele": "hunter", "haut": 1.95, "rang": 3, "pv": 150000, "temps": 9999.0, "pieces": 900, "xp": 500, "eveil": 0.015, "lieu": "chateau", "icone": "attack", "monnaie": "insigne", "teinte": Color(0.55, 0.3, 0.35)},
+	"garde_sang": {"nom": "Garde de sang", "modele": "igris", "haut": 2.8, "rang": 3, "pv": 300000, "temps": 9999.0, "pieces": 1500, "xp": 800, "eveil": 0.01, "lieu": "chateau", "icone": "sh_igris", "monnaie": "trefle", "teinte": Color(0.8, 0.25, 0.25)},
+	"totem": {"nom": "Totem de sang", "modele": "props/CandleStick_Triple.gltf", "haut": 2.2, "rang": 3, "pv": 120000, "temps": 9999.0, "pieces": 0, "xp": 0, "eveil": 0.0, "lieu": "clone", "icone": "essence", "monnaie": "eclat", "teinte": Color(1.6, 0.3, 0.3)},
+	"b_vulcanor": {"nom": "Vulcanor, gardien des flammes", "modele": "orc_warrior", "haut": 4.6, "rang": 3, "pv": 2000000, "temps": 9999.0, "pieces": 20000, "xp": 9000, "eveil": 0.005, "boss": true, "lieu": "chateau", "icone": "sh_orc_warrior", "monnaie": "insigne", "teinte": Color(1.4, 0.45, 0.25), "meca": "furie",
+		"competence": {"nom": "Brasier", "cd": 12.0, "mult": 20.0}},
+	"b_mortis": {"nom": "Mortis, la liche", "modele": "hunter", "haut": 3.4, "rang": 3, "pv": 2000000, "temps": 9999.0, "pieces": 20000, "xp": 9000, "eveil": 0.005, "boss": true, "lieu": "chateau", "icone": "attack", "monnaie": "eclat", "teinte": Color(0.45, 0.3, 0.7), "meca": "ombres_seules",
+		"competence": {"nom": "Faux des âmes", "cd": 10.0, "mult": 22.0}},
+	"b_sire": {"nom": "Sire Écarlate", "modele": "igris", "haut": 4.8, "rang": 3, "pv": 2500000, "temps": 9999.0, "pieces": 25000, "xp": 11000, "eveil": 0.004, "boss": true, "lieu": "chateau", "icone": "sh_igris", "monnaie": "trefle", "teinte": Color(1.3, 0.2, 0.2), "meca": "totems",
+		"competence": {"nom": "Lame écarlate", "cd": 11.0, "mult": 25.0}},
+	"b_ozzug": {"nom": "Ozzug, grand chaman", "modele": "chaman", "haut": 4.2, "rang": 3, "pv": 2500000, "temps": 9999.0, "pieces": 25000, "xp": 11000, "eveil": 0.004, "boss": true, "lieu": "chateau", "icone": "essence", "monnaie": "eclat", "teinte": Color(0.7, 1.1, 0.6), "meca": "totems",
+		"competence": {"nom": "Malédiction", "cd": 12.0, "mult": 24.0}},
+
 	"baran": {"nom": "Baran, roi des démons", "modele": "imp", "haut": 5.2, "rang": 4, "pv": 9000000, "temps": 90.0, "pieces": 30000, "xp": 9000, "eveil": 0.001, "boss": true, "lieu": "evenement",
 		"teinte": Color(0.55, 0.35, 0.45), "icone": "sh_baran", "rang_ombre": 4, "monnaie": "eclat",
 		"competence": {"nom": "Chaînes infernales", "cd": 12.0, "mult": 30.0}},
@@ -178,6 +191,37 @@ const SEUIL_TEST := [600.0, 9000.0, 120000.0, 1500000.0]
 const DUREE_TEST := 300.0
 const MULT_TEST := 2.5
 var rang_chasseur := 0
+var cles := 0
+var etage_max := 0
+const MECAS := {"furie": "Furie : zones doublées dès le départ", "ombres_seules": "Immunisé à tes coups : seules tes ombres le blessent",
+	"totems": "Protégé tant que ses 3 totems sont debout"}
+
+func donner_cle(n := 1) -> void:
+	cles += n
+	message.emit("+%d Clé du château rouge !" % n, Color(1.0, 0.35, 0.35))
+	change.emit()
+
+func etage_franchi(f: int, boss: bool) -> void:
+	if f > etage_max:
+		etage_max = f
+	if boss:
+		if randf() < 0.03 + f * 0.0002:
+			ajouter_objet(BUTIN_DONJON.pick_random(), 4)
+		elif randf() < 0.25:
+			ajouter_objet(BUTIN_DONJON.pick_random(), 3)
+		if randf() < 0.1:
+			donner_cle()
+	sauver()
+
+func bot_etage(d: Dictionary) -> int:
+	var dps := bot_dps(d)
+	var f := 0
+	while f < 250:
+		var pv: float = 6.0 * 60000.0 * Chateau.mult_etage(f + 1)
+		if pv / dps > 30.0:
+			break
+		f += 1
+	return f
 var opts := {"arise": false, "potion": false, "rappel": true, "equip": false}
 var _potion_t := 0.0
 
@@ -708,6 +752,8 @@ func gagner(espece: String, elite := false, mult := 1.0) -> int:
 		message.emit("Niveau %d !  +%d points de compétence" % [niveau, POINTS_PAR_NIVEAU], Color(1.0, 0.85, 0.3))
 		niveau_gagne.emit(niveau)
 	var r: int = e["rang"]
+	if elite and e.get("lieu", "") == "" and randf() < 0.004:
+		donner_cle()
 	var chance: float = CHANCE_BUTIN[mini(r, CHANCE_BUTIN.size() - 1)] * (3.0 if elite else 1.0)
 	if e.get("lieu", "") == "":
 		if randf() < chance:
@@ -921,7 +967,7 @@ func sauver() -> void:
 			"boutique": achats_boutique, "auto": auto_ombres, "pv": pv, "mana": mana,
 			"auto_attaque": auto_attaque, "records": records, "finis": donjons_finis,
 			"chasseurs": chasseurs, "elo": elo, "jetons": jetons, "arene_v": arene_v, "arene_d": arene_d,
-			"quitte": Time.get_unix_time_from_system(), "rang_chasseur": rang_chasseur, "or_total": or_total, "opts": opts}))
+			"quitte": Time.get_unix_time_from_system(), "rang_chasseur": rang_chasseur, "or_total": or_total, "opts": opts, "cles": cles, "etage_max": etage_max}))
 
 func charger() -> void:
 	if OS.get_cmdline_user_args().has("--sans-sauvegarde") or not FileAccess.file_exists(CHEMIN):
@@ -957,6 +1003,8 @@ func charger() -> void:
 	arene_d = int(d.get("arene_d", 0))
 	chasseurs = d.get("chasseurs", [])
 	rang_chasseur = int(d.get("rang_chasseur", 0))
+	cles = int(d.get("cles", 0))
+	etage_max = int(d.get("etage_max", 0))
 	for k in opts:
 		opts[k] = bool(d.get("opts", {}).get(k, opts[k]))
 	or_total = int(d.get("or_total", 0))
