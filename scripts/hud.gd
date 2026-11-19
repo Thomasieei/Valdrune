@@ -883,7 +883,7 @@ func _inventaire() -> void:
 		return Partie.valeur(a) > Partie.valeur(b))
 	_ajouter(Ui.label("%d objet%s" % [l.size(), "s" if l.size() > 1 else ""], 20, Color(0.7, 0.8, 1.0)), Vector2(270, 92))
 	var origine := Vector2(36, 140)
-	var col := 5
+	var col := 7
 	if _onglet != "arme":
 		var empl: Array = TYPES_ACC if _onglet == "accessoire" else["relique1", "relique2", "relique3"]
 		for k in empl.size():
@@ -897,11 +897,12 @@ func _inventaire() -> void:
 				case_e.pressed.connect(func (): _montrer_detail("objet", o))
 			_panneau.add_child(case_e)
 		origine = Vector2(310, 140) if empl.size() == 4 else Vector2(170, 140)
-		col = 4
-	_grille(l, origine, col, 2, Vector2(150, 166), func (o):
+		col = 5 if empl.size() == 4 else 6
+	var taille_case := Vector2(109, 101)
+	_grille(l, origine, col, 3, taille_case, func (o):
 		var b := Partie.base(o)
 		var c := Ui.carte(b["nom"], b["icone"], Partie.SIGLES[o["rarete"]], Partie.COULEURS_RARETE[o["rarete"]],
-			Partie.est_equipe(o), ("Niv. %d · " % o["niv"]) + _resume(o), Vector2(150, 166), b.get("effet", ""))
+			Partie.est_equipe(o), ("Niv. %d · " % o["niv"]) + _resume(o), taille_case, b.get("effet", ""))
 		c.pressed.connect(func (): _montrer_detail("objet", o))
 		return c)
 	var meilleur := Ui.bouton("Équiper le meilleur", Ui.VERT, Vector2(260, 54))

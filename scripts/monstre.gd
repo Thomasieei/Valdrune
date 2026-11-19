@@ -24,12 +24,27 @@ var pv := 0.0
 var pv_max := 1.0
 var temps_max := 20.0
 var chrono := -1.0
-var mort := false
+var mort := false:
+	set(valeur):
+		mort = valeur
+		if _obstacle:
+			_obstacle.collision_layer = 0 if mort else 1
+		if mort and _plaque:
+			_plaque.hide()
 var eveillable := false
 var _eveil_fin := 0.0
 var _orientation := 0.0
 var _corps: Node3D
 var _ap: AnimationPlayer
+const DISTANCE_PLAQUE := 16.0
+const LARGEUR_VIE := 100
+const HAUTEUR_VIE := 20
+static var _atlas_vie: Texture2D
+var _obstacle: StaticBody3D
+var _joueur_affichage: Node3D
+var _sommet_modele := 0.0
+var _barre_vie := Sprite3D.new()
+var _pourcentage := Label3D.new()
 var _plaque: Label3D
 var _reapparait := 0.0
 var _flash := 0.0
@@ -88,24 +103,42 @@ func _ready() -> void:
 	zone.set_meta("monstre", self)
 	add_child(zone)
 
-	var corps := StaticBody3D.new()
+	_obstacle = StaticBody3D.new()
 	var cs2 := CollisionShape3D.new()
 	var cyl := CylinderShape3D.new()
 	cyl.radius = maxf(0.4, _base_haut * 0.2)
 	cyl.height = _base_haut
 	cs2.shape = cyl
 	cs2.position.y = _base_haut / 2.0
-	corps.add_child(cs2)
-	add_child(corps)
+	_obstacle.add_child(cs2)
+	add_child(_obstacle)
 	_plaque = Label3D.new()
 	_plaque.fixed_size = true
 	_plaque.pixel_size = 0.0016
 	_plaque.font_size = 26
 	_plaque.outline_size = 8
 	_plaque.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_plaque.visibility_range_end = 40.0
+	_plaque.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	_plaque.offset.y = 14.0
 	_plaque.font = Ui.police
-	add_child(_plaque)
+	_corps.add_child(_plaque)
+	_barre_vie.texture = _texture_vie()
+	_barre_vie.vframes = 101
+	_barre_vie.fixed_size = true
+	_barre_vie.pixel_size = _plaque.pixel_size
+	_barre_vie.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_barre_vie.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	_plaque.add_child(_barre_vie)
+	_pourcentage.font = Ui.police
+	_pourcentage.font_size = 18
+	_pourcentage.outline_size = 4
+	_pourcentage.render_priority = 2
+	_pourcentage.fixed_size = true
+	_pourcentage.pixel_size = _plaque.pixel_size
+	_pourcentage.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_plaque.add_child(_pourcentage)
+	_joueur_affichage = get_tree().get_first_node_in_group("joueur")
+	_plaque.hide()
 	Partie.change.connect(func (): _plaque_sale = true)
 	_appliquer_rang()
 
@@ -115,6 +148,7 @@ func _construire_corps() -> void:
 	_corps = Modele.creer(e["modele"], _base_haut, e.get("peau", ""))
 	_corps.rotation.y = _orientation
 	add_child(_corps)
+	_sommet_modele = maxf(_base_haut, Modele._boite(_corps).end.y)
 	_ap = Modele.lecteur(_corps)
 	Modele.jouer(_ap, "Idle", randf_range(0.85, 1.1))
 	if _ap and _ap.current_animation != "":
@@ -151,8 +185,33 @@ func _appliquer_rang() -> void:
 	elif not elite and _aura:
 		_aura.queue_free()
 		_aura = null
-	_plaque.position.y = haut() + 0.35
+	_plaque.position.y = _sommet_modele + 0.45
 	_maj_plaque()
+
+# Une seule texture partagée, une ligne de l’atlas par pourcentage.
+static func _texture_vie() -> Texture2D:
+	if _atlas_vie == null:
+		var image := Image.create(LARGEUR_VIE + 4, HAUTEUR_VIE * 101, false, Image.FORMAT_RGBA8)
+		image.fill(Color("#161322"))
+		for valeur in 101:
+			var y := valeur * HAUTEUR_VIE + 2
+			image.fill_rect(Rect2i(2, y, LARGEUR_VIE, HAUTEUR_VIE - 4), Color("#492a32"))
+			if valeur > 0:
+				image.fill_rect(Rect2i(2, y, valeur, HAUTEUR_VIE - 4), Color("#c53941"))
+		_atlas_vie = ImageTexture.create_from_image(image)
+	return _atlas_vie
+
+func _afficher_vie() -> void:
+	_plaque.visible = not mort and is_instance_valid(_joueur_affichage) and global_position.distance_squared_to(_joueur_affichage.global_position) <= DISTANCE_PLAQUE * DISTANCE_PLAQUE
+	if not _plaque.visible:
+		return
+	var fraction := pv_pacte / (pv_max * 0.35) if allie else pv / pv_max
+	var valeur := clampi(roundi(fraction * 100.0), 0, 100)
+	if fraction > 0.0 and fraction < 1.0:
+		valeur = clampi(valeur, 1, 99)
+	if _barre_vie.frame != valeur or _pourcentage.text.is_empty():
+		_barre_vie.frame = valeur
+		_pourcentage.text = "%d %%" % valeur
 
 func _cercle(c: Color, r: float) -> Node3D:
 	var mi := MeshInstance3D.new()
@@ -293,16 +352,16 @@ func _toucher_joueur(j: Node3D, d: float, raison := "ZONE") -> void:
 			v.mort_joueur()
 
 func _process(dt: float) -> void:
+	_afficher_vie()
 	if allie:
 		if not mort:
 			_ia_pacte(dt)
 		return
 	_plaque_t -= dt
-	if _plaque_sale and _plaque_t <= 0.0:
+	if _plaque_sale and _plaque.visible and _plaque_t <= 0.0:
 		_plaque_t = 0.6
 		_plaque_sale = false
-		if _plaque.visible:
-			_maj_plaque()
+		_maj_plaque()
 	if not mort:
 		_combat(dt)
 		_errer(dt)
@@ -389,7 +448,6 @@ func blesser_pacte(d: float) -> void:
 	if pv_pacte <= 0.0:
 		mort = true
 		allie = false
-		_plaque.visible = false
 		Fx.anneau(global_position, Color(0.2, 0.6, 0.4), 3.0)
 		Partie.message.emit("Ton pacte est rompu : %s est mort pour de bon." % e["nom"], Color(1.0, 0.5, 0.45))
 		var tw := create_tween()
@@ -471,7 +529,6 @@ func capituler(choix: String) -> void:
 	eveillable = false
 	pv = 0.0
 	chrono = -1.0
-	_plaque.visible = false
 	if choix == "butin":
 		var gain := Partie.gagner(espece, elite, mult)
 		for k in 2:
@@ -577,7 +634,6 @@ func _mourir() -> void:
 	if _bouclier:
 		_bouclier.queue_free()
 		_bouclier = null
-	_plaque.visible = false
 	if Modele.jouer(_ap, "Death", 1.0, 0.08) <= 0.0:
 
 		var tw := create_tween()
@@ -622,7 +678,7 @@ func _renaitre() -> void:
 	var tw := create_tween()
 	tw.tween_property(_corps, "scale", cible_ech, 0.5).set_trans(Tween.TRANS_BACK)
 	Modele.jouer(_ap, "Idle")
-	_plaque.visible = true
+	_afficher_vie()
 	Fx.anneau(global_position, OR_ELITE if elite else Color(0.6, 0.3, 1.0), 2.4 if elite else 1.6)
 	if elite:
 		Fx.texte(global_position + Vector3(0, haut() + 0.9, 0), "ÉLITE !", OR_ELITE, 1.5, 1.4)

@@ -197,7 +197,7 @@ func _physics_process(dt: float) -> void:
 	velocity.y = -2.0 if is_on_floor() else velocity.y - 30.0 * dt
 	move_and_slide()
 
-	if dir.length() > 0.1 and is_on_wall():
+	if dir.length() > 0.1 and is_on_floor() and is_on_wall():
 		_monter_marche(dir)
 	_anim_coup -= dt
 	if dir.length() > 0.1:
@@ -228,8 +228,11 @@ func _monter_marche(dir: Vector3) -> void:
 	t = t.translated(avance)
 
 	var col := KinematicCollision3D.new()
-	if test_move(t, Vector3(0, -MARCHE_MAX - 0.05, 0), col):
-		t.origin.y -= col.get_travel().length()
+	if not test_move(t, Vector3.DOWN * (MARCHE_MAX + 0.05), col):
+		return
+	if col.get_normal().dot(Vector3.UP) < cos(floor_max_angle):
+		return
+	t.origin += col.get_travel()
 	global_transform = t
 
 func _frapper() -> void:
