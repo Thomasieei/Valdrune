@@ -200,6 +200,8 @@ func _ready() -> void:
 	_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_racine.add_child(_flash)
 	for k in Partie.COMPETENCES:
+		if k == "telekinesie":
+			continue
 		var d: Dictionary = Partie.COMPETENCES[k]
 		_b_comp[k] = _rond(d["nom"], d["icone"], 104.0, {"esquive": Color(0.1, 0.5, 0.45), "brise": Color(0.15, 0.4, 0.75), "cri": Color(0.4, 0.15, 0.7), "domaine": Color(0.3, 0.05, 0.5), "echange": Color(0.2, 0.15, 0.55)}[k])
 	_cadre = Control.new()
