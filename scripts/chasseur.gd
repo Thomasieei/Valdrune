@@ -36,6 +36,21 @@ func _ready() -> void:
 	add_child(_corps)
 	_ap = Modele.lecteur(_corps)
 	Modele.jouer(_ap, "Idle")
+	var sk: Skeleton3D = _corps.find_child("Skeleton3D", true, false)
+	if sk:
+		for i in sk.get_bone_count():
+			var bn := sk.get_bone_name(i).to_lower()
+			if bn == "hand_r" or bn.ends_with("righthand") or bn == "hand.r":
+				var main := BoneAttachment3D.new()
+				main.bone_name = sk.get_bone_name(i)
+				sk.add_child(main)
+				var prise := Node3D.new()
+				prise.rotation_degrees = Modele.reglage_main["rot"]
+				prise.position = Modele.reglage_main["pos"]
+				prise.add_child(Modele.arme(["katana", "dague", "hache", "lame"][int(d["look"]) % 4]))
+				main.add_child(prise)
+				prise.scale = Vector3.ONE / maxf(sk.global_transform.basis.get_scale().x, 0.0001) if sk.is_inside_tree() else Vector3.ONE
+				break
 	_plaque = Label3D.new()
 	_plaque.font = Ui.police
 	_plaque.font_size = 24

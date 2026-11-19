@@ -185,6 +185,7 @@ func _physics_process(dt: float) -> void:
 			dir = v.normalized()
 	for k in recharges:
 		recharges[k] = maxf(0.0, recharges[k] - dt)
+	_arme_monarque(dt)
 	invulnerable = maxf(0.0, invulnerable - dt)
 	var vit := VITESSE * Partie.vitesse()
 	velocity.x = dir.x * vit
@@ -306,9 +307,10 @@ func competence(k: String) -> String:
 				var b := Basis(Vector3.UP, camera_lacet)
 				dir = b * Vector3(entree.x, 0, -entree.y)
 			dir.y = 0
-			_dash = dir.normalized() * 24.0
-			_dash_t = 0.22
-			invulnerable = 0.45
+			_dash = dir.normalized() * 13.0
+			_dash_t = 0.38
+			invulnerable = 0.5
+			_trainee(0.38)
 			cible = null
 			Modele.jouer(_ap, "Roll" if _ap and _ap.has_animation("Roll") else "Run", 1.6, 0.05)
 			_anim_coup = 0.3
@@ -347,6 +349,47 @@ func aura_anos(on: bool) -> void:
 		p.position = Vector3(0, 1.0, 0)
 		add_child(p)
 		_aura_anos.append(p)
+
+func _trainee(duree: float) -> void:
+	var n := 7
+	for k in n:
+		get_tree().create_timer(duree * k / n).timeout.connect(func ():
+			Fx.anneau(global_position + Vector3(0, 0.05, 0), Color(0.45, 0.9, 1.0, 0.8), 0.9 - k * 0.08)
+			Fx.texte(global_position + Vector3(randf_range(-0.2, 0.2), 1.0, 0), "·", Color(0.6, 0.95, 1.0), 2.0, 0.35))
+	var tw := create_tween()
+	tw.tween_property(_corps, "scale", Vector3(1.08, 0.9, 1.08), duree * 0.3)
+	tw.tween_property(_corps, "scale", Vector3.ONE, duree * 0.7)
+
+var _eclair_t := 0.0
+var _eclair_i := 0
+
+func _arme_monarque(dt: float) -> void:
+	if not Partie.opts["monarque"] or Partie.niveau < Partie.NIVEAU_MONARQUE or entree.length() > 0.2 or _dash_t > 0.0:
+		return
+	_eclair_t -= dt
+	if _eclair_t > 0.0:
+		return
+	_eclair_t = 0.14
+	if Partie.mana < Partie.MANA_ECLAIR:
+		return
+	var l: Array = get_parent().monstres.filter(func (m): return is_instance_valid(m) and not m.mort and m.global_position.distance_to(global_position) < 12.0 and _visible(m))
+	if l.is_empty():
+		return
+	_eclair_i = (_eclair_i + 1) % l.size()
+	var m: Monstre = l[_eclair_i]
+	Partie.depenser_mana(Partie.MANA_ECLAIR)
+	var depart := global_position
+	var v := m.global_position - global_position
+	v.y = 0
+	if v.length() > 2.0:
+		global_position = m.global_position - v.normalized() * (1.2 + m.haut() * 0.25)
+	_corps.rotation.y = atan2(v.x, v.z)
+	Fx.anneau(depart, Color(1.0, 0.85, 0.3), 0.8)
+	Fx.anneau(global_position, Color(1.0, 0.75, 0.2), 1.4)
+	_anim_coup = Modele.jouer(_ap, ["Slash1", "Slash2", "Slash3"][_eclair_i % 3], 2.6, 0.02) * 0.5
+	Fx.son("swing2", -6.0, 1.4)
+	var crit := randf() < Partie.chance_crit()
+	m.frapper(Partie.dps_joueur() * (2.0 if crit else 1.0), crit)
 
 func _brise_differe(cc: Monstre) -> void:
 	await get_tree().create_timer(0.3).timeout

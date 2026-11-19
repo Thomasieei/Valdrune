@@ -224,7 +224,9 @@ func bot_etage(d: Dictionary) -> int:
 			break
 		f += 1
 	return f
-var opts := {"arise": false, "potion": false, "rappel": true, "equip": false}
+var opts := {"arise": false, "potion": false, "rappel": true, "equip": false, "diviser": false, "monarque": false}
+const NIVEAU_MONARQUE := 50
+const MANA_ECLAIR := 6.0
 var _potion_t := 0.0
 
 func cout_potion() -> int:

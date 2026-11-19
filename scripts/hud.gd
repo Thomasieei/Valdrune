@@ -59,7 +59,8 @@ func systeme(titre: String, lignes: Array) -> void:
 	Fx.son("open", -2.0, 1.3)
 var _flash_msg_t := 0.0
 const BARRE := [["arise", "ARISE", "arise"], ["fureur", "ATTAQUE", "attack"], ["auto", "OMBRES", "cmd_attack"],
-	["rappel", "RAPPEL", "essence"], ["potion", "POTION", "role_heal"], ["equip", "ÉQUIPE", "items"]]
+	["rappel", "RAPPEL", "essence"], ["potion", "POTION", "role_heal"], ["equip", "ÉQUIPE", "items"],
+	["diviser", "DIVISER", "role_melee"], ["monarque", "MONARQUE", "w8"]]
 
 func _barre_on(k: String) -> bool:
 	match k:
@@ -70,6 +71,9 @@ func _barre_on(k: String) -> bool:
 	return bool(Partie.opts[k])
 
 func _barre_basculer(k: String) -> void:
+	if k == "monarque" and Partie.niveau < Partie.NIVEAU_MONARQUE:
+		dire("Arme du Monarque : se débloque au niveau %d" % Partie.NIVEAU_MONARQUE, Color(1.0, 0.8, 0.4))
+		return
 	if k in ["fureur", "auto"] and not Partie.achats_boutique.has(k):
 		dire("À débloquer dans la boutique (gratuit pendant la bêta)", Color(1.0, 0.8, 0.4))
 		ouvrir("boutique")
@@ -81,7 +85,7 @@ func _barre_basculer(k: String) -> void:
 			Partie.auto_ombres = not Partie.auto_ombres
 		_:
 			Partie.opts[k] = not bool(Partie.opts[k])
-	var nom: String = {"arise": "Arise auto", "fureur": "Attaque auto", "auto": "Ombres auto", "rappel": "Rappel des ombres", "potion": "Potion auto", "equip": "Équipement auto"}[k]
+	var nom: String = {"arise": "Arise auto", "fureur": "Attaque auto", "auto": "Ombres auto", "rappel": "Rappel des ombres", "potion": "Potion auto", "equip": "Équipement auto", "diviser": "Ombres divisées", "monarque": "Arme du Monarque (%d mana / coup)" % int(Partie.MANA_ECLAIR)}[k]
 	dire("%s : %s" % [nom, "ACTIVÉ" if _barre_on(k) else "désactivé"], Color(0.5, 1.0, 0.6) if _barre_on(k) else Color(0.8, 0.8, 0.9))
 	Partie.sauver()
 	Partie.change.emit()
@@ -174,7 +178,7 @@ func _ready() -> void:
 	_b_eveil = _rond("ÉVEIL", "arise", 128.0, Color(0.35, 0.1, 0.7))
 	_b_eveil.visible = false
 	for b in BARRE:
-		var bb := _rond(b[1], b[2], 76.0, Color(0.1, 0.16, 0.38))
+		var bb := _rond(b[1], b[2], 66.0, Color(0.35, 0.25, 0.05) if b[0] == "monarque" else Color(0.1, 0.16, 0.38))
 		bb.set_meta("on", false)
 		_barre[b[0]] = bb
 	_voile = ColorRect.new()
@@ -308,7 +312,7 @@ func _disposer() -> void:
 	_b_eveil.position = Vector2(w - 500, h - 300)
 	_b_action.position = Vector2(w - 180, h - 446)
 	for k in BARRE.size():
-		_barre[BARRE[k][0]].position = Vector2(w / 2.0 - 3.0 * 86.0 + k * 86.0, h - 92.0)
+		_barre[BARRE[k][0]].position = Vector2(w / 2.0 - 4.0 * 72.0 + k * 72.0, h - 82.0)
 	_b_comp["esquive"].position = Vector2(w - 330, h - 118)
 	_b_comp["brise"].position = Vector2(w - 318, h - 250)
 	_b_comp["cri"].position = Vector2(w - 196, h - 318)

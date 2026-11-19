@@ -146,10 +146,23 @@ func _a_portee(m: Monstre) -> bool:
 	v.y = 0
 	return v.length() <= Partie.portee_ombres() + m.haut() * 0.3
 
+var _garde: Monstre = null
+
 func _choisir_cible(dt: float) -> Monstre:
+	if Partie.opts["diviser"]:
+		_auto_t -= dt
+		if _auto_t <= 0.0 or not _a_portee(_garde):
+			_auto_t = 0.6
+			var l: Array = joueur.get_parent().monstres.filter(func (m): return _a_portee(m))
+			l.sort_custom(func (a, b): return a.global_position.distance_to(joueur.global_position) < b.global_position.distance_to(joueur.global_position))
+			_garde = l[place % l.size()] if not l.is_empty() else null
+		return _garde if _a_portee(_garde) else null
 	var c: Monstre = joueur.cible
 	if _a_portee(c):
+		_garde = c
 		return c
+	if _a_portee(_garde):
+		return _garde
 	if not Partie.auto_ombres:
 		return null
 	_auto_t -= dt
