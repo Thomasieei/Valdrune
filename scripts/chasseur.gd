@@ -17,6 +17,8 @@ var _coup_t := 0.0
 var _bloque_t := 0.0
 var _saut := false
 var _derniere_pos := Vector3.ZERO
+var _activite_t := 0.0
+var _absent_t := 0.0
 
 func _ready() -> void:
 	var forme := CollisionShape3D.new()
@@ -44,9 +46,10 @@ func _ready() -> void:
 	_plaque.visibility_range_end = 40.0
 	add_child(_plaque)
 	_maj_plaque()
+	_activite_t = randf_range(120.0, 480.0)
 
 func _maj_plaque() -> void:
-	_plaque.text = "%s%s\nNiv. %d" % ["◆ " if d.get("premium", false) else "", d["nom"], int(d["niveau"])]
+	_plaque.text = "%s  [%s]\nNiv. %d" % [d["nom"], Partie.RANGS[int(d["rang"])], int(d["niveau"])]
 	_plaque.modulate = Color(1.0, 0.85, 0.4) if d.get("premium", false) else Color(0.55, 0.9, 1.0)
 
 func _valide(m) -> bool:
@@ -103,8 +106,32 @@ func _destination() -> Vector3:
 	return global_position
 
 func _physics_process(dt: float) -> void:
-	if mode == "absent" or _saut:
+	if mode == "absent":
+		_absent_t -= dt
+		if _absent_t <= 0.0:
+			Partie.bot_fin_activite(d)
+			mode = "ville"
+			visible = true
+			collision_mask = 1
+			placer(ville.portail.global_position + Vector3(randf_range(3, 6), 0.3, randf_range(-3, 3)))
+			Fx.anneau(global_position, Color(0.4, 0.7, 1.0), 2.0)
+			_maj_plaque()
 		return
+	if _saut:
+		return
+	if mode == "ville":
+		_activite_t -= dt
+		if _activite_t <= 0.0:
+			_activite_t = randf_range(300.0, 900.0)
+			var act := Partie.bot_activite(d)
+			if not act.is_empty():
+				mode = "absent"
+				_absent_t = float(act["duree"])
+				cible = null
+				visible = false
+				collision_mask = 0
+				Fx.anneau(global_position, Color(0.4, 0.7, 1.0), 2.0)
+				return
 	_choix_t -= dt
 	if _choix_t <= 0.0 or not _valide(cible):
 		_choix_t = 1.0

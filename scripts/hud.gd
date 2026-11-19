@@ -440,7 +440,7 @@ func _dessiner_haut() -> void:
 	var nv := str(Partie.niveau)
 	var w := Ui.police.get_string_size(nv, HORIZONTAL_ALIGNMENT_LEFT, -1, 32).x
 	_texte(c, Vector2(46 - w / 2.0, 58), nv, 32, Color.WHITE, 7)
-	_texte(c, Vector2(100, 34), "Chasseur  ·  Niveau %d" % Partie.niveau, 22, Color(0.8, 0.9, 1.0))
+	_texte(c, Vector2(100, 34), "Chasseur rang %s  ·  Niveau %d" % [Partie.RANGS[Partie.rang_chasseur], Partie.niveau], 22, Partie.COULEURS_RANG[Partie.rang_chasseur].lightened(0.3))
 	c.draw_texture_rect(Ui.tex("r1"), Rect2(98, 44, 36, 36), false)
 	_texte(c, Vector2(140, 74), Fx.court(Partie.pieces), 30, Color(1.0, 0.85, 0.3), 7)
 	for k in 2:
@@ -588,7 +588,7 @@ func _construire() -> void:
 			_panneau = Ui.panneau(Partie.ROLLS[_autel]["autel"], {"ombres": "ombres", "arme": "attack", "chance": "best"}[_autel], Vector2(1000, 610), fermer)
 			_autel_panneau()
 		"donjon":
-			_panneau = Ui.panneau("Portail du donjon", "tele", Vector2(820, 600), fermer)
+			_panneau = Ui.panneau("Portail du donjon", "tele", Vector2(820, 680), fermer)
 			_donjon_panneau()
 		"recompenses":
 			_panneau = Ui.panneau("Donjon terminé !", "best", Vector2(760, 560), fermer)
@@ -1013,39 +1013,51 @@ func _boutique() -> void:
 	sc.set_deferred("scroll_vertical", _defil_boutique)
 
 
+var _onglet_cl := "puissance"
+
 func _classement() -> void:
-	_ajouter(Ui.label("ÉLO %d  ·  %d V / %d D  ·  %d jetons" % [Partie.elo, Partie.arene_v, Partie.arene_d, Partie.jetons], 22, Color(1.0, 0.8, 0.4), 7), Vector2(36, 82))
-	var l := Partie.classement()
-	var y := 122.0
+	for k in [["puissance", "PUISSANCE"], ["or", "RICHESSE"]]:
+		var b := Ui.bouton(k[1], Ui.CYAN if _onglet_cl == k[0] else Ui.BLEU, Vector2(200, 48), 20)
+		var id: String = k[0]
+		b.pressed.connect(func ():
+			_onglet_cl = id
+			_construire())
+		_ajouter(b, Vector2(36 + (0 if id == "puissance" else 210), 78))
+	var l := Partie.classement(_onglet_cl)
+	var y := 140.0
 	for k in l.size():
 		var c: Dictionary = l[k]
 		var moi: bool = c.get("moi", false)
-		var col := Color(0.45, 1.0, 0.55) if moi else (Color(1.0, 0.82, 0.4) if c.get("premium", false) else Color(0.85, 0.88, 1.0))
-		var txt := "#%d   %s%s" % [k + 1, "◆ " if c.get("premium", false) else "", c["nom"]]
-		_ajouter(Ui.label(txt, 19, col, 5), Vector2(40, y))
-		_ajouter(Ui.label("Niv. %d" % int(c["niveau"]), 19, col, 5), Vector2(300, y))
-		_ajouter(Ui.label("ÉLO %d" % int(c["elo"]), 19, col, 5), Vector2(400, y))
+		var col := Color(0.45, 1.0, 0.55) if moi else Color(0.85, 0.88, 1.0)
+		_ajouter(Ui.label("#%d  %s" % [k + 1, c["nom"]], 19, col, 5), Vector2(40, y))
+		_ajouter(Ui.label("[%s] niv %d" % [Partie.RANGS[int(c["rang"])], int(c["niveau"])], 17, Partie.COULEURS_RANG[int(c["rang"])], 5), Vector2(200, y + 2))
+		var val := "%s/s" % Fx.court(c["puissance"]) if _onglet_cl == "puissance" else "%s ●" % Fx.court(c["or"])
+		_ajouter(Ui.label(val, 19, Color(1.0, 0.85, 0.35) if _onglet_cl == "or" else col, 5), Vector2(330, y))
+		var et: String = {"test": "test de rang", "donjon": "en donjon"}.get(c["etat"], "")
+		if et != "":
+			_ajouter(Ui.label(et, 14, Color(0.6, 0.75, 1.0), 3), Vector2(450, y + 4))
 		y += 38.0
-	_ajouter(Ui.label("◆ = joueur avec Pass (×5)", 14, Color(0.7, 0.7, 0.85), 3), Vector2(40, y + 4))
+	_ajouter(Ui.label("Richesse = or gagné au total · Puissance = dégâts/s", 14, Color(0.7, 0.7, 0.85), 3), Vector2(40, y + 2))
+	_ajouter(Ui.label("ÉLO %d · %d V / %d D · %d jetons" % [Partie.elo, Partie.arene_v, Partie.arene_d, Partie.jetons], 18, Color(1.0, 0.8, 0.4), 5), Vector2(580, 84))
 	var a := Ui.bouton("ARÈNE : COMBATTRE", Ui.ROUGE, Vector2(300, 60), 22)
 	a.disabled = ville.donjon != null or ville.arene != null
 	a.pressed.connect(func ():
 		fermer()
 		ville.lancer_arene())
-	_ajouter(a, Vector2(560, 120))
-	_ajouter(Ui.label("Victoire : +3 jetons · Défaite : +1", 16, Color(0.85, 0.85, 0.95), 4), Vector2(560, 186))
-	_ajouter(Ui.label("RÉCOMPENSES UNIQUES", 20, Color(1.0, 0.75, 0.35), 6), Vector2(560, 226))
-	var yy := 258.0
+	_ajouter(a, Vector2(580, 130))
+	_ajouter(Ui.label("Victoire : +3 jetons · Défaite : +1", 16, Color(0.85, 0.85, 0.95), 4), Vector2(580, 196))
+	_ajouter(Ui.label("RÉCOMPENSES UNIQUES", 20, Color(1.0, 0.75, 0.35), 6), Vector2(580, 236))
+	var yy := 268.0
 	for r in Partie.BOUTIQUE_ARENE:
-		var b: Dictionary = Partie.OBJETS[r[0]]
+		var bo: Dictionary = Partie.OBJETS[r[0]]
 		var prix: int = r[1]
-		var bt := Ui.bouton("%s  (%d jetons)" % [b["nom"], prix], Ui.VIOLET, Vector2(380, 54), 17)
+		var bt := Ui.bouton("%s  (%d jetons)" % [bo["nom"], prix], Ui.VIOLET, Vector2(370, 54), 17)
 		bt.disabled = Partie.jetons < prix
-		var id: String = r[0]
+		var id2: String = r[0]
 		bt.pressed.connect(func ():
-			if Partie.acheter_arene(id, prix):
+			if Partie.acheter_arene(id2, prix):
 				Fx.son("levelup", -4.0))
-		_ajouter(bt, Vector2(560, yy))
+		_ajouter(bt, Vector2(580, yy))
 		yy += 64.0
 
 func _index() -> void:
@@ -1275,15 +1287,16 @@ func _dessiner_donjon() -> void:
 	var r := Rect2(Vector2.ZERO, c.size)
 	c.draw_style_box(Ui.boite(Color(0.08, 0.02, 0.14, 0.92), Color(0.75, 0.3, 1.0), 3, 12), r)
 	var n := mini(dj.salle + 1, 6)
-	_texte(c, Vector2(16, 28), "DONJON RANG %s  ·  SALLE %d / 6" % [Partie.RANGS[dj.niv], n], 19, Color(0.85, 0.65, 1.0), 6)
-	_texte(c, Vector2(16, 58), dj.NOMS_SALLES[mini(dj.salle, 5)], 24, Color.WHITE, 7)
-	for k in 6:
+	var titre := ("TEST DE RANG %s" % Partie.RANGS[dj.test_rang]) if dj.test_rang >= 0 else ("DONJON RANG %s" % Partie.RANGS[dj.niv])
+	_texte(c, Vector2(16, 28), "%s  ·  SALLE %d / %d" % [titre, mini(dj.salle + 1, dj.N), dj.N], 19, Color(0.85, 0.65, 1.0), 6)
+	_texte(c, Vector2(16, 58), dj.NOMS_SALLES[mini(dj.salle, dj.N - 1)], 24, Color.WHITE, 7)
+	for k in dj.N:
 		var col := Color(0.35, 0.2, 0.5)
-		if k < dj.salle or (k == 5 and not dj.actif and dj.sortie):
+		if k < dj.salle or (k == dj.N - 1 and not dj.actif and dj.sortie):
 			col = Color(0.45, 1.0, 0.5)
 		elif k == dj.salle:
 			col = Color(1.0, 0.75, 0.3)
-		c.draw_circle(Vector2(300 + k * 22, 50), 8, col)
+		c.draw_circle(Vector2(300 + k * (22 if dj.N <= 6 else 14), 50), 8 if dj.N <= 6 else 6, col)
 	var t := dj.temps
 	var tt := "%d:%02d" % [int(t) / 60, int(t) % 60]
 	var urgent := t < 45.0
@@ -1295,14 +1308,30 @@ func _dessiner_donjon() -> void:
 
 func _donjon_panneau() -> void:
 	var puissance := Partie.dps_total()
-	_ajouter(Ui.label("Ta puissance : %s/s  ·  Niveau %d" % [Fx.court(puissance), Partie.niveau], 20, Color(0.8, 0.85, 1.0), 6), Vector2(36, 84))
+	_ajouter(Ui.label("Ta puissance : %s/s  ·  Rang %s  ·  Niveau %d" % [Fx.court(puissance), Partie.RANGS[Partie.rang_chasseur], Partie.niveau], 20, Color(0.8, 0.85, 1.0), 6), Vector2(36, 80))
+	var rc := Partie.rang_chasseur
+	var tl := Panel.new()
+	tl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tl.add_theme_stylebox_override("panel", Ui.boite(Color(0.12, 0.06, 0.04), Color(1.0, 0.75, 0.3), 3, 10))
+	tl.size = Vector2(750, 70)
+	_ajouter(tl, Vector2(36, 112))
+	if rc < 4:
+		_ajouter(Ui.label("TEST DE RANG %s → %s" % [Partie.RANGS[rc], Partie.RANGS[rc + 1]], 22, Color(1.0, 0.8, 0.35), 7), Vector2(50, 116))
+		_ajouter(Ui.label("10 salles d'ennemis de rang %s (×%.1f PV) en %d min · Réussite : ×%.1f partout" % [Partie.RANGS[rc], Partie.MULT_TEST, int(Partie.DUREE_TEST) / 60, Partie.MULT_RANG[rc + 1]], 14, Color(0.9, 0.85, 0.8), 4), Vector2(50, 150))
+		var bt := Ui.bouton("PASSER", Ui.OR, Vector2(130, 52), 20)
+		bt.pressed.connect(func ():
+			fermer()
+			ville.entrer_test())
+		_ajouter(bt, Vector2(646, 121))
+	else:
+		_ajouter(Ui.label("RANG A ATTEINT — rang maximal pour l'instant (×%.1f partout)" % Partie.MULT_RANG[4], 20, Color(1.0, 0.8, 0.35), 6), Vector2(50, 132))
 	var couleurs := {"pierre": Color(0.6, 0.4, 1.0), "neige": Color(0.55, 0.85, 1.0), "braise": Color(1.0, 0.45, 0.15), "nuit": Color(1.0, 0.65, 0.2)}
-	var y := 120.0
+	var y := 196.0
 	for n in Donjon.DONJONS.size():
 		var d: Dictionary = Donjon.DONJONS[n]
 		var col: Color = couleurs[d["theme"]]
 		var precedent_ok: bool = n == 0 or int(Partie.donjons_finis.get(str(n - 1), 0)) > 0
-		var niveau_ok: bool = Partie.niveau >= int(d["niveau"])
+		var niveau_ok: bool = Partie.rang_chasseur >= n
 		var ouvert := precedent_ok and niveau_ok
 		var ligne := Panel.new()
 		ligne.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1318,7 +1347,7 @@ func _donjon_panneau() -> void:
 		if not precedent_ok:
 			etat = "Termine d'abord le donjon de rang %s" % Partie.RANGS[n - 1]
 		elif not niveau_ok:
-			etat = "Niveau %d requis" % int(d["niveau"])
+			etat = "Rang de chasseur %s requis (test de rang)" % Partie.RANGS[n]
 		_ajouter(Ui.label(etat, 15, Color(0.45, 1.0, 0.5) if ouvert else Color(1.0, 0.45, 0.45), 4), Vector2(180, y + 68))
 		var nn: int = n
 		for g in [false, true]:
@@ -1330,7 +1359,7 @@ func _donjon_panneau() -> void:
 				ville.entrer_donjon(nn, gg))
 			_ajouter(e, Vector2(560 + (116 if g else 0), y + 26))
 		y += 114.0
-	_ajouter(Ui.label("Modèle 3D « Naruto » : TRSgamings (Sketchfab), licence CC-BY 4.0", 13, Color(0.6, 0.6, 0.75), 3), Vector2(36, 578))
+	_ajouter(Ui.label("Modèle 3D « Naruto » : TRSgamings (Sketchfab), licence CC-BY 4.0", 13, Color(0.6, 0.6, 0.75), 3), Vector2(36, 654))
 
 var _gains := {}
 func recompenses_donjon(g: Dictionary) -> void:

@@ -63,6 +63,8 @@ const THEMES := {
 }
 
 var niv := 0
+var test_rang := -1
+var N := 6
 var groupe := false
 var allies: Array = []
 var cfg: Dictionary
@@ -92,19 +94,44 @@ func centre(i: int) -> Vector3:
 func point_depart() -> Vector3:
 	return centre(0) + Vector3(0, 0.3, -8.5)
 
+const THEMES_TEST := ["pierre", "neige", "braise", "nuit"]
+
+func _config_test(r: int) -> void:
+	var l: Array = Partie.ESPECES_RANG[r]
+	var salles := []
+	var noms := []
+	for k in 9:
+		var esp: String = l[k % 2]
+		var n := 3 + (k / 3)
+		var salle := []
+		for j in n:
+			var a := TAU * j / n
+			salle.append([esp if j % 2 == 0 else l[(k + 1) % 2], cos(a) * 5.0, 3.0 + sin(a) * 3.0, j == 0 and k >= 3])
+		salles.append(salle)
+		noms.append("Épreuve %d" % (k + 1))
+	salles.append([[l[2], 0.0, 4.0, false]])
+	noms.append("Épreuve finale")
+	SALLES = salles
+	cfg = {"nom": "Test de rang %s" % Partie.RANGS[r], "theme": THEMES_TEST[r], "duree": Partie.DUREE_TEST, "noms": noms,
+		"boss": Partie.ESPECES[l[2]]["nom"], "or": 0}
+
 func _ready() -> void:
-	cfg = DONJONS[niv]
+	if test_rang >= 0:
+		_config_test(test_rang)
+	else:
+		cfg = DONJONS[niv]
+		SALLES = SALLES_PAR_NIV[niv]
 	th = THEMES[cfg["theme"]]
-	SALLES = SALLES_PAR_NIV[niv]
+	N = SALLES.size()
 	NOMS_SALLES = cfg["noms"]
 	DUREE = cfg["duree"]
 	temps = DUREE
 	_materiaux()
-	for i in 6:
+	for i in N:
 		_salle(i)
-		if i < 5:
+		if i < N - 1:
 			_couloir(i)
-	for i in 6:
+	for i in N:
 		_peupler(i)
 	_decor()
 	_meteo()
@@ -165,7 +192,7 @@ func _salle(i: int) -> void:
 	_boite(Vector3(1, h, L), c + Vector3(- DEMI - 0.5, h / 2.0, 0), _mat_mur)
 	_boite(Vector3(1, h, L), c + Vector3(DEMI + 0.5, h / 2.0, 0), _mat_mur)
 	for cote in [-1, 1]:
-		var ouvert: bool = (cote == -1 and i > 0) or (cote == 1 and i < 5)
+		var ouvert: bool = (cote == -1 and i > 0) or (cote == 1 and i < N - 1)
 		var z: float = c.z + cote * (DEMI + 0.5)
 		if ouvert:
 			var seg := (L - LARGE_PASSAGE) / 2.0
@@ -204,18 +231,18 @@ func _salle(i: int) -> void:
 
 	var rune := MeshInstance3D.new()
 	var q := PlaneMesh.new()
-	q.size = Vector2(9, 9) if i < 5 else Vector2(13, 13)
+	q.size = Vector2(9, 9) if i < N - 1 else Vector2(13, 13)
 	rune.mesh = q
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	m.albedo_texture = load("res://assets/fx/magic_02.png")
-	m.albedo_color = th["rune"] if i < 5 else Color(1.0, 0.55, 0.15, 0.7)
+	m.albedo_color = th["rune"] if i < N - 1 else Color(1.0, 0.55, 0.15, 0.7)
 	rune.material_override = m
 	rune.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	rune.position = c + Vector3(0, 0.03, 3.0 if i == 5 else 2.0)
-	rune.set_meta("tourne", 0.12 if i < 5 else -0.2)
+	rune.position = c + Vector3(0, 0.03, 3.0 if i == N - 1 else 2.0)
+	rune.set_meta("tourne", 0.12 if i < N - 1 else -0.2)
 	add_child(rune)
 
 	for cote in [-1, 1]:
@@ -231,8 +258,8 @@ func _salle(i: int) -> void:
 		l.set_meta("vacille", randf() * 10.0)
 		add_child(l)
 	var lv := OmniLight3D.new()
-	lv.light_color = Color(th["rune"].r, th["rune"].g, th["rune"].b) if i < 5 else Color(1.0, 0.45, 0.2)
-	lv.light_energy = 2.4 if i < 5 else 3.6
+	lv.light_color = Color(th["rune"].r, th["rune"].g, th["rune"].b) if i < N - 1 else Color(1.0, 0.45, 0.2)
+	lv.light_energy = 2.4 if i < N - 1 else 3.6
 	lv.omni_range = 14.0
 	lv.position = c + Vector3(0, 1.2, 2.0)
 	lv.distance_fade_enabled = true
@@ -326,7 +353,7 @@ func _torche(pos: Vector3, angle: float) -> void:
 
 
 func _decor() -> void:
-	for i in 6:
+	for i in N:
 		var c := centre(i)
 
 		for cote in [-1.0, 1.0]:
@@ -334,7 +361,7 @@ func _decor() -> void:
 				_torche(c + Vector3(cote * (DEMI - 0.15), 2.6, dz), -cote * PI / 2.0)
 
 		var zf := c.z + DEMI - 0.1
-		if i < 5:
+		if i < N - 1:
 			_prop("Banner_1" if i % 2 == 0 else "Banner_2", Vector3(c.x - 5.0, 0, zf), PI, 1.6)
 			_prop("Banner_1" if i % 2 == 0 else "Banner_2", Vector3(c.x + 5.0, 0, zf), PI, 1.6)
 	var c0 := centre(0)
@@ -390,6 +417,8 @@ func _peupler(i: int) -> void:
 		m.reapparait_auto = false
 		if groupe:
 			m.mult = 1.8
+		if test_rang >= 0:
+			m.mult = Partie.MULT_TEST
 		add_child(m)
 		liste.append(m)
 		monstres.append(m)
@@ -424,10 +453,10 @@ func _process(dt: float) -> void:
 		termine.emit(false)
 		return
 	if restants() == 0:
-		if salle < 5:
+		if salle < N - 1:
 			_ouvrir(salle)
 			salle += 1
-			if salle == 5:
+			if salle == N - 1:
 				Partie.message.emit("%s vous attend…" % cfg["boss"], Color(1.0, 0.75, 0.3))
 				Fx.son("portal", 0.0)
 			else:
@@ -446,7 +475,7 @@ func _meteo() -> void:
 	var m: String = th["meteo"]
 	if m == "":
 		return
-	for i in 6:
+	for i in N:
 		var p := GPUParticles3D.new()
 		p.amount = 260 if m == "neige" else 90
 		p.lifetime = 6.0
@@ -497,7 +526,7 @@ func _meteo() -> void:
 		p.position = centre(i) + Vector3(0, 0.5 if m == "braises" else HAUT_MUR + 1.0, 0)
 		add_child(p)
 	if m == "neige":
-		for i in 6:
+		for i in N:
 			for k in 5:
 				var pic := MeshInstance3D.new()
 				var cy := CylinderMesh.new()
@@ -520,7 +549,7 @@ func _meteo() -> void:
 				pic.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 				add_child(pic)
 	elif m == "braises":
-		for i in 6:
+		for i in N:
 			for p2 in [Vector3(-8.5, 0, 0), Vector3(8.5, 0, 0)]:
 				var lave := MeshInstance3D.new()
 				var pl := PlaneMesh.new()
@@ -554,8 +583,18 @@ func duree() -> float:
 
 
 func _victoire() -> void:
-	var c := centre(5)
+	var c := centre(N - 1)
 	var t := duree()
+	if test_rang >= 0:
+		gains = {"test": true, "temps": t}
+		Partie.reussir_test()
+		sortie = Node3D.new()
+		add_child(sortie)
+		sortie.position = c + Vector3(0, 0, -6.5)
+		sortie.add_child(Portail.creer(Color(0.2, 0.75, 1.0), Color(0.4, 0.3, 1.0), 2.2))
+		Fx.son("victory", -2.0)
+		termine.emit(true)
+		return
 	var ancien := float(Partie.records.get(str(niv), 0.0))
 	var record := ancien <= 0.0 or t < ancien
 	if record:
@@ -566,6 +605,7 @@ func _victoire() -> void:
 	Partie.donjons_finis[str(niv)] = int(Partie.donjons_finis.get(str(niv), 0)) + 1
 	var gain := int(round(float(cfg["or"]) * (1.0 + Partie.bonus("pieces") / 100.0)))
 	Partie.pieces += gain
+	Partie.or_total += gain
 	var m1: String = Partie.MONNAIES.keys().pick_random()
 	var autres: Array = Partie.MONNAIES.keys().filter(func (x): return x != m1)
 	var m2: String = autres.pick_random()

@@ -222,6 +222,26 @@ func action_proche() -> Dictionary:
 	return {}
 
 
+func entrer_test() -> void:
+	if donjon or arene:
+		return
+	await hud.fondu(true)
+	donjon = Donjon.new()
+	donjon.test_rang = Partie.rang_chasseur
+	donjon.ville = self
+	add_child(donjon)
+	donjon.termine.connect(_fin_donjon)
+	for m in donjon.monstres:
+		monstres.append(m)
+	joueur.viser(null)
+	_teleporter(donjon.point_depart(), PI)
+	_ambiance(true)
+	donjon.appliquer_ambiance(_env)
+	donjon.demarrer()
+	_musique("dungeon")
+	await hud.fondu(false)
+	hud.annonce("TEST DE RANG %s" % Partie.RANGS[donjon.test_rang], "10 salles · %d minutes · ne flanche pas" % (int(Partie.DUREE_TEST) / 60), Color(1.0, 0.75, 0.3))
+
 func entrer_donjon(n := 0, groupe := false) -> void:
 	if donjon or arene:
 		return
@@ -258,6 +278,15 @@ func entrer_donjon(n := 0, groupe := false) -> void:
 	hud.annonce("DONJON DE RANG %s" % Partie.RANGS[n], "%s  ·  Salle 1 / 6 : %s" % [donjon.cfg["nom"], donjon.NOMS_SALLES[0]], Color(0.7, 0.5, 1.0))
 
 func _fin_donjon(victoire: bool) -> void:
+	if donjon.test_rang >= 0:
+		if victoire:
+			_musique("boss")
+			hud.annonce("RANG %s OBTENU !" % Partie.RANGS[Partie.rang_chasseur], "Multiplicateur ×%.1f : dégâts, PV, mana, or et expérience" % Partie.mult_rang(), Color(1.0, 0.8, 0.3))
+		else:
+			hud.annonce("TEST ÉCHOUÉ", "Temps écoulé. Renforce-toi et retente.", Color(1.0, 0.35, 0.35))
+		await get_tree().create_timer(3.5).timeout
+		quitter_donjon()
+		return
 	if victoire:
 		_musique("boss")
 		hud.recompenses_donjon(donjon.gains)

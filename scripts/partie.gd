@@ -171,6 +171,23 @@ var jetons := 0
 var arene_v := 0
 var arene_d := 0
 
+const MULT_RANG := [1.0, 1.3, 1.7, 2.2, 3.0]
+const ESPECES_RANG := [["gobelin", "puglin", "roi_gobelin"], ["gobelin_chef", "puglin_brute", "roi_puglin"],
+	["orc", "diablotin", "seigneur_braise"], ["orc_guerrier", "demon", "chevalier"]]
+const SEUIL_TEST := [600.0, 9000.0, 120000.0, 1500000.0]
+const DUREE_TEST := 300.0
+const MULT_TEST := 2.5
+var rang_chasseur := 0
+var or_total := 0
+
+func mult_rang() -> float:
+	return MULT_RANG[rang_chasseur]
+
+func reussir_test() -> void:
+	rang_chasseur = mini(rang_chasseur + 1, 4)
+	sauver()
+	change.emit()
+
 const NOMS_CHASSEURS := ["Kaito", "Yuna", "Ren", "Aria", "Sung-ho", "Mika", "Draven", "Lysa", "Tetsu", "Nova"]
 const SALLES_BOSS := ["gobelin_chef", "puglin_brute", "diablotin", "demon"]
 const BOUTIQUE_ARENE := [["lame_gladiateur", 12], ["cape_champion", 7], ["embleme_arene", 7]]
@@ -181,15 +198,49 @@ func mult_prog() -> float:
 func _creer_chasseurs() -> void:
 	chasseurs.clear()
 	for k in NOMS_CHASSEURS.size():
-		chasseurs.append({"nom": NOMS_CHASSEURS[k], "look": k % 4, "niveau": 1, "xp": 0, "talent": randf_range(0.8, 1.2),
-			"premium": k == 6 or k == 9, "elo": 1000 + randi_range(-40, 40)})
+		chasseurs.append({"nom": NOMS_CHASSEURS[k], "look": k % 4, "niveau": 1, "xp": 0, "talent": randf_range(0.6, 0.95),
+			"premium": false, "elo": 1000 + randi_range(-40, 40), "or": 0, "or_total": 0, "arme_niv": 0, "ombres": [],
+			"echecs": 0, "rang": 0, "etat": "ville", "fin": 0.0, "v": 2})
 
+func _dps_ombre_base(esp: String) -> float:
+	var e: Dictionary = ESPECES[esp]
+	return float(e["pv"]) / minf(float(e["temps"]), 45.0) * 0.12
+
+# Même modèle que le joueur : arme de départ améliorée + niveau + ombres levées + rang. Aucun bonus caché.
 func bot_dps(d: Dictionary) -> float:
-	return 15.0 * pow(1.25, int(d["niveau"]) - 1) * float(d["talent"])
+	var n := int(d["niveau"])
+	var arme := 12.0 * (1.0 + 0.03 * int(d["arme_niv"])) * (1.0 + (n - 1) * 0.03)
+	var l: Array = d["ombres"].map(func (x): return _dps_ombre_base(x))
+	l.sort()
+	l.reverse()
+	var places := mini(3 + (n - 1) / 12, 8)
+	var o := 0.0
+	for k in mini(places, l.size()):
+		o += l[k]
+	return (arme + o) * MULT_RANG[int(d["rang"])]
 
 func bot_gagner(d: Dictionary, espece: String, elite := false, mult := 1.0) -> void:
 	var st := stats_monstre(espece, elite, mult)
-	d["xp"] = int(d["xp"]) + int(st["xp"] * (5.0 if d.get("premium", false) else 1.0))
+	var mr: float = MULT_RANG[int(d["rang"])]
+	var g := int(st["pieces"] * mr)
+	d["or"] = int(d["or"]) + g
+	d["or_total"] = int(d["or_total"]) + g
+	d["xp"] = int(d["xp"]) + int(st["xp"] * mr)
+	var e: Dictionary = ESPECES[espece]
+	if e.get("lieu", "") != "clone" and float(e["eveil"]) > 0.0:
+		if randf() < float(e["eveil"]) or int(d["echecs"]) >= PITIE:
+			d["echecs"] = 0
+			d["ombres"].append(espece)
+			if d["ombres"].size() > 16:
+				d["ombres"].sort_custom(func (a, b): return _dps_ombre_base(a) > _dps_ombre_base(b))
+				d["ombres"].resize(16)
+		else:
+			d["echecs"] = int(d["echecs"]) + 1
+	var cout := int(round(20.0 * pow(1.45, int(d["arme_niv"]))))
+	while int(d["or"]) >= cout and int(d["arme_niv"]) < 60:
+		d["or"] = int(d["or"]) - cout
+		d["arme_niv"] = int(d["arme_niv"]) + 1
+		cout = int(round(20.0 * pow(1.45, int(d["arme_niv"]))))
 	while int(d["xp"]) >= int(60.0 * pow(1.28, int(d["niveau"]) - 1)):
 		d["xp"] = int(d["xp"]) - int(60.0 * pow(1.28, int(d["niveau"]) - 1))
 		d["niveau"] = int(d["niveau"]) + 1
@@ -213,22 +264,62 @@ func simuler_bot(d: Dictionary, secondes: float) -> void:
 				mieux = esp
 		if mieux == "":
 			return
-		var kills := int(60.0 * taux / float(ESPECES[mieux]["xp"]))
+		var kills := int(60.0 * taux * float(d["talent"]) / float(ESPECES[mieux]["xp"]))
 		for k in maxi(kills, 1):
 			bot_gagner(d, mieux)
 		reste -= 60.0
+		var act := bot_activite(d)
+		if not act.is_empty():
+			reste -= float(act["duree"])
+			bot_fin_activite(d)
 
-func classement() -> Array:
-	var l := chasseurs.duplicate()
-	l.append({"nom": "Toi", "niveau": niveau, "elo": elo, "moi": true, "premium": achats_boutique.has("pass")})
-	l.sort_custom(func (a, b):
-		if int(a["niveau"]) != int(b["niveau"]):
-			return int(a["niveau"]) > int(b["niveau"])
-		return int(a["elo"]) > int(b["elo"]))
+# Les chasseurs décident seuls : test de rang quand ils sont assez forts, sinon donjon de leur rang.
+func bot_activite(d: Dictionary) -> Dictionary:
+	var r := int(d["rang"])
+	var dps := bot_dps(d)
+	if r < 4 and dps >= SEUIL_TEST[r] * 0.8 and randf() < 0.5:
+		d["etat"] = "test"
+		return {"type": "test", "duree": 240.0}
+	var dj := -1
+	for n in mini(r + 1, 4):
+		if dps >= Donjon.DONJONS[n]["puissance"] * 0.7:
+			dj = n
+	if dj >= 0 and randf() < 0.35:
+		d["etat"] = "donjon"
+		d["dj"] = dj
+		return {"type": "donjon", "duree": float(Donjon.DONJONS[dj]["duree"]) * 0.8}
+	return {}
+
+func bot_fin_activite(d: Dictionary) -> void:
+	var dps := bot_dps(d)
+	match d.get("etat", "ville"):
+		"test":
+			var r := int(d["rang"])
+			if r < 4 and randf() < clampf(dps / SEUIL_TEST[r] - 0.3, 0.05, 0.95):
+				d["rang"] = r + 1
+		"donjon":
+			var n := int(d.get("dj", 0))
+			if randf() < clampf(dps / float(Donjon.DONJONS[n]["puissance"]) - 0.2, 0.05, 0.95):
+				var g := int(Donjon.DONJONS[n]["or"])
+				d["or"] = int(d["or"]) + g
+				d["or_total"] = int(d["or_total"]) + g
+				for k in 6:
+					bot_gagner(d, SALLES_BOSS[n])
+	d["etat"] = "ville"
+
+func classement(par: String) -> Array:
+	var l := []
+	for c in chasseurs:
+		l.append({"nom": c["nom"], "rang": int(c["rang"]), "niveau": int(c["niveau"]), "puissance": bot_dps(c), "or": int(c["or_total"]), "etat": c.get("etat", "ville")})
+	l.append({"nom": "Toi", "rang": rang_chasseur, "niveau": niveau, "puissance": dps_total(), "or": or_total, "moi": true, "etat": "ville"})
+	l.sort_custom(func (a, b): return float(a[par]) > float(b[par]))
 	return l
 
 func adversaire_arene() -> Dictionary:
-	var l := chasseurs.duplicate()
+	var dispo := chasseurs.filter(func (c): return c.get("etat", "ville") == "ville")
+	if dispo.is_empty():
+		dispo = chasseurs
+	var l := dispo.duplicate()
 	l.sort_custom(func (a, b): return absi(int(a["elo"]) - elo) + absi(int(a["niveau"]) - niveau) * 15 < absi(int(b["elo"]) - elo) + absi(int(b["niveau"]) - niveau) * 15)
 	return l[randi() % mini(3, l.size())]
 
@@ -456,7 +547,7 @@ func bonus_niveau() -> float:
 func dps_joueur() -> float:
 	var a := arme()
 	var base_dps := valeur(a) if not a.is_empty() else 8.0
-	return base_dps * (1.0 + bonus("arme") / 100.0) * bonus_niveau()
+	return base_dps * (1.0 + bonus("arme") / 100.0) * bonus_niveau() * mult_rang()
 
 func dps_ombre(o: Dictionary) -> float:
 	var e: Dictionary = ESPECES[o["espece"]]
@@ -464,7 +555,7 @@ func dps_ombre(o: Dictionary) -> float:
 	var k := 0.12
 	if e.get("lieu", "") == "evenement":
 		k = 0.2
-	return float(e["pv"]) / temps * k * pow(1.35, int(o["etoiles"])) * (1.0 + bonus("ombres") / 100.0) * vit_ombre() * (1.3 if cri_actif() else 1.0)
+	return float(e["pv"]) / temps * k * pow(1.35, int(o["etoiles"])) * (1.0 + bonus("ombres") / 100.0) * vit_ombre() * (1.3 if cri_actif() else 1.0) * mult_rang()
 
 func rang_ombre(o: Dictionary) -> int:
 	var e: Dictionary = ESPECES[o["espece"]]
@@ -486,10 +577,10 @@ func vit_ombre() -> float:
 	return (1.0 + bonus("vit_ombre") / 100.0) * (1.3 if cri_actif() else 1.0)
 
 func pv_max() -> float:
-	return 120.0 * (1.0 + (niveau - 1) * 0.04) * (1.0 + bonus("vie") / 100.0)
+	return 120.0 * (1.0 + (niveau - 1) * 0.04) * (1.0 + bonus("vie") / 100.0) * mult_rang()
 
 func mana_max() -> float:
-	return 100.0 * (1.0 + bonus("mana") / 100.0)
+	return 100.0 * (1.0 + bonus("mana") / 100.0) * mult_rang()
 
 func regen_mana() -> float:
 	return 1.2 * (1.0 + bonus("mana") / 100.0)
@@ -592,10 +683,11 @@ signal monnaie_gagnee(m: String, n: int)
 func gagner(espece: String, elite := false, mult := 1.0) -> int:
 	var e: Dictionary = ESPECES[espece]
 	var st := stats_monstre(espece, elite, mult)
-	var gain := int(round(st["pieces"] * (1.0 + bonus("pieces") / 100.0) * mult_prog()))
+	var gain := int(round(st["pieces"] * (1.0 + bonus("pieces") / 100.0) * mult_prog() * mult_rang()))
 	pieces += gain
+	or_total += gain
 	tues[espece] = int(tues.get(espece, 0)) + 1
-	xp += int(round(st["xp"] * (1.0 + bonus("xp") / 100.0) * mult_prog()))
+	xp += int(round(st["xp"] * (1.0 + bonus("xp") / 100.0) * mult_prog() * mult_rang()))
 	while xp >= xp_requise():
 		xp -= xp_requise()
 		niveau += 1
@@ -742,6 +834,7 @@ func _verifier_quete(espece: String) -> void:
 	var e: Dictionary = ESPECES[espece]
 	var gain := int(float(e["pieces"]) * 5.0 * (k + 1))
 	pieces += gain
+	or_total += gain
 	donner_monnaie(e.get("monnaie", "eclat"), k + 1)
 	message.emit("Quête d'éveil : %d %s levés !  +%s pièces" % [cible, e["nom"], str(gain)], Color(0.95, 0.8, 0.4))
 
@@ -814,7 +907,7 @@ func sauver() -> void:
 			"boutique": achats_boutique, "auto": auto_ombres, "pv": pv, "mana": mana,
 			"auto_attaque": auto_attaque, "records": records, "finis": donjons_finis,
 			"chasseurs": chasseurs, "elo": elo, "jetons": jetons, "arene_v": arene_v, "arene_d": arene_d,
-			"quitte": Time.get_unix_time_from_system()}))
+			"quitte": Time.get_unix_time_from_system(), "rang_chasseur": rang_chasseur, "or_total": or_total}))
 
 func charger() -> void:
 	if OS.get_cmdline_user_args().has("--sans-sauvegarde") or not FileAccess.file_exists(CHEMIN):
@@ -849,6 +942,10 @@ func charger() -> void:
 	arene_v = int(d.get("arene_v", 0))
 	arene_d = int(d.get("arene_d", 0))
 	chasseurs = d.get("chasseurs", [])
+	rang_chasseur = int(d.get("rang_chasseur", 0))
+	or_total = int(d.get("or_total", 0))
+	if chasseurs.any(func (c): return int(c.get("v", 0)) < 2):
+		_creer_chasseurs()
 	var absent := Time.get_unix_time_from_system() - float(d.get("quitte", Time.get_unix_time_from_system()))
 	if absent > 60.0:
 		for c in chasseurs:
