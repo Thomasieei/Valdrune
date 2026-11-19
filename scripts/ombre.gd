@@ -143,7 +143,7 @@ func _process(dt: float) -> void:
 
 
 func _a_portee(m: Monstre) -> bool:
-	if m == null or not is_instance_valid(m) or m.mort:
+	if m == null or not is_instance_valid(m) or m.mort or m.allie:
 		return false
 	var v := m.global_position - joueur.global_position
 	v.y = 0

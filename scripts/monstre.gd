@@ -268,6 +268,9 @@ func _impact(racine: Node3D, rayon: float) -> void:
 		for o in get_tree().get_nodes_in_group("ombres"):
 			if not o.mort and _dans_zone(o.global_position, racine.global_position, rayon):
 				o.blesser(atk)
+		for p in get_tree().get_nodes_in_group("pactes"):
+			if not p.mort and _dans_zone(p.global_position, racine.global_position, rayon):
+				p.blesser_pacte(puissance() * 1.5)
 		Fx.anneau(racine.global_position, Color(1.0, 0.35, 0.15), rayon)
 		Fx.son("slam", -8.0)
 
@@ -288,6 +291,10 @@ func _toucher_joueur(j: Node3D, d: float, raison := "ZONE") -> void:
 			v.mort_joueur()
 
 func _process(dt: float) -> void:
+	if allie:
+		if not mort:
+			_ia_pacte(dt)
+		return
 	_plaque_t -= dt
 	if _plaque_sale and _plaque_t <= 0.0:
 		_plaque_t = 0.6
@@ -351,7 +358,86 @@ func _errer(dt: float) -> void:
 		Modele.jouer(_ap, "Idle")
 
 var leve := false
+var allie := false
+var pv_pacte := 1.0
+var _pacte_cible: Monstre = null
+var _pacte_t := 0.0
+var _riposte_t := 0.0
 
+func puissance() -> float:
+	return pv_max / maxf(minf(temps_max, 45.0), 20.0) * 0.6
+
+func pacte() -> void:
+	allie = true
+	chrono = -1.0
+	_parade = 0.0
+	pv_pacte = pv_max * 0.35
+	add_to_group("pactes")
+	for mi in _corps.find_children("*", "MeshInstance3D", true, false):
+		(mi as MeshInstance3D).material_overlay = Shaders.halo(Color(0.3, 1.0, 0.7), 2.2)
+	_plaque.text = "◈ PACTE — %s" % (nom_perso if nom_perso != "" else e["nom"])
+	_plaque.modulate = Color(0.45, 1.0, 0.75)
+	Fx.anneau(global_position, Color(0.3, 1.0, 0.7), 4.0)
+
+func blesser_pacte(d: float) -> void:
+	if not allie or mort:
+		return
+	pv_pacte -= d
+	Fx.texte(global_position + Vector3(0, haut() + 0.4, 0), "-%s" % Fx.court(d), Color(0.4, 1.0, 0.7), 0.9, 0.6)
+	if pv_pacte <= 0.0:
+		mort = true
+		allie = false
+		_plaque.visible = false
+		Fx.anneau(global_position, Color(0.2, 0.6, 0.4), 3.0)
+		Partie.message.emit("Ton pacte est rompu : %s est mort pour de bon." % e["nom"], Color(1.0, 0.5, 0.45))
+		var tw := create_tween()
+		tw.tween_property(_corps, "scale", Vector3.ONE * 0.01, 0.8)
+		tw.tween_callback(queue_free)
+
+func _ia_pacte(dt: float) -> void:
+	var v := get_tree().get_first_node_in_group("ville")
+	if v == null:
+		return
+	if _pacte_cible == null or not is_instance_valid(_pacte_cible) or _pacte_cible.mort:
+		_pacte_cible = null
+		var mieux := INF
+		for m in v.monstres:
+			if is_instance_valid(m) and not m.mort and not m.allie and m != self:
+				var dd: float = m.global_position.distance_to(global_position)
+				if dd < mieux and dd < 45.0:
+					mieux = dd
+					_pacte_cible = m
+	if _pacte_cible == null:
+		var j: Node3D = v.joueur
+		var w := j.global_position - global_position
+		w.y = 0
+		if w.length() > 5.0:
+			global_position += w.normalized() * 6.0 * dt
+			_corps.rotation.y = atan2(w.x, w.z)
+			Modele.jouer(_ap, "Run")
+		else:
+			Modele.jouer(_ap, "Idle")
+		return
+	var u := _pacte_cible.global_position - global_position
+	u.y = 0
+	var portee := 1.8 + haut() * 0.3 + _pacte_cible.haut() * 0.3
+	if u.length() > portee:
+		global_position += u.normalized() * 6.5 * dt
+		_corps.rotation.y = atan2(u.x, u.z)
+		Modele.jouer(_ap, "Run")
+		return
+	_corps.rotation.y = atan2(u.x, u.z)
+	_pacte_t -= dt
+	if _pacte_t <= 0.0:
+		_pacte_t = 1.0
+		Modele.jouer(_ap, "Attack", 1.3, 0.06)
+		_pacte_cible.frapper(puissance(), randf() < 0.2, "allie")
+	_riposte_t -= dt
+	if _riposte_t <= 0.0 and is_instance_valid(_pacte_cible) and not _pacte_cible.mort:
+		_riposte_t = 1.5
+		blesser_pacte(_pacte_cible.puissance() * 0.5)
+
+func j_loin() -> bool:
 func lever() -> void:
 	if mort:
 		return
@@ -411,7 +497,7 @@ func temps_restant() -> float:
 	return temps_max - maxf(chrono, 0.0)
 
 func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) -> void:
-	if mort:
+	if mort or allie:
 		return
 	var meca: String = e.get("meca", "")
 	if meca == "ombres_seules" and source == "joueur":

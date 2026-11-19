@@ -226,6 +226,8 @@ func bot_etage(d: Dictionary) -> int:
 	return f
 var opts := {"arise": false, "potion": false, "rappel": true, "equip": false, "diviser": false, "monarque": false, "rangees": false, "fourreau": false}
 var speciale := "echange"
+var abime_max := 0
+var pactes_morts := {}
 const NIVEAU_MONARQUE := 50
 const MANA_ECLAIR := 6.0
 var _potion_t := 0.0
@@ -411,6 +413,7 @@ const COMPETENCES := {
 	"domaine": {"nom": "DOMAINE", "icone": "arise", "cd": 1.0, "mana": 0.0},
 	"echange": {"nom": "ÉCHANGE", "icone": "swap", "cd": 8.0, "mana": 15.0},
 	"telekinesie": {"nom": "TÉLÉKINÉSIE", "icone": "tk_choke", "cd": 12.0, "mana": 25.0},
+	"pacte": {"nom": "PACTE", "icone": "fuse", "cd": 45.0, "mana": 50.0},
 }
 const DUREE_DOMAINE := 10.0
 var charge := 0.0
@@ -1097,7 +1100,7 @@ func sauver() -> void:
 			"auto_attaque": auto_attaque, "records": records, "finis": donjons_finis,
 			"chasseurs": chasseurs, "elo": elo, "jetons": jetons, "arene_v": arene_v, "arene_d": arene_d,
 			"quitte": Time.get_unix_time_from_system(), "rang_chasseur": rang_chasseur, "or_total": or_total, "opts": opts, "cles": cles, "etage_max": etage_max,
-			"quete": quete, "pts_bonus": points_bonus, "secretes": secretes, "kills_total": kills_total, "general": general_uid, "speciale": speciale}))
+			"quete": quete, "pts_bonus": points_bonus, "secretes": secretes, "kills_total": kills_total, "general": general_uid, "speciale": speciale, "abime_max": abime_max}))
 
 func charger() -> void:
 	if OS.get_cmdline_user_args().has("--sans-sauvegarde") or not FileAccess.file_exists(CHEMIN):
@@ -1140,6 +1143,7 @@ func charger() -> void:
 	kills_total = int(d.get("kills_total", 0))
 	general_uid = int(d.get("general", -1))
 	speciale = str(d.get("speciale", "echange"))
+	abime_max = int(d.get("abime_max", 0))
 	etage_max = int(d.get("etage_max", 0))
 	for k in opts:
 		opts[k] = bool(d.get("opts", {}).get(k, opts[k]))

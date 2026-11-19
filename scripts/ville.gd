@@ -66,6 +66,40 @@ var _adversaire := {}
 var POSTES_V: Array = POSTES
 var _arise_t := 0.0
 var chateau: Chateau = null
+var abime: Abime = null
+var portail_abime: Node3D
+const PORTAIL_ABIME := Vector3(-199.0, 0.0, -84.0)
+
+func entrer_abime() -> void:
+	if donjon or arene or chateau or abime:
+		return
+	await hud.fondu(true)
+	abime = Abime.new()
+	abime.ville = self
+	add_child(abime)
+	abime.demarrer()
+	joueur.viser(null)
+	_teleporter(abime.point_depart(), PI)
+	_ambiance(true)
+	_env.fog_light_color = Color(0.1, 0.3, 0.25)
+	_env.ambient_light_color = Color(0.3, 0.45, 0.45)
+	_musique("dungeon")
+	await hud.fondu(false)
+	hud.annonce("L'ABÎME", "1000 étages aux dimensions étranges · record : étage %d" % Partie.abime_max, Color(0.4, 1.0, 0.75))
+
+func quitter_abime() -> void:
+	if abime == null:
+		return
+	await hud.fondu(true)
+	for m in abime.monstres:
+		monstres.erase(m)
+	abime.queue_free()
+	abime = null
+	_ambiance(false)
+	_teleporter(PORTAIL_ABIME + Vector3(4.0, 0.3, 0.0), -PI / 2.0)
+	_musique("city")
+	await hud.fondu(false)
+
 var gates: Array = []
 var _gate_t := 240.0
 var _break_boss: Monstre = null
@@ -400,6 +434,22 @@ func _pole() -> void:
 	lr.position.y = 7.6
 	lr.visibility_range_end = 70.0
 	portail_rouge.add_child(lr)
+	portail_abime = Node3D.new()
+	add_child(portail_abime)
+	portail_abime.position = PORTAIL_ABIME + Vector3(0, _sol(PORTAIL_ABIME.x, PORTAIL_ABIME.z), 0)
+	portail_abime.add_child(Portail.creer(Color(0.3, 1.0, 0.7), Color(0.4, 0.1, 0.8), 2.2))
+	var la := Label3D.new()
+	la.text = "L'ABÎME\n1000 étages"
+	la.font = Ui.police
+	la.font_size = 32
+	la.outline_size = 10
+	la.pixel_size = 0.0018
+	la.fixed_size = true
+	la.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	la.modulate = Color(0.45, 1.0, 0.75)
+	la.position.y = 6.4
+	la.visibility_range_end = 60.0
+	portail_abime.add_child(la)
 	l.font = Ui.police
 	l.font_size = 34
 	l.outline_size = 10
@@ -414,6 +464,8 @@ func _pole() -> void:
 
 func action_proche() -> Dictionary:
 	var p := joueur.global_position
+	if abime:
+		return {"type": "quitter_abime"} if p.distance_to(abime.point_depart()) < 4.0 else {}
 	if chateau:
 		return {}
 	if donjon:
@@ -427,6 +479,8 @@ func action_proche() -> Dictionary:
 		return {"type": "donjon"}
 	if p.distance_to(portail_rouge.global_position) < 5.0:
 		return {"type": "chateau"}
+	if p.distance_to(portail_abime.global_position) < 5.0:
+		return {"type": "abime"}
 	return {}
 
 
@@ -929,6 +983,12 @@ func mort_joueur() -> void:
 		Partie.pv = Partie.pv_max()
 		_mort_en_cours = false
 		return
+	if abime:
+		var r1 := Partie.mourir()
+		quitter_abime()
+		hud.ecran_mort(r1)
+		_mort_en_cours = false
+		return
 	if chateau:
 		var r0 := Partie.mourir()
 		chateau._fin()
@@ -966,7 +1026,7 @@ func toucher_monde(p: Vector2) -> void:
 			joueur.viser(m)
 
 func _process(dt: float) -> void:
-	if boss_evt == null and donjon == null and arene == null and chateau == null and temps_avant_evt() <= 0.0:
+	if boss_evt == null and donjon == null and arene == null and chateau == null and abime == null and temps_avant_evt() <= 0.0:
 		lancer_evenement()
 	elif boss_evt and not boss_evt.mort and evt_restant() <= 0.0:
 		hud.dire("Baran est reparti dans les ténèbres…", Color(1.0, 0.45, 0.5))

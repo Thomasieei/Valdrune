@@ -83,7 +83,7 @@ func _choisir_ville() -> void:
 		if c != self and _valide(c.cible):
 			pris[c.cible] = int(pris.get(c.cible, 0)) + 1
 	for m: Monstre in ville.monstres:
-		if not _valide(m) or m.sans_chrono or m.e.get("lieu", "") != "" or m == ville.joueur.cible or int(pris.get(m, 0)) >= 2:
+		if not _valide(m) or m.allie or m.sans_chrono or m.e.get("lieu", "") != "" or m == ville.joueur.cible or int(pris.get(m, 0)) >= 2:
 			continue
 		var st := Partie.stats_monstre(m.espece, m.elite, m.mult)
 		if st["pv"] / dps > st["temps"] * 0.95:

@@ -38,7 +38,7 @@ func _visible(m: Monstre) -> bool:
 		return true
 	var col: Object = r["collider"]
 	return col is Node and (col as Node).get_parent() == m
-var recharges := {"esquive": 0.0, "brise": 0.0, "cri": 0.0, "domaine": 0.0, "echange": 0.0}
+var recharges := {"esquive": 0.0, "brise": 0.0, "cri": 0.0, "domaine": 0.0, "echange": 0.0, "pacte": 0.0}
 
 
 func _maj_arme() -> void:
@@ -126,7 +126,7 @@ func cible_devant(monstres: Array, portee := 16.0) -> Monstre:
 	var mieux: Monstre = null
 	var score := INF
 	for m: Monstre in monstres:
-		if m.mort:
+		if m.mort or m.allie:
 			continue
 		var v := m.global_position - global_position
 		v.y = 0
@@ -282,6 +282,30 @@ func competence(k: String) -> String:
 		if v.length() - c.haut() * 0.25 > PORTEE + 1.2:
 			return "Trop loin"
 	var vil := get_parent()
+	if k == "pacte":
+		var c2 := cible
+		if c2 == null or not is_instance_valid(c2) or c2.mort or c2.allie:
+			c2 = cible_devant(vil.monstres, 20.0)
+		if c2 == null:
+			return "Vise l'ennemi à ensorceler"
+		if Partie.mana < d["mana"]:
+			return "Pas assez de mana (%d)" % int(d["mana"])
+		Partie.depenser_mana(d["mana"])
+		recharges[k] = d["cd"]
+		Fx.anneau(c2.global_position, Color(0.3, 1.0, 0.7), 5.0)
+		Fx.son("arise", -2.0, 1.3)
+		if c2.puissance() > Partie.dps_total():
+			Fx.texte(c2.global_position + Vector3(0, c2.haut() + 1.0, 0), "REFUSE LE PACTE", Color(1.0, 0.4, 0.4), 1.4, 1.2)
+			return ""
+		for p in get_tree().get_nodes_in_group("pactes"):
+			if is_instance_valid(p) and not p.mort:
+				return "Un seul pacte à la fois"
+		cible = null
+		if vil.abime and c2.get_parent() != vil.abime:
+			c2.reparent(vil.abime)
+		c2.pacte()
+		Fx.texte(c2.global_position + Vector3(0, c2.haut() + 1.0, 0), "PACTE SCELLÉ", Color(0.4, 1.0, 0.75), 1.6, 1.4)
+		return ""
 	if k == "echange" and Partie.speciale == "telekinesie":
 		var l: Array = vil.monstres.filter(func (m): return is_instance_valid(m) and not m.mort and m.global_position.distance_to(global_position) < 10.0)
 		if l.is_empty():

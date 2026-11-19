@@ -204,7 +204,7 @@ func _ready() -> void:
 		if k == "telekinesie":
 			continue
 		var d: Dictionary = Partie.COMPETENCES[k]
-		_b_comp[k] = _rond(d["nom"], d["icone"], 104.0, {"esquive": Color(0.1, 0.5, 0.45), "brise": Color(0.15, 0.4, 0.75), "cri": Color(0.4, 0.15, 0.7), "domaine": Color(0.3, 0.05, 0.5), "echange": Color(0.2, 0.15, 0.55)}[k])
+		_b_comp[k] = _rond(d["nom"], d["icone"], 104.0, {"esquive": Color(0.1, 0.5, 0.45), "brise": Color(0.15, 0.4, 0.75), "cri": Color(0.4, 0.15, 0.7), "domaine": Color(0.3, 0.05, 0.5), "echange": Color(0.2, 0.15, 0.55), "pacte": Color(0.05, 0.4, 0.3)}[k])
 	_cadre = Control.new()
 	_cadre.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_cadre.size = Vector2(560, 118)
@@ -329,6 +329,7 @@ func _disposer() -> void:
 	_b_comp["cri"].position = Vector2(w - 196, h - 318)
 	_b_comp["domaine"].position = Vector2(w - 330, h - 380)
 	_b_comp["echange"].position = Vector2(w - 440, h - 214)
+	_b_comp["pacte"].position = Vector2(w - 440, h - 330)
 	_haut.position = Vector2(16, 10)
 	_droite.position = Vector2(w - 340, 120)
 	_evt.position = Vector2(w - 340, 68)
@@ -1384,7 +1385,7 @@ func _maj_action() -> void:
 	_action = ville.action_proche() if _panneau == null else {}
 	var v := not _action.is_empty()
 	if v:
-		var t: String = {"autel": "PARLER", "donjon": "ENTRER", "sortir": "SORTIR", "chateau": "CHÂTEAU"}[_action["type"]]
+		var t: String = {"autel": "PARLER", "donjon": "ENTRER", "sortir": "SORTIR", "chateau": "CHÂTEAU", "abime": "ABÎME", "quitter_abime": "SORTIR"}[_action["type"]]
 		_b_action.set_meta("texte", t)
 	if v != _b_action.visible:
 		_b_action.visible = v
@@ -1408,6 +1409,10 @@ func agir() -> void:
 		"chateau":
 			ouvrir("chateau")
 			Fx.son("portal", -6.0)
+		"abime":
+			ville.entrer_abime()
+		"quitter_abime":
+			ville.quitter_abime()
 		"sortir":
 			fermer()
 			ville.quitter_donjon()
