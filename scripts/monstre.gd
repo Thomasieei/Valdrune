@@ -437,7 +437,6 @@ func _ia_pacte(dt: float) -> void:
 		_riposte_t = 1.5
 		blesser_pacte(_pacte_cible.puissance() * 0.5)
 
-func j_loin() -> bool:
 func lever() -> void:
 	if mort:
 		return
