@@ -695,17 +695,17 @@ func _ambiance(donj: bool) -> void:
 	_env.background_color = Color(0.01, 0.0, 0.02)
 	_env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR if donj else Environment.AMBIENT_SOURCE_SKY
 	_env.ambient_light_color = Color(0.22, 0.18, 0.32)
-	_env.ambient_light_energy = 1.1 if donj else 0.9
+	_env.ambient_light_energy = 2.2 if donj else 0.9
 	_env.fog_light_color = Color(0.1, 0.05, 0.16) if donj else Color(0.55, 0.6, 0.75)
-	_env.fog_density = 0.012 if donj else 0.0022
+	_env.fog_density = 0.004 if donj else 0.0022
 
 	var lan: OmniLight3D = joueur.get_node_or_null("Lanterne")
 	if lan == null:
 		lan = OmniLight3D.new()
 		lan.name = "Lanterne"
 		lan.light_color = Color(0.75, 0.7, 1.0)
-		lan.light_energy = 1.6
-		lan.omni_range = 9.0
+		lan.light_energy = 2.4
+		lan.omni_range = 14.0
 		lan.position = Vector3(0, 2.6, 0)
 		joueur.add_child(lan)
 	lan.visible = donj

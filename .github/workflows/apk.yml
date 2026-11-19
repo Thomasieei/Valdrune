@@ -32,6 +32,13 @@ jobs:
         run: |
           godot --headless --path . --quit-after 300 2>&1 | tee run.log || true
           if grep -E "SCRIPT ERROR|Parse Error" run.log; then exit 1; fi
+      - name: Tour du jeu (captures)
+        run: |
+          timeout 300 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 -- --pilote=tour --sans-sauvegarde > tour.log 2>&1 || true
+          grep -E "CAPTURE|SCRIPT ERROR|TOUR|PILOTE|at: " tour.log | grep -v "mesh_get_surface" | head -80 || true
+          mkdir -p shots && cp /tmp/caps_arise/*.png shots/ 2>/dev/null || true
+          cp tour.log shots/
+          cd shots && git init -q -b arise-shots && git add -A && git -c user.name=ci -c user.email=ci@local commit -qm "captures ${{ github.run_number }}" && git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" arise-shots
       - name: Export APK
         env:
           GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ github.workspace }}/android/royaume.keystore

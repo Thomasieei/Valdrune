@@ -26,6 +26,8 @@ func _ready() -> void:
 			await _icones()
 		"nouveautes":
 			await _nouveautes()
+		"tour":
+			await _tour()
 		"marche":
 			var j: Joueur = ville.joueur
 			j.global_position = Vector3(-165.0, 0.3, -72.0)
@@ -67,6 +69,63 @@ func _ready() -> void:
 			await capture("tailles")
 	print("[PILOTE] fini")
 	get_tree().quit()
+
+func _tour() -> void:
+	var v = ville
+	var j: Joueur = v.joueur
+	Partie.niveau = 22
+	Partie.rang_chasseur = 3
+	Partie.cles = 3
+	Partie.pieces = 50000
+	for esp in ["gobelin", "gobelin", "puglin", "orc", "gobelin_chef"]:
+		Partie.ombres.append({"uid": 9000 + Partie.ombres.size(), "espece": esp, "etoiles": 1, "eq": true})
+	Partie.change.emit()
+	await attendre(2.5)
+	await capture("ville_depart")
+	var m0: Monstre = j.cible_devant(v.monstres, 200.0)
+	if m0:
+		j.global_position = m0.global_position + Vector3(2.5, 0.3, 0)
+		await attendre(0.5)
+		j.viser(m0)
+		await attendre(3.5)
+		await capture("combat_ville")
+	for t in ["inventaire", "ombres", "stats", "boutique", "classement", "journal", "donjon"]:
+		v.hud.ouvrir(t)
+		await attendre(0.6)
+		await capture("menu_" + t)
+		v.hud.fermer()
+	for n in [0, 1, 2, 3]:
+		v.entrer_donjon(n)
+		await attendre(3.0)
+		await capture("donjon_%d" % n)
+		await v.quitter_donjon()
+		await attendre(1.5)
+	v.entrer_chateau()
+	await attendre(4.0)
+	await capture("chateau")
+	if v.chateau:
+		v.chateau._fin()
+	await attendre(2.5)
+	v.entrer_test()
+	await attendre(3.0)
+	await capture("test_rang")
+	await v.quitter_donjon()
+	await attendre(1.5)
+	if m0:
+		j.global_position = m0.global_position + Vector3(3.0, 0.3, 0)
+	await attendre(1.0)
+	Partie.speciale = "telekinesie"
+	Partie.mana = Partie.mana_max()
+	print("[TOUR] tk: ", j.competence("echange"))
+	await attendre(1.0)
+	await capture("telekinesie")
+	v.hud._tk_fermer(false)
+	v.hud._barre_basculer("rangees")
+	await attendre(1.0)
+	await capture("ombres_rangees")
+	v.lancer_arene()
+	await attendre(4.5)
+	await capture("arene")
 
 func capture(nom: String) -> void:
 	await RenderingServer.frame_post_draw

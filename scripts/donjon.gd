@@ -470,7 +470,13 @@ func appliquer_ambiance(env: Environment) -> void:
 	env.background_color = th["fond"]
 	env.ambient_light_color = th["ambiance"]
 	env.fog_light_color = th["brume"]
-	env.fog_density = 0.02 if cfg["theme"] == "neige" else 0.012
+	env.fog_density = 0.008 if cfg["theme"] == "neige" else 0.004
+	env.ambient_light_energy = 2.4
+	var lune := DirectionalLight3D.new()
+	lune.rotation_degrees = Vector3(-55, 30, 0)
+	lune.light_color = th["feu"].lerp(Color.WHITE, 0.5)
+	lune.light_energy = 0.7
+	add_child(lune)
 
 func _meteo() -> void:
 	var m: String = th["meteo"]
