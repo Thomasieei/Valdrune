@@ -24,9 +24,12 @@ var pv := 0.0
 var pv_max := 1.0
 var temps_max := 20.0
 var chrono := -1.0
+var en_sommeil := false
 var mort := false:
 	set(valeur):
 		mort = valeur
+		if en_sommeil:
+			set_process(mort)
 		if _obstacle:
 			_obstacle.collision_layer = 0 if mort else 1
 		if mort and _plaque:
@@ -91,6 +94,8 @@ func _ready() -> void:
 	if elite_fixe:
 		elite = true
 	_construire_corps()
+	if _ap:
+		visibility_changed.connect(func (): _ap.active = is_visible_in_tree())
 
 	var zone := Area3D.new()
 	zone.collision_layer = 4
@@ -368,7 +373,16 @@ func _toucher_joueur(j: Node3D, d: float, raison := "ZONE") -> void:
 		if v:
 			v.mort_joueur()
 
+func eloigner(oui: bool) -> void:
+	en_sommeil = oui
+	visible = not oui
+	set_process(not oui or mort)
+
 func _process(dt: float) -> void:
+	if en_sommeil:
+		if mort:
+			_attendre_reveil(dt)
+		return
 	_afficher_vie()
 	if allie:
 		if not mort:
@@ -392,12 +406,7 @@ func _process(dt: float) -> void:
 		_flash = maxf(0.0, _flash - dt * 6.0)
 		_corps.scale = Vector3.ONE * (1.22 if elite else 1.0) * (1.0 + _flash * 0.06)
 	if mort:
-		if eveillable and Time.get_ticks_msec() / 1000.0 > _eveil_fin:
-			eveillable = false
-		if reapparait_auto:
-			_reapparait -= dt
-			if _reapparait <= 0.0:
-				_renaitre()
+		_attendre_reveil(dt)
 		return
 	if chrono >= 0.0:
 		chrono += dt
@@ -692,6 +701,16 @@ func eveil_rate() -> void:
 	var tw := create_tween()
 	tw.tween_property(_corps, "scale", Vector3.ONE * 0.01, 0.6)
 
+func _attendre_reveil(dt: float) -> void:
+	if eveillable and Time.get_ticks_msec() / 1000.0 > _eveil_fin:
+		eveillable = false
+	if reapparait_auto:
+		_reapparait -= dt
+		if _reapparait <= 0.0:
+			_renaitre()
+	elif en_sommeil and not eveillable:
+		set_process(false)
+
 func _renaitre() -> void:
 	mort = false
 	if not elite_fixe:
@@ -699,6 +718,9 @@ func _renaitre() -> void:
 	_corps.position.y = 0.0
 	_corps.rotation.x = 0.0
 	_appliquer_rang()
+	if en_sommeil:
+		Modele.jouer(_ap, "Idle")
+		return
 	var cible_ech := _corps.scale
 	_corps.scale = Vector3.ONE * 0.01
 	var tw := create_tween()

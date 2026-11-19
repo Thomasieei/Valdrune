@@ -47,6 +47,8 @@ func _ready() -> void:
 	_corps = Modele.preparer(Apparence.chasseur(int(d["look"])), "chasseur_%d" % int(d["look"]), 1.8)
 	add_child(_corps)
 	_ap = Modele.lecteur(_corps)
+	if _ap:
+		visibility_changed.connect(func (): _ap.active = is_visible_in_tree())
 	Modele.jouer(_ap, "Idle")
 	var sk: Skeleton3D = _corps.find_child("Skeleton3D", true, false)
 	if sk and not civil:

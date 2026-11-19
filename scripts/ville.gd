@@ -219,11 +219,19 @@ func _ouvrir_gate() -> void:
 	gates.append({"site": site, "noeud": n, "label": l, "rang": r, "fin": Time.get_unix_time_from_system() + 600.0, "gardes": gardes})
 	hud.annonce("PORTAIL DE RANG %s OUVERT !" % Partie.RANGS[r], "%s · Suis le faisceau. Ferme le portail en 10 min." % QUARTIERS[r], COULEURS_GATE[r])
 
+var _lecture_gates := 0.0
+
 func _maj_gates(dt: float) -> void:
 	_gate_t -= dt
 	if _gate_t <= 0.0 and gates.size() < 2 and donjon == null and chateau == null:
 		_gate_t = randf_range(360.0, 600.0)
 		_ouvrir_gate()
+	if gates.is_empty():
+		return
+	_lecture_gates -= dt
+	if _lecture_gates > 0.0:
+		return
+	_lecture_gates = 0.25
 	var now := Time.get_unix_time_from_system()
 	for g in gates.duplicate():
 		var vivants: Array = g["gardes"].filter(func (m): return is_instance_valid(m) and not m.mort)
@@ -1251,13 +1259,12 @@ func _process(dt: float) -> void:
 		var pj := joueur.global_position
 		for m in monstres:
 			if is_instance_valid(m) and not m.allie:
-				var loin: bool = m.global_position.distance_to(pj) > 85.0 and m != raid_boss and m != boss_evt
-				if m.visible == loin:
-					m.visible = not loin
-					m.set_process(not loin)
+				var loin: bool = m.global_position.distance_squared_to(pj) > 85.0 * 85.0 and m != raid_boss and m != boss_evt
+				if m.en_sommeil != loin:
+					m.eloigner(loin)
 		for c in chasseurs:
 			if is_instance_valid(c) and c.mode in ["ville", "vers_portail", "vers_groupe"]:
-				c.visible = c.global_position.distance_to(pj) < 85.0
+				c.visible = c.global_position.distance_squared_to(pj) < 85.0 * 85.0
 	_nettoyage_t -= dt
 	if _nettoyage_t <= 0.0:
 		_nettoyage_t = 30.0
