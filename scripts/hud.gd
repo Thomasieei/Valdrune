@@ -30,7 +30,7 @@ func domaine(duree: float) -> void:
 	tw.tween_property(_voile, "color:a", 0.0, 0.4)
 
 func systeme(titre: String, lignes: Array) -> void:
-	if _sys:
+	if is_instance_valid(_sys):
 		_sys.queue_free()
 	_sys = Panel.new()
 	_sys.add_theme_stylebox_override("panel", Ui.boite(Color(0.02, 0.06, 0.16, 0.95), Color(0.35, 0.75, 1.0), 3, 6))

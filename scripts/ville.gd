@@ -716,6 +716,8 @@ func entrer_test() -> void:
 	donjon.demarrer()
 	_musique("dungeon")
 	await hud.fondu(false)
+	if donjon == null:
+		return
 	hud.annonce("TEST DE RANG %s" % Partie.RANGS[donjon.test_rang], "10 salles · %d minutes · ne flanche pas" % (int(Partie.DUREE_TEST) / 60), Color(1.0, 0.75, 0.3))
 
 func entrer_donjon(n := 0, groupe := false) -> void:
@@ -726,7 +728,12 @@ func entrer_donjon(n := 0, groupe := false) -> void:
 		hud.annonce("RECHERCHE DE GROUPE", "Matchmaking en cours…", Color(0.5, 0.85, 1.0))
 		await get_tree().create_timer(2.5).timeout
 		var dispo := chasseurs.filter(func (c): return c.mode == "ville")
-		dispo.sort_custom(func (a, b): return absi(int(a.d["niveau"]) - Partie.niveau) < absi(int(b.d["niveau"]) - Partie.niveau))
+		dispo.sort_custom(func (a, b):
+			var ecart_a := absi(int(a.d["niveau"]) - Partie.niveau)
+			var ecart_b := absi(int(b.d["niveau"]) - Partie.niveau)
+			if ecart_a != ecart_b:
+				return ecart_a < ecart_b
+			return a.global_position.distance_squared_to(PORTAIL) < b.global_position.distance_squared_to(PORTAIL))
 		equipe = dispo.slice(0, 3)
 		hud.dire("Groupe trouvé : " + ", ".join(equipe.map(func (c): return "%s (niv %d)" % [c.d["nom"], int(c.d["niveau"])])), Color(0.5, 1.0, 0.7))
 	await hud.fondu(true)
@@ -746,15 +753,15 @@ func entrer_donjon(n := 0, groupe := false) -> void:
 	_teleporter(donjon.point_depart(), PI)
 	for k in equipe.size():
 		var c: Chasseur = equipe[k]
-		c.mode = "donjon"
-		c.donjon = donjon
-		c.placer(donjon.point_depart() + Vector3((k - 1) * 1.6, 0, -1.0))
+		c.rejoindre_groupe(donjon, k)
 	donjon.allies = equipe
 	_ambiance(true)
 	donjon.appliquer_ambiance(_env)
 	donjon.demarrer()
 	_musique("dungeon")
 	await hud.fondu(false)
+	if donjon == null:
+		return
 	hud.annonce("DONJON DE RANG %s" % Partie.RANGS[n], "%s  ·  Salle 1 / 6 : %s" % [donjon.cfg["nom"], donjon.NOMS_SALLES[0]], Color(0.7, 0.5, 1.0))
 
 func _fin_donjon(victoire: bool) -> void:
@@ -958,10 +965,12 @@ func _liberer_allies() -> void:
 		return
 	for c: Chasseur in donjon.allies:
 		if is_instance_valid(c):
+			var a_participe := c.mode == "donjon"
 			c.mode = "ville"
 			c.donjon = null
-			c.placer(PORTAIL + Vector3(randf_range(3, 6), 0.3, randf_range(-3, 3)))
-			if donjon.sortie:
+			if a_participe:
+				c.placer(PORTAIL + Vector3(randf_range(1, 2), 0.1, randf_range(-1, 1)))
+			if donjon.sortie and a_participe:
 				for k in 6:
 					Partie.bot_gagner(c.d, Partie.SALLES_BOSS[donjon.niv])
 			c._maj_plaque()
@@ -1107,7 +1116,7 @@ func _process(dt: float) -> void:
 					m.visible = not loin
 					m.set_process(not loin)
 		for c in chasseurs:
-			if is_instance_valid(c) and c.mode == "ville":
+			if is_instance_valid(c) and c.mode in ["ville", "vers_portail", "vers_groupe"]:
 				c.visible = c.global_position.distance_to(pj) < 85.0
 	_nettoyage_t -= dt
 	if _nettoyage_t <= 0.0:

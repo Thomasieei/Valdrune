@@ -198,7 +198,7 @@ func _physics_process(dt: float) -> void:
 	move_and_slide()
 
 	if dir.length() > 0.1 and is_on_floor() and is_on_wall():
-		_monter_marche(dir)
+		franchir_marche(self, dir)
 	_anim_coup -= dt
 	if dir.length() > 0.1:
 		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(dir.x, dir.z), minf(1.0, dt * 14.0))
@@ -216,24 +216,24 @@ func _physics_process(dt: float) -> void:
 		Modele.jouer(_ap, "Idle" if Partie.opts["fourreau"] else "SwordIdle")
 
 const MARCHE_MAX := 0.45
-func _monter_marche(dir: Vector3) -> void:
+static func franchir_marche(corps: CharacterBody3D, dir: Vector3) -> void:
 	var haut := Vector3(0, MARCHE_MAX, 0)
 	var avance := dir.normalized() * 0.3
-	var t := global_transform
-	if test_move(t, haut):
+	var t := corps.global_transform
+	if corps.test_move(t, haut):
 		return
 	t = t.translated(haut)
-	if test_move(t, avance):
+	if corps.test_move(t, avance):
 		return
 	t = t.translated(avance)
 
 	var col := KinematicCollision3D.new()
-	if not test_move(t, Vector3.DOWN * (MARCHE_MAX + 0.05), col):
+	if not corps.test_move(t, Vector3.DOWN * (MARCHE_MAX + 0.05), col):
 		return
-	if col.get_normal().dot(Vector3.UP) < cos(floor_max_angle):
+	if col.get_normal().dot(Vector3.UP) < cos(corps.floor_max_angle):
 		return
 	t.origin += col.get_travel()
-	global_transform = t
+	corps.global_transform = t
 
 func _frapper() -> void:
 	if Partie.opts["fourreau"]:
