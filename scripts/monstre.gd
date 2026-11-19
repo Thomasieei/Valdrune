@@ -237,7 +237,7 @@ func _zone(p: Vector3, rayon: float, delai: float) -> void:
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.albedo_color = Color(1.0, 0.15, 0.1, 0.28)
+	m.albedo_color = Color(1.0, 0.1, 0.05, 0.42)
 	m.no_depth_test = false
 	mi.material_override = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -268,14 +268,16 @@ func _impact(racine: Node3D, rayon: float) -> void:
 func _dans_zone(a: Vector3, c: Vector3, r: float) -> bool:
 	return Vector2(a.x - c.x, a.z - c.z).length() <= r and absf(a.y - c.y) < 3.0
 
-func _toucher_joueur(j: Node3D, d: float) -> void:
+func _toucher_joueur(j: Node3D, d: float, raison := "ZONE") -> void:
 	var jj := j as Joueur
 	if jj and jj.invulnerable > 0.0:
 		Fx.texte(j.global_position + Vector3(0, 2.3, 0), "ESQUIVÉ", Color(0.5, 1.0, 0.8), 1.1, 0.7)
 		return
-	Fx.texte(j.global_position + Vector3(0, 2.3, 0), "-%d" % int(d), Color(1.0, 0.25, 0.25), 1.2, 0.9)
+	Fx.texte(j.global_position + Vector3(0, 2.3, 0), "-%d  %s" % [int(d), raison], Color(1.0, 0.25, 0.25), 1.2, 1.1)
+	var v := get_tree().get_first_node_in_group("ville")
+	if v and v.hud:
+		v.hud.flash_degats(raison)
 	if Partie.blesser(d):
-		var v := get_tree().get_first_node_in_group("ville")
 		if v:
 			v.mort_joueur()
 
@@ -335,7 +337,7 @@ func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) ->
 		if source == "joueur":
 			var j: Node3D = get_tree().get_first_node_in_group("joueur")
 			if j:
-				_toucher_joueur(j, Partie.atk_monstre(espece, elite) * 0.6)
+				_toucher_joueur(j, Partie.atk_monstre(espece, elite) * 0.6, "RIPOSTE (parade)")
 		return
 	var reel := minf(degats, pv)
 	pv -= degats
@@ -343,7 +345,10 @@ func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) ->
 		Partie.compter(reel, source)
 	_flash = 1.0
 	var h := haut()
-	Fx.degats(global_position + Vector3(randf_range(-0.9, 0.9), h * randf_range(0.55, 1.05), randf_range(-0.3, 0.3)), degats, crit, source == "ombres")
+	if source == "bot" or source == "allie":
+		Fx.texte(global_position + Vector3(randf_range(-0.9, 0.9), h * randf_range(0.5, 0.9), 0), Fx.court(degats), Color(0.55, 0.85, 1.0), 0.7, 0.6)
+	else:
+		Fx.degats(global_position + Vector3(randf_range(-0.9, 0.9), h * randf_range(0.55, 1.05), randf_range(-0.3, 0.3)), degats, crit, source == "ombres")
 	if e.get("clones", false) and pv > 0.0:
 		var seuils := [0.66, 0.33]
 		if _clones_faits < seuils.size() and pv / pv_max < seuils[_clones_faits]:

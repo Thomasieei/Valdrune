@@ -54,6 +54,8 @@ var donjon: Donjon = null
 var arene: Arene = null
 var chasseurs: Array = []
 var _adversaire := {}
+var POSTES_V: Array = POSTES
+var _arise_t := 0.0
 var _musique_p: AudioStreamPlayer
 
 var boss_evt: Monstre = null
@@ -257,6 +259,10 @@ func entrer_donjon(n := 0, groupe := false) -> void:
 	donjon = Donjon.new()
 	donjon.niv = n
 	donjon.groupe = not equipe.is_empty()
+	var aide := 0.0
+	for c in equipe:
+		aide += Partie.bot_dps(c.d)
+	donjon.mult_groupe = 1.0 + clampf(aide / maxf(Partie.dps_total(), 1.0), 0.0, 0.8)
 	donjon.ville = self
 	add_child(donjon)
 	donjon.termine.connect(_fin_donjon)
@@ -594,6 +600,10 @@ func _process(dt: float) -> void:
 		hud.dire("Baran est reparti dans les ténèbres…", Color(1.0, 0.45, 0.5))
 		_fin_evenement()
 	joueur.camera_lacet = _lacet
+	_arise_t -= dt
+	if Partie.opts["arise"] and _arise_t <= 0.0 and monstre_eveillable():
+		_arise_t = 1.2
+		eveiller()
 	_maj_portee(dt)
 	_cam_pos = _cam_pos.lerp(joueur.global_position + Vector3(0, 1.6, 0), minf(1.0, dt * 9.0))
 	var dir := Vector3(sin(_lacet) * cos(_tangage), -sin(_tangage), cos(_lacet) * cos(_tangage))

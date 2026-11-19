@@ -62,7 +62,7 @@ func _process(dt: float) -> void:
 		_etiquette.text = "✝ Rappel : %d mana" % int(Partie.cout_rappel(donnees)) if Partie.mana < Partie.cout_rappel(donnees) else "✝ Rappel…"
 		_rappel_t -= dt
 		if _rappel_t <= 0.0:
-			if Partie.depenser_mana(Partie.cout_rappel(donnees)):
+			if Partie.opts["rappel"] and Partie.depenser_mana(Partie.cout_rappel(donnees)):
 				_revenir()
 			else:
 				_rappel_t = 1.0

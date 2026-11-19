@@ -178,6 +178,11 @@ const SEUIL_TEST := [600.0, 9000.0, 120000.0, 1500000.0]
 const DUREE_TEST := 300.0
 const MULT_TEST := 2.5
 var rang_chasseur := 0
+var opts := {"arise": false, "potion": false, "rappel": true, "equip": false}
+var _potion_t := 0.0
+
+func cout_potion() -> int:
+	return 150 * niveau
 var or_total := 0
 
 func mult_rang() -> float:
@@ -381,6 +386,12 @@ func _process(dt: float) -> void:
 	_t += dt
 	pv = minf(pv_max(), pv + pv_max() * 0.015 * dt)
 	mana = minf(mana_max(), mana + regen_mana() * dt)
+	_potion_t -= dt
+	if opts["potion"] and _potion_t <= 0.0 and pv < pv_max() * 0.3 and pieces >= cout_potion():
+		_potion_t = 15.0
+		pieces -= cout_potion()
+		pv = pv_max()
+		message.emit("Potion auto : PV restaurés (-%d)" % cout_potion(), Color(0.5, 1.0, 0.6))
 	_sauver_t += dt
 	if _sauver_t > 8.0:
 		_sauver_t = 0.0
@@ -406,6 +417,9 @@ func ajouter_objet(b: String, rarete: int, annoncer := true) -> Dictionary:
 	inventaire.append(o)
 	if annoncer:
 		butin.emit(o)
+		if opts["equip"]:
+			var t: String = OBJETS[b]["type"]
+			equiper_le_meilleur(["relique"] if t == "relique" else [t])
 	change.emit()
 	return o
 
@@ -907,7 +921,7 @@ func sauver() -> void:
 			"boutique": achats_boutique, "auto": auto_ombres, "pv": pv, "mana": mana,
 			"auto_attaque": auto_attaque, "records": records, "finis": donjons_finis,
 			"chasseurs": chasseurs, "elo": elo, "jetons": jetons, "arene_v": arene_v, "arene_d": arene_d,
-			"quitte": Time.get_unix_time_from_system(), "rang_chasseur": rang_chasseur, "or_total": or_total}))
+			"quitte": Time.get_unix_time_from_system(), "rang_chasseur": rang_chasseur, "or_total": or_total, "opts": opts}))
 
 func charger() -> void:
 	if OS.get_cmdline_user_args().has("--sans-sauvegarde") or not FileAccess.file_exists(CHEMIN):
@@ -943,6 +957,8 @@ func charger() -> void:
 	arene_d = int(d.get("arene_d", 0))
 	chasseurs = d.get("chasseurs", [])
 	rang_chasseur = int(d.get("rang_chasseur", 0))
+	for k in opts:
+		opts[k] = bool(d.get("opts", {}).get(k, opts[k]))
 	or_total = int(d.get("or_total", 0))
 	if chasseurs.any(func (c): return int(c.get("v", 0)) < 2):
 		_creer_chasseurs()

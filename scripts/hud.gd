@@ -15,6 +15,45 @@ const JOY_R := 85.0
 var _b_frapper: Control
 var _b_eveil: Control
 var _b_comp := {}
+var _barre := {}
+var _flash: ColorRect
+var _flash_msg_t := 0.0
+const BARRE := [["arise", "ARISE", "arise"], ["fureur", "ATTAQUE", "attack"], ["auto", "OMBRES", "cmd_attack"],
+	["rappel", "RAPPEL", "essence"], ["potion", "POTION", "role_heal"], ["equip", "ÉQUIPE", "items"]]
+
+func _barre_on(k: String) -> bool:
+	match k:
+		"fureur":
+			return Partie.auto_attaque
+		"auto":
+			return Partie.auto_ombres
+	return bool(Partie.opts[k])
+
+func _barre_basculer(k: String) -> void:
+	if k in ["fureur", "auto"] and not Partie.achats_boutique.has(k):
+		dire("À débloquer dans la boutique (gratuit pendant la bêta)", Color(1.0, 0.8, 0.4))
+		ouvrir("boutique")
+		return
+	match k:
+		"fureur":
+			Partie.auto_attaque = not Partie.auto_attaque
+		"auto":
+			Partie.auto_ombres = not Partie.auto_ombres
+		_:
+			Partie.opts[k] = not bool(Partie.opts[k])
+	var nom: String = {"arise": "Arise auto", "fureur": "Attaque auto", "auto": "Ombres auto", "rappel": "Rappel des ombres", "potion": "Potion auto", "equip": "Équipement auto"}[k]
+	dire("%s : %s" % [nom, "ACTIVÉ" if _barre_on(k) else "désactivé"], Color(0.5, 1.0, 0.6) if _barre_on(k) else Color(0.8, 0.8, 0.9))
+	Partie.sauver()
+	Partie.change.emit()
+
+func flash_degats(raison: String) -> void:
+	_flash.color.a = 0.32
+	var tw := _flash.create_tween()
+	tw.tween_property(_flash, "color:a", 0.0, 0.45)
+	Input.vibrate_handheld(40)
+	if _flash_msg_t <= 0.0:
+		_flash_msg_t = 4.0
+		dire("Touché par une zone au sol : sors du cercle rouge !" if raison == "ZONE" else "Riposte : n'attaque pas un monstre au bouclier bleu !", Color(1.0, 0.5, 0.45))
 var _hex := {}
 var _haut: Control
 var _droite: Control
@@ -94,6 +133,15 @@ func _ready() -> void:
 	_b_frapper = _rond("FRAPPER", "attack", 150.0, Color(0.15, 0.3, 0.85))
 	_b_eveil = _rond("ÉVEIL", "arise", 128.0, Color(0.35, 0.1, 0.7))
 	_b_eveil.visible = false
+	for b in BARRE:
+		var bb := _rond(b[1], b[2], 76.0, Color(0.1, 0.16, 0.38))
+		bb.set_meta("on", false)
+		_barre[b[0]] = bb
+	_flash = ColorRect.new()
+	_flash.color = Color(1.0, 0.05, 0.05, 0.0)
+	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_racine.add_child(_flash)
 	for k in Partie.COMPETENCES:
 		var d: Dictionary = Partie.COMPETENCES[k]
 		_b_comp[k] = _rond(d["nom"], d["icone"], 104.0, {"esquive": Color(0.1, 0.5, 0.45), "brise": Color(0.15, 0.4, 0.75), "cri": Color(0.4, 0.15, 0.7)}[k])
@@ -177,6 +225,8 @@ func _rond(texte: String, icone: String, taille: float, fond: Color) -> Control:
 		c.draw_circle(ctr, r, Color(fond.r, fond.g, fond.b, 0.92))
 		c.draw_circle(ctr, r - 7, fond.lightened(0.12))
 		c.draw_arc(ctr, r - 1, 0, TAU, 56, Color(0.7, 0.9, 1.0, 0.95), 4.0, true)
+		if c.has_meta("on"):
+			c.draw_arc(ctr, r + 2, 0, TAU, 56, Color(0.3, 1.0, 0.45) if c.get_meta("on") else Color(0.35, 0.35, 0.45), 5.0, true)
 		var tex := Ui.tex(icone)
 		var ti := r * 1.0
 		c.draw_texture_rect(tex, Rect2(ctr - Vector2(ti, ti) / 2.0 - Vector2(0, r * 0.14), Vector2(ti, ti)), false)
@@ -194,7 +244,7 @@ func _rond(texte: String, icone: String, taille: float, fond: Color) -> Control:
 			var cw := Ui.police.get_string_size(ct, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x
 			c.draw_string_outline(Ui.police, ctr + Vector2(- cw / 2.0, 10), ct, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, 6, Color.BLACK)
 			c.draw_string(Ui.police, ctr + Vector2(- cw / 2.0, 10), ct, HORIZONTAL_ALIGNMENT_LEFT, -1, 30, Color.WHITE)
-		elif c.get_meta("pauvre", false):
+		elif c.get_meta("pauvre", false) or (c.has_meta("on") and not c.get_meta("on")):
 			c.draw_circle(ctr, r, Color(0.05, 0.1, 0.4, 0.5)))
 	_racine.add_child(c)
 	return c
@@ -207,7 +257,9 @@ func _disposer() -> void:
 	_joy_pos = _joy_centre
 	_b_frapper.position = Vector2(w - 200, h - 200)
 	_b_eveil.position = Vector2(w - 500, h - 300)
-	_b_action.position = Vector2(w - 480, h - 150)
+	_b_action.position = Vector2(w - 180, h - 446)
+	for k in BARRE.size():
+		_barre[BARRE[k][0]].position = Vector2(w / 2.0 - 3.0 * 86.0 + k * 86.0, h - 92.0)
 	_b_comp["esquive"].position = Vector2(w - 330, h - 118)
 	_b_comp["brise"].position = Vector2(w - 318, h - 250)
 	_b_comp["cri"].position = Vector2(w - 196, h - 318)
@@ -417,7 +469,13 @@ func _process(dt: float) -> void:
 		bc.set_meta("cds", rc)
 		bc.set_meta("pauvre", Partie.mana < float(Partie.COMPETENCES[k]["mana"]))
 		bc.queue_redraw()
-	for b in [_b_frapper, _b_eveil, _b_action] + _b_comp.values():
+	_flash_msg_t -= dt
+	for k in _barre:
+		var on := _barre_on(k)
+		if _barre[k].get_meta("on") != on:
+			_barre[k].set_meta("on", on)
+			_barre[k].queue_redraw()
+	for b in [_b_frapper, _b_eveil, _b_action] + _b_comp.values() + _barre.values():
 		var a: float = b.get_meta("appuye")
 		if a > 0.0:
 			b.set_meta("appuye", maxf(0.0, a - dt * 5.0))
@@ -1142,6 +1200,13 @@ func _poser(i: int, p: Vector2) -> void:
 		_doigts[i] = {"role": "ui"}
 		fermer()
 		return
+	for k in _barre:
+		if _dans(_barre[k], p):
+			_doigts[i] = {"role": "bouton"}
+			_barre[k].set_meta("appuye", 1.0)
+			Input.vibrate_handheld(10)
+			_barre_basculer(k)
+			return
 	for k in _b_comp:
 		if _dans(_b_comp[k], p):
 			_doigts[i] = {"role": "bouton"}

@@ -173,7 +173,8 @@ func _physics_process(dt: float) -> void:
 		_coup_t -= dt
 		if _coup_t <= 0.0:
 			_coup_t = CADENCE
-			_frapper()
+			if not (Partie.auto_attaque and cible.en_parade()):
+				_frapper()
 	elif _anim_coup <= 0.0:
 		Modele.jouer(_ap, "SwordIdle" if en_combat else "Idle")
 

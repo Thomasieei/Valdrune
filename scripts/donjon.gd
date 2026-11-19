@@ -66,6 +66,7 @@ var niv := 0
 var test_rang := -1
 var N := 6
 var groupe := false
+var mult_groupe := 1.0
 var allies: Array = []
 var cfg: Dictionary
 var th: Dictionary
@@ -416,7 +417,7 @@ func _peupler(i: int) -> void:
 		m.sans_chrono = true
 		m.reapparait_auto = false
 		if groupe:
-			m.mult = 1.8
+			m.mult = mult_groupe
 		if test_rang >= 0:
 			m.mult = Partie.MULT_TEST
 		add_child(m)

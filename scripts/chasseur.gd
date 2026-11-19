@@ -19,6 +19,7 @@ var _saut := false
 var _derniere_pos := Vector3.ZERO
 var _activite_t := 0.0
 var _absent_t := 0.0
+var _errance := Vector3.ZERO
 
 func _ready() -> void:
 	var forme := CollisionShape3D.new()
@@ -59,15 +60,15 @@ func _choisir_ville() -> void:
 	var dps := Partie.bot_dps(d)
 	var mieux: Monstre = null
 	var score := -INF
-	var pris := []
+	var pris := {}
 	for c in ville.chasseurs:
 		if c != self and _valide(c.cible):
-			pris.append(c.cible)
+			pris[c.cible] = int(pris.get(c.cible, 0)) + 1
 	for m: Monstre in ville.monstres:
-		if not _valide(m) or m.sans_chrono or m.e.get("lieu", "") != "" or m == ville.joueur.cible or m in pris:
+		if not _valide(m) or m.sans_chrono or m.e.get("lieu", "") != "" or m == ville.joueur.cible or int(pris.get(m, 0)) >= 2:
 			continue
 		var st := Partie.stats_monstre(m.espece, m.elite, m.mult)
-		if st["pv"] / dps > st["temps"] * 0.6:
+		if st["pv"] / dps > st["temps"] * 0.95:
 			continue
 		var dist := m.global_position.distance_to(global_position)
 		var s: float = st["xp"] / (st["pv"] / dps + 4.0 + dist / 7.0)
@@ -103,7 +104,10 @@ func _destination() -> Vector3:
 		return c + Vector3((get_index() % 3 - 1) * 2.0, 0, -4.0)
 	if _valide(cible):
 		return cible.global_position
-	return global_position
+	if _errance == Vector3.ZERO or global_position.distance_to(_errance) < 2.0:
+		var p: Array = ville.POSTES_V.pick_random()
+		_errance = Vector3(p[1], global_position.y, p[2]) + Vector3(randf_range(-3, 3), 0, randf_range(-3, 3))
+	return _errance
 
 func _physics_process(dt: float) -> void:
 	if mode == "absent":
@@ -144,7 +148,7 @@ func _physics_process(dt: float) -> void:
 	v.y = 0
 	var portee := 2.0 + (cible.haut() * 0.25 if _valide(cible) else 0.0)
 	var au_contact := _valide(cible) and v.length() <= portee
-	var dir := Vector3.ZERO if au_contact or v.length() < 0.4 else v.normalized()
+	var dir := Vector3.ZERO if au_contact or v.length() < 0.6 else v.normalized()
 	var vit := 6.5
 	velocity.x = dir.x * vit
 	velocity.z = dir.z * vit
