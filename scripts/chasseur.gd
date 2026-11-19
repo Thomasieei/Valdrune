@@ -6,6 +6,9 @@ extends CharacterBody3D
 
 var d: Dictionary
 var ville: Node
+var civil := false
+var destination_rue := Vector3.ZERO
+var geste_rue := 0.0
 var mode := "ville"
 var donjon: Donjon = null
 var cible: Monstre = null
@@ -46,7 +49,7 @@ func _ready() -> void:
 	_ap = Modele.lecteur(_corps)
 	Modele.jouer(_ap, "Idle")
 	var sk: Skeleton3D = _corps.find_child("Skeleton3D", true, false)
-	if sk:
+	if sk and not civil:
 		for i in sk.get_bone_count():
 			var bn := sk.get_bone_name(i).to_lower()
 			if bn == "hand_r" or bn.ends_with("righthand") or bn == "hand.r":
@@ -117,6 +120,8 @@ func _choisir_donjon() -> void:
 				cible = m
 
 func _destination() -> Vector3:
+	if mode in ["passant", "rencontre"]:
+		return destination_rue
 	if mode == "guide":
 		return ville.guide_destination()
 	if mode in ["vers_portail", "vers_groupe"]:
@@ -203,7 +208,7 @@ func _physics_process(dt: float) -> void:
 			velocity = Vector3.ZERO
 			Fx.anneau(global_position, Color(0.4, 0.7, 1.0), 2.0)
 			return
-	elif mode != "guide":
+	elif mode not in ["guide", "passant", "rencontre"]:
 		_choix_t -= dt
 		if _choix_t <= 0.0:
 			_choix_t = 1.0
@@ -220,7 +225,7 @@ func _physics_process(dt: float) -> void:
 			dir = Vector3(but.x - global_position.x, 0, but.z - global_position.z).normalized()
 		else:
 			dir = _direction_rue(but, dt)
-	var presse := (_valide(cible) or mode == "vers_groupe") and distance > 5.0
+	var presse := (_valide(cible) or mode in ["vers_groupe", "rencontre"]) and distance > 5.0
 	var vitesse := COURSE if presse else MARCHE
 	velocity.x = move_toward(velocity.x, dir.x * vitesse, 10.0 * dt)
 	velocity.z = move_toward(velocity.z, dir.z * vitesse, 10.0 * dt)
@@ -230,7 +235,10 @@ func _physics_process(dt: float) -> void:
 		Joueur.franchir_marche(self, dir)
 	var mouvement := get_real_velocity()
 	mouvement.y = 0
-	if au_contact:
+	geste_rue = maxf(0.0, geste_rue - dt)
+	if geste_rue > 0.0 and mode == "rencontre":
+		pass
+	elif au_contact:
 		var w := cible.global_position - global_position
 		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(w.x, w.z), minf(1.0, dt * 12.0))
 		if _coup_t <= 0.0:

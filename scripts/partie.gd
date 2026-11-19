@@ -184,6 +184,7 @@ var derniere_mort := -1000.0
 var cri_fin := -1.0
 var auto_attaque := false
 var chasseurs: Array = []
+var souvenirs_ville: Dictionary = {}
 var elo := 1000
 var jetons := 0
 var arene_v := 0
@@ -1125,7 +1126,7 @@ func sauver() -> void:
 		return
 	var f := FileAccess.open(CHEMIN + ".tmp", FileAccess.WRITE)
 	if f:
-		f.store_string(JSON.stringify({"v": 5, "chapitre": chapitre, "pieces": pieces, "niveau": niveau, "xp": xp, "inventaire": inventaire,
+		f.store_string(JSON.stringify({"v": 5, "chapitre": chapitre, "souvenirs_ville": souvenirs_ville, "pieces": pieces, "niveau": niveau, "xp": xp, "inventaire": inventaire,
 			"equipe": equipe, "ombres": ombres, "points": points, "echecs": echecs_eveil, "tues": tues, "uid": _uid,
 			"rolls": rolls, "monnaies": monnaies, "achats": achats, "tirages": tirages, "donjons": donjons,
 			"record": record_donjon, "uniques": uniques_obtenus, "arises": arises, "quetes": quetes,
@@ -1158,6 +1159,7 @@ func charger() -> void:
 				break
 	if d.is_empty():
 		return
+	souvenirs_ville = d.get("souvenirs_ville", {})
 	chapitre = clampi(int(d.get("chapitre", 3 if not d.get("ombres", []).is_empty() else 0)), 0, 3)
 	pieces = int(d.get("pieces", 0))
 	niveau = int(d.get("niveau", 1))

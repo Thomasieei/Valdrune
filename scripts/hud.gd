@@ -1464,7 +1464,7 @@ func _maj_action() -> void:
 	_action = ville.action_proche() if _panneau == null else {}
 	var v := not _action.is_empty()
 	if v:
-		var t: String = {"guide": "PARLER", "autel": "PARLER", "donjon": "ENTRER", "sortir": "SORTIR", "chateau": "CHÂTEAU", "abime": "ABÎME", "quitter_abime": "SORTIR"}[_action["type"]]
+		var t: String = {"rue": _action.get("texte", "AIDER"), "guide": "PARLER", "autel": "PARLER", "donjon": "ENTRER", "sortir": "SORTIR", "chateau": "CHÂTEAU", "abime": "ABÎME", "quitter_abime": "SORTIR"}[_action["type"]]
 		if _b_action.get_meta("texte", "") != t:
 			_b_action.set_meta("texte", t)
 			_b_action.queue_redraw()
@@ -1477,6 +1477,8 @@ func _maj_action() -> void:
 
 func agir() -> void:
 	match _action.get("type", ""):
+		"rue":
+			ville.rues.intervenir()
 		"guide":
 			ville.parler_guide()
 		"autel":
@@ -1543,6 +1545,14 @@ func _dessiner_fleche() -> void:
 			elif ville.proie.ouverture > 0.0:
 				consigne = "Reviens frapper pendant l’ouverture"
 		_texte(_fleche, Vector2(24, 134), consigne, 21, Color.GOLD)
+	if not (ville.donjon or ville.arene or ville.chateau or ville.abime) and ville.rues.phase in ["transport", "escorte"]:
+		repere = ville.rues.b
+		nom = repere.d.nom
+		couleur = Color.BISQUE
+		var texte := "Livrer à %s · %d m" % [nom, int(ville.joueur.global_position.distance_to(repere.global_position))]
+		if ville.rues.phase == "escorte":
+			texte = "Accompagner %s · abri à %d m" % [nom, int(repere.global_position.distance_to(ville.rues.refuge))]
+		_texte(_fleche, Vector2(24, 162), texte, 19, couleur)
 	if not is_instance_valid(repere):
 		if not is_instance_valid(ville.boss_evt) or ville.boss_evt.mort or ville.donjon != null:
 			return

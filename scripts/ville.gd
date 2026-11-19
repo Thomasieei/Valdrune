@@ -63,6 +63,7 @@ var portail: Node3D
 var donjon: Donjon = null
 var arene: Arene = null
 var chasseurs: Array = []
+var rues = preload("res://scripts/vie_des_rues.gd").new()
 var mentor: Chasseur
 var _entree_en_cours := false
 var proie: Monstre
@@ -340,6 +341,7 @@ func _ready() -> void:
 	hud = Hud.new()
 	hud.ville = self
 	add_child(hud)
+	rues.installer(self)
 	Partie.change.connect(_maj_ombres)
 	_maj_ombres()
 	_musique()
@@ -664,7 +666,7 @@ func action_proche() -> Dictionary:
 		return {"type": "chateau"}
 	if p.distance_to(portail_abime.global_position) < 5.0:
 		return {"type": "abime"}
-	return {}
+	return rues.action() if not arene else {}
 
 
 func _penalite() -> void:
@@ -1233,6 +1235,7 @@ func toucher_monde(p: Vector2) -> void:
 			joueur.viser(m)
 
 func _process(dt: float) -> void:
+	rues.avancer(dt)
 	_premiere_chasse()
 	if boss_evt == null and donjon == null and arene == null and chateau == null and abime == null and temps_avant_evt() <= 0.0:
 		lancer_evenement()
