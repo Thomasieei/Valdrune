@@ -23,7 +23,7 @@ var _arme_vue := ""
 var invulnerable := 0.0
 var _dash := Vector3.ZERO
 var _dash_t := 0.0
-var recharges := {"esquive": 0.0, "brise": 0.0, "cri": 0.0}
+var recharges := {"esquive": 0.0, "brise": 0.0, "cri": 0.0, "domaine": 0.0}
 
 
 func _maj_arme() -> void:
@@ -213,6 +213,21 @@ func _frapper() -> void:
 
 func competence(k: String) -> String:
 	var d: Dictionary = Partie.COMPETENCES[k]
+	if k == "domaine":
+		if Partie.domaine_actif():
+			return "Domaine déjà actif"
+		if Partie.charge < 100.0:
+			return "Domaine chargé à %d %% — tue des monstres" % int(Partie.charge)
+		Partie.charge = 0.0
+		Partie.domaine_fin = Partie.temps() + Partie.DUREE_DOMAINE
+		Fx.son("arise", 0.0, 0.6)
+		Fx.son("portal", -2.0, 0.7)
+		Fx.anneau(global_position, Color(0.45, 0.1, 0.9), 14.0)
+		Fx.texte(global_position + Vector3(0, 3.2, 0), "DOMAINE DU MONARQUE", Color(0.75, 0.45, 1.0), 2.0, 2.0)
+		var v := get_tree().get_first_node_in_group("ville")
+		if v:
+			v.hud.domaine(Partie.DUREE_DOMAINE)
+		return ""
 	if recharges[k] > 0.0:
 		return "Recharge : %.1f s" % recharges[k]
 	if Partie.mana < d["mana"]:

@@ -604,6 +604,7 @@ func _victoire() -> void:
 		Partie.record_donjon = t
 	Partie.donjons += 1
 	Partie.donjons_finis[str(niv)] = int(Partie.donjons_finis.get(str(niv), 0)) + 1
+	Partie.progres("donjons")
 	var gain := int(round(float(cfg["or"]) * (1.0 + Partie.bonus("pieces") / 100.0)))
 	Partie.pieces += gain
 	Partie.or_total += gain

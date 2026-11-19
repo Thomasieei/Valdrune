@@ -66,6 +66,111 @@ var _adversaire := {}
 var POSTES_V: Array = POSTES
 var _arise_t := 0.0
 var chateau: Chateau = null
+var gates: Array = []
+var _gate_t := 240.0
+var _break_boss: Monstre = null
+var _break_fin := 0.0
+const COULEURS_GATE := [Color(0.6, 0.65, 0.75), Color(0.3, 0.9, 0.4), Color(0.3, 0.6, 1.0), Color(0.75, 0.35, 1.0), Color(1.0, 0.6, 0.15)]
+
+func _ouvrir_gate() -> void:
+	var r := clampi(Partie.rang_chasseur + (1 if randf() < 0.3 else 0) - (1 if randf() < 0.3 else 0), 0, 3)
+	var p: Array = POSTES.pick_random()
+	var pos := Vector3(p[1], _sol(p[1], p[2]), p[2]) + Vector3(randf_range(-3, 3), 0, randf_range(-3, 3))
+	var n := Node3D.new()
+	add_child(n)
+	n.position = pos
+	n.add_child(Portail.creer(COULEURS_GATE[r], COULEURS_GATE[r].darkened(0.5), 1.6))
+	var l := Label3D.new()
+	l.font = Ui.police
+	l.font_size = 30
+	l.outline_size = 9
+	l.pixel_size = 0.0018
+	l.fixed_size = true
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.modulate = COULEURS_GATE[r].lightened(0.3)
+	l.position.y = 5.0
+	n.add_child(l)
+	var gardes := []
+	var l_esp: Array = Partie.ESPECES_RANG[r]
+	for k in 3 + r:
+		var m := Monstre.new()
+		var a := TAU * k / (3 + r)
+		m.configurer(l_esp[k % 2], pos + Vector3(cos(a), 0, sin(a)) * 4.0, a)
+		m.reapparait_auto = false
+		m.elite_fixe = k == 0
+		add_child(m)
+		monstres.append(m)
+		gardes.append(m)
+	gates.append({"noeud": n, "label": l, "rang": r, "fin": Time.get_unix_time_from_system() + 600.0, "gardes": gardes})
+	hud.annonce("PORTAIL DE RANG %s OUVERT !" % Partie.RANGS[r], "Ferme-le en 10 min ou ses monstres envahiront la ville", COULEURS_GATE[r])
+
+func _maj_gates(dt: float) -> void:
+	_gate_t -= dt
+	if _gate_t <= 0.0 and gates.size() < 2 and donjon == null and chateau == null:
+		_gate_t = randf_range(360.0, 600.0)
+		_ouvrir_gate()
+	var now := Time.get_unix_time_from_system()
+	for g in gates.duplicate():
+		var vivants: Array = g["gardes"].filter(func (m): return is_instance_valid(m) and not m.mort)
+		var reste: float = g["fin"] - now
+		g["label"].text = "PORTAIL RANG %s\n%d:%02d  ·  %d gardien%s" % [Partie.RANGS[g["rang"]], int(reste) / 60, int(reste) % 60, vivants.size(), "s" if vivants.size() > 1 else ""]
+		if vivants.is_empty():
+			var gain := int(800.0 * pow(5.0, g["rang"]) * Partie.mult_rang())
+			Partie.pieces += gain
+			Partie.or_total += gain
+			Partie.donner_monnaie(Partie.MONNAIES.keys().pick_random(), 2 + g["rang"] * 2)
+			if randf() < 0.35:
+				Partie.donner_cle()
+			Partie.charger_domaine(15.0)
+			hud.annonce("PORTAIL FERMÉ", "+%s pièces" % Fx.court(gain), Color(0.5, 1.0, 0.6))
+			_retirer_gate(g)
+		elif reste <= 0.0:
+			_debordement(g, vivants)
+
+func _retirer_gate(g: Dictionary) -> void:
+	for m in g["gardes"]:
+		if is_instance_valid(m) and m.mort:
+			monstres.erase(m)
+			m.queue_free()
+	g["noeud"].queue_free()
+	gates.erase(g)
+
+func _debordement(g: Dictionary, vivants: Array) -> void:
+	var pos: Vector3 = g["noeud"].position
+	var l_esp: Array = Partie.ESPECES_RANG[mini(g["rang"] + 1, 3)]
+	for k in 5:
+		var m := Monstre.new()
+		m.configurer(l_esp[k % 2], pos + Vector3(randf_range(-6, 6), 0, randf_range(-6, 6)), randf() * TAU)
+		m.reapparait_auto = false
+		m.elite_fixe = randf() < 0.4
+		add_child(m)
+		monstres.append(m)
+	hud.annonce("DÉBORDEMENT !", "Le portail de rang %s a cédé : ses monstres envahissent la ville" % Partie.RANGS[g["rang"]], Color(1.0, 0.3, 0.3))
+	Fx.son("portal", 2.0, 0.6)
+	g["gardes"] = []
+	g["noeud"].queue_free()
+	gates.erase(g)
+
+func _break_donjon(niv: int) -> void:
+	var esp: String = Donjon.SALLES_PAR_NIV[niv][5][0][0]
+	_break_boss = Monstre.new()
+	_break_boss.configurer(esp, PORTAIL + Vector3(7.0, _sol(PORTAIL.x + 7.0, PORTAIL.z), 0), -PI / 2.0)
+	_break_boss.reapparait_auto = false
+	_break_boss.mult = 1.5
+	_break_boss.elite_fixe = true
+	add_child(_break_boss)
+	_break_boss.chrono = 0.0
+	monstres.append(_break_boss)
+	_break_fin = Time.get_unix_time_from_system() + 600.0
+	_break_boss.vaincu.connect(func (_m):
+		var gain := int(float(Donjon.DONJONS[niv]["or"]) * 2.0)
+		Partie.pieces += gain
+		Partie.or_total += gain
+		Partie.butin_donjon(niv + 1)
+		hud.annonce("BREAK MAÎTRISÉ", "Le boss échappé est tombé : +%s pièces" % Fx.court(gain), Color(0.5, 1.0, 0.6))
+		_break_boss = null)
+	hud.annonce("BREAK DE DONJON !", "%s s'est échappé en ville — 10 minutes pour l'abattre" % Partie.ESPECES[esp]["nom"], Color(1.0, 0.25, 0.25))
+
 var portail_rouge: Node3D
 var _musique_p: AudioStreamPlayer
 
@@ -114,6 +219,11 @@ func _ready() -> void:
 	Partie.change.connect(_maj_ombres)
 	_maj_ombres()
 	_musique()
+	Partie.systeme.connect(func (t, l): hud.systeme(t, l))
+	if Partie.penalite_due:
+		get_tree().create_timer(3.0).timeout.connect(_penalite)
+	else:
+		get_tree().create_timer(3.0).timeout.connect(func (): hud.systeme("QUÊTE QUOTIDIENNE", ["Préparation pour devenir fort :", "• 100 monstres vaincus", "• 10 ombres levées", "• 1 donjon terminé", "Avant minuit. Sinon : zone de pénalité."]))
 	hud.dire("Zones rouges au sol : sors-en vite !  Bouclier bleu = PARADE : arrête de frapper.", Color(0.85, 0.75, 1.0))
 	if OS.get_cmdline_user_args().size() > 0:
 		for a in OS.get_cmdline_user_args():
@@ -255,6 +365,20 @@ func action_proche() -> Dictionary:
 	return {}
 
 
+func _penalite() -> void:
+	Partie.penalite_due = false
+	hud.systeme("[ PÉNALITÉ ]", ["Quête quotidienne non accomplie.", "Zone de pénalité : survis aux monstres", "qui t'encerclent. Tue-les tous."])
+	var l_esp: Array = Partie.ESPECES_RANG[mini(Partie.rang_chasseur, 3)]
+	for k in 6:
+		var m := Monstre.new()
+		var a := TAU * k / 6.0
+		m.configurer(l_esp[k % 2], joueur.global_position + Vector3(cos(a), 0, sin(a)) * 7.0, a + PI)
+		m.reapparait_auto = false
+		m.elite_fixe = true
+		add_child(m)
+		m.chrono = 0.0
+		monstres.append(m)
+
 func entrer_chateau() -> void:
 	if donjon or arene or chateau or Partie.cles <= 0:
 		return
@@ -363,9 +487,12 @@ func _fin_donjon(victoire: bool) -> void:
 		_musique("boss")
 		hud.recompenses_donjon(donjon.gains)
 	else:
-		hud.annonce("TEMPS ÉCOULÉ", "Le donjon se referme…", Color(1.0, 0.35, 0.35))
+		var nv := donjon.niv
+		hud.annonce("TEMPS ÉCOULÉ", "Le donjon s'emballe…", Color(1.0, 0.35, 0.35))
 		await get_tree().create_timer(2.5).timeout
-		quitter_donjon()
+		await quitter_donjon()
+		if _break_boss == null:
+			_break_donjon(nv)
 
 func quitter_donjon() -> void:
 	if donjon == null:
@@ -672,6 +799,14 @@ func _process(dt: float) -> void:
 		hud.dire("Baran est reparti dans les ténèbres…", Color(1.0, 0.45, 0.5))
 		_fin_evenement()
 	joueur.camera_lacet = _lacet
+	_maj_gates(dt)
+	if _break_boss and is_instance_valid(_break_boss) and not _break_boss.mort and Time.get_unix_time_from_system() > _break_fin:
+		var perte := int(Partie.pieces * 0.1)
+		Partie.pieces -= perte
+		hud.annonce("LA VILLE A SOUFFERT", "Le boss échappé a pillé la ville : -%s pièces" % Fx.court(perte), Color(1.0, 0.3, 0.3))
+		monstres.erase(_break_boss)
+		_break_boss.queue_free()
+		_break_boss = null
 	_arise_t -= dt
 	if Partie.opts["arise"] and _arise_t <= 0.0 and monstre_eveillable():
 		_arise_t = 1.2

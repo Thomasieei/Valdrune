@@ -401,7 +401,61 @@ const COMPETENCES := {
 	"esquive": {"nom": "ESQUIVE", "icone": "q_run", "cd": 4.0, "mana": 8.0},
 	"brise": {"nom": "BRISE-GARDE", "icone": "tk_crush", "cd": 10.0, "mana": 20.0},
 	"cri": {"nom": "CRI", "icone": "ombres", "cd": 25.0, "mana": 30.0},
+	"domaine": {"nom": "DOMAINE", "icone": "arise", "cd": 1.0, "mana": 0.0},
 }
+const DUREE_DOMAINE := 10.0
+var charge := 0.0
+var domaine_fin := -1.0
+
+func domaine_actif() -> bool:
+	return _t < domaine_fin
+
+func charger_domaine(v: float) -> void:
+	charge = minf(100.0, charge + v)
+
+# ---------- Journal du Système
+signal systeme(titre: String, lignes: Array)
+const QUETE_JOUR := {"kills": ["Monstres vaincus", 100], "ombres": ["Ombres levées", 10], "donjons": ["Donjon terminé", 1]}
+var quete := {"date": "", "kills": 0, "ombres": 0, "donjons": 0, "faite": false}
+var points_bonus := 0
+var secretes := {}
+var penalite_due := false
+var kills_total := 0
+
+func _aujourdhui() -> String:
+	return Time.get_date_string_from_system()
+
+func verifier_jour() -> void:
+	var a := _aujourdhui()
+	if quete["date"] == a:
+		return
+	if quete["date"] != "" and not quete["faite"]:
+		penalite_due = true
+	quete = {"date": a, "kills": 0, "ombres": 0, "donjons": 0, "faite": false}
+
+func progres(k: String, n := 1) -> void:
+	verifier_jour()
+	quete[k] = int(quete[k]) + n
+	if k == "kills":
+		kills_total += n
+		if kills_total >= 500:
+			secrete("infatigable", "Chasseur infatigable", "500 monstres vaincus.", 2)
+	if not quete["faite"] and QUETE_JOUR.keys().all(func (q): return int(quete[q]) >= int(QUETE_JOUR[q][1])):
+		quete["faite"] = true
+		points_bonus += 3
+		pieces += 500 * niveau
+		donner_cle()
+		systeme.emit("QUÊTE QUOTIDIENNE ACCOMPLIE", ["Préparation pour devenir fort : terminée.", "Récompenses : +3 points de compétence,", "+%s pièces, +1 clé du château rouge." % str(500 * niveau)])
+		sauver()
+
+func secrete(id: String, nom: String, texte: String, pts: int) -> void:
+	if secretes.has(id):
+		return
+	secretes[id] = true
+	points_bonus += pts
+	systeme.emit("[ QUÊTE CACHÉE ACCOMPLIE ]", ["« %s »" % nom, texte, "Récompense : +%d points de compétence." % pts])
+	sauver()
+
 const DUREE_CRI := 8.0
 
 func temps() -> float:
@@ -422,6 +476,7 @@ func _ready() -> void:
 	charger()
 	if chasseurs.size() != NOMS_CHASSEURS.size():
 		_creer_chasseurs()
+	verifier_jour()
 	if inventaire.is_empty():
 		var d := ajouter_objet("dague", 0, false)
 		equipe["arme"] = d["uid"]
@@ -613,7 +668,7 @@ func dps_ombre(o: Dictionary) -> float:
 	var k := 0.12
 	if e.get("lieu", "") == "evenement":
 		k = 0.2
-	return float(e["pv"]) / temps * k * pow(1.35, int(o["etoiles"])) * (1.0 + bonus("ombres") / 100.0) * vit_ombre() * (1.3 if cri_actif() else 1.0) * mult_rang()
+	return float(e["pv"]) / temps * k * pow(1.35, int(o["etoiles"])) * (1.0 + bonus("ombres") / 100.0) * vit_ombre() * (1.3 if cri_actif() else 1.0) * mult_rang() * (3.0 if domaine_actif() else 1.0)
 
 func rang_ombre(o: Dictionary) -> int:
 	var e: Dictionary = ESPECES[o["espece"]]
@@ -701,7 +756,7 @@ func points_libres() -> int:
 	var u := 0
 	for k in points:
 		u += points[k]
-	return (niveau - 1) * POINTS_PAR_NIVEAU - u
+	return (niveau - 1) * POINTS_PAR_NIVEAU + points_bonus - u
 
 func depenser_point(k: String, n := 1) -> void:
 	n = mini(n, points_libres())
@@ -745,6 +800,10 @@ func gagner(espece: String, elite := false, mult := 1.0) -> int:
 	pieces += gain
 	or_total += gain
 	tues[espece] = int(tues.get(espece, 0)) + 1
+	progres("kills")
+	charger_domaine(10.0 if e.get("boss", false) else 3.0)
+	if verdict(espece, elite, mult)["possible"] == false and e.get("lieu", "") == "":
+		secrete("sans_peur", "Sans peur", "Tu as vaincu un monstre « Trop fort ».", 1)
 	xp += int(round(st["xp"] * (1.0 + bonus("xp") / 100.0) * mult_prog() * mult_rang()))
 	while xp >= xp_requise():
 		xp -= xp_requise()
@@ -875,6 +934,9 @@ func eveiller(espece: String) -> Dictionary:
 	_uid += 1
 	ombres.append(o)
 	arises[espece] = int(arises.get(espece, 0)) + 1
+	progres("ombres")
+	if ombres.size() >= 20:
+		secrete("maitre", "Maître des ombres", "20 ombres sous tes ordres.", 2)
 	_verifier_quete(espece)
 	fusion_globale()
 	change.emit()
@@ -967,7 +1029,8 @@ func sauver() -> void:
 			"boutique": achats_boutique, "auto": auto_ombres, "pv": pv, "mana": mana,
 			"auto_attaque": auto_attaque, "records": records, "finis": donjons_finis,
 			"chasseurs": chasseurs, "elo": elo, "jetons": jetons, "arene_v": arene_v, "arene_d": arene_d,
-			"quitte": Time.get_unix_time_from_system(), "rang_chasseur": rang_chasseur, "or_total": or_total, "opts": opts, "cles": cles, "etage_max": etage_max}))
+			"quitte": Time.get_unix_time_from_system(), "rang_chasseur": rang_chasseur, "or_total": or_total, "opts": opts, "cles": cles, "etage_max": etage_max,
+			"quete": quete, "pts_bonus": points_bonus, "secretes": secretes, "kills_total": kills_total}))
 
 func charger() -> void:
 	if OS.get_cmdline_user_args().has("--sans-sauvegarde") or not FileAccess.file_exists(CHEMIN):
@@ -1004,6 +1067,10 @@ func charger() -> void:
 	chasseurs = d.get("chasseurs", [])
 	rang_chasseur = int(d.get("rang_chasseur", 0))
 	cles = int(d.get("cles", 0))
+	quete = d.get("quete", quete)
+	points_bonus = int(d.get("pts_bonus", 0))
+	secretes = d.get("secretes", {})
+	kills_total = int(d.get("kills_total", 0))
 	etage_max = int(d.get("etage_max", 0))
 	for k in opts:
 		opts[k] = bool(d.get("opts", {}).get(k, opts[k]))

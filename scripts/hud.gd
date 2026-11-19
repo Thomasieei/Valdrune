@@ -17,6 +17,46 @@ var _b_eveil: Control
 var _b_comp := {}
 var _barre := {}
 var _flash: ColorRect
+var _voile: ColorRect
+var _sys: Panel
+
+func domaine(duree: float) -> void:
+	annonce("DOMAINE DU MONARQUE", "Tes ombres frappent ×3 pendant %d s" % int(duree), Color(0.75, 0.45, 1.0))
+	var tw := _voile.create_tween()
+	tw.tween_property(_voile, "color:a", 0.35, 0.4)
+	tw.tween_interval(duree - 0.8)
+	tw.tween_property(_voile, "color:a", 0.0, 0.4)
+
+func systeme(titre: String, lignes: Array) -> void:
+	if _sys:
+		_sys.queue_free()
+	_sys = Panel.new()
+	_sys.add_theme_stylebox_override("panel", Ui.boite(Color(0.02, 0.06, 0.16, 0.95), Color(0.35, 0.75, 1.0), 3, 6))
+	_sys.size = Vector2(620, 110 + lignes.size() * 32)
+	_sys.position = (_taille - _sys.size) / 2.0 - Vector2(0, 60)
+	var t := Ui.label(titre, 28, Color(0.55, 0.9, 1.0), 8)
+	t.size = Vector2(620, 40)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	t.position = Vector2(0, 16)
+	_sys.add_child(t)
+	for k in lignes.size():
+		var l := Ui.label(lignes[k], 20, Color(0.85, 0.92, 1.0), 5)
+		l.size = Vector2(620, 30)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.position = Vector2(0, 66 + k * 32)
+		_sys.add_child(l)
+	_sys.mouse_filter = Control.MOUSE_FILTER_STOP
+	_racine.add_child(_sys)
+	_sys.modulate.a = 0.0
+	_sys.scale = Vector2(1, 0.1)
+	_sys.pivot_offset = _sys.size / 2.0
+	var tw := _sys.create_tween()
+	tw.tween_property(_sys, "modulate:a", 1.0, 0.15)
+	tw.parallel().tween_property(_sys, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK)
+	tw.tween_interval(5.0)
+	tw.tween_property(_sys, "modulate:a", 0.0, 0.4)
+	tw.tween_callback(_sys.queue_free)
+	Fx.son("open", -2.0, 1.3)
 var _flash_msg_t := 0.0
 const BARRE := [["arise", "ARISE", "arise"], ["fureur", "ATTAQUE", "attack"], ["auto", "OMBRES", "cmd_attack"],
 	["rappel", "RAPPEL", "essence"], ["potion", "POTION", "role_heal"], ["equip", "ÉQUIPE", "items"]]
@@ -121,7 +161,7 @@ func _ready() -> void:
 	_droite.size = Vector2(330, 300)
 	_droite.draw.connect(_dessiner_droite)
 	_racine.add_child(_droite)
-	for d in [["inventaire", "Inventaire", "sac"], ["ombres", "Ombres", "ombres"], ["stats", "Compétences", "q_skills"], ["index", "Index", "q_kills"], ["boutique", "Boutique", "potion"], ["classement", "Classement", "best"]]:
+	for d in [["inventaire", "Inventaire", "sac"], ["ombres", "Ombres", "ombres"], ["stats", "Compétences", "q_skills"], ["index", "Index", "q_kills"], ["boutique", "Boutique", "potion"], ["classement", "Classement", "best"], ["journal", "Journal", "quest"]]:
 		var h := Ui.hexagone(d[1], d[2], 96.0)
 		var type: String = d[0]
 		h.pressed.connect(func (): ouvrir(type))
@@ -137,6 +177,11 @@ func _ready() -> void:
 		var bb := _rond(b[1], b[2], 76.0, Color(0.1, 0.16, 0.38))
 		bb.set_meta("on", false)
 		_barre[b[0]] = bb
+	_voile = ColorRect.new()
+	_voile.color = Color(0.25, 0.0, 0.45, 0.0)
+	_voile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_voile.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_racine.add_child(_voile)
 	_flash = ColorRect.new()
 	_flash.color = Color(1.0, 0.05, 0.05, 0.0)
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -144,7 +189,7 @@ func _ready() -> void:
 	_racine.add_child(_flash)
 	for k in Partie.COMPETENCES:
 		var d: Dictionary = Partie.COMPETENCES[k]
-		_b_comp[k] = _rond(d["nom"], d["icone"], 104.0, {"esquive": Color(0.1, 0.5, 0.45), "brise": Color(0.15, 0.4, 0.75), "cri": Color(0.4, 0.15, 0.7)}[k])
+		_b_comp[k] = _rond(d["nom"], d["icone"], 104.0, {"esquive": Color(0.1, 0.5, 0.45), "brise": Color(0.15, 0.4, 0.75), "cri": Color(0.4, 0.15, 0.7), "domaine": Color(0.3, 0.05, 0.5)}[k])
 	_cadre = Control.new()
 	_cadre.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_cadre.size = Vector2(560, 118)
@@ -267,6 +312,7 @@ func _disposer() -> void:
 	_b_comp["esquive"].position = Vector2(w - 330, h - 118)
 	_b_comp["brise"].position = Vector2(w - 318, h - 250)
 	_b_comp["cri"].position = Vector2(w - 196, h - 318)
+	_b_comp["domaine"].position = Vector2(w - 330, h - 380)
 	_haut.position = Vector2(16, 10)
 	_droite.position = Vector2(w - 340, 120)
 	_evt.position = Vector2(w - 340, 68)
@@ -280,7 +326,7 @@ func _disposer() -> void:
 		lb.position = Vector2(0, 0 if n == "Titre" else 70)
 
 	var o := Vector2(20, 150)
-	var pos := {"inventaire": o, "ombres": o + Vector2(86, 50), "stats": o + Vector2(0, 100), "index": o + Vector2(86, 150), "boutique": o + Vector2(0, 200), "classement": o + Vector2(86, 250)}
+	var pos := {"inventaire": o, "ombres": o + Vector2(86, 50), "stats": o + Vector2(0, 100), "index": o + Vector2(86, 150), "boutique": o + Vector2(0, 200), "classement": o + Vector2(86, 250), "journal": o + Vector2(0, 300)}
 	for k in _hex:
 		_hex[k].position = pos[k]
 	_msg.position = Vector2(w / 2.0 - 450, h * 0.62)
@@ -472,6 +518,13 @@ func _process(dt: float) -> void:
 	for k in _b_comp:
 		var bc: Control = _b_comp[k]
 		var rc: float = ville.joueur.recharges[k]
+		if k == "domaine":
+			bc.set_meta("cd", 0.0)
+			bc.set_meta("texte", "ACTIF" if Partie.domaine_actif() else ("PRÊT !" if Partie.charge >= 100.0 else "%d %%" % int(Partie.charge)))
+			bc.set_meta("pauvre", Partie.charge < 100.0 and not Partie.domaine_actif())
+			bc.set_meta("pulse", 0.5 + 0.5 * sin(Time.get_ticks_msec() / 140.0) if Partie.charge >= 100.0 else 0.0)
+			bc.queue_redraw()
+			continue
 		bc.set_meta("cd", rc / float(Partie.COMPETENCES[k]["cd"]))
 		bc.set_meta("cds", rc)
 		bc.set_meta("pauvre", Partie.mana < float(Partie.COMPETENCES[k]["mana"]))
@@ -649,6 +702,9 @@ func _construire() -> void:
 		"classement":
 			_panneau = Ui.panneau("Classement des chasseurs", "best", Vector2(980, 610), fermer)
 			_classement()
+		"journal":
+			_panneau = Ui.panneau("Journal du Système", "quest", Vector2(760, 560), fermer)
+			_journal()
 		"chateau":
 			_panneau = Ui.panneau("Château rouge", "tele", Vector2(900, 610), fermer)
 			_chateau_panneau()
@@ -1721,3 +1777,22 @@ func _chateau_panneau() -> void:
 		fermer()
 		ville.entrer_chateau())
 	_ajouter(e, Vector2(36, 520))
+
+
+func _journal() -> void:
+	Partie.verifier_jour()
+	_ajouter(Ui.label("QUÊTE QUOTIDIENNE — Préparation pour devenir fort", 22, Color(0.55, 0.9, 1.0), 7), Vector2(36, 82))
+	var y := 124.0
+	for k in Partie.QUETE_JOUR:
+		var q: Array = Partie.QUETE_JOUR[k]
+		var v := mini(int(Partie.quete[k]), int(q[1]))
+		var ok := v >= int(q[1])
+		_ajouter(Ui.label("%s  %s : %d / %d" % ["✔" if ok else "•", q[0], v, q[1]], 22, Color(0.45, 1.0, 0.55) if ok else Color(0.9, 0.92, 1.0), 6), Vector2(50, y))
+		y += 38.0
+	_ajouter(Ui.label("ACCOMPLIE — récompenses reçues" if Partie.quete["faite"] else "Récompense : +3 points, pièces, 1 clé  ·  Échec : zone de pénalité", 16, Color(1.0, 0.8, 0.4), 4), Vector2(50, y + 4))
+	_ajouter(Ui.label("QUÊTES CACHÉES", 22, Color(0.75, 0.55, 1.0), 7), Vector2(36, y + 50))
+	y += 90.0
+	for id in ["infatigable", "sans_peur", "maitre"]:
+		var nom: String = {"infatigable": "Chasseur infatigable", "sans_peur": "Sans peur", "maitre": "Maître des ombres"}[id]
+		_ajouter(Ui.label(("✔ " + nom) if Partie.secretes.has(id) else "???  (quête cachée non découverte)", 19, Color(0.45, 1.0, 0.55) if Partie.secretes.has(id) else Color(0.6, 0.6, 0.75), 5), Vector2(50, y))
+		y += 32.0
