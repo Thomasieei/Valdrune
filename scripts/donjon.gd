@@ -68,13 +68,7 @@ var th: Dictionary
 var SALLES: Array
 var NOMS_SALLES: Array
 var DUREE := 270.0
-	[["gobelin", -4.5, 1.0, false], ["gobelin", 4.5, 1.0, false], ["gobelin", -2.0, 5.5, false], ["gobelin", 2.5, 5.5, false]],
-	[["puglin", -5.0, 2.0, false], ["puglin", 5.0, 2.0, false], ["puglin", 0.0, 6.5, false], ["gobelin", 0.0, 1.0, true]],
-	[["gobelin_chef", -4.0, 4.0, false], ["gobelin_chef", 4.0, 4.0, false], ["gobelin", -6.5, 0.0, false], ["gobelin", 6.5, 0.0, false]],
-	[["puglin", -5.5, 0.5, false], ["puglin", 5.5, 0.5, false], ["puglin", -2.5, 6.0, false], ["puglin", 2.5, 6.0, true]],
-	[["puglin_brute", -4.0, 3.0, false], ["puglin_brute", 4.0, 3.0, false], ["gobelin_chef", 0.0, 6.5, true]],
-	[["roi_gobelin", 0.0, 4.0, false]],
-]
+
 var ville: Node
 var salle := 0
 var temps := DUREE
