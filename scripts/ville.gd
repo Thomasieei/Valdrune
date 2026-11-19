@@ -706,6 +706,8 @@ func entrer_test() -> void:
 	donjon.demarrer()
 	_musique("dungeon")
 	await hud.fondu(false)
+	if donjon == null:
+		return
 	hud.annonce("TEST DE RANG %s" % Partie.RANGS[donjon.test_rang], "10 salles · %d minutes · ne flanche pas" % (int(Partie.DUREE_TEST) / 60), Color(1.0, 0.75, 0.3))
 
 func entrer_donjon(n := 0, groupe := false) -> void:
@@ -745,6 +747,8 @@ func entrer_donjon(n := 0, groupe := false) -> void:
 	donjon.demarrer()
 	_musique("dungeon")
 	await hud.fondu(false)
+	if donjon == null:
+		return
 	hud.annonce("DONJON DE RANG %s" % Partie.RANGS[n], "%s  ·  Salle 1 / 6 : %s" % [donjon.cfg["nom"], donjon.NOMS_SALLES[0]], Color(0.7, 0.5, 1.0))
 
 func _fin_donjon(victoire: bool) -> void:
