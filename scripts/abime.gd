@@ -79,7 +79,7 @@ func _suivant() -> void:
 		var L: float = TAILLES[genre]
 		var c := Vector3(ORIGINE.x, 0, z + L / 2.0)
 		_boite(_decor, Vector3(L, 0.4, L), c + Vector3(0, -0.2, 0), sol)
-		var hm := [3.0, 1.0, 6.0, 2.0][style]
+		var hm: float = [3.0, 1.0, 6.0, 2.0][style]
 		for cote in [-1.0, 1.0]:
 			_boite(_decor, Vector3(1, hm, L), c + Vector3(cote * (L / 2.0 + 0.5), hm / 2.0, 0), mur)
 		match style:
