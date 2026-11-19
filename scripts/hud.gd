@@ -161,7 +161,7 @@ func _ready() -> void:
 	_droite.size = Vector2(330, 300)
 	_droite.draw.connect(_dessiner_droite)
 	_racine.add_child(_droite)
-	for d in [["inventaire", "Inventaire", "sac"], ["ombres", "Ombres", "ombres"], ["stats", "Compétences", "q_skills"], ["index", "Index", "q_kills"], ["boutique", "Boutique", "potion"], ["classement", "Classement", "best"], ["journal", "Journal", "quest"]]:
+	for d in [["inventaire", "Inventaire", "sac"], ["ombres", "Ombres", "ombres"], ["stats", "Compétences", "q_skills"], ["index", "Index", "q_kills"], ["boutique", "Boutique", "potion"], ["classement", "Classement", "best"], ["journal", "Journal", "quest"], ["grimoire", "Anos", "grimoire"]]:
 		var h := Ui.hexagone(d[1], d[2], 96.0)
 		var type: String = d[0]
 		h.pressed.connect(func (): ouvrir(type))
@@ -326,7 +326,7 @@ func _disposer() -> void:
 		lb.position = Vector2(0, 0 if n == "Titre" else 70)
 
 	var o := Vector2(20, 150)
-	var pos := {"inventaire": o, "ombres": o + Vector2(86, 50), "stats": o + Vector2(0, 100), "index": o + Vector2(86, 150), "boutique": o + Vector2(0, 200), "classement": o + Vector2(86, 250), "journal": o + Vector2(0, 300)}
+	var pos := {"inventaire": o, "ombres": o + Vector2(86, 50), "stats": o + Vector2(0, 100), "index": o + Vector2(86, 150), "boutique": o + Vector2(0, 200), "classement": o + Vector2(86, 250), "journal": o + Vector2(0, 300), "grimoire": o + Vector2(86, 350)}
 	for k in _hex:
 		_hex[k].position = pos[k]
 	_msg.position = Vector2(w / 2.0 - 450, h * 0.62)
@@ -530,6 +530,7 @@ func _process(dt: float) -> void:
 		bc.set_meta("pauvre", Partie.mana < float(Partie.COMPETENCES[k]["mana"]))
 		bc.queue_redraw()
 	_flash_msg_t -= dt
+	_hex["grimoire"].visible = Partie.createur
 	for k in _barre:
 		var on := _barre_on(k)
 		if _barre[k].get_meta("on") != on:
@@ -705,6 +706,9 @@ func _construire() -> void:
 		"journal":
 			_panneau = Ui.panneau("Journal du Système", "quest", Vector2(760, 560), fermer)
 			_journal()
+		"grimoire":
+			_panneau = Ui.panneau("Bibliothèque d'Anos", "grimoire", Vector2(900, 640), fermer)
+			_grimoire()
 		"chateau":
 			_panneau = Ui.panneau("Château rouge", "tele", Vector2(900, 610), fermer)
 			_chateau_panneau()
@@ -1251,7 +1255,7 @@ func _sur_interface(p: Vector2) -> bool:
 	if _panneau and _panneau.get_global_rect().has_point(p):
 		return true
 	for k in _hex:
-		if _hex[k].get_global_rect().has_point(p):
+		if _hex[k].visible and _hex[k].get_global_rect().has_point(p):
 			return true
 	for c in [_evt, _quitter]:
 		if c.visible and c.get_global_rect().has_point(p):
@@ -1796,3 +1800,43 @@ func _journal() -> void:
 		var nom: String = {"infatigable": "Chasseur infatigable", "sans_peur": "Sans peur", "maitre": "Maître des ombres"}[id]
 		_ajouter(Ui.label(("✔ " + nom) if Partie.secretes.has(id) else "???  (quête cachée non découverte)", 19, Color(0.45, 1.0, 0.55) if Partie.secretes.has(id) else Color(0.6, 0.6, 0.75), 5), Vector2(50, y))
 		y += 32.0
+	var b := Ui.bouton("MODE CRÉATEUR : ANOS  (%s)" % ("ON" if Partie.createur else "OFF"), Color(0.6, 0.05, 0.1) if Partie.createur else Color(0.25, 0.08, 0.12), Vector2(420, 54), 19)
+	b.pressed.connect(func ():
+		ville.basculer_createur()
+		_construire())
+	_ajouter(b, Vector2(36, 490))
+
+
+func _grimoire() -> void:
+	_ajouter(Ui.label("Invincible · dégâts ×1000 · mana infini. Touche un sort pour le lancer.", 17, Color(1.0, 0.55, 0.55), 5), Vector2(36, 80))
+	var sc := ScrollContainer.new()
+	sc.size = Vector2(840, 520)
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.scroll_deadzone = 14
+	_ajouter(sc, Vector2(30, 112))
+	var zone := Control.new()
+	var sorts: Array = ville.grimoire()
+	zone.custom_minimum_size = Vector2(830, sorts.size() * 84.0)
+	sc.add_child(zone)
+	var y := 0.0
+	for s in sorts:
+		var ligne := Panel.new()
+		ligne.mouse_filter = Control.MOUSE_FILTER_PASS
+		ligne.add_theme_stylebox_override("panel", Ui.boite(Color(0.1, 0.02, 0.04), Color(0.85, 0.1, 0.18), 2, 8))
+		ligne.size = Vector2(820, 76)
+		ligne.position = Vector2(0, y)
+		zone.add_child(ligne)
+		var t := Ui.label(s[1], 22, Color(1.0, 0.45, 0.45), 7)
+		t.position = Vector2(16, 6)
+		ligne.add_child(t)
+		var d := Ui.label(s[2], 15, Color(0.9, 0.8, 0.85), 4)
+		d.position = Vector2(16, 42)
+		ligne.add_child(d)
+		var bt := Ui.bouton("LANCER", Color(0.6, 0.05, 0.1), Vector2(130, 52), 19)
+		var id: String = s[0]
+		bt.pressed.connect(func ():
+			fermer()
+			ville.sort_anos(id))
+		bt.position = Vector2(676, 12)
+		ligne.add_child(bt)
+		y += 84.0

@@ -360,7 +360,7 @@ func classement(par: String) -> Array:
 	var l := []
 	for c in chasseurs:
 		l.append({"nom": c["nom"], "rang": int(c["rang"]), "niveau": int(c["niveau"]), "puissance": bot_dps(c), "or": int(c["or_total"]), "etat": c.get("etat", "ville")})
-	l.append({"nom": "Toi", "rang": rang_chasseur, "niveau": niveau, "puissance": dps_total(), "or": or_total, "moi": true, "etat": "ville"})
+	l.append({"nom": "Toi (Anos)" if createur else "Toi", "rang": rang_chasseur, "niveau": niveau, "puissance": dps_total(), "or": or_total, "moi": true, "etat": "ville"})
 	l.sort_custom(func (a, b): return float(a[par]) > float(b[par]))
 	return l
 
@@ -405,6 +405,7 @@ const COMPETENCES := {
 }
 const DUREE_DOMAINE := 10.0
 var charge := 0.0
+var createur := false
 var domaine_fin := -1.0
 
 func domaine_actif() -> bool:
@@ -485,6 +486,9 @@ func _process(dt: float) -> void:
 	_t += dt
 	pv = minf(pv_max(), pv + pv_max() * 0.015 * dt)
 	mana = minf(mana_max(), mana + regen_mana() * dt)
+	if createur:
+		mana = mana_max()
+		pv = pv_max()
 	_potion_t -= dt
 	if opts["potion"] and _potion_t <= 0.0 and pv < pv_max() * 0.3 and pieces >= cout_potion():
 		_potion_t = 15.0
@@ -660,7 +664,7 @@ func bonus_niveau() -> float:
 func dps_joueur() -> float:
 	var a := arme()
 	var base_dps := valeur(a) if not a.is_empty() else 8.0
-	return base_dps * (1.0 + bonus("arme") / 100.0) * bonus_niveau() * mult_rang()
+	return base_dps * (1.0 + bonus("arme") / 100.0) * bonus_niveau() * mult_rang() * (1000.0 if createur else 1.0)
 
 func dps_ombre(o: Dictionary) -> float:
 	var e: Dictionary = ESPECES[o["espece"]]
@@ -668,7 +672,7 @@ func dps_ombre(o: Dictionary) -> float:
 	var k := 0.12
 	if e.get("lieu", "") == "evenement":
 		k = 0.2
-	return float(e["pv"]) / temps * k * pow(1.35, int(o["etoiles"])) * (1.0 + bonus("ombres") / 100.0) * vit_ombre() * (1.3 if cri_actif() else 1.0) * mult_rang() * (3.0 if domaine_actif() else 1.0)
+	return float(e["pv"]) / temps * k * pow(1.35, int(o["etoiles"])) * (1.0 + bonus("ombres") / 100.0) * vit_ombre() * (1.3 if cri_actif() else 1.0) * mult_rang() * (3.0 if domaine_actif() else 1.0) * (1000.0 if createur else 1.0)
 
 func rang_ombre(o: Dictionary) -> int:
 	var e: Dictionary = ESPECES[o["espece"]]
@@ -703,7 +707,7 @@ func atk_monstre(espece: String, elite := false) -> float:
 	return ATK_RANG[r] * (1.6 if elite else 1.0)
 
 func blesser(d: float) -> bool:
-	if pv <= 0.0:
+	if pv <= 0.0 or createur:
 		return false
 	pv = maxf(0.0, pv - d)
 	return pv <= 0.0

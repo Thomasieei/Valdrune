@@ -270,6 +270,29 @@ func competence(k: String) -> String:
 			Fx.texte(global_position + Vector3(0, 2.8, 0), "CRI DU MONARQUE", Color(0.8, 0.55, 1.0), 1.5, 1.4)
 	return ""
 
+var _aura_anos: Array = []
+
+func aura_anos(on: bool) -> void:
+	for n in _aura_anos:
+		if is_instance_valid(n):
+			n.queue_free()
+	_aura_anos.clear()
+	for mi in _corps.find_children("*", "MeshInstance3D", true, false):
+		(mi as MeshInstance3D).material_overlay = Shaders.halo(Color(0.9, 0.05, 0.12), 2.6) if on else null
+	if on:
+		var l := OmniLight3D.new()
+		l.light_color = Color(1.0, 0.1, 0.15)
+		l.light_energy = 2.5
+		l.omni_range = 6.0
+		l.position = Vector3(0, 1.4, 0)
+		add_child(l)
+		_aura_anos.append(l)
+		var p := _etincelles(Color(1.0, 0.15, 0.2))
+		p.amount = 40
+		p.position = Vector3(0, 1.0, 0)
+		add_child(p)
+		_aura_anos.append(p)
+
 func _brise_differe(cc: Monstre) -> void:
 	await get_tree().create_timer(0.3).timeout
 	if is_instance_valid(cc) and not cc.mort:

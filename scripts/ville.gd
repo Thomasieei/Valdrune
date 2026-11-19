@@ -379,6 +379,112 @@ func _penalite() -> void:
 		m.chrono = 0.0
 		monstres.append(m)
 
+const GRIMOIRE := [
+	["flammes", "Flammes noires de destruction", "Réduit en cendres tout monstre à 25 m."],
+	["gravite", "Gravité du Roi démon", "Écrase et paralyse tout à 35 m pendant 8 s."],
+	["lance", "Lance de l'abîme", "Anéantit ta cible, quelles que soient ses protections."],
+	["legion", "Légion des morts", "Lève en ombres tous les monstres tombés autour de toi."],
+	["resurrection", "Résurrection", "Ramène toutes tes ombres, PV et mana au maximum."],
+	["temps", "Inversion du temps", "Les monstres morts de la zone reviennent à la vie."],
+	["domaine", "Domaine du Roi démon", "Domaine du Monarque instantané (ombres ×3)."],
+	["fortune", "Trésor du château démoniaque", "+1 M pièces, 50 clés, 100 de chaque monnaie."],
+	["ascension", "Ascension", "+10 niveaux et un rang de chasseur."],
+	["saut", "Saut dimensionnel", "Téléportation devant le château rouge."],
+	["etages", "Effondrement du château", "Au château : saute 10 étages d'un coup."],
+]
+
+func grimoire() -> Array:
+	return GRIMOIRE
+
+func basculer_createur() -> void:
+	Partie.createur = not Partie.createur
+	joueur.aura_anos(Partie.createur)
+	if Partie.createur:
+		Fx.anneau(joueur.global_position, Color(0.9, 0.05, 0.12), 10.0)
+		Fx.son("portal", 0.0, 0.5)
+		hud.annonce("ANOS", "Le Roi démon s'éveille — mode créateur activé", Color(1.0, 0.15, 0.2))
+	else:
+		hud.annonce("MODE CRÉATEUR DÉSACTIVÉ", "Retour au chasseur normal", Color(0.7, 0.75, 0.9))
+	Partie.change.emit()
+
+func _abattre(m: Monstre) -> void:
+	if m.mort:
+		return
+	m._dernier = "joueur"
+	m.pv = 0.0
+	m._mourir()
+
+func sort_anos(id: String) -> void:
+	var p := joueur.global_position
+	Fx.son("slam", 0.0, 0.6)
+	match id:
+		"flammes":
+			Fx.anneau(p, Color(0.08, 0.0, 0.1), 25.0)
+			Fx.anneau(p, Color(0.6, 0.0, 0.1), 18.0)
+			for m in monstres.duplicate():
+				if is_instance_valid(m) and m.global_position.distance_to(p) < 25.0:
+					Fx.anneau(m.global_position, Color(0.1, 0.0, 0.1), 2.5)
+					_abattre(m)
+		"gravite":
+			Fx.anneau(p, Color(0.3, 0.1, 0.6), 35.0)
+			for m in monstres:
+				if is_instance_valid(m) and not m.mort and m.global_position.distance_to(p) < 35.0:
+					m._etourdi = 8.0
+					m._parade = 0.0
+					m.frapper(m.pv_max * 0.3, true, "evenement")
+		"lance":
+			var c := joueur.cible if joueur.cible and is_instance_valid(joueur.cible) else joueur.cible_devant(monstres, 40.0)
+			if c:
+				Fx.anneau(c.global_position, Color(0.05, 0.0, 0.08), 5.0)
+				_abattre(c)
+		"legion":
+			var n := 0
+			for m in monstres:
+				if is_instance_valid(m) and m.eveillable and m.global_position.distance_to(p) < 35.0:
+					Partie.force_eveil = true
+					Partie.eveiller(m.espece)
+					Partie.force_eveil = false
+					m.eveil_reussi()
+					n += 1
+			hud.dire("%d ombre%s levée%s" % [n, "s" if n > 1 else "", "s" if n > 1 else ""], Color(0.8, 0.6, 1.0))
+		"resurrection":
+			for o in ombres:
+				if o.mort:
+					o._revenir()
+			Partie.pv = Partie.pv_max()
+			Partie.mana = Partie.mana_max()
+		"temps":
+			Fx.anneau(p, Color(0.4, 0.8, 1.0), 30.0)
+			for m in monstres:
+				if is_instance_valid(m) and m.mort and m.reapparait_auto and m.global_position.distance_to(p) < 40.0:
+					m._renaitre()
+		"domaine":
+			Partie.charge = 100.0
+			joueur.competence("domaine")
+		"fortune":
+			Partie.pieces += 1000000
+			Partie.or_total += 1000000
+			Partie.cles += 50
+			for k in Partie.monnaies:
+				Partie.monnaies[k] = int(Partie.monnaies[k]) + 100
+		"ascension":
+			for k in 10:
+				Partie.xp += Partie.xp_requise()
+				Partie.niveau += 1
+				Partie.xp -= Partie.xp_requise()
+			Partie.rang_chasseur = mini(Partie.rang_chasseur + 1, 4)
+		"saut":
+			if donjon == null and chateau == null and arene == null:
+				_teleporter(PORTAIL_ROUGE + Vector3(5.0, 0.3, 0.0), -PI / 2.0)
+		"etages":
+			if chateau:
+				chateau.etage += 9
+				for m in chateau._vague:
+					if is_instance_valid(m):
+						_abattre(m)
+	Partie.sauver()
+	Partie.change.emit()
+
 func entrer_chateau() -> void:
 	if donjon or arene or chateau or Partie.cles <= 0:
 		return
