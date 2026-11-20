@@ -248,6 +248,8 @@ func _atelier_animation(legion := false) -> void:
 			frames_contacts += 1 if proches > 0 else 0
 			min_combat = minf(min_combat, minimum)
 			total_echantillons += 1
+			if minimum < 0.8:
+				print("[LEGION][COLLISION] frame=", frame, " min=", snappedf(minimum, 0.01), " pairs=", proches)
 		if frame in [9, 23, 35, 49, 66]:
 			print("[ATELIER][ETAT] phase=", frame, " joueur=", j._ap.current_animation if j._ap else "absent", " ombres=", v.ombres.map(func (o): return o._ap.current_animation if o._ap else "absent"))
 			if legion:

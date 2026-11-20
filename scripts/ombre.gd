@@ -182,6 +182,12 @@ func _process(dt: float) -> void:
 			var marche := d < 1.8 or vit < 4.2
 			Modele.jouer(_ap, "Walk" if marche else "Run", clampf(vit / 7.0, 0.75, 1.45), 0.16)
 
+	# Pare-chocs visuel : le steering amorti peut encore autoriser un
+	# croisement a tres courte distance. On corrige la position finale,
+	# sans aucun collider ou force physique et sans modifier les degats.
+	if attaque or _en_deplacement:
+		global_position = _separer_voisins(global_position)
+
 	if attaque and not _comp.is_empty():
 		_comp_t -= dt
 		if _comp_t <= 0.0:
@@ -267,6 +273,39 @@ func _maj_evitement(dt: float) -> void:
 	# Le filtrage empeche les changements de cap d'une image a l'autre.
 	_evitement = _evitement.lerp(force.limit_length(1.0), 0.72)
 
+
+# Deux petites passes uniquement pres des autres ombres actives.
+# Evite notamment que deux unites traversent la meme position a basse FPS.
+func _separer_voisins(proposition: Vector3) -> Vector3:
+	var monde := joueur.get_parent()
+	if monde == null:
+		return proposition
+	var p := proposition
+	for passe in 2:
+		var corrige := false
+		for o: Ombre in monde.ombres:
+			if o == self or o.rangee or o.mort:
+				continue
+			var diff := p - o.global_position
+			diff.y = 0.0
+			var espace := maxf(0.93, (_rayon_perso + o._rayon_perso) * 0.73)
+			var sq := diff.length_squared()
+			if sq >= espace * espace:
+				continue
+			var direction: Vector3
+			var distance: float
+			if sq < 0.0004:
+				var angle := float(place - o.place) * 2.39996323
+				direction = Vector3(cos(angle), 0.0, sin(angle))
+				distance = 0.0
+			else:
+				distance = sqrt(sq)
+				direction = diff / distance
+			p += direction * (espace - distance)
+			corrige = true
+		if not corrige:
+			break
+	return p
 
 func _a_portee(m: Monstre) -> bool:
 	if m == null or not is_instance_valid(m) or m.mort or m.allie:
