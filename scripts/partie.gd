@@ -37,6 +37,8 @@ const ESPECES := {
 	"diablotin": {"nom": "Diablotin des marais", "modele": "imp", "peau": "T_Imp_BaseColor_2", "haut": 1.9, "rang": 2, "pv": 60000, "temps": 30.0, "pieces": 420, "xp": 260, "eveil": 0.06, "icone": "sh_imp", "monnaie": "eclat"},
 	"orc_guerrier": {"nom": "Seigneur orc", "modele": "orc_warrior", "haut": 2.5, "rang": 3, "pv": 260000, "temps": 35.0, "pieces": 1100, "xp": 560, "eveil": 0.035, "icone": "sh_orc_warrior", "monnaie": "insigne"},
 	"demon": {"nom": "Démon écarlate", "modele": "imp", "haut": 2.6, "rang": 3, "pv": 650000, "temps": 38.0, "pieces": 2300, "xp": 1100, "eveil": 0.03, "icone": "sh_imp", "monnaie": "eclat"},
+	"sentinelle_cendre": {"nom": "Sentinelle de cendre", "modele": "orc_warrior", "haut": 2.8, "rang": 4, "pv": 1800000, "temps": 42.0, "pieces": 3300, "xp": 1350, "eveil": 0.025, "icone": "sh_orc_warrior", "monnaie": "insigne"},
+	"traqueur_givre": {"nom": "Traqueur du givre", "modele": "imp", "peau": "T_Imp_BaseColor_3", "haut": 2.5, "rang": 4, "pv": 2600000, "temps": 45.0, "pieces": 4100, "xp": 1650, "eveil": 0.02, "icone": "sh_imp", "monnaie": "eclat"},
 	"chevalier": {"nom": "Chevalier de sang", "modele": "igris", "haut": 4.0, "rang": 3, "pv": 2400000, "temps": 45.0, "pieces": 7000, "xp": 2600, "eveil": 0.015, "boss": true, "icone": "sh_igris", "monnaie": "trefle"},
 	"seigneur_givre": {"nom": "Seigneur du givre", "modele": "imp", "peau": "T_Imp_BaseColor_3", "haut": 3.4, "rang": 3, "pv": 6500000, "temps": 50.0, "pieces": 18000, "xp": 6000, "eveil": 0.01, "boss": true, "icone": "sh_imp", "monnaie": "eclat"},
 

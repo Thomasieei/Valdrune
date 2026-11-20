@@ -328,6 +328,7 @@ func _ready() -> void:
 		m.configurer(p[0], Vector3(p[1], _sol_quartier(p[1], p[2]), p[2]), deg_to_rad(p[3]))
 		m.elite = not Partie.ESPECES[p[0]].get("boss", false) and randf() < Partie.CHANCE_ELITE
 		add_child(m)
+		m.set_meta("quartier", int(m.e["rang"]))
 		monstres.append(m)
 		m.regenere.connect(func (x): if joueur.cible == x: joueur.viser(null))
 	_pole()
@@ -369,22 +370,23 @@ func _ready() -> void:
 
 var _postes_gen: Array = []
 
-const QUARTIERS := ["Entrepôts", "Quais", "Fonderie", "Périphérie"]
+const QUARTIERS := ["Entrepôts", "Quais", "Fonderie", "Périphérie", "Bastion des Cendres"]
 # Huit patrouilles et deux parvis de faille par quartier, relevés sur la ville et son réseau piéton.
 const SITES := [
 	[Vector2i(-182, -73), Vector2i(-182, -105), Vector2i(-198, -69), Vector2i(-166, -105), Vector2i(-214, -73), Vector2i(-146, -85), Vector2i(-206, -57), Vector2i(-214, -105), Vector2i(-150, -105), Vector2i(-146, -69)],
 	[Vector2i(-258, -29), Vector2i(-246, -37), Vector2i(-246, -21), Vector2i(-266, -41), Vector2i(-266, -17), Vector2i(-274, -29), Vector2i(-254, -49), Vector2i(-254, -9), Vector2i(-234, -29), Vector2i(-238, -49)],
 	[Vector2i(-86, -145), Vector2i(-70, -145), Vector2i(-102, -145), Vector2i(-74, -129), Vector2i(-106, -161), Vector2i(-58, -153), Vector2i(-86, -177), Vector2i(-106, -129), Vector2i(-58, -137), Vector2i(-70, -177)],
-	[Vector2i(74, -137), Vector2i(82, -125), Vector2i(66, -125), Vector2i(86, -145), Vector2i(62, -145), Vector2i(74, -153), Vector2i(94, -133), Vector2i(54, -133), Vector2i(74, -113), Vector2i(94, -117)]
+	[Vector2i(74, -137), Vector2i(82, -125), Vector2i(66, -125), Vector2i(86, -145), Vector2i(62, -145), Vector2i(74, -153), Vector2i(94, -133), Vector2i(54, -133), Vector2i(74, -113), Vector2i(94, -117)],
+	[Vector2i(-114, -48), Vector2i(-123, -46), Vector2i(-98, -48), Vector2i(-89, -40)]
 ]
 const FORMATION := [Vector2i(-4, 0), Vector2i(4, 0), Vector2i(0, -4), Vector2i(0, 4), Vector2i(-4, -4), Vector2i(4, 4)]
 
 func _generer_zones() -> void:
 	for rang in SITES.size():
-		var especes: Array = Partie.ESPECES_RANG[rang]
-		for k in 8:
+		var especes: Array = ["sentinelle_cendre", "traqueur_givre"] if rang == 4 else Partie.ESPECES_RANG[rang]
+		for k in mini(8, SITES[rang].size()):
 			var site: Vector2i = SITES[rang][k]
-			for j in 2:
+			for j in (3 if k % 2 == 0 else 2):
 				var p: Vector2i = site + FORMATION[j]
 				_postes_gen.append([especes[(k + j) % 2], p.x, p.y, 90.0 if j == 0 else -90.0])
 	for ancien in POSTES:
@@ -942,6 +944,7 @@ func _teleporter(p: Vector3, lacet: float) -> void:
 	_lacet = lacet
 	_cam_pos = p + Vector3(0, 1.6, 0)
 	for o in ombres:
+		o.visible = not o.rangee and arene == null
 		o.global_position = p + Vector3(randf_range(-1.5, 1.5), 0, randf_range(-2.5, -1.0))
 
 
@@ -1052,6 +1055,10 @@ func _maj_ombres() -> void:
 
 
 func frapper() -> void:
+	if arene:
+		if arene.actif and not joueur.frapper_duel(arene.rival):
+			hud.dire("Approche du rival pour frapper.", Color.BISQUE)
+		return
 	var c := joueur.cible
 	if c == null or not is_instance_valid(c) or c.mort:
 		c = joueur.cible_devant(monstres)
@@ -1122,8 +1129,9 @@ func _liberer_allies() -> void:
 			c._maj_plaque()
 
 func lancer_arene() -> void:
-	if donjon or arene:
+	if _entree_en_cours or donjon or arene or abime or chateau:
 		return
+	_entree_en_cours = true
 	_adversaire = Partie.adversaire_arene()
 	hud.annonce("ARÈNE", "Adversaire : %s  ·  niveau %d  ·  ÉLO %d" % [_adversaire["nom"], int(_adversaire["niveau"]), int(_adversaire["elo"])], Color(1.0, 0.7, 0.3))
 	await get_tree().create_timer(1.8).timeout
@@ -1136,20 +1144,21 @@ func lancer_arene() -> void:
 	joueur.viser(arene.rival)
 	_teleporter(arene.point_depart(), 0.0)
 	Partie.pv = Partie.pv_max()
-	arene.demarrer()
 	await hud.fondu(false)
-	hud.annonce("COMBAT !", "90 secondes pour vaincre %s" % _adversaire["nom"], Color(1.0, 0.55, 0.25))
+	arene.demarrer()
+	_entree_en_cours = false
+	hud.annonce("COMBAT !", "Approche · FRAPPER au contact · esquive le cercle rouge", Color(1.0, 0.55, 0.25))
 
 func _fin_arene(victoire: bool) -> void:
 	if arene == null:
 		return
 	var a := arene
-	arene = null
 	a.actif = false
 	var r := Partie.fin_arene(_adversaire, victoire)
 	monstres.erase(a.rival)
 	joueur.viser(null)
 	await hud.fondu(true)
+	arene = null
 	a.queue_free()
 	_teleporter(PORTAIL + Vector3(4.0, 0.3, 0.0), -PI / 2.0)
 	await hud.fondu(false)

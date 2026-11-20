@@ -130,6 +130,11 @@ var _b_action: Control
 var _action := {}
 var _annonce: Control
 var _fondu: ColorRect
+var _chasse: Button
+var _rang_suivi := -1
+var _proie_suivie: Monstre
+var _reperage := 0.0
+var _prochain_virage := Vector3.ZERO
 var _evt: Button
 var _donj: Control
 var _quitter: Button
@@ -232,6 +237,9 @@ func _ready() -> void:
 	_racine.add_child(_toasts)
 	_b_action = _rond("PARLER", "interact", 112.0, Color(0.1, 0.55, 0.4))
 	_b_action.visible = false
+	_chasse = Ui.bouton("Quartiers · Chasse", Ui.VIOLET, Vector2(224, 48), 19)
+	_chasse.pressed.connect(func (): ouvrir("quartiers"))
+	_racine.add_child(_chasse)
 	_evt = Button.new()
 	for st in ["normal", "hover", "pressed", "focus"]:
 		_evt.add_theme_stylebox_override(st, StyleBoxEmpty.new())
@@ -351,6 +359,7 @@ func _disposer() -> void:
 	_fioles["mana"].position = Vector2(258, h - 82)
 	_haut.position = Vector2(16, 10)
 	_droite.position = Vector2(w - 340, 120)
+	_chasse.position = Vector2(18, 175)
 	_evt.position = Vector2(w - 340, 68)
 	_quitter.position = Vector2(w - 240, 68)
 	_donj.position = Vector2(w / 2.0 - 280, 6)
@@ -540,6 +549,22 @@ func _process(dt: float) -> void:
 		return
 	dt = _temps_affichage
 	_temps_affichage = 0.0
+	_chasse.visible = not (ville.arene or ville.donjon or ville.abime or ville.chateau or _panneau or _menu_ouvert)
+	_reperage -= dt
+	if _chasse.visible and _reperage <= 0.0 and _rang_suivi >= 0:
+		_reperage = 0.5
+		_proie_suivie = _proie_proche(_rang_suivi)
+		_prochain_virage = Vector3.ZERO
+		if is_instance_valid(_proie_suivie):
+			var depart: Vector3 = ville.joueur.global_position
+			var but := _proie_suivie.global_position
+			var carte: RID = ville.joueur.get_world_3d().navigation_map
+			if depart.distance_to(but) > 15.0 and NavigationServer3D.map_get_iteration_id(carte) > 0:
+				for point in NavigationServer3D.map_get_path(carte, depart, but, true):
+					if depart.distance_to(point) >= 6.0:
+						if point.distance_to(but) > 3.0:
+							_prochain_virage = point
+						break
 	_maj_action()
 	if ville.arene and ville.arene.actif:
 		dire("ARÈNE  ·  %d s" % int(ville.arene.temps), Color(1.0, 0.7, 0.3))
@@ -756,6 +781,9 @@ func _construire() -> void:
 		_panneau.queue_free()
 	_detail = null
 	match _type:
+		"quartiers":
+			_panneau = Ui.panneau("Quartiers de chasse", "q_kills", Vector2(740, 490), fermer)
+			_quartiers()
 		"affichage":
 			_panneau = Ui.panneau("Affichage", "gfx", Vector2(650, 280), fermer)
 			var leger := bool(Partie.opts["rendu_leger"])
@@ -1370,7 +1398,7 @@ func _sur_interface(p: Vector2) -> bool:
 	for k in _hex:
 		if _hex[k].visible and _hex[k].get_global_rect().has_point(p):
 			return true
-	for c in [_evt, _quitter]:
+	for c in [_evt, _quitter, _chasse]:
 		if c.visible and c.get_global_rect().has_point(p):
 			return true
 	return false
@@ -1522,6 +1550,37 @@ func _dessiner_evt() -> void:
 		_texte(c, Vector2(52, 38), "Prochain événement dans " + tt, 15, Color(0.85, 0.85, 0.95), 5)
 
 
+func _proie_proche(rang: int) -> Monstre:
+	var proche: Monstre
+	var distance := INF
+	for m: Monstre in ville.monstres:
+		if is_instance_valid(m) and not m.mort and not m.allie and int(m.get_meta("quartier", -1)) == rang:
+			var d := m.global_position.distance_squared_to(ville.joueur.global_position)
+			if d < distance:
+				distance = d
+				proche = m
+	return proche
+
+func _quartiers() -> void:
+	for r in ville.QUARTIERS.size():
+		var proie := _proie_proche(r)
+		var texte := "En attente de réapparition"
+		if proie:
+			texte = "%s · %d m" % [proie.e.nom, roundi(ville.joueur.global_position.distance_to(proie.global_position))]
+		var b := Ui.bouton("%s   %s     —     %s" % [Partie.RANGS[r], ville.QUARTIERS[r], texte], Partie.COULEURS_RANG[r].darkened(0.45), Vector2(690, 56), 20)
+		_ajouter(b, Vector2(25, 80 + r * 65))
+		b.pressed.connect(func ():
+			_rang_suivi = r
+			_reperage = 0.0
+			_prochain_virage = Vector3.ZERO
+			_proie_suivie = _proie_proche(r)
+			fermer())
+	var stop := Ui.bouton("Arrêter le guidage", Ui.VIOLET, Vector2(230, 50), 19)
+	_ajouter(stop, Vector2(25, 415))
+	stop.pressed.connect(func ():
+		_rang_suivi = -1
+		fermer())
+
 func _dessiner_fleche() -> void:
 	var repere: Node3D
 	var nom := "Baran"
@@ -1553,17 +1612,27 @@ func _dessiner_fleche() -> void:
 		if ville.rues.phase == "escorte":
 			texte = "Accompagner %s · abri à %d m" % [nom, int(repere.global_position.distance_to(ville.rues.refuge))]
 		_texte(_fleche, Vector2(24, 162), texte, 19, couleur)
+	var chasse := _chasse.visible and _rang_suivi >= 0 and is_instance_valid(_proie_suivie) and not _proie_suivie.mort
+	if chasse:
+		repere = _proie_suivie
+		nom = "%s · %s" % [Partie.RANGS[_rang_suivi], _proie_suivie.e.nom]
+		couleur = Partie.COULEURS_RANG[_rang_suivi].lightened(0.2)
 	if not is_instance_valid(repere):
 		if not is_instance_valid(ville.boss_evt) or ville.boss_evt.mort or ville.donjon != null:
 			return
 		repere = ville.boss_evt
 	var cam: Camera3D = ville.camera
 	var p3 := repere.global_position + Vector3(0, 3.0, 0)
+	if chasse and _prochain_virage != Vector3.ZERO:
+		p3 = _prochain_virage + Vector3.UP * 1.6
+		nom = "◆ Rang %s" % Partie.RANGS[_rang_suivi]
 	var derriere := cam.is_position_behind(p3)
 	var p := cam.unproject_position(p3)
 	var marge := 70.0
 	var dedans := not derriere and p.x > marge and p.x < _taille.x - marge and p.y > marge and p.y < _taille.y - marge
 	if dedans:
+		if chasse:
+			_texte(_fleche, p + Vector2(-42, -10), "%s · %d m" % [nom, roundi(ville.joueur.global_position.distance_to(repere.global_position))], 19, couleur)
 		return
 	var ctr := _taille / 2.0
 	var d := (p - ctr)

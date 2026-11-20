@@ -140,7 +140,19 @@ func cible_devant(monstres: Array, portee := 16.0) -> Monstre:
 			mieux = m
 	return mieux
 
+func frapper_duel(rival: Monstre) -> bool:
+	if global_position.distance_to(rival.global_position) > PORTEE + rival.haut() * 0.25 + 0.3:
+		return false
+	if _coup_t <= 0.0:
+		cible = rival
+		_coup_t = CADENCE
+		_frapper()
+	return true
+
 func _physics_process(dt: float) -> void:
+	var duel: bool = get_parent().arene != null
+	if duel:
+		_coup_t -= dt
 	var dir := Vector3.ZERO
 	if entree.length() > 0.08:
 		var avant := Vector3(- sin(camera_lacet), 0, -cos(camera_lacet))
@@ -153,7 +165,7 @@ func _physics_process(dt: float) -> void:
 	if entree.length() > 0.2:
 		_pause_auto = 1.5
 	_pause_auto -= dt
-	if Partie.auto_attaque and _pause_auto <= 0.0 and (cible == null or not is_instance_valid(cible) or cible.mort) and get_parent().action_proche().is_empty():
+	if not duel and Partie.auto_attaque and _pause_auto <= 0.0 and (cible == null or not is_instance_valid(cible) or cible.mort) and get_parent().action_proche().is_empty():
 		_auto_t -= dt
 		if _auto_t <= 0.0:
 			_auto_t = 0.4
@@ -162,7 +174,7 @@ func _physics_process(dt: float) -> void:
 				cible = c0
 				_progres_t = 0.0
 				_derniere_dist = INF
-	if Partie.auto_attaque and _pause_auto <= 0.0 and cible and is_instance_valid(cible) and not cible.mort:
+	if not duel and Partie.auto_attaque and _pause_auto <= 0.0 and cible and is_instance_valid(cible) and not cible.mort:
 		var dd := global_position.distance_to(cible.global_position)
 		if dd > PORTEE + cible.haut() * 0.25 + 0.5:
 			_progres_t += dt
@@ -181,11 +193,12 @@ func _physics_process(dt: float) -> void:
 		var v := cible.global_position - global_position
 		v.y = 0
 		distance = v.length() - cible.haut() * 0.25
-		if distance > PORTEE and dir == Vector3.ZERO and not cible.frappe_annoncee:
+		if not duel and distance > PORTEE and dir == Vector3.ZERO and not cible.frappe_annoncee:
 			dir = v.normalized()
 	for k in recharges:
 		recharges[k] = maxf(0.0, recharges[k] - dt)
-	_arme_monarque(dt)
+	if not duel:
+		_arme_monarque(dt)
 	invulnerable = maxf(0.0, invulnerable - dt)
 	var vit := VITESSE * Partie.vitesse()
 	velocity.x = dir.x * vit
@@ -204,7 +217,7 @@ func _physics_process(dt: float) -> void:
 		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(dir.x, dir.z), minf(1.0, dt * 14.0))
 		if _anim_coup <= 0.0:
 			Modele.jouer(_ap, "Run", 1.05 * Partie.vitesse())
-	elif en_combat and distance <= PORTEE + 0.3:
+	elif not duel and en_combat and distance <= PORTEE + 0.3:
 		var v2 := cible.global_position - global_position
 		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(v2.x, v2.z), minf(1.0, dt * 16.0))
 		_coup_t -= dt
@@ -249,6 +262,8 @@ func _frapper() -> void:
 	await get_tree().create_timer(0.16).timeout
 	if c == null or not is_instance_valid(c) or c.mort:
 		return
+	if c.espece == "rival" and global_position.distance_to(c.global_position) > PORTEE + c.haut() * 0.25 + 0.9:
+		return
 	Partie.en_combat()
 	var crit := randf() < Partie.chance_crit()
 	var deg := Partie.dps_joueur() * CADENCE * (2.0 if crit else 1.0) * randf_range(0.9, 1.1)
@@ -257,6 +272,8 @@ func _frapper() -> void:
 
 
 func competence(k: String) -> String:
+	if get_parent().arene and k in ["pacte", "echange"]:
+		return "Duel individuel"
 	var d: Dictionary = Partie.COMPETENCES[k]
 	if k == "domaine":
 		if Partie.domaine_actif():

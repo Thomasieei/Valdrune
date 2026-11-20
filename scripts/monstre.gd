@@ -250,7 +250,38 @@ func _maj_plaque() -> void:
 	else:
 		_plaque.modulate = OR_ELITE.lightened(0.2) if elite else v["couleur"]
 
+var _sequence_duel := 0
+var _repos_duel := 0.0
+
+func _duel(dt: float, j: Node3D) -> void:
+	if not get_parent().actif or frappe_annoncee:
+		return
+	if _etourdi > 0.0:
+		_etourdi -= dt
+		return
+	if _repos_duel > 0.0:
+		_repos_duel -= dt
+		return
+	var direction := j.global_position - global_position
+	direction.y = 0.0
+	var distance := direction.length()
+	_corps.rotation.y = atan2(direction.x, direction.z)
+	if distance > 2.6:
+		global_position += direction.normalized() * minf(distance - 2.5, 6.5 * dt)
+		Modele.jouer(_ap, "Run")
+		return
+	_sequence_duel += 1
+	var lourd := _sequence_duel % 3 == 0
+	frappe_annoncee = true
+	_repos_duel = 1.55 if lourd else 0.85
+	Modele.jouer(_ap, "Attack")
+	Fx.texte(global_position + Vector3.UP * 2.7, "BALAYAGE" if lourd else "ESTOC", Color.ORANGE, 1.0, 0.8)
+	_zone(global_position if lourd else j.global_position, 4.6 if lourd else 1.9, 1.15 if lourd else 0.72)
+
 func _combat(dt: float) -> void:
+	if espece == "rival":
+		_duel(dt, _joueur_affichage)
+		return
 	var j: Node3D = get_tree().get_first_node_in_group("joueur")
 	if j == null or chrono < 0.0 or global_position.distance_to(j.global_position) > 20.0:
 		return
@@ -336,6 +367,8 @@ func _zone(p: Vector3, rayon: float, delai: float) -> void:
 	tw.tween_callback(racine.queue_free)
 
 func _impact(racine: Node3D, rayon: float) -> void:
+	if espece == "rival" and not get_parent().actif:
+		return
 	var atk := (atk_perso if atk_perso > 0.0 else Partie.atk_monstre(espece, elite)) * (2.0 if enrage else 1.0)
 	frappe_annoncee = false
 	if initiation:
@@ -344,7 +377,7 @@ func _impact(racine: Node3D, rayon: float) -> void:
 		var j: Node3D = get_tree().get_first_node_in_group("joueur")
 		if j and _dans_zone(j.global_position, racine.global_position, rayon):
 			_toucher_joueur(j, atk)
-		if initiation and j and j.global_position.distance_to(global_position) < 9.0 and (not _dans_zone(j.global_position, racine.global_position, rayon) or (j as Joueur).invulnerable > 0.0):
+		if (initiation or espece == "rival" and rayon > 4.0) and j and j.global_position.distance_to(global_position) < 9.0 and (not _dans_zone(j.global_position, racine.global_position, rayon) or (j as Joueur).invulnerable > 0.0):
 			ouverture = 3.0
 			_etourdi = 1.0
 			Fx.texte(global_position + Vector3.UP * haut(), "OUVERTURE !", Color.GOLD, 1.2, 1.0)
@@ -582,6 +615,10 @@ func temps_restant() -> float:
 func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) -> void:
 	if mort or allie:
 		return
+	if espece == "rival":
+		if not get_parent().actif or source != "joueur":
+			return
+		degats = minf(degats, pv_max * 0.14)
 	var meca: String = e.get("meca", "")
 	if meca == "ombres_seules" and source == "joueur":
 		if randf() < 0.3:
@@ -606,6 +643,8 @@ func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) ->
 		ouverture = 0.0
 		degats *= 2.5
 		Fx.texte(global_position + Vector3.UP * haut(), "RIPOSTE", Color.GOLD, 1.2, 0.8)
+	if espece == "rival":
+		degats = minf(degats, pv_max * 0.18)
 	var reel := minf(degats, pv)
 	var instance := get_parent() as Donjon
 	if instance and instance.actif:

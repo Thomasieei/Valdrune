@@ -78,7 +78,7 @@ func _ready() -> void:
 	Modele.jouer(_ap, "Idle")
 
 func _physics_process(dt: float) -> void:
-	if joueur == null:
+	if joueur == null or joueur.get_parent().arene:
 		return
 	_anim -= dt
 	if rangee:
