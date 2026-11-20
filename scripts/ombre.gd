@@ -17,6 +17,16 @@ var _comp_t := 0.0
 var _presence_t := 0.0
 var _humeur_t := 6.0
 var _humeur_active := false
+# Formation deterministe, destination filtree et hysteresis de mouvement.
+# Aucun pathfinding ni recherche parmi toutes les ombres a chaque image.
+var _formation_lacet := 0.0
+var _but_lisse := Vector3.ZERO
+var _but_pret := false
+var _en_deplacement := false
+var _cible_precedente: Monstre = null
+var _attaques_faites := 0
+var _apparition_en_cours := false
+var _transition_rangee: Tween
 var pv := 1.0
 var pv_max := 1.0
 var mort := false
@@ -68,6 +78,7 @@ func _ready() -> void:
 	# Les frappes de l'escouade ne sont plus parfaitement synchronisees.
 	_coup_t = float(place % 7) * 0.115
 	_humeur_t = 2.1 + float(place % 5) * 0.9 + randf_range(0.0, 0.7)
+	_formation_lacet = joueur._corps.rotation.y if joueur and joueur._corps else 0.0
 	var etoiles := int(donnees["etoiles"])
 	if etoiles > 0:
 		var l := Label3D.new()
@@ -99,51 +110,81 @@ func _process(dt: float) -> void:
 			else:
 				_rappel_t = 1.0
 		return
+
 	pv = minf(pv_max, pv + pv_max * 0.01 * dt)
 	var c: Monstre = _choisir_cible(dt)
-	var vise: Vector3
-
 	var attaque := c != null
-	if attaque:
+	if _cible_precedente != c:
+		_cible_precedente = c
+		_but_pret = false
+		_en_deplacement = false
+		# Quatre vagues successives pour les premiers coups, puis cadence normale.
+		# Les coefficients DPS et le temps entre les attaques restent inchanges.
+		if attaque:
+			_coup_t = 0.06 + float(place % 4) * 0.17
+			_anim = 0.0
 
-		# Au-dela de huit unites, evite de superposer les positions.
+	var vise: Vector3
+	if attaque:
 		var anneau := int(place / 8)
-		var a := float(place % 8) * TAU / 8.0 + 0.8 + float(anneau) * 0.24
-		var r := c.haut() * 0.3 + 1.3 + float(anneau) * 0.85
+		var a := float(place % 8) * TAU / 8.0 + 0.8 + float(anneau % 2) * 0.35
+		var r := c.haut() * 0.3 + 1.6 + float(anneau) * 1.15
 		vise = c.global_position + Vector3(sin(a), 0, cos(a)) * r
 	else:
-		var b := Basis(Vector3.UP, joueur._corps.rotation.y)
+		# Quatre colonnes decalees, derriere le joueur. Les places restent stables.
+		var ligne := int(place / 4)
+		var colonne := place % 4
+		var decalage := 0.35 if ligne % 2 == 1 else -0.35
+		var x := (float(colonne) - 1.5) * 1.6 + decalage
+		var z := -2.2 - float(ligne) * 1.75
+		_formation_lacet = lerp_angle(_formation_lacet, joueur._corps.rotation.y, minf(1.0, dt * 6.5))
+		vise = joueur.global_position + Basis(Vector3.UP, _formation_lacet) * Vector3(x, 0, z)
 
-		var rangee := place / 2
-		var cote := -1.0 if place % 2 == 0 else 1.0
-		vise = joueur.global_position + b * Vector3(cote * (1.3 + rangee * 0.5), 0, -1.2 - rangee * 1.1)
-	var v := vise - global_position
-	v.y = 0
+	# Les ombres ne calculent pas de physiques supplementaires : amortissement
+	# et deux seuils evitent de bouger d'un pixel a chaque oscillation.
+	if not _but_pret:
+		_but_lisse = vise
+		_but_pret = true
+	else:
+		_but_lisse = _but_lisse.lerp(vise, minf(1.0, dt * (10.0 if attaque else 7.5)))
+	var v := _but_lisse - global_position
+	v.y = 0.0
 	var d := v.length()
-	# Une gestuelle de repos s'interrompt immediatement si l'ombre doit agir.
-	if _humeur_active and (d > 0.35 or attaque):
+	if not attaque and not Partie.opts["patrouille"] and global_position.distance_to(joueur.global_position) > 55.0:
+		# Un changement de zone ne laisse pas une armee perdue a l'autre bout de la carte.
+		global_position = _but_lisse
+		v = Vector3.ZERO
+		d = 0.0
+		_en_deplacement = false
+	var seuil := 0.32 if _en_deplacement else 0.68
+	_en_deplacement = d > seuil
+	if _humeur_active and (_en_deplacement or attaque):
 		_humeur_active = false
 		_anim = 0.0
-	if d > 0.35:
-		var vit := clampf(d * 3.5, 1.5, 15.0) * Partie.vit_ombre()
+
+	if _en_deplacement:
+		var vit := clampf(d * 3.4, 2.2, 15.0) * Partie.vit_ombre()
 		global_position += v.normalized() * minf(d, vit * dt)
-		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(v.x, v.z), minf(1.0, dt * 10.0))
+		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(v.x, v.z), minf(1.0, dt * 11.0))
 		if _anim <= 0.0:
-			var marche := d < 1.6 or vit < 4.0
-			Modele.jouer(_ap, "Walk" if marche else "Run", clampf(vit / 7.0, 0.75, 1.45), 0.18)
+			var marche := d < 1.8 or vit < 4.2
+			Modele.jouer(_ap, "Walk" if marche else "Run", clampf(vit / 7.0, 0.75, 1.45), 0.16)
+
 	if attaque and not _comp.is_empty():
 		_comp_t -= dt
 		if _comp_t <= 0.0:
 			_comp_t = float(_comp["cd"])
 			_competence(c)
-	# Une respiration et un balancement differents par unite: aspect vivant
-	# sans AnimationTree ou particules supplementaires par ombre.
+
 	_presence_t += dt
-	var repos := 1.0 if d <= 0.35 and _anim <= 0.0 else 0.0
+	var repos := 1.0 if not _en_deplacement and _anim <= 0.0 else 0.0
 	var vague := sin(_presence_t * (2.0 + float(place % 3) * 0.18) + float(place) * 1.1)
-	_corps.position.y = lerpf(_corps.position.y, vague * 0.026 * repos, minf(1.0, dt * 7.0))
+	# Important : ne pas annuler l'animation verticale d'invocation.
+	if not _apparition_en_cours:
+		_corps.position.y = lerpf(_corps.position.y, vague * 0.026 * repos, minf(1.0, dt * 7.0))
 	_corps.rotation.z = lerp_angle(_corps.rotation.z, vague * 0.016 * repos, minf(1.0, dt * 5.0))
-	if d > 0.35:
+
+	if _en_deplacement:
 		pass
 	elif attaque:
 		var w := c.global_position - global_position
@@ -151,23 +192,21 @@ func _process(dt: float) -> void:
 		_coup_t -= dt
 		if _coup_t <= 0.0:
 			_coup_t = 0.9
-			var anim := "Attack" if randf() < 0.6 else "Attack2"
+			var anim := "Attack2" if _attaques_faites % 3 == 2 else "Attack"
+			_attaques_faites += 1
 			_anim = Modele.jouer(_ap, anim, 1.5, 0.08) * 0.85
-			# Petite anticipation/reprise, la simulation des degats reste identique.
 			var impulsion := create_tween()
 			impulsion.tween_property(_corps, "rotation:x", -0.13, 0.09)
 			impulsion.tween_property(_corps, "rotation:x", 0.08, 0.10)
 			impulsion.tween_property(_corps, "rotation:x", 0.0, 0.19)
 			var deg := Partie.dps_ombre(donnees) * 0.9
 			await get_tree().create_timer(0.25).timeout
-			if is_instance_valid(c) and not c.mort:
+			if not rangee and not mort and is_instance_valid(c) and not c.mort and _cible_precedente == c:
 				c.frapper(deg, false, "ombres")
 		elif _ap and _ap.current_animation == "":
-			# Un clip d'attaque termine ne doit pas figer l'ombre jusqu'au suivant.
 			Modele.jouer(_ap, "Idle", 1.0, 0.16)
 	elif _anim <= 0.0:
 		_humeur_active = false
-		# Gestuelle propre aux especes, uniquement lorsque l'ombre attend.
 		_humeur_t -= dt
 		if _humeur_t <= 0.0 and global_position.distance_to(joueur.global_position) < 15.0:
 			var esp: String = donnees["espece"]
@@ -183,7 +222,6 @@ func _process(dt: float) -> void:
 			Modele.jouer(_ap, "Idle")
 
 	global_position.y = lerpf(global_position.y, joueur.global_position.y, minf(1.0, dt * 8.0))
-
 
 func _a_portee(m: Monstre) -> bool:
 	if m == null or not is_instance_valid(m) or m.mort or m.allie:
@@ -312,17 +350,24 @@ func ranger(oui: bool) -> void:
 	rangee = oui
 	var h := _corps.get_meta("h", 2.0) as float
 	fumee(global_position, get_parent(), not oui)
-	var tw := create_tween()
+	if _transition_rangee and _transition_rangee.is_running():
+		_transition_rangee.kill()
+	_transition_rangee = create_tween()
+	var tw := _transition_rangee
 	if oui:
+		_apparition_en_cours = true
 		tw.tween_interval(0.15)
 		tw.tween_property(_corps, "position:y", -2.6, 0.7).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
 		tw.tween_callback(func (): _corps.visible = false)
+		tw.tween_callback(func (): _apparition_en_cours = false)
 	else:
 		global_position = joueur.global_position + Vector3(randf_range(-2.5, 2.5), 0, randf_range(-2.5, 2.5))
 		_corps.position.y = -2.6
 		_corps.visible = true
 		tw.tween_interval(0.2)
+		_apparition_en_cours = true
 		tw.tween_property(_corps, "position:y", 0.0, 0.6).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
+		tw.tween_callback(func (): _apparition_en_cours = false)
 	Fx.son("shadow", -6.0, 0.7 if oui else 1.0)
 
 func blesser(d: float) -> void:
