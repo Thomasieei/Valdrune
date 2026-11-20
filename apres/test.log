@@ -35,13 +35,13 @@ ERROR: Condition "p_texture.is_null()" is true.
 [CAPTURE] animation_011
 [CAPTURE] arret
 [CAPTURE] animation_012
-ERROR: Node origin and target are in the same position, look_at() failed.
-   at: look_at_from_position (scene/3d/node_3d.cpp:946)
 [CAPTURE] animation_013
 [CAPTURE] animation_014
 [CAPTURE] animation_015
 [CAPTURE] animation_016
 [CAPTURE] animation_017
+ERROR: Node origin and target are in the same position, look_at() failed.
+   at: look_at_from_position (scene/3d/node_3d.cpp:946)
 [CAPTURE] animation_018
 [CAPTURE] animation_019
 [CAPTURE] animation_020
