@@ -265,6 +265,10 @@ func _physics_process(dt: float) -> void:
 				_repos_geste_duree = Modele.jouer(_ap, "Nod" if randf() < 0.7 else "Point", 1.0, 0.2)
 			else:
 				Modele.jouer(_ap, "Idle" if Partie.opts["fourreau"] else "SwordIdle")
+	# Les clips non boucles peuvent finir exactement entre deux images :
+	# ne laisser jamais un personnage sans pose en fin de frame.
+	if _ap and _ap.current_animation == "":
+		Modele.jouer(_ap, "SwordIdle" if en_combat else ("Idle" if Partie.opts["fourreau"] else "SwordIdle"), 1.0, 0.14)
 
 const MARCHE_MAX := 0.45
 func _monter_marche(dir: Vector3) -> void:

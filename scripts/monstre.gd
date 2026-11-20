@@ -385,6 +385,7 @@ var allie := false
 var pv_pacte := 1.0
 var _pacte_cible: Monstre = null
 var _pacte_t := 0.0
+var _pacte_vitesse := 0.0
 var _riposte_t := 0.0
 
 func puissance() -> float:
@@ -433,22 +434,28 @@ func _ia_pacte(dt: float) -> void:
 		var j: Node3D = v.joueur
 		var w := j.global_position - global_position
 		w.y = 0
-		if w.length() > 5.0:
-			global_position += w.normalized() * 6.0 * dt
-			_corps.rotation.y = atan2(w.x, w.z)
-			Modele.jouer(_ap, "Run")
+		var distance_j := w.length()
+		if distance_j > 5.0:
+			_pacte_vitesse = move_toward(_pacte_vitesse, 6.0, dt * 22.0)
+			global_position += w.normalized() * minf(distance_j - 5.0, _pacte_vitesse * dt)
+			_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(w.x, w.z), 1.0 - exp(-11.0 * dt))
+			Modele.jouer(_ap, "Run", 1.0, 0.16)
 		else:
-			Modele.jouer(_ap, "Idle")
+			_pacte_vitesse = move_toward(_pacte_vitesse, 0.0, dt * 28.0)
+			Modele.jouer(_ap, "Idle", 1.0, 0.17)
 		return
 	var u := _pacte_cible.global_position - global_position
 	u.y = 0
 	var portee := 1.8 + haut() * 0.3 + _pacte_cible.haut() * 0.3
-	if u.length() > portee:
-		global_position += u.normalized() * 6.5 * dt
-		_corps.rotation.y = atan2(u.x, u.z)
-		Modele.jouer(_ap, "Run")
+	var distance_c := u.length()
+	if distance_c > portee:
+		_pacte_vitesse = move_toward(_pacte_vitesse, 6.5, dt * 22.0)
+		global_position += u.normalized() * minf(distance_c - portee, _pacte_vitesse * dt)
+		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(u.x, u.z), 1.0 - exp(-11.0 * dt))
+		Modele.jouer(_ap, "Run", 1.0, 0.16)
 		return
-	_corps.rotation.y = atan2(u.x, u.z)
+	_pacte_vitesse = move_toward(_pacte_vitesse, 0.0, dt * 28.0)
+	_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(u.x, u.z), 1.0 - exp(-12.0 * dt))
 	_pacte_t -= dt
 	if _pacte_t <= 0.0:
 		_pacte_t = 1.0

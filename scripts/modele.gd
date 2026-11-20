@@ -177,9 +177,14 @@ static func jouer(ap: AnimationPlayer, nom: String, vitesse := 1.0, fondu := 0.1
 				nom = "Attack"
 			else:
 				return 0.0
-	if ap.current_animation == nom and ap.get_animation(nom).loop_mode != Animation.LOOP_NONE:
-		ap.speed_scale = vitesse
-		return 0.0
+	if ap.current_animation == nom:
+		# Certains clips importes de deplacement sont a tort non boucles.
+		# Eviter de les redemarrer a chaque image : sinon les pieds tremblent
+		# et le mouvement donne l'impression de glisser sur place.
+		var locomotion := demande in ["Idle", "SwordIdle", "Walk", "Run", "Sprint"]
+		if ap.get_animation(nom).loop_mode != Animation.LOOP_NONE or (locomotion and ap.is_playing()):
+			ap.speed_scale = vitesse
+			return 0.0
 	ap.play(nom, fondu)
 	ap.speed_scale = vitesse
 	return ap.get_animation(nom).length / vitesse

@@ -794,6 +794,11 @@ func _teleporter(p: Vector3, lacet: float) -> void:
 	_cam_pos = p + Vector3(0, 1.6, 0)
 	for o in ombres:
 		o.global_position = p + Vector3(randf_range(-1.5, 1.5), 0, randf_range(-2.5, -1.0))
+		# Nouveau quartier : aucun residu de vitesse ni ancienne formation.
+		o._but_pret = false
+		o._vit_sol_lissee = 0.0
+		o._evitement = Vector3.ZERO
+		o._course_anim_rapide = false
 
 
 func _ambiance(donj: bool) -> void:

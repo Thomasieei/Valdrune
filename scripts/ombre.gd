@@ -248,6 +248,9 @@ func _process(dt: float) -> void:
 			Modele.jouer(_ap, "Idle")
 
 	global_position.y = lerpf(global_position.y, joueur.global_position.y, minf(1.0, dt * 8.0))
+	# Retombe sur une pose lisible si un clip ponctuel vient de se terminer.
+	if _ap and _ap.current_animation == "" and not _apparition_en_cours:
+		Modele.jouer(_ap, "Walk" if _en_deplacement and not _course_anim_rapide else ("Run" if _en_deplacement else "Idle"), 1.0, 0.15)
 
 
 func _maj_evitement(dt: float) -> void:
