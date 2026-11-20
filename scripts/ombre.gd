@@ -32,6 +32,8 @@ var _transition_rangee: Tween
 var _evitement := Vector3.ZERO
 var _evitement_t := 0.0
 var _rayon_perso := 0.8
+var _vit_sol_lissee := 0.0
+var _course_anim_rapide := false
 var pv := 1.0
 var pv_max := 1.0
 var mort := false
@@ -126,6 +128,7 @@ func _process(dt: float) -> void:
 		_but_pret = false
 		_evitement_t = 0.0
 		_en_deplacement = false
+		_vit_sol_lissee = minf(_vit_sol_lissee, 4.0)
 		# Quatre vagues successives pour les premiers coups, puis cadence normale.
 		# Les coefficients DPS et le temps entre les attaques restent inchanges.
 		if attaque:
@@ -168,6 +171,7 @@ func _process(dt: float) -> void:
 		v = Vector3.ZERO
 		d = 0.0
 		_en_deplacement = false
+		_vit_sol_lissee = 0.0
 	var seuil := 0.32 if _en_deplacement else 0.68
 	_en_deplacement = d > seuil
 	if _humeur_active and (_en_deplacement or attaque):
@@ -176,11 +180,15 @@ func _process(dt: float) -> void:
 
 	if _en_deplacement:
 		var vit := clampf(d * 3.4, 2.2, 15.0) * Partie.vit_ombre()
-		global_position += v.normalized() * minf(d, vit * dt)
-		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(v.x, v.z), minf(1.0, dt * 11.0))
+		_vit_sol_lissee = move_toward(_vit_sol_lissee, vit, dt * 33.0 * maxf(1.0, Partie.vit_ombre()))
+		global_position += v.normalized() * minf(d, _vit_sol_lissee * dt)
+		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(v.x, v.z), 1.0 - exp(-12.0 * dt))
 		if _anim <= 0.0:
-			var marche := d < 1.8 or vit < 4.2
-			Modele.jouer(_ap, "Walk" if marche else "Run", clampf(vit / 7.0, 0.75, 1.45), 0.16)
+			_course_anim_rapide = _vit_sol_lissee > (3.8 if _course_anim_rapide else 5.2)
+			Modele.jouer(_ap, "Run" if _course_anim_rapide else "Walk", clampf(_vit_sol_lissee / 7.0, 0.72, 1.45), 0.18)
+	else:
+		_vit_sol_lissee = move_toward(_vit_sol_lissee, 0.0, dt * 43.0)
+		_course_anim_rapide = false
 
 	# Pare-chocs visuel : le steering amorti peut encore autoriser un
 	# croisement a tres courte distance. On corrige la position finale,

@@ -1119,7 +1119,9 @@ func _process(dt: float) -> void:
 		_arise_t = 1.2
 		eveiller()
 	_maj_portee(dt)
-	_cam_pos = _cam_pos.lerp(joueur.global_position + Vector3(0, 1.6, 0), minf(1.0, dt * 9.0))
+	# Lissage independant de la frequence d'images, sans latence supplementaire
+	# sensible sur le tactile et avec un recadrage instantane a la teleportation.
+	_cam_pos = _cam_pos.lerp(joueur.global_position + Vector3(0, 1.6, 0), 1.0 - exp(-9.0 * dt))
 	var dir := Vector3(sin(_lacet) * cos(_tangage), -sin(_tangage), cos(_lacet) * cos(_tangage))
 	var voulu := _cam_pos + dir * _dist
 

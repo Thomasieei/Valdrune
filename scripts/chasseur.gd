@@ -20,6 +20,8 @@ var _derniere_pos := Vector3.ZERO
 var _activite_t := 0.0
 var _absent_t := 0.0
 var _errance := Vector3.ZERO
+var _anim_attaque_t := 0.0
+var _en_course := false
 
 func _ready() -> void:
 	var forme := CollisionShape3D.new()
@@ -168,14 +170,19 @@ func _physics_process(dt: float) -> void:
 	var au_contact := _valide(cible) and v.length() <= portee
 	var dir := Vector3.ZERO if au_contact or v.length() < 0.6 else v.normalized()
 	var vit := 6.5
-	velocity.x = dir.x * vit
-	velocity.z = dir.z * vit
+	var vitesse_h := Vector2(velocity.x, velocity.z).move_toward(
+		Vector2(dir.x, dir.z) * vit, dt * (34.0 if dir != Vector3.ZERO else 52.0))
+	velocity.x = vitesse_h.x
+	velocity.z = vitesse_h.y
+	_anim_attaque_t = maxf(0.0, _anim_attaque_t - dt)
 	velocity.y = -2.0 if is_on_floor() else velocity.y - 30.0 * dt
 	move_and_slide()
 	if dir != Vector3.ZERO:
-		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(dir.x, dir.z), minf(1.0, dt * 10.0))
-		if _coup_t <= 0.3:
-			Modele.jouer(_ap, "Run")
+		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(dir.x, dir.z), 1.0 - exp(-11.0 * dt))
+		if _anim_attaque_t <= 0.12:
+			var speed := vitesse_h.length()
+			_en_course = speed >= (3.6 if _en_course else 4.6)
+			Modele.jouer(_ap, "Run" if _en_course else "Walk", maxf(0.75, speed / 6.5), 0.16)
 		_bloque_t += dt
 		if _bloque_t > 1.5:
 			if global_position.distance_to(_derniere_pos) < 0.8 and mode == "ville":
@@ -183,16 +190,19 @@ func _physics_process(dt: float) -> void:
 			_bloque_t = 0.0
 			_derniere_pos = global_position
 	elif au_contact:
+		_en_course = false
 		var w := cible.global_position - global_position
 		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(w.x, w.z), minf(1.0, dt * 12.0))
 		_coup_t -= dt
 		if _coup_t <= 0.0:
 			_coup_t = 0.6
-			Modele.jouer(_ap, "Attack", 1.6, 0.06)
+			_anim_attaque_t = Modele.jouer(_ap, "Attack", 1.6, 0.08)
 			var crit := randf() < 0.15
 			cible.frapper(Partie.bot_dps(d) * 0.6 * (2.0 if crit else 1.0), crit, "allie" if mode == "donjon" else "bot", self)
 	else:
-		Modele.jouer(_ap, "Idle")
+		_en_course = false
+		if _anim_attaque_t <= 0.0:
+			Modele.jouer(_ap, "Idle", 1.0, 0.17)
 
 # Bloqué par un bâtiment : il bondit par-dessus, comme un vrai chasseur.
 func _sauter(but: Vector3) -> void:
@@ -220,5 +230,7 @@ func a_tue(espece: String, elite: bool, mult: float) -> void:
 func placer(p: Vector3) -> void:
 	global_position = p
 	velocity = Vector3.ZERO
+	_en_course = false
+	_anim_attaque_t = 0.0
 	cible = null
 	_choix_t = 0.0

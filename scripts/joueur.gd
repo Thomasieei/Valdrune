@@ -14,6 +14,7 @@ var entree := Vector2.ZERO
 var _presence_t := 0.0
 var _elan_visuel := 0.0
 var _sprint_animation_t := 0.0
+var _course_anim_rapide := false
 var _repos_geste_t := 7.0
 var _repos_geste_duree := 0.0
 var cible: Monstre = null
@@ -194,8 +195,14 @@ func _physics_process(dt: float) -> void:
 	_arme_monarque(dt)
 	invulnerable = maxf(0.0, invulnerable - dt)
 	var vit := VITESSE * Partie.vitesse()
-	velocity.x = dir.x * vit
-	velocity.z = dir.z * vit
+	# Le joystick reste immediat, mais les changements de vitesse sont
+	# amortis sur quelques images pour eviter les demarrages secs.
+	var voulu_sol := Vector2(dir.x, dir.z) * vit
+	var vitesse_sol := Vector2(velocity.x, velocity.z)
+	var acceleration := (67.0 if dir.length_squared() > 0.01 else 90.0) * maxf(1.0, Partie.vitesse())
+	vitesse_sol = vitesse_sol.move_toward(voulu_sol, acceleration * dt)
+	velocity.x = vitesse_sol.x
+	velocity.z = vitesse_sol.y
 	if _dash_t > 0.0:
 		_dash_t -= dt
 		velocity.x = _dash.x
@@ -205,9 +212,11 @@ func _physics_process(dt: float) -> void:
 
 	if dir.length() > 0.1 and is_on_wall():
 		_monter_marche(dir)
-	# Respiration, transfert de poids et inclinaison. Ne touche jamais au collider.
+	# Respiration et transfert de poids selon la vitesse REELLE du corps.
+	# Les distances, collisions et degats restent des calculs du CharacterBody3D.
 	_presence_t += dt
-	_elan_visuel = move_toward(_elan_visuel, minf(1.0, dir.length()), dt * 5.0)
+	var vitesse_relative := Vector2(velocity.x, velocity.z).length() / maxf(vit, 0.01)
+	_elan_visuel = move_toward(_elan_visuel, minf(1.0, vitesse_relative), dt * 7.5)
 	var repos := 1.0 - _elan_visuel
 	var souffle := sin(_presence_t * 2.3) * 0.022 * repos
 	var pas := sin(_presence_t * 11.0) * 0.026 * _elan_visuel
@@ -215,16 +224,24 @@ func _physics_process(dt: float) -> void:
 	var penche := -entree.x * 0.055 * _elan_visuel
 	_corps.rotation.z = lerp_angle(_corps.rotation.z, penche, minf(1.0, dt * 7.0))
 	_anim_coup -= dt
-	if dir.length() > 0.1:
-		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(dir.x, dir.z), minf(1.0, dt * 14.0))
+	# L'animation de deplacement suit la vitesse corporelle, meme pendant
+	# les quelques images de freinage. La camera et le ciblage restent libres.
+	var direction_visuelle := dir if dir.length_squared() > 0.01 else Vector3(velocity.x, 0.0, velocity.z)
+	var bouge_visuellement := vitesse_relative > 0.06 or (dir.length_squared() > 0.01 and _dash_t > 0.0)
+	if bouge_visuellement:
+		if direction_visuelle.length_squared() > 0.001:
+			_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(direction_visuelle.x, direction_visuelle.z), 1.0 - exp(-15.0 * dt))
 		if _anim_coup <= 0.0:
-			# Le joystick analogique controle aussi le cycle marche/course.
-			var marche := entree.length() < 0.64
+			var marche := vitesse_relative < (0.58 if _course_anim_rapide else 0.72)
+			_course_anim_rapide = not marche
 			_sprint_animation_t = clampf(_sprint_animation_t + dt * (2.2 if entree.length() > 0.94 else -3.0), 0.0, 1.0)
 			var sprint := not marche and _sprint_animation_t > 0.82
 			var mouvement := "Walk" if marche else ("Sprint" if sprint else "Run")
-			Modele.jouer(_ap, mouvement, (0.92 if marche else 1.04) * Partie.vitesse(), 0.16)
+			Modele.jouer(_ap, mouvement, (0.92 if marche else 1.04) * Partie.vitesse(), 0.18)
+		_repos_geste_duree = 0.0
 	elif en_combat and distance <= PORTEE + 0.3:
+		_course_anim_rapide = false
+		_sprint_animation_t = move_toward(_sprint_animation_t, 0.0, dt * 4.0)
 		var v2 := cible.global_position - global_position
 		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(v2.x, v2.z), minf(1.0, dt * 16.0))
 		_coup_t -= dt
@@ -236,6 +253,8 @@ func _physics_process(dt: float) -> void:
 			# Entre deux attaques, ne jamais rester sur une pose vide.
 			Modele.jouer(_ap, "SwordIdle", 1.0, 0.16)
 	elif _anim_coup <= 0.0:
+		_course_anim_rapide = false
+		_sprint_animation_t = move_toward(_sprint_animation_t, 0.0, dt * 4.0)
 		# Le personnage a parfois un vrai geste de repos deja fourni par son rig.
 		if _repos_geste_duree > 0.0:
 			_repos_geste_duree -= dt

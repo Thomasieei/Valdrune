@@ -58,6 +58,7 @@ var totems: Array = []
 var _origine := Vector3.ZERO
 var _errance := Vector3.ZERO
 var _errance_t := 0.0
+var _errance_vitesse := 0.0
 
 const CADENCE_ZONE := [6.5, 5.5, 4.6, 3.9, 3.2]
 const RAYON_ZONE := [2.4, 2.8, 3.2, 3.7, 4.3]
@@ -355,6 +356,7 @@ func _process(dt: float) -> void:
 
 func _errer(dt: float) -> void:
 	if not reapparait_auto or chrono >= 0.0 or e.get("boss", false) or e.get("lieu", "") != "":
+		_errance_vitesse = 0.0
 		return
 	if _origine == Vector3.ZERO:
 		_origine = global_position
@@ -364,13 +366,19 @@ func _errer(dt: float) -> void:
 		_errance = _origine + Vector3(randf_range(-4, 4), 0, randf_range(-4, 4)) if randf() < 0.7 else global_position
 	var v := _errance - global_position
 	v.y = 0
-	if v.length() > 0.3:
-		global_position += v.normalized() * minf(v.length(), 1.2 * dt)
-		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(v.x, v.z), minf(1.0, dt * 5.0))
+	var reste := v.length()
+	if reste > 0.3:
+		# Petits pas progressifs : les monstres restent presque fixes,
+		# le farming et leurs zones de combat ne changent pas.
+		_errance_vitesse = move_toward(_errance_vitesse, minf(1.2, reste * 2.2), dt * 5.0)
+		global_position += v.normalized() * minf(reste, _errance_vitesse * dt)
+		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(v.x, v.z), 1.0 - exp(-6.0 * dt))
 		if _ap and _ap.current_animation != "Walk" and _ap.current_animation != "Hit":
-			Modele.jouer(_ap, "Walk", 0.8)
-	elif _ap and _ap.current_animation == "Walk":
-		Modele.jouer(_ap, "Idle")
+			Modele.jouer(_ap, "Walk", 0.8, 0.18)
+	else:
+		_errance_vitesse = move_toward(_errance_vitesse, 0.0, dt * 6.0)
+		if _ap and _ap.current_animation == "Walk":
+			Modele.jouer(_ap, "Idle", 1.0, 0.18)
 
 var leve := false
 var allie := false
