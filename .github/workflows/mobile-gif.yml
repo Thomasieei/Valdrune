@@ -20,6 +20,8 @@ jobs:
           git clone -q --depth 1 --branch arise-animation-demo-shots "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" shots
           cd shots
           test -s atelier-v2/animation-demo.mp4
+          sudo apt-get update -qq >/dev/null
+          sudo apt-get install -y -qq ffmpeg >/dev/null
           ffmpeg -hide_banner -loglevel error -y -i atelier-v2/animation-demo.mp4 -filter_complex "fps=8,scale=700:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=96[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5" -loop 0 atelier-v2/animation-demo.gif
           test -s atelier-v2/animation-demo.gif
           git add atelier-v2/animation-demo.gif
