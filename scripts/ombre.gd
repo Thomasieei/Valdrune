@@ -15,6 +15,7 @@ var _comp: Dictionary = {}
 var _comp_t := 0.0
 # Chaque ombre conserve son petit rythme visuel sans particules permanentes.
 var _presence_t := 0.0
+var _humeur_t := 6.0
 var pv := 1.0
 var pv_max := 1.0
 var mort := false
@@ -63,6 +64,7 @@ func _ready() -> void:
 	if _comp.is_empty():
 		_comp = e.get("competence", {})
 	_comp_t = float(_comp.get("cd", 0.0)) * 0.5
+	_humeur_t = 2.1 + float(place % 5) * 0.9 + randf_range(0.0, 0.7)
 	var etoiles := int(donnees["etoiles"])
 	if etoiles > 0:
 		var l := Label3D.new()
@@ -153,7 +155,19 @@ func _process(dt: float) -> void:
 			if is_instance_valid(c) and not c.mort:
 				c.frapper(deg, false, "ombres")
 	elif _anim <= 0.0:
-		Modele.jouer(_ap, "Idle")
+		# Gestuelle propre aux especes, uniquement lorsque l'ombre attend.
+		_humeur_t -= dt
+		if _humeur_t <= 0.0 and global_position.distance_to(joueur.global_position) < 15.0:
+			var esp: String = donnees["espece"]
+			var geste := "Roar" if esp in ["orc", "orc_guerrier", "puglin", "puglin_brute"] else "Cheer"
+			var duree := Modele.jouer(_ap, geste, 1.0, 0.16)
+			if duree > 0.0:
+				_anim = duree
+			else:
+				Modele.jouer(_ap, "Idle")
+			_humeur_t = randf_range(10.0, 16.0)
+		else:
+			Modele.jouer(_ap, "Idle")
 
 	global_position.y = lerpf(global_position.y, joueur.global_position.y, minf(1.0, dt * 8.0))
 
