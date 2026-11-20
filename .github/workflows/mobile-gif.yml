@@ -1,0 +1,29 @@
+name: Apercu GIF mobile Arise Ville
+on:
+  push:
+    branches: [demo/arise-animations-20261120]
+    paths:
+      - '.github/workflows/mobile-gif.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  gif:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Rendre la video lisible directement sur Android
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git clone -q --depth 1 --branch arise-animation-demo-shots "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" shots
+          cd shots
+          test -s atelier-v2/animation-demo.mp4
+          ffmpeg -hide_banner -loglevel error -y -i atelier-v2/animation-demo.mp4 -filter_complex "fps=8,scale=700:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=96[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5" -loop 0 atelier-v2/animation-demo.gif
+          test -s atelier-v2/animation-demo.gif
+          git add atelier-v2/animation-demo.gif
+          if ! git diff --cached --quiet; then
+            git -c user.name='Arise Preview' -c user.email='arise-preview@local' commit -qm 'Ajouter aperçu GIF lisible sur mobile'
+            git push -q origin HEAD:arise-animation-demo-shots
+          fi
