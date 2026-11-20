@@ -144,7 +144,7 @@ func _filmer() -> void:
 		if i == 144 or i == 161 or i == 178:
 			_hero._frapper()
 		if i == 195:
-			_hero.mouvement_visuel = _hero.Mouvement.IMPACT
+			_hero.mouvement_visuel = Joueur.Mouvement.IMPACT
 			_hero._anim_coup = Modele.jouer(_hero._ap, "Hit", 1.4, 0.12)
 		# Sur un runner logiciel lent, ralentit la simulation pour ne pas
 		# accelerer artificiellement les mouvements lors du montage 30 i/s.
