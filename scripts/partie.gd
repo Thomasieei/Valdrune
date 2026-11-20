@@ -8,6 +8,8 @@ signal change
 signal message(texte: String, couleur: Color)
 signal butin(objet: Dictionary)
 
+var chapitre := 0
+var _principal_valide := false
 const CHEMIN := "user://partie.json"
 const RANGS := ["E", "D", "C", "B", "A", "S"]
 const COULEURS_RANG := [Color(0.7, 0.72, 0.75), Color(0.4, 0.85, 0.45), Color(0.35, 0.65, 1.0),
@@ -35,6 +37,8 @@ const ESPECES := {
 	"diablotin": {"nom": "Diablotin des marais", "modele": "imp", "peau": "T_Imp_BaseColor_2", "haut": 1.9, "rang": 2, "pv": 60000, "temps": 30.0, "pieces": 420, "xp": 260, "eveil": 0.06, "icone": "sh_imp", "monnaie": "eclat"},
 	"orc_guerrier": {"nom": "Seigneur orc", "modele": "orc_warrior", "haut": 2.5, "rang": 3, "pv": 260000, "temps": 35.0, "pieces": 1100, "xp": 560, "eveil": 0.035, "icone": "sh_orc_warrior", "monnaie": "insigne"},
 	"demon": {"nom": "Démon écarlate", "modele": "imp", "haut": 2.6, "rang": 3, "pv": 650000, "temps": 38.0, "pieces": 2300, "xp": 1100, "eveil": 0.03, "icone": "sh_imp", "monnaie": "eclat"},
+	"sentinelle_cendre": {"nom": "Sentinelle de cendre", "modele": "orc_warrior", "haut": 2.8, "rang": 4, "pv": 1800000, "temps": 42.0, "pieces": 3300, "xp": 1350, "eveil": 0.025, "icone": "sh_orc_warrior", "monnaie": "insigne"},
+	"traqueur_givre": {"nom": "Traqueur du givre", "modele": "imp", "peau": "T_Imp_BaseColor_3", "haut": 2.5, "rang": 4, "pv": 2600000, "temps": 45.0, "pieces": 4100, "xp": 1650, "eveil": 0.02, "icone": "sh_imp", "monnaie": "eclat"},
 	"chevalier": {"nom": "Chevalier de sang", "modele": "igris", "haut": 4.0, "rang": 3, "pv": 2400000, "temps": 45.0, "pieces": 7000, "xp": 2600, "eveil": 0.015, "boss": true, "icone": "sh_igris", "monnaie": "trefle"},
 	"seigneur_givre": {"nom": "Seigneur du givre", "modele": "imp", "peau": "T_Imp_BaseColor_3", "haut": 3.4, "rang": 3, "pv": 6500000, "temps": 50.0, "pieces": 18000, "xp": 6000, "eveil": 0.01, "boss": true, "icone": "sh_imp", "monnaie": "eclat"},
 
@@ -158,6 +162,7 @@ var pieces := 0
 var niveau := 1
 var xp := 0
 var inventaire: Array = []
+var _objets_par_uid := {}
 var equipe := {}
 var ombres: Array = []
 var points := {"ombres": 0, "arme": 0, "vitesse": 0, "legion": 0, "pieces": 0, "eveil": 0, "vie": 0, "mana": 0, "portee": 0, "vit_ombre": 0}
@@ -181,6 +186,7 @@ var derniere_mort := -1000.0
 var cri_fin := -1.0
 var auto_attaque := false
 var chasseurs: Array = []
+var souvenirs_ville: Dictionary = {}
 var elo := 1000
 var jetons := 0
 var arene_v := 0
@@ -224,7 +230,7 @@ func bot_etage(d: Dictionary) -> int:
 			break
 		f += 1
 	return f
-var opts := {"arise": false, "potion": false, "rappel": true, "equip": false, "diviser": false, "monarque": false, "rangees": false, "fourreau": false, "patrouille": false}
+var opts := {"arise": false, "potion": false, "rappel": true, "equip": false, "diviser": false, "monarque": false, "rangees": false, "fourreau": false, "patrouille": false, "rendu_leger": false}
 var speciale := "echange"
 var abime_max := 0
 var pactes_morts := {}
@@ -532,13 +538,15 @@ func _ready() -> void:
 
 func _process(dt: float) -> void:
 	_t += dt
-	pv = minf(pv_max(), pv + pv_max() * 0.015 * dt)
-	mana = minf(mana_max(), mana + regen_mana() * dt)
+	var plafond_pv := pv_max()
+	var plafond_mana := mana_max()
+	pv = minf(plafond_pv, pv + plafond_pv * 0.015 * dt)
+	mana = minf(plafond_mana, mana + regen_mana() * dt)
 	if createur:
-		mana = mana_max()
-		pv = pv_max()
+		mana = plafond_mana
+		pv = plafond_pv
 	_potion_t -= dt
-	if opts["potion"] and _potion_t <= 0.0 and pv < pv_max() * 0.3 and boire("pv"):
+	if opts["potion"] and _potion_t <= 0.0 and pv < plafond_pv * 0.3 and boire("pv"):
 		_potion_t = 8.0
 		message.emit("Potion auto : +50 % PV (%d restantes)" % int(potions["pv"]), Color(0.5, 1.0, 0.6))
 	_sauver_t += dt
@@ -555,15 +563,20 @@ func base(o: Dictionary) -> Dictionary:
 	return OBJETS[o["base"]]
 
 func objet(uid: int) -> Dictionary:
-	for o in inventaire:
-		if o["uid"] == uid:
-			return o
-	return {}
+	return _objets_par_uid.get(uid, {})
+
+func _indexer_objet(o: Dictionary) -> void:
+	inventaire.append(o)
+	_objets_par_uid[o["uid"]] = o
+
+func _retirer_objet(o: Dictionary) -> void:
+	inventaire.erase(o)
+	_objets_par_uid.erase(o["uid"])
 
 func ajouter_objet(b: String, rarete: int, annoncer := true) -> Dictionary:
 	var o := {"uid": _uid, "base": b, "rarete": rarete, "niv": 0}
 	_uid += 1
-	inventaire.append(o)
+	_indexer_objet(o)
 	if annoncer:
 		butin.emit(o)
 		if opts["equip"]:
@@ -640,10 +653,10 @@ func prix_vente(o: Dictionary) -> int:
 	return int(cout_amelioration(o) * 0.35) + 4
 
 func vendre(o: Dictionary) -> bool:
-	if est_equipe(o):
+	if not _objets_par_uid.has(o["uid"]) or est_equipe(o):
 		return false
 	pieces += prix_vente(o)
-	inventaire.erase(o)
+	_retirer_objet(o)
 	change.emit()
 	return true
 
@@ -793,7 +806,7 @@ func mourir() -> Dictionary:
 		if libres.is_empty():
 			break
 		var o: Dictionary = libres.pick_random()
-		inventaire.erase(o)
+		_retirer_objet(o)
 		perdus.append(o)
 	pv = pv_max()
 	change.emit()
@@ -1009,10 +1022,11 @@ func chance_eveil(espece: String) -> float:
 
 var force_eveil := false
 
-func eveiller(espece: String) -> Dictionary:
+func eveiller(espece: String, initiation := false) -> Dictionary:
 	var e: Dictionary = ESPECES[espece]
 	var evenement: bool = e.get("lieu", "") == "evenement"
-	var ok := randf() < chance_eveil(espece) or force_eveil or (echecs_eveil >= PITIE and not evenement)
+	var premiere := initiation and chapitre == 1
+	var ok := premiere or randf() < chance_eveil(espece) or force_eveil or (echecs_eveil >= PITIE and not evenement)
 	if not ok:
 		if not evenement:
 			echecs_eveil += 1
@@ -1023,6 +1037,8 @@ func eveiller(espece: String) -> Dictionary:
 	var o := {"uid": _uid, "espece": espece, "etoiles": 0, "eq": ombres_equipees().size() < places_ombres()}
 	_uid += 1
 	ombres.append(o)
+	if premiere:
+		chapitre = 2
 	arises[espece] = int(arises.get(espece, 0)) + 1
 	progres("ombres")
 	if ombres.size() >= 20:
@@ -1110,9 +1126,9 @@ func liberer_ombre(o: Dictionary) -> int:
 func sauver() -> void:
 	if OS.get_cmdline_user_args().has("--sans-sauvegarde"):
 		return
-	var f := FileAccess.open(CHEMIN, FileAccess.WRITE)
+	var f := FileAccess.open(CHEMIN + ".tmp", FileAccess.WRITE)
 	if f:
-		f.store_string(JSON.stringify({"v": 5, "pieces": pieces, "niveau": niveau, "xp": xp, "inventaire": inventaire,
+		f.store_string(JSON.stringify({"v": 5, "chapitre": chapitre, "souvenirs_ville": souvenirs_ville, "pieces": pieces, "niveau": niveau, "xp": xp, "inventaire": inventaire,
 			"equipe": equipe, "ombres": ombres, "points": points, "echecs": echecs_eveil, "tues": tues, "uid": _uid,
 			"rolls": rolls, "monnaies": monnaies, "achats": achats, "tirages": tirages, "donjons": donjons,
 			"record": record_donjon, "uniques": uniques_obtenus, "arises": arises, "quetes": quetes,
@@ -1121,13 +1137,32 @@ func sauver() -> void:
 			"chasseurs": chasseurs, "elo": elo, "jetons": jetons, "arene_v": arene_v, "arene_d": arene_d,
 			"quitte": Time.get_unix_time_from_system(), "rang_chasseur": rang_chasseur, "or_total": or_total, "opts": opts, "cles": cles, "etage_max": etage_max,
 			"quete": quete, "pts_bonus": points_bonus, "secretes": secretes, "kills_total": kills_total, "general": general_uid, "speciale": speciale, "abime_max": abime_max, "potions": potions}))
+		f.flush()
+		if f.get_error() != OK:
+			return
+		f.close()
+		if _principal_valide and FileAccess.file_exists(CHEMIN):
+			if DirAccess.rename_absolute(CHEMIN, CHEMIN + ".bak") != OK:
+				return
+			_principal_valide = false
+		if DirAccess.rename_absolute(CHEMIN + ".tmp", CHEMIN) == OK:
+			_principal_valide = true
 
 func charger() -> void:
-	if OS.get_cmdline_user_args().has("--sans-sauvegarde") or not FileAccess.file_exists(CHEMIN):
+	if OS.get_cmdline_user_args().has("--sans-sauvegarde"):
 		return
-	var d = JSON.parse_string(FileAccess.get_file_as_string(CHEMIN))
-	if typeof(d) != TYPE_DICTIONARY:
+	var d: Dictionary = {}
+	for chemin in [CHEMIN, CHEMIN + ".bak"]:
+		if FileAccess.file_exists(chemin):
+			var contenu = JSON.parse_string(FileAccess.get_file_as_string(chemin))
+			if contenu is Dictionary and contenu.get("inventaire", []) is Array and contenu.has("niveau"):
+				d = contenu
+				_principal_valide = chemin == CHEMIN
+				break
+	if d.is_empty():
 		return
+	souvenirs_ville = d.get("souvenirs_ville", {})
+	chapitre = clampi(int(d.get("chapitre", 3 if not d.get("ombres", []).is_empty() else 0)), 0, 3)
 	pieces = int(d.get("pieces", 0))
 	niveau = int(d.get("niveau", 1))
 	xp = int(d.get("xp", 0))
@@ -1178,12 +1213,16 @@ func charger() -> void:
 			simuler_bot(c, absent)
 	records = d.get("records", {})
 	donjons_finis = d.get("finis", {})
+	inventaire.clear()
+	_objets_par_uid.clear()
+	equipe.clear()
+	ombres.clear()
 	for o in d.get("inventaire", []):
 		if OBJETS.has(o.get("base", "")):
 			var rr := int(o["rarete"])
 			if rr < UNIQUE:
 				rr = mini(rr, RANG_MAX_EVENEMENT)
-			inventaire.append({"uid": int(o["uid"]), "base": o["base"], "rarete": rr, "niv": int(o["niv"])})
+			_indexer_objet({"uid": int(o["uid"]), "base": o["base"], "rarete": rr, "niv": int(o["niv"])})
 			_uid = maxi(_uid, int(o["uid"]) + 1)
 	for e in d.get("equipe", {}):
 		equipe[e] = int(d["equipe"][e])

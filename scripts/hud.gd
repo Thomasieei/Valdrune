@@ -11,6 +11,7 @@ var _doigts := {}
 var _joy_centre := Vector2.ZERO
 var _joy_pos := Vector2.ZERO
 var _joy_actif := false
+var _joy := Control.new()
 const JOY_R := 85.0
 var _b_frapper: Control
 var _b_eveil: Control
@@ -29,7 +30,7 @@ func domaine(duree: float) -> void:
 	tw.tween_property(_voile, "color:a", 0.0, 0.4)
 
 func systeme(titre: String, lignes: Array) -> void:
-	if _sys:
+	if is_instance_valid(_sys):
 		_sys.queue_free()
 	_sys = Panel.new()
 	_sys.add_theme_stylebox_override("panel", Ui.boite(Color(0.02, 0.06, 0.16, 0.95), Color(0.35, 0.75, 1.0), 3, 6))
@@ -60,7 +61,7 @@ func systeme(titre: String, lignes: Array) -> void:
 	Fx.son("open", -2.0, 1.3)
 var _flash_msg_t := 0.0
 const BARRE := [["arise", "ARISE", "arise"], ["fureur", "ATTAQUE", "attack"], ["auto", "OMBRES", "cmd_attack"],
-	["rappel", "RAPPEL", "essence"], ["potion", "POTION", "role_heal"], ["equip", "ÉQUIPE", "items"],
+	["rappel", "RAPPEL", "essence"], ["potion", "POTION", "role_heal"], ["equip", "ÉQUIPE", "sac"],
 	["diviser", "DIVISER", "role_melee"], ["monarque", "MONARQUE", "w8"], ["rangees", "RANGER", "ombres"], ["fourreau", "FOURREAU", "tab_w"], ["patrouille", "PATROUILLE", "q_run"]]
 
 func _barre_on(k: String) -> bool:
@@ -129,6 +130,11 @@ var _b_action: Control
 var _action := {}
 var _annonce: Control
 var _fondu: ColorRect
+var _chasse: Button
+var _rang_suivi := -1
+var _proie_suivie: Monstre
+var _reperage := 0.0
+var _prochain_virage := Vector3.ZERO
 var _evt: Button
 var _donj: Control
 var _quitter: Button
@@ -155,15 +161,14 @@ func _ready() -> void:
 	_racine.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_racine.theme = Ui.preparer()
 	add_child(_racine)
-	var joy := Control.new()
-	joy.name = "Joy"
-	joy.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	joy.set_anchors_preset(Control.PRESET_FULL_RECT)
-	joy.draw.connect(func ():
-		joy.draw_circle(_joy_centre, JOY_R, Color(0, 0, 0, 0.28))
-		joy.draw_arc(_joy_centre, JOY_R, 0, TAU, 48, Color(0.45, 0.7, 1.0, 0.6), 3.0, true)
-		joy.draw_circle(_joy_pos, 38, Color(0.55, 0.75, 1.0, 0.8 if _joy_actif else 0.55)))
-	_racine.add_child(joy)
+	_joy.name = "Joy"
+	_joy.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_joy.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_joy.draw.connect(func ():
+		_joy.draw_circle(_joy_centre, JOY_R, Color(0, 0, 0, 0.28))
+		_joy.draw_arc(_joy_centre, JOY_R, 0, TAU, 48, Color(0.45, 0.7, 1.0, 0.6), 3.0, true)
+		_joy.draw_circle(_joy_pos, 38, Color(0.55, 0.75, 1.0, 0.8 if _joy_actif else 0.55)))
+	_racine.add_child(_joy)
 	_haut = Control.new()
 	_haut.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_haut.size = Vector2(420, 140)
@@ -174,7 +179,7 @@ func _ready() -> void:
 	_droite.size = Vector2(330, 300)
 	_droite.draw.connect(_dessiner_droite)
 	_racine.add_child(_droite)
-	for d in [["inventaire", "Inventaire", "sac"], ["ombres", "Ombres", "ombres"], ["stats", "Compétences", "q_skills"], ["index", "Index", "q_kills"], ["boutique", "Boutique", "potion"], ["classement", "Classement", "best"], ["journal", "Journal", "quest"], ["grimoire", "Anos", "grimoire"], ["menu", "Menu", "menu"]]:
+	for d in [["inventaire", "Inventaire", "sac"], ["ombres", "Ombres", "ombres"], ["stats", "Compétences", "q_skills"], ["index", "Index", "q_kills"], ["boutique", "Boutique", "potion"], ["classement", "Classement", "best"], ["journal", "Journal", "quest"], ["grimoire", "Anos", "grimoire"], ["affichage", "Affichage", "gfx"], ["menu", "Menu", "menu"]]:
 		var h := Ui.hexagone(d[1], d[2], 96.0)
 		var type: String = d[0]
 		h.pressed.connect(func (): ouvrir(type))
@@ -232,6 +237,9 @@ func _ready() -> void:
 	_racine.add_child(_toasts)
 	_b_action = _rond("PARLER", "interact", 112.0, Color(0.1, 0.55, 0.4))
 	_b_action.visible = false
+	_chasse = Ui.bouton("Quartiers · Chasse", Ui.VIOLET, Vector2(224, 48), 19)
+	_chasse.pressed.connect(func (): ouvrir("quartiers"))
+	_racine.add_child(_chasse)
 	_evt = Button.new()
 	for st in ["normal", "hover", "pressed", "focus"]:
 		_evt.add_theme_stylebox_override(st, StyleBoxEmpty.new())
@@ -335,6 +343,7 @@ func _disposer() -> void:
 	var h := _taille.y
 	_joy_centre = Vector2(170, h - 160)
 	_joy_pos = _joy_centre
+	_joy.queue_redraw()
 	_b_frapper.position = Vector2(w - 200, h - 200)
 	_b_eveil.position = Vector2(w - 640, h - 270)
 	_b_action.position = Vector2(w - 180, h - 446)
@@ -350,6 +359,7 @@ func _disposer() -> void:
 	_fioles["mana"].position = Vector2(258, h - 82)
 	_haut.position = Vector2(16, 10)
 	_droite.position = Vector2(w - 340, 120)
+	_chasse.position = Vector2(18, 175)
 	_evt.position = Vector2(w - 340, 68)
 	_quitter.position = Vector2(w - 240, 68)
 	_donj.position = Vector2(w / 2.0 - 280, 6)
@@ -361,7 +371,7 @@ func _disposer() -> void:
 		lb.position = Vector2(0, 0 if n == "Titre" else 70)
 
 	var o := Vector2(20, 150)
-	var pos := {"inventaire": o, "ombres": o + Vector2(86, 50), "stats": o + Vector2(0, 100), "index": o + Vector2(86, 150), "boutique": o + Vector2(0, 200), "classement": o + Vector2(86, 250), "journal": o + Vector2(0, 300), "grimoire": o + Vector2(86, 350), "menu": o}
+	var pos := {"inventaire": o, "ombres": o + Vector2(86, 50), "stats": o + Vector2(0, 100), "index": o + Vector2(86, 150), "boutique": o + Vector2(0, 200), "classement": o + Vector2(86, 250), "journal": o + Vector2(0, 300), "grimoire": o + Vector2(86, 350), "affichage": o + Vector2(172, 0), "menu": o}
 	for k in _hex:
 		_hex[k].position = pos[k]
 	_msg.position = Vector2(w / 2.0 - 450, h * 0.62)
@@ -373,6 +383,8 @@ func _disposer() -> void:
 		_placer_panneau()
 
 func _maj() -> void:
+	for f in _fioles.values():
+		f.queue_redraw()
 	_haut.queue_redraw()
 	_droite.queue_redraw()
 	_hex["stats"].set_meta("alerte", Partie.points_libres() > 0)
@@ -525,7 +537,34 @@ func _jeton(c: Control, ctr: Vector2, r: float, m: String) -> void:
 				c.draw_circle(ctr + Vector2(cos(a), sin(a)) * r * 0.3, r * 0.28, Color(0.85, 1.0, 0.85))
 	c.draw_arc(ctr, r, 0, TAU, 32, col.lightened(0.4), 2.0, true)
 
+var _temps_affichage := 0.0
+
 func _process(dt: float) -> void:
+	ville.joueur.entree = (_joy_pos - _joy_centre) / JOY_R * Vector2(1, -1) if _joy_actif else Vector2.ZERO
+	if _roll_actif:
+		_avancer_roll(dt)
+	_temps_affichage += dt
+	var intervalle := 1.0 / 12.0 if Partie.opts["rendu_leger"] else 1.0 / 24.0
+	if _temps_affichage < intervalle:
+		return
+	dt = _temps_affichage
+	_temps_affichage = 0.0
+	_chasse.visible = not (ville.arene or ville.donjon or ville.abime or ville.chateau or _panneau or _menu_ouvert)
+	_reperage -= dt
+	if _chasse.visible and _reperage <= 0.0 and _rang_suivi >= 0:
+		_reperage = 0.5
+		_proie_suivie = _proie_proche(_rang_suivi)
+		_prochain_virage = Vector3.ZERO
+		if is_instance_valid(_proie_suivie):
+			var depart: Vector3 = ville.joueur.global_position
+			var but := _proie_suivie.global_position
+			var carte: RID = ville.joueur.get_world_3d().navigation_map
+			if depart.distance_to(but) > 15.0 and NavigationServer3D.map_get_iteration_id(carte) > 0:
+				for point in NavigationServer3D.map_get_path(carte, depart, but, true):
+					if depart.distance_to(point) >= 6.0:
+						if point.distance_to(but) > 3.0:
+							_prochain_virage = point
+						break
 	_maj_action()
 	if ville.arene and ville.arene.actif:
 		dire("ARÈNE  ·  %d s" % int(ville.arene.temps), Color(1.0, 0.7, 0.3))
@@ -545,8 +584,6 @@ func _process(dt: float) -> void:
 	_aff_o = lerpf(_aff_o, dj[1], minf(1.0, dt * 4.0))
 	_droite.queue_redraw()
 	_haut.queue_redraw()
-	if _roll_actif:
-		_avancer_roll(dt)
 	_msg_t -= dt
 	_msg.modulate.a = clampf(_msg_t / 0.5, 0.0, 1.0)
 	var eveil: Monstre = ville.monstre_eveillable()
@@ -576,8 +613,6 @@ func _process(dt: float) -> void:
 		bc.set_meta("pauvre", Partie.mana < float(Partie.COMPETENCES[k]["mana"]))
 		bc.queue_redraw()
 	_flash_msg_t -= dt
-	for k in _fioles:
-		_fioles[k].queue_redraw()
 	_reconstruire_t -= dt
 	if _a_reconstruire and _reconstruire_t <= 0.0:
 		_a_reconstruire = false
@@ -599,8 +634,6 @@ func _process(dt: float) -> void:
 			b.set_meta("appuye", maxf(0.0, a - dt * 5.0))
 			b.queue_redraw()
 	_cadre.queue_redraw()
-	ville.joueur.entree = (_joy_pos - _joy_centre) / JOY_R * Vector2(1, -1) if _joy_actif else Vector2.ZERO
-	_racine.get_node("Joy").queue_redraw()
 
 
 func _texte(c: Control, p: Vector2, t: String, taille: int, coul: Color, contour := 6) -> void:
@@ -748,6 +781,20 @@ func _construire() -> void:
 		_panneau.queue_free()
 	_detail = null
 	match _type:
+		"quartiers":
+			_panneau = Ui.panneau("Quartiers de chasse", "q_kills", Vector2(740, 490), fermer)
+			_quartiers()
+		"affichage":
+			_panneau = Ui.panneau("Affichage", "gfx", Vector2(650, 280), fermer)
+			var leger := bool(Partie.opts["rendu_leger"])
+			var bouton := Ui.bouton("Rendu léger : " + ("activé" if leger else "désactivé"), Ui.VIOLET, Vector2(370, 56))
+			_ajouter(bouton, Vector2(40, 92))
+			_ajouter(Ui.label("Allège les ombres, les effets et la résolution 3D.", 20, Color.WHITE), Vector2(40, 174))
+			bouton.pressed.connect(func ():
+				Partie.opts["rendu_leger"] = not leger
+				ville.appliquer_rendu()
+				Partie.sauver()
+				_construire())
 		"inventaire":
 			_panneau = Ui.panneau("Inventaire", "sac", Vector2(1060, 610), fermer)
 			_inventaire()
@@ -872,7 +919,7 @@ func _inventaire() -> void:
 		return Partie.valeur(a) > Partie.valeur(b))
 	_ajouter(Ui.label("%d objet%s" % [l.size(), "s" if l.size() > 1 else ""], 20, Color(0.7, 0.8, 1.0)), Vector2(270, 92))
 	var origine := Vector2(36, 140)
-	var col := 5
+	var col := 7
 	if _onglet != "arme":
 		var empl: Array = TYPES_ACC if _onglet == "accessoire" else["relique1", "relique2", "relique3"]
 		for k in empl.size():
@@ -886,11 +933,12 @@ func _inventaire() -> void:
 				case_e.pressed.connect(func (): _montrer_detail("objet", o))
 			_panneau.add_child(case_e)
 		origine = Vector2(310, 140) if empl.size() == 4 else Vector2(170, 140)
-		col = 4
-	_grille(l, origine, col, 2, Vector2(150, 166), func (o):
+		col = 5 if empl.size() == 4 else 6
+	var taille_case := Vector2(109, 101)
+	_grille(l, origine, col, 3, taille_case, func (o):
 		var b := Partie.base(o)
 		var c := Ui.carte(b["nom"], b["icone"], Partie.SIGLES[o["rarete"]], Partie.COULEURS_RARETE[o["rarete"]],
-			Partie.est_equipe(o), ("Niv. %d · " % o["niv"]) + _resume(o), Vector2(150, 166), b.get("effet", ""))
+			Partie.est_equipe(o), ("Niv. %d · " % o["niv"]) + _resume(o), taille_case, b.get("effet", ""))
 		c.pressed.connect(func (): _montrer_detail("objet", o))
 		return c)
 	var meilleur := Ui.bouton("Équiper le meilleur", Ui.VERT, Vector2(260, 54))
@@ -1318,6 +1366,23 @@ func _index() -> void:
 		y += 100.0
 
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_PAUSED and is_instance_valid(_joy):
+		_doigts.clear()
+		_joy_actif = false
+		_joy_centre = Vector2(170, _taille.y - 160)
+		_joy_pos = _joy_centre
+		_joy.queue_redraw()
+		if is_instance_valid(ville) and is_instance_valid(ville.joueur):
+			ville.joueur.entree = Vector2.ZERO
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		if is_instance_valid(_detail):
+			_fermer_detail()
+		elif is_instance_valid(_panneau):
+			fermer()
+		else:
+			_menu_ouvert = not _menu_ouvert
+
 func _input(ev: InputEvent) -> void:
 	if ev is InputEventScreenTouch:
 		if ev.pressed:
@@ -1333,7 +1398,7 @@ func _sur_interface(p: Vector2) -> bool:
 	for k in _hex:
 		if _hex[k].visible and _hex[k].get_global_rect().has_point(p):
 			return true
-	for c in [_evt, _quitter]:
+	for c in [_evt, _quitter, _chasse]:
 		if c.visible and c.get_global_rect().has_point(p):
 			return true
 	return false
@@ -1392,11 +1457,12 @@ func _poser(i: int, p: Vector2) -> void:
 			else:
 				ville.eveiller()
 			return
-	if p.x < _taille.x * 0.42 and p.y > _taille.y * 0.4:
+	if not _joy_actif and p.x < _taille.x * 0.42 and p.y > _taille.y * 0.4:
 		_doigts[i] = {"role": "joy"}
 		_joy_actif = true
 		_joy_centre = p
 		_joy_pos = p
+		_joy.queue_redraw()
 		return
 	_doigts[i] = {"role": "camera", "depart": p, "t": Time.get_ticks_msec()}
 
@@ -1405,6 +1471,7 @@ func _glisser(i: int, p: Vector2, rel: Vector2) -> void:
 	match d.get("role", ""):
 		"joy":
 			_joy_pos = _joy_centre + (p - _joy_centre).limit_length(JOY_R)
+			_joy.queue_redraw()
 		"camera":
 			ville.tourner_camera(rel)
 
@@ -1414,6 +1481,7 @@ func _lever(i: int, p: Vector2) -> void:
 		_joy_actif = false
 		_joy_centre = Vector2(170, _taille.y - 160)
 		_joy_pos = _joy_centre
+		_joy.queue_redraw()
 	elif d.get("role", "") == "camera":
 		if p.distance_to(d["depart"]) < 18.0 and Time.get_ticks_msec() - int(d["t"]) < 350:
 			ville.toucher_monde(p)
@@ -1424,18 +1492,23 @@ func _maj_action() -> void:
 	_action = ville.action_proche() if _panneau == null else {}
 	var v := not _action.is_empty()
 	if v:
-		var t: String = {"autel": "PARLER", "donjon": "ENTRER", "sortir": "SORTIR", "chateau": "CHÂTEAU", "abime": "ABÎME", "quitter_abime": "SORTIR"}[_action["type"]]
-		_b_action.set_meta("texte", t)
+		var t: String = {"rue": _action.get("texte", "AIDER"), "guide": "PARLER", "autel": "PARLER", "donjon": "ENTRER", "sortir": "SORTIR", "chateau": "CHÂTEAU", "abime": "ABÎME", "quitter_abime": "SORTIR"}[_action["type"]]
+		if _b_action.get_meta("texte", "") != t:
+			_b_action.set_meta("texte", t)
+			_b_action.queue_redraw()
 	if v != _b_action.visible:
 		_b_action.visible = v
 		if v:
 			_b_action.scale = Vector2.ONE * 0.6
 			var tw := _b_action.create_tween()
 			tw.tween_property(_b_action, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_b_action.queue_redraw()
 
 func agir() -> void:
 	match _action.get("type", ""):
+		"rue":
+			ville.rues.intervenir()
+		"guide":
+			ville.parler_guide()
 		"autel":
 			_autel = _action["autel"]
 			_bande = []
@@ -1477,17 +1550,89 @@ func _dessiner_evt() -> void:
 		_texte(c, Vector2(52, 38), "Prochain événement dans " + tt, 15, Color(0.85, 0.85, 0.95), 5)
 
 
+func _proie_proche(rang: int) -> Monstre:
+	var proche: Monstre
+	var distance := INF
+	for m: Monstre in ville.monstres:
+		if is_instance_valid(m) and not m.mort and not m.allie and int(m.get_meta("quartier", -1)) == rang:
+			var d := m.global_position.distance_squared_to(ville.joueur.global_position)
+			if d < distance:
+				distance = d
+				proche = m
+	return proche
+
+func _quartiers() -> void:
+	for r in ville.QUARTIERS.size():
+		var proie := _proie_proche(r)
+		var texte := "En attente de réapparition"
+		if proie:
+			texte = "%s · %d m" % [proie.e.nom, roundi(ville.joueur.global_position.distance_to(proie.global_position))]
+		var b := Ui.bouton("%s   %s     —     %s" % [Partie.RANGS[r], ville.QUARTIERS[r], texte], Partie.COULEURS_RANG[r].darkened(0.45), Vector2(690, 56), 20)
+		_ajouter(b, Vector2(25, 80 + r * 65))
+		b.pressed.connect(func ():
+			_rang_suivi = r
+			_reperage = 0.0
+			_prochain_virage = Vector3.ZERO
+			_proie_suivie = _proie_proche(r)
+			fermer())
+	var stop := Ui.bouton("Arrêter le guidage", Ui.VIOLET, Vector2(230, 50), 19)
+	_ajouter(stop, Vector2(25, 415))
+	stop.pressed.connect(func ():
+		_rang_suivi = -1
+		fermer())
+
 func _dessiner_fleche() -> void:
-	var b: Monstre = ville.boss_evt
-	if b == null or not is_instance_valid(b) or b.mort or ville.donjon != null:
-		return
+	var repere: Node3D
+	var nom := "Baran"
+	var couleur := Color(1.0, 0.25, 0.35)
+	if Partie.chapitre < 3 and not _panneau and not _menu_ouvert and not (ville.donjon or ville.chateau or ville.abime or ville.arene):
+		var consigne := "Touche PARLER près de Kaito"
+		if Partie.chapitre == 1:
+			consigne = "Suis Kaito aux entrepôts"
+			if is_instance_valid(ville.proie):
+				consigne = "Touche ÉVEIL près de l’éclaireur" if ville.proie.mort else "Touche l’éclaireur pour l’attaquer"
+		elif Partie.chapitre == 2:
+			consigne = "Retrouve Kaito au portail bleu"
+		repere = ville.mentor
+		nom = "Kaito"
+		couleur = Color.GOLD
+		if Partie.chapitre == 1 and is_instance_valid(ville.proie):
+			repere = ville.proie
+			nom = "Éclaireur"
+			if ville.proie.frappe_annoncee:
+				consigne = "Écarte-toi du cercle rouge"
+			elif ville.proie.ouverture > 0.0:
+				consigne = "Reviens frapper pendant l’ouverture"
+		_texte(_fleche, Vector2(24, 134), consigne, 21, Color.GOLD)
+	if not (ville.donjon or ville.arene or ville.chateau or ville.abime) and ville.rues.phase in ["transport", "escorte"]:
+		repere = ville.rues.b
+		nom = repere.d.nom
+		couleur = Color.BISQUE
+		var texte := "Livrer à %s · %d m" % [nom, int(ville.joueur.global_position.distance_to(repere.global_position))]
+		if ville.rues.phase == "escorte":
+			texte = "Accompagner %s · abri à %d m" % [nom, int(repere.global_position.distance_to(ville.rues.refuge))]
+		_texte(_fleche, Vector2(24, 162), texte, 19, couleur)
+	var chasse := _chasse.visible and _rang_suivi >= 0 and is_instance_valid(_proie_suivie) and not _proie_suivie.mort
+	if chasse:
+		repere = _proie_suivie
+		nom = "%s · %s" % [Partie.RANGS[_rang_suivi], _proie_suivie.e.nom]
+		couleur = Partie.COULEURS_RANG[_rang_suivi].lightened(0.2)
+	if not is_instance_valid(repere):
+		if not is_instance_valid(ville.boss_evt) or ville.boss_evt.mort or ville.donjon != null:
+			return
+		repere = ville.boss_evt
 	var cam: Camera3D = ville.camera
-	var p3 := b.global_position + Vector3(0, 3.0, 0)
+	var p3 := repere.global_position + Vector3(0, 3.0, 0)
+	if chasse and _prochain_virage != Vector3.ZERO:
+		p3 = _prochain_virage + Vector3.UP * 1.6
+		nom = "◆ Rang %s" % Partie.RANGS[_rang_suivi]
 	var derriere := cam.is_position_behind(p3)
 	var p := cam.unproject_position(p3)
 	var marge := 70.0
 	var dedans := not derriere and p.x > marge and p.x < _taille.x - marge and p.y > marge and p.y < _taille.y - marge
 	if dedans:
+		if chasse:
+			_texte(_fleche, p + Vector2(-42, -10), "%s · %d m" % [nom, roundi(ville.joueur.global_position.distance_to(repere.global_position))], 19, couleur)
 		return
 	var ctr := _taille / 2.0
 	var d := (p - ctr)
@@ -1504,11 +1649,11 @@ func _dessiner_fleche() -> void:
 	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 150.0)
 	var a := d.angle()
 	var pts := PackedVector2Array([pos + Vector2.from_angle(a) * 30, pos + Vector2.from_angle(a + 2.5) * 22, pos + Vector2.from_angle(a - 2.5) * 22])
-	_fleche.draw_colored_polygon(pts, Color(1.0, 0.25, 0.35, 0.7 + 0.3 * pulse))
+	_fleche.draw_colored_polygon(pts, Color(couleur, 0.7 + 0.3 * pulse))
 	pts.append(pts[0])
 	_fleche.draw_polyline(pts, Color(1, 0.9, 0.9), 3.0, true)
-	var dist := int(ville.joueur.global_position.distance_to(b.global_position))
-	var txt := "Baran  %d m" % dist
+	var dist := int(ville.joueur.global_position.distance_to(repere.global_position))
+	var txt := "%s  %d m" % [nom, dist]
 	var w := Ui.police.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
 	_texte(_fleche, pos - d * 46 - Vector2(w / 2.0, -6), txt, 18, Color(1.0, 0.75, 0.75), 6)
 
@@ -1541,8 +1686,11 @@ func _dessiner_donjon() -> void:
 		_texte(c, Vector2(300 - 8, 26), "Restants : %d" % dj.restants(), 16, Color(1.0, 0.6, 0.6), 5)
 
 func _donjon_panneau() -> void:
-	var puissance := Partie.dps_total()
-	_ajouter(Ui.label("Ta puissance : %s/s  ·  Rang %s  ·  Niveau %d" % [Fx.court(puissance), Partie.RANGS[Partie.rang_chasseur], Partie.niveau], 20, Color(0.8, 0.85, 1.0), 6), Vector2(36, 80))
+	var perso := Partie.dps_joueur()
+	var ombres := 0.0
+	for o in Partie.ombres_equipees():
+		ombres += Partie.dps_ombre(o)
+	_ajouter(Ui.label("Puissance équipée · Toi %s/s + Ombres %s/s  ·  Rang %s" % [Fx.court(perso), Fx.court(ombres), Partie.RANGS[Partie.rang_chasseur]], 20, Color(0.8, 0.85, 1.0), 6), Vector2(36, 80))
 	var rc := Partie.rang_chasseur
 	var tl := Panel.new()
 	tl.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1575,7 +1723,11 @@ func _donjon_panneau() -> void:
 		_ajouter(Ui.label("RANG %s" % Partie.RANGS[n], 30, Partie.COULEURS_RANG[n], 8), Vector2(50, y + 8))
 		_ajouter(Ui.label(d["nom"], 24, col.lightened(0.2) if ouvert else Color(0.6, 0.6, 0.7), 7), Vector2(180, y + 6))
 		var rec: float = float(Partie.records.get(str(n), 0.0))
-		var infos := "Boss : %s  ·  %d:%02d  ·  %s/s conseillés" % [d["boss"], int(d["duree"]) / 60, int(d["duree"]) % 60, Fx.court(d["puissance"])]
+		var total_pv := 0.0
+		for salle in Donjon.SALLES_PAR_NIV[n]:
+			for ennemi in salle:
+				total_pv += Partie.stats_monstre(ennemi[0], ennemi[3]).pv
+		var infos := "%s · %d:%02d · %s PV de base en solo" % [d["boss"], int(d["duree"]) / 60, int(d["duree"]) % 60, Fx.court(total_pv)]
 		_ajouter(Ui.label(infos, 15, Color(0.85, 0.85, 0.95), 4), Vector2(180, y + 42))
 		var etat := "Record %d:%02d" % [int(rec) / 60, int(rec) % 60] if rec > 0.0 else "Jamais terminé"
 		if not precedent_ok:
@@ -1604,7 +1756,7 @@ func recompenses_donjon(g: Dictionary) -> void:
 
 func _recompenses_panneau() -> void:
 	var g := _gains
-	_ajouter(Ui.label("Kargash est vaincu !", 32, Color(1.0, 0.82, 0.35), 8), Vector2(36, 82))
+	_ajouter(Ui.label("%s vaincu !" % g.get("boss", "Boss"), 32, Color(1.0, 0.82, 0.35), 8), Vector2(36, 82))
 	_ajouter(Ui.label("Temps : %d:%02d%s" % [int(g.get("temps", 0)) / 60, int(g.get("temps", 0)) % 60, "   NOUVEAU RECORD !" if g.get("record", false) else ""], 22, Color.WHITE, 6), Vector2(36, 130))
 	_ajouter(Ui.label("+%s pièces" % Fx.court(g.get("pieces", 0)), 26, Color(1.0, 0.85, 0.3), 7), Vector2(40, 180))
 	var y := 226.0
@@ -1621,8 +1773,11 @@ func _recompenses_panneau() -> void:
 		var b: Dictionary = Partie.OBJETS["croc_roi"]
 		_ajouter(Ui.carte(b["nom"], b["icone"], "U", Partie.COULEURS_RARETE[Partie.UNIQUE], false, "ARME UNIQUE", Vector2(200, 220), "unique"), Vector2(510, 90))
 		_ajouter(Ui.label("Équipe-la dans l'inventaire !", 18, Color(0.95, 0.75, 1.0), 5), Vector2(496, 320))
-	else:
+	elif g.get("boss", "") == "Kargash, le roi gobelin":
 		_ajouter(Ui.label("Le Croc du roi n'est pas tombé cette fois\n(1 chance sur 3 après la première).", 18, Color(0.8, 0.75, 0.9), 5), Vector2(400, 200))
+	var degats: Dictionary = g.get("degats", {})
+	if not degats.is_empty():
+		_ajouter(Ui.label("Dégâts infligés · Toi %s   Ombres %s   Alliés %s" % [Fx.court(degats.joueur), Fx.court(degats.ombres), Fx.court(degats.allie)], 18, Color.WHITE), Vector2(40, 388))
 	_ajouter(Ui.label("Le portail de sortie s'est ouvert derrière toi.", 19, Color(0.6, 0.85, 1.0), 5), Vector2(40, 420))
 	var ok := Ui.bouton("CONTINUER", Ui.VERT, Vector2(280, 58), 24)
 	ok.pressed.connect(fermer)

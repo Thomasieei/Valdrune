@@ -6,7 +6,7 @@ config_version=5
 [application]
 
 config/name="Arise Ville"
-run/main_scene="res://scenes/ville.tscn"
+run/main_scene="res://scenes/accueil.tscn"
 config/quit_on_go_back=false
 config/features=PackedStringArray("4.3", "Mobile")
 config/icon="res://assets/icone_192.png"
@@ -26,6 +26,12 @@ window/handheld/orientation=4
 [input_devices]
 
 pointing/emulate_touch_from_mouse=true
+
+[navigation]
+
+3d/default_cell_size=0.35
+3d/default_cell_height=0.12
+3d/merge_rasterizer_cell_scale=0.001
 
 [rendering]
 

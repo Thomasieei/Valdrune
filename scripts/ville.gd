@@ -49,19 +49,26 @@ var joueur: Joueur
 var camera: Camera3D
 var monstres: Array = []
 var ombres: Array = []
+var _composition_ombres := []
 var hud: Hud
 var _lacet := 1.45
 var _tangage := -0.42
 var _dist := 8.5
 var _cam_pos := Vector3.ZERO
 var _soleil: DirectionalLight3D
-var _sphere_cam := SphereShape3D.new()
+var _requete_camera := PhysicsShapeQueryParameters3D.new()
 var _env: Environment
 var pnjs: Array = []
 var portail: Node3D
 var donjon: Donjon = null
 var arene: Arene = null
 var chasseurs: Array = []
+var rues = preload("res://scripts/vie_des_rues.gd").new()
+var mentor: Chasseur
+var _entree_en_cours := false
+var proie: Monstre
+const PISTE := Vector3(-182, 0, -73)
+
 var _adversaire := {}
 var POSTES_V: Array = POSTES
 var _arise_t := 0.0
@@ -101,7 +108,7 @@ func quitter_abime() -> void:
 	await hud.fondu(false)
 
 var gates: Array = []
-var _gate_t := 240.0
+var _gate_t := 75.0
 var _break_boss: Monstre = null
 var raid_boss: Monstre = null
 var _raid_fin := 0.0
@@ -174,8 +181,15 @@ const COULEURS_GATE := [Color(0.6, 0.65, 0.75), Color(0.3, 0.9, 0.4), Color(0.3,
 
 func _ouvrir_gate() -> void:
 	var r := clampi(Partie.rang_chasseur + (1 if randf() < 0.3 else 0) - (1 if randf() < 0.3 else 0), 0, 3)
-	var p: Array = POSTES.pick_random()
-	var pos := Vector3(p[1], _sol(p[1], p[2]), p[2]) + Vector3(randf_range(-3, 3), 0, randf_range(-3, 3))
+	var libres := []
+	for k in [8, 9]:
+		var site: Vector2i = SITES[r][k]
+		if not gates.any(func (g): return g["site"] == site):
+			libres.append(site)
+	if libres.is_empty():
+		return
+	var site: Vector2i = libres.pick_random()
+	var pos := Vector3(site.x, _sol_quartier(site.x, site.y), site.y)
 	var n := Node3D.new()
 	add_child(n)
 	n.position = pos
@@ -194,21 +208,30 @@ func _ouvrir_gate() -> void:
 	var l_esp: Array = Partie.ESPECES_RANG[r]
 	for k in 3 + r:
 		var m := Monstre.new()
-		var a := TAU * k / (3 + r)
-		m.configurer(l_esp[k % 2], pos + Vector3(cos(a), 0, sin(a)) * 4.0, a)
+		var poste: Vector2i = site + FORMATION[k]
+		m.configurer(l_esp[k % 2], Vector3(poste.x, _sol_quartier(poste.x, poste.y), poste.y), TAU * k / (3 + r))
 		m.reapparait_auto = false
 		m.elite_fixe = k == 0
 		add_child(m)
 		monstres.append(m)
 		gardes.append(m)
-	gates.append({"noeud": n, "label": l, "rang": r, "fin": Time.get_unix_time_from_system() + 600.0, "gardes": gardes})
-	hud.annonce("PORTAIL DE RANG %s OUVERT !" % Partie.RANGS[r], "Ferme-le en 10 min ou ses monstres envahiront la ville", COULEURS_GATE[r])
+	_faisceau(n, COULEURS_GATE[r], 27.0)
+	gates.append({"site": site, "noeud": n, "label": l, "rang": r, "fin": Time.get_unix_time_from_system() + 600.0, "gardes": gardes})
+	hud.annonce("PORTAIL DE RANG %s OUVERT !" % Partie.RANGS[r], "%s · Suis le faisceau. Ferme le portail en 10 min." % QUARTIERS[r], COULEURS_GATE[r])
+
+var _lecture_gates := 0.0
 
 func _maj_gates(dt: float) -> void:
 	_gate_t -= dt
 	if _gate_t <= 0.0 and gates.size() < 2 and donjon == null and chateau == null:
 		_gate_t = randf_range(360.0, 600.0)
 		_ouvrir_gate()
+	if gates.is_empty():
+		return
+	_lecture_gates -= dt
+	if _lecture_gates > 0.0:
+		return
+	_lecture_gates = 0.25
 	var now := Time.get_unix_time_from_system()
 	for g in gates.duplicate():
 		var vivants: Array = g["gardes"].filter(func (m): return is_instance_valid(m) and not m.mort)
@@ -294,14 +317,18 @@ func _ready() -> void:
 	camera.fov = 62
 	camera.far = 420
 	add_child(camera)
-	_sphere_cam.radius = 0.35
+	var sphere := SphereShape3D.new()
+	sphere.radius = 0.35
+	_requete_camera.shape = sphere
+	_requete_camera.exclude = [joueur.get_rid()]
 	_cam_pos = DEPART
 	_generer_zones()
 	for p in postes():
 		var m := Monstre.new()
-		m.configurer(p[0], Vector3(p[1], _sol(p[1], p[2]), p[2]), deg_to_rad(p[3]))
+		m.configurer(p[0], Vector3(p[1], _sol_quartier(p[1], p[2]), p[2]), deg_to_rad(p[3]))
 		m.elite = not Partie.ESPECES[p[0]].get("boss", false) and randf() < Partie.CHANCE_ELITE
 		add_child(m)
+		m.set_meta("quartier", int(m.e["rang"]))
 		monstres.append(m)
 		m.regenere.connect(func (x): if joueur.cible == x: joueur.viser(null))
 	_pole()
@@ -310,20 +337,27 @@ func _ready() -> void:
 		c.d = Partie.chasseurs[k]
 		c.ville = self
 		add_child(c)
-		var p: Array = POSTES[(k * 3) % POSTES.size()]
-		c.placer(Vector3(p[1] + 2.0, _sol(p[1], p[2]) + 0.3, p[2] + 2.0))
+		var p: Array = _postes_gen[(k * 3) % _postes_gen.size()]
+		if k == 0 and Partie.chapitre < 3:
+			mentor = c
+			c.placer(DEPART + Vector3(-2, 0, -1))
+			c.mode = "guide"
+			c._plaque.text = "%s · Guide de l’Association" % c.d.nom
+		else:
+			c.placer(Vector3(p[1] + 2.0, _sol(p[1], p[2]) + 0.3, p[2] + 2.0))
 		chasseurs.append(c)
 	prochain_evt = _quart_suivant()
 	hud = Hud.new()
 	hud.ville = self
 	add_child(hud)
+	rues.installer(self)
 	Partie.change.connect(_maj_ombres)
 	_maj_ombres()
 	_musique()
 	Partie.systeme.connect(func (t, l): hud.systeme(t, l))
 	if Partie.penalite_due:
 		get_tree().create_timer(3.0).timeout.connect(_penalite)
-	else:
+	elif Partie.chapitre >= 3:
 		get_tree().create_timer(3.0).timeout.connect(func (): hud.systeme("QUÊTE QUOTIDIENNE", ["Préparation pour devenir fort :", "• 100 monstres vaincus", "• 10 ombres levées", "• 1 donjon terminé", "Avant minuit. Sinon : zone de pénalité."]))
 	hud.dire("Zones rouges au sol : sors-en vite !  Bouclier bleu = PARADE : arrête de frapper.", Color(0.85, 0.75, 1.0))
 	if OS.get_cmdline_user_args().size() > 0:
@@ -336,50 +370,41 @@ func _ready() -> void:
 
 var _postes_gen: Array = []
 
-# Découpe la ville en zones de rang selon la distance au départ : E proche, puis D, C, B au loin.
+const QUARTIERS := ["Entrepôts", "Quais", "Fonderie", "Périphérie", "Bastion des Cendres"]
+# Huit patrouilles et deux parvis de faille par quartier, relevés sur la ville et son réseau piéton.
+const SITES := [
+	[Vector2i(-182, -73), Vector2i(-182, -105), Vector2i(-198, -69), Vector2i(-166, -105), Vector2i(-214, -73), Vector2i(-146, -85), Vector2i(-206, -57), Vector2i(-214, -105), Vector2i(-150, -105), Vector2i(-146, -69)],
+	[Vector2i(-258, -29), Vector2i(-246, -37), Vector2i(-246, -21), Vector2i(-266, -41), Vector2i(-266, -17), Vector2i(-274, -29), Vector2i(-254, -49), Vector2i(-254, -9), Vector2i(-234, -29), Vector2i(-238, -49)],
+	[Vector2i(-86, -145), Vector2i(-70, -145), Vector2i(-102, -145), Vector2i(-74, -129), Vector2i(-106, -161), Vector2i(-58, -153), Vector2i(-86, -177), Vector2i(-106, -129), Vector2i(-58, -137), Vector2i(-70, -177)],
+	[Vector2i(74, -137), Vector2i(82, -125), Vector2i(66, -125), Vector2i(86, -145), Vector2i(62, -145), Vector2i(74, -153), Vector2i(94, -133), Vector2i(54, -133), Vector2i(74, -113), Vector2i(94, -117)],
+	[Vector2i(-114, -48), Vector2i(-123, -46), Vector2i(-98, -48), Vector2i(-89, -40)]
+]
+const FORMATION := [Vector2i(-4, 0), Vector2i(4, 0), Vector2i(0, -4), Vector2i(0, 4), Vector2i(-4, -4), Vector2i(4, 4)]
+
 func _generer_zones() -> void:
-	var etat := get_world_3d().direct_space_state
-	var sphere := SphereShape3D.new()
-	sphere.radius = 1.6
-	var pts := []
-	seed(1234)
-	for k in 900:
-		var x := randf_range(-420.0, 160.0)
-		var z := randf_range(-320.0, 90.0)
-		var r := etat.intersect_ray(PhysicsRayQueryParameters3D.create(Vector3(x, 60, z), Vector3(x, -5, z)))
-		if r.is_empty() or r["position"].y > 0.7 or r["position"].y < -0.4:
-			continue
-		var q := PhysicsShapeQueryParameters3D.new()
-		q.shape = sphere
-		q.transform = Transform3D(Basis.IDENTITY, r["position"] + Vector3(0, 2.0, 0))
-		if not etat.intersect_shape(q, 1).is_empty():
-			continue
-		var p: Vector3 = r["position"]
-		if pts.any(func (o): return o.distance_to(p) < 14.0):
-			continue
-		pts.append(p)
-	randomize()
-	if pts.size() < 24:
-		_postes_gen = POSTES
-		return
-	var par_rang := [0, 0, 0, 0]
-	for p in pts:
-		var d: float = Vector2(p.x - DEPART.x, p.z - DEPART.z).length()
-		var rg := mini(int(d / 75.0), 3)
-		if par_rang[rg] >= 8:
-			continue
-		par_rang[rg] += 1
-		var l: Array = Partie.ESPECES_RANG[rg]
-		for j in 2:
-			_postes_gen.append([l[(j + par_rang[rg]) % 2], p.x + j * 3.0, p.z + randf_range(-2, 2), randf() * 360.0])
-	for b in POSTES:
-		if Partie.ESPECES[b[0]].get("boss", false):
-			_postes_gen.append(b)
+	for rang in SITES.size():
+		var especes: Array = ["sentinelle_cendre", "traqueur_givre"] if rang == 4 else Partie.ESPECES_RANG[rang]
+		for k in mini(8, SITES[rang].size()):
+			var site: Vector2i = SITES[rang][k]
+			for j in (3 if k % 2 == 0 else 2):
+				var p: Vector2i = site + FORMATION[j]
+				_postes_gen.append([especes[(k + j) % 2], p.x, p.y, 90.0 if j == 0 else -90.0])
+	for ancien in POSTES:
+		if Partie.ESPECES[ancien[0]].get("boss", false):
+			var site: Vector2i = SITES[3][6 if ancien[0] == "chevalier" else 7]
+			_postes_gen.append([ancien[0], site.x, site.y + 4, ancien[3]])
 	POSTES_V = _postes_gen
-	print("[ZONES] points=", pts.size(), " par rang=", par_rang)
 
 func rang_zone(p: Vector3) -> int:
-	return mini(int(Vector2(p.x - DEPART.x, p.z - DEPART.z).length() / 75.0), 3)
+	var rang := 0
+	var proche := INF
+	for k in SITES.size():
+		for site in SITES[k]:
+			var distance := Vector2(p.x, p.z).distance_squared_to(Vector2(site))
+			if distance < proche:
+				proche = distance
+				rang = k
+	return rang
 
 func postes() -> Array:
 	return [] if OS.get_cmdline_user_args().has("--pilote=tailles") else (_postes_gen if not _postes_gen.is_empty() else POSTES)
@@ -403,7 +428,6 @@ func _environnement() -> void:
 	e.fog_enabled = true
 	e.fog_light_color = Color(0.55, 0.6, 0.75)
 	e.fog_density = 0.0022
-	e.glow_enabled = true
 	e.glow_intensity = 0.5
 	we.environment = e
 	add_child(we)
@@ -411,10 +435,17 @@ func _environnement() -> void:
 	_soleil.rotation_degrees = Vector3(-42, 35, 0)
 	_soleil.light_color = Color(1.0, 0.9, 0.8)
 	_soleil.light_energy = 1.25
-	_soleil.shadow_enabled = true
 	_soleil.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	_soleil.directional_shadow_max_distance = 40.0
 	add_child(_soleil)
+	appliquer_rendu()
+
+func appliquer_rendu() -> void:
+	var leger := bool(Partie.opts["rendu_leger"])
+	get_viewport().scaling_3d_scale = 0.75 if leger else 1.0
+	get_viewport().msaa_3d = Viewport.MSAA_DISABLED if leger else Viewport.MSAA_2X
+	_soleil.shadow_enabled = not leger
+	_env.glow_enabled = not leger
 
 func _ville() -> void:
 	var v: Node3D = load("res://assets/city.glb").instantiate()
@@ -424,6 +455,9 @@ func _ville() -> void:
 	for m in v.find_children("*", "MeshInstance3D", true, false):
 		var mi := m as MeshInstance3D
 		mi.create_trimesh_collision()
+		for enfant in mi.get_children():
+			if enfant is StaticBody3D:
+				enfant.set_collision_layer_value(16, true)
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 
 	var sol := StaticBody3D.new()
@@ -434,6 +468,77 @@ func _ville() -> void:
 	sol.add_child(cs)
 	sol.position = Vector3(-107, -0.52, -107)
 	add_child(sol)
+	_littoral()
+
+func _littoral() -> void:
+	var mer := MeshInstance3D.new()
+	var surface := PlaneMesh.new()
+	surface.size = Vector2(1450, 1000)
+	mer.mesh = surface
+	var eau := StandardMaterial3D.new()
+	eau.albedo_color = Color("#286777")
+	eau.roughness = 0.32
+	mer.material_override = eau
+	mer.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mer.position = Vector3(-107, -1.4, -107)
+	add_child(mer)
+	var pierre := StandardMaterial3D.new()
+	pierre.albedo_color = Color("#776e63")
+	for bord in [[Vector3(-107,-0.9,9),Vector3(558,4,1.6)], [Vector3(-107,-0.9,-224),Vector3(558,4,1.6)], [Vector3(-385.5,-0.9,-107.5),Vector3(1.6,4,234)], [Vector3(171.5,-0.9,-107.5),Vector3(1.6,4,234)]]:
+		var quai := MeshInstance3D.new()
+		var bloc := BoxMesh.new()
+		bloc.size = bord[1]
+		quai.mesh = bloc
+		quai.material_override = pierre
+		quai.position = bord[0]
+		add_child(quai)
+		quai.create_trimesh_collision()
+	var roche := StandardMaterial3D.new()
+	roche.albedo_color = Color("#405b54")
+	for relief in [[-320, 78, 23],[-218, 94, 16],[-73, 116, 25],[87, 81, 14],[-440,-126,22],[-250,-300,19],[212,-210,16]]:
+		var ile := MeshInstance3D.new()
+		var pic := SphereMesh.new()
+		pic.radial_segments = 9
+		pic.rings = 3
+		ile.mesh = pic
+		ile.material_override = roche
+		ile.position = Vector3(relief[0], -6, relief[1])
+		ile.scale = Vector3(77, relief[2], 52)
+		add_child(ile)
+
+func _faisceau(parent: Node3D, couleur: Color, hauteur: float) -> void:
+	var rayon := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.height = hauteur
+	cyl.top_radius = 0.18
+	cyl.bottom_radius = 0.65
+	cyl.radial_segments = 8
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(couleur, 0.7)
+	rayon.mesh = cyl
+	rayon.material_override = mat
+	rayon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	rayon.position.y = hauteur * 0.5
+	parent.add_child(rayon)
+
+func _panneau_rue(texte: String, point: Vector3) -> void:
+	var l := Label3D.new()
+	l.text = texte
+	l.font = Ui.police
+	l.font_size = 36
+	l.pixel_size = 0.016
+	l.outline_size = 8
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.visibility_range_end = 38.0
+	l.position = point + Vector3.UP * 3.5
+	add_child(l)
+
+func _sol_quartier(x: float, z: float) -> float:
+	var q := PhysicsRayQueryParameters3D.create(Vector3(x, 40, z), Vector3(x, -5, z), 1 << 15)
+	var hit := get_world_3d().direct_space_state.intersect_ray(q)
+	return hit.position.y if not hit.is_empty() else 0.0
 
 func _sol(x: float, z: float) -> float:
 	var q := PhysicsRayQueryParameters3D.create(Vector3(x, 40, z), Vector3(x, -5, z))
@@ -453,6 +558,10 @@ func _musique(nom := "city") -> void:
 
 
 func _pole() -> void:
+	_panneau_rue("ASSOCIATION DES CHASSEURS\n← Entrepôts et portail E", DEPART + Vector3(-3, 0, -3))
+	for rang in SITES.size():
+		var site: Vector2i = SITES[rang][0]
+		_panneau_rue("%s · RANG %s" % [QUARTIERS[rang].to_upper(), Partie.RANGS[rang]], Vector3(site.x, 0, site.y))
 	for a in AUTELS:
 		var p := Pnj.new()
 		p.autel = a[0]
@@ -463,6 +572,7 @@ func _pole() -> void:
 	portail = Node3D.new()
 	add_child(portail)
 	portail.position = PORTAIL + Vector3(0, _sol(PORTAIL.x, PORTAIL.z), 0)
+	_faisceau(portail, Color(0.25, 0.65, 1), 18.0)
 	portail.rotation.y = PI / 2.0
 	portail.add_child(Portail.creer(Color(0.15, 0.45, 1.0), Color(0.6, 0.25, 1.0), 2.0))
 	var l := Label3D.new()
@@ -511,6 +621,39 @@ func _pole() -> void:
 	portail.add_child(l)
 
 
+func guide_destination() -> Vector3:
+	if Partie.chapitre == 0 or joueur.global_position.distance_to(mentor.global_position) > 8.0:
+		return mentor.global_position
+	return portail.global_position if Partie.chapitre == 2 else PISTE
+
+func _premiere_chasse() -> void:
+	if Partie.chapitre != 1 or donjon or chateau or abime or arene:
+		return
+	if not is_instance_valid(proie) and joueur.global_position.distance_to(PISTE) < 10:
+		proie = Monstre.new()
+		proie.configurer("gobelin", PISTE + Vector3(0, _sol_quartier(PISTE.x, PISTE.z), 0), PI)
+		proie.initiation = true
+		proie.nom_perso = "Éclaireur des entrepôts"
+		proie.sans_chrono = true
+		add_child(proie)
+		monstres.append(proie)
+		hud.dire("Kaito : « Touche l’éclaireur. Sors du cercle quand il arme son coup. »", Color.GOLD)
+		proie.vaincu.connect(func (_m): hud.dire("Son ombre résiste encore. Approche et touche ÉVEIL.", Color.GOLD))
+	if is_instance_valid(proie) and proie.mort and proie.eveillable:
+		proie._eveil_fin = Time.get_ticks_msec() / 1000.0 + 5.0
+		proie._reapparait = 12.0
+
+func parler_guide() -> void:
+	if Partie.chapitre == 0:
+		Partie.chapitre = 1
+		hud.systeme("MA PREMIÈRE OMBRE", ["Kaito : « Un éclaireur rôde dans les entrepôts. »", "Suis-moi au joystick. Je t’attends si tu t’arrêtes."])
+	elif Partie.chapitre == 2:
+		Partie.chapitre = 3
+		mentor.mode = "ville"
+		mentor._maj_plaque()
+		hud.systeme("CHASSEUR DE L’ASSOCIATION", ["Ta première ombre marche avec toi.", "Au portail : choisis le Repaire, seul ou en groupe."])
+	Partie.sauver()
+
 func action_proche() -> Dictionary:
 	var p := joueur.global_position
 	if abime:
@@ -521,6 +664,9 @@ func action_proche() -> Dictionary:
 		if donjon.sortie and p.distance_to(donjon.sortie.global_position) < 4.0:
 			return {"type": "sortir"}
 		return {}
+	if not arene and is_instance_valid(mentor) and p.distance_to(mentor.global_position) < 4.0:
+		if Partie.chapitre == 0 or (Partie.chapitre == 2 and p.distance_to(portail.global_position) < 6.0):
+			return {"type": "guide"}
 	for n: Pnj in pnjs:
 		if p.distance_to(n.global_position) < 3.6:
 			return {"type": "autel", "autel": n.autel}
@@ -530,7 +676,7 @@ func action_proche() -> Dictionary:
 		return {"type": "chateau"}
 	if p.distance_to(portail_abime.global_position) < 5.0:
 		return {"type": "abime"}
-	return {}
+	return rues.action() if not arene else {}
 
 
 func _penalite() -> void:
@@ -599,7 +745,7 @@ func sort_anos(id: String) -> void:
 				if is_instance_valid(m) and not m.mort and m.global_position.distance_to(p) < 35.0:
 					m._etourdi = 8.0
 					m._parade = 0.0
-					m.frapper(m.pv_max * 0.3, true, "evenement")
+					m.frapper(m.pv_max * 0.3, true, "evenement", joueur)
 		"lance":
 			var c := joueur.cible if joueur.cible and is_instance_valid(joueur.cible) else joueur.cible_devant(monstres, 40.0)
 			if c:
@@ -608,7 +754,7 @@ func sort_anos(id: String) -> void:
 		"legion":
 			var n := 0
 			for m in monstres:
-				if is_instance_valid(m) and m.eveillable and m.global_position.distance_to(p) < 35.0:
+				if is_instance_valid(m) and m != proie and m.eveillable and m.global_position.distance_to(p) < 35.0:
 					Partie.force_eveil = true
 					Partie.eveiller(m.espece)
 					Partie.force_eveil = false
@@ -711,18 +857,25 @@ func entrer_test() -> void:
 	hud.annonce("TEST DE RANG %s" % Partie.RANGS[donjon.test_rang], "10 salles · %d minutes · ne flanche pas" % (int(Partie.DUREE_TEST) / 60), Color(1.0, 0.75, 0.3))
 
 func entrer_donjon(n := 0, groupe := false) -> void:
-	if donjon or arene:
+	if _entree_en_cours or donjon or arene or chateau or abime:
 		return
+	_entree_en_cours = true
 	var equipe := []
 	if groupe:
 		hud.annonce("RECHERCHE DE GROUPE", "Matchmaking en cours…", Color(0.5, 0.85, 1.0))
 		await get_tree().create_timer(2.5).timeout
 		var dispo := chasseurs.filter(func (c): return c.mode == "ville")
-		dispo.sort_custom(func (a, b): return absi(int(a.d["niveau"]) - Partie.niveau) < absi(int(b.d["niveau"]) - Partie.niveau))
+		dispo.sort_custom(func (a, b):
+			var ecart_a := absi(int(a.d["niveau"]) - Partie.niveau)
+			var ecart_b := absi(int(b.d["niveau"]) - Partie.niveau)
+			if ecart_a != ecart_b:
+				return ecart_a < ecart_b
+			return a.global_position.distance_squared_to(PORTAIL) < b.global_position.distance_squared_to(PORTAIL))
 		equipe = dispo.slice(0, 3)
 		hud.dire("Groupe trouvé : " + ", ".join(equipe.map(func (c): return "%s (niv %d)" % [c.d["nom"], int(c.d["niveau"])])), Color(0.5, 1.0, 0.7))
 	await hud.fondu(true)
 	donjon = Donjon.new()
+	_entree_en_cours = false
 	donjon.niv = n
 	donjon.groupe = not equipe.is_empty()
 	var aide := 0.0
@@ -738,9 +891,7 @@ func entrer_donjon(n := 0, groupe := false) -> void:
 	_teleporter(donjon.point_depart(), PI)
 	for k in equipe.size():
 		var c: Chasseur = equipe[k]
-		c.mode = "donjon"
-		c.donjon = donjon
-		c.placer(donjon.point_depart() + Vector3((k - 1) * 1.6, 0, -1.0))
+		c.rejoindre_groupe(donjon, k)
 	donjon.allies = equipe
 	_ambiance(true)
 	donjon.appliquer_ambiance(_env)
@@ -793,6 +944,7 @@ func _teleporter(p: Vector3, lacet: float) -> void:
 	_lacet = lacet
 	_cam_pos = p + Vector3(0, 1.6, 0)
 	for o in ombres:
+		o.visible = not o.rangee and arene == null
 		o.global_position = p + Vector3(randf_range(-1.5, 1.5), 0, randf_range(-2.5, -1.0))
 
 
@@ -880,10 +1032,13 @@ func _fin_evenement() -> void:
 
 func _maj_ombres() -> void:
 	var eq := Partie.ombres_equipees()
-	var cles := eq.map(func (o): return "%s|%d|%s|%s" % [o["espece"], o["etoiles"], o.get("evo", false), Partie.est_general(o)])
-	var actuelles := ombres.map(func (o): return "%s|%d|%s|%s" % [o.donnees["espece"], o.donnees["etoiles"], o.donnees.get("evo", false), Partie.est_general(o.donnees)])
-	if cles == actuelles:
+	# Les dictionnaires de Partie sont modifiés sur place (évolution, étoiles, général).
+	var composition := []
+	for o in eq:
+		composition.append([o["uid"], o["espece"], o["etoiles"], o.get("evo", false), Partie.est_general(o)])
+	if composition == _composition_ombres:
 		return
+	_composition_ombres = composition
 	for o in ombres:
 		o.queue_free()
 	ombres.clear()
@@ -900,6 +1055,10 @@ func _maj_ombres() -> void:
 
 
 func frapper() -> void:
+	if arene:
+		if arene.actif and not joueur.frapper_duel(arene.rival):
+			hud.dire("Approche du rival pour frapper.", Color.BISQUE)
+		return
 	var c := joueur.cible
 	if c == null or not is_instance_valid(c) or c.mort:
 		c = joueur.cible_devant(monstres)
@@ -910,6 +1069,8 @@ func frapper() -> void:
 	joueur.viser(c)
 
 func monstre_eveillable() -> Monstre:
+	if Partie.chapitre == 1 and is_instance_valid(proie) and proie.eveillable and proie.global_position.distance_to(joueur.global_position) < 12.0:
+		return proie
 	for m: Monstre in monstres:
 		if is_instance_valid(m) and m.eveillable and m.global_position.distance_to(joueur.global_position) < 12.0:
 			return m
@@ -924,7 +1085,10 @@ func eveiller() -> void:
 	Fx.anneau(m.global_position, Color(0.55, 0.2, 1.0), 3.0)
 	Fx.texte(m.global_position + Vector3(0, 2.5, 0), "LÈVE-TOI", Color(0.8, 0.55, 1.0), 1.8, 1.4)
 	await get_tree().create_timer(0.8).timeout
-	var o := Partie.eveiller(m.espece)
+	if not is_instance_valid(m) or m.is_queued_for_deletion():
+		return
+	var initiation := m == proie and Partie.chapitre == 1
+	var o := Partie.eveiller(m.espece, initiation)
 	if o.is_empty():
 		m.eveil_rate()
 		if m.e.get("lieu", "") == "evenement":
@@ -934,6 +1098,11 @@ func eveiller() -> void:
 		Fx.son("error", -4.0)
 	else:
 		m.eveil_reussi()
+		if initiation:
+			monstres.erase(m)
+			m.reapparait_auto = false
+			get_tree().create_timer(2.0).timeout.connect(m.queue_free)
+			hud.annonce("PREMIÈRE OMBRE", "Rejoins Kaito au portail des entrepôts", Color.MEDIUM_PURPLE)
 		Fx.son("shadow", 0.0)
 		Fx.anneau(m.global_position, Color(0.75, 0.4, 1.0), 4.5)
 		if m.e.get("lieu", "") == "evenement":
@@ -949,17 +1118,20 @@ func _liberer_allies() -> void:
 		return
 	for c: Chasseur in donjon.allies:
 		if is_instance_valid(c):
+			var a_participe := c.mode == "donjon"
 			c.mode = "ville"
 			c.donjon = null
-			c.placer(PORTAIL + Vector3(randf_range(3, 6), 0.3, randf_range(-3, 3)))
-			if donjon.sortie:
+			if a_participe:
+				c.placer(PORTAIL + Vector3(randf_range(1, 2), 0.1, randf_range(-1, 1)))
+			if donjon.sortie and a_participe:
 				for k in 6:
 					Partie.bot_gagner(c.d, Partie.SALLES_BOSS[donjon.niv])
 			c._maj_plaque()
 
 func lancer_arene() -> void:
-	if donjon or arene:
+	if _entree_en_cours or donjon or arene or abime or chateau:
 		return
+	_entree_en_cours = true
 	_adversaire = Partie.adversaire_arene()
 	hud.annonce("ARÈNE", "Adversaire : %s  ·  niveau %d  ·  ÉLO %d" % [_adversaire["nom"], int(_adversaire["niveau"]), int(_adversaire["elo"])], Color(1.0, 0.7, 0.3))
 	await get_tree().create_timer(1.8).timeout
@@ -972,20 +1144,21 @@ func lancer_arene() -> void:
 	joueur.viser(arene.rival)
 	_teleporter(arene.point_depart(), 0.0)
 	Partie.pv = Partie.pv_max()
-	arene.demarrer()
 	await hud.fondu(false)
-	hud.annonce("COMBAT !", "90 secondes pour vaincre %s" % _adversaire["nom"], Color(1.0, 0.55, 0.25))
+	arene.demarrer()
+	_entree_en_cours = false
+	hud.annonce("COMBAT !", "Approche · FRAPPER au contact · esquive le cercle rouge", Color(1.0, 0.55, 0.25))
 
 func _fin_arene(victoire: bool) -> void:
 	if arene == null:
 		return
 	var a := arene
-	arene = null
 	a.actif = false
 	var r := Partie.fin_arene(_adversaire, victoire)
 	monstres.erase(a.rival)
 	joueur.viser(null)
 	await hud.fondu(true)
+	arene = null
 	a.queue_free()
 	_teleporter(PORTAIL + Vector3(4.0, 0.3, 0.0), -PI / 2.0)
 	await hud.fondu(false)
@@ -1079,6 +1252,8 @@ func toucher_monde(p: Vector2) -> void:
 			joueur.viser(m)
 
 func _process(dt: float) -> void:
+	rues.avancer(dt)
+	_premiere_chasse()
 	if boss_evt == null and donjon == null and arene == null and chateau == null and abime == null and temps_avant_evt() <= 0.0:
 		lancer_evenement()
 	elif boss_evt and not boss_evt.mort and evt_restant() <= 0.0:
@@ -1086,20 +1261,19 @@ func _process(dt: float) -> void:
 		_fin_evenement()
 	joueur.camera_lacet = _lacet
 	_maj_gates(dt)
-	_maj_raid()
 	_lod_t -= dt
 	if _lod_t <= 0.0:
 		_lod_t = 1.0
+		_maj_raid()
 		var pj := joueur.global_position
 		for m in monstres:
 			if is_instance_valid(m) and not m.allie:
-				var loin: bool = m.global_position.distance_to(pj) > 85.0 and m != raid_boss and m != boss_evt
-				if m.visible == loin:
-					m.visible = not loin
-					m.set_process(not loin)
+				var loin: bool = m.global_position.distance_squared_to(pj) > 85.0 * 85.0 and m != raid_boss and m != boss_evt
+				if m.en_sommeil != loin:
+					m.eloigner(loin)
 		for c in chasseurs:
-			if is_instance_valid(c) and c.mode == "ville":
-				c.visible = c.global_position.distance_to(pj) < 85.0
+			if is_instance_valid(c) and c.mode in ["ville", "vers_portail", "vers_groupe"]:
+				c.visible = c.global_position.distance_squared_to(pj) < 85.0 * 85.0
 	_nettoyage_t -= dt
 	if _nettoyage_t <= 0.0:
 		_nettoyage_t = 30.0
@@ -1124,12 +1298,9 @@ func _process(dt: float) -> void:
 	var voulu := _cam_pos + dir * _dist
 
 
-	var q := PhysicsShapeQueryParameters3D.new()
-	q.shape = _sphere_cam
-	q.transform = Transform3D(Basis.IDENTITY, _cam_pos)
-	q.motion = voulu - _cam_pos
-	q.exclude = [joueur.get_rid()]
-	var f := get_world_3d().direct_space_state.cast_motion(q)
+	_requete_camera.transform = Transform3D(Basis.IDENTITY, _cam_pos)
+	_requete_camera.motion = voulu - _cam_pos
+	var f := get_world_3d().direct_space_state.cast_motion(_requete_camera)
 	if f[0] < 1.0:
 		voulu = _cam_pos + (voulu - _cam_pos) * maxf(f[0] - 0.02, 0.0)
 	camera.global_position = voulu

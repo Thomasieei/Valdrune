@@ -233,7 +233,7 @@ static func carte(nom: String, icone: String, sigle: String, couleur: Color, equ
 					b.draw_line(p - Vector2(0, t2), p + Vector2(0, t2), Color(1, 0.9, 1, 0.9), 2.0)
 		var t := tex(icone)
 		if t:
-			var ti := minf(r.size.x, r.size.y) * 0.62
+			var ti := minf(r.size.x, r.size.y) * (0.43 if sous != "" and r.size.y < 120 else 0.62)
 			b.draw_texture_rect(t, Rect2(Vector2((r.size.x - ti) / 2.0, 22), Vector2(ti, ti)), false)
 		b.draw_string_outline(police, Vector2(10, 32), sigle, HORIZONTAL_ALIGNMENT_LEFT, -1, 28, 7, Color.BLACK)
 		b.draw_string(police, Vector2(10, 32), sigle, HORIZONTAL_ALIGNMENT_LEFT, -1, 28, couleur.lightened(0.25))

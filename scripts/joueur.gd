@@ -13,9 +13,11 @@ var entree := Vector2.ZERO
 var cible: Monstre = null
 var _corps: Node3D
 var _ap: AnimationPlayer
+var _pas: Modele.Locomotion
 var _coup_t := 0.0
 var _coup_n := 0
 var _anim_coup := 0.0
+var _chute := 0.0
 var _dernier_coup := 0
 var camera_lacet := 0.0
 var _main: BoneAttachment3D
@@ -100,6 +102,7 @@ func _ready() -> void:
 	_corps = Modele.creer("hero", 1.85)
 	add_child(_corps)
 	_ap = Modele.lecteur(_corps)
+	_pas = Modele.Locomotion.new(_ap)
 	Modele.jouer(_ap, "Idle")
 	var sk: Skeleton3D = _corps.find_child("Skeleton3D", true, false)
 	_main = BoneAttachment3D.new()
@@ -140,7 +143,19 @@ func cible_devant(monstres: Array, portee := 16.0) -> Monstre:
 			mieux = m
 	return mieux
 
+func frapper_duel(rival: Monstre) -> bool:
+	if global_position.distance_to(rival.global_position) > PORTEE + rival.haut() * 0.25 + 0.3:
+		return false
+	if _coup_t <= 0.0:
+		cible = rival
+		_coup_t = CADENCE
+		_frapper()
+	return true
+
 func _physics_process(dt: float) -> void:
+	var duel: bool = get_parent().arene != null
+	if duel:
+		_coup_t -= dt
 	var dir := Vector3.ZERO
 	if entree.length() > 0.08:
 		var avant := Vector3(- sin(camera_lacet), 0, -cos(camera_lacet))
@@ -148,12 +163,12 @@ func _physics_process(dt: float) -> void:
 		dir = droite * entree.x + avant * entree.y
 		if dir.length() > 1.0:
 			dir = dir.normalized()
-		if entree.length() > 0.5:
+		if is_instance_valid(cible) and global_position.distance_squared_to(cible.global_position) > 64.0 and dir.dot(global_position.direction_to(cible.global_position)) < -0.3:
 			cible = null
 	if entree.length() > 0.2:
 		_pause_auto = 1.5
 	_pause_auto -= dt
-	if Partie.auto_attaque and _pause_auto <= 0.0 and (cible == null or not is_instance_valid(cible) or cible.mort) and get_parent().action_proche().is_empty():
+	if not duel and Partie.auto_attaque and _pause_auto <= 0.0 and (cible == null or not is_instance_valid(cible) or cible.mort) and get_parent().action_proche().is_empty():
 		_auto_t -= dt
 		if _auto_t <= 0.0:
 			_auto_t = 0.4
@@ -162,7 +177,7 @@ func _physics_process(dt: float) -> void:
 				cible = c0
 				_progres_t = 0.0
 				_derniere_dist = INF
-	if Partie.auto_attaque and cible and is_instance_valid(cible) and not cible.mort:
+	if not duel and Partie.auto_attaque and _pause_auto <= 0.0 and cible and is_instance_valid(cible) and not cible.mort:
 		var dd := global_position.distance_to(cible.global_position)
 		if dd > PORTEE + cible.haut() * 0.25 + 0.5:
 			_progres_t += dt
@@ -181,56 +196,74 @@ func _physics_process(dt: float) -> void:
 		var v := cible.global_position - global_position
 		v.y = 0
 		distance = v.length() - cible.haut() * 0.25
-		if distance > PORTEE and dir == Vector3.ZERO:
+		if not duel and distance > PORTEE and dir == Vector3.ZERO and not cible.frappe_annoncee:
 			dir = v.normalized()
 	for k in recharges:
 		recharges[k] = maxf(0.0, recharges[k] - dt)
-	_arme_monarque(dt)
+	if not duel:
+		_arme_monarque(dt)
 	invulnerable = maxf(0.0, invulnerable - dt)
 	var vit := VITESSE * Partie.vitesse()
-	velocity.x = dir.x * vit
-	velocity.z = dir.z * vit
+	var vitesse_plan := Vector2(velocity.x, velocity.z)
+	var accel := 48.0 if dir.is_zero_approx() else 38.0
+	vitesse_plan = vitesse_plan.move_toward(Vector2(dir.x, dir.z) * vit, accel * dt * Partie.vitesse())
+	velocity.x = vitesse_plan.x
+	velocity.z = vitesse_plan.y
 	if _dash_t > 0.0:
 		_dash_t -= dt
 		velocity.x = _dash.x
 		velocity.z = _dash.z
 	velocity.y = -2.0 if is_on_floor() else velocity.y - 30.0 * dt
+	var avant_pas := global_position
 	move_and_slide()
 
-	if dir.length() > 0.1 and is_on_wall():
-		_monter_marche(dir)
+	if dir.length() > 0.1 and is_on_floor() and is_on_wall():
+		franchir_marche(self, dir)
 	_anim_coup -= dt
-	if dir.length() > 0.1:
-		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(dir.x, dir.z), minf(1.0, dt * 14.0))
-		if _anim_coup <= 0.0:
-			Modele.jouer(_ap, "Run", 1.05 * Partie.vitesse())
-	elif en_combat and distance <= PORTEE + 0.3:
-		var v2 := cible.global_position - global_position
-		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(v2.x, v2.z), minf(1.0, dt * 16.0))
+	var trajet := global_position - avant_pas
+	trajet.y = 0.0
+	var vitesse_reelle := trajet.length() / dt
+	var orientation := trajet.normalized() if vitesse_reelle > 0.15 else Vector3.ZERO
+	if orientation.is_zero_approx() and en_combat:
+		orientation = cible.global_position - global_position
+	_pas.orienter(_corps, orientation, vitesse_reelle, dt, _anim_coup > 0.0)
+	if not is_on_floor() and velocity.y < -3.0:
+		_chute += dt
+	elif is_on_floor():
+		if _chute > 0.22 and _anim_coup <= 0.0 and _dash_t <= 0.0:
+			_anim_coup = minf(0.18, Modele.jouer(_ap, "JumpLand", 1.15, 0.08))
+		_chute = 0.0
+	if not duel and en_combat and dir.is_zero_approx() and distance <= PORTEE + 0.3:
 		_coup_t -= dt
 		if _coup_t <= 0.0:
 			_coup_t = CADENCE
 			if not (Partie.auto_attaque and cible.en_parade()):
 				_frapper()
-	elif _anim_coup <= 0.0:
-		Modele.jouer(_ap, "Idle" if Partie.opts["fourreau"] else "SwordIdle")
+	if _anim_coup <= 0.0 and _dash_t <= 0.0:
+		if not is_on_floor() and velocity.y < -4.5:
+			Modele.jouer(_ap, "JumpLoop", 1.0, 0.12)
+		else:
+			_pas.avancer(vitesse_reelle, dt, not Partie.opts["fourreau"])
 
 const MARCHE_MAX := 0.45
-func _monter_marche(dir: Vector3) -> void:
+static func franchir_marche(corps: CharacterBody3D, dir: Vector3) -> void:
 	var haut := Vector3(0, MARCHE_MAX, 0)
 	var avance := dir.normalized() * 0.3
-	var t := global_transform
-	if test_move(t, haut):
+	var t := corps.global_transform
+	if corps.test_move(t, haut):
 		return
 	t = t.translated(haut)
-	if test_move(t, avance):
+	if corps.test_move(t, avance):
 		return
 	t = t.translated(avance)
 
 	var col := KinematicCollision3D.new()
-	if test_move(t, Vector3(0, -MARCHE_MAX - 0.05, 0), col):
-		t.origin.y -= col.get_travel().length()
-	global_transform = t
+	if not corps.test_move(t, Vector3.DOWN * (MARCHE_MAX + 0.05), col):
+		return
+	if col.get_normal().dot(Vector3.UP) < cos(corps.floor_max_angle):
+		return
+	t.origin += col.get_travel()
+	corps.global_transform = t
 
 func _frapper() -> void:
 	if Partie.opts["fourreau"]:
@@ -246,6 +279,8 @@ func _frapper() -> void:
 	await get_tree().create_timer(0.16).timeout
 	if c == null or not is_instance_valid(c) or c.mort:
 		return
+	if c.espece == "rival" and global_position.distance_to(c.global_position) > PORTEE + c.haut() * 0.25 + 0.9:
+		return
 	Partie.en_combat()
 	var crit := randf() < Partie.chance_crit()
 	var deg := Partie.dps_joueur() * CADENCE * (2.0 if crit else 1.0) * randf_range(0.9, 1.1)
@@ -254,6 +289,8 @@ func _frapper() -> void:
 
 
 func competence(k: String) -> String:
+	if get_parent().arene and k in ["pacte", "echange"]:
+		return "Duel individuel"
 	var d: Dictionary = Partie.COMPETENCES[k]
 	if k == "domaine":
 		if Partie.domaine_actif():

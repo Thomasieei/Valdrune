@@ -159,6 +159,80 @@ static func _boite(n: Node3D) -> AABB:
 	return b
 
 
+# Les clips sont résolus une seule fois, y compris pour les squelettes UAL.
+class Locomotion:
+	var lecteur: AnimationPlayer
+	var repos: StringName
+	var marche: StringName
+	var course: StringName
+	var sprint: StringName
+	var allure := 0
+
+	func _init(ap: AnimationPlayer) -> void:
+		lecteur = ap
+		if not ap:
+			return
+		repos = _clip(["Idle", "Animacion"])
+		marche = _clip(["Walk", "Walk_Cycle"])
+		course = _clip(["Run", "Jog_Fwd", marche])
+		sprint = _clip(["Sprint", course])
+
+	func _clip(noms: Array) -> StringName:
+		for nom in noms:
+			if nom != "" and lecteur.has_animation(nom):
+				return nom
+		return &""
+
+	func orienter(corps: Node3D, direction: Vector3, vitesse: float, dt: float, action: bool) -> void:
+		var inclinaison := 0.0
+		if direction.length_squared() > 0.0001:
+			var angle := atan2(direction.x, direction.z)
+			var ecart := angle_difference(corps.rotation.y, angle)
+			corps.rotation.y += ecart * (1.0 - exp(-15.0 * dt))
+			if not action:
+				# Transfert de poids pendant la courbe, puis retour à la verticale.
+				inclinaison = -clampf(ecart, -0.9, 0.9) * clampf(vitesse / 7.5, 0.0, 1.0) * 0.11
+		corps.rotation.z = lerpf(corps.rotation.z, inclinaison, 1.0 - exp(-10.0 * dt))
+
+	func avancer(vitesse: float, dt: float, arme := false) -> void:
+		if not lecteur:
+			return
+		var ancienne := allure
+		if vitesse < (0.11 if allure > 0 else 0.22):
+			allure = 0
+		elif vitesse > (6.65 if allure == 3 else 7.1) and sprint != course:
+			allure = 3
+		elif vitesse > (3.25 if allure >= 2 else 3.85):
+			allure = 2
+		else:
+			allure = 1
+		var clip := repos
+		var cadence := 1.0
+		match allure:
+			0:
+				if arme and lecteur.has_animation("SwordIdle"):
+					clip = &"SwordIdle"
+			1:
+				clip = marche
+				cadence = clampf(vitesse / 2.35, 0.32, 1.48)
+			2:
+				clip = course
+				var reference := 2.9 if course == marche else 5.4
+				cadence = clampf(vitesse / reference, 0.75, 1.85)
+			3:
+				clip = sprint
+				cadence = clampf(vitesse / 7.5, 0.85, 1.65)
+		if clip == &"":
+			return
+		if lecteur.current_animation != clip:
+			var phase := -1.0
+			if ancienne > 0 and allure > 0 and lecteur.current_animation in [marche, course, sprint] and lecteur.current_animation_length > 0:
+				phase = fposmod(lecteur.current_animation_position / lecteur.current_animation_length, 1.0)
+			lecteur.play(clip, 0.16)
+			if phase >= 0.0:
+				lecteur.seek(phase * lecteur.get_animation(clip).length)
+		lecteur.speed_scale = lerpf(lecteur.speed_scale, cadence, 1.0 - exp(-16.0 * dt))
+
 static func jouer(ap: AnimationPlayer, nom: String, vitesse := 1.0, fondu := 0.15) -> float:
 	if ap == null:
 		return 0.0

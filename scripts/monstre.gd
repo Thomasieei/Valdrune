@@ -24,17 +24,38 @@ var pv := 0.0
 var pv_max := 1.0
 var temps_max := 20.0
 var chrono := -1.0
-var mort := false
+var en_sommeil := false
+var mort := false:
+	set(valeur):
+		mort = valeur
+		if en_sommeil:
+			set_process(mort)
+		if _obstacle:
+			_obstacle.collision_layer = 0 if mort else 1
+		if mort and _plaque:
+			_plaque.hide()
 var eveillable := false
 var _eveil_fin := 0.0
 var _orientation := 0.0
 var _corps: Node3D
 var _ap: AnimationPlayer
+const DISTANCE_PLAQUE := 16.0
+const LARGEUR_VIE := 100
+const HAUTEUR_VIE := 20
+static var _atlas_vie: Texture2D
+var _obstacle: StaticBody3D
+var _joueur_affichage: Node3D
+var _sommet_modele := 0.0
+var _barre_vie := Sprite3D.new()
+var _pourcentage := Label3D.new()
 var _plaque: Label3D
 var _reapparait := 0.0
 var _flash := 0.0
 var _aura: Node3D
 var _base_haut := 1.0
+var initiation := false
+var frappe_annoncee := false
+var ouverture := 0.0
 var _zone_t := 3.0
 var _parade := 0.0
 var _parade_cd := 8.0
@@ -73,6 +94,8 @@ func _ready() -> void:
 	if elite_fixe:
 		elite = true
 	_construire_corps()
+	if _ap:
+		visibility_changed.connect(func (): _ap.active = is_visible_in_tree())
 
 	var zone := Area3D.new()
 	zone.collision_layer = 4
@@ -88,24 +111,42 @@ func _ready() -> void:
 	zone.set_meta("monstre", self)
 	add_child(zone)
 
-	var corps := StaticBody3D.new()
+	_obstacle = StaticBody3D.new()
 	var cs2 := CollisionShape3D.new()
 	var cyl := CylinderShape3D.new()
 	cyl.radius = maxf(0.4, _base_haut * 0.2)
 	cyl.height = _base_haut
 	cs2.shape = cyl
 	cs2.position.y = _base_haut / 2.0
-	corps.add_child(cs2)
-	add_child(corps)
+	_obstacle.add_child(cs2)
+	add_child(_obstacle)
 	_plaque = Label3D.new()
 	_plaque.fixed_size = true
 	_plaque.pixel_size = 0.0016
 	_plaque.font_size = 26
 	_plaque.outline_size = 8
 	_plaque.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_plaque.visibility_range_end = 40.0
+	_plaque.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	_plaque.offset.y = 14.0
 	_plaque.font = Ui.police
-	add_child(_plaque)
+	_corps.add_child(_plaque)
+	_barre_vie.texture = _texture_vie()
+	_barre_vie.vframes = 101
+	_barre_vie.fixed_size = true
+	_barre_vie.pixel_size = _plaque.pixel_size
+	_barre_vie.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_barre_vie.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	_plaque.add_child(_barre_vie)
+	_pourcentage.font = Ui.police
+	_pourcentage.font_size = 18
+	_pourcentage.outline_size = 4
+	_pourcentage.render_priority = 2
+	_pourcentage.fixed_size = true
+	_pourcentage.pixel_size = _plaque.pixel_size
+	_pourcentage.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_plaque.add_child(_pourcentage)
+	_joueur_affichage = get_tree().get_first_node_in_group("joueur")
+	_plaque.hide()
 	Partie.change.connect(func (): _plaque_sale = true)
 	_appliquer_rang()
 
@@ -115,6 +156,7 @@ func _construire_corps() -> void:
 	_corps = Modele.creer(e["modele"], _base_haut, e.get("peau", ""))
 	_corps.rotation.y = _orientation
 	add_child(_corps)
+	_sommet_modele = maxf(_base_haut, Modele._boite(_corps).end.y)
 	_ap = Modele.lecteur(_corps)
 	Modele.jouer(_ap, "Idle", randf_range(0.85, 1.1))
 	if _ap and _ap.current_animation != "":
@@ -151,8 +193,33 @@ func _appliquer_rang() -> void:
 	elif not elite and _aura:
 		_aura.queue_free()
 		_aura = null
-	_plaque.position.y = haut() + 0.35
+	_plaque.position.y = _sommet_modele + 0.45
 	_maj_plaque()
+
+# Une seule texture partagée, une ligne de l’atlas par pourcentage.
+static func _texture_vie() -> Texture2D:
+	if _atlas_vie == null:
+		var image := Image.create(LARGEUR_VIE + 4, HAUTEUR_VIE * 101, false, Image.FORMAT_RGBA8)
+		image.fill(Color("#161322"))
+		for valeur in 101:
+			var y := valeur * HAUTEUR_VIE + 2
+			image.fill_rect(Rect2i(2, y, LARGEUR_VIE, HAUTEUR_VIE - 4), Color("#492a32"))
+			if valeur > 0:
+				image.fill_rect(Rect2i(2, y, valeur, HAUTEUR_VIE - 4), Color("#c53941"))
+		_atlas_vie = ImageTexture.create_from_image(image)
+	return _atlas_vie
+
+func _afficher_vie() -> void:
+	_plaque.visible = not mort and is_instance_valid(_joueur_affichage) and global_position.distance_squared_to(_joueur_affichage.global_position) <= DISTANCE_PLAQUE * DISTANCE_PLAQUE
+	if not _plaque.visible:
+		return
+	var fraction := pv_pacte / (pv_max * 0.35) if allie else pv / pv_max
+	var valeur := clampi(roundi(fraction * 100.0), 0, 100)
+	if fraction > 0.0 and fraction < 1.0:
+		valeur = clampi(valeur, 1, 99)
+	if _barre_vie.frame != valeur or _pourcentage.text.is_empty():
+		_barre_vie.frame = valeur
+		_pourcentage.text = "%d %%" % valeur
 
 func _cercle(c: Color, r: float) -> Node3D:
 	var mi := MeshInstance3D.new()
@@ -183,10 +250,42 @@ func _maj_plaque() -> void:
 	else:
 		_plaque.modulate = OR_ELITE.lightened(0.2) if elite else v["couleur"]
 
+var _sequence_duel := 0
+var _repos_duel := 0.0
+
+func _duel(dt: float, j: Node3D) -> void:
+	if not get_parent().actif or frappe_annoncee:
+		return
+	if _etourdi > 0.0:
+		_etourdi -= dt
+		return
+	if _repos_duel > 0.0:
+		_repos_duel -= dt
+		return
+	var direction := j.global_position - global_position
+	direction.y = 0.0
+	var distance := direction.length()
+	_corps.rotation.y = atan2(direction.x, direction.z)
+	if distance > 2.6:
+		global_position += direction.normalized() * minf(distance - 2.5, 6.5 * dt)
+		Modele.jouer(_ap, "Run")
+		return
+	_sequence_duel += 1
+	var lourd := _sequence_duel % 3 == 0
+	frappe_annoncee = true
+	_repos_duel = 1.55 if lourd else 0.85
+	Modele.jouer(_ap, "Attack")
+	Fx.texte(global_position + Vector3.UP * 2.7, "BALAYAGE" if lourd else "ESTOC", Color.ORANGE, 1.0, 0.8)
+	_zone(global_position if lourd else j.global_position, 4.6 if lourd else 1.9, 1.15 if lourd else 0.72)
+
 func _combat(dt: float) -> void:
+	if espece == "rival":
+		_duel(dt, _joueur_affichage)
+		return
 	var j: Node3D = get_tree().get_first_node_in_group("joueur")
 	if j == null or chrono < 0.0 or global_position.distance_to(j.global_position) > 20.0:
 		return
+	ouverture = maxf(0.0, ouverture - dt)
 	var r: int = mini(int(e["rang"]), 4)
 	if _etourdi > 0.0:
 		_etourdi -= dt
@@ -200,6 +299,12 @@ func _combat(dt: float) -> void:
 		var ombres := get_tree().get_nodes_in_group("ombres").filter(func (o): return not o.mort and o.global_position.distance_to(global_position) < 16.0)
 		if not ombres.is_empty() and randf() < 0.35:
 			cible = ombres.pick_random().global_position
+		if initiation:
+			frappe_annoncee = true
+			_zone_t = 5.5
+			Fx.texte(global_position + Vector3.UP * (haut() + 0.5), "COUP LOURD", Color.ORANGE, 1.2, 0.85)
+			_zone(j.global_position, 2.5, 1.35)
+			return
 		_zone(cible, RAYON_ZONE[r] * (1.2 if elite else 1.0), 1.5 if r < 3 else 1.2)
 	if r >= 1:
 		if _parade > 0.0:
@@ -262,11 +367,20 @@ func _zone(p: Vector3, rayon: float, delai: float) -> void:
 	tw.tween_callback(racine.queue_free)
 
 func _impact(racine: Node3D, rayon: float) -> void:
+	if espece == "rival" and not get_parent().actif:
+		return
 	var atk := (atk_perso if atk_perso > 0.0 else Partie.atk_monstre(espece, elite)) * (2.0 if enrage else 1.0)
+	frappe_annoncee = false
+	if initiation:
+		atk *= 1.8
 	if not mort:
 		var j: Node3D = get_tree().get_first_node_in_group("joueur")
 		if j and _dans_zone(j.global_position, racine.global_position, rayon):
 			_toucher_joueur(j, atk)
+		if (initiation or espece == "rival" and rayon > 4.0) and j and j.global_position.distance_to(global_position) < 9.0 and (not _dans_zone(j.global_position, racine.global_position, rayon) or (j as Joueur).invulnerable > 0.0):
+			ouverture = 3.0
+			_etourdi = 1.0
+			Fx.texte(global_position + Vector3.UP * haut(), "OUVERTURE !", Color.GOLD, 1.2, 1.0)
 		for o in get_tree().get_nodes_in_group("ombres"):
 			if not o.mort and _dans_zone(o.global_position, racine.global_position, rayon):
 				o.blesser(atk)
@@ -292,17 +406,26 @@ func _toucher_joueur(j: Node3D, d: float, raison := "ZONE") -> void:
 		if v:
 			v.mort_joueur()
 
+func eloigner(oui: bool) -> void:
+	en_sommeil = oui
+	visible = not oui
+	set_process(not oui or mort)
+
 func _process(dt: float) -> void:
+	if en_sommeil:
+		if mort:
+			_attendre_reveil(dt)
+		return
+	_afficher_vie()
 	if allie:
 		if not mort:
 			_ia_pacte(dt)
 		return
 	_plaque_t -= dt
-	if _plaque_sale and _plaque_t <= 0.0:
+	if _plaque_sale and _plaque.visible and _plaque_t <= 0.0:
 		_plaque_t = 0.6
 		_plaque_sale = false
-		if _plaque.visible:
-			_maj_plaque()
+		_maj_plaque()
 	if not mort:
 		_combat(dt)
 		_errer(dt)
@@ -316,12 +439,7 @@ func _process(dt: float) -> void:
 		_flash = maxf(0.0, _flash - dt * 6.0)
 		_corps.scale = Vector3.ONE * (1.22 if elite else 1.0) * (1.0 + _flash * 0.06)
 	if mort:
-		if eveillable and Time.get_ticks_msec() / 1000.0 > _eveil_fin:
-			eveillable = false
-		if reapparait_auto:
-			_reapparait -= dt
-			if _reapparait <= 0.0:
-				_renaitre()
+		_attendre_reveil(dt)
 		return
 	if chrono >= 0.0:
 		chrono += dt
@@ -389,7 +507,6 @@ func blesser_pacte(d: float) -> void:
 	if pv_pacte <= 0.0:
 		mort = true
 		allie = false
-		_plaque.visible = false
 		Fx.anneau(global_position, Color(0.2, 0.6, 0.4), 3.0)
 		Partie.message.emit("Ton pacte est rompu : %s est mort pour de bon." % e["nom"], Color(1.0, 0.5, 0.45))
 		var tw := create_tween()
@@ -461,7 +578,7 @@ func reposer(ecraser := false) -> void:
 		tw.tween_callback(func ():
 			Fx.anneau(global_position, Color(0.5, 0.85, 1.0), 3.5)
 			Fx.son("slam", 0.0)
-			frapper(Partie.dps_joueur() * 12.0, true, "evenement"))
+			frapper(Partie.dps_joueur() * 12.0, true, "evenement", get_tree().get_first_node_in_group("joueur")))
 
 func capituler(choix: String) -> void:
 	if mort:
@@ -471,7 +588,6 @@ func capituler(choix: String) -> void:
 	eveillable = false
 	pv = 0.0
 	chrono = -1.0
-	_plaque.visible = false
 	if choix == "butin":
 		var gain := Partie.gagner(espece, elite, mult)
 		for k in 2:
@@ -499,6 +615,10 @@ func temps_restant() -> float:
 func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) -> void:
 	if mort or allie:
 		return
+	if espece == "rival":
+		if not get_parent().actif or source != "joueur":
+			return
+		degats = minf(degats, pv_max * 0.14)
 	var meca: String = e.get("meca", "")
 	if meca == "ombres_seules" and source == "joueur":
 		if randf() < 0.3:
@@ -519,7 +639,18 @@ func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) ->
 			if j:
 				_toucher_joueur(j, Partie.atk_monstre(espece, elite) * 0.6, "RIPOSTE (parade)")
 		return
+	if ouverture > 0.0 and source == "joueur":
+		ouverture = 0.0
+		degats *= 2.5
+		Fx.texte(global_position + Vector3.UP * haut(), "RIPOSTE", Color.GOLD, 1.2, 0.8)
+	if espece == "rival":
+		degats = minf(degats, pv_max * 0.18)
 	var reel := minf(degats, pv)
+	var instance := get_parent() as Donjon
+	if instance and instance.actif:
+		var auteur := "joueur" if source == "evenement" and qui is Joueur else source
+		if instance.degats_equipe.has(auteur):
+			instance.degats_equipe[auteur] += reel
 	pv -= degats
 	if source == "joueur" or source == "ombres":
 		Partie.compter(reel, source)
@@ -577,7 +708,6 @@ func _mourir() -> void:
 	if _bouclier:
 		_bouclier.queue_free()
 		_bouclier = null
-	_plaque.visible = false
 	if Modele.jouer(_ap, "Death", 1.0, 0.08) <= 0.0:
 
 		var tw := create_tween()
@@ -610,6 +740,16 @@ func eveil_rate() -> void:
 	var tw := create_tween()
 	tw.tween_property(_corps, "scale", Vector3.ONE * 0.01, 0.6)
 
+func _attendre_reveil(dt: float) -> void:
+	if eveillable and Time.get_ticks_msec() / 1000.0 > _eveil_fin:
+		eveillable = false
+	if reapparait_auto:
+		_reapparait -= dt
+		if _reapparait <= 0.0:
+			_renaitre()
+	elif en_sommeil and not eveillable:
+		set_process(false)
+
 func _renaitre() -> void:
 	mort = false
 	if not elite_fixe:
@@ -617,12 +757,15 @@ func _renaitre() -> void:
 	_corps.position.y = 0.0
 	_corps.rotation.x = 0.0
 	_appliquer_rang()
+	if en_sommeil:
+		Modele.jouer(_ap, "Idle")
+		return
 	var cible_ech := _corps.scale
 	_corps.scale = Vector3.ONE * 0.01
 	var tw := create_tween()
 	tw.tween_property(_corps, "scale", cible_ech, 0.5).set_trans(Tween.TRANS_BACK)
 	Modele.jouer(_ap, "Idle")
-	_plaque.visible = true
+	_afficher_vie()
 	Fx.anneau(global_position, OR_ELITE if elite else Color(0.6, 0.3, 1.0), 2.4 if elite else 1.6)
 	if elite:
 		Fx.texte(global_position + Vector3(0, haut() + 0.9, 0), "ÉLITE !", OR_ELITE, 1.5, 1.4)
