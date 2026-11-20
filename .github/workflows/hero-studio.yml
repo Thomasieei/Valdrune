@@ -2,6 +2,10 @@ name: Hero Studio - animations 30 fps
 on:
   push:
     branches: [demo/arise-hero-motion-20261120]
+    paths:
+      - 'scripts/joueur.gd'
+      - 'scripts/tests/atelier_hero.gd'
+      - 'scenes/tests/atelier_hero.tscn'
   workflow_dispatch:
 permissions:
   contents: write
@@ -49,7 +53,7 @@ jobs:
         run: |
           git clone -q --depth 1 --branch arise-animation-demo-shots "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" public-shots
           mkdir -p public-shots/hero-studio-v2
-          cp preview/* public-shots/hero-studio-v1/
+          cp preview/* public-shots/hero-studio-v2/
           cd public-shots
           git add -A
           git -c user.name=hero-studio -c user.email=hero-studio@local commit -qm "Hero Studio v1 (run ${GITHUB_RUN_NUMBER})"
