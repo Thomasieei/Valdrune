@@ -88,7 +88,7 @@ func _construire() -> void:
 	_camera.fov = 45.0
 	_camera.current = true
 	add_child(_camera)
-	_camera.global_position = _hero.global_position + Vector3(2.4, 2.35, 4.7)
+	_camera.global_position = _hero.global_position + Vector3(4.1, 2.2, 2.2)
 	_camera.look_at(_hero.global_position + Vector3(0.0, 1.06, 0.0))
 
 	var calque := CanvasLayer.new()
@@ -102,7 +102,7 @@ func _construire() -> void:
 func _process(dt: float) -> void:
 	if _hero == null:
 		return
-	var cible := _hero.global_position + Vector3(2.4, 2.35, 4.7)
+	var cible := _hero.global_position + Vector3(4.1, 2.2, 2.2)
 	_camera.global_position = _camera.global_position.lerp(cible, 1.0 - exp(-12.0 * dt))
 	_camera.look_at(_hero.global_position + Vector3(0.0, 1.06, 0.0))
 

@@ -272,18 +272,18 @@ func _physics_process(dt: float) -> void:
 				_repos_geste_t = randf_range(8.0, 15.0)
 				_repos_geste_duree = Modele.jouer(_ap, "Nod" if randf() < 0.7 else "Point", 1.0, 0.2)
 			else:
-				_jouer_mouvement(Mouvement.REPOS, "Idle" if Partie.opts["fourreau"] else "SwordIdle", 1.0, 0.21)
+				_jouer_mouvement(Mouvement.REPOS, "Idle", 1.0, 0.23)
 	# Les clips non boucles peuvent finir exactement entre deux images :
 	# ne laisser jamais un personnage sans pose en fin de frame.
 	if _ap and _ap.current_animation == "" and _anim_coup <= 0.0:
-		_jouer_mouvement(Mouvement.REPOS, "SwordIdle" if en_combat else ("Idle" if Partie.opts["fourreau"] else "SwordIdle"), 1.0, 0.16)
+		_jouer_mouvement(Mouvement.REPOS, "SwordIdle" if en_combat else "Idle", 1.0, 0.18)
 
 # Petite machine d'etats visuels. N'affecte ni velocity, ni collisions,
 # ni couts, cooldowns ou degats. Crossfade uniquement si le clip change.
 func _jouer_mouvement(etat: int, clip: String, vitesse: float = 1.0, fondu: float = 0.18) -> void:
 	if _ap == null:
 		return
-	if mouvement_visuel != etat or _clip_visuel != clip or _ap.current_animation == "" or not _ap.is_playing():
+	if mouvement_visuel != etat or _clip_visuel != clip or _ap.current_animation != clip or not _ap.is_playing():
 		mouvement_visuel = etat
 		_clip_visuel = clip
 		Modele.jouer(_ap, clip, vitesse, fondu)
@@ -324,9 +324,10 @@ func _frapper() -> void:
 		_reprise_coup.kill()
 	_reprise_coup = create_tween()
 	var reprise := _reprise_coup
-	reprise.tween_property(_corps, "rotation:x", -0.16, 0.075).set_trans(Tween.TRANS_QUAD)
-	reprise.tween_property(_corps, "rotation:x", 0.10, 0.11).set_trans(Tween.TRANS_CUBIC)
-	reprise.tween_property(_corps, "rotation:x", 0.0, 0.22).set_trans(Tween.TRANS_BACK)
+	# Le rig realise deja le geste : une legere anticipation suffit.
+	reprise.tween_property(_corps, "rotation:x", -0.055, 0.07).set_trans(Tween.TRANS_SINE)
+	reprise.tween_property(_corps, "rotation:x", 0.035, 0.12).set_trans(Tween.TRANS_SINE)
+	reprise.tween_property(_corps, "rotation:x", 0.0, 0.20).set_trans(Tween.TRANS_SINE)
 	Fx.son(["swing1", "swing2", "swing3"][_coup_n], -4.0, randf_range(0.95, 1.08))
 	var c := cible
 	await get_tree().create_timer(0.16).timeout

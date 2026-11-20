@@ -48,7 +48,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           git clone -q --depth 1 --branch arise-animation-demo-shots "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" public-shots
-          mkdir -p public-shots/hero-studio-v1
+          mkdir -p public-shots/hero-studio-v2
           cp preview/* public-shots/hero-studio-v1/
           cd public-shots
           git add -A
