@@ -8,6 +8,11 @@ var _n := 0
 
 func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute("/tmp/caps_arise")
+	# Le banc d'essai visuel ne doit pas être interrompu par une mort.
+	# Actif uniquement avec --pilote=animation --sans-sauvegarde.
+	if scenario == "animation":
+		ville.joueur.invulnerable = 600.0
+		Partie.opts["arise"] = false
 	await get_tree().create_timer(1.5).timeout
 	match scenario:
 		"scan":
@@ -28,6 +33,8 @@ func _ready() -> void:
 			await _nouveautes()
 		"tour":
 			await _tour()
+		"animation":
+			await _demo_animation()
 		"marche":
 			var j: Joueur = ville.joueur
 			j.global_position = Vector3(-165.0, 0.3, -72.0)
@@ -69,6 +76,48 @@ func _ready() -> void:
 			await capture("tailles")
 	print("[PILOTE] fini")
 	get_tree().quit()
+
+# Démonstration reproductible des vrais personnages et de leurs animations.
+# Aucun ajout n'est sauvegardé : le pilote est exécuté avec --sans-sauvegarde.
+func _demo_animation() -> void:
+	var v = ville
+	var j: Joueur = v.joueur
+	v.hud.set_process(false)
+	v.hud._racine.hide() # captures sans superposition du HUD
+	Partie.auto_attaque = false
+	Partie.auto_ombres = false
+	Partie.opts["patrouille"] = false
+	Partie.opts["diviser"] = false
+	Partie.opts["rangees"] = false
+	Partie.ombres = [
+		{"uid": 9001, "espece": "gobelin", "etoiles": 1, "eq": true},
+		{"uid": 9002, "espece": "puglin", "etoiles": 1, "eq": true},
+		{"uid": 9003, "espece": "orc", "etoiles": 1, "eq": true},
+		{"uid": 9004, "espece": "gobelin_chef", "etoiles": 1, "eq": true},
+	]
+	Partie.change.emit()
+	v._lacet = 0.0
+	v._tangage = -0.18
+	v._dist = 11.0
+	v._cam_pos = j.global_position + Vector3(0, 1.6, 0)
+	j._corps.rotation.y = PI
+	await attendre(0.8)
+	await capture("repos")
+	j.entree = Vector2(0, -0.38)
+	for k in 12:
+		await attendre(0.16)
+		await capture("animation_%03d" % k)
+	j.entree = Vector2.ZERO
+	await attendre(0.45)
+	await capture("arret")
+	j.entree = Vector2(0, -1)
+	for k in 12:
+		await attendre(0.16)
+		await capture("animation_%03d" % (k + 12))
+	j.entree = Vector2.ZERO
+	await attendre(0.55)
+	await capture("fin")
+	print("[ANIMATION] images=24, demonstration terminee")
 
 func _tour() -> void:
 	var v = ville
