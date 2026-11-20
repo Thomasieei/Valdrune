@@ -10,6 +10,9 @@ const CADENCE := 0.55
 const CHANCE_CRIT := 0.15
 
 var entree := Vector2.ZERO
+# Animations de presentation legeres: aucune physique supplementaire.
+var _presence_t := 0.0
+var _elan_visuel := 0.0
 var cible: Monstre = null
 var _corps: Node3D
 var _ap: AnimationPlayer
@@ -199,11 +202,22 @@ func _physics_process(dt: float) -> void:
 
 	if dir.length() > 0.1 and is_on_wall():
 		_monter_marche(dir)
+	# Respiration, transfert de poids et inclinaison. Ne touche jamais au collider.
+	_presence_t += dt
+	_elan_visuel = move_toward(_elan_visuel, minf(1.0, dir.length()), dt * 5.0)
+	var repos := 1.0 - _elan_visuel
+	var souffle := sin(_presence_t * 2.3) * 0.022 * repos
+	var pas := sin(_presence_t * 11.0) * 0.026 * _elan_visuel
+	_corps.position.y = lerpf(_corps.position.y, souffle + pas, minf(1.0, dt * 9.0))
+	var penche := -entree.x * 0.055 * _elan_visuel
+	_corps.rotation.z = lerp_angle(_corps.rotation.z, penche, minf(1.0, dt * 7.0))
 	_anim_coup -= dt
 	if dir.length() > 0.1:
 		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(dir.x, dir.z), minf(1.0, dt * 14.0))
 		if _anim_coup <= 0.0:
-			Modele.jouer(_ap, "Run", 1.05 * Partie.vitesse())
+			# Le joystick analogique controle aussi le cycle marche/course.
+			var marche := dir.length() < 0.64
+			Modele.jouer(_ap, "Walk" if marche else "Run", (0.95 if marche else 1.05) * Partie.vitesse(), 0.18)
 	elif en_combat and distance <= PORTEE + 0.3:
 		var v2 := cible.global_position - global_position
 		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(v2.x, v2.z), minf(1.0, dt * 16.0))
