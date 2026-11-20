@@ -316,6 +316,9 @@ func _process(dt: float) -> void:
 	if not mort:
 		_combat(dt)
 		_errer(dt)
+		# Les animations uniques peuvent terminer avant le prochain evenement.
+		if _ap and _ap.current_animation == "":
+			Modele.jouer(_ap, "Idle", 1.0, 0.14)
 		if _ap == null:
 			_t_vie += dt
 			_corps.position.y = absf(sin(_t_vie * 2.2)) * 0.12

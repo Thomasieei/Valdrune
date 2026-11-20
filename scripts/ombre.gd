@@ -162,6 +162,9 @@ func _process(dt: float) -> void:
 			await get_tree().create_timer(0.25).timeout
 			if is_instance_valid(c) and not c.mort:
 				c.frapper(deg, false, "ombres")
+		elif _ap and _ap.current_animation == "":
+			# Un clip d'attaque termine ne doit pas figer l'ombre jusqu'au suivant.
+			Modele.jouer(_ap, "Idle", 1.0, 0.16)
 	elif _anim <= 0.0:
 		_humeur_active = false
 		# Gestuelle propre aux especes, uniquement lorsque l'ombre attend.

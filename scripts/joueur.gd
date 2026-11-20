@@ -232,6 +232,9 @@ func _physics_process(dt: float) -> void:
 			_coup_t = CADENCE
 			if not (Partie.auto_attaque and cible.en_parade()):
 				_frapper()
+		elif _ap and _ap.current_animation == "":
+			# Entre deux attaques, ne jamais rester sur une pose vide.
+			Modele.jouer(_ap, "SwordIdle", 1.0, 0.16)
 	elif _anim_coup <= 0.0:
 		# Le personnage a parfois un vrai geste de repos deja fourni par son rig.
 		if _repos_geste_duree > 0.0:
