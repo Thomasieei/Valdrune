@@ -17,13 +17,19 @@ var _sprint_animation_t := 0.0
 var _course_anim_rapide := false
 var _repos_geste_t := 7.0
 var _repos_geste_duree := 0.0
+# Etat visuel distinct du gameplay : stable, sans redemarrage par frame.
+enum Mouvement { REPOS, MARCHE, COURSE, SPRINT, ATTAQUE, IMPACT }
+var mouvement_visuel: int = Mouvement.REPOS
+var _clip_visuel := ""
+
 var cible: Monstre = null
 var _corps: Node3D
 var _ap: AnimationPlayer
 var _coup_t := 0.0
-var _coup_n := 0
+var _coup_n := -1 # Premier coup : Slash1, puis Slash2 / Slash3.
 var _anim_coup := 0.0
 var _dernier_coup := 0
+var _reprise_coup: Tween
 var camera_lacet := 0.0
 var _main: BoneAttachment3D
 var _arme_vue := ""
@@ -219,8 +225,9 @@ func _physics_process(dt: float) -> void:
 	_elan_visuel = move_toward(_elan_visuel, minf(1.0, vitesse_relative), dt * 7.5)
 	var repos := 1.0 - _elan_visuel
 	var souffle := sin(_presence_t * 2.3) * 0.022 * repos
-	var pas := sin(_presence_t * 11.0) * 0.026 * _elan_visuel
-	_corps.position.y = lerpf(_corps.position.y, souffle + pas, minf(1.0, dt * 9.0))
+	# Le squelette contient deja le rebond des pas : ne pas en rajouter
+	# artificiellement au modele (cela provoquait le glissement des pieds).
+	_corps.position.y = lerpf(_corps.position.y, souffle * 0.65, 1.0 - exp(-9.0 * dt))
 	var penche := -entree.x * 0.055 * _elan_visuel
 	_corps.rotation.z = lerp_angle(_corps.rotation.z, penche, minf(1.0, dt * 7.0))
 	_anim_coup -= dt
@@ -237,7 +244,8 @@ func _physics_process(dt: float) -> void:
 			_sprint_animation_t = clampf(_sprint_animation_t + dt * (2.2 if entree.length() > 0.94 else -3.0), 0.0, 1.0)
 			var sprint := not marche and _sprint_animation_t > 0.82
 			var mouvement := "Walk" if marche else ("Sprint" if sprint else "Run")
-			Modele.jouer(_ap, mouvement, (0.92 if marche else 1.04) * Partie.vitesse(), 0.18)
+			var etat := Mouvement.MARCHE if marche else (Mouvement.SPRINT if sprint else Mouvement.COURSE)
+			_jouer_mouvement(etat, mouvement, (0.92 if marche else 1.04) * Partie.vitesse(), 0.19)
 		_repos_geste_duree = 0.0
 	elif en_combat and distance <= PORTEE + 0.3:
 		_course_anim_rapide = false
@@ -251,7 +259,7 @@ func _physics_process(dt: float) -> void:
 				_frapper()
 		elif _ap and _ap.current_animation == "":
 			# Entre deux attaques, ne jamais rester sur une pose vide.
-			Modele.jouer(_ap, "SwordIdle", 1.0, 0.16)
+			_jouer_mouvement(Mouvement.REPOS, "SwordIdle", 1.0, 0.17)
 	elif _anim_coup <= 0.0:
 		_course_anim_rapide = false
 		_sprint_animation_t = move_toward(_sprint_animation_t, 0.0, dt * 4.0)
@@ -264,11 +272,24 @@ func _physics_process(dt: float) -> void:
 				_repos_geste_t = randf_range(8.0, 15.0)
 				_repos_geste_duree = Modele.jouer(_ap, "Nod" if randf() < 0.7 else "Point", 1.0, 0.2)
 			else:
-				Modele.jouer(_ap, "Idle" if Partie.opts["fourreau"] else "SwordIdle")
+				_jouer_mouvement(Mouvement.REPOS, "Idle" if Partie.opts["fourreau"] else "SwordIdle", 1.0, 0.21)
 	# Les clips non boucles peuvent finir exactement entre deux images :
 	# ne laisser jamais un personnage sans pose en fin de frame.
-	if _ap and _ap.current_animation == "":
-		Modele.jouer(_ap, "SwordIdle" if en_combat else ("Idle" if Partie.opts["fourreau"] else "SwordIdle"), 1.0, 0.14)
+	if _ap and _ap.current_animation == "" and _anim_coup <= 0.0:
+		_jouer_mouvement(Mouvement.REPOS, "SwordIdle" if en_combat else ("Idle" if Partie.opts["fourreau"] else "SwordIdle"), 1.0, 0.16)
+
+# Petite machine d'etats visuels. N'affecte ni velocity, ni collisions,
+# ni couts, cooldowns ou degats. Crossfade uniquement si le clip change.
+func _jouer_mouvement(etat: int, clip: String, vitesse: float = 1.0, fondu: float = 0.18) -> void:
+	if _ap == null:
+		return
+	if mouvement_visuel != etat or _clip_visuel != clip or _ap.current_animation == "" or not _ap.is_playing():
+		mouvement_visuel = etat
+		_clip_visuel = clip
+		Modele.jouer(_ap, clip, vitesse, fondu)
+	else:
+		_ap.speed_scale = vitesse
+
 
 const MARCHE_MAX := 0.45
 func _monter_marche(dir: Vector3) -> void:
@@ -295,9 +316,14 @@ func _frapper() -> void:
 	_coup_n = (_coup_n + 1) % 3
 	var anim: String = ["Slash1", "Slash2", "Slash3"][_coup_n]
 	_dernier_coup = Time.get_ticks_msec()
-	_anim_coup = Modele.jouer(_ap, anim, 1.9, 0.06) * 0.9
+	mouvement_visuel = Mouvement.ATTAQUE
+	_clip_visuel = anim
+	_anim_coup = Modele.jouer(_ap, anim, 1.9, 0.08) * 0.9
 	# Anticipation et reprise visibles, sans toucher aux hitboxes ni aux degats.
-	var reprise := create_tween()
+	if _reprise_coup and _reprise_coup.is_running():
+		_reprise_coup.kill()
+	_reprise_coup = create_tween()
+	var reprise := _reprise_coup
 	reprise.tween_property(_corps, "rotation:x", -0.16, 0.075).set_trans(Tween.TRANS_QUAD)
 	reprise.tween_property(_corps, "rotation:x", 0.10, 0.11).set_trans(Tween.TRANS_CUBIC)
 	reprise.tween_property(_corps, "rotation:x", 0.0, 0.22).set_trans(Tween.TRANS_BACK)

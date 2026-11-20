@@ -1,0 +1,56 @@
+name: Hero Studio - animations 30 fps
+on:
+  push:
+    branches: [demo/arise-hero-motion-20261120]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  hero-studio:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GODOT_VERSION: "4.3"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Godot 4.3 et rendu logiciel
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri ffmpeg >/dev/null
+          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q "Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+      - name: Import des assets du jeu
+        run: |
+          godot --headless --path . --import > import.log 2>&1
+          if grep -E 'SCRIPT ERROR|Parse Error' import.log; then exit 1; fi
+      - name: Atelier hero sans ville
+        run: |
+          set -euo pipefail
+          timeout 700 xvfb-run -a -s "-screen 0 960x540x24" godot --path . --rendering-driver opengl3 --resolution 960x540 res://scenes/tests/atelier_hero.tscn > hero.log 2>&1
+          grep -E '\[HERO\]|SCRIPT ERROR|Parse Error' hero.log | tail -100
+          test "$(find /tmp/caps_hero -name 'hero_*.png' | wc -l)" -eq 224
+          if grep -E 'SCRIPT ERROR|Parse Error' hero.log; then exit 1; fi
+          if ! grep -q 'empty_clips=0' hero.log; then exit 1; fi
+      - name: Montage MP4 30 images seconde et GIF leger
+        run: |
+          set -euo pipefail
+          mkdir -p preview
+          ffmpeg -hide_banner -loglevel error -y -framerate 30 -i '/tmp/caps_hero/hero_%04d.png' -vf 'scale=960:-2:flags=lanczos' -c:v libx264 -preset veryfast -crf 24 -pix_fmt yuv420p -movflags +faststart preview/hero-atelier.mp4
+          ffmpeg -hide_banner -loglevel error -y -i preview/hero-atelier.mp4 -filter_complex "fps=12,scale=640:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=96[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5" -loop 0 preview/hero-atelier.gif
+          for i in 0000 0030 0070 0100 0150 0185 0210; do
+            ffmpeg -hide_banner -loglevel error -y -i "/tmp/caps_hero/hero_${i}.png" -vf scale=960:-2 -q:v 4 "preview/hero_${i}.jpg"
+          done
+          cp hero.log preview/test.log
+          ls -lh preview
+      - name: Publier la demonstration sur une branche distincte
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git clone -q --depth 1 --branch arise-animation-demo-shots "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" public-shots
+          mkdir -p public-shots/hero-studio-v1
+          cp preview/* public-shots/hero-studio-v1/
+          cd public-shots
+          git add -A
+          git -c user.name=hero-studio -c user.email=hero-studio@local commit -qm "Hero Studio v1 (run ${GITHUB_RUN_NUMBER})"
+          git push -q origin HEAD:arise-animation-demo-shots
