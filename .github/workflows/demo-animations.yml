@@ -1,0 +1,58 @@
+name: Apercu animations Arise Ville
+on:
+  push:
+    branches: [demo/arise-animations-20261120]
+permissions:
+  contents: write
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GODOT_VERSION: "4.3"
+      PHASE: ${{ contains(github.event.head_commit.message, '[baseline]') && 'avant' || 'apres' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Installer Godot et rendu logiciel
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb libgl1-mesa-dri ffmpeg >/dev/null
+          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q "Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+      - name: Importer les vrais assets du jeu
+        run: |
+          godot --headless --path . --import > import.log 2>&1
+          if grep -E 'SCRIPT ERROR|Parse Error' import.log; then exit 1; fi
+      - name: Enregistrer le banc d'essai visuel
+        run: |
+          set -euo pipefail
+          timeout 420 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 -- --pilote=animation --sans-sauvegarde > demonstration.log 2>&1
+          grep -E 'CAPTURE|ANIMATION|SCRIPT ERROR|Parse Error|PILOTE' demonstration.log | tail -45 || true
+          test "$(find /tmp/caps_arise -name '*animation_*.png' | wc -l)" -eq 24
+          if grep -E 'SCRIPT ERROR|Parse Error' demonstration.log; then exit 1; fi
+      - name: Compresser la video et preparer les captures
+        run: |
+          mkdir -p preview
+          ffmpeg -hide_banner -loglevel error -y -framerate 8 -pattern_type glob -i '/tmp/caps_arise/*animation_*.png' -vf 'scale=960:-2:flags=lanczos' -c:v libx264 -preset veryfast -crf 25 -pix_fmt yuv420p -movflags +faststart preview/animation-demo.mp4
+          cp /tmp/caps_arise/*repos.png /tmp/caps_arise/*arret.png /tmp/caps_arise/*fin.png preview/
+          cp demonstration.log preview/test.log
+          ls -lah preview
+      - name: Publier les apercus dans une branche separee
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p public-shots
+          cd public-shots
+          git init -q
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}"
+          if git fetch -q --depth=1 origin arise-animation-demo-shots; then
+            git checkout -q -b arise-animation-demo-shots FETCH_HEAD
+          else
+            git checkout -q --orphan arise-animation-demo-shots
+          fi
+          mkdir -p "${PHASE}"
+          cp ../preview/* "${PHASE}/"
+          git add -A
+          git -c user.name=animation-ci -c user.email=animation-ci@local commit -qm "Captures ${PHASE} (run ${GITHUB_RUN_NUMBER})"
+          git push -q origin HEAD:refs/heads/arise-animation-demo-shots
