@@ -184,8 +184,8 @@ func _atelier_animation(legion := false) -> void:
 	j._corps.rotation.y = 0.0
 	for k in v.ombres.size():
 		var o: Ombre = v.ombres[k]
-		var ligne := int(k / 4)
-		var col := k % 4
+		var ligne: int = int(k) / 4
+		var col: int = int(k) % 4
 		o.global_position = centre + Vector3((float(col) - 1.5) * 1.6, 0.0, -2.2 - float(ligne) * 1.75)
 		o._humeur_t = 0.7 + float(k) * 0.23
 		if legion:
@@ -208,8 +208,8 @@ func _atelier_animation(legion := false) -> void:
 			j.global_position = centre + Vector3(0, 0.3, 0)
 			j.velocity = Vector3.ZERO
 			for k in v.ombres.size():
-				var ligne := int(k / 4)
-				var col := k % 4
+				var ligne: int = int(k) / 4
+				var col: int = int(k) % 4
 				v.ombres[k].global_position = centre + Vector3((float(col) - 1.5) * 1.6, 0.0, -2.2 - float(ligne) * 1.75)
 				v.ombres[k]._but_pret = false
 		if frame == 44:
