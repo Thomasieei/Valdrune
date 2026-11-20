@@ -8,6 +8,8 @@ var joueur: Joueur
 var place := 0
 var _corps: Node3D
 var _ap: AnimationPlayer
+var _contact := false
+var _derniere_cible: Monstre
 var _coup_t := 0.0
 var _anim := 0.0
 var _y := 0.0
@@ -75,7 +77,7 @@ func _ready() -> void:
 		add_child(l)
 	Modele.jouer(_ap, "Idle")
 
-func _process(dt: float) -> void:
+func _physics_process(dt: float) -> void:
 	if joueur == null:
 		return
 	_anim -= dt
@@ -96,6 +98,10 @@ func _process(dt: float) -> void:
 	var c: Monstre = _choisir_cible(dt)
 	var vise: Vector3
 
+	if not is_instance_valid(_derniere_cible) or c != _derniere_cible:
+		_contact = false
+		_derniere_cible = c
+	_coup_t = maxf(0.0, _coup_t - dt)
 	var attaque := c != null
 	if attaque:
 
@@ -111,7 +117,10 @@ func _process(dt: float) -> void:
 	var v := vise - global_position
 	v.y = 0
 	var d := v.length()
-	if d > 0.35:
+	if attaque:
+		var portee := c.haut() * 0.3 + (2.6 if _contact else 1.9)
+		_contact = global_position.distance_squared_to(c.global_position) <= portee * portee
+	if d > 0.35 and not _contact:
 		var vit := clampf(d * 3.0, 2.0, 16.0) * Partie.vit_ombre()
 		global_position += v.normalized() * minf(d, vit * dt)
 		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(v.x, v.z), minf(1.0, dt * 10.0))
@@ -122,24 +131,21 @@ func _process(dt: float) -> void:
 		if _comp_t <= 0.0:
 			_comp_t = float(_comp["cd"])
 			_competence(c)
-	if d > 0.35:
-		pass
-	elif attaque:
+	if attaque and _contact:
 		var w := c.global_position - global_position
 		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(w.x, w.z), minf(1.0, dt * 10.0))
-		_coup_t -= dt
 		if _coup_t <= 0.0:
 			_coup_t = 0.9
 			var anim := "Attack" if randf() < 0.6 else "Attack2"
 			_anim = Modele.jouer(_ap, anim, 1.5, 0.08) * 0.85
 			var deg := Partie.dps_ombre(donnees) * 0.9
 			await get_tree().create_timer(0.25).timeout
-			if is_instance_valid(c) and not c.mort:
+			if not mort and not rangee and is_instance_valid(c) and not c.mort and not c.allie and global_position.distance_to(c.global_position) <= c.haut() * 0.3 + 2.9:
 				c.frapper(deg, false, "ombres")
-	elif _anim <= 0.0:
+	elif d <= 0.35 and _anim <= 0.0:
 		Modele.jouer(_ap, "Idle")
 
-	global_position.y = lerpf(global_position.y, joueur.global_position.y, minf(1.0, dt * 8.0))
+	global_position.y = lerpf(global_position.y, c.global_position.y if is_instance_valid(c) else joueur.global_position.y, minf(1.0, dt * 8.0))
 
 
 func _a_portee(m: Monstre) -> bool:
@@ -324,7 +330,7 @@ func _competence(c: Monstre) -> void:
 	Fx.anneau(c.global_position, Color(1.0, 0.15, 0.25), 4.5)
 	Fx.texte(global_position + Vector3(0, 3.2, 0), String(_comp["nom"]).to_upper(), Color(1.0, 0.3, 0.35), 1.5, 1.5)
 	await get_tree().create_timer(0.35).timeout
-	if is_instance_valid(c) and not c.mort:
+	if not mort and not rangee and is_instance_valid(c) and not c.mort and not c.allie:
 		c.frapper(Partie.dps_ombre(donnees) * float(_comp["mult"]), true, "ombres")
 		Fx.anneau(c.global_position, Color(1.0, 0.45, 0.2), 6.0)
 
