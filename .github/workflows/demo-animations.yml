@@ -10,7 +10,7 @@ jobs:
     timeout-minutes: 20
     env:
       GODOT_VERSION: "4.3"
-      PHASE: atelier
+      PHASE: atelier-v2
     steps:
       - uses: actions/checkout@v4
       - name: Installer Godot et rendu logiciel

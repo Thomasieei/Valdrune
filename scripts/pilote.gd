@@ -156,11 +156,11 @@ func _atelier_animation() -> void:
 	var centre := Vector3(850.0, 0.0, 850.0)
 	var plateau := StaticBody3D.new()
 	var cube := BoxMesh.new()
-	cube.size = Vector3(64.0, 0.35, 64.0)
+	cube.size = Vector3(300.0, 0.35, 300.0)
 	var sol := MeshInstance3D.new()
 	sol.mesh = cube
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.19, 0.25, 0.33)
+	mat.albedo_color = Color(0.25, 0.27, 0.33)
 	mat.roughness = 0.85
 	sol.material_override = mat
 	plateau.add_child(sol)
@@ -183,9 +183,10 @@ func _atelier_animation() -> void:
 	j._corps.rotation.y = 0.0
 	for k in v.ombres.size():
 		v.ombres[k].global_position = centre + Vector3((float(k) - 1.5) * 1.3, 0.0, -2.3)
+		v.ombres[k]._humeur_t = 0.7 + float(k) * 0.23
 	v._lacet = 0.0
-	v._tangage = -0.13
-	v._dist = 6.7
+	v._tangage = -0.46
+	v._dist = 4.9
 	v._cam_pos = j.global_position + Vector3(0, 1.2, 0)
 	await attendre(0.6)
 	for frame in 48:
@@ -201,7 +202,7 @@ func _atelier_animation() -> void:
 				v.ombres[k].global_position = centre + Vector3((float(k) - 1.5) * 1.3, 0.0, -2.3)
 		if frame == 36:
 			var monstre := Monstre.new()
-			monstre.configurer("gobelin", centre + Vector3(0.0, 0.0, 3.0), PI)
+			monstre.configurer("gobelin", centre + Vector3(2.2, 0.0, 2.4), PI)
 			monstre.pv_perso = 1.0e12
 			monstre.reapparait_auto = false
 			monstre.sans_chrono = true

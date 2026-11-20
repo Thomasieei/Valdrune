@@ -4,7 +4,7 @@ class_name Shaders
 
 static var _cache := {}
 
-const CODE_OMBRE := "\nshader_type spatial;\nrender_mode cull_back, diffuse_burley, specular_schlick_ggx;\nuniform vec4 contour : source_color = vec4(0.42, 0.18, 1.0, 1.0);\nuniform float force = 0.75;\nvoid fragment() {\n\t// silhouette d'encre : seul un liseré fin s'allume sur les bords\n\tfloat f = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 4.0);\n\tfloat pulse = 0.85 + 0.15 * sin(TIME * 3.0 + VERTEX.y * 2.0);\n\tALBEDO = vec3(0.006, 0.005, 0.010);\n\tROUGHNESS = 1.0;\n\tSPECULAR = 0.0;\n\tEMISSION = contour.rgb * f * force * pulse;\n}\n"
+const CODE_OMBRE := "\nshader_type spatial;\nrender_mode cull_back, diffuse_burley, specular_schlick_ggx;\nuniform vec4 contour : source_color = vec4(0.42, 0.18, 1.0, 1.0);\nuniform float force = 0.75;\nvoid fragment() {\n\t// silhouette sombre mais relief lisible : les mouvements restent visibles sur mobile\n\tfloat f = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.5);\n\tfloat pulse = 0.85 + 0.15 * sin(TIME * 3.0 + VERTEX.y * 2.0);\n\tALBEDO = vec3(0.028, 0.020, 0.042) + contour.rgb * (0.07 + f * 0.035);\n\tROUGHNESS = 1.0;\n\tSPECULAR = 0.0;\n\tEMISSION = contour.rgb * (0.045 + f * force * 0.85) * pulse;\n}\n"
 
 
 
