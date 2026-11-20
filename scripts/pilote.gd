@@ -96,9 +96,11 @@ func _demo_animation() -> void:
 		{"uid": 9004, "espece": "gobelin_chef", "etoiles": 1, "eq": true},
 	]
 	Partie.change.emit()
+	# Plan plus serre: le premier rendu etait illisible et finissait derriere un etal.
+	j.global_position = v.DEPART + Vector3(0, 0.0, -9.0)
 	v._lacet = 0.0
-	v._tangage = -0.18
-	v._dist = 11.0
+	v._tangage = -0.11
+	v._dist = 5.8
 	v._cam_pos = j.global_position + Vector3(0, 1.6, 0)
 	j._corps.rotation.y = PI
 	await attendre(0.8)
