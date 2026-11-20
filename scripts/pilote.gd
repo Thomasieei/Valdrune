@@ -10,7 +10,7 @@ func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute("/tmp/caps_arise")
 	# Le banc d'essai visuel ne doit pas être interrompu par une mort.
 	# Actif uniquement avec --pilote=animation --sans-sauvegarde.
-	if scenario == "animation":
+	if scenario in ["animation", "animation2"]:
 		ville.joueur.invulnerable = 600.0
 		Partie.opts["arise"] = false
 	await get_tree().create_timer(1.5).timeout
@@ -35,6 +35,8 @@ func _ready() -> void:
 			await _tour()
 		"animation":
 			await _demo_animation()
+		"animation2":
+			await _atelier_animation()
 		"marche":
 			var j: Joueur = ville.joueur
 			j.global_position = Vector3(-165.0, 0.3, -72.0)
@@ -129,6 +131,89 @@ func _demo_animation() -> void:
 	await attendre(0.55)
 	await capture("fin")
 	print("[ANIMATION] images=24, demonstration terminee")
+
+# Plateau isole pour comparer les poses et les mouvements a l'echelle du personnage.
+# L'atelier ne modifie ni le monde, ni les sauvegardes, ni les combats du jeu livre.
+func _atelier_animation() -> void:
+	var v = ville
+	var j: Joueur = v.joueur
+	v.hud.set_process(false)
+	v.hud._racine.hide()
+	Partie.createur = false
+	Partie.niveau = 49 # quatre ombres visibles sans toucher aux sauvegardes
+	Partie.auto_attaque = false
+	Partie.auto_ombres = false
+	Partie.opts["patrouille"] = false
+	Partie.opts["diviser"] = false
+	Partie.opts["rangees"] = false
+	Partie.ombres = [
+		{"uid": 99001, "espece": "gobelin", "etoiles": 1, "eq": true},
+		{"uid": 99002, "espece": "puglin", "etoiles": 1, "eq": true},
+		{"uid": 99003, "espece": "orc", "etoiles": 1, "eq": true},
+		{"uid": 99004, "espece": "gobelin_chef", "etoiles": 1, "eq": true},
+	]
+	Partie.change.emit()
+	var centre := Vector3(850.0, 0.0, 850.0)
+	var plateau := StaticBody3D.new()
+	var cube := BoxMesh.new()
+	cube.size = Vector3(64.0, 0.35, 64.0)
+	var sol := MeshInstance3D.new()
+	sol.mesh = cube
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.19, 0.25, 0.33)
+	mat.roughness = 0.85
+	sol.material_override = mat
+	plateau.add_child(sol)
+	var forme := CollisionShape3D.new()
+	var bo := BoxShape3D.new()
+	bo.size = cube.size
+	forme.shape = bo
+	plateau.add_child(forme)
+	plateau.global_position = centre + Vector3(0, -0.18, 0)
+	v.add_child(plateau)
+	# Eclairage de presentation: absent des scenes du jeu normal.
+	var lumiere := OmniLight3D.new()
+	lumiere.light_color = Color(0.65, 0.79, 1.0)
+	lumiere.light_energy = 1.5
+	lumiere.omni_range = 13.0
+	lumiere.position = centre + Vector3(1.5, 6.0, 4.0)
+	v.add_child(lumiere)
+	j.global_position = centre + Vector3(0, 0.3, 0)
+	j.velocity = Vector3.ZERO
+	j._corps.rotation.y = 0.0
+	for k in v.ombres.size():
+		v.ombres[k].global_position = centre + Vector3((float(k) - 1.5) * 1.3, 0.0, -2.3)
+	v._lacet = 0.0
+	v._tangage = -0.13
+	v._dist = 6.7
+	v._cam_pos = j.global_position + Vector3(0, 1.2, 0)
+	await attendre(0.6)
+	for frame in 48:
+		if frame == 8:
+			j.entree = Vector2(0.0, -0.35)
+		if frame == 20:
+			j.entree = Vector2(0.0, -1.0)
+		if frame == 32:
+			j.entree = Vector2.ZERO
+			j.global_position = centre + Vector3(0, 0.3, 0)
+			j.velocity = Vector3.ZERO
+			for k in v.ombres.size():
+				v.ombres[k].global_position = centre + Vector3((float(k) - 1.5) * 1.3, 0.0, -2.3)
+		if frame == 36:
+			var monstre := Monstre.new()
+			monstre.configurer("gobelin", centre + Vector3(0.0, 0.0, 3.0), PI)
+			monstre.pv_perso = 1.0e12
+			monstre.reapparait_auto = false
+			monstre.sans_chrono = true
+			v.add_child(monstre)
+			v.monstres.append(monstre)
+			j.viser(monstre)
+		await attendre(0.125)
+		await capture("animation_%03d" % frame)
+	j.entree = Vector2.ZERO
+	j.viser(null)
+	await capture("fin")
+	print("[ATELIER] 48 frames, repos/marche/course/combat")
 
 func _tour() -> void:
 	var v = ville
