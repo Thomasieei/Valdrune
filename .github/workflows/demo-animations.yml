@@ -35,8 +35,8 @@ jobs:
         run: |
           mkdir -p preview
           ffmpeg -hide_banner -loglevel error -y -framerate 8 -pattern_type glob -i '/tmp/caps_arise/*animation_*.png' -vf 'scale=960:-2:flags=lanczos' -c:v libx264 -preset veryfast -crf 25 -pix_fmt yuv420p -movflags +faststart preview/animation-demo.mp4
-          cp /tmp/caps_arise/*repos.png /tmp/caps_arise/*arret.png /tmp/caps_arise/*fin.png preview/
-          for f in /tmp/caps_arise/*repos.png /tmp/caps_arise/*arret.png /tmp/caps_arise/*fin.png; do
+          for f in /tmp/caps_arise/*animation_000.png /tmp/caps_arise/*animation_024.png /tmp/caps_arise/*animation_047.png; do
+            cp "$f" preview/
             ffmpeg -hide_banner -loglevel error -y -i "$f" -vf scale=960:-2 -q:v 5 "preview/$(basename "${f%.png}").jpg"
           done
           cp demonstration.log preview/test.log
