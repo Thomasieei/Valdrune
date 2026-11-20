@@ -10,7 +10,7 @@ jobs:
     timeout-minutes: 20
     env:
       GODOT_VERSION: "4.3"
-      PHASE: ${{ contains(github.event.head_commit.message, '[baseline]') && 'avant' || 'apres' }}
+      PHASE: atelier
     steps:
       - uses: actions/checkout@v4
       - name: Installer Godot et rendu logiciel
@@ -27,9 +27,9 @@ jobs:
       - name: Enregistrer le banc d'essai visuel
         run: |
           set -euo pipefail
-          timeout 420 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 -- --pilote=animation --sans-sauvegarde > demonstration.log 2>&1
-          grep -E 'CAPTURE|ANIMATION|SCRIPT ERROR|Parse Error|PILOTE' demonstration.log | tail -45 || true
-          test "$(find /tmp/caps_arise -name '*animation_*.png' | wc -l)" -eq 24
+          timeout 420 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 -- --pilote=animation2 --sans-sauvegarde > demonstration.log 2>&1
+          grep -E 'CAPTURE|ANIMATION|ATELIER|SCRIPT ERROR|Parse Error|PILOTE' demonstration.log | tail -45 || true
+          test "$(find /tmp/caps_arise -name '*animation_*.png' | wc -l)" -eq 48
           if grep -E 'SCRIPT ERROR|Parse Error' demonstration.log; then exit 1; fi
       - name: Compresser la video et preparer les captures
         run: |
