@@ -20,8 +20,6 @@ ERROR: Condition "p_texture.is_null()" is true.
    at: draw_texture_rect (scene/main/canvas_item.cpp:779)
 ERROR: Condition "p_texture.is_null()" is true.
    at: draw_texture_rect (scene/main/canvas_item.cpp:779)
-ERROR: Condition "!is_inside_tree()" is true. Returning: Transform3D()
-   at: get_global_transform (scene/3d/node_3d.cpp:345)
 [CAPTURE] animation_000
 [CAPTURE] animation_001
 [CAPTURE] animation_002
@@ -145,3 +143,7 @@ ERROR: Parameter "material" is null.
    at: material_get_instance_shader_parameters (drivers/gles3/storage/material_storage.cpp:2503)
 ERROR: Parameter "material" is null.
    at: material_update_dependency (drivers/gles3/storage/material_storage.cpp:2515)
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2284)
+ERROR: 2 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:604)
