@@ -262,7 +262,7 @@ func _maj_evitement(dt: float) -> void:
 			force += separation / distance * ((mini_espace - distance) / mini_espace)
 		else:
 			# Deterministe en cas de superposition parfaite.
-			var a := float(place) * GOLDEN_RATIO * TAU
+			var a := float(place) * 2.39996323
 			force += Vector3(cos(a), 0.0, sin(a))
 	# Le filtrage empeche les changements de cap d'une image a l'autre.
 	_evitement = _evitement.lerp(force.limit_length(1.0), 0.72)
