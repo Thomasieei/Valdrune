@@ -10,7 +10,7 @@ jobs:
     timeout-minutes: 20
     env:
       GODOT_VERSION: "4.3"
-      PHASE: atelier-v2
+      PHASE: atelier-v3
     steps:
       - uses: actions/checkout@v4
       - name: Installer Godot et rendu logiciel
@@ -29,16 +29,17 @@ jobs:
           set -euo pipefail
           timeout 420 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 -- --pilote=animation2 --sans-sauvegarde > demonstration.log 2>&1
           grep -E 'CAPTURE|ANIMATION|ATELIER|SCRIPT ERROR|Parse Error|PILOTE' demonstration.log | tail -45 || true
-          test "$(find /tmp/caps_arise -name '*animation_*.png' | wc -l)" -eq 48
-          if grep -E 'SCRIPT ERROR|Parse Error' demonstration.log; then exit 1; fi
+          test "$(find /tmp/caps_arise -name '*animation_*.png' | wc -l)" -eq 72
+          if grep -E 'SCRIPT ERROR|Parse Error|ERROR: Condition "!is_inside_tree' demonstration.log; then exit 1; fi
       - name: Compresser la video et preparer les captures
         run: |
           mkdir -p preview
           ffmpeg -hide_banner -loglevel error -y -framerate 8 -pattern_type glob -i '/tmp/caps_arise/*animation_*.png' -vf 'scale=960:-2:flags=lanczos' -c:v libx264 -preset veryfast -crf 25 -pix_fmt yuv420p -movflags +faststart preview/animation-demo.mp4
-          for f in /tmp/caps_arise/*animation_000.png /tmp/caps_arise/*animation_024.png /tmp/caps_arise/*animation_047.png; do
+          for f in /tmp/caps_arise/*animation_000.png /tmp/caps_arise/*animation_036.png /tmp/caps_arise/*animation_071.png; do
             cp "$f" preview/
             ffmpeg -hide_banner -loglevel error -y -i "$f" -vf scale=960:-2 -q:v 5 "preview/$(basename "${f%.png}").jpg"
           done
+          ffmpeg -hide_banner -loglevel error -y -i preview/animation-demo.mp4 -filter_complex "fps=8,scale=700:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=96[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5" -loop 0 preview/animation-demo.gif
           cp demonstration.log preview/test.log
           ls -lah preview
       - name: Publier les apercus dans une branche separee

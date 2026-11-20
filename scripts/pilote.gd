@@ -186,22 +186,23 @@ func _atelier_animation() -> void:
 		v.ombres[k].global_position = centre + Vector3((float(k) - 1.5) * 1.3, 0.0, -2.3)
 		v.ombres[k]._humeur_t = 0.7 + float(k) * 0.23
 	v._lacet = 0.0
-	v._tangage = -0.46
-	v._dist = 4.9
+	v._tangage = -0.32
+	v._dist = 4.6
+	v.camera.fov = 52.0
 	v._cam_pos = j.global_position + Vector3(0, 1.2, 0)
 	await attendre(0.6)
-	for frame in 48:
-		if frame == 8:
+	for frame in 72:
+		if frame == 10:
 			j.entree = Vector2(0.0, -0.35)
-		if frame == 20:
+		if frame == 24:
 			j.entree = Vector2(0.0, -1.0)
-		if frame == 32:
+		if frame == 40:
 			j.entree = Vector2.ZERO
 			j.global_position = centre + Vector3(0, 0.3, 0)
 			j.velocity = Vector3.ZERO
 			for k in v.ombres.size():
 				v.ombres[k].global_position = centre + Vector3((float(k) - 1.5) * 1.3, 0.0, -2.3)
-		if frame == 36:
+		if frame == 44:
 			var monstre := Monstre.new()
 			monstre.configurer("gobelin", centre + Vector3(2.2, 0.0, 2.4), PI)
 			monstre.pv_perso = 1.0e12
@@ -210,12 +211,14 @@ func _atelier_animation() -> void:
 			v.add_child(monstre)
 			v.monstres.append(monstre)
 			j.viser(monstre)
+		if frame in [9, 23, 35, 49, 66]:
+			print("[ATELIER][ETAT] phase=", frame, " joueur=", j._ap.current_animation if j._ap else "absent", " ombres=", v.ombres.map(func (o): return o._ap.current_animation if o._ap else "absent"))
 		await attendre(0.125)
 		await capture("animation_%03d" % frame)
 	j.entree = Vector2.ZERO
 	j.viser(null)
 	await capture("fin")
-	print("[ATELIER] 48 frames, repos/marche/course/combat")
+	print("[ATELIER] 72 frames, repos/marche/sprint/combat")
 
 func _tour() -> void:
 	var v = ville

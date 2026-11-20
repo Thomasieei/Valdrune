@@ -33,6 +33,9 @@ var _ap: AnimationPlayer
 var _plaque: Label3D
 var _reapparait := 0.0
 var _flash := 0.0
+var _recul_t := -100.0
+var _recul_visuel: Tween
+var _anim_revision := 0
 var _aura: Node3D
 var _base_haut := 1.0
 var _zone_t := 3.0
@@ -236,6 +239,13 @@ func briser(degats: float) -> void:
 	frapper(degats * (1.5 if avait else 1.0), true)
 
 func _zone(p: Vector3, rayon: float, delai: float) -> void:
+	# Le monstre annonce physiquement l'attaque rouge, sans modifier sa difficulte.
+	if _ap:
+		var avertissement := "Cast" if _ap.has_animation("Cast") else ("Roar" if _ap.has_animation("Roar") else ("Attack" if _ap.has_animation("Attack") else ""))
+		if avertissement != "":
+			_anim_revision += 1
+			Modele.jouer(_ap, avertissement, 1.0, 0.12)
+			_retour_idle(minf(delai * 0.75, 0.9))
 	var mi := MeshInstance3D.new()
 	var cy := CylinderMesh.new()
 	cy.top_radius = rayon
@@ -527,6 +537,19 @@ func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) ->
 		var qui_nom: String = "Toi" if source in ["joueur", "ombres", "evenement"] else (str(qui.d["nom"]) if qui and is_instance_valid(qui) and "d" in qui else "?")
 		Partie.raid_degats[qui_nom] = float(Partie.raid_degats.get(qui_nom, 0.0)) + reel
 	_flash = 1.0
+	# Recul visuel court, cadence limitee: des dizaines d'ombres ne lancent
+	# jamais des dizaines de tweens pour une meme cible a chaque image.
+	var now := Time.get_ticks_msec() / 1000.0
+	if _ap and now - _recul_t > 0.24:
+		var j := get_tree().get_first_node_in_group("joueur") as Node3D
+		if j and global_position.distance_to(j.global_position) < 45.0:
+			_recul_t = now
+			if _recul_visuel and _recul_visuel.is_running():
+				_recul_visuel.kill()
+			_recul_visuel = create_tween()
+			var sens := -1.0 if (int(now * 1000.0) / 2) % 2 == 0 else 1.0
+			_recul_visuel.tween_property(_corps, "rotation:z", sens * 0.085, 0.07).set_trans(Tween.TRANS_QUAD)
+			_recul_visuel.tween_property(_corps, "rotation:z", 0.0, 0.22).set_trans(Tween.TRANS_BACK)
 	var h := haut()
 	if source == "bot" or source == "allie":
 		Fx.texte(global_position + Vector3(randf_range(-0.9, 0.9), h * randf_range(0.5, 0.9), 0), Fx.court(degats), Color(0.55, 0.85, 1.0), 0.7, 0.6)
@@ -540,6 +563,7 @@ func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) ->
 	if pv <= 0.0:
 		_mourir()
 	elif randf() < 0.35 and _ap and _ap.current_animation != "Hit" and _ap.current_animation != "Hit_Chest":
+		_anim_revision += 1
 		Modele.jouer(_ap, "Hit", 1.3, 0.05)
 		_retour_idle(0.45)
 
@@ -563,11 +587,18 @@ func _invoquer_clones() -> void:
 			v.monstres.append(cl)
 
 func _retour_idle(apres: float) -> void:
+	var revision := _anim_revision
 	await get_tree().create_timer(apres).timeout
-	if not mort and is_inside_tree():
+	# Ne jamais interrompre un Hit, un Roar ou une nouvelle incantation
+	# avec un vieux rappel Idle arrive en retard.
+	if not mort and is_inside_tree() and revision == _anim_revision:
 		Modele.jouer(_ap, "Idle")
 
 func _mourir() -> void:
+	_anim_revision += 1
+	if _recul_visuel and _recul_visuel.is_running():
+		_recul_visuel.kill()
+	_corps.rotation.z = 0.0
 	mort = true
 	pv = 0.0
 	chrono = -1.0

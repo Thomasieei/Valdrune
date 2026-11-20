@@ -162,6 +162,7 @@ static func _boite(n: Node3D) -> AABB:
 static func jouer(ap: AnimationPlayer, nom: String, vitesse := 1.0, fondu := 0.15) -> float:
 	if ap == null:
 		return 0.0
+	var demande := nom
 	if not ap.has_animation(nom):
 		var alt: String = {"Idle": "Animacion", "Walk": "Walk_Cycle", "Run": "Walk_Cycle"}.get(nom, "")
 		if alt != "" and ap.has_animation(alt):
@@ -170,7 +171,12 @@ static func jouer(ap: AnimationPlayer, nom: String, vitesse := 1.0, fondu := 0.1
 		var r: Dictionary = ap.get_meta("remap", {})
 		nom = r.get(nom, "")
 		if nom == "" or not ap.has_animation(nom):
-			return 0.0
+			# Certains monstres (notamment les orcs) n'ont qu'un seul coup.
+			# Ne jamais infliger un coup visuellement invisible si Attack2 manque.
+			if demande == "Attack2" and ap.has_animation("Attack"):
+				nom = "Attack"
+			else:
+				return 0.0
 	if ap.current_animation == nom and ap.get_animation(nom).loop_mode != Animation.LOOP_NONE:
 		ap.speed_scale = vitesse
 		return 0.0

@@ -1,9 +1,5 @@
 name: Apercu GIF mobile Arise Ville
 on:
-  push:
-    branches: [demo/arise-animations-20261120]
-    paths:
-      - '.github/workflows/mobile-gif.yml'
   workflow_dispatch:
 permissions:
   contents: write

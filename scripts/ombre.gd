@@ -65,6 +65,8 @@ func _ready() -> void:
 	if _comp.is_empty():
 		_comp = e.get("competence", {})
 	_comp_t = float(_comp.get("cd", 0.0)) * 0.5
+	# Les frappes de l'escouade ne sont plus parfaitement synchronisees.
+	_coup_t = float(place % 7) * 0.115
 	_humeur_t = 2.1 + float(place % 5) * 0.9 + randf_range(0.0, 0.7)
 	var etoiles := int(donnees["etoiles"])
 	if etoiles > 0:
@@ -153,8 +155,9 @@ func _process(dt: float) -> void:
 			_anim = Modele.jouer(_ap, anim, 1.5, 0.08) * 0.85
 			# Petite anticipation/reprise, la simulation des degats reste identique.
 			var impulsion := create_tween()
-			impulsion.tween_property(_corps, "rotation:x", -0.11, 0.09)
-			impulsion.tween_property(_corps, "rotation:x", 0.0, 0.18)
+			impulsion.tween_property(_corps, "rotation:x", -0.13, 0.09)
+			impulsion.tween_property(_corps, "rotation:x", 0.08, 0.10)
+			impulsion.tween_property(_corps, "rotation:x", 0.0, 0.19)
 			var deg := Partie.dps_ombre(donnees) * 0.9
 			await get_tree().create_timer(0.25).timeout
 			if is_instance_valid(c) and not c.mort:
@@ -325,6 +328,9 @@ func blesser(d: float) -> void:
 	if mort:
 		return
 	pv -= d
+	# Le retour visuel utilise une animation deja importee, sans particule.
+	if pv > 0.0 and _ap and _anim <= 0.0 and joueur and global_position.distance_to(joueur.global_position) < 35.0:
+		_anim = Modele.jouer(_ap, "Hit", 1.25, 0.08) * 0.55
 	Fx.texte(global_position + Vector3(0, 2.0, 0), "-%d" % int(d), Color(0.85, 0.5, 1.0), 0.9, 0.7)
 	if pv <= 0.0:
 		mort = true
