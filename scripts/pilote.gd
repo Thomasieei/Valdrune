@@ -96,6 +96,15 @@ func _demo_animation() -> void:
 		{"uid": 9004, "espece": "gobelin_chef", "etoiles": 1, "eq": true},
 	]
 	Partie.change.emit()
+	# Inventaire reel des os et des animations importees par Godot.
+	for spec in [["hero", j._corps], ["goblin", v.ombres[0]._corps], ["puglin", v.ombres[1]._corps], ["orc", v.ombres[2]._corps]]:
+		var sk: Skeleton3D = spec[1].find_child("Skeleton3D", true, false)
+		var ap: AnimationPlayer = Modele.lecteur(spec[1])
+		var os := []
+		if sk:
+			for b in sk.get_bone_count():
+				os.append(sk.get_bone_name(b))
+		print("[RIG] ", spec[0], " bones=", os, " anims=", ap.get_animation_list() if ap else [])
 	# Plan plus serre: le premier rendu etait illisible et finissait derriere un etal.
 	j.global_position = v.DEPART + Vector3(0, 0.0, -9.0)
 	v._lacet = 0.0
