@@ -13,9 +13,11 @@ var entree := Vector2.ZERO
 var cible: Monstre = null
 var _corps: Node3D
 var _ap: AnimationPlayer
+var _pas: Modele.Locomotion
 var _coup_t := 0.0
 var _coup_n := 0
 var _anim_coup := 0.0
+var _chute := 0.0
 var _dernier_coup := 0
 var camera_lacet := 0.0
 var _main: BoneAttachment3D
@@ -100,6 +102,7 @@ func _ready() -> void:
 	_corps = Modele.creer("hero", 1.85)
 	add_child(_corps)
 	_ap = Modele.lecteur(_corps)
+	_pas = Modele.Locomotion.new(_ap)
 	Modele.jouer(_ap, "Idle")
 	var sk: Skeleton3D = _corps.find_child("Skeleton3D", true, false)
 	_main = BoneAttachment3D.new()
@@ -201,32 +204,46 @@ func _physics_process(dt: float) -> void:
 		_arme_monarque(dt)
 	invulnerable = maxf(0.0, invulnerable - dt)
 	var vit := VITESSE * Partie.vitesse()
-	velocity.x = dir.x * vit
-	velocity.z = dir.z * vit
+	var vitesse_plan := Vector2(velocity.x, velocity.z)
+	var accel := 48.0 if dir.is_zero_approx() else 38.0
+	vitesse_plan = vitesse_plan.move_toward(Vector2(dir.x, dir.z) * vit, accel * dt * Partie.vitesse())
+	velocity.x = vitesse_plan.x
+	velocity.z = vitesse_plan.y
 	if _dash_t > 0.0:
 		_dash_t -= dt
 		velocity.x = _dash.x
 		velocity.z = _dash.z
 	velocity.y = -2.0 if is_on_floor() else velocity.y - 30.0 * dt
+	var avant_pas := global_position
 	move_and_slide()
 
 	if dir.length() > 0.1 and is_on_floor() and is_on_wall():
 		franchir_marche(self, dir)
 	_anim_coup -= dt
-	if dir.length() > 0.1:
-		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(dir.x, dir.z), minf(1.0, dt * 14.0))
-		if _anim_coup <= 0.0:
-			Modele.jouer(_ap, "Run", 1.05 * Partie.vitesse())
-	elif not duel and en_combat and distance <= PORTEE + 0.3:
-		var v2 := cible.global_position - global_position
-		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(v2.x, v2.z), minf(1.0, dt * 16.0))
+	var trajet := global_position - avant_pas
+	trajet.y = 0.0
+	var vitesse_reelle := trajet.length() / dt
+	var orientation := trajet.normalized() if vitesse_reelle > 0.15 else Vector3.ZERO
+	if orientation.is_zero_approx() and en_combat:
+		orientation = cible.global_position - global_position
+	_pas.orienter(_corps, orientation, vitesse_reelle, dt, _anim_coup > 0.0)
+	if not is_on_floor() and velocity.y < -3.0:
+		_chute += dt
+	elif is_on_floor():
+		if _chute > 0.22 and _anim_coup <= 0.0 and _dash_t <= 0.0:
+			_anim_coup = minf(0.18, Modele.jouer(_ap, "JumpLand", 1.15, 0.08))
+		_chute = 0.0
+	if not duel and en_combat and dir.is_zero_approx() and distance <= PORTEE + 0.3:
 		_coup_t -= dt
 		if _coup_t <= 0.0:
 			_coup_t = CADENCE
 			if not (Partie.auto_attaque and cible.en_parade()):
 				_frapper()
-	elif _anim_coup <= 0.0:
-		Modele.jouer(_ap, "Idle" if Partie.opts["fourreau"] else "SwordIdle")
+	if _anim_coup <= 0.0 and _dash_t <= 0.0:
+		if not is_on_floor() and velocity.y < -4.5:
+			Modele.jouer(_ap, "JumpLoop", 1.0, 0.12)
+		else:
+			_pas.avancer(vitesse_reelle, dt, not Partie.opts["fourreau"])
 
 const MARCHE_MAX := 0.45
 static func franchir_marche(corps: CharacterBody3D, dir: Vector3) -> void:

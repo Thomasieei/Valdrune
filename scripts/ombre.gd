@@ -12,7 +12,8 @@ var _contact := false
 var _derniere_cible: Monstre
 var _coup_t := 0.0
 var _anim := 0.0
-var _y := 0.0
+var _vitesse := 0.0
+var _pas: Modele.Locomotion
 var _comp: Dictionary = {}
 var _comp_t := 0.0
 var pv := 1.0
@@ -30,6 +31,7 @@ func _ready() -> void:
 	_corps = Modele.creer(e["modele"], h)
 	add_child(_corps)
 	_ap = Modele.lecteur(_corps)
+	_pas = Modele.Locomotion.new(_ap)
 
 	add_to_group("ombres")
 	pv_max = Partie.pv_ombre(donnees)
@@ -82,6 +84,7 @@ func _physics_process(dt: float) -> void:
 		return
 	_anim -= dt
 	if rangee:
+		_vitesse = 0.0
 		global_position = joueur.global_position
 		return
 	if mort:
@@ -120,33 +123,43 @@ func _physics_process(dt: float) -> void:
 	if attaque:
 		var portee := c.haut() * 0.3 + (2.6 if _contact else 1.9)
 		_contact = global_position.distance_squared_to(c.global_position) <= portee * portee
-	if d > 0.35 and not _contact:
-		var vit := clampf(d * 3.0, 2.0, 16.0) * Partie.vit_ombre()
-		global_position += v.normalized() * minf(d, vit * dt)
-		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(v.x, v.z), minf(1.0, dt * 10.0))
-		if _anim <= 0.0:
-			Modele.jouer(_ap, "Run" if vit > 4.0 else "Walk")
+	var restante := maxf(0.0, d - 0.16)
+	var vitesse_voulue := minf(16.0, restante * 3.5) * Partie.vit_ombre()
+	_vitesse = move_toward(_vitesse, vitesse_voulue, 36.0 * dt)
+	var pas := minf(restante, _vitesse * dt)
+	if _contact or restante < 0.04:
+		pas = 0.0
+		_vitesse = 0.0
+	if pas > 0.0:
+		global_position += v.normalized() * pas
+	var orientation := v.normalized() if pas > 0.0 else Vector3.ZERO
+	if _contact and attaque:
+		orientation = c.global_position - global_position
+	_pas.orienter(_corps, orientation, pas / dt, dt, _anim > 0.0)
+	if _anim <= 0.0:
+		_pas.avancer(pas / dt, dt)
 	if attaque and not _comp.is_empty():
 		_comp_t -= dt
 		if _comp_t <= 0.0:
 			_comp_t = float(_comp["cd"])
 			_competence(c)
 	if attaque and _contact:
-		var w := c.global_position - global_position
-		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(w.x, w.z), minf(1.0, dt * 10.0))
-		if _coup_t <= 0.0:
+		if _coup_t <= 0.0 and _anim <= 0.0:
 			_coup_t = 0.9
-			var anim := "Attack" if randf() < 0.6 else "Attack2"
+			var anim := "Attack"
+			if randf() >= 0.6 and _ap and (_ap.has_animation("Attack2") or _ap.get_meta("remap", {}).has("Attack2")):
+				anim = "Attack2"
 			_anim = Modele.jouer(_ap, anim, 1.5, 0.08) * 0.85
 			var deg := Partie.dps_ombre(donnees) * 0.9
-			await get_tree().create_timer(0.25).timeout
-			if not mort and not rangee and is_instance_valid(c) and not c.mort and not c.allie and global_position.distance_to(c.global_position) <= c.haut() * 0.3 + 2.9:
-				c.frapper(deg, false, "ombres")
-	elif d <= 0.35 and _anim <= 0.0:
-		Modele.jouer(_ap, "Idle")
+			_impact_differe(c, deg)
 
 	global_position.y = lerpf(global_position.y, c.global_position.y if is_instance_valid(c) else joueur.global_position.y, minf(1.0, dt * 8.0))
 
+
+func _impact_differe(c: Monstre, deg: float) -> void:
+	await get_tree().create_timer(0.25).timeout
+	if not mort and not rangee and is_instance_valid(c) and not c.mort and not c.allie and global_position.distance_to(c.global_position) <= c.haut() * 0.3 + 2.9:
+		c.frapper(deg, false, "ombres")
 
 func _a_portee(m: Monstre) -> bool:
 	if m == null or not is_instance_valid(m) or m.mort or m.allie:
