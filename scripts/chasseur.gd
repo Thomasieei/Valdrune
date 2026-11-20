@@ -31,6 +31,47 @@ var _place_groupe := 0
 var _derniere_pos := Vector3.ZERO
 var _activite_t := 0.0
 var _absent_t := 0.0
+var sante := 1.0 # Fraction des PV max, indépendante des gains de niveau.
+var _repos := 0.0
+var _danger: Node3D
+var _reaction := 0.0
+var _sortie_zone := Vector3.ZERO
+
+func combattant() -> bool:
+	return not civil and mode in ["ville", "donjon"]
+
+func recevoir(coup: float) -> void:
+	if not combattant():
+		return
+	var maximum := 115.0 * (1.0 + 0.04 * (int(d.niveau) - 1)) * float(Partie.MULT_RANG[int(d.rang)])
+	sante = maxf(0.0, sante - coup / maximum)
+	_repos = 6.0
+	if sante <= 0.0:
+		mode = "ko"
+		d.etat = "ko"
+		d["morts"] = int(d.get("morts", 0)) + 1
+		d["repos"] = 18.0
+		velocity = Vector3.ZERO
+		cible = null
+		_danger = null
+		Modele.jouer(_ap, "Death")
+	_maj_plaque()
+
+func avertir(zone: Node3D, rayon: float) -> void:
+	if not combattant() or absf(global_position.y - zone.global_position.y) > 3.0:
+		return
+	var loin := global_position - zone.global_position
+	loin.y = 0.0
+	if loin.length() > rayon + 0.35:
+		return
+	if loin.length_squared() < 0.02:
+		loin = Vector3.RIGHT.rotated(Vector3.UP, get_index() * 2.4)
+	_danger = zone
+	_sortie_zone = zone.global_position + loin.normalized() * (rayon + 1.1)
+	_reaction = randf_range(0.12, 0.45) + (1.0 - float(d.talent)) * 1.2
+	if randf() > float(d.talent):
+		_reaction += 1.0
+
 var _errance := Vector3.ZERO
 
 func _ready() -> void:
@@ -76,10 +117,31 @@ func _ready() -> void:
 	_plaque.visibility_range_end = 40.0
 	add_child(_plaque)
 	_maj_plaque()
-	_activite_t = randf_range(120.0, 480.0)
+	_activite_t = randf_range(35.0, 110.0)
+	if not civil:
+		add_to_group("chasseurs_actifs")
+		if d.get("etat", "") == "ko":
+			mode = "ko"
+			sante = 0.0
+			Modele.jouer(_ap, "Death")
+		elif d.get("etat", "") == "trajet":
+			mode = "vers_portail"
+			_absent_t = float(d.get("delai_salle", 35.0))
+		elif d.get("etat", "") in ["test", "donjon"]:
+			mode = "absent"
+			_absent_t = float(d.get("delai_salle", 35.0))
+			hide()
+			collision_mask = 0
+		_maj_plaque()
 
 func _maj_plaque() -> void:
 	_plaque.text = "%s  [%s]\nNiv. %d" % [d["nom"], Partie.RANGS[int(d["rang"])], int(d["niveau"])]
+	if combattant() and sante < 0.98:
+		_plaque.text += " · %d %% PV" % ceili(sante * 100)
+	elif mode == "ko":
+		_plaque.text += " · K.O."
+	elif mode == "vers_portail":
+		_plaque.text += " · En route vers le portail"
 	_plaque.modulate = Color(1.0, 0.85, 0.4) if d.get("premium", false) else Color(0.55, 0.9, 1.0)
 
 func _valide(m) -> bool:
@@ -97,13 +159,13 @@ func _choisir_ville() -> void:
 		if c != self and _valide(c.cible):
 			pris[c.cible] = int(pris.get(c.cible, 0)) + 1
 	for m in ville.monstres:
-		if not _valide(m) or m == _cible_bloquee or m.allie or m.sans_chrono or m.e.get("lieu", "") != "" or m == ville.joueur.cible or int(pris.get(m, 0)) >= 2:
+		if not _valide(m) or m == _cible_bloquee or m.allie or m.sans_chrono or m.e.get("lieu", "") != "" or m.initiation or int(pris.get(m, 0)) >= 2:
 			continue
 		var st: Dictionary = Partie.stats_monstre(m.espece, m.elite, m.mult)
-		if st["pv"] / dps > st["temps"] * 0.95:
+		if m.pv / dps > st["temps"] * (0.65 + float(d.talent) * 0.45):
 			continue
 		var dist: float = m.global_position.distance_to(global_position)
-		var s: float = st["xp"] / (st["pv"] / dps + 4.0 + dist / 7.0)
+		var s: float = st["xp"] / (maxf(m.pv, 1.0) / dps + 4.0 + dist / COURSE) / (1.0 + int(pris.get(m, 0)) * 0.6)
 		if s > score:
 			score = s
 			mieux = m
@@ -120,6 +182,10 @@ func _choisir_donjon() -> void:
 			if dd < mieux:
 				mieux = dd
 				cible = m
+
+func _position_combat() -> Vector3:
+	var angle := get_index() * 2.4
+	return cible.global_position + Vector3(cos(angle), 0, sin(angle)) * (1.0 + cible.haut() * 0.18)
 
 func _destination() -> Vector3:
 	if mode in ["passant", "rencontre"]:
@@ -138,10 +204,10 @@ func _destination() -> Vector3:
 				return Vector3(lane.x, global_position.y, global_position.z)
 			return lane
 		if _valide(cible):
-			return cible.global_position
+			return _position_combat()
 		return c + Vector3((get_index() % 3 - 1) * 2.0, 0, -4.0)
 	if _valide(cible):
-		return cible.global_position
+		return _position_combat()
 	if _errance == Vector3.ZERO or global_position.distance_to(_errance) < 2.0:
 		var p: Array = ville.POSTES_V.pick_random()
 		_errance = Vector3(p[1], global_position.y, p[2]) + Vector3(randf_range(-3, 3), 0, randf_range(-3, 3))
@@ -174,29 +240,63 @@ func _physics_process(dt: float) -> void:
 		global_position = NavigationServer3D.map_get_closest_point(carte, sol) + Vector3.UP * 0.05
 		_derniere_pos = global_position
 		_depart_sur_rue = false
+	if mode == "ko":
+		d.repos = maxf(0.0, float(d.get("repos", 18.0)) - dt)
+		if d.repos <= 0:
+			mode = "ville"
+			d.etat = "ville"
+			donjon = null
+			sante = 1.0
+			placer(ville.DEPART + Vector3(1, 0, 2))
+			Modele.jouer(_ap, "Idle")
+			_maj_plaque()
+		return
 	if mode == "absent":
 		_absent_t -= dt
+		d["delai_salle"] = _absent_t
 		if _absent_t <= 0.0:
-			Partie.bot_fin_activite(d)
+			if d.etat == "donjon" and Partie.bot_salle(d):
+				_absent_t = float(d.delai_salle)
+				return
+			if d.etat == "test":
+				Partie.bot_fin_activite(d)
+			if d.etat == "ko":
+				mode = "ko"
+				sante = 0.0
+				visible = true
+				collision_mask = 1
+				Modele.jouer(_ap, "Death")
+				_maj_plaque()
+				return
 			mode = "ville"
 			visible = global_position.distance_squared_to(ville.joueur.global_position) < 85.0 * 85.0
 			collision_mask = 1
 			_but_chemin = Vector3.INF
 			_maj_plaque()
 		return
+	_repos = maxf(0.0, _repos - dt)
+	if combattant() and _repos <= 0.0 and not _valide(cible) and sante < 1.0:
+		var precedent := ceili(sante * 100.0)
+		sante = minf(1.0, sante + dt * 0.045)
+		if ceili(sante * 100.0) != precedent:
+			_maj_plaque()
 	_coup_t = maxf(0.0, _coup_t - dt)
 	_eviter_t -= dt
 	if _eviter_t <= 0.0:
 		_cible_bloquee = null
 	if mode == "ville":
 		_activite_t -= dt
-		if _activite_t <= 0.0:
-			_activite_t = randf_range(300.0, 900.0)
+		if _activite_t <= 0.0 and not (_valide(cible) and cible.chrono >= 0.0):
+			_activite_t = randf_range(75.0, 180.0)
 			var act := Partie.bot_activite(d)
 			if not act.is_empty():
 				mode = "vers_portail"
-				_absent_t = float(act["duree"])
+				d["projet"] = act.type
+				d.etat = "trajet"
+				_absent_t = float(d.delai_salle) if act.type == "donjon" else float(act.duree)
+				d["delai_salle"] = _absent_t
 				cible = null
+				_maj_plaque()
 	if mode in ["vers_portail", "vers_groupe"]:
 		if global_position.distance_to(ville.portail.global_position) <= 2.5:
 			if mode == "vers_groupe":
@@ -205,6 +305,10 @@ func _physics_process(dt: float) -> void:
 				placer(donjon.point_depart() + Vector3((_place_groupe - 1) * 1.6, 0, -1.0))
 				return
 			mode = "absent"
+			d.etat = d.get("projet", "donjon")
+			if d.etat == "donjon":
+				_absent_t = float(d.delai_salle)
+			d["delai_salle"] = _absent_t
 			hide()
 			collision_mask = 0
 			velocity = Vector3.ZERO
@@ -215,8 +319,9 @@ func _physics_process(dt: float) -> void:
 		if _choix_t <= 0.0:
 			_choix_t = 1.0
 			if mode == "donjon":
-				_choisir_donjon()
-			elif not _valide(cible) or (_valide(ville.raid_boss) and cible != ville.raid_boss) or cible.allie or cible == ville.joueur.cible:
+				if not _valide(cible) or cible.allie:
+					_choisir_donjon()
+			elif not _valide(cible) or cible.allie:
 				_choisir_ville()
 	var but := _destination()
 	var distance := global_position.distance_to(but)
@@ -228,6 +333,14 @@ func _physics_process(dt: float) -> void:
 		else:
 			dir = _direction_rue(but, dt)
 	var presse := (_valide(cible) or mode in ["vers_groupe", "rencontre"]) and distance > 5.0
+	if is_instance_valid(_danger) and combattant():
+		_reaction -= dt
+		if _reaction <= 0.0:
+			au_contact = false
+			var ecart := _sortie_zone - global_position
+			ecart.y = 0
+			dir = ecart.normalized() if ecart.length() > 0.24 else Vector3.ZERO
+			presse = true
 	var vitesse := COURSE if presse else MARCHE
 	velocity.x = move_toward(velocity.x, dir.x * vitesse, 10.0 * dt)
 	velocity.z = move_toward(velocity.z, dir.z * vitesse, 10.0 * dt)
@@ -243,7 +356,7 @@ func _physics_process(dt: float) -> void:
 	elif au_contact:
 		var w := cible.global_position - global_position
 		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(w.x, w.z), minf(1.0, dt * 12.0))
-		if _coup_t <= 0.0:
+		if _coup_t <= 0.0 and not (cible.en_parade() and float(d.talent) >= 0.78):
 			_coup_t = 0.6
 			Modele.jouer(_ap, "Attack", 1.6, 0.06)
 			var crit := randf() < 0.15

@@ -65,7 +65,7 @@ func _acteurs(civil: bool, p: Vector3, sauf: Chasseur = null) -> Chasseur:
 	var distance := INF
 	var liste: Array = civils if civil else ville.chasseurs
 	for personnage: Chasseur in liste:
-		if personnage == sauf or personnage.mode not in ["ville", "passant"]:
+		if (is_instance_valid(personnage.cible) and not personnage.cible.mort and personnage.cible.chrono >= 0) or personnage == sauf or personnage.mode not in ["ville", "passant"]:
 			continue
 		var dd := personnage.global_position.distance_squared_to(p)
 		if dd < distance:

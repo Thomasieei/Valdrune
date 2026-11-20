@@ -70,6 +70,7 @@ var _plaque_t := 0.0
 var pv_perso := -1.0
 var atk_perso := -1.0
 var nom_perso := ""
+var _contributions := {}
 var _dernier := ""
 var _dernier_bot: Node = null
 var totems: Array = []
@@ -179,6 +180,7 @@ func _construire_corps() -> void:
 
 
 func _appliquer_rang() -> void:
+	_contributions.clear()
 	var st := Partie.stats_monstre(espece, elite, mult)
 	pv_max = pv_perso if pv_perso > 0.0 else st["pv"]
 	pv = pv_max
@@ -283,6 +285,9 @@ func _combat(dt: float) -> void:
 		_duel(dt, _joueur_affichage)
 		return
 	var j: Node3D = get_tree().get_first_node_in_group("joueur")
+	var adversaire := _dernier_bot as Chasseur
+	if is_instance_valid(adversaire) and adversaire.combattant() and adversaire.cible == self and adversaire.global_position.distance_squared_to(global_position) < 144.0:
+		j = adversaire
 	if j == null or chrono < 0.0 or global_position.distance_to(j.global_position) > 20.0:
 		return
 	ouverture = maxf(0.0, ouverture - dt)
@@ -297,7 +302,7 @@ func _combat(dt: float) -> void:
 		_zone_t = CADENCE_ZONE[r] * randf_range(0.85, 1.15) * (0.8 if elite else 1.0) * (0.5 if enrage else 1.0) * calme
 		var cible: Vector3 = j.global_position
 		var ombres := get_tree().get_nodes_in_group("ombres").filter(func (o): return not o.mort and o.global_position.distance_to(global_position) < 16.0)
-		if not ombres.is_empty() and randf() < 0.35:
+		if j is Joueur and not ombres.is_empty() and randf() < 0.35:
 			cible = ombres.pick_random().global_position
 		if initiation:
 			frappe_annoncee = true
@@ -360,6 +365,7 @@ func _zone(p: Vector3, rayon: float, delai: float) -> void:
 	racine.add_child(bord)
 	get_parent().add_child(racine)
 	racine.global_position = p + Vector3(0, 0.08, 0)
+	get_tree().call_group("chasseurs_actifs", "avertir", racine, rayon)
 	mi.scale = Vector3(0.05, 1, 0.05)
 	var tw := racine.create_tween()
 	tw.tween_property(mi, "scale", Vector3.ONE, delai)
@@ -381,6 +387,9 @@ func _impact(racine: Node3D, rayon: float) -> void:
 			ouverture = 3.0
 			_etourdi = 1.0
 			Fx.texte(global_position + Vector3.UP * haut(), "OUVERTURE !", Color.GOLD, 1.2, 1.0)
+		for ch: Chasseur in get_tree().get_nodes_in_group("chasseurs_actifs"):
+			if ch.combattant() and _dans_zone(ch.global_position, racine.global_position, rayon):
+				ch.recevoir(atk)
 		for o in get_tree().get_nodes_in_group("ombres"):
 			if not o.mort and _dans_zone(o.global_position, racine.global_position, rayon):
 				o.blesser(atk)
@@ -606,6 +615,8 @@ func capituler(choix: String) -> void:
 	vaincu.emit(self)
 
 func j_loin() -> bool:
+	if is_instance_valid(_dernier_bot) and _dernier_bot is Chasseur and _dernier_bot.combattant() and _dernier_bot.cible == self:
+		return false
 	var j: Node3D = get_tree().get_first_node_in_group("joueur")
 	return j == null or j.global_position.distance_to(global_position) > 28.0
 
@@ -634,6 +645,8 @@ func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) ->
 		chrono = 0.0
 	if _parade > 0.0 and source != "evenement":
 		Fx.texte(global_position + Vector3(0, haut() * 0.8, 0), "PARÉ", Color(0.5, 0.85, 1.0), 1.0, 0.6)
+		if qui is Chasseur:
+			qui.recevoir(Partie.atk_monstre(espece, elite) * 0.6)
 		if source == "joueur":
 			var j: Node3D = get_tree().get_first_node_in_group("joueur")
 			if j:
@@ -646,6 +659,9 @@ func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) ->
 	if espece == "rival":
 		degats = minf(degats, pv_max * 0.18)
 	var reel := minf(degats, pv)
+	if has_meta("quartier"):
+		var id := qui.get_instance_id() if source == "bot" and qui is Chasseur else 0
+		_contributions[id] = float(_contributions.get(id, 0.0)) + reel
 	var instance := get_parent() as Donjon
 	if instance and instance.actif:
 		var auteur := "joueur" if source == "evenement" and qui is Joueur else source
@@ -718,9 +734,18 @@ func _mourir() -> void:
 			cl.frapper(cl.pv + 1.0, false, "evenement")
 	_eveil_fin = Time.get_ticks_msec() / 1000.0 + FENETRE_EVEIL
 	_reapparait = REAPPARITION + (6.0 if e.get("boss", false) else 0.0)
-	if _dernier == "bot" and _dernier_bot and is_instance_valid(_dernier_bot):
+	var vainqueur: Chasseur
+	if not _contributions.is_empty():
+		var record := float(_contributions.get(0, 0.0))
+		for id in _contributions:
+			if id != 0 and _contributions[id] > record and is_instance_id_valid(id):
+				vainqueur = instance_from_id(id) as Chasseur
+				record = _contributions[id]
+	elif _dernier == "bot" and is_instance_valid(_dernier_bot):
+		vainqueur = _dernier_bot as Chasseur
+	if vainqueur:
 		eveillable = false
-		_dernier_bot.a_tue(espece, elite, mult)
+		vainqueur.a_tue(espece, elite, mult)
 	else:
 		var gain := Partie.gagner(espece, elite, mult)
 		Fx.pieces(global_position + Vector3(0, 1.0, 0), gain)

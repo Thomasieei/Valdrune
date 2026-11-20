@@ -1288,7 +1288,7 @@ func _classement() -> void:
 		_ajouter(Ui.label("[%s] niv %d" % [Partie.RANGS[int(c["rang"])], int(c["niveau"])], 17, Partie.COULEURS_RANG[int(c["rang"])], 5), Vector2(200, y + 2))
 		var val := "%s/s" % Fx.court(c["puissance"]) if _onglet_cl == "puissance" else "%s ●" % Fx.court(c["or"])
 		_ajouter(Ui.label(val, 19, Color(1.0, 0.85, 0.35) if _onglet_cl == "or" else col, 5), Vector2(330, y))
-		var et: String = {"test": "test de rang", "donjon": "en donjon"}.get(c["etat"], "")
+		var et: String = {"trajet": "Vers le portail", "test": "Test de rang", "ko": "K.O.", "donjon": "Salle %d/6" % c.get("salle", 1)}.get(c["etat"], "%d donj. · %d K.O." % [c.get("instances", 0), c.get("morts", 0)] if not moi else "")
 		if et != "":
 			_ajouter(Ui.label(et, 14, Color(0.6, 0.75, 1.0), 3), Vector2(450, y + 4))
 		y += 38.0

@@ -339,6 +339,10 @@ func _ready() -> void:
 		add_child(c)
 		var p: Array = _postes_gen[(k * 3) % _postes_gen.size()]
 		if k == 0 and Partie.chapitre < 3:
+			c.d.etat = "ville"
+			c.visible = true
+			c.collision_mask = 1
+			c.sante = 1.0
 			mentor = c
 			c.placer(DEPART + Vector3(-2, 0, -1))
 			c.mode = "guide"
@@ -1118,14 +1122,20 @@ func _liberer_allies() -> void:
 		return
 	for c: Chasseur in donjon.allies:
 		if is_instance_valid(c):
+			if c.donjon != donjon:
+				continue
+			if c.mode == "ko":
+				c.donjon = null
+				c.global_position = PORTAIL
+				continue
 			var a_participe := c.mode == "donjon"
 			c.mode = "ville"
 			c.donjon = null
 			if a_participe:
 				c.placer(PORTAIL + Vector3(randf_range(1, 2), 0.1, randf_range(-1, 1)))
 			if donjon.sortie and a_participe:
-				for k in 6:
-					Partie.bot_gagner(c.d, Partie.SALLES_BOSS[donjon.niv])
+				c.d["instances"] = int(c.d.get("instances", 0)) + 1
+				Partie.bot_gagner(c.d, Partie.SALLES_BOSS[donjon.niv])
 			c._maj_plaque()
 
 func lancer_arene() -> void:
@@ -1266,9 +1276,13 @@ func _process(dt: float) -> void:
 		_lod_t = 1.0
 		_maj_raid()
 		var pj := joueur.global_position
+		var engages := {}
+		for ch: Chasseur in chasseurs:
+			if ch.combattant() and is_instance_valid(ch.cible) and ch.global_position.distance_squared_to(ch.cible.global_position) < 225.0:
+				engages[ch.cible] = true
 		for m in monstres:
 			if is_instance_valid(m) and not m.allie:
-				var loin: bool = m.global_position.distance_squared_to(pj) > 85.0 * 85.0 and m != raid_boss and m != boss_evt
+				var loin: bool = m.global_position.distance_squared_to(pj) > 85.0 * 85.0 and m != raid_boss and m != boss_evt and not engages.has(m)
 				if m.en_sommeil != loin:
 					m.eloigner(loin)
 		for c in chasseurs:

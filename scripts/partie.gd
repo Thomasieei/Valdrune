@@ -282,6 +282,7 @@ func bot_dps(d: Dictionary) -> float:
 	return (arme + o) * MULT_RANG[int(d["rang"])]
 
 func bot_gagner(d: Dictionary, espece: String, elite := false, mult := 1.0, n := 1) -> void:
+	d["prises"] = int(d.get("prises", 0)) + n
 	var st := stats_monstre(espece, elite, mult)
 	var mr: float = MULT_RANG[int(d["rang"])]
 	var g := int(st["pieces"] * mr) * n
@@ -313,6 +314,26 @@ func bot_gagner(d: Dictionary, espece: String, elite := false, mult := 1.0, n :=
 func simuler_bot(d: Dictionary, secondes: float) -> void:
 	var reste := minf(secondes, 12.0 * 3600.0)
 	while reste > 0.0:
+		if d.get("etat", "") == "trajet":
+			if reste < 30.0:
+				return
+			reste -= 30.0
+			d.etat = d.get("projet", "donjon")
+		if d.get("etat", "") in ["donjon", "test", "ko"]:
+			var ko: bool = d.etat == "ko"
+			var cle := "repos" if ko else "delai_salle"
+			var duree := maxf(0.01, float(d.get(cle, 18.0 if ko else 35.0)))
+			d[cle] = maxf(0, duree - reste)
+			reste -= duree
+			if reste < 0.0:
+				return
+			if ko:
+				d.etat = "ville"
+			elif d.etat == "test":
+				bot_fin_activite(d)
+			else:
+				bot_salle(d)
+			continue
 		var dps := bot_dps(d)
 		var mieux := ""
 		var taux := 0.0
@@ -329,13 +350,13 @@ func simuler_bot(d: Dictionary, secondes: float) -> void:
 				mieux = esp
 		if mieux == "":
 			return
-		var kills := int(300.0 * taux * float(d["talent"]) / float(ESPECES[mieux]["xp"]))
-		bot_gagner(d, mieux, false, 1.0, maxi(kills, 1))
+		var kills := int(minf(reste, 300.0) * taux * float(d["talent"]) / float(ESPECES[mieux]["xp"]))
+		if kills > 0:
+			bot_gagner(d, mieux, false, 1.0, kills)
 		reste -= 300.0
 		var act := bot_activite(d)
-		if not act.is_empty():
-			reste -= float(act["duree"])
-			bot_fin_activite(d)
+		if act.get("type", "") == "test":
+			d["delai_salle"] = act.duree
 
 # Les chasseurs décident seuls : test de rang quand ils sont assez forts, sinon donjon de leur rang.
 func bot_activite(d: Dictionary) -> Dictionary:
@@ -351,8 +372,40 @@ func bot_activite(d: Dictionary) -> Dictionary:
 	if dj >= 0 and randf() < 0.35:
 		d["etat"] = "donjon"
 		d["dj"] = dj
+		d["salle_bot"] = 0
+		d["endurance_bot"] = 1.0
+		d["delai_salle"] = float(Donjon.DONJONS[dj].duree) / 7.5
 		return {"type": "donjon", "duree": float(Donjon.DONJONS[dj]["duree"]) * 0.8}
 	return {}
+
+# Instance privée : une salle résolue à la fois, mêmes espèces que le donjon visible.
+func bot_salle(d: Dictionary) -> bool:
+	if d.get("etat", "") != "donjon":
+		return false
+	var n := clampi(int(d.get("dj", 0)), 0, Donjon.DONJONS.size() - 1)
+	var salle := clampi(int(d.get("salle_bot", 0)), 0, 5)
+	var puissance := bot_dps(d) / float(Donjon.DONJONS[n].puissance)
+	var reserve := float(d.get("endurance_bot", 1.0))
+	var pression := (0.22 + salle * 0.025) * randf_range(0.65, 1.35)
+	reserve -= pression * (1.6 - float(d.talent)) / maxf(puissance, 0.1)
+	if reserve <= 0.0:
+		d["morts"] = int(d.get("morts", 0)) + 1
+		d["repos"] = 18.0
+		d.etat = "ko"
+		return false
+	for ennemi in Donjon.SALLES_PAR_NIV[n][salle]:
+		bot_gagner(d, ennemi[0], ennemi[3])
+	if salle == 5:
+		var prime := int(Donjon.DONJONS[n].or)
+		d.or += prime
+		d.or_total += prime
+		d["instances"] = int(d.get("instances", 0)) + 1
+		d.etat = "ville"
+		return false
+	d["endurance_bot"] = minf(1.0, reserve + 0.07)
+	d["salle_bot"] = salle + 1
+	d["delai_salle"] = float(Donjon.DONJONS[n].duree) / 7.5
+	return true
 
 func bot_fin_activite(d: Dictionary) -> void:
 	var dps := bot_dps(d)
@@ -361,20 +414,12 @@ func bot_fin_activite(d: Dictionary) -> void:
 			var r := int(d["rang"])
 			if r < 4 and randf() < clampf(dps / SEUIL_TEST[r] - 0.3, 0.05, 0.95):
 				d["rang"] = r + 1
-		"donjon":
-			var n := int(d.get("dj", 0))
-			if randf() < clampf(dps / float(Donjon.DONJONS[n]["puissance"]) - 0.2, 0.05, 0.95):
-				var g := int(Donjon.DONJONS[n]["or"])
-				d["or"] = int(d["or"]) + g
-				d["or_total"] = int(d["or_total"]) + g
-				for k in 6:
-					bot_gagner(d, SALLES_BOSS[n])
 	d["etat"] = "ville"
 
 func classement(par: String) -> Array:
 	var l := []
 	for c in chasseurs:
-		l.append({"nom": c["nom"], "rang": int(c["rang"]), "niveau": int(c["niveau"]), "puissance": bot_dps(c), "or": int(c["or_total"]), "etat": c.get("etat", "ville")})
+		l.append({"nom": c["nom"], "rang": int(c["rang"]), "niveau": int(c["niveau"]), "puissance": bot_dps(c), "or": int(c["or_total"]), "etat": c.get("etat", "ville"), "salle": int(c.get("salle_bot", 0)) + 1, "morts": int(c.get("morts", 0)), "instances": int(c.get("instances", 0))})
 	l.append({"nom": "Toi (Anos)" if createur else "Toi", "rang": rang_chasseur, "niveau": niveau, "puissance": dps_total(), "or": or_total, "moi": true, "etat": "ville"})
 	l.sort_custom(func (a, b): return float(a[par]) > float(b[par]))
 	return l
