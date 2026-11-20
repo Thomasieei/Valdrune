@@ -13,6 +13,8 @@ var _anim := 0.0
 var _y := 0.0
 var _comp: Dictionary = {}
 var _comp_t := 0.0
+# Chaque ombre conserve son petit rythme visuel sans particules permanentes.
+var _presence_t := 0.0
 var pv := 1.0
 var pv_max := 1.0
 var mort := false
@@ -99,8 +101,10 @@ func _process(dt: float) -> void:
 	var attaque := c != null
 	if attaque:
 
-		var a := place * TAU / 8.0 + 0.8
-		var r := c.haut() * 0.3 + 1.3
+		# Au-dela de huit unites, evite de superposer les positions.
+		var anneau := int(place / 8)
+		var a := float(place % 8) * TAU / 8.0 + 0.8 + float(anneau) * 0.24
+		var r := c.haut() * 0.3 + 1.3 + float(anneau) * 0.85
 		vise = c.global_position + Vector3(sin(a), 0, cos(a)) * r
 	else:
 		var b := Basis(Vector3.UP, joueur._corps.rotation.y)
@@ -112,16 +116,24 @@ func _process(dt: float) -> void:
 	v.y = 0
 	var d := v.length()
 	if d > 0.35:
-		var vit := clampf(d * 3.0, 2.0, 16.0) * Partie.vit_ombre()
+		var vit := clampf(d * 3.5, 1.5, 15.0) * Partie.vit_ombre()
 		global_position += v.normalized() * minf(d, vit * dt)
 		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(v.x, v.z), minf(1.0, dt * 10.0))
 		if _anim <= 0.0:
-			Modele.jouer(_ap, "Run" if vit > 4.0 else "Walk")
+			var marche := d < 1.6 or vit < 4.0
+			Modele.jouer(_ap, "Walk" if marche else "Run", clampf(vit / 7.0, 0.75, 1.45), 0.18)
 	if attaque and not _comp.is_empty():
 		_comp_t -= dt
 		if _comp_t <= 0.0:
 			_comp_t = float(_comp["cd"])
 			_competence(c)
+	# Une respiration et un balancement differents par unite: aspect vivant
+	# sans AnimationTree ou particules supplementaires par ombre.
+	_presence_t += dt
+	var repos := 1.0 if d <= 0.35 and _anim <= 0.0 else 0.0
+	var vague := sin(_presence_t * (2.0 + float(place % 3) * 0.18) + float(place) * 1.1)
+	_corps.position.y = lerpf(_corps.position.y, vague * 0.026 * repos, minf(1.0, dt * 7.0))
+	_corps.rotation.z = lerp_angle(_corps.rotation.z, vague * 0.016 * repos, minf(1.0, dt * 5.0))
 	if d > 0.35:
 		pass
 	elif attaque:
@@ -132,6 +144,10 @@ func _process(dt: float) -> void:
 			_coup_t = 0.9
 			var anim := "Attack" if randf() < 0.6 else "Attack2"
 			_anim = Modele.jouer(_ap, anim, 1.5, 0.08) * 0.85
+			# Petite anticipation/reprise, la simulation des degats reste identique.
+			var impulsion := create_tween()
+			impulsion.tween_property(_corps, "rotation:x", -0.11, 0.09)
+			impulsion.tween_property(_corps, "rotation:x", 0.0, 0.18)
 			var deg := Partie.dps_ombre(donnees) * 0.9
 			await get_tree().create_timer(0.25).timeout
 			if is_instance_valid(c) and not c.mort:
