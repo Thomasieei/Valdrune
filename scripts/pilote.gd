@@ -169,7 +169,8 @@ func _atelier_animation() -> void:
 	bo.size = cube.size
 	forme.shape = bo
 	plateau.add_child(forme)
-	plateau.global_position = centre + Vector3(0, -0.18, 0)
+	# Local position avant l'ajout a l'arbre : evite l'erreur get_global_transform.
+	plateau.position = centre + Vector3(0, -0.18, 0)
 	v.add_child(plateau)
 	# Eclairage de presentation: absent des scenes du jeu normal.
 	var lumiere := OmniLight3D.new()
