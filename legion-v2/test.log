@@ -1,0 +1,186 @@
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+WARNING: Could not set V-Sync mode, as changing V-Sync mode is not supported by the graphics driver.
+     at: set_use_vsync (platform/linuxbsd/x11/gl_manager_x11.cpp:360)
+OpenGL API 4.5 (Core Profile) Mesa 25.2.8-0ubuntu0.24.04.5 - Compatibility - Using Device: Mesa - llvmpipe (LLVM 20.1.2, 256 bits)
+ALSA lib confmisc.c:855:(parse_card) cannot find card '0'
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) error evaluating strings
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) error evaluating name
+ALSA lib conf.c:5208:(_snd_config_evaluate) function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5731:(snd_config_expand) Evaluate error: No such file or directory
+ALSA lib pcm.c:2721:(snd_pcm_open_noupdate) Unknown PCM default
+ERROR: Condition "status < 0" is true. Returning: ERR_CANT_OPEN
+   at: init_output_device (drivers/alsa/audio_driver_alsa.cpp:90)
+WARNING: All audio drivers failed, falling back to the dummy driver.
+     at: initialize (servers/audio_server.cpp:247)
+
+[ZONES] points=375 par rang=[8, 8, 8, 8]
+ERROR: Condition "p_texture.is_null()" is true.
+   at: draw_texture_rect (scene/main/canvas_item.cpp:779)
+ERROR: Condition "p_texture.is_null()" is true.
+   at: draw_texture_rect (scene/main/canvas_item.cpp:779)
+[CAPTURE] animation_000
+[CAPTURE] animation_001
+[CAPTURE] animation_002
+[CAPTURE] animation_003
+[CAPTURE] animation_004
+[CAPTURE] animation_005
+[CAPTURE] animation_006
+[CAPTURE] animation_007
+[CAPTURE] animation_008
+[ATELIER][ETAT] phase=9 joueur=SwordIdle ombres=["Cheer", "Idle_No", "Idle", "Cheer", "Cheer", "Idle_No", "Idle", "Idle", "Idle", "Idle", "Idle", "Idle", "Idle", "Idle", "Idle", "Idle"]
+[LEGION] phase=9 count=16 min_spacing=1.6fps_ci=4
+[CAPTURE] animation_009
+[CAPTURE] animation_010
+[CAPTURE] animation_011
+[CAPTURE] animation_012
+[CAPTURE] animation_013
+[CAPTURE] animation_014
+[CAPTURE] animation_015
+[CAPTURE] animation_016
+[CAPTURE] animation_017
+[CAPTURE] animation_018
+[CAPTURE] animation_019
+[CAPTURE] animation_020
+[CAPTURE] animation_021
+[CAPTURE] animation_022
+[ATELIER][ETAT] phase=23 joueur=Walk ombres=["Walk", "Walk", "Walk", "Walk", "Walk", "Walk", "Walk", "Walk", "Walk", "Walk", "Walk", "Walk", "Walk", "Walk", "Walk", "Walk"]
+[LEGION] phase=23 count=16 min_spacing=1.6fps_ci=4
+[CAPTURE] animation_023
+[CAPTURE] animation_024
+[CAPTURE] animation_025
+[CAPTURE] animation_026
+[CAPTURE] animation_027
+[CAPTURE] animation_028
+[CAPTURE] animation_029
+[CAPTURE] animation_030
+[CAPTURE] animation_031
+[CAPTURE] animation_032
+[CAPTURE] animation_033
+[CAPTURE] animation_034
+[ATELIER][ETAT] phase=35 joueur=Sprint ombres=["Run", "Jog_Fwd", "Run", "Run", "Run", "Jog_Fwd", "Run", "Run", "Run", "Jog_Fwd", "Run", "Run", "Run", "Jog_Fwd", "Run", "Run"]
+[LEGION] phase=35 count=16 min_spacing=1.6fps_ci=4
+[CAPTURE] animation_035
+[CAPTURE] animation_036
+[CAPTURE] animation_037
+[CAPTURE] animation_038
+[CAPTURE] animation_039
+[CAPTURE] animation_040
+[CAPTURE] animation_041
+[CAPTURE] animation_042
+[CAPTURE] animation_043
+[CAPTURE] animation_044
+[CAPTURE] animation_045
+[CAPTURE] animation_046
+[CAPTURE] animation_047
+[CAPTURE] animation_048
+[ATELIER][ETAT] phase=49 joueur=Slash3 ombres=["Walk", "Sword_Attack", "Walk", "Walk", "Attack", "Walk", "Walk", "Walk", "Walk", "Walk", "Walk", "Walk", "Walk", "Jog_Fwd", "Run", "Run"]
+[LEGION] phase=49 count=16 min_spacing=0.76fps_ci=4
+[CAPTURE] animation_049
+[CAPTURE] animation_050
+[CAPTURE] animation_051
+[CAPTURE] animation_052
+[CAPTURE] animation_053
+[CAPTURE] animation_054
+[CAPTURE] animation_055
+[CAPTURE] animation_056
+[CAPTURE] animation_057
+[CAPTURE] animation_058
+[CAPTURE] animation_059
+[CAPTURE] animation_060
+[CAPTURE] animation_061
+[CAPTURE] animation_062
+[CAPTURE] animation_063
+[CAPTURE] animation_064
+[CAPTURE] animation_065
+[ATELIER][ETAT] phase=66 joueur=Slash1 ombres=["Attack2", "Punch_Jab", "Attack", "Idle", "Attack2", "Punch_Jab", "", "", "Attack2", "Punch_Jab", "Attack", "Idle", "Attack2", "Idle", "Idle", "Attack"]
+[LEGION] phase=66 count=16 min_spacing=1.23fps_ci=4
+[CAPTURE] animation_066
+[CAPTURE] animation_067
+[CAPTURE] animation_068
+[CAPTURE] animation_069
+[CAPTURE] animation_070
+[CAPTURE] animation_071
+[CAPTURE] fin
+[LEGION][SUMMARY] samples=28 overlap_frames=5 contacts_total=17 min_combat=0.06
+[ATELIER] 72 frames, repos/marche/sprint/combat, legion=true
+[PILOTE] fini
+ERROR: Parameter "material" is null.
+   at: material_casts_shadows (drivers/gles3/storage/material_storage.cpp:2490)
+ERROR: Parameter "material" is null.
+   at: material_is_animated (drivers/gles3/storage/material_storage.cpp:2477)
+ERROR: Parameter "material" is null.
+   at: material_get_instance_shader_parameters (drivers/gles3/storage/material_storage.cpp:2503)
+ERROR: Parameter "material" is null.
+   at: material_update_dependency (drivers/gles3/storage/material_storage.cpp:2515)
+ERROR: Parameter "material" is null.
+   at: material_casts_shadows (drivers/gles3/storage/material_storage.cpp:2490)
+ERROR: Parameter "material" is null.
+   at: material_is_animated (drivers/gles3/storage/material_storage.cpp:2477)
+ERROR: Parameter "material" is null.
+   at: material_get_instance_shader_parameters (drivers/gles3/storage/material_storage.cpp:2503)
+ERROR: Parameter "material" is null.
+   at: material_update_dependency (drivers/gles3/storage/material_storage.cpp:2515)
+ERROR: Parameter "material" is null.
+   at: material_casts_shadows (drivers/gles3/storage/material_storage.cpp:2490)
+ERROR: Parameter "material" is null.
+   at: material_is_animated (drivers/gles3/storage/material_storage.cpp:2477)
+ERROR: Parameter "material" is null.
+   at: material_get_instance_shader_parameters (drivers/gles3/storage/material_storage.cpp:2503)
+ERROR: Parameter "material" is null.
+   at: material_update_dependency (drivers/gles3/storage/material_storage.cpp:2515)
+ERROR: Parameter "material" is null.
+   at: material_casts_shadows (drivers/gles3/storage/material_storage.cpp:2490)
+ERROR: Parameter "material" is null.
+   at: material_is_animated (drivers/gles3/storage/material_storage.cpp:2477)
+ERROR: Parameter "material" is null.
+   at: material_get_instance_shader_parameters (drivers/gles3/storage/material_storage.cpp:2503)
+ERROR: Parameter "material" is null.
+   at: material_update_dependency (drivers/gles3/storage/material_storage.cpp:2515)
+ERROR: Parameter "material" is null.
+   at: material_casts_shadows (drivers/gles3/storage/material_storage.cpp:2490)
+ERROR: Parameter "material" is null.
+   at: material_is_animated (drivers/gles3/storage/material_storage.cpp:2477)
+ERROR: Parameter "material" is null.
+   at: material_get_instance_shader_parameters (drivers/gles3/storage/material_storage.cpp:2503)
+ERROR: Parameter "material" is null.
+   at: material_update_dependency (drivers/gles3/storage/material_storage.cpp:2515)
+ERROR: Parameter "material" is null.
+   at: material_casts_shadows (drivers/gles3/storage/material_storage.cpp:2490)
+ERROR: Parameter "material" is null.
+   at: material_is_animated (drivers/gles3/storage/material_storage.cpp:2477)
+ERROR: Parameter "material" is null.
+   at: material_get_instance_shader_parameters (drivers/gles3/storage/material_storage.cpp:2503)
+ERROR: Parameter "material" is null.
+   at: material_update_dependency (drivers/gles3/storage/material_storage.cpp:2515)
+ERROR: Parameter "material" is null.
+   at: material_casts_shadows (drivers/gles3/storage/material_storage.cpp:2490)
+ERROR: Parameter "material" is null.
+   at: material_is_animated (drivers/gles3/storage/material_storage.cpp:2477)
+ERROR: Parameter "material" is null.
+   at: material_get_instance_shader_parameters (drivers/gles3/storage/material_storage.cpp:2503)
+ERROR: Parameter "material" is null.
+   at: material_update_dependency (drivers/gles3/storage/material_storage.cpp:2515)
+ERROR: Parameter "material" is null.
+   at: material_casts_shadows (drivers/gles3/storage/material_storage.cpp:2490)
+ERROR: Parameter "material" is null.
+   at: material_is_animated (drivers/gles3/storage/material_storage.cpp:2477)
+ERROR: Parameter "material" is null.
+   at: material_get_instance_shader_parameters (drivers/gles3/storage/material_storage.cpp:2503)
+ERROR: Parameter "material" is null.
+   at: material_update_dependency (drivers/gles3/storage/material_storage.cpp:2515)
+ERROR: Parameter "material" is null.
+   at: material_casts_shadows (drivers/gles3/storage/material_storage.cpp:2490)
+ERROR: Parameter "material" is null.
+   at: material_is_animated (drivers/gles3/storage/material_storage.cpp:2477)
+ERROR: Parameter "material" is null.
+   at: material_get_instance_shader_parameters (drivers/gles3/storage/material_storage.cpp:2503)
+ERROR: Parameter "material" is null.
+   at: material_update_dependency (drivers/gles3/storage/material_storage.cpp:2515)
+WARNING: ObjectDB instances leaked at exit (run with --verbose for details).
+     at: cleanup (core/object/object.cpp:2284)
+ERROR: 2 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:604)
+ERROR: Pages in use exist at exit in PagedAllocator: N7Variant5Pools12BucketMediumE
+   at: ~PagedAllocator (./core/templates/paged_allocator.h:170)
