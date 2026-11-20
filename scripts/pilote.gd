@@ -10,7 +10,7 @@ func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute("/tmp/caps_arise")
 	# Le banc d'essai visuel ne doit pas être interrompu par une mort.
 	# Actif uniquement avec --pilote=animation --sans-sauvegarde.
-	if scenario in ["animation", "animation2"]:
+	if scenario in ["animation", "animation2", "legion"]:
 		ville.joueur.invulnerable = 600.0
 		Partie.opts["arise"] = false
 	await get_tree().create_timer(1.5).timeout
@@ -37,6 +37,8 @@ func _ready() -> void:
 			await _demo_animation()
 		"animation2":
 			await _atelier_animation()
+		"legion":
+			await _atelier_animation(true)
 		"marche":
 			var j: Joueur = ville.joueur
 			j.global_position = Vector3(-165.0, 0.3, -72.0)
@@ -134,7 +136,7 @@ func _demo_animation() -> void:
 
 # Plateau isole pour comparer les poses et les mouvements a l'echelle du personnage.
 # L'atelier ne modifie ni le monde, ni les sauvegardes, ni les combats du jeu livre.
-func _atelier_animation() -> void:
+func _atelier_animation(legion := false) -> void:
 	var v = ville
 	var j: Joueur = v.joueur
 	v.hud.set_process(false)
@@ -144,14 +146,12 @@ func _atelier_animation() -> void:
 	Partie.auto_attaque = false
 	Partie.auto_ombres = false
 	Partie.opts["patrouille"] = false
-	Partie.opts["diviser"] = false
+	Partie.opts["diviser"] = legion
 	Partie.opts["rangees"] = false
-	Partie.ombres = [
-		{"uid": 99001, "espece": "gobelin", "etoiles": 1, "eq": true},
-		{"uid": 99002, "espece": "puglin", "etoiles": 1, "eq": true},
-		{"uid": 99003, "espece": "orc", "etoiles": 1, "eq": true},
-		{"uid": 99004, "espece": "gobelin_chef", "etoiles": 1, "eq": true},
-	]
+	Partie.ombres = []
+	var especes := ["gobelin", "puglin", "orc", "gobelin_chef"]
+	for k in (16 if legion else 4):
+		Partie.ombres.append({"uid": 99001 + k, "espece": especes[k % 4], "etoiles": 1, "eq": true})
 	Partie.change.emit()
 	var centre := Vector3(850.0, 0.0, 850.0)
 	var plateau := StaticBody3D.new()
@@ -183,12 +183,19 @@ func _atelier_animation() -> void:
 	j.velocity = Vector3.ZERO
 	j._corps.rotation.y = 0.0
 	for k in v.ombres.size():
-		v.ombres[k].global_position = centre + Vector3((float(k) - 1.5) * 1.3, 0.0, -2.3)
-		v.ombres[k]._humeur_t = 0.7 + float(k) * 0.23
+		var o: Ombre = v.ombres[k]
+		var ligne := int(k / 4)
+		var col := k % 4
+		o.global_position = centre + Vector3((float(col) - 1.5) * 1.6, 0.0, -2.2 - float(ligne) * 1.75)
+		o._humeur_t = 0.7 + float(k) * 0.23
+		if legion:
+			for l in o.get_children():
+				if l is Label3D:
+					l.visible = false
 	v._lacet = 0.0
 	v._tangage = -0.32
-	v._dist = 4.6
-	v.camera.fov = 52.0
+	v._dist = 9.4 if legion else 4.6
+	v.camera.fov = 62.0 if legion else 52.0
 	v._cam_pos = j.global_position + Vector3(0, 1.2, 0)
 	await attendre(0.6)
 	for frame in 72:
@@ -201,7 +208,10 @@ func _atelier_animation() -> void:
 			j.global_position = centre + Vector3(0, 0.3, 0)
 			j.velocity = Vector3.ZERO
 			for k in v.ombres.size():
-				v.ombres[k].global_position = centre + Vector3((float(k) - 1.5) * 1.3, 0.0, -2.3)
+				var ligne := int(k / 4)
+				var col := k % 4
+				v.ombres[k].global_position = centre + Vector3((float(col) - 1.5) * 1.6, 0.0, -2.2 - float(ligne) * 1.75)
+				v.ombres[k]._but_pret = false
 		if frame == 44:
 			var monstre := Monstre.new()
 			monstre.configurer("gobelin", centre + Vector3(2.2, 0.0, 2.4), PI)
@@ -211,14 +221,30 @@ func _atelier_animation() -> void:
 			v.add_child(monstre)
 			v.monstres.append(monstre)
 			j.viser(monstre)
+			if legion:
+				var m2 := Monstre.new()
+				m2.configurer("orc", centre + Vector3(-3.8, 0.0, 3.5), PI)
+				m2.pv_perso = 1.0e12
+				m2.reapparait_auto = false
+				m2.sans_chrono = true
+				v.add_child(m2)
+				v.monstres.append(m2)
 		if frame in [9, 23, 35, 49, 66]:
 			print("[ATELIER][ETAT] phase=", frame, " joueur=", j._ap.current_animation if j._ap else "absent", " ombres=", v.ombres.map(func (o): return o._ap.current_animation if o._ap else "absent"))
+			if legion:
+				var dist_min := INF
+				for a in v.ombres.size():
+					for b in range(a + 1, v.ombres.size()):
+						var delta: Vector3 = v.ombres[a].global_position - v.ombres[b].global_position
+						delta.y = 0.0
+						dist_min = minf(dist_min, delta.length())
+				print("[LEGION] phase=", frame, " count=", v.ombres.size(), " min_spacing=", snappedf(dist_min, 0.01), "fps_ci=", Engine.get_frames_per_second())
 		await attendre(0.125)
 		await capture("animation_%03d" % frame)
 	j.entree = Vector2.ZERO
 	j.viser(null)
 	await capture("fin")
-	print("[ATELIER] 72 frames, repos/marche/sprint/combat")
+	print("[ATELIER] 72 frames, repos/marche/sprint/combat, legion=", legion)
 
 func _tour() -> void:
 	var v = ville
