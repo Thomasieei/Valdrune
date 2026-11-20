@@ -27,6 +27,11 @@ var _cible_precedente: Monstre = null
 var _attaques_faites := 0
 var _apparition_en_cours := false
 var _transition_rangee: Tween
+# Evitement purement visuel amorti, recalcule 7 a 9 fois/seconde.
+# Pas de CharacterBody3D, ni de requete au moteur physique pour les ombres.
+var _evitement := Vector3.ZERO
+var _evitement_t := 0.0
+var _rayon_perso := 0.8
 var pv := 1.0
 var pv_max := 1.0
 var mort := false
@@ -39,6 +44,8 @@ func _ready() -> void:
 	var e: Dictionary = Partie.ESPECES[donnees["espece"]]
 
 	var h := minf(float(e["haut"]) * 0.9, 2.3)
+	_rayon_perso = clampf(h * 0.36, 0.60, 1.02)
+	_evitement_t = 0.07 + float(place % 5) * 0.019
 	_corps = Modele.creer(e["modele"], h)
 	add_child(_corps)
 	_ap = Modele.lecteur(_corps)
@@ -117,6 +124,7 @@ func _process(dt: float) -> void:
 	if _cible_precedente != c:
 		_cible_precedente = c
 		_but_pret = false
+		_evitement_t = 0.0
 		_en_deplacement = false
 		# Quatre vagues successives pour les premiers coups, puis cadence normale.
 		# Les coefficients DPS et le temps entre les attaques restent inchanges.
@@ -147,12 +155,16 @@ func _process(dt: float) -> void:
 		_but_pret = true
 	else:
 		_but_lisse = _but_lisse.lerp(vise, minf(1.0, dt * (10.0 if attaque else 7.5)))
-	var v := _but_lisse - global_position
+	# A courte distance, chaque ombre contourne legerement ses voisines.
+	# Le calcul est limite a une cadence basse et ignore les ombres eloignees.
+	_maj_evitement(dt)
+	var v := _but_lisse + _evitement * (1.8 if attaque else 1.5) - global_position
 	v.y = 0.0
 	var d := v.length()
 	if not attaque and not Partie.opts["patrouille"] and global_position.distance_to(joueur.global_position) > 55.0:
 		# Un changement de zone ne laisse pas une armee perdue a l'autre bout de la carte.
 		global_position = _but_lisse
+		_evitement = Vector3.ZERO
 		v = Vector3.ZERO
 		d = 0.0
 		_en_deplacement = false
@@ -222,6 +234,39 @@ func _process(dt: float) -> void:
 			Modele.jouer(_ap, "Idle")
 
 	global_position.y = lerpf(global_position.y, joueur.global_position.y, minf(1.0, dt * 8.0))
+
+
+func _maj_evitement(dt: float) -> void:
+	_evitement_t -= dt
+	if _evitement_t > 0.0:
+		return
+	_evitement_t = 0.12 + float(place % 4) * 0.013
+	var monde := joueur.get_parent()
+	if monde == null:
+		_evitement = Vector3.ZERO
+		return
+	var force := Vector3.ZERO
+	# Avec 16 ombres : 16 x 15 comparaisons ~8 fois/s, sans collisions physiques.
+	# Les carrés de distance evitent les racines pour les unites eloignees.
+	for o: Ombre in monde.ombres:
+		if o == self or o.mort or o.rangee:
+			continue
+		var separation := global_position - o.global_position
+		separation.y = 0.0
+		var sq := separation.length_squared()
+		var mini_espace := _rayon_perso + o._rayon_perso
+		if sq >= mini_espace * mini_espace:
+			continue
+		if sq > 0.001:
+			var distance := sqrt(sq)
+			force += separation / distance * ((mini_espace - distance) / mini_espace)
+		else:
+			# Deterministe en cas de superposition parfaite.
+			var a := float(place) * GOLDEN_RATIO * TAU
+			force += Vector3(cos(a), 0.0, sin(a))
+	# Le filtrage empeche les changements de cap d'une image a l'autre.
+	_evitement = _evitement.lerp(force.limit_length(1.0), 0.72)
+
 
 func _a_portee(m: Monstre) -> bool:
 	if m == null or not is_instance_valid(m) or m.mort or m.allie:

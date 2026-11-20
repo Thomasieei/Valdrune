@@ -198,6 +198,10 @@ func _atelier_animation(legion := false) -> void:
 	v.camera.fov = 62.0 if legion else 52.0
 	v._cam_pos = j.global_position + Vector3(0, 1.2, 0)
 	await attendre(0.6)
+	var contacts_combat := 0
+	var frames_contacts := 0
+	var min_combat := INF
+	var total_echantillons := 0
 	for frame in 72:
 		if frame == 10:
 			j.entree = Vector2(0.0, -0.35)
@@ -229,6 +233,21 @@ func _atelier_animation(legion := false) -> void:
 				m2.sans_chrono = true
 				v.add_child(m2)
 				v.monstres.append(m2)
+		if legion and frame >= 44:
+			var proches := 0
+			var minimum := INF
+			for ai in v.ombres.size():
+				for bi in range(ai + 1, v.ombres.size()):
+					var diff: Vector3 = v.ombres[ai].global_position - v.ombres[bi].global_position
+					diff.y = 0.0
+					var d := diff.length()
+					minimum = minf(minimum, d)
+					if d < 0.8:
+						proches += 1
+			contacts_combat += proches
+			frames_contacts += 1 if proches > 0 else 0
+			min_combat = minf(min_combat, minimum)
+			total_echantillons += 1
 		if frame in [9, 23, 35, 49, 66]:
 			print("[ATELIER][ETAT] phase=", frame, " joueur=", j._ap.current_animation if j._ap else "absent", " ombres=", v.ombres.map(func (o): return o._ap.current_animation if o._ap else "absent"))
 			if legion:
@@ -244,6 +263,8 @@ func _atelier_animation(legion := false) -> void:
 	j.entree = Vector2.ZERO
 	j.viser(null)
 	await capture("fin")
+	if legion:
+		print("[LEGION][SUMMARY] samples=", total_echantillons, " overlap_frames=", frames_contacts, " contacts_total=", contacts_combat, " min_combat=", snappedf(min_combat, 0.01))
 	print("[ATELIER] 72 frames, repos/marche/sprint/combat, legion=", legion)
 
 func _tour() -> void:
