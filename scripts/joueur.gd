@@ -13,6 +13,9 @@ var entree := Vector2.ZERO
 # Animations de presentation legeres: aucune physique supplementaire.
 var _presence_t := 0.0
 var _elan_visuel := 0.0
+var _sprint_animation_t := 0.0
+var _repos_geste_t := 7.0
+var _repos_geste_duree := 0.0
 var cible: Monstre = null
 var _corps: Node3D
 var _ap: AnimationPlayer
@@ -216,8 +219,11 @@ func _physics_process(dt: float) -> void:
 		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(dir.x, dir.z), minf(1.0, dt * 14.0))
 		if _anim_coup <= 0.0:
 			# Le joystick analogique controle aussi le cycle marche/course.
-			var marche := dir.length() < 0.64
-			Modele.jouer(_ap, "Walk" if marche else "Run", (0.95 if marche else 1.05) * Partie.vitesse(), 0.18)
+			var marche := entree.length() < 0.64
+			_sprint_animation_t = clampf(_sprint_animation_t + dt * (2.2 if entree.length() > 0.94 else -3.0), 0.0, 1.0)
+			var sprint := not marche and _sprint_animation_t > 0.82
+			var mouvement := "Walk" if marche else ("Sprint" if sprint else "Run")
+			Modele.jouer(_ap, mouvement, (0.92 if marche else 1.04) * Partie.vitesse(), 0.16)
 	elif en_combat and distance <= PORTEE + 0.3:
 		var v2 := cible.global_position - global_position
 		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(v2.x, v2.z), minf(1.0, dt * 16.0))
@@ -227,7 +233,16 @@ func _physics_process(dt: float) -> void:
 			if not (Partie.auto_attaque and cible.en_parade()):
 				_frapper()
 	elif _anim_coup <= 0.0:
-		Modele.jouer(_ap, "Idle" if Partie.opts["fourreau"] else "SwordIdle")
+		# Le personnage a parfois un vrai geste de repos deja fourni par son rig.
+		if _repos_geste_duree > 0.0:
+			_repos_geste_duree -= dt
+		else:
+			_repos_geste_t -= dt
+			if _repos_geste_t <= 0.0:
+				_repos_geste_t = randf_range(8.0, 15.0)
+				_repos_geste_duree = Modele.jouer(_ap, "Nod" if randf() < 0.7 else "Point", 1.0, 0.2)
+			else:
+				Modele.jouer(_ap, "Idle" if Partie.opts["fourreau"] else "SwordIdle")
 
 const MARCHE_MAX := 0.45
 func _monter_marche(dir: Vector3) -> void:
@@ -255,6 +270,11 @@ func _frapper() -> void:
 	var anim: String = ["Slash1", "Slash2", "Slash3"][_coup_n]
 	_dernier_coup = Time.get_ticks_msec()
 	_anim_coup = Modele.jouer(_ap, anim, 1.9, 0.06) * 0.9
+	# Anticipation et reprise visibles, sans toucher aux hitboxes ni aux degats.
+	var reprise := create_tween()
+	reprise.tween_property(_corps, "rotation:x", -0.16, 0.075).set_trans(Tween.TRANS_QUAD)
+	reprise.tween_property(_corps, "rotation:x", 0.10, 0.11).set_trans(Tween.TRANS_CUBIC)
+	reprise.tween_property(_corps, "rotation:x", 0.0, 0.22).set_trans(Tween.TRANS_BACK)
 	Fx.son(["swing1", "swing2", "swing3"][_coup_n], -4.0, randf_range(0.95, 1.08))
 	var c := cible
 	await get_tree().create_timer(0.16).timeout
