@@ -17,44 +17,44 @@ WARNING: All audio drivers failed, falling back to the dummy driver.
 
 [HERO] laboratoire seul, fichiers=224 clips=["Cast", "Celebrate", "Choke", "Climb", "ClimbLoop", "Dash", "Death", "Falling", "GetUp", "Heavy", "Hit", "Idle", "JumpLand", "JumpLoop", "JumpStart", "LandImpact", "Launched", "Nod", "Point", "Punch1", "Punch2", "Punch3", "Roll", "Run", "Slam", "Slash1", "Slash2", "Slash3", "Slide", "Sprint", "SwordIdle", "Talk", "TeleHold", "Telekinesis", "Throw", "Walk"]
 [HERO][PHASE] 0 REPOS
-[HERO][CLIP] 0  -> Idle
-[HERO][FRAME] 0/224 Idle vitesse=0 fps_runner=8
+[HERO][CLIP] 0  -> SwordIdle
+[HERO][FRAME] 0/224 SwordIdle vitesse=0 fps_runner=1
 [HERO][PHASE] 16 MARCHE
-[HERO][CLIP] 16 Idle -> Walk
-[HERO][FRAME] 30/224 Walk vitesse=2.55 fps_runner=23
+[HERO][CLIP] 16 SwordIdle -> Walk
+[HERO][FRAME] 30/224 Walk vitesse=2.55 fps_runner=17
 [HERO][PHASE] 38 COURSE
 [HERO][CLIP] 39 Walk -> Run
 [HERO][PHASE] 58 SPRINT
-[HERO][FRAME] 60/224 Run vitesse=7.5 fps_runner=22
+[HERO][FRAME] 60/224 Run vitesse=7.5 fps_runner=20
 [HERO][CLIP] 69 Run -> Sprint
 [HERO][PHASE] 82 ARRET
 [HERO][CLIP] 83 Sprint -> Walk
-[HERO][CLIP] 84 Walk -> Idle
-[HERO][FRAME] 90/224 Idle vitesse=0 fps_runner=23
+[HERO][CLIP] 84 Walk -> SwordIdle
+[HERO][FRAME] 90/224 SwordIdle vitesse=0 fps_runner=21
 [HERO][PHASE] 95 VIRAGE DROIT
-[HERO][CLIP] 95 Idle -> Walk
+[HERO][CLIP] 95 SwordIdle -> Walk
 [HERO][CLIP] 97 Walk -> Run
 [HERO][CLIP] 106 Run -> Sprint
 [HERO][PHASE] 113 VIRAGE GAUCHE
 [HERO][CLIP] 114 Sprint -> Walk
 [HERO][CLIP] 117 Walk -> Run
-[HERO][FRAME] 120/224 Run vitesse=6.85 fps_runner=23
+[HERO][FRAME] 120/224 Run vitesse=6.85 fps_runner=21
 [HERO][PHASE] 129 ARRET
-[HERO][CLIP] 130 Run -> Walk
-[HERO][CLIP] 131 Walk -> Idle
+[HERO][CLIP] 129 Run -> Walk
+[HERO][CLIP] 131 Walk -> SwordIdle
 [HERO][PHASE] 144 ATTAQUE 1
-[HERO][CLIP] 144 Idle -> Slash1
-[HERO][CLIP] 150 Slash1 -> Idle
-[HERO][FRAME] 150/224 Idle vitesse=0 fps_runner=23
+[HERO][CLIP] 144 SwordIdle -> Slash1
+[HERO][CLIP] 150 Slash1 -> SwordIdle
+[HERO][FRAME] 150/224 SwordIdle vitesse=0 fps_runner=21
 [HERO][PHASE] 161 ATTAQUE 2
-[HERO][CLIP] 161 Idle -> Slash2
-[HERO][CLIP] 168 Slash2 -> Idle
+[HERO][CLIP] 161 SwordIdle -> Slash2
+[HERO][CLIP] 168 Slash2 -> SwordIdle
 [HERO][PHASE] 178 ATTAQUE 3
-[HERO][CLIP] 178 Idle -> Slash3
-[HERO][FRAME] 180/224 Slash3 vitesse=0 fps_runner=24
+[HERO][CLIP] 178 SwordIdle -> Slash3
+[HERO][FRAME] 180/224 Slash3 vitesse=0 fps_runner=20
 [HERO][PHASE] 195 IMPACT
 [HERO][CLIP] 195 Slash3 -> Hit
-[HERO][CLIP] 202 Hit -> Idle
+[HERO][CLIP] 201 Hit -> SwordIdle
 [HERO][PHASE] 208 REPOS FINAL
-[HERO][FRAME] 210/224 Idle vitesse=0 fps_runner=24
+[HERO][FRAME] 210/224 SwordIdle vitesse=0 fps_runner=21
 [HERO][SUMMARY] images=224 changes=20 empty_clips=0 vmax=7.5
