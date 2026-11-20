@@ -16,6 +16,7 @@ var _comp_t := 0.0
 # Chaque ombre conserve son petit rythme visuel sans particules permanentes.
 var _presence_t := 0.0
 var _humeur_t := 6.0
+var _humeur_active := false
 var pv := 1.0
 var pv_max := 1.0
 var mort := false
@@ -117,6 +118,10 @@ func _process(dt: float) -> void:
 	var v := vise - global_position
 	v.y = 0
 	var d := v.length()
+	# Une gestuelle de repos s'interrompt immediatement si l'ombre doit agir.
+	if _humeur_active and (d > 0.35 or attaque):
+		_humeur_active = false
+		_anim = 0.0
 	if d > 0.35:
 		var vit := clampf(d * 3.5, 1.5, 15.0) * Partie.vit_ombre()
 		global_position += v.normalized() * minf(d, vit * dt)
@@ -155,6 +160,7 @@ func _process(dt: float) -> void:
 			if is_instance_valid(c) and not c.mort:
 				c.frapper(deg, false, "ombres")
 	elif _anim <= 0.0:
+		_humeur_active = false
 		# Gestuelle propre aux especes, uniquement lorsque l'ombre attend.
 		_humeur_t -= dt
 		if _humeur_t <= 0.0 and global_position.distance_to(joueur.global_position) < 15.0:
@@ -163,6 +169,7 @@ func _process(dt: float) -> void:
 			var duree := Modele.jouer(_ap, geste, 1.0, 0.16)
 			if duree > 0.0:
 				_anim = duree
+				_humeur_active = true
 			else:
 				Modele.jouer(_ap, "Idle")
 			_humeur_t = randf_range(10.0, 16.0)
