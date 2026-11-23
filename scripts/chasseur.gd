@@ -21,6 +21,7 @@ var _activite_t := 0.0
 var _absent_t := 0.0
 var _errance := Vector3.ZERO
 var _lent_t := 0.0
+var _loin := false
 var _dps := 0.0
 var _dps_t := 0.0
 var _lod_dt := 0.0
@@ -140,14 +141,20 @@ func _physics_process(dt: float) -> void:
 		_dps_t = 5.0 + randf()
 		_dps = Partie.bot_dps(d)
 	# LOD : chasseur loin du joueur → logique à 5 Hz, animation coupée
-	var loin := mode != "donjon" and global_position.distance_squared_to(ville.joueur.global_position) > 2500.0
-	if _ap and _ap.active == loin:
-		_ap.active = not loin
+	var d2 := global_position.distance_squared_to(ville.joueur.global_position)
+	var loin := mode != "donjon" and d2 > 2025.0
+	_loin = loin
+	var anime := d2 < 3600.0 or mode == "donjon"
+	if _ap and _ap.active != anime:
+		_ap.active = anime
 	if loin:
+		# logique à 5 Hz, mais déplacement lissé à chaque image (pas de téléportation)
 		_lod_dt += dt
 		if _lod_dt >= 0.2:
 			_physics_process_reel(_lod_dt)
 			_lod_dt = 0.0
+		else:
+			global_position += Vector3(velocity.x, 0.0, velocity.z) * dt
 	else:
 		_lod_dt = 0.0
 		_physics_process_reel(dt)
@@ -198,12 +205,8 @@ func _physics_process_reel(dt: float) -> void:
 	velocity.z = dir.z * vit
 	velocity.y = -2.0 if is_on_floor() else velocity.y - 30.0 * dt
 	# loin du joueur : pas de collision coûteuse avec la ville, simple déplacement à 4 Hz
-	var loin_j := global_position.distance_to(ville.joueur.global_position) > 35.0 and mode == "ville"
-	if loin_j:
-		_lent_t += dt
-		if _lent_t >= 0.25:
-			global_position += Vector3(velocity.x, 0, velocity.z) * _lent_t
-			_lent_t = 0.0
+	if _loin:
+		velocity.y = 0.0
 	else:
 		move_and_slide()
 	if dir != Vector3.ZERO:

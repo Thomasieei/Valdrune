@@ -13,6 +13,7 @@ var _joy_pos := Vector2.ZERO
 var _joy_actif := false
 const JOY_R := 85.0
 var _b_frapper: Control
+var _b_saut: Control
 var _b_eveil: Control
 var _b_comp := {}
 var _barre := {}
@@ -186,6 +187,7 @@ func _ready() -> void:
 	_msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_racine.add_child(_msg)
 	_b_frapper = _rond("FRAPPER", "attack", 150.0, Color(0.15, 0.3, 0.85))
+	_b_saut = _rond("SAUT", "q_run", 104.0, Color(0.1, 0.45, 0.6))
 	_b_eveil = _rond("ÉVEIL", "arise", 128.0, Color(0.35, 0.1, 0.7))
 	_b_eveil.visible = false
 	for b in BARRE:
@@ -339,6 +341,7 @@ func _disposer() -> void:
 	_joy_centre = Vector2(170, h - 160)
 	_joy_pos = _joy_centre
 	_b_frapper.position = Vector2(w - 200, h - 200)
+	_b_saut.position = Vector2(w - 560, h - 250)
 	_b_eveil.position = Vector2(w - 640, h - 270)
 	_b_action.position = Vector2(w - 180, h - 446)
 	for k in BARRE.size():
@@ -604,7 +607,7 @@ func _process_reel(dt: float) -> void:
 		if _barre[k].get_meta("on") != on:
 			_barre[k].set_meta("on", on)
 			_barre[k].queue_redraw()
-	for b in [_b_frapper, _b_eveil, _b_action] + _b_comp.values() + _barre.values():
+	for b in [_b_frapper, _b_saut, _b_eveil, _b_action] + _b_comp.values() + _barre.values():
 		var a: float = b.get_meta("appuye")
 		if a > 0.0:
 			b.set_meta("appuye", maxf(0.0, a - dt * 5.0))
@@ -1407,7 +1410,7 @@ func _poser(i: int, p: Vector2) -> void:
 				dire(err, Color(1.0, 0.6, 0.5))
 				Fx.son("error", -8.0)
 			return
-	for pair in [[_b_frapper, "frapper"], [_b_eveil, "eveil"], [_b_action, "action"]]:
+	for pair in [[_b_frapper, "frapper"], [_b_saut, "saut"], [_b_eveil, "eveil"], [_b_action, "action"]]:
 		if _dans(pair[0], p):
 			_doigts[i] = {"role": "bouton"}
 			pair[0].set_meta("appuye", 1.0)
@@ -1415,6 +1418,8 @@ func _poser(i: int, p: Vector2) -> void:
 			Input.vibrate_handheld(10)
 			if pair[1] == "frapper":
 				ville.frapper()
+			elif pair[1] == "saut":
+				ville.joueur.sauter()
 			elif pair[1] == "action":
 				agir()
 			else:

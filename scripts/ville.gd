@@ -1364,7 +1364,7 @@ func _process_reel(dt: float) -> void:
 	var dir := Vector3(sin(_lacet) * cos(_tangage), -sin(_tangage), cos(_lacet) * cos(_tangage))
 	var combat: bool = joueur.cible != null and is_instance_valid(joueur.cible) and not joueur.cible.mort
 	_zoom = lerpf(_zoom, 0.82 if combat else 1.0, minf(1.0, dt * 2.5))
-	camera.fov = lerpf(camera.fov, 62.0, minf(1.0, dt * 6.0))
+	camera.fov = lerpf(camera.fov, 62.0 + joueur.elan * 14.0, minf(1.0, dt * 6.0))
 	var voulu := _cam_pos + dir * _dist * _zoom
 
 

@@ -192,23 +192,151 @@ func _physics_process_reel(dt: float) -> void:
 		recharges[k] = maxf(0.0, recharges[k] - dt)
 	_arme_monarque(dt)
 	invulnerable = maxf(0.0, invulnerable - dt)
-	var vit := VITESSE * Partie.vitesse()
+	# ---------- Déplacement rapide : élan, saut, double saut, dash aérien, course sur les murs, glissade ----------
+	var au_sol := is_on_floor()
+	if au_sol:
+		_coyote = 0.12
+		_sauts = 0
+		_dash_aerien_dispo = true
+		_mur_t = 0.0
+	else:
+		_coyote -= dt
+	_saut_buf -= dt
+	if entree.length() > 0.6 and _glisse_t <= 0.0:
+		elan = minf(1.0, elan + dt / 1.5)
+	elif entree.length() > 0.2:
+		elan = maxf(0.0, elan - dt * 0.5)
+	else:
+		elan = maxf(0.0, elan - dt * 2.5)
+	var vit := VITESSE * Partie.vitesse() * (1.0 + 1.3 * elan)
 	velocity.x = dir.x * vit
 	velocity.z = dir.z * vit
+	velocity.y = -2.0 if au_sol else velocity.y - (24.0 if velocity.y > 0.0 else 32.0) * dt
+	var avant_corps: Vector3 = _corps.global_transform.basis.z
+	avant_corps.y = 0.0
+	avant_corps = avant_corps.normalized()
+	if _glisse_t > 0.0:
+		_glisse_t -= dt
+		var k := clampf(_glisse_t / 0.6, 0.0, 1.0)
+		var vg := maxf(vit, 14.0) * (0.55 + 0.45 * k)
+		velocity.x = _glisse_dir.x * vg
+		velocity.z = _glisse_dir.z * vg
+		_poussiere(dt, 0.05)
+	# Course sur un mur
+	var en_mur := false
+	if not au_sol and is_on_wall() and elan > 0.25 and _mur_t < 1.6 and entree.length() > 0.3:
+		var n := get_wall_normal()
+		n.y = 0.0
+		if n.length() > 0.6:
+			n = n.normalized()
+			if dir.dot(-n) > 0.2 or _en_mur:
+				var tang := Vector3.UP.cross(n)
+				if tang.dot(dir) < 0.0:
+					tang = -tang
+				en_mur = true
+				_mur_n = n
+				_mur_t += dt
+				velocity.x = tang.x * vit - n.x * 2.0
+				velocity.z = tang.z * vit - n.z * 2.0
+				velocity.y = lerpf(velocity.y, 1.6, minf(1.0, dt * 8.0))
+				_cote_mur = signf((-n).dot(tang.cross(Vector3.UP)))
+				_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(tang.x, tang.z), minf(1.0, dt * 14.0))
+				_poussiere(dt, 0.02)
+	if en_mur != _en_mur:
+		_en_mur = en_mur
+		if not en_mur:
+			_corps.rotation.z = 0.0
+	# Saut / double saut / saut de mur / dash aérien
+	if _saut_buf > 0.0:
+		if _en_mur:
+			velocity = _mur_n * 8.5 + Vector3(velocity.x, 0.0, velocity.z) * 0.5
+			velocity.y = 12.5
+			_sauts = 0
+			_dash_aerien_dispo = true
+			_mur_t = 99.0
+			_saut_buf = 0.0
+			Modele.jouer(_ap, "Roll", 1.4, 0.04)
+			_anim_coup = 0.45
+			Fx.sol(global_position, "onde", Color(0.6, 0.85, 1.0), 1.6, 0.4)
+			Fx.son("swing3", -4.0, 1.4)
+		elif _coyote > 0.0:
+			velocity.y = 12.0 + 3.5 * elan
+			_coyote = 0.0
+			_saut_buf = 0.0
+			_glisse_t = 0.0
+			Modele.jouer(_ap, "JumpStart", 1.3, 0.04)
+			_anim_coup = 0.25
+			Fx.sol(global_position, "onde", Color(0.8, 0.9, 1.0), 1.4, 0.35)
+			Fx.son("swing1", -6.0, 1.3)
+		elif _sauts < 1:
+			_sauts += 1
+			velocity.y = 11.0 + 2.0 * elan
+			_saut_buf = 0.0
+			Modele.jouer(_ap, "Roll", 1.5, 0.04)
+			_anim_coup = 0.5
+			Fx.anneau(global_position, Color(0.5, 0.9, 1.0), 1.8)
+			Fx.son("swing2", -4.0, 1.5)
+		elif _dash_aerien_dispo:
+			_dash_aerien_dispo = false
+			var dd := dir if dir.length() > 0.2 else avant_corps
+			_dash = dd.normalized() * 22.0
+			_dash_t = 0.22
+			_dash_aerien = true
+			velocity.y = 1.5
+			_saut_buf = 0.0
+			_corps.rotation.y = atan2(dd.x, dd.z)
+			Modele.jouer(_ap, _a("M_Blink", "Dash"), 2.2, 0.03)
+			_anim_coup = 0.3
+			_trainee(0.22)
+			Fx.son("swing2", -2.0, 1.6)
 	if _dash_t > 0.0:
 		_dash_t -= dt
 		velocity.x = _dash.x
 		velocity.z = _dash.z
-	velocity.y = -2.0 if is_on_floor() else velocity.y - 30.0 * dt
+		if _dash_aerien:
+			velocity.y = 1.5
+		if _dash_t <= 0.0:
+			_dash_aerien = false
+	var vy_avant := velocity.y
 	move_and_slide()
+	if is_on_floor() and not au_sol_av:
+		var chute := -vy_avant
+		if chute > 7.0:
+			_anim_coup = 0.2
+			Fx.sol(global_position, "onde", Color(0.85, 0.9, 1.0), 1.0 + minf(chute / 12.0, 1.5), 0.4)
+			if chute > 15.0:
+				get_parent().secouer(0.2)
+			if elan > 0.5 and dir.length() > 0.3 and _glisse_t <= 0.0:
+				_glisse_t = 0.6
+				_glisse_dir = dir.normalized()
+				_corps.rotation.y = atan2(dir.x, dir.z)
+			else:
+				Modele.jouer(_ap, "JumpLand", 1.6, 0.03)
+	au_sol_av = is_on_floor()
 
-	if dir.length() > 0.1 and is_on_wall():
+	if dir.length() > 0.1 and is_on_wall() and not en_mur:
 		_monter_marche(dir)
 	_anim_coup -= dt
-	if dir.length() > 0.1:
-		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(dir.x, dir.z), minf(1.0, dt * 14.0))
-		if _anim_coup <= 0.0:
-			Modele.jouer(_ap, "Run", 1.05 * Partie.vitesse())
+	if _en_mur:
+		_corps.rotation.z = lerp_angle(_corps.rotation.z, -0.45 * _cote_mur, minf(1.0, dt * 10.0))
+		Modele.jouer(_ap, "Run", 1.9)
+	else:
+		_corps.rotation.z = lerp_angle(_corps.rotation.z, 0.0, minf(1.0, dt * 10.0))
+	if _glisse_t > 0.0 and _anim_coup <= 0.0:
+		if _ap and _ap.current_animation != "Slide":
+			Modele.jouer(_ap, "Slide", 1.3, 0.05)
+	elif not is_on_floor() and not _en_mur and _anim_coup <= 0.0:
+		if _ap and _ap.current_animation != "JumpLoop":
+			Modele.jouer(_ap, "JumpLoop", 1.0, 0.1)
+	elif dir.length() > 0.1:
+		if _glisse_t <= 0.0:
+			_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(dir.x, dir.z), minf(1.0, dt * 14.0))
+		if _anim_coup <= 0.0 and not _en_mur:
+			if elan > 0.55:
+				Modele.jouer(_ap, "Sprint", 0.85 + elan * 0.5)
+			else:
+				Modele.jouer(_ap, "Run", 1.05 * Partie.vitesse())
+			_poussiere(dt, 0.18 if elan > 0.7 else 0.0)
 	elif en_combat and distance <= PORTEE + 0.3:
 		var v2 := cible.global_position - global_position
 		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(v2.x, v2.z), minf(1.0, dt * 16.0))
@@ -219,6 +347,32 @@ func _physics_process_reel(dt: float) -> void:
 				_frapper()
 	elif _anim_coup <= 0.0:
 		Modele.jouer(_ap, "Idle" if Partie.opts["fourreau"] else "SwordIdle")
+
+var elan := 0.0
+var au_sol_av := true
+var _sauts := 0
+var _dash_aerien_dispo := true
+var _dash_aerien := false
+var _mur_t := 0.0
+var _mur_n := Vector3.ZERO
+var _en_mur := false
+var _cote_mur := 1.0
+var _glisse_t := 0.0
+var _glisse_dir := Vector3.ZERO
+var _coyote := 0.0
+var _saut_buf := 0.0
+var _pous_t := 0.0
+
+func sauter() -> void:
+	_saut_buf = 0.15
+
+func _poussiere(dt: float, periode: float) -> void:
+	if periode <= 0.0:
+		return
+	_pous_t -= dt
+	if _pous_t <= 0.0:
+		_pous_t = periode
+		Fx.sol(global_position, "onde", Color(0.7, 0.8, 1.0, 0.6), 0.9, 0.3)
 
 const MARCHE_MAX := 0.45
 func _monter_marche(dir: Vector3) -> void:

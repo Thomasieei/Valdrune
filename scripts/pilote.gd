@@ -105,6 +105,16 @@ func _video() -> void:
 				j.viser(m1)
 		print("[SKILL] ", sk, " -> ", j.competence(sk))
 		await attendre(1.5)
+	# test du déplacement rapide : élan, saut, double saut, dash aérien
+	j.cible = null
+	j.entree = Vector2(0, 1)
+	await attendre(2.0)
+	for k in 3:
+		j.sauter()
+		await attendre(0.35)
+	print("[PARKOUR] elan=%.2f y=%.2f sol=%s" % [j.elan, j.global_position.y, str(j.is_on_floor())])
+	await attendre(1.5)
+	j.entree = Vector2.ZERO
 
 func _tour() -> void:
 	var v = ville
