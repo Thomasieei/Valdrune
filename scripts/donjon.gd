@@ -518,7 +518,7 @@ func _maj_pieges(dt: float) -> void:
 			var pos: Vector3 = p["n"].global_position
 			Fx.anneau(pos, Color(1.0, 0.25, 0.1), 1.6)
 			if absf(j.global_position.x - pos.x) < 1.3 and absf(j.global_position.z - pos.z) < 1.3 and absf(j.global_position.y - pos.y) < 1.5:
-				var d := Partie.ATK_RANG[niv] * 1.5
+				var d: float = Partie.ATK_RANG[niv] * 1.5
 				Fx.texte(j.global_position + Vector3(0, 2.3, 0), "-%d  PIÈGE" % int(d), Color(1.0, 0.3, 0.2), 1.1, 1.0)
 				ville.hud.flash_degats("PIÈGE")
 				if Partie.blesser(d):
