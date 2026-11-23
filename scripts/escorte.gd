@@ -37,6 +37,8 @@ func installer(v: Node3D, pts: Array) -> void:
 			continue
 		if Vector2(p.x - resto0.x, p.z - resto0.z).length() < 24.0:
 			continue
+		if v.appart and Vector2(p.x - v.appart.porte_pos.x, p.z - v.appart.porte_pos.z).length() < 40.0:
+			continue
 		var mur: Dictionary = v.mur_proche(p)
 		if mur.is_empty():
 			continue
