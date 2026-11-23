@@ -262,7 +262,13 @@ func _frapper() -> void:
 	Fx.son(["swing1", "swing2", "swing3"][_coup_n], -4.0, randf_range(0.95, 1.08))
 	var c := cible
 	_arc(_coup_n)
-	await get_tree().create_timer(0.16).timeout
+	var delai := 0.42 if anim == "M_Leap" else (0.28 if anim == "M_Spin" else 0.16)
+	await get_tree().create_timer(delai).timeout
+	if anim == "M_Leap":
+		Fx.sol(global_position - _corps.global_transform.basis.z * -1.2, "onde", Color(0.6, 0.35, 1.0), 3.2, 0.6)
+		Fx.sol(global_position, "cone", Color(0.5, 0.3, 0.9), 2.0, 0.4)
+	elif anim == "M_Spin":
+		Fx.sol(global_position, "anneau", Color(0.55, 0.35, 1.0), 2.8, 0.45, TAU)
 	if c == null or not is_instance_valid(c) or c.mort:
 		return
 	Partie.en_combat()
@@ -292,6 +298,9 @@ func competence(k: String) -> String:
 			return "Domaine chargé à %d %% — tue des monstres" % int(Partie.charge)
 		Partie.charge = 0.0
 		_anim_coup = Modele.jouer(_ap, _a("A_Boeuf", "Cast"), 2.2, 0.05) * 0.9
+		Fx.sol(global_position, "sceau", Color(0.6, 0.3, 1.0), 3.0, 1.4, PI)
+		Fx.eclairs(Fx.main_droite(_corps), Color(0.7, 0.45, 1.0), 1.0, 0.8)
+		get_tree().create_timer(1.0).timeout.connect(func (): Fx.explosion(global_position, Color(0.6, 0.3, 1.0), 6.0))
 		Partie.domaine_fin = Partie.temps() + Partie.DUREE_DOMAINE
 		Fx.son("arise", 0.0, 0.6)
 		Fx.son("portal", -2.0, 0.7)
@@ -325,6 +334,9 @@ func competence(k: String) -> String:
 		Partie.depenser_mana(d["mana"])
 		recharges[k] = d["cd"]
 		_anim_coup = Modele.jouer(_ap, _a("A_Lapin", "Cast"), 0.8, 0.05) * 0.8
+		Fx.sol(global_position, "sceau", Color(0.3, 1.0, 0.7), 1.8, 0.9, PI)
+		var cible_fx: Vector3 = c2.global_position
+		get_tree().create_timer(0.75).timeout.connect(func (): Fx.explosion(cible_fx, Color(0.3, 1.0, 0.7), 2.0))
 		Fx.anneau(c2.global_position, Color(0.3, 1.0, 0.7), 5.0)
 		Fx.son("arise", -2.0, 1.3)
 		if c2.puissance() > Partie.dps_total():
@@ -401,6 +413,8 @@ func competence(k: String) -> String:
 			_brise_differe(c)
 		"cri":
 			_anim_coup = Modele.jouer(_ap, _a("A_Singe", "Cast"), 0.9, 0.05) * 0.8
+			Fx.sol(global_position, "sceau", Color(0.65, 0.3, 1.0), 2.2, 1.0, -PI)
+			get_tree().create_timer(0.9).timeout.connect(func (): Fx.sol(global_position, "onde", Color(0.65, 0.3, 1.0), 7.0, 0.7))
 			Partie.cri_fin = Partie.temps() + Partie.DUREE_CRI
 			Fx.son("arise", -2.0, 0.8)
 			Fx.anneau(global_position, Color(0.65, 0.3, 1.0), 7.0)
@@ -462,6 +476,9 @@ func aura_anos(on: bool) -> void:
 		_aura_anos.append(p)
 
 func _trainee(duree: float) -> void:
+	for k2 in 4:
+		get_tree().create_timer(duree * k2 / 4.0).timeout.connect(func ():
+			Fx.sol(global_position, "onde", Color(0.25, 0.12, 0.45), 1.3, 0.5))
 	var n := 7
 	for k in n:
 		get_tree().create_timer(duree * k / n).timeout.connect(func ():
@@ -557,7 +574,10 @@ func _arc(n: int) -> void:
 	tw.tween_callback(mi.queue_free)
 
 func _brise_differe(cc: Monstre) -> void:
-	await get_tree().create_timer(0.3).timeout
+	await get_tree().create_timer(0.72 if _ap and _ap.has_animation("M_Slam") else 0.3).timeout
+	var devant := global_position + _corps.global_transform.basis.z * 1.0
+	Fx.explosion(devant, Color(0.55, 0.75, 1.0), 2.6)
+	Fx.sol(devant, "onde", Color(0.7, 0.5, 1.0), 4.5, 0.8)
 	get_parent().secouer(0.6)
 	get_parent().hitstop(0.08)
 	if is_instance_valid(cc) and not cc.mort:

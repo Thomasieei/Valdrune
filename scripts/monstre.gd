@@ -204,7 +204,17 @@ func _combat(dt: float) -> void:
 		_corps.rotation.y = atan2(w.x, w.z)
 		var a_boss: String = ["A_Chidori", "A_Rasengan"][randi() % 2] if espece in ["naruto", "clone_naruto"] else ""
 		if a_boss != "" and _ap and _ap.has_animation(a_boss):
-			_retour_idle(Modele.jouer(_ap, a_boss, 1.6 if a_boss == "A_Chidori" else 1.2, 0.08))
+			_retour_idle(Modele.jouer(_ap, a_boss, 1.6 if a_boss == "A_Chidori" else 0.75, 0.08))
+			var main := Fx.main_droite(_corps)
+			var cp := cible
+			if a_boss == "A_Chidori":
+				Fx.eclairs(main, Color(0.45, 0.75, 1.0), 1.55, 1.4)
+				get_tree().create_timer(1.55).timeout.connect(func ():
+					Fx.explosion(cp, Color(0.45, 0.75, 1.0), 3.5)
+					Fx.sol(cp, "eclair", Color(0.5, 0.8, 1.0), 3.0, 0.5))
+			else:
+				Fx.sphere(main, Color(0.35, 0.7, 1.0), 1.55, 0.45)
+				get_tree().create_timer(1.55).timeout.connect(func (): Fx.explosion(cp, Color(0.35, 0.85, 1.0), 4.0))
 		else:
 			Modele.jouer(_ap, "Attack" if _ap and _ap.has_animation("Attack") else "Roar", 0.9, 0.08)
 			_retour_idle(1.0)
