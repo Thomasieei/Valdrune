@@ -170,13 +170,13 @@ func _maj_ciel(dt: float) -> void:
 		_etait_nuit = n
 		hud.annonce("LA NUIT TOMBE" if n else "LE JOUR SE LÈVE", "Monstres +30 % PV · éveil ×1,5" if n else "Retour à la normale", Color(0.55, 0.6, 1.0) if n else Color(1.0, 0.85, 0.5))
 	if donjon == null and chateau == null and abime == null and arene == null:
-		var cible_e := 0.25 if n else 1.25
+		var cible_e := 0.25 if n else 1.7
 		_soleil.light_energy = lerpf(_soleil.light_energy, cible_e, 0.15)
 		_soleil.light_color = Color(0.55, 0.65, 1.0) if n else Color(1.0, 0.9, 0.8)
-		_env.ambient_light_energy = lerpf(_env.ambient_light_energy, 0.45 if n else 0.9, 0.15)
+		_env.ambient_light_energy = lerpf(_env.ambient_light_energy, 0.4 if n else 0.6, 0.15)
 		var sm := _env.sky.sky_material as ProceduralSkyMaterial
-		sm.sky_top_color = sm.sky_top_color.lerp(Color(0.02, 0.03, 0.1) if n else Color(0.16, 0.26, 0.52), 0.15)
-		sm.sky_horizon_color = sm.sky_horizon_color.lerp((Color(0.5, 0.08, 0.1) if Partie.pluie_sang() else Color(0.1, 0.1, 0.22)) if n else (Color(0.7, 0.3, 0.3) if Partie.pluie_sang() else Color(0.62, 0.6, 0.78)), 0.15)
+		sm.sky_top_color = sm.sky_top_color.lerp(Color(0.02, 0.03, 0.1) if n else Color(0.12, 0.3, 0.68), 0.15)
+		sm.sky_horizon_color = sm.sky_horizon_color.lerp((Color(0.5, 0.08, 0.1) if Partie.pluie_sang() else Color(0.1, 0.1, 0.22)) if n else (Color(0.7, 0.3, 0.3) if Partie.pluie_sang() else Color(0.85, 0.7, 0.62)), 0.15)
 	_pluie_t -= 1.0
 	if _pluie_t <= 0.0 and not Partie.pluie_sang():
 		_pluie_t = randf_range(1200.0, 1800.0)
@@ -483,6 +483,69 @@ func _generer_zones() -> void:
 			_postes_gen.append(b)
 	POSTES_V = _postes_gen
 	print("[ZONES] points=", pts.size(), " par rang=", par_rang)
+	_lampadaires(pts)
+
+# Lampadaires néon le long des rues : têtes émissives (le glow les fait briller), sans lumière dynamique
+func _lampadaires(pts: Array) -> void:
+	var pied := StandardMaterial3D.new()
+	pied.albedo_color = Color(0.15, 0.16, 0.2)
+	pied.metallic = 0.7
+	pied.roughness = 0.35
+	var couleurs := [Color(0.4, 0.85, 1.0), Color(1.0, 0.45, 0.85), Color(1.0, 0.8, 0.45), Color(0.6, 0.5, 1.0)]
+	var tetes := []
+	for c in couleurs:
+		var t := StandardMaterial3D.new()
+		t.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		t.albedo_color = c
+		t.emission_enabled = true
+		t.emission = c
+		t.emission_energy_multiplier = 3.0
+		tetes.append(t)
+	var cy := CylinderMesh.new()
+	cy.top_radius = 0.07
+	cy.bottom_radius = 0.11
+	cy.height = 4.2
+	cy.radial_segments = 6
+	var sp := SphereMesh.new()
+	sp.radius = 0.28
+	sp.height = 0.56
+	sp.radial_segments = 8
+	sp.rings = 4
+	var halo := QuadMesh.new()
+	halo.size = Vector2(1.8, 1.8)
+	var k := 0
+	for p in pts:
+		k += 1
+		if k % 3 != 0:
+			continue
+		var base: Vector3 = p + Vector3(4.5, 0, 0)
+		var mi := MeshInstance3D.new()
+		mi.mesh = cy
+		mi.material_override = pied
+		mi.position = base + Vector3(0, 2.1, 0)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.visibility_range_end = 90.0
+		add_child(mi)
+		var t := MeshInstance3D.new()
+		t.mesh = sp
+		t.material_override = tetes[k % tetes.size()]
+		t.position = base + Vector3(0, 4.3, 0)
+		t.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		t.visibility_range_end = 120.0
+		add_child(t)
+		var h := MeshInstance3D.new()
+		h.mesh = halo
+		var hm := StandardMaterial3D.new()
+		hm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		hm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		hm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		hm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		hm.albedo_texture = load("res://assets/fx/circle_05.png")
+		hm.albedo_color = Color(couleurs[k % couleurs.size()], 0.35)
+		h.material_override = hm
+		h.position = t.position
+		h.visibility_range_end = 120.0
+		add_child(h)
 
 func rang_zone(p: Vector3) -> int:
 	return mini(int(Vector2(p.x - DEPART.x, p.z - DEPART.z).length() / 75.0), 3)
@@ -496,15 +559,18 @@ func _environnement() -> void:
 	_env = e
 	var ciel := Sky.new()
 	var mat := ProceduralSkyMaterial.new()
-	mat.sky_top_color = Color(0.16, 0.26, 0.52)
-	mat.sky_horizon_color = Color(0.62, 0.6, 0.78)
+	mat.sky_top_color = Color(0.12, 0.3, 0.68)
+	mat.sky_horizon_color = Color(0.85, 0.7, 0.62)
+	mat.sky_curve = 0.12
+	mat.sun_angle_max = 25.0
 	mat.ground_horizon_color = Color(0.55, 0.48, 0.55)
 	mat.sun_angle_max = 12.0
 	ciel.sky_material = mat
 	e.background_mode = Environment.BG_SKY
 	e.sky = ciel
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	e.ambient_light_energy = 0.9
+	e.ambient_light_energy = 0.6
+	e.ambient_light_sky_contribution = 0.8
 	e.tonemap_mode = Environment.TONE_MAPPER_ACES
 	e.tonemap_exposure = 1.05
 	e.adjustment_enabled = true
@@ -513,16 +579,18 @@ func _environnement() -> void:
 	e.glow_bloom = 0.06
 	e.glow_hdr_threshold = 0.9
 	e.fog_enabled = true
-	e.fog_light_color = Color(0.55, 0.6, 0.75)
-	e.fog_density = 0.0022
+	e.fog_light_color = Color(0.75, 0.7, 0.78)
+	e.fog_density = 0.0035
+	e.fog_aerial_perspective = 0.4
+	e.fog_sky_affect = 0.3
 	e.glow_enabled = true
 	e.glow_intensity = 0.7
 	we.environment = e
 	add_child(we)
 	_soleil = DirectionalLight3D.new()
 	_soleil.rotation_degrees = Vector3(-42, 35, 0)
-	_soleil.light_color = Color(1.0, 0.9, 0.8)
-	_soleil.light_energy = 1.25
+	_soleil.light_color = Color(1.0, 0.86, 0.7)
+	_soleil.light_energy = 1.7
 	_soleil.shadow_enabled = true
 	_soleil.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	_soleil.directional_shadow_max_distance = 40.0

@@ -56,7 +56,7 @@ var _origine := Vector3.ZERO
 var _errance := Vector3.ZERO
 var _errance_t := 0.0
 
-const CADENCE_ZONE := [6.5, 5.5, 4.6, 3.9, 3.2]
+const CADENCE_ZONE := [10.0, 8.5, 7.2, 6.2, 5.2]
 const RAYON_ZONE := [2.4, 2.8, 3.2, 3.7, 4.3]
 
 func configurer(p_espece: String, pos: Vector3, angle: float) -> void:
@@ -200,7 +200,7 @@ func _combat(dt: float) -> void:
 		var ombres := get_tree().get_nodes_in_group("ombres").filter(func (o): return not o.mort and o.global_position.distance_to(global_position) < 16.0)
 		if not ombres.is_empty() and randf() < 0.35:
 			cible = ombres.pick_random().global_position
-		_zone(cible, RAYON_ZONE[r] * (1.2 if elite else 1.0), 1.5 if r < 3 else 1.2)
+		_zone(cible, RAYON_ZONE[r] * (1.2 if elite else 1.0), 2.0 if r < 3 else 1.6)
 	if r >= 1:
 		if _parade > 0.0:
 			_parade -= dt
@@ -532,6 +532,8 @@ func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) ->
 		Fx.texte(global_position + Vector3(randf_range(-0.9, 0.9), h * randf_range(0.5, 0.9), 0), Fx.court(degats), Color(0.55, 0.85, 1.0), 0.7, 0.6)
 	else:
 		Fx.degats(global_position + Vector3(randf_range(-0.9, 0.9), h * randf_range(0.55, 1.05), randf_range(-0.3, 0.3)), degats, crit, source == "ombres")
+		if source == "joueur" or source == "ombres":
+			_impact(crit, source == "ombres")
 		if source == "joueur" and _ap_ok_squash():
 			var tw := create_tween()
 			var s0 := _corps.scale
@@ -555,7 +557,7 @@ func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) ->
 		_retour_idle(0.45)
 
 func _invoquer_clones() -> void:
-	Fx.texte(global_position + Vector3(0, haut() + 1.0, 0), "MULTICLONAGE !", Color(1.0, 0.6, 0.15), 1.6, 1.4)
+	Fx.texte(global_position + Vector3(0, haut() + 1.0, 0), "ÉCHOS SPECTRAUX !", Color(1.0, 0.6, 0.15), 1.6, 1.4)
 	Fx.son("portal", 0.0)
 	var v := get_tree().get_first_node_in_group("ville")
 	for k in 3:
@@ -579,6 +581,53 @@ func _retour_idle(apres: float) -> void:
 		Modele.jouer(_ap, "Idle")
 
 var _squash := false
+static var _tex_etincelle: Texture2D
+
+func _impact(crit: bool, ombre: bool) -> void:
+	var p := GPUParticles3D.new()
+	p.amount = 14 if crit else 8
+	p.lifetime = 0.35
+	p.one_shot = true
+	p.explosiveness = 1.0
+	p.local_coords = false
+	var pm := ParticleProcessMaterial.new()
+	pm.direction = Vector3(0, 0.6, 0)
+	pm.spread = 80.0
+	pm.initial_velocity_min = 3.0
+	pm.initial_velocity_max = 7.0 if crit else 5.0
+	pm.gravity = Vector3(0, -9, 0)
+	pm.scale_min = 0.6
+	pm.scale_max = 1.4 if crit else 1.0
+	pm.color = Color(0.7, 0.4, 1.0) if ombre else (Color(1.0, 0.85, 0.3) if crit else Color(1.0, 0.95, 0.8))
+	p.process_material = pm
+	var q := QuadMesh.new()
+	q.size = Vector2(0.18, 0.18)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	mat.vertex_color_use_as_albedo = true
+	if _tex_etincelle == null:
+		_tex_etincelle = load("res://assets/fx/spark_04.png")
+	mat.albedo_texture = _tex_etincelle
+	q.material = mat
+	p.draw_pass_1 = q
+	get_parent().add_child(p)
+	p.global_position = global_position + Vector3(randf_range(-0.3, 0.3), haut() * 0.55, randf_range(-0.3, 0.3))
+	p.emitting = true
+	get_tree().create_timer(0.6).timeout.connect(p.queue_free)
+	if not ombre:
+		for mi in _corps.find_children("*", "MeshInstance3D", true, false):
+			var g := mi as GeometryInstance3D
+			var avant := g.material_overlay
+			g.material_overlay = Shaders.halo(Color(1, 1, 1), 3.0)
+			get_tree().create_timer(0.07).timeout.connect(func ():
+				if is_instance_valid(g):
+					g.material_overlay = avant)
+		var v := get_tree().get_first_node_in_group("ville")
+		if v:
+			v.hitstop(0.03 if not crit else 0.06)
 
 func _ap_ok_squash() -> bool:
 	if _squash:

@@ -1606,7 +1606,6 @@ func _donjon_panneau() -> void:
 				ville.entrer_donjon(nn, gg))
 			_ajouter(e, Vector2(560 + (116 if g else 0), y + 26))
 		y += 114.0
-	_ajouter(Ui.label("Modèle 3D « Naruto » : TRSgamings (Sketchfab), licence CC-BY 4.0", 13, Color(0.6, 0.6, 0.75), 3), Vector2(36, 654))
 
 var _gains := {}
 func recompenses_donjon(g: Dictionary) -> void:

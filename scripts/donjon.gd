@@ -19,8 +19,8 @@ const DONJONS := [
 		"noms": ["Le seuil givré", "La galerie de glace", "Le lac gelé", "Les stalactites", "La tempête", "Le trône de Grolm"]},
 	{"nom": "Forge de braise", "theme": "braise", "duree": 390.0, "niveau": 30, "puissance": 40000.0, "or": 45000, "boss": "Vorgath, seigneur de braise",
 		"noms": ["Les scories", "La coulée", "Le marteau-pilon", "Les fosses ardentes", "Le creuset", "Le cœur de la forge"]},
-	{"nom": "Sanctuaire du renard", "theme": "nuit", "duree": 480.0, "niveau": 45, "puissance": 400000.0, "or": 200000, "boss": "Naruto",
-		"noms": ["La forêt de nuit", "Le pont suspendu", "Les statues", "La cascade", "Le cercle des clones", "L'arène de Naruto"]},
+	{"nom": "Sanctuaire du renard", "theme": "nuit", "duree": 480.0, "niveau": 45, "puissance": 400000.0, "or": 200000, "boss": "Shiryū, le kitsune déchu",
+		"noms": ["La forêt de nuit", "Le pont suspendu", "Les statues", "La cascade", "Le cercle des clones", "L'autel du kitsune"]},
 ]
 const SALLES_PAR_NIV := [[
 	[["gobelin", -4.5, 1.0, false], ["gobelin", 4.5, 1.0, false], ["gobelin", -2.0, 5.5, false], ["gobelin", 2.5, 5.5, false]],
