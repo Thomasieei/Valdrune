@@ -59,7 +59,7 @@ func _ready() -> void:
 	_plaque.fixed_size = true
 	_plaque.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_plaque.position.y = 2.25
-	_plaque.visibility_range_end = 40.0
+	_plaque.visibility_range_end = 26.0
 	add_child(_plaque)
 	_maj_plaque()
 	_activite_t = randf_range(120.0, 480.0)

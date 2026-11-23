@@ -243,6 +243,7 @@ func _frapper() -> void:
 	_anim_coup = Modele.jouer(_ap, anim, 1.9, 0.06) * 0.9
 	Fx.son(["swing1", "swing2", "swing3"][_coup_n], -4.0, randf_range(0.95, 1.08))
 	var c := cible
+	_arc(_coup_n)
 	await get_tree().create_timer(0.16).timeout
 	if c == null or not is_instance_valid(c) or c.mort:
 		return
@@ -250,6 +251,12 @@ func _frapper() -> void:
 	var crit := randf() < Partie.chance_crit()
 	var deg := Partie.dps_joueur() * CADENCE * (2.0 if crit else 1.0) * randf_range(0.9, 1.1)
 	c.frapper(deg, crit)
+	var v := get_parent()
+	if crit:
+		v.secouer(0.35)
+		v.hitstop(0.045)
+	else:
+		v.secouer(0.08)
 	Fx.son(["hit1", "hit2", "hit3"][randi() % 3], -2.0 if crit else -5.0)
 
 
@@ -444,8 +451,55 @@ func _arme_monarque(dt: float) -> void:
 	var crit := randf() < Partie.chance_crit()
 	m.frapper(Partie.dps_joueur() * (2.0 if crit else 1.0), crit)
 
+static var _arc_mesh: ArrayMesh
+
+static func _mesh_arc() -> ArrayMesh:
+	if _arc_mesh:
+		return _arc_mesh
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := 18
+	for k in n:
+		var a0 := deg_to_rad(-75.0 + 150.0 * k / n)
+		var a1 := deg_to_rad(-75.0 + 150.0 * (k + 1) / n)
+		var f0 := sin(PI * k / n)
+		var f1 := sin(PI * (k + 1) / n)
+		var p := [Vector3(sin(a0) * 0.8, 0, cos(a0) * 0.8), Vector3(sin(a0) * 1.7, 0, cos(a0) * 1.7), Vector3(sin(a1) * 1.7, 0, cos(a1) * 1.7), Vector3(sin(a1) * 0.8, 0, cos(a1) * 0.8)]
+		var c := [Color(1, 1, 1, 0.0), Color(1, 1, 1, f0), Color(1, 1, 1, f1), Color(1, 1, 1, 0.0)]
+		for idx in [0, 1, 2, 0, 2, 3]:
+			st.set_color(c[idx])
+			st.add_vertex(p[idx])
+	_arc_mesh = st.commit()
+	return _arc_mesh
+
+func _arc(n: int) -> void:
+	var mi := MeshInstance3D.new()
+	mi.mesh = _mesh_arc()
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.vertex_color_use_as_albedo = true
+	var o: Dictionary = Partie.arme()
+	var col: Color = Partie.COULEURS_RARETE[int(o.get("rarete", 1))] if not o.is_empty() else Color(0.6, 0.85, 1.0)
+	m.albedo_color = col.lightened(0.3)
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	get_parent().add_child(mi)
+	mi.global_position = global_position + Vector3(0, 1.05, 0) + _corps.global_transform.basis.z * 0.3
+	mi.rotation.y = _corps.rotation.y
+	mi.rotate_object_local(Vector3.FORWARD, [0.5, -0.5, 0.0][n])
+	mi.scale = Vector3.ONE * 0.7
+	var tw := mi.create_tween()
+	tw.tween_property(mi, "scale", Vector3.ONE * 1.2, 0.2).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(m, "albedo_color:a", 0.0, 0.22)
+	tw.tween_callback(mi.queue_free)
+
 func _brise_differe(cc: Monstre) -> void:
 	await get_tree().create_timer(0.3).timeout
+	get_parent().secouer(0.6)
+	get_parent().hitstop(0.08)
 	if is_instance_valid(cc) and not cc.mort:
 		cc.briser(Partie.dps_joueur() * CADENCE * 4.0)
 

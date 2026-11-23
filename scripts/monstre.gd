@@ -103,7 +103,7 @@ func _ready() -> void:
 	_plaque.font_size = 26
 	_plaque.outline_size = 8
 	_plaque.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_plaque.visibility_range_end = 40.0
+	_plaque.visibility_range_end = 28.0
 	_plaque.font = Ui.police
 	add_child(_plaque)
 	Partie.change.connect(func (): _plaque_sale = true)
@@ -532,6 +532,17 @@ func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) ->
 		Fx.texte(global_position + Vector3(randf_range(-0.9, 0.9), h * randf_range(0.5, 0.9), 0), Fx.court(degats), Color(0.55, 0.85, 1.0), 0.7, 0.6)
 	else:
 		Fx.degats(global_position + Vector3(randf_range(-0.9, 0.9), h * randf_range(0.55, 1.05), randf_range(-0.3, 0.3)), degats, crit, source == "ombres")
+		if source == "joueur" and _ap_ok_squash():
+			var tw := create_tween()
+			var s0 := _corps.scale
+			tw.tween_property(_corps, "scale", s0 * Vector3(1.1, 0.88, 1.1), 0.05)
+			tw.tween_property(_corps, "scale", s0, 0.12).set_trans(Tween.TRANS_BACK)
+			if not e.get("boss", false):
+				var j: Node3D = get_tree().get_first_node_in_group("joueur")
+				if j:
+					var dirk := global_position - j.global_position
+					dirk.y = 0
+					global_position += dirk.normalized() * (0.35 if crit else 0.12)
 	if e.get("clones", false) and pv > 0.0:
 		var seuils := [0.66, 0.33]
 		if _clones_faits < seuils.size() and pv / pv_max < seuils[_clones_faits]:
@@ -567,7 +578,22 @@ func _retour_idle(apres: float) -> void:
 	if not mort and is_inside_tree():
 		Modele.jouer(_ap, "Idle")
 
+var _squash := false
+
+func _ap_ok_squash() -> bool:
+	if _squash:
+		return false
+	_squash = true
+	get_tree().create_timer(0.18).timeout.connect(func (): _squash = false)
+	return true
+
 func _mourir() -> void:
+	Ombre.fumee(global_position, get_parent(), true)
+	if e.get("boss", false):
+		var v := get_tree().get_first_node_in_group("ville")
+		if v:
+			v.secouer(0.9)
+			v.hitstop(0.12)
 	mort = true
 	pv = 0.0
 	chrono = -1.0

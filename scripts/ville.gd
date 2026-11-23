@@ -108,6 +108,17 @@ var _raid_fin := 0.0
 var _raid_fait := -1
 var _nettoyage_t := 30.0
 var _lod_t := 1.0
+var _secousse := 0.0
+
+func secouer(f: float) -> void:
+	_secousse = maxf(_secousse, f)
+
+func hitstop(duree: float) -> void:
+	if Engine.time_scale < 1.0:
+		return
+	Engine.time_scale = 0.06
+	await get_tree().create_timer(duree, true, false, true).timeout
+	Engine.time_scale = 1.0
 var _ciel_t := 0.0
 var _etait_nuit := false
 var _pluie: GPUParticles3D
@@ -494,12 +505,18 @@ func _environnement() -> void:
 	e.sky = ciel
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	e.ambient_light_energy = 0.9
-	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	e.tonemap_mode = Environment.TONE_MAPPER_ACES
+	e.tonemap_exposure = 1.05
+	e.adjustment_enabled = true
+	e.adjustment_saturation = 1.18
+	e.adjustment_contrast = 1.07
+	e.glow_bloom = 0.06
+	e.glow_hdr_threshold = 0.9
 	e.fog_enabled = true
 	e.fog_light_color = Color(0.55, 0.6, 0.75)
 	e.fog_density = 0.0022
 	e.glow_enabled = true
-	e.glow_intensity = 0.5
+	e.glow_intensity = 0.7
 	we.environment = e
 	add_child(we)
 	_soleil = DirectionalLight3D.new()
@@ -509,6 +526,7 @@ func _environnement() -> void:
 	_soleil.shadow_enabled = true
 	_soleil.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	_soleil.directional_shadow_max_distance = 40.0
+	_soleil.shadow_blur = 1.5
 	add_child(_soleil)
 
 func _ville() -> void:
@@ -1235,3 +1253,6 @@ func _process(dt: float) -> void:
 		voulu = _cam_pos + (voulu - _cam_pos) * maxf(f[0] - 0.02, 0.0)
 	camera.global_position = voulu
 	camera.look_at(_cam_pos, Vector3.UP)
+	if _secousse > 0.01:
+		camera.global_position += Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * _secousse * 0.35
+		_secousse *= exp(-dt * 9.0)
