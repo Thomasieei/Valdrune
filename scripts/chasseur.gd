@@ -20,6 +20,7 @@ var _derniere_pos := Vector3.ZERO
 var _activite_t := 0.0
 var _absent_t := 0.0
 var _errance := Vector3.ZERO
+var _lent_t := 0.0
 
 func _ready() -> void:
 	var forme := CollisionShape3D.new()
@@ -176,7 +177,15 @@ func _physics_process_reel(dt: float) -> void:
 	velocity.x = dir.x * vit
 	velocity.z = dir.z * vit
 	velocity.y = -2.0 if is_on_floor() else velocity.y - 30.0 * dt
-	move_and_slide()
+	# loin du joueur : pas de collision coûteuse avec la ville, simple déplacement à 4 Hz
+	var loin_j := global_position.distance_to(ville.joueur.global_position) > 35.0 and mode == "ville"
+	if loin_j:
+		_lent_t += dt
+		if _lent_t >= 0.25:
+			global_position += Vector3(velocity.x, 0, velocity.z) * _lent_t
+			_lent_t = 0.0
+	else:
+		move_and_slide()
 	if dir != Vector3.ZERO:
 		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(dir.x, dir.z), minf(1.0, dt * 10.0))
 		if _coup_t <= 0.3:

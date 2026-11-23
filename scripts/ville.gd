@@ -614,6 +614,10 @@ func _ville() -> void:
 		var mi := m as MeshInstance3D
 		mi.create_trimesh_collision()
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+		var taille := mi.get_aabb().size.length() * ECHELLE_VILLE
+		mi.visibility_range_end = 70.0 if taille < 4.0 else (140.0 if taille < 25.0 else 0.0)
+		mi.visibility_range_end_margin = 10.0
+		mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 
 	var sol := StaticBody3D.new()
 	var cs := CollisionShape3D.new()
@@ -1293,12 +1297,16 @@ func _process_reel(dt: float) -> void:
 		var pj := joueur.global_position
 		for m in monstres:
 			if is_instance_valid(m) and not m.allie:
-				var loin: bool = m.global_position.distance_to(pj) > 60.0 and m != raid_boss and m != boss_evt
+				var loin: bool = m.global_position.distance_to(pj) > 50.0 and m != raid_boss and m != boss_evt
 				if m.visible == loin:
 					m.visible = not loin
 					m.set_process(not loin)
 					if m._ap:
 						m._ap.active = not loin
+				elif not loin and m._ap:
+					var tres_proche: bool = m.global_position.distance_to(pj) < 35.0
+					if m._ap.callback_mode_process != (AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE if tres_proche else AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_PHYSICS):
+						m._ap.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE if tres_proche else AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_PHYSICS
 		for c in chasseurs:
 			if is_instance_valid(c) and c.mode == "ville":
 				var proche: bool = c.global_position.distance_to(pj) < 60.0
