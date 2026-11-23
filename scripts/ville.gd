@@ -449,6 +449,8 @@ func _ready() -> void:
 				add_child(p)
 
 var _postes_gen: Array = []
+var pts_rue: Array = []
+var missions: Missions
 
 # Découpe la ville en zones de rang selon la distance au départ : E proche, puis D, C, B au loin.
 func _generer_zones() -> void:
@@ -473,6 +475,10 @@ func _generer_zones() -> void:
 			continue
 		pts.append(p)
 	randomize()
+	pts_rue = pts
+	missions = Missions.new()
+	add_child(missions)
+	missions.installer(self, pts)
 	if pts.size() < 24:
 		_postes_gen = POSTES
 		return
@@ -745,6 +751,10 @@ func action_proche() -> Dictionary:
 	for n: Pnj in pnjs:
 		if p.distance_to(n.global_position) < 3.6:
 			return {"type": "autel", "autel": n.autel}
+	if missions:
+		var am := missions.action(p)
+		if not am.is_empty():
+			return am
 	if p.distance_to(portail.global_position) < 4.5:
 		return {"type": "donjon"}
 	if p.distance_to(portail_rouge.global_position) < 5.0:

@@ -14,6 +14,7 @@ var _joy_actif := false
 const JOY_R := 85.0
 var _b_frapper: Control
 var _b_saut: Control
+var _ml: Label
 var _b_eveil: Control
 var _b_comp := {}
 var _barre := {}
@@ -183,6 +184,10 @@ func _ready() -> void:
 		h.pressed.connect(func (): ouvrir(type))
 		_racine.add_child(h)
 		_hex[type] = h
+	_ml = Ui.label("", 20, Color(1.0, 0.9, 0.6), 7)
+	_ml.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_ml.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_racine.add_child(_ml)
 	_msg = Ui.label("", 28, Color.WHITE, 9)
 	_msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_racine.add_child(_msg)
@@ -370,6 +375,8 @@ func _disposer() -> void:
 	var pos := {"inventaire": o, "ombres": o + Vector2(86, 50), "stats": o + Vector2(0, 100), "index": o + Vector2(86, 150), "boutique": o + Vector2(0, 200), "classement": o + Vector2(86, 250), "journal": o + Vector2(0, 300), "grimoire": o + Vector2(86, 350), "menu": o}
 	for k in _hex:
 		_hex[k].position = pos[k]
+	_ml.position = Vector2(w / 2.0 - 300, 118)
+	_ml.size = Vector2(600, 60)
 	_msg.position = Vector2(w / 2.0 - 450, h * 0.62)
 	_msg.size = Vector2(900, 40)
 	_cadre.position = Vector2(w / 2.0 - 280, 8)
@@ -538,6 +545,9 @@ func _process(dt: float) -> void:
 
 func _process_reel(dt: float) -> void:
 	_maj_action()
+	var tm: String = ville.missions.texte() if ville.missions and ville.donjon == null and ville.chateau == null and ville.abime == null else ""
+	if _ml.text != tm:
+		_ml.text = tm
 	if ville.arene and ville.arene.actif:
 		dire("ARÈNE  ·  %d s" % int(ville.arene.temps), Color(1.0, 0.7, 0.3))
 	if ville.chateau and ville.chateau.actif and _flash_msg_t <= 0.0:
@@ -1457,7 +1467,7 @@ func _maj_action() -> void:
 	_action = ville.action_proche() if _panneau == null else {}
 	var v := not _action.is_empty()
 	if v:
-		var t: String = {"autel": "PARLER", "donjon": "ENTRER", "sortir": "SORTIR", "chateau": "CHÂTEAU", "abime": "ABÎME", "quitter_abime": "SORTIR", "secret": "BRISER"}[_action["type"]]
+		var t: String = {"autel": "PARLER", "donjon": "ENTRER", "sortir": "SORTIR", "chateau": "CHÂTEAU", "abime": "ABÎME", "quitter_abime": "SORTIR", "secret": "BRISER", "resto": "LIVRAISON", "livrer": "LIVRER"}[_action["type"]]
 		_b_action.set_meta("texte", t)
 	if v != _b_action.visible:
 		_b_action.visible = v
@@ -1483,6 +1493,10 @@ func agir() -> void:
 			Fx.son("portal", -6.0)
 		"abime":
 			ville.entrer_abime()
+		"resto":
+			ville.missions.prendre(int(_action["idx"]))
+		"livrer":
+			ville.missions.livrer()
 		"secret":
 			ville.donjon.ouvrir_secret()
 		"quitter_abime":
@@ -1513,11 +1527,18 @@ func _dessiner_evt() -> void:
 
 
 func _dessiner_fleche() -> void:
-	var b: Monstre = ville.boss_evt
-	if b == null or not is_instance_valid(b) or b.mort or ville.donjon != null:
+	if ville.donjon != null or ville.chateau != null or ville.abime != null:
 		return
+	var b: Monstre = ville.boss_evt
+	if b != null and is_instance_valid(b) and not b.mort:
+		_fleche_cible(b.global_position, Color(1.0, 0.25, 0.35), "Baran")
+	var mc: Dictionary = ville.missions.guide() if ville.missions else {}
+	if not mc.is_empty():
+		_fleche_cible(mc["pos"], mc["couleur"], mc["nom"])
+
+func _fleche_cible(cible: Vector3, col: Color, nom: String) -> void:
 	var cam: Camera3D = ville.camera
-	var p3 := b.global_position + Vector3(0, 3.0, 0)
+	var p3 := cible + Vector3(0, 3.0, 0)
 	var derriere := cam.is_position_behind(p3)
 	var p := cam.unproject_position(p3)
 	var marge := 70.0
@@ -1539,13 +1560,13 @@ func _dessiner_fleche() -> void:
 	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 150.0)
 	var a := d.angle()
 	var pts := PackedVector2Array([pos + Vector2.from_angle(a) * 30, pos + Vector2.from_angle(a + 2.5) * 22, pos + Vector2.from_angle(a - 2.5) * 22])
-	_fleche.draw_colored_polygon(pts, Color(1.0, 0.25, 0.35, 0.7 + 0.3 * pulse))
+	_fleche.draw_colored_polygon(pts, Color(col.r, col.g, col.b, 0.7 + 0.3 * pulse))
 	pts.append(pts[0])
 	_fleche.draw_polyline(pts, Color(1, 0.9, 0.9), 3.0, true)
-	var dist := int(ville.joueur.global_position.distance_to(b.global_position))
-	var txt := "Baran  %d m" % dist
+	var dist := int(ville.joueur.global_position.distance_to(cible))
+	var txt := "%s  %d m" % [nom, dist]
 	var w := Ui.police.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x
-	_texte(_fleche, pos - d * 46 - Vector2(w / 2.0, -6), txt, 18, Color(1.0, 0.75, 0.75), 6)
+	_texte(_fleche, pos - d * 46 - Vector2(w / 2.0, -6), txt, 18, col.lightened(0.55), 6)
 
 
 func _dessiner_donjon() -> void:

@@ -864,6 +864,19 @@ func mana_max() -> float:
 
 var dernier_combat := -100.0
 var potions := {"pv": 5, "mana": 5}
+var metier := {"coursier": {"livrees": 0}}
+
+# Paie d'un métier (or + un peu d'expérience)
+func gain_travail(gain: int, xp_gain: int) -> void:
+	pieces += gain
+	or_total += gain
+	xp += xp_gain
+	while xp >= xp_requise():
+		xp -= xp_requise()
+		niveau += 1
+		message.emit("Niveau %d !  +%d points de compétence" % [niveau, POINTS_PAR_NIVEAU], Color(1.0, 0.85, 0.3))
+		niveau_gagne.emit(niveau)
+	change.emit()
 
 func en_combat() -> void:
 	dernier_combat = _t
@@ -1306,7 +1319,7 @@ func sauver() -> void:
 			"auto_attaque": auto_attaque, "records": records, "finis": donjons_finis,
 			"chasseurs": chasseurs, "elo": elo, "jetons": jetons, "arene_v": arene_v, "arene_d": arene_d,
 			"quitte": Time.get_unix_time_from_system(), "rang_chasseur": rang_chasseur, "or_total": or_total, "opts": opts, "cles": cles, "etage_max": etage_max,
-			"quete": quete, "pts_bonus": points_bonus, "secretes": secretes, "kills_total": kills_total, "general": general_uid, "speciale": speciale, "abime_max": abime_max, "potions": potions, "contrats": contrats, "rival": rival, "rival_battu": rival_battu, "eclats_forge": eclats_forge, "guilde": guilde, "semaine_guerre": semaine_guerre, "titre": titre, "temps_tests": temps_tests}))
+			"quete": quete, "pts_bonus": points_bonus, "secretes": secretes, "kills_total": kills_total, "general": general_uid, "speciale": speciale, "abime_max": abime_max, "potions": potions, "contrats": contrats, "rival": rival, "rival_battu": rival_battu, "eclats_forge": eclats_forge, "guilde": guilde, "semaine_guerre": semaine_guerre, "titre": titre, "temps_tests": temps_tests, "metier": metier}))
 
 func charger() -> void:
 	if OS.get_cmdline_user_args().has("--sans-sauvegarde") or not FileAccess.file_exists(CHEMIN):
@@ -1357,6 +1370,9 @@ func charger() -> void:
 	semaine_guerre = int(d.get("semaine_guerre", -1))
 	titre = str(d.get("titre", ""))
 	temps_tests = d.get("temps_tests", {})
+	var mt: Dictionary = d.get("metier", {})
+	if mt.has("coursier"):
+		metier["coursier"] = {"livrees": int(mt["coursier"].get("livrees", 0))}
 	rival_battu = bool(d.get("rival_battu", false))
 	var pp: Dictionary = d.get("potions", {})
 	potions = {"pv": int(pp.get("pv", 5)), "mana": int(pp.get("mana", 5))}
