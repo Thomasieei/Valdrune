@@ -631,9 +631,20 @@ func mur_proche(p: Vector3, portee := 30.0) -> Dictionary:
 		var dist := o.distance_to(r["position"])
 		if dist < 2.4 or dist >= dm:
 			continue
+		if nm.dot(-d) < 0.85:
+			continue
 		var o2 := o + Vector3(0, 5, 0)
 		var r2 := etat.intersect_ray(PhysicsRayQueryParameters3D.create(o2, o2 + d * (dist + 0.6)))
 		if r2.is_empty():
+			continue
+		var lat := d.cross(Vector3.UP) * 2.2
+		var large := true
+		for sgn in [-1.0, 1.0]:
+			var oo: Vector3 = o + lat * sgn
+			var r3 := etat.intersect_ray(PhysicsRayQueryParameters3D.create(oo, oo + d * (dist + 1.0)))
+			if r3.is_empty() or absf(oo.distance_to(r3["position"]) - dist) > 0.8:
+				large = false
+		if not large:
 			continue
 		dm = dist
 		mieux = {"pos": r["position"], "normal": Vector3(nm.x, 0, nm.z).normalized()}
