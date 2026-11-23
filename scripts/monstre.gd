@@ -533,7 +533,7 @@ func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) ->
 	else:
 		Fx.degats(global_position + Vector3(randf_range(-0.9, 0.9), h * randf_range(0.55, 1.05), randf_range(-0.3, 0.3)), degats, crit, source == "ombres")
 		if source == "joueur" or source == "ombres":
-			_impact(crit, source == "ombres")
+			_impact_coup(crit, source == "ombres")
 		if source == "joueur" and _ap_ok_squash():
 			var tw := create_tween()
 			var s0 := _corps.scale
@@ -583,7 +583,7 @@ func _retour_idle(apres: float) -> void:
 var _squash := false
 static var _tex_etincelle: Texture2D
 
-func _impact(crit: bool, ombre: bool) -> void:
+func _impact_coup(crit: bool, ombre: bool) -> void:
 	var p := GPUParticles3D.new()
 	p.amount = 14 if crit else 8
 	p.lifetime = 0.35
