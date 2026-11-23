@@ -139,7 +139,7 @@ func _draw() -> void:
 		if bord:
 			r = r.normalized() * (R - 9.0)
 		var col: Color = t["col"]
-		var actif := (not cur.is_empty() and cur["nom"] == t["nom"])
+		var actif: bool = (not cur.is_empty() and cur["nom"] == t["nom"])
 		draw_circle(c + r, 6.0 if actif else 4.0, col)
 		if actif:
 			draw_arc(c + r, 9.0, 0, TAU, 20, Color(1, 1, 1, 0.9), 2.0, true)
