@@ -36,6 +36,7 @@ func systeme(titre: String, lignes: Array) -> void:
 	_sys.add_theme_stylebox_override("panel", Ui.boite(Color(0.02, 0.06, 0.16, 0.95), Color(0.35, 0.75, 1.0), 3, 6))
 	_sys.size = Vector2(520, 70 + lignes.size() * 24)
 	_sys.position = Vector2((_taille.x - _sys.size.x) / 2.0, 96)
+	_sys.self_modulate = Color(1, 1, 1, 0.85)
 	var t := Ui.label(titre, 20, Color(0.55, 0.9, 1.0), 7)
 	t.size = Vector2(520, 30)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -55,13 +56,13 @@ func systeme(titre: String, lignes: Array) -> void:
 	var tw := _sys.create_tween()
 	tw.tween_property(_sys, "modulate:a", 1.0, 0.15)
 	tw.parallel().tween_property(_sys, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK)
-	tw.tween_interval(3.5)
-	tw.tween_property(_sys, "modulate:a", 0.0, 0.4)
+	tw.tween_interval(2.6)
+	tw.tween_property(_sys, "modulate:a", 0.0, 0.3)
 	tw.tween_callback(_sys.queue_free)
 	Fx.son("open", -2.0, 1.3)
 var _flash_msg_t := 0.0
 const BARRE := [["arise", "ARISE", "arise"], ["fureur", "ATTAQUE", "attack"], ["auto", "OMBRES", "cmd_attack"],
-	["rappel", "RAPPEL", "essence"], ["potion", "POTION", "role_heal"], ["equip", "ÉQUIPE", "items"],
+	["rappel", "RAPPEL", "essence"], ["potion", "POTION", "role_heal"], ["equip", "ÉQUIPE", "a1"],
 	["diviser", "DIVISER", "role_melee"], ["monarque", "MONARQUE", "w8"], ["rangees", "RANGER", "ombres"], ["fourreau", "FOURREAU", "tab_w"], ["patrouille", "PATROUILLE", "q_run"]]
 
 func _barre_on(k: String) -> bool:
@@ -310,7 +311,8 @@ func _rond(texte: String, icone: String, taille: float, fond: Color) -> Control:
 			c.draw_arc(ctr, r + 2, 0, TAU, 56, Color(0.3, 1.0, 0.45) if c.get_meta("on") else Color(0.35, 0.35, 0.45), 5.0, true)
 		var tex := Ui.tex(icone)
 		var ti := r * 1.0
-		c.draw_texture_rect(tex, Rect2(ctr - Vector2(ti, ti) / 2.0 - Vector2(0, r * 0.14), Vector2(ti, ti)), false)
+		if tex:
+			c.draw_texture_rect(tex, Rect2(ctr - Vector2(ti, ti) / 2.0 - Vector2(0, r * 0.14), Vector2(ti, ti)), false)
 		var fs: int = c.get_meta("fs", int(clampf(taille * 0.15, 15, 22)))
 		var tx: String = c.get_meta("texte", texte)
 		var w := Ui.police.get_string_size(tx, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
