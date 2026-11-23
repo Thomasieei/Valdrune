@@ -249,9 +249,13 @@ func _frapper() -> void:
 		return
 	Partie.en_combat()
 	var crit := randf() < Partie.chance_crit()
-	var deg := Partie.dps_joueur() * CADENCE * (2.0 if crit else 1.0) * randf_range(0.9, 1.1)
-	c.frapper(deg, crit)
+	var lourd := _coup_n == 2
+	var deg := Partie.dps_joueur() * CADENCE * (2.0 if crit else 1.0) * randf_range(0.9, 1.1) * (1.6 if lourd else 0.85)
+	c.frapper(deg, crit or lourd)
 	var v := get_parent()
+	if lourd:
+		v.secouer(0.3)
+		Fx.son("slam", -6.0, 1.3)
 	if crit:
 		v.secouer(0.35)
 		v.hitstop(0.045)

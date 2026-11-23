@@ -170,7 +170,7 @@ func _maj_ciel(dt: float) -> void:
 		_etait_nuit = n
 		hud.annonce("LA NUIT TOMBE" if n else "LE JOUR SE LÈVE", "Monstres +30 % PV · éveil ×1,5" if n else "Retour à la normale", Color(0.55, 0.6, 1.0) if n else Color(1.0, 0.85, 0.5))
 	if donjon == null and chateau == null and abime == null and arene == null:
-		var cible_e := 0.25 if n else 1.7
+		var cible_e := 0.25 if n else 1.2
 		_soleil.light_energy = lerpf(_soleil.light_energy, cible_e, 0.15)
 		_soleil.light_color = Color(0.55, 0.65, 1.0) if n else Color(1.0, 0.9, 0.8)
 		_env.ambient_light_energy = lerpf(_env.ambient_light_energy, 0.4 if n else 0.6, 0.15)
@@ -477,7 +477,7 @@ func _generer_zones() -> void:
 		par_rang[rg] += 1
 		var l: Array = Partie.ESPECES_RANG[rg]
 		for j in 2:
-			_postes_gen.append([l[(j + par_rang[rg]) % 2], p.x + j * 3.0, p.z + randf_range(-2, 2), randf() * 360.0])
+			_postes_gen.append([l[(j + par_rang[rg]) % 2], p.x + j * 6.0, p.z + randf_range(-2, 2), randf() * 360.0])
 	for b in POSTES:
 		if Partie.ESPECES[b[0]].get("boss", false):
 			_postes_gen.append(b)
@@ -572,12 +572,12 @@ func _environnement() -> void:
 	e.ambient_light_energy = 0.6
 	e.ambient_light_sky_contribution = 0.8
 	e.tonemap_mode = Environment.TONE_MAPPER_ACES
-	e.tonemap_exposure = 1.05
+	e.tonemap_exposure = 0.88
 	e.adjustment_enabled = true
-	e.adjustment_saturation = 1.18
+	e.adjustment_saturation = 1.12
 	e.adjustment_contrast = 1.07
-	e.glow_bloom = 0.06
-	e.glow_hdr_threshold = 0.9
+	e.glow_bloom = 0.0
+	e.glow_hdr_threshold = 1.4
 	e.fog_enabled = true
 	e.fog_light_color = Color(0.75, 0.7, 0.78)
 	e.fog_density = 0.0035
@@ -590,7 +590,7 @@ func _environnement() -> void:
 	_soleil = DirectionalLight3D.new()
 	_soleil.rotation_degrees = Vector3(-42, 35, 0)
 	_soleil.light_color = Color(1.0, 0.86, 0.7)
-	_soleil.light_energy = 1.7
+	_soleil.light_energy = 1.2
 	_soleil.shadow_enabled = true
 	_soleil.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	_soleil.directional_shadow_max_distance = 40.0

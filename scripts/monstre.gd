@@ -200,6 +200,14 @@ func _combat(dt: float) -> void:
 		var ombres := get_tree().get_nodes_in_group("ombres").filter(func (o): return not o.mort and o.global_position.distance_to(global_position) < 16.0)
 		if not ombres.is_empty() and randf() < 0.35:
 			cible = ombres.pick_random().global_position
+		var w := cible - global_position
+		_corps.rotation.y = atan2(w.x, w.z)
+		Modele.jouer(_ap, "Attack" if _ap and _ap.has_animation("Attack") else "Roar", 0.9, 0.08)
+		_retour_idle(1.0)
+		var tw := create_tween()
+		var s0 := _corps.scale
+		tw.tween_property(_corps, "scale", s0 * 1.12, 0.25)
+		tw.tween_property(_corps, "scale", s0, 0.3)
 		_zone(cible, RAYON_ZONE[r] * (1.2 if elite else 1.0), 2.0 if r < 3 else 1.6)
 	if r >= 1:
 		if _parade > 0.0:
