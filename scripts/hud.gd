@@ -1896,7 +1896,7 @@ func _chateau_panneau() -> void:
 
 func _journal() -> void:
 	Partie.verifier_jour()
-	_ajouter(Ui.label("QUÊTE QUOTIDIENNE — Préparation pour devenir fort", 22, Color(0.55, 0.9, 1.0), 7), Vector2(36, 82))
+	_ajouter(Ui.label("QUÊTE QUOTIDIENNE", 22, Color(0.55, 0.9, 1.0), 7), Vector2(36, 82))
 	var y := 124.0
 	for k in Partie.QUETE_JOUR:
 		var q: Array = Partie.QUETE_JOUR[k]
@@ -1904,7 +1904,7 @@ func _journal() -> void:
 		var ok := v >= int(q[1])
 		_ajouter(Ui.label("%s  %s : %d / %d" % ["✔" if ok else "•", q[0], v, q[1]], 22, Color(0.45, 1.0, 0.55) if ok else Color(0.9, 0.92, 1.0), 6), Vector2(50, y))
 		y += 38.0
-	_ajouter(Ui.label("ACCOMPLIE — récompenses reçues" if Partie.quete["faite"] else "Récompense : +3 points, pièces, 1 clé  ·  Échec : zone de pénalité", 16, Color(1.0, 0.8, 0.4), 4), Vector2(50, y + 4))
+	_ajouter(Ui.label("ACCOMPLIE ✔" if Partie.quete["faite"] else "+3 points, pièces, 1 clé · échec = pénalité", 16, Color(1.0, 0.8, 0.4), 4), Vector2(50, y + 4))
 	Partie.verifier_contrats()
 	var yc := 124.0
 	_ajouter(Ui.label("CONTRATS DE GUILDE", 20, Color(1.0, 0.75, 0.35), 6), Vector2(440, 82))
