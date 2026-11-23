@@ -85,7 +85,7 @@ func _video() -> void:
 		j.global_position = m0.global_position + Vector3(2.2, 0.3, 0)
 		await attendre(0.3)
 		j.viser(m0)
-	for k in 3:
+	for k in 1:
 		await attendre(1.0)
 		var pr := []
 		for kk in Partie.prof:
@@ -93,6 +93,16 @@ func _video() -> void:
 		Partie.prof.clear()
 		print("[PROF] ", " ".join(pr))
 		print("[PERF] fps=%d proc_ms=%.2f phys_ms=%.2f noeuds=%d objets_rendu=%d draw=%d" % [Performance.get_monitor(Performance.TIME_FPS), Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0, Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)])
+	# test du déplacement rapide : élan, saut, double saut, dash aérien
+	j.cible = null
+	j.entree = Vector2(0, 1)
+	await attendre(2.0)
+	for k in 3:
+		j.sauter()
+		await attendre(0.35)
+	print("[PARKOUR] elan=%.2f y=%.2f sol=%s" % [j.elan, j.global_position.y, str(j.is_on_floor())])
+	await attendre(1.5)
+	j.entree = Vector2.ZERO
 	j.competence("esquive")
 	await attendre(1.0)
 	for sk in ["brise", "domaine", "cri"]:
@@ -105,16 +115,6 @@ func _video() -> void:
 				j.viser(m1)
 		print("[SKILL] ", sk, " -> ", j.competence(sk))
 		await attendre(1.5)
-	# test du déplacement rapide : élan, saut, double saut, dash aérien
-	j.cible = null
-	j.entree = Vector2(0, 1)
-	await attendre(2.0)
-	for k in 3:
-		j.sauter()
-		await attendre(0.35)
-	print("[PARKOUR] elan=%.2f y=%.2f sol=%s" % [j.elan, j.global_position.y, str(j.is_on_floor())])
-	await attendre(1.5)
-	j.entree = Vector2.ZERO
 
 func _tour() -> void:
 	var v = ville
