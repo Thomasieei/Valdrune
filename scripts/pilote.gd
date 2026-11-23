@@ -163,9 +163,17 @@ func _tour() -> void:
 		print("[APPART] apres paiement: du=", Partie.loyer_du())
 		await v.appart.sortir()
 		await attendre(0.8)
-		j.global_position = v.skyline.tour_pos.lerp(v.DEPART, 0.6) + Vector3(0, 0.5, 0)
-		await attendre(0.5)
+		j.global_position = v.DEPART + Vector3(0, 0.5, 0)
+		var vx: float = v.skyline.tour_pos.x - v.DEPART.x
+		var vz: float = v.skyline.tour_pos.z - v.DEPART.z
+		v._lacet = atan2(-vx, -vz)
+		v._tangage = 0.35
+		await attendre(0.8)
 		await capture("skyline")
+		v._lacet += 2.2
+		await attendre(0.8)
+		await capture("skyline2")
+		v._tangage = -0.3
 		j.global_position = v.DEPART + Vector3(0, 0.5, 0)
 	var ms: Missions = v.missions
 	if ms and ms.restos.size() > 0:

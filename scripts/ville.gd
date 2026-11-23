@@ -51,7 +51,7 @@ var monstres: Array = []
 var ombres: Array = []
 var hud: Hud
 var _lacet := 1.45
-var _tangage := -0.42
+var _tangage := -0.3
 var _dist := 8.5
 var _cam_pos := Vector3.ZERO
 var _soleil: DirectionalLight3D
@@ -406,7 +406,7 @@ func _ready() -> void:
 	joueur.global_position = DEPART
 	camera = Camera3D.new()
 	camera.fov = 62
-	camera.far = 420
+	camera.far = 1500
 	add_child(camera)
 	_sphere_cam.radius = 0.35
 	_cam_pos = DEPART
@@ -1375,7 +1375,7 @@ func mort_joueur() -> void:
 
 func tourner_camera(rel: Vector2) -> void:
 	_lacet -= rel.x * 0.006
-	_tangage = clampf(_tangage - rel.y * 0.004, -1.1, -0.12)
+	_tangage = clampf(_tangage - rel.y * 0.004, -1.1, 0.5)
 
 func toucher_monde(p: Vector2) -> void:
 	var o := camera.project_ray_origin(p)

@@ -6,7 +6,7 @@ extends Node3D
 const NIVEAUX := [1, 8, 18, 30]
 const CODE := "
 shader_type spatial;
-render_mode diffuse_lambert, specular_disabled;
+render_mode diffuse_lambert, specular_disabled, fog_disabled;
 varying vec3 lp;
 varying vec3 ln;
 varying vec4 cd;
@@ -18,7 +18,9 @@ void vertex() {
 	cd = INSTANCE_CUSTOM;
 }
 void fragment() {
-	ALBEDO = mix(vec3(0.05, 0.07, 0.12), vec3(0.09, 0.07, 0.13), fract(cd.x * 7.0));
+	float dist = length(VERTEX);
+	float brume = clamp(dist / 1300.0, 0.0, 0.62);
+	ALBEDO = mix(mix(vec3(0.05, 0.07, 0.12), vec3(0.09, 0.07, 0.13), fract(cd.x * 7.0)), vec3(0.5, 0.48, 0.62), brume);
 	ROUGHNESS = 0.8;
 	float cote = 1.0 - step(0.5, abs(ln.y));
 	float u = lp.x + lp.z;
@@ -31,7 +33,7 @@ void fragment() {
 	vec3 froid = vec3(0.45, 0.8, 1.0);
 	vec3 col = mix(chaud, froid, step(0.72, hh(id + 7.0)));
 	col = mix(col, vec3(1.0, 0.4, 0.8), step(0.95, hh(id + 3.0)));
-	EMISSION = col * fen * on * cote * (1.0 - step(0.5, cd.b)) * 0.55;
+	EMISSION = col * fen * on * cote * (1.0 - step(0.5, cd.b)) * 0.9 * (1.0 - brume);
 }
 "
 
@@ -64,8 +66,8 @@ func installer(v: Node3D, pts: Array) -> void:
 		mnz = minf(mnz, p.z)
 		mxz = maxf(mxz, p.z)
 	var centre := Vector2((mnx + mxx) / 2.0, (mnz + mxz) / 2.0)
-	var a := (mxx - mnx) / 2.0 + 70.0
-	var b := (mxz - mnz) / 2.0 + 70.0
+	var a := (mxx - mnx) / 2.0 + 45.0
+	var b := (mxz - mnz) / 2.0 + 45.0
 	_limites(mnx - 30.0, mxx + 30.0, mnz - 30.0, mxz + 30.0)
 	seed(777)
 	# sol sombre à l'infini (pas de vide autour de la ville)
@@ -86,12 +88,12 @@ func installer(v: Node3D, pts: Array) -> void:
 		var tier := 0 if i < 16 else (1 if i < 26 else (2 if i < 34 else 3))
 		for essai in 8:
 			var th := TAU * (float(i) + randf_range(-0.3, 0.3)) / n_ring
-			var f := randf_range(1.0, 1.7)
+			var f := randf_range(1.0, 1.45)
 			var pos := centre + Vector2(a * cos(th) * f, b * sin(th) * f)
-			if _places.any(func (q): return q.distance_to(pos) < 55.0):
+			if _places.any(func (q): return q.distance_to(pos) < 75.0):
 				continue
 			_places.append(pos)
-			_tour(pos, randf_range(130.0, 330.0), randf_range(26.0, 52.0), tier, false)
+			_tour(pos, randf_range(220.0, 540.0), randf_range(40.0, 90.0), tier, false)
 			break
 	# tours dans la ville, sur les terrains libres (avec collision : on peut courir sur les murs)
 	var cible_int := 0
@@ -139,6 +141,7 @@ func installer(v: Node3D, pts: Array) -> void:
 		add_child(mi)
 		_tiers.append([mi, NIVEAUX[t]])
 	_tour_chasseurs(centre, a, b)
+	_trafic(centre, a, b)
 	Partie.niveau_gagne.connect(_niveau)
 
 # Barrière magnétique : murs invisibles solides + voile bleu visible de près
@@ -255,6 +258,58 @@ func _tour_chasseurs(centre: Vector2, a: float, b: float) -> void:
 	lb.modulate = Color(1.0, 0.85, 0.4)
 	lb.position = Vector3(pos.x, y * 0.55, pos.y)
 	add_child(lb)
+
+# Circulation aérienne : des traînées lumineuses glissent à haute altitude (animées par le shader, aucun coût CPU)
+const CODE_TRAFIC := "
+shader_type spatial;
+render_mode unshaded, fog_disabled;
+varying vec3 col;
+void vertex() {
+	float t = fract(INSTANCE_CUSTOM.x + TIME * INSTANCE_CUSTOM.y);
+	VERTEX.x += (t - 0.5) * 1700.0;
+	col = mix(vec3(1.0, 0.7, 0.35), vec3(0.4, 0.85, 1.0), step(0.5, INSTANCE_CUSTOM.z));
+}
+void fragment() {
+	ALBEDO = col * 1.8;
+}
+"
+var _trafic_mi: MultiMeshInstance3D
+
+func _trafic(centre: Vector2, a: float, b: float) -> void:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true
+	var bm := BoxMesh.new()
+	bm.size = Vector3(9.0, 0.9, 0.9)
+	mm.mesh = bm
+	mm.instance_count = 70
+	mm.custom_aabb = AABB(Vector3(-1500, 0, -1500), Vector3(3000, 600, 3000))
+	var angles := [0.0, 0.9, 2.1]
+	for k in 70:
+		var ang: float = angles[k % 3]
+		var pos := Vector3(randf_range(-a, a), randf_range(70.0, 280.0), randf_range(-b, b))
+		var bas := Basis(Vector3.UP, ang)
+		mm.set_instance_transform(k, Transform3D(bas, pos))
+		mm.set_instance_custom_data(k, Color(randf(), randf_range(0.015, 0.045), randf(), 0.0))
+	var sh := Shader.new()
+	sh.code = CODE_TRAFIC
+	var mt := ShaderMaterial.new()
+	mt.shader = sh
+	_trafic_mi = MultiMeshInstance3D.new()
+	_trafic_mi.multimesh = mm
+	_trafic_mi.material_override = mt
+	_trafic_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_trafic_mi.position = Vector3(centre.x, 0.0, centre.y)
+	add_child(_trafic_mi)
+
+var _vis_t := 0.0
+
+func _process(dt: float) -> void:
+	_vis_t -= dt
+	if _vis_t > 0.0 or ville == null:
+		return
+	_vis_t = 0.5
+	visible = ville.donjon == null and ville.chateau == null and ville.abime == null and not ville.chez_soi and ville.arene == null
 
 func _niveau(n: int) -> void:
 	var nouveau := false
