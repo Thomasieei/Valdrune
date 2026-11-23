@@ -451,6 +451,23 @@ func _ready() -> void:
 var _postes_gen: Array = []
 var pts_rue: Array = []
 var missions: Missions
+var skyline: Skyline
+var appart: Appart
+var carte: Carte
+var chez_soi := false
+
+func cibles_gps() -> Array:
+	var l := []
+	if missions:
+		l.append_array(missions.cibles())
+	if appart:
+		l.append({"nom": "Ton appartement", "pos": appart.porte_pos, "col": Color(0.4, 1.0, 0.55)})
+	l.append({"nom": "Portail des donjons", "pos": PORTAIL, "col": Color(0.4, 0.6, 1.0)})
+	if skyline:
+		l.append({"nom": "Tour des chasseurs", "pos": skyline.tour_pos, "col": Color(1.0, 0.85, 0.3)})
+	l.append({"nom": "Château rouge", "pos": PORTAIL_ROUGE, "col": Color(1.0, 0.3, 0.3)})
+	l.append({"nom": "Abîme", "pos": PORTAIL_ABIME, "col": Color(0.6, 0.4, 1.0)})
+	return l
 
 # Découpe la ville en zones de rang selon la distance au départ : E proche, puis D, C, B au loin.
 func _generer_zones() -> void:
@@ -479,6 +496,14 @@ func _generer_zones() -> void:
 	missions = Missions.new()
 	add_child(missions)
 	missions.installer(self, pts)
+	appart = Appart.new()
+	add_child(appart)
+	appart.installer(self, pts)
+	skyline = Skyline.new()
+	add_child(skyline)
+	skyline.installer(self, pts)
+	carte = Carte.new()
+	carte.construire(self)
 	if pts.size() < 24:
 		_postes_gen = POSTES
 		return
@@ -738,6 +763,8 @@ func _pole() -> void:
 
 func action_proche() -> Dictionary:
 	var p := joueur.global_position
+	if chez_soi:
+		return appart.action(p)
 	if abime:
 		return {"type": "quitter_abime"} if p.distance_to(abime.point_depart()) < 4.0 else {}
 	if chateau:
@@ -755,6 +782,10 @@ func action_proche() -> Dictionary:
 		var am := missions.action(p)
 		if not am.is_empty():
 			return am
+	if appart:
+		var aa := appart.action(p)
+		if not aa.is_empty():
+			return aa
 	if p.distance_to(portail.global_position) < 4.5:
 		return {"type": "donjon"}
 	if p.distance_to(portail_rouge.global_position) < 5.0:

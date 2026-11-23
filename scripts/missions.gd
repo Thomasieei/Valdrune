@@ -136,7 +136,7 @@ func _colonne(c: Color, h: float, r: float) -> MeshInstance3D:
 func _process(dt: float) -> void:
 	if not actif or ville == null:
 		return
-	if ville.donjon != null or ville.chateau != null or ville.abime != null:
+	if ville.donjon != null or ville.chateau != null or ville.abime != null or ville.chez_soi:
 		return
 	m["t"] = float(m["t"]) - dt
 	if float(m["t"]) <= 0.0:
@@ -255,6 +255,25 @@ func guide() -> Dictionary:
 		if mieux >= 0 and dm > 25.0 and int(Partie.metier["coursier"]["livrees"]) < 1:
 			return {"pos": restos[mieux]["pos"], "couleur": Color(1.0, 0.65, 0.25), "nom": "Livraisons"}
 	return {}
+
+func guide_mission() -> Dictionary:
+	if actif and _client and is_instance_valid(_client):
+		return {"nom": "Client " + str(m["client"]), "pos": _client.global_position, "col": Color(0.3, 0.85, 1.0)}
+	return {}
+
+func cibles() -> Array:
+	var l := []
+	var mieux := -1
+	var dm := INF
+	var p: Vector3 = ville.joueur.global_position
+	for k in restos.size():
+		var d := p.distance_to(restos[k]["pos"])
+		if d < dm:
+			dm = d
+			mieux = k
+	if mieux >= 0:
+		l.append({"nom": "Restaurant proche", "pos": restos[mieux]["pos"], "col": Color(1.0, 0.65, 0.25)})
+	return l
 
 func texte() -> String:
 	if not actif or _client == null or not is_instance_valid(_client):

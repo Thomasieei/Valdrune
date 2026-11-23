@@ -128,6 +128,27 @@ func _tour() -> void:
 	Partie.change.emit()
 	await attendre(2.5)
 	await capture("ville_depart")
+	if v.appart:
+		j.global_position = v.appart.porte_pos + Vector3(2.0, 0.5, 2.0)
+		await attendre(1.0)
+		await capture("porte_appart")
+		print("[APPART] action porte=", v.appart.action(j.global_position))
+		await v.appart.entrer()
+		await attendre(1.0)
+		await capture("appart_interieur")
+		print("[APPART] chez_soi=", v.chez_soi, " loyer_du=", Partie.loyer_du(), " action=", v.action_proche())
+		Partie.loyer["paye_jour"] = Partie._jour_actuel() - 2
+		print("[APPART] apres 2 jours: du=", Partie.loyer_du(), " impayes=", Partie.jours_impayes())
+		v.appart.parler()
+		Partie.pieces += 5000
+		v.appart.payer()
+		print("[APPART] apres paiement: du=", Partie.loyer_du())
+		await v.appart.sortir()
+		await attendre(0.8)
+		j.global_position = v.skyline.tour_pos.lerp(v.DEPART, 0.6) + Vector3(0, 0.5, 0)
+		await attendre(0.5)
+		await capture("skyline")
+		j.global_position = v.DEPART + Vector3(0, 0.5, 0)
 	var ms: Missions = v.missions
 	if ms and ms.restos.size() > 0:
 		var rp: Vector3 = ms.restos[0]["pos"]

@@ -15,6 +15,9 @@ const JOY_R := 85.0
 var _b_frapper: Control
 var _b_saut: Control
 var _ml: Label
+var _carte: Carte
+var _carte_t := 0.0
+var _gps_lbl: Label
 var _b_eveil: Control
 var _b_comp := {}
 var _barre := {}
@@ -545,7 +548,26 @@ func _process(dt: float) -> void:
 
 func _process_reel(dt: float) -> void:
 	_maj_action()
-	var tm: String = ville.missions.texte() if ville.missions and ville.donjon == null and ville.chateau == null and ville.abime == null else ""
+	if _carte == null and ville.carte != null:
+		_carte = ville.carte
+		_racine.add_child(_carte)
+		_gps_lbl = Ui.label("", 15, Color(0.7, 1.0, 0.85), 5)
+		_gps_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_racine.add_child(_gps_lbl)
+	if _carte != null:
+		var dehors: bool = ville.donjon == null and ville.chateau == null and ville.abime == null and not ville.chez_soi and ville.arene == null
+		_carte.visible = dehors and _panneau == null
+		_gps_lbl.visible = _carte.visible
+		var cs := clampf(_taille.y * 0.27, 140.0, 230.0)
+		_carte.size = Vector2(cs, cs)
+		_carte.position = Vector2(14.0, _taille.y * 0.34)
+		_gps_lbl.position = Vector2(14.0, _taille.y * 0.34 + cs + 2.0)
+		_carte_t -= dt
+		if _carte_t <= 0.0:
+			_carte_t = 0.5
+			var ct: Dictionary = _carte.cible_actuelle()
+			_gps_lbl.text = "GPS : %s  %d m" % [ct["nom"], int(ville.joueur.global_position.distance_to(ct["pos"]))] if not ct.is_empty() else "GPS : touche la carte"
+	var tm: String = ville.missions.texte() if ville.missions and ville.donjon == null and ville.chateau == null and ville.abime == null and not ville.chez_soi else ""
 	if _ml.text != tm:
 		_ml.text = tm
 	if ville.arene and ville.arene.actif:
@@ -1393,6 +1415,11 @@ func _poser(i: int, p: Vector2) -> void:
 		_doigts[i] = {"role": "ui"}
 		fermer()
 		return
+	if _carte != null and _carte.visible and _dans(_carte, p):
+		_doigts[i] = {"role": "bouton"}
+		_carte.cycler()
+		Fx.son("open", -10.0, 1.4)
+		return
 	for k in _fioles:
 		if _dans(_fioles[k], p):
 			_doigts[i] = {"role": "bouton"}
@@ -1467,7 +1494,7 @@ func _maj_action() -> void:
 	_action = ville.action_proche() if _panneau == null else {}
 	var v := not _action.is_empty()
 	if v:
-		var t: String = {"autel": "PARLER", "donjon": "ENTRER", "sortir": "SORTIR", "chateau": "CHÂTEAU", "abime": "ABÎME", "quitter_abime": "SORTIR", "secret": "BRISER", "resto": "LIVRAISON", "livrer": "LIVRER"}[_action["type"]]
+		var t: String = {"autel": "PARLER", "donjon": "ENTRER", "sortir": "SORTIR", "chateau": "CHÂTEAU", "abime": "ABÎME", "quitter_abime": "SORTIR", "secret": "BRISER", "resto": "LIVRAISON", "livrer": "LIVRER", "appart_entrer": "RENTRER", "appart_sortir": "SORTIR", "soeur": "MINA", "lit": "DORMIR", "loyer": "LOYER"}[_action["type"]]
 		_b_action.set_meta("texte", t)
 	if v != _b_action.visible:
 		_b_action.visible = v
@@ -1493,6 +1520,16 @@ func agir() -> void:
 			Fx.son("portal", -6.0)
 		"abime":
 			ville.entrer_abime()
+		"appart_entrer":
+			ville.appart.entrer()
+		"appart_sortir":
+			ville.appart.sortir()
+		"soeur":
+			ville.appart.parler()
+		"lit":
+			ville.appart.dormir()
+		"loyer":
+			ville.appart.payer()
 		"resto":
 			ville.missions.prendre(int(_action["idx"]))
 		"livrer":
@@ -1527,7 +1564,7 @@ func _dessiner_evt() -> void:
 
 
 func _dessiner_fleche() -> void:
-	if ville.donjon != null or ville.chateau != null or ville.abime != null:
+	if ville.donjon != null or ville.chateau != null or ville.abime != null or ville.chez_soi:
 		return
 	var b: Monstre = ville.boss_evt
 	if b != null and is_instance_valid(b) and not b.mort:

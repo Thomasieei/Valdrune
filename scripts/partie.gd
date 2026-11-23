@@ -865,6 +865,31 @@ func mana_max() -> float:
 var dernier_combat := -100.0
 var potions := {"pv": 5, "mana": 5}
 var metier := {"coursier": {"livrees": 0}}
+var loyer := {"paye_jour": -1}
+
+func _jour_actuel() -> int:
+	return int(Time.get_unix_time_from_system() / 86400.0)
+
+func loyer_montant() -> int:
+	return int(120.0 * (1.0 + 1.2 * rang_chasseur) * (1.0 + 0.05 * (niveau - 1)))
+
+func jours_impayes() -> int:
+	if int(loyer["paye_jour"]) < 0:
+		loyer["paye_jour"] = _jour_actuel()
+	return clampi(_jour_actuel() - int(loyer["paye_jour"]), 0, 5)
+
+func loyer_du() -> int:
+	var j := jours_impayes()
+	return int(loyer_montant() * (j + 0.15 * j * (j - 1) / 2.0))
+
+func payer_loyer() -> bool:
+	var du := loyer_du()
+	if du <= 0 or pieces < du:
+		return false
+	pieces -= du
+	loyer["paye_jour"] = _jour_actuel()
+	change.emit()
+	return true
 
 # Paie d'un métier (or + un peu d'expérience)
 func gain_travail(gain: int, xp_gain: int) -> void:
@@ -1319,7 +1344,7 @@ func sauver() -> void:
 			"auto_attaque": auto_attaque, "records": records, "finis": donjons_finis,
 			"chasseurs": chasseurs, "elo": elo, "jetons": jetons, "arene_v": arene_v, "arene_d": arene_d,
 			"quitte": Time.get_unix_time_from_system(), "rang_chasseur": rang_chasseur, "or_total": or_total, "opts": opts, "cles": cles, "etage_max": etage_max,
-			"quete": quete, "pts_bonus": points_bonus, "secretes": secretes, "kills_total": kills_total, "general": general_uid, "speciale": speciale, "abime_max": abime_max, "potions": potions, "contrats": contrats, "rival": rival, "rival_battu": rival_battu, "eclats_forge": eclats_forge, "guilde": guilde, "semaine_guerre": semaine_guerre, "titre": titre, "temps_tests": temps_tests, "metier": metier}))
+			"quete": quete, "pts_bonus": points_bonus, "secretes": secretes, "kills_total": kills_total, "general": general_uid, "speciale": speciale, "abime_max": abime_max, "potions": potions, "contrats": contrats, "rival": rival, "rival_battu": rival_battu, "eclats_forge": eclats_forge, "guilde": guilde, "semaine_guerre": semaine_guerre, "titre": titre, "temps_tests": temps_tests, "metier": metier, "loyer": loyer}))
 
 func charger() -> void:
 	if OS.get_cmdline_user_args().has("--sans-sauvegarde") or not FileAccess.file_exists(CHEMIN):
@@ -1370,6 +1395,7 @@ func charger() -> void:
 	semaine_guerre = int(d.get("semaine_guerre", -1))
 	titre = str(d.get("titre", ""))
 	temps_tests = d.get("temps_tests", {})
+	loyer = d.get("loyer", loyer)
 	var mt: Dictionary = d.get("metier", {})
 	if mt.has("coursier"):
 		metier["coursier"] = {"livrees": int(mt["coursier"].get("livrees", 0))}
