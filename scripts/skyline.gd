@@ -26,12 +26,12 @@ void fragment() {
 	vec2 id = floor(cell) + vec2(floor(cd.x * 97.0), 0.0);
 	vec2 f = fract(cell);
 	float fen = step(0.18, f.x) * step(f.x, 0.82) * step(0.2, f.y) * step(f.y, 0.8);
-	float on = step(0.5, hh(id));
+	float on = step(0.62, hh(id));
 	vec3 chaud = vec3(1.0, 0.8, 0.45);
 	vec3 froid = vec3(0.45, 0.8, 1.0);
 	vec3 col = mix(chaud, froid, step(0.72, hh(id + 7.0)));
 	col = mix(col, vec3(1.0, 0.4, 0.8), step(0.95, hh(id + 3.0)));
-	EMISSION = col * fen * on * cote * (1.0 - step(0.5, cd.b)) * 1.7;
+	EMISSION = col * fen * on * cote * (1.0 - step(0.5, cd.b)) * 0.8;
 }
 "
 

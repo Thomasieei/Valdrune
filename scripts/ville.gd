@@ -177,7 +177,7 @@ func _maj_ciel(dt: float) -> void:
 		_etait_nuit = n
 		hud.annonce("LA NUIT TOMBE" if n else "LE JOUR SE LÈVE", "Monstres +30 % PV · éveil ×1,5" if n else "Retour à la normale", Color(0.55, 0.6, 1.0) if n else Color(1.0, 0.85, 0.5))
 	if donjon == null and chateau == null and abime == null and arene == null:
-		var cible_e := 0.25 if n else 1.2
+		var cible_e := 0.25 if n else 1.0
 		_soleil.light_energy = lerpf(_soleil.light_energy, cible_e, 0.15)
 		_soleil.light_color = Color(0.55, 0.65, 1.0) if n else Color(1.0, 0.9, 0.8)
 		_env.ambient_light_energy = lerpf(_env.ambient_light_energy, 0.4 if n else 0.6, 0.15)
@@ -510,6 +510,9 @@ func _generer_zones() -> void:
 	qua.installer(self, pts)
 	carte = Carte.new()
 	carte.construire(self)
+	var foule := Foule.new()
+	add_child(foule)
+	foule.installer(self, pts, carte)
 	if pts.size() < 24:
 		_postes_gen = POSTES
 		return
@@ -683,21 +686,21 @@ func _environnement() -> void:
 	e.adjustment_enabled = true
 	e.adjustment_saturation = 1.0
 	e.adjustment_contrast = 1.1
-	e.glow_bloom = 0.05
-	e.glow_hdr_threshold = 1.05
+	e.glow_bloom = 0.02
+	e.glow_hdr_threshold = 1.5
 	e.fog_enabled = true
 	e.fog_light_color = Color(0.75, 0.7, 0.78)
 	e.fog_density = 0.0035
 	e.fog_aerial_perspective = 0.4
 	e.fog_sky_affect = 0.3
 	e.glow_enabled = true
-	e.glow_intensity = 0.95
+	e.glow_intensity = 0.65
 	we.environment = e
 	add_child(we)
 	_soleil = DirectionalLight3D.new()
 	_soleil.rotation_degrees = Vector3(-42, 35, 0)
 	_soleil.light_color = Color(1.0, 0.86, 0.7)
-	_soleil.light_energy = 1.2
+	_soleil.light_energy = 1.0
 	_soleil.shadow_enabled = true
 	_soleil.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	_soleil.directional_shadow_max_distance = 42.0
