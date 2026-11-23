@@ -1115,6 +1115,7 @@ func eveiller() -> void:
 	if m == null:
 		return
 	m.eveillable = false
+	joueur.animer_arise()
 	Fx.son("arise", 0.0)
 	Fx.anneau(m.global_position, Color(0.55, 0.2, 1.0), 3.0)
 	Fx.texte(m.global_position + Vector3(0, 2.5, 0), "LÈVE-TOI", Color(0.8, 0.55, 1.0), 1.8, 1.4)

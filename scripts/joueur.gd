@@ -237,13 +237,20 @@ func _monter_marche(dir: Vector3) -> void:
 		t.origin.y -= col.get_travel().length()
 	global_transform = t
 
+func _a(nom: String, repli: String) -> String:
+	return nom if _ap and _ap.has_animation(nom) else repli
+
+func animer_arise() -> void:
+	if _ap and _ap.has_animation("M_Arise"):
+		_anim_coup = Modele.jouer(_ap, "M_Arise", 1.4, 0.05) * 0.8
+
 func _frapper() -> void:
 	if Partie.opts["fourreau"]:
 		Partie.opts["fourreau"] = false
 		maj_fourreau()
 		Fx.son("sheath", -2.0)
 	_coup_n = (_coup_n + 1) % 3
-	var anim: String = ["Slash1", "Slash2", "Heavy"][_coup_n]
+	var anim: String = ["Slash1", "Slash2", _a(["M_Leap", "M_Spin", "Heavy"][randi() % 3], "Heavy")][_coup_n]
 	if _coup_n == 2 and cible and is_instance_valid(cible):
 		var w := cible.global_position - global_position
 		w.y = 0
@@ -251,7 +258,7 @@ func _frapper() -> void:
 			_dash = w.normalized() * 9.0
 			_dash_t = 0.12
 	_dernier_coup = Time.get_ticks_msec()
-	_anim_coup = Modele.jouer(_ap, anim, 1.7 if _coup_n == 2 else 1.9, 0.06) * 0.9
+	_anim_coup = Modele.jouer(_ap, anim, (2.3 if anim.begins_with("M_") else 1.7) if _coup_n == 2 else 1.9, 0.06) * 0.9
 	Fx.son(["swing1", "swing2", "swing3"][_coup_n], -4.0, randf_range(0.95, 1.08))
 	var c := cible
 	_arc(_coup_n)
@@ -284,7 +291,7 @@ func competence(k: String) -> String:
 		if Partie.charge < 100.0:
 			return "Domaine chargé à %d %% — tue des monstres" % int(Partie.charge)
 		Partie.charge = 0.0
-		_anim_coup = Modele.jouer(_ap, "Cast", 1.0, 0.05) * 0.9
+		_anim_coup = Modele.jouer(_ap, _a("M_Charge", "Cast"), 1.6, 0.05) * 0.9
 		Partie.domaine_fin = Partie.temps() + Partie.DUREE_DOMAINE
 		Fx.son("arise", 0.0, 0.6)
 		Fx.son("portal", -2.0, 0.7)
@@ -317,7 +324,7 @@ func competence(k: String) -> String:
 			return "Pas assez de mana (%d)" % int(d["mana"])
 		Partie.depenser_mana(d["mana"])
 		recharges[k] = d["cd"]
-		_anim_coup = Modele.jouer(_ap, "Cast", 1.2, 0.05) * 0.8
+		_anim_coup = Modele.jouer(_ap, _a("M_Bolt", "Cast"), 1.3, 0.05) * 0.8
 		Fx.anneau(c2.global_position, Color(0.3, 1.0, 0.7), 5.0)
 		Fx.son("arise", -2.0, 1.3)
 		if c2.puissance() > Partie.dps_total():
@@ -341,7 +348,7 @@ func competence(k: String) -> String:
 			return "Pas assez de mana (%d)" % int(dt2["mana"])
 		Partie.depenser_mana(dt2["mana"])
 		recharges[k] = dt2["cd"]
-		_anim_coup = Modele.jouer(_ap, "Telekinesis", 1.2, 0.05) * 0.9
+		_anim_coup = Modele.jouer(_ap, _a("M_Crush", "Telekinesis"), 1.3, 0.05) * 0.9
 		for m in l:
 			m.lever()
 		Fx.son("portal", -4.0, 1.5)
@@ -357,7 +364,7 @@ func competence(k: String) -> String:
 		Partie.depenser_mana(d["mana"])
 		recharges[k] = d["cd"]
 		var ici := global_position
-		_anim_coup = Modele.jouer(_ap, "Dash", 1.6, 0.03) * 0.6
+		_anim_coup = Modele.jouer(_ap, _a("M_Blink", "Dash"), 1.8, 0.03) * 0.6
 		Fx.anneau(ici, Color(0.5, 0.25, 1.0), 2.0)
 		global_position = o.global_position + Vector3(0, 0.3, 0)
 		o.global_position = ici
@@ -383,16 +390,17 @@ func competence(k: String) -> String:
 			invulnerable = 0.5
 			_trainee(0.38)
 			cible = null
-			Modele.jouer(_ap, "Roll" if _ap and _ap.has_animation("Roll") else "Run", 1.6, 0.05)
+			var gauche := _corps.global_transform.basis.x.dot(dir) > 0.0
+			Modele.jouer(_ap, _a("M_DashL" if gauche else "M_DashR", "Roll"), 1.5, 0.05)
 			_anim_coup = 0.3
 			Fx.son("swing2", -2.0, 1.3)
 			Fx.anneau(global_position, Color(0.5, 1.0, 0.85), 1.4)
 		"brise":
-			_anim_coup = Modele.jouer(_ap, "Slam", 1.3, 0.05) * 0.9
+			_anim_coup = Modele.jouer(_ap, _a("M_Slam", "Slam"), 1.3, 0.05) * 0.9
 			Fx.son("slam", -2.0)
 			_brise_differe(c)
 		"cri":
-			_anim_coup = Modele.jouer(_ap, "Cast", 1.3, 0.05) * 0.8
+			_anim_coup = Modele.jouer(_ap, _a("M_Fireball", "Cast"), 1.4, 0.05) * 0.8
 			Partie.cri_fin = Partie.temps() + Partie.DUREE_CRI
 			Fx.son("arise", -2.0, 0.8)
 			Fx.anneau(global_position, Color(0.65, 0.3, 1.0), 7.0)
@@ -498,7 +506,7 @@ func _arme_monarque(dt: float) -> void:
 	_corps.rotation.y = atan2(v.x, v.z)
 	Fx.anneau(depart, Color(1.0, 0.85, 0.3), 0.8)
 	Fx.anneau(global_position, Color(1.0, 0.75, 0.2), 1.4)
-	_anim_coup = Modele.jouer(_ap, ["Dash", "Slash1", "Slash2"][_eclair_i % 3], 2.4, 0.02) * 0.5
+	_anim_coup = Modele.jouer(_ap, [_a("M_Blink", "Dash"), _a("M_SlashMagic", "Slash1"), "Slash2"][_eclair_i % 3], 2.4, 0.02) * 0.5
 	Fx.son("swing2", -6.0, 1.4)
 	var crit := randf() < Partie.chance_crit()
 	m.frapper(Partie.dps_joueur() * (2.0 if crit else 1.0), crit)
