@@ -767,7 +767,7 @@ func _construire() -> void:
 			_panneau = Ui.panneau("Classement des chasseurs", "best", Vector2(980, 610), fermer)
 			_classement()
 		"journal":
-			_panneau = Ui.panneau("Journal du Système", "quest", Vector2(760, 560), fermer)
+			_panneau = Ui.panneau("Journal du Système", "quest", Vector2(900, 560), fermer)
 			_journal()
 		"grimoire":
 			_panneau = Ui.panneau("Bibliothèque d'Anos", "grimoire", Vector2(900, 640), fermer)
@@ -1887,6 +1887,19 @@ func _journal() -> void:
 		_ajouter(Ui.label("%s  %s : %d / %d" % ["✔" if ok else "•", q[0], v, q[1]], 22, Color(0.45, 1.0, 0.55) if ok else Color(0.9, 0.92, 1.0), 6), Vector2(50, y))
 		y += 38.0
 	_ajouter(Ui.label("ACCOMPLIE — récompenses reçues" if Partie.quete["faite"] else "Récompense : +3 points, pièces, 1 clé  ·  Échec : zone de pénalité", 16, Color(1.0, 0.8, 0.4), 4), Vector2(50, y + 4))
+	Partie.verifier_contrats()
+	var yc := 124.0
+	_ajouter(Ui.label("CONTRATS DE GUILDE", 20, Color(1.0, 0.75, 0.35), 6), Vector2(440, 82))
+	for c in Partie.contrats["liste"]:
+		var ok: bool = int(c["fait"]) >= int(c["n"])
+		_ajouter(Ui.label("%s %s  %d/%d" % ["✔" if ok else "•", c["texte"], mini(int(c["fait"]), int(c["n"])), int(c["n"])], 15, Color(0.45, 1.0, 0.55) if ok else Color(0.9, 0.9, 1.0), 4), Vector2(440, yc))
+		yc += 26.0
+	if Partie.rival != "":
+		var dr := Partie.donnees_rival()
+		_ajouter(Ui.label("RIVAL : %s%s" % [Partie.rival, "  — SURPASSÉ ✔" if Partie.rival_battu else ""], 18, Color(1.0, 0.5, 0.45), 6), Vector2(440, yc + 10))
+		if not dr.is_empty():
+			_ajouter(Ui.label("Lui : %s/s niv %d  ·  Toi : %s/s niv %d" % [Fx.court(Partie.bot_dps(dr)), int(dr["niveau"]), Fx.court(Partie.dps_total()), Partie.niveau], 14, Color(0.9, 0.85, 0.85), 3), Vector2(440, yc + 38))
+	_ajouter(Ui.label("%s  ·  %s" % ["☾ Nuit : monstres +30 % PV, éveil ×1,5" if Partie.nuit() else "☀ Jour", "PLUIE DE SANG active" if Partie.pluie_sang() else ""], 14, Color(0.7, 0.75, 1.0), 3), Vector2(440, yc + 66))
 	_ajouter(Ui.label("QUÊTES CACHÉES", 22, Color(0.75, 0.55, 1.0), 7), Vector2(36, y + 50))
 	y += 90.0
 	for id in ["infatigable", "sans_peur", "maitre"]:

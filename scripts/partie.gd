@@ -526,6 +526,8 @@ func _ready() -> void:
 	if chasseurs.size() != NOMS_CHASSEURS.size():
 		_creer_chasseurs()
 	verifier_jour()
+	verifier_contrats()
+	choisir_rival()
 	if inventaire.is_empty():
 		var d := ajouter_objet("dague", 0, false)
 		equipe["arme"] = d["uid"]
@@ -858,9 +860,76 @@ func reinitialiser_points() -> void:
 	change.emit()
 
 
+# ---------- Cycle jour/nuit (20 min) et pluie de sang
+func nuit() -> bool:
+	return fmod(Time.get_unix_time_from_system(), 1200.0) >= 600.0
+
+var pluie_fin := 0.0
+
+func pluie_sang() -> bool:
+	return Time.get_unix_time_from_system() < pluie_fin
+
+# ---------- Contrats de la guilde (3 par jour)
+var contrats := {"date": "", "liste": []}
+
+func verifier_contrats() -> void:
+	var a := _aujourdhui()
+	if contrats["date"] == a:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(a)
+	var villes: Array = ESPECES_RANG[mini(rang_chasseur, 3)]
+	var esp: String = villes[rng.randi() % 2]
+	contrats = {"date": a, "liste": [
+		{"type": "espece", "cible": esp, "n": 25, "fait": 0, "texte": "Vaincre 25 %s" % ESPECES[esp]["nom"]},
+		{"type": "elite", "n": 5, "fait": 0, "texte": "Vaincre 5 élites"},
+		{"type": "portail", "n": 1, "fait": 0, "texte": "Fermer 1 portail aléatoire"}]}
+
+func contrat(type: String, espece := "") -> void:
+	verifier_contrats()
+	for c in contrats["liste"]:
+		if c["type"] == type and int(c["fait"]) < int(c["n"]) and (type != "espece" or c["cible"] == espece):
+			c["fait"] = int(c["fait"]) + 1
+			if int(c["fait"]) >= int(c["n"]):
+				var g := 2000 * (rang_chasseur + 1) * (rang_chasseur + 1)
+				pieces += g
+				or_total += g
+				for m in monnaies:
+					donner_monnaie(m, 3 + rang_chasseur)
+				if randf() < 0.5:
+					donner_cle()
+				systeme.emit("CONTRAT DE GUILDE REMPLI", ["« %s »" % c["texte"], "Coffre : +%s pièces, monnaies d'autel." % str(g)])
+
+# ---------- Rival personnel
+var rival := ""
+var rival_battu := false
+
+func choisir_rival() -> void:
+	if rival != "" or chasseurs.is_empty():
+		return
+	var l := chasseurs.duplicate()
+	l.sort_custom(func (a, b): return bot_dps(a) > bot_dps(b))
+	rival = l[0]["nom"]
+
+func donnees_rival() -> Dictionary:
+	for c in chasseurs:
+		if c["nom"] == rival:
+			return c
+	return {}
+
+func verifier_rival() -> void:
+	var d := donnees_rival()
+	if d.is_empty() or rival_battu:
+		return
+	if dps_total() > bot_dps(d) * 1.2 and niveau >= int(d["niveau"]):
+		rival_battu = true
+		points_bonus += 3
+		systeme.emit("[ RIVAL SURPASSÉ ]", ["Tu as dépassé %s." % rival, "Titre obtenu : « Briseur de %s »" % rival, "+3 points de compétence."])
+		sauver()
+
 func stats_monstre(espece: String, elite := false, mult := 1.0) -> Dictionary:
 	var e: Dictionary = ESPECES[espece]
-	var k := 4.0 if elite else 1.0
+	var k := (4.0 if elite else 1.0) * (1.3 if nuit() and e.get("lieu", "") == "" else 1.0)
 	return {"pv": float(e["pv"]) * k * mult, "temps": float(e["temps"]) * (1.25 if elite else 1.0),
 		"pieces": float(e["pieces"]) * (5.0 if elite else 1.0) * mult, "xp": float(e["xp"]) * (3.0 if elite else 1.0) * mult}
 
@@ -882,10 +951,13 @@ signal monnaie_gagnee(m: String, n: int)
 func gagner(espece: String, elite := false, mult := 1.0) -> int:
 	var e: Dictionary = ESPECES[espece]
 	var st := stats_monstre(espece, elite, mult)
-	var gain := int(round(st["pieces"] * (1.0 + bonus("pieces") / 100.0) * mult_prog() * mult_rang()))
+	var gain := int(round(st["pieces"] * (1.0 + bonus("pieces") / 100.0) * mult_prog() * mult_rang() * (1.5 if pluie_sang() else 1.0)))
 	pieces += gain
 	or_total += gain
 	tues[espece] = int(tues.get(espece, 0)) + 1
+	contrat("espece", espece)
+	if elite:
+		contrat("elite")
 	if randf() < 0.02 + (0.05 if elite else 0.0):
 		var kp: String = ["pv", "mana"].pick_random()
 		potions[kp] = int(potions[kp]) + 1
@@ -1005,7 +1077,7 @@ func chance_eveil(espece: String) -> float:
 	var e: Dictionary = ESPECES[espece]
 	if e.get("lieu", "") == "evenement":
 		return float(e["eveil"]) * (1.0 + bonus("eveil") / 100.0)
-	return minf(1.0, float(e["eveil"]) + bonus("eveil") / 100.0)
+	return minf(1.0, (float(e["eveil"]) + bonus("eveil") / 100.0) * (1.5 if nuit() and e.get("lieu", "") == "" else 1.0))
 
 var force_eveil := false
 
@@ -1120,7 +1192,7 @@ func sauver() -> void:
 			"auto_attaque": auto_attaque, "records": records, "finis": donjons_finis,
 			"chasseurs": chasseurs, "elo": elo, "jetons": jetons, "arene_v": arene_v, "arene_d": arene_d,
 			"quitte": Time.get_unix_time_from_system(), "rang_chasseur": rang_chasseur, "or_total": or_total, "opts": opts, "cles": cles, "etage_max": etage_max,
-			"quete": quete, "pts_bonus": points_bonus, "secretes": secretes, "kills_total": kills_total, "general": general_uid, "speciale": speciale, "abime_max": abime_max, "potions": potions}))
+			"quete": quete, "pts_bonus": points_bonus, "secretes": secretes, "kills_total": kills_total, "general": general_uid, "speciale": speciale, "abime_max": abime_max, "potions": potions, "contrats": contrats, "rival": rival, "rival_battu": rival_battu}))
 
 func charger() -> void:
 	if OS.get_cmdline_user_args().has("--sans-sauvegarde") or not FileAccess.file_exists(CHEMIN):
@@ -1164,6 +1236,9 @@ func charger() -> void:
 	general_uid = int(d.get("general", -1))
 	speciale = str(d.get("speciale", "echange"))
 	abime_max = int(d.get("abime_max", 0))
+	contrats = d.get("contrats", contrats)
+	rival = str(d.get("rival", ""))
+	rival_battu = bool(d.get("rival_battu", false))
 	var pp: Dictionary = d.get("potions", {})
 	potions = {"pv": int(pp.get("pv", 5)), "mana": int(pp.get("mana", 5))}
 	etage_max = int(d.get("etage_max", 0))

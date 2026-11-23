@@ -108,6 +108,66 @@ var _raid_fin := 0.0
 var _raid_fait := -1
 var _nettoyage_t := 30.0
 var _lod_t := 1.0
+var _ciel_t := 0.0
+var _etait_nuit := false
+var _pluie: GPUParticles3D
+var _pluie_t := 900.0
+var _rival_t := 120.0
+const PIQUES := ["Tu traînes, chasseur. Je suis déjà loin devant.", "Encore à farmer des gobelins ?", "Le classement ne ment pas.", "Rattrape-moi si tu peux."]
+
+func _maj_ciel(dt: float) -> void:
+	_ciel_t -= dt
+	if _ciel_t > 0.0:
+		return
+	_ciel_t = 1.0
+	var n := Partie.nuit()
+	if n != _etait_nuit:
+		_etait_nuit = n
+		hud.annonce("LA NUIT TOMBE" if n else "LE JOUR SE LÈVE", "Monstres +30 % PV · éveil ×1,5" if n else "Retour à la normale", Color(0.55, 0.6, 1.0) if n else Color(1.0, 0.85, 0.5))
+	if donjon == null and chateau == null and abime == null and arene == null:
+		var cible_e := 0.25 if n else 1.25
+		_soleil.light_energy = lerpf(_soleil.light_energy, cible_e, 0.15)
+		_soleil.light_color = Color(0.55, 0.65, 1.0) if n else Color(1.0, 0.9, 0.8)
+		_env.ambient_light_energy = lerpf(_env.ambient_light_energy, 0.45 if n else 0.9, 0.15)
+		var sm := _env.sky.sky_material as ProceduralSkyMaterial
+		sm.sky_top_color = sm.sky_top_color.lerp(Color(0.02, 0.03, 0.1) if n else Color(0.16, 0.26, 0.52), 0.15)
+		sm.sky_horizon_color = sm.sky_horizon_color.lerp((Color(0.5, 0.08, 0.1) if Partie.pluie_sang() else Color(0.1, 0.1, 0.22)) if n else (Color(0.7, 0.3, 0.3) if Partie.pluie_sang() else Color(0.62, 0.6, 0.78)), 0.15)
+	_pluie_t -= 1.0
+	if _pluie_t <= 0.0 and not Partie.pluie_sang():
+		_pluie_t = randf_range(1200.0, 1800.0)
+		Partie.pluie_fin = Time.get_unix_time_from_system() + 180.0
+		hud.annonce("PLUIE DE SANG", "3 min : pièces ×1,5 · monstres déchaînés", Color(1.0, 0.25, 0.25))
+	if _pluie == null:
+		_pluie = GPUParticles3D.new()
+		_pluie.amount = 500
+		_pluie.lifetime = 1.2
+		_pluie.visibility_aabb = AABB(Vector3(-20, -20, -20), Vector3(40, 40, 40))
+		var pm := ParticleProcessMaterial.new()
+		pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
+		pm.emission_box_extents = Vector3(16, 0.5, 16)
+		pm.direction = Vector3(0, -1, 0)
+		pm.initial_velocity_min = 16.0
+		pm.initial_velocity_max = 20.0
+		pm.color = Color(0.8, 0.05, 0.08, 0.8)
+		_pluie.process_material = pm
+		var q := QuadMesh.new()
+		q.size = Vector2(0.03, 0.5)
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
+		m.vertex_color_use_as_albedo = true
+		q.material = m
+		_pluie.draw_pass_1 = q
+		add_child(_pluie)
+	_pluie.emitting = Partie.pluie_sang() and donjon == null and chateau == null and abime == null
+	_pluie.global_position = joueur.global_position + Vector3(0, 14, 0)
+	_rival_t -= 1.0
+	if _rival_t <= 0.0:
+		_rival_t = randf_range(240.0, 420.0)
+		Partie.verifier_rival()
+		if Partie.rival != "" and not Partie.rival_battu:
+			hud.dire("[Rival] %s : « %s »" % [Partie.rival, PIQUES.pick_random()], Color(1.0, 0.55, 0.45))
 
 func _maj_raid() -> void:
 	var t := Time.get_datetime_dict_from_system()
@@ -223,6 +283,7 @@ func _maj_gates(dt: float) -> void:
 				Partie.donner_cle()
 			Partie.charger_domaine(15.0)
 			hud.annonce("PORTAIL FERMÉ", "+%s pièces" % Fx.court(gain), Color(0.5, 1.0, 0.6))
+			Partie.contrat("portail")
 			_retirer_gate(g)
 		elif reste <= 0.0:
 			_debordement(g, vivants)
@@ -1087,6 +1148,7 @@ func _process(dt: float) -> void:
 	joueur.camera_lacet = _lacet
 	_maj_gates(dt)
 	_maj_raid()
+	_maj_ciel(dt)
 	_lod_t -= dt
 	if _lod_t <= 0.0:
 		_lod_t = 1.0
