@@ -113,6 +113,40 @@ var _etait_nuit := false
 var _pluie: GPUParticles3D
 var _pluie_t := 900.0
 var _rival_t := 120.0
+var familier: Node3D = null
+var _fam_t := 30.0
+
+func creer_familier() -> void:
+	if familier:
+		return
+	familier = Node3D.new()
+	add_child(familier)
+	var corps := Modele.creer("imp", 0.7)
+	for mi in corps.find_children("*", "MeshInstance3D", true, false):
+		(mi as MeshInstance3D).material_override = Shaders.ombre(Color(0.6, 0.3, 1.0))
+		(mi as MeshInstance3D).material_overlay = Shaders.halo(Color(0.55, 0.3, 1.0), 2.0)
+	familier.add_child(corps)
+	var ap := Modele.lecteur(corps)
+	Modele.jouer(ap, "Idle")
+	familier.set_meta("ap", ap)
+	familier.global_position = joueur.global_position + Vector3(1.5, 0, 1.5)
+
+func _maj_familier(dt: float) -> void:
+	if familier == null:
+		if Partie.achats_boutique.has("familier"):
+			creer_familier()
+		return
+	var but := joueur.global_position + joueur.basis.x * 1.4 + Vector3(0, 0.6 + sin(Time.get_ticks_msec() / 300.0) * 0.15, 0)
+	familier.global_position = familier.global_position.lerp(but, minf(1.0, dt * 4.0))
+	var v := joueur.global_position - familier.global_position
+	familier.rotation.y = atan2(v.x, v.z)
+	_fam_t -= dt
+	if _fam_t <= 0.0:
+		_fam_t = 30.0
+		if randf() < 0.25:
+			var k: String = ["pv", "mana"].pick_random()
+			Partie.potions[k] = int(Partie.potions[k]) + 1
+			hud.dire("Ton familier a trouvé une potion de %s !" % ("soin" if k == "pv" else "mana"), Color(0.75, 0.6, 1.0))
 const PIQUES := ["Tu traînes, chasseur. Je suis déjà loin devant.", "Encore à farmer des gobelins ?", "Le classement ne ment pas.", "Rattrape-moi si tu peux."]
 
 func _maj_ciel(dt: float) -> void:
@@ -578,6 +612,8 @@ func action_proche() -> Dictionary:
 		return {"type": "quitter_abime"} if p.distance_to(abime.point_depart()) < 4.0 else {}
 	if chateau:
 		return {}
+	if donjon and donjon.secret and not donjon.secret_ouvert and is_instance_valid(donjon.secret) and p.distance_to(donjon.secret.global_position) < 3.5:
+		return {"type": "secret"}
 	if donjon:
 		if donjon.sortie and p.distance_to(donjon.sortie.global_position) < 4.0:
 			return {"type": "sortir"}
@@ -1149,6 +1185,9 @@ func _process(dt: float) -> void:
 	_maj_gates(dt)
 	_maj_raid()
 	_maj_ciel(dt)
+	if donjon:
+		donjon._maj_pieges(dt)
+	_maj_familier(dt)
 	_lod_t -= dt
 	if _lod_t <= 0.0:
 		_lod_t = 1.0

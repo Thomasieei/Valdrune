@@ -106,7 +106,7 @@ func flash_degats(raison: String) -> void:
 	Input.vibrate_handheld(40)
 	if _flash_msg_t <= 0.0:
 		_flash_msg_t = 4.0
-		dire("Touché par une zone au sol : sors du cercle rouge !" if raison == "ZONE" else "Riposte : n'attaque pas un monstre au bouclier bleu !", Color(1.0, 0.5, 0.45))
+		dire({"ZONE": "Touché par une zone au sol : sors du cercle rouge !", "PIÈGE": "Piège ! Évite les dalles qui rougissent."}.get(raison, "Riposte : n'attaque pas un monstre au bouclier bleu !"), Color(1.0, 0.5, 0.45))
 var _hex := {}
 var _haut: Control
 var _droite: Control
@@ -947,6 +947,13 @@ func _montrer_detail(genre: String, o: Dictionary) -> void:
 		boutons.append(["AMÉLIORER  (%s)" % Fx.court(cout), Ui.VIOLET, func ():
 			if Partie.ameliorer(o):
 				Fx.son("levelup", -4.0), Partie.pieces < cout])
+		boutons.append(["FORGER +2 niv (%d/%d éclats)" % [Partie.eclats_forge, Partie.COUT_FORGE], Color(0.45, 0.25, 0.7), func ():
+			if Partie.forger(o):
+				Fx.son("levelup", -4.0), Partie.eclats_forge < Partie.COUT_FORGE])
+		boutons.append(["FONDRE  (+%d éclats)" % (Partie.ECLATS_RARETE[int(o["rarete"])] * (1 + int(o["niv"]) / 5)), Color(0.3, 0.2, 0.45), func ():
+			_choix = []
+			if Partie.fondre(o):
+				Fx.son("slam", -6.0), eq])
 		boutons.append(["VENDRE  (%s)" % Fx.court(Partie.prix_vente(o)), Ui.OR, func ():
 			_choix = []
 			if Partie.vendre(o):
@@ -1125,6 +1132,7 @@ const OFFRES := [
 	["auto", "Instinct de meute", "Tes ombres frappent seules tout ennemi à portée.", "2,99 €", "cmd_attack"],
 	["place", "Emplacement d'ombre", "+1 ombre au combat (2 achats max).", "3,99 €", "ombres"],
 	["gacha", "Sac de gacha", "+20 de chaque monnaie d'autel.", "4,99 €", "roll"],
+	["familier", "Familier : renard d'ombre", "Te suit partout · +10 % pièces · trouve des potions.", "1,99 €", "ombres"],
 	["cle", "Clé du château rouge", "Une entrée au château (250 étages).", "0,99 €", "tele"],
 	["coffre", "Coffre du donjon", "Un objet de donjon garanti, rang B.", "1,99 €", "items"],
 	["soin", "5 potions de soin", "Fiole rouge : +50 % PV chacune.", "", "role_heal"],
@@ -1206,6 +1214,9 @@ func _boutique() -> void:
 						Partie.ajouter_objet(Partie.BUTIN_DONJON.pick_random(), 3)
 					"cle":
 						Partie.donner_cle()
+					"familier":
+						Partie.achats_boutique["familier"] = true
+						ville.creer_familier()
 					"soin":
 						Partie.potions["pv"] = int(Partie.potions["pv"]) + 5
 					"mana":
@@ -1424,7 +1435,7 @@ func _maj_action() -> void:
 	_action = ville.action_proche() if _panneau == null else {}
 	var v := not _action.is_empty()
 	if v:
-		var t: String = {"autel": "PARLER", "donjon": "ENTRER", "sortir": "SORTIR", "chateau": "CHÂTEAU", "abime": "ABÎME", "quitter_abime": "SORTIR"}[_action["type"]]
+		var t: String = {"autel": "PARLER", "donjon": "ENTRER", "sortir": "SORTIR", "chateau": "CHÂTEAU", "abime": "ABÎME", "quitter_abime": "SORTIR", "secret": "BRISER"}[_action["type"]]
 		_b_action.set_meta("texte", t)
 	if v != _b_action.visible:
 		_b_action.visible = v
@@ -1450,6 +1461,8 @@ func agir() -> void:
 			Fx.son("portal", -6.0)
 		"abime":
 			ville.entrer_abime()
+		"secret":
+			ville.donjon.ouvrir_secret()
 		"quitter_abime":
 			ville.quitter_abime()
 		"sortir":

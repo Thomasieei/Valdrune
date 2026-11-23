@@ -641,6 +641,32 @@ func ameliorer(o: Dictionary) -> bool:
 func prix_vente(o: Dictionary) -> int:
 	return int(cout_amelioration(o) * 0.35) + 4
 
+# ---------- Forge d'ombre
+var eclats_forge := 0
+const ECLATS_RARETE := [1, 2, 4, 8, 16, 20, 20]
+const COUT_FORGE := 10
+
+func fondre(o: Dictionary) -> bool:
+	if est_equipe(o):
+		return false
+	var n: int = ECLATS_RARETE[int(o["rarete"])] * (1 + int(o["niv"]) / 5)
+	eclats_forge += n
+	inventaire.erase(o)
+	message.emit("Fondu : +%d éclats de forge" % n, Color(0.75, 0.55, 1.0))
+	change.emit()
+	sauver()
+	return true
+
+func forger(o: Dictionary) -> bool:
+	if eclats_forge < COUT_FORGE:
+		return false
+	eclats_forge -= COUT_FORGE
+	o["niv"] = int(o["niv"]) + 2
+	message.emit("Forge d'ombre : %s +2 niveaux" % base(o)["nom"], Color(0.75, 0.55, 1.0))
+	change.emit()
+	sauver()
+	return true
+
 func vendre(o: Dictionary) -> bool:
 	if est_equipe(o):
 		return false
@@ -951,7 +977,7 @@ signal monnaie_gagnee(m: String, n: int)
 func gagner(espece: String, elite := false, mult := 1.0) -> int:
 	var e: Dictionary = ESPECES[espece]
 	var st := stats_monstre(espece, elite, mult)
-	var gain := int(round(st["pieces"] * (1.0 + bonus("pieces") / 100.0) * mult_prog() * mult_rang() * (1.5 if pluie_sang() else 1.0)))
+	var gain := int(round(st["pieces"] * (1.0 + bonus("pieces") / 100.0) * mult_prog() * mult_rang() * (1.5 if pluie_sang() else 1.0) * (1.1 if achats_boutique.has("familier") else 1.0)))
 	pieces += gain
 	or_total += gain
 	tues[espece] = int(tues.get(espece, 0)) + 1
@@ -1192,7 +1218,7 @@ func sauver() -> void:
 			"auto_attaque": auto_attaque, "records": records, "finis": donjons_finis,
 			"chasseurs": chasseurs, "elo": elo, "jetons": jetons, "arene_v": arene_v, "arene_d": arene_d,
 			"quitte": Time.get_unix_time_from_system(), "rang_chasseur": rang_chasseur, "or_total": or_total, "opts": opts, "cles": cles, "etage_max": etage_max,
-			"quete": quete, "pts_bonus": points_bonus, "secretes": secretes, "kills_total": kills_total, "general": general_uid, "speciale": speciale, "abime_max": abime_max, "potions": potions, "contrats": contrats, "rival": rival, "rival_battu": rival_battu}))
+			"quete": quete, "pts_bonus": points_bonus, "secretes": secretes, "kills_total": kills_total, "general": general_uid, "speciale": speciale, "abime_max": abime_max, "potions": potions, "contrats": contrats, "rival": rival, "rival_battu": rival_battu, "eclats_forge": eclats_forge}))
 
 func charger() -> void:
 	if OS.get_cmdline_user_args().has("--sans-sauvegarde") or not FileAccess.file_exists(CHEMIN):
@@ -1238,6 +1264,7 @@ func charger() -> void:
 	abime_max = int(d.get("abime_max", 0))
 	contrats = d.get("contrats", contrats)
 	rival = str(d.get("rival", ""))
+	eclats_forge = int(d.get("eclats_forge", 0))
 	rival_battu = bool(d.get("rival_battu", false))
 	var pp: Dictionary = d.get("potions", {})
 	potions = {"pv": int(pp.get("pv", 5)), "mana": int(pp.get("mana", 5))}

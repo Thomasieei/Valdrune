@@ -136,6 +136,7 @@ func _ready() -> void:
 		_peupler(i)
 	_decor()
 	_meteo()
+	_pieges_et_secret()
 	for n in get_children():
 		if n.has_meta("vacille"):
 			n.set_meta("base", n.light_energy)
@@ -465,6 +466,92 @@ func _process(dt: float) -> void:
 		else:
 			actif = false
 			_victoire()
+
+var pieges: Array = []
+var secret: Node3D = null
+var secret_ouvert := false
+
+func _pieges_et_secret() -> void:
+	if test_rang >= 0:
+		return
+	for i in range(1, N - 1):
+		var c := centre(i)
+		for k in 2 + niv:
+			var dalle := MeshInstance3D.new()
+			var bm := BoxMesh.new()
+			bm.size = Vector3(2.4, 0.06, 2.4)
+			dalle.mesh = bm
+			var m := StandardMaterial3D.new()
+			m.albedo_color = Color(0.35, 0.1, 0.1)
+			m.emission_enabled = true
+			m.emission = Color(1.0, 0.15, 0.05)
+			m.emission_energy_multiplier = 0.0
+			dalle.material_override = m
+			dalle.position = c + Vector3(randf_range(-7, 7), 0.03, randf_range(-6, 6))
+			add_child(dalle)
+			pieges.append({"n": dalle, "m": m, "t": randf_range(0.0, 3.0)})
+	var s := randi_range(1, N - 2)
+	secret = MeshInstance3D.new()
+	var b := BoxMesh.new()
+	b.size = Vector3(0.3, 2.6, 2.4)
+	(secret as MeshInstance3D).mesh = b
+	var sm := StandardMaterial3D.new()
+	sm.albedo_texture = load("res://assets/fx/mur.png")
+	sm.albedo_color = Color(0.6, 0.45, 0.8)
+	sm.emission_enabled = true
+	sm.emission = Color(0.5, 0.2, 0.9)
+	sm.emission_energy_multiplier = 0.6
+	(secret as MeshInstance3D).material_override = sm
+	secret.position = centre(s) + Vector3(DEMI - 0.2, 1.3, randf_range(-4, 4))
+	add_child(secret)
+
+func _maj_pieges(dt: float) -> void:
+	if ville == null or not actif:
+		return
+	var j: Node3D = ville.joueur
+	for p in pieges:
+		p["t"] -= dt
+		var t: float = p["t"]
+		p["m"].emission_energy_multiplier = 0.0 if t > 1.0 else (3.0 - t * 2.5)
+		if t <= 0.0:
+			p["t"] = 3.0
+			var pos: Vector3 = p["n"].global_position
+			Fx.anneau(pos, Color(1.0, 0.25, 0.1), 1.6)
+			if absf(j.global_position.x - pos.x) < 1.3 and absf(j.global_position.z - pos.z) < 1.3 and absf(j.global_position.y - pos.y) < 1.5:
+				var d := Partie.ATK_RANG[niv] * 1.5
+				Fx.texte(j.global_position + Vector3(0, 2.3, 0), "-%d  PIÈGE" % int(d), Color(1.0, 0.3, 0.2), 1.1, 1.0)
+				ville.hud.flash_degats("PIÈGE")
+				if Partie.blesser(d):
+					ville.mort_joueur()
+
+func ouvrir_secret() -> void:
+	if secret_ouvert or secret == null:
+		return
+	secret_ouvert = true
+	var pos := secret.global_position
+	Fx.anneau(pos, Color(0.6, 0.3, 1.0), 3.0)
+	Fx.son("slam", 0.0)
+	secret.queue_free()
+	if randf() < 0.35:
+		var l: Array = Partie.ESPECES_RANG[mini(niv + 1, 3)]
+		var m := Monstre.new()
+		m.configurer(l[randi() % 2], pos + Vector3(-3, -1.3, 0), -PI / 2.0)
+		m.sans_chrono = true
+		m.reapparait_auto = false
+		m.elite_fixe = true
+		m.mult = 2.0
+		add_child(m)
+		m.chrono = 0.0
+		monstres.append(m)
+		ville.monstres.append(m)
+		ville.hud.annonce("SALLE SECRÈTE", "Un gardien rare surgit du mur !", Color(0.8, 0.5, 1.0))
+	else:
+		var g := int(float(cfg["or"]) * 0.6)
+		Partie.pieces += g
+		Partie.or_total += g
+		Partie.butin_donjon(niv + 1)
+		Partie.eclats_forge += 5 + niv * 3
+		ville.hud.annonce("SALLE SECRÈTE", "Coffre caché : +%s pièces, +%d éclats de forge" % [Fx.court(g), 5 + niv * 3], Color(0.8, 0.5, 1.0))
 
 func appliquer_ambiance(env: Environment) -> void:
 	env.background_color = th["fond"]
