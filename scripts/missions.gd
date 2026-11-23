@@ -147,7 +147,7 @@ func action(p: Vector3) -> Dictionary:
 	if actif and _client and is_instance_valid(_client) and p.distance_to(_client.global_position) < 3.4:
 		return {"type": "livrer"}
 	for k in restos.size():
-		if p.distance_to(restos[k]["pos"]) < 3.8:
+		if p.distance_to(restos[k]["pos"]) < 4.6:
 			return {"type": "resto", "idx": k}
 	return {}
 
@@ -164,7 +164,7 @@ func prendre(k: int) -> void:
 	var niv := _niveau()
 	var vit: float = Joueur.VITESSE * Partie.vitesse() * 1.7
 	var temps: float = d * 1.35 / vit + 18.0
-	var gain := int((40.0 + d * 0.8) * (1.0 + 0.15 * (niv - 1)) * (1.0 + 0.8 * Partie.rang_chasseur))
+	var gain := int((12.0 + d * 0.2) * (1.0 + 0.12 * (niv - 1)) * (1.0 + 0.8 * Partie.rang_chasseur))
 	var plat: String = PLATS[_plat_n % PLATS.size()]
 	_plat_n += 1
 	var cl: String = CLIENTS.pick_random()
