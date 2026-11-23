@@ -24,7 +24,7 @@ func installer(v: Node3D, pts: Array) -> void:
 	tri.sort_custom(func (a, b): return Vector2(a.x - depart.x, a.z - depart.z).length() < Vector2(b.x - depart.x, b.z - depart.z).length())
 	var resto0: Vector3 = v.missions.restos[0]["pos"] if v.missions and v.missions.restos.size() > 0 else depart
 	for p in tri:
-		if Vector2(p.x - depart.x, p.z - depart.z).length() > 28.0 and Vector2(p.x - resto0.x, p.z - resto0.z).length() > 26.0:
+		if Vector2(p.x - depart.x, p.z - depart.z).length() > 28.0 and Vector2(p.x - resto0.x, p.z - resto0.z).length() > 26.0 and not v.mur_proche(p).is_empty():
 			porte_pos = p
 			break
 	if porte_pos == Vector3.ZERO and tri.size() > 3:
