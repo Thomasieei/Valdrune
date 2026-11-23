@@ -128,6 +128,23 @@ func _tour() -> void:
 	Partie.change.emit()
 	await attendre(2.5)
 	await capture("ville_depart")
+	var mw: Dictionary = v.mur_proche(v.DEPART)
+	if not mw.is_empty():
+		var nmw: Vector3 = mw["normal"]
+		j.global_position = Vector3(mw["pos"].x, v.DEPART.y + 0.3, mw["pos"].z) + nmw * 1.4
+		j.camera_lacet = atan2(nmw.x, nmw.z)
+		await attendre(0.4)
+		var y0: float = j.global_position.y
+		j.entree = Vector2(0, 1)
+		j.sauter()
+		var ymax := y0
+		for i in 40:
+			await attendre(0.05)
+			ymax = maxf(ymax, j.global_position.y)
+		j.entree = Vector2.ZERO
+		await attendre(0.5)
+		await capture("rebord")
+		print("[REBORD] y0=", y0, " ymax=", ymax, " y_fin=", j.global_position.y)
 	if v.appart:
 		j.global_position = v.appart.porte_pos + Vector3(2.0, 0.5, 2.0)
 		await attendre(1.0)

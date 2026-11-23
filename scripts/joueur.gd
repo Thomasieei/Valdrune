@@ -192,6 +192,17 @@ func _physics_process_reel(dt: float) -> void:
 		recharges[k] = maxf(0.0, recharges[k] - dt)
 	_arme_monarque(dt)
 	invulnerable = maxf(0.0, invulnerable - dt)
+	if _grimpe_t > 0.0:
+		_grimpe_t -= dt
+		var kg := 1.0 - clampf(_grimpe_t / _grimpe_d, 0.0, 1.0)
+		var p1 := Vector3(_grimpe_a.x, _grimpe_b.y, _grimpe_a.z)
+		global_position = _grimpe_a.lerp(p1, minf(kg / 0.65, 1.0)) if kg < 0.65 else p1.lerp(_grimpe_b, (kg - 0.65) / 0.35)
+		velocity = Vector3.ZERO
+		if _grimpe_t <= 0.0:
+			_grimpe_cd = 0.25
+			elan = maxf(elan, 0.5)
+		return
+	_grimpe_cd -= dt
 	# ---------- Déplacement rapide : élan, saut, double saut, dash aérien, course sur les murs, glissade ----------
 	var au_sol := is_on_floor()
 	if au_sol:
@@ -313,6 +324,8 @@ func _physics_process_reel(dt: float) -> void:
 			else:
 				Modele.jouer(_ap, "JumpLand", 1.6, 0.03)
 	au_sol_av = is_on_floor()
+	if dir.length() > 0.3 and is_on_wall() and _grimpe_cd <= 0.0 and not en_mur:
+		_chercher_rebord(dir)
 
 	if dir.length() > 0.1 and is_on_wall() and not en_mur:
 		_monter_marche(dir)
@@ -362,6 +375,55 @@ var _glisse_dir := Vector3.ZERO
 var _coyote := 0.0
 var _saut_buf := 0.0
 var _pous_t := 0.0
+
+var _grimpe_t := 0.0
+var _grimpe_d := 0.4
+var _grimpe_cd := 0.0
+var _grimpe_a := Vector3.ZERO
+var _grimpe_b := Vector3.ZERO
+
+# Agrippement automatique : si on fonce vers un mur et qu'un rebord est à portée, on se hisse dessus.
+# Au sol, à la course : obstacles jusqu'à 1,6 m. En l'air ou saut pressé : jusqu'à 3,8 m.
+func _chercher_rebord(dir: Vector3) -> void:
+	var n := get_wall_normal()
+	n.y = 0.0
+	if n.length() < 0.5:
+		return
+	n = n.normalized()
+	if dir.normalized().dot(-n) < 0.35:
+		return
+	var en_l := not is_on_floor() or _saut_buf > 0.0
+	if not en_l and elan < 0.3:
+		return
+	var max_h := 3.8 if en_l else 1.6
+	var etat := get_world_3d().direct_space_state
+	var av := -n
+	for prof in [0.55, 0.95]:
+		var haut := global_position + av * prof + Vector3(0, max_h + 0.3, 0)
+		var q := PhysicsRayQueryParameters3D.create(haut, haut - Vector3(0, max_h + 0.1, 0))
+		q.exclude = [get_rid()]
+		var r := etat.intersect_ray(q)
+		if r.is_empty():
+			continue
+		var top: Vector3 = r["position"]
+		var dh := top.y - global_position.y
+		if dh < 0.45 or dh > max_h or float(r["normal"].y) < 0.7:
+			continue
+		var q2 := PhysicsRayQueryParameters3D.create(top + Vector3(0, 0.15, 0), top + Vector3(0, 1.9, 0))
+		q2.exclude = [get_rid()]
+		if not etat.intersect_ray(q2).is_empty():
+			continue
+		_grimpe_a = global_position
+		_grimpe_b = top + av * 0.3 + Vector3(0, 0.05, 0)
+		_grimpe_d = 0.3 + 0.07 * dh
+		_grimpe_t = _grimpe_d
+		_en_mur = false
+		_corps.rotation.y = atan2(av.x, av.z)
+		_corps.rotation.z = 0.0
+		Modele.jouer(_ap, _a("Climb", "JumpLoop"), 1.8, 0.04)
+		_anim_coup = _grimpe_d + 0.1
+		Fx.son("swing1", -6.0, 1.2)
+		return
 
 func sauter() -> void:
 	_saut_buf = 0.15
