@@ -162,8 +162,8 @@ func prendre(k: int) -> void:
 	var dest: Vector3 = pts.pick_random()
 	var d := Vector2(dest.x - depart.x, dest.z - depart.z).length()
 	var niv := _niveau()
-	var vit := ville.joueur.VITESSE * Partie.vitesse() * 1.7
-	var temps := d * 1.35 / vit + 18.0
+	var vit: float = Joueur.VITESSE * Partie.vitesse() * 1.7
+	var temps: float = d * 1.35 / vit + 18.0
 	var gain := int((40.0 + d * 0.8) * (1.0 + 0.15 * (niv - 1)) * (1.0 + 0.8 * Partie.rang_chasseur))
 	var plat: String = PLATS[_plat_n % PLATS.size()]
 	_plat_n += 1
