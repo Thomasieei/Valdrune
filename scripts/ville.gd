@@ -494,6 +494,30 @@ func _generer_zones() -> void:
 	_lampadaires(pts)
 
 # Lampadaires néon le long des rues : têtes émissives (le glow les fait briller), sans lumière dynamique
+# Retouches de matériaux (gratuites en performance) : fenêtres et enseignes qui brillent, routes mouillées
+func _embellir_ville(v: Node3D) -> void:
+	var vus := {}
+	for m in v.find_children("*", "MeshInstance3D", true, false):
+		var mi := m as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		for s in mi.mesh.get_surface_count():
+			var mat := mi.mesh.surface_get_material(s) as StandardMaterial3D
+			if mat == null or vus.has(mat):
+				continue
+			vus[mat] = true
+			var n := mat.resource_name.to_lower()
+			if n.contains("glow"):
+				mat.emission_enabled = true
+				if mat.emission_texture == null and mat.emission.get_luminance() < 0.05:
+					mat.emission = Color(1.0, 0.85, 0.55)
+				mat.emission_energy_multiplier = 2.2
+			elif n.contains("road") or n.contains("ground"):
+				mat.roughness = 0.38
+				mat.metallic_specular = 0.9
+			elif n.contains("filler") or n.contains("paramount") or n.contains("clinic") or n.contains("laundry") or n.contains("pawn") or n.contains("fish"):
+				mat.roughness = minf(mat.roughness, 0.8)
+
 func _lampadaires(pts: Array) -> void:
 	var pied := StandardMaterial3D.new()
 	pied.albedo_color = Color(0.15, 0.16, 0.2)
@@ -618,6 +642,8 @@ func _ville() -> void:
 		mi.visibility_range_end = 70.0 if taille < 4.0 else (140.0 if taille < 25.0 else 0.0)
 		mi.visibility_range_end_margin = 10.0
 		mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+
+	_embellir_ville(v)
 
 	var sol := StaticBody3D.new()
 	var cs := CollisionShape3D.new()
