@@ -594,6 +594,8 @@ func _process_reel(dt: float) -> void:
 			var ct: Dictionary = _carte.cible_actuelle()
 			_gps_lbl.text = "GPS : %s  %d m" % [ct["nom"], int(ville.joueur.global_position.distance_to(ct["pos"]))] if not ct.is_empty() else "GPS : touche la carte"
 	var tm: String = ville.missions.texte() if ville.missions and ville.donjon == null and ville.chateau == null and ville.abime == null and not ville.chez_soi else ""
+	if tm == "" and ville.escorte:
+		tm = ville.escorte.texte()
 	if _ml.text != tm:
 		_ml.text = tm
 	if ville.arene and ville.arene.actif:
@@ -1514,7 +1516,7 @@ func _maj_action() -> void:
 	_action = ville.action_proche() if _panneau == null else {}
 	var v := not _action.is_empty()
 	if v:
-		var t: String = {"autel": "PARLER", "donjon": "ENTRER", "sortir": "SORTIR", "chateau": "CHÂTEAU", "abime": "ABÎME", "quitter_abime": "SORTIR", "secret": "BRISER", "resto": "LIVRAISON", "livrer": "LIVRER", "appart_entrer": "RENTRER", "appart_sortir": "SORTIR", "soeur": "MINA", "lit": "DORMIR", "loyer": "LOYER"}[_action["type"]]
+		var t: String = {"autel": "PARLER", "donjon": "ENTRER", "sortir": "SORTIR", "chateau": "CHÂTEAU", "abime": "ABÎME", "quitter_abime": "SORTIR", "secret": "BRISER", "resto": "LIVRAISON", "livrer": "LIVRER", "appart_entrer": "RENTRER", "escorte_prendre": "ESCORTE", "appart_sortir": "SORTIR", "soeur": "MINA", "lit": "DORMIR", "loyer": "LOYER"}[_action["type"]]
 		_b_action.set_meta("texte", t)
 	if v != _b_action.visible:
 		_b_action.visible = v
@@ -1540,6 +1542,8 @@ func agir() -> void:
 			Fx.son("portal", -6.0)
 		"abime":
 			ville.entrer_abime()
+		"escorte_prendre":
+			ville.escorte.prendre()
 		"appart_entrer":
 			ville.appart.entrer()
 		"appart_sortir":

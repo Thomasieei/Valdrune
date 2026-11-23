@@ -815,7 +815,7 @@ func attrs_texte(o: Dictionary) -> Array:
 	return l
 
 func vitesse() -> float:
-	return 1.0 + bonus("vitesse") / 100.0
+	return (1.0 + bonus("vitesse") / 100.0) * (1.0 + minf(niveau - 1, 60) * 0.006)
 
 func chance_crit() -> float:
 	return 0.15 + bonus("crit") / 100.0

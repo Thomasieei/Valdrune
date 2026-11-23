@@ -57,6 +57,8 @@ func cycler() -> void:
 func cible_actuelle() -> Dictionary:
 	if sel == -1:
 		var g: Dictionary = ville.missions.guide_mission() if ville.missions else {}
+		if g.is_empty() and ville.escorte:
+			g = ville.escorte.guide()
 		return g
 	var l := cibles()
 	return l[sel] if sel < l.size() else {}

@@ -145,6 +145,17 @@ func _tour() -> void:
 		await attendre(0.5)
 		await capture("rebord")
 		print("[REBORD] y0=", y0, " ymax=", ymax, " y_fin=", j.global_position.y)
+	if v.escorte and v.escorte.bureau != Vector3.INF:
+		j.global_position = v.escorte.bureau + Vector3(0, 0.5, 0)
+		await attendre(0.5)
+		print("[ESCORTE] action=", v.action_proche())
+		v.escorte.prendre()
+		await attendre(1.0)
+		print("[ESCORTE] actif=", v.escorte.actif, " ", v.escorte.texte())
+		j.global_position = v.escorte._c.global_position + Vector3(1.5, 0.3, 0) if v.escorte._c else j.global_position
+		await attendre(2.0)
+		await capture("escorte")
+		v.escorte._fin(false, "test")
 	if v.appart:
 		j.global_position = v.appart.porte_pos + v.appart._sortie * 0.9 + Vector3(0, 0.5, 0)
 		j.camera_lacet = atan2(v.appart._sortie.x, v.appart._sortie.z)

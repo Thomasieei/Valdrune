@@ -192,6 +192,9 @@ func _physics_process_reel(dt: float) -> void:
 		recharges[k] = maxf(0.0, recharges[k] - dt)
 	_arme_monarque(dt)
 	invulnerable = maxf(0.0, invulnerable - dt)
+	_esq_age += dt
+	_contre = maxf(0.0, _contre - dt)
+	_cad = CADENCE / (1.0 + minf(Partie.niveau - 1, 50) * 0.01)
 	if _grimpe_t > 0.0:
 		_grimpe_t -= dt
 		var kg := 1.0 - clampf(_grimpe_t / _grimpe_d, 0.0, 1.0)
@@ -355,7 +358,7 @@ func _physics_process_reel(dt: float) -> void:
 		_corps.rotation.y = lerp_angle(_corps.rotation.y, atan2(v2.x, v2.z), minf(1.0, dt * 16.0))
 		_coup_t -= dt
 		if _coup_t <= 0.0:
-			_coup_t = CADENCE
+			_coup_t = _cad
 			if not (Partie.auto_attaque and cible.en_parade()):
 				_frapper()
 	elif _anim_coup <= 0.0:
@@ -474,7 +477,7 @@ func _frapper() -> void:
 			_dash = w.normalized() * 9.0
 			_dash_t = 0.12
 	_dernier_coup = Time.get_ticks_msec()
-	_anim_coup = Modele.jouer(_ap, anim, (2.3 if anim.begins_with("M_") else 1.7) if _coup_n == 2 else 1.9, 0.06) * 0.9
+	_anim_coup = Modele.jouer(_ap, anim, ((2.3 if anim.begins_with("M_") else 1.7) if _coup_n == 2 else 1.9) * (CADENCE / _cad), 0.06) * 0.9
 	Fx.son(["swing1", "swing2", "swing3"][_coup_n], -4.0, randf_range(0.95, 1.08))
 	var c := cible
 	_arc(_coup_n)
@@ -490,9 +493,18 @@ func _frapper() -> void:
 	Partie.en_combat()
 	var crit := randf() < Partie.chance_crit()
 	var lourd := _coup_n == 2
-	var deg := Partie.dps_joueur() * CADENCE * (2.0 if crit else 1.0) * randf_range(0.9, 1.1) * (1.6 if lourd else 0.85)
+	var deg := Partie.dps_joueur() * _cad * (2.0 if crit else 1.0) * randf_range(0.9, 1.1) * (1.6 if lourd else 0.85)
+	if _contre > 0.0:
+		_contre = 0.0
+		crit = true
+		deg *= 2.5
+		Fx.texte(c.global_position + Vector3(0, c.haut() + 1.0, 0), "CONTRE !", Color(0.5, 1.0, 0.9), 1.5, 1.0)
 	c.frapper(deg, crit or lourd)
 	var v := get_parent()
+	if lourd:
+		for m in v.monstres:
+			if m != c and is_instance_valid(m) and not m.mort and not m.allie and m.global_position.distance_to(global_position) < 3.6:
+				m.frapper(deg * 0.55, false)
 	if lourd:
 		v.secouer(0.3)
 		Fx.son("slam", -6.0, 1.3)
@@ -504,6 +516,23 @@ func _frapper() -> void:
 		v.secouer(0.06)
 	Fx.son(["hit1", "hit2", "hit3"][randi() % 3], -2.0 if crit else -5.0)
 
+
+var _cad := CADENCE
+var _esq_age := 99.0
+var _contre := 0.0
+
+# Esquive au bon moment : ralenti, mana rendu, prochain coup en contre critique
+func esquive_parfaite() -> void:
+	if _contre > 0.0:
+		return
+	_contre = 3.0
+	recharges["esquive"] = 0.0
+	Partie.mana = minf(Partie.mana_max(), Partie.mana + 12.0)
+	Partie.charge = minf(100.0, Partie.charge + 6.0)
+	Fx.texte(global_position + Vector3(0, 2.6, 0), "ESQUIVE PARFAITE !", Color(0.5, 1.0, 0.9), 1.6, 1.0)
+	Fx.anneau(global_position, Color(0.5, 1.0, 0.9), 3.0)
+	Fx.son("shadow", -3.0, 1.6)
+	get_parent().ralenti(0.4)
 
 func competence(k: String) -> String:
 	var d: Dictionary = Partie.COMPETENCES[k]
@@ -615,6 +644,7 @@ func competence(k: String) -> String:
 			_dash = dir.normalized() * 13.0
 			_dash_t = 0.38
 			invulnerable = 0.5
+			_esq_age = 0.0
 			_trainee(0.38)
 			cible = null
 			var gauche := _corps.global_transform.basis.x.dot(dir) > 0.0

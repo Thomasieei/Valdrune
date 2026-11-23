@@ -308,7 +308,10 @@ func _toucher_joueur(j: Node3D, d: float, raison := "ZONE") -> void:
 		jo._anim_coup = Modele.jouer(jo._ap, "Hit", 1.4, 0.04) * 0.6
 	var jj := j as Joueur
 	if jj and jj.invulnerable > 0.0:
-		Fx.texte(j.global_position + Vector3(0, 2.3, 0), "ESQUIVÉ", Color(0.5, 1.0, 0.8), 1.1, 0.7)
+		if jj._esq_age < 0.32:
+			jj.esquive_parfaite()
+		else:
+			Fx.texte(j.global_position + Vector3(0, 2.3, 0), "ESQUIVÉ", Color(0.5, 1.0, 0.8), 1.1, 0.7)
 		return
 	Fx.texte(j.global_position + Vector3(0, 2.3, 0), "-%d  %s" % [int(d), raison], Color(1.0, 0.25, 0.25), 1.2, 1.1)
 	var v := get_tree().get_first_node_in_group("ville")

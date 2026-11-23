@@ -120,6 +120,13 @@ func zoom_impact() -> void:
 func secouer(f: float) -> void:
 	_secousse = maxf(_secousse, f)
 
+func ralenti(duree: float) -> void:
+	if Engine.time_scale < 1.0:
+		return
+	Engine.time_scale = 0.3
+	await get_tree().create_timer(duree, true, false, true).timeout
+	Engine.time_scale = 1.0
+
 func hitstop(duree: float) -> void:
 	if Engine.time_scale < 1.0:
 		return
@@ -455,11 +462,14 @@ var skyline: Skyline
 var appart: Appart
 var carte: Carte
 var chez_soi := false
+var escorte: Escorte
 
 func cibles_gps() -> Array:
 	var l := []
 	if missions:
 		l.append_array(missions.cibles())
+	if escorte and escorte.bureau != Vector3.INF:
+		l.append({"nom": "Agence de protection", "pos": escorte.bureau, "col": Color(0.4, 0.7, 1.0)})
 	if appart:
 		l.append({"nom": "Ton appartement", "pos": appart.porte_pos, "col": Color(0.4, 1.0, 0.55)})
 	l.append({"nom": "Portail des donjons", "pos": PORTAIL, "col": Color(0.4, 0.6, 1.0)})
@@ -505,6 +515,9 @@ func _generer_zones() -> void:
 	var bea := Beaute.new()
 	add_child(bea)
 	bea.installer(self)
+	escorte = Escorte.new()
+	add_child(escorte)
+	escorte.installer(self, pts)
 	var qua := Quartiers.new()
 	add_child(qua)
 	qua.installer(self, pts)
@@ -829,6 +842,10 @@ func action_proche() -> Dictionary:
 		var am := missions.action(p)
 		if not am.is_empty():
 			return am
+	if escorte:
+		var ae := escorte.action(p)
+		if not ae.is_empty():
+			return ae
 	if appart:
 		var aa := appart.action(p)
 		if not aa.is_empty():
