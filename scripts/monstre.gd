@@ -202,8 +202,12 @@ func _combat(dt: float) -> void:
 			cible = ombres.pick_random().global_position
 		var w := cible - global_position
 		_corps.rotation.y = atan2(w.x, w.z)
-		Modele.jouer(_ap, "Attack" if _ap and _ap.has_animation("Attack") else "Roar", 0.9, 0.08)
-		_retour_idle(1.0)
+		var a_boss: String = ["A_Chidori", "A_Rasengan"][randi() % 2] if espece in ["naruto", "clone_naruto"] else ""
+		if a_boss != "" and _ap and _ap.has_animation(a_boss):
+			_retour_idle(Modele.jouer(_ap, a_boss, 1.6 if a_boss == "A_Chidori" else 1.2, 0.08))
+		else:
+			Modele.jouer(_ap, "Attack" if _ap and _ap.has_animation("Attack") else "Roar", 0.9, 0.08)
+			_retour_idle(1.0)
 		var tw := create_tween()
 		var s0 := _corps.scale
 		tw.tween_property(_corps, "scale", s0 * 1.12, 0.25)
@@ -573,6 +577,8 @@ func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) ->
 		_retour_idle(0.45)
 
 func _invoquer_clones() -> void:
+	if _ap and _ap.has_animation("A_Clone"):
+		_retour_idle(Modele.jouer(_ap, "A_Clone", 1.0, 0.06))
 	Fx.texte(global_position + Vector3(0, haut() + 1.0, 0), "ÉCHOS SPECTRAUX !", Color(1.0, 0.6, 0.15), 1.6, 1.4)
 	Fx.son("portal", 0.0)
 	var v := get_tree().get_first_node_in_group("ville")

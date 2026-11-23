@@ -291,7 +291,7 @@ func competence(k: String) -> String:
 		if Partie.charge < 100.0:
 			return "Domaine chargé à %d %% — tue des monstres" % int(Partie.charge)
 		Partie.charge = 0.0
-		_anim_coup = Modele.jouer(_ap, _a("M_Charge", "Cast"), 1.6, 0.05) * 0.9
+		_anim_coup = Modele.jouer(_ap, _a("A_Boeuf", "Cast"), 2.2, 0.05) * 0.9
 		Partie.domaine_fin = Partie.temps() + Partie.DUREE_DOMAINE
 		Fx.son("arise", 0.0, 0.6)
 		Fx.son("portal", -2.0, 0.7)
@@ -324,7 +324,7 @@ func competence(k: String) -> String:
 			return "Pas assez de mana (%d)" % int(d["mana"])
 		Partie.depenser_mana(d["mana"])
 		recharges[k] = d["cd"]
-		_anim_coup = Modele.jouer(_ap, _a("M_Bolt", "Cast"), 1.3, 0.05) * 0.8
+		_anim_coup = Modele.jouer(_ap, _a("A_Lapin", "Cast"), 0.8, 0.05) * 0.8
 		Fx.anneau(c2.global_position, Color(0.3, 1.0, 0.7), 5.0)
 		Fx.son("arise", -2.0, 1.3)
 		if c2.puissance() > Partie.dps_total():
@@ -400,7 +400,7 @@ func competence(k: String) -> String:
 			Fx.son("slam", -2.0)
 			_brise_differe(c)
 		"cri":
-			_anim_coup = Modele.jouer(_ap, _a("M_Fireball", "Cast"), 1.4, 0.05) * 0.8
+			_anim_coup = Modele.jouer(_ap, _a("A_Singe", "Cast"), 0.9, 0.05) * 0.8
 			Partie.cri_fin = Partie.temps() + Partie.DUREE_CRI
 			Fx.son("arise", -2.0, 0.8)
 			Fx.anneau(global_position, Color(0.65, 0.3, 1.0), 7.0)
