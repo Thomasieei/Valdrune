@@ -551,6 +551,7 @@ func _embellir_ville(v: Node3D) -> void:
 				mat.emission_energy_multiplier = 2.2
 			elif n.contains("road") or n.contains("ground"):
 				mat.roughness = 0.55
+				mat.albedo_color = mat.albedo_color * Color(1.0, 0.86, 0.74)
 				mat.metallic_specular = 0.5
 			elif n.contains("filler") or n.contains("paramount") or n.contains("clinic") or n.contains("laundry") or n.contains("pawn") or n.contains("fish"):
 				mat.roughness = minf(mat.roughness, 0.8)
@@ -680,7 +681,7 @@ func _environnement() -> void:
 	e.tonemap_mode = Environment.TONE_MAPPER_ACES
 	e.tonemap_exposure = 0.88
 	e.adjustment_enabled = true
-	e.adjustment_saturation = 1.24
+	e.adjustment_saturation = 1.0
 	e.adjustment_contrast = 1.1
 	e.glow_bloom = 0.05
 	e.glow_hdr_threshold = 1.05
