@@ -70,15 +70,13 @@ func _portique(p: Vector3, r: int) -> void:
 	var lb := Label3D.new()
 	lb.text = "%s\n%s" % [NOMS[r + 1], LEVEL[r + 1]]
 	lb.font = Ui.police
-	lb.font_size = 38
-	lb.outline_size = 10
-	lb.pixel_size = 0.0018
-	lb.fixed_size = true
-	lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	lb.no_depth_test = true
+	lb.font_size = 64
+	lb.outline_size = 14
+	lb.pixel_size = 0.028
+	lb.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
 	lb.modulate = c.lightened(0.25)
-	lb.position = Vector3(0, 14.5, 0)
-	lb.visibility_range_end = 220.0
+	lb.position = Vector3(0, 17.0, 0)
+	lb.visibility_range_end = 170.0
 	n.add_child(lb)
 	for s in [-1.0, 1.0]:
 		var l := OmniLight3D.new()

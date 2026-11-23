@@ -43,11 +43,6 @@ func construire(v: Node3D) -> void:
 	_tex = ImageTexture.create_from_image(img)
 	clip_contents = true
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sh := Shader.new()
-	sh.code = "shader_type canvas_item; void fragment() { float d = length(UV - vec2(0.5)); COLOR.a *= 1.0 - smoothstep(0.485, 0.5, d); }"
-	var mat := ShaderMaterial.new()
-	mat.shader = sh
-	material = mat
 
 func cibles() -> Array:
 	return ville.cibles_gps() if ville else []
@@ -119,7 +114,7 @@ func _draw() -> void:
 	var pp := Vector2(j.global_position.x, j.global_position.z)
 	var l: float = j.camera_lacet
 	var phi := -PI / 2.0 - atan2(-cos(l), -sin(l))
-	draw_circle(c, R, Color(0.02, 0.04, 0.08, 0.9))
+	draw_rect(Rect2(Vector2.ZERO, size), Color(0.02, 0.04, 0.08, 0.92))
 	draw_set_transform(c, phi, Vector2.ONE)
 	draw_texture_rect(_tex, Rect2((Vector2(X0, Z0) - pp) * ech, Vector2(W * CELL, H * CELL) * ech), false)
 	if _route.size() > 1:
@@ -150,4 +145,4 @@ func _draw() -> void:
 			rb = rb.normalized() * (R - 9.0)
 		draw_circle(c + rb, 5.0, Color(1.0, 0.25, 0.3))
 	draw_colored_polygon(PackedVector2Array([c + Vector2(0, -11), c + Vector2(8, 9), c + Vector2(0, 5), c + Vector2(-8, 9)]), Color(1, 1, 1))
-	draw_arc(c, R * 0.965, 0, TAU, 56, Color(0.5, 0.85, 1.0, 0.95), 4.0, true)
+	draw_rect(Rect2(Vector2.ONE, size - Vector2(2, 2)), Color(0.5, 0.85, 1.0, 0.95), false, 3.0)

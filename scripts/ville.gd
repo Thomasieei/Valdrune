@@ -614,7 +614,7 @@ func _lampadaires(pts: Array) -> void:
 		add_child(h)
 
 # Cherche un mur de bâtiment existant près d'un point de rue (pour poser enseignes et portes dessus)
-func mur_proche(p: Vector3, portee := 14.0) -> Dictionary:
+func mur_proche(p: Vector3, portee := 30.0) -> Dictionary:
 	var etat := get_world_3d().direct_space_state
 	var mieux := {}
 	var dm := INF

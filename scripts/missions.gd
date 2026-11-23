@@ -56,6 +56,12 @@ func _mat(c: Color, emis := false) -> StandardMaterial3D:
 		s.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return s
 
+func _vitre(c: Color) -> StandardMaterial3D:
+	var s := StandardMaterial3D.new()
+	s.albedo_color = c
+	s.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	return s
+
 func _stand(p: Vector3, nom: String) -> Vector3:
 	var n := Node3D.new()
 	add_child(n)
@@ -74,14 +80,14 @@ func _stand(p: Vector3, nom: String) -> Vector3:
 	var b := BoxMesh.new()
 	b.size = Vector3(3.4, 1.9, 0.06)
 	vit.mesh = b
-	vit.material_override = _mat(Color(1.0, 0.72, 0.38, 0.7), true)
+	vit.material_override = _vitre(Color(0.95, 0.68, 0.3))
 	vit.position = Vector3(-0.6, 1.9, 0.05)
 	n.add_child(vit)
 	var porte := MeshInstance3D.new()
 	var bp := BoxMesh.new()
 	bp.size = Vector3(1.2, 2.4, 0.06)
 	porte.mesh = bp
-	porte.material_override = _mat(Color(1.0, 0.5, 0.2, 0.75), true)
+	porte.material_override = _vitre(Color(0.5, 0.22, 0.1))
 	porte.position = Vector3(2.0, 1.2, 0.05)
 	n.add_child(porte)
 	var toit := MeshInstance3D.new()
