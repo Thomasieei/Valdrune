@@ -394,6 +394,7 @@ func _ready() -> void:
 	joueur = Joueur.new()
 	joueur.name = "Joueur"
 	joueur.add_to_group("joueur")
+	joueur.maj_aura_titre.call_deferred()
 	add_child(joueur)
 	joueur.global_position = DEPART
 	camera = Camera3D.new()

@@ -616,7 +616,7 @@ func _dessiner_haut() -> void:
 	var nv := str(Partie.niveau)
 	var w := Ui.police.get_string_size(nv, HORIZONTAL_ALIGNMENT_LEFT, -1, 32).x
 	_texte(c, Vector2(46 - w / 2.0, 58), nv, 32, Color.WHITE, 7)
-	_texte(c, Vector2(100, 34), "Chasseur rang %s  ·  Niveau %d" % [Partie.RANGS[Partie.rang_chasseur], Partie.niveau], 22, Partie.COULEURS_RANG[Partie.rang_chasseur].lightened(0.3))
+	_texte(c, Vector2(100, 34), ("« %s »  ·  " % Partie.TITRES[Partie.titre]["nom"] if Partie.titre != "" else "") + "Chasseur rang %s  ·  Niveau %d" % [Partie.RANGS[Partie.rang_chasseur], Partie.niveau], 20, Partie.COULEURS_RANG[Partie.rang_chasseur].lightened(0.3))
 	c.draw_texture_rect(Ui.tex("r1"), Rect2(98, 44, 36, 36), false)
 	_texte(c, Vector2(140, 74), Fx.court(Partie.pieces), 30, Color(1.0, 0.85, 0.3), 7)
 	for k in 2:
@@ -1234,13 +1234,19 @@ func _boutique() -> void:
 var _onglet_cl := "puissance"
 
 func _classement() -> void:
-	for k in [["puissance", "PUISSANCE"], ["or", "RICHESSE"]]:
-		var b := Ui.bouton(k[1], Ui.CYAN if _onglet_cl == k[0] else Ui.BLEU, Vector2(200, 48), 20)
+	var ox := 36.0
+	for k in [["puissance", "PUISSANCE"], ["or", "RICHESSE"], ["temps", "TEMPS"]]:
+		var b := Ui.bouton(k[1], Ui.CYAN if _onglet_cl == k[0] else Ui.BLEU, Vector2(160, 48), 19)
 		var id: String = k[0]
 		b.pressed.connect(func ():
 			_onglet_cl = id
 			_construire())
-		_ajouter(b, Vector2(36 + (0 if id == "puissance" else 210), 78))
+		_ajouter(b, Vector2(ox, 78))
+		ox += 168.0
+	_guildes_bloc()
+	if _onglet_cl == "temps":
+		_classement_temps()
+		return
 	var l := Partie.classement(_onglet_cl)
 	var y := 140.0
 	for k in l.size():
@@ -1918,6 +1924,21 @@ func _journal() -> void:
 		var nom: String = {"infatigable": "Chasseur infatigable", "sans_peur": "Sans peur", "maitre": "Maître des ombres"}[id]
 		_ajouter(Ui.label(("✔ " + nom) if Partie.secretes.has(id) else "???  (quête cachée non découverte)", 19, Color(0.45, 1.0, 0.55) if Partie.secretes.has(id) else Color(0.6, 0.6, 0.75), 5), Vector2(50, y))
 		y += 32.0
+	_ajouter(Ui.label("TITRES", 20, Color(1.0, 0.8, 0.4), 6), Vector2(440, 300))
+	var yt := 330.0
+	for id in Partie.TITRES:
+		var t: Dictionary = Partie.TITRES[id]
+		var ok := Partie.titre_debloque(id)
+		var bt := Ui.bouton(("✦ " if Partie.titre == id else "") + t["nom"] + ("" if ok else "  (%s)" % t["desc"]), t["couleur"].darkened(0.45) if ok else Color(0.22, 0.22, 0.3), Vector2(420, 30), 13)
+		bt.disabled = not ok
+		var tid: String = id
+		bt.pressed.connect(func ():
+			Partie.titre = "" if Partie.titre == tid else tid
+			Partie.sauver()
+			ville.joueur.maj_aura_titre()
+			_construire())
+		_ajouter(bt, Vector2(440, yt))
+		yt += 34.0
 	var b := Ui.bouton("MODE CRÉATEUR : ANOS  (%s)" % ("ON" if Partie.createur else "OFF"), Color(0.6, 0.05, 0.1) if Partie.createur else Color(0.25, 0.08, 0.12), Vector2(420, 54), 19)
 	b.pressed.connect(func ():
 		ville.basculer_createur()
@@ -2020,3 +2041,51 @@ func _tk_fermer(deja: bool) -> void:
 	if _tk:
 		_tk.queue_free()
 		_tk = null
+
+
+func _guildes_bloc() -> void:
+	Partie.verifier_guerre()
+	var y := 470.0
+	_ajouter(Ui.label("GUERRE DE GUILDES — semaine en cours", 17, Color(1.0, 0.8, 0.4), 5), Vector2(580, y))
+	var sa := Partie.score_guilde("aube")
+	var sc := Partie.score_guilde("croc")
+	var tot := maxf(sa + sc, 1.0)
+	var barre := ColorRect.new()
+	barre.color = Partie.GUILDES["croc"]["couleur"]
+	barre.size = Vector2(370, 14)
+	_ajouter(barre, Vector2(580, y + 30))
+	var part := ColorRect.new()
+	part.color = Partie.GUILDES["aube"]["couleur"]
+	part.size = Vector2(370 * sa / tot, 14)
+	_ajouter(part, Vector2(580, y + 30))
+	_ajouter(Ui.label("%s %d %%   ·   %s %d %%" % [Partie.GUILDES["aube"]["nom"], int(100 * sa / tot), Partie.GUILDES["croc"]["nom"], int(100 * sc / tot)], 14, Color(0.9, 0.9, 1.0), 3), Vector2(580, y + 48))
+	if Partie.guilde == "":
+		for g in ["aube", "croc"]:
+			var b := Ui.bouton("Rejoindre " + Partie.GUILDES[g]["nom"], Partie.GUILDES[g]["couleur"].darkened(0.4), Vector2(182, 44), 14)
+			var gg: String = g
+			b.pressed.connect(func ():
+				Partie.guilde = gg
+				Partie.sauver()
+				_construire())
+			_ajouter(b, Vector2(580 + (0 if g == "aube" else 188), y + 74))
+	else:
+		_ajouter(Ui.label("Ta guilde : %s — victoire = or, 3 clés, +2 points" % Partie.GUILDES[Partie.guilde]["nom"], 14, Partie.GUILDES[Partie.guilde]["couleur"], 4), Vector2(580, y + 76))
+
+func _classement_temps() -> void:
+	var r := mini(Partie.rang_chasseur, 3)
+	_ajouter(Ui.label("Meilleurs temps — test de rang %s → %s" % [Partie.RANGS[r], Partie.RANGS[r + 1]], 19, Color(1.0, 0.8, 0.4), 6), Vector2(40, 140))
+	var l := []
+	for c in Partie.chasseurs:
+		var t := Partie.temps_bot(c, r)
+		if t > 0.0:
+			l.append([c["nom"], t])
+	if Partie.temps_tests.has(str(r)):
+		l.append(["Toi", float(Partie.temps_tests[str(r)])])
+	l.sort_custom(func (a, b): return a[1] < b[1])
+	var y := 180.0
+	if l.is_empty():
+		_ajouter(Ui.label("Personne n'a encore réussi ce test.", 17, Color(0.75, 0.75, 0.9), 4), Vector2(40, y))
+	for k in mini(l.size(), 10):
+		var moi: bool = l[k][0] == "Toi"
+		_ajouter(Ui.label("#%d  %s  —  %d:%02d" % [k + 1, l[k][0], int(l[k][1]) / 60, int(l[k][1]) % 60], 19, Color(0.45, 1.0, 0.55) if moi else Color(0.88, 0.9, 1.0), 5), Vector2(40, y))
+		y += 34.0

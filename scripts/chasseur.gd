@@ -65,7 +65,7 @@ func _ready() -> void:
 	_activite_t = randf_range(120.0, 480.0)
 
 func _maj_plaque() -> void:
-	_plaque.text = "%s  [%s]\nNiv. %d" % [d["nom"], Partie.RANGS[int(d["rang"])], int(d["niveau"])]
+	_plaque.text = "%s  [%s]\n%s · Niv. %d" % [d["nom"], Partie.RANGS[int(d["rang"])], Partie.GUILDES[Partie.guilde_de(d)]["nom"], int(d["niveau"])]
 	_plaque.modulate = Color(1.0, 0.85, 0.4) if d.get("premium", false) else Color(0.55, 0.9, 1.0)
 
 func _valide(m) -> bool:

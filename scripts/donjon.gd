@@ -681,6 +681,7 @@ func _victoire() -> void:
 	var t := duree()
 	if test_rang >= 0:
 		gains = {"test": true, "temps": t}
+		Partie.record_test(test_rang, t)
 		Partie.reussir_test()
 		sortie = Node3D.new()
 		add_child(sortie)

@@ -528,6 +528,7 @@ func _ready() -> void:
 	verifier_jour()
 	verifier_contrats()
 	choisir_rival()
+	verifier_guerre()
 	if inventaire.is_empty():
 		var d := ajouter_objet("dague", 0, false)
 		equipe["arme"] = d["uid"]
@@ -694,8 +695,89 @@ func arme() -> Dictionary:
 
 
 
+# ---------- Guildes IA
+const GUILDES := {"aube": {"nom": "Lames d'Aube", "couleur": Color(0.45, 0.75, 1.0)}, "croc": {"nom": "Croc Noir", "couleur": Color(1.0, 0.4, 0.4)}}
+var guilde := ""
+var semaine_guerre := -1
+
+func semaine() -> int:
+	return int(Time.get_unix_time_from_system() / 604800.0)
+
+func guilde_de(c: Dictionary) -> String:
+	return "aube" if NOMS_CHASSEURS.find(c["nom"]) % 2 == 0 else "croc"
+
+func score_guilde(g: String) -> float:
+	var s := 0.0
+	for c in chasseurs:
+		if guilde_de(c) == g:
+			s += bot_dps(c)
+	if guilde == g:
+		s += dps_total()
+	return s
+
+func verifier_guerre() -> void:
+	var w := semaine()
+	if semaine_guerre == w:
+		return
+	if semaine_guerre >= 0 and guilde != "":
+		var autre := "croc" if guilde == "aube" else "aube"
+		if score_guilde(guilde) >= score_guilde(autre):
+			var g := 20000 * (rang_chasseur + 1)
+			pieces += g
+			or_total += g
+			donner_cle(3)
+			points_bonus += 2
+			systeme.emit("GUERRE DE GUILDES : VICTOIRE", ["%s contrôle la ville cette semaine !" % GUILDES[guilde]["nom"], "+%s pièces, 3 clés, +2 points." % str(g)])
+		else:
+			systeme.emit("GUERRE DE GUILDES : DÉFAITE", ["%s a perdu la ville cette semaine." % GUILDES[guilde]["nom"]])
+	semaine_guerre = w
+
+# ---------- Titres avec aura
+const TITRES := {
+	"gobelins": {"nom": "Fléau des gobelins", "desc": "300 gobelins vaincus", "stat": "pieces", "val": 3.0, "couleur": Color(0.5, 1.0, 0.4)},
+	"ombres": {"nom": "Seigneur des ombres", "desc": "40 ombres levées", "stat": "ombres", "val": 3.0, "couleur": Color(0.7, 0.4, 1.0)},
+	"donjons": {"nom": "Briseur de portails", "desc": "10 donjons terminés", "stat": "arme", "val": 3.0, "couleur": Color(0.4, 0.8, 1.0)},
+	"chateau": {"nom": "Grimpeur écarlate", "desc": "Étage 20 du château", "stat": "vie", "val": 5.0, "couleur": Color(1.0, 0.3, 0.3)},
+	"abime": {"nom": "Marcheur de l'Abîme", "desc": "Étage 30 de l'Abîme", "stat": "mana", "val": 5.0, "couleur": Color(0.3, 1.0, 0.75)},
+	"rival": {"nom": "Briseur de rival", "desc": "Surpasser ton rival", "stat": "crit", "val": 2.0, "couleur": Color(1.0, 0.75, 0.3)},
+}
+var titre := ""
+
+func titre_debloque(id: String) -> bool:
+	match id:
+		"gobelins":
+			return int(tues.get("gobelin", 0)) + int(tues.get("gobelin_chef", 0)) >= 300
+		"ombres":
+			return int(quete.get("ombres_total", 0)) >= 40 or arises.values().reduce(func (a, b): return a + int(b), 0) >= 40
+		"donjons":
+			return donjons >= 10
+		"chateau":
+			return etage_max >= 20
+		"abime":
+			return abime_max >= 30
+		"rival":
+			return rival_battu
+	return false
+
+# ---------- Classement des temps (tests de rang)
+var temps_tests := {}
+
+func record_test(r: int, t: float) -> void:
+	var k := str(r)
+	if not temps_tests.has(k) or t < float(temps_tests[k]):
+		temps_tests[k] = t
+		sauver()
+
+func temps_bot(c: Dictionary, r: int) -> float:
+	var ratio: float = bot_dps(c) / SEUIL_TEST[r]
+	if ratio < 0.8:
+		return -1.0
+	return clampf(DUREE_TEST / ratio * 0.9 * (1.2 - float(c["talent"]) * 0.3), 45.0, DUREE_TEST)
+
 func bonus(stat: String) -> float:
 	var b := 0.0
+	if titre != "" and TITRES.has(titre) and TITRES[titre]["stat"] == stat:
+		b += float(TITRES[titre]["val"])
 	for e in equipe:
 		var o := objet(equipe[e])
 		if o.is_empty():
@@ -1218,7 +1300,7 @@ func sauver() -> void:
 			"auto_attaque": auto_attaque, "records": records, "finis": donjons_finis,
 			"chasseurs": chasseurs, "elo": elo, "jetons": jetons, "arene_v": arene_v, "arene_d": arene_d,
 			"quitte": Time.get_unix_time_from_system(), "rang_chasseur": rang_chasseur, "or_total": or_total, "opts": opts, "cles": cles, "etage_max": etage_max,
-			"quete": quete, "pts_bonus": points_bonus, "secretes": secretes, "kills_total": kills_total, "general": general_uid, "speciale": speciale, "abime_max": abime_max, "potions": potions, "contrats": contrats, "rival": rival, "rival_battu": rival_battu, "eclats_forge": eclats_forge}))
+			"quete": quete, "pts_bonus": points_bonus, "secretes": secretes, "kills_total": kills_total, "general": general_uid, "speciale": speciale, "abime_max": abime_max, "potions": potions, "contrats": contrats, "rival": rival, "rival_battu": rival_battu, "eclats_forge": eclats_forge, "guilde": guilde, "semaine_guerre": semaine_guerre, "titre": titre, "temps_tests": temps_tests}))
 
 func charger() -> void:
 	if OS.get_cmdline_user_args().has("--sans-sauvegarde") or not FileAccess.file_exists(CHEMIN):
@@ -1265,6 +1347,10 @@ func charger() -> void:
 	contrats = d.get("contrats", contrats)
 	rival = str(d.get("rival", ""))
 	eclats_forge = int(d.get("eclats_forge", 0))
+	guilde = str(d.get("guilde", ""))
+	semaine_guerre = int(d.get("semaine_guerre", -1))
+	titre = str(d.get("titre", ""))
+	temps_tests = d.get("temps_tests", {})
 	rival_battu = bool(d.get("rival_battu", false))
 	var pp: Dictionary = d.get("potions", {})
 	potions = {"pv": int(pp.get("pv", 5)), "mana": int(pp.get("mana", 5))}

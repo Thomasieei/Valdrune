@@ -383,6 +383,37 @@ func competence(k: String) -> String:
 	return ""
 
 var _aura_anos: Array = []
+var _aura_titre: Node3D = null
+
+func maj_aura_titre() -> void:
+	if _aura_titre:
+		_aura_titre.queue_free()
+		_aura_titre = null
+	if Partie.titre == "" or not Partie.TITRES.has(Partie.titre):
+		return
+	var col: Color = Partie.TITRES[Partie.titre]["couleur"]
+	_aura_titre = Node3D.new()
+	add_child(_aura_titre)
+	var anneau := MeshInstance3D.new()
+	var t := TorusMesh.new()
+	t.inner_radius = 0.75
+	t.outer_radius = 0.85
+	anneau.mesh = t
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.albedo_color = Color(col, 0.7)
+	anneau.material_override = m
+	anneau.scale = Vector3(1, 0.05, 1)
+	anneau.position.y = 0.06
+	_aura_titre.add_child(anneau)
+	var p := _etincelles(col)
+	p.amount = 16
+	p.position = Vector3(0, 0.3, 0)
+	_aura_titre.add_child(p)
+	var tw := anneau.create_tween().set_loops()
+	tw.tween_property(anneau, "rotation:y", TAU, 4.0).from(0.0)
 
 func aura_anos(on: bool) -> void:
 	for n in _aura_anos:
