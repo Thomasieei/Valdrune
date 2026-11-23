@@ -12,6 +12,7 @@ const PHRASES_DETTE := ["Il a parlé d'expulsion… j'ai peur.", "Je n'arrive pl
 var ville: Node3D
 var porte_pos := Vector3.ZERO
 var _soeur: Node3D
+var _sortie := Vector3(0, 0, 4.0)
 var _t_loyer := 5.0
 var _annonce_jour := -1
 var _bulle_t := 0.0
@@ -79,6 +80,14 @@ func _porte() -> void:
 	add_child(n)
 	n.global_position = porte_pos
 	n.rotation.y = randf() * TAU
+	var mur: Dictionary = ville.mur_proche(porte_pos)
+	if not mur.is_empty():
+		var nm: Vector3 = mur["normal"]
+		var mp: Vector3 = mur["pos"]
+		n.global_position = Vector3(mp.x, porte_pos.y, mp.z) + nm * 0.15
+		n.rotation.y = atan2(nm.x, nm.z)
+		porte_pos = n.global_position + nm * 2.2
+		_sortie = nm * 2.6
 	var vert := Color(0.3, 1.0, 0.55)
 	_boite(n, Vector3(-1.1, 1.6, 0), Vector3(0.25, 3.2, 0.4), Color(0.12, 0.16, 0.2), false, true)
 	_boite(n, Vector3(1.1, 1.6, 0), Vector3(0.25, 3.2, 0.4), Color(0.12, 0.16, 0.2), false, true)
@@ -213,7 +222,7 @@ func sortir() -> void:
 	await ville.hud.fondu(true)
 	ville.chez_soi = false
 	ville._ambiance(false)
-	ville._teleporter(porte_pos + Vector3(0, 0.3, 4.0), 0.0)
+	ville._teleporter(porte_pos + _sortie + Vector3(0, 0.3, 0), 0.0)
 	await ville.hud.fondu(false)
 
 func parler() -> void:

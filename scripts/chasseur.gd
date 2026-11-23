@@ -91,7 +91,7 @@ func _choisir_ville() -> void:
 		if not _valide(m) or m.allie or m.sans_chrono or m.e.get("lieu", "") != "" or m == ville.joueur.cible or int(pris.get(m, 0)) >= 2:
 			continue
 		var dist: float = m.global_position.distance_to(global_position)
-		if dist > 90.0:
+		if dist > 90.0 or ville.rang_zone(m.global_position) > int(d["rang"]):
 			continue
 		var st: Dictionary = Partie.stats_monstre(m.espece, m.elite, m.mult)
 		if st["pv"] / dps > st["temps"] * 0.95:

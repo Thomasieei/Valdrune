@@ -66,6 +66,7 @@ func installer(v: Node3D, pts: Array) -> void:
 	var centre := Vector2((mnx + mxx) / 2.0, (mnz + mxz) / 2.0)
 	var a := (mxx - mnx) / 2.0 + 70.0
 	var b := (mxz - mnz) / 2.0 + 70.0
+	_limites(mnx - 30.0, mxx + 30.0, mnz - 30.0, mxz + 30.0)
 	seed(777)
 	# sol sombre à l'infini (pas de vide autour de la ville)
 	var sol := MeshInstance3D.new()
@@ -139,6 +140,37 @@ func installer(v: Node3D, pts: Array) -> void:
 		_tiers.append([mi, NIVEAUX[t]])
 	_tour_chasseurs(centre, a, b)
 	Partie.niveau_gagne.connect(_niveau)
+
+# Barrière magnétique : murs invisibles solides + voile bleu visible de près
+func _limites(x0: float, x1: float, z0: float, z1: float) -> void:
+	var vm := StandardMaterial3D.new()
+	vm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	vm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	vm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	vm.cull_mode = BaseMaterial3D.CULL_DISABLED
+	vm.albedo_color = Color(0.3, 0.6, 1.0, 0.16)
+	var cotes := [[Vector3((x0 + x1) / 2.0, 0, z0), Vector3(x1 - x0, 0, 0)], [Vector3((x0 + x1) / 2.0, 0, z1), Vector3(x1 - x0, 0, 0)],
+		[Vector3(x0, 0, (z0 + z1) / 2.0), Vector3(0, 0, z1 - z0)], [Vector3(x1, 0, (z0 + z1) / 2.0), Vector3(0, 0, z1 - z0)]]
+	for c in cotes:
+		var sb := StaticBody3D.new()
+		var cs := CollisionShape3D.new()
+		var bs := BoxShape3D.new()
+		var lon: Vector3 = c[1]
+		bs.size = Vector3(maxf(lon.x, 3.0), 120.0, maxf(lon.z, 3.0))
+		cs.shape = bs
+		sb.add_child(cs)
+		sb.position = c[0] + Vector3(0, 55.0, 0)
+		add_child(sb)
+		var mi := MeshInstance3D.new()
+		var q := QuadMesh.new()
+		q.size = Vector2(maxf(lon.x, lon.z), 60.0)
+		mi.mesh = q
+		mi.material_override = vm
+		mi.position = c[0] + Vector3(0, 28.0, 0)
+		mi.rotation.y = 0.0 if lon.x > 0.0 else PI / 2.0
+		mi.visibility_range_end = 70.0
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mi)
 
 func _tour(pos: Vector2, h: float, w: float, tier: int, collision: bool) -> void:
 	var graine := randf()

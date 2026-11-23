@@ -502,6 +502,9 @@ func _generer_zones() -> void:
 	skyline = Skyline.new()
 	add_child(skyline)
 	skyline.installer(self, pts)
+	var qua := Quartiers.new()
+	add_child(qua)
+	qua.installer(self, pts)
 	carte = Carte.new()
 	carte.construire(self)
 	if pts.size() < 24:
@@ -511,7 +514,7 @@ func _generer_zones() -> void:
 	for p in pts:
 		var d: float = Vector2(p.x - DEPART.x, p.z - DEPART.z).length()
 		var rg := mini(int(d / 75.0), 3)
-		if par_rang[rg] >= 8:
+		if par_rang[rg] >= 10:
 			continue
 		par_rang[rg] += 1
 		var l: Array = Partie.ESPECES_RANG[rg]
@@ -609,6 +612,32 @@ func _lampadaires(pts: Array) -> void:
 		h.position = t.position
 		h.visibility_range_end = 120.0
 		add_child(h)
+
+# Cherche un mur de bâtiment existant près d'un point de rue (pour poser enseignes et portes dessus)
+func mur_proche(p: Vector3, portee := 14.0) -> Dictionary:
+	var etat := get_world_3d().direct_space_state
+	var mieux := {}
+	var dm := INF
+	var o := p + Vector3(0, 1.4, 0)
+	for k in 16:
+		var a := TAU * k / 16.0
+		var d := Vector3(cos(a), 0, sin(a))
+		var r := etat.intersect_ray(PhysicsRayQueryParameters3D.create(o, o + d * portee))
+		if r.is_empty():
+			continue
+		var nm: Vector3 = r["normal"]
+		if absf(nm.y) > 0.3:
+			continue
+		var dist := o.distance_to(r["position"])
+		if dist < 2.4 or dist >= dm:
+			continue
+		var o2 := o + Vector3(0, 5, 0)
+		var r2 := etat.intersect_ray(PhysicsRayQueryParameters3D.create(o2, o2 + d * (dist + 0.6)))
+		if r2.is_empty():
+			continue
+		dm = dist
+		mieux = {"pos": r["position"], "normal": Vector3(nm.x, 0, nm.z).normalized()}
+	return mieux
 
 func rang_zone(p: Vector3) -> int:
 	return mini(int(Vector2(p.x - DEPART.x, p.z - DEPART.z).length() / 75.0), 3)

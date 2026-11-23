@@ -43,8 +43,8 @@ func installer(v: Node3D, pts: Array) -> void:
 				mieux = p
 		choisis.append(mieux)
 	for k in choisis.size():
-		restos.append({"pos": choisis[k], "nom": RESTOS[k]})
-		_stand(choisis[k], RESTOS[k])
+		var ip: Vector3 = _stand(choisis[k], RESTOS[k])
+		restos.append({"pos": ip, "nom": RESTOS[k]})
 
 func _mat(c: Color, emis := false) -> StandardMaterial3D:
 	var s := StandardMaterial3D.new()
@@ -56,41 +56,46 @@ func _mat(c: Color, emis := false) -> StandardMaterial3D:
 		s.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return s
 
-func _stand(p: Vector3, nom: String) -> void:
+func _stand(p: Vector3, nom: String) -> Vector3:
 	var n := Node3D.new()
 	add_child(n)
-	n.global_position = p
-	n.rotation.y = randf() * TAU
-	var compt := MeshInstance3D.new()
+	var ip := p
+	var mur: Dictionary = ville.mur_proche(p)
+	if mur.is_empty():
+		n.global_position = p
+		n.rotation.y = randf() * TAU
+	else:
+		var nm: Vector3 = mur["normal"]
+		var mp: Vector3 = mur["pos"]
+		n.global_position = Vector3(mp.x, p.y, mp.z) + nm * 0.12
+		n.rotation.y = atan2(nm.x, nm.z)
+		ip = n.global_position + nm * 2.0
+	var vit := MeshInstance3D.new()
 	var b := BoxMesh.new()
-	b.size = Vector3(2.4, 1.0, 0.9)
-	compt.mesh = b
-	compt.material_override = _mat(Color(0.35, 0.2, 0.1))
-	compt.position = Vector3(0, 0.5, 0.9)
-	n.add_child(compt)
+	b.size = Vector3(3.4, 1.9, 0.06)
+	vit.mesh = b
+	vit.material_override = _mat(Color(1.0, 0.72, 0.38, 0.7), true)
+	vit.position = Vector3(-0.6, 1.9, 0.05)
+	n.add_child(vit)
+	var porte := MeshInstance3D.new()
+	var bp := BoxMesh.new()
+	bp.size = Vector3(1.2, 2.4, 0.06)
+	porte.mesh = bp
+	porte.material_override = _mat(Color(1.0, 0.5, 0.2, 0.75), true)
+	porte.position = Vector3(2.0, 1.2, 0.05)
+	n.add_child(porte)
 	var toit := MeshInstance3D.new()
 	var t := BoxMesh.new()
-	t.size = Vector3(2.8, 0.12, 1.6)
+	t.size = Vector3(5.2, 0.12, 1.4)
 	toit.mesh = t
 	toit.material_override = _mat(Color(1.0, 0.45, 0.15))
-	toit.position = Vector3(0, 2.6, 0.7)
-	toit.rotation.x = 0.18
+	toit.position = Vector3(0.6, 2.95, 0.7)
+	toit.rotation.x = 0.15
 	n.add_child(toit)
-	for sx in [-1.2, 1.2]:
-		var pl := MeshInstance3D.new()
-		var cy := CylinderMesh.new()
-		cy.top_radius = 0.05
-		cy.bottom_radius = 0.05
-		cy.height = 2.6
-		cy.radial_segments = 5
-		pl.mesh = cy
-		pl.material_override = _mat(Color(0.2, 0.2, 0.25))
-		pl.position = Vector3(sx, 1.3, 1.3)
-		n.add_child(pl)
 	var cuisto: Node3D = Apparence.kang.call()
 	cuisto = Modele.preparer(cuisto, "resto_cuisto", 1.8)
-	cuisto.position = Vector3(0, 0, 0.1)
-	cuisto.rotation.y = PI
+	cuisto.position = Vector3(1.0, 0, 0.9)
+	cuisto.rotation.y = PI * 0.5
 	n.add_child(cuisto)
 	var ap := Modele.lecteur(cuisto)
 	Modele.jouer(ap, "Idle")
@@ -105,17 +110,18 @@ func _stand(p: Vector3, nom: String) -> void:
 	lb.fixed_size = true
 	lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	lb.modulate = Color(1.0, 0.75, 0.35)
-	lb.position.y = 3.2
+	lb.position = Vector3(0.6, 3.6, 0.5)
 	lb.visibility_range_end = 70.0
 	n.add_child(lb)
 	var lum := OmniLight3D.new()
 	lum.light_color = Color(1.0, 0.7, 0.35)
 	lum.light_energy = 1.0
 	lum.omni_range = 6.0
-	lum.position = Vector3(0, 2.2, 1.0)
+	lum.position = Vector3(0, 2.2, 1.2)
 	n.add_child(lum)
 	# colonne de lumière orange visible de loin
 	n.add_child(_colonne(Color(1.0, 0.6, 0.2, 0.35), 40.0, 0.5))
+	return ip
 
 func _colonne(c: Color, h: float, r: float) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
