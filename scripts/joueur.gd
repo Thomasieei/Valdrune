@@ -305,7 +305,6 @@ func competence(k: String) -> String:
 		Fx.son("arise", 0.0, 0.6)
 		Fx.son("portal", -2.0, 0.7)
 		Fx.anneau(global_position, Color(0.45, 0.1, 0.9), 14.0)
-		Fx.texte(global_position + Vector3(0, 3.2, 0), "DOMAINE DU MONARQUE", Color(0.75, 0.45, 1.0), 2.0, 2.0)
 		var v := get_tree().get_first_node_in_group("ville")
 		if v:
 			v.hud.domaine(Partie.DUREE_DOMAINE)
