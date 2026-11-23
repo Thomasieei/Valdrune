@@ -21,6 +21,9 @@ var _activite_t := 0.0
 var _absent_t := 0.0
 var _errance := Vector3.ZERO
 var _lent_t := 0.0
+var _dps := 0.0
+var _dps_t := 0.0
+var _lod_dt := 0.0
 
 func _ready() -> void:
 	var forme := CollisionShape3D.new()
@@ -76,7 +79,7 @@ func _choisir_ville() -> void:
 	if ville.raid_boss and is_instance_valid(ville.raid_boss) and not ville.raid_boss.mort:
 		cible = ville.raid_boss
 		return
-	var dps := Partie.bot_dps(d)
+	var dps := maxf(_dps, 1.0)
 	var mieux: Monstre = null
 	var score := -INF
 	var pris := {}
@@ -86,10 +89,12 @@ func _choisir_ville() -> void:
 	for m in ville.monstres:
 		if not _valide(m) or m.allie or m.sans_chrono or m.e.get("lieu", "") != "" or m == ville.joueur.cible or int(pris.get(m, 0)) >= 2:
 			continue
+		var dist: float = m.global_position.distance_to(global_position)
+		if dist > 90.0:
+			continue
 		var st: Dictionary = Partie.stats_monstre(m.espece, m.elite, m.mult)
 		if st["pv"] / dps > st["temps"] * 0.95:
 			continue
-		var dist: float = m.global_position.distance_to(global_position)
 		var s: float = st["xp"] / (st["pv"] / dps + 4.0 + dist / 7.0)
 		if s > score:
 			score = s
@@ -130,7 +135,22 @@ func _destination() -> Vector3:
 
 func _physics_process(dt: float) -> void:
 	var t0 := Time.get_ticks_usec()
-	_physics_process_reel(dt)
+	_dps_t -= dt
+	if _dps_t <= 0.0:
+		_dps_t = 5.0 + randf()
+		_dps = Partie.bot_dps(d)
+	# LOD : chasseur loin du joueur → logique à 5 Hz, animation coupée
+	var loin := mode != "donjon" and global_position.distance_squared_to(ville.joueur.global_position) > 2500.0
+	if _ap and _ap.active == loin:
+		_ap.active = not loin
+	if loin:
+		_lod_dt += dt
+		if _lod_dt >= 0.2:
+			_physics_process_reel(_lod_dt)
+			_lod_dt = 0.0
+	else:
+		_lod_dt = 0.0
+		_physics_process_reel(dt)
 	Partie.prof["chasseurs"] = int(Partie.prof.get("chasseurs", 0)) + Time.get_ticks_usec() - t0
 
 func _physics_process_reel(dt: float) -> void:
@@ -162,7 +182,7 @@ func _physics_process_reel(dt: float) -> void:
 				return
 	_choix_t -= dt
 	if _choix_t <= 0.0 or not _valide(cible):
-		_choix_t = 1.0
+		_choix_t = randf_range(1.5, 2.5)
 		if mode == "donjon":
 			_choisir_donjon()
 		else:
@@ -204,7 +224,7 @@ func _physics_process_reel(dt: float) -> void:
 			_coup_t = 0.6
 			Modele.jouer(_ap, "Attack", 1.6, 0.06)
 			var crit := randf() < 0.15
-			cible.frapper(Partie.bot_dps(d) * 0.6 * (2.0 if crit else 1.0), crit, "allie" if mode == "donjon" else "bot", self)
+			cible.frapper(maxf(_dps, 1.0) * 0.6 * (2.0 if crit else 1.0), crit, "allie" if mode == "donjon" else "bot", self)
 	else:
 		Modele.jouer(_ap, "Idle")
 
