@@ -31,7 +31,7 @@ void fragment() {
 	vec3 froid = vec3(0.45, 0.8, 1.0);
 	vec3 col = mix(chaud, froid, step(0.72, hh(id + 7.0)));
 	col = mix(col, vec3(1.0, 0.4, 0.8), step(0.95, hh(id + 3.0)));
-	EMISSION = col * fen * on * cote * (1.0 - step(0.5, cd.b)) * 0.8;
+	EMISSION = col * fen * on * cote * (1.0 - step(0.5, cd.b)) * 0.55;
 }
 "
 
@@ -94,7 +94,7 @@ func installer(v: Node3D, pts: Array) -> void:
 			_tour(pos, randf_range(130.0, 330.0), randf_range(26.0, 52.0), tier, false)
 			break
 	# tours dans la ville, sur les terrains libres (avec collision : on peut courir sur les murs)
-	var cible_int := 18
+	var cible_int := 0
 	var posees := 0
 	var essais := 0
 	var depart := Vector2(v.DEPART.x, v.DEPART.z)
