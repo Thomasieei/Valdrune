@@ -398,7 +398,7 @@ func _chercher_rebord(dir: Vector3) -> void:
 	var max_h := 3.8 if en_l else 1.6
 	var etat := get_world_3d().direct_space_state
 	var av := -n
-	for prof in [0.55, 0.95]:
+	for prof: float in [0.55, 0.95]:
 		var haut := global_position + av * prof + Vector3(0, max_h + 0.3, 0)
 		var q := PhysicsRayQueryParameters3D.create(haut, haut - Vector3(0, max_h + 0.1, 0))
 		q.exclude = [get_rid()]
