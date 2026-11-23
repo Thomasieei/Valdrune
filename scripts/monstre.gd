@@ -184,7 +184,7 @@ func _maj_plaque() -> void:
 		_plaque.modulate = OR_ELITE.lightened(0.2) if elite else v["couleur"]
 
 func _combat(dt: float) -> void:
-	var j: Node3D = get_tree().get_first_node_in_group("joueur")
+	var j: Node3D = _j()
 	if j == null or chrono < 0.0 or global_position.distance_to(j.global_position) > 20.0:
 		return
 	var r: int = mini(int(e["rang"]), 4)
@@ -288,6 +288,9 @@ func _dans_zone(a: Vector3, c: Vector3, r: float) -> bool:
 	return Vector2(a.x - c.x, a.z - c.z).length() <= r and absf(a.y - c.y) < 3.0
 
 func _toucher_joueur(j: Node3D, d: float, raison := "ZONE") -> void:
+	var jo := j as Joueur
+	if jo and jo._anim_coup <= 0.0 and jo.invulnerable <= 0.0:
+		jo._anim_coup = Modele.jouer(jo._ap, "Hit", 1.4, 0.04) * 0.6
 	var jj := j as Joueur
 	if jj and jj.invulnerable > 0.0:
 		Fx.texte(j.global_position + Vector3(0, 2.3, 0), "ESQUIVÉ", Color(0.5, 1.0, 0.8), 1.1, 0.7)
@@ -589,53 +592,69 @@ func _retour_idle(apres: float) -> void:
 		Modele.jouer(_ap, "Idle")
 
 var _squash := false
+var _mailles: Array = []
 static var _tex_etincelle: Texture2D
+static var _imp_pm := {}
+static var _imp_quad: QuadMesh
+static var _flash_mat: ShaderMaterial
+static var _joueur_ref: Node3D
+
+func _j() -> Node3D:
+	if _joueur_ref == null or not is_instance_valid(_joueur_ref):
+		_joueur_ref = get_tree().get_first_node_in_group("joueur")
+	return _joueur_ref
 
 func _impact_coup(crit: bool, ombre: bool) -> void:
+	var cle := "o" if ombre else ("c" if crit else "n")
+	if not _imp_pm.has(cle):
+		var pm := ParticleProcessMaterial.new()
+		pm.direction = Vector3(0, 0.6, 0)
+		pm.spread = 80.0
+		pm.initial_velocity_min = 3.0
+		pm.initial_velocity_max = 7.0 if crit else 5.0
+		pm.gravity = Vector3(0, -9, 0)
+		pm.scale_min = 0.6
+		pm.scale_max = 1.4 if crit else 1.0
+		pm.color = Color(0.7, 0.4, 1.0) if ombre else (Color(1.0, 0.85, 0.3) if crit else Color(1.0, 0.95, 0.8))
+		_imp_pm[cle] = pm
+	if _imp_quad == null:
+		_imp_quad = QuadMesh.new()
+		_imp_quad.size = Vector2(0.18, 0.18)
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		mat.vertex_color_use_as_albedo = true
+		mat.albedo_texture = load("res://assets/fx/spark_04.png")
+		_imp_quad.material = mat
 	var p := GPUParticles3D.new()
 	p.amount = 14 if crit else 8
 	p.lifetime = 0.35
 	p.one_shot = true
 	p.explosiveness = 1.0
 	p.local_coords = false
-	var pm := ParticleProcessMaterial.new()
-	pm.direction = Vector3(0, 0.6, 0)
-	pm.spread = 80.0
-	pm.initial_velocity_min = 3.0
-	pm.initial_velocity_max = 7.0 if crit else 5.0
-	pm.gravity = Vector3(0, -9, 0)
-	pm.scale_min = 0.6
-	pm.scale_max = 1.4 if crit else 1.0
-	pm.color = Color(0.7, 0.4, 1.0) if ombre else (Color(1.0, 0.85, 0.3) if crit else Color(1.0, 0.95, 0.8))
-	p.process_material = pm
-	var q := QuadMesh.new()
-	q.size = Vector2(0.18, 0.18)
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-	mat.vertex_color_use_as_albedo = true
-	if _tex_etincelle == null:
-		_tex_etincelle = load("res://assets/fx/spark_04.png")
-	mat.albedo_texture = _tex_etincelle
-	q.material = mat
-	p.draw_pass_1 = q
+	p.process_material = _imp_pm[cle]
+	p.draw_pass_1 = _imp_quad
 	get_parent().add_child(p)
 	p.global_position = global_position + Vector3(randf_range(-0.3, 0.3), haut() * 0.55, randf_range(-0.3, 0.3))
 	p.emitting = true
 	get_tree().create_timer(0.6).timeout.connect(p.queue_free)
 	if not ombre:
-		for mi in _corps.find_children("*", "MeshInstance3D", true, false):
+		if _flash_mat == null:
+			_flash_mat = Shaders.halo(Color(1, 1, 1), 3.0)
+		if _mailles.is_empty():
+			_mailles = _corps.find_children("*", "MeshInstance3D", true, false)
+		for mi in _mailles:
 			var g := mi as GeometryInstance3D
+			if g.material_overlay == _flash_mat:
+				continue
 			var avant := g.material_overlay
-			g.material_overlay = Shaders.halo(Color(1, 1, 1), 3.0)
+			g.material_overlay = _flash_mat
 			get_tree().create_timer(0.07).timeout.connect(func ():
 				if is_instance_valid(g):
 					g.material_overlay = avant)
-		var v := get_tree().get_first_node_in_group("ville")
-		if v:
-			v.hitstop(0.03 if not crit else 0.06)
+
 
 func _ap_ok_squash() -> bool:
 	if _squash:

@@ -110,6 +110,13 @@ var _nettoyage_t := 30.0
 var _lod_t := 1.0
 var _secousse := 0.0
 
+var _zoom := 1.0
+
+func zoom_impact() -> void:
+	_zoom = 0.9
+	if camera:
+		camera.fov = 67.0
+
 func secouer(f: float) -> void:
 	_secousse = maxf(_secousse, f)
 
@@ -594,7 +601,7 @@ func _environnement() -> void:
 	_soleil.light_energy = 1.2
 	_soleil.shadow_enabled = true
 	_soleil.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-	_soleil.directional_shadow_max_distance = 40.0
+	_soleil.directional_shadow_max_distance = 28.0
 	_soleil.shadow_blur = 1.5
 	add_child(_soleil)
 
@@ -1281,13 +1288,19 @@ func _process(dt: float) -> void:
 		var pj := joueur.global_position
 		for m in monstres:
 			if is_instance_valid(m) and not m.allie:
-				var loin: bool = m.global_position.distance_to(pj) > 85.0 and m != raid_boss and m != boss_evt
+				var loin: bool = m.global_position.distance_to(pj) > 60.0 and m != raid_boss and m != boss_evt
 				if m.visible == loin:
 					m.visible = not loin
 					m.set_process(not loin)
+					if m._ap:
+						m._ap.active = not loin
 		for c in chasseurs:
 			if is_instance_valid(c) and c.mode == "ville":
-				c.visible = c.global_position.distance_to(pj) < 85.0
+				var proche: bool = c.global_position.distance_to(pj) < 60.0
+				if c.visible != proche:
+					c.visible = proche
+					if c._ap:
+						c._ap.active = proche
 	_nettoyage_t -= dt
 	if _nettoyage_t <= 0.0:
 		_nettoyage_t = 30.0
@@ -1309,7 +1322,10 @@ func _process(dt: float) -> void:
 	_maj_portee(dt)
 	_cam_pos = _cam_pos.lerp(joueur.global_position + Vector3(0, 1.6, 0), minf(1.0, dt * 9.0))
 	var dir := Vector3(sin(_lacet) * cos(_tangage), -sin(_tangage), cos(_lacet) * cos(_tangage))
-	var voulu := _cam_pos + dir * _dist
+	var combat: bool = joueur.cible != null and is_instance_valid(joueur.cible) and not joueur.cible.mort
+	_zoom = lerpf(_zoom, 0.82 if combat else 1.0, minf(1.0, dt * 2.5))
+	camera.fov = lerpf(camera.fov, 62.0, minf(1.0, dt * 6.0))
+	var voulu := _cam_pos + dir * _dist * _zoom
 
 
 	var q := PhysicsShapeQueryParameters3D.new()

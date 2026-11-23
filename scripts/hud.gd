@@ -17,6 +17,7 @@ var _b_eveil: Control
 var _b_comp := {}
 var _barre := {}
 var _fioles := {}
+var _redraw_t := 0.0
 var _flash: ColorRect
 var _voile: ColorRect
 var _sys: Panel
@@ -543,8 +544,13 @@ func _process(dt: float) -> void:
 	var dj: Array = Partie.direct()
 	_aff_j = lerpf(_aff_j, dj[0], minf(1.0, dt * 4.0))
 	_aff_o = lerpf(_aff_o, dj[1], minf(1.0, dt * 4.0))
-	_droite.queue_redraw()
-	_haut.queue_redraw()
+	_redraw_t -= dt
+	if _redraw_t <= 0.0:
+		_redraw_t = 0.12
+		_droite.queue_redraw()
+		_haut.queue_redraw()
+		for k in _fioles:
+			_fioles[k].queue_redraw()
 	if _roll_actif:
 		_avancer_roll(dt)
 	_msg_t -= dt
@@ -576,8 +582,6 @@ func _process(dt: float) -> void:
 		bc.set_meta("pauvre", Partie.mana < float(Partie.COMPETENCES[k]["mana"]))
 		bc.queue_redraw()
 	_flash_msg_t -= dt
-	for k in _fioles:
-		_fioles[k].queue_redraw()
 	_reconstruire_t -= dt
 	if _a_reconstruire and _reconstruire_t <= 0.0:
 		_a_reconstruire = false

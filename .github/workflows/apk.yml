@@ -37,6 +37,8 @@ jobs:
           timeout 520 xvfb-run -a -s "-screen 0 1280x720x24" godot --path . --rendering-driver opengl3 -- --pilote=tour --sans-sauvegarde > tour.log 2>&1 || true
           grep -E "CAPTURE|SCRIPT ERROR|TOUR|PILOTE|at: " tour.log | grep -v "mesh_get_surface" | head -80 || true
           mkdir -p /tmp/vid && timeout 400 xvfb-run -a -s "-screen 0 960x540x24" godot --path . --rendering-driver opengl3 --resolution 960x540 --write-movie /tmp/vid/f.png --fixed-fps 15 --quit-after 200 -- --pilote=video --sans-sauvegarde > video.log 2>&1 || true
+          grep -E "PERF|SCRIPT ERROR" video.log | head -20 || true
+          timeout 120 xvfb-run -a -s "-screen 0 960x540x24" godot --path . --rendering-driver opengl3 --resolution 960x540 -- --pilote=video --sans-sauvegarde 2>&1 | grep -E "PERF" | head -10 || true
           mkdir -p shots/video && for f in /tmp/vid/f*.png; do n=$(basename $f .png); n=${n#f}; if [ $((10#$n % 4)) -eq 0 ]; then cp $f shots/video/; fi; done; ls shots/video | wc -l
           mkdir -p shots && cp /tmp/caps_arise/*.png shots/ 2>/dev/null || true
           cp tour.log shots/

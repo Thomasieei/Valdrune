@@ -199,45 +199,49 @@ func _choisir_cible(dt: float) -> Monstre:
 
 var rangee := false
 
+static var _fum_pm: ParticleProcessMaterial
+static var _fum_q: QuadMesh
+
 static func fumee(pos: Vector3, parent: Node, sortie: bool) -> void:
+	if _fum_pm == null:
+		var pm := ParticleProcessMaterial.new()
+		pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
+		pm.emission_ring_axis = Vector3(0, 1, 0)
+		pm.emission_ring_radius = 0.9
+		pm.emission_ring_inner_radius = 0.2
+		pm.emission_ring_height = 0.1
+		pm.direction = Vector3(0, 1, 0)
+		pm.spread = 25.0
+		pm.initial_velocity_min = 0.6
+		pm.initial_velocity_max = 1.8
+		pm.gravity = Vector3(0, 0.4, 0)
+		pm.scale_min = 2.5
+		pm.scale_max = 5.0
+		var g := Gradient.new()
+		g.set_color(0, Color(0.12, 0.02, 0.22, 0.9))
+		g.add_point(0.45, Color(0.05, 0.0, 0.1, 0.7))
+		g.set_color(g.get_point_count() - 1, Color(0.0, 0.0, 0.0, 0.0))
+		var gt := GradientTexture1D.new()
+		gt.gradient = g
+		pm.color_ramp = gt
+		_fum_pm = pm
+		var q := QuadMesh.new()
+		q.size = Vector2(0.5, 0.5)
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		m.vertex_color_use_as_albedo = true
+		m.albedo_texture = load("res://assets/fx/smoke_02.png")
+		q.material = m
+		_fum_q = q
 	var p := GPUParticles3D.new()
-	p.amount = 46
-	p.lifetime = 1.4
+	p.amount = 30
+	p.lifetime = 1.3
 	p.one_shot = true
 	p.explosiveness = 0.75
-	var pm := ParticleProcessMaterial.new()
-	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
-	pm.emission_ring_axis = Vector3(0, 1, 0)
-	pm.emission_ring_radius = 0.9
-	pm.emission_ring_inner_radius = 0.2
-	pm.emission_ring_height = 0.1
-	pm.direction = Vector3(0, 1, 0)
-	pm.spread = 25.0
-	pm.initial_velocity_min = 0.6
-	pm.initial_velocity_max = 2.2 if sortie else 1.2
-	pm.gravity = Vector3(0, 0.4, 0)
-	pm.scale_min = 2.5
-	pm.scale_max = 5.0
-	pm.turbulence_enabled = true
-	pm.turbulence_noise_strength = 0.8
-	var g := Gradient.new()
-	g.set_color(0, Color(0.12, 0.02, 0.22, 0.9))
-	g.add_point(0.45, Color(0.05, 0.0, 0.1, 0.7))
-	g.set_color(g.get_point_count() - 1, Color(0.0, 0.0, 0.0, 0.0))
-	var gt := GradientTexture1D.new()
-	gt.gradient = g
-	pm.color_ramp = gt
-	p.process_material = pm
-	var q := QuadMesh.new()
-	q.size = Vector2(0.5, 0.5)
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-	m.vertex_color_use_as_albedo = true
-	m.albedo_texture = load("res://assets/fx/smoke_02.png")
-	q.material = m
-	p.draw_pass_1 = q
+	p.process_material = _fum_pm
+	p.draw_pass_1 = _fum_q
 	parent.add_child(p)
 	p.global_position = pos
 	p.emitting = true

@@ -85,7 +85,9 @@ func _video() -> void:
 		j.global_position = m0.global_position + Vector3(2.2, 0.3, 0)
 		await attendre(0.3)
 		j.viser(m0)
-	await attendre(6.0)
+	for k in 6:
+		await attendre(1.0)
+		print("[PERF] fps=%d proc_ms=%.2f phys_ms=%.2f noeuds=%d objets_rendu=%d draw=%d" % [Performance.get_monitor(Performance.TIME_FPS), Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000.0, Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME), Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)])
 	j.competence("esquive")
 	await attendre(1.5)
 	var m1: Monstre = j.cible_devant(v.monstres.filter(func (m): return not m.mort and m.e["rang"] <= 1), 60.0)
