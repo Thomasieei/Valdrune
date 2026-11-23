@@ -128,6 +128,23 @@ func _tour() -> void:
 	Partie.change.emit()
 	await attendre(2.5)
 	await capture("ville_depart")
+	var ms: Missions = v.missions
+	if ms and ms.restos.size() > 0:
+		var rp: Vector3 = ms.restos[0]["pos"]
+		j.global_position = rp + Vector3(3.0, 0.5, 3.0)
+		await attendre(1.2)
+		await capture("resto")
+		var g0: int = Partie.pieces
+		print("[LIVRAISON] action=", ms.action(j.global_position))
+		ms.prendre(0)
+		j.global_position = ms.m["dest"] + Vector3(2.0, 0.5, 2.0)
+		await attendre(1.2)
+		await capture("livraison")
+		print("[LIVRAISON] action=", ms.action(j.global_position), " texte=", ms.texte().replace("\n", " | "))
+		ms.livrer()
+		await attendre(0.8)
+		await capture("livree")
+		print("[LIVRAISON] or +", Partie.pieces - g0, " livrees=", Partie.metier["coursier"]["livrees"])
 	var m0: Monstre = j.cible_devant(v.monstres, 200.0)
 	if m0:
 		j.global_position = m0.global_position + Vector3(2.5, 0.3, 0)
