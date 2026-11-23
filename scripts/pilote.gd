@@ -28,6 +28,8 @@ func _ready() -> void:
 			await _nouveautes()
 		"tour":
 			await _tour()
+		"video":
+			await _video()
 		"marche":
 			var j: Joueur = ville.joueur
 			j.global_position = Vector3(-165.0, 0.3, -72.0)
@@ -69,6 +71,27 @@ func _ready() -> void:
 			await capture("tailles")
 	print("[PILOTE] fini")
 	get_tree().quit()
+
+func _video() -> void:
+	var v = ville
+	var j: Joueur = v.joueur
+	Partie.niveau = 8
+	for esp in ["gobelin", "gobelin", "puglin"]:
+		Partie.ombres.append({"uid": 9100 + Partie.ombres.size(), "espece": esp, "etoiles": 1, "eq": true})
+	Partie.change.emit()
+	await attendre(1.0)
+	var m0: Monstre = j.cible_devant(v.monstres.filter(func (m): return m.e["rang"] <= 1 and not m.elite), 300.0)
+	if m0:
+		j.global_position = m0.global_position + Vector3(2.2, 0.3, 0)
+		await attendre(0.3)
+		j.viser(m0)
+	await attendre(6.0)
+	j.competence("esquive")
+	await attendre(1.5)
+	var m1: Monstre = j.cible_devant(v.monstres.filter(func (m): return not m.mort and m.e["rang"] <= 1), 60.0)
+	if m1:
+		j.viser(m1)
+	await attendre(4.0)
 
 func _tour() -> void:
 	var v = ville
