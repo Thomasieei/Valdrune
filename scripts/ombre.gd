@@ -76,6 +76,11 @@ func _ready() -> void:
 	Modele.jouer(_ap, "Idle")
 
 func _process(dt: float) -> void:
+	var t0 := Time.get_ticks_usec()
+	_process_reel(dt)
+	Partie.prof["ombres"] = int(Partie.prof.get("ombres", 0)) + Time.get_ticks_usec() - t0
+
+func _process_reel(dt: float) -> void:
 	if joueur == null:
 		return
 	_anim -= dt

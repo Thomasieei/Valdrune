@@ -1270,6 +1270,11 @@ func toucher_monde(p: Vector2) -> void:
 			joueur.viser(m)
 
 func _process(dt: float) -> void:
+	var t0 := Time.get_ticks_usec()
+	_process_reel(dt)
+	Partie.prof["ville"] = int(Partie.prof.get("ville", 0)) + Time.get_ticks_usec() - t0
+
+func _process_reel(dt: float) -> void:
 	if boss_evt == null and donjon == null and arene == null and chateau == null and abime == null and temps_avant_evt() <= 0.0:
 		lancer_evenement()
 	elif boss_evt and not boss_evt.mort and evt_restant() <= 0.0:

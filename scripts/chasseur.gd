@@ -128,6 +128,11 @@ func _destination() -> Vector3:
 	return _errance
 
 func _physics_process(dt: float) -> void:
+	var t0 := Time.get_ticks_usec()
+	_physics_process_reel(dt)
+	Partie.prof["chasseurs"] = int(Partie.prof.get("chasseurs", 0)) + Time.get_ticks_usec() - t0
+
+func _physics_process_reel(dt: float) -> void:
 	if mode == "absent":
 		_absent_t -= dt
 		if _absent_t <= 0.0:

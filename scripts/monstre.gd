@@ -304,6 +304,11 @@ func _toucher_joueur(j: Node3D, d: float, raison := "ZONE") -> void:
 			v.mort_joueur()
 
 func _process(dt: float) -> void:
+	var t0 := Time.get_ticks_usec()
+	_process_reel(dt)
+	Partie.prof["monstres"] = int(Partie.prof.get("monstres", 0)) + Time.get_ticks_usec() - t0
+
+func _process_reel(dt: float) -> void:
 	if allie:
 		if not mort:
 			_ia_pacte(dt)

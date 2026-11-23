@@ -179,6 +179,7 @@ var mana := 100.0
 var morts_serie := 0
 var derniere_mort := -1000.0
 var cri_fin := -1.0
+var prof := {}
 var auto_attaque := false
 var chasseurs: Array = []
 var elo := 1000
@@ -534,6 +535,11 @@ func _ready() -> void:
 		equipe["arme"] = d["uid"]
 
 func _process(dt: float) -> void:
+	var t0 := Time.get_ticks_usec()
+	_process_reel(dt)
+	prof["partie"] = int(prof.get("partie", 0)) + Time.get_ticks_usec() - t0
+
+func _process_reel(dt: float) -> void:
 	_t += dt
 	pv = minf(pv_max(), pv + pv_max() * 0.015 * dt)
 	mana = minf(mana_max(), mana + regen_mana() * dt)

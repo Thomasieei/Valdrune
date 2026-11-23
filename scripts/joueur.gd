@@ -141,6 +141,11 @@ func cible_devant(monstres: Array, portee := 16.0) -> Monstre:
 	return mieux
 
 func _physics_process(dt: float) -> void:
+	var t0 := Time.get_ticks_usec()
+	_physics_process_reel(dt)
+	Partie.prof["joueur"] = int(Partie.prof.get("joueur", 0)) + Time.get_ticks_usec() - t0
+
+func _physics_process_reel(dt: float) -> void:
 	var dir := Vector3.ZERO
 	if entree.length() > 0.08:
 		var avant := Vector3(- sin(camera_lacet), 0, -cos(camera_lacet))

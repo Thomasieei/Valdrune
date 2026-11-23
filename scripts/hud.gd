@@ -527,6 +527,11 @@ func _jeton(c: Control, ctr: Vector2, r: float, m: String) -> void:
 	c.draw_arc(ctr, r, 0, TAU, 32, col.lightened(0.4), 2.0, true)
 
 func _process(dt: float) -> void:
+	var t0 := Time.get_ticks_usec()
+	_process_reel(dt)
+	Partie.prof["hud"] = int(Partie.prof.get("hud", 0)) + Time.get_ticks_usec() - t0
+
+func _process_reel(dt: float) -> void:
 	_maj_action()
 	if ville.arene and ville.arene.actif:
 		dire("ARÈNE  ·  %d s" % int(ville.arene.temps), Color(1.0, 0.7, 0.3))
