@@ -502,6 +502,9 @@ func _generer_zones() -> void:
 	skyline = Skyline.new()
 	add_child(skyline)
 	skyline.installer(self, pts)
+	var bea := Beaute.new()
+	add_child(bea)
+	bea.installer(self)
 	var qua := Quartiers.new()
 	add_child(qua)
 	qua.installer(self, pts)
@@ -677,17 +680,17 @@ func _environnement() -> void:
 	e.tonemap_mode = Environment.TONE_MAPPER_ACES
 	e.tonemap_exposure = 0.88
 	e.adjustment_enabled = true
-	e.adjustment_saturation = 1.12
-	e.adjustment_contrast = 1.07
-	e.glow_bloom = 0.0
-	e.glow_hdr_threshold = 1.4
+	e.adjustment_saturation = 1.24
+	e.adjustment_contrast = 1.1
+	e.glow_bloom = 0.05
+	e.glow_hdr_threshold = 1.05
 	e.fog_enabled = true
 	e.fog_light_color = Color(0.75, 0.7, 0.78)
 	e.fog_density = 0.0035
 	e.fog_aerial_perspective = 0.4
 	e.fog_sky_affect = 0.3
 	e.glow_enabled = true
-	e.glow_intensity = 0.7
+	e.glow_intensity = 0.95
 	we.environment = e
 	add_child(we)
 	_soleil = DirectionalLight3D.new()
@@ -696,7 +699,7 @@ func _environnement() -> void:
 	_soleil.light_energy = 1.2
 	_soleil.shadow_enabled = true
 	_soleil.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-	_soleil.directional_shadow_max_distance = 28.0
+	_soleil.directional_shadow_max_distance = 42.0
 	_soleil.shadow_blur = 1.5
 	add_child(_soleil)
 

@@ -29,7 +29,8 @@ func _ready() -> void:
 	plaque.fixed_size = true
 	plaque.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	plaque.modulate = c.lightened(0.35)
-	plaque.position.y = 2.35
+	plaque.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	plaque.position.y = 2.15
 	plaque.visibility_range_end = 45.0
 	add_child(plaque)
 	_marque = Label3D.new()

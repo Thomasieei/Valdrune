@@ -103,6 +103,7 @@ func _ready() -> void:
 	_plaque.font_size = 26
 	_plaque.outline_size = 8
 	_plaque.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_plaque.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	_plaque.visibility_range_end = 28.0
 	_plaque.font = Ui.police
 	add_child(_plaque)
@@ -151,7 +152,7 @@ func _appliquer_rang() -> void:
 	elif not elite and _aura:
 		_aura.queue_free()
 		_aura = null
-	_plaque.position.y = haut() + 0.35
+	_plaque.position.y = minf(maxf(haut(), Modele.sommet(_corps, self)), haut() * 1.5 + 1.0) + 0.5
 	_maj_plaque()
 
 func _cercle(c: Color, r: float) -> Node3D:

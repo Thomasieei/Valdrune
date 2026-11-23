@@ -46,6 +46,17 @@ static func creer(nom: String, hauteur: float, peau := "") -> Node3D:
 	return preparer(load(chemin).instantiate(), nom, hauteur, peau)
 
 
+# Sommet réel du modèle (en mètres, repère de `ref`), pour poser un texte au-dessus de la tête
+static func sommet(racine: Node3D, ref: Node3D) -> float:
+	var top := 0.0
+	for m in racine.find_children("*", "MeshInstance3D", true, false):
+		var mi := m as MeshInstance3D
+		if mi.mesh == null or not mi.visible:
+			continue
+		var bb: AABB = (ref.global_transform.affine_inverse() * mi.global_transform) * mi.get_aabb()
+		top = maxf(top, bb.end.y)
+	return top
+
 static func preparer(n: Node3D, nom: String, hauteur: float, peau := "") -> Node3D:
 	var h: float = _hauteurs.get(nom, -1.0)
 	var bas := 0.0

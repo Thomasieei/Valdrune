@@ -63,7 +63,8 @@ func _ready() -> void:
 	_plaque.pixel_size = 0.0016
 	_plaque.fixed_size = true
 	_plaque.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_plaque.position.y = 2.25
+	_plaque.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	_plaque.position.y = 2.1
 	_plaque.visibility_range_end = 26.0
 	add_child(_plaque)
 	_maj_plaque()
