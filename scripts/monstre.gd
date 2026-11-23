@@ -580,11 +580,42 @@ func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) ->
 		if _clones_faits < seuils.size() and pv / pv_max < seuils[_clones_faits]:
 			_clones_faits += 1
 			_invoquer_clones()
+	if pv > 0.0 and crit and source == "joueur" and not e.get("boss", false) and not _au_sol and randf() < 0.5:
+		_projeter()
 	if pv <= 0.0:
 		_mourir()
-	elif randf() < 0.35 and _ap and _ap.current_animation != "Hit" and _ap.current_animation != "Hit_Chest":
+	elif not _au_sol and randf() < 0.35 and _ap and _ap.current_animation != "Hit" and _ap.current_animation != "Hit_Chest":
 		Modele.jouer(_ap, "Hit", 1.3, 0.05)
 		_retour_idle(0.45)
+
+var _au_sol := false
+
+# Projeté en arrière, chute au sol, puis se relève
+func _projeter() -> void:
+	_au_sol = true
+	_etourdi = maxf(_etourdi, 1.3)
+	var j: Node3D = _j()
+	var dirk := Vector3.BACK
+	if j:
+		dirk = global_position - j.global_position
+		dirk.y = 0
+		dirk = dirk.normalized() if dirk.length() > 0.01 else Vector3.BACK
+		_corps.rotation.y = atan2(-dirk.x, -dirk.z)
+	var y0 := _corps.position.y
+	var dest := global_position + dirk * 1.8
+	var tw := create_tween()
+	tw.tween_property(self, "global_position", dest, 0.45).set_ease(Tween.EASE_OUT)
+	tw.parallel().tween_property(_corps, "position:y", y0 + 1.1, 0.2).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
+	tw.parallel().tween_property(_corps, "rotation:x", -1.35, 0.42)
+	tw.chain().tween_property(_corps, "position:y", y0, 0.22).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	tw.tween_callback(func ():
+		Fx.sol(global_position, "onde", Color(0.75, 0.7, 0.65), 2.2, 0.5)
+		Fx.anneau(global_position, Color(0.9, 0.85, 0.8, 0.6), 1.8))
+	tw.tween_property(_corps, "position:y", y0 + 0.15, 0.08)
+	tw.tween_property(_corps, "position:y", y0, 0.08)
+	tw.tween_interval(0.45)
+	tw.tween_property(_corps, "rotation:x", 0.0, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(func (): _au_sol = false)
 
 func _invoquer_clones() -> void:
 	if _ap and _ap.has_animation("A_Clone"):

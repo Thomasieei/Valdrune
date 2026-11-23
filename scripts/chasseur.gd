@@ -222,7 +222,12 @@ func _physics_process_reel(dt: float) -> void:
 		_coup_t -= dt
 		if _coup_t <= 0.0:
 			_coup_t = 0.6
-			Modele.jouer(_ap, "Attack", 1.6, 0.06)
+			var sp: String = ["M_SlashMagic", "M_Spin", "M_Leap"][randi() % 3]
+			if randf() < 0.3 and _ap and _ap.has_animation(sp):
+				Modele.jouer(_ap, sp, 2.2, 0.06)
+				_coup_t = 1.0
+			else:
+				Modele.jouer(_ap, ["Attack", "Attack2"][randi() % 2] if _ap and _ap.has_animation("Attack2") else "Attack", 1.6, 0.06)
 			var crit := randf() < 0.15
 			cible.frapper(maxf(_dps, 1.0) * 0.6 * (2.0 if crit else 1.0), crit, "allie" if mode == "donjon" else "bot", self)
 	else:
