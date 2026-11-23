@@ -182,7 +182,7 @@ func _maj_ciel(dt: float) -> void:
 		_soleil.light_color = Color(0.55, 0.65, 1.0) if n else Color(1.0, 0.9, 0.8)
 		_env.ambient_light_energy = lerpf(_env.ambient_light_energy, 0.4 if n else 0.6, 0.15)
 		var sm := _env.sky.sky_material as ProceduralSkyMaterial
-		sm.sky_top_color = sm.sky_top_color.lerp(Color(0.02, 0.03, 0.1) if n else Color(0.12, 0.3, 0.68), 0.15)
+		sm.sky_top_color = sm.sky_top_color.lerp(Color(0.02, 0.03, 0.1) if n else Color(0.3, 0.44, 0.72), 0.15)
 		sm.sky_horizon_color = sm.sky_horizon_color.lerp((Color(0.5, 0.08, 0.1) if Partie.pluie_sang() else Color(0.1, 0.1, 0.22)) if n else (Color(0.7, 0.3, 0.3) if Partie.pluie_sang() else Color(0.85, 0.7, 0.62)), 0.15)
 	_pluie_t -= 1.0
 	if _pluie_t <= 0.0 and not Partie.pluie_sang():
@@ -550,8 +550,8 @@ func _embellir_ville(v: Node3D) -> void:
 					mat.emission = Color(1.0, 0.85, 0.55)
 				mat.emission_energy_multiplier = 2.2
 			elif n.contains("road") or n.contains("ground"):
-				mat.roughness = 0.38
-				mat.metallic_specular = 0.9
+				mat.roughness = 0.55
+				mat.metallic_specular = 0.5
 			elif n.contains("filler") or n.contains("paramount") or n.contains("clinic") or n.contains("laundry") or n.contains("pawn") or n.contains("fish"):
 				mat.roughness = minf(mat.roughness, 0.8)
 
@@ -665,7 +665,7 @@ func _environnement() -> void:
 	_env = e
 	var ciel := Sky.new()
 	var mat := ProceduralSkyMaterial.new()
-	mat.sky_top_color = Color(0.12, 0.3, 0.68)
+	mat.sky_top_color = Color(0.3, 0.44, 0.72)
 	mat.sky_horizon_color = Color(0.85, 0.7, 0.62)
 	mat.sky_curve = 0.12
 	mat.sun_angle_max = 25.0
@@ -676,7 +676,7 @@ func _environnement() -> void:
 	e.sky = ciel
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	e.ambient_light_energy = 0.6
-	e.ambient_light_sky_contribution = 0.8
+	e.ambient_light_sky_contribution = 0.65
 	e.tonemap_mode = Environment.TONE_MAPPER_ACES
 	e.tonemap_exposure = 0.88
 	e.adjustment_enabled = true
