@@ -226,7 +226,7 @@ func bot_etage(d: Dictionary) -> int:
 		f += 1
 	return f
 var opts := {"arise": false, "potion": false, "rappel": true, "equip": false, "diviser": false, "monarque": false, "rangees": false, "fourreau": false, "patrouille": false}
-var speciale := "echange"
+var speciale := "telekinesie"
 var abime_max := 0
 var pactes_morts := {}
 const NIVEAU_MONARQUE := 50
@@ -1386,7 +1386,7 @@ func charger() -> void:
 	secretes = d.get("secretes", {})
 	kills_total = int(d.get("kills_total", 0))
 	general_uid = int(d.get("general", -1))
-	speciale = str(d.get("speciale", "echange"))
+	speciale = "telekinesie"
 	abime_max = int(d.get("abime_max", 0))
 	contrats = d.get("contrats", contrats)
 	rival = str(d.get("rival", ""))

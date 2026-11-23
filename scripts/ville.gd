@@ -771,7 +771,7 @@ func _pole() -> void:
 	lr.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	lr.modulate = Color(1.0, 0.4, 0.4)
 	lr.position.y = 7.6
-	lr.visibility_range_end = 70.0
+	lr.visibility_range_end = 32.0
 	portail_rouge.add_child(lr)
 	portail_abime = Node3D.new()
 	add_child(portail_abime)
@@ -787,7 +787,7 @@ func _pole() -> void:
 	la.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	la.modulate = Color(0.45, 1.0, 0.75)
 	la.position.y = 6.4
-	la.visibility_range_end = 60.0
+	la.visibility_range_end = 32.0
 	portail_abime.add_child(la)
 	l.font = Ui.police
 	l.font_size = 34
@@ -797,7 +797,7 @@ func _pole() -> void:
 	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	l.modulate = Color(0.6, 0.8, 1.0)
 	l.position.y = 6.4
-	l.visibility_range_end = 60.0
+	l.visibility_range_end = 32.0
 	portail.add_child(l)
 
 

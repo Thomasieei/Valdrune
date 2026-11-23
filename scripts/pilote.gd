@@ -146,7 +146,8 @@ func _tour() -> void:
 		await capture("rebord")
 		print("[REBORD] y0=", y0, " ymax=", ymax, " y_fin=", j.global_position.y)
 	if v.appart:
-		j.global_position = v.appart.porte_pos + Vector3(2.0, 0.5, 2.0)
+		j.global_position = v.appart.porte_pos + v.appart._sortie * 0.9 + Vector3(0, 0.5, 0)
+		j.camera_lacet = atan2(v.appart._sortie.x, v.appart._sortie.z)
 		await attendre(1.0)
 		await capture("porte_appart")
 		print("[APPART] action porte=", v.appart.action(j.global_position))

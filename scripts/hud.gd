@@ -358,8 +358,9 @@ func _disposer() -> void:
 	_b_comp["brise"].position = Vector2(w - 318, h - 250)
 	_b_comp["cri"].position = Vector2(w - 196, h - 318)
 	_b_comp["domaine"].position = Vector2(w - 330, h - 380)
-	_b_comp["echange"].position = Vector2(w - 440, h - 214)
-	_b_comp["pacte"].position = Vector2(w - 440, h - 330)
+	_b_comp["pacte"].position = Vector2(-600, -600)
+	_b_comp["pacte"].visible = false
+	_b_comp["echange"].position = Vector2(w - 440, h - 270)
 	_fioles["pv"].position = Vector2(258, h - 156)
 	_fioles["mana"].position = Vector2(258, h - 82)
 	_haut.position = Vector2(16, 10)
@@ -490,6 +491,31 @@ func ecran_mort(r: Dictionary) -> void:
 	_ajouter(ok, Vector2(290, 430))
 	_racine.add_child(_panneau)
 	_placer_panneau()
+
+# Mini écran de chargement (texte + barre) pendant que l'écran est noir
+func chargement(texte: String, duree := 0.9) -> void:
+	var l := Ui.label(texte, 32, Color(1, 1, 1), 6)
+	l.size = Vector2(700, 44)
+	l.position = Vector2(_taille.x / 2.0 - 350.0, _taille.y / 2.0 - 40.0)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fond := ColorRect.new()
+	fond.color = Color(1, 1, 1, 0.18)
+	fond.size = Vector2(420, 10)
+	fond.position = Vector2(_taille.x / 2.0 - 210.0, _taille.y / 2.0 + 20.0)
+	fond.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var barre := ColorRect.new()
+	barre.color = Color(0.5, 0.85, 1.0)
+	barre.size = Vector2(0, 10)
+	barre.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	fond.add_child(barre)
+	_fondu.add_child(l)
+	_fondu.add_child(fond)
+	var tw := barre.create_tween()
+	tw.tween_property(barre, "size:x", 420.0, duree)
+	await tw.finished
+	l.queue_free()
+	fond.queue_free()
 
 func fondu(noir: bool) -> void:
 	var tw := _fondu.create_tween()
@@ -1157,12 +1183,6 @@ func _stats() -> void:
 			ligne.add_child(b)
 			x += 76.0
 		y += 68.0
-	var sp := Ui.bouton("Spéciale : %s  ⇄" % Partie.COMPETENCES[Partie.speciale]["nom"], Ui.VIOLET, Vector2(330, 46), 18)
-	sp.pressed.connect(func ():
-		Partie.speciale = "telekinesie" if Partie.speciale == "echange" else "echange"
-		Partie.sauver()
-		_construire())
-	_ajouter(sp, Vector2(400, 540))
 	sc.get_v_scroll_bar().value_changed.connect(func (v): _defil_stats = int(v))
 	sc.set_deferred("scroll_vertical", _defil_stats)
 	var r := Ui.bouton("Réinitialiser les points", Ui.ROUGE, Vector2(300, 48), 20)

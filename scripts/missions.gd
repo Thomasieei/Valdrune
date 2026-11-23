@@ -80,7 +80,7 @@ func _stand(p: Vector3, nom: String) -> Vector3:
 	var b := BoxMesh.new()
 	b.size = Vector3(3.4, 1.9, 0.06)
 	vit.mesh = b
-	vit.material_override = _vitre(Color(0.95, 0.68, 0.3))
+	vit.material_override = _vitre(Color(0.62, 0.42, 0.22))
 	vit.position = Vector3(-0.6, 1.9, 0.05)
 	n.add_child(vit)
 	var porte := MeshInstance3D.new()
@@ -117,7 +117,7 @@ func _stand(p: Vector3, nom: String) -> Vector3:
 	lb.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	lb.modulate = Color(1.0, 0.75, 0.35)
 	lb.position = Vector3(0.6, 3.6, 0.5)
-	lb.visibility_range_end = 70.0
+	lb.visibility_range_end = 30.0
 	n.add_child(lb)
 	var lum := OmniLight3D.new()
 	lum.light_color = Color(1.0, 0.7, 0.35)
@@ -126,7 +126,6 @@ func _stand(p: Vector3, nom: String) -> Vector3:
 	lum.position = Vector3(0, 2.2, 1.2)
 	n.add_child(lum)
 	# colonne de lumière orange visible de loin
-	n.add_child(_colonne(Color(1.0, 0.6, 0.2, 0.35), 40.0, 0.5))
 	return ip
 
 func _colonne(c: Color, h: float, r: float) -> MeshInstance3D:

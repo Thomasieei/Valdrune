@@ -74,52 +74,23 @@ func _label(parent: Node3D, t: String, pos: Vector3, c: Color, taille := 30) -> 
 	parent.add_child(lb)
 	return lb
 
-# Entrée de l'immeuble, dans la rue : portique d'ascenseur vert
+# Entrée de l'immeuble : une porte plate posée sur la façade d'un vrai bâtiment
 func _porte() -> void:
 	var n := Node3D.new()
 	add_child(n)
 	n.global_position = porte_pos
-	n.rotation.y = randf() * TAU
 	var mur: Dictionary = ville.mur_proche(porte_pos)
 	if not mur.is_empty():
 		var nm: Vector3 = mur["normal"]
 		var mp: Vector3 = mur["pos"]
-		n.global_position = Vector3(mp.x, porte_pos.y, mp.z) + nm * 0.15
+		n.global_position = Vector3(mp.x, porte_pos.y, mp.z) + nm * 0.08
 		n.rotation.y = atan2(nm.x, nm.z)
-		porte_pos = n.global_position + nm * 2.2
+		porte_pos = n.global_position + nm * 2.0
 		_sortie = nm * 2.6
-	var vert := Color(0.3, 1.0, 0.55)
-	_boite(n, Vector3(-1.1, 1.6, 0), Vector3(0.25, 3.2, 0.4), Color(0.12, 0.16, 0.2), false, true)
-	_boite(n, Vector3(1.1, 1.6, 0), Vector3(0.25, 3.2, 0.4), Color(0.12, 0.16, 0.2), false, true)
-	_boite(n, Vector3(0, 3.3, 0), Vector3(2.5, 0.3, 0.45), Color(0.12, 0.16, 0.2))
-	_boite(n, Vector3(0, 1.5, 0), Vector3(1.9, 2.9, 0.08), Color(0.1, 0.5, 0.3, 1.0), true)
-	_label(n, "TON APPARTEMENT\nRésidence Horizon", Vector3(0, 4.2, 0), vert.lightened(0.2))
-	var lum := OmniLight3D.new()
-	lum.light_color = vert
-	lum.light_energy = 1.0
-	lum.omni_range = 7.0
-	lum.position = Vector3(0, 2.4, 1.0)
-	n.add_child(lum)
-	var col := MeshInstance3D.new()
-	var cy := CylinderMesh.new()
-	cy.top_radius = 0.45
-	cy.bottom_radius = 0.45
-	cy.height = 38.0
-	cy.cap_top = false
-	cy.cap_bottom = false
-	cy.radial_segments = 8
-	col.mesh = cy
-	var cm := StandardMaterial3D.new()
-	cm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	cm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	cm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	cm.cull_mode = BaseMaterial3D.CULL_DISABLED
-	cm.albedo_color = Color(0.3, 1.0, 0.55, 0.3)
-	col.material_override = cm
-	col.position.y = 19.0
-	col.visibility_range_end = 260.0
-	col.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	n.add_child(col)
+	var cadre := _boite(n, Vector3(0, 1.35, 0.02), Vector3(1.9, 2.7, 0.05), Color(0.12, 0.14, 0.18))
+	cadre.material_override = _mat(Color(0.12, 0.14, 0.18))
+	_boite(n, Vector3(0, 1.3, 0.06), Vector3(1.6, 2.5, 0.05), Color(0.2, 0.85, 0.5), true)
+	_label(n, "TON APPARTEMENT", Vector3(0, 3.2, 0.4), Color(0.6, 1.0, 0.75), 26).visibility_range_end = 30.0
 
 func _interieur() -> void:
 	var r := Node3D.new()
@@ -209,6 +180,7 @@ func entrer() -> void:
 	ville._env.ambient_light_energy = 1.3
 	ville._env.fog_density = 0.0006
 	ville._env.fog_light_color = Color(0.3, 0.25, 0.3)
+	await ville.hud.chargement("Entrée dans ton appartement…", 0.9)
 	await ville.hud.fondu(false)
 	var du := Partie.loyer_du()
 	if du > 0:
@@ -223,6 +195,7 @@ func sortir() -> void:
 	ville.chez_soi = false
 	ville._ambiance(false)
 	ville._teleporter(porte_pos + _sortie + Vector3(0, 0.3, 0), 0.0)
+	await ville.hud.chargement("Retour en ville…", 0.6)
 	await ville.hud.fondu(false)
 
 func parler() -> void:

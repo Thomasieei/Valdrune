@@ -30,61 +30,20 @@ func installer(v: Node3D, pts: Array) -> void:
 
 func _portique(p: Vector3, r: int) -> void:
 	var dep: Vector3 = ville.DEPART
-	var n := Node3D.new()
-	add_child(n)
-	n.global_position = p
 	var v := Vector3(p.x - dep.x, 0, p.z - dep.z).normalized()
-	n.rotation.y = atan2(v.x, v.z)
-	var c: Color = COULS[r + 1]
-	var emi := StandardMaterial3D.new()
-	emi.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	emi.albedo_color = c
-	for sx in [-7.0, 7.0]:
-		var mi := MeshInstance3D.new()
-		var b := BoxMesh.new()
-		b.size = Vector3(0.9, 12.0, 0.9)
-		mi.mesh = b
-		mi.material_override = emi
-		mi.position = Vector3(sx, 6.0, 0)
-		n.add_child(mi)
-	var tr := MeshInstance3D.new()
-	var bt := BoxMesh.new()
-	bt.size = Vector3(15.0, 1.2, 1.0)
-	tr.mesh = bt
-	tr.material_override = emi
-	tr.position = Vector3(0, 12.0, 0)
-	n.add_child(tr)
-	var vm := StandardMaterial3D.new()
-	vm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	vm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	vm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	vm.cull_mode = BaseMaterial3D.CULL_DISABLED
-	vm.albedo_color = Color(c.r, c.g, c.b, 0.1)
-	var nap := MeshInstance3D.new()
-	var q := QuadMesh.new()
-	q.size = Vector2(14.0, 11.0)
-	nap.mesh = q
-	nap.material_override = vm
-	nap.position = Vector3(0, 6.0, 0)
-	n.add_child(nap)
-	var lb := Label3D.new()
-	lb.text = "%s\n%s" % [NOMS[r + 1], LEVEL[r + 1]]
-	lb.font = Ui.police
-	lb.font_size = 64
-	lb.outline_size = 14
-	lb.pixel_size = 0.028
-	lb.billboard = BaseMaterial3D.BILLBOARD_FIXED_Y
-	lb.modulate = c.lightened(0.25)
-	lb.position = Vector3(0, 17.0, 0)
-	lb.visibility_range_end = 170.0
-	n.add_child(lb)
-	for s in [-1.0, 1.0]:
-		var l := OmniLight3D.new()
-		l.light_color = c
-		l.light_energy = 1.4
-		l.omni_range = 9.0
-		l.position = Vector3(s * 6.0, 3.0, 1.0)
-		n.add_child(l)
+	var mi := MeshInstance3D.new()
+	var bx := BoxMesh.new()
+	bx.size = Vector3(26.0, 0.04, 0.7)
+	mi.mesh = bx
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = COULS[r + 1]
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.visibility_range_end = 90.0
+	add_child(mi)
+	mi.global_position = p + Vector3(0, 0.06, 0)
+	mi.rotation.y = atan2(v.x, v.z) + PI / 2.0
 
 func _process(dt: float) -> void:
 	if ville == null or ville.joueur == null:
