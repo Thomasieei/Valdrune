@@ -14,7 +14,7 @@ static var erreur := ""
 
 
 static func _nettoyer(n: String) -> String:
-	var s := n.replace("mixamorig:", "")
+	var s := n.replace("mixamorig:", "").replace("mixamorig_", "")
 	var i := s.rfind("_")
 	if i > 0 and s.substr(i + 1).is_valid_int():
 		s = s.substr(0, i)
@@ -77,7 +77,7 @@ static func ajouter(ap: AnimationPlayer, nom: String) -> bool:
 	if anim == null:
 		anim = _construire(sk, racine, d)
 		if anim == null:
-			erreur = "construire null " + cle
+			erreur = "construire null " + cle + " os0-5=" + str([sk.get_bone_name(1), sk.get_bone_name(2), sk.get_bone_name(3)])
 			return false
 		_anims[cle] = anim
 	var lib: AnimationLibrary
