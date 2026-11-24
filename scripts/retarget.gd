@@ -10,6 +10,7 @@ const HAUT_SRC := 0.915
 
 static var _donnees := {}
 static var _anims := {}
+static var erreur := ""
 
 
 static func _nettoyer(n: String) -> String:
@@ -58,21 +59,25 @@ static func ajouter(ap: AnimationPlayer, nom: String) -> bool:
 	var clip := nom.substr(2)
 	var d := _charger(clip)
 	if d.is_empty():
+		erreur = "donnees vides " + clip + " existe=" + str(FileAccess.file_exists("res://assets/mo/%s.mot" % clip))
 		return false
 	var racine := ap.get_node_or_null(ap.root_node)
 	if racine == null:
+		erreur = "racine null " + str(ap.root_node)
 		return false
 	var sk: Skeleton3D = null
 	for c in racine.find_children("*", "Skeleton3D", true, false):
 		sk = c as Skeleton3D
 		break
 	if sk == null or sk.get_bone_count() < 20:
+		erreur = "squelette absent sous " + str(racine.get_path())
 		return false
 	var cle := "%s|%d|%s|%s" % [racine.get_path_to(sk), sk.get_bone_count(), sk.get_bone_name(0), clip]
 	var anim: Animation = _anims.get(cle)
 	if anim == null:
 		anim = _construire(sk, racine, d)
 		if anim == null:
+			erreur = "construire null " + cle
 			return false
 		_anims[cle] = anim
 	var lib: AnimationLibrary

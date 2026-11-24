@@ -163,7 +163,7 @@ func _tour() -> void:
 	for clip in ["X_jab_right", "X_roundhouse_kick_right", "X_roll_dodge_forward", "X_knockdown_fall"]:
 		j._anim_coup = 5.0
 		var dur: float = Modele.jouer(j._ap, clip, 1.0, 0.05)
-		print("[MOTIFECT] ", clip, " duree=", dur, " has=", j._ap.has_animation(clip))
+		print("[MOTIFECT] ", clip, " duree=", dur, " has=", j._ap.has_animation(clip), " err=", Retarget.erreur)
 		await attendre(0.45)
 		await capture("mo_" + clip.substr(2))
 	j._anim_coup = 0.0
