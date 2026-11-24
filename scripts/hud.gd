@@ -106,6 +106,16 @@ func _barre_basculer(k: String) -> void:
 	Partie.sauver()
 	Partie.change.emit()
 
+func flash_coup(a: float) -> void:
+	var r := ColorRect.new()
+	r.color = Color(1, 1, 1, a)
+	r.size = _taille
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_racine.add_child(r)
+	var tw := r.create_tween()
+	tw.tween_property(r, "color:a", 0.0, 0.14)
+	tw.tween_callback(r.queue_free)
+
 func flash_degats(raison: String) -> void:
 	_flash.color.a = 0.32
 	var tw := _flash.create_tween()

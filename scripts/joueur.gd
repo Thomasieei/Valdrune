@@ -470,12 +470,16 @@ func _frapper() -> void:
 		Fx.son("sheath", -2.0)
 	_coup_n = (_coup_n + 1) % 3
 	var anim: String = ["Slash1", "Slash2", _a(["M_Leap", "M_Spin", "Heavy"][randi() % 3], "Heavy")][_coup_n]
-	if _coup_n == 2 and cible and is_instance_valid(cible):
+	if cible and is_instance_valid(cible):
 		var w := cible.global_position - global_position
 		w.y = 0
 		if w.length() > 1.6:
-			_dash = w.normalized() * 9.0
-			_dash_t = 0.12
+			# fente vers la cible : poussière à chaque coup, traînée sur le coup final
+			_dash = w.normalized() * (9.0 if _coup_n == 2 else 5.5)
+			_dash_t = 0.12 if _coup_n == 2 else 0.09
+			Fx.sol(global_position, "onde", Color(0.7, 0.68, 0.65), 1.6, 0.4)
+			if _coup_n == 2:
+				_trainee(0.2)
 	_dernier_coup = Time.get_ticks_msec()
 	_anim_coup = Modele.jouer(_ap, anim, ((2.3 if anim.begins_with("M_") else 1.7) if _coup_n == 2 else 1.9) * (CADENCE / _cad), 0.06) * 0.9
 	Fx.son(["swing1", "swing2", "swing3"][_coup_n], -4.0, randf_range(0.95, 1.08))
@@ -512,6 +516,7 @@ func _frapper() -> void:
 		v.secouer(0.35 if crit else 0.25)
 		v.hitstop(0.035)
 		v.zoom_impact()
+		v.hud.flash_coup(0.38 if lourd else 0.2)
 	else:
 		v.secouer(0.06)
 	Fx.son(["hit1", "hit2", "hit3"][randi() % 3], -2.0 if crit else -5.0)
