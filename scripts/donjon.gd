@@ -409,6 +409,7 @@ func _torche(pos: Vector3, angle: float) -> void:
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	m.albedo_texture = Fx.pastille()
 	m.vertex_color_use_as_albedo = true
 	m.albedo_texture = load("res://assets/fx/flame_03.png")
 	qm.material = m
@@ -701,6 +702,7 @@ func _meteo() -> void:
 		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD if m == "braises" else BaseMaterial3D.BLEND_MODE_MIX
 		mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		mat.albedo_texture = Fx.pastille()
 		mat.vertex_color_use_as_albedo = true
 		mat.albedo_texture = load("res://assets/fx/etincelle.png") if m == "braises" else load("res://assets/fx/circle_05.png")
 		q.material = mat

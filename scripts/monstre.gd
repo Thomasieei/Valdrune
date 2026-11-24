@@ -100,8 +100,8 @@ func _ready() -> void:
 	_plaque = Label3D.new()
 	_plaque.fixed_size = true
 	_plaque.pixel_size = 0.0016
-	_plaque.font_size = 26
-	_plaque.outline_size = 8
+	_plaque.font_size = 20
+	_plaque.outline_size = 6
 	_plaque.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_plaque.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
 	_plaque.visibility_range_end = 28.0

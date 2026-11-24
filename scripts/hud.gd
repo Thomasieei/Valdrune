@@ -212,6 +212,7 @@ func _ready() -> void:
 		var bb := _rond(b[1], b[2], 54.0, Color(0.35, 0.25, 0.05) if b[0] == "monarque" else Color(0.1, 0.16, 0.38))
 		bb.set_meta("on", false)
 		bb.set_meta("fs", 10)
+		bb.set_meta("texte", "")
 		_barre[b[0]] = bb
 	_voile = ColorRect.new()
 	_voile.color = Color(0.25, 0.0, 0.45, 0.0)
@@ -318,15 +319,17 @@ func _rond(texte: String, icone: String, taille: float, fond: Color) -> Control:
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	c.set_meta("appuye", 0.0)
 	c.draw.connect(func ():
+		var fond2: Color = fond if texte == "MONARQUE" else (Color(0.26, 0.14, 0.62) if texte == "FRAPPER" else Color(0.06, 0.06, 0.16))
+		var rim: Color = Color(0.8, 0.65, 1.0, 0.98) if texte == "FRAPPER" else Color(0.5, 0.55, 1.0, 0.95)
 		var ctr := c.size / 2.0
 		var app: float = c.get_meta("appuye")
 		var r := taille / 2.0 * (1.0 - app * 0.07)
 		var pulse: float = c.get_meta("pulse", 0.0)
 		if pulse > 0.0:
 			c.draw_circle(ctr, r + 8 + 6 * pulse, Color(0.7, 0.4, 1.0, 0.35 * pulse))
-		c.draw_circle(ctr, r, Color(fond.r, fond.g, fond.b, 0.92))
-		c.draw_circle(ctr, r - 7, fond.lightened(0.12))
-		c.draw_arc(ctr, r - 1, 0, TAU, 56, Color(0.7, 0.9, 1.0, 0.95), 4.0, true)
+		c.draw_circle(ctr, r, Color(fond2.r, fond2.g, fond2.b, 0.9))
+		c.draw_circle(ctr, r - 6, fond2.lightened(0.1))
+		c.draw_arc(ctr, r - 1, 0, TAU, 56, rim, 3.0, true)
 		if c.has_meta("on"):
 			c.draw_arc(ctr, r + 2, 0, TAU, 56, Color(0.3, 1.0, 0.45) if c.get_meta("on") else Color(0.35, 0.35, 0.45), 5.0, true)
 		var tex := Ui.tex(icone)
@@ -847,31 +850,37 @@ func _texte(c: Control, p: Vector2, t: String, taille: int, coul: Color, contour
 
 func _dessiner_haut() -> void:
 	var c := _haut
-	c.draw_circle(Vector2(46, 46), 42, Color(0.04, 0.06, 0.2, 0.9))
-	c.draw_arc(Vector2(46, 46), 42, 0, TAU, 48, Ui.CYAN, 4.0, true)
-	var frac := float(Partie.xp) / float(Partie.xp_requise())
-	c.draw_arc(Vector2(46, 46), 35, -PI / 2.0, -PI / 2.0 + TAU * frac, 48, Color(0.55, 0.4, 1.0), 6.0, true)
+	var violet := Color(0.6, 0.45, 1.0)
+	c.draw_circle(Vector2(38, 38), 34, Color(0.03, 0.03, 0.09, 0.92))
+	c.draw_arc(Vector2(38, 38), 34, 0, TAU, 48, violet, 3.0, true)
+	var frac := float(Partie.xp) / float(maxi(1, Partie.xp_requise()))
+	c.draw_arc(Vector2(38, 38), 28, -PI / 2.0, -PI / 2.0 + TAU * clampf(frac, 0.0, 1.0), 48, Color(0.45, 0.75, 1.0), 5.0, true)
 	var nv := str(Partie.niveau)
-	var w := Ui.police.get_string_size(nv, HORIZONTAL_ALIGNMENT_LEFT, -1, 32).x
-	_texte(c, Vector2(46 - w / 2.0, 58), nv, 32, Color.WHITE, 7)
-	_texte(c, Vector2(100, 34), ("« %s »  ·  " % Partie.TITRES[Partie.titre]["nom"] if Partie.titre != "" else "") + "Chasseur rang %s  ·  Niveau %d" % [Partie.RANGS[Partie.rang_chasseur], Partie.niveau], 20, Partie.COULEURS_RANG[Partie.rang_chasseur].lightened(0.3))
-	c.draw_texture_rect(Ui.tex("r1"), Rect2(98, 44, 36, 36), false)
-	_texte(c, Vector2(140, 74), Fx.court(Partie.pieces), 30, Color(1.0, 0.85, 0.3), 7)
+	var w := Ui.police.get_string_size(nv, HORIZONTAL_ALIGNMENT_LEFT, -1, 28).x
+	_texte(c, Vector2(38 - w / 2.0, 49), nv, 28, Color.WHITE, 6)
+	var rang: int = ville.rang_zone(ville.joueur.global_position)
+	_texte(c, Vector2(86, 30), "Chasseur rang %s" % Partie.RANGS[Partie.rang_chasseur], 20, Partie.COULEURS_RANG[Partie.rang_chasseur].lightened(0.35), 5)
+	_texte(c, Vector2(86, 52), "Zone %s" % Partie.RANGS[rang], 15, Color(0.7, 0.72, 0.9), 4)
+	c.draw_texture_rect(Ui.tex("r1"), Rect2(170, 36, 22, 22), false)
+	_texte(c, Vector2(196, 54), Fx.court(Partie.pieces), 20, Color(1.0, 0.85, 0.3), 5)
 	for k in 2:
-		var y := 100.0 + k * 20.0
+		var y := 80.0 + k * 26.0
+		var hb := 22.0 if k == 0 else 16.0
 		var fr: float = Partie.pv / Partie.pv_max() if k == 0 else Partie.mana / Partie.mana_max()
-		var col := Color(0.95, 0.25, 0.3) if k == 0 else Color(0.35, 0.55, 1.0)
-		c.draw_rect(Rect2(8, y, 300, 14), Color(0.05, 0.05, 0.12, 0.85))
-		c.draw_rect(Rect2(8, y, 300 * clampf(fr, 0.0, 1.0), 14), col)
-		c.draw_rect(Rect2(8, y, 300, 14), Color(1, 1, 1, 0.5), false, 1.5)
-		var t := "PV %d / %d" % [int(Partie.pv), int(Partie.pv_max())] if k == 0 else "Mana %d / %d  ·  Zone %s" % [int(Partie.mana), int(Partie.mana_max()), Partie.RANGS[ville.rang_zone(ville.joueur.global_position)]]
-		_texte(c, Vector2(316, y + 13), t, 15, col.lightened(0.35), 4)
+		var col := Color(0.9, 0.18, 0.3) if k == 0 else Color(0.3, 0.5, 1.0)
+		c.draw_rect(Rect2(6, y, 290, hb), Color(0.03, 0.03, 0.08, 0.9))
+		c.draw_rect(Rect2(6, y, 290 * clampf(fr, 0.0, 1.0), hb), col)
+		c.draw_rect(Rect2(6, y, 290 * clampf(fr, 0.0, 1.0), hb * 0.4), col.lightened(0.3))
+		c.draw_rect(Rect2(6, y, 290, hb), Color(violet.r, violet.g, violet.b, 0.7), false, 1.5)
+		var t := "%d / %d" % [int(Partie.pv), int(Partie.pv_max())] if k == 0 else "%d / %d" % [int(Partie.mana), int(Partie.mana_max())]
+		var tw := Ui.police.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
+		_texte(c, Vector2(6 + 145 - tw / 2.0, y + hb - 4), t, 14 if k == 0 else 12, Color.WHITE, 4)
 
 
 func _dessiner_droite() -> void:
 	var c := _droite
 	var r := Rect2(0, 0, c.size.x, 112)
-	c.draw_style_box(Ui.boite(Color(0.03, 0.05, 0.14, 0.8), Color(0.2, 0.45, 1.0, 0.8), 2, 10), r)
+	c.draw_style_box(Ui.boite(Color(0.03, 0.03, 0.09, 0.82), Color(0.5, 0.45, 1.0, 0.8), 2, 10), r)
 	var total := _aff_j + _aff_o
 	_texte(c, Vector2(14, 26), "DÉGÂTS EN DIRECT", 16, Color(0.6, 0.85, 1.0), 5)
 	var pt := "Puissance %s/s" % Fx.court(Partie.dps_total())

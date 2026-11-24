@@ -79,14 +79,14 @@ func _ready() -> void:
 	var rl := Label3D.new()
 	rl.text = String(Partie.ROLES[role]["nom"]).to_upper()
 	rl.font = Ui.police
-	rl.font_size = 20
-	rl.outline_size = 7
+	rl.font_size = 15
+	rl.outline_size = 5
 	rl.pixel_size = 0.0016
 	rl.fixed_size = true
 	rl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	rl.modulate = rcol.lightened(0.2)
 	rl.position.y = h + 0.75
-	rl.visibility_range_end = 26.0
+	rl.visibility_range_end = 10.0
 	add_child(rl)
 	_volutes(rcol, h)
 	if role == "tank" or role == "soin":
@@ -159,6 +159,7 @@ func _volutes(c: Color, h: float) -> void:
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	m.albedo_texture = Fx.pastille()
 	m.vertex_color_use_as_albedo = true
 	q.material = m
 	p.draw_pass_1 = q

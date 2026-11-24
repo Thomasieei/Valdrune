@@ -130,6 +130,24 @@ static func _mat_add(tex: String, c: Color, billboard := false) -> StandardMater
 	_cache[cle] = m
 	return m
 
+static var _pastille: Texture2D
+
+# Petit disque doux (centre blanc, bord transparent) : évite les carrés blancs sur les particules sans texture
+static func pastille() -> Texture2D:
+	if _pastille == null:
+		var g := Gradient.new()
+		g.set_color(0, Color(1, 1, 1, 1))
+		g.set_color(1, Color(1, 1, 1, 0))
+		var t := GradientTexture2D.new()
+		t.gradient = g
+		t.width = 64
+		t.height = 64
+		t.fill = GradientTexture2D.FILL_RADIAL
+		t.fill_from = Vector2(0.5, 0.5)
+		t.fill_to = Vector2(1.0, 0.5)
+		_pastille = t
+	return _pastille
+
 static func _quad(taille: Vector2) -> QuadMesh:
 	var q := QuadMesh.new()
 	q.size = taille
