@@ -1,0 +1,77 @@
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+WARNING: Could not set V-Sync mode, as changing V-Sync mode is not supported by the graphics driver.
+     at: set_use_vsync (platform/linuxbsd/x11/gl_manager_x11.cpp:360)
+OpenGL API 4.5 (Core Profile) Mesa 26.0.8-1ubuntu0.3 - Compatibility - Using Device: Mesa - llvmpipe (LLVM 21.1.8, 256 bits)
+libpulse.so.0: cannot open shared object file: No such file or directory
+libpulse.so.0: cannot open shared object file: No such file or directory
+ALSA lib confmisc.c:855:(parse_card) [error.core] cannot find card '0'
+ALSA lib conf.c:5211:(_snd_config_evaluate) [error.core] function snd_func_card_inum returned error: No such file or directory
+ALSA lib confmisc.c:422:(snd_func_concat) [error.core] error evaluating strings
+ALSA lib conf.c:5211:(_snd_config_evaluate) [error.core] function snd_func_concat returned error: No such file or directory
+ALSA lib confmisc.c:1342:(snd_func_refer) [error.core] error evaluating name
+ALSA lib conf.c:5211:(_snd_config_evaluate) [error.core] function snd_func_refer returned error: No such file or directory
+ALSA lib conf.c:5734:(snd_config_expand) [error.core] Evaluate error: No such file or directory
+ALSA lib pcm.c:2722:(snd_pcm_open_noupdate) [error.pcm] Unknown PCM default
+ERROR: Condition "status < 0" is true. Returning: ERR_CANT_OPEN
+   at: init_output_device (drivers/alsa/audio_driver_alsa.cpp:90)
+WARNING: All audio drivers failed, falling back to the dummy driver.
+     at: initialize (servers/audio_server.cpp:247)
+
+[ZONES] points=375 par rang=[14, 14, 14, 14]
+[FOULE] marcheurs=9/10 scenes=2/5
+[CAPTURE] ville_depart
+[CAPTURE] rebord
+[REBORD] y0=0.20104166865349 ymax=3.33311104774475 y_fin=0.2003231793642
+[CAPTURE] revelation
+[ESCORTE] action={ "type": "escorte_prendre" }
+[ESCORTE] actif=true ESCORTE · 198 m · 2:33 · client 100 %
+[CAPTURE] escorte
+[MOTIFECT] X_jab_right duree=1.20000004768372 has=true err=construire null Armature/Skeleton3D|65|root|block_high os0-5=["pelvis", "spine_01", "spine_02"]
+[CAPTURE] mo_jab_right
+[MOTIFECT] X_roundhouse_kick_right duree=2.53333330154419 has=true err=construire null Armature/Skeleton3D|65|root|block_high os0-5=["pelvis", "spine_01", "spine_02"]
+[CAPTURE] mo_roundhouse_kick_right
+[MOTIFECT] X_roll_dodge_forward duree=2.73333334922791 has=true err=construire null Armature/Skeleton3D|65|root|block_high os0-5=["pelvis", "spine_01", "spine_02"]
+[CAPTURE] mo_roll_dodge_forward
+[MOTIFECT] X_knockdown_fall duree=2.23333334922791 has=true err=construire null Armature/Skeleton3D|65|root|block_high os0-5=["pelvis", "spine_01", "spine_02"]
+[CAPTURE] mo_knockdown_fall
+[CAPTURE] porte_appart
+[APPART] action porte={ "type": "appart_entrer" }
+ERROR: Parameter "material" is null.
+   at: material_casts_shadows (drivers/gles3/storage/material_storage.cpp:2490)
+ERROR: Parameter "material" is null.
+   at: material_is_animated (drivers/gles3/storage/material_storage.cpp:2477)
+ERROR: Parameter "material" is null.
+   at: material_get_instance_shader_parameters (drivers/gles3/storage/material_storage.cpp:2503)
+ERROR: Parameter "material" is null.
+   at: material_update_dependency (drivers/gles3/storage/material_storage.cpp:2515)
+[CAPTURE] appart_interieur
+[APPART] chez_soi=true loyer_du=0 action={ "type": "appart_sortir" }
+[APPART] apres 2 jours: du=2431 impayes=2
+[APPART] apres paiement: du=0
+[CAPTURE] skyline
+[CAPTURE] skyline2
+[CAPTURE] resto
+[LIVRAISON] action={ "type": "resto", "idx": 0 }
+[CAPTURE] livraison
+[LIVRAISON] action={ "type": "livrer" } texte=LIVRAISON : Ramen fumant → M. Okabe | 2 m  ·  0:28  ·  +104 or
+ERROR: Parameter "material" is null.
+   at: material_casts_shadows (drivers/gles3/storage/material_storage.cpp:2490)
+ERROR: Parameter "material" is null.
+   at: material_is_animated (drivers/gles3/storage/material_storage.cpp:2477)
+ERROR: Parameter "material" is null.
+   at: material_get_instance_shader_parameters (drivers/gles3/storage/material_storage.cpp:2503)
+ERROR: Parameter "material" is null.
+   at: material_update_dependency (drivers/gles3/storage/material_storage.cpp:2515)
+[CAPTURE] livree
+[LIVRAISON] or +156 livrees=1
+[CAPTURE] combat_ville
+[CAPTURE] menu_inventaire
+[CAPTURE] menu_ombres
+[CAPTURE] menu_stats
+[CAPTURE] menu_boutique
+[CAPTURE] menu_classement
+[CAPTURE] menu_journal
+[CAPTURE] menu_donjon
+[CAPTURE] donjon_0
+[CAPTURE] donjon_1
+[CAPTURE] donjon_2
