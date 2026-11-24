@@ -728,7 +728,9 @@ func _victoire() -> void:
 	Partie.donner_monnaie(m1, 3 + niv * 2)
 	Partie.donner_monnaie(m2, 2 + niv * 2)
 	var unique := Partie.butin_unique("croc_roi") if niv == 0 else false
+	Partie.coffre_donjon(niv)
 	Partie.butin_donjon(niv)
+	Partie.butin_rare_boss(niv)
 	if randf() < 0.2 + 0.05 * niv:
 		Partie.donner_cle()
 	gains = {"pieces": gain, "monnaies": [[m1, 3 + niv * 2], [m2, 2 + niv * 2]], "unique": unique, "temps": t, "record": record}

@@ -145,6 +145,10 @@ func _tour() -> void:
 		await attendre(0.5)
 		await capture("rebord")
 		print("[REBORD] y0=", y0, " ymax=", ymax, " y_fin=", j.global_position.y)
+	Partie.ajouter_objet("couronne_glace", Partie.SHINY)
+	await attendre(2.8)
+	await capture("revelation")
+	v.hud._fermer_rev()
 	if v.escorte and v.escorte.bureau != Vector3.INF:
 		j.global_position = v.escorte.bureau + Vector3(0, 0.5, 0)
 		await attendre(0.5)

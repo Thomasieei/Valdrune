@@ -41,7 +41,7 @@ const ESPECES := {
 	"roi_gobelin": {"nom": "Kargash, roi gobelin", "modele": "goblin", "haut": 3.3, "rang": 1, "pv": 30000, "temps": 9999.0, "pieces": 900, "xp": 600, "eveil": 0.05, "teinte": Color(1.0, 0.82, 0.45), "boss": true, "lieu": "donjon", "icone": "sh_goblin", "monnaie": "insigne"},
 
 	"roi_puglin": {"nom": "Grolm, roi des glaces", "modele": "puglin", "haut": 3.2, "rang": 1, "pv": 120000, "temps": 9999.0, "pieces": 2500, "xp": 1500, "eveil": 0.04, "teinte": Color(0.65, 0.85, 1.15), "boss": true, "lieu": "donjon", "donjon": 1, "icone": "sh_puglin", "monnaie": "trefle"},
-	"seigneur_braise": {"nom": "Vorgath, seigneur de braise", "modele": "orc_warrior", "haut": 3.6, "rang": 2, "pv": 900000, "temps": 9999.0, "pieces": 9000, "xp": 5000, "eveil": 0.025, "teinte": Color(1.25, 0.55, 0.4), "boss": true, "lieu": "donjon", "donjon": 2, "icone": "sh_orc_warrior", "monnaie": "insigne",
+	"seigneur_braise": {"nom": "Vorgath, seigneur de braise", "modele": "orc_warrior", "haut": 3.6, "rang": 2, "pv": 900000, "temps": 9999.0, "pieces": 9000, "xp": 5000, "eveil": 0.001, "teinte": Color(1.25, 0.55, 0.4), "boss": true, "lieu": "donjon", "donjon": 2, "icone": "sh_orc_warrior", "monnaie": "insigne",
 		"competence": {"nom": "Frappe de braise", "cd": 14.0, "mult": 12.0}},
 	"naruto": {"nom": "Shiryū, le kitsune déchu", "modele": "hunter", "teinte": Color(0.55, 0.35, 0.85), "haut": 2.6, "rang": 3, "pv": 12000000, "temps": 9999.0, "pieces": 40000, "xp": 15000, "eveil": 0.01, "boss": true, "lieu": "donjon", "donjon": 3, "icone": "best", "monnaie": "eclat", "clones": true,
 		"competence": {"nom": "Croc spectral", "cd": 10.0, "mult": 25.0}},
@@ -112,7 +112,20 @@ const OBJETS := {
 	"cape_champion": {"nom": "Cape du champion", "type": "cape", "icone": "a5", "stat": "ombres", "val": 4.5},
 	"embleme_arene": {"nom": "Emblème de l'arène", "type": "relique", "icone": "r7", "stat": "xp", "val": 5.0},
 	"oeuf_jade": {"nom": "Œuf de jade", "type": "relique", "icone": "r10", "stat": "ombres", "val": 3.0},
+	"couronne_glace": {"nom": "Couronne de glace éternelle", "type": "tete", "icone": "a3", "stat": "arme", "val": 14.0, "effet": "shiny",
+		"attrs": {"ombres": 12.0, "crit": 6.0, "vitesse": 4.0}, "desc": "Le trône de Grolm se brise : le froid t'obéit enfin."},
+	"marteau_vorgath": {"nom": "Marteau de Vorgath", "type": "arme", "modele": "hache", "icone": "u_croc", "dps": 9000.0, "effet": "unique",
+		"attrs": {"arme": 10.0, "crit": 5.0, "pieces": 8.0}, "desc": "Forgé dans le cœur de la forge. Chaque coup fait trembler le sol."},
+	"masque_kitsune": {"nom": "Masque du kitsune déchu", "type": "tete", "icone": "a11", "stat": "eveil", "val": 6.0, "effet": "shiny",
+		"attrs": {"ombres": 10.0, "vit_ombre": 8.0}, "desc": "Les ombres répondent avant même que tu les appelles."},
 }
+const RARES_BOSS := {1: "couronne_glace", 2: "marteau_vorgath", 3: "masque_kitsune"}
+const TAUX_RARE := 0.001
+const POIDS_COFFRE := [[60, 33, 7, 0, 0], [8, 52, 33, 7, 0], [0, 15, 55, 27, 3], [0, 0, 20, 62, 18]]
+const PLAFOND_NIVEAU := [14, 29, 44, 59, 99]
+var revelation := false
+var _annonce_t := 150.0
+var _bloque_t := 0.0
 const NOMS_STATS := {"arme": "Dégâts des armes", "ombres": "Dégâts des ombres", "pieces": "Pièces gagnées",
 	"eveil": "Chance d'éveil", "xp": "Expérience", "vitesse": "Vitesse", "crit": "Coups critiques",
 	"vie": "Points de vie", "mana": "Mana", "vit_ombre": "Vitesse des ombres"}
@@ -240,6 +253,40 @@ var or_total := 0
 func mult_rang() -> float:
 	return MULT_RANG[rang_chasseur]
 
+func plafond() -> int:
+	return PLAFOND_NIVEAU[mini(rang_chasseur, 4)]
+
+func _rarete_equipee(e: String) -> int:
+	if not equipe.has(e):
+		return -1
+	var o := objet(equipe[e])
+	return -1 if o.is_empty() else int(o["rarete"])
+
+# Ce qu'il faut posséder pour tenter le test de rang suivant (et reprendre le niveau)
+func exigences() -> Array:
+	var rc := mini(rang_chasseur, 4)
+	var l := []
+	var et := 0
+	for o in ombres:
+		et = maxi(et, int(o["etoiles"]))
+	l.append({"txt": "Ombre ★%d" % (rc + 1), "ok": et >= rc + 1})
+	l.append({"txt": "Arme rang %s" % RANGS[mini(rc + 1, 5)], "ok": _rarete_equipee("arme") >= mini(rc + 1, 4)})
+	if rc >= 1:
+		var n := 0
+		for e in ["relique1", "relique2", "relique3"]:
+			if _rarete_equipee(e) >= rc:
+				n += 1
+		l.append({"txt": "%d relique%s rang %s" % [rc, "s" if rc > 1 else "", RANGS[rc]], "ok": n >= rc})
+	if rc >= 2:
+		l.append({"txt": "Donjon rang %s terminé" % RANGS[rc], "ok": int(donjons_finis.get(str(rc), 0)) > 0})
+	return l
+
+func exigences_ok() -> bool:
+	for x in exigences():
+		if not x["ok"]:
+			return false
+	return true
+
 func reussir_test() -> void:
 	rang_chasseur = mini(rang_chasseur + 1, 4)
 	sauver()
@@ -356,6 +403,8 @@ func bot_fin_activite(d: Dictionary) -> void:
 			var r := int(d["rang"])
 			if r < 4 and randf() < clampf(dps / SEUIL_TEST[r] - 0.3, 0.05, 0.95):
 				d["rang"] = r + 1
+				if _t > 10.0:
+					message.emit("%s passe rang %s !%s" % [d["nom"], RANGS[r + 1], " Il ouvre le donjon de la Forge." if r + 1 == 2 else ""], Color(0.6, 0.85, 1.0))
 		"donjon":
 			var n := int(d.get("dj", 0))
 			if randf() < clampf(dps / float(Donjon.DONJONS[n]["puissance"]) - 0.2, 0.05, 0.95):
@@ -539,8 +588,55 @@ func _process(dt: float) -> void:
 	_process_reel(dt)
 	prof["partie"] = int(prof.get("partie", 0)) + Time.get_ticks_usec() - t0
 
+func _annonce_monde() -> void:
+	var l := chasseurs.filter(func (c): return int(c["rang"]) >= 1)
+	if l.is_empty():
+		return
+	var c: Dictionary = l.pick_random()
+	var cles_r: Array = RARES_BOSS.keys()
+	cles_r = cles_r.filter(func (k): return k <= int(c["rang"]) + 1)
+	if cles_r.is_empty():
+		return
+	var b: String = RARES_BOSS[cles_r.pick_random()]
+	message.emit("★ %s vient d'obtenir %s !" % [c["nom"], OBJETS[b]["nom"]], COULEURS_RARETE[SHINY if OBJETS[b].get("effet", "") == "shiny" else UNIQUE])
+
+func butin_rare_boss(niv: int) -> String:
+	if not RARES_BOSS.has(niv) or randf() >= TAUX_RARE:
+		return ""
+	var b: String = RARES_BOSS[niv]
+	uniques_obtenus[b] = int(uniques_obtenus.get(b, 0)) + 1
+	ajouter_objet(b, SHINY if OBJETS[b].get("effet", "") == "shiny" else UNIQUE)
+	message.emit("★ DROP ULTRA RARE : %s ★" % OBJETS[b]["nom"], Color(1.0, 0.8, 0.3))
+	sauver()
+	return b
+
+func coffre_donjon(niv: int) -> Dictionary:
+	var p: Array = POIDS_COFFRE[mini(niv, 3)]
+	var x := randf() * 100.0
+	var r := 0
+	var cum := 0.0
+	for k in p.size():
+		cum += float(p[k])
+		if x < cum:
+			r = k
+			break
+	var pool: Array = BUTIN_DONJON if r >= 3 else BUTIN_RANG[mini(r, 3)]
+	revelation = true
+	var o := ajouter_objet(pool.pick_random(), r)
+	revelation = false
+	return o
+
 func _process_reel(dt: float) -> void:
 	_t += dt
+	_annonce_t -= dt
+	if _annonce_t <= 0.0:
+		_annonce_t = randf_range(110.0, 230.0)
+		_annonce_monde()
+	if niveau >= plafond() and xp >= xp_requise():
+		xp = xp_requise() - 1
+		if _t > _bloque_t:
+			_bloque_t = _t + 90.0
+			message.emit("Niveau %d : bloqué ! Réunis les prérequis du test de rang (Menu → Donjons)." % niveau, Color(1.0, 0.6, 0.3))
 	pv = minf(pv_max(), pv + pv_max() * 0.015 * dt)
 	mana = minf(mana_max(), mana + regen_mana() * dt)
 	if createur:
@@ -896,7 +992,7 @@ func gain_travail(gain: int, xp_gain: int) -> void:
 	pieces += gain
 	or_total += gain
 	xp += xp_gain
-	while xp >= xp_requise():
+	while xp >= xp_requise() and niveau < plafond():
 		xp -= xp_requise()
 		niveau += 1
 		message.emit("Niveau %d !  +%d points de compétence" % [niveau, POINTS_PAR_NIVEAU], Color(1.0, 0.85, 0.3))
@@ -1119,7 +1215,7 @@ func gagner(espece: String, elite := false, mult := 1.0) -> int:
 	if verdict(espece, elite, mult)["possible"] == false and e.get("lieu", "") == "":
 		secrete("sans_peur", "Sans peur", "Tu as vaincu un monstre « Trop fort ».", 1)
 	xp += int(round(st["xp"] * (1.0 + bonus("xp") / 100.0) * mult_prog() * mult_rang()))
-	while xp >= xp_requise():
+	while xp >= xp_requise() and niveau < plafond():
 		xp -= xp_requise()
 		niveau += 1
 		message.emit("Niveau %d !  +%d points de compétence" % [niveau, POINTS_PAR_NIVEAU], Color(1.0, 0.85, 0.3))
@@ -1236,7 +1332,7 @@ var force_eveil := false
 func eveiller(espece: String) -> Dictionary:
 	var e: Dictionary = ESPECES[espece]
 	var evenement: bool = e.get("lieu", "") == "evenement"
-	var ok := randf() < chance_eveil(espece) or force_eveil or (echecs_eveil >= PITIE and not evenement)
+	var ok := randf() < chance_eveil(espece) or force_eveil or (echecs_eveil >= PITIE and not evenement and not e.get("boss", false))
 	if not ok:
 		if not evenement:
 			echecs_eveil += 1

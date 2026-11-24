@@ -407,8 +407,156 @@ func dire(t: String, c: Color = Color.WHITE) -> void:
 	_msg.add_theme_color_override("font_color", c)
 	_msg_t = 3.2
 
+var _rev: Control = null
+var _rev_file: Array = []
+var _rev_pret := false
+const CRIS := ["DINGUERIE !", "REGARDE ÇA !!", "ULTRA BROKEN !", "INCROYABLE !!!"]
+
+func _reveler(o: Dictionary) -> void:
+	if _rev != null:
+		_rev_file.append(o)
+		return
+	var b := Partie.base(o)
+	var r: int = o["rarete"]
+	var c: Color = Partie.COULEURS_RARETE[r]
+	var ultra := r >= 4
+	_rev_pret = false
+	var rac := Control.new()
+	rac.size = _taille
+	rac.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_rev = rac
+	var ctr := _taille / 2.0
+	var voile := ColorRect.new()
+	voile.color = Color(0, 0, 0, 0.0)
+	voile.size = _taille
+	voile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rac.add_child(voile)
+	var halo := Control.new()
+	halo.size = _taille
+	halo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	halo.modulate.a = 0.0
+	halo.draw.connect(func ():
+		var t: float = Time.get_ticks_msec() / 1000.0
+		for k in 5:
+			halo.draw_circle(ctr, 90.0 + k * 55.0, Color(c.r, c.g, c.b, 0.10))
+		for k in 14:
+			var a: float = t * 0.5 + TAU * k / 14.0
+			var pts := PackedVector2Array([ctr, ctr + Vector2(cos(a - 0.07), sin(a - 0.07)) * 900.0, ctr + Vector2(cos(a + 0.07), sin(a + 0.07)) * 900.0])
+			halo.draw_colored_polygon(pts, Color(c.r, c.g, c.b, 0.16)))
+	rac.add_child(halo)
+	var th := halo.create_tween()
+	th.tween_method(func (_v: float): halo.queue_redraw(), 0.0, 1.0, 40.0)
+	var coffre := TextureRect.new()
+	coffre.texture = Ui.tex("r9")
+	coffre.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	coffre.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	coffre.size = Vector2(170, 170)
+	coffre.position = ctr - coffre.size / 2.0
+	coffre.pivot_offset = coffre.size / 2.0
+	rac.add_child(coffre)
+	var card := Panel.new()
+	card.size = Vector2(620, 420)
+	card.position = ctr - card.size / 2.0 + Vector2(0, 20)
+	card.pivot_offset = card.size / 2.0
+	card.add_theme_stylebox_override("panel", Ui.boite(Color(0.03, 0.04, 0.12, 0.97), c, 5, 16))
+	card.visible = false
+	rac.add_child(card)
+	var ic := TextureRect.new()
+	ic.texture = Ui.tex(b["icone"])
+	ic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	ic.size = Vector2(130, 130)
+	ic.position = Vector2(245, 14)
+	card.add_child(ic)
+	var textes := [[b["nom"], 30, c.lightened(0.25), 150.0], ["— %s —" % Partie.RARETES[r].to_upper(), 20, c, 192.0]]
+	var y := 228.0
+	var lignes: Array = []
+	if b["type"] == "arme":
+		lignes.append("Dégâts : %s/s" % Fx.court(Partie.valeur(o)))
+	else:
+		lignes.append("%s : +%.1f %%" % [Partie.NOMS_STATS[b["stat"]], Partie.valeur(o)])
+	lignes.append_array(Partie.attrs_texte(o))
+	for tx in textes:
+		var lb := Ui.label(tx[0], tx[1], tx[2], 7)
+		lb.size = Vector2(620, 36)
+		lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lb.position = Vector2(0, tx[3])
+		card.add_child(lb)
+	for ln: String in lignes:
+		var lb := Ui.label(ln, 18, Color(0.85, 0.95, 1.0), 5)
+		lb.size = Vector2(620, 26)
+		lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lb.position = Vector2(0, y)
+		card.add_child(lb)
+		y += 26.0
+	if b.has("desc"):
+		var ds := Ui.label(b["desc"], 15, Color(0.75, 0.7, 0.85), 4)
+		ds.size = Vector2(580, 40)
+		ds.position = Vector2(20, y + 6.0)
+		ds.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		ds.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		card.add_child(ds)
+	var ok := Ui.label("Touche pour continuer", 15, Color(0.6, 0.65, 0.8), 4)
+	ok.size = Vector2(620, 24)
+	ok.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ok.position = Vector2(0, 388)
+	card.add_child(ok)
+	var cri: Label = null
+	if ultra:
+		cri = Ui.label(CRIS.pick_random(), 54, Color(1.0, 0.88, 0.35), 12)
+		cri.size = Vector2(_taille.x, 70)
+		cri.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		cri.position = Vector2(0, ctr.y - 290.0)
+		cri.pivot_offset = Vector2(_taille.x / 2.0, 35)
+		cri.visible = false
+		rac.add_child(cri)
+	var fl := ColorRect.new()
+	fl.color = Color(1, 1, 1, 0)
+	fl.size = _taille
+	fl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rac.add_child(fl)
+	_racine.add_child(rac)
+	Fx.son("open", -2.0, 0.8)
+	var tw := rac.create_tween()
+	tw.tween_property(voile, "color:a", 0.88, 0.25)
+	tw.parallel().tween_property(halo, "modulate:a", 1.0, 0.6)
+	for k in 8:
+		tw.tween_property(coffre, "rotation", (0.2 if k % 2 == 0 else -0.2) * (1.0 + k * 0.12), 0.09)
+	tw.tween_property(coffre, "scale", Vector2(1.6, 1.6), 0.15)
+	tw.tween_callback(func ():
+		coffre.visible = false
+		card.visible = true
+		card.scale = Vector2(0.4, 0.4)
+		fl.color.a = 0.9
+		var t2 := rac.create_tween()
+		t2.tween_property(fl, "color:a", 0.0, 0.5)
+		t2.parallel().tween_property(card, "scale", Vector2.ONE, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		if cri != null:
+			cri.visible = true
+			cri.scale = Vector2(2.0, 2.0)
+			t2.parallel().tween_property(cri, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		Fx.son("victory" if ultra else "chest", 0.0)
+		Input.vibrate_handheld(300 if ultra else 80)
+		_rev_pret = true)
+	tw.tween_interval(25.0)
+	tw.tween_callback(_fermer_rev)
+
+func _fermer_rev() -> void:
+	if _rev == null:
+		return
+	var r := _rev
+	_rev = null
+	_rev_pret = false
+	r.queue_free()
+	if _rev_file.size() > 0:
+		_reveler(_rev_file.pop_front())
+
 func _sur_butin(o: Dictionary) -> void:
 	_nouveaux += 1
+	if int(o["rarete"]) >= 3 or Partie.revelation:
+		_reveler(o)
+		_maj()
+		return
 	var b := Partie.base(o)
 	var c: Color = Partie.COULEURS_RARETE[o["rarete"]]
 	var p := Panel.new()
@@ -1427,6 +1575,11 @@ func _dans(c: Control, p: Vector2) -> bool:
 	return c.visible and p.distance_to(c.position + c.size / 2.0) < c.size.x / 2.0 + 8.0
 
 func _poser(i: int, p: Vector2) -> void:
+	if _rev != null:
+		_doigts[i] = {"role": "ui"}
+		if _rev_pret:
+			_fermer_rev()
+		return
 	if _tk and _tk.get_global_rect().has_point(p):
 		_doigts[i] = {"role": "ui"}
 		return
@@ -1673,8 +1826,14 @@ func _donjon_panneau() -> void:
 	_ajouter(tl, Vector2(36, 112))
 	if rc < 4:
 		_ajouter(Ui.label("TEST DE RANG %s → %s" % [Partie.RANGS[rc], Partie.RANGS[rc + 1]], 22, Color(1.0, 0.8, 0.35), 7), Vector2(50, 116))
-		_ajouter(Ui.label("10 salles d'ennemis de rang %s (×%.1f PV) en %d min · Réussite : ×%.1f partout" % [Partie.RANGS[rc], Partie.MULT_TEST, int(Partie.DUREE_TEST) / 60, Partie.MULT_RANG[rc + 1]], 14, Color(0.9, 0.85, 0.8), 4), Vector2(50, 150))
-		var bt := Ui.bouton("PASSER", Ui.OR, Vector2(130, 52), 20)
+		var req := Partie.exigences()
+		var txt := "Requis : "
+		for x in req:
+			txt += "%s (%s)  " % [x["txt"], "OK" if x["ok"] else "MANQUE"]
+		var pret := Partie.exigences_ok()
+		_ajouter(Ui.label(txt, 14, Color(0.5, 1.0, 0.55) if pret else Color(1.0, 0.6, 0.35), 4), Vector2(50, 150))
+		var bt := Ui.bouton("PASSER" if pret else "VERROUILLÉ", Ui.OR if pret else Color(0.3, 0.3, 0.38), Vector2(130, 52), 20)
+		bt.disabled = not pret
 		bt.pressed.connect(func ():
 			fermer()
 			ville.entrer_test())
@@ -1705,6 +1864,8 @@ func _donjon_panneau() -> void:
 		elif not niveau_ok:
 			etat = "Rang de chasseur %s requis (test de rang)" % Partie.RANGS[n]
 		_ajouter(Ui.label(etat, 15, Color(0.45, 1.0, 0.5) if ouvert else Color(1.0, 0.45, 0.45), 4), Vector2(180, y + 68))
+		if Partie.RARES_BOSS.has(n):
+			_ajouter(Ui.label("Drop ultra 0,10 %% : %s" % Partie.OBJETS[Partie.RARES_BOSS[n]]["nom"], 13, Color(1.0, 0.82, 0.35), 4), Vector2(180, y + 86))
 		var nn: int = n
 		for g in [false, true]:
 			var e := Ui.bouton(("GROUPE" if g else "SOLO") if ouvert else "FERMÉ", (Ui.BLEU if g else Ui.VERT) if ouvert else Color(0.3, 0.3, 0.38), Vector2(108, 52), 19)
