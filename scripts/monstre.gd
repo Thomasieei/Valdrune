@@ -358,7 +358,7 @@ func _dans_zone(a: Vector3, c: Vector3, r: float) -> bool:
 func _toucher_joueur(j: Node3D, d: float, raison := "ZONE") -> void:
 	var jo := j as Joueur
 	if jo and jo._anim_coup <= 0.0 and jo.invulnerable <= 0.0:
-		jo._anim_coup = Modele.jouer(jo._ap, "Hit", 1.4, 0.04) * 0.6
+		jo._anim_coup = Modele.jouer(jo._ap, ["X_hit_react_chest", "X_hit_react_face", "X_hit_react_body"].pick_random(), 2.4, 0.04) * 0.55
 	var jj := j as Joueur
 	if jj and jj.invulnerable > 0.0:
 		if jj._esq_age < 0.32:

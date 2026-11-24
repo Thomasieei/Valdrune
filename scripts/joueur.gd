@@ -653,8 +653,13 @@ func competence(k: String) -> String:
 			_trainee(0.38)
 			cible = null
 			var gauche := _corps.global_transform.basis.x.dot(dir) > 0.0
-			Modele.jouer(_ap, _a("M_DashL" if gauche else "M_DashR", "Roll"), 1.5, 0.05)
-			_anim_coup = 0.3
+			var devant := dir.dot(-_corps.global_transform.basis.z) > 0.7
+			if devant:
+				Modele.jouer(_ap, "X_roll_dodge_forward", 4.6, 0.04)
+				_anim_coup = 0.5
+			else:
+				Modele.jouer(_ap, _a("M_DashL" if gauche else "M_DashR", "Roll"), 1.5, 0.05)
+				_anim_coup = 0.3
 			Fx.son("swing2", -2.0, 1.3)
 			Fx.anneau(global_position, Color(0.5, 1.0, 0.85), 1.4)
 		"brise":
