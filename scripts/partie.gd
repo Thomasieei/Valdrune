@@ -1332,7 +1332,7 @@ var force_eveil := false
 func eveiller(espece: String) -> Dictionary:
 	var e: Dictionary = ESPECES[espece]
 	var evenement: bool = e.get("lieu", "") == "evenement"
-	var ok := randf() < chance_eveil(espece) or force_eveil or (echecs_eveil >= PITIE and not evenement and not e.get("boss", false))
+	var ok: bool = randf() < chance_eveil(espece) or force_eveil or (echecs_eveil >= PITIE and not evenement and not e.get("boss", false))
 	if not ok:
 		if not evenement:
 			echecs_eveil += 1
