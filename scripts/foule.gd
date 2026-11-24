@@ -46,6 +46,9 @@ func _agent() -> Dictionary:
 		ap.seek(randf() * 1.5, true)
 	return {"n": n, "ap": ap}
 
+const DISP_COUPS := ["X_combo_jab_cross", "X_hook_right", "X_front_kick", "X_uppercut_left", "X_roundhouse_kick_right"]
+const DISP_REACT := ["X_hit_react_face", "X_hit_react_chest", "X_stagger_backward", "X_hit_react_body", "X_knocked_to_knees"]
+
 func _anim(a: Dictionary, nom: String, vit := 1.0) -> void:
 	var ap: AnimationPlayer = a["ap"]
 	if ap and ap.current_animation != nom:
@@ -199,12 +202,13 @@ func _maj_scene(s: Dictionary, dt: float, pj: Vector3) -> void:
 			for k in ags.size():
 				_anim(ags[k], "Talk" if (int(float(s["t"]) / 3.0) % ags.size()) == k else "Idle")
 		"dispute":
-			_anim(ags[0], "Attack" if cyc > 2.6 else "Talk", 1.0)
-			_anim(ags[1], "Hit" if (cyc > 2.8 and cyc < 3.4) else ("Block" if cyc > 3.4 else "Talk"))
+			var tour := int(float(s["t"]) / 4.0)
+			_anim(ags[0], DISP_COUPS[tour % DISP_COUPS.size()] if cyc > 2.6 else "Talk", 1.0)
+			_anim(ags[1], DISP_REACT[tour % DISP_REACT.size()] if (cyc > 2.9 and cyc < 3.7) else ("X_block_high" if cyc > 3.7 else "Talk"))
 		"vol":
 			for k in range(1, ags.size()):
 				_anim(ags[k], "Attack" if fmod(float(s["t"]) + k * 1.3, 4.0) > 2.8 else "SwordIdle")
-			_anim(ags[0], "Hit" if cyc > 2.8 else "Block")
+			_anim(ags[0], "X_hit_react_chest" if cyc > 2.8 else "X_block_high")
 	# répliques quand le joueur passe près
 	if d2 < 196.0:
 		s["dit"] = float(s["dit"]) - dt

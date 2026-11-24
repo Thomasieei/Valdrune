@@ -173,6 +173,10 @@ static func _boite(n: Node3D) -> AABB:
 static func jouer(ap: AnimationPlayer, nom: String, vitesse := 1.0, fondu := 0.15) -> float:
 	if ap == null:
 		return 0.0
+	if nom.begins_with("X_") and not ap.has_animation(nom):
+		if not Retarget.ajouter(ap, nom):
+			var bas := nom.to_lower()
+			nom = "Hit" if ("hit" in bas or "stagger" in bas or "knock" in bas) else ("Block" if ("block" in bas or "parry" in bas or "dodge" in bas) else "Attack")
 	if not ap.has_animation(nom):
 		var alt: String = {"Idle": "Animacion", "Walk": "Walk_Cycle", "Run": "Walk_Cycle"}.get(nom, "")
 		if alt != "" and ap.has_animation(alt):
