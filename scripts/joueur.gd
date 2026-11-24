@@ -101,6 +101,15 @@ func _ready() -> void:
 	add_child(_corps)
 	_ap = Modele.lecteur(_corps)
 	Modele.jouer(_ap, "Idle")
+	# anneau bleu discret sous le joueur : on le repère toujours dans la mêlée
+	var marque := MeshInstance3D.new()
+	marque.mesh = QuadMesh.new()
+	(marque.mesh as QuadMesh).size = Vector2(1.7, 1.7)
+	marque.material_override = Fx._mat_add("anneau", Color(0.45, 0.75, 1.0, 0.8))
+	marque.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	marque.rotation = Vector3(-PI / 2, 0, 0)
+	marque.position = Vector3(0, 0.07, 0)
+	add_child(marque)
 	var sk: Skeleton3D = _corps.find_child("Skeleton3D", true, false)
 	_main = BoneAttachment3D.new()
 	_main.name = "MainDroite"

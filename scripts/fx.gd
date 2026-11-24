@@ -32,7 +32,15 @@ static func _texte_libre() -> Label3D:
 	_i = (_i + 1) % _textes.size()
 	return l
 
+static var _derniers := {}
+
 static func texte(pos: Vector3, t: String, c: Color, ech := 1.0, duree := 1.0) -> void:
+	# pas deux fois le même nom de compétence en même temps (ex. TOURBILLON × 3 ombres)
+	if t.length() > 3 and not t[0].is_valid_int() and t[0] != "-":
+		var now := Time.get_ticks_msec()
+		if int(_derniers.get(t, -9999)) > now - 900:
+			return
+		_derniers[t] = now
 	var l := _texte_libre()
 	var tw_ancien: Tween = l.get_meta("tw") if l.has_meta("tw") else null
 	if tw_ancien and tw_ancien.is_valid():

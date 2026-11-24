@@ -292,7 +292,7 @@ func _spec_role(dt: float, c: Monstre) -> void:
 		Modele.jouer(_ap, "Attack2", 1.2, 0.08)
 		Fx.anneau(global_position, Color(1.0, 0.6, 0.2), 3.8)
 		Fx.son("slam", -4.0)
-		Fx.texte(global_position + Vector3(0, 2.8, 0), "TOURBILLON", Color(1.0, 0.65, 0.2), 1.3, 1.1)
+		Fx.texte(global_position + Vector3(0, 2.8, 0), "TOURBILLON", Color(1.0, 0.65, 0.2), 0.9, 0.9)
 		await get_tree().create_timer(0.3).timeout
 		if not is_instance_valid(self) or mort:
 			return

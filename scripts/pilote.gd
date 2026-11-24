@@ -30,6 +30,8 @@ func _ready() -> void:
 			await _tour()
 		"video":
 			await _video()
+		"bagarre":
+			await _bagarre()
 		"marche":
 			var j: Joueur = ville.joueur
 			j.global_position = Vector3(-165.0, 0.3, -72.0)
@@ -727,3 +729,38 @@ func _nouveautes() -> void:
 		Partie.force_eveil = false
 		print("[TEST] ombres=", Partie.ombres.map(func (o): return o["espece"]))
 		print("[TEST] arme=", Partie.base(Partie.arme())["nom"])
+
+
+# Séance de combat + déplacement filmée (--write-movie) pour juger la sensation
+func _bagarre() -> void:
+	var v = ville
+	var j: Joueur = v.joueur
+	Partie.niveau = 12
+	for esp in ["gobelin", "gobelin", "puglin"]:
+		Partie.ombres.append({"uid": 9300 + Partie.ombres.size(), "espece": esp, "etoiles": 1, "eq": true})
+	Partie.change.emit()
+	await attendre(1.0)
+	var cibles: Array = v.monstres.filter(func (m): return not m.mort and m.e["rang"] <= 2)
+	var m0: Monstre = j.cible_devant(cibles, 400.0)
+	if m0 == null:
+		return
+	j.global_position = m0.global_position + Vector3(8.0, 0.3, 0)
+	v._cam_pos = j.global_position + Vector3(0, 1.6, 0)
+	await attendre(0.5)
+	# déplacement : marche, virage, course
+	j.entree = Vector2(0, 1)
+	await attendre(1.0)
+	j.entree = Vector2(0.7, 0.7)
+	await attendre(1.0)
+	j.entree = Vector2.ZERO
+	await attendre(0.3)
+	# combat : coups répétés, une esquive, un saut
+	j.viser(m0)
+	for k in 14:
+		v.frapper()
+		await attendre(0.45)
+		if k == 7:
+			j.competence("esquive")
+		if k == 10:
+			j.sauter()
+	await attendre(1.0)

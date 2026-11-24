@@ -51,8 +51,9 @@ var monstres: Array = []
 var ombres: Array = []
 var hud: Hud
 var _lacet := 1.45
-var _tangage := -0.3
-var _dist := 8.5
+var _tang_combat := 0.0
+var _tangage := -0.24
+var _dist := 6.2
 var _cam_pos := Vector3.ZERO
 var _soleil: DirectionalLight3D
 var _sphere_cam := SphereShape3D.new()
@@ -1478,9 +1479,12 @@ func _process_reel(dt: float) -> void:
 		eveiller()
 	_maj_portee(dt)
 	_cam_pos = _cam_pos.lerp(joueur.global_position + Vector3(0, 1.6, 0), minf(1.0, dt * 9.0))
-	var dir := Vector3(sin(_lacet) * cos(_tangage), -sin(_tangage), cos(_lacet) * cos(_tangage))
 	var combat: bool = joueur.cible != null and is_instance_valid(joueur.cible) and not joueur.cible.mort
-	_zoom = lerpf(_zoom, 0.82 if combat else 1.0, minf(1.0, dt * 2.5))
+	# en combat la caméra monte un peu : on voit l'ennemi par-dessus ses ombres
+	_tang_combat = lerpf(_tang_combat, -0.16 if combat else 0.0, minf(1.0, dt * 2.0))
+	var tg := _tangage + _tang_combat
+	var dir := Vector3(sin(_lacet) * cos(tg), -sin(tg), cos(_lacet) * cos(tg))
+	_zoom = lerpf(_zoom, 0.8 if combat else 1.0, minf(1.0, dt * 2.5))
 	camera.fov = lerpf(camera.fov, 62.0 + joueur.elan * 14.0, minf(1.0, dt * 6.0))
 	var voulu := _cam_pos + dir * _dist * _zoom
 
