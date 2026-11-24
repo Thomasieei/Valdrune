@@ -480,6 +480,7 @@ func nom_ombre(o: Dictionary) -> String:
 	var n: String = ESPECES[o["espece"]]["nom"]
 	if o.get("evo", false):
 		n = "Élite " + n
+	n += " (%s)" % ROLES[role_ombre(o)]["nom"]
 	if est_general(o):
 		n = "%s, général (%s)" % [NOMS_GENERAUX[int(o["uid"]) % NOMS_GENERAUX.size()], n]
 	return n
@@ -931,7 +932,20 @@ func dps_ombre(o: Dictionary) -> float:
 	if e.get("lieu", "") == "evenement":
 		k = 0.2
 	var aura := 15.0 if not est_general(o) and _general_au_combat() else 0.0
-	return float(e["pv"]) / temps * k * pow(1.35, int(o["etoiles"])) * (1.0 + (bonus("ombres") + aura) / 100.0) * (2.5 if o.get("evo", false) else 1.0) * (2.0 if est_general(o) else 1.0) * vit_ombre() * (1.3 if cri_actif() else 1.0) * mult_rang() * (3.0 if domaine_actif() else 1.0) * (1000.0 if createur else 1.0)
+	return float(e["pv"]) / temps * k * float(ROLES[role_ombre(o)]["dps"]) * pow(1.35, int(o["etoiles"])) * (1.0 + (bonus("ombres") + aura) / 100.0) * (2.5 if o.get("evo", false) else 1.0) * (2.0 if est_general(o) else 1.0) * vit_ombre() * (1.3 if cri_actif() else 1.0) * mult_rang() * (3.0 if domaine_actif() else 1.0) * (1000.0 if createur else 1.0)
+
+const ROLE_ESPECE := {"puglin": "tank", "puglin_brute": "tank", "orc_guerrier": "tank", "garde_sang": "tank", "roi_puglin": "tank", "chevalier": "tank", "titan": "tank", "b_vulcanor": "tank", "seigneur_givre": "tank", "totem": "tank",
+	"gobelin": "melee", "gobelin_chef": "melee", "orc": "melee", "rival": "melee", "chasseur_dechu": "melee", "roi_gobelin": "melee", "demon": "melee", "clone_naruto": "melee", "naruto": "melee", "baran": "melee", "b_sire": "melee",
+	"diablotin": "dist", "seigneur_braise": "dist", "b_mortis": "dist", "chaman_demon": "soin", "b_ozzug": "soin"}
+const ROLES := {
+	"tank": {"nom": "Tank", "col": Color(1.0, 0.25, 0.25), "pv": 2.4, "dps": 0.35},
+	"melee": {"nom": "Mêlée", "col": Color(1.0, 0.62, 0.2), "pv": 0.85, "dps": 1.35},
+	"dist": {"nom": "Distance", "col": Color(0.35, 0.75, 1.0), "pv": 0.65, "dps": 1.25},
+	"soin": {"nom": "Soigneur", "col": Color(0.35, 1.0, 0.55), "pv": 0.8, "dps": 0.2},
+}
+
+func role_ombre(o: Dictionary) -> String:
+	return ROLE_ESPECE.get(o["espece"], "melee")
 
 func rang_ombre(o: Dictionary) -> int:
 	var e: Dictionary = ESPECES[o["espece"]]
@@ -941,7 +955,7 @@ func ombre_rouge(o: Dictionary) -> bool:
 	return ESPECES[o["espece"]].get("lieu", "") == "evenement"
 
 func pv_ombre(o: Dictionary) -> float:
-	return PV_OMBRE_RANG[rang_ombre(o)] * pow(1.3, int(o["etoiles"])) * (1.0 + bonus("vie") / 100.0) * (2.0 if o.get("evo", false) else 1.0) * (1.5 if est_general(o) else 1.0)
+	return PV_OMBRE_RANG[rang_ombre(o)] * float(ROLES[role_ombre(o)]["pv"]) * pow(1.3, int(o["etoiles"])) * (1.0 + bonus("vie") / 100.0) * (2.0 if o.get("evo", false) else 1.0) * (1.5 if est_general(o) else 1.0)
 
 func cout_rappel(o: Dictionary) -> float:
 	return 20.0 + 15.0 * rang_ombre(o) + 5.0 * int(o["etoiles"])

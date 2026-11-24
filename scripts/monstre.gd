@@ -193,14 +193,22 @@ func _combat(dt: float) -> void:
 		_etourdi -= dt
 		return
 	_zone_t -= dt
+	_taunt_t -= dt
 	if _zone_t <= 0.0:
 		var rapport := puissance() / maxf(Partie.dps_total(), 1.0)
 		var calme := (3.0 if rapport < 0.3 else (1.8 if rapport < 1.0 else 1.0)) * (0.7 if Partie.pluie_sang() and e.get("lieu", "") == "" else 1.0)
 		_zone_t = CADENCE_ZONE[r] * randf_range(0.85, 1.15) * (0.8 if elite else 1.0) * (0.5 if enrage else 1.0) * calme
 		var cible: Vector3 = j.global_position
 		var ombres := get_tree().get_nodes_in_group("ombres").filter(func (o): return not o.mort and o.global_position.distance_to(global_position) < 16.0)
-		if not ombres.is_empty() and randf() < 0.35:
-			cible = ombres.pick_random().global_position
+		if _taunt_t > 0.0 and is_instance_valid(_taunt) and not _taunt.mort:
+			cible = _taunt.global_position
+		elif not ombres.is_empty():
+			var fragiles := ombres.filter(func (o): return o.role in ["dist", "soin"])
+			var pr := randf()
+			if not fragiles.is_empty() and pr < 0.5:
+				cible = fragiles.pick_random().global_position
+			elif pr < 0.7:
+				cible = ombres.pick_random().global_position
 		var w := cible - global_position
 		_corps.rotation.y = atan2(w.x, w.z)
 		var a_boss: String = ["A_Chidori", "A_Rasengan"][randi() % 2] if espece in ["naruto", "clone_naruto"] else ""
@@ -241,6 +249,15 @@ func _combat(dt: float) -> void:
 				add_child(_bouclier)
 				Fx.texte(global_position + Vector3(0, haut() + 0.8, 0), "PARADE !", Color(0.45, 0.8, 1.0), 1.3, 1.0)
 				Fx.son("sheath", -4.0)
+
+var _taunt: Node3D = null
+var _taunt_t := 0.0
+
+func provoquer(qui: Node3D, duree: float) -> void:
+	if _taunt_t <= 0.0:
+		Fx.texte(global_position + Vector3(0, haut() + 0.6, 0), "PROVOQUÉ", Color(1.0, 0.3, 0.3), 0.9, 0.8)
+	_taunt = qui
+	_taunt_t = duree
 
 func en_parade() -> bool:
 	return _parade > 0.0
