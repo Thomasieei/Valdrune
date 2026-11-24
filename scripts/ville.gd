@@ -713,17 +713,17 @@ func _environnement() -> void:
 	e.tonemap_mode = Environment.TONE_MAPPER_ACES
 	e.tonemap_exposure = 0.88
 	e.adjustment_enabled = true
-	e.adjustment_saturation = 1.0
-	e.adjustment_contrast = 1.1
-	e.glow_bloom = 0.02
-	e.glow_hdr_threshold = 1.5
+	e.adjustment_saturation = 1.14
+	e.adjustment_contrast = 1.13
+	e.glow_bloom = 0.07
+	e.glow_hdr_threshold = 1.05
 	e.fog_enabled = true
 	e.fog_light_color = Color(0.75, 0.7, 0.78)
 	e.fog_density = 0.0035
 	e.fog_aerial_perspective = 0.4
 	e.fog_sky_affect = 0.3
 	e.glow_enabled = true
-	e.glow_intensity = 0.65
+	e.glow_intensity = 0.9
 	we.environment = e
 	add_child(we)
 	_soleil = DirectionalLight3D.new()

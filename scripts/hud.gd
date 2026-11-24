@@ -214,6 +214,16 @@ func _ready() -> void:
 		bb.set_meta("fs", 10)
 		bb.set_meta("texte", "")
 		_barre[b[0]] = bb
+	var vig := ColorRect.new()
+	vig.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vig.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var vsh := Shader.new()
+	vsh.code = "shader_type canvas_item;\nvoid fragment() { vec2 uv = UV - 0.5; float d = dot(uv, uv); COLOR = vec4(0.0, 0.0, 0.04, smoothstep(0.1, 0.5, d) * 0.6); }"
+	var vmat := ShaderMaterial.new()
+	vmat.shader = vsh
+	vig.material = vmat
+	_racine.add_child(vig)
+	_racine.move_child(vig, 0)
 	_voile = ColorRect.new()
 	_voile.color = Color(0.25, 0.0, 0.45, 0.0)
 	_voile.mouse_filter = Control.MOUSE_FILTER_IGNORE
