@@ -44,6 +44,7 @@ var _etourdi := 0.0
 var _clones_faits := 0
 var _clones: Array = []
 var _t_vie := 0.0
+var corps_rid: RID
 var _plaque_sale := false
 var _plaque_t := 0.0
 var pv_perso := -1.0
@@ -89,6 +90,7 @@ func _ready() -> void:
 	add_child(zone)
 
 	var corps := StaticBody3D.new()
+	corps_rid = corps.get_rid()
 	var cs2 := CollisionShape3D.new()
 	var cyl := CylinderShape3D.new()
 	cyl.radius = maxf(0.4, _base_haut * 0.2)

@@ -165,6 +165,7 @@ func _limites(x0: float, x1: float, z0: float, z1: float) -> void:
 		bs.size = Vector3(maxf(lon.x, 3.0), 120.0, maxf(lon.z, 3.0))
 		cs.shape = bs
 		sb.add_child(cs)
+		sb.collision_layer = 2
 		sb.position = c[0] + Vector3(0, 55.0, 0)
 		add_child(sb)
 		var mi := MeshInstance3D.new()

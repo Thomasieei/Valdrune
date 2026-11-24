@@ -95,6 +95,7 @@ func _ready() -> void:
 	forme.shape = cap
 	forme.position.y = 0.9
 	add_child(forme)
+	collision_mask = 3
 	floor_snap_length = 0.5
 	floor_max_angle = deg_to_rad(50)
 	_corps = Modele.creer("hero", 1.85)

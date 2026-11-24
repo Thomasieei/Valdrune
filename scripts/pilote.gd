@@ -32,6 +32,10 @@ func _ready() -> void:
 			await _video()
 		"bagarre":
 			await _bagarre()
+		"sol":
+			await _sol()
+		"compte":
+			await _compte()
 		"marche":
 			var j: Joueur = ville.joueur
 			j.global_position = Vector3(-165.0, 0.3, -72.0)
@@ -764,3 +768,28 @@ func _bagarre() -> void:
 		if k == 10:
 			j.sauter()
 	await attendre(1.0)
+
+
+func _sol() -> void:
+	await attendre(1.0)
+	for m in ville.find_children("*", "MeshInstance3D", true, false):
+		var mi := m as MeshInstance3D
+		if mi.mesh == null:
+			continue
+		var b := mi.get_aabb()
+		var sz := b.size * mi.global_transform.basis.get_scale()
+		if sz.x > 150.0 or sz.z > 150.0:
+			var mat := mi.get_active_material(0)
+			var col := ""
+			if mat is StandardMaterial3D:
+				col = str((mat as StandardMaterial3D).albedo_color)
+			print("[SOL] ", mi.get_path(), " taille=", sz, " y=", snappedf(mi.global_position.y, 0.1), " mat=", mat, " ", col)
+
+
+func _compte() -> void:
+	await attendre(1.0)
+	var c := {}
+	for m in ville.monstres:
+		if is_instance_valid(m) and not m.mort:
+			c[m.espece] = int(c.get(m.espece, 0)) + 1
+	print("[MONSTRES] total=", ville.monstres.size(), " ", c)

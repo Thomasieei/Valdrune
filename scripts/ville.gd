@@ -200,6 +200,7 @@ func _maj_ciel(dt: float) -> void:
 		_lampe.light_energy = lerpf(_lampe.light_energy, 1.3 if n else 0.0, 0.2)
 		var nv: float = float(Skyline.materiau().get_shader_parameter("nuit")) if Skyline.materiau().get_shader_parameter("nuit") != null else 0.0
 		Skyline.materiau().set_shader_parameter("nuit", lerpf(nv, 1.0 if n else 0.0, 0.15))
+		_env.fog_light_color = _env.fog_light_color.lerp(Color(0.1, 0.11, 0.26) if n else Color(0.75, 0.7, 0.78), 0.15)
 		var sm := _env.sky.sky_material as ProceduralSkyMaterial
 		sm.sky_top_color = sm.sky_top_color.lerp(Color(0.05, 0.08, 0.2) if n else Color(0.3, 0.44, 0.72), 0.15)
 		sm.sky_horizon_color = sm.sky_horizon_color.lerp((Color(0.5, 0.08, 0.1) if Partie.pluie_sang() else Color(0.1, 0.1, 0.22)) if n else (Color(0.7, 0.3, 0.3) if Partie.pluie_sang() else Color(0.85, 0.7, 0.62)), 0.15)
@@ -427,7 +428,7 @@ func _ready() -> void:
 	camera.fov = 62
 	camera.far = 1500
 	add_child(camera)
-	_sphere_cam.radius = 0.35
+	_sphere_cam.radius = 0.22
 	_cam_pos = DEPART
 	_generer_zones()
 	for p in postes():
@@ -546,12 +547,12 @@ func _generer_zones() -> void:
 	for p in pts:
 		var d: float = Vector2(p.x - DEPART.x, p.z - DEPART.z).length()
 		var rg := mini(int(d / 75.0), 3)
-		if par_rang[rg] >= 10:
+		if par_rang[rg] >= 14:
 			continue
 		par_rang[rg] += 1
 		var l: Array = Partie.ESPECES_RANG[rg]
-		for j in 2:
-			_postes_gen.append([l[(j + par_rang[rg]) % 2], p.x + j * 6.0, p.z + randf_range(-2, 2), randf() * 360.0])
+		for j in 3:
+			_postes_gen.append([l[(j + par_rang[rg]) % 2], p.x + j * 5.0 + randf_range(-1.5, 1.5), p.z + randf_range(-3, 3), randf() * 360.0])
 	for b in POSTES:
 		if Partie.ESPECES[b[0]].get("boss", false):
 			_postes_gen.append(b)
@@ -584,6 +585,8 @@ func _embellir_ville(v: Node3D) -> void:
 				mat.metallic_specular = 0.5
 			elif n.contains("filler") or n.contains("paramount") or n.contains("clinic") or n.contains("laundry") or n.contains("pawn") or n.contains("fish"):
 				mat.roughness = minf(mat.roughness, 0.8)
+				if n.contains("paramount"):
+					mat.albedo_color = mat.albedo_color * Color(0.5, 0.52, 0.64)
 
 func _lampadaires(pts: Array) -> void:
 	var pied := StandardMaterial3D.new()
@@ -1487,16 +1490,32 @@ func _process_reel(dt: float) -> void:
 	_zoom = lerpf(_zoom, 0.8 if combat else 1.0, minf(1.0, dt * 2.5))
 	camera.fov = lerpf(camera.fov, 62.0 + joueur.elan * 14.0, minf(1.0, dt * 6.0))
 	var voulu := _cam_pos + dir * _dist * _zoom
-
-
 	var q := PhysicsShapeQueryParameters3D.new()
 	q.shape = _sphere_cam
 	q.transform = Transform3D(Basis.IDENTITY, _cam_pos)
-	q.motion = voulu - _cam_pos
-	q.exclude = [joueur.get_rid()]
-	var f := get_world_3d().direct_space_state.cast_motion(q)
-	if f[0] < 1.0:
-		voulu = _cam_pos + (voulu - _cam_pos) * maxf(f[0] - 0.02, 0.0)
+	var exclus: Array[RID] = [joueur.get_rid()]
+	for m in monstres:
+		if is_instance_valid(m) and m.corps_rid.is_valid() and m.global_position.distance_squared_to(_cam_pos) < 900.0:
+			exclus.append(m.corps_rid)
+	q.exclude = exclus
+	q.collision_mask = 1
+	var etat := get_world_3d().direct_space_state
+	var meilleur_f := -1.0
+	var dehors: bool = donjon == null and chateau == null and abime == null and not chez_soi and arene == null
+	# si un toit / auvent bloque la caméra haute, on essaie des angles plus bas avant de coller le joueur
+	for decal in [0.0, 0.2, 0.4, 0.6]:
+		var tg2: float = tg + decal
+		var v2 := _cam_pos + Vector3(sin(_lacet) * cos(tg2), -sin(tg2), cos(_lacet) * cos(tg2)) * _dist * _zoom
+		q.motion = v2 - _cam_pos
+		var f := etat.cast_motion(q)
+		var fe: float = f[0]
+		if dehors:
+			fe = maxf(fe, 0.4)   # dehors, un poteau ou un mur ne doit jamais coller la caméra au joueur
+		if fe > meilleur_f:
+			meilleur_f = fe
+			voulu = _cam_pos + (v2 - _cam_pos) * (maxf(fe - 0.02, 0.0) if fe < 1.0 else 1.0)
+		if fe >= 0.8:
+			break
 	camera.global_position = voulu
 	camera.look_at(_cam_pos, Vector3.UP)
 	if _secousse > 0.01:
