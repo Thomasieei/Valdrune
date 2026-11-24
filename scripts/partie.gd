@@ -912,7 +912,7 @@ func attrs_texte(o: Dictionary) -> Array:
 	return l
 
 func vitesse() -> float:
-	return (1.0 + bonus("vitesse") / 100.0) * (1.0 + minf(niveau - 1, 60) * 0.006)
+	return (1.0 + bonus("vitesse") / 100.0) * (1.0 + minf(niveau - 1, 60) * 0.003)
 
 func chance_crit() -> float:
 	return 0.15 + bonus("crit") / 100.0
@@ -1039,6 +1039,7 @@ func blesser(d: float) -> bool:
 	if pv <= 0.0 or createur:
 		return false
 	pv = maxf(0.0, pv - d)
+	dernier_combat = _t
 	return pv <= 0.0
 
 func mourir() -> Dictionary:

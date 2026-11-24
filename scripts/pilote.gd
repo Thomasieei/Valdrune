@@ -59,6 +59,20 @@ func _ready() -> void:
 			await attendre(0.6)
 			await capture("profil")
 			j.entree = Vector2.ZERO
+		"gros":
+			var x1 := -160.0
+			var lst := ["gobelin", "puglin", "orc", "diablotin", "demon", "chevalier"]
+			for k in lst.size():
+				var m2 := Monstre.new()
+				m2.configurer(lst[k], Vector3(x1 + k * 3.2, 0, -68.0), 0.0)
+				ville.add_child(m2)
+			ville.joueur.global_position = Vector3(x1 + 8.0, 0.3, -62.0)
+			ville._lacet = 0.0
+			ville._tangage = -0.1
+			ville._dist = 9.0
+			await attendre(1.2)
+			ville.joueur.global_position = Vector3(x1 + 8.0, 0.3, -62.0)
+			await capture("gros")
 		"tailles":
 			var x0 := -160.0
 			var k := 0

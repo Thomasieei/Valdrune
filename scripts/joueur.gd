@@ -4,7 +4,7 @@ extends CharacterBody3D
 
 
 
-const VITESSE := 7.5
+const VITESSE := 5.8
 const PORTEE := 2.0
 const CADENCE := 0.55
 const CHANCE_CRIT := 0.15
@@ -97,6 +97,7 @@ func _ready() -> void:
 	add_child(forme)
 	collision_mask = 3
 	floor_snap_length = 0.5
+	safe_margin = 0.04
 	floor_max_angle = deg_to_rad(50)
 	_corps = Modele.creer("hero", 1.85)
 	add_child(_corps)
@@ -226,13 +227,16 @@ func _physics_process_reel(dt: float) -> void:
 	else:
 		_coyote -= dt
 	_saut_buf -= dt
+	var tension: bool = en_combat or Partie._t - Partie.dernier_combat < 3.0
 	if entree.length() > 0.6 and _glisse_t <= 0.0:
-		elan = minf(1.0, elan + dt / 1.5)
+		elan = minf(1.0, elan + dt / 3.0)
 	elif entree.length() > 0.2:
 		elan = maxf(0.0, elan - dt * 0.5)
 	else:
 		elan = maxf(0.0, elan - dt * 2.5)
-	var vit := VITESSE * Partie.vitesse() * (1.0 + 1.3 * elan)
+	if tension:
+		elan = minf(elan, 0.12)
+	var vit := VITESSE * Partie.vitesse() * (1.0 + 0.65 * elan) * (0.55 if tension else 1.0)
 	velocity.x = dir.x * vit
 	velocity.z = dir.z * vit
 	velocity.y = -2.0 if au_sol else velocity.y - (24.0 if velocity.y > 0.0 else 32.0) * dt
@@ -322,7 +326,9 @@ func _physics_process_reel(dt: float) -> void:
 		if _dash_t <= 0.0:
 			_dash_aerien = false
 	var vy_avant := velocity.y
+	var p_av := global_position
 	move_and_slide()
+	_securite(dt, p_av, entree.length() > 0.4)
 	if is_on_floor() and not au_sol_av:
 		var chute := -vy_avant
 		if chute > 7.0:
@@ -375,6 +381,27 @@ func _physics_process_reel(dt: float) -> void:
 		Modele.jouer(_ap, "Idle" if Partie.opts["fourreau"] else "SwordIdle")
 
 var elan := 0.0
+var _sures: Array = []
+var _sure_t := 0.0
+var _bloque_t := 0.0
+
+# Anti-blocage : mémorise des positions libres ; si on reste coincé dans un décor, retour à la dernière position sûre
+func _securite(dt: float, avant: Vector3, veut_bouger: bool) -> void:
+	_sure_t -= dt
+	if is_on_floor() and _sure_t <= 0.0 and not test_move(global_transform, Vector3(0, 0.02, 0)) and not is_on_wall():
+		_sure_t = 0.5
+		_sures.append(global_position)
+		if _sures.size() > 6:
+			_sures.pop_front()
+	var bouge := (global_position - avant).length() > 0.4 * dt * 5.8
+	if veut_bouger and not bouge and _grimpe_t <= 0.0:
+		_bloque_t += dt
+	else:
+		_bloque_t = 0.0
+	if _bloque_t > 2.2 and _sures.size() >= 3:
+		_bloque_t = 0.0
+		global_position = _sures[_sures.size() - 3] + Vector3(0, 0.2, 0)
+		velocity = Vector3.ZERO
 var au_sol_av := true
 var _sauts := 0
 var _dash_aerien_dispo := true

@@ -574,15 +574,18 @@ func _embellir_ville(v: Node3D) -> void:
 				continue
 			vus[mat] = true
 			var n := mat.resource_name.to_lower()
+			mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 			if n.contains("glow"):
 				mat.emission_enabled = true
 				if mat.emission_texture == null and mat.emission.get_luminance() < 0.05:
 					mat.emission = Color(1.0, 0.85, 0.55)
 				mat.emission_energy_multiplier = 2.2
+			elif n == "cityprops" or n == "fishfactory" or n == "lmprojects":
+				mat.albedo_color = mat.albedo_color * Color(0.8, 0.8, 0.86)
 			elif n.contains("road") or n.contains("ground"):
-				mat.roughness = 0.55
-				mat.albedo_color = mat.albedo_color * Color(1.0, 0.86, 0.74)
-				mat.metallic_specular = 0.5
+				mat.roughness = 0.7
+				mat.albedo_color = mat.albedo_color * Color(0.62, 0.56, 0.5)
+				mat.metallic_specular = 0.3
 			elif n.contains("filler") or n.contains("paramount") or n.contains("clinic") or n.contains("laundry") or n.contains("pawn") or n.contains("fish"):
 				mat.roughness = minf(mat.roughness, 0.8)
 				if n.contains("paramount"):
