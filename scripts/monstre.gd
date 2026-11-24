@@ -145,15 +145,20 @@ func _appliquer_rang() -> void:
 	_corps.scale = Vector3.ONE * (1.22 if elite else 1.0)
 	for mi in _corps.find_children("*", "MeshInstance3D", true, false):
 		if espece != "baran" and espece != "roi_gobelin":
-			(mi as MeshInstance3D).material_overlay = Shaders.halo(OR_ELITE, 0.9) if elite else null
+			(mi as MeshInstance3D).material_overlay = Shaders.halo(OR_ELITE, 0.9) if elite else (Shaders.halo(TYPES_E[type_e]["col"], 0.8) if type_e != "" else null)
 	if elite and _aura == null:
 		_aura = _cercle(OR_ELITE, maxf(1.0, _base_haut * 0.55))
 		add_child(_aura)
 	elif not elite and _aura:
 		_aura.queue_free()
 		_aura = null
+	if type_e != "" and _type_anneau == null:
+		_type_anneau = _cercle(TYPES_E[type_e]["col"], maxf(1.2, _base_haut * 0.7))
+		add_child(_type_anneau)
 	_plaque.position.y = minf(maxf(haut(), Modele.sommet(_corps, self)), haut() * 1.5 + 1.0) + 0.5
 	_maj_plaque()
+
+var _type_anneau: Node3D = null
 
 func _cercle(c: Color, r: float) -> Node3D:
 	var mi := MeshInstance3D.new()
@@ -178,7 +183,8 @@ func _cercle(c: Color, r: float) -> Node3D:
 func _maj_plaque() -> void:
 	var v: Dictionary = Partie.verdict(espece, elite, mult) if not sans_chrono else {"texte": "", "couleur": Color.WHITE}
 	var tete := "★ ÉLITE  " if elite else ""
-	_plaque.text = "%s[%s] %s%s" % [tete, Partie.RANGS[e["rang"]], nom_perso if nom_perso != "" else e["nom"], ("\n" + v["texte"]) if v["texte"] != "" else ""]
+	var tt := ("\n%s : %s" % [TYPES_E[type_e]["nom"], TYPES_E[type_e]["txt"]]) if type_e != "" else ""
+	_plaque.text = "%s[%s] %s%s%s" % [tete, Partie.RANGS[e["rang"]], nom_perso if nom_perso != "" else e["nom"], tt, ("\n" + v["texte"]) if v["texte"] != "" else ""]
 	if sans_chrono:
 		_plaque.modulate = OR_ELITE.lightened(0.2) if elite else(Partie.COULEURS_RANG[e["rang"]] as Color).lightened(0.25)
 	else:
@@ -189,6 +195,8 @@ func _combat(dt: float) -> void:
 	if j == null or chrono < 0.0 or global_position.distance_to(j.global_position) > 20.0:
 		return
 	var r: int = mini(int(e["rang"]), 4)
+	if type_e == "soigneur":
+		_heal_tick(dt)
 	if _etourdi > 0.0:
 		_etourdi -= dt
 		return
@@ -197,13 +205,15 @@ func _combat(dt: float) -> void:
 	if _zone_t <= 0.0:
 		var rapport := puissance() / maxf(Partie.dps_total(), 1.0)
 		var calme := (3.0 if rapport < 0.3 else (1.8 if rapport < 1.0 else 1.0)) * (0.7 if Partie.pluie_sang() and e.get("lieu", "") == "" else 1.0)
-		_zone_t = CADENCE_ZONE[r] * randf_range(0.85, 1.15) * (0.8 if elite else 1.0) * (0.5 if enrage else 1.0) * calme
+		_zone_t = CADENCE_ZONE[r] * randf_range(0.85, 1.15) * (0.8 if elite else 1.0) * (0.5 if enrage else 1.0) * calme * (0.75 if type_e == "archer" else 1.0)
 		var cible: Vector3 = j.global_position
 		var ombres := get_tree().get_nodes_in_group("ombres").filter(func (o): return not o.mort and o.global_position.distance_to(global_position) < 16.0)
-		if _taunt_t > 0.0 and is_instance_valid(_taunt) and not _taunt.mort:
+		var fragiles := ombres.filter(func (o): return o.role in ["dist", "soin"])
+		if type_e == "archer" and not fragiles.is_empty():
+			cible = fragiles.pick_random().global_position
+		elif _taunt_t > 0.0 and is_instance_valid(_taunt) and not _taunt.mort:
 			cible = _taunt.global_position
 		elif not ombres.is_empty():
-			var fragiles := ombres.filter(func (o): return o.role in ["dist", "soin"])
 			var pr := randf()
 			if not fragiles.is_empty() and pr < 0.5:
 				cible = fragiles.pick_random().global_position
@@ -249,6 +259,32 @@ func _combat(dt: float) -> void:
 				add_child(_bouclier)
 				Fx.texte(global_position + Vector3(0, haut() + 0.8, 0), "PARADE !", Color(0.45, 0.8, 1.0), 1.3, 1.0)
 				Fx.son("sheath", -4.0)
+
+var type_e := ""
+var role_source := ""
+var meca_force := ""
+var _heal_t := 3.0
+const TYPES_E := {
+	"archer": {"nom": "ARCHER", "txt": "vise tes ombres fragiles", "col": Color(1.0, 0.6, 0.2)},
+	"soigneur": {"nom": "SOIGNEUR", "txt": "soigne les autres : tue-le en premier", "col": Color(0.35, 1.0, 0.55)},
+	"carapace": {"nom": "BLINDÉ", "txt": "résiste à la mêlée : il faut de la distance", "col": Color(0.6, 0.7, 0.85)},
+	"ethere": {"nom": "ÉTHÉRÉ", "txt": "résiste à la distance : il faut de la mêlée", "col": Color(0.8, 0.55, 1.0)},
+}
+
+func _heal_tick(dt: float) -> void:
+	_heal_t -= dt
+	if _heal_t > 0.0:
+		return
+	_heal_t = 5.0
+	var col: Color = TYPES_E["soigneur"]["col"]
+	var n := 0
+	for m in get_parent().monstres:
+		if is_instance_valid(m) and not m.mort and not m.allie and m.global_position.distance_to(global_position) <= 9.0 and m.pv < m.pv_max:
+			m.pv = minf(m.pv_max, m.pv + m.pv_max * 0.08)
+			n += 1
+	if n > 0:
+		Fx.anneau(global_position, col, 9.0)
+		Fx.texte(global_position + Vector3(0, haut() + 0.8, 0), "SOIN ENNEMI", col, 1.0, 1.0)
 
 var _taunt: Node3D = null
 var _taunt_t := 0.0
@@ -550,7 +586,17 @@ func temps_restant() -> float:
 func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) -> void:
 	if mort or allie:
 		return
-	var meca: String = e.get("meca", "")
+	var meca: String = meca_force if meca_force != "" else e.get("meca", "")
+	var rs := role_source if source == "ombres" else ("melee" if source == "joueur" else "")
+	role_source = ""
+	if type_e == "carapace" and rs != "":
+		degats *= 0.3 if rs == "melee" else 1.6
+		if randf() < 0.15:
+			Fx.texte(global_position + Vector3(0, haut() * 0.9, 0), "BLINDÉ" if rs == "melee" else "POINT FAIBLE", Color(0.7, 0.8, 1.0), 0.9, 0.6)
+	elif type_e == "ethere" and rs != "":
+		degats *= 0.3 if rs == "dist" else 1.4
+		if randf() < 0.15:
+			Fx.texte(global_position + Vector3(0, haut() * 0.9, 0), "ÉTHÉRÉ" if rs == "dist" else "POINT FAIBLE", Color(0.85, 0.65, 1.0), 0.9, 0.6)
 	if meca == "ombres_seules" and source == "joueur":
 		if randf() < 0.3:
 			Fx.texte(global_position + Vector3(0, haut() * 0.8, 0), "IMMUNISÉ — ombres seules", Color(0.75, 0.6, 1.0), 1.0, 0.7)

@@ -107,6 +107,55 @@ func point_depart() -> Vector3:
 
 const THEMES_TEST := ["pierre", "neige", "braise", "nuit"]
 
+const PAL := [["gobelin", "puglin", "gobelin_chef"], ["gobelin_chef", "puglin_brute", "orc"], ["orc", "diablotin", "orc_guerrier"], ["orc_guerrier", "demon", "chevalier"]]
+const MINIBOSS := [["gobelin_chef", "puglin_brute"], ["orc", "puglin_brute"], ["orc_guerrier", "demon"], ["demon", "chevalier"]]
+const INDICES := {"archer": "ARCHERS : ils visent tes ombres à distance et les soigneurs, même provoqués.",
+	"soigneur": "SOIGNEURS ennemis : ils soignent les autres. Tue-les en premier.",
+	"carapace": "BLINDÉS : la mêlée ne fait presque rien. Il faut des ombres à distance.",
+	"ethere": "ÉTHÉRÉS : la distance ne passe pas. Il faut de la mêlée."}
+var _types_vus := {}
+
+# 10 salles : 2 gardiens (salles 4 et 7) + boss final, 4 types d'ennemis
+func _generer(n: int) -> Array:
+	var pal: Array = PAL[n]
+	var final_room: Array = SALLES_PAR_NIV[n][SALLES_PAR_NIV[n].size() - 1].duplicate(true)
+	var salles := []
+	for i in 9:
+		var salle := []
+		if i == 3 or i == 6:
+			var b: String = MINIBOSS[n][0 if i == 3 else 1]
+			salle.append([b, 0.0, 5.5, true, "carapace" if i == 6 else "", 3.0 if i == 3 else 3.5, "ombres_seules" if i == 3 else ""])
+			salle.append([pal[0], -5.5, 2.0, false, "soigneur", 1.0, ""])
+			salle.append([pal[1], 5.5, 2.0, false, "archer", 1.0, ""])
+			salles.append(salle)
+			continue
+		var pool: Array = [""]
+		if i >= 1:
+			pool = ["", "archer"]
+		if i >= 2:
+			pool = ["", "archer", "soigneur"]
+		if i >= 4:
+			pool = ["", "soigneur", "carapace", "archer"]
+		if i >= 7:
+			pool = ["carapace", "ethere", "soigneur", "archer", ""]
+		var nb := 3 + i / 3
+		for j in nb:
+			var a := TAU * j / nb
+			var esp: String = pal[mini(i / 3, 2)] if j % 2 == 0 else pal[mini(i / 3 + 1, 2)]
+			salle.append([esp, cos(a) * 5.5, 3.5 + sin(a) * 3.5, j == 0 and i >= 4, pool[j % pool.size()], 1.0, ""])
+		salles.append(salle)
+	final_room.append([pal[0], -5.5, 1.5, false, "soigneur", 1.0, ""])
+	final_room.append([pal[1], 5.5, 1.5, false, "archer", 1.0, ""])
+	final_room.append([pal[1], 0.0, 8.0, false, "ethere", 1.0, ""])
+	salles.append(final_room)
+	return salles
+
+func _noms10(n: int) -> Array:
+	var z: Array = DONJONS[n]["noms"]
+	var m1: String = Partie.ESPECES[MINIBOSS[n][0]]["nom"]
+	var m2: String = Partie.ESPECES[MINIBOSS[n][1]]["nom"]
+	return [z[0], z[1], z[2], "Gardien : " + m1, z[3], "Passage maudit", "Gardien : " + m2, z[4], "Dernière épreuve", z[5]]
+
 func _config_test(r: int) -> void:
 	var l: Array = Partie.ESPECES_RANG[r]
 	var salles := []
@@ -130,8 +179,10 @@ func _ready() -> void:
 	if test_rang >= 0:
 		_config_test(test_rang)
 	else:
-		cfg = DONJONS[niv]
-		SALLES = SALLES_PAR_NIV[niv]
+		cfg = DONJONS[niv].duplicate()
+		SALLES = _generer(niv)
+		cfg["noms"] = _noms10(niv)
+		cfg["duree"] = float(cfg["duree"]) * 1.6
 	th = THEMES[cfg["theme"]]
 	N = SALLES.size()
 	NOMS_SALLES = cfg["noms"]
@@ -433,7 +484,10 @@ func _peupler(i: int) -> void:
 		m.configurer(d[0], p, PI)
 		m.elite_fixe = d[3] or (bool(modif["elites"]) and i < N - 1)
 		m.sans_chrono = true
-		m.mult = float(modif["mult"]) if i < N - 1 else 1.0
+		m.mult = (float(modif["mult"]) if i < N - 1 else 1.0) * (float(d[5]) if d.size() > 5 else 1.0)
+		if d.size() > 4:
+			m.type_e = d[4]
+			m.meca_force = d[6]
 		m.reapparait_auto = false
 		if groupe:
 			m.mult = mult_groupe
@@ -449,9 +503,22 @@ func demarrer() -> void:
 	actif = true
 	salle = 0
 	temps = DUREE
+	_indices(0)
 	if modif["nom"] != "Aucune":
 		Partie.message.emit("Malédiction : %s — %s (gains ×%.2f)" % [modif["nom"], modif["desc"], float(modif["gain"])], Color(1.0, 0.45, 0.5))
 	_depart_t = Time.get_ticks_msec() / 1000.0
+
+func _indices(i: int) -> void:
+	if test_rang >= 0 or i >= _par_salle.size():
+		return
+	for m in _par_salle[i]:
+		if is_instance_valid(m):
+			if m.type_e != "" and not _types_vus.has(m.type_e):
+				_types_vus[m.type_e] = true
+				Partie.message.emit(INDICES[m.type_e], Monstre.TYPES_E[m.type_e]["col"])
+			if m.meca_force == "ombres_seules" and not _types_vus.has("gardien"):
+				_types_vus["gardien"] = true
+				Partie.message.emit("GARDIEN : immunisé à tes coups. Seules tes ombres peuvent le blesser !", Color(0.75, 0.6, 1.0))
 
 func restants() -> int:
 	if salle >= _par_salle.size():
@@ -482,7 +549,8 @@ func _process(dt: float) -> void:
 				Partie.message.emit("%s vous attend…" % cfg["boss"], Color(1.0, 0.75, 0.3))
 				Fx.son("portal", 0.0)
 			else:
-				Partie.message.emit("Salle %d / 6 : %s" % [salle + 1, NOMS_SALLES[salle]], Color(0.8, 0.6, 1.0))
+				Partie.message.emit("Salle %d / %d : %s" % [salle + 1, N, NOMS_SALLES[salle]], Color(0.8, 0.6, 1.0))
+				_indices(salle)
 		else:
 			actif = false
 			_victoire()

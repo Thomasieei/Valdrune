@@ -298,6 +298,7 @@ func _spec_role(dt: float, c: Monstre) -> void:
 		var deg := Partie.dps_ombre(donnees) * 6.0
 		for m in joueur.get_parent().monstres:
 			if is_instance_valid(m) and not m.mort and not m.allie and m.global_position.distance_to(global_position) <= 3.8 + m.haut() * 0.3:
+				m.role_source = "dist" if role == "dist" else "melee"
 				m.frapper(deg, true, "ombres")
 	elif role == "dist":
 		if mana < 15.0:
@@ -315,6 +316,7 @@ func _spec_role(dt: float, c: Monstre) -> void:
 		Fx.texte(global_position + Vector3(0, 2.8, 0), "TIR CHARGÉ", col, 1.3, 1.1)
 		await get_tree().create_timer(0.35).timeout
 		if is_instance_valid(self) and not mort and is_instance_valid(c) and not c.mort:
+			c.role_source = "dist" if role == "dist" else "melee"
 			c.frapper(Partie.dps_ombre(donnees) * 9.0, true, "ombres")
 			Fx.explosion(c.global_position + Vector3(0, c.haut() * 0.5, 0), col, 3.0)
 
@@ -404,6 +406,7 @@ func _process_reel(dt: float) -> void:
 			var deg := Partie.dps_ombre(donnees) * 0.9
 			await get_tree().create_timer(0.25).timeout
 			if is_instance_valid(c) and not c.mort:
+				c.role_source = "dist" if role == "dist" else "melee"
 				c.frapper(deg, false, "ombres")
 	elif _anim <= 0.0:
 		Modele.jouer(_ap, "Idle")
@@ -598,6 +601,7 @@ func _competence(c: Monstre) -> void:
 	Fx.texte(global_position + Vector3(0, 3.2, 0), String(_comp["nom"]).to_upper(), Color(1.0, 0.3, 0.35), 1.5, 1.5)
 	await get_tree().create_timer(0.35).timeout
 	if is_instance_valid(c) and not c.mort:
+		c.role_source = "dist" if role == "dist" else "melee"
 		c.frapper(Partie.dps_ombre(donnees) * float(_comp["mult"]), true, "ombres")
 		Fx.anneau(c.global_position, Color(1.0, 0.45, 0.2), 6.0)
 
