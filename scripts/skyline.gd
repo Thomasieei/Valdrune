@@ -17,23 +17,26 @@ void vertex() {
 	ln = NORMAL;
 	cd = INSTANCE_CUSTOM;
 }
+uniform float nuit = 0.0;
 void fragment() {
 	float dist = length(VERTEX);
-	float brume = clamp(dist / 1300.0, 0.0, 0.62);
-	ALBEDO = mix(mix(vec3(0.05, 0.07, 0.12), vec3(0.09, 0.07, 0.13), fract(cd.x * 7.0)), vec3(0.5, 0.48, 0.62), brume);
-	ROUGHNESS = 0.8;
+	float brume = clamp(dist / 900.0, 0.12, 0.86);
+	vec3 haze = mix(vec3(0.66, 0.6, 0.72), vec3(0.07, 0.09, 0.2), nuit);
+	vec3 base = mix(vec3(0.16, 0.18, 0.26), vec3(0.03, 0.04, 0.09), nuit);
+	ALBEDO = mix(mix(base, base * 1.35, fract(cd.x * 7.0)), haze, brume);
+	ROUGHNESS = 0.85;
 	float cote = 1.0 - step(0.5, abs(ln.y));
 	float u = lp.x + lp.z;
-	vec2 cell = vec2(u / 3.2, lp.y / 4.2);
+	vec2 cell = vec2(u / 2.4, lp.y / 3.6);
 	vec2 id = floor(cell) + vec2(floor(cd.x * 97.0), 0.0);
 	vec2 f = fract(cell);
-	float fen = step(0.18, f.x) * step(f.x, 0.82) * step(0.2, f.y) * step(f.y, 0.8);
-	float on = step(0.62, hh(id));
-	vec3 chaud = vec3(1.0, 0.8, 0.45);
-	vec3 froid = vec3(0.45, 0.8, 1.0);
-	vec3 col = mix(chaud, froid, step(0.72, hh(id + 7.0)));
-	col = mix(col, vec3(1.0, 0.4, 0.8), step(0.95, hh(id + 3.0)));
-	EMISSION = col * fen * on * cote * (1.0 - step(0.5, cd.b)) * 0.9 * (1.0 - brume);
+	float fen = step(0.22, f.x) * step(f.x, 0.78) * step(0.25, f.y) * step(f.y, 0.75);
+	float etage = step(0.45, hh(vec2(id.y, floor(cd.x * 53.0))));
+	float on = etage * step(0.38, hh(id));
+	vec3 chaud = vec3(1.0, 0.72, 0.38);
+	vec3 froid = vec3(0.6, 0.78, 1.0);
+	vec3 col = mix(chaud, froid, step(0.86, hh(id + 7.0)));
+	EMISSION = col * fen * on * cote * (1.0 - step(0.5, cd.b)) * (0.25 + 0.7 * nuit) * (1.0 - brume);
 }
 "
 

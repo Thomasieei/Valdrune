@@ -197,6 +197,8 @@ func _maj_ciel(dt: float) -> void:
 			_lampe.position = Vector3(0, 3.0, 0)
 			joueur.add_child(_lampe)
 		_lampe.light_energy = lerpf(_lampe.light_energy, 1.3 if n else 0.0, 0.2)
+		var nv: float = float(Skyline.materiau().get_shader_parameter("nuit")) if Skyline.materiau().get_shader_parameter("nuit") != null else 0.0
+		Skyline.materiau().set_shader_parameter("nuit", lerpf(nv, 1.0 if n else 0.0, 0.15))
 		var sm := _env.sky.sky_material as ProceduralSkyMaterial
 		sm.sky_top_color = sm.sky_top_color.lerp(Color(0.05, 0.08, 0.2) if n else Color(0.3, 0.44, 0.72), 0.15)
 		sm.sky_horizon_color = sm.sky_horizon_color.lerp((Color(0.5, 0.08, 0.1) if Partie.pluie_sang() else Color(0.1, 0.1, 0.22)) if n else (Color(0.7, 0.3, 0.3) if Partie.pluie_sang() else Color(0.85, 0.7, 0.62)), 0.15)

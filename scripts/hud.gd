@@ -205,8 +205,8 @@ func _ready() -> void:
 	_msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_racine.add_child(_msg)
 	_b_frapper = _rond("FRAPPER", "attack", 150.0, Color(0.15, 0.3, 0.85))
-	_b_saut = _rond("SAUT", "q_run", 104.0, Color(0.1, 0.45, 0.6))
-	_b_eveil = _rond("ÉVEIL", "arise", 128.0, Color(0.35, 0.1, 0.7))
+	_b_saut = _rond("SAUT", "q_run", 88.0, Color(0.1, 0.45, 0.6))
+	_b_eveil = _rond("ÉVEIL", "arise", 112.0, Color(0.35, 0.1, 0.7))
 	_b_eveil.visible = false
 	for b in BARRE:
 		var bb := _rond(b[1], b[2], 54.0, Color(0.35, 0.25, 0.05) if b[0] == "monarque" else Color(0.1, 0.16, 0.38))
@@ -242,7 +242,7 @@ func _ready() -> void:
 		if k == "telekinesie":
 			continue
 		var d: Dictionary = Partie.COMPETENCES[k]
-		_b_comp[k] = _rond(d["nom"], d["icone"], 104.0, {"esquive": Color(0.1, 0.5, 0.45), "brise": Color(0.15, 0.4, 0.75), "cri": Color(0.4, 0.15, 0.7), "domaine": Color(0.3, 0.05, 0.5), "echange": Color(0.2, 0.15, 0.55), "pacte": Color(0.05, 0.4, 0.3)}[k])
+		_b_comp[k] = _rond(d["nom"], d["icone"], {"esquive": 96.0, "echange": 80.0}.get(k, 88.0), {"esquive": Color(0.1, 0.5, 0.45), "brise": Color(0.15, 0.4, 0.75), "cri": Color(0.4, 0.15, 0.7), "domaine": Color(0.3, 0.05, 0.5), "echange": Color(0.2, 0.15, 0.55), "pacte": Color(0.05, 0.4, 0.3)}[k])
 	_cadre = Control.new()
 	_cadre.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_cadre.size = Vector2(560, 118)
@@ -252,7 +252,7 @@ func _ready() -> void:
 	_toasts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_toasts.add_theme_constant_override("separation", 6)
 	_racine.add_child(_toasts)
-	_b_action = _rond("PARLER", "interact", 112.0, Color(0.1, 0.55, 0.4))
+	_b_action = _rond("PARLER", "interact", 100.0, Color(0.1, 0.55, 0.4))
 	_b_action.visible = false
 	_evt = Button.new()
 	for st in ["normal", "hover", "pressed", "focus"]:
@@ -358,25 +358,29 @@ func _disposer() -> void:
 	var h := _taille.y
 	_joy_centre = Vector2(170, h - 160)
 	_joy_pos = _joy_centre
-	_b_frapper.position = Vector2(w - 200, h - 200)
-	_b_saut.position = Vector2(w - 560, h - 250)
-	_b_eveil.position = Vector2(w - 640, h - 270)
-	_b_action.position = Vector2(w - 180, h - 446)
-	for k in BARRE.size():
-		_barre[BARRE[k][0]].position = Vector2(w / 2.0 - 5.5 * 58.0 + k * 58.0, h - 70.0)
-	_b_comp["esquive"].position = Vector2(w - 330, h - 118)
-	_b_comp["brise"].position = Vector2(w - 318, h - 250)
-	_b_comp["cri"].position = Vector2(w - 196, h - 318)
-	_b_comp["domaine"].position = Vector2(w - 330, h - 380)
+	# Pouce droit : FRAPPER au centre, 4 actions en arc serré, les rares sur un 2e arc. Rien ne se touche.
+	var C := Vector2(w - 132.0, h - 132.0)
+	_b_frapper.position = C - _b_frapper.size / 2.0
+	var arc := func (r: float, deg: float) -> Vector2:
+		return C + Vector2(cos(deg_to_rad(deg)), -sin(deg_to_rad(deg))) * r
+	_b_comp["esquive"].position = arc.call(165.0, 180.0) - _b_comp["esquive"].size / 2.0
+	_b_saut.position = arc.call(165.0, 146.0) - _b_saut.size / 2.0
+	_b_comp["brise"].position = arc.call(165.0, 112.0) - _b_comp["brise"].size / 2.0
+	_b_comp["cri"].position = arc.call(165.0, 78.0) - _b_comp["cri"].size / 2.0
+	_b_comp["echange"].position = arc.call(285.0, 165.0) - _b_comp["echange"].size / 2.0
+	_b_comp["domaine"].position = arc.call(285.0, 138.0) - _b_comp["domaine"].size / 2.0
+	_b_action.position = arc.call(285.0, 111.0) - _b_action.size / 2.0
+	_b_eveil.position = arc.call(285.0, 84.0) - _b_eveil.size / 2.0
 	_b_comp["pacte"].position = Vector2(-600, -600)
 	_b_comp["pacte"].visible = false
-	_b_comp["echange"].position = Vector2(w - 440, h - 270)
+	for k in BARRE.size():
+		_barre[BARRE[k][0]].position = Vector2(w / 2.0 - 5.5 * 58.0 + k * 58.0, h - 70.0)
 	_fioles["pv"].position = Vector2(w / 2.0 - 5.5 * 58.0 - 12.0, h - 142.0)
 	_fioles["mana"].position = Vector2(w / 2.0 - 5.5 * 58.0 + 56.0, h - 142.0)
 	_haut.position = Vector2(16, 10)
-	_droite.position = Vector2(w - 340, 120)
-	_evt.position = Vector2(w - 340, 68)
-	_quitter.position = Vector2(w - 240, 68)
+	_droite.position = Vector2(16, h * 0.42)
+	_evt.position = Vector2(w - 344, clampf(h * 0.22, 120.0, 190.0) + 34.0)
+	_quitter.position = Vector2(w - 240, clampf(h * 0.22, 120.0, 190.0) + 34.0)
 	_donj.position = Vector2(w / 2.0 - 280, 6)
 	_annonce.position = Vector2(w / 2.0 - 500, h * 0.22)
 	_annonce.size = Vector2(1000, 120)
@@ -391,8 +395,9 @@ func _disposer() -> void:
 		_hex[k].position = pos[k]
 	_ml.position = Vector2(w / 2.0 - 300, 118)
 	_ml.size = Vector2(600, 60)
-	_msg.position = Vector2(w / 2.0 - 450, h * 0.62)
-	_msg.size = Vector2(900, 40)
+	_msg.position = Vector2(w / 2.0 - 300, h * 0.44)
+	_msg.size = Vector2(600, 40)
+	_msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_cadre.position = Vector2(w / 2.0 - 280, 8)
 	_toasts.position = Vector2(w / 2.0 - 230, 140)
 	_toasts.size = Vector2(460, 0)
@@ -744,8 +749,8 @@ func _process_reel(dt: float) -> void:
 		_gps_lbl.visible = _carte.visible
 		var cs := clampf(_taille.y * 0.22, 120.0, 190.0)
 		_carte.size = Vector2(cs, cs)
-		_carte.position = Vector2(14.0, _taille.y * 0.34)
-		_gps_lbl.position = Vector2(14.0, _taille.y * 0.34 + cs + 2.0)
+		_carte.position = Vector2(_taille.x - cs - 14.0, 12.0)
+		_gps_lbl.position = Vector2(_taille.x - cs - 14.0, 12.0 + cs + 2.0)
 		_carte_t -= dt
 		if _carte_t <= 0.0:
 			_carte_t = 0.5
@@ -775,6 +780,7 @@ func _process_reel(dt: float) -> void:
 	_redraw_t -= dt
 	if _redraw_t <= 0.0:
 		_redraw_t = 0.12
+		_droite.visible = (ville.donjon != null or (_aff_j + _aff_o) > 0.5) and not _hex["inventaire"].visible
 		_droite.queue_redraw()
 		_haut.queue_redraw()
 		for k in _fioles:
@@ -1786,6 +1792,11 @@ func _fleche_cible(cible: Vector3, col: Color, nom: String) -> void:
 
 	pos.y = clampf(pos.y, 120.0, _taille.y - 250.0)
 	pos.x = clampf(pos.x, 230.0, _taille.x - 120.0)
+	# jamais sur les boutons (bas droite) ni sur la minimap / l'événement (haut droite)
+	if pos.x > _taille.x - 490.0 and pos.y > _taille.y - 500.0:
+		pos.x = _taille.x - 500.0
+	if pos.x > _taille.x - 380.0 and pos.y < clampf(_taille.y * 0.22, 120.0, 190.0) + 100.0:
+		pos.x = _taille.x - 390.0
 	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 150.0)
 	var a := d.angle()
 	var pts := PackedVector2Array([pos + Vector2.from_angle(a) * 30, pos + Vector2.from_angle(a + 2.5) * 22, pos + Vector2.from_angle(a - 2.5) * 22])
