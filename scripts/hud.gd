@@ -730,7 +730,7 @@ func _process_reel(dt: float) -> void:
 		_racine.add_child(_gps_lbl)
 	if _carte != null:
 		var dehors: bool = ville.donjon == null and ville.chateau == null and ville.abime == null and not ville.chez_soi and ville.arene == null
-		_carte.visible = dehors and _panneau == null
+		_carte.visible = dehors and _panneau == null and not _hex["inventaire"].visible
 		_gps_lbl.visible = _carte.visible
 		var cs := clampf(_taille.y * 0.22, 120.0, 190.0)
 		_carte.size = Vector2(cs, cs)

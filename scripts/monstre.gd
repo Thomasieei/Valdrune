@@ -647,7 +647,7 @@ func frapper(degats: float, crit: bool, source := "joueur", qui: Node = null) ->
 		if _clones_faits < seuils.size() and pv / pv_max < seuils[_clones_faits]:
 			_clones_faits += 1
 			_invoquer_clones()
-	if pv > 0.0 and crit and source == "joueur" and not e.get("boss", false) and not _au_sol and randf() < 0.5:
+	if pv > 0.0 and crit and source == "joueur" and not e.get("boss", false) and not _au_sol and randf() < 0.25:
 		_projeter()
 	if pv <= 0.0:
 		_mourir()
@@ -669,11 +669,11 @@ func _projeter() -> void:
 		dirk = dirk.normalized() if dirk.length() > 0.01 else Vector3.BACK
 		_corps.rotation.y = atan2(-dirk.x, -dirk.z)
 	var y0 := _corps.position.y
-	var dest := global_position + dirk * 1.8
+	var dest := global_position + dirk * 1.2
 	var tw := create_tween()
 	tw.tween_property(self, "global_position", dest, 0.45).set_ease(Tween.EASE_OUT)
 	tw.parallel().tween_property(_corps, "position:y", y0 + 1.1, 0.2).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
-	tw.parallel().tween_property(_corps, "rotation:x", -1.35, 0.42)
+	tw.parallel().tween_property(_corps, "rotation:x", -0.5, 0.42)
 	tw.chain().tween_property(_corps, "position:y", y0, 0.22).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
 	tw.tween_callback(func ():
 		Fx.sol(global_position, "onde", Color(0.75, 0.7, 0.65), 2.2, 0.5)
