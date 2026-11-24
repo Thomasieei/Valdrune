@@ -51,6 +51,16 @@ const SALLES_PAR_NIV := [[
 	[["chevalier", 0.0, 4.5, false]],
 	[["naruto", 0.0, 4.0, false]],
 ]]
+# Malédictions : une au hasard à chaque entrée, pour que chaque run soit différente
+const MALEDICTIONS := [
+	{"nom": "Aucune", "desc": "", "gain": 1.0, "mult": 1.0, "duree": 1.0, "horde": 0, "elites": false},
+	{"nom": "Horde", "desc": "+2 monstres par salle", "gain": 1.35, "mult": 1.0, "duree": 1.0, "horde": 2, "elites": false},
+	{"nom": "Brutaux", "desc": "Monstres bien plus résistants", "gain": 1.45, "mult": 1.5, "duree": 1.0, "horde": 0, "elites": false},
+	{"nom": "Course", "desc": "Temps réduit de 25 %", "gain": 1.3, "mult": 1.0, "duree": 0.75, "horde": 0, "elites": false},
+	{"nom": "Élite", "desc": "Tous les monstres sont élites", "gain": 1.6, "mult": 1.0, "duree": 1.0, "horde": 0, "elites": true},
+]
+var modif: Dictionary = MALEDICTIONS[0]
+
 const THEMES := {
 	"pierre": {"sol": Color(0.85, 0.82, 0.9), "mur": Color(0.8, 0.78, 0.88), "feu": Color(1.0, 0.62, 0.3), "rune": Color(0.55, 0.2, 1.0, 0.55),
 		"brume": Color(0.1, 0.05, 0.16), "ambiance": Color(0.22, 0.18, 0.32), "fond": Color(0.01, 0.0, 0.02), "meteo": ""},
@@ -125,7 +135,9 @@ func _ready() -> void:
 	th = THEMES[cfg["theme"]]
 	N = SALLES.size()
 	NOMS_SALLES = cfg["noms"]
-	DUREE = cfg["duree"]
+	if test_rang < 0 and not groupe:
+		modif = MALEDICTIONS[randi() % MALEDICTIONS.size()]
+	DUREE = float(cfg["duree"]) * float(modif["duree"])
 	temps = DUREE
 	_materiaux()
 	for i in N:
@@ -410,12 +422,18 @@ func _decor() -> void:
 
 func _peupler(i: int) -> void:
 	var liste := []
-	for d in SALLES[i]:
+	var defs: Array = SALLES[i].duplicate()
+	if i < N - 1 and int(modif["horde"]) > 0:
+		for k in int(modif["horde"]):
+			var src: Array = SALLES[i][k % SALLES[i].size()]
+			defs.append([src[0], -src[1] * 0.6 + (k - 0.5) * 3.0, minf(src[2] + 3.0 + k * 1.2, 9.0), false])
+	for d in defs:
 		var m := Monstre.new()
 		var p := centre(i) + Vector3(d[1], 0, d[2])
 		m.configurer(d[0], p, PI)
-		m.elite_fixe = d[3]
+		m.elite_fixe = d[3] or (bool(modif["elites"]) and i < N - 1)
 		m.sans_chrono = true
+		m.mult = float(modif["mult"]) if i < N - 1 else 1.0
 		m.reapparait_auto = false
 		if groupe:
 			m.mult = mult_groupe
@@ -431,6 +449,8 @@ func demarrer() -> void:
 	actif = true
 	salle = 0
 	temps = DUREE
+	if modif["nom"] != "Aucune":
+		Partie.message.emit("Malédiction : %s — %s (gains ×%.2f)" % [modif["nom"], modif["desc"], float(modif["gain"])], Color(1.0, 0.45, 0.5))
 	_depart_t = Time.get_ticks_msec() / 1000.0
 
 func restants() -> int:
@@ -699,7 +719,7 @@ func _victoire() -> void:
 	Partie.donjons += 1
 	Partie.donjons_finis[str(niv)] = int(Partie.donjons_finis.get(str(niv), 0)) + 1
 	Partie.progres("donjons")
-	var gain := int(round(float(cfg["or"]) * (1.0 + Partie.bonus("pieces") / 100.0)))
+	var gain := int(round(float(cfg["or"]) * float(modif["gain"]) * (1.0 + Partie.bonus("pieces") / 100.0)))
 	Partie.pieces += gain
 	Partie.or_total += gain
 	var m1: String = Partie.MONNAIES.keys().pick_random()
