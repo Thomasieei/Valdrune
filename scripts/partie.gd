@@ -1423,10 +1423,23 @@ func equiper_ombre(o: Dictionary, oui: bool) -> bool:
 	return true
 
 func meilleures_ombres() -> void:
+	# composition équilibrée : un soigneur, un tank, puis le reste par puissance (en gardant au moins un tank)
 	var l := ombres.duplicate()
-	l.sort_custom(func (a, b): return dps_ombre(a) > dps_ombre(b))
-	for k in l.size():
-		l[k]["eq"] = k < places_ombres()
+	l.sort_custom(func (a, b): return dps_ombre(a) / float(ROLES[role_ombre(a)]["dps"]) > dps_ombre(b) / float(ROLES[role_ombre(b)]["dps"]))
+	for o in l:
+		o["eq"] = false
+	var n := 0
+	var places := places_ombres()
+	for r in ["tank", "soin"]:
+		for o in l:
+			if n < places and role_ombre(o) == r and not o["eq"]:
+				o["eq"] = true
+				n += 1
+				break
+	for o in l:
+		if n < places and not o["eq"]:
+			o["eq"] = true
+			n += 1
 	sauver()
 	change.emit()
 

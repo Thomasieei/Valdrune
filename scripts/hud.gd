@@ -1247,7 +1247,7 @@ func _ombres() -> void:
 			var e: Dictionary = Partie.ESPECES[o["espece"]]
 			var rang: int = Partie.rang_ombre(o)
 			var c := Ui.carte(e["nom"], e["icone"], Partie.RANGS[rang], Partie.COULEURS_RANG[rang], o["eq"],
-				("★".repeat(o["etoiles"]) + " " if o["etoiles"] > 0 else "") + "%s/s" % Fx.court(Partie.dps_ombre(o)),
+				String(Partie.ROLES[Partie.role_ombre(o)]["nom"]).to_upper() + " · " + ("★".repeat(o["etoiles"]) + " " if o["etoiles"] > 0 else "") + "%s/s" % Fx.court(Partie.dps_ombre(o)),
 				Vector2(150, 166), "rouge" if Partie.ombre_rouge(o) else "")
 			c.pressed.connect(func (): _montrer_detail("ombre", o))
 			return c)
