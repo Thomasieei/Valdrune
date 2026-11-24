@@ -361,8 +361,8 @@ func _disposer() -> void:
 	_b_comp["pacte"].position = Vector2(-600, -600)
 	_b_comp["pacte"].visible = false
 	_b_comp["echange"].position = Vector2(w - 440, h - 270)
-	_fioles["pv"].position = Vector2(258, h - 156)
-	_fioles["mana"].position = Vector2(258, h - 82)
+	_fioles["pv"].position = Vector2(w / 2.0 - 5.5 * 58.0 - 12.0, h - 142.0)
+	_fioles["mana"].position = Vector2(w / 2.0 - 5.5 * 58.0 + 56.0, h - 142.0)
 	_haut.position = Vector2(16, 10)
 	_droite.position = Vector2(w - 340, 120)
 	_evt.position = Vector2(w - 340, 68)
@@ -584,7 +584,7 @@ func _process_reel(dt: float) -> void:
 		var dehors: bool = ville.donjon == null and ville.chateau == null and ville.abime == null and not ville.chez_soi and ville.arene == null
 		_carte.visible = dehors and _panneau == null
 		_gps_lbl.visible = _carte.visible
-		var cs := clampf(_taille.y * 0.27, 140.0, 230.0)
+		var cs := clampf(_taille.y * 0.22, 120.0, 190.0)
 		_carte.size = Vector2(cs, cs)
 		_carte.position = Vector2(14.0, _taille.y * 0.34)
 		_gps_lbl.position = Vector2(14.0, _taille.y * 0.34 + cs + 2.0)
@@ -1438,9 +1438,11 @@ func _poser(i: int, p: Vector2) -> void:
 		fermer()
 		return
 	if _carte != null and _carte.visible and _dans(_carte, p):
-		_doigts[i] = {"role": "bouton"}
-		_carte.cycler()
-		Fx.son("open", -10.0, 1.4)
+		# un appui court change le GPS ; un glissé déplace le personnage (le pouce tombe souvent ici)
+		_doigts[i] = {"role": "joy", "carte": true, "depart": p, "t": Time.get_ticks_msec()}
+		_joy_actif = true
+		_joy_centre = p
+		_joy_pos = p
 		return
 	for k in _fioles:
 		if _dans(_fioles[k], p):
@@ -1484,7 +1486,7 @@ func _poser(i: int, p: Vector2) -> void:
 			else:
 				ville.eveiller()
 			return
-	if p.x < _taille.x * 0.42 and p.y > _taille.y * 0.4:
+	if p.x < _taille.x * 0.45 and p.y > _taille.y * 0.3:
 		_doigts[i] = {"role": "joy"}
 		_joy_actif = true
 		_joy_centre = p
@@ -1503,6 +1505,9 @@ func _glisser(i: int, p: Vector2, rel: Vector2) -> void:
 func _lever(i: int, p: Vector2) -> void:
 	var d: Dictionary = _doigts.get(i, {})
 	if d.get("role", "") == "joy":
+		if d.get("carte", false) and p.distance_to(d["depart"]) < 18.0 and Time.get_ticks_msec() - int(d["t"]) < 350:
+			_carte.cycler()
+			Fx.son("open", -10.0, 1.4)
 		_joy_actif = false
 		_joy_centre = Vector2(170, _taille.y - 160)
 		_joy_pos = _joy_centre

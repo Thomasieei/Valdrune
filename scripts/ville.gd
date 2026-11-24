@@ -184,12 +184,21 @@ func _maj_ciel(dt: float) -> void:
 		_etait_nuit = n
 		hud.annonce("LA NUIT TOMBE" if n else "LE JOUR SE LÈVE", "Monstres +30 % PV · éveil ×1,5" if n else "Retour à la normale", Color(0.55, 0.6, 1.0) if n else Color(1.0, 0.85, 0.5))
 	if donjon == null and chateau == null and abime == null and arene == null:
-		var cible_e := 0.25 if n else 1.0
+		var cible_e := 0.6 if n else 1.0
 		_soleil.light_energy = lerpf(_soleil.light_energy, cible_e, 0.15)
-		_soleil.light_color = Color(0.55, 0.65, 1.0) if n else Color(1.0, 0.9, 0.8)
-		_env.ambient_light_energy = lerpf(_env.ambient_light_energy, 0.4 if n else 0.6, 0.15)
+		_soleil.light_color = Color(0.62, 0.72, 1.0) if n else Color(1.0, 0.9, 0.8)
+		_env.ambient_light_color = _env.ambient_light_color.lerp(Color(0.45, 0.55, 0.85) if n else Color(0.3, 0.45, 0.45), 0.15)
+		_env.ambient_light_energy = lerpf(_env.ambient_light_energy, 1.1 if n else 0.6, 0.15)
+		if _lampe == null:
+			_lampe = OmniLight3D.new()
+			_lampe.omni_range = 16.0
+			_lampe.light_color = Color(0.8, 0.88, 1.0)
+			_lampe.shadow_enabled = false
+			_lampe.position = Vector3(0, 3.0, 0)
+			joueur.add_child(_lampe)
+		_lampe.light_energy = lerpf(_lampe.light_energy, 1.3 if n else 0.0, 0.2)
 		var sm := _env.sky.sky_material as ProceduralSkyMaterial
-		sm.sky_top_color = sm.sky_top_color.lerp(Color(0.02, 0.03, 0.1) if n else Color(0.3, 0.44, 0.72), 0.15)
+		sm.sky_top_color = sm.sky_top_color.lerp(Color(0.05, 0.08, 0.2) if n else Color(0.3, 0.44, 0.72), 0.15)
 		sm.sky_horizon_color = sm.sky_horizon_color.lerp((Color(0.5, 0.08, 0.1) if Partie.pluie_sang() else Color(0.1, 0.1, 0.22)) if n else (Color(0.7, 0.3, 0.3) if Partie.pluie_sang() else Color(0.85, 0.7, 0.62)), 0.15)
 	_pluie_t -= 1.0
 	if _pluie_t <= 0.0 and not Partie.pluie_sang():
@@ -463,6 +472,7 @@ var appart: Appart
 var carte: Carte
 var chez_soi := false
 var escorte: Escorte
+var _lampe: OmniLight3D
 
 func cibles_gps() -> Array:
 	var l := []
